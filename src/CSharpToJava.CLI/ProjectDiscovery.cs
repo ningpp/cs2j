@@ -241,29 +241,58 @@ internal static class ProjectDiscovery
         foreach (var item in projectDoc.Descendants().Where(e => e.Name.LocalName is "None" or "Content"))
         {
             var include = (string?)item.Attribute("Include") ?? (string?)item.Attribute("Update");
-            if (string.IsNullOrWhiteSpace(include) || include.Contains('*'))
-            {
+            if (string.IsNullOrWhiteSpace(include))
                 continue;
-            }
 
             var copyBehavior = item.Elements().FirstOrDefault(e => e.Name.LocalName == "CopyToOutputDirectory")?.Value;
             if (string.IsNullOrWhiteSpace(copyBehavior) || copyBehavior.Equals("Never", StringComparison.OrdinalIgnoreCase))
-            {
                 continue;
-            }
 
-            var fullPath = Path.GetFullPath(Path.Combine(projectDir, include));
-            if (!File.Exists(fullPath))
-            {
-                continue;
-            }
+            var normalizedInclude = include.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
 
-            addedPaths.Add(fullPath);
-            resources.Add(new ResourceItem
+            if (normalizedInclude.Contains('*'))
             {
-                SourcePath = fullPath,
-                RelativePath = include.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar),
-            });
+                var patternDir = Path.GetDirectoryName(normalizedInclude) ?? "";
+                var patternFile = Path.GetFileName(normalizedInclude);
+                var searchDir = Path.GetFullPath(Path.Combine(projectDir, patternDir));
+
+                if (!Directory.Exists(searchDir))
+                    continue;
+
+                foreach (var matchedFile in Directory.GetFiles(searchDir, patternFile))
+                {
+                    var fileName = Path.GetFileName(matchedFile);
+                    var relativePath = string.IsNullOrEmpty(patternDir)
+                        ? fileName
+                        : Path.Combine(patternDir, fileName)
+                              .Replace('\\', Path.DirectorySeparatorChar)
+                              .Replace('/', Path.DirectorySeparatorChar);
+
+                    if (!addedPaths.Add(matchedFile))
+                        continue;
+
+                    resources.Add(new ResourceItem
+                    {
+                        SourcePath = matchedFile,
+                        RelativePath = relativePath,
+                    });
+                }
+            }
+            else
+            {
+                var fullPath = Path.GetFullPath(Path.Combine(projectDir, normalizedInclude));
+                if (!File.Exists(fullPath))
+                    continue;
+
+                if (!addedPaths.Add(fullPath))
+                    continue;
+
+                resources.Add(new ResourceItem
+                {
+                    SourcePath = fullPath,
+                    RelativePath = normalizedInclude,
+                });
+            }
         }
 
         return resources;

@@ -40,6 +40,12 @@ public class ConversionContext
     public bool IsInLambdaContext { get; set; }
     public bool IsInYieldMethod { get; set; }
     /// <summary>
+    /// Set during method/class attribute processing when the current test class
+    /// needs @ExtendWith(MSTestExtension.class) for deployment items, TestContext
+    /// parameter injection, or lifecycle support.
+    /// </summary>
+    public bool CurrentClassNeedsMSTestExtension { get; set; }
+    /// <summary>
     /// When true, suppresses .clone() on return statements (used inside property getters
     /// where the consumption site handles cloning instead).
     /// </summary>
@@ -208,6 +214,7 @@ public class ConversionContext
     {
         _typeStack.Push(type);
         _runtimeClassFieldsStack.Push(new Dictionary<string, string>(StringComparer.Ordinal));
+        CurrentClassNeedsMSTestExtension = false;
     }
 
     public void LeaveType()

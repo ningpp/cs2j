@@ -6,6 +6,7 @@ using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
+using CSharpToJava.Core.Transformers.Member;
 using CSharpToJava.Core.Transformers.Utilities;
 using System.Text;
 
@@ -288,6 +289,7 @@ public class ClassTransformer : ITypeTransformer
         AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
+        InjectMSTestExtensionIfNeeded(javaClass, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
@@ -489,6 +491,7 @@ public class ClassTransformer : ITypeTransformer
             });
         }
 
+        InjectMSTestExtensionIfNeeded(javaClass, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
@@ -815,9 +818,14 @@ public class ClassTransformer : ITypeTransformer
         JavaClassDeclaration javaClass,
         ConversionContext context)
     {
-        var attributeNames = classDeclarations
+        var classDeclarationList = classDeclarations.ToList();
+
+        var allAttributes = classDeclarationList
             .SelectMany(classDeclaration => classDeclaration.AttributeLists)
             .SelectMany(attributeList => attributeList.Attributes)
+            .ToList();
+
+        var attributeNames = allAttributes
             .Select(attribute => NormalizeAttributeName(attribute.Name.ToString()))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -825,6 +833,45 @@ public class ClassTransformer : ITypeTransformer
         {
             javaClass.Annotations.Add(new JavaAnnotation("Disabled"));
             context.AddImport("org.junit.jupiter.api.Disabled");
+        }
+
+        // Handle DeploymentItem attributes on the class
+        foreach (var attr in allAttributes)
+        {
+            var name = NormalizeAttributeName(attr.Name.ToString());
+            if (!name.Equals("DeploymentItem", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var annotation = MethodTransformer.BuildDeploymentItemAnnotation(attr, context);
+            if (annotation != null)
+            {
+                javaClass.Annotations.Add(annotation);
+            }
+        }
+
+        // Detect TestContext-typed properties/fields — mark class as needing MSTestExtension
+        if (!context.CurrentClassNeedsMSTestExtension)
+        {
+            foreach (var classDecl in classDeclarationList)
+            {
+                foreach (var member in classDecl.Members)
+                {
+                    string? typeName = null;
+                    if (member is PropertyDeclarationSyntax prop)
+                        typeName = prop.Type?.ToString();
+                    else if (member is FieldDeclarationSyntax field)
+                        typeName = field.Declaration?.Type?.ToString();
+
+                    if (typeName != null && typeName.EndsWith("TestContext", StringComparison.Ordinal))
+                    {
+                        context.CurrentClassNeedsMSTestExtension = true;
+                        break;
+                    }
+                }
+
+                if (context.CurrentClassNeedsMSTestExtension)
+                    break;
+            }
         }
     }
 
@@ -843,6 +890,21 @@ public class ClassTransformer : ITypeTransformer
         }
 
         return name;
+    }
+
+    /// <summary>
+    /// Adds @ExtendWith(MSTestExtension.class) if the current class needs MSTest runtime services.
+    /// </summary>
+    private static void InjectMSTestExtensionIfNeeded(JavaClassDeclaration javaClass, ConversionContext context)
+    {
+        if (!context.CurrentClassNeedsMSTestExtension)
+            return;
+
+        var annotation = new JavaAnnotation("ExtendWith");
+        annotation.Values["value"] = "MSTestExtension.class";
+        javaClass.Annotations.Add(annotation);
+        context.AddImport("org.junit.jupiter.api.extension.ExtendWith");
+        context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.MSTestExtension");
     }
 
     /// <summary>

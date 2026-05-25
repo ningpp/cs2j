@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -164,6 +165,7 @@ public sealed class SolutionLoader : IDisposable
                 .ToList();
 
             var isTest = IsTestProject(project);
+            var resources = ScanProjectResources(project.FilePath);
 
             result.Add(new WorkspaceProject
             {
@@ -173,7 +175,8 @@ public sealed class SolutionLoader : IDisposable
                 Compilation = compilation,
                 Documents = documents,
                 ProjectReferences = projectRefs,
-                IsTestProject = isTest
+                IsTestProject = isTest,
+                ResourceItems = resources,
             });
         }
 
@@ -203,6 +206,90 @@ public sealed class SolutionLoader : IDisposable
 
         // Heuristic: project name contains "Test" or "Tests"
         return project.Name.Contains("Test", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Scans a .csproj file for &lt;None&gt; and &lt;Content&gt; items with
+    /// &lt;CopyToOutputDirectory&gt; set to a value other than "Never".
+    /// </summary>
+    internal static IReadOnlyList<ResourceItem> ScanProjectResources(string? projectFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(projectFilePath) || !File.Exists(projectFilePath))
+            return [];
+
+        var projectDir = Path.GetDirectoryName(projectFilePath) ?? string.Empty;
+        var resources = new List<ResourceItem>();
+        var addedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        XDocument doc;
+        try
+        {
+            doc = XDocument.Load(projectFilePath, LoadOptions.PreserveWhitespace);
+        }
+        catch
+        {
+            return [];
+        }
+
+        foreach (var item in doc.Descendants().Where(e => e.Name.LocalName is "None" or "Content"))
+        {
+            var include = (string?)item.Attribute("Include") ?? (string?)item.Attribute("Update");
+            if (string.IsNullOrWhiteSpace(include))
+                continue;
+
+            var copyBehavior = item.Elements()
+                .FirstOrDefault(e => e.Name.LocalName == "CopyToOutputDirectory")?.Value;
+            if (string.IsNullOrWhiteSpace(copyBehavior)
+                || copyBehavior.Equals("Never", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var normalizedInclude = include.Replace('\\', Path.DirectorySeparatorChar)
+                                           .Replace('/', Path.DirectorySeparatorChar);
+
+            if (normalizedInclude.Contains('*'))
+            {
+                // Expand wildcard patterns
+                var patternDir = Path.GetDirectoryName(normalizedInclude) ?? "";
+                var patternFile = Path.GetFileName(normalizedInclude);
+                var searchDir = Path.GetFullPath(Path.Combine(projectDir, patternDir));
+
+                if (!Directory.Exists(searchDir))
+                    continue;
+
+                foreach (var matchedFile in Directory.GetFiles(searchDir, patternFile))
+                {
+                    var fileName = Path.GetFileName(matchedFile);
+                    var relativePath = string.IsNullOrEmpty(patternDir)
+                        ? fileName
+                        : Path.Combine(patternDir, fileName)
+                              .Replace('\\', Path.DirectorySeparatorChar)
+                              .Replace('/', Path.DirectorySeparatorChar);
+
+                    if (!addedPaths.Add(matchedFile))
+                        continue;
+
+                    resources.Add(new ResourceItem
+                    {
+                        SourcePath = matchedFile,
+                        RelativePath = relativePath,
+                    });
+                }
+            }
+            else
+            {
+                var fullPath = Path.GetFullPath(Path.Combine(projectDir, normalizedInclude));
+                if (!File.Exists(fullPath) || !addedPaths.Add(fullPath))
+                    continue;
+
+                resources.Add(new ResourceItem
+                {
+                    SourcePath = fullPath,
+                    RelativePath = normalizedInclude,
+                });
+            }
+        }
+
+        return resources;
     }
 
     public void Dispose()

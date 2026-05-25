@@ -670,9 +670,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "Paths",
                     "System.IO.Path")))
         {
-            var combineLeft = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            var combineRight = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            return $"java.nio.file.Paths.get({combineLeft}, {combineRight}).toString()";
+            var combineParts = node.ArgumentList.Arguments
+                .Select(arg => facade.Transform(arg.Expression, context))
+                .ToList();
+            return $"java.nio.file.Paths.get({string.Join(", ", combineParts)}).toString()";
         }
 
         if (originalMethodName == "MoveNext" && node.ArgumentList.Arguments.Count == 0

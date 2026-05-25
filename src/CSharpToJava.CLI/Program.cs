@@ -333,6 +333,7 @@ class Program
 
         int successCount = 0;
         int failureCount = 0;
+        int copiedResourceCount = 0;
         var modulePlans = new List<JavaModulePlan>();
         var convertedModuleCount = 1;
         var canaryResults = new List<ConversionResult>();
@@ -358,6 +359,21 @@ class Program
 
             Directory.CreateDirectory(javaRoot);
             Directory.CreateDirectory(resourcesRoot);
+
+            // Copy project resources (CopyToOutputDirectory files from .csproj)
+            foreach (var resource in project.ResourceItems)
+            {
+                var destination = Path.Combine(resourcesRoot, resource.RelativePath);
+                if (outputSession.CopyFile(resource.SourcePath, destination, OutputIncrementalEntryKind.CopiedResource))
+                {
+                    copiedResourceCount++;
+                }
+
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"Resource: {resource.SourcePath} -> {destination}");
+                }
+            }
 
             if (opts.Verbose)
             {
@@ -435,7 +451,7 @@ class Program
         await outputSession.SaveAsync();
 
         Console.WriteLine();
-        Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, modules={convertedModuleCount}");
+        Console.WriteLine($"Conversion complete (MSBuild): {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={convertedModuleCount}");
 
         return failureCount > 0 ? 1 : 0;
     }
@@ -1202,6 +1218,7 @@ class Program
                     .Where(includedPaths.Contains)
                     .ToList(),
                 IsTestProject = project.IsTestProject,
+                ResourceItems = project.ResourceItems,
             })
             .ToList();
     }

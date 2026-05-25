@@ -291,8 +291,11 @@ public class MethodTransformer : IMemberTransformer
         JavaMethodDeclaration javaMethod,
         ConversionContext context)
     {
-        var attributeNames = methodDecl.AttributeLists
+        var allAttributes = methodDecl.AttributeLists
             .SelectMany(al => al.Attributes)
+            .ToList();
+
+        var attributeNames = allAttributes
             .Select(a => NormalizeAttributeName(a.Name.ToString()))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -342,6 +345,44 @@ public class MethodTransformer : IMemberTransformer
             javaMethod.Modifiers |= JavaModifiers.Static;
             context.AddImport("org.junit.jupiter.api.AfterAll");
         }
+
+        if (attributeNames.Contains("AssemblyInitialize"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("BeforeAll"));
+            javaMethod.Modifiers |= JavaModifiers.Static;
+            context.AddImport("org.junit.jupiter.api.BeforeAll");
+        }
+
+        if (attributeNames.Contains("AssemblyCleanup"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("AfterAll"));
+            javaMethod.Modifiers |= JavaModifiers.Static;
+            context.AddImport("org.junit.jupiter.api.AfterAll");
+        }
+
+        // Detect TestContext parameters — mark class as needing MSTestExtension
+        if (methodDecl.ParameterList.Parameters.Any(p =>
+        {
+            var typeName = p.Type?.ToString();
+            return typeName != null && typeName.EndsWith("TestContext", StringComparison.Ordinal);
+        }))
+        {
+            context.CurrentClassNeedsMSTestExtension = true;
+        }
+
+        // Handle DeploymentItem attributes with argument values
+        foreach (var attr in allAttributes)
+        {
+            var name = NormalizeAttributeName(attr.Name.ToString());
+            if (!name.Equals("DeploymentItem", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var annotation = BuildDeploymentItemAnnotation(attr, context);
+            if (annotation != null)
+            {
+                javaMethod.Annotations.Add(annotation);
+            }
+        }
     }
 
     private static string NormalizeAttributeName(string rawName)
@@ -359,6 +400,67 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return name;
+    }
+
+    /// <summary>
+    /// Builds an @MSTestDeploymentItem annotation from a C# [DeploymentItem] attribute.
+    /// </summary>
+    internal static JavaAnnotation? BuildDeploymentItemAnnotation(
+        AttributeSyntax attr,
+        ConversionContext context)
+    {
+        var args = attr.ArgumentList?.Arguments;
+        if (args == null || args.Value.Count == 0)
+            return null;
+
+        var annotation = new JavaAnnotation("MSTestDeploymentItem");
+
+        // First argument: source path
+        var sourceValue = ExtractStringAttributeArg(args.Value[0]);
+        if (sourceValue == null)
+            return null;
+
+        annotation.Values["source"] = EscapeJavaString(sourceValue);
+
+        // Second argument (optional): output directory
+        if (args.Value.Count >= 2)
+        {
+            var outputDir = ExtractStringAttributeArg(args.Value[1]);
+            if (outputDir != null)
+            {
+                annotation.Values["outputDirectory"] = EscapeJavaString(outputDir);
+            }
+        }
+
+        context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.MSTestDeploymentItem");
+        context.CurrentClassNeedsMSTestExtension = true;
+        return annotation;
+    }
+
+    /// <summary>
+    /// Extracts a string literal value from a Roslyn attribute argument.
+    /// </summary>
+    private static string? ExtractStringAttributeArg(AttributeArgumentSyntax arg)
+    {
+        if (arg.Expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.StringLiteralExpression))
+        {
+            var text = literal.Token.ValueText;
+            return text;
+        }
+
+        return arg.Expression.ToString();
+    }
+
+    /// <summary>
+    /// Escapes a string for use as a Java annotation string value.
+    /// </summary>
+    private static string EscapeJavaString(string value)
+    {
+        var escaped = value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"");
+        return $"\"{escaped}\"";
     }
 
     private string GetJavaMethodName(MethodDeclarationSyntax methodDecl, IMethodSymbol? methodInfo, ConversionContext context)

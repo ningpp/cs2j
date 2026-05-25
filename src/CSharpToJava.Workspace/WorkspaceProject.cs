@@ -4,6 +4,16 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace CSharpToJava.Workspace;
 
 /// <summary>
+/// Represents a file resource that should be copied to the output directory,
+/// as declared in a .csproj with CopyToOutputDirectory.
+/// </summary>
+public sealed class ResourceItem
+{
+    public required string SourcePath { get; init; }
+    public required string RelativePath { get; init; }
+}
+
+/// <summary>
 /// Represents a resolved project within a workspace, including its compilation
 /// and source documents. Replaces the manual ProjectDiscovery approach with
 /// MSBuild-resolved references for complete semantic models.
@@ -17,4 +27,5 @@ public sealed class WorkspaceProject
     public required IReadOnlyList<Document> Documents { get; init; }
     public required IReadOnlyList<string> ProjectReferences { get; init; }
     public required bool IsTestProject { get; init; }
+    public IReadOnlyList<ResourceItem> ResourceItems { get; init; } = [];
 }
