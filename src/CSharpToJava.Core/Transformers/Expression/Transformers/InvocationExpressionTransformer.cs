@@ -558,24 +558,59 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"CSharpEnumerator.from({BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)})";
         }
 
-        // C# Type.GetMethod(name, BindingFlags) → Java Class.getDeclaredMethod(name).
-        // BindingFlags (Static, NonPublic, etc.) have no Java equivalent — strip them
-        // and use getDeclaredMethod which finds non-public members.
+        // C# Type.GetMethod(name, ...) → Java Class.getDeclaredMethod / getMethod.
+        // The C# method name string uses PascalCase; generated Java methods use camelCase.
+        // Convert the string literal so the reflection lookup matches the actual Java name.
+        //
+        // C# Type.GetMethod finds by name alone when no Type[] is given; Java
+        // getDeclaredMethod / getMethod require exact parameter types.  When the
+        // caller does NOT supply explicit parameter types, emit a ReflectionHelper
+        // helper that searches by name instead.
+        //
+        // BindingFlags → getDeclaredMethod (finds non-public members).
+        // Without BindingFlags → getMethod (public members only).
         if (originalMethodName == "GetMethod"
             && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Type"
-            && node.ArgumentList.Arguments.Count >= 2)
+            && node.ArgumentList.Arguments.Count >= 1)
         {
-            var methodNameArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            // Check if any argument after the first is of BindingFlags type
-            bool hasBindingFlags = false;
-            if (earlyMethodSymbol.Parameters.Length >= 2
-                && earlyMethodSymbol.Parameters[1].Type.ToDisplayString() == "System.Reflection.BindingFlags")
+            var methodNameArg = TransformReflectionMethodNameArg(
+                node.ArgumentList.Arguments[0].Expression, facade, context);
+            bool hasBindingFlags = node.ArgumentList.Arguments.Count >= 2
+                && earlyMethodSymbol.Parameters.Length >= 2
+                && earlyMethodSymbol.Parameters[1].Type.ToDisplayString() == "System.Reflection.BindingFlags";
+
+            // Determine whether the caller supplied explicit parameter types (Type[]).
+            // Overloads:
+            //   GetMethod(string)              — no types, no flags
+            //   GetMethod(string, BindingFlags) — no types, flags
+            //   GetMethod(string, Type[])       — types, no flags
+            //   GetMethod(string, BindingFlags, Binder, Type[], ParameterModifier[]) — types + flags
+            bool hasExplicitTypes = false;
+            int typesArgIndex = -1;
+            for (int i = 1; i < earlyMethodSymbol.Parameters.Length; i++)
             {
-                hasBindingFlags = true;
+                if (earlyMethodSymbol.Parameters[i].Type.ToDisplayString() == "System.Type[]")
+                {
+                    hasExplicitTypes = true;
+                    typesArgIndex = i;
+                    break;
+                }
             }
-            if (hasBindingFlags)
+
+            if (hasExplicitTypes)
             {
-                return $"{receiver}.getDeclaredMethod({methodNameArg})";
+                // Pass parameter types directly — Java can resolve the exact overload.
+                var typesExpr = facade.Transform(
+                    node.ArgumentList.Arguments[typesArgIndex].Expression, context);
+                var javaMethod = hasBindingFlags ? "getDeclaredMethod" : "getMethod";
+                return $"{receiver}.{javaMethod}({methodNameArg}, {typesExpr})";
+            }
+            else
+            {
+                // No parameter types — use ReflectionHelper to search by name.
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                var helperMethod = hasBindingFlags ? "getDeclaredMethodByName" : "getMethodByName";
+                return $"ReflectionHelper.{helperMethod}({receiver}, {methodNameArg})";
             }
         }
 
@@ -5621,6 +5656,47 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static string ToPascalCase(string name)
         => string.IsNullOrEmpty(name) ? name : char.ToUpperInvariant(name[0]) + name[1..];
+
+    /// <summary>
+    /// Transforms the method-name argument of a Type.GetMethod call, converting a
+    /// PascalCase string literal to camelCase so the reflection lookup matches the
+    /// actual Java method name.
+    /// </summary>
+    private static string TransformReflectionMethodNameArg(
+        Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax nameExpr,
+        ExpressionTransformerFacade facade,
+        ConversionContext context)
+    {
+        if (nameExpr is LiteralExpressionSyntax
+            { RawKind: (int)SyntaxKind.StringLiteralExpression } strLit)
+        {
+            var pascalName = strLit.Token.ValueText;
+            var camelName = ConvertPascalCaseMethodName(pascalName);
+            return $"\"{camelName}\"";
+        }
+        return facade.Transform(nameExpr, context);
+    }
+
+    private static string ConvertPascalCaseMethodName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return name;
+
+        return name switch
+        {
+            "GetHashCode" => "hashCode",
+            "GetEnumerator" => "iterator",
+            "GetType" => "getClass",
+            "Dispose" => "close",
+            "ToLower" => "toLowerCase",
+            "ToUpper" => "toUpperCase",
+            "ToLowerInvariant" => "toLowerCase",
+            "ToUpperInvariant" => "toUpperCase",
+            _ when char.IsUpper(name[0])
+                => char.ToLowerInvariant(name[0]) + name[1..],
+            _ => name
+        };
+    }
 
     private static string ErasedJavaType(string type)
     {

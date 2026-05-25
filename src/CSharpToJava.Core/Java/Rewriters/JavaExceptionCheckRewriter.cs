@@ -411,7 +411,7 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
         RegexOptions.Compiled);
 
     private static readonly Regex CheckedReflectionCallPattern = new(
-        @"Class\.forName\s*\(|\.getDeclaredConstructor\s*\(|\.newInstance\s*\(|\.getMethod\s*\(|\.getDeclaredMethod\s*\(|\.getField\s*\(|\.getDeclaredField\s*\(|\.getConstructor\s*\(",
+        @"Class\.forName\s*\(|\.getDeclaredConstructor\s*\(|\.newInstance\s*\(|\.getMethod\s*\(|\.getDeclaredMethod\s*\(|\.getField\s*\(|\.getDeclaredField\s*\(|\.getConstructor\s*\(|\.invoke\s*\(",
         RegexOptions.Compiled);
 
     public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
