@@ -145,6 +145,11 @@ public class LambdaTransformer : IIRExpressionTransformer
             if (context.MethodState.HasActiveLambdaCaptureHolder(capName))
                 continue;
             context.AddPreStatement($"{capType}[] _{capName} = {{ {capName} }};");
+            // Register the holder as active so that IdentifierExpressionTransformer
+            // replaces all subsequent references to capName with _capName[0] in the
+            // enclosing scope (after the lambda). Without this, reads after the lambda
+            // still see the stale original local value.
+            context.MethodState.RegisterActiveLambdaCaptureHolder(capName, $"_{capName}");
         }
 
         // Register captures in the lambda capture registry for downstream rewriter queries
@@ -160,8 +165,21 @@ public class LambdaTransformer : IIRExpressionTransformer
         // Generate body
         if (node.Block != null)
         {
+            // Save pending pre-statements before processing the block body.
+            // Array-holder pre-statements added above must be emitted at the
+            // enclosing scope (before the statement containing this lambda),
+            // not inside the lambda body. TransformBlock drains all pending
+            // pre-statements, so we preserve and restore them here.
+            var savedPre = context.HasPendingPreStatements
+                ? context.DrainPreStatements().ToList()
+                : new List<string>();
+
             var stmtTransformer = new StatementTransformer();
             string body = stmtTransformer.TransformBlock(node.Block, context);
+
+            // Restore saved pre-statements for the enclosing scope
+            foreach (var ps in savedPre)
+                context.AddPreStatement(ps);
 
             // Fix 3: replace mutated captured variable usages with array-element access
             // Skip variables already handled by the lambda capture pre-scan — their identifiers

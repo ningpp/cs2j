@@ -174,7 +174,17 @@ public class XmlReader implements AutoCloseable {
 
     public static int getNodeType() {
         attributeIndex = -1;
-        return reader != null ? reader.getEventType() : XmlNodeType.getNone();
+        if (reader == null) return XmlNodeType.getNone();
+        // C# XmlReader.NodeType returns None when ReadState is EndOfFile.
+        // StAX reports END_DOCUMENT (8) for this state; map it to None (0)
+        // to match C# semantics so loops like `while (!done)` can detect EOF.
+        // Also check hasNext() as a fallback: if the stream is exhausted, return None.
+        try {
+            if (!reader.hasNext()) return XmlNodeType.getNone();
+        } catch (Exception e) { return XmlNodeType.getNone(); }
+        int eventType = reader.getEventType();
+        if (eventType == XMLStreamConstants.END_DOCUMENT) return XmlNodeType.getNone();
+        return eventType;
     }
 
     public static boolean isStartElement() {

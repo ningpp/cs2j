@@ -257,6 +257,18 @@ public class MethodConversionState
         => _activeLambdaCaptureHolders.TryGetValue(varName, out holderName!);
 
     /// <summary>
+    /// Directly register an active lambda capture holder without requiring a pending entry.
+    /// Used by <see cref="LambdaTransformer"/> when <c>GetMutatedCaptures</c> creates an
+    /// array holder for a variable mutated inside the lambda — the holder pre-statement is
+    /// emitted before the lambda, and all subsequent references to the variable (after the lambda)
+    /// must be replaced with <c>_varName[0]</c> by <see cref="IdentifierExpressionTransformer"/>.
+    /// </summary>
+    public void RegisterActiveLambdaCaptureHolder(string varName, string holderName)
+    {
+        _activeLambdaCaptureHolders[varName] = holderName;
+    }
+
+    /// <summary>
     /// Check whether a variable has an active (declared) lambda capture holder.
     /// Used by <see cref="LambdaTransformer"/> to skip regex replacement for variables
     /// whose identifiers are already replaced by <see cref="IdentifierExpressionTransformer"/>.
