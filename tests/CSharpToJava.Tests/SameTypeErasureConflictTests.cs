@@ -130,4 +130,101 @@ class Sample
         // Java syntax puts type parameters before the return type: <T> void m(T x)
         Assert.Contains("<T> void m", code);
     }
+
+    [Fact]
+    public void ConstructorErasureFactory_PreservesOriginalConstructorBody()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = @"
+using System.Collections.Generic;
+
+class Rectangle { }
+class Point { }
+
+class Box
+{
+    public int Count;
+
+    public Box(IEnumerable<Point> points)
+    {
+        Count = 100;
+        foreach (var p in points)
+            Count++;
+    }
+
+    public Box(IEnumerable<Rectangle> rectangles)
+    {
+        Count = 200;
+        foreach (var r in rectangles)
+            Count++;
+    }
+
+    public static Box FromRectangles(IEnumerable<Rectangle> rectangles)
+    {
+        return new Box(rectangles);
+    }
+}",
+            FileName = "Box.cs",
+            Options = new ConversionOptions(),
+        });
+
+        Assert.True(result.Success,
+            "Conversion failed: " + string.Join("; ", result.Diagnostics.Select(d => $"[{d.Severity}] {d.Message}")));
+
+        var code = result.GeneratedCode;
+
+        Assert.Contains("public static Box createFrom_Iterable_Rectangle(Iterable<Rectangle> rectangles)", code);
+        Assert.Contains("Box __inst = new Box();", code);
+        Assert.Contains("__inst.Count = 200;", code);
+        Assert.Contains("for (Rectangle r : rectangles)", code);
+        Assert.Contains("__inst.Count++;", code);
+        Assert.Contains("return __inst;", code);
+        Assert.Contains("return Box.createFrom_Iterable_Rectangle(rectangles);", code);
+    }
+
+    [Fact]
+    public void ConstructorErasureFactory_UsesSimpleTypeSuffixForNamespacedArgument()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = @"
+using System.Collections.Generic;
+
+namespace Geometry
+{
+    public class Rectangle { }
+    public class Point { }
+}
+
+namespace Layout
+{
+    using Geometry;
+
+    class Box
+    {
+        public Box(IEnumerable<Point> points) { }
+        public Box(IEnumerable<Rectangle> rectangles) { }
+
+        public static Box FromRectangles(IEnumerable<Rectangle> rectangles)
+        {
+            return new Box(rectangles);
+        }
+    }
+}",
+            FileName = "Box.cs",
+            Options = new ConversionOptions(),
+        });
+
+        Assert.True(result.Success,
+            "Conversion failed: " + string.Join("; ", result.Diagnostics.Select(d => $"[{d.Severity}] {d.Message}")));
+
+        var code = result.GeneratedCode;
+
+        Assert.Contains("public static Box createFrom_Iterable_Rectangle(Iterable<Rectangle> rectangles)", code);
+        Assert.Contains(".Box.createFrom_Iterable_Rectangle(rectangles);", code);
+        Assert.DoesNotContain("createFrom_Iterable_Geometry", code);
+    }
 }

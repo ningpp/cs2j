@@ -1154,9 +1154,7 @@ public class ClassTransformer : ITypeTransformer
             var className = javaClass.Name;
             var paramName = ctor.Parameters[0].Name;
 
-            // Extract this() initializer call args from ctor body (they appear as "this(args);")
-            string initCall = $"new {className}()";
-            string bodyWithoutInit = ctor.Body ?? "";
+            var bodyWithoutInit = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
 
             // The constructor body includes this() lines as the first statement.
             // Replace them with direct initialization of __inst.
@@ -1164,6 +1162,15 @@ public class ClassTransformer : ITypeTransformer
             var lines = bodyWithoutInit.Split('\n').ToList();
             var filteredLines = new System.Text.StringBuilder();
             bool foundInit = false;
+            if (ctor.Initializer != null
+                && ctor.Initializer.StartsWith("this(", StringComparison.Ordinal)
+                && ctor.Initializer.EndsWith(")", StringComparison.Ordinal))
+            {
+                var innerArgs = ctor.Initializer.Substring(5, ctor.Initializer.Length - 6);
+                filteredLines.AppendLine($"        {className} __inst = new {className}({innerArgs});");
+                foundInit = true;
+            }
+
             foreach (var line in lines)
             {
                 var trimmed = line.Trim();
@@ -1171,15 +1178,17 @@ public class ClassTransformer : ITypeTransformer
                 {
                     // Convert "this(args);" → "__inst = new ClassName(args);"
                     var innerArgs = trimmed.Substring(5, trimmed.Length - 7); // strip "this(" and ");"
-                    filteredLines.AppendLine($"        Rectangle __inst = new {className}({innerArgs});");
+                    filteredLines.AppendLine($"        {className} __inst = new {className}({innerArgs});");
                     foundInit = true;
                 }
                 else
                 {
+                    var rewritten = RewriteConstructorLineForFactory(line);
+
                     // Replace bare instance method calls (without explicit receiver) with __inst. prefix
                     // This handles "add(r);" → "__inst.add(r);" but NOT "ValidateArg.isNotNull(" etc.
-                    var rewritten = System.Text.RegularExpressions.Regex.Replace(
-                        line, @"(?<!\.)\b([a-z][a-zA-Z0-9]*)\(", m => {
+                    rewritten = System.Text.RegularExpressions.Regex.Replace(
+                        rewritten, @"(?<!\.)\b([a-z][a-zA-Z0-9]*)\(", m => {
                             var methodName = m.Groups[1].Value;
                             // Skip Java keywords and common static methods
                             if (methodName is "for" or "if" or "while" or "return" or "new" or "super" or "this")
@@ -1212,6 +1221,35 @@ public class ClassTransformer : ITypeTransformer
         }
         // else: more than 1 param with same erasure — just silently drop for now
     }
+
+    private static string RewriteConstructorLineForFactory(string line)
+    {
+        var rewritten = System.Text.RegularExpressions.Regex.Replace(line, @"(?<![\w.])this\.", "__inst.");
+
+        rewritten = System.Text.RegularExpressions.Regex.Replace(
+            rewritten,
+            @"(?<![\w.])([A-Z][A-Za-z0-9_]*)\s*=",
+            "__inst.$1 =");
+
+        rewritten = System.Text.RegularExpressions.Regex.Replace(
+            rewritten,
+            @"(?<![\w.])([A-Za-z_][A-Za-z0-9_]*)\+\+",
+            match => ShouldQualifyFactoryMutation(match.Groups[1].Value)
+                ? $"__inst.{match.Groups[1].Value}++"
+                : match.Value);
+
+        rewritten = System.Text.RegularExpressions.Regex.Replace(
+            rewritten,
+            @"(?<![\w.])([A-Za-z_][A-Za-z0-9_]*)--",
+            match => ShouldQualifyFactoryMutation(match.Groups[1].Value)
+                ? $"__inst.{match.Groups[1].Value}--"
+                : match.Value);
+
+        return rewritten;
+    }
+
+    private static bool ShouldQualifyFactoryMutation(string identifier)
+        => identifier.Length != 1 || char.IsUpper(identifier[0]);
 
     private static void AddMethodIfNotDuplicate(JavaClassDeclaration javaClass, JavaMethodDeclaration javaMethod)
         => AddMethodIfNotDuplicateInternal(javaClass, javaMethod);

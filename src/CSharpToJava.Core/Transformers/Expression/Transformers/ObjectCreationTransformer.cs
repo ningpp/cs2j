@@ -9,6 +9,7 @@ using CSharpToJava.Core.Transformers.Utilities;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -134,6 +135,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Types with argument reshaping
         if (bareTypeName.EndsWith("LineSegment", StringComparison.Ordinal)) return true;
         if (bareTypeName.EndsWith("BufferedReader", StringComparison.Ordinal)) return true;
+        if (IsErasedFactoryConstructor(node, context)) return true;
 
         // Java collection types need argument coercion (Arrays.asList wrapping)
         if (IsJavaCollectionType(typeName)) return true;
@@ -340,16 +342,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (ctorSymbol == null)
             AppendRuntimeClassArguments(createdTypeSymbol, context, ref args);
 
-        if (ctorSymbol != null
-            && ctorSymbol.ContainingType.Name == "Rectangle"
-            && ctorSymbol.Parameters.Length == 1
-            && ctorSymbol.Parameters[0].Type is INamedTypeSymbol pType
-            && pType.Name == "IEnumerable"
-            && pType.TypeArguments.Length == 1
-            && pType.TypeArguments[0].Name == "Rectangle")
-        {
-            return "Rectangle.createFrom_Iterable_Rectangle(" + args + ")";
-        }
+        var erasedFactoryCall = TryBuildErasedFactoryConstructorCall(ctorSymbol, typeName, args, context);
+        if (erasedFactoryCall != null)
+            return erasedFactoryCall;
 
         if (ctorSymbol == null && argumentList.Arguments.Count == 1 && typeName.EndsWith("Rectangle", StringComparison.Ordinal))
         {
@@ -455,6 +450,137 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         return $"new {typeName}({args})";
+    }
+
+    private static bool IsErasedFactoryConstructor(ObjectCreationExpressionSyntax node, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return false;
+
+        var ctorSymbol = context.SemanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        return ShouldRouteConstructorToErasedFactory(ctorSymbol, context);
+    }
+
+    private static string? TryBuildErasedFactoryConstructorCall(
+        IMethodSymbol? ctorSymbol,
+        string typeName,
+        string args,
+        ConversionContext context)
+    {
+        if (!ShouldRouteConstructorToErasedFactory(ctorSymbol, context))
+            return null;
+
+        var suffix = BuildErasedFactorySuffix(ctorSymbol!.Parameters[0].Type, context);
+        var receiverType = typeName.Contains('<')
+            ? typeName[..typeName.IndexOf('<')]
+            : typeName;
+        return $"{receiverType}.createFrom_{suffix}({args})";
+    }
+
+    private static bool ShouldRouteConstructorToErasedFactory(IMethodSymbol? ctorSymbol, ConversionContext context)
+    {
+        if (ctorSymbol == null
+            || ctorSymbol.MethodKind != MethodKind.Constructor
+            || ctorSymbol.Parameters.Length != 1
+            || ctorSymbol.ContainingType == null)
+            return false;
+
+        var currentErasedSignature = ErasedJavaParameterSignature(ctorSymbol, context);
+        var currentStart = GetSourceStart(ctorSymbol);
+        var sawCurrent = false;
+
+        foreach (var other in ctorSymbol.ContainingType.InstanceConstructors)
+        {
+            if (other.Parameters.Length != ctorSymbol.Parameters.Length)
+                continue;
+
+            if (SymbolEqualityComparer.Default.Equals(other, ctorSymbol))
+            {
+                sawCurrent = true;
+                continue;
+            }
+
+            if (ErasedJavaParameterSignature(other, context) != currentErasedSignature)
+                continue;
+
+            var otherStart = GetSourceStart(other);
+            if (currentStart.HasValue && otherStart.HasValue)
+            {
+                if (otherStart.Value < currentStart.Value)
+                    return true;
+                continue;
+            }
+
+            if (!currentStart.HasValue && !otherStart.HasValue && !sawCurrent)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static int? GetSourceStart(IMethodSymbol symbol)
+    {
+        foreach (var syntaxReference in symbol.DeclaringSyntaxReferences)
+        {
+            var syntax = syntaxReference.GetSyntax();
+            if (syntax is ConstructorDeclarationSyntax)
+                return syntax.SpanStart;
+        }
+
+        return null;
+    }
+
+    private static string ErasedJavaParameterSignature(IMethodSymbol constructor, ConversionContext context)
+        => string.Join(",", constructor.Parameters.Select(p => EraseJavaType(context.MapType(p.Type))));
+
+    private static string EraseJavaType(string javaType)
+    {
+        var trimmed = javaType.Trim();
+        var genericStart = trimmed.IndexOf('<');
+        return genericStart >= 0 ? trimmed[..genericStart].TrimEnd() : trimmed;
+    }
+
+    private static string BuildErasedFactorySuffix(ITypeSymbol parameterTypeSymbol, ConversionContext context)
+        => BuildErasedFactorySuffix(ToFactorySuffixType(parameterTypeSymbol, context));
+
+    private static string ToFactorySuffixType(ITypeSymbol typeSymbol, ConversionContext context)
+    {
+        if (typeSymbol is INamedTypeSymbol named && named.TypeArguments.Length > 0)
+        {
+            var mappedOuter = context.MapType(named.ConstructedFrom);
+            var bareOuter = StripGenericPart(mappedOuter);
+            var simpleOuter = StripQualification(bareOuter);
+            var typeArguments = named.TypeArguments.Select(arg => ToFactorySuffixType(arg, context));
+            return $"{simpleOuter}<{string.Join(", ", typeArguments)}>";
+        }
+
+        return StripQualification(context.MapType(typeSymbol));
+    }
+
+    private static string StripGenericPart(string javaType)
+    {
+        var genericStart = javaType.IndexOf('<');
+        return genericStart >= 0 ? javaType[..genericStart] : javaType;
+    }
+
+    private static string StripQualification(string javaType)
+    {
+        var trimmed = javaType.Trim();
+        var genericStart = trimmed.IndexOf('<');
+        if (genericStart >= 0)
+        {
+            var bare = StripQualification(trimmed[..genericStart]);
+            return bare + trimmed[genericStart..];
+        }
+
+        var lastDot = trimmed.LastIndexOf('.');
+        return lastDot >= 0 ? trimmed[(lastDot + 1)..] : trimmed;
+    }
+
+    private static string BuildErasedFactorySuffix(string parameterType)
+    {
+        var suffix = Regex.Replace(parameterType, @"[<>,\s\[\]?]", "_").Trim('_');
+        return Regex.Replace(suffix, "_+", "_");
     }
 
     private static void AppendRuntimeClassArguments(
