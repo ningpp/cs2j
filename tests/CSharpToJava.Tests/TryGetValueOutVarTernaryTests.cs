@@ -118,4 +118,71 @@ class VisibilityGraph
         // When false branch is not null, the generic holder path is used
         Assert.Contains("ObjectHolder", code);
     }
+
+    /// <summary>
+    /// When the same out variable appears in both branches of a ternary, the converter
+    /// must use a single ObjectHolder shared by both branches. Before the fix, two
+    /// separate holders were created and both were read back unconditionally, causing
+    /// the unexecuted branch's null holder to overwrite the correct value.
+    /// </summary>
+    [Fact]
+    public void OutParam_Ternary_TwoMethods_SharedOutVar_UsesSingleHolder()
+    {
+        var result = Convert(@"
+class CdtSite { }
+class CdtSweeper
+{
+    CdtSite MiddleCase(CdtSite pi, object node, out CdtSite rightSite) {
+        rightSite = new CdtSite();
+        return rightSite;
+    }
+
+    CdtSite LeftCase(CdtSite pi, object node, out CdtSite rightSite) {
+        rightSite = new CdtSite();
+        return rightSite;
+    }
+
+    void PointEvent(CdtSite pi) {
+        CdtSite rightSite;
+        CdtSite leftSite = pi != null
+            ? MiddleCase(pi, null, out rightSite)
+            : LeftCase(pi, null, out rightSite);
+        InsertSiteIntoFront(leftSite, pi, rightSite);
+    }
+
+    void InsertSiteIntoFront(CdtSite leftSite, CdtSite pi, CdtSite rightSite) { }
+}");
+
+        Assert.True(result.Success,
+            "Conversion failed: " + string.Join("; ", result.Diagnostics.Select(d => $"[{d.Severity}] {d.Message}")));
+
+        var code = result.GeneratedCode ?? "";
+
+        // Should create exactly ONE holder for rightSite (shared by both branches)
+        Assert.Contains("ObjectHolder<CdtSite>", code);
+        var holderDeclCount = CountOccurrences(code, "ObjectHolder<CdtSite> _rightSiteHolder");
+        Assert.True(holderDeclCount == 1,
+            $"Expected exactly 1 holder declaration for rightSite, found {holderDeclCount}");
+
+        // Should have exactly ONE read-back: rightSite = _rightSiteHolder1.value
+        var readBackCount = CountOccurrences(code, "rightSite = _rightSiteHolder");
+        Assert.True(readBackCount == 1,
+            $"Expected exactly 1 read-back for rightSite, found {readBackCount}");
+
+        // Both branches should use the same holder
+        Assert.Contains("middleCase(pi, null, _rightSiteHolder1)", code);
+        Assert.Contains("leftCase(pi, null, _rightSiteHolder1)", code);
+    }
+
+    private static int CountOccurrences(string text, string substring)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = text.IndexOf(substring, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += substring.Length;
+        }
+        return count;
+    }
 }

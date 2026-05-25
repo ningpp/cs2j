@@ -93,8 +93,22 @@ public class ControlFlowTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         var condition = facade.Transform(node.Condition, context);
+
+        // Snapshot out-holder allocation counts so both ternary branches reuse the
+        // same holder name for the same out variable. Without this, each branch
+        // allocates its own holder, and the unconditional post-statement read-back
+        // from the unexecuted branch's holder overwrites the correct value with null.
+        var savedOutCounts = context.MethodState.SnapshotOutHolderCounts();
+
         var trueExpr = facade.Transform(node.WhenTrue, context);
+
+        // Restore out-holder counts so WhenFalse reuses the same holder names
+        context.MethodState.RestoreOutHolderCounts(savedOutCounts);
+
         var falseExpr = facade.Transform(node.WhenFalse, context);
+
+        // Deduplicate post-statements that both branches may have queued
+        context.MethodState.DeduplicatePostStatements();
 
         // If the conditional expression is typed as IEnumerable/ICollection-like, but branches
         // are stream chains, collect each branch so both sides become Iterable-compatible.

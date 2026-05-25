@@ -34,6 +34,22 @@ public class MethodConversionState
         _pendingPostStatements.Add(statement);
     }
 
+    /// <summary>
+    /// Remove consecutive duplicate entries from pending post-statements.
+    /// Called after processing ternary branches to eliminate duplicate read-backs
+    /// when the same out variable appears in both branches.
+    /// </summary>
+    public void DeduplicatePostStatements()
+    {
+        if (_pendingPostStatements.Count <= 1) return;
+        var seen = new HashSet<string>();
+        for (int i = _pendingPostStatements.Count - 1; i >= 0; i--)
+        {
+            if (!seen.Add(_pendingPostStatements[i]))
+                _pendingPostStatements.RemoveAt(i);
+        }
+    }
+
     public IReadOnlyList<string> DrainPostStatements()
     {
         var result = _pendingPostStatements.ToList();
@@ -60,6 +76,26 @@ public class MethodConversionState
         var count = _outHolderAllocCounts.GetValueOrDefault(key, 0) + 1;
         _outHolderAllocCounts[key] = count;
         return $"{key}{count}";
+    }
+
+    /// <summary>
+    /// Snapshot the current out-holder allocation counts so they can be restored
+    /// before processing the second branch of a ternary expression, ensuring both
+    /// branches reuse the same holder names for the same out variables.
+    /// </summary>
+    public Dictionary<string, int> SnapshotOutHolderCounts()
+    {
+        return new Dictionary<string, int>(_outHolderAllocCounts);
+    }
+
+    /// <summary>
+    /// Restore out-holder allocation counts to a previous snapshot.
+    /// </summary>
+    public void RestoreOutHolderCounts(Dictionary<string, int> snapshot)
+    {
+        _outHolderAllocCounts.Clear();
+        foreach (var kvp in snapshot)
+            _outHolderAllocCounts[kvp.Key] = kvp.Value;
     }
 
     public bool TryGetActiveRefHolder(string varName, out string holderName)
