@@ -19,8 +19,20 @@ public class FileHelper {
         catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
     }
     public static TextReader openText(String path) {
-        try { return new TextReader(new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8)); }
-        catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
+        try {
+            InputStream fs = new FileInputStream(path);
+            PushbackInputStream pbs = new PushbackInputStream(fs, 3);
+            byte[] bom = new byte[3];
+            int read = pbs.read(bom);
+            if (read == 3 && bom[0] == (byte)0xEF && bom[1] == (byte)0xBB && bom[2] == (byte)0xBF) {
+                // BOM detected and skipped — stream is positioned after it
+            } else {
+                // No BOM — push back whatever bytes we read
+                if (read > 0) pbs.unread(bom, 0, read);
+            }
+            return new TextReader(new InputStreamReader(pbs, StandardCharsets.UTF_8));
+        } catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
+        catch (IOException e) { throw new UncheckedIOException(e); }
     }
     /** Mirrors File.Open(path, FileMode). */
     public static StreamWrapper open(String path, int fileMode) {
