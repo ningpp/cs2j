@@ -676,6 +676,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"java.nio.file.Paths.get({string.Join(", ", combineParts)}).toString()";
         }
 
+        // System.Type.GetField(string) → ReflectionHelper.getField(class, name)
+        // C# Type.GetField returns null when the field doesn't exist;
+        // Java Class.getField throws NoSuchFieldException instead.
+        if (originalMethodName == "GetField"
+            && node.ArgumentList.Arguments.Count == 1
+            && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Type")
+        {
+            var fieldName = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+            return $"ReflectionHelper.getField({receiver}, {fieldName})";
+        }
+
         if (originalMethodName == "MoveNext" && node.ArgumentList.Arguments.Count == 0
             && IsEnumeratorMoveNextInvocation(node, context))
         {

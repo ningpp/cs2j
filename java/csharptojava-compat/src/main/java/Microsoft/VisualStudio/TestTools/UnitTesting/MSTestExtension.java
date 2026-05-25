@@ -135,23 +135,25 @@ public class MSTestExtension
     }
 
     /**
-     * Resolves a deployment source path. Tries classpath resources first,
-     * then the current working directory.
+     * Resolves a deployment source path. Tries multiple locations:
+     * 1. Direct filesystem path (relative to CWD)
+     * 2. Classpath resource
+     * 3. Maven target/test-classes and target/classes
+     * 4. Maven src/test/resources and src/main/resources
+     * 5. Relative to user.dir
      */
     private static Path resolveSource(String source) throws IOException {
-        // Try classpath resource as directory listing
-        ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        if (cl == null) {
-            cl = MSTestExtension.class.getClassLoader();
-        }
-
-        // Try as a filesystem path first (for IDE test runs)
+        // 1. Try as a direct filesystem path (for IDE test runs)
         Path fsPath = Paths.get(source);
         if (Files.exists(fsPath)) {
             return fsPath.toAbsolutePath().normalize();
         }
 
-        // Try as a classpath resource (for Maven test runs where resources are in target/test-classes)
+        // 2. Try as a classpath resource
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        if (cl == null) {
+            cl = MSTestExtension.class.getClassLoader();
+        }
         URL resourceUrl = cl.getResource(source);
         if (resourceUrl != null) {
             try {
@@ -164,12 +166,28 @@ public class MSTestExtension
             }
         }
 
-        // Try relative to user.dir
-        Path userDirPath = Paths.get(System.getProperty("user.dir"), source);
+        // 3. Try common Maven output directories
+        Path userDir = Paths.get(System.getProperty("user.dir"));
+        String[] mavenDirs = {
+            "target/test-classes",
+            "target/classes",
+            "src/test/resources",
+            "src/main/resources"
+        };
+        for (String mavenDir : mavenDirs) {
+            Path candidate = userDir.resolve(mavenDir).resolve(source);
+            if (Files.exists(candidate)) {
+                return candidate.toAbsolutePath().normalize();
+            }
+        }
+
+        // 4. Try relative to user.dir
+        Path userDirPath = userDir.resolve(source);
         if (Files.exists(userDirPath)) {
             return userDirPath.toAbsolutePath().normalize();
         }
 
+        System.err.println("[MSTestExtension] WARNING: Deployment source not found: " + source);
         return null;
     }
 
