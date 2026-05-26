@@ -89,8 +89,10 @@ public class StreamWrapper implements AutoCloseable {
     }
 
     public int read(byte[] buffer, int offset, int count) {
-        try { return inputStream().read(buffer, offset, count); }
-        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+        try {
+            int result = inputStream().read(buffer, offset, count);
+            return result == -1 ? 0 : result;
+        } catch (IOException e) { throw new java.io.UncheckedIOException(e); }
     }
 
     public void write(int value) {

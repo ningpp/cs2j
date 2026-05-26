@@ -18,7 +18,11 @@ public class MemoryStream extends StreamWrapper {
 
         @Override
         public int read(byte[] b, int off, int len) {
-            return MemoryStream.this.read(b, off, len);
+            if (position >= length) return -1;
+            int n = Math.min(len, length - position);
+            System.arraycopy(buffer, position, b, off, n);
+            position += n;
+            return n;
         }
     };
 
@@ -83,7 +87,7 @@ public class MemoryStream extends StreamWrapper {
 
     @Override
     public int read(byte[] target, int offset, int count) {
-        if (position >= length) return -1;
+        if (position >= length) return 0;
         int n = Math.min(count, length - position);
         System.arraycopy(buffer, position, target, offset, n);
         position += n;
