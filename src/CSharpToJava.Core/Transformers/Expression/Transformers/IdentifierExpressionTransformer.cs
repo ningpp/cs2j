@@ -646,7 +646,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
             // If the mapping already produced a self-contained expression (e.g. "(-Double.MAX_VALUE)")
             // don't prefix it with the boxed type name — that would create "Double.(-Double.MAX_VALUE)".
-            if (mappedMember.StartsWith("(") || mappedMember.StartsWith("-"))
+            if (mappedMember.StartsWith("(") || mappedMember.StartsWith("-")
+                || char.IsDigit(mappedMember[0]))
                 return mappedMember;
             return $"{boxedName}.{mappedMember}";
         }
@@ -1028,7 +1029,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (TryMapPrimitiveStaticFieldName(primInfo.keyword, memberName, out var mappedConst))
             {
                 // Some mappings return self-contained expressions like "(-Double.MAX_VALUE)".
-                if (mappedConst.StartsWith("(") || mappedConst.StartsWith("-"))
+                if (mappedConst.StartsWith("(") || mappedConst.StartsWith("-")
+                    || char.IsDigit(mappedConst[0]))
                     return mappedConst;
                 return $"{primInfo.javaWrapper}.{mappedConst}";
             }
@@ -1500,6 +1502,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     {
         mappedMember = (primitiveKeyword, memberName) switch
         {
+            // C# byte (unsigned) MaxValue=255, MinValue=0 — emit literals directly
+            ("byte", "MaxValue") => "255",
+            ("byte", "MinValue") => "0",
             // Double/float MinValue = most negative finite → negate MAX_VALUE
             ("double" or "float", "MinValue") => $"(-{(primitiveKeyword == "double" ? "Double" : "Float")}.MAX_VALUE)",
             (_, "MaxValue")          => "MAX_VALUE",

@@ -755,6 +755,9 @@ public class TypeMappingService
         if (typeName.EndsWith("?") && typeName.Length > 1)
             return MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 1));
 
+        // C# byte[] stays Java byte[] for API compatibility
+        if (typeName == "byte[]") return "byte[]";
+
         if (typeName.EndsWith("[]"))
         {
             var elemType = MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 2));

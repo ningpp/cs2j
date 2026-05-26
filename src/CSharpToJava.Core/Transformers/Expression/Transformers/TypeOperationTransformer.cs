@@ -274,6 +274,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# (byte)expr → & 0xFF (byte maps to Java int, cast becomes masking)
+        if (targetSymbol?.SpecialType == SpecialType.System_Byte)
+            return $"{expression} & 0xFF";
+
         return $"({targetType})({expression})";
     }
 

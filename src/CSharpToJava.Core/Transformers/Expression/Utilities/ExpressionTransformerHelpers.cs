@@ -124,7 +124,13 @@ public static class ExpressionTransformerHelpers
             return transformedExpression;
 
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+        {
+            // When both are C# byte, source may originate from Java byte[] (signed byte)
+            // while target is Java int (unsigned). Always mask for correctness.
+            if (sourceType.SpecialType == SpecialType.System_Byte)
+                return $"{transformedExpression} & 0xFF";
             return transformedExpression;
+        }
 
         // StringWriter passed to TextWriter/PrintWriter parameter: wrap in PrintWriter
         if (sourceType.ToDisplayString() == "System.IO.StringWriter"
@@ -154,6 +160,11 @@ public static class ExpressionTransformerHelpers
 
         var sourceSpecial = sourceType.SpecialType;
         var targetSpecial = targetType.SpecialType;
+
+        // Both source and target are C# byte: source may originate from a Java byte[]
+        // element (signed byte) while target is Java int (unsigned). Always mask.
+        if (sourceSpecial == SpecialType.System_Byte && targetSpecial == SpecialType.System_Byte)
+            return $"{transformedExpression} & 0xFF";
 
         // C# char implicitly converts to string, but Java requires explicit String.valueOf()
         if (sourceSpecial == SpecialType.System_Char && targetSpecial == SpecialType.System_String)

@@ -975,6 +975,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         else
             elementType = context.MapTypeFromSyntax(node.Type.ElementType);
 
+        // C# byte[] stays Java byte[] — override element type for new byte[N]
+        if (elemSemType?.SpecialType == SpecialType.System_Byte)
+            elementType = "byte";
+
         // Get dimensions
         var sizes = new List<string>();
         if (node.Type?.RankSpecifiers.Count > 0)
