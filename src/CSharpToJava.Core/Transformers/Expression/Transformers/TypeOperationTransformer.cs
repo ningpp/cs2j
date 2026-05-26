@@ -740,7 +740,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             typeName = context.MapTypeFromSyntax(node.Type);
         }
 
-        return GetDefaultValueForType(typeName, typeInfo?.Type);
+        return GetDefaultValueForType(typeName, typeInfo?.Type, context);
     }
 
     /// <summary>
@@ -756,7 +756,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (targetType != null)
         {
             var typeName = context.MapType(targetType);
-            return GetDefaultValueForType(typeName, targetType);
+            return GetDefaultValueForType(typeName, targetType, context);
         }
 
         return "null";
@@ -767,7 +767,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     /// Primitives get their zero values, structs get new T(), reference types get null.
     /// Type parameters with struct constraint get new T() for consistency with concrete structs.
     /// </summary>
-    internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol)
+    internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol, ConversionContext context)
     {
         var defaultValue = typeName switch
         {
@@ -794,6 +794,19 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // which in Java corresponds to new T() (structs become classes).
         if (typeSymbol is ITypeParameterSymbol { HasValueTypeConstraint: true })
             return $"new {typeName}()";
+
+        // For unconstrained type parameters, query the binding analyzer to check
+        // if all subclass instantiations bind this parameter to the same struct type.
+        if (typeSymbol is ITypeParameterSymbol typeParam)
+        {
+            var binding = context.GetBindingAnalyzer().GetBinding(typeParam);
+            if (binding.Kind == Analysis.TypeParameterBindingKind.AlwaysSameStruct
+                && binding.ConcreteStructType != null)
+            {
+                var concreteJavaType = context.MapType(binding.ConcreteStructType);
+                return $"new {concreteJavaType}()";
+            }
+        }
 
         return "null"; // Reference types and unconstrained type parameters default to null
     }

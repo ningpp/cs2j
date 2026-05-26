@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
+using CSharpToJava.Core.Analysis;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
@@ -100,6 +101,17 @@ public class FieldTransformer : IMemberTransformer
                 && StructCloneHelper.IsUserDefinedStruct(fieldTypeSymbol))
             {
                 javaField.Initializer = $"new {javaType}()";
+            }
+            else if (variable.Initializer == null
+                && fieldTypeSymbol is ITypeParameterSymbol typeParam)
+            {
+                var binding = context.GetBindingAnalyzer().GetBinding(typeParam);
+                if (binding.Kind == TypeParameterBindingKind.AlwaysSameStruct
+                    && binding.ConcreteStructType != null)
+                {
+                    var concreteJavaType = context.MapType(binding.ConcreteStructType);
+                    javaField.Initializer = $"new {concreteJavaType}()";
+                }
             }
 
             if (variable.Initializer != null)

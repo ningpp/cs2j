@@ -192,6 +192,7 @@ public class ConversionPipeline
                     })
             );
             var library = Cs2jLibraryFactory.CreateSingleFile(request.SourceCode, request.FileName, syntaxTree, compilation);
+            context.ProjectCompilation = compilation;
             context.SemanticModel = library.PrimaryCompilation?.GetSemanticModel(syntaxTree) ?? compilation.GetSemanticModel(syntaxTree);
             var passState = new SingleFilePassState
             {

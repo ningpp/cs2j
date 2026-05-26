@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Analysis;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.PartialType;
@@ -100,6 +101,20 @@ public class ConversionContext
     public void ClearMergedTypes() => _partialTypeStore.Clear();
 
     public CSharpCompilation? ProjectCompilation { get; set; }
+
+    private TypeParameterBindingAnalyzer? _bindingAnalyzer;
+
+    public TypeParameterBindingAnalyzer GetBindingAnalyzer()
+    {
+        if (_bindingAnalyzer == null)
+        {
+            var compilation = ProjectCompilation ?? SemanticModel?.Compilation;
+            _bindingAnalyzer = compilation != null
+                ? TypeParameterBindingAnalyzer.Analyze(compilation)
+                : new TypeParameterBindingAnalyzer();
+        }
+        return _bindingAnalyzer;
+    }
 
     /// <summary>
     /// Saved compilation from immediately before the final procedural LINQ rewrite

@@ -718,6 +718,97 @@ public class Simple
         Assert.DoesNotContain("public double Value = ", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ── Generic type parameter struct binding tests ──────────────────────────
+
+    [Fact]
+    public void GenericTypeParam_AlwaysSameStruct_FieldGetsInitializer()
+    {
+        var result = Convert(@"
+public struct ValueType { public int Value; }
+public abstract class Base<TValue>
+{
+    public TValue Field;
+}
+public class Derived : Base<ValueType> { }
+");
+
+        Assert.True(result.Success);
+        // Field of type parameter that is always bound to the same struct should get initializer
+        // The field type stays as the type parameter name (TValue), but the initializer
+        // uses the concrete struct type (ValueType) so Java can instantiate it.
+        Assert.Contains("new ValueType()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericTypeParam_DefaultExpression_EmitsNewStruct()
+    {
+        var result = Convert(@"
+public struct ValueType { public int Value; }
+public class Container<TValue>
+{
+    public TValue GetDefault() { return default(TValue); }
+}
+public class Derived : Container<ValueType> { }
+");
+
+        Assert.True(result.Success);
+        // default(TValue) where TValue is always bound to a struct should emit new ValueType()
+        Assert.Contains("new ValueType()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("return null", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericTypeParam_DefaultLiteral_EmitsNewStruct()
+    {
+        var result = Convert(@"
+public struct ValueType { public int Value; }
+public class Container<TValue>
+{
+    public void Reset() { TValue v = default; }
+}
+public class Derived : Container<ValueType> { }
+");
+
+        Assert.True(result.Success);
+        // default literal where TValue is always bound to a struct should emit new ValueType()
+        Assert.Contains("new ValueType()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericTypeParam_AlwaysReference_KeepsNullDefault()
+    {
+        var result = Convert(@"
+public class RefType { public int Value; }
+public abstract class Base<TValue>
+{
+    public TValue Field;
+}
+public class Derived : Base<RefType> { }
+");
+
+        Assert.True(result.Success);
+        // Field of type parameter always bound to reference type should NOT get struct initializer
+        Assert.DoesNotContain("new RefType()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericTypeParam_NoSubclassInfo_FallsBackToNull()
+    {
+        var result = Convert(@"
+public struct ValueType { public int Value; }
+public abstract class Base<TValue>
+{
+    public TValue Field;
+}
+// No subclass — analyzer cannot determine binding
+");
+
+        Assert.True(result.Success);
+        // When no subclass info is available, fall back to current behavior (no initializer)
+        // The field should be declared without a struct initializer
+        Assert.DoesNotContain("Field = new", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

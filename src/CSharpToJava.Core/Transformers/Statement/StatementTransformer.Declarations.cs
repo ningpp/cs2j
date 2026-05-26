@@ -351,7 +351,7 @@ public partial class StatementTransformer
                 // The original C# used 'var' without initializer — Java needs a type with default.
                 // Delegate to the authoritative GetDefaultValueForType for consistent defaults.
                 var localSym = context.SemanticModel?.GetDeclaredSymbol(v) as ILocalSymbol;
-                var defaultVal = TypeOperationTransformer.GetDefaultValueForType(javaType, localSym?.Type);
+                var defaultVal = TypeOperationTransformer.GetDefaultValueForType(javaType, localSym?.Type, context);
                 init = $" = {defaultVal}";
             }
             else
