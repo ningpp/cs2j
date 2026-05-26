@@ -765,8 +765,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     /// <summary>
     /// Returns the Java default value for a given mapped type name and optional type symbol.
     /// Primitives get their zero values, structs get new T(), reference types get null.
+    /// Type parameters with struct constraint get new T() for consistency with concrete structs.
     /// </summary>
-    private static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol)
+    internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol)
     {
         var defaultValue = typeName switch
         {
@@ -788,7 +789,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Struct })
             return $"new {typeName}()";
 
-        return "null"; // Reference types default to null
+        // For type parameters with struct constraint, emit new T().
+        // C# default(T) where T : struct yields the zero-initialized value,
+        // which in Java corresponds to new T() (structs become classes).
+        if (typeSymbol is ITypeParameterSymbol { HasValueTypeConstraint: true })
+            return $"new {typeName}()";
+
+        return "null"; // Reference types and unconstrained type parameters default to null
     }
 
     private string TransformChecked(CheckedExpressionSyntax node, ConversionContext context)

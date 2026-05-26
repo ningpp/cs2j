@@ -349,14 +349,10 @@ public partial class StatementTransformer
             else if (wasConvertedFromVar && javaType != "var" && javaType != "Object")
             {
                 // The original C# used 'var' without initializer — Java needs a type with default.
-                // Use type-appropriate defaults: primitives get their zero value, reference types get null.
-                init = javaType switch
-                {
-                    "int" or "short" or "byte" or "long" or "char" => " = 0",
-                    "double" or "float" => " = 0.0",
-                    "boolean" => " = false",
-                    _ => " = null"  // reference type
-                };
+                // Delegate to the authoritative GetDefaultValueForType for consistent defaults.
+                var localSym = context.SemanticModel?.GetDeclaredSymbol(v) as ILocalSymbol;
+                var defaultVal = TypeOperationTransformer.GetDefaultValueForType(javaType, localSym?.Type);
+                init = $" = {defaultVal}";
             }
             else
             {

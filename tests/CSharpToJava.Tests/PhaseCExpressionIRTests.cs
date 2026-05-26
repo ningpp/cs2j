@@ -677,6 +677,58 @@ class T {
         Assert.Contains("null", result);
     }
 
+    [Fact]
+    public void TypeOp_Default_TypeParameter_Unconstrained_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    TValue M<TValue>() {
+        return default(TValue);
+    }
+}");
+        Assert.Contains("null", result);
+        Assert.DoesNotContain("new TValue()", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_StructConstraint_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    TValue M<TValue>() where TValue : struct {
+        return default(TValue);
+    }
+}");
+        Assert.Contains("new TValue()", result);
+        Assert.DoesNotContain("null", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_ClassConstraint_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    TValue M<TValue>() where TValue : class {
+        return default(TValue);
+    }
+}");
+        Assert.Contains("null", result);
+        Assert.DoesNotContain("new TValue()", result);
+    }
+
+    [Fact]
+    public void TypeOp_DefaultLiteral_TypeParameter_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    TValue M<TValue>() {
+        TValue x = default;
+        return x;
+    }
+}");
+        Assert.Contains("null", result);
+    }
+
     // ── Phase 1 Deep IR: IdentifierExpressionTransformer ───────────
 
     [Fact]
