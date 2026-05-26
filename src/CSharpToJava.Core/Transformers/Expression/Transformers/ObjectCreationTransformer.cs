@@ -260,6 +260,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         });
     }
 
+    /// <summary>
+    /// Returns true if <paramref name="method"/> has any type parameter with a
+    /// <c>new()</c> constraint, indicating that the method may instantiate type
+    /// parameters via <c>new T()</c>.
+    /// </summary>
+    public static bool HasNewConstraintObjectCreation(IMethodSymbol method)
+    {
+        return method.TypeParameters.Any(tp => tp.HasConstructorConstraint);
+    }
+
     private string TransformObjectCreationWithArgs(
         string typeName,
         ArgumentListSyntax? argumentList,
