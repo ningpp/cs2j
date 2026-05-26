@@ -214,7 +214,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             if (HasCollectionConstraint(typeParameter))
             {
                 context.AddImport("java.util.ArrayList");
-                return $"new ArrayList<>()";
+                var elementType = GetCollectionElementType(typeParameter);
+                var javaElementType = elementType != null ? context.MapType(elementType) : "Object";
+                return $"({typeName}) new ArrayList<{javaElementType}>()";
             }
 
             if (typeParameter.HasConstructorConstraint)
@@ -258,6 +260,38 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
             return false;
         });
+    }
+
+    /// <summary>
+    /// Extracts the element type from the first collection constraint on a type parameter.
+    /// E.g., for <c>TC : ICollection&lt;TS&gt;</c>, returns <c>TS</c>.
+    /// Returns null if the collection constraint has no type arguments (non-generic ICollection).
+    /// </summary>
+    private static ITypeSymbol? GetCollectionElementType(ITypeParameterSymbol typeParameter)
+    {
+        foreach (var ct in typeParameter.ConstraintTypes)
+        {
+            if (ct is INamedTypeSymbol named && named.Name is "ICollection" or "IEnumerable"
+                && named.TypeArguments.Length == 1)
+            {
+                return named.TypeArguments[0];
+            }
+
+            // Check inherited interfaces on the constraint type itself
+            if (ct is INamedTypeSymbol named2)
+            {
+                foreach (var iface in named2.AllInterfaces)
+                {
+                    if (iface.Name is "ICollection" or "IEnumerable"
+                        && iface.TypeArguments.Length == 1)
+                    {
+                        return iface.TypeArguments[0];
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

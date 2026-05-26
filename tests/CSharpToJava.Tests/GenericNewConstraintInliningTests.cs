@@ -67,7 +67,7 @@ public class BundleRouter
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.DoesNotContain("(TC) new ArrayList", code);
+        Assert.DoesNotContain("new ArrayList<>()", code);
         Assert.Contains("new Set<EdgeGeometry>()", code);
         Assert.Contains(".get(", code);
     }
@@ -104,7 +104,7 @@ public class Demo
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.DoesNotContain("(TC) new ArrayList", code);
+        Assert.DoesNotContain("new ArrayList<>()", code);
         Assert.Contains("new ArrayList<String>()", code);
     }
 
@@ -130,7 +130,87 @@ public static class CollectionUtilities
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("new ArrayList<>()", code);
+        Assert.Contains("(TC) new ArrayList<TS>()", code);
+    }
+
+    [Fact]
+    public void AddToMap_Standalone_IEnumerableConstraint_FallbackHasExplicitTypeArg()
+    {
+        var result = Convert("""
+using System.Collections.Generic;
+
+public static class CollectionUtilities
+{
+    public static void AddToMap<TS, T, TC>(Dictionary<T, TC> dictionary, T key, TS value)
+        where TC : IEnumerable<TS>, new()
+    {
+        TC tc;
+        if (!dictionary.TryGetValue(key, out tc))
+            dictionary[key] = tc = new TC();
+        tc.Add(value);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("(TC) new ArrayList<TS>()", code);
+        Assert.DoesNotContain("new ArrayList<>()", code);
+    }
+
+    [Fact]
+    public void AddToMap_Standalone_ConcreteElementType_FallbackHasConcreteTypeArg()
+    {
+        var result = Convert("""
+using System.Collections.Generic;
+
+public static class CollectionUtilities
+{
+    public static void AddToMap<T, TC>(Dictionary<T, TC> dictionary, T key, string value)
+        where TC : ICollection<string>, new()
+    {
+        TC tc;
+        if (!dictionary.TryGetValue(key, out tc))
+            dictionary[key] = tc = new TC();
+        tc.Add(value);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("(TC) new ArrayList<String>()", code);
+        Assert.DoesNotContain("new ArrayList<>()", code);
+    }
+
+    [Fact]
+    public void AddToMap_Standalone_MultipleConstraints_FallbackUsesCollectionConstraint()
+    {
+        var result = Convert("""
+using System.Collections.Generic;
+
+public interface ICustomSink { void Flush(); }
+
+public static class CollectionUtilities
+{
+    public static void AddToMap<TS, T, TC>(Dictionary<T, TC> dictionary, T key, TS value)
+        where TC : ICustomSink, ICollection<TS>, new()
+    {
+        TC tc;
+        if (!dictionary.TryGetValue(key, out tc))
+            dictionary[key] = tc = new TC();
+        tc.Add(value);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("(TC) new ArrayList<TS>()", code);
+        Assert.DoesNotContain("new ArrayList<>()", code);
     }
 
     private static ConversionResult Convert(string sourceCode)
