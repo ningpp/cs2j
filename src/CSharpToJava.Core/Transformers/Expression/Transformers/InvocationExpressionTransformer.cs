@@ -1113,6 +1113,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Inline generic methods with new() constraint: resolve concrete type bindings
+        // at the call site and generate inlined code with correct concrete constructor.
+        if (methodSymbol != null
+            && ObjectCreationTransformer.HasNewConstraintObjectCreation(methodSymbol.OriginalDefinition))
+        {
+            var inlined = TryInlineNewConstraintMethodCall(
+                methodSymbol, node, memberAccess, context);
+            if (inlined != null)
+                return inlined;
+        }
+
         if (originalMethodName == "ToArray"
             && node.ArgumentList.Arguments.Count == 0
             && TryTransformArrayToArrayCopy(
@@ -5702,5 +5713,179 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         var idx = type.IndexOf('<');
         return idx >= 0 ? type[..idx].TrimEnd() : type;
+    }
+
+    /// <summary>
+    /// Attempts to inline a generic method call where a type parameter with new()
+    /// constraint is instantiated. Resolves concrete type bindings at the call site
+    /// and generates inlined code with concrete types substituted.
+    /// </summary>
+    private static string? TryInlineNewConstraintMethodCall(
+        IMethodSymbol methodSymbol,
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context)
+    {
+        if (!methodSymbol.IsGenericMethod)
+            return null;
+
+        var origDef = methodSymbol.OriginalDefinition;
+        var newConstrainedParams = origDef.TypeParameters
+            .Where(tp => tp.HasConstructorConstraint)
+            .ToList();
+
+        if (newConstrainedParams.Count == 0)
+            return null;
+
+        // Build concrete type arg mapping
+        var origParams = origDef.TypeParameters;
+        var typeArgs = methodSymbol.TypeArguments;
+
+        if (origParams.Length != typeArgs.Length)
+            return null;
+
+        var typeArgMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        for (int i = 0; i < origParams.Length; i++)
+        {
+            if (typeArgs[i] is ITypeParameterSymbol)
+                return null; // nested generic — can't resolve concrete type
+            typeArgMap[origParams[i]] = typeArgs[i];
+        }
+
+        // Try to match the AddToMap pattern and generate inline code
+        return TryGenerateAddToMapInline(methodSymbol, typeArgMap, node, context);
+    }
+
+    /// <summary>
+    /// Generates inlined Java code for the CollectionUtilities.AddToMap pattern:
+    ///   TC tc = dict.get(key);
+    ///   if (tc == null) { tc = new TC(); dict.put(key, tc); }
+    ///   tc.add(value);
+    /// </summary>
+    private static string? TryGenerateAddToMapInline(
+        IMethodSymbol methodSymbol,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> typeArgMap,
+        InvocationExpressionSyntax node,
+        ConversionContext context)
+    {
+        var parameters = methodSymbol.Parameters;
+
+        // Must have exactly 3 parameters: (Dictionary, key, value)
+        if (parameters.Length < 3)
+            return null;
+
+        // Find the Dictionary parameter
+        int dictParamIdx = -1;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var paramOriginalDisplay = parameters[i].Type.OriginalDefinition.ToDisplayString();
+            if (paramOriginalDisplay.StartsWith("System.Collections.Generic.Dictionary<")
+                || paramOriginalDisplay.StartsWith("System.Collections.Generic.IDictionary<"))
+            {
+                dictParamIdx = i;
+                break;
+            }
+        }
+        if (dictParamIdx < 0)
+            return null;
+
+        // Find the TC type parameter (the one with new() constraint)
+        var tcParam = methodSymbol.OriginalDefinition.TypeParameters
+            .FirstOrDefault(tp => tp.HasConstructorConstraint);
+        if (tcParam == null)
+            return null;
+
+        // Get concrete TC type
+        if (!typeArgMap.TryGetValue(tcParam, out var tcConcreteSymbol))
+            return null;
+
+        string tcType = context.MapType(tcConcreteSymbol);
+
+        // Identify key and value parameter indices
+        // The non-dictionary params are key and value.
+        // key matches dict.TypeArguments[0]; value is the remaining param
+        int keyParamIdx = -1;
+        int valueParamIdx = -1;
+
+        if (parameters[dictParamIdx].Type is INamedTypeSymbol dictType
+            && dictType.TypeArguments.Length == 2)
+        {
+            var dictKeyType = dictType.TypeArguments[0];
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (i == dictParamIdx) continue;
+                if (SymbolEqualityComparer.Default.Equals(parameters[i].Type, dictKeyType))
+                    keyParamIdx = i;
+                else
+                    valueParamIdx = i;
+            }
+        }
+
+        // Fallback: assume param 1 = key, param 2 = value (canonical AddToMap order)
+        if (keyParamIdx < 0) keyParamIdx = dictParamIdx == 0 ? 1 : 0;
+        if (valueParamIdx < 0)
+        {
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (i != dictParamIdx && i != keyParamIdx)
+                {
+                    valueParamIdx = i;
+                    break;
+                }
+            }
+        }
+
+        if (valueParamIdx < 0 || node.ArgumentList.Arguments.Count <= valueParamIdx)
+            return null;
+
+        // Verify the method body contains new TC() pattern (syntactic check)
+        var origDef = methodSymbol.OriginalDefinition;
+        BaseMethodDeclarationSyntax? methodSyntax = null;
+        foreach (var syntaxRef in origDef.DeclaringSyntaxReferences)
+        {
+            if (syntaxRef.GetSyntax() is BaseMethodDeclarationSyntax decl)
+            {
+                methodSyntax = decl;
+                break;
+            }
+        }
+
+        if (methodSyntax?.Body == null)
+            return null;
+
+        // Check: does the body contain "new TC()" where TC is the new()-constrained param?
+        bool hasNewTC = false;
+        foreach (var descendant in methodSyntax.Body.DescendantNodes())
+        {
+            if (descendant is ObjectCreationExpressionSyntax creation
+                && (creation.ArgumentList == null || creation.ArgumentList.Arguments.Count == 0)
+                && creation.Type is IdentifierNameSyntax idName
+                && idName.Identifier.Text == tcParam.Name)
+            {
+                hasNewTC = true;
+                break;
+            }
+        }
+        if (!hasNewTC)
+            return null;
+
+        // Generate the inlined code
+        var facade = ExpressionTransformerFacade.Instance;
+
+        var dictArg = node.ArgumentList.Arguments[dictParamIdx].Expression;
+        var dictExpr = facade.Transform(dictArg, context);
+
+        var keyArg = node.ArgumentList.Arguments[keyParamIdx].Expression;
+        var keyExpr = facade.Transform(keyArg, context);
+
+        var valueArg = node.ArgumentList.Arguments[valueParamIdx].Expression;
+        var valueExpr = facade.Transform(valueArg, context);
+
+        string tmpVar = context.GenerateSyntheticName("_tc");
+
+        // { TC _tc = dict.get(key); if (_tc == null) { _tc = new TC(); dict.put(key, _tc); } _tc.add(value); }
+        return $"{{ {tcType} {tmpVar} = {dictExpr}.get({keyExpr}); " +
+               $"if ({tmpVar} == null) {{ {tmpVar} = new {tcType}(); {dictExpr}.put({keyExpr}, {tmpVar}); }} " +
+               $"{tmpVar}.add({valueExpr}); }}";
     }
 }
