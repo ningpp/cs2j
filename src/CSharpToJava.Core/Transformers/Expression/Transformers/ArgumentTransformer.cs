@@ -652,11 +652,25 @@ public class ArgumentTransformer
             }
         }
 
-        return ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+        var result = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
             arg.Expression,
             transformedExpr,
             paramType,
             context);
+
+        // When C# byte (Java int) is passed to Java byte (sbyte/library) parameter,
+        // narrow with (byte) cast
+        if (context.SemanticModel != null)
+        {
+            var argTypeForByte = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
+            var paramTypeForByte = targetParam.Type;
+            if (argTypeForByte?.SpecialType == SpecialType.System_Byte
+                && paramTypeForByte.SpecialType == SpecialType.System_SByte)
+            {
+                result = $"(byte)({result})";
+            }
+        }
+        return result;
     }
 
     /// <summary>

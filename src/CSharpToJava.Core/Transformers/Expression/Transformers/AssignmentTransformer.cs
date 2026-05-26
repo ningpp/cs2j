@@ -538,6 +538,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // When the LHS is a C# byte-typed simple identifier (Java int), compound assignments
+        // need & 0xFF masking to preserve wrap-at-256 semantics.
+        if (op != "=" && leftNode is IdentifierNameSyntax compoundIdentByte
+            && !(context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+        {
+            var lhsTypeForByte = context.SemanticModel?.GetTypeInfo(leftNode).Type;
+            if (lhsTypeForByte?.SpecialType == SpecialType.System_Byte)
+            {
+                var leftByte = facade.Transform(leftNode, context);
+                var rightByte = facade.Transform(rightNode, context);
+                string baseOpByte = op[..^1];
+                return $"{leftByte} = ({leftByte} {baseOpByte} {rightByte}) & 0xFF";
+            }
+        }
+
         // Compound assignment where the operator is user-defined (e.g. Point2 += Point2).
         // Java has no operator overloading, so expand: lhs op= rhs → lhs = TypeName.method(lhs, rhs)
         // For property LHS this must also go through getter/setter.

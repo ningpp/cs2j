@@ -5077,7 +5077,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_Int32   => "Integer",
             SpecialType.System_Int64   => "Long",
             SpecialType.System_Int16   => "Short",
-            SpecialType.System_Byte    => "Byte",
+            SpecialType.System_Byte    => "Integer",
             SpecialType.System_SByte   => "Byte",
             SpecialType.System_UInt32  => "Integer",
             SpecialType.System_UInt64  => "Long",

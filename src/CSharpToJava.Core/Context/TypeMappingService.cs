@@ -315,6 +315,9 @@ public class TypeMappingService
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementType = MapType(arrayType.ElementType);
+            // C# byte[] stays Java byte[] for API compatibility
+            if (arrayType.ElementType.SpecialType == SpecialType.System_Byte)
+                elementType = "byte";
             var brackets = string.Concat(Enumerable.Repeat("[]", arrayType.Rank));
             return elementType + brackets;
         }
@@ -661,7 +664,7 @@ public class TypeMappingService
             "Int32" => "int",
             "Int64" => "long",
             "Int16" => "short",
-            "Byte" => "byte",
+            "Byte" => "int",
             "SByte" => "byte",
             "UInt32" => "int",
             "UInt64" => "long",
@@ -733,7 +736,7 @@ public class TypeMappingService
             "int"     => "int",
             "long"    => "long",
             "short"   => "short",
-            "byte"    => "byte",
+            "byte"    => "int",
             "sbyte"   => "byte",
             "uint"    => "int",
             "ulong"   => "long",

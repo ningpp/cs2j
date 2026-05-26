@@ -769,7 +769,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             "int" => "0",
             "long" => "0L",
             "short" => "(short)0",
-            "byte" => "(byte)0",
+            "byte" => "0",
             "float" => "0.0f",
             "double" => "0.0",
             "boolean" => "false",
@@ -814,7 +814,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             return predefined.Keyword.Text switch
             {
-                "byte" or "sbyte" or "bool" => "1",
+                "byte" => "4",
+                "sbyte" or "bool" => "1",
                 "short" or "ushort" or "char" => "2",
                 "int" or "uint" or "float" => "4",
                 "long" or "ulong" or "double" => "8",

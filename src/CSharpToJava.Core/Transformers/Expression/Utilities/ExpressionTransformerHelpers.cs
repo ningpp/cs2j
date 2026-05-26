@@ -165,9 +165,23 @@ public static class ExpressionTransformerHelpers
         if (TryRewriteNumericLiteral(expression, targetSpecial, out var rewrittenLiteral))
             return rewrittenLiteral;
 
+        // C# byte (unsigned) → Java int: when the target is System_Byte and source differs
+        if (targetSpecial == SpecialType.System_Byte)
+        {
+            bool needsNarrowingCast = sourceSpecial is SpecialType.System_Int64
+                or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double;
+
+            if (needsNarrowingCast)
+            {
+                return $"(int) ({transformedExpression}) & 0xFF";
+            }
+            // Source fits in int: add mask directly (handles int→byte wrapping, char→byte, etc.)
+            return $"({transformedExpression}) & 0xFF";
+        }
+
         var castKeyword = targetSpecial switch
         {
-            SpecialType.System_Byte or SpecialType.System_SByte => "byte",
+            SpecialType.System_SByte => "byte",
             SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
             SpecialType.System_Int32 or SpecialType.System_UInt32 => "int",
             SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
@@ -394,7 +408,7 @@ public static class ExpressionTransformerHelpers
             "float" => "Float",
             "long" => "Long",
             "short" => "Short",
-            "byte" => "short",
+            "byte" => "Integer",
             "sbyte" => "byte",
             "char" => "Character",
             "bool" => "Boolean",
@@ -422,6 +436,13 @@ public static class ExpressionTransformerHelpers
             _ => javaType
         };
     }
+
+    /// <summary>
+    /// Wraps an expression in &amp; 0xFF when the target is a C# byte (now Java int)
+    /// to preserve C# byte's wrap-at-256 semantics.
+    /// </summary>
+    public static string MaskByte(string expr, bool isByteTarget)
+        => isByteTarget ? $"({expr}) & 0xFF" : expr;
 
     /// <summary>
     /// Formats an enum member access using a single symbol-based rule shared across

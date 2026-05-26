@@ -30,7 +30,7 @@
                          },
                          {
                              "csharp":  "System.Byte",
-                             "java":  "byte",
+                             "java":  "int",
                              "imports":  [
 
                                          ]
