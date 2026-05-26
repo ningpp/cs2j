@@ -214,11 +214,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             if (HasCollectionConstraint(typeParameter))
             {
                 context.AddImport("java.util.ArrayList");
-                return $"({typeName}) new ArrayList<>()";
+                return $"new ArrayList<>()";
             }
 
             if (typeParameter.HasConstructorConstraint)
-                return $"({typeName}) new Object()";
+                return "new Object()";
         }
 
         // Check if there's an object initializer
