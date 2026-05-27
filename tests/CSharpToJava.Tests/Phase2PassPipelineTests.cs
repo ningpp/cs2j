@@ -169,6 +169,7 @@ public class Phase2PassPipelineTests
                 "ProjectTypeEmitPass",
                 "ProjectCompatibilityEmitPass",
                 "ProjectCrossPackageImportEmitPass",
+                "ProjectStructClonePatchPass",
                 "ProjectJavaModuleDependencyPass",
             },
             primaryResult.PassMetrics.Select(metric => metric.Name).ToArray());

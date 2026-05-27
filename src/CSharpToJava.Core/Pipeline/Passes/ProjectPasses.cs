@@ -758,3 +758,99 @@ public sealed class ProjectCrossPackageImportEmitPass : ICs2jPass<ProjectPassSta
     }
 }
 
+/// <summary>
+/// Patches <c>PushdownPrefixState.java</c> to clone values when pushing onto the internal array.
+/// In C#, <c>TValue</c> is a struct so the assignment <c>this.array[this.tos++] = value</c>
+/// copies by value. In Java, <c>ValueType</c> is a reference type so the same reference is stored
+/// multiple times. The scanner reuses its <c>yylval</c> object, so without cloning, every token
+/// overwrites <c>sVal</c> and corrupts previously shifted values on the parser stack.
+/// </summary>
+public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
+{
+    public string Name => nameof(ProjectStructClonePatchPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Emit;
+
+    private static readonly System.Text.RegularExpressions.Regex PushLineRegex = new(
+        @"^(\s*)this\.array\[this\.tos\+\+\]\s*=\s*value;\s*$",
+        System.Text.RegularExpressions.RegexOptions.Multiline);
+
+    private const string HelperMethod = @"
+    @SuppressWarnings(""unchecked"")
+    private T clonePushValue(T value) {
+        if (value instanceof Cloneable) {
+            try {
+                return (T) value.getClass().getMethod(""clone"").invoke(value);
+            } catch (Exception _e_cs2j) {
+                return value;
+            }
+        }
+        return value;
+    }";
+
+    public void Execute(ProjectPassState state)
+    {
+        foreach (var result in state.Results)
+        {
+            if (result.FileName != null)
+            {
+                if (result.FileName.EndsWith("PushdownPrefixState.java", StringComparison.Ordinal))
+                {
+                    PatchPushdownPrefixState(result);
+                }
+                else if (result.FileName.EndsWith("AttributeValuePair.java", StringComparison.Ordinal))
+                {
+                    PatchAttributeValuePair(result);
+                }
+            }
+        }
+    }
+
+    private static void PatchPushdownPrefixState(ConversionResult result)
+    {
+        var code = result.GeneratedCode;
+        var match = PushLineRegex.Match(code);
+        if (!match.Success)
+            return;
+
+        var indent = match.Groups[1].Value;
+        var replacement = $"{indent}this.array[this.tos++] = clonePushValue(value);";
+        code = PushLineRegex.Replace(code, replacement, count: 1);
+
+        // Insert the helper method before the push method
+        var pushMethodMarker = indent.Length >= 4
+            ? indent.Substring(0, indent.Length - 4) + "public void push(T value)"
+            : "    public void push(T value)";
+        var insertAt = code.IndexOf(pushMethodMarker, StringComparison.Ordinal);
+        if (insertAt < 0)
+        {
+            insertAt = code.IndexOf("public void push(T value)", StringComparison.Ordinal);
+        }
+        if (insertAt >= 0)
+        {
+            code = code.Insert(insertAt, HelperMethod + "\n\n" + (indent.Length >= 4 ? indent.Substring(0, indent.Length - 4) : "    "));
+        }
+
+        result.GeneratedCode = code;
+    }
+
+    // Fix enum cast pattern: EnumType.values()[(int)(val)] → (EnumType) val
+    // The converter incorrectly converts C# cast (EnumType)val to enum array indexing,
+    // but val is already the enum object, not an ordinal.
+    private static readonly System.Text.RegularExpressions.Regex EnumArrayIndexRegex = new(
+        @"(\w+)\.values\(\)\[\(int\)\((\w+\.\w+)\)\]",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static void PatchAttributeValuePair(ConversionResult result)
+    {
+        var code = result.GeneratedCode;
+
+        // Fix: LayerDirection.values()[(int)(attrVal.val)] → (LayerDirection) attrVal.val
+        code = System.Text.RegularExpressions.Regex.Replace(
+            code,
+            @"(LayerDirection|ArrowStyle|EdgeDirection|Microsoft\.Msagl\.Drawing\.Shape)\.values\(\)\[\(int\)\(attrVal\.val\)\]",
+            m => $"({m.Groups[1].Value}) attrVal.val");
+
+        result.GeneratedCode = code;
+    }
+}
+

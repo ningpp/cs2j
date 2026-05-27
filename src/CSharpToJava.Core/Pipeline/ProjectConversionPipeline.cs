@@ -136,6 +136,7 @@ public class ProjectConversionPipeline
             new ProjectTypeEmitPass(_irRewriters),
             new ProjectCompatibilityEmitPass(),
             new ProjectCrossPackageImportEmitPass(),
+            new ProjectStructClonePatchPass(),
             new ProjectJavaModuleDependencyPass(),
         };
     }
