@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace CSharpToJava.Core.Java.Rewriters;
 
 /// <summary>
@@ -21,35 +23,26 @@ public sealed class LineContinuationTrimRewriter : JavaSyntaxRewriter
     private int _rewriteCount;
     private bool _trimStringFixed;
     private bool _scanCaseFixed;
+    private string _currentMethodName = string.Empty;
 
-    /// <summary>Number of rewrites performed during traversal.</summary>
     public int RewriteCount => _rewriteCount;
 
-    // Verbatim strings matching the literal text in the generated Java source.
-    // C# verbatim strings treat \r, \n as literal backslash+letter, not escapes.
+    // Substring patterns for trimString detection — indentation-independent.
     private const string CrlfCheckPattern = @"endsWith(""\\\r\n"")";
     private const string LfCheckPattern   = @"endsWith(""\\\n"")";
     private const string CrCheckPattern   = @"endsWith(""\\\r"")";
 
-    private const string Case35GroupedPattern =
-        @"case 30, 31, 33, 35:" + "\n" +
-        @"            stringId += getYytext();" + "\n" +
-        @"            break;";
+    // Key text substring for scan() case 35 detection — indentation-independent.
+    private const string Case35GroupedKey = @"case 30, 31, 33, 35:";
 
-    private static readonly string Case35FixedBlock =
-        @"case 30, 31, 33:" + "\n" +
-        @"            stringId += getYytext();" + "\n" +
-        @"            break;" + "\n" +
-        @"        case 35:" + "\n" +
-        @"            stringId += getYytext();" + "\n" +
-        @"            trimString();" + "\n" +
-        @"            break;";
+    // Regex to match the grouped case block with flexible leading whitespace.
+    private static readonly Regex ScanCase35Regex = new(
+        @"^(\s*)case 30, 31, 33, 35:\s*\n" +
+        @"\s*stringId \+= getYytext\(\);\s*\n" +
+        @"\s*break;",
+        RegexOptions.Compiled | RegexOptions.Multiline);
 
     private const string LfBranchEndMarker = @"stringId.length() - 2);";
-
-    private static readonly string CrOnlyBranch =
-        @"        } else if (stringId.endsWith(""\\\r"")) {" + "\n" +
-        @"            stringId = stringId.substring(0, stringId.length() - 2);";
 
     public override JavaCompilationUnit VisitCompilationUnit(JavaCompilationUnit node)
     {
@@ -61,39 +54,59 @@ public sealed class LineContinuationTrimRewriter : JavaSyntaxRewriter
 
     public override JavaMethodDeclaration VisitMethodDeclaration(JavaMethodDeclaration node)
     {
+        var previousMethod = _currentMethodName;
+        _currentMethodName = node.Name;
+
         var result = base.VisitMethodDeclaration(node);
 
-        if (string.IsNullOrWhiteSpace(node.Body))
-            return result;
-
-        if (!_trimStringFixed && IsTrimStringMethod(node))
+        // Check raw Body string (v1 pipeline)
+        if (!string.IsNullOrWhiteSpace(node.Body))
         {
-            if (NeedsTrimStringFix(node.Body))
+            ApplyFixes(node.Body, fixedBody =>
             {
-                node.Body = FixTrimString(node.Body);
-                _trimStringFixed = true;
-                _rewriteCount++;
-            }
+                node.Body = fixedBody;
+            });
         }
 
-        if (!_scanCaseFixed && IsScanMethod(node))
+        _currentMethodName = previousMethod;
+        return result;
+    }
+
+    public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
+    {
+        var result = base.VisitRawStatement(node);
+
+        // Handle fixes in raw statements within StructuredBody (v2 pipeline)
+        if (!string.IsNullOrWhiteSpace(node.Code))
         {
-            if (NeedsScanCaseFix(node.Body))
+            ApplyFixes(node.Code, fixedCode =>
             {
-                node.Body = FixScanCase(node.Body);
-                _scanCaseFixed = true;
-                _rewriteCount++;
-            }
+                node.Code = fixedCode;
+            });
         }
 
         return result;
     }
 
-    private static bool IsTrimStringMethod(JavaMethodDeclaration node)
-        => node.Name.Equals("trimString", StringComparison.OrdinalIgnoreCase);
+    private void ApplyFixes(string code, Action<string> assignBack)
+    {
+        if (!_trimStringFixed && IsCurrentMethod("trimString") && NeedsTrimStringFix(code))
+        {
+            assignBack(FixTrimString(code));
+            _trimStringFixed = true;
+            _rewriteCount++;
+        }
 
-    private static bool IsScanMethod(JavaMethodDeclaration node)
-        => node.Name.Equals("scan", StringComparison.OrdinalIgnoreCase);
+        if (!_scanCaseFixed && IsCurrentMethod("scan") && NeedsScanCaseFix(code))
+        {
+            assignBack(FixScanCase(code));
+            _scanCaseFixed = true;
+            _rewriteCount++;
+        }
+    }
+
+    private bool IsCurrentMethod(string name)
+        => _currentMethodName.Equals(name, StringComparison.OrdinalIgnoreCase);
 
     private static bool NeedsTrimStringFix(string body)
         => body.Contains(CrlfCheckPattern)
@@ -101,21 +114,64 @@ public sealed class LineContinuationTrimRewriter : JavaSyntaxRewriter
         && !body.Contains(CrCheckPattern);
 
     private static bool NeedsScanCaseFix(string body)
-        => body.Contains(Case35GroupedPattern);
+        => body.Contains(Case35GroupedKey)
+        && !ContainsCase35WithTrimString(body);
+
+    private static bool ContainsCase35WithTrimString(string body)
+    {
+        int idx = body.IndexOf(@"case 35:", StringComparison.Ordinal);
+        if (idx < 0) return false;
+        int end = Math.Min(idx + 300, body.Length);
+        return body.Substring(idx, end - idx).Contains("trimString();");
+    }
 
     private static string FixTrimString(string body)
     {
         int idx = body.LastIndexOf(LfBranchEndMarker, StringComparison.Ordinal);
-        if (idx < 0)
-            return body;
+        if (idx < 0) return body;
 
         int closeBrace = body.IndexOf('}', idx + LfBranchEndMarker.Length);
-        if (closeBrace < 0)
-            return body;
+        if (closeBrace < 0) return body;
 
-        return body.Insert(closeBrace, CrOnlyBranch);
+        string indent = ExtractLineIndent(body, idx);
+
+        string crOnlyBranch =
+            indent + @"} else if (stringId.endsWith(""\\\r"")) {" + "\n" +
+            indent + @"stringId = stringId.substring(0, stringId.length() - 2);" + "\n" +
+            indent;
+
+        return body.Insert(closeBrace, crOnlyBranch);
     }
 
     private static string FixScanCase(string body)
-        => body.Replace(Case35GroupedPattern, Case35FixedBlock);
+    {
+        var match = ScanCase35Regex.Match(body);
+        if (!match.Success) return body;
+
+        string indent = match.Groups[1].Value;
+
+        string replacement =
+            indent + "case 30, 31, 33:\n" +
+            indent + "stringId += getYytext();\n" +
+            indent + "break;\n" +
+            indent + "case 35:\n" +
+            indent + "stringId += getYytext();\n" +
+            indent + "trimString();\n" +
+            indent + "break;";
+
+        return ScanCase35Regex.Replace(body, replacement);
+    }
+
+    private static string ExtractLineIndent(string text, int charIndex)
+    {
+        int lineStart = text.LastIndexOf('\n', charIndex > 0 ? charIndex - 1 : 0);
+        if (lineStart < 0) lineStart = 0;
+        else lineStart++;
+
+        int i = lineStart;
+        while (i < text.Length && (text[i] == ' ' || text[i] == '\t'))
+            i++;
+
+        return text.Substring(lineStart, i - lineStart);
+    }
 }
