@@ -245,7 +245,7 @@ public sealed class TypeParameterBindingAnalyzer
         }
     }
 
-    private static string GetFullMetadataName(INamedTypeSymbol type)
+    internal static string GetFullMetadataName(INamedTypeSymbol type)
     {
         var ns = type.ContainingNamespace?.ToDisplayString() ?? "";
         var name = type.MetadataName; // Includes `arity suffix

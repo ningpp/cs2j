@@ -41,6 +41,12 @@ public class ConversionContext
     public bool IsInLambdaContext { get; set; }
     public bool IsInYieldMethod { get; set; }
     /// <summary>
+    /// True when the current member being transformed is static (static method,
+    /// static field initializer, or static constructor). Used by the default-value
+    /// factory method logic to avoid emitting instance method calls from static contexts.
+    /// </summary>
+    public bool IsInStaticMember { get; set; }
+    /// <summary>
     /// Set during method/class attribute processing when the current test class
     /// needs @ExtendWith(MSTestExtension.class) for deployment items, TestContext
     /// parameter injection, or lifecycle support.
@@ -114,6 +120,80 @@ public class ConversionContext
                 : new TypeParameterBindingAnalyzer();
         }
         return _bindingAnalyzer;
+    }
+
+    /// <summary>
+    /// Tracks which generic classes need a protected factory method for creating
+    /// default values of unconstrained type parameters (Unknown binding).
+    /// Key: full metadata name of the generic class (original definition).
+    /// Value: set of type parameter names that need factory methods.
+    /// </summary>
+    private readonly Dictionary<string, HashSet<string>> _defaultFactoryMethods = new();
+
+    public void RegisterDefaultFactoryMethod(string classFullMetadataName, string typeParamName)
+    {
+        if (!_defaultFactoryMethods.TryGetValue(classFullMetadataName, out var methods))
+        {
+            methods = new HashSet<string>();
+            _defaultFactoryMethods[classFullMetadataName] = methods;
+        }
+        methods.Add(typeParamName);
+    }
+
+    public IReadOnlySet<string>? GetDefaultFactoryMethodsForClass(string classFullMetadataName)
+    {
+        return _defaultFactoryMethods.TryGetValue(classFullMetadataName, out var methods) ? methods : null;
+    }
+
+    /// <summary>
+    /// Per-method accumulator for Class&lt;T&gt; parameters needed by method-level
+    /// type parameters whose bodies use default(T). Drained by ClassTransformer
+    /// after each method is processed to add params to the method signature.
+    /// </summary>
+    private HashSet<string>? _pendingClassTypeParams;
+
+    /// <summary>
+    /// Persistent set of method keys (containingType.MetadataName|method.MetadataName)
+    /// that have had Class&lt;T&gt; parameters added. Used by InvocationExpressionTransformer
+    /// to add type-token arguments at call sites.
+    /// </summary>
+    private readonly HashSet<string> _methodsWithClassParams = new();
+
+    public void RequireClassTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
+    {
+        _pendingClassTypeParams ??= new();
+        _pendingClassTypeParams.Add(typeParamName);
+        _methodsWithClassParams.Add($"{containingTypeMetadataName}|{methodMetadataName}");
+    }
+
+    public IReadOnlySet<string>? DrainClassTypeParams()
+    {
+        var result = _pendingClassTypeParams;
+        _pendingClassTypeParams = null;
+        return result;
+    }
+
+    public bool MethodHasClassParams(string containingTypeMetadataName, string methodMetadataName)
+    {
+        return _methodsWithClassParams.Contains($"{containingTypeMetadataName}|{methodMetadataName}");
+    }
+
+    /// <summary>
+    /// Returns the Class&lt;T&gt; literal for a type symbol at a call site.
+    /// E.g., for C# int → "int.class", for ValueType → "ValueType.class".
+    /// </summary>
+    public static string GetClassLiteral(ITypeSymbol typeSymbol, ConversionContext context)
+    {
+        if (typeSymbol.SpecialType == SpecialType.System_Int32) return "int.class";
+        if (typeSymbol.SpecialType == SpecialType.System_Int64) return "long.class";
+        if (typeSymbol.SpecialType == SpecialType.System_Int16) return "short.class";
+        if (typeSymbol.SpecialType == SpecialType.System_Byte) return "byte.class";
+        if (typeSymbol.SpecialType == SpecialType.System_Single) return "float.class";
+        if (typeSymbol.SpecialType == SpecialType.System_Double) return "double.class";
+        if (typeSymbol.SpecialType == SpecialType.System_Boolean) return "boolean.class";
+        if (typeSymbol.SpecialType == SpecialType.System_Char) return "char.class";
+        var mappedType = context.MapType(typeSymbol);
+        return $"{mappedType}.class";
     }
 
     /// <summary>

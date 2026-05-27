@@ -686,8 +686,44 @@ class T {
         return default(TValue);
     }
 }");
-        Assert.Contains("null", result);
-        Assert.DoesNotContain("new TValue()", result);
+        // Method-level type parameter: a Class<TValue> parameter is added so
+        // DefaultValue.of(token) can return the proper default (0 for int,
+        // new ValueType() for structs, null for reference types).
+        Assert.Contains("Class<TValue>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
+        Assert.DoesNotContain("return null", result);
+        Assert.DoesNotContain("_cs2jDefault_", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_StaticMethod_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T {
+    public static TValue M<TValue>() {
+        return default(TValue);
+    }
+}");
+        // Method-level type parameter in a static method — Class<TValue> param
+        // added so callers pass a type token for correct default values.
+        Assert.Contains("Class<TValue>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
+        Assert.DoesNotContain("return null", result);
+        Assert.DoesNotContain("_cs2jDefault_", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_StaticPropertyGetter_EndToEnd()
+    {
+        var result = ConvertCode(@"
+class T<TValue> {
+    public static TValue Default => default(TValue);
+}");
+        // Class-level type parameter in a static property getter — must NOT generate
+        // an instance factory method call, which would cause a Java compilation error.
+        // null is the correct fallback for static contexts.
+        Assert.DoesNotContain("_cs2jDefault_", result);
+        Assert.Contains("return null", result);
     }
 
     [Fact]
@@ -726,7 +762,12 @@ class T {
         return x;
     }
 }");
-        Assert.Contains("null", result);
+        // Method-level type parameter with bare 'default' literal.
+        // Class<TValue> param added so callers can pass type token.
+        Assert.Contains("Class<TValue>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
+        Assert.DoesNotContain("= null", result);
+        Assert.DoesNotContain("_cs2jDefault_", result);
     }
 
     // ── Phase 1 Deep IR: IdentifierExpressionTransformer ───────────

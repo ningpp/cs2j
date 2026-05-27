@@ -30,6 +30,9 @@ public class PropertyTransformer : IMemberTransformer
         var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
         var isStatic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
         var modifiers = ConvertModifiers(propDecl.Modifiers, isStatic);
+        var previousStaticContext = context.IsInStaticMember;
+        if (isStatic)
+            context.IsInStaticMember = true;
         var propertySymbol = context.SemanticModel?.GetDeclaredSymbol(propDecl);
         var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
 
@@ -233,6 +236,7 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         // 返回包装的结果
+        context.IsInStaticMember = previousStaticContext;
         return new JavaMemberCollection(results);
     }
 

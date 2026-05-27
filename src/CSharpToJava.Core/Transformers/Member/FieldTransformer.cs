@@ -112,11 +112,21 @@ public class FieldTransformer : IMemberTransformer
                     var concreteJavaType = context.MapType(binding.ConcreteStructType);
                     javaField.Initializer = $"new {concreteJavaType}()";
                 }
+                else if (binding.Kind == TypeParameterBindingKind.Unknown)
+                {
+                    // null is the honest default — subclasses with struct bindings
+                    // get proper initialization through the ClassTransformer's
+                    // AddInheritedStructFieldInitializers constructor patching.
+                }
             }
 
             if (variable.Initializer != null)
             {
+                var previousStaticContext = context.IsInStaticMember;
+                if ((modifiers & JavaModifiers.Static) != 0)
+                    context.IsInStaticMember = true;
                 javaField.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(variable.Initializer.Value, context);
+                context.IsInStaticMember = previousStaticContext;
 
                 if (context.SemanticModel != null && fieldTypeSymbol != null && IsCollectionOrListInterface(fieldTypeSymbol))
                 {

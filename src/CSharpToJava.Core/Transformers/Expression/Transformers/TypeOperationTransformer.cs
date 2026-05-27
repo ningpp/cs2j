@@ -795,6 +795,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (typeSymbol is ITypeParameterSymbol { HasValueTypeConstraint: true })
             return $"new {typeName}()";
 
+        // For type parameters with class constraint, null is always correct.
+        if (typeSymbol is ITypeParameterSymbol { HasReferenceTypeConstraint: true })
+            return "null";
+
         // For unconstrained type parameters, query the binding analyzer to check
         // if all subclass instantiations bind this parameter to the same struct type.
         if (typeSymbol is ITypeParameterSymbol typeParam)
@@ -806,9 +810,52 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 var concreteJavaType = context.MapType(binding.ConcreteStructType);
                 return $"new {concreteJavaType}()";
             }
+
+            // When the binding is unknown (e.g. independent library conversion),
+            // emit a call to a protected factory method that subclasses can override
+            // to supply a non-null default value for struct type parameters.
+            // Without the override, the factory returns DefaultValue.of() (null),
+            // but a subclass that binds TValue to a concrete struct type can
+            // override the factory to return new ValueType(), preventing NPEs.
+            //
+            // Only class-level type parameters can use this pattern — method-level
+            // type parameters fall back to DefaultValue.of() since there's no
+            // class method to override.
+            if (binding.Kind == Analysis.TypeParameterBindingKind.Unknown)
+            {
+                var containingType = typeParam.ContainingType;
+                var isClassLevel = typeParam.DeclaringMethod == null && containingType != null;
+                var isInStaticContext = context.IsInStaticMember
+                    || (context.CurrentMethod?.IsStatic == true);
+
+                if (isClassLevel && !isInStaticContext)
+                {
+                    // Class-level TP in instance context: emit a factory method call
+                    // that subclasses can override to return new ValueType().
+                    var fullName = Analysis.TypeParameterBindingAnalyzer.GetFullMetadataName(
+                        containingType.OriginalDefinition);
+                    context.RegisterDefaultFactoryMethod(fullName, typeParam.Name);
+                    return $"_cs2jDefault_{typeParam.Name}()";
+                }
+
+                // Method-level TP: add a Class<T> parameter to the method signature.
+                // The method body uses DefaultValue.of(_cs2j_T) which returns the
+                // proper default (zero for int, new ValueType() for structs, null for ref types).
+                if (typeParam.DeclaringMethod != null && containingType != null)
+                {
+                    var method = typeParam.DeclaringMethod;
+                    context.RequireClassTypeParam(
+                        containingType.MetadataName,
+                        method.MetadataName,
+                        typeParam.Name);
+                    context.AddImport("io.github.ningpp.compat.DefaultValue");
+                    return $"DefaultValue.of(_cs2j_{typeParam.Name})";
+                }
+                return "null";
+            }
         }
 
-        return "null"; // Reference types and unconstrained type parameters default to null
+        return "null"; // Reference types and AlwaysReference type parameters default to null
     }
 
     private string TransformChecked(CheckedExpressionSyntax node, ConversionContext context)

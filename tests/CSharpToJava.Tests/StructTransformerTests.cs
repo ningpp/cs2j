@@ -809,6 +809,110 @@ public abstract class Base<TValue>
         Assert.DoesNotContain("Field = new", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task GenericRuntimeLibrary_DefaultTypeParameter_NotFrozenAsNullBeforeConsumerBinding()
+    {
+        var runtimeResults = await new ProjectConversionPipeline(new ConversionOptions())
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "Runtime.cs",
+                    Content = """
+public abstract class AbstractScanner<TValue>
+{
+    public TValue yylval;
+}
+
+public abstract class ShiftReduceParser<TValue>
+{
+    protected TValue CurrentSemanticValue;
+
+    protected void Reset()
+    {
+        CurrentSemanticValue = default(TValue);
+    }
+}
+"""
+                }
+            });
+
+        Assert.All(runtimeResults, result =>
+            Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message))));
+
+        var runtimeCode = string.Join("\n", runtimeResults.Select(result => result.GeneratedCode));
+        // Runtime library has no subclass bindings visible, so the binding is Unknown.
+        // default(TValue) should emit a factory method call, not null.
+        Assert.DoesNotContain("CurrentSemanticValue = null;", runtimeCode, StringComparison.Ordinal);
+        Assert.Contains("_cs2jDefault_TValue()", runtimeCode, StringComparison.Ordinal);
+        Assert.Contains("_cs2jDefault_TValue", runtimeCode, StringComparison.Ordinal); // factory method itself
+
+        var consumerResults = await new ProjectConversionPipeline(new ConversionOptions())
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "Dot.cs",
+                    Content = """
+public struct ValueType
+{
+    public string sVal;
+}
+
+public abstract class AbstractScanner<TValue>
+{
+    public TValue yylval;
+}
+
+public abstract class ShiftReduceParser<TValue>
+{
+    protected TValue CurrentSemanticValue;
+
+    protected void Reset()
+    {
+        CurrentSemanticValue = default(TValue);
+    }
+}
+
+public abstract class ScanBase : AbstractScanner<ValueType>
+{
+}
+
+public sealed class Scanner : ScanBase
+{
+    public void Load()
+    {
+        yylval.sVal = "id";
+    }
+}
+
+public sealed class Parser : ShiftReduceParser<ValueType>
+{
+    public void UseDefault()
+    {
+        Reset();
+        CurrentSemanticValue.sVal = "id";
+    }
+}
+"""
+                }
+            });
+
+        Assert.All(consumerResults, result =>
+            Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message))));
+
+        var consumerCode = string.Join("\n", consumerResults.Select(result => result.GeneratedCode));
+        // When the binding analyzer detects TValue is always ValueType (struct),
+        // default(TValue) should resolve to new ValueType() (not null).
+        Assert.Contains("new ValueType()", consumerCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("DefaultValue.of()", consumerCode, StringComparison.Ordinal);
+        // The factory method override in Parser is added defensively — it is
+        // harmless dead code when the base class already emits new ValueType(),
+        // and critical NPE prevention when the base class comes from a separate
+        // library conversion with Unknown binding.
+        Assert.Contains("_cs2jDefault_TValue", consumerCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

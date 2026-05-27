@@ -267,6 +267,8 @@ public class ClassTransformer : ITypeTransformer
         }
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, mergedType.TypeSymbol, context);
+        AddDefaultFactoryMethods(javaClass, mergedType.TypeSymbol, context);
+        AddInheritedStructFieldInitializers(javaClass, mergedType.TypeSymbol, context);
 
         // static class → private no-arg constructor to prevent instantiation (Java has no static class keyword)
         if (classDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) && javaClass.Constructors.Count == 0)
@@ -468,6 +470,8 @@ public class ClassTransformer : ITypeTransformer
         }
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, classSymbol, context);
+        AddDefaultFactoryMethods(javaClass, classSymbol, context);
+        AddInheritedStructFieldInitializers(javaClass, classSymbol, context);
 
         RemoveCompareToBridgeConflicts(javaClass);
         RemoveCloneBridgeConflicts(javaClass);
@@ -625,6 +629,206 @@ public class ClassTransformer : ITypeTransformer
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Generates protected factory methods for default value creation of type
+    /// parameters with Unknown binding. These are emitted when <c>default(TValue)</c>
+    /// appears in a method body and the converter cannot determine at conversion time
+    /// whether TValue will be bound to a struct type.
+    /// Subclasses that bind the parameter to a struct can override the factory to
+    /// return <c>new ValueType()</c> instead of the default <c>DefaultValue.of()</c> (null).
+    /// </summary>
+    /// <summary>
+    /// After a method body has been transformed, drains any pending Class&lt;T&gt;
+    /// parameter requirements (from method-level type parameters using default(T))
+    /// and adds the corresponding parameters to the most recently added method.
+    /// </summary>
+    private static void ApplyPendingClassTypeParams(
+        JavaClassDeclaration javaClass,
+        ConversionContext context)
+    {
+        var typeParams = context.DrainClassTypeParams();
+        if (typeParams == null || typeParams.Count == 0)
+            return;
+
+        // Find the most recently added method — that's the one whose body
+        // was just transformed and which registered the Class<T> params.
+        var target = javaClass.Methods.LastOrDefault();
+        if (target == null)
+            return;
+
+        foreach (var tpName in typeParams)
+        {
+            var paramName = $"_cs2j_{tpName}";
+            // Avoid duplicates if the param was already added (e.g., default-param overloads)
+            if (target.Parameters.Any(p => p.Name == paramName))
+                continue;
+            target.Parameters.Insert(0, new JavaParameter($"Class<{tpName}>", paramName));
+        }
+    }
+
+    private static void AddDefaultFactoryMethods(
+        JavaClassDeclaration javaClass,
+        INamedTypeSymbol? classSymbol,
+        ConversionContext context)
+    {
+        if (classSymbol == null)
+            return;
+
+        var fullName = Analysis.TypeParameterBindingAnalyzer.GetFullMetadataName(
+            classSymbol.OriginalDefinition);
+        var typeParamNames = context.GetDefaultFactoryMethodsForClass(fullName);
+        if (typeParamNames == null || typeParamNames.Count == 0)
+            return;
+
+        foreach (var typeParamName in typeParamNames)
+        {
+            var methodName = $"_cs2jDefault_{typeParamName}";
+            // Avoid duplicates if the method already exists
+            if (javaClass.Methods.Any(m => m.Name == methodName))
+                continue;
+
+            context.AddImport("io.github.ningpp.compat.DefaultValue");
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Name = methodName,
+                ReturnType = typeParamName,
+                Modifiers = JavaModifiers.Protected,
+                Body = $"return DefaultValue.of();"
+            });
+        }
+    }
+
+    /// <summary>
+    /// For classes that extend a generic type with struct-bound type parameters, add
+    /// null-guarded initialization for inherited fields whose type was a type parameter
+    /// in the base class. In C# struct fields are always zero-initialized, but in Java
+    /// they become null references. This ensures the inherited fields are non-null
+    /// before any method body tries to access their members.
+    ///
+    /// Also adds overrides for any base-class default factory methods
+    /// (_cs2jDefault_TypeParamName) when the type parameter is bound to a struct type
+    /// in the current class, so that method-body <c>default(TValue)</c> calls produce
+    /// proper struct instances at runtime.
+    /// </summary>
+    private static void AddInheritedStructFieldInitializers(
+        JavaClassDeclaration javaClass,
+        INamedTypeSymbol? classSymbol,
+        ConversionContext context)
+    {
+        if (classSymbol == null || classSymbol.IsStatic)
+            return;
+
+        var fieldsToInit = new List<(string FieldName, string JavaType)>();
+        var factoryOverrides = new List<(string MethodName, string ReturnJavaType, string Body)>();
+
+        var baseType = classSymbol.BaseType;
+        while (baseType != null && baseType.SpecialType != SpecialType.System_Object)
+        {
+            if (baseType.IsGenericType && baseType.TypeArguments.Length > 0)
+            {
+                var originalDef = baseType.OriginalDefinition;
+                var typeArgs = baseType.TypeArguments;
+                for (int i = 0; i < typeArgs.Length && i < originalDef.TypeParameters.Length; i++)
+                {
+                    if (typeArgs[i] is not INamedTypeSymbol namedArg)
+                        continue;
+                    if (!IsUserDefinedStruct(namedArg))
+                        continue;
+
+                    var typeParam = originalDef.TypeParameters[i];
+
+                    // Collect inherited fields that need null-guard initialization.
+                    foreach (var member in originalDef.GetMembers())
+                    {
+                        if (member is not IFieldSymbol field)
+                            continue;
+                        if (!SymbolEqualityComparer.Default.Equals(field.Type, typeParam))
+                            continue;
+
+                        var javaType = context.MapType(namedArg);
+                        if (!fieldsToInit.Any(f => f.FieldName == field.Name))
+                            fieldsToInit.Add((field.Name, javaType));
+                    }
+
+                    // If the type parameter is unconstrained and the current subclass
+                    // binds it to a struct, the base class may emit a
+                    // _cs2jDefault_TypeParam() factory call for default(TValue).
+                    // Defensively add an override that returns a proper struct
+                    // instance to prevent NPEs at runtime. When the base class
+                    // already emits new ValueType() (AlwaysSameStruct), the
+                    // override is benign dead code.
+                    if (!typeParam.HasValueTypeConstraint && !typeParam.HasReferenceTypeConstraint)
+                    {
+                        var methodName = $"_cs2jDefault_{typeParam.Name}";
+                        var javaType = context.MapType(namedArg);
+                        if (!factoryOverrides.Any(f => f.MethodName == methodName))
+                            factoryOverrides.Add((methodName, javaType, $"return new {javaType}();"));
+                    }
+                }
+            }
+
+            baseType = baseType.BaseType;
+        }
+
+        // Add factory method overrides.
+        foreach (var (methodName, returnJavaType, body) in factoryOverrides)
+        {
+            if (javaClass.Methods.Any(m => m.Name == methodName))
+                continue;
+
+            var method = new JavaMethodDeclaration
+            {
+                Name = methodName,
+                ReturnType = returnJavaType,
+                Modifiers = JavaModifiers.Protected,
+                Body = body
+            };
+            method.Annotations.Add(new JavaAnnotation("Override"));
+            javaClass.Methods.Add(method);
+        }
+
+        if (fieldsToInit.Count == 0)
+            return;
+
+        // Ensure at least one constructor exists.
+        if (javaClass.Constructors.Count == 0)
+        {
+            javaClass.Constructors.Add(new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = javaClass.Modifiers.HasFlag(JavaModifiers.Abstract)
+                    ? JavaModifiers.Protected
+                    : JavaModifiers.Public,
+                StructuredBody = new JavaMethodBody()
+            });
+        }
+
+        foreach (var ctor in javaClass.Constructors)
+        {
+            // Skip constructors that chain to another constructor via this(...).
+            // The target constructor will initialize the fields.
+            if (!string.IsNullOrWhiteSpace(ctor.Initializer)
+                && ctor.Initializer.TrimStart().StartsWith("this(", StringComparison.Ordinal))
+                continue;
+
+            EnsureStructuredBody(ctor);
+            foreach (var (fieldName, javaType) in ((IEnumerable<(string, string)>)fieldsToInit).Reverse())
+            {
+                var guard = $"if (this.{fieldName} == null) this.{fieldName} = new {javaType}();";
+                if (!ConstructorBodyContains(ctor, guard))
+                    ctor.StructuredBody!.Statements.Insert(0, new JavaRawStatement(guard));
+            }
+        }
+    }
+
+    private static bool IsUserDefinedStruct(INamedTypeSymbol type)
+    {
+        return type.TypeKind == TypeKind.Struct
+            && type.SpecialType == SpecialType.None
+            && type.OriginalDefinition.SpecialType == SpecialType.None
+            && type.OriginalDefinition.ToDisplayString() != "System.Nullable<T>";
     }
 
     private static IReadOnlyList<string> LiftRuntimeClassFieldInitializers(
@@ -1908,6 +2112,7 @@ public class ClassTransformer : ITypeTransformer
                     if ((isExternMethod || hasDllImport) && javaMethod.Body == null)
                         javaMethod.Body = "throw new UnsupportedOperationException(\"Native P/Invoke method not supported in Java\");";
                     AddMethodIfNotDuplicate(javaClass, javaMethod);
+                    ApplyPendingClassTypeParams(javaClass, context);
                 }
                 else if (method is JavaMemberCollection methodCollection)
                 {
@@ -1922,6 +2127,7 @@ public class ClassTransformer : ITypeTransformer
                             m.Body = "throw new UnsupportedOperationException(\"Native P/Invoke method not supported in Java\");";
                         AddMethodIfNotDuplicate(javaClass, m);
                     }
+                    ApplyPendingClassTypeParams(javaClass, context);
                 }
                 break;
 
