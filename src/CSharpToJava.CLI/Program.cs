@@ -340,8 +340,12 @@ class Program
         var passProfileEntries = new List<PassProfileEntry>();
         CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? workspaceLinqStatistics = null;
 
+        // Sort projects topologically so that dependencies (which may register
+        // default factory methods) are converted before the projects that depend on them.
+        var sortedProjects = SortProjectsTopologically(projects);
+
         // Convert each workspace project as its own module.
-        foreach (var project in projects)
+        foreach (var project in sortedProjects)
         {
             if (!opts.IncludeTests && project.IsTestProject) continue;
 
@@ -1116,6 +1120,56 @@ class Program
     {
         var sourceRoot = ResolveInputRoot(opts.Source);
         return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(sourceRoot, opts.Destination));
+    }
+
+    /// <summary>
+    /// Sorts workspace projects in topological order (dependencies first) so that
+    /// factory methods and other cross-project state registered during dependency
+    /// conversion are available when converting dependent projects.
+    /// </summary>
+    private static IReadOnlyList<WorkspaceProject> SortProjectsTopologically(
+        IReadOnlyList<WorkspaceProject> projects)
+    {
+        var projectByPath = projects.ToDictionary(
+            p => Path.GetFullPath(p.FilePath),
+            p => p,
+            StringComparer.OrdinalIgnoreCase);
+
+        var visited = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<WorkspaceProject>();
+
+        foreach (var project in projects)
+        {
+            Visit(project);
+        }
+
+        return result;
+
+        void Visit(WorkspaceProject project)
+        {
+            var path = Path.GetFullPath(project.FilePath);
+            if (visited.TryGetValue(path, out var state))
+            {
+                if (state == 2) return; // Already fully processed
+                // state == 1 means cycle — break it gracefully
+                return;
+            }
+
+            visited[path] = 1; // Currently visiting
+
+            // Visit dependencies first
+            foreach (var refPath in project.ProjectReferences)
+            {
+                var fullPath = Path.GetFullPath(refPath);
+                if (projectByPath.TryGetValue(fullPath, out var depProject))
+                {
+                    Visit(depProject);
+                }
+            }
+
+            visited[path] = 2; // Fully processed
+            result.Add(project);
+        }
     }
 
     private static ProjectGraph FilterUnsupportedProjectGraph(ProjectGraph graph, bool verbose)

@@ -125,24 +125,19 @@ public class ConversionContext
     /// <summary>
     /// Tracks which generic classes need a protected factory method for creating
     /// default values of unconstrained type parameters (Unknown binding).
-    /// Key: full metadata name of the generic class (original definition).
-    /// Value: set of type parameter names that need factory methods.
+    /// Delegates to the shared store on <see cref="Options"/> so that factory methods
+    /// registered during one project's conversion are visible to subsequent projects.
     /// </summary>
-    private readonly Dictionary<string, HashSet<string>> _defaultFactoryMethods = new();
+    private DefaultFactoryMethodStore DefaultFactoryMethods => Options.DefaultFactoryMethods;
 
     public void RegisterDefaultFactoryMethod(string classFullMetadataName, string typeParamName)
     {
-        if (!_defaultFactoryMethods.TryGetValue(classFullMetadataName, out var methods))
-        {
-            methods = new HashSet<string>();
-            _defaultFactoryMethods[classFullMetadataName] = methods;
-        }
-        methods.Add(typeParamName);
+        DefaultFactoryMethods.Register(classFullMetadataName, typeParamName);
     }
 
     public IReadOnlySet<string>? GetDefaultFactoryMethodsForClass(string classFullMetadataName)
     {
-        return _defaultFactoryMethods.TryGetValue(classFullMetadataName, out var methods) ? methods : null;
+        return DefaultFactoryMethods.GetForClass(classFullMetadataName);
     }
 
     /// <summary>

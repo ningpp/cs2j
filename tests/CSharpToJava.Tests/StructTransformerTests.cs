@@ -1116,6 +1116,91 @@ public abstract class ShiftReduceParser<TValue>
         Assert.Contains("DefaultValue.of()", runtimeCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CrossProject_DefaultFactoryMethod_OverrideGeneratedInSubclassProject()
+    {
+        // Simulates the cross-project scenario where:
+        // Project A (base library) has ShiftReduceParser<TValue> with default(TValue) → Unknown binding → factory method
+        // Project B (consumer) has Parser extends ShiftReduceParser<ValueType> → should generate @Override
+
+        // Use a shared ConversionOptions so the DefaultFactoryMethodStore is shared across projects.
+        var sharedOptions = new ConversionOptions();
+
+        // ── Project A: base library with abstract generic class using default(T) ──
+        var libraryResults = await new ProjectConversionPipeline(sharedOptions)
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "ShiftReduceParser.cs",
+                    Content = """
+public abstract class ShiftReduceParser<TValue>
+{
+    protected TValue CurrentSemanticValue;
+    protected void Reset()
+    {
+        CurrentSemanticValue = default(TValue);
+    }
+}
+"""
+                }
+            });
+
+        Assert.All(libraryResults, r =>
+            Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
+
+        var libraryCode = string.Join("\n", libraryResults.Select(r => r.GeneratedCode));
+
+        // Unknown binding: factory method IS generated.
+        Assert.Contains("_cs2jDefault_TValue()", libraryCode, StringComparison.Ordinal);
+        Assert.Contains("DefaultValue.of()", libraryCode, StringComparison.Ordinal);
+
+        // ── Project B: consumer with struct-bound subclass ──
+        var consumerResults = await new ProjectConversionPipeline(sharedOptions)
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "Parser.cs",
+                    Content = """
+public struct ValueType
+{
+    public string sVal;
+}
+
+public abstract class ShiftReduceParser<TValue>
+{
+    protected TValue CurrentSemanticValue;
+    protected void Reset()
+    {
+        CurrentSemanticValue = default(TValue);
+    }
+}
+
+public sealed class Parser : ShiftReduceParser<ValueType>
+{
+    public void UseDefault()
+    {
+        Reset();
+        CurrentSemanticValue.sVal = "id";
+    }
+}
+"""
+                }
+            });
+
+        Assert.All(consumerResults, r =>
+            Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
+
+        var consumerCode = string.Join("\n", consumerResults.Select(r => r.GeneratedCode));
+
+        // The shared DefaultFactoryMethodStore should carry the registration from project A,
+        // so the subclass in project B gets the @Override method.
+        Assert.Contains("@Override", consumerCode, StringComparison.Ordinal);
+        Assert.Contains("_cs2jDefault_TValue", consumerCode, StringComparison.Ordinal);
+        Assert.Contains("new ValueType()", consumerCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
