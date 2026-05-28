@@ -214,7 +214,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var bareMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (bareMethodSym != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
+            var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context) : null;
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
+            args = PrependClassTypeTokens(args, classTokens);
             return $"{methodName}({args})";
         }
 
@@ -273,7 +275,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var bareMethodSym2 = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (bareMethodSym2 != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
+            var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
+            args = PrependClassTypeTokens(args, classTokens);
             return $"{methodName}({args})";
         }
 
@@ -354,7 +358,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var target = facade.Transform(node.Expression, context);
         var fallbackMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var classTokenList = fallbackMethodSym != null ? GetClassTypeTokensForCall(fallbackMethodSym, context) : null;
         var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: fallbackMethodSym);
+        args2 = PrependClassTypeTokens(args2, classTokenList);
         return $"{target}({args2})";
     }
 
@@ -4043,6 +4049,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             : ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
 
+        args = PrependClassTypeTokens(args,
+            methodSymbol != null ? GetClassTypeTokensForCall(methodSymbol, context) : null);
+
         if (originalMethodName == "Parse" && methodName.StartsWith("MathHelper.", StringComparison.Ordinal))
             return $"{methodName}({args})";
 
@@ -5887,5 +5896,124 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return $"{{ {tcType} {tmpVar} = {dictExpr}.get({keyExpr}); " +
                $"if ({tmpVar} == null) {{ {tmpVar} = new {tcType}(); {dictExpr}.put({keyExpr}, {tmpVar}); }} " +
                $"{tmpVar}.add({valueExpr}); }}";
+    }
+
+    /// <summary>
+    /// When a method has had Class&lt;T&gt; parameters prepended (strategy 3 for
+    /// method-level type parameters using default(T)), returns the ordered list of
+    /// .class literal tokens to prepend at the call site. Returns null when the
+    /// method needs no type tokens.
+    /// </summary>
+    private static List<string>? GetClassTypeTokensForCall(IMethodSymbol methodSymbol, ConversionContext context)
+    {
+        var originalDef = methodSymbol.OriginalDefinition;
+        var containingType = originalDef.ContainingType;
+        if (containingType == null)
+            return null;
+
+        var containingTypeMetadataName = containingType.MetadataName;
+        var methodMetadataName = originalDef.MetadataName;
+
+        // First check the pre-registered set (populated when the method was processed
+        // before the call site). If not found, scan the method body directly — the
+        // method may be declared after the call site in the source file.
+        IReadOnlyList<string>? typeParamNames = null;
+        if (context.MethodHasClassParams(containingTypeMetadataName, methodMetadataName))
+        {
+            typeParamNames = context.GetMethodClassTypeParamNames(containingTypeMetadataName, methodMetadataName);
+        }
+        else
+        {
+            // Fallback: scan the method's own syntax to detect method-level type
+            // parameters that have default(T) usage. The method's body hasn't been
+            // transformed yet, but we can check the C# syntax tree directly.
+            typeParamNames = DetectDefaultUsageInMethod(originalDef);
+            if (typeParamNames != null && typeParamNames.Count > 0)
+            {
+                // Register on-the-fly so subsequent call sites find it in the set.
+                foreach (var tpName in typeParamNames)
+                {
+                    context.RequireClassTypeParam(containingTypeMetadataName, methodMetadataName, tpName);
+                }
+                // Drain immediately — the method's signature will be patched when
+                // ApplyPendingClassTypeParams runs after the method is processed.
+                context.DrainClassTypeParams();
+            }
+        }
+
+        if (typeParamNames == null || typeParamNames.Count == 0)
+            return null;
+
+        var typeParamMap = new Dictionary<string, int>();
+        for (int i = 0; i < originalDef.TypeParameters.Length; i++)
+            typeParamMap[originalDef.TypeParameters[i].Name] = i;
+
+        var typeArgs = methodSymbol.TypeArguments;
+
+        var tokens = new List<string>();
+        foreach (var tpName in typeParamNames)
+        {
+            if (typeParamMap.TryGetValue(tpName, out var index) && index < typeArgs.Length)
+            {
+                var concreteType = typeArgs[index];
+                tokens.Add(ConversionContext.GetClassLiteral(concreteType, context));
+            }
+        }
+
+        return tokens.Count > 0 ? tokens : null;
+    }
+
+    /// <summary>
+    /// Scans the method's C# syntax for method-level type parameters used in
+    /// default expressions (e.g. default(T)). Returns the names of type params
+    /// that are used with default(). Used when the method body hasn't been
+    /// processed yet (declared after the call site).
+    /// </summary>
+    private static List<string>? DetectDefaultUsageInMethod(IMethodSymbol methodSymbol)
+    {
+        var typeParams = methodSymbol.TypeParameters;
+        if (typeParams.Length == 0)
+            return null;
+
+        List<string>? result = null;
+        foreach (var syntaxRef in methodSymbol.DeclaringSyntaxReferences)
+        {
+            var syntax = syntaxRef.GetSyntax();
+            if (syntax is not Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax methodDecl)
+                continue;
+
+            // Collect type param names that appear in default() expressions
+            var defaultNodes = methodDecl.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.DefaultExpressionSyntax>();
+            foreach (var defNode in defaultNodes)
+            {
+                if (defNode.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id)
+                {
+                    foreach (var tp in typeParams)
+                    {
+                        if (tp.Name == id.Identifier.Text)
+                        {
+                            result ??= new List<string>();
+                            if (!result.Contains(tp.Name))
+                                result.Add(tp.Name);
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Prepends Class&lt;T&gt; type tokens before existing arguments when the
+    /// target method requires them. Returns the combined argument string.
+    /// </summary>
+    private static string PrependClassTypeTokens(string args, List<string>? classTypeTokens)
+    {
+        if (classTypeTokens == null || classTypeTokens.Count == 0)
+            return args;
+
+        var prefix = string.Join(", ", classTypeTokens);
+        return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
     }
 }

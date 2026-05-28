@@ -753,18 +753,23 @@ public class ClassTransformer : ITypeTransformer
                     }
 
                     // If the type parameter is unconstrained and the current subclass
-                    // binds it to a struct, the base class may emit a
-                    // _cs2jDefault_TypeParam() factory call for default(TValue).
-                    // Defensively add an override that returns a proper struct
-                    // instance to prevent NPEs at runtime. When the base class
-                    // already emits new ValueType() (AlwaysSameStruct), the
-                    // override is benign dead code.
+                    // binds it to a struct, and the base class actually emitted a
+                    // _cs2jDefault_TypeParam() factory method (Unknown binding),
+                    // add an override that returns a proper struct instance.
+                    // When the base class emitted new ValueType() directly
+                    // (AlwaysSameStruct), no factory exists — skip the override
+                    // to avoid a spurious @Override compilation error.
                     if (!typeParam.HasValueTypeConstraint && !typeParam.HasReferenceTypeConstraint)
                     {
-                        var methodName = $"_cs2jDefault_{typeParam.Name}";
-                        var javaType = context.MapType(namedArg);
-                        if (!factoryOverrides.Any(f => f.MethodName == methodName))
-                            factoryOverrides.Add((methodName, javaType, $"return new {javaType}();"));
+                        var baseFullName = Analysis.TypeParameterBindingAnalyzer.GetFullMetadataName(originalDef);
+                        var baseFactoryTypeParams = context.GetDefaultFactoryMethodsForClass(baseFullName);
+                        if (baseFactoryTypeParams != null && baseFactoryTypeParams.Contains(typeParam.Name))
+                        {
+                            var methodName = $"_cs2jDefault_{typeParam.Name}";
+                            var javaType = context.MapType(namedArg);
+                            if (!factoryOverrides.Any(f => f.MethodName == methodName))
+                                factoryOverrides.Add((methodName, javaType, $"return new {javaType}();"));
+                        }
                     }
                 }
             }

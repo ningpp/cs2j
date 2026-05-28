@@ -770,6 +770,331 @@ class T {
         Assert.DoesNotContain("_cs2jDefault_", result);
     }
 
+    // ── default(T) with method-level TP: call-site Class<T> token ────────
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_ExplicitGeneric()
+    {
+        var result = ConvertCode(@"
+class C {
+    T M<T>() {
+        return default(T);
+    }
+    void Caller() {
+        var x = M<string>();
+    }
+}");
+        // Method declaration gets Class<T> param.
+        Assert.Contains("Class<T>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_T)", result);
+        // Call site must include the String.class type token.
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_TypeInferred()
+    {
+        var result = ConvertCode(@"
+class C {
+    static T Append<T>(T x, T y) {
+        return default(T);
+    }
+    void Use() {
+        var r = Append(""a"", ""b"");
+    }
+}");
+        // Method declaration gets Class<T> prepended.
+        Assert.Contains("Class<T>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_T)", result);
+        // Call site with inferred T=string must pass String.class before args.
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_MemberAccess()
+    {
+        var result = ConvertCode(@"
+class C {
+    T M<T>() {
+        return default(T);
+    }
+    void Caller() {
+        var c = new C();
+        var x = c.M<int>();
+    }
+}");
+        // Instance method call via member access must include int.class token.
+        Assert.Contains("int.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_MultipleTypeParams()
+    {
+        var result = ConvertCode(@"
+class C {
+    TValue Create<TKey, TValue>(TKey key) where TValue : new() {
+        return default(TValue);
+    }
+    void Use() {
+        var r = Create<string, int>(""key"");
+    }
+}");
+        // Method declaration: only TValue (not TKey) gets Class<TValue> param.
+        Assert.Contains("Class<TValue>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
+        // Call site must pass int.class for TValue.
+        Assert.Contains("int.class", result);
+        // Verify Class<TValue> appears before the key argument.
+        Assert.Contains("int.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_StructTypeArg()
+    {
+        var result = ConvertCode(@"
+struct Point { public int X; public int Y; }
+class C {
+    T M<T>() {
+        return default(T);
+    }
+    void Caller() {
+        var p = M<Point>();
+    }
+}");
+        // Call site with struct type arg must pass Point.class token.
+        Assert.Contains("Point.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_ClassTokenBeforeArgs()
+    {
+        var result = ConvertCode(@"
+class C {
+    T Combine<T>(T a, T b) {
+        return default(T);
+    }
+    void Use() {
+        var r = Combine(""hello"", ""world"");
+    }
+}");
+        // Verify the Class<T> token is physically before the regular arguments.
+        Assert.Contains("Class<T>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_T)", result);
+        // The class token (String.class) must come before the string args.
+        var idxClass = result.IndexOf("String.class", StringComparison.Ordinal);
+        var idxHello = result.IndexOf("\"hello\"", StringComparison.Ordinal);
+        Assert.True(idxClass > 0 && idxClass < idxHello,
+            $"String.class should appear before \"hello\" in: {result}");
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_StaticMethod()
+    {
+        var result = ConvertCode(@"
+class C {
+    public static TValue GetDefault<TValue>() {
+        return default(TValue);
+    }
+    void Caller() {
+        var x = GetDefault<double>();
+    }
+}");
+        // Static method with method-level TP — call site must include double.class.
+        Assert.Contains("Class<TValue>", result);
+        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
+        Assert.Contains("double.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_CrossClass()
+    {
+        var result = ConvertCode(@"
+class A {
+    public static T Factory<T>() {
+        return default(T);
+    }
+}
+class B {
+    void Use() {
+        var x = A.Factory<string>();
+    }
+}");
+        // Static method on another class — call site must include String.class.
+        Assert.Contains("Class<T>", result);
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_ThisReceiver()
+    {
+        var result = ConvertCode(@"
+class C {
+    T M<T>() {
+        return default(T);
+    }
+    void Caller() {
+        var x = this.M<int>();
+    }
+}");
+        // this.M<int>() → MemberAccess with ThisExpression → must include int.class.
+        Assert.Contains("int.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_MultipleCallSites()
+    {
+        var result = ConvertCode(@"
+class C {
+    T M<T>() {
+        return default(T);
+    }
+    void Caller() {
+        var a = M<string>();
+        var b = M<int>();
+        var c = M<double>();
+    }
+}");
+        // Each call site gets its own type token.
+        Assert.Contains("String.class", result);
+        Assert.Contains("int.class", result);
+        Assert.Contains("double.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_FromStaticMethod()
+    {
+        var result = ConvertCode(@"
+class C {
+    T M<T>() {
+        return default(T);
+    }
+    public static void Caller() {
+        var c = new C();
+        var x = c.M<string>();
+    }
+}");
+        // Call from static method on instance — Class<T> token still prepended.
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_NoSpuriousClassToken_WhenNoDefaultUsage()
+    {
+        var result = ConvertCode(@"
+class C {
+    T M<T>(T value) {
+        return value;
+    }
+    void Caller() {
+        var x = M<string>(""hello"");
+    }
+}");
+        // Method does NOT use default(T) → no Class<T> param added → call site
+        // must NOT have a spurious .class token.
+        Assert.DoesNotContain("Class<T>", result);
+        Assert.DoesNotContain("String.class", result);
+        Assert.Contains("\"hello\"", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_ZeroRegularArgs()
+    {
+        var result = ConvertCode(@"
+class C {
+    T M<T>() {
+        return default(T);
+    }
+    void Caller() {
+        var x = M<int>();
+    }
+}");
+        // Call site has no regular arguments, only the Class<T> token.
+        Assert.Contains("int.class", result);
+        // int.class should appear as the sole argument: m(int.class)
+        Assert.Contains("m(int.class)", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_CrossClassInstanceMethod()
+    {
+        var result = ConvertCode(@"
+class C {
+    public T M<T>() {
+        return default(T);
+    }
+}
+class D {
+    void Use() {
+        var c = new C();
+        var x = c.M<string>();
+    }
+}");
+        // Cross-class instance method call via member access.
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_RealWorldParserPattern()
+    {
+        // Matches the exact pattern from Dot.cs / Parser.java bug:
+        // Non-generic class with generic instance method Append<T> using default(T),
+        // called from another instance method via bare identifier.
+        var result = ConvertCode(@"
+class Parser {
+    T Append<T>(T x, T y) {
+        return default(T);
+    }
+    void DoAction() {
+        var a = Append(1, 2);
+        var b = Append(""a"", ""b"");
+    }
+}");
+        Assert.Contains("Class<T>", result);
+        // Call sites for int and string type args must include type tokens.
+        Assert.Contains("int.class", result);
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_GenericMethodInNongenericClass()
+    {
+        // Non-generic class, generic instance method with default(T).
+        var result = ConvertCode(@"
+class Helper {
+    public T Create<T>() {
+        return default(T);
+    }
+}
+class User {
+    void Use() {
+        var h = new Helper();
+        var x = h.Create<string>();
+    }
+}");
+        // Cross-class call to generic method in non-generic class.
+        Assert.Contains("Class<T>", result);
+        Assert.Contains("String.class", result);
+    }
+
+    [Fact]
+    public void TypeOp_Default_TypeParameter_CallSite_WithUnresolvedBaseType()
+    {
+        // Simulates the real Dot.cs scenario: non-generic class extending an
+        // unresolved base type, with a generic instance method using default(T).
+        var result = ConvertCode(@"
+class Parser : UnresolvedBaseClass {
+    T Append<T>(T x, T y) {
+        return default(T);
+    }
+    void DoAction() {
+        var a = Append(""a"", ""b"");
+    }
+}");
+        // Even with an unresolved base class, the Append call should get Class<T>.
+        Assert.Contains("Class<T>", result);
+        Assert.Contains("String.class", result);
+    }
+
     // ── Phase 1 Deep IR: IdentifierExpressionTransformer ───────────
 
     [Fact]

@@ -159,11 +159,37 @@ public class ConversionContext
     /// </summary>
     private readonly HashSet<string> _methodsWithClassParams = new();
 
+    /// <summary>
+    /// Persistent map from method key to ordered list of type parameter names that
+    /// need Class&lt;T&gt; tokens. Survives DrainClassTypeParams so call-site
+    /// transformers can determine which type tokens to prepend.
+    /// </summary>
+    private readonly Dictionary<string, List<string>> _methodClassTypeParamNames = new();
+
     public void RequireClassTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
     {
         _pendingClassTypeParams ??= new();
         _pendingClassTypeParams.Add(typeParamName);
         _methodsWithClassParams.Add($"{containingTypeMetadataName}|{methodMetadataName}");
+
+        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
+        if (!_methodClassTypeParamNames.TryGetValue(key, out var nameList))
+        {
+            nameList = new List<string>();
+            _methodClassTypeParamNames[key] = nameList;
+        }
+        if (!nameList.Contains(typeParamName))
+            nameList.Add(typeParamName);
+    }
+
+    /// <summary>
+    /// Returns the ordered list of type parameter names that need Class&lt;T&gt;
+    /// tokens for a method, or null if the method has none.
+    /// </summary>
+    public IReadOnlyList<string>? GetMethodClassTypeParamNames(string containingTypeMetadataName, string methodMetadataName)
+    {
+        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
+        return _methodClassTypeParamNames.TryGetValue(key, out var list) ? list : null;
     }
 
     public IReadOnlySet<string>? DrainClassTypeParams()

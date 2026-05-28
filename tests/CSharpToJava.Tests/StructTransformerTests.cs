@@ -906,11 +906,214 @@ public sealed class Parser : ShiftReduceParser<ValueType>
         // default(TValue) should resolve to new ValueType() (not null).
         Assert.Contains("new ValueType()", consumerCode, StringComparison.Ordinal);
         Assert.DoesNotContain("DefaultValue.of()", consumerCode, StringComparison.Ordinal);
-        // The factory method override in Parser is added defensively — it is
-        // harmless dead code when the base class already emits new ValueType(),
-        // and critical NPE prevention when the base class comes from a separate
-        // library conversion with Unknown binding.
-        Assert.Contains("_cs2jDefault_TValue", consumerCode, StringComparison.Ordinal);
+        // The base class emitted new ValueType() directly (AlwaysSameStruct), so
+        // no _cs2jDefault_TValue factory method exists. The subclass must NOT add
+        // a spurious @Override for a non-existent base method.
+        Assert.DoesNotContain("_cs2jDefault_TValue", consumerCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StructBoundSubclass_NoSpuriousOverride_WhenBaseHasSameStructBinding()
+    {
+        // Single-conversion project with mixed bindings:
+        // - LibraryBase<T> has no struct-bound subclass visible → Unknown binding → factory method
+        // - StructBase<T> has struct-bound subclass → AlwaysSameStruct → new ValueType() directly
+        // - SubStruct extends StructBase<ValueType> → must NOT add @Override for factory method
+        var results = await new ProjectConversionPipeline(new ConversionOptions())
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "Mixed.cs",
+                    Content = """
+public struct ValueType { public string sVal; }
+
+// Unknown binding: no struct-bound subclass of LibraryBase in this project.
+public abstract class LibraryBase<TValue>
+{
+    public TValue Field;
+    protected TValue GetDefault() { return default(TValue); }
+}
+
+// AlwaysSameStruct binding: SubStruct<ValueType> is visible.
+public abstract class StructBase<TValue>
+{
+    public TValue yylval;
+}
+
+public abstract class SubStruct : StructBase<ValueType> { }
+"""
+                }
+            });
+
+        Assert.All(results, r =>
+            Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
+
+        var code = string.Join("\n", results.Select(r => r.GeneratedCode));
+
+        // LibraryBase has Unknown binding → factory method IS generated.
+        Assert.Contains("_cs2jDefault_TValue()", code, StringComparison.Ordinal);
+        // StructBase has AlwaysSameStruct → emits new ValueType().
+        Assert.Contains("new ValueType()", code, StringComparison.Ordinal);
+        // SubStruct extends StructBase<ValueType> (AlwaysSameStruct base) →
+        // must NOT add a spurious @Override for a factory method that doesn't exist.
+        var subStructClassStart = code.IndexOf("class SubStruct", StringComparison.Ordinal);
+        var subStructClassEnd = code.IndexOf("class ", subStructClassStart + 10, StringComparison.Ordinal);
+        if (subStructClassEnd < 0) subStructClassEnd = code.Length;
+        var subStructClass = code[subStructClassStart..subStructClassEnd];
+        Assert.DoesNotContain("_cs2jDefault_TValue", subStructClass, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StructBoundSubclass_NoOverrideInAbstractSubclass()
+    {
+        // Reproduces the real-world ScanBase.java / Parser.java bug:
+        // Abstract subclass extends base with AlwaysSameStruct binding →
+        // no factory method in base → no @Override in subclass.
+        var results = await new ProjectConversionPipeline(new ConversionOptions())
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "RealWorld.cs",
+                    Content = """
+public struct ValueType { public string sVal; }
+
+public abstract class AbstractScanner<TValue>
+{
+    public TValue yylval;
+}
+
+public abstract class ShiftReduceParser<TValue>
+{
+    protected TValue CurrentSemanticValue;
+    protected void Reset()
+    {
+        CurrentSemanticValue = default(TValue);
+    }
+}
+
+public abstract class ScanBase : AbstractScanner<ValueType> { }
+
+public sealed class Parser : ShiftReduceParser<ValueType>
+{
+    public void UseDefault()
+    {
+        Reset();
+    }
+}
+"""
+                }
+            });
+
+        Assert.All(results, r =>
+            Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
+
+        var code = string.Join("\n", results.Select(r => r.GeneratedCode));
+
+        // Both base classes have AlwaysSameStruct → emit new ValueType().
+        Assert.Contains("new ValueType()", code, StringComparison.Ordinal);
+        // Neither subclass should have a spurious @Override for a non-existent factory method.
+        Assert.DoesNotContain("_cs2jDefault_TValue", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StructBoundSubclass_ThreeLevelInheritance_NoSpuriousOverride()
+    {
+        // GrandParent<T> → Parent<T> → Child<ValueType>
+        // GrandParent uses default(T) → AlwaysSameStruct (Child binds to ValueType).
+        // No factory method → no override at any level.
+        var results = await new ProjectConversionPipeline(new ConversionOptions())
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "ThreeLevel.cs",
+                    Content = """
+public struct ValueType { public string sVal; }
+
+public abstract class GrandParent<TValue>
+{
+    public TValue Field;
+    protected TValue GetDefault() { return default(TValue); }
+}
+
+public abstract class Parent<TValue> : GrandParent<TValue>
+{
+}
+
+public abstract class Child : Parent<ValueType>
+{
+    public void Use()
+    {
+        var x = GetDefault();
+    }
+}
+"""
+                }
+            });
+
+        Assert.All(results, r =>
+            Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
+
+        var code = string.Join("\n", results.Select(r => r.GeneratedCode));
+
+        // The conversion succeeded — no Java compilation errors would occur.
+        Assert.Contains("new ValueType()", code, StringComparison.Ordinal);
+
+        // Key invariant: if a subclass contains _cs2jDefault_TValue @Override,
+        // the base class must also define that method. Check that the base
+        // (GrandParent) has the factory method if Child overrides it.
+        var childStart = code.IndexOf("class Child", StringComparison.Ordinal);
+        Assert.True(childStart > 0, "Child class should be present in output");
+        var nextClass = code.IndexOf("class ", childStart + 10, StringComparison.Ordinal);
+        var childBody = nextClass > 0 ? code[childStart..nextClass] : code[childStart..];
+
+        if (childBody.Contains("_cs2jDefault_TValue"))
+        {
+            // If Child has the override, GrandParent must have the base factory method.
+            Assert.Contains("_cs2jDefault_TValue()", code.AsSpan(0, childStart), StringComparison.Ordinal);
+        }
+        // Either way: conversion succeeded and no spurious @Override on non-existent method.
+    }
+
+    [Fact]
+    public async Task StructBoundSubclass_FactoryMethodOverride_WhenBaseHasUnknownBinding()
+    {
+        // Convert a runtime library WITHOUT any struct-bound subclass.
+        // The binding is Unknown → factory method IS generated.
+        var runtimeResults = await new ProjectConversionPipeline(new ConversionOptions())
+            .ConvertProjectAsync(new[]
+            {
+                new SourceFile
+                {
+                    FilePath = "Library.cs",
+                    Content = """
+public abstract class AbstractScanner<TValue>
+{
+    public TValue yylval;
+}
+
+public abstract class ShiftReduceParser<TValue>
+{
+    protected TValue CurrentSemanticValue;
+    protected void Reset()
+    {
+        CurrentSemanticValue = default(TValue);
+    }
+}
+"""
+                }
+            });
+
+        Assert.All(runtimeResults, r =>
+            Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
+
+        var runtimeCode = string.Join("\n", runtimeResults.Select(r => r.GeneratedCode));
+
+        // Unknown binding: factory methods ARE generated in both base classes.
+        Assert.Contains("_cs2jDefault_TValue()", runtimeCode, StringComparison.Ordinal);
+        Assert.Contains("DefaultValue.of()", runtimeCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)
