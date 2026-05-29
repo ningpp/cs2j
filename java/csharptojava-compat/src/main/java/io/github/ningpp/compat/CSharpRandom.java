@@ -66,6 +66,18 @@ public class CSharpRandom {
         return (long) (sample() * Long.MAX_VALUE);
     }
 
+    public int nextInt() {
+        return next();
+    }
+
+    public int nextInt(int maxValue) {
+        return next(maxValue);
+    }
+
+    public int nextInt(int minValue, int maxValue) {
+        return next(minValue, maxValue);
+    }
+
     public void nextBytes(byte[] buffer) {
         if (buffer == null) {
             throw new NullPointerException("buffer");
