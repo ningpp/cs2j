@@ -1,4 +1,4 @@
-﻿{
+{
     "typeMappings":  [
                          {
                              "csharp":  "System.String",
@@ -1535,12 +1535,12 @@
                                          ]
                          },
                          {
-                             "csharp":  "System.Random",
-                             "java":  "Random",
-                             "imports":  [
-                                             "java.util.Random"
-                                         ]
-                         },
+                            "csharp":  "System.Random",
+                            "java":  "CSharpRandom",
+                            "imports":  [
+                                            "io.github.ningpp.compat.CSharpRandom"
+                                        ]
+                        },
                          {
                              "csharp":  "System.Decimal",
                              "java":  "BigDecimal",
@@ -3745,30 +3745,30 @@
                                "javaMethod":  "length"
                            },
                            {
-                               "type":  "System.Random",
-                               "method":  "Next",
-                               "javaMethod":  "nextInt"
-                           },
-                           {
-                               "type":  "System.Random",
-                               "method":  "NextDouble",
-                               "javaMethod":  "nextDouble"
-                           },
-                           {
-                               "type":  "System.Random",
-                               "method":  "NextSingle",
-                               "javaMethod":  "nextFloat"
-                           },
-                           {
-                               "type":  "System.Random",
-                               "method":  "NextInt64",
-                               "javaMethod":  "nextLong"
-                           },
-                           {
-                               "type":  "System.Random",
-                               "method":  "NextBytes",
-                               "javaMethod":  "nextBytes"
-                           },
+                              "type":  "System.Random",
+                              "method":  "Next",
+                              "javaMethod":  "next"
+                          },
+                          {
+                              "type":  "System.Random",
+                              "method":  "NextDouble",
+                              "javaMethod":  "nextDouble"
+                          },
+                          {
+                              "type":  "System.Random",
+                              "method":  "NextSingle",
+                              "javaMethod":  "nextSingle"
+                          },
+                          {
+                              "type":  "System.Random",
+                              "method":  "NextInt64",
+                              "javaMethod":  "nextInt64"
+                          },
+                          {
+                              "type":  "System.Random",
+                              "method":  "NextBytes",
+                              "javaMethod":  "nextBytes"
+                          },
                            {
                                "type":  "System.Exception",
                                "method":  "InnerException",
