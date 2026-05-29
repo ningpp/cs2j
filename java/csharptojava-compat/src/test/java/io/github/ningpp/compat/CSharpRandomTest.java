@@ -25,6 +25,30 @@ class CSharpRandomTest {
     }
 
     @Test
+    void next_seededMatchesDotNetSequence() {
+        CSharpRandom r = new CSharpRandom(1);
+        int[] expected = { 24, 11, 46, 77, 65, 43, 35, 94, 10, 64 };
+        for (int value : expected) {
+            assertEquals(value, r.next(100));
+        }
+    }
+
+    @Test
+    void nextDouble_seededMatchesDotNetSequence() {
+        CSharpRandom r = new CSharpRandom(1);
+        double[] expected = {
+            0.24866858415709278,
+            0.11074397718102856,
+            0.46701067987224587,
+            0.77160412202198247,
+            0.657518893786482
+        };
+        for (double value : expected) {
+            assertEquals(value, r.nextDouble(), 0.0);
+        }
+    }
+
+    @Test
     void next_maxValue1_alwaysZero() {
         CSharpRandom r = new CSharpRandom(123);
         for (int i = 0; i < 1000; i++) {
@@ -39,9 +63,9 @@ class CSharpRandomTest {
     }
 
     @Test
-    void next_maxValueZero_throws() {
+    void next_maxValueZero_returnsZero() {
         CSharpRandom r = new CSharpRandom();
-        assertThrows(IllegalArgumentException.class, () -> r.next(0));
+        assertEquals(0, r.next(0));
     }
 
     @Test

@@ -2,18 +2,48 @@ package io.github.ningpp.compat;
 
 public class CSharpRandom {
 
-    private final java.util.Random random;
+    private static final int MBIG = Integer.MAX_VALUE;
+    private static final int MSEED = 161803398;
+
+    private final int[] seedArray = new int[56];
+    private int inext;
+    private int inextp;
 
     public CSharpRandom() {
-        this.random = new java.util.Random();
+        this((int) System.currentTimeMillis());
     }
 
     public CSharpRandom(int seed) {
-        this.random = new java.util.Random(seed);
+        int subtraction = seed == Integer.MIN_VALUE ? Integer.MAX_VALUE : Math.abs(seed);
+        int mj = MSEED - subtraction;
+        seedArray[55] = mj;
+        int mk = 1;
+
+        for (int i = 1; i < 55; i++) {
+            int ii = (21 * i) % 55;
+            seedArray[ii] = mk;
+            mk = mj - mk;
+            if (mk < 0) {
+                mk += MBIG;
+            }
+            mj = seedArray[ii];
+        }
+
+        for (int k = 1; k < 5; k++) {
+            for (int i = 1; i < 56; i++) {
+                seedArray[i] -= seedArray[1 + (i + 30) % 55];
+                if (seedArray[i] < 0) {
+                    seedArray[i] += MBIG;
+                }
+            }
+        }
+
+        inext = 0;
+        inextp = 21;
     }
 
     public int next() {
-        return random.nextInt(Integer.MAX_VALUE);
+        return internalSample();
     }
 
     public int next(int maxValue) {
@@ -21,7 +51,7 @@ public class CSharpRandom {
             throw new IllegalArgumentException(
                 "maxValue must be positive, was: " + maxValue);
         }
-        return random.nextInt(maxValue);
+        return (int) (sample() * maxValue);
     }
 
     public int next(int minValue, int maxValue) {
@@ -39,7 +69,7 @@ public class CSharpRandom {
     }
 
     protected double sample() {
-        return random.nextDouble();
+        return internalSample() * (1.0 / MBIG);
     }
 
     private double getSampleForLargeRange() {
@@ -55,11 +85,11 @@ public class CSharpRandom {
     }
 
     public double nextDouble() {
-        return random.nextDouble();
+        return sample();
     }
 
     public float nextSingle() {
-        return (float) random.nextDouble();
+        return (float) sample();
     }
 
     public long nextInt64() {
@@ -85,5 +115,30 @@ public class CSharpRandom {
         for (int i = 0; i < buffer.length; i++) {
             buffer[i] = (byte) next();
         }
+    }
+
+    private int internalSample() {
+        int locINext = inext;
+        int locINextp = inextp;
+
+        if (++locINext >= 56) {
+            locINext = 1;
+        }
+        if (++locINextp >= 56) {
+            locINextp = 1;
+        }
+
+        int retVal = seedArray[locINext] - seedArray[locINextp];
+        if (retVal == MBIG) {
+            retVal--;
+        }
+        if (retVal < 0) {
+            retVal += MBIG;
+        }
+
+        seedArray[locINext] = retVal;
+        inext = locINext;
+        inextp = locINextp;
+        return retVal;
     }
 }
