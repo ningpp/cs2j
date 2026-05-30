@@ -343,6 +343,7 @@ public partial class StatementTransformer
 
         // Collect all from-clauses (outer first, inner last)
         var froms = new List<(string varName, string javaType, string sourceExpr)>();
+        var whereConditions = new List<string>();
 
         // Outer from
         var outerFrom = queryExpr.FromClause;
@@ -382,6 +383,10 @@ public partial class StatementTransformer
                 }
                 innerSrc = WrapIfDowncastNeeded(innerIterType, innerSrcType, innerSrc);
                 froms.Add((innerFrom.Identifier.ValueText, innerIterType, innerSrc));
+            }
+            else if (clause is WhereClauseSyntax where)
+            {
+                whereConditions.Add(exprTransformer.Transform(where.Condition, context));
             }
             // Ignore orderby (TODO: sorting)
         }
@@ -436,6 +441,14 @@ public partial class StatementTransformer
             @"\bvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\1\s*\(\s*\)\s*;\s*",
             string.Empty);
 
+        if (whereConditions.Count > 0)
+        {
+            var guard = whereConditions.Count == 1
+                ? whereConditions[0]
+                : string.Join(" && ", whereConditions.Select(condition => $"({condition})"));
+            body = WrapJavaBlockWithIf(body, guard);
+        }
+
         // Build nested for loops from outermost to innermost
         var sb = new System.Text.StringBuilder();
         var indent = "";
@@ -472,6 +485,34 @@ public partial class StatementTransformer
         }
 
         return new JavaStatementNode(sb.ToString());
+    }
+
+    private static string WrapJavaBlockWithIf(string body, string condition)
+    {
+        var normalized = body.Replace("\r\n", "\n");
+        var inner = normalized.Trim();
+        if (inner.StartsWith("{", StringComparison.Ordinal) && inner.EndsWith("}", StringComparison.Ordinal))
+        {
+            inner = inner.Substring(1, inner.Length - 2).Trim();
+        }
+
+        var indentedInner = IndentJavaLines(inner, "            ");
+        return string.IsNullOrWhiteSpace(indentedInner)
+            ? $"{{\n        if ({condition}) {{\n        }}\n    }}"
+            : $"{{\n        if ({condition}) {{\n{indentedInner}\n        }}\n    }}";
+    }
+
+    private static string IndentJavaLines(string text, string indent)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        return string.Join("\n", text
+            .Replace("\r\n", "\n")
+            .Split('\n')
+            .Select(line => string.IsNullOrWhiteSpace(line) ? string.Empty : indent + line.Trim()));
     }
 
     /// <summary>
