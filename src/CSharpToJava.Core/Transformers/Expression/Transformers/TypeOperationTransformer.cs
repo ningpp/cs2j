@@ -237,6 +237,14 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return WrapArrayAsIterable(expression, sourceArray, context);
         }
 
+        if (context.SemanticModel != null
+            && IsIterableLikeJavaType(targetType)
+            && IsObjectLikeEnumerableCastSource(node.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+            return $"ReflectionHelper.asIterable({expression})";
+        }
+
         // C# cast from collection interface/class to array, e.g. (T[])listLike.
         // Java does not allow casting List<T> to T[]; use toArray(new T[0]).
         if (context.SemanticModel != null
@@ -318,6 +326,24 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private static string WrapArrayAsIterable(string expr, IArrayTypeSymbol arrayType, ConversionContext context)
     {
         return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(expr, arrayType, context);
+    }
+
+    private static bool IsObjectLikeEnumerableCastSource(ExpressionSyntax expression, ConversionContext context)
+    {
+        var sourceType = context.SemanticModel?.GetTypeInfo(expression).Type;
+        if (sourceType?.SpecialType != SpecialType.System_Object)
+            return false;
+
+        if (expression is InvocationExpressionSyntax invocation
+            && invocation.Expression is MemberAccessExpressionSyntax memberAccess
+            && memberAccess.Name.Identifier.Text == "Invoke")
+        {
+            var receiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType?.ToDisplayString() == "System.Reflection.MethodInfo")
+                return true;
+        }
+
+        return false;
     }
 
     private static bool IsPrimitiveSpecialType(SpecialType st)

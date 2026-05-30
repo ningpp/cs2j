@@ -1,7 +1,10 @@
 package io.github.ningpp.compat;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Reflection helpers that bridge C# to Java semantic differences.
@@ -57,5 +60,23 @@ public final class ReflectionHelper {
             }
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> Iterable<T> asIterable(Object value) {
+        if (value == null) return null;
+        if (value instanceof Iterable<?>) return (Iterable<T>) value;
+        if (value instanceof Object[] items) return (Iterable<T>) Arrays.asList(items);
+        Class<?> type = value.getClass();
+        if (!type.isArray()) {
+            throw new ClassCastException(type.getName() + " cannot be converted to Iterable");
+        }
+
+        int length = Array.getLength(value);
+        ArrayList<T> result = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+            result.add((T) Array.get(value, i));
+        }
+        return result;
     }
 }

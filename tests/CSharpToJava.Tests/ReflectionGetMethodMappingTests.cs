@@ -113,6 +113,31 @@ public class Sample
         Assert.DoesNotContain("GetHashCode", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void MethodInfoInvoke_CastToIEnumerableOfPrimitive_UsesRuntimeIterableBridge()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+using System.Reflection;
+
+public class Sample
+{
+    private static double[] Values() => new double[] { 1, 2 };
+
+    public static IEnumerable<double> Test()
+    {
+        MethodInfo methodInfo = typeof(Sample).GetMethod(
+            ""Values"",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        return (IEnumerable<double>)methodInfo.Invoke(null, new object[] { });
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("ReflectionHelper.asIterable", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(Iterable<Double>)(methodInfo.invoke", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
