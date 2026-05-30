@@ -652,12 +652,12 @@
                                          ]
                          },
                          {
-                             "csharp":  "System.Collections.Generic.Stack`1",
-                             "java":  "Stack",
-                             "imports":  [
-                                             "java.util.Stack"
-                                         ]
-                         },
+                            "csharp":  "System.Collections.Generic.Stack`1",
+                            "java":  "CSharpStack",
+                            "imports":  [
+                                            "io.github.ningpp.compat.CSharpStack"
+                                        ]
+                        },
                          {
                              "csharp":  "System.Collections.Generic.PriorityQueue`2",
                              "java":  "PriorityQueue",
@@ -2919,10 +2919,55 @@
                                "javaMethod":  "pop"
                            },
                            {
-                               "type":  "System.Collections.Generic.Stack`1",
-                               "method":  "Peek",
-                               "javaMethod":  "peek"
-                           },
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "Peek",
+                              "javaMethod":  "peek"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "Contains",
+                              "javaMethod":  "contains"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "Clear",
+                              "javaMethod":  "clear"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "ToArray",
+                              "javaMethod":  "toArray"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "CopyTo",
+                              "javaMethod":  "copyTo"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "TryPeek",
+                              "javaMethod":  "tryPeek"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "TryPop",
+                              "javaMethod":  "tryPop"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "TrimExcess",
+                              "javaMethod":  "trimExcess"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "EnsureCapacity",
+                              "javaMethod":  "ensureCapacity"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.Stack`1",
+                              "method":  "GetEnumerator",
+                              "javaMethod":  "getEnumerator"
+                          },
                            {
                                "type":  "System.Linq.Enumerable",
                                "method":  "Where",
