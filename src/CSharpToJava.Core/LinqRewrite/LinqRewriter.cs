@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2016 Michał Komorowski
+// Copyright (c) 2016 Michał Komorowski
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -776,7 +776,7 @@ namespace CSharpToJava.Core.LinqRewrite
             for (int i = 0; i < chain.Count; i++)
             {
                 var step = chain[i];
-                if (step.MethodName == DistinctMethod)
+                if (step.MethodName == DistinctMethod || step.MethodName == UnionMethod)
                 {
                     result.Add(CreateLocalVariableDeclaration("_seen",
                         SyntaxFactory.ObjectCreationExpression(
@@ -793,6 +793,20 @@ namespace CSharpToJava.Core.LinqRewrite
                         SyntaxFactory.ObjectCreationExpression(
                             SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + keyType.ToDisplayString() + ">"),
                             CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)));
+                }
+                else if (step.MethodName == IntersectMethod || step.MethodName == ExceptMethod)
+                {
+                    var stepItemType = GetIntermediateItemTypeForStep(step);
+                    result.Add(CreateLocalVariableDeclaration("_secondSet_" + i,
+                        SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.Collections.Generic.HashSet<" + stepItemType + ">"),
+                            CreateArguments(new ExpressionSyntax[] { SyntaxFactory.IdentifierName("_concatSecond_" + i) }),
+                            null)));
+                }
+                else if (step.MethodName == ConcatMethod || step.MethodName == UnionMethod)
+                {
+                    // No prologue needed for intermediate Concat/Union; the second
+                    // sequence is passed as _concatSecond_N and iterated in post-loop.
                 }
                 else if (step.MethodName == SkipMethod)
                 {
@@ -995,14 +1009,8 @@ namespace CSharpToJava.Core.LinqRewrite
                                         SyntaxFactory.IdentifierName("ToArray")))),
                             inner)));
                 }
-                else if ((step.MethodName == ConcatMethod || step.MethodName == UnionMethod
-                    || step.MethodName == IntersectMethod || step.MethodName == ExceptMethod)
-                    && i > 0)
+                else if (step.MethodName == ConcatMethod && i > 0)
                 {
-                    // Intermediate Concat: after iterating the primary source through the chain,
-                    // iterate the second sequence through the same chain steps below this Concat.
-                    // Use the Concat RESULT element type (the common base type of both sequences)
-                    // so that e.g. both Clusters.Concat(Nodes) and Nodes.Concat(Clusters) use Node.
                     var concatItemName = "_concatItem" + (++lastId);
                     var concatReturnType = step.Invocation != null
                         ? semantic.GetTypeInfo(step.Invocation).Type
@@ -1017,6 +1025,40 @@ namespace CSharpToJava.Core.LinqRewrite
                         concatItemName,
                         SyntaxFactory.IdentifierName("_concatSecond_" + i),
                         inner is BlockSyntax ? inner : SyntaxFactory.Block(inner)));
+                }
+                else if (step.MethodName == UnionMethod && i > 0)
+                {
+                    var concatItemName = "_concatItem" + (++lastId);
+                    var concatReturnType = step.Invocation != null
+                        ? semantic.GetTypeInfo(step.Invocation).Type
+                        : null;
+                    var concatResultItemType = concatReturnType != null ? GetItemType(concatReturnType) : null;
+                    var concatItemTypeSyntax = concatResultItemType != null
+                        ? SyntaxFactory.ParseTypeName(concatResultItemType.ToDisplayString())
+                        : collectionItemType;
+                    var inner = CreateProcessingStep(chain, i - 1, concatItemTypeSyntax, concatItemName, arguments, noAggregation);
+                    var unionBody = SyntaxFactory.Block(
+                        SyntaxFactory.IfStatement(
+                            SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                                SyntaxFactory.ParenthesizedExpression(
+                                    SyntaxFactory.InvocationExpression(
+                                        SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                            SyntaxFactory.IdentifierName("_seen"),
+                                            SyntaxFactory.IdentifierName("Contains")),
+                                        CreateArguments(new[] { SyntaxFactory.IdentifierName(concatItemName) })))),
+                            SyntaxFactory.Block(
+                                SyntaxFactory.ExpressionStatement(
+                                    SyntaxFactory.InvocationExpression(
+                                        SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                            SyntaxFactory.IdentifierName("_seen"),
+                                            SyntaxFactory.IdentifierName("Add")),
+                                        CreateArguments(new[] { SyntaxFactory.IdentifierName(concatItemName) }))),
+                                inner is BlockSyntax ? inner : SyntaxFactory.Block(inner))));
+                    result.Add(SyntaxFactory.ForEachStatement(
+                        SyntaxFactory.ParseTypeName("var"),
+                        concatItemName,
+                        SyntaxFactory.IdentifierName("_concatSecond_" + i),
+                        unionBody));
                 }
                 else if (step.MethodName == OrderMethod || step.MethodName == OrderDescendingMethod)
                 {
@@ -1165,9 +1207,10 @@ namespace CSharpToJava.Core.LinqRewrite
                         CreateParameter("_chunkSize_param_" + idx, CreatePrimitiveType(SyntaxKind.IntKeyword)),
                         step.Arguments[0]));
                 }
-                else if ((step.MethodName == ConcatMethod || step.MethodName == UnionMethod
-                    || step.MethodName == IntersectMethod || step.MethodName == ExceptMethod)
-                    && step.Arguments.Count > 0 && chain.IndexOf(step) > 0)
+                else if ((step.MethodName == ConcatMethod || step.MethodName == UnionMethod)
+                    && step.Arguments.Count > 0 && chain.IndexOf(step) > 0
+                    || (step.MethodName == IntersectMethod || step.MethodName == ExceptMethod)
+                    && step.Arguments.Count > 0)
                 {
                     // Intermediate Concat/Union/Intersect/Except: pass second sequence as parameter.
                     var idx = chain.IndexOf(step);

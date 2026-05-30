@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2016 Michał Komorowski
+// Copyright (c) 2016 Michał Komorowski
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -1708,14 +1708,71 @@ namespace CSharpToJava.Core.LinqRewrite
                 return CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
             }
 
-            // --- Concat/Union/Intersect/Except as intermediate operator:
+            // --- Concat as intermediate operator:
             //     pass-through in the main loop (items from primary source are processed
             //     normally). The second sequence is iterated in a post-loop
             //     (GetIntermediatePostLoopStatements) via the _concatSecond_N parameter.
-            if (method == ConcatMethod || method == UnionMethod
-                || method == IntersectMethod || method == ExceptMethod)
+            if (method == ConcatMethod)
             {
                 return CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+            }
+
+            // --- Union as intermediate operator:
+            //     pass-through in the main loop with _seenSet dedup, then iterate
+            //     second sequence in post-loop with same dedup.
+            if (method == UnionMethod)
+            {
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.Block(
+                    SyntaxFactory.IfStatement(
+                        SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                            SyntaxFactory.ParenthesizedExpression(
+                                SyntaxFactory.InvocationExpression(
+                                    SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        SyntaxFactory.IdentifierName("_seen"),
+                                        SyntaxFactory.IdentifierName("Contains")),
+                                    CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) })))),
+                        SyntaxFactory.Block(
+                            SyntaxFactory.ExpressionStatement(
+                                SyntaxFactory.InvocationExpression(
+                                    SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        SyntaxFactory.IdentifierName("_seen"),
+                                        SyntaxFactory.IdentifierName("Add")),
+                                    CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) }))),
+                            next is BlockSyntax ? next : SyntaxFactory.Block(next))));
+            }
+
+            // --- Intersect as intermediate operator:
+            //     only items that exist in the second sequence pass through.
+            //     Uses _secondSet.Remove(item) to enforce uniqueness (matches terminal behavior).
+            //     No post-loop iteration of the second sequence.
+            if (method == IntersectMethod)
+            {
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.IfStatement(
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName("_secondSet_" + chainIndex),
+                            SyntaxFactory.IdentifierName("Remove")),
+                        CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) })),
+                    next is BlockSyntax ? next : SyntaxFactory.Block(next));
+            }
+
+            // --- Except as intermediate operator:
+            //     only items that do NOT exist in the second sequence pass through.
+            //     No post-loop iteration of the second sequence.
+            if (method == ExceptMethod)
+            {
+                var next = CreateProcessingStep(chain, chainIndex - 1, itemType, itemName, arguments, noAggregation);
+                return SyntaxFactory.IfStatement(
+                    SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                        SyntaxFactory.ParenthesizedExpression(
+                            SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("_secondSet_" + chainIndex),
+                                    SyntaxFactory.IdentifierName("Contains")),
+                                CreateArguments(new[] { SyntaxFactory.IdentifierName(itemName) })))),
+                    next is BlockSyntax ? next : SyntaxFactory.Block(next));
             }
 
             // --- DefaultIfEmpty: set flag and pass through; post-loop emits default if empty ---
