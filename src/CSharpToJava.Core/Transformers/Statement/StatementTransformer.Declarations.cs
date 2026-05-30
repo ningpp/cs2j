@@ -1,3 +1,4 @@
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -332,6 +333,24 @@ public partial class StatementTransformer
                     if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType)
                         context.MethodState.AddStreamVariable(v.Identifier.Text);
                 }
+                // Struct chained assignment in variable declaration:
+                // Point center = previousCenter = p;
+                // In C# each variable gets an independent copy; in Java they'd share the same reference.
+                // Expand: var _structCopyN = p.clone(); previousCenter = _structCopyN.clone(); center = _structCopyN.clone();
+                if (context.SemanticModel != null && v.Initializer?.Value is AssignmentExpressionSyntax declChained
+                    && declChained.OperatorToken.Kind() == SyntaxKind.EqualsToken)
+                {
+                    var declaredLocalType = (context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol)?.Type;
+                    if (StructCloneHelper.IsUserDefinedStruct(declaredLocalType))
+                    {
+                        var (expandedInit, preStmtsForDecl) = ExpandChainedStructVarDecl(v, declChained, context);
+                        foreach (var ps in preStmtsForDecl) context.AddPreStatement(ps);
+                        initExpr = expandedInit;
+                        init = $" = {initExpr}";
+                        return $"{ConversionContext.EscapeJavaKeyword(v.Identifier.Text)}{init}";
+                    }
+                }
+
                 // Struct value copy: In C# struct assignment copies the value; in Java it copies the reference.
                 // Insert .clone() for user-defined struct initializers that are not fresh temporaries.
                 if (context.SemanticModel != null && v.Initializer != null)
@@ -639,5 +658,53 @@ public partial class StatementTransformer
     private JavaSyntaxNode TransformYieldBreak(YieldStatementSyntax? stmt, ConversionContext context)
     {
         return new JavaStatementNode("return _yieldResult;");
+    }
+
+    private static int _declStructCopyCounter;
+
+    private (string initExpr, List<string> preStmts) ExpandChainedStructVarDecl(
+        VariableDeclaratorSyntax varDecl,
+        AssignmentExpressionSyntax chainedInit,
+        ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var targets = new List<(ExpressionSyntax node, string transformed)>();
+
+        var current = chainedInit;
+        while (true)
+        {
+            targets.Add((current.Left, facade.Transform(current.Left, context)));
+            if (current.Right is AssignmentExpressionSyntax next
+                && next.OperatorToken.Kind() == SyntaxKind.EqualsToken)
+                current = next;
+            else
+                break;
+        }
+
+        var sourceNode = current.Right;
+        var sourceStr = facade.Transform(sourceNode, context);
+        var sourceType = context.SemanticModel?.GetTypeInfo(sourceNode).Type;
+        sourceStr = StructCloneHelper.CloneStructValueIfNeeded(sourceNode, sourceStr, sourceType, context);
+
+        var tmpName = $"_structCopy{Interlocked.Increment(ref _declStructCopyCounter)}";
+        var javaType = context.MapType(sourceType);
+
+        var preStmts = new List<string>();
+        preStmts.Add($"var {tmpName} = {sourceStr}");
+
+        for (int i = targets.Count - 1; i >= 0; i--)
+        {
+            var (targetNode, targetStr) = targets[i];
+            var rhsStr = $"{tmpName}.clone()";
+            var lhsType = context.SemanticModel?.GetTypeInfo(targetNode).Type;
+            rhsStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, rhsStr, lhsType, context);
+            preStmts.Add($"{targetStr} = {rhsStr}");
+        }
+
+        var varInitExpr = $"{tmpName}.clone()";
+        var varLhsType = (context.SemanticModel?.GetDeclaredSymbol(varDecl) as ILocalSymbol)?.Type;
+        varInitExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, varInitExpr, varLhsType, context);
+
+        return (varInitExpr, preStmts);
     }
 }

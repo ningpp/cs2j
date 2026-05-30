@@ -613,6 +613,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return $"{listenerField}.{listMethod}(handler)";
         }
 
+        // Struct chained assignment: center = previousCenter = p;
+        // In C# (struct value-type), each target gets an independent copy.
+        // In Java (reference-type), all targets would share the same object.
+        // Expand: var _structCopyN = p; previousCenter = _structCopyN.clone(); center = _structCopyN.clone();
+        if (op == "=" && context.SemanticModel != null
+            && rightNode is AssignmentExpressionSyntax chainedRight
+            && chainedRight.OperatorToken.Kind() == SyntaxKind.EqualsToken)
+        {
+            var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
+            if (StructCloneHelper.IsUserDefinedStruct(lhsType))
+            {
+                return ExpandChainedStructAssignment(node, chainedRight, context);
+            }
+        }
+
         // Struct value copy: simple assignment of user-defined struct needs .clone()
         // to preserve C# value-type copy semantics.
         if (op == "=" && context.SemanticModel != null)
@@ -1124,5 +1139,50 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
 
         return result;
+    }
+
+    private static int _structCopyCounter;
+
+    private string ExpandChainedStructAssignment(
+        AssignmentExpressionSyntax outerAsgn,
+        AssignmentExpressionSyntax innerAsgn,
+        ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var targets = new List<(ExpressionSyntax node, string transformed)>();
+        var current = outerAsgn;
+        while (true)
+        {
+            targets.Add((current.Left, facade.Transform(current.Left, context)));
+            if (current.Right is AssignmentExpressionSyntax next
+                && next.OperatorToken.Kind() == SyntaxKind.EqualsToken)
+                current = next;
+            else
+                break;
+        }
+
+        var sourceNode = current.Right;
+        var sourceStr = facade.Transform(sourceNode, context);
+        var sourceType = context.SemanticModel?.GetTypeInfo(sourceNode).Type;
+        sourceStr = StructCloneHelper.CloneStructValueIfNeeded(sourceNode, sourceStr, sourceType, context);
+
+        var tmpName = $"_structCopy{Interlocked.Increment(ref _structCopyCounter)}";
+        var javaType = context.MapType(sourceType);
+        context.AddPreStatement($"var {tmpName} = {sourceStr}");
+
+        for (int i = targets.Count - 1; i >= 1; i--)
+        {
+            var (targetNode, targetStr) = targets[i];
+            var rhsStr = $"{tmpName}.clone()";
+            var lhsType = context.SemanticModel?.GetTypeInfo(targetNode).Type;
+            rhsStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, rhsStr, lhsType, context);
+            context.AddPreStatement($"{targetStr} = {rhsStr}");
+        }
+
+        var firstTarget = targets[0].transformed;
+        var firstRhs = $"{tmpName}.clone()";
+        var firstLhsType = context.SemanticModel?.GetTypeInfo(targets[0].node).Type;
+        firstRhs = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, firstRhs, firstLhsType, context);
+        return $"{firstTarget} = {firstRhs}";
     }
 }

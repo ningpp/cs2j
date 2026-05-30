@@ -1201,6 +1201,131 @@ public sealed class Parser : ShiftReduceParser<ValueType>
         Assert.Contains("new ValueType()", consumerCode, StringComparison.Ordinal);
     }
 
+    // ── Chained struct assignment expansion (LowerStruct) ──────────────────────
+
+    [Fact]
+    public void Struct_ChainedAssignment_ExpandsToTempVarWithClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Program
+{
+    public Point center;
+    public Point previousCenter;
+    public void M(Point p)
+    {
+        center = previousCenter = p;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        Assert.Contains("_structCopy", code, StringComparison.Ordinal);
+        Assert.Contains(".clone()", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("previousCenter = p", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_SimpleAssignment_AddsClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Program
+{
+    public Point center;
+    public void M(Point p)
+    {
+        center = p;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("center = p.clone()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_AssignmentFromNew_NoClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Program
+{
+    public Point center;
+    public void M()
+    {
+        center = new Point();
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("center = new Point()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Point().clone()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_LocalVarChainedAssignment_ExpandsToTempVarWithClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Program
+{
+    public void M(Point p)
+    {
+        Point center;
+        Point previousCenter;
+        center = previousCenter = p;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        Assert.Contains("_structCopy", code, StringComparison.Ordinal);
+        Assert.Contains("previousCenter =", code, StringComparison.Ordinal);
+        Assert.Contains("center =", code, StringComparison.Ordinal);
+        Assert.Contains(".clone()", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_VarDeclChainedAssignment_ExpandsToTempVarWithClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Program
+{
+    public Point previousCenter;
+    public void M(Point p)
+    {
+        Point center = previousCenter = p;
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+        Assert.Contains("_structCopy", code, StringComparison.Ordinal);
+        Assert.Contains(".clone()", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NonStruct_ChainedAssignment_NoExpansion()
+    {
+        var result = Convert(@"
+public class Widget { public int Value; }
+public class Program
+{
+    public Widget center;
+    public Widget previousCenter;
+    public void M(Widget w)
+    {
+        center = previousCenter = w;
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+        Assert.DoesNotContain("_structCopy", code, StringComparison.Ordinal);
+        Assert.DoesNotContain(".clone()", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
