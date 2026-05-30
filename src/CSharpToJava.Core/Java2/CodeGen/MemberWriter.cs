@@ -6,6 +6,7 @@ namespace CSharpToJava.Core.Java2.CodeGen;
 public class MemberWriter
 {
     private readonly StatementWriter _stmtWriter = new();
+    private readonly ExpressionWriter _exprWriter = new();
 
     public void WriteField(IrFieldDeclaration field, IndentedWriter w)
     {
@@ -49,13 +50,19 @@ public class MemberWriter
         if (mod.Length > 0) mod += " ";
         var paramStr = string.Join(", ", ctor.Parameters.Select(p => p.Type + " " + p.Name));
         w.WriteLine(mod + ctor.TypeName + "(" + paramStr + ") {");
+        w.Indent();
+        if (ctor.Initializer != null)
+        {
+            var keyword = ctor.Initializer.IsThisCall ? "this" : "super";
+            var args = string.Join(", ", ctor.Initializer.Arguments.Select(a => _exprWriter.Write(a)));
+            w.WriteLine(keyword + "(" + args + ");");
+        }
         if (ctor.Body != null)
         {
-            w.Indent();
             foreach (var stmt in ctor.Body.Statements)
                 _stmtWriter.Write(stmt, w);
-            w.Unindent();
         }
+        w.Unindent();
         w.WriteLine("}");
     }
 

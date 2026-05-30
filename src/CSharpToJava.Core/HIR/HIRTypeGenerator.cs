@@ -191,6 +191,22 @@ public class HIRTypeGenerator
             Body = node.Body != null ? new HIRStatementGenerator().GenerateBlock(node.Body, ctx) : new IrBlockStatement(),
         };
         ctor.Parameters.AddRange(node.ParameterList.Parameters.Select(p => new IrParameter { Type = ctx.MapTypeFromSyntax(p.Type!), Name = p.Identifier.Text }));
+
+        if (node.Initializer != null)
+        {
+            var init = new IrConstructorInitializer
+            {
+                IsThisCall = node.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword),
+            };
+            if (node.Initializer.ArgumentList != null)
+            {
+                var exprGen = new HIRExpressionGenerator();
+                foreach (var arg in node.Initializer.ArgumentList.Arguments)
+                    init.Arguments.Add(exprGen.Generate(arg.Expression, ctx));
+            }
+            ctor.Initializer = init;
+        }
+
         return ctor;
     }
 

@@ -89,6 +89,13 @@ public class IrConstructorDeclaration : IrNode
     public List<IrParameter> Parameters { get; } = new();
     public IrBlockStatement? Body { get; set; }
     public string? LeadingComment { get; set; }
+    public IrConstructorInitializer? Initializer { get; set; }
+}
+
+public class IrConstructorInitializer
+{
+    public bool IsThisCall { get; set; }
+    public List<IrExpression> Arguments { get; } = new();
 }
 
 public class IrParameter

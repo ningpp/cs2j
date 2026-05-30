@@ -81,15 +81,13 @@ public class ConstructorTransformer : IMemberTransformer
         {
             var args = GetInitializerArguments(ctorDecl.Initializer, context);
 
-            // Java implicitly calls super() only for constructors with no explicit initializer.
-            // Preserve explicit C# base(...) calls even when the sole argument is null.
-            if (args.Count > 0)
+            if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
             {
-                if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
-                {
-                    javaCtor.Initializer = $"this({string.Join(", ", args)})";
-                }
-                else if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
+                javaCtor.Initializer = $"this({string.Join(", ", args)})";
+            }
+            else if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
+            {
+                if (args.Count > 0)
                 {
                     javaCtor.Initializer = $"super({string.Join(", ", args)})";
                 }
