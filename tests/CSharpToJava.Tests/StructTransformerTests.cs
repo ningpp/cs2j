@@ -1326,6 +1326,116 @@ public class Program
         Assert.DoesNotContain(".clone()", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Struct_AutoPropertyGetter_ReturnsClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Box
+{
+    public Point Value { get; set; }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        Assert.Contains("return value.clone();", code, StringComparison.Ordinal);
+        Assert.Contains("this.value = value.clone();", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_ExplicitPropertyGetter_ReturnsClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Box
+{
+    private Point _value;
+    public Point Value
+    {
+        get { return _value; }
+        set { _value = value; }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        Assert.Contains("return _value.clone();", code, StringComparison.Ordinal);
+        Assert.Contains("_value = value.clone();", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_PropertyAssignmentExpression_InitializesLocalWithClone()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Box
+{
+    public Point Value { get; set; }
+}
+public class Program
+{
+    public void M(Box box, Point p)
+    {
+        Point copy = box.Value = p;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        Assert.Contains("Point copy = p.clone();", code, StringComparison.Ordinal);
+        Assert.Contains("box.setValue(copy);", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Point copy = p;", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_PropertySetterFromGetter_UsesCopySemantics()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Box
+{
+    public Point Value { get; set; }
+}
+public class Program
+{
+    public void M(Box target, Box source)
+    {
+        target.Value = source.Value;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        Assert.Contains("return value.clone();", code, StringComparison.Ordinal);
+        Assert.Contains("this.value = value.clone();", code, StringComparison.Ordinal);
+        Assert.Contains("target.setValue(source.getValue())", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Struct_ChainedPropertySetterAssignment_UsesSingleCopiedValue()
+    {
+        var result = Convert(@"
+public struct Point { public int X, Y; }
+public class Box
+{
+    public Point Value { get; set; }
+}
+public class Program
+{
+    public void M(Box left, Box right, Point p)
+    {
+        left.Value = right.Value = p;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        Assert.Contains("var _chainVal", code, StringComparison.Ordinal);
+        Assert.Contains("= p.clone();", code, StringComparison.Ordinal);
+        Assert.Contains("right.setValue(_chainVal", code, StringComparison.Ordinal);
+        Assert.Contains("left.setValue(_chainVal", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

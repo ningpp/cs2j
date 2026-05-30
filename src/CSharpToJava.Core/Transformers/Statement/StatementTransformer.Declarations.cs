@@ -165,6 +165,11 @@ public partial class StatementTransformer
                 {
                     var varName = ConversionContext.EscapeJavaKeyword(sv.Identifier.Text);
                     var rhsExpr = exprTransformer.Transform(assignInit.Right, context);
+                    if (context.SemanticModel != null)
+                    {
+                        var rhsType = context.SemanticModel.GetTypeInfo(assignInit.Right).Type;
+                        rhsExpr = StructCloneHelper.CloneStructValueIfNeeded(assignInit.Right, rhsExpr, rhsType, context);
+                    }
                     // Build setter call using varName as the value argument
                     string setterCode;
                     if (assignInit.Left is MemberAccessExpressionSyntax maLhsSet)

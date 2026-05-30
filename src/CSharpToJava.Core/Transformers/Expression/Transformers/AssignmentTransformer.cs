@@ -740,6 +740,11 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Base case: any other expression (getter call, literal, local variable, non-property assignment)
         // — transform it and capture to a temp so callers can reference the value without re-evaluating.
         var tmpVal = facade.Transform(expr, context);
+        if (context.SemanticModel != null)
+        {
+            var exprType = context.SemanticModel.GetTypeInfo(expr).Type;
+            tmpVal = StructCloneHelper.CloneStructValueIfNeeded(expr, tmpVal, exprType, context);
+        }
         // Optimization: null literal doesn't need a temp variable — use it inline.
         if (tmpVal == "null")
             return "null";
