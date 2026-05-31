@@ -55,23 +55,6 @@ public class RegexPack : ICompatibilityPack
 }
 
 /// <summary>
-/// XML Pack — XmlReader, XmlWriter, XmlConvert 等 StAX 桥接
-/// </summary>
-public class XmlPack : ICompatibilityPack
-{
-    public string Id => "xml";
-    public string Description => "System.Xml → javax.xml.stream (StAX) bridge";
-    public IReadOnlyList<string> MavenDependencies => [];
-
-    public bool IsApplicable(CompatibilityPackContext context)
-    {
-        return context.ReferencesAnyType(
-            "XmlReader", "XmlWriter", "XmlTextReader",
-            "XmlNodeType", "XmlConvert", "XmlReaderSettings", "XmlWriterSettings", "ReadState");
-    }
-}
-
-/// <summary>
 /// JSON Pack — JsonSerializer, JsonSerializerOptions (Jackson 桥接)
 /// </summary>
 public class JsonPack : ICompatibilityPack

@@ -1,4 +1,4 @@
-﻿using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using System.Text.RegularExpressions;
 
@@ -23,14 +23,6 @@ public static class CrossPackageImportResolver
         "ByteHolder",
         "ObjectHolder",
         "StopwatchHelper",
-        "XmlNodeType",
-        "ReadState",
-        "XmlConvert",
-        "XmlReaderSettings",
-        "XmlWriterSettings",
-        "XmlReader",
-        "XmlTextReader",
-        "XmlWriter",
         "JsonSerializerOptions",
         "JsonSerializer",
         "MathHelper",
@@ -50,7 +42,6 @@ public static class CrossPackageImportResolver
         "TextReader",
         "ThreadHelper",
         "ArrayHelper",
-        "DataContractSerializer",
         "DrawingColor",
         "StreamWrapper"
     };

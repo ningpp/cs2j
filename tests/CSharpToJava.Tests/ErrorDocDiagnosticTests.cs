@@ -716,8 +716,8 @@ class Sample {
     }
 
     // Error 08: Object initializer type lost when type has no Java mapping
-    // This is a type mapping configuration issue — .NET-specific types (XmlReaderSettings,
-    // ProcessStartInfo, etc.) have no Java equivalent and fall back to Object.
+    // This is a type mapping configuration issue — .NET-specific types (ProcessStartInfo,
+    // etc.) have no Java equivalent and fall back to Object.
     [Fact]
     public void Error08_ObjectInitializerPreservesType()
     {

@@ -207,7 +207,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Fallback for property/field member access: when the semantic model
-        // can't resolve the type (e.g. compat library types like XmlReader),
+        // can't resolve the type (e.g. compat library types like StringHelper),
         // use naming heuristic — C# properties starting with "Is" are typically bool.
         if (expr is MemberAccessExpressionSyntax memberAccess
             && IsBooleanMethodName(memberAccess.Name.Identifier.Text))

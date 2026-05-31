@@ -1938,7 +1938,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 var receiverSymbol3 = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
                 // Only override when the identifier is NOT a field/local/parameter/property reference.
-                // e.g. field "xmlTextReader" has type XmlTextReader — we must NOT replace the
+                // e.g. field "streamWriter" has type StreamWriter — we must NOT replace the
                 // receiver with the type name, or Java sees a static call on the class.
                 // Similarly, property "Multiedges" of type Dictionary must keep the getter call,
                 // not be replaced by the type name "System.Collections.Generic.Dictionary".

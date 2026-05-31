@@ -473,8 +473,8 @@ public class TypeMappingService
             return mappedSimple;
         }
 
-        // When the mapped name equals the C# simple name (e.g. DataContractSerializer
-        // → DataContractSerializer), the type name doesn't change but the config entry
+        // When the mapped name equals the C# simple name (e.g. CSharpStack
+        // → CSharpStack), the type name doesn't change but the config entry
         // may still carry imports that must be registered.
         AddImportsForType(configKeySimple);
         if (_typeMappings.HasTypeMapping(configKeySimple))

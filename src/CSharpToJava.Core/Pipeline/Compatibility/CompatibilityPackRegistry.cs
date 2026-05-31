@@ -18,7 +18,6 @@ public class CompatibilityPackRegistry
         registry.Register(new RefHolderPack());
         registry.Register(new DotNetCorePack());
         registry.Register(new RegexPack());
-        registry.Register(new XmlPack());
         registry.Register(new JsonPack());
         registry.Register(new TracePack());
         registry.Register(new IoPack());

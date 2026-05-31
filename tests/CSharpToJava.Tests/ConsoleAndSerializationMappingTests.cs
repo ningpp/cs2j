@@ -74,38 +74,6 @@ class Test
     }
 
     [Fact]
-    public void LinqToXmlTypes_MapToCompatClasses()
-    {
-        var result = Convert("""
-using System.Xml.Linq;
-
-class Test
-{
-    string M(string xml)
-    {
-        XDocument doc = XDocument.Parse(xml);
-        foreach (XElement element in doc.Descendants())
-        {
-            if (element.Name.LocalName == "Node")
-            {
-                return element.Attribute("Id").Value;
-            }
-        }
-        return null;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("XDocument doc = XDocument.parse(xml);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("doc.descendants()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("element.getName()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("element.attribute(\"Id\")", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("XDocument.Parse", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("doc.Descendants", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void StringSplit_RemoveEmptyEntries_EscapesControlSeparators()
     {
         var result = Convert("""
