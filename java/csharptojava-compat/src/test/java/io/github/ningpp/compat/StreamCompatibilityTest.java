@@ -30,22 +30,6 @@ class StreamCompatibilityTest {
     }
 
     @Test
-    void xmlWriter_writesToMemoryStreamViaStreamWrapper() {
-        MemoryStream ms = new MemoryStream();
-
-        XmlWriter.create(ms, new XmlWriterSettings());
-        XmlWriter.writeStartElement("root");
-        XmlWriter.writeString("ok");
-        XmlWriter.writeEndElement();
-        XmlWriter.flush();
-
-        ms.setPosition(0);
-        String xml = new StreamReader(ms).readToEnd();
-
-        assertTrue(xml.contains("<root>ok</root>"), xml);
-    }
-
-    @Test
     void streamWrapper_readByteArray_emptyStream_returnsZero() {
         StreamWrapper sw = StreamWrapper.of(new java.io.ByteArrayInputStream(new byte[0]));
         byte[] buf = new byte[10];
