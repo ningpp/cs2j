@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -206,6 +207,22 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformBinaryExpression(BinaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (context.IsInFixedScope && op == "+")
+        {
+            var leftType = context.SemanticModel?.GetTypeInfo(node.Left).Type;
+            if (leftType is IPointerTypeSymbol)
+            {
+                var facade2 = ExpressionTransformerFacade.Instance;
+                var leftExpr = facade2.Transform(node.Left, context);
+                var rightExpr = facade2.Transform(node.Right, context);
+                var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
+                if (pointerInfo != null)
+                {
+                    return FfmHelper.GeneratePointerArithmetic(leftExpr.Trim(), pointerInfo, rightExpr);
+                }
+            }
+        }
+
         var facade = ExpressionTransformerFacade.Instance;
 
         // Fix: Handle event null comparisons (e.g., ProgressChanged != null)

@@ -280,6 +280,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
             var indexerSymbol = context.SemanticModel?.GetSymbolInfo(ela).Symbol as IPropertySymbol;
             var containerExprType = context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
             bool isArrayElement = containerExprType is IArrayTypeSymbol;
+            if (context.IsInFixedScope && containerExprType is IPointerTypeSymbol)
+            {
+                var targetExpr = facade.Transform(ela.Expression, context);
+                var pointerInfo = context.FindPointerInfo(targetExpr.Trim());
+                if (pointerInfo != null && ela.ArgumentList.Arguments.Count == 1)
+                {
+                    var idxExpr = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
+                    string offsetExpr = pointerInfo.ElementSize == 1
+                        ? idxExpr
+                        : $"(long){idxExpr} * {pointerInfo.ElementSize}";
+                    var pointerRightStr = facade.Transform(rightNode, context);
+                    pointerRightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, pointerRightStr, null, context);
+                    return FfmHelper.GeneratePointerWrite(targetExpr.Trim(), pointerInfo, offsetExpr, pointerRightStr) + ";";
+                }
+            }
             bool isIndexerAssignment = !isArrayElement
                 && (indexerSymbol?.IsIndexer == true || indexerSymbol == null);
 
@@ -572,6 +587,19 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 var fallbackResult = ExpandCompoundByTypeInfo(node, op, context);
                 if (fallbackResult != null)
                     return fallbackResult;
+            }
+        }
+
+        if (context.IsInFixedScope && leftNode is PrefixUnaryExpressionSyntax prefixUnary
+            && prefixUnary.IsKind(SyntaxKind.PointerIndirectionExpression))
+        {
+            var operand = facade.Transform(prefixUnary.Operand, context);
+            var pointerInfo = context.FindPointerInfo(operand.Trim());
+            if (pointerInfo != null)
+            {
+                var pointerRightStr = facade.Transform(rightNode, context);
+                pointerRightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, pointerRightStr, null, context);
+                return FfmHelper.GeneratePointerWrite(operand.Trim(), pointerInfo, "0", pointerRightStr) + ";";
             }
         }
 

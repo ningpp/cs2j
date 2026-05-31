@@ -7,6 +7,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression;
+using System.Text;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Statement;
@@ -464,20 +465,67 @@ public partial class StatementTransformer
 
     private JavaSyntaxNode TransformFixedStatement(FixedStatementSyntax stmt, ConversionContext context)
     {
-        context.Diagnostics.Error(
-            "Java doesn't support fixed buffers. Manual conversion required.",
-            stmt.GetLocation()
-        );
-        return new JavaStatementNode("/* TODO: Fixed statement - manual conversion required */");
+        var sb = new StringBuilder();
+        var pointerInfos = new List<FixedPointerInfo>();
+
+        var pointerType = stmt.Declaration.Type as PointerTypeSyntax;
+        if (pointerType == null)
+        {
+            context.Diagnostics.Error("Fixed statement requires a pointer type declaration.", stmt.GetLocation());
+            return new JavaStatementNode("/* TODO: Fixed statement - unsupported declaration */");
+        }
+
+        var elementTypeName = GetPointerElementTypeName(pointerType.ElementType);
+
+        foreach (var declarator in stmt.Declaration.Variables)
+        {
+            var varName = declarator.Identifier.Text;
+            var info = FfmHelper.CreatePointerInfo(varName, elementTypeName);
+            pointerInfos.Add(info);
+
+            bool isNull = declarator.Initializer?.Value is LiteralExpressionSyntax lit && lit.Token.IsKind(SyntaxKind.NullKeyword);
+            bool isString = false;
+            string initExpr = "";
+
+            if (!isNull && declarator.Initializer != null)
+            {
+                initExpr = ExpressionTransformerFacade.Instance.Transform(declarator.Initializer.Value, context);
+                var initType = context.SemanticModel?.GetTypeInfo(declarator.Initializer.Value).Type;
+                isString = initType?.SpecialType == SpecialType.System_String;
+            }
+
+            sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull));
+        }
+
+        var imports = FfmHelper.GetRequiredImports(false);
+        foreach (var imp in imports)
+            context.AddImport(imp);
+
+        context.PushFixedScope(pointerInfos);
+
+        var body = stmt.Statement is BlockSyntax block
+            ? TransformBlock(block, context)
+            : Transform(stmt.Statement, context).ToString("");
+
+        context.PopFixedScope();
+
+        return new JavaStatementNode(sb.ToString() + body);
+    }
+
+    private static string GetPointerElementTypeName(TypeSyntax elementType)
+    {
+        if (elementType is PredefinedTypeSyntax predefined)
+            return predefined.Keyword.Text;
+        if (elementType is IdentifierNameSyntax identifier)
+            return identifier.Identifier.Text;
+        return elementType.ToString();
     }
 
     private JavaSyntaxNode TransformUnsafeStatement(UnsafeStatementSyntax stmt, ConversionContext context)
     {
-        context.Diagnostics.Error(
-            "Java doesn't support unsafe code. Manual conversion required.",
-            stmt.GetLocation()
-        );
-        return new JavaStatementNode("/* TODO: Unsafe statement - manual conversion required */");
+        return stmt.Block != null
+            ? new JavaStatementNode(TransformBlock(stmt.Block, context))
+            : new JavaStatementNode("");
     }
 
     private JavaSyntaxNode TransformCheckedStatement(CheckedStatementSyntax stmt, ConversionContext context)

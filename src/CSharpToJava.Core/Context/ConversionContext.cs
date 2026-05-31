@@ -6,6 +6,7 @@ using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Context;
 
@@ -18,6 +19,19 @@ public class ConversionContext
     private readonly Stack<JavaTypeDeclaration> _typeStack = new();
     private readonly Stack<IMethodSymbol?> _methodStack = new();
     private readonly Stack<Dictionary<string, string>> _runtimeClassFieldsStack = new();
+    private readonly Stack<List<FixedPointerInfo>> _fixedScopeStack = new();
+    public bool IsInFixedScope => _fixedScopeStack.Count > 0;
+    public void PushFixedScope(List<FixedPointerInfo> pointers) => _fixedScopeStack.Push(pointers);
+    public void PopFixedScope() => _fixedScopeStack.Pop();
+    public FixedPointerInfo? FindPointerInfo(string varName)
+    {
+        foreach (var scope in _fixedScopeStack)
+        {
+            var info = scope.FirstOrDefault(p => p.VariableName == varName);
+            if (info != null) return info;
+        }
+        return null;
+    }
 
     public ConversionOptions Options { get; }
     public SemanticModel? SemanticModel { get; set; }

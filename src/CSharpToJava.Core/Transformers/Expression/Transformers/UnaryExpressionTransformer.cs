@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -323,24 +324,56 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformAddressOf(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
-        // C# & operator (address of) has no direct Java equivalent
-        context.Diagnostics.Warning("Address-of operator (&) has no Java equivalent - converting to unsafe memory access", node.GetLocation());
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
+
+        if (context.IsInFixedScope)
+        {
+            context.Diagnostics.Warning("Address-of operator (&) in fixed scope - using MemorySegment offset", node.GetLocation());
+            return operand;
+        }
+
+        context.Diagnostics.Warning("Address-of operator (&) has no Java equivalent - converting to unsafe memory access", node.GetLocation());
         return $"/* C# addressof — no Java equivalent: {operand} */";
     }
 
     private string TransformPointerIndirection(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
-        // C# * operator (pointer indirection) has no direct Java equivalent
-        context.Diagnostics.Warning("Pointer indirection operator (*) has no Java equivalent - unsafe code not supported", node.GetLocation());
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
+
+        if (context.IsInFixedScope)
+        {
+            var operandText = operand.Trim();
+            var pointerInfo = context.FindPointerInfo(operandText);
+            if (pointerInfo != null)
+            {
+                return FfmHelper.GeneratePointerRead(operandText, pointerInfo, "0");
+            }
+        }
+
+        context.Diagnostics.Warning("Pointer indirection operator (*) has no Java equivalent - unsafe code not supported", node.GetLocation());
         return $"/* unsafe: pointer deref */ {operand}";
     }
 
     private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (context.IsInFixedScope && (op == "++" || op == "--"))
+        {
+            var operandType = context.SemanticModel?.GetTypeInfo(node.Operand).Type;
+            if (operandType is IPointerTypeSymbol)
+            {
+                var facade0 = ExpressionTransformerFacade.Instance;
+                var operandExpr = facade0.Transform(node.Operand, context);
+                var pointerInfo = context.FindPointerInfo(operandExpr.Trim());
+                if (pointerInfo != null)
+                {
+                    long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
+                    return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+                }
+            }
+        }
+
         // Statement context: rewrite property/indexer in place (no return value needed)
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
@@ -411,6 +444,22 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (context.IsInFixedScope && (op == "++" || op == "--"))
+        {
+            var operandType = context.SemanticModel?.GetTypeInfo(node.Operand).Type;
+            if (operandType is IPointerTypeSymbol)
+            {
+                var facade0 = ExpressionTransformerFacade.Instance;
+                var operandExpr = facade0.Transform(node.Operand, context);
+                var pointerInfo = context.FindPointerInfo(operandExpr.Trim());
+                if (pointerInfo != null)
+                {
+                    long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
+                    return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+                }
+            }
+        }
+
         // Statement context: rewrite property/indexer in place
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))

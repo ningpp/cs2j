@@ -111,6 +111,29 @@ public class ElementAccessTransformer : IIRExpressionTransformer
     private string TransformElementAccess(ElementAccessExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
+
+        if (context.IsInFixedScope && node.ArgumentList.Arguments.Count == 1)
+        {
+            var targetExpr = facade.Transform(node.Expression, context);
+            var targetType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+            if (targetType is IPointerTypeSymbol pointerType)
+            {
+                var pointeeType = pointerType.PointedAtType;
+                var elementTypeName = GetPointeeTypeName(pointeeType);
+                var pointerInfo = context.FindPointerInfo(targetExpr.Trim());
+                if (pointerInfo != null)
+                {
+                    var idxExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    string offsetExpr = pointerInfo.ElementSize == 1
+                        ? idxExpr
+                        : $"(long){idxExpr} * {pointerInfo.ElementSize}";
+                    return FfmHelper.GeneratePointerRead(targetExpr.Trim(), pointerInfo, offsetExpr);
+                }
+                var idxExprFallback = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"/* pointer index access */ {targetExpr}.get(ValueLayout.{FfmHelper.GetValueLayoutName(elementTypeName)}, {idxExprFallback})";
+            }
+        }
+
         var expr = facade.Transform(node.Expression, context);
         var indexerSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IPropertySymbol;
 
@@ -229,4 +252,24 @@ public class ElementAccessTransformer : IIRExpressionTransformer
 
     private static bool IsRegexGroupCollection(ITypeSymbol? type)
         => type?.ToDisplayString() == "System.Text.RegularExpressions.GroupCollection";
+
+    private static string GetPointeeTypeName(ITypeSymbol type)
+    {
+        return type.SpecialType switch
+        {
+            SpecialType.System_Byte => "byte",
+            SpecialType.System_SByte => "sbyte",
+            SpecialType.System_Char => "char",
+            SpecialType.System_Int16 => "short",
+            SpecialType.System_UInt16 => "ushort",
+            SpecialType.System_Int32 => "int",
+            SpecialType.System_UInt32 => "uint",
+            SpecialType.System_Int64 => "long",
+            SpecialType.System_UInt64 => "ulong",
+            SpecialType.System_Single => "float",
+            SpecialType.System_Double => "double",
+            SpecialType.System_Boolean => "bool",
+            _ => type.Name
+        };
+    }
 }

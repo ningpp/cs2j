@@ -1526,12 +1526,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private string TransformPointerMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
-        // C# pointer member access (ptr->member) has no direct Java equivalent
-        context.Diagnostics.Warning("Pointer member access (->) has no Java equivalent - unsafe code not supported", node.GetLocation());
         var facade = ExpressionTransformerFacade.Instance;
         var target = facade.Transform(node.Expression, context);
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
-        // Fix 6: note that unsafe pointer semantics cannot be reproduced in Java
+
+        if (context.IsInFixedScope)
+        {
+            context.Diagnostics.Warning("Pointer member access (->) requires struct layout info - converting to field access", node.GetLocation());
+            return $"{target}.{member}";
+        }
+
+        context.Diagnostics.Warning("Pointer member access (->) has no Java equivalent - unsafe code not supported", node.GetLocation());
         return $"/* WARNING: C# unsafe pointer dereference — Java does not support pointer arithmetic. */ {target}.{member}";
     }
 

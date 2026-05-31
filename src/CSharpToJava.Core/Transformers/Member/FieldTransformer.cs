@@ -55,8 +55,39 @@ public class FieldTransformer : IMemberTransformer
             && fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
             && fieldDecl.Declaration.Variables.All(v => v.Initializer != null))
             modifiers |= JavaModifiers.Final;
+        bool commentAssigned = false;
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.FixedKeyword)))
-            context.Diagnostics.Error("Java doesn't support fixed-size buffers. Field needs manual conversion.", fieldDecl.GetLocation());
+        {
+            var elementType = fieldDecl.Declaration.Type;
+            var elementTypeName = elementType is PredefinedTypeSyntax pre
+                ? pre.Keyword.Text
+                : elementType.ToString();
+
+            foreach (var variable in fieldDecl.Declaration.Variables)
+            {
+                var varName = variable.Identifier.Text;
+                var arraySizeStr = variable.ArgumentList?.Arguments.FirstOrDefault()?.ToString() ?? "0";
+                var info = FfmHelper.CreatePointerInfo(varName, elementTypeName);
+                long byteSize = info.ElementSize * (int.TryParse(arraySizeStr, out var n) ? n : 0);
+
+                var javaField = new JavaFieldDeclaration
+                {
+                    Name = varName,
+                    Type = "MemorySegment",
+                    Modifiers = modifiers,
+                    Initializer = $"Arena.ofAuto().allocate({byteSize}, ValueLayout.{info.ValueLayoutName})",
+                    LeadingComment = sharedComment
+                };
+                commentAssigned = true;
+                yield return javaField;
+            }
+
+            var imports = FfmHelper.GetRequiredImports(true);
+            foreach (var imp in imports)
+                context.AddImport(imp);
+
+            yield break;
+        }
 
         // Issue 5: volatile non-primitive field needs a heads-up comment.
         bool isVolatile = fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.VolatileKeyword));
@@ -67,7 +98,6 @@ public class FieldTransformer : IMemberTransformer
         // so we can warn when a subsequent initializer cross-references a prior variable.
         var declaredNames = new HashSet<string>();
 
-        bool commentAssigned = false;
         foreach (var variable in fieldDecl.Declaration.Variables)
         {
             var javaField = new JavaFieldDeclaration
