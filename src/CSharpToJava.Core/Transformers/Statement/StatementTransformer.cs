@@ -67,6 +67,16 @@ public partial class StatementTransformer : IStatementTransformer
         if (context.MethodState.ScopeDepth == 0)
         {
             PrescanLabels(block.Statements, context);
+
+            // Analyze goto patterns to determine if state machine is needed
+            var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);
+            context.MethodState.GotoAnalyzer = gotoAnalyzer;
+
+            // If cross-scope goto detected, wrap in state machine
+            if (gotoAnalyzer.HasCrossScopeGoto)
+            {
+                return TransformBlockWithStateMachine(block, context, gotoAnalyzer);
+            }
         }
 
         context.MethodState.PushScope();
@@ -102,6 +112,18 @@ public partial class StatementTransformer : IStatementTransformer
         if (context.MethodState.ScopeDepth == 0)
         {
             PrescanLabels(block.Statements, context);
+
+            // Analyze goto patterns to determine if state machine is needed
+            var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);
+            context.MethodState.GotoAnalyzer = gotoAnalyzer;
+
+            // If cross-scope goto detected, fall back to string-based body with state machine
+            if (gotoAnalyzer.HasCrossScopeGoto)
+            {
+                var stateMachineCode = TransformBlockWithStateMachine(block, context, gotoAnalyzer);
+                body.Statements.Add(new Java.JavaRawStatement(stateMachineCode));
+                return body;
+            }
         }
 
         context.MethodState.PushScope();

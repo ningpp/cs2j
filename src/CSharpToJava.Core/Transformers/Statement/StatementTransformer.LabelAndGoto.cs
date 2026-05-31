@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using System.Text;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
@@ -137,6 +138,15 @@ public partial class StatementTransformer
             return new JavaStatementNode($"/* TODO: goto {targetLabel} - label not found in scope */");
         }
 
+        // Check if this is a cross-scope goto
+        var gotoAnalyzer = context.MethodState.GotoAnalyzer;
+        if (gotoAnalyzer != null && gotoAnalyzer.CrossScopeLabels.Contains(targetLabel))
+        {
+            // Cross-scope goto - use state machine
+            var stateValue = GetLabelStateValue(targetLabel, context);
+            return new JavaStatementNode($"__gotoState = {stateValue}; continue __gotoLoop;");
+        }
+
         if (!IsInLabelScope(stmt, targetLabel))
         {
             return new JavaStatementNode($"/* TODO: goto {targetLabel} - cross-scope goto unsupported */");
@@ -151,6 +161,16 @@ public partial class StatementTransformer
         {
             return new JavaStatementNode($"break {targetLabel};");
         }
+    }
+
+    private static int GetLabelStateValue(string labelName, ConversionContext context)
+    {
+        var gotoAnalyzer = context.MethodState.GotoAnalyzer;
+        if (gotoAnalyzer == null) return 0;
+
+        var labels = gotoAnalyzer.CrossScopeLabels.OrderBy(l => l).ToList();
+        var index = labels.IndexOf(labelName);
+        return index + 1; // State 0 is initial, states 1+ are labels
     }
 
     private static bool IsInLabelScope(GotoStatementSyntax gotoStmt, string targetLabel)
@@ -175,4 +195,85 @@ public partial class StatementTransformer
         }
         return false;
     }
+
+    /// <summary>
+    /// Transforms a method body that contains cross-scope goto statements
+    /// into a state machine using a while loop and state variable.
+    /// </summary>
+    internal string TransformBlockWithStateMachine(BlockSyntax block, ConversionContext context, GotoAnalyzer gotoAnalyzer)
+    {
+        var sb = new StringBuilder();
+
+        // Generate state variable
+        sb.AppendLine("int __gotoState = 0;");
+        sb.AppendLine("__gotoLoop: while (true) {");
+        sb.AppendLine("    switch (__gotoState) {");
+        sb.AppendLine("        case 0: // Initial state");
+
+        // Transform the method body with state transitions
+        context.MethodState.PushScope();
+        var statements = TransformStatementsWithStateLabels(block.Statements, context, gotoAnalyzer);
+        context.MethodState.PopScope();
+
+        foreach (var stmt in statements)
+        {
+            sb.AppendLine($"            {stmt}");
+        }
+
+        sb.AppendLine("            break __gotoLoop; // Exit state machine");
+
+        // Generate case labels for each cross-scope label
+        var labels = gotoAnalyzer.CrossScopeLabels.OrderBy(l => l).ToList();
+        for (int i = 0; i < labels.Count; i++)
+        {
+            var labelName = labels[i];
+            var stateValue = i + 1;
+            sb.AppendLine($"        case {stateValue}: // Label: {labelName}");
+            sb.AppendLine($"            __gotoState = 0; // Reset to continue from label");
+            sb.AppendLine($"            // Jump to label {labelName} - continue execution");
+            sb.AppendLine($"            break;");
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Transforms statements and inserts state labels for cross-scope goto targets.
+    /// </summary>
+    private List<string> TransformStatementsWithStateLabels(
+        SyntaxList<StatementSyntax> statements,
+        ConversionContext context,
+        GotoAnalyzer gotoAnalyzer)
+    {
+        var result = new List<string>();
+        var crossScopeLabels = gotoAnalyzer.CrossScopeLabels;
+
+        foreach (var statement in statements)
+        {
+            // Check if this statement is a labeled statement with a cross-scope target
+            if (statement is LabeledStatementSyntax labeled
+                && crossScopeLabels.Contains(labeled.Identifier.Text))
+            {
+                // Insert state check for this label
+                var labelName = labeled.Identifier.Text;
+                var stateValue = GetLabelStateValue(labelName, context);
+                result.Add($"// State label: {labelName}");
+                result.Add($"if (__gotoState == {stateValue}) {{ __gotoState = 0; }}");
+            }
+
+            var transformed = Transform(statement, context);
+            var code = transformed.ToString("");
+
+            if (!string.IsNullOrWhiteSpace(code))
+            {
+                result.Add(code);
+            }
+        }
+
+        return result;
+    }
 }
+

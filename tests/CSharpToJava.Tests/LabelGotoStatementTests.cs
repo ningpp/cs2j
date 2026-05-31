@@ -143,8 +143,9 @@ class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("target: { x = 1; }", result.GeneratedCode);
-        Assert.Contains("/* TODO: goto target - cross-scope goto unsupported */", result.GeneratedCode);
+        // Cross-scope goto now uses state machine
+        Assert.Contains("__gotoState", result.GeneratedCode);
+        Assert.Contains("__gotoLoop", result.GeneratedCode);
     }
 
     [Fact]
@@ -194,7 +195,9 @@ class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("/* TODO: goto target - cross-scope goto unsupported */", result.GeneratedCode);
+        // Cross-scope goto now uses state machine
+        Assert.Contains("__gotoState", result.GeneratedCode);
+        Assert.Contains("__gotoLoop", result.GeneratedCode);
     }
 
     [Fact]

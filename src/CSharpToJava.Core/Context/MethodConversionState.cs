@@ -228,6 +228,12 @@ public class MethodConversionState
     public LabelRegistry Labels { get; } = new();
 
     /// <summary>
+    /// Goto analyzer for detecting cross-scope goto patterns that require
+    /// state machine transformation. Set during method body pre-scan.
+    /// </summary>
+    public GotoAnalyzer? GotoAnalyzer { get; set; }
+
+    /// <summary>
     /// Pending holders: registered during pre-scan for variables that are captured by lambdas
     /// and externally reassigned. The holder declaration will be emitted right after the
     /// variable's own declaration, then the mapping is promoted to active.
@@ -346,6 +352,7 @@ public class MethodConversionState
         _runtimeClassParametersByTypeParameter.Clear();
         LambdaCapturePreScanDone = false;
         Labels.Clear();
+        GotoAnalyzer = null;
 
         if (readOnlyRefStructParamNames != null)
         {
