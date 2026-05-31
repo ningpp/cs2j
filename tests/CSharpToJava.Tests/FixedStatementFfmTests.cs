@@ -289,6 +289,42 @@ unsafe class Test {
     }
 
     [Fact]
+    public void NestedPointerArithmetic_CharPointer()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(string str) {
+        int startPos = 5;
+        int len = 10;
+        fixed (char* pChars = str) {
+            char* p = pChars + startPos + len;
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("pChars.asSlice((long)startPos * 2).asSlice((long)len * 2)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void NestedPointerArithmetic_AsMethodArgument()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void Decode(char* p1, char* p2) { }
+    void M(string str) {
+        int startPos = 0;
+        int len = 10;
+        fixed (char* pChars = str) {
+            Decode(pChars + startPos, pChars + startPos + len);
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("pChars.asSlice((long)startPos * 2)", result.GeneratedCode);
+        Assert.Contains("pChars.asSlice((long)startPos * 2).asSlice((long)len * 2)", result.GeneratedCode);
+    }
+
+    [Fact]
     public void PointerIndexAccess_IntPointer()
     {
         var result = Convert(@"

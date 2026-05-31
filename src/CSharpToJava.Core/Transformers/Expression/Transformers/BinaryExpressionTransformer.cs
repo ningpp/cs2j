@@ -210,12 +210,23 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (context.IsInFixedScope && op == "+")
         {
             var leftType = context.SemanticModel?.GetTypeInfo(node.Left).Type;
-            if (leftType is IPointerTypeSymbol)
+            if (leftType is IPointerTypeSymbol pointerType)
             {
                 var facade2 = ExpressionTransformerFacade.Instance;
                 var leftExpr = facade2.Transform(node.Left, context);
                 var rightExpr = facade2.Transform(node.Right, context);
+
+                // Try to find pointer info from registry first (for simple identifiers)
                 var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
+
+                // If not found (e.g., for nested expressions like "pChars + startPos"),
+                // create pointer info from the semantic type information
+                if (pointerInfo == null && pointerType.PointedAtType != null)
+                {
+                    var elementTypeName = pointerType.PointedAtType.ToDisplayString();
+                    pointerInfo = FfmHelper.CreatePointerInfo("", elementTypeName);
+                }
+
                 if (pointerInfo != null)
                 {
                     return FfmHelper.GeneratePointerArithmetic(leftExpr.Trim(), pointerInfo, rightExpr);
