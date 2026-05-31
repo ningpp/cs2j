@@ -598,7 +598,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 }
             }
         }
-        return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null) /* result may be null — check before use */";
+        return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null)";
     }
 
     /// <summary>
