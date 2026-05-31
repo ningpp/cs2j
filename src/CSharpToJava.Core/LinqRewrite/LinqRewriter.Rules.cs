@@ -2002,7 +2002,6 @@ namespace CSharpToJava.Core.LinqRewrite
             WhereMethod, SelectMethod, CastMethod, OfTypeMethod,
             DistinctMethod, SkipMethod, TakeMethod, SkipWhileMethod, TakeWhileMethod, SelectManyMethod,
             OrderByMethod, OrderByDescendingMethod, ThenByMethod, ThenByDescendingMethod,
-            ConcatMethod, UnionMethod, IntersectMethod, ExceptMethod,
             WhereWithIndexMethod, SelectWithIndexMethod, SkipWhileWithIndexMethod, TakeWhileWithIndexMethod,
             SelectManyWithIndexMethod,
             SkipLastMethod, TakeLastMethod, AppendMethod, PrependMethod,
