@@ -223,6 +223,10 @@ public class MethodConversionState
     /// </summary>
     public bool LambdaCapturePreScanDone { get; set; }
 
+    // ─── Label Registry ────────────────────────────────────────────
+
+    public LabelRegistry Labels { get; } = new();
+
     /// <summary>
     /// Pending holders: registered during pre-scan for variables that are captured by lambdas
     /// and externally reassigned. The holder declaration will be emitted right after the
@@ -341,6 +345,7 @@ public class MethodConversionState
         _activeLambdaCaptureHolders.Clear();
         _runtimeClassParametersByTypeParameter.Clear();
         LambdaCapturePreScanDone = false;
+        Labels.Clear();
 
         if (readOnlyRefStructParamNames != null)
         {

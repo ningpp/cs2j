@@ -258,6 +258,8 @@ public class ConversionContext
     public IReadOnlyList<string> DrainPostStatements() => MethodState.DrainPostStatements();
     public bool HasPendingPostStatements => MethodState.HasPendingPostStatements;
 
+    public LabelRegistry Labels => MethodState.Labels;
+
     public bool IsReadOnlyRefStructParam(string paramName) => MethodState.IsReadOnlyRefStructParam(paramName);
     public string AllocateOutHolderName(string varName) => MethodState.AllocateOutHolderName(varName);
     public bool TryGetActiveRefHolder(string varName, out string holderName) => MethodState.TryGetActiveRefHolder(varName, out holderName);

@@ -34,6 +34,10 @@ public partial class StatementTransformer : IStatementTransformer
             SyntaxKind.UsingStatement => TransformUsingStatement(node as UsingStatementSyntax, context),
             SyntaxKind.BreakStatement => new JavaStatementNode("break;"),
             SyntaxKind.ContinueStatement => new JavaStatementNode("continue;"),
+            SyntaxKind.LabeledStatement => TransformLabelStatement(node as LabeledStatementSyntax, context),
+            SyntaxKind.GotoStatement => TransformGotoStatement(node as GotoStatementSyntax, context),
+            SyntaxKind.GotoCaseStatement => TransformGotoStatement(node as GotoStatementSyntax, context),
+            SyntaxKind.GotoDefaultStatement => TransformGotoStatement(node as GotoStatementSyntax, context),
             SyntaxKind.YieldReturnStatement => TransformYieldReturn(node as YieldStatementSyntax, context),
             SyntaxKind.YieldBreakStatement => TransformYieldBreak(node as YieldStatementSyntax, context),
             SyntaxKind.LockStatement => TransformLockStatement(node as LockStatementSyntax, context),
@@ -58,6 +62,11 @@ public partial class StatementTransformer : IStatementTransformer
         {
             PreScanLambdaCaptures(block, context);
             context.MethodState.LambdaCapturePreScanDone = true;
+        }
+
+        if (context.MethodState.ScopeDepth == 0)
+        {
+            PrescanLabels(block.Statements, context);
         }
 
         context.MethodState.PushScope();
@@ -88,6 +97,11 @@ public partial class StatementTransformer : IStatementTransformer
         {
             PreScanLambdaCaptures(block, context);
             context.MethodState.LambdaCapturePreScanDone = true;
+        }
+
+        if (context.MethodState.ScopeDepth == 0)
+        {
+            PrescanLabels(block.Statements, context);
         }
 
         context.MethodState.PushScope();
@@ -222,6 +236,7 @@ public partial class StatementTransformer : IStatementTransformer
         => statement is ReturnStatementSyntax
             or ThrowStatementSyntax
             or BreakStatementSyntax
-            or ContinueStatementSyntax;
+            or ContinueStatementSyntax
+            or GotoStatementSyntax;
 
 }
