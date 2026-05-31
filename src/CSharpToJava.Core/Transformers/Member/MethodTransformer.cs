@@ -102,6 +102,23 @@ public class MethodTransformer : IMemberTransformer
         // 注意：C# 异常规范在 Java 中需要通过 throws 子句声明
         // 这里可以添加对异常的处理逻辑
 
+        var pointerParams = new List<FixedPointerInfo>();
+        foreach (var param in methodDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+        {
+            if (param.Type is PointerTypeSyntax ptrType)
+            {
+                var elementTypeName = FfmHelper.GetPointerElementTypeName(ptrType.ElementType);
+                var varName = param.Identifier.Text;
+                pointerParams.Add(FfmHelper.CreatePointerInfo(varName, elementTypeName));
+            }
+        }
+        if (pointerParams.Count > 0)
+        {
+            context.PushFixedScope(pointerParams);
+            foreach (var imp in FfmHelper.GetRequiredImports(false))
+                context.AddImport(imp);
+        }
+
         // 处理方法体
         if (methodDecl.Body != null)
         {
@@ -236,6 +253,9 @@ public class MethodTransformer : IMemberTransformer
         // Checked exceptions from try-with-resources (close()) or Dispose→close
         // are handled by JavaExceptionCheckRewriter which wraps method bodies
         // with try-catch instead of adding throws declarations.
+
+        if (pointerParams.Count > 0)
+            context.PopFixedScope();
 
         context.LeaveMethod();
 

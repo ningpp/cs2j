@@ -74,6 +74,15 @@ public static class FfmHelper
         _ => ""
     };
 
+    public static string GetPointerElementTypeName(TypeSyntax elementType)
+    {
+        if (elementType is PredefinedTypeSyntax predefined)
+            return predefined.Keyword.Text;
+        if (elementType is IdentifierNameSyntax identifier)
+            return identifier.Identifier.Text;
+        return elementType.ToString();
+    }
+
     public static FixedPointerInfo CreatePointerInfo(string variableName, string csharpElementType)
     {
         return new FixedPointerInfo

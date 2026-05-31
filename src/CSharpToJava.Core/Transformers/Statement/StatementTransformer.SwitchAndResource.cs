@@ -475,7 +475,7 @@ public partial class StatementTransformer
             return new JavaStatementNode("/* TODO: Fixed statement - unsupported declaration */");
         }
 
-        var elementTypeName = GetPointerElementTypeName(pointerType.ElementType);
+        var elementTypeName = FfmHelper.GetPointerElementTypeName(pointerType.ElementType);
 
         foreach (var declarator in stmt.Declaration.Variables)
         {
@@ -510,15 +510,6 @@ public partial class StatementTransformer
         context.PopFixedScope();
 
         return new JavaStatementNode(sb.ToString() + body);
-    }
-
-    private static string GetPointerElementTypeName(TypeSyntax elementType)
-    {
-        if (elementType is PredefinedTypeSyntax predefined)
-            return predefined.Keyword.Text;
-        if (elementType is IdentifierNameSyntax identifier)
-            return identifier.Identifier.Text;
-        return elementType.ToString();
     }
 
     private JavaSyntaxNode TransformUnsafeStatement(UnsafeStatementSyntax stmt, ConversionContext context)

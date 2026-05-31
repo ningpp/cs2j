@@ -105,6 +105,13 @@ public class TypeMappingService
     {
         if (typeSyntax == null) return "Object";
 
+        // Handle C# pointer types: byte*, char*, int* → MemorySegment
+        if (typeSyntax is PointerTypeSyntax)
+        {
+            AddImport("java.lang.foreign.MemorySegment");
+            return "MemorySegment";
+        }
+
         // Handle C# tuple types: (int, string) → Tuple2<Integer, String>
         if (typeSyntax is TupleTypeSyntax tupleType)
         {
@@ -150,6 +157,12 @@ public class TypeMappingService
         if (_resolveAlias(typeSymbol.Name) is ITypeSymbol aliasTarget
             && aliasTarget.Name != typeSymbol.Name)
             return MapType(aliasTarget);
+
+        if (typeSymbol is IPointerTypeSymbol)
+        {
+            AddImport("java.lang.foreign.MemorySegment");
+            return "MemorySegment";
+        }
 
         // LINQ extension method type parameters (TSource, TKey, etc.) can leak
         // into Java when the semantic model cannot fully resolve generics. Map
