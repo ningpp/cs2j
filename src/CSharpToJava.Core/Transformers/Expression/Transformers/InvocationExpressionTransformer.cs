@@ -2428,6 +2428,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var helperArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+
+            // Enum.TryParse<T>(name, out result) -> EnumHelper.tryParse(name, holder, T.class)
+            // The generic type argument T is not part of the C# argument list, so we must
+            // append T.class explicitly so the Java method can resolve the enum at runtime.
+            if (methodName == "EnumHelper.tryParse" && methodSymbol != null
+                && methodSymbol.TypeArguments.Length > 0)
+            {
+                var classLiteral = ConversionContext.GetClassLiteral(methodSymbol.TypeArguments[0], context);
+                helperArgs = string.IsNullOrEmpty(helperArgs) ? classLiteral : $"{helperArgs}, {classLiteral}";
+            }
+
             return $"{methodName}({helperArgs})";
         }
 
@@ -4111,6 +4122,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || methodName.StartsWith("StringHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("System.getenv", StringComparison.Ordinal))
         {
+            if (methodName == "EnumHelper.tryParse" && methodSymbol != null
+                && methodSymbol.TypeArguments.Length > 0)
+            {
+                var classLiteral = ConversionContext.GetClassLiteral(methodSymbol.TypeArguments[0], context);
+                args = string.IsNullOrEmpty(args) ? classLiteral : $"{args}, {classLiteral}";
+            }
             return $"{methodName}({args})";
         }
 
