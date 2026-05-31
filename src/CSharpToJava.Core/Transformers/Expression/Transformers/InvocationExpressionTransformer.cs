@@ -3994,6 +3994,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.substring({start}, {start} + {length})";
         }
 
+        if (originalMethodName == "Substring"
+            && methodName == "substring"
+            && node.ArgumentList.Arguments.Count - argStartIndex == 2
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context))
+        {
+            var start = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+            var length = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
+            return $"{receiver}.substring({start}, {start} + {length})";
+        }
+
         // Custom collection types can define a parameterless ToArray(). Do not apply Java Stream
         // generator arguments unless the method is actually LINQ Enumerable.ToArray().
         if (originalMethodName == "ToArray"
