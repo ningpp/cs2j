@@ -187,6 +187,15 @@ class Program
                 return await ConvertFromWorkspaceMultiModule(opts, options, workspaceProjects, inputFingerprintSnapshot);
             }
 
+            if (workspaceProjects != null && workspaceProjects.Count == 0)
+            {
+                if (opts.Verbose)
+                {
+                    Console.WriteLine("MSBuild loaded the project but produced empty compilations; falling back to directory scan.");
+                }
+                workspaceProjects = null;
+            }
+
             // Fall back to manual project discovery (no MSBuild SDK available).
             if (ProjectDiscovery.TryResolveProjectEntry(opts.Source, out var entryProject))
             {

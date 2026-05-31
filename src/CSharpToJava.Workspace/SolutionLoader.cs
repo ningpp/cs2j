@@ -22,6 +22,42 @@ public sealed class SolutionLoader : IDisposable
     /// Registers the MSBuild locator. Must be called exactly once before any workspace operations.
     /// Thread-safe and idempotent.
     /// </summary>
+    private static Dictionary<string, string>? _cachedMsbuildProperties;
+
+    private static Dictionary<string, string> GetMSBuildProperties()
+    {
+        if (_cachedMsbuildProperties != null)
+            return _cachedMsbuildProperties;
+
+        var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var sdkPath = Environment.GetEnvironmentVariable("MSBuildSDKsPath");
+        if (string.IsNullOrEmpty(sdkPath))
+        {
+            var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT")
+                ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dotnet");
+            var sdkBase = Path.Combine(dotnetRoot, "sdk");
+            if (Directory.Exists(sdkBase))
+            {
+                var latestSdk = Directory.GetDirectories(sdkBase)
+                    .OrderByDescending(d => d)
+                    .FirstOrDefault();
+                if (latestSdk != null)
+                {
+                    var sdksDir = Path.Combine(latestSdk, "Sdks");
+                    if (Directory.Exists(sdksDir))
+                        sdkPath = sdksDir;
+                }
+            }
+        }
+
+        if (!string.IsNullOrEmpty(sdkPath))
+            properties["MSBuildSDKsPath"] = sdkPath;
+
+        _cachedMsbuildProperties = properties;
+        return properties;
+    }
+
     public static bool EnsureMSBuildRegistered()
     {
         lock (_locatorLock)
@@ -31,14 +67,25 @@ public sealed class SolutionLoader : IDisposable
             {
                 if (!MSBuildLocator.IsRegistered)
                 {
-                    MSBuildLocator.RegisterDefaults();
+                    var instances = MSBuildLocator.QueryVisualStudioInstances().ToList();
+                    var dotnetSdkInstance = instances
+                        .Where(i => i.DiscoveryType == DiscoveryType.DotNetSdk)
+                        .OrderByDescending(i => i.Version)
+                        .FirstOrDefault();
+                    if (dotnetSdkInstance != null)
+                    {
+                        MSBuildLocator.RegisterInstance(dotnetSdkInstance);
+                    }
+                    else
+                    {
+                        MSBuildLocator.RegisterDefaults();
+                    }
                 }
                 _locatorRegistered = true;
                 return true;
             }
             catch (InvalidOperationException)
             {
-                // MSBuild SDK not found
                 return false;
             }
         }
@@ -56,7 +103,7 @@ public sealed class SolutionLoader : IDisposable
         if (!File.Exists(solutionPath))
             throw new FileNotFoundException("Solution file not found.", solutionPath);
 
-        _workspace = MSBuildWorkspace.Create();
+        _workspace = MSBuildWorkspace.Create(GetMSBuildProperties());
         _workspace.WorkspaceFailed += (_, e) =>
             progress?.Report($"Workspace warning: {e.Diagnostic.Message}");
 
@@ -78,7 +125,7 @@ public sealed class SolutionLoader : IDisposable
         if (!File.Exists(projectPath))
             throw new FileNotFoundException("Project file not found.", projectPath);
 
-        _workspace = MSBuildWorkspace.Create();
+        _workspace = MSBuildWorkspace.Create(GetMSBuildProperties());
         _workspace.WorkspaceFailed += (_, e) =>
             progress?.Report($"Workspace warning: {e.Diagnostic.Message}");
 
@@ -149,8 +196,11 @@ public sealed class SolutionLoader : IDisposable
 
             progress?.Report($"Compiling: {project.Name}");
             var compilation = await project.GetCompilationAsync(ct) as CSharpCompilation;
-            if (compilation == null)
+            if (compilation == null || !compilation.SyntaxTrees.Any())
+            {
+                progress?.Report($"Skipping {project.Name}: compilation is empty (MSBuild may have failed to evaluate the project).");
                 continue;
+            }
 
             var documents = project.Documents
                 .Where(d => d.SourceCodeKind == SourceCodeKind.Regular
