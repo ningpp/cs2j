@@ -152,9 +152,9 @@ public class EventFieldTransformer : IEventFieldTransformer
     private EventSignature DetermineListenerSignature(TypeSyntax typeSyntax, ConversionContext context)
     {
         var sig = new EventSignature();
-        var typeInfo = context.SemanticModel?.GetTypeInfo(typeSyntax);
+        var typeInfo = context.GetTypeInfo(typeSyntax);
 
-        if (typeInfo.HasValue && typeInfo.Value.Type is INamedTypeSymbol namedType)
+        if (typeInfo.Type is INamedTypeSymbol namedType)
         {
             var origDef = namedType.OriginalDefinition;
             var origName = origDef.Name;
@@ -232,8 +232,8 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (generic.Identifier.Text == "EventHandler" && generic.TypeArgumentList.Arguments.Count == 1)
             {
                 var argTypeSyntax = generic.TypeArgumentList.Arguments[0];
-                var argTypeInfo = context.SemanticModel?.GetTypeInfo(argTypeSyntax);
-                var argType = argTypeInfo.HasValue && argTypeInfo.Value.Type != null ? context.MapType(argTypeInfo.Value.Type) : argTypeSyntax.ToString();
+                var argTypeInfo = context.GetTypeInfo(argTypeSyntax);
+                var argType = argTypeInfo.Type != null ? context.MapType(argTypeInfo.Type) : argTypeSyntax.ToString();
 
                 sig.ListenerType = $"BiConsumer<Object, {argType}>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
@@ -246,8 +246,8 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (generic.Identifier.Text == "Action" && generic.TypeArgumentList.Arguments.Count == 1)
             {
                 var argTypeSyntax = generic.TypeArgumentList.Arguments[0];
-                var argTypeInfo = context.SemanticModel?.GetTypeInfo(argTypeSyntax);
-                var argType = argTypeInfo.HasValue && argTypeInfo.Value.Type != null ? context.MapType(argTypeInfo.Value.Type) : argTypeSyntax.ToString();
+                var argTypeInfo = context.GetTypeInfo(argTypeSyntax);
+                var argType = argTypeInfo.Type != null ? context.MapType(argTypeInfo.Type) : argTypeSyntax.ToString();
 
                 sig.ListenerType = $"Consumer<{argType}>";
                 sig.Parameters.Add(new JavaParameter(argType, "arg"));

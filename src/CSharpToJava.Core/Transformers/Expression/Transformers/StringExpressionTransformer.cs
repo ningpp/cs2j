@@ -79,10 +79,10 @@ public class StringExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var exprIR = facade.TransformToIR(interpolation.Expression, context);
-                var exprType = context.SemanticModel?.GetTypeInfo(interpolation.Expression);
-                if (exprType.HasValue && exprType.Value.Type != null)
+                var exprType = context.GetTypeInfo(interpolation.Expression);
+                if (exprType.Type != null)
                 {
-                    var typeName = context.MapType(exprType.Value.Type);
+                    var typeName = context.MapType(exprType.Type);
                     if (!IsStringType(typeName) && !IsPrimitiveType(typeName))
                     {
                         // Wrap in String.valueOf(expr)
@@ -162,10 +162,10 @@ public class StringExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var expr = facade.Transform(interpolation.Expression, context);
-                var exprType = context.SemanticModel?.GetTypeInfo(interpolation.Expression);
-                if (exprType.HasValue && exprType.Value.Type != null)
+                var exprType = context.GetTypeInfo(interpolation.Expression);
+                if (exprType.Type != null)
                 {
-                    var typeName = context.MapType(exprType.Value.Type);
+                    var typeName = context.MapType(exprType.Type);
                     if (!IsStringType(typeName) && !IsPrimitiveType(typeName))
                     {
                         expr = $"String.valueOf({expr})";

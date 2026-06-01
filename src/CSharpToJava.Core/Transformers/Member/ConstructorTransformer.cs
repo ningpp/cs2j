@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -42,7 +42,7 @@ public class ConstructorTransformer : IMemberTransformer
             return new JavaMemberCollection();
         }
 
-        var ctorSymbol = context.SemanticModel?.GetDeclaredSymbol(ctorDecl) as IMethodSymbol;
+        var ctorSymbol = context.GetDeclaredSymbol(ctorDecl) as IMethodSymbol;
         context.EnterMethod(ctorSymbol);
 
         var className = context.CurrentType?.Name ?? ctorDecl.Identifier.Text;
@@ -57,8 +57,8 @@ public class ConstructorTransformer : IMemberTransformer
         // 处理参数
         foreach (var param in ctorDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+            var typeInfo = context.GetTypeInfo(param.Type!);
+            var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "Object";
 
             var javaParam = new JavaParameter(javaType, param.Identifier.Text);
 
@@ -176,7 +176,7 @@ public class ConstructorTransformer : IMemberTransformer
         IMethodSymbol? ctorSymbol = null;
         if (context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(initializer);
+            var symbolInfo = context.GetSymbolInfo(initializer);
             ctorSymbol = symbolInfo.Symbol as IMethodSymbol;
         }
 
@@ -304,7 +304,7 @@ public class ConstructorTransformer : IMemberTransformer
         if (typeSyntax == null)
             return false;
 
-        var type = context.SemanticModel?.GetTypeInfo(typeSyntax).Type;
+        var type = context.GetTypeInfo(typeSyntax).Type;
         if (type != null)
         {
             var display = type.ToDisplayString();

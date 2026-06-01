@@ -22,9 +22,9 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         var results = new List<JavaSyntaxNode>();
-        var typeInfo = context.SemanticModel?.GetTypeInfo(propDecl.Type);
-        var propType = typeInfo.HasValue && typeInfo.Value.Type != null
-            ? context.MapType(typeInfo.Value.Type)
+        var typeInfo = context.GetTypeInfo(propDecl.Type);
+        var propType = typeInfo.Type != null
+            ? context.MapType(typeInfo.Type)
             : context.MapTypeFromSyntax(propDecl.Type);
         var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
         var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
@@ -33,7 +33,7 @@ public class PropertyTransformer : IMemberTransformer
         var previousStaticContext = context.IsInStaticMember;
         if (isStatic)
             context.IsInStaticMember = true;
-        var propertySymbol = context.SemanticModel?.GetDeclaredSymbol(propDecl);
+        var propertySymbol = context.GetDeclaredSymbol(propDecl);
         var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
 
         // 判断是否有显式实现
@@ -84,7 +84,7 @@ public class PropertyTransformer : IMemberTransformer
         // C# structs are value types that can never be null — initialize backing fields
         // with default instances so Java code doesn't encounter null struct references.
         if (propDecl.Initializer == null && needsBackingField
-            && StructCloneHelper.IsUserDefinedStruct(typeInfo?.Type))
+            && StructCloneHelper.IsUserDefinedStruct(typeInfo.Type))
         {
             field.Initializer = $"new {propType}()";
         }
@@ -132,7 +132,7 @@ public class PropertyTransformer : IMemberTransformer
                     ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(propDecl.ExpressionBody!.Expression, context)
                     : getAccessor?.ExpressionBody != null
                         ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(getAccessor.ExpressionBody.Expression, context)
-                        : (StructCloneHelper.IsUserDefinedStruct(typeInfo?.Type)
+                        : (StructCloneHelper.IsUserDefinedStruct(typeInfo.Type)
                             ? $"return {fieldName}.clone();"
                             : $"return {fieldName};"),
                 IsBodyExpression = isExpressionBodiedProperty || getAccessor?.ExpressionBody != null,
@@ -153,7 +153,7 @@ public class PropertyTransformer : IMemberTransformer
                     getter.Body = StructCloneHelper.CloneStructValueIfNeeded(
                         csExpr,
                         getter.Body,
-                        typeInfo?.Type,
+                        typeInfo.Type,
                         context);
                 }
             }
@@ -217,7 +217,7 @@ public class PropertyTransformer : IMemberTransformer
                 Parameters = { new JavaParameter(propType, "value") },
                 Body = setAccessor?.ExpressionBody != null
                     ? Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(setAccessor.ExpressionBody.Expression, context)
-                    : (StructCloneHelper.IsUserDefinedStruct(typeInfo?.Type)
+                    : (StructCloneHelper.IsUserDefinedStruct(typeInfo.Type)
                         ? (isStatic ? $"{fieldName} = value.clone();" : $"this.{fieldName} = value.clone();")
                         : (isStatic ? $"{fieldName} = value;" : $"this.{fieldName} = value;")),
                 IsBodyExpression = setAccessor?.ExpressionBody != null,

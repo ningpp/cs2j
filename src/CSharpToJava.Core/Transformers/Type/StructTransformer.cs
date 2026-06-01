@@ -31,7 +31,7 @@ public class StructTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(structDecl.Modifiers),
             IsConvertedFromStruct = true
         };
-        var structSymbol = context.SemanticModel?.GetDeclaredSymbol(structDecl);
+        var structSymbol = context.GetDeclaredSymbol(structDecl);
         var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();
 
         // Fix 3: ref struct — emit a leading comment since Java has no stack-only equivalent.
@@ -63,10 +63,10 @@ public class StructTransformer : ITypeTransformer
         {
             foreach (var baseType in structDecl.BaseList.Types)
             {
-                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
+                var typeInfo = context.GetTypeInfo(baseType.Type);
+                if (typeInfo.Type?.TypeKind == TypeKind.Interface)
                 {
-                    var iface = typeInfo.Value.Type;
+                    var iface = typeInfo.Type;
                     // Skip MarshalByRefObject - it doesn't exist in Java
                     if (iface.Name != "MarshalByRefObject" && iface.ToDisplayString() != "System.MarshalByRefObject")
                     {
@@ -315,7 +315,7 @@ public class StructTransformer : ITypeTransformer
         {
             if (member is FieldDeclarationSyntax fieldDecl)
             {
-                var fieldType = context.SemanticModel.GetTypeInfo(fieldDecl.Declaration.Type).Type;
+                var fieldType = context.GetTypeInfo(fieldDecl.Declaration.Type).Type;
                 if (StructCloneHelper.IsUserDefinedStruct(fieldType))
                 {
                     foreach (var variable in fieldDecl.Declaration.Variables)
@@ -325,7 +325,7 @@ public class StructTransformer : ITypeTransformer
             else if (member is PropertyDeclarationSyntax propDecl)
             {
                 // Auto-properties generate backing fields with camelCase names
-                var propSymbol = context.SemanticModel.GetDeclaredSymbol(propDecl);
+                var propSymbol = context.GetDeclaredSymbol(propDecl) as IPropertySymbol;
                 if (propSymbol != null && StructCloneHelper.IsUserDefinedStruct(propSymbol.Type))
                 {
                     var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);

@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
@@ -79,7 +79,7 @@ public static class ExpressionTransformerHelpers
         if (context.SemanticModel == null)
             return transformedExpression;
 
-        var typeInfo = context.SemanticModel.GetTypeInfo(expression);
+        var typeInfo = context.GetTypeInfo(expression);
         return AdaptExpressionToTargetTypeCore(
             expression,
             transformedExpression,
@@ -100,7 +100,7 @@ public static class ExpressionTransformerHelpers
         if (context.SemanticModel == null || targetType == null)
             return transformedExpression;
 
-        var sourceType = context.SemanticModel.GetTypeInfo(expression).Type;
+        var sourceType = context.GetTypeInfo(expression).Type;
         return AdaptExpressionToTargetTypeCore(
             expression,
             transformedExpression,
@@ -513,7 +513,7 @@ public static class ExpressionTransformerHelpers
             }
         }
 
-        var symbolInfo = context.SemanticModel.GetSymbolInfo(expression);
+        var symbolInfo = context.GetSymbolInfo(expression);
         var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
 
         // When multiple candidates exist (e.g. property "Edge" and type "Edge",
@@ -644,7 +644,7 @@ public static class ExpressionTransformerHelpers
         if (context.SemanticModel == null)
             return false;
 
-        var symbolInfo = context.SemanticModel.GetSymbolInfo(expression);
+        var symbolInfo = context.GetSymbolInfo(expression);
         var symbol = symbolInfo.Symbol as IFieldSymbol
             ?? symbolInfo.CandidateSymbols.OfType<IFieldSymbol>().FirstOrDefault();
 
@@ -1088,7 +1088,7 @@ public static class ExpressionTransformerHelpers
             return false;
 
         // Unwrap invocations: expr could be a method call like getAllIntersecting(rect)
-        var symbolInfo = context.SemanticModel.GetSymbolInfo(expr);
+        var symbolInfo = context.GetSymbolInfo(expr);
         var symbol = symbolInfo.Symbol;
 
         if (symbol is IMethodSymbol method)
@@ -1144,7 +1144,7 @@ public static class ExpressionTransformerHelpers
         // For invocation expressions, check the method being called
         if (expr is InvocationExpressionSyntax invocation)
         {
-            var invSymbol = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            var invSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
             if (invSymbol != null && IsMethodReturningConvertedTypeParamArray(invSymbol, requireActualTypeParam))
                 return true;
         }

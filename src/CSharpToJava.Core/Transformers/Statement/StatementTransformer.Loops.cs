@@ -59,9 +59,9 @@ public partial class StatementTransformer
         var initializers = "";
         if (stmt.Declaration != null)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration.Type);
-            var declaredType = typeInfo.HasValue ? typeInfo.Value.Type : null;
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
+            var typeInfo = context.GetTypeInfo(stmt.Declaration.Type);
+            var declaredType = typeInfo.Type;
+            var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "var";
             var vars = stmt.Declaration.Variables.Select(v => {
                 var initExpr = v.Initializer != null
                     ? ExpressionTransformerHelpers.AdaptExpressionToTargetType(
@@ -134,13 +134,13 @@ public partial class StatementTransformer
             return TransformForEachWithAnonymousQuery(stmt, queryExpr, anonCreate, context);
         }
 
-        var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Type);
+        var typeInfo = context.GetTypeInfo(stmt.Type);
         var identifier = ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text);
         // Transform the collection expression FIRST so that any anonymous-type
         // record synthesis (from `select new { ... }`) registers the record
         // before we resolve the foreach variable type via MapType.
         var expression = exprTransformer.Transform(stmt.Expression, context);
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "var";
+        var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "var";
 
         // LINQ type parameter names that leak through unresolved generics
         if (javaType is "TSource" or "TResult" or "TKey" or "TElement"
@@ -165,7 +165,7 @@ public partial class StatementTransformer
             : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
 
         // Detect: iterating over a Dictionary/Map → need .entrySet() in Java
-        var exprTypeInfo = context.SemanticModel?.GetTypeInfo(stmt.Expression).Type;
+        var exprTypeInfo = context.GetTypeInfo(stmt.Expression).Type;
         if (exprTypeInfo is INamedTypeSymbol exprNamed &&
             (exprNamed.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
              "HashMap" or "TreeMap" or "LinkedHashMap" ||
@@ -348,12 +348,12 @@ public partial class StatementTransformer
         // Outer from
         var outerFrom = queryExpr.FromClause;
         var outerSrc = exprTransformer.Transform(outerFrom.Expression, context);
-        var outerSrcType = context.SemanticModel?.GetTypeInfo(outerFrom.Expression).Type;
+        var outerSrcType = context.GetTypeInfo(outerFrom.Expression).Type;
         string outerIterType;
         if (outerFrom.Type is PredefinedTypeSyntax || outerFrom.Type?.IsKind(SyntaxKind.IdentifierName) == true)
         {
-            var ti = context.SemanticModel?.GetTypeInfo(outerFrom.Type);
-            outerIterType = ti.HasValue && ti.Value.Type != null ? context.MapType(ti.Value.Type) : "var";
+            var ti = context.GetTypeInfo(outerFrom.Type);
+            outerIterType = ti.Type != null ? context.MapType(ti.Type) : "var";
         }
         else
         {
@@ -370,12 +370,12 @@ public partial class StatementTransformer
             if (clause is FromClauseSyntax innerFrom)
             {
                 var innerSrc = exprTransformer.Transform(innerFrom.Expression, context);
-                var innerSrcType = context.SemanticModel?.GetTypeInfo(innerFrom.Expression).Type;
+                var innerSrcType = context.GetTypeInfo(innerFrom.Expression).Type;
                 string innerIterType;
                 if (innerFrom.Type is PredefinedTypeSyntax || innerFrom.Type?.IsKind(SyntaxKind.IdentifierName) == true)
                 {
-                    var ti2 = context.SemanticModel?.GetTypeInfo(innerFrom.Type);
-                    innerIterType = ti2.HasValue && ti2.Value.Type != null ? context.MapType(ti2.Value.Type) : "var";
+                    var ti2 = context.GetTypeInfo(innerFrom.Type);
+                    innerIterType = ti2.Type != null ? context.MapType(ti2.Type) : "var";
                 }
                 else
                 {

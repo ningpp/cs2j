@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -48,7 +48,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
         var fromClause = node.FromClause;
         var rangeVar = ConversionContext.EscapeJavaKeyword(fromClause.Identifier.Text);
         var source = facade.Transform(fromClause.Expression, context);
-        var fromClauseType = context.SemanticModel?.GetTypeInfo(fromClause.Expression).Type;
+        var fromClauseType = context.GetTypeInfo(fromClause.Expression).Type;
         sb.Append(ExpressionTransformerHelpers.BuildStreamExpression(source, fromClauseType, context, receiverSyntaxNode: fromClause.Expression));
 
         // intermediate clauses — use index loop for look-ahead on join…into
@@ -85,7 +85,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     // nested from → flatMap; range variable shifts to inner
                     var innerVar = ConversionContext.EscapeJavaKeyword(additionalFrom.Identifier.Text);
                     var innerSrc = facade.Transform(additionalFrom.Expression, context);
-                    var innerSrcType = context.SemanticModel?.GetTypeInfo(additionalFrom.Expression).Type;
+                    var innerSrcType = context.GetTypeInfo(additionalFrom.Expression).Type;
                     // If the current stream is a primitive stream (e.g. IntStream from int[]),
                     // we must .boxed() before .flatMap() which expects Function<T, Stream<R>>.
                     if (fromClauseType is IArrayTypeSymbol prevArr
@@ -114,7 +114,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     context.AddImport("java.util.Objects");
                     var joinVar = ConversionContext.EscapeJavaKeyword(join.Identifier.Text);
                     var joinInExpr = facade.Transform(join.InExpression, context);
-                    var joinInType = context.SemanticModel?.GetTypeInfo(join.InExpression).Type;
+                    var joinInType = context.GetTypeInfo(join.InExpression).Type;
                     var joinLeftExpr = facade.Transform(join.LeftExpression, context);
                     var joinRightExpr = facade.Transform(join.RightExpression, context);
                     sb.Append($"\n    .flatMap({rangeVar} -> {ExpressionTransformerHelpers.BuildStreamExpression(joinInExpr, joinInType, context)}" +
@@ -164,7 +164,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
                     context.AddImport("java.util.Collections");
-                    var jiInSrcType = context.SemanticModel?.GetTypeInfo(joinInto.InExpression).Type;
+                    var jiInSrcType = context.GetTypeInfo(joinInto.InExpression).Type;
                     sb.Append($"\n    .flatMap({capturedOuter} -> {{");
                     sb.Append($"\n        var {intoId} = {ExpressionTransformerHelpers.BuildStreamExpression(jiInSrc, jiInSrcType, context)}");
                     sb.Append($"\n            .filter({jiVar} -> Objects.equals({jiLeft}, {jiRight}))");
@@ -296,7 +296,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                 .OfType<IdentifierNameSyntax>()
                 .FirstOrDefault(i => i.Identifier.Text == rangeVar);
             if (rangeIdent != null)
-                elementType = context.SemanticModel.GetTypeInfo(rangeIdent).Type;
+                elementType = context.GetTypeInfo(rangeIdent).Type;
         }
 
         if (elementType == null)

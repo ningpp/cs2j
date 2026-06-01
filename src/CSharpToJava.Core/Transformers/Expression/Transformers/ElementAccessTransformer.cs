@@ -46,8 +46,8 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             if (!arg.IsKind(SyntaxKind.RangeExpression) && !arg.IsKind(SyntaxKind.IndexExpression))
             {
                 var facade = ExpressionTransformerFacade.Instance;
-                var typeInfo = context.SemanticModel?.GetTypeInfo(elemAccess.Expression);
-                var exprType = typeInfo?.Type;
+                var typeInfo = context.GetTypeInfo(elemAccess.Expression);
+                var exprType = typeInfo.Type;
                 bool isArray = exprType is IArrayTypeSymbol;
                 bool isString = exprType?.SpecialType == SpecialType.System_String;
 
@@ -115,7 +115,7 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         if (context.IsInFixedScope && node.ArgumentList.Arguments.Count == 1)
         {
             var targetExpr = facade.Transform(node.Expression, context);
-            var targetType = context.SemanticModel?.GetTypeInfo(node.Expression).Type;
+            var targetType = context.GetTypeInfo(node.Expression).Type;
             if (targetType is IPointerTypeSymbol pointerType)
             {
                 var pointeeType = pointerType.PointedAtType;
@@ -135,11 +135,11 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         }
 
         var expr = facade.Transform(node.Expression, context);
-        var indexerSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IPropertySymbol;
+        var indexerSymbol = context.GetSymbolInfo(node).Symbol as IPropertySymbol;
 
         // Determine collection type via semantic model
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Expression);
-        var exprType = typeInfo?.Type;
+        var typeInfo = context.GetTypeInfo(node.Expression);
+        var exprType = typeInfo.Type;
         // VarTypeMap fallback: when var locals can't be resolved via semantic model
         if ((exprType == null || exprType.TypeKind == TypeKind.Error)
             && node.Expression is IdentifierNameSyntax idExpr

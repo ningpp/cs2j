@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
@@ -192,14 +192,13 @@ public static class TypeGroupResolver
         }
         catch (Exception ex)
         {
-            // Use a fresh diagnostics list (not the accumulated context diagnostics)
             return new ConversionResult
             {
                 Success = false,
                 FileName = $"{typeGroup.TypeSymbol.Name}.java",
                 Diagnostics = new List<Context.DiagnosticMessage>
                 {
-                    new(Context.DiagnosticSeverity.Error, $"Failed to convert type '{typeGroup.TypeSymbol.Name}': {ex.Message}", null)
+                    new(Context.DiagnosticSeverity.Error, $"Failed to convert type '{typeGroup.TypeSymbol.Name}': {ex.Message}\n--- STACK TRACE ---\n{ex.StackTrace}\n--- INNER ---\n{(ex.InnerException != null ? $"{ex.InnerException.Message}\n{ex.InnerException.StackTrace}" : "none")}", null)
                 }
             };
         }

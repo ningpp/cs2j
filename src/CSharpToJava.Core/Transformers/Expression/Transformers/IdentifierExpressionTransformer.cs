@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -80,7 +80,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             // Check for simple cases (local variables, parameters) — not properties/events
             if (context.SemanticModel != null)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(node).Symbol;
+                var symbol = context.GetSymbolInfo(node).Symbol;
                 if (symbol is ILocalSymbol or IParameterSymbol)
                 {
                     var name = ConversionContext.EscapeJavaKeyword(id.Identifier.Text);
@@ -116,7 +116,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             if (context.SemanticModel != null)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
+                var symbol = context.GetSymbolInfo(memberAccess).Symbol;
 
                 // Non-const field → JavaMemberAccessExpression
                 if (symbol is IFieldSymbol { IsConst: false })
@@ -268,10 +268,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        // Check if the identifier resolves to a property — generate getter() for reads,
-        // or the camelCase backing-field name when it appears on the LHS of an assignment
-        // (AssignmentTransformer will wrap that into a setXxx() call).
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol identProp)
+        if (context.TryGetSymbolInfo(node, out var propSymbolResult) && propSymbolResult is IPropertySymbol identProp)
         {
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
             if (!isLhsOfAssignment)
@@ -292,7 +289,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Direct assignment (p = value → p.value = value) is handled separately by AssignmentTransformer
         // with an early return that never reaches this path.
         // Exception: read-only ref struct parameters are generated without ObjectHolder — use as-is.
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IParameterSymbol outParam
+        if (context.GetSymbolInfo(node).Symbol is IParameterSymbol outParam
             && (outParam.RefKind == RefKind.Out || outParam.RefKind == RefKind.Ref)
             && !context.IsReadOnlyRefStructParam(outParam.Name))
         {
@@ -302,7 +299,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Fix: Handle event references within the same class.
         // C#: ProgressChanged != null  → Java: !_progressChangedListeners.isEmpty()
         // C#: ProgressChanged(...)    → Java: fireProgressChanged(...)
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
+        if (context.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
         {
             var fieldName = $"_{char.ToLower(name[0])}{name.Substring(1)}Listeners";
             var fireMethodName = GetFireMethodName(name);
@@ -353,7 +350,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         // Fix: Bare identifier method group used as value (not invoked) → Java method reference.
         // e.g. Action<int> a = Process; → Consumer<Integer> a = this::process;
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol bareMethodGroup
+        if (context.GetSymbolInfo(node).Symbol is IMethodSymbol bareMethodGroup
             && !(node.Parent is InvocationExpressionSyntax invNode && invNode.Expression == node)
             && !(node.Parent is MemberAccessExpressionSyntax))
         {
@@ -408,7 +405,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // property on the enclosing type (e.g. "using Label = X;" colliding with
         // "public Label Label {…}" used in a comparison "Label == null").
         // The member-access guard above only handles MemberAccessExpression parents.
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is ITypeSymbol)
+        if (context.GetSymbolInfo(node).Symbol is ITypeSymbol)
         {
             var enclosingType = context.CurrentEnclosingRoslynType;
             if (enclosingType != null
@@ -461,10 +458,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         foreach (var typeArg in node.TypeArgumentList.Arguments)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(typeArg);
-            if (typeInfo.HasValue && typeInfo.Value.Type != null)
+            var typeInfo = context.GetTypeInfo(typeArg);
+            if (typeInfo.Type != null)
             {
-                typeArgs.Add(context.MapType(typeInfo.Value.Type));
+                typeArgs.Add(context.MapType(typeInfo.Type));
             }
             else
             {
@@ -486,10 +483,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         ITypeSymbol? receiverType = null;
         if (context.SemanticModel != null && node.Expression is not TypeSyntax)
         {
-            receiverType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            receiverType = context.GetTypeInfo(node.Expression).Type;
             if (receiverType == null)
             {
-                var exprSym = context.SemanticModel.GetSymbolInfo(node.Expression).Symbol;
+                var exprSym = context.GetSymbolInfo(node.Expression).Symbol;
                 receiverType = exprSym switch
                 {
                     ILocalSymbol ls => ls.Type,
@@ -556,7 +553,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     inner = paren.Expression;
                 if (inner is CastExpressionSyntax cast)
                 {
-                    var castType = context.SemanticModel?.GetTypeInfo(cast.Type).Type;
+                    var castType = context.GetTypeInfo(cast.Type).Type;
                     if (castType != null && castType.TypeKind != TypeKind.Error)
                         receiverType = castType;
                 }
@@ -584,7 +581,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 if (node.Expression is MemberAccessExpressionSyntax innerMemberAccess)
                 {
-                    var innerTypeInfo = context.SemanticModel?.GetTypeInfo(innerMemberAccess).Type;
+                    var innerTypeInfo = context.GetTypeInfo(innerMemberAccess).Type;
                     if (innerTypeInfo != null && innerTypeInfo.TypeKind != TypeKind.Error)
                         receiverType = innerTypeInfo;
                 }
@@ -695,7 +692,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Fix: Handle event member access within the same class.
         // C#: this.ProgressChanged != null  → Java: !_progressChangedListeners.isEmpty()
         // C#: this.ProgressChanged(...)    → Java: fireProgressChanged(...)
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
+        if (context.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
         {
             var fieldName = $"_{char.ToLower(memberName[0])}{memberName.Substring(1)}Listeners";
             var currentTypeName = context.CurrentType?.Name;
@@ -731,9 +728,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         // Fix: Method group used as value (not invoked) → Java method reference (receiver::method).
         // e.g. C# `Parallel.Invoke` as a delegate value → Java `Parallel::invoke`.
-        var methodGroupInfo = context.SemanticModel?.GetSymbolInfo(node);
-        var methodGroupSym = methodGroupInfo?.Symbol as IMethodSymbol
-            ?? methodGroupInfo?.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        var methodGroupInfo = context.GetSymbolInfo(node);
+        var methodGroupSym = methodGroupInfo.Symbol as IMethodSymbol
+            ?? methodGroupInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
         if (methodGroupSym != null
             && !(node.Parent is InvocationExpressionSyntax inv && inv.Expression == node))
         {
@@ -795,7 +792,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Auto-properties emitted as public fields in project pipeline: skip getter
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
 
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
+        if (context.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.getCurrent()";
@@ -937,7 +934,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Fall back to GetTypeInfo on the receiver expression for TypeMappings lookup.
         if (context.SemanticModel != null)
         {
-            var exprType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            var exprType = context.GetTypeInfo(node.Expression).Type;
             if (exprType != null)
             {
                 if (memberName == "Current" && IsEnumeratorLikeType(exprType))
@@ -1075,7 +1072,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName != "AlgorithmData") // AlgorithmData is intentionally a field
         {
             var reasonA = context.SemanticModel == null ? "SemanticModel null"
-                : context.SemanticModel.GetSymbolInfo(node).Symbol switch
+                : context.GetSymbolInfo(node).Symbol switch
                 {
                     null => "GetSymbolInfo returned null",
                     IFieldSymbol => $"Symbol was IFieldSymbol({memberName})",
@@ -1199,13 +1196,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private static ISymbol? GetAccessedMemberSymbol(MemberAccessExpressionSyntax memberAccess, ConversionContext context)
     {
-        var symbolInfo = context.SemanticModel?.GetSymbolInfo(memberAccess);
-        if (symbolInfo == null)
-            return null;
-
-        return symbolInfo.Value.Symbol
-            ?? symbolInfo.Value.CandidateSymbols.FirstOrDefault(IsStaticMemberSymbol)
-            ?? symbolInfo.Value.CandidateSymbols.FirstOrDefault();
+        var symbolInfo = context.GetSymbolInfo(memberAccess);
+        return symbolInfo.Symbol
+            ?? symbolInfo.CandidateSymbols.FirstOrDefault(IsStaticMemberSymbol)
+            ?? symbolInfo.CandidateSymbols.FirstOrDefault();
     }
 
     private static ISymbol? GetPreferredIdentifierSymbol(
@@ -1213,20 +1207,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         ConversionContext context,
         bool preferInstanceCandidate)
     {
-        var symbolInfo = context.SemanticModel?.GetSymbolInfo(identifier);
-        if (symbolInfo == null)
-            return null;
+        var symbolInfo = context.GetSymbolInfo(identifier);
 
-        if (preferInstanceCandidate && symbolInfo.Value.CandidateSymbols.Length > 1)
+        if (preferInstanceCandidate && symbolInfo.CandidateSymbols.Length > 1)
         {
-            var nonTypeCandidate = symbolInfo.Value.CandidateSymbols.FirstOrDefault(
+            var nonTypeCandidate = symbolInfo.CandidateSymbols.FirstOrDefault(
                 s => s is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol
                      or IEventSymbol or IMethodSymbol);
             if (nonTypeCandidate != null)
                 return nonTypeCandidate;
         }
 
-        return symbolInfo.Value.Symbol ?? symbolInfo.Value.CandidateSymbols.FirstOrDefault();
+        return symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
     }
 
     private static bool IsStaticMemberSymbol(ISymbol? symbol)

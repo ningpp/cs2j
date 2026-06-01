@@ -38,8 +38,8 @@ public partial class StatementTransformer
                 var tvTarget = exprTransformer.Transform(tvIfMa.Expression, context);
                 var tvKey = exprTransformer.Transform(tvIfInvoc.ArgumentList.Arguments[0].Expression, context);
 
-                var tyInfo = context.SemanticModel?.GetTypeInfo(tvIfDeclExpr.Type);
-                var outJavaType = tyInfo.HasValue && tyInfo.Value.Type != null ? context.MapType(tyInfo.Value.Type) : "Object";
+                var tyInfo = context.GetTypeInfo(tvIfDeclExpr.Type);
+                var outJavaType = tyInfo.Type != null ? context.MapType(tyInfo.Type) : "Object";
                 var outVarName = ConversionContext.EscapeJavaKeyword(tvIfSvd.Identifier.Text);
 
                 var tvStmtTransformer = new StatementTransformer();
@@ -75,7 +75,7 @@ public partial class StatementTransformer
 
                 // When the out variable is itself a ref/out parameter of the enclosing method,
                 // it has been converted to a Holder type — use containsKey pattern instead of null check
-                bool isOutParam = context.SemanticModel?.GetSymbolInfo(tvIfIdent).Symbol is IParameterSymbol negOutP
+                bool isOutParam = context.GetSymbolInfo(tvIfIdent).Symbol is IParameterSymbol negOutP
                     && (negOutP.RefKind == RefKind.Out || negOutP.RefKind == RefKind.Ref)
                     && !context.IsReadOnlyRefStructParam(negOutP.Name);
 
@@ -182,8 +182,8 @@ public partial class StatementTransformer
                 var tvTarget2 = exprTransformer.Transform(tvIfMa2.Expression, context);
                 var tvKey2 = exprTransformer.Transform(tvIfInvoc2.ArgumentList.Arguments[0].Expression, context);
 
-                var tyInfo = context.SemanticModel?.GetTypeInfo(tvIfDeclExpr2.Type);
-                var outJavaType = tyInfo.HasValue && tyInfo.Value.Type != null ? context.MapType(tyInfo.Value.Type) : "Object";
+                var tyInfo = context.GetTypeInfo(tvIfDeclExpr2.Type);
+                var outJavaType = tyInfo.Type != null ? context.MapType(tyInfo.Type) : "Object";
                 var outVarName = ConversionContext.EscapeJavaKeyword(tvIfSvd2.Identifier.Text);
 
                 var tvStmtTransformer3 = new StatementTransformer();
@@ -226,7 +226,7 @@ public partial class StatementTransformer
                 // When the out variable is itself a ref/out parameter of the enclosing method,
                 // it has been converted to a Holder type — assignments must target .value
                 var assignTarget = existingVarName;
-                if (context.SemanticModel?.GetSymbolInfo(tvIfIdent2).Symbol is IParameterSymbol tvOutParam
+                if (context.GetSymbolInfo(tvIfIdent2).Symbol is IParameterSymbol tvOutParam
                     && (tvOutParam.RefKind == RefKind.Out || tvOutParam.RefKind == RefKind.Ref)
                     && !context.IsReadOnlyRefStructParam(tvOutParam.Name))
                 {

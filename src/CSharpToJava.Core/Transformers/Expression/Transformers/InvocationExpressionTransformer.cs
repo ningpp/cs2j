@@ -84,7 +84,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Static Equals(a, b) → Objects.equals(a, b)
         if (invocation.Expression is IdentifierNameSyntax { Identifier.Text: "Equals" }
             && invocation.ArgumentList.Arguments.Count == 2
-            && IsStaticNullSafeEqualsMethod(context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol))
+            && IsStaticNullSafeEqualsMethod(context.GetSymbolInfo(invocation).Symbol as IMethodSymbol))
         {
             context.AddImport("java.util.Objects");
             var call = new JavaMethodCallExpression
@@ -102,7 +102,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && !HasComplexArguments(invocation.ArgumentList))
         {
             var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, invocation, context);
-            var bareMethodSym = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            var bareMethodSym = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
             if (bareMethodSym != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
             var call = new JavaMethodCallExpression { MethodName = methodName };
@@ -117,13 +117,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Check for delegate invocation — fall back to raw (complex logic)
             if (context.SemanticModel != null)
             {
-                var symInfo = context.SemanticModel.GetSymbolInfo(invocation);
+                var symInfo = context.GetSymbolInfo(invocation);
                 if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke })
                     return new JavaRawExpression(Transform(node, context));
             }
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, invocation, context);
-            var bareMethodSym2 = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            var bareMethodSym2 = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
             if (bareMethodSym2 != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
             var call = new JavaMethodCallExpression { MethodName = methodName };
@@ -190,7 +190,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Null-safe static equality helpers should preserve C# semantics in Java.
             if (node.Expression is IdentifierNameSyntax { Identifier.Text: "Equals" }
                 && node.ArgumentList.Arguments.Count == 2
-                && IsStaticNullSafeEqualsMethod(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
+                && IsStaticNullSafeEqualsMethod(context.GetSymbolInfo(node).Symbol as IMethodSymbol))
             {
                 var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -211,7 +211,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (node.Expression is GenericNameSyntax genericMethodName)
         {
             var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, node, context);
-            var bareMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var bareMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (bareMethodSym != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
             var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context) : null;
@@ -241,12 +241,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Roslyn resolves the invoked method as DelegateInvoke; map it to .apply()/.get()/etc.
             if (context.SemanticModel != null)
             {
-                var symInfo = context.SemanticModel.GetSymbolInfo(node);
+                var symInfo = context.GetSymbolInfo(node);
                 if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
                 {
                     // Check if this is actually an event invocation (e.g., ProgressChanged(sender, args))
                     // Events are a special case - they should use the fire method instead of delegate invocation
-                    var identSymbol = context.SemanticModel.GetSymbolInfo(bareIdent).Symbol;
+                    var identSymbol = context.GetSymbolInfo(bareIdent).Symbol;
                     if (identSymbol is IEventSymbol eventSym)
                     {
                         // For events within the same class, use the fire method
@@ -272,7 +272,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
-            var bareMethodSym2 = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var bareMethodSym2 = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (bareMethodSym2 != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
             var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
@@ -286,7 +286,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // this catches element-access, member-access, and other expression targets.
         if (context.SemanticModel != null)
         {
-            var symInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symInfo = context.GetSymbolInfo(node);
             if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
             {
                 var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
@@ -299,7 +299,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             // Fallback: GetSymbolInfo failed (e.g. unresolved project references), but the
             // expression type may still be a delegate — check GetTypeInfo on the expression itself.
-            var exprTypeInfo = context.SemanticModel.GetTypeInfo(node.Expression);
+            var exprTypeInfo = context.GetTypeInfo(node.Expression);
             if (exprTypeInfo.Type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
             {
                 var invokeMethod = delegateType.DelegateInvokeMethod;
@@ -357,7 +357,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         var target = facade.Transform(node.Expression, context);
-        var fallbackMethodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var fallbackMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
         var classTokenList = fallbackMethodSym != null ? GetClassTypeTokensForCall(fallbackMethodSym, context) : null;
         var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: fallbackMethodSym);
         args2 = PrependClassTypeTokens(args2, classTokenList);
@@ -388,7 +388,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var methodName = originalName;
 
         // Try TypeMappings via semantic model (receiver type required for lookup, skip if unavailable)
-        if (context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol sym)
+        if (context.GetSymbolInfo(node).Symbol is IMethodSymbol sym)
         {
             var typeName = sym.ContainingType.ToDisplayString();
             var mapped = context.TypeMappings.MapMethod(typeName, originalName);
@@ -457,7 +457,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (memberAccess.Name.Identifier.Text == "Any")
             {
                 var anyType = context.SemanticModel != null
-                    ? context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type : null;
+                    ? context.GetTypeInfo(memberAccess.Expression).Type : null;
                 if (anyType?.TypeKind == TypeKind.Array || anyType is IArrayTypeSymbol)
                     return $"({cReceiver}.length > 0)";
                 return $"{cReceiver}.iterator().hasNext()";
@@ -485,7 +485,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (node.ArgumentList.Arguments.Count == 0)
             {
                 // Determine default from method return type if available
-                var methodSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                var methodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
                 var defaultVal = (methodSym?.ReturnType.SpecialType) switch
                 {
                     SpecialType.System_Int64 => "0L",
@@ -509,7 +509,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ? ConversionContext.EscapeJavaKeyword(genericReceiverName.Identifier.Text)
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
-        var earlyMethodSymbol = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
         // Replace receiver with mapped static type reference ONLY when the method is
         // confirmed static.  When the semantic model cannot resolve the method
@@ -532,7 +532,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (originalMethodName == "HasFlag" && node.ArgumentList.Arguments.Count == 1
             && context.SemanticModel != null)
         {
-            var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (receiverType?.TypeKind == TypeKind.Enum
                 && (receiverType is INamedTypeSymbol namedHasFlag
                     && (namedHasFlag.GetAttributes().Any(a =>
@@ -763,7 +763,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (originalMethodName == "Reset" && node.ArgumentList.Arguments.Count == 0)
         {
-            var resetReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+            var resetReceiverType = context.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
             var isIteratorLike = resetReceiverType != null
                 && (resetReceiverType.Name is "IEnumerator" or "Iterator"
                     || resetReceiverType.AllInterfaces.Any(i => i.Name is "IEnumerator" or "Iterator"));
@@ -772,7 +772,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         if (originalMethodName == "Equals" && node.ArgumentList.Arguments.Count == 2
-            && IsStaticNullSafeEqualsMethod(context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol))
+            && IsStaticNullSafeEqualsMethod(context.GetSymbolInfo(node).Symbol as IMethodSymbol))
         {
             var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
@@ -801,7 +801,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        var stringEqualsReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+        var stringEqualsReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
         if (originalMethodName == "Equals"
             && node.ArgumentList.Arguments.Count == 1
             && IsSystemStringType(stringEqualsReceiverType))
@@ -965,12 +965,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // For properties: this.Sequence(i) → this.getSequence().apply(i)  (Java getter convention)
         if (context.SemanticModel != null)
         {
-            var delegateSymInfo = context.SemanticModel.GetSymbolInfo(node);
+            var delegateSymInfo = context.GetSymbolInfo(node);
             if (delegateSymInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
             {
                 // Check if this is actually an event invocation (e.g., this.ProgressChanged(sender, args))
                 // Events are a special case - they should use the fire method instead of delegate invocation
-                var memberSymbol = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol;
+                var memberSymbol = context.GetSymbolInfo(memberAccess).Symbol;
                 if (memberSymbol is IEventSymbol eventSym)
                 {
                     // For events within the same class, use the fire method
@@ -1090,7 +1090,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symbolInfo = context.GetSymbolInfo(node);
             methodSymbol = symbolInfo.Symbol as IMethodSymbol;
 
             // Fallback: when overload resolution fails but Roslyn found candidate(s)
@@ -1240,7 +1240,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (originalMethodName is "First" or "FirstOrDefault" or "Last" or "LastOrDefault"
             && context.SemanticModel != null)
         {
-            var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (receiverType is IArrayTypeSymbol)
             {
                 return originalMethodName is "First" or "FirstOrDefault"
@@ -1259,7 +1259,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             // Check if receiver is an array - simplest correct check is .length > 0
             // Wrap in parens so a parent `!` produces `!(arr.length > 0)` instead of `!arr.length > 0`
-            var receiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (receiverType is IArrayTypeSymbol)
             {
                 return $"({receiver}.length > 0)";
@@ -1286,7 +1286,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"Arrays.sort({arrayArg})";
             }
 
-            var sortArrayType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type as IArrayTypeSymbol;
+            var sortArrayType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type as IArrayTypeSymbol;
             bool isPrimitiveArray = sortArrayType?.ElementType.SpecialType is not null
                 && sortArrayType.ElementType.SpecialType is not SpecialType.None
                 && sortArrayType.ElementType.SpecialType is not SpecialType.System_Object;
@@ -1315,7 +1315,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var arrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var actionArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            var foreachArrayType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type as IArrayTypeSymbol;
+            var foreachArrayType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type as IArrayTypeSymbol;
             string streamExpr;
             if (foreachArrayType != null)
                 streamExpr = ExpressionTransformerHelpers.BuildArrayStreamExpression(arrayArg, foreachArrayType, context, boxed: true);
@@ -1377,7 +1377,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var endArg = $"({indexArg} + {lengthArg})";
 
             string defaultValue = "null";
-            if (context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is IArrayTypeSymbol clearArrayType)
+            if (context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is IArrayTypeSymbol clearArrayType)
             {
                 defaultValue = clearArrayType.ElementType.SpecialType switch
                 {
@@ -1429,7 +1429,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var isMethodGroupArg = actionArgExpr is IdentifierNameSyntax or MemberAccessExpressionSyntax;
 
             if (isMethodGroupArg
-                && context.SemanticModel?.GetSymbolInfo(actionArgExpr).Symbol is IMethodSymbol actionMethod)
+                && context.GetSymbolInfo(actionArgExpr).Symbol is IMethodSymbol actionMethod)
             {
                 var actionMethodName = ConversionContext.EscapeJavaKeyword(
                     actionMethod.Name.Length > 0
@@ -1453,7 +1453,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             context.AddImport("java.util.stream.StreamSupport");
             // Arrays don't have .spliterator() instance method in Java.
             // Use Arrays.spliterator(arr) for arrays, source.spliterator() for collections.
-            var sourceArgType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+            var sourceArgType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
             if (sourceArgType is IArrayTypeSymbol)
             {
                 context.AddImport("java.util.Arrays");
@@ -1518,7 +1518,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var destArrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var destIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            var copySourceType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            var copySourceType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (copySourceType is IArrayTypeSymbol copyArr)
             {
                 return $"System.arraycopy({receiver}, 0, {destArrayArg}, {destIndexArg}, {receiver}.length)";
@@ -1544,7 +1544,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && outHolderArg.EndsWith("Holder", StringComparison.Ordinal);
                 if (!isHolder && context.SemanticModel != null)
                 {
-                    var outArgSymbol = context.SemanticModel.GetSymbolInfo(outArg.Expression).Symbol;
+                    var outArgSymbol = context.GetSymbolInfo(outArg.Expression).Symbol;
                     if (outArgSymbol is IParameterSymbol { RefKind: RefKind.Out or RefKind.Ref })
                         isHolder = true;
                 }
@@ -1572,7 +1572,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && node.ArgumentList.Arguments.Count == 1
             && context.SemanticModel != null)
         {
-            var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (receiverType is IArrayTypeSymbol)
             {
                 var dimArg = node.ArgumentList.Arguments[0].Expression;
@@ -1624,7 +1624,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "System.MathF"))))
         {
             var signArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            var argType = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+            var argType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
             if (argType?.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Int32
                 || argType?.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Int64
                 || argType?.SpecialType == Microsoft.CodeAnalysis.SpecialType.System_Int16
@@ -1741,7 +1741,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && context.SemanticModel != null)
         {
             var argExpr = node.ArgumentList.Arguments[0].Expression;
-            var argType = context.SemanticModel.GetTypeInfo(argExpr).Type;
+            var argType = context.GetTypeInfo(argExpr).Type;
             if (argType != null
                 && argType is not IArrayTypeSymbol
                 && !IsCollectionCompatibleType(argType))
@@ -1910,7 +1910,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // unresolved compilations). Use receiver type to recover method/type mappings.
             if (context.SemanticModel != null)
             {
-                var receiverTypeSymbol = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol as INamedTypeSymbol;
+                var receiverTypeSymbol = context.GetSymbolInfo(memberAccess.Expression).Symbol as INamedTypeSymbol;
                 if (receiverTypeSymbol != null)
                 {
                     var receiverTypeName = receiverTypeSymbol.ToDisplayString();
@@ -1936,7 +1936,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && context.SemanticModel.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enclosingType3
                 && enclosingType3.GetMembers(simpleTypeReceiver3.Identifier.Text).Any(m => m is not INamedTypeSymbol))
             {
-                var receiverSymbol3 = context.SemanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
+                var receiverSymbol3 = context.GetSymbolInfo(memberAccess.Expression).Symbol;
                 // Only override when the identifier is NOT a field/local/parameter/property reference.
                 // e.g. field "streamWriter" has type StreamWriter — we must NOT replace the
                 // receiver with the type name, or Java sees a static call on the class.
@@ -1944,7 +1944,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // not be replaced by the type name "System.Collections.Generic.Dictionary".
                 if (receiverSymbol3 is not (IFieldSymbol or ILocalSymbol or IParameterSymbol or IPropertySymbol))
                 {
-                    var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+                    var receiverType = context.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
                     if (receiverType != null)
                     {
                         var ns3 = receiverType.ContainingNamespace?.ToDisplayString();
@@ -2062,7 +2062,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 bool likelyEnumerable;
                 if (context.SemanticModel != null)
                 {
-                    unresolvedLinqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                    unresolvedLinqReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
                     likelyEnumerable = ImplementsIEnumerable(unresolvedLinqReceiverType)
                         || unresolvedLinqReceiverType is IArrayTypeSymbol
                         || unresolvedLinqReceiverType == null
@@ -2405,7 +2405,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } genericDeserialize
                 && context.SemanticModel != null)
             {
-                deserializeTargetType = context.SemanticModel.GetTypeInfo(genericDeserialize.TypeArgumentList.Arguments[0]).Type;
+                deserializeTargetType = context.GetTypeInfo(genericDeserialize.TypeArgumentList.Arguments[0]).Type;
             }
 
             if (deserializeTargetType != null)
@@ -2578,7 +2578,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (originalMethodName == "WriteLine"
             && methodName == "println"
             && node.Expression is MemberAccessExpressionSyntax swMa
-            && context.SemanticModel?.GetTypeInfo(swMa.Expression).Type?.ToDisplayString()
+            && context.GetTypeInfo(swMa.Expression).Type?.ToDisplayString()
                 == "System.IO.StringWriter")
         {
             var writeArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex, methodSymbol);
@@ -2655,7 +2655,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             // When stripping AsEnumerable on an array receiver, wrap with ArrayHelper.toList()
             // because Java arrays don't implement Iterable (unlike C# arrays which implement IEnumerable).
-            var rcvType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            var rcvType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (rcvType is IArrayTypeSymbol arrayType)
             {
                 return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(receiver, arrayType, context);
@@ -2675,7 +2675,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ITypeSymbol? rcvElemType = null;
             if (!IsReceiverLinqExtension(memberAccess.Expression, context))
             {
-                var rcvType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var rcvType = context.GetTypeInfo(memberAccess.Expression).Type;
                 if (rcvType is IArrayTypeSymbol tdArr)
                     rcvElemType = tdArr.ElementType;
                 else if (rcvType is INamedTypeSymbol namedRcv && namedRcv.TypeArguments.Length > 0)
@@ -2716,7 +2716,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     var firstArg = node.ArgumentList.Arguments[0];
                     receiver = facade.Transform(firstArg.Expression, context);
-                    var firstArgType = context.SemanticModel.GetTypeInfo(firstArg.Expression).Type;
+                    var firstArgType = context.GetTypeInfo(firstArg.Expression).Type;
                     receiver = BuildStreamReceiverExpression(
                         receiver,
                         firstArgType,
@@ -2728,7 +2728,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
                 else
                 {
-                    var linqReceiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                    var linqReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
                     receiver = BuildStreamReceiverExpression(
                         receiver,
                         linqReceiverType,
@@ -2989,7 +2989,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (originalMethodName == "Contains" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var valArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                var containsSourceType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var containsSourceType = context.GetTypeInfo(memberAccess.Expression).Type;
                 bool isPrimitiveArraySource = containsSourceType is IArrayTypeSymbol arr
                     && arr.ElementType.SpecialType is not SpecialType.None
                     && arr.ElementType.SpecialType is not SpecialType.System_Object;
@@ -3029,13 +3029,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     otherStream = otherArg; // Already a Java stream from LINQ chain transformation
                 else
                 {
-                    var otherType = context.SemanticModel?.GetTypeInfo(concatArgExpr).Type;
+                    var otherType = context.GetTypeInfo(concatArgExpr).Type;
                     otherStream = ExpressionTransformerHelpers.BuildStreamExpression(
                         otherArg, otherType, context, boxPrimitiveArrayElements: true);
                 }
                 }
                 var concatReceiver = receiver;
-                var concatReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var concatReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
                 if (concatReceiverType is IArrayTypeSymbol concatArr
                     && concatArr.ElementType.SpecialType is not SpecialType.None
                     && concatArr.ElementType.SpecialType is not SpecialType.System_Object)
@@ -3044,7 +3044,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var concatStream = $"Stream.concat({concatReceiver}, {otherStream})";
-                var concatType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
+                var concatType = context.GetTypeInfo(node).Type as INamedTypeSymbol;
                 bool returnsEnumerable = concatType?.Name == "IEnumerable"
                     && concatType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
                 bool isChained = node.Parent is MemberAccessExpressionSyntax ma && ma.Expression == node;
@@ -3079,7 +3079,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                                      + $" _src -> IntStream.range(0, _src.size())"
                                      + $".filter(_i -> {{ var {whP0} = _src.get(_i); int {whP1} = _i; return {whCond}; }})"
                                      + $".mapToObj(_src::get)))";
-                    var whereType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
+                    var whereType = context.GetTypeInfo(node).Type as INamedTypeSymbol;
                     bool whereReturnsEnumerable = whereType?.Name == "IEnumerable"
                         && whereType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
                     bool whereIsChained = node.Parent is MemberAccessExpressionSyntax maWhere && maWhere.Expression == node;
@@ -3105,7 +3105,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var selectIndexed = $"{receiver}.collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new ArrayList<>()),"
                                       + $" _src -> IntStream.range(0, _src.size())"
                                       + $".mapToObj(_i -> {{ var {selP0} = _src.get(_i); int {selP1} = _i; return {selBody}; }})))";
-                    var selectType = context.SemanticModel?.GetTypeInfo(node).Type as INamedTypeSymbol;
+                    var selectType = context.GetTypeInfo(node).Type as INamedTypeSymbol;
                     bool selectReturnsEnumerable = selectType?.Name == "IEnumerable"
                         && selectType.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
                     bool selectIsChained = node.Parent is MemberAccessExpressionSyntax maSelect && maSelect.Expression == node;
@@ -3118,7 +3118,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // On primitive streams (from primitive arrays), IntStream.map expects int→int.
                 // Cross-type selectors need mapToDouble/mapToLong/mapToObj instead of map.
                 var selectMapOp = "map";
-                var selectSrcType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var selectSrcType = context.GetTypeInfo(memberAccess.Expression).Type;
                 bool selectOnPrimitiveStream = false;
                 string selectSrcCat = "";
 
@@ -3150,7 +3150,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         while (srcExpr is InvocationExpressionSyntax chainedInv
                             && chainedInv.Expression is MemberAccessExpressionSyntax innerMa)
                             srcExpr = innerMa.Expression;
-                        var srcTypeInfo = context.SemanticModel?.GetTypeInfo(srcExpr).Type;
+                        var srcTypeInfo = context.GetTypeInfo(srcExpr).Type;
                         if (srcTypeInfo is IArrayTypeSymbol srcArr
                             && PrimitiveStreamCategory(srcArr.ElementType.SpecialType) != "")
                         {
@@ -3204,7 +3204,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                             _ => null
                         };
                         var smIdxBodyRetType = smIdxBodyExpr != null
-                            ? context.SemanticModel?.GetTypeInfo(smIdxBodyExpr).Type
+                            ? context.GetTypeInfo(smIdxBodyExpr).Type
                             : null;
                         string innerStreamExpr;
                         if (smIdxBodyRetType is IArrayTypeSymbol smIdxArr)
@@ -3248,7 +3248,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     };
                     if (smBodyExpr != null && smParam != null)
                     {
-                        var bodyRetType = context.SemanticModel?.GetTypeInfo(smBodyExpr).Type;
+                        var bodyRetType = context.GetTypeInfo(smBodyExpr).Type;
                         if (bodyRetType is IArrayTypeSymbol smArr)
                         {
                             string bodyStr = facade.Transform(smBodyExpr, context);
@@ -3274,7 +3274,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     {
                         var selector = facade.Transform(smArg.Expression, context);
                         if (selector.Contains("::", StringComparison.Ordinal)
-                            && context.SemanticModel?.GetSymbolInfo(smArg.Expression).Symbol is IMethodSymbol selMethod
+                            && context.GetSymbolInfo(smArg.Expression).Symbol is IMethodSymbol selMethod
                             && ImplementsIEnumerable(selMethod.ReturnType))
                         {
                             var parts = selector.Split(new[] { "::" }, StringSplitOptions.None);
@@ -3297,7 +3297,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     // IntStream/LongStream/DoubleStream.flatMap expects same-type stream result
                     // (e.g. IntFunction<IntStream>). When the lambda returns a non-primitive
                     // Stream<T>, we must .boxed() first to get Stream<Integer>.
-                    var smReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                    var smReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
                     bool smNeedsBoxed = smReceiverType is IArrayTypeSymbol smArrType
                         && PrimitiveStreamCategory(smArrType.ElementType.SpecialType) != ""
                         && methodSymbol.TypeArguments.Length >= 2
@@ -3593,14 +3593,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Aggregate(seed, func, resultSelector) → inline resultSelector applied to reduce result
             if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count >= 3)
             {
-                bool primitiveArrayAggregateSource = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol srcArr1
+                bool primitiveArrayAggregateSource = context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol srcArr1
                     && srcArr1.ElementType.IsValueType;
                 var aggregateReceiver = primitiveArrayAggregateSource ? $"{receiver}.boxed()" : receiver;
 
                 var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                var seedType1 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
-                var sourceType1 = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var seedType1 = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var sourceType1 = context.GetTypeInfo(memberAccess.Expression).Type;
                 var sourceElemType1 = sourceType1 switch
                 {
                     IArrayTypeSymbol arr1 => arr1.ElementType,
@@ -3630,14 +3630,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Aggregate(seed, func) → reduce(seed, func)
             if (originalMethodName == "Aggregate" && node.ArgumentList.Arguments.Count >= 2)
             {
-                bool primitiveArrayAggregateSource = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol srcArr2
+                bool primitiveArrayAggregateSource = context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol srcArr2
                     && srcArr2.ElementType.IsValueType;
                 var aggregateReceiver = primitiveArrayAggregateSource ? $"{receiver}.boxed()" : receiver;
 
                 var seedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var funcArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                var seedType2 = context.SemanticModel?.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
-                var sourceType2 = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var seedType2 = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                var sourceType2 = context.GetTypeInfo(memberAccess.Expression).Type;
                 var sourceElemType2 = sourceType2 switch
                 {
                     IArrayTypeSymbol arr2 => arr2.ElementType,
@@ -3683,7 +3683,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.stream.IntStream");
                 var zipOtherArg0 = node.ArgumentList.Arguments[0];
                 var zipOther = facade.Transform(zipOtherArg0.Expression, context);
-                var zipOtherType = context.SemanticModel.GetTypeInfo(zipOtherArg0.Expression).Type;
+                var zipOtherType = context.GetTypeInfo(zipOtherArg0.Expression).Type;
                 string zipOtherListExpr;
                 if (zipOtherType is IArrayTypeSymbol zipArrType2)
                     zipOtherListExpr = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(zipOther, zipArrType2, context);
@@ -3694,7 +3694,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // we must .boxed() before .collect() since IntStream.collect() has a different signature
                 // (Supplier, ObjIntConsumer, BiConsumer) and does not accept Collector<T,A,R>.
                 var zipReceiver = receiver;
-                var zipReceiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+                var zipReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
                 if (zipReceiverType is IArrayTypeSymbol zipSrcArr
                     && PrimitiveStreamCategory(zipSrcArr.ElementType.SpecialType) != "")
                 {
@@ -3727,7 +3727,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     otherStream = otherArg;
                 else
                 {
-                    var otherType = context.SemanticModel?.GetTypeInfo(unionArgExpr).Type;
+                    var otherType = context.GetTypeInfo(unionArgExpr).Type;
                     otherStream = ExpressionTransformerHelpers.BuildStreamExpression(
                         otherArg, otherType, context, boxPrimitiveArrayElements: true);
                 }
@@ -3742,7 +3742,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.HashSet");
                 var isectArg0 = node.ArgumentList.Arguments[0];
                 var isectOther = facade.Transform(isectArg0.Expression, context);
-                var isectOtherType = context.SemanticModel?.GetTypeInfo(isectArg0.Expression).Type;
+                var isectOtherType = context.GetTypeInfo(isectArg0.Expression).Type;
                 string isectSet = BuildSetExprFromOther(isectOther, isectOtherType, context);
                 return $"{receiver}.filter({isectSet}::contains)";
             }
@@ -3755,7 +3755,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.HashSet");
                 var exceptArg0 = node.ArgumentList.Arguments[0];
                 var exceptOther = facade.Transform(exceptArg0.Expression, context);
-                var exceptOtherType = context.SemanticModel?.GetTypeInfo(exceptArg0.Expression).Type;
+                var exceptOtherType = context.GetTypeInfo(exceptArg0.Expression).Type;
                 string exceptSet = BuildSetExprFromOther(exceptOther, exceptOtherType, context);
                 return $"{receiver}.filter(x -> !{exceptSet}.contains(x))";
             }
@@ -3781,7 +3781,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.ArrayList");
                 var seqOtherArg0 = node.ArgumentList.Arguments[0];
                 var seqOtherStr = facade.Transform(seqOtherArg0.Expression, context);
-                var seqOtherType = context.SemanticModel?.GetTypeInfo(seqOtherArg0.Expression).Type;
+                var seqOtherType = context.GetTypeInfo(seqOtherArg0.Expression).Type;
                 string seqOtherList;
                 if (seqOtherType is IArrayTypeSymbol seqArr)
                     seqOtherList = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(seqOtherStr, seqArr, context);
@@ -3881,7 +3881,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     ubOtherStream = ubOther;
                 else
                 {
-                    var ubOtherType = context.SemanticModel?.GetTypeInfo(ubOtherArg0.Expression).Type;
+                    var ubOtherType = context.GetTypeInfo(ubOtherArg0.Expression).Type;
                     ubOtherStream = ExpressionTransformerHelpers.BuildStreamExpression(
                         ubOther, ubOtherType, context, boxPrimitiveArrayElements: true);
                 }
@@ -3899,7 +3899,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.ArrayList");
                 var ibOtherArg0 = node.ArgumentList.Arguments[0];
                 var ibOther = facade.Transform(ibOtherArg0.Expression, context);
-                var ibOtherType = context.SemanticModel.GetTypeInfo(ibOtherArg0.Expression).Type;
+                var ibOtherType = context.GetTypeInfo(ibOtherArg0.Expression).Type;
                 string ibSetExpr = BuildSetExprFromOther(ibOther, ibOtherType, context);
                 if (TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var ibP, out var ibKeyBody))
                     return $"{receiver}.filter({ibP} -> {ibSetExpr}.contains({ibKeyBody}))";
@@ -3914,7 +3914,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.ArrayList");
                 var ebOtherArg0 = node.ArgumentList.Arguments[0];
                 var ebOther = facade.Transform(ebOtherArg0.Expression, context);
-                var ebOtherType = context.SemanticModel.GetTypeInfo(ebOtherArg0.Expression).Type;
+                var ebOtherType = context.GetTypeInfo(ebOtherArg0.Expression).Type;
                 string ebSetExpr = BuildSetExprFromOther(ebOther, ebOtherType, context);
                 if (TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var ebP, out var ebKeyBody))
                     return $"{receiver}.filter({ebP} -> !{ebSetExpr}.contains({ebKeyBody}))";
@@ -3928,7 +3928,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.Objects");
                 var jInnerArg0 = node.ArgumentList.Arguments[0];
                 var jInner = facade.Transform(jInnerArg0.Expression, context);
-                var jInnerType = context.SemanticModel.GetTypeInfo(jInnerArg0.Expression).Type;
+                var jInnerType = context.GetTypeInfo(jInnerArg0.Expression).Type;
                 var jInnerStream = ExpressionTransformerHelpers.BuildStreamExpression(jInner, jInnerType, context);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var jOuterP, out var jOuterKey);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var jInnerP, out var jInnerKey);
@@ -3957,7 +3957,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.Objects");
                 var gjInnerArg0 = node.ArgumentList.Arguments[0];
                 var gjInner = facade.Transform(gjInnerArg0.Expression, context);
-                var gjInnerType = context.SemanticModel.GetTypeInfo(gjInnerArg0.Expression).Type;
+                var gjInnerType = context.GetTypeInfo(gjInnerArg0.Expression).Type;
                 var gjInnerStream = ExpressionTransformerHelpers.BuildStreamExpression(gjInner, gjInnerType, context);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[1].Expression, context, facade, out var gjOuterP, out var gjOuterKey);
                 TryGetSingleParamLambda(node.ArgumentList.Arguments[2].Expression, context, facade, out var gjInnerP, out var gjInnerKey);
@@ -3987,7 +3987,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (originalMethodName == "ToString"
             && methodName == "substring"
             && node.ArgumentList.Arguments.Count - argStartIndex == 2
-            && IsSystemTextStringBuilder(context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type))
+            && IsSystemTextStringBuilder(context.GetTypeInfo(memberAccess.Expression).Type))
         {
             var start = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
             var length = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
@@ -4109,7 +4109,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (methodName is "filter" or "map" or "flatMap"
             && context.SemanticModel != null)
         {
-            var fallbackStreamType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+            var fallbackStreamType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (ImplementsIEnumerable(fallbackStreamType) || fallbackStreamType is IArrayTypeSymbol)
             {
                 var fallbackStreamReceiver = BuildStreamReceiverExpression(
@@ -4234,7 +4234,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Semantic check: resolve the parameter type
         if (context.SemanticModel != null)
         {
-            var typeInfo = context.SemanticModel.GetTypeInfo(firstArg);
+            var typeInfo = context.GetTypeInfo(firstArg);
             var typeName = typeInfo.Type?.ToDisplayString();
             if (typeName is "System.IFormatProvider" or "System.Globalization.CultureInfo"
                 or "System.Globalization.NumberFormatInfo")
@@ -4278,7 +4278,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Semantic check
         if (context.SemanticModel != null)
         {
-            var typeInfo = context.SemanticModel.GetTypeInfo(expr);
+            var typeInfo = context.GetTypeInfo(expr);
             var typeName = typeInfo.Type?.ToDisplayString();
             if (typeName is "System.IFormatProvider" or "System.Globalization.CultureInfo"
                 or "System.Globalization.NumberFormatInfo" or "System.Globalization.NumberStyles")
@@ -4440,7 +4440,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         if (context.SemanticModel == null) return false;
         if (expr is not InvocationExpressionSyntax invocation) return false;
-        var sym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        var sym = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
         if (sym == null) return false;
         // AsQueryable/AsEnumerable are identity wrappers — don't count as LINQ so .stream() is still injected
         if (sym.Name is "AsQueryable" or "AsEnumerable") return false;
@@ -4498,7 +4498,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Method 3: From the assignment/declaration context
         if (elementType == null && context.SemanticModel != null)
         {
-            var typeInfo3 = context.SemanticModel.GetTypeInfo(node);
+            var typeInfo3 = context.GetTypeInfo(node);
             if (typeInfo3.ConvertedType is IArrayTypeSymbol targetArray)
                 elementType = targetArray.ElementType;
             else if (typeInfo3.Type is IArrayTypeSymbol typeArray)
@@ -4508,7 +4508,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Method 4: From the receiver expression's IEnumerable<T> type (when methodSymbol is null)
         if (elementType == null && context.SemanticModel != null)
         {
-            var receiverTypeInfo = context.SemanticModel.GetTypeInfo(memberAccess.Expression);
+            var receiverTypeInfo = context.GetTypeInfo(memberAccess.Expression);
             if (receiverTypeInfo.Type is INamedTypeSymbol receiverType4)
                 elementType = ExtractEnumerableElementType(receiverType4);
             else if (receiverTypeInfo.ConvertedType is INamedTypeSymbol receiverConverted4)
@@ -4628,7 +4628,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (context.SemanticModel == null)
             return false;
 
-        var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+        var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
         if (receiverType is IArrayTypeSymbol receiverArray)
         {
             var sourceIsGenericArrayReturn = ExpressionTransformerHelpers.IsExpressionFromTypeParameterArrayReturn(
@@ -4675,7 +4675,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (context.SemanticModel == null)
             return null;
 
-        var typeInfo = context.SemanticModel.GetTypeInfo(node);
+        var typeInfo = context.GetTypeInfo(node);
         return (typeInfo.ConvertedType as IArrayTypeSymbol)?.ElementType
             ?? (typeInfo.Type as IArrayTypeSymbol)?.ElementType;
     }
@@ -4828,13 +4828,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (outExpression is DeclarationExpressionSyntax decl)
         {
-            var declType = context.SemanticModel.GetTypeInfo(decl.Type).Type
-                ?? context.SemanticModel.GetTypeInfo(decl).Type;
+            var declType = context.GetTypeInfo(decl.Type).Type
+                ?? context.GetTypeInfo(decl).Type;
             if (declType != null)
                 return declType;
         }
 
-        var typeInfo = context.SemanticModel.GetTypeInfo(outExpression);
+        var typeInfo = context.GetTypeInfo(outExpression);
         return typeInfo.Type ?? typeInfo.ConvertedType;
     }
 
@@ -4885,15 +4885,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsReceiverOfType(ExpressionSyntax receiver, string typeName, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(receiver);
-        return typeInfo?.Type?.ToDisplayString() == typeName
-            || typeInfo?.ConvertedType?.ToDisplayString() == typeName;
+        var typeInfo = context.GetTypeInfo(receiver);
+        return typeInfo.Type?.ToDisplayString() == typeName
+            || typeInfo.ConvertedType?.ToDisplayString() == typeName;
     }
 
     private static bool IsMethodInfoReceiver(ExpressionSyntax expr, ConversionContext context)
     {
         // Check via the semantic symbol first
-        if (context.SemanticModel?.GetSymbolInfo(expr).Symbol is IMethodSymbol ms
+        if (context.GetSymbolInfo(expr).Symbol is IMethodSymbol ms
             && ms.ContainingType.ToDisplayString() == "System.Reflection.MethodInfo")
             return true;
         // Fall back to type info on the receiver expression
@@ -4924,7 +4924,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         string receiver,
         ConversionContext context)
     {
-        var csType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+        var csType = context.GetTypeInfo(memberAccess.Expression).Type;
 
         // Direct receiver is a primitive array → Arrays.stream produces matching primitive stream
         if (csType is IArrayTypeSymbol arr)
@@ -4950,7 +4950,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 while (srcExpr is InvocationExpressionSyntax chainedInv
                     && chainedInv.Expression is MemberAccessExpressionSyntax innerMa)
                     srcExpr = innerMa.Expression;
-                var srcTypeInfo = context.SemanticModel?.GetTypeInfo(srcExpr).Type;
+                var srcTypeInfo = context.GetTypeInfo(srcExpr).Type;
                 if (srcTypeInfo is IArrayTypeSymbol srcArr
                     && PrimitiveStreamCategory(srcArr.ElementType.SpecialType) != "")
                 {
@@ -4983,7 +4983,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
 
         // Direct receiver is a primitive array → Arrays.stream(int[]) produces IntStream
-        var csType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+        var csType = context.GetTypeInfo(memberAccess.Expression).Type;
         if (csType is IArrayTypeSymbol arr && PrimitiveStreamCategory(arr.ElementType.SpecialType) != "")
             return true;
 
@@ -5015,7 +5015,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             while (srcExpr is InvocationExpressionSyntax chainedInv
                 && chainedInv.Expression is MemberAccessExpressionSyntax innerMa)
                 srcExpr = innerMa.Expression;
-            var srcTypeInfo = context.SemanticModel?.GetTypeInfo(srcExpr).Type;
+            var srcTypeInfo = context.GetTypeInfo(srcExpr).Type;
             if (srcTypeInfo is IArrayTypeSymbol srcArr
                 && PrimitiveStreamCategory(srcArr.ElementType.SpecialType) != "")
             {
@@ -5336,7 +5336,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsDictionaryLikeExpression(ExpressionSyntax expression, ConversionContext context)
     {
-        var type = context.SemanticModel?.GetTypeInfo(expression).Type as INamedTypeSymbol;
+        var type = context.GetTypeInfo(expression).Type as INamedTypeSymbol;
         if (type == null)
             return false;
 
@@ -5352,7 +5352,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsEnumeratorMoveNextInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
-        var method = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var method = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
         if (method == null || method.Name != "MoveNext" || method.Parameters.Length != 0)
             return false;
 
@@ -5370,7 +5370,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsExplicitEnumeratorGetEnumeratorInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
-        var method = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var method = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
         if (method == null || method.Name != "GetEnumerator" || method.Parameters.Length != 0)
             return false;
 
@@ -5382,7 +5382,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ExpressionSyntax receiverSyntax,
         ConversionContext context)
     {
-        var receiverType = context.SemanticModel?.GetTypeInfo(receiverSyntax).Type;
+        var receiverType = context.GetTypeInfo(receiverSyntax).Type;
         if (receiverType is IArrayTypeSymbol arrayType)
         {
             context.AddImport("io.github.ningpp.compat.ArrayHelper");
@@ -5458,7 +5458,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
 
         // Instance method call: check the receiver expression's type via semantic model.
-        if (context.SemanticModel?.GetTypeInfo(receiverExpression).Type?.SpecialType
+        if (context.GetTypeInfo(receiverExpression).Type?.SpecialType
             == SpecialType.System_String)
             return true;
 
@@ -5525,7 +5525,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         if (context.SemanticModel != null)
         {
-            var receiverType = context.SemanticModel.GetTypeInfo(receiverExpression).Type;
+            var receiverType = context.GetTypeInfo(receiverExpression).Type;
             if (receiverType?.ToDisplayString() == "System.Text.RegularExpressions.Regex")
                 return true;
         }
@@ -5558,7 +5558,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         if (context.SemanticModel != null)
         {
-            var typeName = context.SemanticModel.GetTypeInfo(expr).Type?.ToDisplayString();
+            var typeName = context.GetTypeInfo(expr).Type?.ToDisplayString();
             if (typeName == "System.Globalization.NumberStyles")
                 return true;
         }
@@ -5601,9 +5601,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     private static ITypeSymbol? ResolveReceiverType(ExpressionSyntax expr, ConversionContext context)
     {
         if (context.SemanticModel == null) return null;
-        var type = context.SemanticModel.GetTypeInfo(expr).Type;
+        var type = context.GetTypeInfo(expr).Type;
         if (type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) }) return type;
-        var sym = context.SemanticModel.GetSymbolInfo(expr).Symbol;
+        var sym = context.GetSymbolInfo(expr).Symbol;
         type = sym switch { ILocalSymbol ls => ls.Type, IFieldSymbol fs => fs.Type, IParameterSymbol ps => ps.Type, _ => null };
         if (type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) }) return type;
         if (expr is IdentifierNameSyntax id && context.VarTypeMap.TryGetValue(id.Identifier.Text, out var vmType))

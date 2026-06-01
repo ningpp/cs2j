@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -76,7 +76,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
         if (context.SemanticModel == null)
             return null;
 
-        var typeInfo = context.SemanticModel.GetTypeInfo(node);
+        var typeInfo = context.GetTypeInfo(node);
         var type = typeInfo.Type ?? typeInfo.ConvertedType;
         if (type == null || type.TypeKind == Microsoft.CodeAnalysis.TypeKind.Error)
             return null;
@@ -102,7 +102,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
             {
                 var memberName = binding.Name.Identifier.Text;
                 // Check property-to-method mapping (e.g., Count → size()) via semantic model
-                if (context.SemanticModel?.GetSymbolInfo(binding).Symbol is IPropertySymbol prop)
+                if (context.GetSymbolInfo(binding).Symbol is IPropertySymbol prop)
                 {
                     var mapped = TryMapPropertyToMethod(prop, context);
                     if (mapped != null)
@@ -133,7 +133,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 }
                 if (context.SemanticModel != null && ownerCond != null)
                 {
-                    var exprTypeInfo = context.SemanticModel.GetTypeInfo(ownerCond.Expression);
+                    var exprTypeInfo = context.GetTypeInfo(ownerCond.Expression);
                     var exprType = exprTypeInfo.Type ?? exprTypeInfo.ConvertedType;
                     if (exprType is INamedTypeSymbol namedExprType)
                     {
@@ -192,7 +192,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     if (context.SemanticModel != null
                         && invocation.Parent is ConditionalAccessExpressionSyntax condParent)
                     {
-                        receiverType = context.SemanticModel.GetTypeInfo(condParent.Expression).Type;
+                        receiverType = context.GetTypeInfo(condParent.Expression).Type;
                     }
                     var streamExpr = Transformers.Expression.Utilities.ExpressionTransformerHelpers
                         .BuildStreamExpression(objExpr, receiverType, context);

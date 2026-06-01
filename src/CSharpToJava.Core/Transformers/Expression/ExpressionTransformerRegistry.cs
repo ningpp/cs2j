@@ -54,8 +54,8 @@ public static class ExpressionTransformerRegistry
                     var varName = svd.Identifier.Text;
                     var holderName = $"_{varName}Holder";
 
-                    var typeSymbol = ctx.SemanticModel?.GetTypeInfo(decl.Type).Type
-                        ?? ctx.SemanticModel?.GetTypeInfo(decl).Type;
+                    var typeSymbol = ctx.GetTypeInfo(decl.Type).Type
+                        ?? ctx.GetTypeInfo(decl).Type;
                     var javaType = typeSymbol != null ? ctx.MapType(typeSymbol) : "Object";
                     if (string.IsNullOrEmpty(javaType))
                         javaType = "Object";
@@ -93,20 +93,20 @@ public static class ExpressionTransformerRegistry
 
                 // Infer element type from semantic model instead of defaulting to Object[]
                 string elementType = "Object";
-                var typeInfo = ctx.SemanticModel?.GetTypeInfo(node);
-                if (typeInfo.HasValue && typeInfo.Value.Type is IArrayTypeSymbol arrType)
+                var typeInfo = ctx.GetTypeInfo(node);
+                if (typeInfo.Type is IArrayTypeSymbol arrType)
                 {
                     elementType = ctx.MapType(arrType.ElementType);
                 }
-                else if (typeInfo.HasValue && typeInfo.Value.ConvertedType is IArrayTypeSymbol convArr)
+                else if (typeInfo.ConvertedType is IArrayTypeSymbol convArr)
                 {
                     elementType = ctx.MapType(convArr.ElementType);
                 }
                 else if (stackAlloc.Initializer.Expressions.Count > 0)
                 {
-                    var firstTypeInfo = ctx.SemanticModel?.GetTypeInfo(stackAlloc.Initializer.Expressions[0]);
-                    if (firstTypeInfo.HasValue && firstTypeInfo.Value.Type != null)
-                        elementType = ctx.MapType(firstTypeInfo.Value.Type);
+                    var firstTypeInfo = ctx.GetTypeInfo(stackAlloc.Initializer.Expressions[0]);
+                    if (firstTypeInfo.Type != null)
+                        elementType = ctx.MapType(firstTypeInfo.Type);
                 }
                 return $"new {elementType}[]{{ {elements} }}";
             }));

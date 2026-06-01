@@ -58,8 +58,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (node is ObjectCreationExpressionSyntax objCreation
             && objCreation.Initializer == null)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-            ITypeSymbol? createdType = typeInfo?.Type;
+            var typeInfo = context.GetTypeInfo(node);
+            ITypeSymbol? createdType = typeInfo.Type;
 
             // Skip special types that need non-standard IR handling
             if (createdType?.TypeKind != TypeKind.Delegate
@@ -89,16 +89,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // ImplicitObjectCreationExpression: new() — target-typed
         if (node is ImplicitObjectCreationExpressionSyntax implicitNew)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-            if (typeInfo?.Type != null)
+            var typeInfo = context.GetTypeInfo(node);
+            if (typeInfo.Type != null)
             {
-                var typeName = context.MapType(typeInfo.Value.Type);
+                var typeName = context.MapType(typeInfo.Type);
                 if (!HasComplexArguments(implicitNew.ArgumentList))
                 {
                     var ir = new JavaNewExpression { Type = typeName };
                     foreach (var arg in implicitNew.ArgumentList.Arguments)
                         ir.Arguments.Add(facade.TransformToIR(arg.Expression, context));
-                    var runtimeClassArguments = RuntimeClassParameterHelper.GetRuntimeClassArguments(typeInfo.Value.Type as INamedTypeSymbol, context);
+                    var runtimeClassArguments = RuntimeClassParameterHelper.GetRuntimeClassArguments(typeInfo.Type as INamedTypeSymbol, context);
                     foreach (var runtimeClassArgument in runtimeClassArguments)
                         ir.Arguments.Add(new JavaRawExpression(runtimeClassArgument));
                     return ir;
@@ -128,7 +128,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (IsJavaFunctionalInterfaceType(typeName)) return true;
         if (node.ArgumentList?.Arguments.Count == 1)
         {
-            var ctorSym = context.SemanticModel?.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var ctorSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (ctorSym?.ContainingType.TypeKind == TypeKind.Delegate) return true;
         }
 
@@ -164,11 +164,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     {
         // C# 9+ target-typed new: new() → inferred type
         // We need to infer the type from context or use object
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        var typeInfo = context.GetTypeInfo(node);
+        if (typeInfo.Type != null)
         {
-            var typeName = context.MapType(typeInfo.Value.Type);
-            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context, typeInfo.Value.Type as INamedTypeSymbol);
+            var typeName = context.MapType(typeInfo.Type);
+            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context, typeInfo.Type as INamedTypeSymbol);
         }
         return "new Object()";
     }
@@ -179,12 +179,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         ITypeSymbol? createdTypeSymbol = null;
 
         // Get the type being created
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
+        var typeInfo = context.GetTypeInfo(node);
         string typeName;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null && typeInfo.Value.Type is not IErrorTypeSymbol)
+        if (typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol)
         {
-            createdTypeSymbol = typeInfo.Value.Type;
-            typeName = context.MapType(typeInfo.Value.Type);
+            createdTypeSymbol = typeInfo.Type;
+            typeName = context.MapType(typeInfo.Type);
         }
         else
         {
@@ -367,7 +367,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         IMethodSymbol? ctorSymbol = null;
         if (context.SemanticModel != null && argumentList.Parent != null)
         {
-            var symInfo = context.SemanticModel.GetSymbolInfo(argumentList.Parent);
+            var symInfo = context.GetSymbolInfo(argumentList.Parent);
             ctorSymbol = symInfo.Symbol as IMethodSymbol;
         }
 
@@ -392,7 +392,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         if (ctorSymbol == null && argumentList.Arguments.Count == 1 && typeName.EndsWith("Rectangle", StringComparison.Ordinal))
         {
-            var argType = context.SemanticModel?.GetTypeInfo(argumentList.Arguments[0].Expression).Type as INamedTypeSymbol;
+            var argType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type as INamedTypeSymbol;
             if (argType != null
                 && argType.Name == "IEnumerable"
                 && argType.TypeArguments.Length == 1
@@ -406,7 +406,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // a string path. Keep the adapter for that legacy mapping only.
         if (argumentList.Arguments.Count == 1 && typeName.EndsWith("BufferedReader", StringComparison.Ordinal))
         {
-            var argType = context.SemanticModel?.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+            var argType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
             if (argType?.SpecialType == SpecialType.System_String)
             {
                 var pathArg = ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
@@ -423,7 +423,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             && context.SemanticModel != null)
         {
             var argTypes = argumentList.Arguments
-                .Select(a => context.SemanticModel.GetTypeInfo(a.Expression).Type)
+                .Select(a => context.GetTypeInfo(a.Expression).Type)
                 .ToList();
             if (argTypes.All(t => t?.SpecialType == SpecialType.System_String))
             {
@@ -450,7 +450,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             if (argumentList.Arguments.Count == 1 && context.SemanticModel != null)
             {
                 var singleArg = argumentList.Arguments[0].Expression;
-                var argType = context.SemanticModel.GetTypeInfo(singleArg).Type;
+                var argType = context.GetTypeInfo(singleArg).Type;
                 if (argType != null
                     && argType is not IArrayTypeSymbol
                     && !IsCSharpCollectionType(argType)
@@ -475,7 +475,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             var filteredArgs = new List<ArgumentSyntax>();
             foreach (var arg in argumentList.Arguments)
             {
-                var argType = context.SemanticModel?.GetTypeInfo(arg.Expression).Type;
+                var argType = context.GetTypeInfo(arg.Expression).Type;
                 var argTypeDisplay = argType?.ToDisplayString();
                 if (argTypeDisplay != "System.Globalization.CultureInfo"
                     && argTypeDisplay != "System.IFormatProvider")
@@ -501,7 +501,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (context.SemanticModel == null)
             return false;
 
-        var ctorSymbol = context.SemanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var ctorSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
         return ShouldRouteConstructorToErasedFactory(ctorSymbol, context);
     }
 
@@ -706,7 +706,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             var argType = context.SemanticModel!.GetTypeInfo(arg.Expression).Type;
             if (argType is not IArrayTypeSymbol)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(arg.Expression).Symbol;
+                var symbol = context.GetSymbolInfo(arg.Expression).Symbol;
                 argType = symbol switch
                 {
                     IPropertySymbol prop => prop.Type,
@@ -849,7 +849,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         {
             if (context.SemanticModel != null && argumentList.Parent != null)
             {
-                var symInfo = context.SemanticModel.GetSymbolInfo(argumentList.Parent);
+                var symInfo = context.GetSymbolInfo(argumentList.Parent);
                 ctorSymbol = symInfo.Symbol as IMethodSymbol;
             }
             ctorArgs = ArgumentTransformer.TransformArgumentList(
@@ -884,7 +884,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     // Use semantic model to distinguish public fields from properties:
                     // public fields → direct Java field assignment (e.g. _obj.Left = value)
                     // properties → setter method call (e.g. _obj.setLeft(value))
-                    var memberSymbol = context.SemanticModel?.GetSymbolInfo(idName).Symbol;
+                    var memberSymbol = context.GetSymbolInfo(idName).Symbol;
                     if (memberSymbol is IFieldSymbol fieldSym)
                     {
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym.Type, context);
@@ -902,7 +902,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 }
                 else if (assignExpr.Left is MemberAccessExpressionSyntax memberAccess)
                 {
-                    var memberSymbol2 = context.SemanticModel?.GetSymbolInfo(memberAccess.Name).Symbol;
+                    var memberSymbol2 = context.GetSymbolInfo(memberAccess.Name).Symbol;
                     if (memberSymbol2 is IFieldSymbol fieldSym2)
                     {
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym2.Type, context);
@@ -920,7 +920,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 }
                 else
                 {
-                    var targetType = context.SemanticModel?.GetTypeInfo(assignExpr.Left).Type;
+                    var targetType = context.GetTypeInfo(assignExpr.Left).Type;
                     value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, targetType, context);
                     var target = facade.Transform(assignExpr.Left, context);
                     pendingAssignments.Add($"{tmpVar}.{target} = {value};");
@@ -1013,7 +1013,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // (not "double[]") and rank specifiers carry the remaining dimensions correctly.
         // Fall back to the syntax-based path when the semantic model is unavailable.
         string elementType;
-        var elemSemType = context.SemanticModel?.GetTypeInfo(node.Type.ElementType).Type;
+        var elemSemType = context.GetTypeInfo(node.Type.ElementType).Type;
         if (elemSemType != null)
             elementType = context.MapType(elemSemType);
         else
@@ -1166,16 +1166,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     private string TransformImplicitArrayCreation(ImplicitArrayCreationExpressionSyntax node, ConversionContext context)
     {
         // C# new[] { 1, 2, 3 } - type is inferred from elements
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
+        var typeInfo = context.GetTypeInfo(node);
         string elementType;
-        if (typeInfo.HasValue && typeInfo.Value.Type is IArrayTypeSymbol arrayType)
+        if (typeInfo.Type is IArrayTypeSymbol arrayType)
         {
             elementType = context.MapType(arrayType.ElementType);
         }
         else
         {
             // Fallback 1: Try the converted type (assignment/declaration context target type)
-            var convertedType = typeInfo.HasValue ? typeInfo.Value.ConvertedType : null;
+            var convertedType = typeInfo.ConvertedType;
             if (convertedType is IArrayTypeSymbol convertedArray)
             {
                 elementType = context.MapType(convertedArray.ElementType);
@@ -1183,10 +1183,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             // Fallback 2: Try to infer from first element
             else if (node.Initializer?.Expressions.Count > 0)
             {
-                var firstTypeInfo = context.SemanticModel?.GetTypeInfo(node.Initializer.Expressions[0]);
-                if (firstTypeInfo.HasValue && firstTypeInfo.Value.Type != null)
+                var firstTypeInfo = context.GetTypeInfo(node.Initializer.Expressions[0]);
+                if (firstTypeInfo.Type != null)
                 {
-                    elementType = context.MapType(firstTypeInfo.Value.Type);
+                    elementType = context.MapType(firstTypeInfo.Type);
                 }
                 else
                 {
@@ -1279,8 +1279,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         foreach (var expr in expressions)
         {
-            var type = context.SemanticModel?.GetTypeInfo(expr).Type
-                ?? context.SemanticModel?.GetTypeInfo(expr).ConvertedType;
+            var type = context.GetTypeInfo(expr).Type
+                ?? context.GetTypeInfo(expr).ConvertedType;
             if (type != null)
             {
                 var mapped = context.MapType(type);
@@ -1294,8 +1294,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             // Binary expressions may fail to resolve as a whole while operands still resolve.
             if (expr is BinaryExpressionSyntax binary)
             {
-                var leftType = context.SemanticModel?.GetTypeInfo(binary.Left).Type;
-                var rightType = context.SemanticModel?.GetTypeInfo(binary.Right).Type;
+                var leftType = context.GetTypeInfo(binary.Left).Type;
+                var rightType = context.GetTypeInfo(binary.Right).Type;
                 if (leftType != null && rightType != null && SymbolEqualityComparer.Default.Equals(leftType, rightType))
                 {
                     var mapped = context.MapType(leftType);

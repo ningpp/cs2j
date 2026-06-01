@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -64,8 +64,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (code.StartsWith("(") && code.Contains(")"))
             {
                 var inner = facade.TransformToIR(castExpr.Expression, context);
-                var typeInfo = context.SemanticModel?.GetTypeInfo(castExpr.Type);
-                var targetSymbol = typeInfo.HasValue ? typeInfo!.Value.Type : null;
+                var typeInfo = context.GetTypeInfo(castExpr.Type);
+                var targetSymbol = typeInfo.Type;
                 string targetType = targetSymbol != null ? context.MapType(targetSymbol) : castExpr.Type.ToString();
                 if (!string.IsNullOrWhiteSpace(targetType))
                 {
@@ -79,10 +79,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (node is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpr)
         {
             var exprIR = facade.TransformToIR(isExpr.Left, context);
-            var typeInfo = context.SemanticModel?.GetTypeInfo(isExpr.Right);
+            var typeInfo = context.GetTypeInfo(isExpr.Right);
             string targetType;
-            if (typeInfo.HasValue && typeInfo.Value.Type != null)
-                targetType = context.MapType(typeInfo.Value.Type);
+            if (typeInfo.Type != null)
+                targetType = context.MapType(typeInfo.Type);
             else
                 targetType = context.MapTypeFromSyntax(isExpr.Right as TypeSyntax ?? throw new ArgumentException("Expected type"));
             return new JavaInstanceOfExpression
@@ -98,10 +98,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && (int)context.Options.TargetJavaVersion >= 16)
         {
             var exprIR = facade.TransformToIR(isPatternExpr.Expression, context);
-            var typeInfo = context.SemanticModel?.GetTypeInfo(declPattern.Type);
+            var typeInfo = context.GetTypeInfo(declPattern.Type);
             string targetType;
-            if (typeInfo.HasValue && typeInfo.Value.Type != null)
-                targetType = context.MapType(typeInfo.Value.Type);
+            if (typeInfo.Type != null)
+                targetType = context.MapType(typeInfo.Type);
             else
                 targetType = context.MapTypeFromSyntax(declPattern.Type);
             var varName = ConversionContext.EscapeJavaKeyword(declPattern.Designation.ToString());
@@ -124,14 +124,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // typeof(T) → T.class as JavaMemberAccessExpression
         if (node is TypeOfExpressionSyntax typeOfExpr)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(typeOfExpr.Type);
+            var typeInfo = context.GetTypeInfo(typeOfExpr.Type);
             string typeName;
-            if (typeInfo.HasValue && typeInfo.Value.Type != null)
-                typeName = context.MapType(typeInfo.Value.Type);
+            if (typeInfo.Type != null)
+                typeName = context.MapType(typeInfo.Type);
             else
                 typeName = context.MapTypeFromSyntax(typeOfExpr.Type);
-            // Type parameter erasure warning — fall back to raw
-            if (typeInfo.HasValue && typeInfo.Value.Type is ITypeParameterSymbol)
+            if (typeInfo.Type is ITypeParameterSymbol)
                 return new JavaRawExpression(Transform(node, context));
             return new JavaMemberAccessExpression
             {
@@ -157,8 +156,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var expression = facade.Transform(node.Expression, context);
 
         // Get the target type
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
-        var targetSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
+        var typeInfo = context.GetTypeInfo(node.Type);
+        var targetSymbol = typeInfo.Type;
         string targetType;
         if (targetSymbol != null && targetSymbol is not IErrorTypeSymbol)
         {
@@ -179,7 +178,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && context.SemanticModel != null
             && targetType is not ("int" or "long" or "short" or "byte" or "double" or "float"))
         {
-            var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
             if (sourceType?.TypeKind != TypeKind.Enum)
             {
                 if (IsExplicitValueEnum(targetSymbol, context))
@@ -196,7 +195,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // For enums with explicit values, use getValue() instead of ordinal().
         if (context.SemanticModel != null)
         {
-            var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type;
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
             if (sourceType?.TypeKind == TypeKind.Enum && IsJavaNumericType(targetType))
             {
                 var mappedSourceType = context.MapType(sourceType);
@@ -231,7 +230,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // C# arrays can be cast to IEnumerable/ICollection/IList, but Java arrays are not Collection subtypes.
         // Adapt arrays to collection views so constructor chaining like this((IEnumerable<T>)arr) compiles.
         if (context.SemanticModel != null
-            && context.SemanticModel.GetTypeInfo(node.Expression).Type is IArrayTypeSymbol sourceArray
+            && context.GetTypeInfo(node.Expression).Type is IArrayTypeSymbol sourceArray
             && IsIterableLikeJavaType(targetType))
         {
             return WrapArrayAsIterable(expression, sourceArray, context);
@@ -251,7 +250,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && targetSymbol is IArrayTypeSymbol targetArrayType
             && targetArrayType.ElementType.SpecialType == SpecialType.None)
         {
-            var sourceType = context.SemanticModel.GetTypeInfo(node.Expression).Type as INamedTypeSymbol;
+            var sourceType = context.GetTypeInfo(node.Expression).Type as INamedTypeSymbol;
             if (sourceType != null)
             {
                 bool isEnumerableLike = sourceType.AllInterfaces.Any(i =>
@@ -330,7 +329,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
     private static bool IsObjectLikeEnumerableCastSource(ExpressionSyntax expression, ConversionContext context)
     {
-        var sourceType = context.SemanticModel?.GetTypeInfo(expression).Type;
+        var sourceType = context.GetTypeInfo(expression).Type;
         if (sourceType?.SpecialType != SpecialType.System_Object)
             return false;
 
@@ -338,7 +337,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && invocation.Expression is MemberAccessExpressionSyntax memberAccess
             && memberAccess.Name.Identifier.Text == "Invoke")
         {
-            var receiverType = context.SemanticModel?.GetTypeInfo(memberAccess.Expression).Type;
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (receiverType?.ToDisplayString() == "System.Reflection.MethodInfo")
                 return true;
         }
@@ -357,11 +356,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var left = facade.Transform(node.Left, context);
 
         // Get the type being checked
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
+        var typeInfo = context.GetTypeInfo(node.Right);
         string targetType;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.Type != null)
         {
-            targetType = context.MapType(typeInfo.Value.Type);
+            targetType = context.MapType(typeInfo.Type);
         }
         else
         {
@@ -454,11 +453,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
 
         // C#: obj is Type variable  → Java needs instanceof check then cast
-        var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
+        var typeInfo = context.GetTypeInfo(pattern.Type);
         string targetType;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.Type != null)
         {
-            targetType = context.MapType(typeInfo.Value.Type);
+            targetType = context.MapType(typeInfo.Type);
         }
         else
         {
@@ -502,9 +501,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         string? typeName = null;
         if (pattern.Type != null)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
-            typeName = (typeInfo.HasValue && typeInfo.Value.Type != null)
-                ? context.MapType(typeInfo.Value.Type)
+            var typeInfo = context.GetTypeInfo(pattern.Type);
+            typeName = (typeInfo.Type != null)
+                ? context.MapType(typeInfo.Type)
                 : context.MapTypeFromSyntax(pattern.Type);
         }
 
@@ -557,11 +556,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var expression = TransformAsOperand(node.Left, context);
 
         // Get the target type
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Right);
+        var typeInfo = context.GetTypeInfo(node.Right);
         string targetType;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.Type != null)
         {
-            targetType = context.MapType(typeInfo.Value.Type);
+            targetType = context.MapType(typeInfo.Type);
         }
         else
         {
@@ -583,7 +582,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // always impossible in Java — emit null directly instead of invalid instanceof.
         if (targetType.EndsWith("[]", StringComparison.Ordinal))
         {
-            var sourceType = context.SemanticModel?.GetTypeInfo(node.Left).Type;
+            var sourceType = context.GetTypeInfo(node.Left).Type;
             if (sourceType is INamedTypeSymbol sourceNamed
                 && (sourceNamed.Name is "IEnumerable" or "ICollection" or "IList"
                     or "IReadOnlyList" or "IReadOnlyCollection"
@@ -630,7 +629,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // Auto-properties emitted as fields in project pipeline
             if (memberName == "AlgorithmData") return $"{receiver}.AlgorithmData";
 
-            var symbol = context.SemanticModel.GetSymbolInfo(ma).Symbol;
+            var symbol = context.GetSymbolInfo(ma).Symbol;
             if (symbol is IPropertySymbol asProp)
             {
                 if (asProp.Name == "Current" && IsEnumeratorRelated(asProp.ContainingType))
@@ -642,8 +641,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 return $"{receiver}.{ConversionContext.EscapeJavaKeyword(memberName)}";
 
             // Try GetMembers via receiver type (semantic model path)
-            ITypeSymbol? recvType = context.SemanticModel.GetTypeInfo(ma.Expression).Type
-                ?? (context.SemanticModel.GetSymbolInfo(ma.Expression).Symbol switch
+            ITypeSymbol? recvType = context.GetTypeInfo(ma.Expression).Type
+                ?? (context.GetSymbolInfo(ma.Expression).Symbol switch
                 {
                     ILocalSymbol ls => ls.Type,
                     IFieldSymbol fs => fs.Type,
@@ -733,11 +732,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
     {
         // Get the type
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+        var typeInfo = context.GetTypeInfo(node.Type);
         string typeName;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.Type != null)
         {
-            typeName = context.MapType(typeInfo.Value.Type);
+            typeName = context.MapType(typeInfo.Type);
         }
         else
         {
@@ -745,7 +744,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         }
 
         // Warn if type parameter (subject to type erasure in Java)
-        if (typeInfo.HasValue && typeInfo.Value.Type is ITypeParameterSymbol)
+        if (typeInfo.Type is ITypeParameterSymbol)
             return $"/* WARNING: type parameter erased at runtime; T.class may fail */ {typeName}.class";
         // C#: typeof(Type)  → Java: Type.class
         return $"{typeName}.class";
@@ -755,18 +754,18 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     {
         // DefaultExpressionSyntax is the default(Type) form — it always has a Type.
         // The bare 'default' literal is handled by TransformDefaultLiteral.
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Type);
+        var typeInfo = context.GetTypeInfo(node.Type);
         string typeName;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.Type != null)
         {
-            typeName = context.MapType(typeInfo.Value.Type);
+            typeName = context.MapType(typeInfo.Type);
         }
         else
         {
             typeName = context.MapTypeFromSyntax(node.Type);
         }
 
-        return GetDefaultValueForType(typeName, typeInfo?.Type, context);
+        return GetDefaultValueForType(typeName, typeInfo.Type, context);
     }
 
     /// <summary>
@@ -776,8 +775,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private string TransformDefaultLiteral(ExpressionSyntax node, ConversionContext context)
     {
         // Use ConvertedType to infer the target type from the assignment/declaration context
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node);
-        var targetType = typeInfo?.ConvertedType ?? typeInfo?.Type;
+        var typeInfo = context.GetTypeInfo(node);
+        var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
 
         if (targetType != null)
         {
@@ -930,10 +929,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private static bool IsPrimitiveToWrapperCast(ExpressionSyntax expr, string targetType, ConversionContext context)
     {
         // Check if we're casting from a primitive type to its wrapper
-        var typeInfo = context.SemanticModel?.GetTypeInfo(expr);
-        if (!typeInfo.HasValue || typeInfo.Value.Type == null) return false;
+        var typeInfo = context.GetTypeInfo(expr);
+        if (typeInfo.Type == null) return false;
 
-        var sourceType = context.MapType(typeInfo.Value.Type);
+        var sourceType = context.MapType(typeInfo.Type);
 
         return (sourceType, targetType) switch
         {

@@ -25,7 +25,7 @@ public class EnumTransformer : ITypeTransformer
 
     public JavaTypeDeclaration TransformEnum(EnumDeclarationSyntax enumDecl, ConversionContext context)
     {
-        var enumSymbol = context.SemanticModel?.GetDeclaredSymbol(enumDecl);
+        var enumSymbol = context.GetDeclaredSymbol(enumDecl) as INamedTypeSymbol;
         var enumValueType = GetEnumValueJavaType(enumSymbol, enumDecl);
 
         // Check for [Flags] attribute → generate as int/long-constants class instead of Java enum
@@ -217,7 +217,7 @@ public class EnumTransformer : ITypeTransformer
 
         foreach (var attribute in enumDecl.AttributeLists.SelectMany(al => al.Attributes))
         {
-            var attributeType = context.SemanticModel?.GetTypeInfo(attribute).Type;
+            var attributeType = context.GetTypeInfo(attribute).Type;
             if (attributeType?.ToDisplayString() is "System.FlagsAttribute"
                 or "System.Flags"
                 or "FlagsAttribute"
@@ -300,7 +300,7 @@ public class EnumTransformer : ITypeTransformer
         string javaValueType)
     {
         var valueExpr = enumMember.EqualsValue?.Value;
-        var enumFieldSymbol = context.SemanticModel?.GetDeclaredSymbol(enumMember) as IFieldSymbol;
+        var enumFieldSymbol = context.GetDeclaredSymbol(enumMember) as IFieldSymbol;
         var constantValue = enumFieldSymbol?.HasConstantValue == true
             ? enumFieldSymbol.ConstantValue
             : null;

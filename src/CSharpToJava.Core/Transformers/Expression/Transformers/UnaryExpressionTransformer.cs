@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -76,7 +76,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             bool isUserDefined = false;
             if (context.SemanticModel != null)
             {
-                var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+                var symbolInfo = context.GetSymbolInfo(node);
                 if (symbolInfo.Symbol is IMethodSymbol ms && ms.ContainingType != null && !IsBuiltInType(ms.ContainingType))
                     isUserDefined = true;
             }
@@ -92,7 +92,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
                 // Property/indexer increment needs complex hoisting — use raw fallback
                 bool isPropertyTarget = operandSyntax != null && context.SemanticModel != null
-                    && context.SemanticModel.GetSymbolInfo(operandSyntax).Symbol is IPropertySymbol;
+                    && context.GetSymbolInfo(operandSyntax).Symbol is IPropertySymbol;
 
                 // For LogicalNotExpression (!), verify the operand is boolean.
                 // C# allows ! on int (0→true, non-zero→false) but Java requires
@@ -127,7 +127,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         // Check if this is a user-defined unary operator
         if (context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symbolInfo = context.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
             {
                 // Only convert to method call if it's a user-defined type
@@ -150,7 +150,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         // Special case: unary + is not valid on non-numeric types in Java — strip it
         if (op == "+" && context.SemanticModel != null)
         {
-            var operandType = context.SemanticModel.GetTypeInfo(node.Operand).Type;
+            var operandType = context.GetTypeInfo(node.Operand).Type;
             if (!IsNumericType(operandType))
                 return operand;
         }
@@ -185,7 +185,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         if (context.SemanticModel == null)
             return false;
 
-        var typeInfo = context.SemanticModel.GetTypeInfo(expr);
+        var typeInfo = context.GetTypeInfo(expr);
         if (typeInfo.Type != null && typeInfo.Type.SpecialType == SpecialType.System_Boolean)
             return true;
 
@@ -193,7 +193,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         // in cross-file scenarios. Fall back to checking the method symbol directly.
         if (expr is InvocationExpressionSyntax invExpr)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(invExpr);
+            var symbolInfo = context.GetSymbolInfo(invExpr);
             if (symbolInfo.Symbol is IMethodSymbol method
                 && method.ReturnType.SpecialType == SpecialType.System_Boolean)
                 return true;
@@ -360,7 +360,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
     {
         if (context.IsInFixedScope && (op == "++" || op == "--"))
         {
-            var operandType = context.SemanticModel?.GetTypeInfo(node.Operand).Type;
+            var operandType = context.GetTypeInfo(node.Operand).Type;
             if (operandType is IPointerTypeSymbol)
             {
                 var facade0 = ExpressionTransformerFacade.Instance;
@@ -408,7 +408,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         // Check if this is a user-defined postfix operator (++, --)
         if (context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symbolInfo = context.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
             {
                 // Only convert to method call if it's a user-defined type
@@ -446,7 +446,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
     {
         if (context.IsInFixedScope && (op == "++" || op == "--"))
         {
-            var operandType = context.SemanticModel?.GetTypeInfo(node.Operand).Type;
+            var operandType = context.GetTypeInfo(node.Operand).Type;
             if (operandType is IPointerTypeSymbol)
             {
                 var facade0 = ExpressionTransformerFacade.Instance;
@@ -492,7 +492,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         // Check if this is a user-defined prefix operator (++, --)
         if (context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symbolInfo = context.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
             {
                 // Only convert to method call if it's a user-defined type
@@ -518,7 +518,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         if (context.SemanticModel == null)
             return false;
 
-        var symbol = context.SemanticModel.GetSymbolInfo(operand).Symbol as IPropertySymbol;
+        var symbol = context.GetSymbolInfo(operand).Symbol as IPropertySymbol;
         if (symbol == null || symbol.SetMethod == null)
             return false;
 
@@ -564,7 +564,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var target = facade.Transform(ela.Expression, context);
         var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
-        var containerType = context.SemanticModel.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
+        var containerType = context.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
 
         if (containerType != null && IsDictionaryLike(containerType))
         {
@@ -623,7 +623,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         result = string.Empty;
         if (context.SemanticModel == null) return false;
 
-        var symbol = context.SemanticModel.GetSymbolInfo(operand).Symbol as IPropertySymbol;
+        var symbol = context.GetSymbolInfo(operand).Symbol as IPropertySymbol;
         if (symbol == null || symbol.SetMethod == null) return false;
 
         var delta = op == "++" ? "+ 1" : "- 1";
@@ -662,7 +662,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         result = string.Empty;
         if (context.SemanticModel == null) return false;
 
-        var symbol = context.SemanticModel.GetSymbolInfo(operand).Symbol as IPropertySymbol;
+        var symbol = context.GetSymbolInfo(operand).Symbol as IPropertySymbol;
         if (symbol == null || symbol.SetMethod == null) return false;
 
         var delta = op == "++" ? "+ 1" : "- 1";
@@ -707,7 +707,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var target = facade.Transform(ela.Expression, context);
         var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
-        var containerType = context.SemanticModel.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
+        var containerType = context.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
         var tmp = context.GenerateSyntheticName("_prev");
 
         if (containerType != null && IsDictionaryLike(containerType))
@@ -743,7 +743,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var target = facade.Transform(ela.Expression, context);
         var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
-        var containerType = context.SemanticModel.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
+        var containerType = context.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
         var tmp = context.GenerateSyntheticName("_inc");
 
         if (containerType != null && IsDictionaryLike(containerType))

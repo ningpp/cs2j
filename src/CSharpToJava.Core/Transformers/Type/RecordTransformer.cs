@@ -63,16 +63,16 @@ public class RecordTransformer : ITypeTransformer
             IsRecord = true,
             Modifiers = modifiers
         };
-        var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
+        var recordSymbol = context.GetDeclaredSymbol(recordDecl);
         javaRecord.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
         // Populate positional record component list so Java record header includes (Type name, ...)
         var positionalNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
-                ? context.MapType(typeInfo.Value.Type)
+            var typeInfo = context.GetTypeInfo(param.Type!);
+            var javaType = typeInfo.Type != null
+                ? context.MapType(typeInfo.Type)
                 : "Object";
             var componentName = JavaNaming.EscapeJavaKeyword(ToCamelCase(param.Identifier.Text));
             javaRecord.RecordComponents.Add(new JavaRecordComponent(javaType, componentName));
@@ -85,17 +85,17 @@ public class RecordTransformer : ITypeTransformer
         {
             foreach (var baseType in recordDecl.BaseList.Types)
             {
-                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                var typeInfo = context.GetTypeInfo(baseType.Type);
+                if (typeInfo.Type != null)
                 {
-                    if (typeInfo.Value.Type.TypeKind == TypeKind.Interface)
+                    if (typeInfo.Type.TypeKind == TypeKind.Interface)
                     {
-                        javaRecord.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                        javaRecord.ImplementedTypes.Add(context.MapType(typeInfo.Type));
                     }
-                    else if (typeInfo.Value.Type.TypeKind == TypeKind.Class
-                             && typeInfo.Value.Type.SpecialType != SpecialType.System_Object)
+                    else if (typeInfo.Type.TypeKind == TypeKind.Class
+                             && typeInfo.Type.SpecialType != SpecialType.System_Object)
                     {
-                        javaRecord.ExtendedType = context.MapType(typeInfo.Value.Type);
+                        javaRecord.ExtendedType = context.MapType(typeInfo.Type);
                     }
                 }
             }
@@ -128,7 +128,7 @@ public class RecordTransformer : ITypeTransformer
             Name = recordDecl.Identifier.Text,
             Modifiers = classModifiers
         };
-        var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
+        var recordSymbol = context.GetDeclaredSymbol(recordDecl);
         javaClass.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
         // 为每个位置参数创建字段和构造函数
@@ -137,8 +137,8 @@ public class RecordTransformer : ITypeTransformer
 
         foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Object";
+            var typeInfo = context.GetTypeInfo(param.Type!);
+            var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "Object";
             var paramName = param.Identifier.Text;
             var fieldName = JavaNaming.EscapeJavaKeyword(ToCamelCase(paramName));
 
@@ -162,17 +162,17 @@ public class RecordTransformer : ITypeTransformer
         {
             foreach (var baseType in recordDecl.BaseList.Types)
             {
-                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                var typeInfo = context.GetTypeInfo(baseType.Type);
+                if (typeInfo.Type != null)
                 {
-                    if (typeInfo.Value.Type.TypeKind == TypeKind.Interface)
+                    if (typeInfo.Type.TypeKind == TypeKind.Interface)
                     {
-                        javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                        javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Type));
                     }
-                    else if (typeInfo.Value.Type.TypeKind == TypeKind.Class
-                             && typeInfo.Value.Type.SpecialType != SpecialType.System_Object)
+                    else if (typeInfo.Type.TypeKind == TypeKind.Class
+                             && typeInfo.Type.SpecialType != SpecialType.System_Object)
                     {
-                        javaClass.ExtendedType = context.MapType(typeInfo.Value.Type);
+                        javaClass.ExtendedType = context.MapType(typeInfo.Type);
                     }
                 }
 
@@ -431,7 +431,7 @@ public class RecordTransformer : ITypeTransformer
             Name = recordDecl.Identifier.Text,
             Modifiers = ConvertModifiers(recordDecl.Modifiers)
         };
-        var recordSymbol = context.SemanticModel?.GetDeclaredSymbol(recordDecl);
+        var recordSymbol = context.GetDeclaredSymbol(recordDecl);
         javaClass.LeadingComment = context.GetDeclarationComments(recordDecl, recordSymbol).ToCombinedComment();
 
         // Handle interface implementations
@@ -439,13 +439,12 @@ public class RecordTransformer : ITypeTransformer
         {
             foreach (var baseType in recordDecl.BaseList.Types)
             {
-                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo.HasValue && typeInfo.Value.Type?.TypeKind == TypeKind.Interface)
+                var typeInfo = context.GetTypeInfo(baseType.Type);
+                if (typeInfo.Type?.TypeKind == TypeKind.Interface)
                 {
-                    // Skip IEquatable<T> — Java has no direct equivalent
-                    if (typeInfo.Value.Type.OriginalDefinition.ToDisplayString() == "System.IEquatable<T>")
+                    if (typeInfo.Type.OriginalDefinition.ToDisplayString() == "System.IEquatable<T>")
                         continue;
-                    javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Value.Type));
+                    javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Type));
                 }
             }
         }
@@ -454,9 +453,9 @@ public class RecordTransformer : ITypeTransformer
 
         foreach (var param in recordDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
-                ? context.MapType(typeInfo.Value.Type)
+            var typeInfo = context.GetTypeInfo(param.Type!);
+            var javaType = typeInfo.Type != null
+                ? context.MapType(typeInfo.Type)
                 : "Object";
             var paramName = JavaNaming.EscapeJavaKeyword(ToCamelCase(param.Identifier.Text));
 

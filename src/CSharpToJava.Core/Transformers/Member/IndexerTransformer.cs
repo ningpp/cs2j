@@ -22,9 +22,9 @@ public class IndexerTransformer : IMemberTransformer
 
         var results = new List<JavaMethodDeclaration>();
 
-        var typeInfo = context.SemanticModel?.GetTypeInfo(indexerDecl.Type);
-        var returnType = typeInfo.HasValue && typeInfo.Value.Type != null
-            ? context.MapType(typeInfo.Value.Type)
+        var typeInfo = context.GetTypeInfo(indexerDecl.Type);
+        var returnType = typeInfo.Type != null
+            ? context.MapType(typeInfo.Type)
             : "Object";
 
         // Fix 1: use context-aware method name selection to avoid Map/List collisions.
@@ -38,9 +38,9 @@ public class IndexerTransformer : IMemberTransformer
         var parameters = new List<JavaParameter>();
         foreach (var param in indexerDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
-            var paramTypeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-            var javaType = paramTypeInfo.HasValue && paramTypeInfo.Value.Type != null
-                ? context.MapType(paramTypeInfo.Value.Type)
+            var paramTypeInfo = context.GetTypeInfo(param.Type!);
+            var javaType = paramTypeInfo.Type != null
+                ? context.MapType(paramTypeInfo.Type)
                 : "Object";
             parameters.Add(new JavaParameter(javaType, param.Identifier.Text));
         }

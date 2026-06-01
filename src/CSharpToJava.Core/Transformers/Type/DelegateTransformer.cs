@@ -58,7 +58,7 @@ public class DelegateTransformer : IDelegateTransformer
 
         // 1. Enclosing class type parameters — only include those actually referenced
         //    by the delegate's return type or parameter types.
-        var sym = context.SemanticModel?.GetDeclaredSymbol(node) as INamedTypeSymbol;
+        var sym = context.GetDeclaredSymbol(node) as INamedTypeSymbol;
         if (sym != null)
         {
             var enclosingParams = new List<JavaTypeParameter>();
@@ -179,9 +179,9 @@ public class DelegateTransformer : IDelegateTransformer
 
     private (string javaType, bool isVarArgs) ResolveParamType(ParameterSyntax param, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
-            ? context.MapType(typeInfo.Value.Type)
+        var typeInfo = context.GetTypeInfo(param.Type!);
+        var javaType = typeInfo.Type != null
+            ? context.MapType(typeInfo.Type)
             : "Object";
 
         foreach (var mod in param.Modifiers)
@@ -204,10 +204,10 @@ public class DelegateTransformer : IDelegateTransformer
         {
             return "void";
         }
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.ReturnType);
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        var typeInfo = context.GetTypeInfo(node.ReturnType);
+        if (typeInfo.Type != null)
         {
-            return context.MapType(typeInfo.Value.Type);
+            return context.MapType(typeInfo.Type);
         }
         return "Object";
     }

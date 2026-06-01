@@ -61,9 +61,9 @@ public class OperatorTransformer
 
         // Get return type
         string returnType;
-        var retTypeInfo = context.SemanticModel?.GetTypeInfo(opDecl.ReturnType);
-        if (retTypeInfo.HasValue && retTypeInfo.Value.Type != null)
-            returnType = context.MapType(retTypeInfo.Value.Type);
+        var retTypeInfo = context.GetTypeInfo(opDecl.ReturnType);
+        if (retTypeInfo.Type != null)
+            returnType = context.MapType(retTypeInfo.Type);
         else
             returnType = "Object";
 
@@ -144,9 +144,9 @@ public class OperatorTransformer
     {
         // Determine target type
         string targetType;
-        var retTypeInfo = context.SemanticModel?.GetTypeInfo(convDecl.Type);
-        if (retTypeInfo.HasValue && retTypeInfo.Value.Type != null)
-            targetType = context.MapType(retTypeInfo.Value.Type);
+        var retTypeInfo = context.GetTypeInfo(convDecl.Type);
+        if (retTypeInfo.Type != null)
+            targetType = context.MapType(retTypeInfo.Type);
         else
             targetType = context.MapTypeFromSyntax(convDecl.Type);
 
@@ -211,9 +211,9 @@ public class OperatorTransformer
 
     private JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
-            ? context.MapType(typeInfo.Value.Type)
+        var typeInfo = context.GetTypeInfo(param.Type!);
+        var javaType = typeInfo.Type != null
+            ? context.MapType(typeInfo.Type)
             : "Object";
         var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
         return new JavaParameter(javaType, paramName);

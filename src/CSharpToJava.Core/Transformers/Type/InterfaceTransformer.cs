@@ -26,7 +26,7 @@ public class InterfaceTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(interfaceDecl.Modifiers)
         };
 
-        var interfaceSymbol = context.SemanticModel?.GetDeclaredSymbol(interfaceDecl);
+        var interfaceSymbol = context.GetDeclaredSymbol(interfaceDecl);
         javaInterface.LeadingComment = context.GetDeclarationComments(interfaceDecl, interfaceSymbol).ToCombinedComment();
 
         // 处理基接口
@@ -34,10 +34,10 @@ public class InterfaceTransformer : ITypeTransformer
         {
             foreach (var baseType in interfaceDecl.BaseList.Types)
             {
-                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                var typeInfo = context.GetTypeInfo(baseType.Type);
+                if (typeInfo.Type != null)
                 {
-                    javaInterface.ExtendedTypes.Add(context.MapType(typeInfo.Value.Type));
+                    javaInterface.ExtendedTypes.Add(context.MapType(typeInfo.Type));
                 }
             }
         }

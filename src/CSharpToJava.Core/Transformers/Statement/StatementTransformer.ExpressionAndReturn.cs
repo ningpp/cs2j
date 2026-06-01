@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -63,10 +63,10 @@ public partial class StatementTransformer
             var tvArg2 = tvInvoc.ArgumentList.Arguments[1];
             if (tvArg2.Expression is DeclarationExpressionSyntax tvDecl2)
             {
-                var declType = context.SemanticModel?.GetTypeInfo(tvDecl2.Type);
-                var javaType = declType.HasValue && declType.Value.Type != null ? context.MapType(declType.Value.Type) : "var";
+                var declType = context.GetTypeInfo(tvDecl2.Type);
+                var javaType = declType.Type != null ? context.MapType(declType.Type) : "var";
                 var varName = tvDecl2.Designation is SingleVariableDesignationSyntax sv ? sv.Identifier.Text : "_outVar";
-                var defaultVal = GetValueTypeDefault(declType?.Type, javaType);
+                var defaultVal = GetValueTypeDefault(declType.Type, javaType);
                 var getCall = defaultVal != null
                     ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
                     : $"{tvTarget}.get({tvKey})";
@@ -75,9 +75,9 @@ public partial class StatementTransformer
             else
             {
                 var tvOut2 = exprTransformer.Transform(tvArg2.Expression, context);
-                var outTypeInfo = context.SemanticModel?.GetTypeInfo(tvArg2.Expression);
+                var outTypeInfo = context.GetTypeInfo(tvArg2.Expression);
                 string? defaultVal = null;
-                if (outTypeInfo?.Type is { IsValueType: true } outType)
+                if (outTypeInfo.Type is { IsValueType: true } outType)
                 {
                     defaultVal = GetValueTypeDefault(outType, context.MapType(outType));
                 }
@@ -100,8 +100,8 @@ public partial class StatementTransformer
             {
                 var arg0Expr = arrSortInv.ArgumentList.Arguments[0].Expression;
                 var arg1Expr = arrSortInv.ArgumentList.Arguments[1].Expression;
-                var keyArr = context.SemanticModel.GetTypeInfo(arg0Expr).Type as IArrayTypeSymbol;
-                var itemArr = context.SemanticModel.GetTypeInfo(arg1Expr).Type as IArrayTypeSymbol;
+                var keyArr = context.GetTypeInfo(arg0Expr).Type as IArrayTypeSymbol;
+                var itemArr = context.GetTypeInfo(arg1Expr).Type as IArrayTypeSymbol;
 
                 bool keyIsNumeric = keyArr?.ElementType.SpecialType is
                     SpecialType.System_Byte or SpecialType.System_SByte
@@ -150,7 +150,7 @@ public partial class StatementTransformer
             bool isTrace = false;
             bool isDebugOrContract = false;
             if (context.SemanticModel != null &&
-                context.SemanticModel.GetSymbolInfo(assertInvoc).Symbol is IMethodSymbol assertSym)
+                context.GetSymbolInfo(assertInvoc).Symbol is IMethodSymbol assertSym)
             {
                 var typeName = assertSym.ContainingType.ToDisplayString();
                 isTrace = typeName == "System.Diagnostics.Trace";
@@ -329,11 +329,11 @@ public partial class StatementTransformer
         {
             var dictExpr = exprTransformer.Transform(tryGetMa.Expression, context);
             var keyExpr = exprTransformer.Transform(tryGetInvoke.ArgumentList.Arguments[0].Expression, context);
-            var typeInfo = context.SemanticModel?.GetTypeInfo(outDecl.Type);
-            var javaType = (typeInfo.HasValue && typeInfo.Value.Type != null)
-                ? context.MapType(typeInfo.Value.Type) : "var";
+            var typeInfo = context.GetTypeInfo(outDecl.Type);
+            var javaType = typeInfo.Type != null
+                ? context.MapType(typeInfo.Type) : "var";
             var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
-            var defaultVal = GetValueTypeDefault(typeInfo?.Type, javaType);
+            var defaultVal = GetValueTypeDefault(typeInfo.Type, javaType);
             var getCall = defaultVal != null
                 ? $"{dictExpr}.getOrDefault({keyExpr}, {defaultVal})"
                 : $"{dictExpr}.get({keyExpr})";
@@ -348,14 +348,14 @@ public partial class StatementTransformer
         // and outEdges is TEdge[][] — element is TEdge[] which doesn't implement List<TEdge> in Java.
         if (stmt.Expression != null && context.SemanticModel != null)
         {
-            var exprType = context.SemanticModel.GetTypeInfo(stmt.Expression).Type;
+            var exprType = context.GetTypeInfo(stmt.Expression).Type;
             if (exprType is IArrayTypeSymbol { Rank: 1 } arrayType)
             {
                 // Check if the enclosing method's return type is IList<T>, ICollection<T>, or IEnumerable<T>
                 var enclosingMethod = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
                 ITypeSymbol? enclosingRetSym = null;
                 if (enclosingMethod != null)
-                    enclosingRetSym = context.SemanticModel.GetTypeInfo(enclosingMethod.ReturnType).Type;
+                    enclosingRetSym = context.GetTypeInfo(enclosingMethod.ReturnType).Type;
                 // Also check property accessor (return in a get { } block)
                 if (enclosingRetSym == null)
                 {
@@ -364,7 +364,7 @@ public partial class StatementTransformer
                     {
                         var propDecl = propAccessor.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
                         if (propDecl != null)
-                            enclosingRetSym = context.SemanticModel.GetTypeInfo(propDecl.Type).Type;
+                            enclosingRetSym = context.GetTypeInfo(propDecl.Type).Type;
                     }
                 }
                 if (enclosingRetSym is INamedTypeSymbol retNamed &&
@@ -397,7 +397,7 @@ public partial class StatementTransformer
             // Detect when a Stream expression is returned from a method that declares Iterable/IEnumerable.
             // C# LINQ expressions become Java Streams but IEnumerable<T> maps to Iterable<T>.
             // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toCollection(() -> new ArrayList<>())).
-            var retExprType = context.SemanticModel?.GetTypeInfo(stmt.Expression).Type;
+            var retExprType = context.GetTypeInfo(stmt.Expression).Type;
             bool isStreamReturn = retExprType is INamedTypeSymbol retNamed2 &&
                 (retNamed2.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable") &&
                 retNamed2.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
@@ -406,7 +406,7 @@ public partial class StatementTransformer
                 // Check if enclosing method returns Iterable
                 var enclosing = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
                 ITypeSymbol? enclosingRetType = enclosing != null
-                    ? context.SemanticModel?.GetTypeInfo(enclosing.ReturnType).Type
+                    ? context.GetTypeInfo(enclosing.ReturnType).Type
                     : null;
                 // Also check property accessor (return inside a get { } block)
                 if (enclosingRetType == null)
@@ -416,7 +416,7 @@ public partial class StatementTransformer
                     {
                         var propDecl2 = accessorDecl.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
                         if (propDecl2 != null)
-                            enclosingRetType = context.SemanticModel?.GetTypeInfo(propDecl2.Type).Type;
+                            enclosingRetType = context.GetTypeInfo(propDecl2.Type).Type;
                     }
                 }
                 bool enclosingReturnsIterable = enclosingRetType is INamedTypeSymbol mret &&
@@ -448,7 +448,7 @@ public partial class StatementTransformer
             {
                 var enclosing2 = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
                 ITypeSymbol? enclosingRetType2 = enclosing2 != null
-                    ? context.SemanticModel?.GetTypeInfo(enclosing2.ReturnType).Type
+                    ? context.GetTypeInfo(enclosing2.ReturnType).Type
                     : null;
                 if (enclosingRetType2 is INamedTypeSymbol encRet2 &&
                     encRet2.Name is "IEnumerable" or "ICollection" or "IList" or "Iterable")
@@ -464,7 +464,7 @@ public partial class StatementTransformer
         // Skip inside property getters where the consumption site handles cloning.
         if (stmt.Expression != null && context.SemanticModel != null && !context.SuppressReturnClone)
         {
-            var retExprTypeForClone = context.SemanticModel.GetTypeInfo(stmt.Expression).Type;
+            var retExprTypeForClone = context.GetTypeInfo(stmt.Expression).Type;
             expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr, retExprTypeForClone, context);
         }
 
@@ -515,9 +515,9 @@ public partial class StatementTransformer
 
         return returnScope switch
         {
-            MethodDeclarationSyntax method => context.SemanticModel.GetTypeInfo(method.ReturnType).Type,
-            AccessorDeclarationSyntax accessor => (context.SemanticModel.GetDeclaredSymbol(accessor) as IMethodSymbol)?.ReturnType,
-            LocalFunctionStatementSyntax localFunction => context.SemanticModel.GetTypeInfo(localFunction.ReturnType).Type,
+            MethodDeclarationSyntax method => context.GetTypeInfo(method.ReturnType).Type,
+            AccessorDeclarationSyntax accessor => (context.GetDeclaredSymbol(accessor) as IMethodSymbol)?.ReturnType,
+            LocalFunctionStatementSyntax localFunction => context.GetTypeInfo(localFunction.ReturnType).Type,
             _ => null
         };
     }

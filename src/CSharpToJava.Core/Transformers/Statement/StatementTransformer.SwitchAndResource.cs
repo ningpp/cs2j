@@ -236,8 +236,8 @@ public partial class StatementTransformer
             string varName = "_ex";
             if (catchClause.Declaration != null)
             {
-                var typeInfo = context.SemanticModel?.GetTypeInfo(catchClause.Declaration.Type);
-                javaType = typeInfo.HasValue && typeInfo.Value.Type != null ? context.MapType(typeInfo.Value.Type) : "Exception";
+                var typeInfo = context.GetTypeInfo(catchClause.Declaration.Type);
+                javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "Exception";
                 var rawVarName = catchClause.Declaration.Identifier.ValueText;
                 if (!string.IsNullOrWhiteSpace(rawVarName))
                     varName = ConversionContext.EscapeJavaKeyword(rawVarName);
@@ -341,7 +341,7 @@ public partial class StatementTransformer
         // mapped method so the variable type matches what the expression actually produces.
         if (variable.Initializer?.Value is InvocationExpressionSyntax invocation)
         {
-            var methodSymbol = context.SemanticModel?.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
             if (methodSymbol != null)
             {
                 var mappedType = ResolveMethodReturnJavaType(methodSymbol);
@@ -363,14 +363,14 @@ public partial class StatementTransformer
         VariableDeclaratorSyntax variable,
         ConversionContext context)
     {
-        if (context.SemanticModel?.GetDeclaredSymbol(variable) is ILocalSymbol local
+        if (context.GetDeclaredSymbol(variable) as ILocalSymbol is { } local
             && local.Type is { TypeKind: not TypeKind.Error })
         {
             return local.Type;
         }
 
-        var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration!.Type);
-        return typeInfo?.Type is { TypeKind: not TypeKind.Error } type ? type : null;
+        var typeInfo = context.GetTypeInfo(stmt.Declaration!.Type);
+        return typeInfo.Type is { TypeKind: not TypeKind.Error } type ? type : null;
     }
 
     private static string AdaptResourceInitializer(
@@ -421,7 +421,7 @@ public partial class StatementTransformer
         if (initializer is not InvocationExpressionSyntax invocation)
             return false;
 
-        return context.SemanticModel?.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+        return context.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
             && method.ContainingType?.ToDisplayString() == "System.IO.File"
             && method.Name == "Open";
     }
@@ -490,7 +490,7 @@ public partial class StatementTransformer
             if (!isNull && declarator.Initializer != null)
             {
                 initExpr = ExpressionTransformerFacade.Instance.Transform(declarator.Initializer.Value, context);
-                var initType = context.SemanticModel?.GetTypeInfo(declarator.Initializer.Value).Type;
+                var initType = context.GetTypeInfo(declarator.Initializer.Value).Type;
                 isString = initType?.SpecialType == SpecialType.System_String;
             }
 
@@ -597,9 +597,9 @@ public partial class StatementTransformer
         string? typeName = null;
         if (pattern.Type != null)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
-            typeName = (typeInfo.HasValue && typeInfo.Value.Type != null)
-                ? context.MapType(typeInfo.Value.Type)
+            var typeInfo = context.GetTypeInfo(pattern.Type);
+            typeName = typeInfo.Type != null
+                ? context.MapType(typeInfo.Type)
                 : context.MapTypeFromSyntax(pattern.Type);
         }
 

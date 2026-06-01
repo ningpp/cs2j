@@ -16,11 +16,11 @@ public partial class StatementTransformer
 {
     private JavaSyntaxNode TransformLocalDeclaration(LocalDeclarationStatementSyntax stmt, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(stmt.Declaration.Type);
+        var typeInfo = context.GetTypeInfo(stmt.Declaration.Type);
         string javaType;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.Type != null)
         {
-            var resolvedType = typeInfo.Value.Type;
+            var resolvedType = typeInfo.Type;
             // C# enumerator structs (e.g. Dictionary<K,V>.Enumerator, List<T>.Enumerator) have no Java equivalent.
             // The .iterator() call returns an Iterator<T>, so let Java infer the type with var.
             bool isEnumeratorStruct = resolvedType is INamedTypeSymbol nes
@@ -53,7 +53,7 @@ public partial class StatementTransformer
         // If the C# declaration used 'var' (implicit type) and had NO initializer, Java cannot infer the type.
         // We need to add a type + default initializer. Track whether the original C# type was implicit.
         bool wasImplicitVar = false;
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        if (typeInfo.Type != null)
         {
             wasImplicitVar = stmt.Declaration.Type.IsVar;
         }
@@ -82,7 +82,7 @@ public partial class StatementTransformer
         {
             foreach (var variable in stmt.Declaration.Variables)
             {
-                var localSym = context.SemanticModel.GetDeclaredSymbol(variable) as ILocalSymbol;
+                var localSym = context.GetDeclaredSymbol(variable) as ILocalSymbol;
                 if (localSym?.Type != null && localSym.Type is not IErrorTypeSymbol)
                 {
                     javaType = context.MapType(localSym.Type);
@@ -153,12 +153,12 @@ public partial class StatementTransformer
                 bool lhsIsProp = false;
                 if (assignInit.Left is MemberAccessExpressionSyntax maLhsCheck)
                 {
-                    var symCheck = context.SemanticModel?.GetSymbolInfo(maLhsCheck).Symbol;
+                    var symCheck = context.GetSymbolInfo(maLhsCheck).Symbol;
                     lhsIsProp = symCheck is IPropertySymbol || (symCheck == null && char.IsUpper(maLhsCheck.Name.Identifier.Text[0]));
                 }
                 else if (assignInit.Left is IdentifierNameSyntax idLhsCheck)
                 {
-                    var symCheck = context.SemanticModel?.GetSymbolInfo(idLhsCheck).Symbol;
+                    var symCheck = context.GetSymbolInfo(idLhsCheck).Symbol;
                     lhsIsProp = symCheck is IPropertySymbol;
                 }
                 if (lhsIsProp)
@@ -167,7 +167,7 @@ public partial class StatementTransformer
                     var rhsExpr = exprTransformer.Transform(assignInit.Right, context);
                     if (context.SemanticModel != null)
                     {
-                        var rhsType = context.SemanticModel.GetTypeInfo(assignInit.Right).Type;
+                        var rhsType = context.GetTypeInfo(assignInit.Right).Type;
                         rhsExpr = StructCloneHelper.CloneStructValueIfNeeded(assignInit.Right, rhsExpr, rhsType, context);
                     }
                     // Build setter call using varName as the value argument
@@ -200,7 +200,7 @@ public partial class StatementTransformer
             string init;
             if (v.Initializer != null)
             {
-                var localTargetType = context.SemanticModel?.GetDeclaredSymbol(v) switch
+                var localTargetType = context.GetDeclaredSymbol(v) as ILocalSymbol switch
                 {
                     ILocalSymbol localSymbol => localSymbol.Type,
                     _ => null
@@ -213,7 +213,7 @@ public partial class StatementTransformer
                     && v.Initializer.Value is InvocationExpressionSyntax unboxInvExpr
                     && context.SemanticModel != null)
                 {
-                    var invSym2 = context.SemanticModel.GetSymbolInfo(unboxInvExpr).Symbol as IMethodSymbol;
+                    var invSym2 = context.GetSymbolInfo(unboxInvExpr).Symbol as IMethodSymbol;
                     if (invSym2?.OriginalDefinition.ReturnType is IArrayTypeSymbol origRetArr2
                         && origRetArr2.ElementType is ITypeParameterSymbol
                         // Skip if already converted by TransformLinqToArray (contains mapToDouble/mapToInt etc.)
@@ -247,7 +247,7 @@ public partial class StatementTransformer
                     && !initExpr.Contains("IntStream.range(")
                     && !initExpr.Contains(".collect("))
                 {
-                    var initTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer.Value);
+                    var initTypeInfo = context.GetTypeInfo(v.Initializer.Value);
                     if (initTypeInfo.Type is IArrayTypeSymbol arrayType)
                     {
                         initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayType, context);
@@ -272,7 +272,7 @@ public partial class StatementTransformer
                 // because IEnumerable<T> is intentionally lowered to Java var in this transformer.
                 if (javaType == "var" && context.SemanticModel != null)
                 {
-                    var localSym = context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol;
+                    var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
                         && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
                     bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
@@ -304,7 +304,7 @@ public partial class StatementTransformer
                         && !initExpr.Contains("IntStream.range(")
                         && !initExpr.Contains(".collect("))
                     {
-                        var initExprTypeInfo = context.SemanticModel.GetTypeInfo(v.Initializer!.Value);
+                        var initExprTypeInfo = context.GetTypeInfo(v.Initializer!.Value);
                         var arrayTypeSymbol = initExprTypeInfo.Type as IArrayTypeSymbol
                             ?? initExprTypeInfo.ConvertedType as IArrayTypeSymbol;
                         if (arrayTypeSymbol != null)
@@ -332,7 +332,7 @@ public partial class StatementTransformer
                     bool isSemanticArrayType = false;
                     if (context.SemanticModel != null)
                     {
-                        var localSymForStream = context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol;
+                        var localSymForStream = context.GetDeclaredSymbol(v) as ILocalSymbol;
                         isSemanticArrayType = localSymForStream?.Type is IArrayTypeSymbol;
                     }
                     if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType)
@@ -345,7 +345,7 @@ public partial class StatementTransformer
                 if (context.SemanticModel != null && v.Initializer?.Value is AssignmentExpressionSyntax declChained
                     && declChained.OperatorToken.Kind() == SyntaxKind.EqualsToken)
                 {
-                    var declaredLocalType = (context.SemanticModel.GetDeclaredSymbol(v) as ILocalSymbol)?.Type;
+                    var declaredLocalType = (context.GetDeclaredSymbol(v) as ILocalSymbol)?.Type;
                     if (StructCloneHelper.IsUserDefinedStruct(declaredLocalType))
                     {
                         var (expandedInit, preStmtsForDecl) = ExpandChainedStructVarDecl(v, declChained, context);
@@ -360,7 +360,7 @@ public partial class StatementTransformer
                 // Insert .clone() for user-defined struct initializers that are not fresh temporaries.
                 if (context.SemanticModel != null && v.Initializer != null)
                 {
-                    var initValueType = context.SemanticModel.GetTypeInfo(v.Initializer.Value).Type;
+                    var initValueType = context.GetTypeInfo(v.Initializer.Value).Type;
                     initExpr = StructCloneHelper.CloneStructValueIfNeeded(v.Initializer.Value, initExpr, initValueType, context);
                 }
                 initExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
@@ -374,7 +374,7 @@ public partial class StatementTransformer
             {
                 // The original C# used 'var' without initializer — Java needs a type with default.
                 // Delegate to the authoritative GetDefaultValueForType for consistent defaults.
-                var localSym = context.SemanticModel?.GetDeclaredSymbol(v) as ILocalSymbol;
+                var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
                 var defaultVal = TypeOperationTransformer.GetDefaultValueForType(javaType, localSym?.Type, context);
                 init = $" = {defaultVal}";
             }
@@ -427,7 +427,7 @@ public partial class StatementTransformer
             if (singleVarCheck.Initializer?.Value is ArrayCreationExpressionSyntax arrCreation
                 && arrCreation.Initializer == null)
             {
-                var varTypeInfo = context.SemanticModel.GetTypeInfo(stmt.Declaration.Type);
+                var varTypeInfo = context.GetTypeInfo(stmt.Declaration.Type);
                 if (varTypeInfo.Type is IArrayTypeSymbol arrayType
                     && arrayType.ElementType.TypeKind == TypeKind.Enum
                     && arrayType.ElementType is INamedTypeSymbol enumNamedType)
@@ -480,7 +480,7 @@ public partial class StatementTransformer
                 // Resolve initializer type from semantic model
                 if (context.SemanticModel != null)
                 {
-                    var initTypeInfo = context.SemanticModel.GetTypeInfo(singleVar.Initializer.Value);
+                    var initTypeInfo = context.GetTypeInfo(singleVar.Initializer.Value);
                     var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
                     if (initType != null && initType.TypeKind != TypeKind.Error)
                     {
@@ -525,7 +525,7 @@ public partial class StatementTransformer
 
                 if (context.SemanticModel != null)
                 {
-                    var initTypeInfo = context.SemanticModel.GetTypeInfo(singleVar.Initializer.Value);
+                    var initTypeInfo = context.GetTypeInfo(singleVar.Initializer.Value);
                     var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
                     if (initType != null && initType.TypeKind != TypeKind.Error)
                     {
@@ -570,7 +570,7 @@ public partial class StatementTransformer
 
                 if (context.SemanticModel != null)
                 {
-                    var initTypeInfo = context.SemanticModel.GetTypeInfo(singleVar.Initializer.Value);
+                    var initTypeInfo = context.GetTypeInfo(singleVar.Initializer.Value);
                     var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
                     if (initType != null && initType.TypeKind != TypeKind.Error)
                     {
@@ -688,7 +688,7 @@ public partial class StatementTransformer
 
         var sourceNode = current.Right;
         var sourceStr = facade.Transform(sourceNode, context);
-        var sourceType = context.SemanticModel?.GetTypeInfo(sourceNode).Type;
+        var sourceType = context.GetTypeInfo(sourceNode).Type;
         sourceStr = StructCloneHelper.CloneStructValueIfNeeded(sourceNode, sourceStr, sourceType, context);
 
         var tmpName = $"_structCopy{Interlocked.Increment(ref _declStructCopyCounter)}";
@@ -701,13 +701,13 @@ public partial class StatementTransformer
         {
             var (targetNode, targetStr) = targets[i];
             var rhsStr = $"{tmpName}.clone()";
-            var lhsType = context.SemanticModel?.GetTypeInfo(targetNode).Type;
+            var lhsType = context.GetTypeInfo(targetNode).Type;
             rhsStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, rhsStr, lhsType, context);
             preStmts.Add($"{targetStr} = {rhsStr}");
         }
 
         var varInitExpr = $"{tmpName}.clone()";
-        var varLhsType = (context.SemanticModel?.GetDeclaredSymbol(varDecl) as ILocalSymbol)?.Type;
+        var varLhsType = (context.GetDeclaredSymbol(varDecl) as ILocalSymbol)?.Type;
         varInitExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, varInitExpr, varLhsType, context);
 
         return (varInitExpr, preStmts);

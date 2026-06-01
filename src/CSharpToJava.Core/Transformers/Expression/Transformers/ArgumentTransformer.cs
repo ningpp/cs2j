@@ -138,7 +138,7 @@ public class ArgumentTransformer
         if (context.SemanticModel == null || argumentList.Parent == null)
             return args.ToList();
 
-        var symbolInfo = context.SemanticModel.GetSymbolInfo(argumentList.Parent);
+        var symbolInfo = context.GetSymbolInfo(argumentList.Parent);
         if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
             return args.ToList();
 
@@ -222,7 +222,7 @@ public class ArgumentTransformer
             {
                 // If the identifier is already a ref/out parameter (i.e. already a holder),
                 // pass it directly — same as the ref-forwarding fix (Bug 1).
-                if (context.SemanticModel?.GetSymbolInfo(ident).Symbol is IParameterSymbol outParam
+                if (context.GetSymbolInfo(ident).Symbol is IParameterSymbol outParam
                     && (outParam.RefKind == RefKind.Ref || outParam.RefKind == RefKind.Out))
                 {
                     return ConversionContext.EscapeJavaKeyword(outParam.Name);
@@ -234,7 +234,7 @@ public class ArgumentTransformer
                 var identResolved = false;
                 if (context.SemanticModel != null)
                 {
-                    var typeInfo = context.SemanticModel.GetTypeInfo(ident);
+                    var typeInfo = context.GetTypeInfo(ident);
                     if (typeInfo.Type != null)
                     {
                         javaType = context.MapType(typeInfo.Type);
@@ -250,7 +250,7 @@ public class ArgumentTransformer
                         var invocation = arg.FirstAncestorOrSelf<InvocationExpressionSyntax>();
                         if (invocation != null)
                         {
-                            var methodSym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                            var methodSym = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
                             if (methodSym != null)
                             {
                                 var argIndex = invocation.ArgumentList.Arguments.IndexOf(arg);
@@ -283,7 +283,7 @@ public class ArgumentTransformer
                 var javaType = "Object";
                 if (context.SemanticModel != null)
                 {
-                    var typeInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
+                    var typeInfo = context.GetTypeInfo(arg.Expression);
                     if (typeInfo.Type != null)
                         javaType = context.MapType(typeInfo.Type);
                 }
@@ -315,7 +315,7 @@ public class ArgumentTransformer
             // the IdentifierExpressionTransformer would emit "d2.value" — but we must pass the holder itself.
             if (arg.Expression is IdentifierNameSyntax refIdent)
             {
-                if (context.SemanticModel?.GetSymbolInfo(refIdent).Symbol is IParameterSymbol refParam
+                if (context.GetSymbolInfo(refIdent).Symbol is IParameterSymbol refParam
                     && (refParam.RefKind == RefKind.Ref || refParam.RefKind == RefKind.Out))
                 {
                     // Already a holder — pass it directly with no wrapping.
@@ -337,7 +337,7 @@ public class ArgumentTransformer
                 var javaType = "Object";
                 if (context.SemanticModel != null)
                 {
-                    var typeInfo = context.SemanticModel.GetTypeInfo(refIdent);
+                    var typeInfo = context.GetTypeInfo(refIdent);
                     if (typeInfo.Type != null)
                         javaType = context.MapType(typeInfo.Type);
                 }
@@ -364,7 +364,7 @@ public class ArgumentTransformer
                 var javaType = "Object";
                 if (context.SemanticModel != null)
                 {
-                    var typeInfo = context.SemanticModel.GetTypeInfo(arg.Expression);
+                    var typeInfo = context.GetTypeInfo(arg.Expression);
                     if (typeInfo.Type != null)
                         javaType = context.MapType(typeInfo.Type);
                 }
@@ -394,10 +394,8 @@ public class ArgumentTransformer
     private static bool ShouldSeedRefHolderFromCurrentValue(IdentifierNameSyntax refIdent, ConversionContext context)
     {
         var semanticModel = context.SemanticModel;
-        if (semanticModel == null)
-            return true;
 
-        if (semanticModel.GetSymbolInfo(refIdent).Symbol is not ILocalSymbol local)
+        if (context.GetSymbolInfo(refIdent).Symbol is not ILocalSymbol local)
             return true;
 
         var declarator = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
@@ -492,7 +490,7 @@ public class ArgumentTransformer
             }
         }
 
-        var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
+        var argType = context.GetTypeInfo(arg.Expression).Type;
         if (argType == null)
             return transformedExpr;
 
@@ -623,7 +621,7 @@ public class ArgumentTransformer
             var argElem = aNamed.TypeArguments[0];
             var paramElem = pNamed.TypeArguments[0];
             bool sameElem = SymbolEqualityComparer.Default.Equals(argElem, paramElem);
-            bool implicitElemConv = context.SemanticModel.Compilation
+            bool implicitElemConv = context.ProjectCompilation
                 .ClassifyConversion(argElem, paramElem).IsImplicit;
 
             if (!sameElem && implicitElemConv)
@@ -662,7 +660,7 @@ public class ArgumentTransformer
         // narrow with (byte) cast
         if (context.SemanticModel != null)
         {
-            var argTypeForByte = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
+            var argTypeForByte = context.GetTypeInfo(arg.Expression).Type;
             var paramTypeForByte = targetParam.Type;
             if (argTypeForByte?.SpecialType == SpecialType.System_Byte
                 && paramTypeForByte.SpecialType == SpecialType.System_SByte)
@@ -739,7 +737,7 @@ public class ArgumentTransformer
             return transformedExpr;
 
         var paramType = targetParam.Type;
-        var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type;
+        var argType = context.GetTypeInfo(arg.Expression).Type;
         if (!RequiresStructClone(argType, paramType))
             return transformedExpr;
         // Skip clone for read-only value parameters (method never modifies the struct)
@@ -855,7 +853,7 @@ public class ArgumentTransformer
     {
         if (context.SemanticModel != null)
         {
-            var typeInfo = context.SemanticModel.GetTypeInfo(decl.Type);
+            var typeInfo = context.GetTypeInfo(decl.Type);
             if (typeInfo.Type != null)
                 return context.MapType(typeInfo.Type);
         }
@@ -867,7 +865,7 @@ public class ArgumentTransformer
         if (context.SemanticModel == null)
             return transformedExpr;
 
-        var argType = context.SemanticModel.GetTypeInfo(arg.Expression).Type as INamedTypeSymbol;
+        var argType = context.GetTypeInfo(arg.Expression).Type as INamedTypeSymbol;
         if (argType == null)
             return transformedExpr;
 

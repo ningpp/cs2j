@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -114,7 +114,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         // are stream chains, collect each branch so both sides become Iterable-compatible.
         if (context.SemanticModel != null)
         {
-            var converted = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+            var converted = context.GetTypeInfo(node).ConvertedType;
             var convertedDisplay = converted?.OriginalDefinition.ToDisplayString();
             bool expectsIterable = convertedDisplay is
                 "System.Collections.Generic.IEnumerable<T>" or
@@ -198,7 +198,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         string falseBranch = "null";
         if (context.SemanticModel != null)
         {
-            var typeInfo = context.SemanticModel.GetTypeInfo(node);
+            var typeInfo = context.GetTypeInfo(node);
             var convertedType = typeInfo.ConvertedType;
             // ConvertedType is the primitive when implicit unboxing is applied by the compiler.
             if (convertedType?.IsValueType == true
@@ -317,9 +317,9 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         string? typeName = null;
         if (pattern.Type != null)
         {
-            var typeInfo = context.SemanticModel?.GetTypeInfo(pattern.Type);
-            typeName = (typeInfo.HasValue && typeInfo.Value.Type != null)
-                ? context.MapType(typeInfo.Value.Type)
+            var typeInfo = context.GetTypeInfo(pattern.Type);
+            typeName = typeInfo.Type != null
+                ? context.MapType(typeInfo.Type)
                 : context.MapTypeFromSyntax(pattern.Type);
         }
 
@@ -382,8 +382,8 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         }
 
         // Check if the source type is a record (and we're emitting Java records)
-        var typeInfo = context.SemanticModel?.GetTypeInfo(node.Expression);
-        var namedType = typeInfo?.Type as INamedTypeSymbol;
+        var typeInfo = context.GetTypeInfo(node.Expression);
+        var namedType = typeInfo.Type as INamedTypeSymbol;
         bool isJavaRecord = namedType?.IsRecord == true
                             && context.Options.UseRecords
                             && context.Options.TargetJavaVersion >= JavaVersion.Java25

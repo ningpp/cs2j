@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -118,7 +118,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         // Check for user-defined operators → JavaMethodCallExpression
         if (context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symbolInfo = context.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol ms
                 && ms.MethodKind == MethodKind.UserDefinedOperator
                 && ms.ContainingType != null
@@ -187,8 +187,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         // Check for event comparisons — fall back to raw
         if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
-            var leftSym = context.SemanticModel.GetSymbolInfo(binExpr.Left).Symbol;
-            var rightSym = context.SemanticModel.GetSymbolInfo(binExpr.Right).Symbol;
+            var leftSym = context.GetSymbolInfo(binExpr.Left).Symbol;
+            var rightSym = context.GetSymbolInfo(binExpr.Right).Symbol;
             if (leftSym is IEventSymbol || rightSym is IEventSymbol)
                 return new JavaRawExpression(Transform(node, context));
         }
@@ -209,7 +209,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     {
         if (context.IsInFixedScope && op == "+")
         {
-            var leftType = context.SemanticModel?.GetTypeInfo(node.Left).Type;
+            var leftType = context.GetTypeInfo(node.Left).Type;
             if (leftType is IPointerTypeSymbol pointerType)
             {
                 var facade2 = ExpressionTransformerFacade.Instance;
@@ -242,8 +242,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
             // Check if this is an event compared to null
-            var leftSymbol = context.SemanticModel.GetSymbolInfo(node.Left).Symbol;
-            var rightSymbol = context.SemanticModel.GetSymbolInfo(node.Right).Symbol;
+            var leftSymbol = context.GetSymbolInfo(node.Left).Symbol;
+            var rightSymbol = context.GetSymbolInfo(node.Right).Symbol;
             bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
             bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
 
@@ -270,7 +270,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         // Check if this is a user-defined operator that should be converted to a static method call
         if (context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symbolInfo = context.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
             {
                 // Only convert to method call if it's a user-defined type (not built-in types)

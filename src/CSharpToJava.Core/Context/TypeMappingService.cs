@@ -278,7 +278,16 @@ public class TypeMappingService
         if (typeSymbol.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T
             || typeSymbol.OriginalDefinition?.ToDisplayString() == "System.Nullable")
         {
-            var underlyingType = ((INamedTypeSymbol)typeSymbol).TypeArguments[0];
+            var nullableType = (INamedTypeSymbol)typeSymbol;
+            if (nullableType.TypeArguments.Length == 0)
+            {
+                _diagnostics.Warning(
+                    $"Unbound generic Nullable<T> without type arguments, mapping to Object",
+                    code: "CS2J1001",
+                    category: "TypeResolution");
+                return "Object";
+            }
+            var underlyingType = nullableType.TypeArguments[0];
             var javaType = MapType(underlyingType);
 
             if (_options.UseOptionalForNullable)

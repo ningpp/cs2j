@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 
@@ -114,7 +114,7 @@ public static class AnonymousTypeRecordSynthesizer
             string javaType = "Object";
             if (context.SemanticModel != null)
             {
-                var typeInfo = context.SemanticModel.GetTypeInfo(member.Expression);
+                var typeInfo = context.GetTypeInfo(member.Expression);
                 if (typeInfo.Type != null && !typeInfo.Type.IsAnonymousType)
                 {
                     javaType = context.MapType(typeInfo.Type);

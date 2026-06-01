@@ -71,7 +71,7 @@ public class HIRExpressionGenerator
             // If the syntactic left operand's type doesn't match parameter 0, swap.
             if (ms.Parameters.Length == 2)
             {
-                var leftType = _ctx.SemanticModel?.GetTypeInfo(node.Left).Type;
+                var leftType = _ctx.GetTypeInfo(node.Left).Type;
                 if (leftType != null && !leftType.Equals(ms.Parameters[0].Type, SymbolEqualityComparer.Default))
                 {
                     return new IrCSharpOperatorCallExpression
@@ -346,7 +346,7 @@ public class HIRExpressionGenerator
 
     private ISymbol? GetSymbol(ExpressionSyntax node)
     {
-        return _ctx.SemanticModel?.GetSymbolInfo(node).Symbol;
+        return _ctx.GetSymbolInfo(node).Symbol;
     }
 
     private static IrBinaryOp MapBinaryOperator(SyntaxKind kind) => kind switch

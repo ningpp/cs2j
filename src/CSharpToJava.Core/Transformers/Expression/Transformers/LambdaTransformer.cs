@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -272,7 +272,7 @@ public class LambdaTransformer : IIRExpressionTransformer
                 bool isVoidLambda = false;
                 if (context.SemanticModel != null)
                 {
-                    var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+                    var convertedType = context.GetTypeInfo(node).ConvertedType;
                     if (convertedType is INamedTypeSymbol namedType)
                     {
                         var invokeMethod = namedType.DelegateInvokeMethod;
@@ -297,7 +297,7 @@ public class LambdaTransformer : IIRExpressionTransformer
                     // Java's Stream<T> does NOT implement Iterable<T>, unlike C# IEnumerable<T>.
                     if (!isVoidLambda && context.SemanticModel != null)
                     {
-                        var convertedType = context.SemanticModel.GetTypeInfo(node).ConvertedType;
+                        var convertedType = context.GetTypeInfo(node).ConvertedType;
                         if (convertedType is INamedTypeSymbol namedType)
                         {
                             var invokeMethod = namedType.DelegateInvokeMethod;
@@ -362,7 +362,7 @@ public class LambdaTransformer : IIRExpressionTransformer
     private static bool IsVoidAsyncLambda(LambdaExpressionSyntax lambda, ConversionContext context)
     {
         if (context.SemanticModel == null) return false;
-        var typeInfo = context.SemanticModel.GetTypeInfo(lambda);
+        var typeInfo = context.GetTypeInfo(lambda);
         if (typeInfo.ConvertedType is INamedTypeSymbol namedType)
         {
             var invokeMethod = namedType.DelegateInvokeMethod;
@@ -444,7 +444,7 @@ public class LambdaTransformer : IIRExpressionTransformer
             string name = targetId.Identifier.Text;
             if (paramNames.Contains(name) || seen.Contains(name)) continue;
 
-            var symbol = context.SemanticModel.GetSymbolInfo(targetId).Symbol;
+            var symbol = context.GetSymbolInfo(targetId).Symbol;
             if (symbol is ILocalSymbol local)
             {
                 // Confirm the declaration is outside the lambda span

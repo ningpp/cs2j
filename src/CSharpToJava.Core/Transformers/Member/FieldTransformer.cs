@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -33,15 +33,15 @@ public class FieldTransformer : IMemberTransformer
     /// </summary>
     public IEnumerable<JavaFieldDeclaration> TransformAll(FieldDeclarationSyntax fieldDecl, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(fieldDecl.Declaration.Type);
-        var fieldTypeSymbol = typeInfo.HasValue ? typeInfo.Value.Type : null;
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null
-            ? context.MapType(typeInfo.Value.Type)
+        var typeInfo = context.GetTypeInfo(fieldDecl.Declaration.Type);
+        var fieldTypeSymbol = typeInfo.Type;
+        var javaType = typeInfo.Type != null
+            ? context.MapType(typeInfo.Type)
             : context.MapTypeFromSyntax(fieldDecl.Declaration.Type);
         var modifiers = ConvertModifiers(fieldDecl.Modifiers);
         var firstVariable = fieldDecl.Declaration.Variables.FirstOrDefault();
         var fieldSymbol = firstVariable != null
-            ? context.SemanticModel?.GetDeclaredSymbol(firstVariable)
+            ? context.GetDeclaredSymbol(firstVariable)
             : null;
         var sharedComment = context.GetDeclarationComments(fieldDecl, fieldSymbol).ToCombinedComment();
 
@@ -160,7 +160,7 @@ public class FieldTransformer : IMemberTransformer
 
                 if (context.SemanticModel != null && fieldTypeSymbol != null && IsCollectionOrListInterface(fieldTypeSymbol))
                 {
-                    var initTypeInfo = context.SemanticModel.GetTypeInfo(variable.Initializer.Value);
+                    var initTypeInfo = context.GetTypeInfo(variable.Initializer.Value);
                     var arrayType = initTypeInfo.Type as IArrayTypeSymbol ?? initTypeInfo.ConvertedType as IArrayTypeSymbol;
                     if (arrayType != null)
                         javaField.Initializer = ObjectCreationTransformer.WrapArrayForCollectionArg(javaField.Initializer, arrayType, context);

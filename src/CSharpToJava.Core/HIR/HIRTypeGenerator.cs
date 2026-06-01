@@ -136,7 +136,7 @@ public class HIRTypeGenerator
 
     public IrInterfaceDeclaration? GenerateDelegate(DelegateDeclarationSyntax node, ConversionContext ctx)
     {
-        var sym = ctx.SemanticModel?.GetDeclaredSymbol(node);
+        var sym = ctx.GetDeclaredSymbol(node);
         if (sym is not INamedTypeSymbol namedType) return null;
         var invokeMethod = namedType.DelegateInvokeMethod;
         if (invokeMethod == null) return null;
@@ -158,8 +158,7 @@ public class HIRTypeGenerator
 
     private IrMethodDeclaration GenerateMethod(MethodDeclarationSyntax node, ConversionContext ctx)
     {
-        var semModel = ctx.SemanticModel;
-        var symbol = semModel?.GetDeclaredSymbol(node) as IMethodSymbol;
+        var symbol = ctx.GetDeclaredSymbol(node) as IMethodSymbol;
         var returnType = symbol != null ? ctx.MapType(symbol.ReturnType) : ctx.MapTypeFromSyntax(node.ReturnType);
         var method = new IrMethodDeclaration
         {
@@ -230,12 +229,11 @@ public class HIRTypeGenerator
 
     private static bool IsInterfaceBase(BaseTypeSyntax bt, ConversionContext ctx)
     {
-        // Prefer semantic model TypeKind when available
-        var typeInfo = ctx.SemanticModel?.GetTypeInfo(bt.Type);
-        if (typeInfo?.Type != null)
+        var typeInfo = ctx.GetTypeInfo(bt.Type);
+        if (typeInfo.Type != null)
         {
-            if (typeInfo.Value.Type.TypeKind == TypeKind.Interface) return true;
-            if (typeInfo.Value.Type.TypeKind == TypeKind.Class) return false;
+            if (typeInfo.Type.TypeKind == TypeKind.Interface) return true;
+            if (typeInfo.Type.TypeKind == TypeKind.Class) return false;
         }
         // Fallback heuristic: if the first character is 'I' followed by uppercase, it's likely an interface
         var name = bt.Type.ToString();

@@ -233,7 +233,6 @@ public class ClassTransformer : ITypeTransformer
         var seenMemberKeys = new HashSet<string>();
         foreach (var originalNode in mergedType.OriginalSyntaxNodes)
         {
-            // Switch to the semantic model for this file
             var nodeModel = context.GetSemanticModelForTree(originalNode.SyntaxTree);
             if (nodeModel != null) context.SemanticModel = nodeModel;
 
@@ -326,7 +325,7 @@ public class ClassTransformer : ITypeTransformer
 
         ApplyTypeLevelTestAnnotations(new[] { classDecl }, javaClass, context);
 
-        var classSymbol = context.SemanticModel?.GetDeclaredSymbol(classDecl);
+        var classSymbol = context.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
         context.CurrentEnclosingRoslynType = classSymbol;
         // Ensure abstract modifier is set from the semantic symbol
         if (classSymbol?.IsAbstract == true)
@@ -355,10 +354,10 @@ public class ClassTransformer : ITypeTransformer
                     continue;
 
                 // Use semantic model for all base type kinds (Simple, Generic, Qualified, etc.)
-                var typeInfo = context.SemanticModel?.GetTypeInfo(baseType.Type);
-                if (!typeInfo.HasValue || typeInfo.Value.Type == null) continue;
+                var typeInfo = context.GetTypeInfo(baseType.Type);
+                if (typeInfo.Type == null) continue;
 
-                var resolvedType = typeInfo.Value.Type;
+                var resolvedType = typeInfo.Type;
                 // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
                 if (resolvedType.ToDisplayString() == "System.MarshalByRefObject") continue;
 
@@ -1134,10 +1133,10 @@ public class ClassTransformer : ITypeTransformer
             {
                 if (constraint is TypeConstraintSyntax typeConstraint)
                 {
-                    var typeInfo = context.SemanticModel?.GetTypeInfo(typeConstraint.Type);
-                    if (typeInfo.HasValue && typeInfo.Value.Type != null)
+                    var typeInfo = context.GetTypeInfo(typeConstraint.Type);
+                    if (typeInfo.Type != null)
                     {
-                        var bound = context.MapType(typeInfo.Value.Type);
+                        var bound = context.MapType(typeInfo.Type);
                         if (!string.IsNullOrEmpty(bound) && bound != "Object")
                             jtp.Bounds.Add(bound);
                     }

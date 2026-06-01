@@ -455,7 +455,7 @@ public class ConversionContext
         // generic type arguments, primitive boxing, and namespace-qualified lookups.
         if (SemanticModel != null)
         {
-            var typeInfo = SemanticModel.GetTypeInfo(typeSyntax);
+            var typeInfo = GetTypeInfo(typeSyntax);
             if (typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol)
                 return MapType(typeInfo.Type);
         }
@@ -466,19 +466,216 @@ public class ConversionContext
     {
         if (ProjectCompilation != null)
         {
-            // Synthetic trees (e.g. created by WithMembers) are NOT in the compilation.
             if (ProjectCompilation.ContainsSyntaxTree(syntaxTree))
                 return ProjectCompilation.GetSemanticModel(syntaxTree);
 
-            // The LinqDesugarPass may have rebuilt the compilation with modified syntax
-            // trees. If the tree is not in the current compilation, try the saved
-            // compilation from immediately before final procedural LINQ rewrite.
             if (PreDesugarCompilation != null && PreDesugarCompilation.ContainsSyntaxTree(syntaxTree))
                 return PreDesugarCompilation.GetSemanticModel(syntaxTree);
+
+            // The LINQ desugar pass may replace syntax trees, creating new tree objects
+            // for the same file. The node's SyntaxTree reference points to the old tree
+            // object, but the compilation now contains a new tree object for the same file.
+            // Try to find the matching tree by file path.
+            var filePath = syntaxTree.FilePath;
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                foreach (var tree in ProjectCompilation.SyntaxTrees)
+                {
+                    if (tree.FilePath == filePath)
+                        return ProjectCompilation.GetSemanticModel(tree);
+                }
+            }
+
+            if (PreDesugarCompilation != null && !string.IsNullOrEmpty(filePath))
+            {
+                foreach (var tree in PreDesugarCompilation.SyntaxTrees)
+                {
+                    if (tree.FilePath == filePath)
+                        return PreDesugarCompilation.GetSemanticModel(tree);
+                }
+            }
 
             return SemanticModel;
         }
         return SemanticModel;
+    }
+
+    public SemanticModel? GetSemanticModelForNode(SyntaxNode node)
+    {
+        var nodeTree = node.SyntaxTree;
+        var model = GetSemanticModelForTree(nodeTree);
+        if (model != null && model.SyntaxTree == nodeTree)
+            return model;
+
+        if (ProjectCompilation != null)
+        {
+            foreach (var tree in ProjectCompilation.SyntaxTrees)
+            {
+                if (tree.FilePath == nodeTree.FilePath)
+                {
+                    var treeModel = ProjectCompilation.GetSemanticModel(tree);
+                    if (treeModel != null)
+                        return treeModel;
+                }
+            }
+        }
+
+        if (PreDesugarCompilation != null)
+        {
+            foreach (var tree in PreDesugarCompilation.SyntaxTrees)
+            {
+                if (tree.FilePath == nodeTree.FilePath)
+                {
+                    var treeModel = PreDesugarCompilation.GetSemanticModel(tree);
+                    if (treeModel != null)
+                        return treeModel;
+                }
+            }
+        }
+
+        return model ?? SemanticModel;
+    }
+
+    public SymbolInfo GetSymbolInfo(SyntaxNode node)
+    {
+        if (SemanticModel == null) return default;
+
+        try
+        {
+            return SemanticModel.GetSymbolInfo(node);
+        }
+        catch (ArgumentException)
+        {
+            return CorrectModelAndGetSymbolInfo(node);
+        }
+        catch (InvalidOperationException)
+        {
+            return CorrectModelAndGetSymbolInfo(node);
+        }
+    }
+
+    private SymbolInfo CorrectModelAndGetSymbolInfo(SyntaxNode node)
+    {
+        var correctedModel = GetSemanticModelForNode(node);
+        if (correctedModel != null)
+        {
+            try { return correctedModel.GetSymbolInfo(node); }
+            catch { return default; }
+        }
+        return default;
+    }
+
+    public TypeInfo GetTypeInfo(SyntaxNode node)
+    {
+        if (SemanticModel == null) return default;
+
+        try
+        {
+            return SemanticModel.GetTypeInfo(node);
+        }
+        catch (ArgumentException)
+        {
+            return CorrectModelAndGetTypeInfo(node);
+        }
+        catch (InvalidOperationException)
+        {
+            return CorrectModelAndGetTypeInfo(node);
+        }
+    }
+
+    private TypeInfo CorrectModelAndGetTypeInfo(SyntaxNode node)
+    {
+        var correctedModel = GetSemanticModelForNode(node);
+        if (correctedModel != null)
+        {
+            try { return correctedModel.GetTypeInfo(node); }
+            catch { return default; }
+        }
+        return default;
+    }
+
+    public ISymbol? GetDeclaredSymbol(SyntaxNode node)
+    {
+        if (SemanticModel == null) return null;
+
+        try
+        {
+            return SemanticModel.GetDeclaredSymbol(node);
+        }
+        catch (ArgumentException)
+        {
+            return CorrectModelAndGetDeclaredSymbol(node);
+        }
+        catch (InvalidOperationException)
+        {
+            return CorrectModelAndGetDeclaredSymbol(node);
+        }
+    }
+
+    private ISymbol? CorrectModelAndGetDeclaredSymbol(SyntaxNode node)
+    {
+        var correctedModel = GetSemanticModelForNode(node);
+        if (correctedModel != null)
+        {
+            try { return correctedModel.GetDeclaredSymbol(node); }
+            catch { return null; }
+        }
+        return null;
+    }
+
+    public bool TryGetSymbolInfo(ExpressionSyntax node, out ISymbol? symbol)
+    {
+        symbol = null;
+        if (SemanticModel == null) return false;
+
+        try
+        {
+            symbol = SemanticModel.GetSymbolInfo(node).Symbol;
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return TryCorrectModelAndGetSymbolInfo(node, ref symbol);
+        }
+        catch (InvalidOperationException)
+        {
+            return TryCorrectModelAndGetSymbolInfo(node, ref symbol);
+        }
+    }
+
+    public bool TryGetSymbolInfo(SyntaxNode node, out ISymbol? symbol)
+    {
+        symbol = null;
+        if (SemanticModel == null) return false;
+
+        try
+        {
+            symbol = SemanticModel.GetSymbolInfo(node).Symbol;
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return TryCorrectModelAndGetSymbolInfo(node, ref symbol);
+        }
+        catch (InvalidOperationException)
+        {
+            return TryCorrectModelAndGetSymbolInfo(node, ref symbol);
+        }
+    }
+
+    private bool TryCorrectModelAndGetSymbolInfo(SyntaxNode node, ref ISymbol? symbol)
+    {
+        var correctedModel = GetSemanticModelForNode(node);
+        if (correctedModel != null && correctedModel != SemanticModel)
+        {
+            try
+            {
+                symbol = correctedModel.GetSymbolInfo(node).Symbol;
+                return true;
+            }
+            catch { return false; }
+        }
+        return false;
     }
 
     public UsingAliasRegistry AliasRegistry { get; } = new();

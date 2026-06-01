@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -71,7 +71,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Only produce structured IR for simple identifier assignments to local/field/param
         if (assignment.Left is IdentifierNameSyntax ident)
         {
-            var symbol = context.SemanticModel?.GetSymbolInfo(ident).Symbol;
+            var symbol = context.GetSymbolInfo(ident).Symbol;
 
             // Property, event → setter calls, complex handling
             if (symbol is IPropertySymbol or IEventSymbol)
@@ -87,7 +87,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
             // User-defined operator on compound assignment → static method call
             if (op != "=" && context.SemanticModel != null)
             {
-                var symbolInfo = context.SemanticModel.GetSymbolInfo(assignment);
+                var symbolInfo = context.GetSymbolInfo(assignment);
                 if (symbolInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
                     return new JavaRawExpression(Transform(node, context));
             }
@@ -138,7 +138,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Fix 4: Detect event += / -= using semantic model → listener methods
         if ((op == "+=" || op == "-=") && leftNode is MemberAccessExpressionSyntax evtMa)
         {
-            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IEventSymbol evt)
+            if (context.GetSymbolInfo(leftNode).Symbol is IEventSymbol evt)
             {
                 var receiver = facade.Transform(evtMa.Expression, context);
                 var handler = facade.Transform(rightNode, context);
@@ -151,7 +151,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         if ((op == "+=" || op == "-=") && leftNode is IdentifierNameSyntax)
         {
-            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IEventSymbol evt)
+            if (context.GetSymbolInfo(leftNode).Symbol is IEventSymbol evt)
             {
                 var listenerField = $"_{char.ToLowerInvariant(evt.Name[0])}{evt.Name[1..]}Listeners";
                 string handler;
@@ -188,7 +188,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Fix 1: Detect property assignments using semantic model → setter calls (simple assignment only)
         if (op == "=" && leftNode is MemberAccessExpressionSyntax propMa)
         {
-            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol prop)
+            if (context.GetSymbolInfo(leftNode).Symbol is IPropertySymbol prop)
             {
                 // If this property assignment is used as a sub-expression (not a standalone statement),
                 // the setter call would return void in Java which is invalid as a value.
@@ -249,7 +249,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // Fix: Array assignment to IList/ICollection property - wrap with ArrayHelper.toList()
                 if (context.SemanticModel != null && op == "=")
                 {
-                    var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
+                    var rhsType = context.GetTypeInfo(rightNode).Type;
                     var propType = prop.Type;
 
                     if (rhsType is IArrayTypeSymbol arrayType && propType is INamedTypeSymbol propNamed
@@ -277,8 +277,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Fix 2: Detect indexer assignments → put/set methods (simple assignment only)
         if (op == "=" && leftNode is ElementAccessExpressionSyntax ela)
         {
-            var indexerSymbol = context.SemanticModel?.GetSymbolInfo(ela).Symbol as IPropertySymbol;
-            var containerExprType = context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
+            var indexerSymbol = context.GetSymbolInfo(ela).Symbol as IPropertySymbol;
+            var containerExprType = context.GetTypeInfo(ela.Expression).Type;
             bool isArrayElement = containerExprType is IArrayTypeSymbol;
             if (context.IsInFixedScope && containerExprType is IPointerTypeSymbol)
             {
@@ -310,7 +310,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 {
                     var argExpr = argList[0].Expression;
                     var containerType = (ITypeSymbol?)indexerSymbol?.ContainingType
-                        ?? context.SemanticModel?.GetTypeInfo(ela.Expression).Type;
+                        ?? context.GetTypeInfo(ela.Expression).Type;
                     string method = "set"; // default for indexers
                     bool isKnownDictionary = false;
                     bool isKnownList = false;
@@ -412,7 +412,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Java does not support compound-assignment on method-call results.
         if (op != "=" && leftNode is ElementAccessExpressionSyntax compoundEla)
         {
-            var compoundElaContainerType = context.SemanticModel?.GetTypeInfo(compoundEla.Expression).Type;
+            var compoundElaContainerType = context.GetTypeInfo(compoundEla.Expression).Type;
             bool isCompoundArray = compoundElaContainerType is IArrayTypeSymbol;
             if (!isCompoundArray && compoundEla.ArgumentList.Arguments.Count == 1)
             {
@@ -437,7 +437,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Handle bare-identifier property assignment (e.g., Demo = value; → setDemo(value);)
         if (op == "=" && leftNode is IdentifierNameSyntax propIdentifier)
         {
-            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol bareIdentProp)
+            if (context.GetSymbolInfo(leftNode).Symbol is IPropertySymbol bareIdentProp)
             {
                 // If this property assignment is used as a sub-expression (not a standalone statement),
                 // the setter call would return void in Java which is invalid as a value.
@@ -464,7 +464,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // Fix: Array assignment to IList/ICollection property - wrap with ArrayHelper.toList()
                 if (context.SemanticModel != null)
                 {
-                    var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
+                    var rhsType = context.GetTypeInfo(rightNode).Type;
                     var propType = bareIdentProp.Type;
 
                     if (rhsType is IArrayTypeSymbol arrayType && propType is INamedTypeSymbol propNamed
@@ -491,7 +491,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Exception: read-only ref struct parameters are generated without ObjectHolder.
         if (op == "=" && leftNode is IdentifierNameSyntax outParamIdent)
         {
-            if (context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IParameterSymbol param
+            if (context.GetSymbolInfo(leftNode).Symbol is IParameterSymbol param
                 && (param.RefKind == RefKind.Out || param.RefKind == RefKind.Ref)
                 && !context.IsReadOnlyRefStructParam(param.Name))
             {
@@ -505,9 +505,9 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Guard: if the compound op resolves to a user-defined operator, let ExpandCompoundOperatorOverload below handle it.
         if (op != "=" && leftNode is MemberAccessExpressionSyntax compoundMa)
         {
-            bool fix5IsUserDefined = context.SemanticModel?.GetSymbolInfo(node).Symbol
+            bool fix5IsUserDefined = context.GetSymbolInfo(node).Symbol
                 is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator };
-            if (!fix5IsUserDefined && context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundProp)
+            if (!fix5IsUserDefined && context.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundProp)
             {
                 var getter = "get" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
                 var setter = "set" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
@@ -541,9 +541,9 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Guard: if the compound op resolves to a user-defined operator, let ExpandCompoundOperatorOverload below handle it.
         if (op != "=" && leftNode is IdentifierNameSyntax compoundIdent)
         {
-            bool fix6IsUserDefined = context.SemanticModel?.GetSymbolInfo(node).Symbol
+            bool fix6IsUserDefined = context.GetSymbolInfo(node).Symbol
                 is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator };
-            if (!fix6IsUserDefined && context.SemanticModel?.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundIdentProp)
+            if (!fix6IsUserDefined && context.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundIdentProp)
             {
                 var getter = "get" + char.ToUpperInvariant(compoundIdentProp.Name[0]) + compoundIdentProp.Name[1..];
                 var setter = "set" + char.ToUpperInvariant(compoundIdentProp.Name[0]) + compoundIdentProp.Name[1..];
@@ -556,9 +556,9 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // When the LHS is a C# byte-typed simple identifier (Java int), compound assignments
         // need & 0xFF masking to preserve wrap-at-256 semantics.
         if (op != "=" && leftNode is IdentifierNameSyntax compoundIdentByte
-            && !(context.SemanticModel?.GetSymbolInfo(node).Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
+            && !(context.GetSymbolInfo(node).Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator }))
         {
-            var lhsTypeForByte = context.SemanticModel?.GetTypeInfo(leftNode).Type;
+            var lhsTypeForByte = context.GetTypeInfo(leftNode).Type;
             if (lhsTypeForByte?.SpecialType == SpecialType.System_Byte)
             {
                 var leftByte = facade.Transform(leftNode, context);
@@ -573,7 +573,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // For property LHS this must also go through getter/setter.
         if (op != "=" && context.SemanticModel != null)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(node);
+            var symbolInfo = context.GetSymbolInfo(node);
             if (symbolInfo.Symbol is IMethodSymbol opMethod
                 && opMethod.MethodKind == MethodKind.UserDefinedOperator)
             {
@@ -617,8 +617,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // In Java, arrays don't implement List<T>, so we must wrap with ArrayHelper.toList().
         if (op == "=" && context.SemanticModel != null)
         {
-            var rhsType = context.SemanticModel.GetTypeInfo(rightNode).Type;
-            var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
+            var rhsType = context.GetTypeInfo(rightNode).Type;
+            var lhsType = context.GetTypeInfo(leftNode).Type;
 
             if (rhsType is IArrayTypeSymbol arrayType && IsCollectionOrListInterface(lhsType))
             {
@@ -649,7 +649,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
             && rightNode is AssignmentExpressionSyntax chainedRight
             && chainedRight.OperatorToken.Kind() == SyntaxKind.EqualsToken)
         {
-            var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
+            var lhsType = context.GetTypeInfo(leftNode).Type;
             if (StructCloneHelper.IsUserDefinedStruct(lhsType))
             {
                 return ExpandChainedStructAssignment(node, chainedRight, context);
@@ -660,9 +660,9 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // to preserve C# value-type copy semantics.
         if (op == "=" && context.SemanticModel != null)
         {
-            var rhsTypeForClone = context.SemanticModel.GetTypeInfo(rightNode).Type;
+            var rhsTypeForClone = context.GetTypeInfo(rightNode).Type;
             rightStr = StructCloneHelper.CloneStructValueIfNeeded(rightNode, rightStr, rhsTypeForClone, context);
-            var lhsType = context.SemanticModel.GetTypeInfo(leftNode).Type;
+            var lhsType = context.GetTypeInfo(leftNode).Type;
             rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsType, context);
 
             // Stream → Iterable/Collection: when LHS is IEnumerable/ICollection/IList (Java Iterable/Collection)
@@ -694,7 +694,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
             || assign.Kind() != SyntaxKind.SimpleAssignmentExpression)
             return false;
 
-        return context.SemanticModel?.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol;
+        return context.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol;
     }
 
     private static bool IsInExplicitSetterMethod(IPropertySymbol property, ConversionContext context)
@@ -745,7 +745,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         {
             // MemberAccess property LHS: receiver.Prop = rhs
             if (assign.Left is MemberAccessExpressionSyntax ma
-                && context.SemanticModel?.GetSymbolInfo(ma).Symbol is IPropertySymbol maProp)
+                && context.GetSymbolInfo(ma).Symbol is IPropertySymbol maProp)
             {
                 var tmpName = HoistChainedPropertyAssignment(assign.Right, context);
                 var receiver = facade.Transform(ma.Expression, context);
@@ -756,7 +756,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
             // Bare identifier property LHS: Prop = rhs (inside instance method)
             if (assign.Left is IdentifierNameSyntax id
-                && context.SemanticModel?.GetSymbolInfo(id).Symbol is IPropertySymbol idProp)
+                && context.GetSymbolInfo(id).Symbol is IPropertySymbol idProp)
             {
                 var tmpName = HoistChainedPropertyAssignment(assign.Right, context);
                 string setter = "set" + char.ToUpperInvariant(idProp.Name[0]) + idProp.Name[1..];
@@ -770,7 +770,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var tmpVal = facade.Transform(expr, context);
         if (context.SemanticModel != null)
         {
-            var exprType = context.SemanticModel.GetTypeInfo(expr).Type;
+            var exprType = context.GetTypeInfo(expr).Type;
             tmpVal = StructCloneHelper.CloneStructValueIfNeeded(expr, tmpVal, exprType, context);
         }
         // Optimization: null literal doesn't need a temp variable — use it inline.
@@ -804,7 +804,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Case 1: Bare identifier (e.g. LeftTop += rhs; inside instance method/property accessor)
         if (leftNode is IdentifierNameSyntax)
         {
-            var lhsSymbol = context.SemanticModel?.GetSymbolInfo(leftNode).Symbol;
+            var lhsSymbol = context.GetSymbolInfo(leftNode).Symbol;
             if (lhsSymbol is IPropertySymbol bareProp)
             {
                 string getter = "get" + char.ToUpperInvariant(bareProp.Name[0]) + bareProp.Name[1..];
@@ -819,7 +819,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Case 2: Member access (e.g. obj.LeftTop += rhs  or  this.field += rhs)
         if (leftNode is MemberAccessExpressionSyntax ma)
         {
-            var memberSymbol = context.SemanticModel?.GetSymbolInfo(leftNode).Symbol;
+            var memberSymbol = context.GetSymbolInfo(leftNode).Symbol;
             var receiverExpr = ma.Expression;
             string memberName = ConversionContext.EscapeJavaKeyword(ma.Name.Identifier.Text);
 
@@ -917,12 +917,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
     {
         if (context.SemanticModel == null) return null;
 
-        var leftType = context.SemanticModel.GetTypeInfo(node.Left).Type;
+        var leftType = context.GetTypeInfo(node.Left).Type;
         INamedTypeSymbol? leftNamed = leftType as INamedTypeSymbol;
         // If GetTypeInfo fails, try to get the type from the member symbol (property or field)
         if ((leftNamed == null || leftNamed.TypeKind == TypeKind.Error)
             && node.Left is MemberAccessExpressionSyntax leftMa
-            && context.SemanticModel?.GetSymbolInfo(leftMa).Symbol is {} leftSym)
+            && context.GetSymbolInfo(leftMa).Symbol is {} leftSym)
         {
             leftNamed = leftSym switch
             {
@@ -1196,7 +1196,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         var sourceNode = current.Right;
         var sourceStr = facade.Transform(sourceNode, context);
-        var sourceType = context.SemanticModel?.GetTypeInfo(sourceNode).Type;
+        var sourceType = context.GetTypeInfo(sourceNode).Type;
         sourceStr = StructCloneHelper.CloneStructValueIfNeeded(sourceNode, sourceStr, sourceType, context);
 
         var tmpName = $"_structCopy{Interlocked.Increment(ref _structCopyCounter)}";
@@ -1207,14 +1207,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
         {
             var (targetNode, targetStr) = targets[i];
             var rhsStr = $"{tmpName}.clone()";
-            var lhsType = context.SemanticModel?.GetTypeInfo(targetNode).Type;
+            var lhsType = context.GetTypeInfo(targetNode).Type;
             rhsStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, rhsStr, lhsType, context);
             context.AddPreStatement($"{targetStr} = {rhsStr}");
         }
 
         var firstTarget = targets[0].transformed;
         var firstRhs = $"{tmpName}.clone()";
-        var firstLhsType = context.SemanticModel?.GetTypeInfo(targets[0].node).Type;
+        var firstLhsType = context.GetTypeInfo(targets[0].node).Type;
         firstRhs = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, firstRhs, firstLhsType, context);
         return $"{firstTarget} = {firstRhs}";
     }

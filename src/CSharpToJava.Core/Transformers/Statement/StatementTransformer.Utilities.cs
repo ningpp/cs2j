@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -157,7 +157,7 @@ public partial class StatementTransformer
             {
                 if (node is IdentifierNameSyntax id && !paramNames.Contains(id.Identifier.Text))
                 {
-                    var symbol = context.SemanticModel.GetSymbolInfo(id).Symbol;
+                    var symbol = context.GetSymbolInfo(id).Symbol;
                     if (symbol is ILocalSymbol local && !seenSymbols.Contains(local))
                     {
                         // Confirm the declaration is outside the lambda span
@@ -229,7 +229,7 @@ public partial class StatementTransformer
                 if (targetId.Identifier.Text != varName) continue;
 
                 // Verify it refers to the same local symbol
-                var refSymbol = context.SemanticModel.GetSymbolInfo(targetId).Symbol;
+                var refSymbol = context.GetSymbolInfo(targetId).Symbol;
                 if (refSymbol is ILocalSymbol refLocal &&
                     SymbolEqualityComparer.Default.Equals(refLocal, localSymbol))
                 {

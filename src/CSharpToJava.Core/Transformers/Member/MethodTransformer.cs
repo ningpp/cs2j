@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -29,7 +29,7 @@ public class MethodTransformer : IMemberTransformer
         if (isPartialDeclaration)
             return null!;
 
-        var methodInfo = context.SemanticModel?.GetDeclaredSymbol(methodDecl);
+        var methodInfo = context.GetDeclaredSymbol(methodDecl) as IMethodSymbol;
         context.EnterMethod(methodInfo);
 
         var javaMethod = new JavaMethodDeclaration
@@ -603,21 +603,18 @@ public class MethodTransformer : IMemberTransformer
             return "void";
         }
 
-        var typeInfo = context.SemanticModel?.GetTypeInfo(methodDecl.ReturnType);
-        if (typeInfo.HasValue && typeInfo.Value.Type != null)
+        var typeInfo = context.GetTypeInfo(methodDecl.ReturnType);
+        if (typeInfo.Type != null)
         {
-            // 处理 async 方法
             if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
             {
                 context.IsInAsyncContext = true;
-                var returnType = context.MapType(typeInfo.Value.Type);
+                var returnType = context.MapType(typeInfo.Type);
 
-                // 如果是 Task<T>，返回 CompletableFuture<T>
-                // 如果是 Task，返回 CompletableFuture<Void>
                 return returnType.StartsWith("CompletableFuture") ? returnType : $"CompletableFuture<{returnType}>";
             }
 
-            return context.MapType(typeInfo.Value.Type);
+            return context.MapType(typeInfo.Type);
         }
 
         // Semantic model failed to resolve the type — fall back to the syntax text
@@ -626,12 +623,9 @@ public class MethodTransformer : IMemberTransformer
 
     private JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
-        var typeInfo = context.SemanticModel?.GetTypeInfo(param.Type!);
-        // Use the semantic type when it's valid; fall back to syntax-based mapping when the
-        // semantic model returns an IErrorTypeSymbol (e.g. unresolved project references) so
-        // that primitive types like 'double' still map to the correct primitive holder type.
-        var javaType = typeInfo.HasValue && typeInfo.Value.Type != null && typeInfo.Value.Type is not IErrorTypeSymbol
-            ? context.MapType(typeInfo.Value.Type)
+        var typeInfo = context.GetTypeInfo(param.Type!);
+        var javaType = typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol
+            ? context.MapType(typeInfo.Type)
             : context.MapTypeFromSyntax(param.Type!);
 
         var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
@@ -774,7 +768,7 @@ public class MethodTransformer : IMemberTransformer
             if (yieldStmt.Expression == null)
                 continue;
 
-            var exprType = context.SemanticModel.GetTypeInfo(yieldStmt.Expression).Type;
+            var exprType = context.GetTypeInfo(yieldStmt.Expression).Type;
             if (exprType != null && exprType.IsAnonymousType)
             {
                 // MapType checks the synthesized record store and returns the
@@ -835,7 +829,7 @@ public class MethodTransformer : IMemberTransformer
         if (context.SemanticModel == null)
             return exprBody;
 
-        var returnTypeInfo = context.SemanticModel.GetTypeInfo(returnTypeSyntax).Type;
+        var returnTypeInfo = context.GetTypeInfo(returnTypeSyntax).Type;
         if (returnTypeInfo is not INamedTypeSymbol returnNamed)
             return exprBody;
 
@@ -846,7 +840,7 @@ public class MethodTransformer : IMemberTransformer
         if (!returnsIterableLike)
             return exprBody;
 
-        var exprType = context.SemanticModel.GetTypeInfo(csExpression).Type;
+        var exprType = context.GetTypeInfo(csExpression).Type;
 
         // Case 1: Expression returns an array. Return a backed list view so IList<T>
         // semantics preserve indexed writes to the original array.
