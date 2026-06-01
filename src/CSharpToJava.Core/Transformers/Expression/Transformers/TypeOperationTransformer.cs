@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -134,7 +134,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 return new JavaRawExpression(Transform(node, context));
             return new JavaMemberAccessExpression
             {
-                Target = new JavaIdentifierExpression { Name = typeName },
+                Target = new JavaIdentifierExpression { Name = ToRuntimeTypeForClassLiteral(typeName) },
                 MemberName = "class"
             };
         }
@@ -748,9 +748,25 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         return ExpressionTransformerHelpers.BoxJavaPrimitiveType(runtimeType);
     }
 
+    private static string ToRuntimeTypeForClassLiteral(string mappedType)
+    {
+        // Java class literals cannot have parameterized types (e.g. List<String>.class is invalid).
+        // Only raw types are allowed: List.class
+        // Array types must preserve brackets: List<String>[] → List[].class
+        // Primitive types must NOT be boxed: typeof(int) → int.class (not Integer.class)
+
+        var bracketIdx = mappedType.IndexOf('[');
+        var coreType = bracketIdx >= 0 ? mappedType[..bracketIdx] : mappedType;
+        var arraySuffix = bracketIdx >= 0 ? mappedType[bracketIdx..] : "";
+
+        var lt = coreType.IndexOf('<');
+        var rawType = lt >= 0 ? coreType[..lt] : coreType;
+
+        return rawType + arraySuffix;
+    }
+
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
     {
-        // Get the type
         var typeInfo = context.GetTypeInfo(node.Type);
         string typeName;
         if (typeInfo.Type != null)
@@ -762,11 +778,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             typeName = context.MapTypeFromSyntax(node.Type);
         }
 
-        // Warn if type parameter (subject to type erasure in Java)
-        if (typeInfo.Type is ITypeParameterSymbol)
-            return $"/* WARNING: type parameter erased at runtime; T.class may fail */ {typeName}.class";
-        // C#: typeof(Type)  → Java: Type.class
-        return $"{typeName}.class";
+        if (typeInfo.Type is ITypeParameterSymbol typeParam)
+        {
+            if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
+                return runtimeClassParam;
+            return $"/* WARNING: type parameter erased at runtime; T.class may fail */ {ToRuntimeTypeForClassLiteral(typeName)}.class";
+        }
+        return $"{ToRuntimeTypeForClassLiteral(typeName)}.class";
     }
 
     private string TransformDefault(DefaultExpressionSyntax node, ConversionContext context)
