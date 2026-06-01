@@ -285,6 +285,25 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (targetSymbol?.SpecialType == SpecialType.System_Byte)
             return $"{expression} & 0xFF";
 
+        // User-defined conversion operators (implicit/explicit operator)
+        // e.g. (string)qilLiteral where QilLiteral defines "implicit operator string"
+        //      → QilLiteral.toSring(qilLiteral)
+        // e.g. (Temperature)42.0 where Temperature defines "explicit operator Temperature(double)"
+        //      → Temperature.toTemperature(42.0)
+        if (context.SemanticModel != null && targetSymbol != null)
+        {
+            var conversion = context.SemanticModel.ClassifyConversion(
+                node.Expression, targetSymbol);
+            if (conversion.IsUserDefined && conversion.MethodSymbol != null)
+            {
+                var method = conversion.MethodSymbol;
+                var javaContainingType = context.MapType(method.ContainingType);
+                var javaTargetType = context.MapType(method.ReturnType);
+                var javaMethodName = "to" + char.ToUpper(javaTargetType[0]) + javaTargetType[1..];
+                return $"{javaContainingType}.{javaMethodName}({expression})";
+            }
+        }
+
         return $"({targetType})({expression})";
     }
 

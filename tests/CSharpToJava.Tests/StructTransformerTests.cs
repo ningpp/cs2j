@@ -1436,6 +1436,120 @@ public class Program
         Assert.Contains("left.setValue(_chainVal", code, StringComparison.Ordinal);
     }
 
+    // ── User-defined conversion operator call-sites ────────────────────────────
+
+    [Fact]
+    public void ExplicitCast_ImplicitOperator_CallsStaticMethod()
+    {
+        var result = Convert(@"
+public class Wrapper
+{
+    private string _value;
+    public Wrapper(string v) { _value = v; }
+    public static implicit operator string(Wrapper w) => w._value;
+}
+public class User
+{
+    public string Test(Wrapper w)
+    {
+        return (string)w;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("Wrapper.toString(w)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(String)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitCast_ExplicitOperator_CallsStaticMethod()
+    {
+        var result = Convert(@"
+public class Temperature
+{
+    public double Celsius;
+    public Temperature(double c) { Celsius = c; }
+    public static explicit operator Temperature(double d) => new Temperature(d);
+}
+public class User
+{
+    public Temperature Test(double d)
+    {
+        return (Temperature)d;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("Temperature.toTemperature(d)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(Temperature)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitCast_NestedCastWithImplicitOperator()
+    {
+        var result = Convert(@"
+public class Base {}
+public class Derived : Base
+{
+    public static implicit operator string(Derived d) => d.ToString();
+}
+public class User
+{
+    public string Test(Base b)
+    {
+        return (string)(Derived)b;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode;
+        // The inner cast (Derived)b produces a reference downcast
+        Assert.Contains("(Derived)", code, StringComparison.Ordinal);
+        // The outer cast (string) triggers the implicit operator → toString
+        Assert.Contains("Derived.toString", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("(String)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitCast_ImplicitOperatorOnStruct_CallsStaticMethod()
+    {
+        var result = Convert(@"
+public struct Temperature
+{
+    public double Celsius;
+    public Temperature(double c) { Celsius = c; }
+    public static implicit operator double(Temperature t) => t.Celsius;
+}
+public class User
+{
+    public double Test(Temperature t)
+    {
+        return (double)t;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("Temperature.toDouble(t)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(double)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitCast_IntToInt_StillUsesJavaStyleCast()
+    {
+        var result = Convert(@"
+public class User
+{
+    public int Test(double d)
+    {
+        return (int)d;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        // Numeric cast stays as Java-style cast
+        Assert.Contains("(int)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
