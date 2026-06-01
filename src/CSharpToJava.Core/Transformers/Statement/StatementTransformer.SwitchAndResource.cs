@@ -286,19 +286,12 @@ public partial class StatementTransformer
             {
                 foreach (var variable in currentStmt.Declaration.Variables)
                 {
-                    var declaredResourceType = GetDeclaredResourceType(currentStmt, variable, context);
-                    var javaType = GetResourceJavaType(currentStmt, variable, declaredResourceType, context);
-                    var resourceInit = variable.Initializer != null
-                        ? AdaptResourceInitializer(
-                            variable.Initializer.Value,
-                            exprTransformer.Transform(variable.Initializer.Value, context),
-                            declaredResourceType,
-                            javaType,
-                            context)
-                        : string.Empty;
-                    var init = variable.Initializer != null ? $" = {resourceInit}" : "";
-                    resources.Add($"{javaType} {variable.Identifier}{init}");
+                    resources.Add(BuildUsingVariableResource(currentStmt.Declaration.Type, variable, context));
                 }
+            }
+            else if (currentStmt.Expression != null)
+            {
+                resources.Add(BuildUsingExpressionResource(currentStmt.Expression, context));
             }
 
             if (currentStmt.Statement is UsingStatementSyntax innerUsing)
@@ -320,13 +313,61 @@ public partial class StatementTransformer
         return new JavaStatementNode($"try ({string.Join("; ", resources)}) {body}");
     }
 
+    private static List<string> BuildUsingDeclarationResources(
+        LocalDeclarationStatementSyntax stmt,
+        ConversionContext context)
+    {
+        return stmt.Declaration.Variables
+            .Select(variable => BuildUsingVariableResource(stmt.Declaration.Type, variable, context))
+            .ToList();
+    }
+
+    private static string BuildUsingVariableResource(
+        TypeSyntax declaredTypeSyntax,
+        VariableDeclaratorSyntax variable,
+        ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var declaredResourceType = GetDeclaredResourceType(declaredTypeSyntax, variable, context);
+        var javaType = GetResourceJavaType(variable, declaredResourceType, context);
+        var resourceInit = variable.Initializer != null
+            ? AdaptResourceInitializer(
+                variable.Initializer.Value,
+                exprTransformer.Transform(variable.Initializer.Value, context),
+                declaredResourceType,
+                javaType,
+                context)
+            : string.Empty;
+        var init = variable.Initializer != null ? $" = {resourceInit}" : "";
+        return $"{javaType} {ConversionContext.EscapeJavaKeyword(variable.Identifier.Text)}{init}";
+    }
+
+    private static string BuildUsingExpressionResource(ExpressionSyntax resourceExpression, ConversionContext context)
+    {
+        if (resourceExpression is IdentifierNameSyntax identifier)
+            return ConversionContext.EscapeJavaKeyword(identifier.Identifier.Text);
+
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var expressionType = context.GetTypeInfo(resourceExpression).Type;
+        var javaType = GetExpressionResourceJavaType(resourceExpression, expressionType, context);
+        var transformedExpression = exprTransformer.Transform(resourceExpression, context);
+        var resourceInit = AdaptResourceInitializer(
+            resourceExpression,
+            transformedExpression,
+            expressionType,
+            javaType,
+            context);
+
+        var resourceName = context.GenerateSyntheticName("_usingResource");
+        return $"{javaType} {resourceName} = {resourceInit}";
+    }
+
     /// <summary>
     /// Determines the Java type for a using-statement resource variable.
     /// When the variable is initialized by a method call whose mapped Java return type
     /// differs from the C# type mapping, the Java return type is used.
     /// </summary>
     private static string GetResourceJavaType(
-        UsingStatementSyntax stmt,
         VariableDeclaratorSyntax variable,
         ITypeSymbol? declaredResourceType,
         ConversionContext context)
@@ -358,8 +399,42 @@ public partial class StatementTransformer
             : "AutoCloseable";
     }
 
+    private static string GetExpressionResourceJavaType(
+        ExpressionSyntax expression,
+        ITypeSymbol? expressionType,
+        ConversionContext context)
+    {
+        if (IsSystemIoStream(expressionType))
+        {
+            if (IsFileOpenInvocation(expression, context))
+            {
+                context.AddImport("io.github.ningpp.compat.StreamWrapper");
+                return "StreamWrapper";
+            }
+        }
+
+        if (expression is InvocationExpressionSyntax invocation)
+        {
+            var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (methodSymbol != null)
+            {
+                var mappedType = ResolveMethodReturnJavaType(methodSymbol);
+                if (mappedType != null)
+                {
+                    AddResourceTypeImport(mappedType, context);
+                    return mappedType;
+                }
+            }
+        }
+
+        if (expressionType != null && expressionType.TypeKind != TypeKind.Error)
+            return context.MapType(expressionType);
+
+        return "AutoCloseable";
+    }
+
     private static ITypeSymbol? GetDeclaredResourceType(
-        UsingStatementSyntax stmt,
+        TypeSyntax declaredTypeSyntax,
         VariableDeclaratorSyntax variable,
         ConversionContext context)
     {
@@ -369,7 +444,7 @@ public partial class StatementTransformer
             return local.Type;
         }
 
-        var typeInfo = context.GetTypeInfo(stmt.Declaration!.Type);
+        var typeInfo = context.GetTypeInfo(declaredTypeSyntax);
         return typeInfo.Type is { TypeKind: not TypeKind.Error } type ? type : null;
     }
 

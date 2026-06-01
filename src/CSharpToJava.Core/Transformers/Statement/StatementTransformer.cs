@@ -140,8 +140,19 @@ public partial class StatementTransformer : IStatementTransformer
     {
         var results = new List<string>();
 
-        foreach (var statement in statements)
+        for (var i = 0; i < statements.Count; i++)
         {
+            var statement = statements[i];
+            if (statement is LocalDeclarationStatementSyntax usingDeclaration
+                && IsUsingDeclaration(usingDeclaration))
+            {
+                var resources = CollectConsecutiveUsingDeclarationResources(statements, ref i, context);
+                var bodyStatements = TransformStatementsFrom(statements, i + 1, context);
+                var body = string.Join("\n        ", bodyStatements);
+                results.Add($"try ({string.Join("; ", resources)}) {{\n        {body}\n    }}");
+                break;
+            }
+
             var result = Transform(statement, context);
             if (result is JavaMemberCollection collection)
             {
@@ -187,8 +198,20 @@ public partial class StatementTransformer : IStatementTransformer
     {
         var results = new List<Java.JavaStatement>();
 
-        foreach (var statement in statements)
+        for (var i = 0; i < statements.Count; i++)
         {
+            var statement = statements[i];
+            if (statement is LocalDeclarationStatementSyntax usingDeclaration
+                && IsUsingDeclaration(usingDeclaration))
+            {
+                var resources = CollectConsecutiveUsingDeclarationResources(statements, ref i, context);
+                var bodyStatements = TransformStatementsFrom(statements, i + 1, context);
+                var body = string.Join("\n        ", bodyStatements);
+                results.Add(new Java.JavaRawStatement(
+                    $"try ({string.Join("; ", resources)}) {{\n        {body}\n    }}"));
+                break;
+            }
+
             var result = Transform(statement, context);
 
             if (result is JavaMemberCollection collection)
@@ -260,5 +283,84 @@ public partial class StatementTransformer : IStatementTransformer
             or BreakStatementSyntax
             or ContinueStatementSyntax
             or GotoStatementSyntax;
+
+    private static bool IsUsingDeclaration(LocalDeclarationStatementSyntax statement)
+        => statement.UsingKeyword.IsKind(SyntaxKind.UsingKeyword);
+
+    private static List<string> CollectConsecutiveUsingDeclarationResources(
+        SyntaxList<StatementSyntax> statements,
+        ref int index,
+        ConversionContext context)
+    {
+        var resources = new List<string>();
+        var currentIndex = index;
+
+        while (currentIndex < statements.Count
+            && statements[currentIndex] is LocalDeclarationStatementSyntax usingDeclaration
+            && IsUsingDeclaration(usingDeclaration))
+        {
+            resources.AddRange(BuildUsingDeclarationResources(usingDeclaration, context));
+            currentIndex++;
+        }
+
+        index = currentIndex - 1;
+        return resources;
+    }
+
+    private List<string> TransformStatementsFrom(
+        SyntaxList<StatementSyntax> statements,
+        int startIndex,
+        ConversionContext context)
+    {
+        var results = new List<string>();
+
+        for (var i = startIndex; i < statements.Count; i++)
+        {
+            var statement = statements[i];
+            if (statement is LocalDeclarationStatementSyntax usingDeclaration
+                && IsUsingDeclaration(usingDeclaration))
+            {
+                var resources = CollectConsecutiveUsingDeclarationResources(statements, ref i, context);
+                var bodyStatements = TransformStatementsFrom(statements, i + 1, context);
+                var body = string.Join("\n        ", bodyStatements);
+                results.Add($"try ({string.Join("; ", resources)}) {{\n        {body}\n    }}");
+                break;
+            }
+
+            var result = Transform(statement, context);
+            if (result is JavaMemberCollection collection)
+            {
+                foreach (var member in collection.Members)
+                {
+                    var memberText = member.ToString("");
+                    if (ShouldEmitStatementText(memberText))
+                    {
+                        results.Add(AttachStatementComments(statement, memberText));
+                    }
+                }
+            }
+            else if (result is Java.JavaStatement javaStmt)
+            {
+                var stmtText = javaStmt.ToString("");
+                if (ShouldEmitStatementText(stmtText))
+                {
+                    results.Add(AttachStatementComments(statement, stmtText));
+                }
+            }
+            else if (result is JavaStatementNode stmt)
+            {
+                var stmtText = stmt.ToString("");
+                if (ShouldEmitStatementText(stmtText))
+                {
+                    results.Add(AttachStatementComments(statement, stmtText));
+                }
+            }
+
+            if (IsUnconditionalJump(statement))
+                break;
+        }
+
+        return results;
+    }
 
 }
