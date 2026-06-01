@@ -749,21 +749,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     }
 
     private static string ToRuntimeTypeForClassLiteral(string mappedType)
-    {
-        // Java class literals cannot have parameterized types (e.g. List<String>.class is invalid).
-        // Only raw types are allowed: List.class
-        // Array types must preserve brackets: List<String>[] → List[].class
-        // Primitive types must NOT be boxed: typeof(int) → int.class (not Integer.class)
-
-        var bracketIdx = mappedType.IndexOf('[');
-        var coreType = bracketIdx >= 0 ? mappedType[..bracketIdx] : mappedType;
-        var arraySuffix = bracketIdx >= 0 ? mappedType[bracketIdx..] : "";
-
-        var lt = coreType.IndexOf('<');
-        var rawType = lt >= 0 ? coreType[..lt] : coreType;
-
-        return rawType + arraySuffix;
-    }
+        => ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(mappedType);
 
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
     {

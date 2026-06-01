@@ -2,7 +2,9 @@ package io.github.ningpp.compat;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -60,6 +62,24 @@ public final class ReflectionHelper {
             }
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T createDelegate(Method method, Class<T> delegateType) {
+        InvocationHandler handler = (proxy, m, args) -> method.invoke(null, args);
+        return (T) Proxy.newProxyInstance(
+            delegateType.getClassLoader(),
+            new Class<?>[] { delegateType },
+            handler);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T createDelegate(Method method, Object target, Class<T> delegateType) {
+        InvocationHandler handler = (proxy, m, args) -> method.invoke(target, args);
+        return (T) Proxy.newProxyInstance(
+            delegateType.getClassLoader(),
+            new Class<?>[] { delegateType },
+            handler);
     }
 
     @SuppressWarnings("unchecked")

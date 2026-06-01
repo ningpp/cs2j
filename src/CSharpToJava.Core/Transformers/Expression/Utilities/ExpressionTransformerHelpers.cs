@@ -455,6 +455,16 @@ public static class ExpressionTransformerHelpers
     public static string MaskByte(string expr, bool isByteTarget)
         => isByteTarget ? $"({expr}) & 0xFF" : expr;
 
+    public static string ToRuntimeTypeForClassLiteral(string mappedType)
+    {
+        var bracketIdx = mappedType.IndexOf('[');
+        var coreType = bracketIdx >= 0 ? mappedType[..bracketIdx] : mappedType;
+        var arraySuffix = bracketIdx >= 0 ? mappedType[bracketIdx..] : "";
+        var lt = coreType.IndexOf('<');
+        var rawType = lt >= 0 ? coreType[..lt] : coreType;
+        return rawType + arraySuffix;
+    }
+
     /// <summary>
     /// Formats an enum member access using a single symbol-based rule shared across
     /// expression contexts and switch labels.

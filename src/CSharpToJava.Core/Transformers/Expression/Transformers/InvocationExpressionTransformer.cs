@@ -120,6 +120,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var symInfo = context.GetSymbolInfo(invocation);
                 if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke })
                     return new JavaRawExpression(Transform(node, context));
+
+                // Fallback for System.Delegate / System.MulticastDelegate typed variables
+                // (e.g. from MethodInfo.CreateDelegate(Type) which returns Delegate)
+                var irBareTypeInfo = context.GetTypeInfo(bareIdent);
+                if (irBareTypeInfo.Type is INamedTypeSymbol irBareDelType
+                    && (irBareDelType.ToDisplayString() == "System.Delegate"
+                        || irBareDelType.ToDisplayString() == "System.MulticastDelegate"
+                        || irBareDelType.TypeKind == TypeKind.Delegate))
+                    return new JavaRawExpression(Transform(node, context));
             }
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, invocation, context);
@@ -268,6 +277,33 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     // e.g. Sequence(m) where Sequence is a Func<int,double> property → getSequence().apply(m)
                     var delegateReceiver = facade.Transform(bareIdent, context);
                     return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
+                }
+
+                // Fallback: the semantic model may not resolve DelegateInvoke when the variable
+                // type is System.Delegate (e.g. from MethodInfo.CreateDelegate(Type) which returns
+                // Delegate, not the concrete delegate type). Check the expression type directly.
+                var bareExprTypeInfo = context.GetTypeInfo(bareIdent);
+                if (bareExprTypeInfo.Type is INamedTypeSymbol bareDelegateType
+                    && (bareDelegateType.ToDisplayString() == "System.Delegate"
+                        || bareDelegateType.ToDisplayString() == "System.MulticastDelegate"
+                        || bareDelegateType.TypeKind == TypeKind.Delegate))
+                {
+                    IMethodSymbol? bareInvokeMethod = bareDelegateType.TypeKind == TypeKind.Delegate
+                        ? bareDelegateType.DelegateInvokeMethod
+                        : null;
+                    string bareJavaMethod = bareInvokeMethod != null
+                        ? (context.TypeMappings.MapMethod(bareDelegateType.ToDisplayString(), "Invoke")
+                            ?? InferSamMethodName(bareInvokeMethod))
+                        : InferSamMethodName(
+                            bareExprTypeInfo.ConvertedType?.TypeKind == TypeKind.Delegate
+                                && bareExprTypeInfo.ConvertedType is INamedTypeSymbol convertedDel
+                                && convertedDel.DelegateInvokeMethod != null
+                                ? convertedDel.DelegateInvokeMethod.ReturnsVoid
+                                : node.Parent is ExpressionStatementSyntax,
+                            node.ArgumentList.Arguments.Count);
+                    var bareDelReceiver = facade.Transform(bareIdent, context);
+                    var bareDelArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    return $"{bareDelReceiver}.{bareJavaMethod}({bareDelArgs})";
                 }
             }
 
@@ -745,7 +781,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (memberAccess.Name is GenericNameSyntax genericCreateDelegate
                 && genericCreateDelegate.TypeArgumentList.Arguments.Count > 0)
             {
-                var delegateTypeArg = facade.Transform(
+                var delegateTypeArg = ResolveDelegateTypeArg(
                     genericCreateDelegate.TypeArgumentList.Arguments[0], context);
                 if (node.ArgumentList.Arguments.Count == 0)
                 {
@@ -4931,6 +4967,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     private static string InferSamMethodName(IMethodSymbol delegateInvoke) =>
         Type.DelegateTransformer.InferSamMethodName(delegateInvoke.ReturnsVoid, delegateInvoke.Parameters.Length);
 
+    private static string InferSamMethodName(bool returnsVoid, int parameterCount) =>
+        Type.DelegateTransformer.InferSamMethodName(returnsVoid, parameterCount);
+
     private static bool IsReceiverOfType(ExpressionSyntax receiver, string typeName, ConversionContext context)
     {
         var typeInfo = context.GetTypeInfo(receiver);
@@ -4946,6 +4985,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         // Fall back to type info on the receiver expression
         return IsReceiverOfType(expr, "System.Reflection.MethodInfo", context);
+    }
+
+    private static string ResolveDelegateTypeArg(TypeSyntax typeSyntax, ConversionContext context)
+    {
+        var typeInfo = context.GetTypeInfo(typeSyntax);
+        if (typeInfo.Type != null)
+        {
+            var mapped = context.MapType(typeInfo.Type);
+            return ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(mapped);
+        }
+        var mappedFromSyntax = context.MapTypeFromSyntax(typeSyntax);
+        return ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(mappedFromSyntax);
     }
 
     /// <summary>
