@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
@@ -785,24 +785,7 @@ public static class ExpressionTransformerHelpers
     /// <summary>
     /// Checks if a word is a Java keyword.
     /// </summary>
-    public static bool IsJavaKeyword(string word)
-    {
-        return word switch
-        {
-            "abstract" or "assert" or "boolean" or "break" or "byte" or
-            "case" or "catch" or "char" or "class" or "const" or
-            "continue" or "default" or "do" or "double" or "else" or
-            "enum" or "extends" or "final" or "finally" or "float" or
-            "for" or "goto" or "if" or "implements" or "import" or
-            "instanceof" or "int" or "interface" or "long" or "native" or
-            "new" or "package" or "private" or "protected" or "public" or
-            "return" or "short" or "static" or "strictfp" or "super" or
-            "switch" or "synchronized" or "this" or "throw" or "throws" or
-            "transient" or "try" or "void" or "volatile" or "while" or
-            "true" or "false" or "null" => true,
-            _ => false
-        };
-    }
+    public static bool IsJavaKeyword(string word) => Context.JavaNaming.IsJavaKeyword(word);
 
     /// <summary>
     /// Strips ".collect(Collectors.toCollection(() -> new ArrayList<>()))" or similar from a stream expression.

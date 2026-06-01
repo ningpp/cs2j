@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -301,18 +301,10 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
     private static string GetOperatorMethodName(IMethodSymbol operatorSymbol)
     {
-        return operatorSymbol.Name switch
-        {
-            "op_UnaryNegation" => "negate",
-            "op_UnaryPlus" => "plus",
-            "op_LogicalNot" => "not",
-            "op_OnesComplement" => "onesComplement",
-            "op_Increment" => "increment",
-            "op_Decrement" => "decrement",
-            "op_True" => "isTrue",
-            "op_False" => "isFalse",
-            _ => operatorSymbol.Name
-        };
+        return CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
+            .TryGetValue(operatorSymbol.Name, out var name)
+            ? name
+            : operatorSymbol.Name;
     }
 
     private static bool IsInSameCompilationUnit(ConversionContext context, INamedTypeSymbol type)

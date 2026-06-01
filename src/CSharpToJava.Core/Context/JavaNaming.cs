@@ -29,7 +29,8 @@ public static class JavaNaming
             "interface" or "long" or "native" or "new" or "package" or "private" or
             "protected" or "public" or "return" or "short" or "static" or "strictfp" or
             "super" or "switch" or "synchronized" or "this" or "throw" or "throws" or
-            "transient" or "try" or "void" or "volatile" or "while" => true,
+            "transient" or "try" or "void" or "volatile" or "while"
+            or "true" or "false" or "null" => true,
             _ => false
         };
     }

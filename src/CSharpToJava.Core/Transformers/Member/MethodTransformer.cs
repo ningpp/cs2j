@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -591,6 +591,8 @@ public class MethodTransformer : IMemberTransformer
             "op_BitwiseAnd" => "and",
             "op_BitwiseOr" => "or",
             "op_ExclusiveOr" => "xor",
+            "op_True" => "isTrue",
+            "op_False" => "isFalse",
             _ => csharpOperator
         };
     }
