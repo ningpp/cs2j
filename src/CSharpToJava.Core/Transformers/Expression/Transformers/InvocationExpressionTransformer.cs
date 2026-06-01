@@ -633,8 +633,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"System.exit({exitCode})";
         }
 
-        // Debug.Fail / Trace.Fail → throw new RuntimeException
-        // C# Debug.Fail(msg) is a diagnostic assertion failure; Java has no direct equivalent.
+        // Debug.Fail / Trace.Fail → Debug.fail(message)
+        // Use compat Debug class to preserve fail semantics without throwing RuntimeException.
         if (originalMethodName == "Fail"
             && (earlyMethodSymbol?.ContainingType.ToDisplayString() is "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
                 || ExpressionTransformerHelpers.StaticReceiverMatches(
@@ -645,10 +645,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "System.Diagnostics.Debug",
                     "System.Diagnostics.Trace")))
         {
+            context.AddImport("io.github.ningpp.compat.Debug");
             var failArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
             return string.IsNullOrEmpty(failArgs)
-                ? "throw new RuntimeException()"
-                : $"throw new RuntimeException({failArgs})";
+                ? "Debug.fail(\"\")"
+                : $"Debug.fail({failArgs})";
         }
 
         // Debug.Assert / Trace.Assert / Contract.Assert
@@ -727,6 +728,53 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var fieldName = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             context.AddImport("io.github.ningpp.compat.ReflectionHelper");
             return $"ReflectionHelper.getField({receiver}, {fieldName})";
+        }
+
+        // MethodInfo.CreateDelegate(Type) → ReflectionHelper.createDelegate(method, DelegateType.class)
+        // MethodInfo.CreateDelegate(Type, object) → ReflectionHelper.createDelegate(method, target, DelegateType.class)
+        // MethodInfo.CreateDelegate<T>() → ReflectionHelper.createDelegate(method, T.class)
+        // MethodInfo.CreateDelegate<T>(object) → ReflectionHelper.createDelegate(method, target, T.class)
+        // C# MethodInfo.CreateDelegate creates a typed delegate from a reflection method;
+        // Java has no direct equivalent. Bridge via ReflectionHelper using Proxy.
+        if (originalMethodName == "CreateDelegate"
+            && (earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Reflection.MethodInfo"
+                || IsMethodInfoReceiver(memberAccess.Expression, context)))
+        {
+            context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+
+            if (memberAccess.Name is GenericNameSyntax genericCreateDelegate
+                && genericCreateDelegate.TypeArgumentList.Arguments.Count > 0)
+            {
+                var delegateTypeArg = facade.Transform(
+                    genericCreateDelegate.TypeArgumentList.Arguments[0], context);
+                if (node.ArgumentList.Arguments.Count == 0)
+                {
+                    return $"ReflectionHelper.createDelegate({receiver}, {delegateTypeArg}.class)";
+                }
+                if (node.ArgumentList.Arguments.Count == 1)
+                {
+                    var targetArg = facade.Transform(
+                        node.ArgumentList.Arguments[0].Expression, context);
+                    return $"ReflectionHelper.createDelegate({receiver}, {targetArg}, {delegateTypeArg}.class)";
+                }
+            }
+            else
+            {
+                if (node.ArgumentList.Arguments.Count == 1)
+                {
+                    var delegateTypeArg = facade.Transform(
+                        node.ArgumentList.Arguments[0].Expression, context);
+                    return $"ReflectionHelper.createDelegate({receiver}, {delegateTypeArg})";
+                }
+                if (node.ArgumentList.Arguments.Count == 2)
+                {
+                    var delegateTypeArg = facade.Transform(
+                        node.ArgumentList.Arguments[0].Expression, context);
+                    var targetArg = facade.Transform(
+                        node.ArgumentList.Arguments[1].Expression, context);
+                    return $"ReflectionHelper.createDelegate({receiver}, {targetArg}, {delegateTypeArg})";
+                }
+            }
         }
 
         if (originalMethodName == "MoveNext" && node.ArgumentList.Arguments.Count == 0
