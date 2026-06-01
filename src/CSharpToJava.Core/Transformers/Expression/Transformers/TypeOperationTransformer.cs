@@ -308,8 +308,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     }
 
     private static bool IsJavaNumericType(string javaType)
-        => javaType is "int" or "long" or "short" or "byte" or "double" or "float"
-            or "Integer" or "Long" or "Short" or "Byte" or "Double" or "Float";
+        => javaType is "int" or "long" or "short" or "byte" or "double" or "float" or "char"
+            or "Integer" or "Long" or "Short" or "Byte" or "Double" or "Float" or "Character";
 
     private static bool IsExplicitValueEnum(ITypeSymbol? typeSymbol, ConversionContext context)
     {
