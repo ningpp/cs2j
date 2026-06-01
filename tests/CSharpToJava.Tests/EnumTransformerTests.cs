@@ -458,6 +458,170 @@ public class Sample
         Assert.Contains("import java.util.Arrays;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SimpleEnum_ComparisonLessThanOrEqual_UsesOrdinal()
+    {
+        var result = Convert(@"
+public enum LexKind
+{
+    Unknown,
+    Or,
+    And,
+    Eq
+}
+
+public class Sample
+{
+    public bool Check(LexKind kind)
+    {
+        if (kind <= LexKind.And)
+        {
+            return true;
+        }
+        return false;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("kind.ordinal() <= LexKind.And.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("kind <= LexKind.And", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SimpleEnum_ComparisonLessThan_UsesOrdinal()
+    {
+        var result = Convert(@"
+public enum LexKind
+{
+    Unknown,
+    Or,
+    And,
+    Eq
+}
+
+public class Sample
+{
+    public bool Check(LexKind kind)
+    {
+        if (kind < LexKind.And)
+        {
+            return true;
+        }
+        return false;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("kind.ordinal() < LexKind.And.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SimpleEnum_ComparisonGreaterThan_UsesOrdinal()
+    {
+        var result = Convert(@"
+public enum LexKind
+{
+    Unknown,
+    Or,
+    And,
+    Eq
+}
+
+public class Sample
+{
+    public bool Check(LexKind kind)
+    {
+        if (kind > LexKind.And)
+        {
+            return true;
+        }
+        return false;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("kind.ordinal() > LexKind.And.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SimpleEnum_ComparisonGreaterThanOrEqual_UsesOrdinal()
+    {
+        var result = Convert(@"
+public enum LexKind
+{
+    Unknown,
+    Or,
+    And,
+    Eq
+}
+
+public class Sample
+{
+    public bool Check(LexKind kind)
+    {
+        if (kind >= LexKind.And)
+        {
+            return true;
+        }
+        return false;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("kind.ordinal() >= LexKind.And.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitValueEnum_ComparisonLessThanOrEqual_UsesGetValue()
+    {
+        var result = Convert(@"
+public enum Status
+{
+    Open = 10,
+    Closed = 20,
+    Pending = 30
+}
+
+public class Sample
+{
+    public bool Check(Status s)
+    {
+        if (s <= Status.Closed)
+        {
+            return true;
+        }
+        return false;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("s.getValue() <= Status.Closed.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("s <= Status.Closed", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SimpleEnum_Equality_NoOrdinalNeeded()
+    {
+        var result = Convert(@"
+public enum LexKind
+{
+    Unknown,
+    Or,
+    And,
+    Eq
+}
+
+public class Sample
+{
+    public bool Check(LexKind kind)
+    {
+        if (kind == LexKind.And)
+        {
+            return true;
+        }
+        return false;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("kind == LexKind.And", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

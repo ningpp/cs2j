@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -193,6 +193,14 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 return new JavaRawExpression(Transform(node, context));
         }
 
+        // Handle enum comparison operators (<, >, <=, >=) in IR path.
+        if (IsComparisonOp(op) && context.SemanticModel != null)
+        {
+            var enumIR = TryTransformEnumComparisonToIR(binExpr, op, context);
+            if (enumIR != null)
+                return enumIR;
+        }
+
         // Standard binary expression — produce structured IR
         var standardLeftIR = facade.TransformToIR(binExpr.Left, context);
         var standardRightIR = facade.TransformToIR(binExpr.Right, context);
@@ -293,6 +301,15 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Handle enum comparison operators (<, >, <=, >=).
+        // Java enums do not support ordering operators; must compare ordinal() or getValue().
+        if (IsComparisonOp(op) && context.SemanticModel != null)
+        {
+            var enumResult = TryTransformEnumComparison(node, op, context);
+            if (enumResult != null)
+                return enumResult;
+        }
+
         // Standard operator - use Java's built-in operators
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
@@ -323,6 +340,69 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     }
 
     private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
+
+    private static bool IsComparisonOp(string op) => op is "<" or ">" or "<=" or ">=";
+
+    private static string? GetEnumAccessSuffix(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        var enumName = enumType.ToDisplayString();
+        var simpleName = enumType.Name;
+
+        if (context.IsFlagsEnum(enumName) || context.IsFlagsEnum(simpleName))
+            return null;
+
+        if (context.IsExplicitValueEnum(enumName) || context.IsExplicitValueEnum(simpleName))
+            return ".getValue()";
+
+        return ".ordinal()";
+    }
+
+    private string? TryTransformEnumComparison(BinaryExpressionSyntax node, string op, ConversionContext context)
+    {
+        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
+        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
+
+        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
+        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
+
+        if (!leftIsEnum && !rightIsEnum)
+            return null;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+        var right = facade.Transform(node.Right, context);
+
+        if (leftIsEnum)
+        {
+            var suffix = GetEnumAccessSuffix(leftType!, context);
+            if (suffix != null) left = $"{left}{suffix}";
+        }
+
+        if (rightIsEnum)
+        {
+            var suffix = GetEnumAccessSuffix(rightType!, context);
+            if (suffix != null) right = $"{right}{suffix}";
+        }
+
+        left = WrapOperandIfNeeded(node.Left, left, op, true);
+        right = WrapOperandIfNeeded(node.Right, right, op, false);
+
+        return $"{left} {op} {right}";
+    }
+
+    private JavaExpression? TryTransformEnumComparisonToIR(BinaryExpressionSyntax node, string op, ConversionContext context)
+    {
+        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
+        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
+
+        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
+        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
+
+        if (!leftIsEnum && !rightIsEnum)
+            return null;
+
+        return new JavaRawExpression(TryTransformEnumComparison(node, op, context)!);
+    }
 
     /// <summary>
     /// Fallback: when GetSymbolInfo can't resolve the operator method, use operand type info
