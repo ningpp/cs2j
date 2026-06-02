@@ -20,6 +20,8 @@ public class ConversionContext
     private readonly Stack<IMethodSymbol?> _methodStack = new();
     private readonly Stack<Dictionary<string, string>> _runtimeClassFieldsStack = new();
     private readonly Stack<List<FixedPointerInfo>> _fixedScopeStack = new();
+    private readonly Dictionary<string, string> _addressOfScratchSegments = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FixedPointerInfo> _addressOfScratchPointerInfos = new(StringComparer.Ordinal);
     public bool IsInFixedScope => _fixedScopeStack.Count > 0;
     public void PushFixedScope(List<FixedPointerInfo> pointers) => _fixedScopeStack.Push(pointers);
     public void PopFixedScope() => _fixedScopeStack.Pop();
@@ -30,7 +32,28 @@ public class ConversionContext
             var info = scope.FirstOrDefault(p => p.VariableName == varName);
             if (info != null) return info;
         }
-        return null;
+        return _addressOfScratchPointerInfos.TryGetValue(varName, out var scratchInfo) ? scratchInfo : null;
+    }
+
+    public bool TryGetAddressOfScratchSegment(string sourceName, out string segmentName)
+        => _addressOfScratchSegments.TryGetValue(sourceName, out segmentName!);
+
+    public void RegisterAddressOfScratchSegment(
+        string sourceName,
+        string segmentName,
+        FixedPointerInfo pointerInfo)
+    {
+        _addressOfScratchSegments[sourceName] = segmentName;
+        _addressOfScratchPointerInfos[segmentName] = new FixedPointerInfo
+        {
+            VariableName = segmentName,
+            CSharpElementTypeName = pointerInfo.CSharpElementTypeName,
+            ValueLayoutName = pointerInfo.ValueLayoutName,
+            ElementSize = pointerInfo.ElementSize,
+            NeedsUnsignedMask = pointerInfo.NeedsUnsignedMask,
+            MaskSuffix = pointerInfo.MaskSuffix,
+            WriteCast = pointerInfo.WriteCast
+        };
     }
 
     public ConversionOptions Options { get; }
@@ -365,6 +388,8 @@ public class ConversionContext
             .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnly(p))
             .Select(p => p.Name);
         MethodState.Reset(readOnlyParams);
+        _addressOfScratchSegments.Clear();
+        _addressOfScratchPointerInfos.Clear();
     }
 
     public void LeaveMethod()
