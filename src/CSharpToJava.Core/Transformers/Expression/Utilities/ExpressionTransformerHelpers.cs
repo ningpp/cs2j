@@ -457,12 +457,7 @@ public static class ExpressionTransformerHelpers
 
     public static string ToRuntimeTypeForClassLiteral(string mappedType)
     {
-        var bracketIdx = mappedType.IndexOf('[');
-        var coreType = bracketIdx >= 0 ? mappedType[..bracketIdx] : mappedType;
-        var arraySuffix = bracketIdx >= 0 ? mappedType[bracketIdx..] : "";
-        var lt = coreType.IndexOf('<');
-        var rawType = lt >= 0 ? coreType[..lt] : coreType;
-        return rawType + arraySuffix;
+        return StripTypeArguments(mappedType);
     }
 
     /// <summary>

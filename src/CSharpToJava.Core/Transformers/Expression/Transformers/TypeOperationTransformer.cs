@@ -742,10 +742,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
     private static string ToRuntimeTypeForInstanceOf(string mappedType)
     {
-        // Java instanceof does not accept parameterized types (e.g. Set<T>).
-        var lt = mappedType.IndexOf('<');
-        var runtimeType = lt >= 0 ? mappedType[..lt] : mappedType;
-        return ExpressionTransformerHelpers.BoxJavaPrimitiveType(runtimeType);
+        var stripped = ExpressionTransformerHelpers.StripTypeArguments(mappedType);
+        return ExpressionTransformerHelpers.BoxJavaPrimitiveType(stripped);
     }
 
     private static string ToRuntimeTypeForClassLiteral(string mappedType)
