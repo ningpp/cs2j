@@ -74,6 +74,40 @@ public static class FfmHelper
         _ => ""
     };
 
+    public static string GetScratchArrayType(string csharpElementType) => csharpElementType switch
+    {
+        "byte" or "Byte" or "System.Byte" => "byte",
+        "sbyte" or "SByte" or "System.SByte" => "byte",
+        "char" or "Char" or "System.Char" => "char",
+        "short" or "Short" or "System.Int16" => "short",
+        "ushort" or "UInt16" or "System.UInt16" => "char",
+        "int" or "Int32" or "System.Int32" => "int",
+        "uint" or "UInt32" or "System.UInt32" => "int",
+        "long" or "Int64" or "System.Int64" => "long",
+        "ulong" or "UInt64" or "System.UInt64" => "long",
+        "float" or "Single" or "System.Single" => "float",
+        "double" or "Double" or "System.Double" => "double",
+        "bool" or "Boolean" or "System.Boolean" => "byte",
+        _ => "byte"
+    };
+
+    public static string GenerateAddressOfScratchInit(string segmentName, string sourceExpression, FixedPointerInfo info)
+    {
+        var arrayType = GetScratchArrayType(info.CSharpElementTypeName);
+        var valueExpression = IsBooleanElementType(info.CSharpElementTypeName)
+            ? $"{sourceExpression} ? (byte) 1 : (byte) 0"
+            : info.WriteCast.Length > 0
+            ? $"{info.WriteCast} {sourceExpression}"
+            : sourceExpression;
+        return $"MemorySegment {segmentName} = MemorySegment.ofArray(new {arrayType}[] {{ {valueExpression} }});";
+    }
+
+    private static bool IsBooleanElementType(string csharpElementType) => csharpElementType switch
+    {
+        "bool" or "Boolean" or "System.Boolean" => true,
+        _ => false
+    };
+
     public static string GetPointerElementTypeName(TypeSyntax elementType)
     {
         if (elementType is PredefinedTypeSyntax predefined)
