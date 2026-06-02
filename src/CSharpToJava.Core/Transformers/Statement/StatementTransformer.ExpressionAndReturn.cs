@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -204,17 +204,16 @@ public partial class StatementTransformer
 
             if (isDebugOrContract)
             {
-                // Debug.Assert / Contract.Assert/Requires → comment (matching C# Release semantics)
                 var condition = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[0].Expression, context);
                 string comment;
                 if (assertInvoc.ArgumentList.Arguments.Count >= 2)
                 {
                     var message = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[1].Expression, context);
-                    comment = $"/* Debug.Assert({condition}, {message}); */";
+                    comment = $"// Debug.Assert({condition}, {message});";
                 }
                 else
                 {
-                    comment = $"/* Debug.Assert({condition}); */";
+                    comment = $"// Debug.Assert({condition});";
                 }
                 // Drain pre/post statements even for comments (they were emitted during transform)
                 // but discard them since the assert is a no-op
