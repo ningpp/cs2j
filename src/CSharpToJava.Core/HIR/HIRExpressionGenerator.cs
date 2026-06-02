@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java2;
+using CSharpToJava.Core.Utilities;
 using CSharpToJava.Core.Transformers.Member;
 
 namespace CSharpToJava.Core.HIR;
@@ -40,8 +41,51 @@ public class HIRExpressionGenerator
         };
     }
 
-    private IrLiteralExpression GenerateLiteral(LiteralExpressionSyntax node) =>
-        new() { Value = node.Token.Text };
+    private IrLiteralExpression GenerateLiteral(LiteralExpressionSyntax node)
+    {
+        var token = node.Token;
+        return token.Kind() switch
+        {
+            SyntaxKind.CharacterLiteralToken => new IrLiteralExpression { Value = TransformCharacterLiteral(node) },
+            SyntaxKind.StringLiteralToken => new IrLiteralExpression { Value = TransformStringLiteral(node) },
+            _ => new IrLiteralExpression { Value = token.Text },
+        };
+    }
+
+    private static string TransformCharacterLiteral(LiteralExpressionSyntax node)
+    {
+        var value = node.Token.ValueText;
+        if (value.Length == 1)
+        {
+            char c = value[0];
+            return c switch
+            {
+                '\n' => "'\\n'",
+                '\r' => "'\\r'",
+                '\t' => "'\\t'",
+                '\0' => "'\\0'",
+                '\b' => "'\\b'",
+                '\f' => "'\\f'",
+                '\\' => "'\\\\'",
+                '\'' => "'\\''",
+                _ when c < 0x20 => $"'\\u{((int)c):X4}'",
+                _ => $"'{c}'",
+            };
+        }
+        return node.Token.Text;
+    }
+
+    private static string TransformStringLiteral(LiteralExpressionSyntax node)
+    {
+        var token = node.Token;
+        if (token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken) ||
+            token.IsKind(SyntaxKind.SingleLineRawStringLiteralToken))
+        {
+            return token.Text;
+        }
+        var escaped = StringEscapeHelper.EscapeJavaString(token.ValueText);
+        return "\"" + escaped + "\"";
+    }
 
     private IrIdentifierExpression GenerateIdentifier(IdentifierNameSyntax node)
     {

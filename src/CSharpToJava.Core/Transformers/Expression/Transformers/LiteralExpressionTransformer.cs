@@ -154,7 +154,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
                 '\\' => "'\\\\'",
                 '\'' => "'\\''",
                 _ when c < 0x20 => $"'\\u{((int)c):X4}'",
-                _ => node.Token.Text
+                _ => $"'{c}'"
             };
         }
         return node.Token.Text;
