@@ -459,6 +459,48 @@ unsafe class Test {
         Assert.DoesNotContain("unsafe", result.GeneratedCode);
     }
 
+    [Fact]
+    public void UnsafeMethod_AddressOfIntLocal_AsPointerArgument_UsesMemorySegmentScratch()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void Fill(int* p) {
+        *p = 42;
+    }
+
+    void M() {
+        int tmp = 0;
+        Fill(&tmp);
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("MemorySegment _addr_tmp", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MemorySegment.ofArray(new int[] { tmp })", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Fill(_addr_tmp)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("C# addressof", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnsafeMethod_AddressOfByteLocal_AsPointerArgument_UsesByteArrayScratch()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void Fill(byte* p) {
+        *p = 255;
+    }
+
+    void M() {
+        byte tmp = 0;
+        Fill(&tmp);
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("MemorySegment _addr_tmp", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MemorySegment.ofArray(new byte[] { tmp })", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Fill(_addr_tmp)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("C# addressof", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
