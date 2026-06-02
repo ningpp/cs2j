@@ -476,7 +476,7 @@ unsafe class Test {
         Assert.True(result.Success);
         Assert.Contains("MemorySegment _addr_tmp", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("MemorySegment.ofArray(new int[] { tmp })", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Fill(_addr_tmp)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("fill(_addr_tmp)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("C# addressof", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -496,8 +496,8 @@ unsafe class Test {
 }");
         Assert.True(result.Success);
         Assert.Contains("MemorySegment _addr_tmp", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("MemorySegment.ofArray(new byte[] { tmp })", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Fill(_addr_tmp)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MemorySegment.ofArray(new byte[] { (byte) tmp })", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("fill(_addr_tmp)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("C# addressof", result.GeneratedCode, StringComparison.Ordinal);
     }
 

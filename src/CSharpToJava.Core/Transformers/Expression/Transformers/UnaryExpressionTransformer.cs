@@ -325,8 +325,87 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             return operand;
         }
 
+        if (TryTransformAddressOfScalarLocal(node, context, out var segmentName))
+            return segmentName;
+
         context.Diagnostics.Warning("Address-of operator (&) has no Java equivalent - converting to unsafe memory access", node.GetLocation());
         return $"/* C# addressof — no Java equivalent: {operand} */";
+    }
+
+    private static bool TryTransformAddressOfScalarLocal(
+        PrefixUnaryExpressionSyntax node, ConversionContext context, out string segmentName)
+    {
+        segmentName = string.Empty;
+
+        if (node.Operand is not IdentifierNameSyntax identifier)
+            return false;
+
+        var sourceName = identifier.Identifier.Text;
+
+        if (context.SemanticModel == null)
+            return false;
+
+        var symbol = context.GetSymbolInfo(identifier).Symbol;
+        if (symbol is not (ILocalSymbol or IParameterSymbol))
+            return false;
+
+        var typeSymbol = symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol param => param.Type,
+            _ => null
+        };
+
+        if (typeSymbol == null || !IsAddressableScalar(typeSymbol))
+            return false;
+
+        if (context.TryGetAddressOfScratchSegment(sourceName, out var existingSegment))
+        {
+            segmentName = existingSegment;
+            return true;
+        }
+
+        var csharpElementType = GetCSharpElementTypeName(typeSymbol);
+        var pointerInfo = FfmHelper.CreatePointerInfo(sourceName, csharpElementType);
+        segmentName = $"_addr_{sourceName}";
+        var init = FfmHelper.GenerateAddressOfScratchInit(segmentName, sourceName, pointerInfo);
+        context.AddPreStatement(init);
+        context.RegisterAddressOfScratchSegment(sourceName, segmentName, pointerInfo);
+        foreach (var imp in FfmHelper.GetRequiredImports(false))
+            context.AddImport(imp);
+
+        return true;
+    }
+
+    private static bool IsAddressableScalar(ITypeSymbol type)
+    {
+        return type.SpecialType is
+            SpecialType.System_Byte or SpecialType.System_SByte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or
+            SpecialType.System_Single or SpecialType.System_Double or
+            SpecialType.System_Boolean or SpecialType.System_Char;
+    }
+
+    private static string GetCSharpElementTypeName(ITypeSymbol type)
+    {
+        return type.SpecialType switch
+        {
+            SpecialType.System_Byte => "byte",
+            SpecialType.System_SByte => "sbyte",
+            SpecialType.System_Int16 => "short",
+            SpecialType.System_UInt16 => "ushort",
+            SpecialType.System_Int32 => "int",
+            SpecialType.System_UInt32 => "uint",
+            SpecialType.System_Int64 => "long",
+            SpecialType.System_UInt64 => "ulong",
+            SpecialType.System_Single => "float",
+            SpecialType.System_Double => "double",
+            SpecialType.System_Boolean => "bool",
+            SpecialType.System_Char => "char",
+            _ => type.Name
+        };
     }
 
     private string TransformPointerIndirection(PrefixUnaryExpressionSyntax node, ConversionContext context)
