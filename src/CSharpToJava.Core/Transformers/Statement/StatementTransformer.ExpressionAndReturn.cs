@@ -209,11 +209,11 @@ public partial class StatementTransformer
                 if (assertInvoc.ArgumentList.Arguments.Count >= 2)
                 {
                     var message = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[1].Expression, context);
-                    comment = $"// Debug.Assert({condition}, {message});";
+                    comment = $"// Debug.Assert({condition}, {message});\n";
                 }
                 else
                 {
-                    comment = $"// Debug.Assert({condition});";
+                    comment = $"// Debug.Assert({condition});\n";
                 }
                 // Drain pre/post statements even for comments (they were emitted during transform)
                 // but discard them since the assert is a no-op

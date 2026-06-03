@@ -722,8 +722,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             // Debug.Assert / Contract.Assert → comment (matching C# Release semantics)
             return message.Length > 0
-                ? $"// Debug.Assert({condition}, {message});"
-                : $"// Debug.Assert({condition});";
+                ? $"// Debug.Assert({condition}, {message});\n"
+                : $"// Debug.Assert({condition});\n";
         }
 
         if (originalMethodName == "GetTempPath"
