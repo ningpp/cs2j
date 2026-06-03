@@ -892,7 +892,7 @@ class Sample {
         var code = r.GeneratedCode ?? "";
         // Holder declaration must appear BEFORE the assert that uses it
         // Debug.Assert is compiled out in C# Release — converted to comment in Java
-        Assert.Contains("/* Debug.Assert(", code);
-        Assert.Contains("*/", code);
+        Assert.Contains("// Debug.Assert(", code);
+        Assert.DoesNotContain("/* Debug.Assert(", code);
     }
 }

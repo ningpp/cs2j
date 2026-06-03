@@ -90,6 +90,13 @@ public partial class StatementTransformer
 
     private JavaSyntaxNode TransformPlainSwitch(SwitchStatementSyntax stmt, string expression, ConversionContext context)
     {
+        if (stmt.DescendantNodes().OfType<GotoStatementSyntax>()
+            .Any(gotoStmt => gotoStmt.IsKind(SyntaxKind.GotoCaseStatement)
+                || gotoStmt.IsKind(SyntaxKind.GotoDefaultStatement)))
+        {
+            return TransformSwitchWithGotoCase(stmt, expression, context);
+        }
+
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var sections = new List<string>();
         var declarationsUsedByLaterSections = FindSwitchDeclarationsUsedByLaterSections(stmt);
@@ -175,6 +182,185 @@ public partial class StatementTransformer
         return new JavaStatementNode($"switch ({expression}) {{\n        {bodyStr}\n    }}");
     }
 
+    private JavaSyntaxNode TransformSwitchWithGotoCase(
+        SwitchStatementSyntax stmt,
+        string expression,
+        ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var sectionStates = stmt.Sections
+            .Select((section, index) => (section, state: index + 1))
+            .ToDictionary(item => item.section, item => item.state);
+        var stateByCaseValue = new Dictionary<string, int>(StringComparer.Ordinal);
+        int? defaultState = null;
+
+        foreach (var section in stmt.Sections)
+        {
+            foreach (var label in section.Labels)
+            {
+                if (label is CaseSwitchLabelSyntax caseLabel)
+                {
+                    stateByCaseValue[NormalizeSwitchCaseTarget(caseLabel.Value, context)] = sectionStates[section];
+                }
+                else if (label is DefaultSwitchLabelSyntax)
+                {
+                    defaultState = sectionStates[section];
+                }
+            }
+        }
+
+        var switchId = context.GenerateSyntheticName("_switch");
+        var stateName = switchId + "State";
+        var loopName = switchId + "Loop";
+        var sb = new StringBuilder();
+
+        sb.AppendLine($"int {stateName} = 0;");
+        sb.AppendLine($"switch ({expression}) {{");
+        foreach (var section in stmt.Sections)
+        {
+            foreach (var label in section.Labels)
+            {
+                switch (label)
+                {
+                    case CaseSwitchLabelSyntax caseLabel:
+                        sb.AppendLine($"    case {FormatSwitchCaseLabel(caseLabel.Value, context)}:");
+                        break;
+                    case DefaultSwitchLabelSyntax:
+                        sb.AppendLine("    default:");
+                        break;
+                }
+            }
+
+            sb.AppendLine($"        {stateName} = {sectionStates[section]};");
+            sb.AppendLine("        break;");
+        }
+
+        sb.AppendLine("}");
+        sb.AppendLine($"{loopName}: while ({stateName} != -1) {{");
+        sb.AppendLine($"    switch ({stateName}) {{");
+
+        foreach (var section in stmt.Sections)
+        {
+            sb.AppendLine($"        case {sectionStates[section]}:");
+            foreach (var statement in section.Statements)
+            {
+                if (statement is BreakStatementSyntax)
+                {
+                    sb.AppendLine($"            {stateName} = -1;");
+                    sb.AppendLine($"            break {loopName};");
+                }
+                else if (statement is GotoStatementSyntax gotoStmt
+                    && TryTransformSwitchGoto(gotoStmt, stateName, loopName, stateByCaseValue, defaultState, context, out var gotoCode))
+                {
+                    AppendSwitchLine(sb, gotoCode);
+                }
+                else
+                {
+                    var transformed = Transform(statement, context).ToString("");
+                    AppendSwitchLine(sb, transformed);
+                }
+
+                if (IsSwitchSectionTerminal(statement))
+                {
+                    break;
+                }
+            }
+
+            if (!section.Statements.Any(IsSwitchSectionTerminal))
+            {
+                sb.AppendLine($"            {stateName} = -1;");
+                sb.AppendLine($"            break {loopName};");
+            }
+        }
+
+        sb.AppendLine("        default:");
+        sb.AppendLine($"            break {loopName};");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+
+        return new JavaStatementNode(sb.ToString());
+
+        string FormatSwitchCaseLabel(ExpressionSyntax caseValue, ConversionContext ctx)
+        {
+            var transformedLabel = exprTransformer.Transform(caseValue, ctx);
+            if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
+                caseValue,
+                ctx,
+                useUnqualifiedRegularEnumInSwitchLabel: true,
+                out var formattedEnumLabel))
+            {
+                transformedLabel = formattedEnumLabel;
+            }
+            else if (transformedLabel.Contains(".get"))
+            {
+                var parts = transformedLabel.Split(new[] { ".get" }, StringSplitOptions.None);
+                transformedLabel = parts.Last().Replace("()", "");
+            }
+
+            return transformedLabel;
+        }
+    }
+
+    private static string NormalizeSwitchCaseTarget(ExpressionSyntax expression, ConversionContext context)
+    {
+        return expression.NormalizeWhitespace().ToFullString();
+    }
+
+    private bool TryTransformSwitchGoto(
+        GotoStatementSyntax gotoStmt,
+        string stateName,
+        string loopName,
+        IReadOnlyDictionary<string, int> stateByCaseValue,
+        int? defaultState,
+        ConversionContext context,
+        out string code)
+    {
+        if (gotoStmt.IsKind(SyntaxKind.GotoDefaultStatement))
+        {
+            if (defaultState.HasValue)
+            {
+                code = $"{stateName} = {defaultState.Value}; continue {loopName};";
+                return true;
+            }
+
+            code = "/* TODO: goto default - default label not found */";
+            return true;
+        }
+
+        if (gotoStmt.IsKind(SyntaxKind.GotoCaseStatement))
+        {
+            var target = gotoStmt.Expression != null
+                ? NormalizeSwitchCaseTarget(gotoStmt.Expression, context)
+                : "";
+            if (stateByCaseValue.TryGetValue(target, out var state))
+            {
+                code = $"{stateName} = {state}; continue {loopName};";
+                return true;
+            }
+
+            code = $"/* TODO: goto case {target} - case label not found */";
+            return true;
+        }
+
+        code = "";
+        return false;
+    }
+
+    private static void AppendSwitchLine(StringBuilder sb, string text)
+    {
+        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.Append("            ").AppendLine(line.TrimEnd());
+            }
+        }
+    }
+
     private static HashSet<string> FindSwitchDeclarationsUsedByLaterSections(SwitchStatementSyntax stmt)
     {
         var result = new HashSet<string>(StringComparer.Ordinal);
@@ -212,6 +398,7 @@ public partial class StatementTransformer
         {
             SyntaxKind.ReturnStatement or
             SyntaxKind.ThrowStatement or
+            SyntaxKind.BreakStatement or
             SyntaxKind.ContinueStatement or
             SyntaxKind.GotoStatement or
             SyntaxKind.GotoCaseStatement or
