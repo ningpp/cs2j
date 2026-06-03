@@ -969,6 +969,31 @@ public static class ExpressionTransformerHelpers
         return $"ArrayHelper.toList({expr})";
     }
 
+    public static string BuildJavaArrayCreationForElement(
+        ITypeSymbol elementType,
+        ConversionContext context,
+        string lengthExpression)
+    {
+        var elementJavaType = context.MapType(elementType);
+        return BuildJavaArrayCreationForElement(elementJavaType, lengthExpression);
+    }
+
+    public static string BuildJavaArrayCreationForElement(
+        string elementJavaType,
+        string lengthExpression)
+    {
+        var erasedElementType = StripTypeArguments(elementJavaType.Trim());
+        var arraySuffix = new StringBuilder();
+
+        while (erasedElementType.EndsWith("[]", StringComparison.Ordinal))
+        {
+            arraySuffix.Append("[]");
+            erasedElementType = erasedElementType[..^2];
+        }
+
+        return $"new {erasedElementType}[{lengthExpression}]{arraySuffix}";
+    }
+
     /// <summary>
     /// Builds a null-preserving, fixed-size collection view backed by the same Java array.
     /// Use this for C# arrays exposed through IList/ICollection/IEnumerable returns, where

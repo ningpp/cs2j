@@ -1227,6 +1227,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return arrayToArrayCopy;
         }
 
+        if (originalMethodName == "ToArray"
+            && node.ArgumentList.Arguments.Count == 1
+            && TryTransformArrayListToArrayType(
+                receiver,
+                methodSymbol,
+                node,
+                memberAccess,
+                context,
+                out var arrayListToArrayType))
+        {
+            return arrayListToArrayType;
+        }
+
         // MSTest Assert.* -> MSTest compatibility Assert.*.
         // JUnit Assertions has different overloads and exception behavior, while
         // MSTest callers may pass formatted messages and catch UnitTestAssertException.
@@ -4557,6 +4570,41 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// For reference types: uses .toArray(TypeName[]::new) → typed array.
     /// Falls back to .toArray() when element type cannot be determined.
     /// </summary>
+    private static bool TryTransformArrayListToArrayType(
+        string receiver,
+        IMethodSymbol? methodSymbol,
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        out string transformed)
+    {
+        transformed = string.Empty;
+
+        var receiverTypeName = context.GetTypeInfo(memberAccess.Expression).Type?.ToDisplayString();
+        if (methodSymbol?.ContainingType?.ToDisplayString() != "System.Collections.ArrayList"
+            && receiverTypeName != "System.Collections.ArrayList")
+        {
+            return false;
+        }
+
+        if (node.ArgumentList.Arguments[0].Expression is not TypeOfExpressionSyntax typeOfExpression)
+            return false;
+
+        var elementType = context.GetTypeInfo(typeOfExpression.Type).Type;
+        if (elementType == null)
+            return false;
+
+        if (elementType.IsValueType && elementType is not IArrayTypeSymbol)
+            return false;
+
+        var arrayCreation = ExpressionTransformerHelpers.BuildJavaArrayCreationForElement(
+            elementType,
+            context,
+            "0");
+        transformed = $"{receiver}.toArray({arrayCreation})";
+        return true;
+    }
+
     private static string TransformToArrayWithElementType(
         string receiver,
         IMethodSymbol? methodSymbol,

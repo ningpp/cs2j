@@ -6,6 +6,29 @@ namespace CSharpToJava.Tests;
 public class ArrayToArrayTests
 {
     [Fact]
+    public void NonGenericArrayListToArray_WithJaggedArrayElement_UsesJavaArrayPrototype()
+    {
+        var result = Convert("""
+using System.Collections;
+
+class Program
+{
+    int[][] Build()
+    {
+        ArrayList transitionTable = new ArrayList();
+        transitionTable.Add(new int[1]);
+        return (int[][])transitionTable.ToArray(typeof(int[]));
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("return (int[][])(transitionTable.toArray(new int[0][]));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new int[][0]", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".toArray(int[].class)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ToArray_OnReferenceTypeArray_UsesArrayHelperCopy()
     {
         var result = Convert("""

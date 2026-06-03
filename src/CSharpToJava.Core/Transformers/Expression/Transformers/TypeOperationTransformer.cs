@@ -251,7 +251,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && targetArrayType.ElementType.SpecialType == SpecialType.None)
         {
             var sourceType = context.GetTypeInfo(node.Expression).Type as INamedTypeSymbol;
-            if (sourceType != null)
+            if (sourceType != null && sourceType.SpecialType != SpecialType.System_Array)
             {
                 bool isEnumerableLike = sourceType.AllInterfaces.Any(i =>
                     i.OriginalDefinition?.ToDisplayString() is
@@ -269,14 +269,21 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
                 if (isEnumerableLike)
                 {
-                    var elemJavaType = context.MapType(targetArrayType.ElementType);
+                    var arrayCreation = ExpressionTransformerHelpers.BuildJavaArrayCreationForElement(
+                        targetArrayType.ElementType,
+                        context,
+                        "0");
                     if (isCollectionLike)
                     {
-                        return $"{expression}.toArray(new {elemJavaType}[0])";
+                        return $"{expression}.toArray({arrayCreation})";
                     }
 
+                    var streamArrayCreation = ExpressionTransformerHelpers.BuildJavaArrayCreationForElement(
+                        targetArrayType.ElementType,
+                        context,
+                        "size");
                     context.AddImport("java.util.stream.StreamSupport");
-                    return $"StreamSupport.stream({expression}.spliterator(), false).toArray(size -> new {elemJavaType}[size])";
+                    return $"StreamSupport.stream({expression}.spliterator(), false).toArray(size -> {streamArrayCreation})";
                 }
             }
         }
