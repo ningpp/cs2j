@@ -40,34 +40,6 @@ class Generator
     }
 
     /// <summary>
-    /// Lambda returning LINQ chain stored in Supplier&lt;Iterable&gt; field.
-    /// The stream result inside the lambda should be collected.
-    /// NOTE: This is a complex case involving lambda body type inference;
-    /// future fix will address lambda return type coercion.
-    /// </summary>
-    [Fact(Skip = "Lambda return type coercion not yet implemented")]
-    public void LambdaReturningLinqChain_ForIterableSupplier_CollectsStream()
-    {
-        var result = Convert(@"
-using System;
-using System.Collections.Generic;
-using System.Linq;
-class NodeInfo { public string Name; }
-class NodeCollection
-{
-    Func<IEnumerable<string>> funcOfNodes;
-    public NodeCollection(Func<IEnumerable<NodeInfo>> source)
-    {
-        this.funcOfNodes = () => source().Select(n => n.Name);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Lambda returns Stream from Select → must collect for Iterable return
-        Assert.Contains(".collect(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    /// <summary>
     /// Reproduces: "Iterable&lt;Edge&gt; → cannot pass to ArrayList constructor"
     /// when new ArrayList is used with an Iterable (not Collection) argument.
     /// In Java, ArrayList accepts Collection, not Iterable.
