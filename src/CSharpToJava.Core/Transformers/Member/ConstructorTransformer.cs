@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -271,6 +271,11 @@ public class ConstructorTransformer : IMemberTransformer
                 _ => JavaModifiers.None
             };
         }
+
+        // C# "protected internal" maps to Protected | Public via individual keyword rules.
+        // Java doesn't allow both; "protected" is the most restrictive useful choice.
+        if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
+            result &= ~JavaModifiers.Public;
 
         return result;
     }
