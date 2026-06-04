@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -45,9 +45,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         ["Int16"]    = ("short",   "Short"),
         ["Byte"]     = ("int",     "Integer"),
         ["SByte"]    = ("byte",    "Byte"),
-        ["UInt32"]   = ("int",     "Integer"),
-        ["UInt64"]   = ("long",    "Long"),
-        ["UInt16"]   = ("short",   "Short"),
+        ["UInt32"]   = ("uint",    "Integer"),
+        ["UInt64"]   = ("ulong",   "Long"),
+        ["UInt16"]   = ("ushort",  "Short"),
         ["Char"]     = ("char",    "Character"),
         ["Boolean"]  = ("bool",    "Boolean"),
         ["Decimal"]  = ("decimal", "Decimal"),
@@ -1502,6 +1502,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             // C# byte (unsigned) MaxValue=255, MinValue=0 — emit literals directly
             ("byte", "MaxValue") => "255",
             ("byte", "MinValue") => "0",
+            // C# unsigned types — Java has no unsigned primitives, emit literal values
+            ("uint", "MaxValue") => "4294967295L",
+            ("uint", "MinValue") => "0",
+            ("ushort", "MaxValue") => "65535",
+            ("ushort", "MinValue") => "0",
+            // ulong.MaxValue exceeds Long.MAX_VALUE; emit hex literal (bit-preserving,
+            // but Java interprets 0xFFFFFFFFFFFFFFFFL as -1L due to signed representation).
+            ("ulong", "MaxValue") => "0xFFFFFFFFFFFFFFFFL",
+            ("ulong", "MinValue") => "0",
             ("decimal", "MaxValue") => "MAX_VALUE",
             ("decimal", "MinValue") => "MIN_VALUE",
             ("decimal", "One") => "ONE",

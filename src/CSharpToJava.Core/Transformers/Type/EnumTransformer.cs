@@ -187,6 +187,14 @@ public class EnumTransformer : ITypeTransformer
             var member = memberAccess.Name.Identifier.Text;
             var mapped = (primType.Keyword.Text, member) switch
             {
+                ("byte", "MaxValue") => "255",
+                ("byte", "MinValue") => "0",
+                ("uint", "MaxValue") => "4294967295L",
+                ("uint", "MinValue") => "0",
+                ("ushort", "MaxValue") => "65535",
+                ("ushort", "MinValue") => "0",
+                ("ulong", "MaxValue") => "0xFFFFFFFFFFFFFFFFL",
+                ("ulong", "MinValue") => "0",
                 ("double" or "float", "MinValue") => $"(-{(primType.Keyword.Text == "double" ? "Double" : "Float")}.MAX_VALUE)",
                 (_, "MaxValue")          => "MAX_VALUE",
                 (_, "MinValue")          => "MIN_VALUE",
@@ -196,6 +204,11 @@ public class EnumTransformer : ITypeTransformer
                 (_, "NaN")              => "NaN",
                 _                        => member
             };
+            // Literal values (start with digit or '0x') or parenthesized expressions
+            // should not be prefixed with the boxed type name.
+            if (mapped.StartsWith("(") || mapped.StartsWith("-")
+                || (mapped.Length > 0 && char.IsDigit(mapped[0])))
+                return mapped;
             return $"{boxed}.{mapped}";
         }
         return expr.ToString().Trim();
