@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Member;
@@ -84,6 +85,12 @@ public class PropertyTransformer : IMemberTransformer
         // C# structs are value types that can never be null — initialize backing fields
         // with default instances so Java code doesn't encounter null struct references.
         if (propDecl.Initializer == null && needsBackingField
+            && typeInfo.Type?.SpecialType == SpecialType.System_Decimal)
+        {
+            context.AddImport("io.github.ningpp.compat.Decimal");
+            field.Initializer = "Decimal.ZERO";
+        }
+        else if (propDecl.Initializer == null && needsBackingField
             && StructCloneHelper.IsUserDefinedStruct(typeInfo.Type))
         {
             field.Initializer = $"new {propType}()";
@@ -93,6 +100,11 @@ public class PropertyTransformer : IMemberTransformer
         if (propDecl.Initializer != null)
         {
             field.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(propDecl.Initializer.Value, context);
+            field.Initializer = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                propDecl.Initializer.Value,
+                field.Initializer,
+                typeInfo.Type,
+                context);
         }
 
         if (needsBackingField)

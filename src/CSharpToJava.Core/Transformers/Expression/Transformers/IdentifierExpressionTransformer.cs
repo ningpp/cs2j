@@ -50,6 +50,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         ["UInt16"]   = ("short",   "Short"),
         ["Char"]     = ("char",    "Character"),
         ["Boolean"]  = ("bool",    "Boolean"),
+        ["Decimal"]  = ("decimal", "Decimal"),
     };
 
     private enum EnclosingInstanceMemberKind
@@ -641,6 +642,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return "\"\"";
 
             var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
+            if (primTypeSyntax.Keyword.Text == "decimal")
+                context.AddImport("io.github.ningpp.compat.Decimal");
             // If the mapping already produced a self-contained expression (e.g. "(-Double.MAX_VALUE)")
             // don't prefix it with the boxed type name — that would create "Double.(-Double.MAX_VALUE)".
             if (mappedMember.StartsWith("(") || mappedMember.StartsWith("-")
@@ -1025,6 +1028,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             if (TryMapPrimitiveStaticFieldName(primInfo.keyword, memberName, out var mappedConst))
             {
+                if (primInfo.keyword == "decimal")
+                    context.AddImport("io.github.ningpp.compat.Decimal");
                 // Some mappings return self-contained expressions like "(-Double.MAX_VALUE)".
                 if (mappedConst.StartsWith("(") || mappedConst.StartsWith("-")
                     || char.IsDigit(mappedConst[0]))
@@ -1497,6 +1502,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             // C# byte (unsigned) MaxValue=255, MinValue=0 — emit literals directly
             ("byte", "MaxValue") => "255",
             ("byte", "MinValue") => "0",
+            ("decimal", "MaxValue") => "MAX_VALUE",
+            ("decimal", "MinValue") => "MIN_VALUE",
+            ("decimal", "One") => "ONE",
+            ("decimal", "Zero") => "ZERO",
+            ("decimal", "MinusOne") => "MINUS_ONE",
             // Double/float MinValue = most negative finite → negate MAX_VALUE
             ("double" or "float", "MinValue") => $"(-{(primitiveKeyword == "double" ? "Double" : "Float")}.MAX_VALUE)",
             (_, "MaxValue")          => "MAX_VALUE",

@@ -547,6 +547,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
+        if (TryTransformDecimalStaticInvocation(
+            node,
+            memberAccess,
+            originalMethodName,
+            context,
+            facade,
+            out var decimalStaticInvocation))
+        {
+            return decimalStaticInvocation;
+        }
+
         // Replace receiver with mapped static type reference ONLY when the method is
         // confirmed static.  When the semantic model cannot resolve the method
         // (earlyMethodSymbol is null, e.g. in project conversion with incomplete models),
@@ -5255,6 +5266,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "long" => "MathHelper.parseLong",
             "double" => "MathHelper.parseDouble",
             "float" => "MathHelper.parseFloat",
+            "decimal" => "Decimal.parse",
             "uint" => "Integer.parseUnsignedInt",
             "ulong" => "Long.parseUnsignedLong",
             "ushort" => "Integer.parseUnsignedInt",
@@ -5361,6 +5373,37 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         };
 
         return !string.IsNullOrEmpty(mstestMethodName);
+    }
+
+    private static bool TryTransformDecimalStaticInvocation(
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        string originalMethodName,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        out string result)
+    {
+        result = string.Empty;
+
+        if (!ExpressionTransformerHelpers.StaticReceiverMatches(
+            memberAccess.Expression,
+            context,
+            "Decimal",
+            "decimal",
+            "System.Decimal"))
+        {
+            return false;
+        }
+
+        if (originalMethodName is not "Parse" and not "TryParse")
+            return false;
+
+        context.AddImport("io.github.ningpp.compat.Decimal");
+        var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+        result = originalMethodName == "Parse"
+            ? $"Decimal.parse({args})"
+            : $"Decimal.tryParse({args})";
+        return true;
     }
 
     /// <summary>
@@ -5634,6 +5677,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Boolean", "bool", "System.Boolean"))
             return "MathHelper.tryParseBool";
 
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Decimal", "decimal", "System.Decimal"))
+            return "Decimal.tryParse";
+
         return null;
     }
 
@@ -5662,6 +5708,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int64", "Long", "long", "System.Int64"))
         {
             helper = "MathHelper.parseLong";
+            return true;
+        }
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Decimal", "decimal", "System.Decimal"))
+        {
+            helper = "Decimal.parse";
             return true;
         }
 

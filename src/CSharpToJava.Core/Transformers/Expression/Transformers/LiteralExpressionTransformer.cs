@@ -73,8 +73,8 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
         if (literal.EndsWith("m", StringComparison.OrdinalIgnoreCase))
         {
             string decStr = literal.TrimEnd('m', 'M');
-            context.AddImport("java.math.BigDecimal");
-            return $"new BigDecimal(\"{decStr}\")";
+            context.AddImport("io.github.ningpp.compat.Decimal");
+            return $"Decimal.parse(\"{decStr}\")";
         }
         if (literal.EndsWith("ul", StringComparison.OrdinalIgnoreCase) ||
             literal.EndsWith("lu", StringComparison.OrdinalIgnoreCase))

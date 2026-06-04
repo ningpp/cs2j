@@ -205,6 +205,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"FileHelper.open({args})";
         }
 
+        if (createdTypeSymbol?.SpecialType == SpecialType.System_Decimal
+            && (node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0))
+        {
+            context.AddImport("io.github.ningpp.compat.Decimal");
+            return "Decimal.ZERO";
+        }
+
         // Java cannot instantiate a type parameter directly (new T()).
         // For C# where T : ICollection<...>, new() we map to ArrayList and cast.
         // For other new()-constrained type params, keep a compilable fallback cast.

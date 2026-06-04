@@ -87,6 +87,9 @@ public class AssignmentTransformer : IIRExpressionTransformer
             // User-defined operator on compound assignment → static method call
             if (op != "=" && context.SemanticModel != null)
             {
+                if (ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(assignment.Left).Type))
+                    return new JavaRawExpression(Transform(node, context));
+
                 var symbolInfo = context.GetSymbolInfo(assignment);
                 if (symbolInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
                     return new JavaRawExpression(Transform(node, context));
@@ -566,6 +569,25 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 string baseOpByte = op[..^1];
                 return $"{leftByte} = ({leftByte} {baseOpByte} {rightByte}) & 0xFF";
             }
+        }
+
+        if (op != "=" && context.SemanticModel != null
+            && ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(leftNode).Type))
+        {
+            var leftDecimal = facade.Transform(leftNode, context);
+            var rightDecimal = facade.Transform(rightNode, context);
+            rightDecimal = ExpressionTransformerHelpers.ToDecimalExpression(
+                rightNode,
+                rightDecimal,
+                context.GetTypeInfo(rightNode).Type);
+
+            var operation = ExpressionTransformerHelpers.BuildDecimalBinaryOperation(
+                leftDecimal,
+                rightDecimal,
+                op[..^1]);
+
+            if (!string.IsNullOrEmpty(operation))
+                return $"{leftDecimal} = {operation}";
         }
 
         // Compound assignment where the operator is user-defined (e.g. Point2 += Point2).

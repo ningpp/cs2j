@@ -171,6 +171,32 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             targetType = context.MapTypeFromSyntax(node.Type);
         }
 
+        if (targetSymbol?.SpecialType == SpecialType.System_Decimal)
+        {
+            context.AddImport("io.github.ningpp.compat.Decimal");
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            return ExpressionTransformerHelpers.ToDecimalExpression(node.Expression, expression, sourceType);
+        }
+
+        if (context.SemanticModel != null
+            && context.GetTypeInfo(node.Expression).Type?.SpecialType == SpecialType.System_Decimal)
+        {
+            return targetSymbol?.SpecialType switch
+            {
+                SpecialType.System_SByte
+                    or SpecialType.System_Byte
+                    or SpecialType.System_Int16
+                    or SpecialType.System_UInt16
+                    or SpecialType.System_Int32
+                    or SpecialType.System_UInt32
+                    or SpecialType.System_Char => $"{expression}.intValue()",
+                SpecialType.System_Int64 or SpecialType.System_UInt64 => $"{expression}.longValue()",
+                SpecialType.System_Single => $"{expression}.floatValue()",
+                SpecialType.System_Double => $"{expression}.doubleValue()",
+                _ => $"({targetType})({expression})"
+            };
+        }
+
         // C# numeric -> enum cast: (MyEnum)i
         // Java cannot cast int to enum directly; map by ordinal index instead.
         // For enums with explicit values, use fromValue() instead of values()[] to avoid AIOOBE.
@@ -832,11 +858,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             "double" => "0.0",
             "boolean" => "false",
             "char" => "'\\0'",
+            "Decimal" => "Decimal.ZERO",
             _ => null
         };
 
         if (defaultValue != null)
+        {
+            if (typeName == "Decimal")
+                context.AddImport("io.github.ningpp.compat.Decimal");
             return defaultValue;
+        }
 
         // For user-defined structs/value types, emit new T().
         if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Struct })

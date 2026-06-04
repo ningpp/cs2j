@@ -18,6 +18,6 @@ public final class NumberStyles {
     public static final int AllowHexSpecifier = 512;
     public static final int Integer = AllowLeadingWhite | AllowTrailingWhite | AllowLeadingSign;
     public static final int Float = Integer | AllowDecimalPoint | AllowExponent;
-    public static final int Number = Float | AllowThousands;
+    public static final int Number = Integer | AllowTrailingSign | AllowDecimalPoint | AllowThousands;
     public static final int HexNumber = AllowLeadingWhite | AllowTrailingWhite | AllowHexSpecifier;
 }

@@ -205,6 +205,8 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                 && convertedType is not INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
             {
                 falseBranch = GetPrimitiveDefaultValue(convertedType.SpecialType);
+                if (convertedType.SpecialType == SpecialType.System_Decimal)
+                    context.AddImport("io.github.ningpp.compat.Decimal");
             }
         }
         return $"({objExpr} != null ? {whenNotNull} : {falseBranch})";
@@ -215,11 +217,11 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         SpecialType.System_Boolean => "false",
         SpecialType.System_Char => "'\\0'",
         SpecialType.System_Single or SpecialType.System_Double => "0.0",
+        SpecialType.System_Decimal => "Decimal.ZERO",
         SpecialType.System_Byte or SpecialType.System_SByte
             or SpecialType.System_Int16 or SpecialType.System_UInt16
             or SpecialType.System_Int32 or SpecialType.System_UInt32
-            or SpecialType.System_Int64 or SpecialType.System_UInt64
-            or SpecialType.System_Decimal => "0",
+            or SpecialType.System_Int64 or SpecialType.System_UInt64 => "0",
         _ => "null"
     };
 

@@ -17,6 +17,7 @@ public static class ExpressionTransformerHelpers
     private static readonly HashSet<string> CompatibilityHelperTypeNames = new(StringComparer.Ordinal)
     {
         "DrawingColor",
+        "Decimal",
         "Encoding",
         "EnumHelper",
         "MathHelper",
@@ -173,8 +174,27 @@ public static class ExpressionTransformerHelpers
         if (!IsNumericOrCharType(sourceSpecial) || !IsNumericOrCharType(targetSpecial))
             return transformedExpression;
 
+        if (targetSpecial == SpecialType.System_Decimal)
+            return ToDecimalExpression(expression, transformedExpression, sourceType);
+
         if (TryRewriteNumericLiteral(expression, targetSpecial, out var rewrittenLiteral))
             return rewrittenLiteral;
+
+        if (sourceSpecial == SpecialType.System_Decimal)
+            return targetSpecial switch
+            {
+                SpecialType.System_SByte
+                    or SpecialType.System_Byte
+                    or SpecialType.System_Int16
+                    or SpecialType.System_UInt16
+                    or SpecialType.System_Int32
+                    or SpecialType.System_UInt32
+                    or SpecialType.System_Char => $"{transformedExpression}.intValue()",
+                SpecialType.System_Int64 or SpecialType.System_UInt64 => $"{transformedExpression}.longValue()",
+                SpecialType.System_Single => $"{transformedExpression}.floatValue()",
+                SpecialType.System_Double => $"{transformedExpression}.doubleValue()",
+                _ => transformedExpression
+            };
 
         // C# byte (unsigned) → Java int: when the target is System_Byte and source differs
         if (targetSpecial == SpecialType.System_Byte)
@@ -207,6 +227,56 @@ public static class ExpressionTransformerHelpers
             : $"({castKeyword}) ({transformedExpression})";
     }
 
+    public static bool IsDecimalType(ITypeSymbol? type)
+        => UnwrapNullable(type)?.SpecialType == SpecialType.System_Decimal;
+
+    public static bool IsNumericOrCharType(ITypeSymbol? type)
+    {
+        var unwrapped = UnwrapNullable(type);
+        return unwrapped != null && IsNumericOrCharType(unwrapped.SpecialType);
+    }
+
+    public static string ToDecimalExpression(
+        ExpressionSyntax expression,
+        string transformedExpression,
+        ITypeSymbol? sourceType)
+    {
+        if (IsDecimalType(sourceType))
+            return transformedExpression;
+
+        if (TryRewriteNumericLiteral(expression, SpecialType.System_Decimal, out var rewrittenLiteral))
+            return rewrittenLiteral;
+
+        if (expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.NumericLiteralExpression))
+        {
+            var literalText = literal.Token.Text.TrimEnd('m', 'M');
+            return $"Decimal.parse(\"{literalText}\")";
+        }
+
+        return $"Decimal.valueOf({transformedExpression})";
+    }
+
+    public static string BuildDecimalBinaryOperation(
+        string left,
+        string right,
+        string op)
+        => op switch
+        {
+            "+" => $"{left}.add({right})",
+            "-" => $"{left}.subtract({right})",
+            "*" => $"{left}.multiply({right})",
+            "/" => $"{left}.divide({right})",
+            "%" => $"{left}.remainder({right})",
+            "==" => $"{left}.compareTo({right}) == 0",
+            "!=" => $"{left}.compareTo({right}) != 0",
+            ">" => $"{left}.compareTo({right}) > 0",
+            ">=" => $"{left}.compareTo({right}) >= 0",
+            "<" => $"{left}.compareTo({right}) < 0",
+            "<=" => $"{left}.compareTo({right}) <= 0",
+            _ => string.Empty
+        };
+
     private static ITypeSymbol? UnwrapNullable(ITypeSymbol? type)
     {
         if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableType)
@@ -227,6 +297,7 @@ public static class ExpressionTransformerHelpers
             or SpecialType.System_UInt64
             or SpecialType.System_Single
             or SpecialType.System_Double
+            or SpecialType.System_Decimal
             or SpecialType.System_Char;
     }
 
@@ -289,6 +360,7 @@ public static class ExpressionTransformerHelpers
             SpecialType.System_Int64 or SpecialType.System_UInt64 => signedLiteral + "L",
             SpecialType.System_Single => signedLiteral + "f",
             SpecialType.System_Double => signedLiteral + ".0",
+            SpecialType.System_Decimal => $"Decimal.parse(\"{signedLiteral}\")",
             _ => string.Empty
         };
 
@@ -395,6 +467,7 @@ public static class ExpressionTransformerHelpers
             "long" => "Long",
             "double" => "Double",
             "float" => "Float",
+            "decimal" => "Decimal",
             "char" => "Character",
             "short" => "Short",
             "byte" => "Byte",
@@ -691,6 +764,7 @@ public static class ExpressionTransformerHelpers
             "bool" => typeSymbol.SpecialType == SpecialType.System_Boolean,
             "byte" => typeSymbol.SpecialType == SpecialType.System_Byte,
             "char" => typeSymbol.SpecialType == SpecialType.System_Char,
+            "decimal" => typeSymbol.SpecialType == SpecialType.System_Decimal,
             "double" => typeSymbol.SpecialType == SpecialType.System_Double,
             "float" => typeSymbol.SpecialType == SpecialType.System_Single,
             "int" => typeSymbol.SpecialType == SpecialType.System_Int32,

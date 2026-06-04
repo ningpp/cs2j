@@ -90,6 +90,7 @@ public partial class StatementTransformer
             "double" => "0.0",
             "boolean" => "false",
             "char" => "'\\0'",
+            "Decimal" => "Decimal.ZERO",
             _ => $"new {javaTypeName}()"
         };
     }

@@ -67,6 +67,8 @@ public partial class StatementTransformer
                 var javaType = declType.Type != null ? context.MapType(declType.Type) : "var";
                 var varName = tvDecl2.Designation is SingleVariableDesignationSyntax sv ? sv.Identifier.Text : "_outVar";
                 var defaultVal = GetValueTypeDefault(declType.Type, javaType);
+                if (declType.Type?.SpecialType == SpecialType.System_Decimal)
+                    context.AddImport("io.github.ningpp.compat.Decimal");
                 var getCall = defaultVal != null
                     ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
                     : $"{tvTarget}.get({tvKey})";
@@ -80,6 +82,8 @@ public partial class StatementTransformer
                 if (outTypeInfo.Type is { IsValueType: true } outType)
                 {
                     defaultVal = GetValueTypeDefault(outType, context.MapType(outType));
+                    if (outType.SpecialType == SpecialType.System_Decimal)
+                        context.AddImport("io.github.ningpp.compat.Decimal");
                 }
                 var getCall = defaultVal != null
                     ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
@@ -333,6 +337,8 @@ public partial class StatementTransformer
                 ? context.MapType(typeInfo.Type) : "var";
             var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
             var defaultVal = GetValueTypeDefault(typeInfo.Type, javaType);
+            if (typeInfo.Type?.SpecialType == SpecialType.System_Decimal)
+                context.AddImport("io.github.ningpp.compat.Decimal");
             var getCall = defaultVal != null
                 ? $"{dictExpr}.getOrDefault({keyExpr}, {defaultVal})"
                 : $"{dictExpr}.get({keyExpr})";

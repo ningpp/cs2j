@@ -94,6 +94,9 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 bool isPropertyTarget = operandSyntax != null && context.SemanticModel != null
                     && context.GetSymbolInfo(operandSyntax).Symbol is IPropertySymbol;
 
+                bool isDecimalTarget = operandSyntax != null && context.SemanticModel != null
+                    && ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operandSyntax).Type);
+
                 // For LogicalNotExpression (!), verify the operand is boolean.
                 // C# allows ! on int (0→true, non-zero→false) but Java requires
                 // boolean. Non-boolean operands must fall back to the raw string path
@@ -105,7 +108,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(Transform(node, context));
                 }
 
-                if (!isPropertyTarget && operandSyntax != null)
+                if (!isPropertyTarget && !isDecimalTarget && operandSyntax != null)
                 {
                     var operandIR = ExpressionTransformerFacade.Instance.TransformToIR(operandSyntax, context);
                     return new JavaUnaryExpression
@@ -140,6 +143,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
+
+        if (op == "-" && IsDecimalExpression(node.Operand, context))
+            return $"{operand}.negate()";
+
+        if (op == "+" && IsDecimalExpression(node.Operand, context))
+            return operand;
 
         // Wrap in parentheses if operand is a binary expression
         if (node.Operand is BinaryExpressionSyntax)
@@ -244,6 +253,10 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_Single or SpecialType.System_Double or
             SpecialType.System_Decimal or SpecialType.System_Char;
     }
+
+    private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
+        => context.SemanticModel != null
+            && context.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_Decimal;
 
     private static bool IsBuiltInType(INamedTypeSymbol type)
     {
@@ -447,6 +460,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
         // Statement context: rewrite property/indexer in place (no return value needed)
         if (node.Parent is ExpressionStatementSyntax
+            && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
+        {
+            return decimalRewrite;
+        }
+
+        if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
             return rewritten;
@@ -459,6 +478,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Expression context: hoist property increment to pre-statement, return old value
+        if (node.Parent is not ExpressionStatementSyntax
+            && TryBuildDecimalHoistForPostfix(node.Operand, op, context, out var decimalHoisted))
+        {
+            return decimalHoisted;
+        }
+
         if (node.Parent is not ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
         {
@@ -533,6 +558,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
         // Statement context: rewrite property/indexer in place
         if (node.Parent is ExpressionStatementSyntax
+            && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
+        {
+            return decimalRewrite;
+        }
+
+        if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
             return rewritten;
@@ -545,6 +576,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Expression context: hoist property increment to pre-statement, return new value
+        if (node.Parent is not ExpressionStatementSyntax
+            && TryBuildDecimalHoistForPrefix(node.Operand, op, context, out var decimalHoisted))
+        {
+            return decimalHoisted;
+        }
+
         if (node.Parent is not ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
         {
@@ -577,6 +614,70 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
         return $"{op}{operand}";
+    }
+
+    private static bool TryTransformDecimalIncrementAsAssignment(
+        ExpressionSyntax operand,
+        string op,
+        ConversionContext context,
+        out string rewritten)
+    {
+        rewritten = string.Empty;
+        if (context.SemanticModel == null
+            || !ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operand).Type))
+        {
+            return false;
+        }
+
+        var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
+        var method = op == "++" ? "add" : "subtract";
+        rewritten = $"{transformedOperand} = {transformedOperand}.{method}(Decimal.ONE)";
+        context.AddImport("io.github.ningpp.compat.Decimal");
+        return true;
+    }
+
+    private static bool TryBuildDecimalHoistForPostfix(
+        ExpressionSyntax operand,
+        string op,
+        ConversionContext context,
+        out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null
+            || !ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operand).Type))
+        {
+            return false;
+        }
+
+        var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
+        var tmp = context.GenerateSyntheticName("_postDecimal");
+        var method = op == "++" ? "add" : "subtract";
+        context.AddImport("io.github.ningpp.compat.Decimal");
+        context.AddPreStatement($"var {tmp} = {transformedOperand}");
+        context.AddPreStatement($"{transformedOperand} = {transformedOperand}.{method}(Decimal.ONE)");
+        result = tmp;
+        return true;
+    }
+
+    private static bool TryBuildDecimalHoistForPrefix(
+        ExpressionSyntax operand,
+        string op,
+        ConversionContext context,
+        out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null
+            || !ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operand).Type))
+        {
+            return false;
+        }
+
+        var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
+        var method = op == "++" ? "add" : "subtract";
+        context.AddImport("io.github.ningpp.compat.Decimal");
+        context.AddPreStatement($"{transformedOperand} = {transformedOperand}.{method}(Decimal.ONE)");
+        result = transformedOperand;
+        return true;
     }
 
     private static bool TryTransformPropertyIncrementAsSetter(

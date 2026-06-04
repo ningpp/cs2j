@@ -314,6 +314,9 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
 
+        if (TryTransformDecimalBinaryExpression(node, op, context, left, right, out var decimalResult))
+            return decimalResult;
+
         // String == / != must preserve C#'s null-safe value semantics.
         if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
@@ -342,6 +345,52 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
 
     private static bool IsComparisonOp(string op) => op is "<" or ">" or "<=" or ">=";
+
+    private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
+        => context.SemanticModel != null
+            && context.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_Decimal;
+
+    private string? TryConvertToDecimalOperand(ExpressionSyntax expression, string transformedExpression, ConversionContext context)
+    {
+        if (IsDecimalExpression(expression, context))
+            return transformedExpression;
+
+        if (context.SemanticModel == null)
+            return null;
+
+        var typeInfo = context.GetTypeInfo(expression);
+        if (typeInfo.ConvertedType?.SpecialType != SpecialType.System_Decimal
+            && !ExpressionTransformerHelpers.IsNumericOrCharType(typeInfo.Type))
+        {
+            return null;
+        }
+
+        context.AddImport("io.github.ningpp.compat.Decimal");
+        return ExpressionTransformerHelpers.ToDecimalExpression(expression, transformedExpression, typeInfo.Type);
+    }
+
+    private bool TryTransformDecimalBinaryExpression(
+        BinaryExpressionSyntax node,
+        string op,
+        ConversionContext context,
+        string left,
+        string right,
+        out string result)
+    {
+        result = string.Empty;
+
+        var leftIsDecimal = IsDecimalExpression(node.Left, context);
+        var rightIsDecimal = IsDecimalExpression(node.Right, context);
+        if (!leftIsDecimal && !rightIsDecimal)
+            return false;
+
+        left = TryConvertToDecimalOperand(node.Left, left, context) ?? left;
+        right = TryConvertToDecimalOperand(node.Right, right, context) ?? right;
+
+        result = ExpressionTransformerHelpers.BuildDecimalBinaryOperation(left, right, op);
+
+        return result.Length > 0;
+    }
 
     private static string? GetEnumAccessSuffix(INamedTypeSymbol enumType, ConversionContext context)
     {

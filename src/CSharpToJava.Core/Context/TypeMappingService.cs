@@ -765,7 +765,7 @@ public class TypeMappingService
             "ushort"  => "short",
             "float"   => "float",
             "double"  => "double",
-            "decimal" => "double",
+            "decimal" => "Decimal",
             "char"    => "char",
             "void"    => "void",
             "object"  => "Object",

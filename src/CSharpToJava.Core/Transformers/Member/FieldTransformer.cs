@@ -127,6 +127,12 @@ public class FieldTransformer : IMemberTransformer
             // C# structs are value types that can never be null — initialize fields
             // with default instances so Java code doesn't encounter null struct references.
             if (variable.Initializer == null
+                && fieldTypeSymbol?.SpecialType == SpecialType.System_Decimal)
+            {
+                context.AddImport("io.github.ningpp.compat.Decimal");
+                javaField.Initializer = "Decimal.ZERO";
+            }
+            else if (variable.Initializer == null
                 && fieldTypeSymbol != null
                 && StructCloneHelper.IsUserDefinedStruct(fieldTypeSymbol))
             {

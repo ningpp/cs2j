@@ -1361,9 +1361,9 @@
                         },
                          {
                              "csharp":  "System.Decimal",
-                             "java":  "BigDecimal",
+                             "java":  "Decimal",
                              "imports":  [
-                                             "java.math.BigDecimal"
+                                             "io.github.ningpp.compat.Decimal"
                                          ]
                          },
                          {
