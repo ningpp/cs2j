@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -101,6 +101,14 @@ public class ExpressionTransformerFacade : IExpressionTransformer
             case MemberBindingExpressionSyntax binding:
             {
                 var memberName = binding.Name.Identifier.Text;
+
+                // Check method binding via semantic model (e.g., ?.ToString(), ?.GetHashCode())
+                if (context.GetSymbolInfo(binding).Symbol is IMethodSymbol method)
+                {
+                    var mapped = ApplyMethodBindingNameMapping(method, memberName, context);
+                    return $"{objExpr}.{mapped}";
+                }
+
                 // Check property-to-method mapping (e.g., Count → size()) via semantic model
                 if (context.GetSymbolInfo(binding).Symbol is IPropertySymbol prop)
                 {
@@ -266,5 +274,50 @@ public class ExpressionTransformerFacade : IExpressionTransformer
         }
         Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
         return mapped;
+    }
+
+    /// <summary>
+    /// Maps a C# method name to its Java equivalent for null-conditional member bindings.
+    /// Applies well-known renames (ToString→toString, GetHashCode→hashCode, etc.)
+    /// and falls back to camelCase. Does NOT append parentheses — the parent
+    /// InvocationExpressionSyntax case adds them.
+    /// </summary>
+    private static string ApplyMethodBindingNameMapping(IMethodSymbol method, string memberName, ConversionContext context)
+    {
+        // Try TypeMappings via semantic model first
+        var typeName = method.ContainingType.ToDisplayString();
+        var mapped = context.TypeMappings.MapMethod(typeName, memberName);
+        if (mapped != null)
+        {
+            Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
+            return ConversionContext.EscapeJavaKeyword(mapped);
+        }
+
+        var fqn = $"{method.ContainingType.ContainingNamespace}.{method.ContainingType.Name}";
+        mapped = context.TypeMappings.MapMethod(fqn, memberName);
+        if (mapped != null)
+        {
+            Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
+            return ConversionContext.EscapeJavaKeyword(mapped);
+        }
+
+        // Apply well-known renames + camelCase (same logic as InvocationExpressionTransformer.ApplyCamelCaseAndMappings)
+        var result = memberName switch
+        {
+            "ToString"         => "toString",
+            "GetHashCode"      => "hashCode",
+            "GetEnumerator"    => "iterator",
+            "GetType"          => "getClass",
+            "Dispose"          => "close",
+            "ToLower"          => "toLowerCase",
+            "ToUpper"          => "toUpperCase",
+            "ToLowerInvariant" => "toLowerCase",
+            "ToUpperInvariant" => "toUpperCase",
+            _ when memberName.Length > 0
+                               => char.ToLowerInvariant(memberName[0]) + memberName[1..],
+            _ => memberName
+        };
+
+        return ConversionContext.EscapeJavaKeyword(result);
     }
 }
