@@ -697,7 +697,7 @@
                             "csharp":  "System.ArithmeticException",
                             "java":  "ArithmeticException",
                             "imports":  [
-                                            "io.github.ningpp.compat.ArithmeticException"
+                                            "java.lang.ArithmeticException"
                                         ]
                         },
                         {
@@ -1755,13 +1755,6 @@
                             "java":  "IncompleteParseException",
                             "imports":  [
                                             "io.github.ningpp.compat.IncompleteParseException"
-                                        ]
-                        },
-                        {
-                            "csharp":  "System.Management.Automation.RuntimeException",
-                            "java":  "RuntimeException",
-                            "imports":  [
-                                            "io.github.ningpp.compat.RuntimeException"
                                         ]
                         },
                         {

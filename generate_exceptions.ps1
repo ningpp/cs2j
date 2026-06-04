@@ -165,7 +165,9 @@ public class $javaName extends $javaSuper {
 }
 "@
 
-    Set-Content -Path $filePath -Value $content -Encoding UTF8
+    # 用无 BOM 的 UTF-8 编码写入
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($filePath, $content, $utf8NoBom)
     Write-Host "  生成: $javaName extends $javaSuper  ($csharpName)" -ForegroundColor Green
 }
 
@@ -247,7 +249,8 @@ if ($insertIndex -eq -1) {
     $before = $lines[0..($insertIndex - 1)]
     $after = $lines[$insertIndex..($lines.Count - 1)]
     $newLines = $before + $newMappings + $after
-    Set-Content -Path $mappingFile -Value $newLines -Encoding UTF8
+    # 无 BOM 写入 JSON
+    [System.IO.File]::WriteAllLines($mappingFile, [string[]]$newLines, (New-Object System.Text.UTF8Encoding($false)))
     Write-Host "  映射文件已更新，插入了 $($newMappings.Count) 个新映射" -ForegroundColor Green
 }
 

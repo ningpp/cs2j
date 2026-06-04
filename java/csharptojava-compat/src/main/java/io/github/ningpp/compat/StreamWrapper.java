@@ -1,7 +1,7 @@
 package io.github.ningpp.compat;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
