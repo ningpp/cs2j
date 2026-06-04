@@ -283,10 +283,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
             var indexerSymbol = context.GetSymbolInfo(ela).Symbol as IPropertySymbol;
             var containerExprType = context.GetTypeInfo(ela.Expression).Type;
             bool isArrayElement = containerExprType is IArrayTypeSymbol;
-            if (context.IsInFixedScope && containerExprType is IPointerTypeSymbol)
+            if (containerExprType is IPointerTypeSymbol)
             {
                 var targetExpr = facade.Transform(ela.Expression, context);
                 var pointerInfo = context.FindPointerInfo(targetExpr.Trim());
+                if (pointerInfo == null && containerExprType is IPointerTypeSymbol ptrType)
+                {
+                    var elementTypeName = FfmHelper.GetPointerElementTypeName(ptrType.PointedAtType);
+                    pointerInfo = FfmHelper.CreatePointerInfo(targetExpr.Trim(), elementTypeName);
+                }
                 if (pointerInfo != null && ela.ArgumentList.Arguments.Count == 1)
                 {
                     var idxExpr = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
@@ -619,11 +624,20 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
-        if (context.IsInFixedScope && leftNode is PrefixUnaryExpressionSyntax prefixUnary
+        if (leftNode is PrefixUnaryExpressionSyntax prefixUnary
             && prefixUnary.IsKind(SyntaxKind.PointerIndirectionExpression))
         {
             var operand = facade.Transform(prefixUnary.Operand, context);
             var pointerInfo = context.FindPointerInfo(operand.Trim());
+            if (pointerInfo == null)
+            {
+                var operandType = context.GetTypeInfo(prefixUnary.Operand).Type;
+                if (operandType is IPointerTypeSymbol ptrType)
+                {
+                    var elementTypeName = FfmHelper.GetPointerElementTypeName(ptrType.PointedAtType);
+                    pointerInfo = FfmHelper.CreatePointerInfo(operand.Trim(), elementTypeName);
+                }
+            }
             if (pointerInfo != null)
             {
                 var pointerRightStr = facade.Transform(rightNode, context);

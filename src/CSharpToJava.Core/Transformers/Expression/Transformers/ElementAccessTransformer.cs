@@ -93,6 +93,12 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                     return call;
                 }
 
+                // Pointer type → FFM MemorySegment.get(ValueLayout, offset)
+                if (exprType is IPointerTypeSymbol)
+                {
+                    return new JavaRawExpression(Transform(node, context));
+                }
+
                 // Unknown type — still try to produce get() call if it's not array-like
                 if (exprType != null && exprType.TypeKind != TypeKind.Array)
                 {
@@ -112,7 +118,7 @@ public class ElementAccessTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        if (context.IsInFixedScope && node.ArgumentList.Arguments.Count == 1)
+        if (node.ArgumentList.Arguments.Count == 1)
         {
             var targetExpr = facade.Transform(node.Expression, context);
             var targetType = context.GetTypeInfo(node.Expression).Type;
@@ -121,16 +127,15 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 var pointeeType = pointerType.PointedAtType;
                 var elementTypeName = GetPointeeTypeName(pointeeType);
                 var pointerInfo = context.FindPointerInfo(targetExpr.Trim());
-                if (pointerInfo != null)
+                if (pointerInfo == null)
                 {
-                    var idxExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    string offsetExpr = pointerInfo.ElementSize == 1
-                        ? idxExpr
-                        : $"(long){idxExpr} * {pointerInfo.ElementSize}";
-                    return FfmHelper.GeneratePointerRead(targetExpr.Trim(), pointerInfo, offsetExpr);
+                    pointerInfo = FfmHelper.CreatePointerInfo(targetExpr.Trim(), elementTypeName);
                 }
-                var idxExprFallback = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"/* pointer index access */ {targetExpr}.get(ValueLayout.{FfmHelper.GetValueLayoutName(elementTypeName)}, {idxExprFallback})";
+                var idxExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                string offsetExpr = pointerInfo.ElementSize == 1
+                    ? idxExpr
+                    : $"(long){idxExpr} * {pointerInfo.ElementSize}";
+                return FfmHelper.GeneratePointerRead(targetExpr.Trim(), pointerInfo, offsetExpr);
             }
         }
 

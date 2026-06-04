@@ -215,7 +215,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformBinaryExpression(BinaryExpressionSyntax node, string op, ConversionContext context)
     {
-        if (context.IsInFixedScope && op == "+")
+        if (op == "+")
         {
             var leftType = context.GetTypeInfo(node.Left).Type;
             if (leftType is IPointerTypeSymbol pointerType)

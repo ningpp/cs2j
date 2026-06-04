@@ -426,14 +426,20 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
 
-        if (context.IsInFixedScope)
+        var operandText = operand.Trim();
+        var pointerInfo = context.FindPointerInfo(operandText);
+        if (pointerInfo == null)
         {
-            var operandText = operand.Trim();
-            var pointerInfo = context.FindPointerInfo(operandText);
-            if (pointerInfo != null)
+            var operandType = context.GetTypeInfo(node.Operand).Type;
+            if (operandType is IPointerTypeSymbol ptrType)
             {
-                return FfmHelper.GeneratePointerRead(operandText, pointerInfo, "0");
+                var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
+                pointerInfo = FfmHelper.CreatePointerInfo(operandText, elementTypeName);
             }
+        }
+        if (pointerInfo != null)
+        {
+            return FfmHelper.GeneratePointerRead(operandText, pointerInfo, "0");
         }
 
         context.Diagnostics.Warning("Pointer indirection operator (*) has no Java equivalent - unsafe code not supported", node.GetLocation());
@@ -442,14 +448,19 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
-        if (context.IsInFixedScope && (op == "++" || op == "--"))
+        if (op == "++" || op == "--")
         {
             var operandType = context.GetTypeInfo(node.Operand).Type;
-            if (operandType is IPointerTypeSymbol)
+            if (operandType is IPointerTypeSymbol ptrType)
             {
                 var facade0 = ExpressionTransformerFacade.Instance;
                 var operandExpr = facade0.Transform(node.Operand, context);
                 var pointerInfo = context.FindPointerInfo(operandExpr.Trim());
+                if (pointerInfo == null)
+                {
+                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
+                    pointerInfo = FfmHelper.CreatePointerInfo(operandExpr.Trim(), elementTypeName);
+                }
                 if (pointerInfo != null)
                 {
                     long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
@@ -540,14 +551,19 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
-        if (context.IsInFixedScope && (op == "++" || op == "--"))
+        if (op == "++" || op == "--")
         {
             var operandType = context.GetTypeInfo(node.Operand).Type;
-            if (operandType is IPointerTypeSymbol)
+            if (operandType is IPointerTypeSymbol ptrType)
             {
                 var facade0 = ExpressionTransformerFacade.Instance;
                 var operandExpr = facade0.Transform(node.Operand, context);
                 var pointerInfo = context.FindPointerInfo(operandExpr.Trim());
+                if (pointerInfo == null)
+                {
+                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
+                    pointerInfo = FfmHelper.CreatePointerInfo(operandExpr.Trim(), elementTypeName);
+                }
                 if (pointerInfo != null)
                 {
                     long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;

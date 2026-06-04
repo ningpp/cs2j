@@ -136,7 +136,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.set(ValueLayout.JAVA_BYTE, 0, (byte) 42)", result.GeneratedCode);
+        Assert.Contains("p.set(ValueLayout.JAVA_BYTE, 0, ((byte)(42)))", result.GeneratedCode);
     }
 
     [Fact]
@@ -166,7 +166,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.set(ValueLayout.JAVA_BYTE, i, (byte) 42)", result.GeneratedCode);
+        Assert.Contains("p.set(ValueLayout.JAVA_BYTE, i, ((byte)(42)))", result.GeneratedCode);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.Transformers.Expression.Utilities;
@@ -97,7 +98,7 @@ public static class FfmHelper
         var valueExpression = IsBooleanElementType(info.CSharpElementTypeName)
             ? $"{sourceExpression} ? (byte) 1 : (byte) 0"
             : info.WriteCast.Length > 0
-            ? $"{info.WriteCast} {sourceExpression}"
+            ? $"({info.WriteCast}({sourceExpression}))"
             : sourceExpression;
         return $"MemorySegment {segmentName} = MemorySegment.ofArray(new {arrayType}[] {{ {valueExpression} }});";
     }
@@ -115,6 +116,26 @@ public static class FfmHelper
         if (elementType is IdentifierNameSyntax identifier)
             return identifier.Identifier.Text;
         return elementType.ToString();
+    }
+
+    public static string GetPointerElementTypeName(ITypeSymbol elementType)
+    {
+        return elementType.SpecialType switch
+        {
+            SpecialType.System_Byte => "byte",
+            SpecialType.System_SByte => "sbyte",
+            SpecialType.System_Char => "char",
+            SpecialType.System_Int16 => "short",
+            SpecialType.System_UInt16 => "ushort",
+            SpecialType.System_Int32 => "int",
+            SpecialType.System_UInt32 => "uint",
+            SpecialType.System_Int64 => "long",
+            SpecialType.System_UInt64 => "ulong",
+            SpecialType.System_Single => "float",
+            SpecialType.System_Double => "double",
+            SpecialType.System_Boolean => "bool",
+            _ => elementType.Name
+        };
     }
 
     public static FixedPointerInfo CreatePointerInfo(string variableName, string csharpElementType)
@@ -139,7 +160,7 @@ public static class FfmHelper
 
     public static string GeneratePointerWrite(string segmentExpr, FixedPointerInfo info, string offsetExpr, string valueExpr)
     {
-        string castValue = info.WriteCast.Length > 0 ? $"{info.WriteCast} {valueExpr}" : valueExpr;
+        string castValue = info.WriteCast.Length > 0 ? $"({info.WriteCast}({valueExpr}))" : valueExpr;
         return $"{segmentExpr}.set(ValueLayout.{info.ValueLayoutName}, {offsetExpr}, {castValue})";
     }
 
