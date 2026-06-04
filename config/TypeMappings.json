@@ -316,13 +316,6 @@
                                          ]
                          },
                          {
-                             "csharp":  "System.Uri",
-                             "java":  "URI",
-                             "imports":  [
-                                             "java.net.URI"
-                                         ]
-                         },
-                         {
                              "csharp":  "System.Text.StringBuilder",
                              "java":  "StringBuilder",
                              "imports":  [
