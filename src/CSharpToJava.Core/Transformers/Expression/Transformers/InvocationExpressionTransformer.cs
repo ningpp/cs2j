@@ -431,6 +431,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (mapped != null)
                 return ConversionContext.EscapeJavaKeyword(mapped);
 
+            // Primitive type static method mapping (e.g. char.IsLower → Character.isLowerCase)
+            // When the containing type is a C# primitive, use the specialized method name mapper
+            // that knows about Java wrapper class differences (e.g. IsLower→isLowerCase, not isLower).
+            if (sym.IsStatic && TryGetPrimitiveKeyword(sym.ContainingType, out var primKeyword))
+            {
+                var primMapped = MapPrimitiveStaticMethodName(primKeyword, originalName);
+                if (primMapped != originalName)
+                    return ConversionContext.EscapeJavaKeyword(primMapped);
+            }
+
             // When a non-operator method's camelCase name would collide with an auto-generated
             // operator method in the same class (e.g. Multiply -> multiply collides with
             // operator *), keep the PascalCase name. The method declaration will be renamed
@@ -2362,6 +2372,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Apply the same camelCase conversion at call sites that MethodTransformer applies at
         // declaration sites.  Only runs when no explicit TypeMappings override was found so that
         // hand-crafted renames (e.g. Add → add) are never double-processed.
+        if (methodName == originalMethodName)
+        {
+            // Primitive type static method mapping: when the method belongs to a C# primitive type
+            // (e.g. char.IsLower), use the specialized mapper that knows Java wrapper class differences.
+            if (methodSymbol is { IsStatic: true }
+                && TryGetPrimitiveKeyword(methodSymbol.ContainingType, out var primKeywordForMethod))
+            {
+                var primMethodMapped = MapPrimitiveStaticMethodName(primKeywordForMethod, originalMethodName);
+                if (primMethodMapped != originalMethodName)
+                {
+                    methodName = primMethodMapped;
+                    receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primKeywordForMethod);
+                }
+            }
+        }
+
         if (methodName == originalMethodName)
         {
             // When a non-operator method's camelCase name would collide with an auto-generated
@@ -5240,12 +5266,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// e.g. double.IsInfinity → Double.isInfinite, int.Parse → Integer.parseInt
     /// </summary>
     private static string MapPrimitiveStaticMethodName(string primitiveKeyword, string methodName)
-        => methodName switch
+        => (primitiveKeyword, methodName) switch
         {
-            "IsInfinity" or "IsPositiveInfinity" or "IsNegativeInfinity" => "isInfinite",
-            "IsNaN"    => "isNaN",
-            "IsFinite" => "isFinite",
-            "Parse"    => primitiveKeyword switch
+            // char-specific mappings: C# and Java Character class have different method names
+            ("char", "IsLower")          => "isLowerCase",
+            ("char", "IsUpper")          => "isUpperCase",
+            ("char", "IsWhiteSpace")     => "isWhitespace",
+            ("char", "IsControl")        => "isISOControl",
+            ("char", "IsSurrogate")      => "isSurrogate",
+            ("char", "IsHighSurrogate")  => "isHighSurrogate",
+            ("char", "IsLowSurrogate")   => "isLowSurrogate",
+            ("char", "IsSurrogatePair")  => "isSurrogatePair",
+            ("char", "GetNumericValue")  => "getNumericValue",
+            ("char", "ToLower")          => "toLowerCase",
+            ("char", "ToLowerInvariant") => "toLowerCase",
+            ("char", "ToUpper")          => "toUpperCase",
+            ("char", "ToUpperInvariant") => "toUpperCase",
+            ("char", "ToString")         => "toString",
+            ("char", "ConvertFromUtf32") => "toChars",
+            ("char", "ConvertToUtf32")   => "toCodePoint",
+            ("char", "Parse")            => "valueOf",
+            // generic mappings shared across all primitive types
+            (_, "IsInfinity" or "IsPositiveInfinity" or "IsNegativeInfinity") => "isInfinite",
+            (_, "IsNaN")    => "isNaN",
+            (_, "IsFinite") => "isFinite",
+            (_, "Parse")    => primitiveKeyword switch
             {
                 "int"    => "parseInt",
                 "long"   => "parseLong",
@@ -5294,6 +5339,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_Boolean => "Boolean",
             _ => null
         };
+
+    /// <summary>
+    /// Maps a C# primitive type's SpecialType to its keyword form (e.g. System.Char → "char").
+    /// Returns true when the type is a recognized C# primitive.
+    /// </summary>
+    private static bool TryGetPrimitiveKeyword(ITypeSymbol type, out string keyword)
+    {
+        keyword = type.SpecialType switch
+        {
+            SpecialType.System_Int32   => "int",
+            SpecialType.System_Int64   => "long",
+            SpecialType.System_Int16   => "short",
+            SpecialType.System_Byte    => "byte",
+            SpecialType.System_SByte   => "byte",
+            SpecialType.System_UInt32  => "uint",
+            SpecialType.System_UInt64  => "ulong",
+            SpecialType.System_UInt16  => "ushort",
+            SpecialType.System_Single  => "float",
+            SpecialType.System_Double  => "double",
+            SpecialType.System_Char    => "char",
+            SpecialType.System_Boolean => "bool",
+            SpecialType.System_Decimal => "decimal",
+            _ => string.Empty
+        };
+        return keyword.Length > 0;
+    }
 
     private static string GetFlagsEnumValueType(INamedTypeSymbol enumType, ConversionContext context)
     {

@@ -157,6 +157,429 @@ public class Sample
         Assert.Contains("Integer.MAX_VALUE", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CharToLowerInvariant_MapsToCharacterToLowerCase()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public char Test(char c)
+    {
+        return char.ToLowerInvariant(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.toLowerCase(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharToUpperInvariant_MapsToCharacterToUpperCase()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public char Test(char c)
+    {
+        return char.ToUpperInvariant(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.toUpperCase(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsLower_MapsToCharacterIsLowerCase()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsLower(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isLowerCase(c)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Character.isLower(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsUpper_MapsToCharacterIsUpperCase()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsUpper(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isUpperCase(c)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Character.isUpper(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsWhiteSpace_MapsToCharacterIsWhitespace()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsWhiteSpace(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isWhitespace(c)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Character.isWhiteSpace(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsControl_MapsToCharacterIsISOControl()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsControl(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isISOControl(c)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Character.isControl(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsDigit_MapsToCharacterIsDigit()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsDigit(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isDigit(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsLetter_MapsToCharacterIsLetter()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsLetter(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isLetter(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsLetterOrDigit_MapsToCharacterIsLetterOrDigit()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsLetterOrDigit(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isLetterOrDigit(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsPunctuation_MapsToCharacterIsPunctuation()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsPunctuation(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isPunctuation(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsSeparator_MapsToCharacterIsSeparator()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsSeparator(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isSeparator(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsSymbol_MapsToCharacterIsSymbol()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsSymbol(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isSymbol(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsSurrogate_MapsToCharacterIsSurrogate()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsSurrogate(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isSurrogate(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsHighSurrogate_MapsToCharacterIsHighSurrogate()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsHighSurrogate(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isHighSurrogate(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsLowSurrogate_MapsToCharacterIsLowSurrogate()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return char.IsLowSurrogate(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isLowSurrogate(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharIsSurrogatePair_MapsToCharacterIsSurrogatePair()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char high, char low)
+    {
+        return char.IsSurrogatePair(high, low);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isSurrogatePair(high, low)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharGetNumericValue_MapsToCharacterGetNumericValue()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public double Test(char c)
+    {
+        return char.GetNumericValue(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.getNumericValue(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharToLower_MapsToCharacterToLowerCase()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public char Test(char c)
+    {
+        return char.ToLower(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.toLowerCase(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharToUpper_MapsToCharacterToUpperCase()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public char Test(char c)
+    {
+        return char.ToUpper(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.toUpperCase(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharConvertFromUtf32_MapsToCharacterToChars()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public string Test(int utf32)
+    {
+        return char.ConvertFromUtf32(utf32);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.toChars(utf32)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharConvertToUtf32_MapsToCharacterToCodePoint()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public int Test(char high, char low)
+    {
+        return char.ConvertToUtf32(high, low);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.toCodePoint(high, low)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharMaxValue_MapsToCharacterMaxValue()
+    {
+        var result = Convert("""
+public class Sample
+{
+    private const char Max = char.MaxValue;
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.MAX_VALUE", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharMinValue_MapsToCharacterMinValue()
+    {
+        var result = Convert("""
+public class Sample
+{
+    private const char Min = char.MinValue;
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.MIN_VALUE", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharAliasIsLower_MapsToCharacterIsLowerCase()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return Char.IsLower(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isLowerCase(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharAliasIsWhiteSpace_MapsToCharacterIsWhitespace()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public bool Test(char c)
+    {
+        return Char.IsWhiteSpace(c);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Character.isWhitespace(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
