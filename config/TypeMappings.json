@@ -2920,16 +2920,30 @@
                                              "java.util.Comparator"
                                          ]
                          },
-                         {
-                             "csharp":  "System.Collections.Generic.IEqualityComparer`1",
-                             "java":  "IEqualityComparer",
-                             "imports":  [
-                                             "io.github.ningpp.compat.IEqualityComparer"
-                                         ]
-                         },
-                         {
-                             "csharp":  "System.Collections.Generic.IComparable`1",
-                             "java":  "Comparable",
+                        {
+                            "csharp":  "System.Collections.Generic.IEqualityComparer`1",
+                            "java":  "IEqualityComparer",
+                            "imports":  [
+                                                    "io.github.ningpp.compat.IEqualityComparer"
+                                                ]
+                        },
+                        {
+                            "csharp":  "System.IEquatable`1",
+                            "java":  "IEquatable",
+                            "imports":  [
+                                                    "io.github.ningpp.compat.IEquatable"
+                                                ]
+                        },
+                        {
+                            "csharp":  "System.Collections.Generic.EqualityComparer`1",
+                            "java":  "EqualityComparer",
+                            "imports":  [
+                                                    "io.github.ningpp.compat.EqualityComparer"
+                                                ]
+                        },
+                        {
+                            "csharp":  "System.Collections.Generic.IComparable`1",
+                            "java":  "Comparable",
                              "imports":  [
                                              "java.lang.Comparable"
                                          ]
@@ -3611,21 +3625,31 @@
                                "method":  "Compare",
                                "javaMethod":  "compare"
                            },
-                           {
-                               "type":  "System.Collections.Generic.IEqualityComparer",
-                               "method":  "Equals",
-                               "javaMethod":  "equals"
-                           },
-                           {
-                               "type":  "System.Collections.Generic.IEqualityComparer",
-                               "method":  "GetHashCode",
-                               "javaMethod":  "hashCode"
-                           },
-                           {
-                               "type":  "System.Collections.IComparer",
-                               "method":  "Compare",
-                               "javaMethod":  "compare"
-                           },
+                          {
+                              "type":  "System.Collections.Generic.IEqualityComparer",
+                              "method":  "Equals",
+                              "javaMethod":  "equals"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.IEqualityComparer",
+                              "method":  "GetHashCode",
+                              "javaMethod":  "hashCode"
+                          },
+                          {
+                              "type":  "System.IEquatable",
+                              "method":  "Equals",
+                              "javaMethod":  "equalsTo"
+                          },
+                          {
+                              "type":  "System.Collections.Generic.EqualityComparer",
+                              "method":  "get_Default",
+                              "javaMethod":  "getDefault"
+                          },
+                          {
+                              "type":  "System.Collections.IComparer",
+                              "method":  "Compare",
+                              "javaMethod":  "compare"
+                          },
                            {
                                "type":  "System.Collections.Generic.Comparer",
                                "method":  "Compare",

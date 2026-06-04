@@ -442,8 +442,6 @@ public class RecordTransformer : ITypeTransformer
                 var typeInfo = context.GetTypeInfo(baseType.Type);
                 if (typeInfo.Type?.TypeKind == TypeKind.Interface)
                 {
-                    if (typeInfo.Type.OriginalDefinition.ToDisplayString() == "System.IEquatable<T>")
-                        continue;
                     javaClass.ImplementedTypes.Add(context.MapType(typeInfo.Type));
                 }
             }

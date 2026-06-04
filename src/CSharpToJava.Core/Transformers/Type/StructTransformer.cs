@@ -70,11 +70,6 @@ public class StructTransformer : ITypeTransformer
                     // Skip MarshalByRefObject - it doesn't exist in Java
                     if (iface.Name != "MarshalByRefObject" && iface.ToDisplayString() != "System.MarshalByRefObject")
                     {
-                        // Skip IEquatable<T> — Java has no equivalent interface; the Equals(T)
-                        // method is preserved as a normal public method.
-                        if (iface.OriginalDefinition.ToDisplayString() == "System.IEquatable<T>")
-                            continue;
-
                         javaClass.ImplementedTypes.Add(context.MapType(iface));
                     }
                 }
