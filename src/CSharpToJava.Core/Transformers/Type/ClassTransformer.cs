@@ -462,6 +462,18 @@ public class ClassTransformer : ITypeTransformer
 
         var runtimeClassTypeParameters = AddRuntimeClassFields(javaClass, classSymbol, context);
 
+        // Pre-register nested enums so that their type information (FlagsEnum, ExplicitValueEnum)
+        // is available when processing method bodies that reference them.
+        // Without this, enums declared after methods in source order would not be registered yet.
+        foreach (var member in classDecl.Members)
+        {
+            if (member is EnumDeclarationSyntax nestedEnum)
+            {
+                var enumTransformer = new Transformers.Type.EnumTransformer();
+                enumTransformer.TransformEnum(nestedEnum, context);
+            }
+        }
+
         // 处理成员
         foreach (var member in classDecl.Members)
         {

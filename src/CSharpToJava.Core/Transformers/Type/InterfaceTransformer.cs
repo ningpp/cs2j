@@ -70,6 +70,18 @@ public class InterfaceTransformer : ITypeTransformer
 
         // 处理成员 — Fix 4: create factory once outside the per-member loop
         var factory = new Transformers.TransformerFactory();
+
+        // Pre-register nested enums so that their type information (FlagsEnum, ExplicitValueEnum)
+        // is available when processing method bodies that reference them.
+        foreach (var member in interfaceDecl.Members)
+        {
+            if (member is EnumDeclarationSyntax nestedEnum)
+            {
+                var enumTransformer = new Transformers.Type.EnumTransformer();
+                enumTransformer.TransformEnum(nestedEnum, context);
+            }
+        }
+
         foreach (var member in interfaceDecl.Members)
         {
             ProcessInterfaceMember(member, javaInterface, context, factory);

@@ -632,4 +632,136 @@ public class Sample
             Options = new ConversionOptions(),
         });
     }
+
+    [Fact]
+    public void NonFlagsEnum_BitwiseOrAssignment_UsesGetValueAndFromValue()
+    {
+        var result = Convert(@"
+public class UriParser
+{
+    public void Check(Flags flags)
+    {
+        flags |= Flags.UserNotCanonical;
+    }
+
+    private enum Flags : ulong
+    {
+        Zero = 0x00000000,
+        SchemeNotCanonical = 0x1,
+        UserNotCanonical = 0x2,
+        HostNotCanonical = 0x4,
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // |= on non-Flags enum should be expanded to fromValue(getValue() | getValue())
+        Assert.Contains("fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getValue() |", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".getValue())", result.GeneratedCode, StringComparison.Ordinal);
+        // Should NOT use raw |= on enum type
+        Assert.DoesNotContain("flags |= UriParser.Flags", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NonFlagsEnum_BitwiseAndComparison_UsesGetValue()
+    {
+        var result = Convert(@"
+public class UriParser
+{
+    public void Check(Flags flags)
+    {
+        if ((flags & Flags.HostNotCanonical) != 0) { }
+    }
+
+    private enum Flags : ulong
+    {
+        Zero = 0x00000000,
+        SchemeNotCanonical = 0x1,
+        UserNotCanonical = 0x2,
+        HostNotCanonical = 0x4,
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // & on non-Flags enum should use getValue()
+        Assert.Contains("getValue() &", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".getValue()) != 0", result.GeneratedCode, StringComparison.Ordinal);
+        // Should NOT use raw & on enum type
+        Assert.DoesNotContain("flags & UriParser.Flags.HostNotCanonical", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NonFlagsEnum_BitwiseAndAssignment_UsesGetValueAndFromValue()
+    {
+        var result = Convert(@"
+public class Sample
+{
+    public void Check(MyEnum flags)
+    {
+        flags &= MyEnum.Read;
+    }
+
+    private enum MyEnum
+    {
+        None = 0,
+        Read = 1,
+        Write = 2,
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getValue() &", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NonFlagsEnum_BitwiseXorAssignment_UsesGetValueAndFromValue()
+    {
+        var result = Convert(@"
+public class Sample
+{
+    public void Check(MyEnum flags)
+    {
+        flags ^= MyEnum.Read;
+    }
+
+    private enum MyEnum
+    {
+        None = 0,
+        Read = 1,
+        Write = 2,
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getValue() ^", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FlagsEnum_BitwiseOperations_RemainNativeIntOps()
+    {
+        // [Flags] enums are mapped to int/long, so bitwise ops should work natively
+        var result = Convert(@"
+using System;
+
+[Flags]
+public enum Permissions
+{
+    Read = 1,
+    Write = 2,
+    Execute = 4
+}
+
+public class Sample
+{
+    public Permissions Combine(Permissions p) { return p | Permissions.Write; }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // [Flags] enum should use native int bitwise ops, not getValue()/fromValue()
+        Assert.DoesNotContain("getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("p | Permissions.Write", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

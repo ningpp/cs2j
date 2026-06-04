@@ -310,6 +310,15 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 return enumResult;
         }
 
+        // Handle bitwise operations (&, |, ^) on non-Flags enum types.
+        // Java enums do not support bitwise operators; must use getValue() on operands.
+        if (IsBitwiseOp(op) && context.SemanticModel != null)
+        {
+            var enumBitwiseResult = TryTransformEnumBitwiseOperation(node, op, context);
+            if (enumBitwiseResult != null)
+                return enumBitwiseResult;
+        }
+
         // Standard operator - use Java's built-in operators
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
@@ -345,6 +354,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
 
     private static bool IsComparisonOp(string op) => op is "<" or ">" or "<=" or ">=";
+
+    private static bool IsBitwiseOp(string op) => op is "&" or "|" or "^";
 
     private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
         => context.SemanticModel != null
@@ -397,13 +408,54 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var enumName = enumType.ToDisplayString();
         var simpleName = enumType.Name;
 
-        if (context.IsFlagsEnum(enumName) || context.IsFlagsEnum(simpleName))
+        if (IsFlagsEnumType(enumType, context))
             return null;
 
         if (context.IsExplicitValueEnum(enumName) || context.IsExplicitValueEnum(simpleName))
             return ".getValue()";
 
+        // Fallback: check if the enum has explicit values directly from the symbol.
+        // This handles cases where the enum hasn't been registered yet due to processing order
+        // (e.g., method body processed before nested enum declaration).
+        if (EnumHasExplicitValues(enumType))
+            return ".getValue()";
+
         return ".ordinal()";
+    }
+
+    /// <summary>
+    /// Checks if an enum type has explicit value initializers by inspecting its members.
+    /// </summary>
+    private static bool EnumHasExplicitValues(INamedTypeSymbol enumType)
+    {
+        foreach (var member in enumType.GetMembers())
+        {
+            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
+                && field.Name != WellKnownMemberNames.InstanceConstructorName)
+            {
+                // If any member has a non-default value, the enum has explicit values.
+                // Default auto-increment starts at 0, so check if any value differs from its ordinal.
+                var ordinal = 0;
+                foreach (var checkMember in enumType.GetMembers())
+                {
+                    if (checkMember is IFieldSymbol { IsConst: true, HasConstantValue: true } checkField
+                        && checkField.Name != WellKnownMemberNames.InstanceConstructorName)
+                    {
+                        if (checkField.ConstantValue is int intVal && intVal != ordinal)
+                            return true;
+                        if (checkField.ConstantValue is long longVal && longVal != ordinal)
+                            return true;
+                        if (checkField.ConstantValue is uint uintVal && uintVal != ordinal)
+                            return true;
+                        if (checkField.ConstantValue is ulong ulongVal && ulongVal != (ulong)ordinal)
+                            return true;
+                        ordinal++;
+                    }
+                }
+                return false;
+            }
+        }
+        return false;
     }
 
     private string? TryTransformEnumComparison(BinaryExpressionSyntax node, string op, ConversionContext context)
@@ -451,6 +503,69 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             return null;
 
         return new JavaRawExpression(TryTransformEnumComparison(node, op, context)!);
+    }
+
+    /// <summary>
+    /// Handles bitwise operations (&amp;, |, ^) on non-Flags enum types.
+    /// Java enums do not support bitwise operators, so must use getValue()/ordinal() on operands.
+    /// For Flags enums (mapped to int/long), no conversion is needed.
+    /// </summary>
+    private string? TryTransformEnumBitwiseOperation(BinaryExpressionSyntax node, string op, ConversionContext context)
+    {
+        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
+        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
+
+        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
+        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
+
+        if (!leftIsEnum && !rightIsEnum)
+            return null;
+
+        // Flags enums are mapped to int/long in Java, so bitwise ops work natively
+        if (leftIsEnum && IsFlagsEnumType(leftType!, context))
+            return null;
+        if (rightIsEnum && IsFlagsEnumType(rightType!, context))
+            return null;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+        var right = facade.Transform(node.Right, context);
+
+        // Wrap enum operands with getValue() or ordinal() depending on enum kind
+        if (leftIsEnum)
+        {
+            var suffix = GetEnumAccessSuffix(leftType!, context);
+            if (suffix != null) left = $"{left}{suffix}";
+        }
+
+        if (rightIsEnum)
+        {
+            var suffix = GetEnumAccessSuffix(rightType!, context);
+            if (suffix != null) right = $"{right}{suffix}";
+        }
+
+        left = WrapOperandIfNeeded(node.Left, left, op, true);
+        right = WrapOperandIfNeeded(node.Right, right, op, false);
+
+        return $"{left} {op} {right}";
+    }
+
+    /// <summary>
+    /// Checks if an enum type is a [Flags] enum, using both the context registration
+    /// and direct semantic model inspection (to handle cases where the enum hasn't
+    /// been registered yet due to processing order).
+    /// </summary>
+    private static bool IsFlagsEnumType(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        if (context.IsFlagsEnum(enumType.Name) || context.IsFlagsEnum(enumType.ToDisplayString()))
+            return true;
+
+        // Fallback: check [Flags] attribute directly on the symbol
+        return enumType.GetAttributes().Any(a =>
+            a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"
+                or "System.Flags"
+                or "FlagsAttribute"
+                or "Flags");
     }
 
     /// <summary>

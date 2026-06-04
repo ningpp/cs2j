@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -569,6 +569,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 string baseOpByte = op[..^1];
                 return $"{leftByte} = ({leftByte} {baseOpByte} {rightByte}) & 0xFF";
             }
+        }
+
+        // Handle compound bitwise assignments (|=, &=, ^=) on non-Flags enum types.
+        // Java enums do not support bitwise operators; must expand to getValue()/fromValue().
+        if (IsEnumBitwiseCompoundAssignment(op, leftNode, context))
+        {
+            return ExpandEnumBitwiseCompoundAssignment(node, op, context);
         }
 
         if (op != "=" && context.SemanticModel != null
@@ -1239,5 +1246,102 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var firstLhsType = context.GetTypeInfo(targets[0].node).Type;
         firstRhs = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, firstRhs, firstLhsType, context);
         return $"{firstTarget} = {firstRhs}";
+    }
+
+    private static bool IsEnumBitwiseCompoundAssignment(string op, ExpressionSyntax leftNode, ConversionContext context)
+    {
+        if (op is not ("|=" or "&=" or "^="))
+            return false;
+
+        if (context.SemanticModel == null)
+            return false;
+
+        // Skip user-defined operators
+        if (context.GetSymbolInfo(leftNode.Parent!).Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
+            return false;
+
+        var lhsType = context.GetTypeInfo(leftNode).Type as INamedTypeSymbol;
+        if (lhsType?.TypeKind != TypeKind.Enum)
+            return false;
+
+        // Flags enums are mapped to int/long, so compound assignments work natively
+        if (context.IsFlagsEnum(lhsType.Name) || context.IsFlagsEnum(lhsType.ToDisplayString()))
+            return false;
+
+        return true;
+    }
+
+    private string ExpandEnumBitwiseCompoundAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var leftNode = node.Left;
+        var rightNode = node.Right;
+
+        var lhsType = (context.GetTypeInfo(leftNode).Type as INamedTypeSymbol)!;
+        string baseOp = op[..^1]; // "|=" → "|", "&=" → "&", "^=" → "^"
+
+        var left = facade.Transform(leftNode, context);
+        var right = facade.Transform(rightNode, context);
+
+        // Determine the value accessor suffix for the enum type.
+        // Use semantic model directly to handle cases where the enum hasn't been registered yet.
+        var enumName = lhsType.ToDisplayString();
+        var simpleName = lhsType.Name;
+        bool isExplicitValueEnum = context.IsExplicitValueEnum(enumName)
+            || context.IsExplicitValueEnum(simpleName)
+            || EnumHasExplicitValues(lhsType);
+        string valueSuffix = isExplicitValueEnum ? ".getValue()" : ".ordinal()";
+
+        // Build the expanded assignment:
+        // lhs = EnumType.fromValue(lhs.getValue() op rhs.getValue())
+        // For ordinal-based enums: lhs = EnumType.values()[lhs.ordinal() op rhs.ordinal()]
+        var leftAccess = $"{left}{valueSuffix}";
+        var rightAccess = right;
+
+        // The RHS might be an enum member access or a literal
+        var rhsType = context.GetTypeInfo(rightNode).Type as INamedTypeSymbol;
+        if (rhsType?.TypeKind == TypeKind.Enum)
+        {
+            rightAccess = $"{right}{valueSuffix}";
+        }
+
+        // Get the Java enum type name
+        var javaEnumType = context.MapType(lhsType);
+        var angleIdx = javaEnumType.IndexOf('<');
+        if (angleIdx > 0) javaEnumType = javaEnumType[..angleIdx];
+
+        if (isExplicitValueEnum)
+        {
+            return $"{left} = {javaEnumType}.fromValue({leftAccess} {baseOp} {rightAccess})";
+        }
+        else
+        {
+            return $"{left} = {javaEnumType}.values()[{leftAccess} {baseOp} {rightAccess}]";
+        }
+    }
+
+    /// <summary>
+    /// Checks if an enum type has explicit value initializers by inspecting its members.
+    /// </summary>
+    private static bool EnumHasExplicitValues(INamedTypeSymbol enumType)
+    {
+        var ordinal = 0;
+        foreach (var member in enumType.GetMembers())
+        {
+            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
+                && field.Name != WellKnownMemberNames.InstanceConstructorName)
+            {
+                if (field.ConstantValue is int intVal && intVal != ordinal)
+                    return true;
+                if (field.ConstantValue is long longVal && longVal != ordinal)
+                    return true;
+                if (field.ConstantValue is uint uintVal && uintVal != ordinal)
+                    return true;
+                if (field.ConstantValue is ulong ulongVal && ulongVal != (ulong)ordinal)
+                    return true;
+                ordinal++;
+            }
+        }
+        return false;
     }
 }

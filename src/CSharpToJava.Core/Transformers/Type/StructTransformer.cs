@@ -83,6 +83,18 @@ public class StructTransformer : ITypeTransformer
 
         // 处理成员
         context.EnterType(javaClass);
+
+        // Pre-register nested enums so that their type information (FlagsEnum, ExplicitValueEnum)
+        // is available when processing method bodies that reference them.
+        foreach (var member in structDecl.Members)
+        {
+            if (member is EnumDeclarationSyntax nestedEnum)
+            {
+                var enumTransformer = new Transformers.Type.EnumTransformer();
+                enumTransformer.TransformEnum(nestedEnum, context);
+            }
+        }
+
         foreach (var member in structDecl.Members)
         {
             ProcessStructMember(member, javaClass, context);
