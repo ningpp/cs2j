@@ -616,15 +616,22 @@
                                              "java.util.concurrent.BlockingQueue"
                                          ]
                          },
-                         {
-                             "csharp":  "System.SystemException",
-                             "java":  "RuntimeException",
-                             "imports":  [
-                                             "java.lang.RuntimeException"
-                                         ]
-                         },
-                         {
-                             "csharp":  "System.NullReferenceException",
+                        {
+                            "csharp":  "System.SystemException",
+                            "java":  "SystemException",
+                            "imports":  [
+                                            "io.github.ningpp.compat.SystemException"
+                                        ]
+                        },
+                        {
+                            "csharp":  "System.OutOfMemoryException",
+                            "java":  "OutOfMemoryException",
+                            "imports":  [
+                                            "io.github.ningpp.compat.OutOfMemoryException"
+                                        ]
+                        },
+                        {
+                            "csharp":  "System.NullReferenceException",
                              "java":  "NullPointerException",
                              "imports":  [
                                              "java.lang.NullPointerException"
