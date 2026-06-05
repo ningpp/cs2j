@@ -72,8 +72,8 @@ public partial class StatementTransformer : IStatementTransformer
             var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);
             context.MethodState.GotoAnalyzer = gotoAnalyzer;
 
-            // If cross-scope goto detected, wrap in state machine
-            if (gotoAnalyzer.HasCrossScopeGoto)
+            // If state machine is needed (B2/B3/C class gotos), wrap in state machine
+            if (gotoAnalyzer.NeedsStateMachine)
             {
                 return TransformBlockWithStateMachine(block, context, gotoAnalyzer);
             }
@@ -117,8 +117,8 @@ public partial class StatementTransformer : IStatementTransformer
             var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);
             context.MethodState.GotoAnalyzer = gotoAnalyzer;
 
-            // If cross-scope goto detected, fall back to string-based body with state machine
-            if (gotoAnalyzer.HasCrossScopeGoto)
+            // If state machine is needed (B2/B3/C class gotos), fall back to string-based body with state machine
+            if (gotoAnalyzer.NeedsStateMachine)
             {
                 var stateMachineCode = TransformBlockWithStateMachine(block, context, gotoAnalyzer);
                 body.Statements.Add(new Java.JavaRawStatement(stateMachineCode));
@@ -228,7 +228,7 @@ public partial class StatementTransformer : IStatementTransformer
             }
             else if (result is Java.JavaStatement javaStmt)
             {
-                // Structured IR node produced by the transformer — keep as-is
+                // Structured IR node produced by the transformer - keep as-is.
                 var comments = CommentConversion.ExtractStatementLeadingComments(statement);
                 if (!string.IsNullOrWhiteSpace(comments))
                     javaStmt.LeadingComment = comments;

@@ -118,6 +118,7 @@ public partial class StatementTransformer
 
     private JavaSyntaxNode TransformGotoStatement(GotoStatementSyntax stmt, ConversionContext context)
     {
+        // D class: goto case / goto default - handled by switch transformer.
         if (stmt.Kind() == SyntaxKind.GotoCaseStatement)
         {
             return new JavaStatementNode("/* TODO: goto case - unsupported */");
@@ -138,15 +139,36 @@ public partial class StatementTransformer
             return new JavaStatementNode($"/* TODO: goto {targetLabel} - label not found in scope */");
         }
 
-        // Check if this is a cross-scope goto
+        // Use the GotoAnalyzer classification to determine the transformation
         var gotoAnalyzer = context.MethodState.GotoAnalyzer;
-        if (gotoAnalyzer != null && gotoAnalyzer.CrossScopeLabels.Contains(targetLabel))
+        if (gotoAnalyzer != null)
         {
-            // Cross-scope goto - use state machine
-            var stateValue = GetLabelStateValue(targetLabel, context);
-            return new JavaStatementNode($"__gotoState = {stateValue}; continue __gotoLoop;");
+            var gotoInfo = gotoAnalyzer.AllGotos.FirstOrDefault(g =>
+                g.GotoStatement == stmt && g.TargetLabel == targetLabel);
+
+            if (gotoInfo != null)
+            {
+                switch (gotoInfo.Classification)
+                {
+                    case GotoScopeClassification.InScopeLoop:
+                        // A1: goto inside labeled loop -> continue label.
+                        return new JavaStatementNode($"continue {targetLabel};");
+
+                    case GotoScopeClassification.InScopeBlock:
+                        // A2: goto inside labeled block -> break label.
+                        return new JavaStatementNode($"break {targetLabel};");
+
+                    case GotoScopeClassification.SameBodyLoop:
+                    case GotoScopeClassification.SameBodyOther:
+                    case GotoScopeClassification.CrossScope:
+                        // B1/B2/B3/C: state machine goto
+                        var stateValue = GetLabelBlockIndex(targetLabel, context);
+                        return new JavaStatementNode($"__state = {stateValue}; continue __gotoLoop;");
+                }
+            }
         }
 
+        // Fallback: use old logic for unclassified gotos
         if (!IsInLabelScope(stmt, targetLabel))
         {
             return new JavaStatementNode($"/* TODO: goto {targetLabel} - cross-scope goto unsupported */");
@@ -163,12 +185,27 @@ public partial class StatementTransformer
         }
     }
 
+    /// <summary>
+    /// Gets the basic block index for a label in the state machine.
+    /// </summary>
+    private static int GetLabelBlockIndex(string labelName, ConversionContext context)
+    {
+        var gotoAnalyzer = context.MethodState.GotoAnalyzer;
+        if (gotoAnalyzer != null && gotoAnalyzer.LabelToBlockIndex.TryGetValue(labelName, out var index))
+        {
+            return index;
+        }
+
+        // Fallback: use old state value calculation
+        return GetLabelStateValue(labelName, context);
+    }
+
     private static int GetLabelStateValue(string labelName, ConversionContext context)
     {
         var gotoAnalyzer = context.MethodState.GotoAnalyzer;
         if (gotoAnalyzer == null) return 0;
 
-        var labels = gotoAnalyzer.CrossScopeLabels.OrderBy(l => l).ToList();
+        var labels = gotoAnalyzer.StateMachineLabels.OrderBy(l => l).ToList();
         var index = labels.IndexOf(labelName);
         return index + 1; // State 0 is initial, states 1+ are labels
     }
@@ -197,52 +234,87 @@ public partial class StatementTransformer
     }
 
     /// <summary>
-    /// Transforms a method body that contains cross-scope goto statements
-    /// into a state machine using a while loop and state variable.
+    /// Transforms a method body that requires a state machine using basic blocks.
     /// </summary>
     internal string TransformBlockWithStateMachine(BlockSyntax block, ConversionContext context, GotoAnalyzer gotoAnalyzer)
     {
         var sb = new StringBuilder();
-        var crossScopeLabels = gotoAnalyzer.CrossScopeLabels.OrderBy(l => l).ToList();
-        var labelStates = crossScopeLabels
-            .Select((label, index) => (label, state: index + 1))
-            .ToDictionary(item => item.label, item => item.state, StringComparer.Ordinal);
-        var segments = BuildGotoSegments(block.Statements, labelStates);
+        var basicBlocks = gotoAnalyzer.BasicBlocks;
+        var labelToBlockIndex = gotoAnalyzer.LabelToBlockIndex;
 
-        foreach (var hoistedLocal in CollectStateMachineLocalDeclarations(block, context))
+        // Hoist variable declarations
+        var hoistedDeclarations = CollectStateMachineLocalDeclarations(basicBlocks, context);
+        foreach (var hoistedLocal in hoistedDeclarations)
         {
             sb.AppendLine(hoistedLocal);
         }
 
-        sb.AppendLine("int __gotoState = 0;");
+        sb.AppendLine("int __state = 0;");
         sb.AppendLine("__gotoLoop: while (true) {");
-        sb.AppendLine("    switch (__gotoState) {");
+        sb.AppendLine("    switch (__state) {");
 
         context.MethodState.PushScope();
         try
         {
-            for (var i = 0; i < segments.Count; i++)
+            for (var i = 0; i < basicBlocks.Count; i++)
             {
-                var segment = segments[i];
-                sb.AppendLine($"        case {segment.State}:");
-                var emitted = TransformGotoSegmentStatements(segment.Statements, context, hoistLocalDeclarations: true);
-                foreach (var stmt in emitted)
+                var basicBlock = basicBlocks[i];
+                var labelComment = basicBlock.Label != null
+                    ? $" // {basicBlock.Label}"
+                    : $" // block_{basicBlock.Index}";
+                sb.AppendLine($"        case {basicBlock.Index}:{labelComment}");
+
+                // Transform statements in the block
+                for (var statementIndex = 0; statementIndex < basicBlock.Statements.Count; statementIndex++)
                 {
-                    AppendIndentedLines(sb, stmt, "            ");
+                    var stmt = basicBlock.Statements[statementIndex];
+                    var transformed = statementIndex == 0 && basicBlock.Label != null
+                        ? TransformLabeledBasicBlockStatement(basicBlock.Label, stmt, context, labelToBlockIndex)
+                        : TransformBasicBlockStatement(stmt, context, labelToBlockIndex);
+
+                    if (!string.IsNullOrWhiteSpace(transformed))
+                    {
+                        AppendIndentedLines(sb, transformed, "            ");
+                    }
                 }
 
-                if (!SegmentEndsWithUnconditionalJump(segment.Statements))
+                // Handle block exit
+                switch (basicBlock.Exit)
                 {
-                    var nextState = i + 1 < segments.Count ? segments[i + 1].State : -1;
-                    if (nextState >= 0)
-                    {
-                        sb.AppendLine($"            __gotoState = {nextState};");
-                        sb.AppendLine("            continue __gotoLoop;");
-                    }
-                    else
-                    {
-                        sb.AppendLine("            break __gotoLoop;");
-                    }
+                    case BlockExit.FallThrough:
+                        if (basicBlock.FallThroughTarget.HasValue)
+                        {
+                            sb.AppendLine($"            __state = {basicBlock.FallThroughTarget.Value};");
+                            sb.AppendLine("            continue __gotoLoop;");
+                        }
+                        else
+                        {
+                            sb.AppendLine("            break __gotoLoop;");
+                        }
+                        break;
+
+                    case BlockExit.Goto:
+                        // Already handled by TransformBasicBlockStatement (goto -> __state = N; continue __gotoLoop;).
+                        break;
+
+                    case BlockExit.ConditionalGoto:
+                        // Conditional goto is handled within the if statement transformation
+                        // Fall through to next block if condition is false
+                        if (basicBlock.FallThroughTarget.HasValue)
+                        {
+                            sb.AppendLine($"            __state = {basicBlock.FallThroughTarget.Value};");
+                            sb.AppendLine("            continue __gotoLoop;");
+                        }
+                        else
+                        {
+                            sb.AppendLine("            break __gotoLoop;");
+                        }
+                        break;
+
+                    case BlockExit.Return:
+                    case BlockExit.Break:
+                        // Already handled by the statement itself
+                        break;
                 }
             }
         }
@@ -255,92 +327,209 @@ public partial class StatementTransformer
         sb.AppendLine("            break __gotoLoop;");
         sb.AppendLine("    }");
         sb.AppendLine("}");
-        sb.AppendLine("throw new IllegalStateException(\"Unreachable goto state\");");
+
+        // Add a fallback return if the method has a non-void return type
+        // (Java requires all paths to return a value, and the compiler can't
+        // verify that the state machine always hits a return case)
+        if (block.Parent is MethodDeclarationSyntax methodDecl &&
+            !methodDecl.ReturnType.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.PredefinedType) &&
+            !(methodDecl.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.PredefinedTypeSyntax pt &&
+              pt.Keyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.VoidKeyword)))
+        {
+            // Non-predefined return type - add throw as fallback.
+            sb.AppendLine("throw new IllegalStateException(\"Unexpected state\");");
+        }
+        else if (block.Parent is MethodDeclarationSyntax md &&
+            md.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.PredefinedTypeSyntax pdt &&
+            !pdt.Keyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.VoidKeyword))
+        {
+            // Predefined non-void return type - add default return.
+            var returnType = pdt.Keyword.Text;
+            var defaultReturn = returnType switch
+            {
+                "int" or "long" or "short" or "byte" or "float" or "double" or "char" => "return 0;",
+                "bool" => "return false;",
+                _ => "return null;"
+            };
+            sb.AppendLine(defaultReturn);
+        }
 
         return sb.ToString();
     }
 
-    private sealed record GotoSegment(int State, List<StatementSyntax> Statements);
-
-    private static List<GotoSegment> BuildGotoSegments(
-        SyntaxList<StatementSyntax> statements,
-        IReadOnlyDictionary<string, int> labelStates)
+    private string TransformLabeledBasicBlockStatement(
+        string labelName,
+        StatementSyntax stmt,
+        ConversionContext context,
+        IReadOnlyDictionary<string, int> labelToBlockIndex)
     {
-        var flattenedStatements = FlattenSegmentStatements(statements, labelStates);
-        var segments = new List<GotoSegment>();
-        var current = new GotoSegment(0, new List<StatementSyntax>());
-        segments.Add(current);
+        var transformed = TransformBasicBlockStatement(stmt, context, labelToBlockIndex);
 
-        foreach (var statement in flattenedStatements)
+        if (stmt is ForStatementSyntax
+            or WhileStatementSyntax
+            or DoStatementSyntax
+            or ForEachStatementSyntax
+            or BlockSyntax)
         {
-            if (statement is LabeledStatementSyntax labeled
-                && labelStates.TryGetValue(labeled.Identifier.Text, out var state))
-            {
-                current = new GotoSegment(state, new List<StatementSyntax>());
-                segments.Add(current);
-            }
-
-            current.Statements.Add(statement);
+            return $"{labelName}: {transformed}";
         }
 
-        return segments.Where(segment => segment.Statements.Count > 0).ToList();
+        return $"{labelName}: {{ {transformed} }}";
     }
 
-    private static List<StatementSyntax> FlattenSegmentStatements(
-        IEnumerable<StatementSyntax> statements,
-        IReadOnlyDictionary<string, int> labelStates)
+    /// <summary>
+    /// Transforms a single statement within a basic block, handling goto conversions
+    /// to state machine transitions.
+    /// </summary>
+    private string TransformBasicBlockStatement(
+        StatementSyntax stmt,
+        ConversionContext context,
+        IReadOnlyDictionary<string, int> labelToBlockIndex)
     {
-        var result = new List<StatementSyntax>();
-
-        foreach (var statement in statements)
+        switch (stmt)
         {
-            if (statement is BlockSyntax block && ContainsTargetLabel(block, labelStates))
+            case GotoStatementSyntax gotoStmt:
+                return TransformGotoInStateMachine(gotoStmt, context, labelToBlockIndex);
+
+            case IfStatementSyntax ifStmt:
+                return TransformIfWithGotoInStateMachine(ifStmt, context, labelToBlockIndex);
+
+            case LocalDeclarationStatementSyntax localDecl:
+                return TransformHoistedLocalDeclarationAssignment(localDecl, context);
+
+            case LabeledStatementSyntax labeled:
+                // Labels inside basic blocks are handled by the case statement
+                // Just transform the inner statement
+                return TransformBasicBlockStatement(labeled.Statement, context, labelToBlockIndex);
+
+            default:
+                return Transform(stmt, context).ToString("");
+        }
+    }
+
+    /// <summary>
+    /// Transforms a goto statement within the state machine to a state transition.
+    /// </summary>
+    private string TransformGotoInStateMachine(
+        GotoStatementSyntax gotoStmt,
+        ConversionContext context,
+        IReadOnlyDictionary<string, int> labelToBlockIndex)
+    {
+        // goto case / goto default should not appear here (handled by switch transformer)
+        if (gotoStmt.Kind() == SyntaxKind.GotoCaseStatement ||
+            gotoStmt.Kind() == SyntaxKind.GotoDefaultStatement)
+        {
+            return Transform(gotoStmt, context).ToString("");
+        }
+
+        var targetLabel = (gotoStmt.Expression as IdentifierNameSyntax)?.Identifier.Text;
+        if (targetLabel == null)
+        {
+            return "/* TODO: goto - unsupported pattern */";
+        }
+
+        if (labelToBlockIndex.TryGetValue(targetLabel, out var blockIndex))
+        {
+            return $"__state = {blockIndex}; continue __gotoLoop;";
+        }
+
+        // Fallback: check if it's a loop label that can use continue
+        if (context.Labels.TryGetLabel(targetLabel, out var labelInfo) &&
+            labelInfo!.Kind == LabelKind.Loop)
+        {
+            return $"continue {targetLabel};";
+        }
+
+        return $"/* TODO: goto {targetLabel} - label not found in state machine */";
+    }
+
+    /// <summary>
+    /// Transforms an if statement that contains goto within the state machine.
+    /// The goto in the if body becomes a conditional state transition.
+    /// </summary>
+    private string TransformIfWithGotoInStateMachine(
+        IfStatementSyntax ifStmt,
+        ConversionContext context,
+        IReadOnlyDictionary<string, int> labelToBlockIndex)
+    {
+        var exprTransformer = Expression.ExpressionTransformerFacade.Instance;
+        var condition = exprTransformer.Transform(ifStmt.Condition, context);
+
+        var sb = new StringBuilder();
+        sb.Append($"if ({condition}) ");
+
+        // Transform the if body
+        if (ifStmt.Statement is BlockSyntax ifBlock)
+        {
+            var bodyStmts = new List<string>();
+            foreach (var s in ifBlock.Statements)
             {
-                result.AddRange(FlattenSegmentStatements(block.Statements, labelStates));
+                var transformed = TransformBasicBlockStatement(s, context, labelToBlockIndex);
+                if (!string.IsNullOrWhiteSpace(transformed))
+                    bodyStmts.Add(transformed);
+
+                if (IsUnconditionalJump(s))
+                    break;
+            }
+            sb.AppendLine("{");
+            foreach (var s in bodyStmts)
+                sb.AppendLine($"        {s}");
+            sb.Append("    }");
+        }
+        else
+        {
+            var body = TransformBasicBlockStatement(ifStmt.Statement, context, labelToBlockIndex);
+            // If the body contains multiple statements (e.g., "__state = N; continue __gotoLoop;"),
+            // wrap them in a block to avoid dangling statements after the if condition
+            if (body.Contains('\n') || body.Contains(';') && body.IndexOf(';') != body.LastIndexOf(';'))
+            {
+                sb.AppendLine("{");
+                foreach (var line in body.Replace("\r\n", "\n").Split('\n'))
+                {
+                    if (!string.IsNullOrWhiteSpace(line))
+                        sb.AppendLine($"        {line.Trim()}");
+                }
+                sb.Append("    }");
             }
             else
             {
-                result.Add(statement);
+                sb.AppendLine(body);
             }
         }
 
-        return result;
-    }
-
-    private static bool ContainsTargetLabel(
-        SyntaxNode node,
-        IReadOnlyDictionary<string, int> labelStates)
-    {
-        return node.DescendantNodesAndSelf()
-            .OfType<LabeledStatementSyntax>()
-            .Any(label => labelStates.ContainsKey(label.Identifier.Text));
-    }
-
-    private List<string> TransformGotoSegmentStatements(
-        IReadOnlyList<StatementSyntax> statements,
-        ConversionContext context,
-        bool hoistLocalDeclarations)
-    {
-        var result = new List<string>();
-
-        foreach (var statement in statements)
+        // Handle else
+        if (ifStmt.Else != null)
         {
-            var transformed = hoistLocalDeclarations && statement is LocalDeclarationStatementSyntax localDeclaration
-                ? TransformHoistedLocalDeclarationAssignment(localDeclaration, context)
-                : Transform(statement, context).ToString("");
-
-            if (!string.IsNullOrWhiteSpace(transformed))
+            sb.Append(" else ");
+            if (ifStmt.Else.Statement is BlockSyntax elseBlock)
             {
-                result.Add(transformed);
+                var elseStmts = new List<string>();
+                foreach (var s in elseBlock.Statements)
+                {
+                    var transformed = TransformBasicBlockStatement(s, context, labelToBlockIndex);
+                    if (!string.IsNullOrWhiteSpace(transformed))
+                        elseStmts.Add(transformed);
+
+                    if (IsUnconditionalJump(s))
+                        break;
+                }
+                sb.AppendLine("{");
+                foreach (var s in elseStmts)
+                    sb.AppendLine($"        {s}");
+                sb.Append("    }");
             }
-
-            if (IsUnconditionalJump(statement))
+            else if (ifStmt.Else.Statement is IfStatementSyntax elseIf)
             {
-                break;
+                sb.Append(TransformIfWithGotoInStateMachine(elseIf, context, labelToBlockIndex));
+            }
+            else
+            {
+                var elseBody = TransformBasicBlockStatement(ifStmt.Else.Statement, context, labelToBlockIndex);
+                sb.AppendLine(elseBody);
             }
         }
 
-        return result;
+        return sb.ToString();
     }
 
     private string TransformHoistedLocalDeclarationAssignment(
@@ -365,15 +554,14 @@ public partial class StatementTransformer
         return string.Join("\n", assignments);
     }
 
-    private List<string> CollectStateMachineLocalDeclarations(BlockSyntax block, ConversionContext context)
+    private List<string> CollectStateMachineLocalDeclarations(
+        IReadOnlyList<BasicBlock> basicBlocks,
+        ConversionContext context)
     {
         var locals = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var declaration in block.DescendantNodes(descendIntoChildren: node =>
-                 node is not AnonymousFunctionExpressionSyntax
-                     and not LocalFunctionStatementSyntax)
-                 .OfType<LocalDeclarationStatementSyntax>())
+        foreach (var declaration in CollectRewrittenLocalDeclarations(basicBlocks))
         {
             var typeInfo = context.GetTypeInfo(declaration.Declaration.Type);
             var javaType = typeInfo.Type != null
@@ -395,6 +583,81 @@ public partial class StatementTransformer
         return locals;
     }
 
+    private static IEnumerable<LocalDeclarationStatementSyntax> CollectRewrittenLocalDeclarations(
+        IReadOnlyList<BasicBlock> basicBlocks)
+    {
+        foreach (var basicBlock in basicBlocks)
+        {
+            foreach (var statement in basicBlock.Statements)
+            {
+                foreach (var declaration in CollectRewrittenLocalDeclarations(statement))
+                {
+                    yield return declaration;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<LocalDeclarationStatementSyntax> CollectRewrittenLocalDeclarations(
+        StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case LocalDeclarationStatementSyntax localDeclaration:
+                yield return localDeclaration;
+                break;
+
+            case LabeledStatementSyntax labeled:
+                foreach (var declaration in CollectRewrittenLocalDeclarations(labeled.Statement))
+                {
+                    yield return declaration;
+                }
+                break;
+
+            case IfStatementSyntax ifStatement:
+                foreach (var declaration in CollectRewrittenLocalDeclarationsInIfBranch(ifStatement.Statement))
+                {
+                    yield return declaration;
+                }
+
+                if (ifStatement.Else != null)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInIfBranch(ifStatement.Else.Statement))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+        }
+    }
+
+    private static IEnumerable<LocalDeclarationStatementSyntax> CollectRewrittenLocalDeclarationsInIfBranch(
+        StatementSyntax statement)
+    {
+        if (statement is BlockSyntax block)
+        {
+            foreach (var child in block.Statements)
+            {
+                foreach (var declaration in CollectRewrittenLocalDeclarations(child))
+                {
+                    yield return declaration;
+                }
+
+                if (IsUnconditionalJump(child))
+                {
+                    yield break;
+                }
+            }
+
+            yield break;
+        }
+
+        foreach (var declaration in CollectRewrittenLocalDeclarations(statement))
+        {
+            yield return declaration;
+        }
+    }
+
     private static string GetJavaDefaultValue(string javaType)
     {
         return javaType switch
@@ -405,30 +668,6 @@ public partial class StatementTransformer
             "double" => "0d",
             "char" => "'\\0'",
             _ => "null"
-        };
-    }
-
-    private static bool SegmentEndsWithUnconditionalJump(IReadOnlyList<StatementSyntax> statements)
-    {
-        if (statements.Count == 0)
-        {
-            return false;
-        }
-
-        return LastExecutableStatement(statements[^1]) is ReturnStatementSyntax
-            or ThrowStatementSyntax
-            or GotoStatementSyntax
-            or BreakStatementSyntax
-            or ContinueStatementSyntax;
-    }
-
-    private static StatementSyntax LastExecutableStatement(StatementSyntax statement)
-    {
-        return statement switch
-        {
-            LabeledStatementSyntax labeled => LastExecutableStatement(labeled.Statement),
-            BlockSyntax block when block.Statements.Count > 0 => LastExecutableStatement(block.Statements[^1]),
-            _ => statement
         };
     }
 
