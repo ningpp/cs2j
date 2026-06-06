@@ -411,7 +411,10 @@ class Program
                 if (TryWriteConvertedFile(result, project.Directory, javaRoot, outputSession, out var outputPath))
                 {
                     successCount++;
-                    if (opts.Verbose) Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                    if (opts.Verbose)
+                    {
+                        Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                    }
                 }
                 else
                 {
@@ -562,6 +565,10 @@ class Program
                         if (opts.Verbose)
                         {
                             Console.WriteLine($"Converted: {result.FileName} -> {outputPath}");
+                            foreach (var diag in result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Info))
+                            {
+                                Console.WriteLine($"  [INFO] {FormatDiagnostic(diag)}");
+                            }
                         }
                     }
                     else

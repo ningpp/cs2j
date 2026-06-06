@@ -45,7 +45,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         ["Int16"]    = ("short",   "Short"),
         ["Byte"]     = ("int",     "Integer"),
         ["SByte"]    = ("byte",    "Byte"),
-        ["UInt32"]   = ("uint",    "Integer"),
+        ["UInt32"]   = ("uint",    "Long"),
         ["UInt64"]   = ("ulong",   "Long"),
         ["UInt16"]   = ("ushort",  "Short"),
         ["Char"]     = ("char",    "Character"),
@@ -498,9 +498,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 };
             }
             // Last resort: try to resolve the receiver by its name in the enclosing scope
-            if (receiverType == null && node.Expression is IdentifierNameSyntax id)
+            if (receiverType == null && node.Expression is IdentifierNameSyntax idExpr)
             {
-                var name = id.Identifier.Text;
+                var name = idExpr.Identifier.Text;
                 // Search the enclosing method's locals and parameters
                 var enclosingSym = context.SemanticModel.GetEnclosingSymbol(node.SpanStart);
                 if (enclosingSym is IMethodSymbol method)
@@ -537,7 +537,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
                 // VarTypeMap fallback: pre-scanned var-declared local types
                 if ((receiverType == null || receiverType.TypeKind == TypeKind.Error)
-                    && context.VarTypeMap.TryGetValue(id.Identifier.Text, out var mappedType)
+                    && context.VarTypeMap.TryGetValue(idExpr.Identifier.Text, out var mappedType)
                     && mappedType.TypeKind != TypeKind.Error)
                 {
                     receiverType = mappedType;
@@ -926,7 +926,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // This runs immediately after Path A (GetSymbolInfo) fails. It uses the
         // type's own metadata to decide — no global whitelist needed.
         // Only fires for instance access (target starts with lowercase).
-        if (target.Length > 0 && char.IsLower(target[0]) && receiverType != null)
+        // Guard: if either staticTypeTarget or instanceReceiverTarget is set, this is
+        // a resolved receiver (static type or instance property), not a raw instance access.
+        if (target.Length > 0 && char.IsLower(target[0]) && receiverType != null
+            && staticTypeTarget == null && instanceReceiverTarget == null)
         {
             var resolved = TryResolvePropertyByType(memberName, target, receiverType, context);
             if (resolved != null)
@@ -1023,7 +1026,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Int32.MaxValue → Integer.MAX_VALUE, Single.MaxValue → Float.MAX_VALUE, etc.
         // The PredefinedTypeSyntax path above handles keyword forms (e.g. 'double.MaxValue'),
         // but when code uses the class name form the receiver is an IdentifierNameSyntax.
-        if (node.Expression is IdentifierNameSyntax { Identifier.Text: var boxedIdText }
+        // Also handle qualified forms like System.UInt32.MaxValue and global::System.UInt32.MaxValue.
+        var boxedIdText = node.Expression switch
+        {
+            IdentifierNameSyntax idName => idName.Identifier.Text,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => name.Identifier.Text,
+            AliasQualifiedNameSyntax { Name: IdentifierNameSyntax aliasName } => aliasName.Identifier.Text,
+            _ => null
+        };
+        if (boxedIdText != null
             && _csharpBoxedClassNames.TryGetValue(boxedIdText, out var primInfo))
         {
             if (TryMapPrimitiveStaticFieldName(primInfo.keyword, memberName, out var mappedConst))
