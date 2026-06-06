@@ -1170,6 +1170,37 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"StringHelper.compareOrdinal({compareOrdinalArgs})";
             }
 
+            // string.Compare(...) → StringHelper.compare(...)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Compare")
+            {
+                var compareArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"StringHelper.compare({compareArgs})";
+            }
+
+            // string.Copy(s) → StringHelper.copy(s)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Copy"
+                && node.ArgumentList.Arguments.Count == 1)
+            {
+                var copyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"StringHelper.copy({copyArg})";
+            }
+
+            // string.Intern(s) → StringHelper.intern(s)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Intern"
+                && node.ArgumentList.Arguments.Count == 1)
+            {
+                var internArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"StringHelper.intern({internArg})";
+            }
+
+            // string.IsInterned(s) → StringHelper.isInterned(s)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "IsInterned"
+                && node.ArgumentList.Arguments.Count == 1)
+            {
+                var isInternedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"StringHelper.isInterned({isInternedArg})";
+            }
+
             // Numeric TryParse: double.TryParse(s, out result) → MathHelper.tryParseDouble(s, holder)
             if (originalMethodName == "TryParse" && node.ArgumentList.Arguments.Count >= 2)
             {
@@ -2104,6 +2135,30 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     receiver = mappedReceiverType;
             }
 
+            // Semantic type fallback: when the method symbol is unavailable (e.g. .NET 6+ APIs
+            // like TryCopyTo in single-file mode), but the receiver's type can still be resolved,
+            // use the receiver type to look up TypeMappings. This handles instance method calls
+            // like s.TryCopyTo(dest, idx) where 's' is a string variable.
+            if (methodName == originalMethodName && context.SemanticModel != null)
+            {
+                var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+                if (receiverType != null)
+                {
+                    var receiverTypeName = receiverType.ToDisplayString();
+                    var typeMapped = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
+                    if (typeMapped == null)
+                    {
+                        var fqn = $"{receiverType.ContainingNamespace}.{receiverType.Name}";
+                        typeMapped = context.TypeMappings.MapMethod(fqn, originalMethodName);
+                    }
+                    if (typeMapped != null)
+                    {
+                        ExpressionTransformerHelpers.AddImportForMappedHelperMethod(typeMapped, context);
+                        methodName = typeMapped;
+                    }
+                }
+            }
+
             // Common unresolved fallback: receiver appears as bare "Console" in syntax,
             // but mappings are keyed by "System.Console".
             if (methodName == originalMethodName && syntacticReceiver == "Console")
@@ -2577,6 +2632,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var helperArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+
+            // When the original C# method is an instance method (e.g. s.Insert, s.IndexOfAny),
+            // the receiver must be passed as the first argument to the static helper method.
+            // Static methods (e.g. string.Concat, string.IsNullOrEmpty) don't need this.
+            // When methodSymbol is null (e.g. .NET 6+ APIs like TryCopyTo), infer from syntax:
+            // if the receiver is not a type name, it's an instance call.
+            bool isInstanceCall = methodSymbol is { IsStatic: false }
+                || (methodSymbol == null && !LooksLikeTypeReceiver(memberAccess.Expression, context));
+            if (isInstanceCall)
+            {
+                helperArgs = string.IsNullOrEmpty(helperArgs)
+                    ? receiver
+                    : $"{receiver}, {helperArgs}";
+            }
 
             // Enum.TryParse<T>(name, out result) -> EnumHelper.tryParse(name, holder, T.class)
             // The generic type argument T is not part of the C# argument list, so we must
@@ -4281,6 +4350,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || methodName.StartsWith("StringHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("System.getenv", StringComparison.Ordinal))
         {
+            // When the original C# method is an instance method, the receiver must be
+            // passed as the first argument to the static helper method.
+            bool isInstanceCallSafetyNet = methodSymbol is { IsStatic: false }
+                || (methodSymbol == null && !LooksLikeTypeReceiver(memberAccess.Expression, context));
+            if (isInstanceCallSafetyNet)
+            {
+                args = string.IsNullOrEmpty(args) ? receiver : $"{receiver}, {args}";
+            }
+
             if (methodName == "EnumHelper.tryParse" && methodSymbol != null
                 && methodSymbol.TypeArguments.Length > 0)
             {
@@ -6327,5 +6405,58 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var prefix = string.Join(", ", classTypeTokens);
         return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
+    }
+
+    /// <summary>
+    /// Determines whether the receiver expression looks like a type name (static call)
+    /// rather than a variable/field/property (instance call).
+    /// Used when methodSymbol is null to decide if the receiver should be passed
+    /// as the first argument to a static helper method.
+    /// </summary>
+    private static bool LooksLikeTypeReceiver(ExpressionSyntax expression, ConversionContext context)
+    {
+        // PredefinedTypeSyntax: int, string, double, etc. → always a type
+        if (expression is PredefinedTypeSyntax)
+            return true;
+
+        // IdentifierNameSyntax: could be a type or a variable.
+        // Use semantic model to distinguish when available.
+        if (expression is IdentifierNameSyntax identifier)
+        {
+            if (context.SemanticModel != null)
+            {
+                var symbol = context.GetSymbolInfo(identifier).Symbol;
+                // If the symbol is a named type, it's a static call
+                if (symbol is INamedTypeSymbol)
+                    return true;
+                // If it's a field/local/parameter/property, it's an instance call
+                if (symbol is IFieldSymbol or ILocalSymbol or IParameterSymbol or IPropertySymbol)
+                    return false;
+            }
+
+            // When semantic model cannot resolve the symbol, check if the identifier
+            // matches a type name in TypeMappings. If so, it's a static call.
+            var text = identifier.Identifier.Text;
+            var mappedType = context.TypeMappings.MapType(text);
+            if (mappedType != null && mappedType != text)
+                return true;
+            // Also check with common namespace prefixes
+            if (context.TypeMappings.MapType($"System.Drawing.{text}") != null
+                || context.TypeMappings.MapType($"System.{text}") != null)
+                return true;
+
+            return false;
+        }
+
+        // Qualified name (System.Console, System.IO.File, etc.) → always a type
+        if (expression is QualifiedNameSyntax)
+            return true;
+
+        // MemberAccessExpressionSyntax as receiver (e.g. System.IO.File.Exists)
+        if (expression is MemberAccessExpressionSyntax)
+            return true;
+
+        // Anything else (this, base, method calls, etc.) → not a type
+        return false;
     }
 }
