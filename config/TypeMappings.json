@@ -3840,13 +3840,103 @@
                                "method":  "Compare",
                                "javaMethod":  "StringHelper.compare"
                            },
-                           {
-                               "type":  "System.String",
-                               "method":  "CompareOrdinal",
-                               "javaMethod":  "StringHelper.compareOrdinal"
-                           },
-                           {
-                               "type":  "System.Double",
+                          {
+                              "type":  "System.String",
+                              "method":  "CompareOrdinal",
+                              "javaMethod":  "StringHelper.compareOrdinal"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "Insert",
+                              "javaMethod":  "StringHelper.insert"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "Remove",
+                              "javaMethod":  "StringHelper.remove"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "PadLeft",
+                              "javaMethod":  "StringHelper.padLeft"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "PadRight",
+                              "javaMethod":  "StringHelper.padRight"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "TrimStart",
+                              "javaMethod":  "StringHelper.trimStart"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "TrimEnd",
+                              "javaMethod":  "StringHelper.trimEnd"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "Copy",
+                              "javaMethod":  "StringHelper.copy"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "CopyTo",
+                              "javaMethod":  "getChars"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "IndexOfAny",
+                              "javaMethod":  "StringHelper.indexOfAny"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "LastIndexOfAny",
+                              "javaMethod":  "StringHelper.lastIndexOfAny"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "Clone",
+                              "javaMethod":  "StringHelper.clone"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "CompareTo",
+                              "javaMethod":  "StringHelper.compareTo"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "Intern",
+                              "javaMethod":  "StringHelper.intern"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "IsInterned",
+                              "javaMethod":  "StringHelper.isInterned"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "Normalize",
+                              "javaMethod":  "StringHelper.normalize"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "IsNormalized",
+                              "javaMethod":  "StringHelper.isNormalized"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "ReplaceLineEndings",
+                              "javaMethod":  "StringHelper.replaceLineEndings"
+                          },
+                          {
+                              "type":  "System.String",
+                              "method":  "TryCopyTo",
+                              "javaMethod":  "StringHelper.tryCopyTo"
+                          },
+                          {
+                              "type":  "System.Double",
                                "method":  "TryParse",
                                "javaMethod":  "MathHelper.tryParseDouble"
                            },

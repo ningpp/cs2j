@@ -164,6 +164,354 @@ public class StringHelper {
         return lastIndexOf(s, value, startIndex, comparison == 1 || comparison == 3 || comparison == 5);
     }
 
+    // ==================== Insert ====================
+    /** Mirrors C# String.Insert(startIndex, value) */
+    public static String insert(String s, int startIndex, String value) {
+        // C# behavior: throws ArgumentNullException if value is null
+        if (value == null) {
+            throw new NullPointerException("Value cannot be null");
+        }
+        // C# behavior: throws ArgumentOutOfRangeException if startIndex < 0 or > s.length()
+        if (startIndex < 0 || startIndex > s.length()) {
+            throw new IndexOutOfBoundsException("startIndex must be between 0 and " + s.length());
+        }
+        // C# behavior: if startIndex == s.length(), append to end
+        return s.substring(0, startIndex) + value + s.substring(startIndex);
+    }
+
+    // ==================== Remove ====================
+    /** Mirrors C# String.Remove(startIndex) */
+    public static String remove(String s, int startIndex) {
+        if (s == null) throw new NullPointerException("String cannot be null");
+        if (startIndex < 0 || startIndex > s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        return s.substring(0, startIndex);
+    }
+
+    /** Mirrors C# String.Remove(startIndex, count) */
+    public static String remove(String s, int startIndex, int count) {
+        if (s == null) throw new NullPointerException("String cannot be null");
+        if (startIndex < 0 || startIndex > s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        if (count < 0) throw new StringIndexOutOfBoundsException("count");
+        if (startIndex + count > s.length()) throw new StringIndexOutOfBoundsException("startIndex + count");
+        return s.substring(0, startIndex) + s.substring(startIndex + count);
+    }
+
+    // ==================== PadLeft ====================
+    /** Mirrors C# String.PadLeft(totalWidth) */
+    public static String padLeft(String s, int totalWidth) {
+        return padLeft(s, totalWidth, ' ');
+    }
+
+    /** Mirrors C# String.PadLeft(totalWidth, paddingChar) */
+    public static String padLeft(String s, int totalWidth, char paddingChar) {
+        if (s == null) throw new NullPointerException("String cannot be null");
+        if (totalWidth <= s.length()) return s;
+        int padding = totalWidth - s.length();
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < padding; i++) {
+            builder.append(paddingChar);
+        }
+        builder.append(s);
+        return builder.toString();
+    }
+
+    // ==================== PadRight ====================
+    /** Mirrors C# String.PadRight(totalWidth) */
+    public static String padRight(String s, int totalWidth) {
+        return padRight(s, totalWidth, ' ');
+    }
+
+    /** Mirrors C# String.PadRight(totalWidth, paddingChar) */
+    public static String padRight(String s, int totalWidth, char paddingChar) {
+        if (s == null) throw new NullPointerException("String cannot be null");
+        if (totalWidth <= s.length()) return s;
+        int padding = totalWidth - s.length();
+        StringBuilder builder = new StringBuilder(s);
+        for (int i = 0; i < padding; i++) {
+            builder.append(paddingChar);
+        }
+        return builder.toString();
+    }
+
+    // ==================== TrimStart ====================
+    /** Mirrors C# String.TrimStart() */
+    public static String trimStart(String s) {
+        if (s == null) return null;
+        int start = 0;
+        while (start < s.length() && Character.isWhitespace(s.charAt(start))) {
+            start++;
+        }
+        return s.substring(start);
+    }
+
+    /** Mirrors C# String.TrimStart(trimChar) */
+    public static String trimStart(String s, char trimChar) {
+        if (s == null) return null;
+        int start = 0;
+        while (start < s.length() && s.charAt(start) == trimChar) {
+            start++;
+        }
+        return s.substring(start);
+    }
+
+    // ==================== TrimEnd ====================
+    /** Mirrors C# String.TrimEnd() */
+    public static String trimEnd(String s) {
+        if (s == null) return null;
+        int end = s.length() - 1;
+        while (end >= 0 && Character.isWhitespace(s.charAt(end))) {
+            end--;
+        }
+        return s.substring(0, end + 1);
+    }
+
+    /** Mirrors C# String.TrimEnd(trimChar) */
+    public static String trimEnd(String s, char trimChar) {
+        if (s == null) return null;
+        int end = s.length() - 1;
+        while (end >= 0 && s.charAt(end) == trimChar) {
+            end--;
+        }
+        return s.substring(0, end + 1);
+    }
+
+    // ==================== IndexOf (char overloads) ====================
+    /** Mirrors C# String.IndexOf(value) for char */
+    public static int indexOf(String s, char value) {
+        if (s == null) return -1;
+        return s.indexOf(value);
+    }
+
+    /** Mirrors C# String.IndexOf(value, startIndex) for char */
+    public static int indexOf(String s, char value, int startIndex) {
+        if (s == null) return -1;
+        if (startIndex < 0 || startIndex > s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        return s.indexOf(value, startIndex);
+    }
+
+    /** Mirrors C# String.IndexOf(value, startIndex, count) for char */
+    public static int indexOf(String s, char value, int startIndex, int count) {
+        if (s == null) return -1;
+        if (startIndex < 0 || startIndex > s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        if (count < 0) throw new StringIndexOutOfBoundsException("count");
+        int endIndex = startIndex + count;
+        if (endIndex > s.length()) throw new StringIndexOutOfBoundsException("startIndex + count");
+        String sub = s.substring(startIndex, endIndex);
+        return sub.indexOf(value) + (sub.indexOf(value) >= 0 ? startIndex : 0);
+    }
+
+    // ==================== LastIndexOf (char overloads) ====================
+    /** Mirrors C# String.LastIndexOf(value) for char */
+    public static int lastIndexOf(String s, char value) {
+        if (s == null) return -1;
+        return s.lastIndexOf(value);
+    }
+
+    /** Mirrors C# String.LastIndexOf(value, startIndex) for char */
+    public static int lastIndexOf(String s, char value, int startIndex) {
+        if (s == null) return -1;
+        if (startIndex < 0 || startIndex >= s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        return s.lastIndexOf(value, startIndex);
+    }
+
+    /** Mirrors C# String.LastIndexOf(value, startIndex, count) for char */
+    public static int lastIndexOf(String s, char value, int startIndex, int count) {
+        if (s == null) return -1;
+        if (startIndex < 0 || startIndex >= s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        if (count < 0) throw new StringIndexOutOfBoundsException("count");
+        int endIndex = startIndex - count + 1;
+        if (endIndex < 0) endIndex = 0;
+        String sub = s.substring(endIndex, startIndex + 1);
+        int result = sub.lastIndexOf(value);
+        return result >= 0 ? result + endIndex : -1;
+    }
+
+    // ==================== Copy ====================
+    /** Mirrors C# String.Copy(str) */
+    public static String copy(String str) {
+        if (str == null) throw new NullPointerException("String cannot be null");
+        return new String(str); // Create a new String instance
+    }
+
+    // ==================== IndexOfAny / LastIndexOfAny ====================
+    /** Mirrors C# String.IndexOfAny(anyOf) */
+    public static int indexOfAny(String s, char[] anyOf) {
+        if (s == null || anyOf == null) return -1;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            for (char ch : anyOf) {
+                if (c == ch) return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Mirrors C# String.IndexOfAny(anyOf, startIndex) */
+    public static int indexOfAny(String s, char[] anyOf, int startIndex) {
+        if (s == null || anyOf == null) return -1;
+        if (startIndex < 0 || startIndex >= s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        for (int i = startIndex; i < s.length(); i++) {
+            char c = s.charAt(i);
+            for (char ch : anyOf) {
+                if (c == ch) return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Mirrors C# String.IndexOfAny(anyOf, startIndex, count) */
+    public static int indexOfAny(String s, char[] anyOf, int startIndex, int count) {
+        if (s == null || anyOf == null) return -1;
+        if (startIndex < 0 || startIndex >= s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        if (count < 0) throw new StringIndexOutOfBoundsException("count");
+        int endIndex = Math.min(startIndex + count, s.length());
+        for (int i = startIndex; i < endIndex; i++) {
+            char c = s.charAt(i);
+            for (char ch : anyOf) {
+                if (c == ch) return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Mirrors C# String.LastIndexOfAny(anyOf) */
+    public static int lastIndexOfAny(String s, char[] anyOf) {
+        if (s == null || anyOf == null) return -1;
+        for (int i = s.length() - 1; i >= 0; i--) {
+            char c = s.charAt(i);
+            for (char ch : anyOf) {
+                if (c == ch) return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Mirrors C# String.LastIndexOfAny(anyOf, startIndex) */
+    public static int lastIndexOfAny(String s, char[] anyOf, int startIndex) {
+        if (s == null || anyOf == null) return -1;
+        if (startIndex < 0 || startIndex >= s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        for (int i = startIndex; i >= 0; i--) {
+            char c = s.charAt(i);
+            for (char ch : anyOf) {
+                if (c == ch) return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Mirrors C# String.LastIndexOfAny(anyOf, startIndex, count) */
+    public static int lastIndexOfAny(String s, char[] anyOf, int startIndex, int count) {
+        if (s == null || anyOf == null) return -1;
+        if (startIndex < 0 || startIndex >= s.length()) throw new StringIndexOutOfBoundsException("startIndex");
+        if (count < 0) throw new StringIndexOutOfBoundsException("count");
+        int endIndex = Math.max(startIndex - count + 1, 0);
+        for (int i = startIndex; i >= endIndex; i--) {
+            char c = s.charAt(i);
+            for (char ch : anyOf) {
+                if (c == ch) return i;
+            }
+        }
+        return -1;
+    }
+
+    // ==================== Replace (char overload) ====================
+    /** Mirrors C# String.Replace(oldChar, newChar) */
+    public static String replace(String s, char oldChar, char newChar) {
+        if (s == null) return null;
+        return s.replace(oldChar, newChar);
+    }
+
+    // ==================== Clone ====================
+    /** Mirrors C# String.Clone() */
+    public static Object clone(String s) {
+        return s; // String is immutable, return itself
+    }
+
+    // ==================== CompareTo ====================
+    /** Mirrors C# String.CompareTo(obj) */
+    public static int compareTo(String s, Object obj) {
+        if (s == null) throw new NullPointerException("String cannot be null");
+        if (obj == null) throw new NullPointerException("Object cannot be null");
+        if (!(obj instanceof String)) throw new ClassCastException("Object must be of type String");
+        return s.compareTo((String) obj);
+    }
+
+    // ==================== Intern / IsInterned ====================
+    /** Mirrors C# String.Intern(str) */
+    public static String intern(String str) {
+        if (str == null) throw new NullPointerException("String cannot be null");
+        return str.intern();
+    }
+
+    /** Mirrors C# String.IsInterned(str) */
+    public static String isInterned(String str) {
+        if (str == null) return null;
+        String interned = str.intern();
+        return interned == str ? interned : null; // Simplified check
+    }
+
+    // ==================== Normalize / IsNormalized ====================
+    /** Mirrors C# String.Normalize() */
+    public static String normalize(String s) {
+        if (s == null) return null;
+        return java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFC);
+    }
+
+    /** Mirrors C# String.Normalize(form) */
+    public static String normalize(String s, int form) {
+        if (s == null) return null;
+        java.text.Normalizer.Form javaForm = convertToNormalizerForm(form);
+        return java.text.Normalizer.normalize(s, javaForm);
+    }
+
+    /** Mirrors C# String.IsNormalized() */
+    public static boolean isNormalized(String s) {
+        if (s == null) return false;
+        return java.text.Normalizer.isNormalized(s, java.text.Normalizer.Form.NFC);
+    }
+
+    /** Mirrors C# String.IsNormalized(form) */
+    public static boolean isNormalized(String s, int form) {
+        if (s == null) return false;
+        java.text.Normalizer.Form javaForm = convertToNormalizerForm(form);
+        return java.text.Normalizer.isNormalized(s, javaForm);
+    }
+
+    private static java.text.Normalizer.Form convertToNormalizerForm(int form) {
+        // C# NormalizationForm: FormC=1, FormD=2, FormKC=5, FormKD=6
+        switch (form) {
+            case 1: return java.text.Normalizer.Form.NFC;
+            case 2: return java.text.Normalizer.Form.NFD;
+            case 5: return java.text.Normalizer.Form.NFKC;
+            case 6: return java.text.Normalizer.Form.NFKD;
+            default: return java.text.Normalizer.Form.NFC;
+        }
+    }
+
+    // ==================== ReplaceLineEndings ====================
+    /** Mirrors C# String.ReplaceLineEndings() */
+    public static String replaceLineEndings(String s) {
+        return replaceLineEndings(s, "\n");
+    }
+
+    /** Mirrors C# String.ReplaceLineEndings(replacementText) */
+    public static String replaceLineEndings(String s, String replacementText) {
+        if (s == null) return null;
+        if (replacementText == null) throw new NullPointerException("replacementText cannot be null");
+        return s.replaceAll("\\r\\n|\\r|\\n", replacementText);
+    }
+
+    // ==================== TryCopyTo ====================
+    /** Mirrors C# String.TryCopyTo(destination) */
+    public static boolean tryCopyTo(String s, char[] destination, int destinationIndex) {
+        if (s == null) return false;
+        if (destination == null) return false;
+        if (destinationIndex < 0) return false;
+        if (destinationIndex + s.length() > destination.length) return false;
+        s.getChars(0, s.length(), destination, destinationIndex);
+        return true;
+    }
+
     private static void appendConcatValue(StringBuilder builder, Object value) {
         if (value == null) {
             return;
