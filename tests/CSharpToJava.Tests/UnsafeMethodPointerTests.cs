@@ -268,6 +268,67 @@ unsafe class Test {
     }
 
     [Fact]
+    public void UnsafeMethod_PointerPostIncrementDerefAssignment_AsExpression_ProducesValidJava()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    static char EscapedAscii(char first, char second) => first;
+
+    void M(char* dst, char* src) {
+        if ((*dst++ = *src++) != '%') {
+            return;
+        }
+
+        char ch = EscapedAscii((*dst++ = *src++), (*dst++ = *src++));
+    }
+}");
+        Assert.True(result.Success);
+        Assert.DoesNotContain(";)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(";,", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".set(ValueLayout.JAVA_CHAR, 0", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".get(ValueLayout.JAVA_CHAR, 0)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnsafeMethod_PointerPostIncrementDerefAssignment_InGotoStateMachine_EmitsHoistedExpressionsBeforeUse()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    static char EscapedAscii(char first, char second) => first;
+
+    void M(char* dst, char* src) {
+    again:
+        if ((*dst++ = *src++) != '%') goto again;
+
+        char ch = EscapedAscii((*dst++ = *src++), (*dst++ = *src++));
+        if (ch == '%') goto again;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("__gotoLoop", result.GeneratedCode, StringComparison.Ordinal);
+
+        var assignDeclarationIndex = result.GeneratedCode.IndexOf("var _ptrAssign1", StringComparison.Ordinal);
+        var assignConditionIndex = result.GeneratedCode.IndexOf("if ((_ptrAssign", StringComparison.Ordinal);
+        Assert.True(assignDeclarationIndex >= 0, result.GeneratedCode);
+        Assert.True(assignConditionIndex >= 0, result.GeneratedCode);
+        Assert.True(assignDeclarationIndex < assignConditionIndex, result.GeneratedCode);
+
+        var localAssignmentIndex = result.GeneratedCode.IndexOf("ch = Test.escapedAscii", StringComparison.Ordinal);
+        if (localAssignmentIndex < 0)
+        {
+            localAssignmentIndex = result.GeneratedCode.IndexOf("ch = escapedAscii", StringComparison.Ordinal);
+        }
+
+        var secondArgumentIndex = result.GeneratedCode.IndexOf("var _ptrAssign2", StringComparison.Ordinal);
+        var thirdArgumentIndex = result.GeneratedCode.IndexOf("var _ptrAssign3", StringComparison.Ordinal);
+        Assert.True(localAssignmentIndex >= 0, result.GeneratedCode);
+        Assert.True(secondArgumentIndex >= 0, result.GeneratedCode);
+        Assert.True(thirdArgumentIndex >= 0, result.GeneratedCode);
+        Assert.True(secondArgumentIndex < localAssignmentIndex, result.GeneratedCode);
+        Assert.True(thirdArgumentIndex < localAssignmentIndex, result.GeneratedCode);
+    }
+
+    [Fact]
     public void UnsafeMethod_BytePointerIndexRead()
     {
         var result = Convert(@"

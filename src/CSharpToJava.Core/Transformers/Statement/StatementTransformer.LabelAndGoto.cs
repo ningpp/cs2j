@@ -454,9 +454,41 @@ public partial class StatementTransformer
     {
         var exprTransformer = Expression.ExpressionTransformerFacade.Instance;
         var condition = exprTransformer.Transform(ifStmt.Condition, context);
+        var conditionPreamble = DrainPendingPreStatementText(context);
+        var effectiveCondition = condition;
+        var thenReadBacks = "";
+
+        if (context.HasPendingPostStatements)
+        {
+            var postStatements = context.DrainPostStatements();
+            var bodyScoped = new List<string>();
+            var preIfScoped = new List<string>();
+            foreach (var statement in postStatements)
+            {
+                var eqIdx = statement.IndexOf('=');
+                if (eqIdx > 0 && statement.Substring(0, eqIdx).Trim().Contains(' '))
+                    bodyScoped.Add(statement);
+                else
+                    preIfScoped.Add(statement);
+            }
+
+            if (preIfScoped.Count > 0)
+            {
+                var conditionTemp = context.GenerateSyntheticName("_ifCond");
+                conditionPreamble += $"var {conditionTemp} = {condition};\n";
+                conditionPreamble += FormatStatementLines(preIfScoped) + "\n";
+                effectiveCondition = conditionTemp;
+            }
+
+            if (bodyScoped.Count > 0)
+            {
+                thenReadBacks = FormatStatementLines(bodyScoped);
+            }
+        }
 
         var sb = new StringBuilder();
-        sb.Append($"if ({condition}) ");
+        sb.Append(conditionPreamble);
+        sb.Append($"if ({effectiveCondition}) ");
 
         // Transform the if body
         if (ifStmt.Statement is BlockSyntax ifBlock)
@@ -472,8 +504,10 @@ public partial class StatementTransformer
                     break;
             }
             sb.AppendLine("{");
+            if (!string.IsNullOrWhiteSpace(thenReadBacks))
+                AppendIndentedLines(sb, thenReadBacks, "        ");
             foreach (var s in bodyStmts)
-                sb.AppendLine($"        {s}");
+                AppendIndentedLines(sb, s, "        ");
             sb.Append("    }");
         }
         else
@@ -484,16 +518,24 @@ public partial class StatementTransformer
             if (body.Contains('\n') || body.Contains(';') && body.IndexOf(';') != body.LastIndexOf(';'))
             {
                 sb.AppendLine("{");
-                foreach (var line in body.Replace("\r\n", "\n").Split('\n'))
-                {
-                    if (!string.IsNullOrWhiteSpace(line))
-                        sb.AppendLine($"        {line.Trim()}");
-                }
+                if (!string.IsNullOrWhiteSpace(thenReadBacks))
+                    AppendIndentedLines(sb, thenReadBacks, "        ");
+                AppendIndentedLines(sb, body, "        ");
                 sb.Append("    }");
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(thenReadBacks))
+                {
+                    sb.AppendLine("{");
+                    AppendIndentedLines(sb, thenReadBacks, "        ");
+                    AppendIndentedLines(sb, body, "        ");
+                    sb.Append("    }");
+                }
+                else
+                {
                 sb.AppendLine(body);
+                }
             }
         }
 
@@ -515,17 +557,36 @@ public partial class StatementTransformer
                 }
                 sb.AppendLine("{");
                 foreach (var s in elseStmts)
-                    sb.AppendLine($"        {s}");
+                    AppendIndentedLines(sb, s, "        ");
                 sb.Append("    }");
             }
             else if (ifStmt.Else.Statement is IfStatementSyntax elseIf)
             {
-                sb.Append(TransformIfWithGotoInStateMachine(elseIf, context, labelToBlockIndex));
+                var elseIfText = TransformIfWithGotoInStateMachine(elseIf, context, labelToBlockIndex);
+                if (elseIfText.TrimStart().StartsWith("if ", StringComparison.Ordinal))
+                {
+                    sb.Append(elseIfText);
+                }
+                else
+                {
+                    sb.AppendLine("{");
+                    AppendIndentedLines(sb, elseIfText, "        ");
+                    sb.Append("    }");
+                }
             }
             else
             {
                 var elseBody = TransformBasicBlockStatement(ifStmt.Else.Statement, context, labelToBlockIndex);
-                sb.AppendLine(elseBody);
+                if (elseBody.Contains('\n') || elseBody.Contains(';') && elseBody.IndexOf(';') != elseBody.LastIndexOf(';'))
+                {
+                    sb.AppendLine("{");
+                    AppendIndentedLines(sb, elseBody, "        ");
+                    sb.Append("    }");
+                }
+                else
+                {
+                    sb.AppendLine(elseBody);
+                }
             }
         }
 
@@ -548,10 +609,44 @@ public partial class StatementTransformer
 
             var varName = ConversionContext.EscapeJavaKeyword(variable.Identifier.Text);
             var expr = exprTransformer.Transform(variable.Initializer.Value, context);
+            if (context.HasPendingPreStatements)
+            {
+                assignments.Add(DrainPendingPreStatementText(context).TrimEnd());
+            }
+
             assignments.Add($"{varName} = {expr};");
+
+            if (context.HasPendingPostStatements)
+            {
+                assignments.Add(DrainPendingPostStatementText(context).TrimEnd());
+            }
         }
 
         return string.Join("\n", assignments);
+    }
+
+    private static string DrainPendingPreStatementText(ConversionContext context)
+    {
+        return context.HasPendingPreStatements
+            ? FormatStatementLines(context.DrainPreStatements()) + "\n"
+            : "";
+    }
+
+    private static string DrainPendingPostStatementText(ConversionContext context)
+    {
+        return context.HasPendingPostStatements
+            ? FormatStatementLines(context.DrainPostStatements()) + "\n"
+            : "";
+    }
+
+    private static string FormatStatementLines(IEnumerable<string> statements)
+    {
+        return string.Join("\n", statements.Select(FormatStatementLine));
+    }
+
+    private static string FormatStatementLine(string statement)
+    {
+        return statement.Trim().TrimEnd(';') + ";";
     }
 
     private List<string> CollectStateMachineLocalDeclarations(

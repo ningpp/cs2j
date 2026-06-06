@@ -274,6 +274,7 @@ public class ConversionContext
     // ─── Facade methods delegating to MethodState for backward compatibility ───
 
     public void AddPreStatement(string statement) => MethodState.AddPreStatement(statement);
+    public void AddPreStatementAllowDuplicate(string statement) => MethodState.AddPreStatementAllowDuplicate(statement);
     public IReadOnlyList<string> DrainPreStatements() => MethodState.DrainPreStatements();
     public bool HasPendingPreStatements => MethodState.HasPendingPreStatements;
 

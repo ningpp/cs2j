@@ -18,6 +18,11 @@ public class MethodConversionState
             _pendingPreStatements.Add(statement);
     }
 
+    public void AddPreStatementAllowDuplicate(string statement)
+    {
+        _pendingPreStatements.Add(statement);
+    }
+
     public IReadOnlyList<string> DrainPreStatements()
     {
         var result = _pendingPreStatements.ToList();

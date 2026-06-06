@@ -642,7 +642,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
             {
                 var pointerRightStr = facade.Transform(rightNode, context);
                 pointerRightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, pointerRightStr, null, context);
-                return FfmHelper.GeneratePointerWrite(operand.Trim(), pointerInfo, "0", pointerRightStr) + ";";
+                var pointerWrite = FfmHelper.GeneratePointerWrite(operand.Trim(), pointerInfo, "0", pointerRightStr);
+                if (node.Parent is ExpressionStatementSyntax)
+                    return pointerWrite + ";";
+
+                var tmp = context.GenerateSyntheticName("_ptrAssign");
+                context.AddPreStatement($"var {tmp} = {pointerRightStr}");
+                context.AddPreStatementAllowDuplicate(FfmHelper.GeneratePointerWrite(operand.Trim(), pointerInfo, "0", tmp));
+                return tmp;
             }
         }
 

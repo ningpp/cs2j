@@ -464,7 +464,14 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 if (pointerInfo != null)
                 {
                     long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
-                    return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+                    if (IsDiscardedValueContext(node))
+                        return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+
+                    var tmp = context.GenerateSyntheticName("_ptrPost");
+                    context.AddImport("java.lang.foreign.MemorySegment");
+                    context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
+                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {operandExpr}.asSlice({delta})");
+                    return tmp;
                 }
             }
         }
@@ -475,7 +482,6 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         {
             return decimalRewrite;
         }
-
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
@@ -567,7 +573,14 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 if (pointerInfo != null)
                 {
                     long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
-                    return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+                    if (IsDiscardedValueContext(node))
+                        return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+
+                    var tmp = context.GenerateSyntheticName("_ptrPre");
+                    context.AddImport("java.lang.foreign.MemorySegment");
+                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {operandExpr}.asSlice({delta})");
+                    context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
+                    return tmp;
                 }
             }
         }
@@ -578,7 +591,6 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         {
             return decimalRewrite;
         }
-
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
@@ -630,6 +642,16 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
         return $"{op}{operand}";
+    }
+
+    private static bool IsDiscardedValueContext(SyntaxNode node)
+    {
+        if (node.Parent is ExpressionStatementSyntax)
+            return true;
+
+        return node.Parent is ForStatementSyntax forStatement
+            && (forStatement.Initializers.Any(expr => ReferenceEquals(expr, node))
+                || forStatement.Incrementors.Any(expr => ReferenceEquals(expr, node)));
     }
 
     private static bool TryTransformDecimalIncrementAsAssignment(
