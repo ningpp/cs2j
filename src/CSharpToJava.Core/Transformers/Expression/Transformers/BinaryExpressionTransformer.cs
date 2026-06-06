@@ -405,19 +405,20 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     private static string? GetEnumAccessSuffix(INamedTypeSymbol enumType, ConversionContext context)
     {
-        var enumName = enumType.ToDisplayString();
-        var simpleName = enumType.Name;
-
         if (IsFlagsEnumType(enumType, context))
             return null;
 
-        if (context.IsExplicitValueEnum(enumName) || context.IsExplicitValueEnum(simpleName))
+        // Prefer the current symbol over the name registry to avoid same-simple-name
+        // enum collisions across conversions or type groups.
+        if (EnumHasExplicitValues(enumType))
             return ".getValue()";
 
-        // Fallback: check if the enum has explicit values directly from the symbol.
-        // This handles cases where the enum hasn't been registered yet due to processing order
-        // (e.g., method body processed before nested enum declaration).
-        if (EnumHasExplicitValues(enumType))
+        var enumName = enumType.ToDisplayString();
+        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
+            fullyQualifiedName = fullyQualifiedName["global::".Length..];
+
+        if (context.IsExplicitValueEnum(enumName) || context.IsExplicitValueEnum(fullyQualifiedName))
             return ".getValue()";
 
         return ".ordinal()";
@@ -557,10 +558,20 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static bool IsFlagsEnumType(INamedTypeSymbol enumType, ConversionContext context)
     {
-        if (context.IsFlagsEnum(enumType.Name) || context.IsFlagsEnum(enumType.ToDisplayString()))
+        if (HasFlagsAttribute(enumType))
             return true;
 
-        // Fallback: check [Flags] attribute directly on the symbol
+        var displayName = enumType.ToDisplayString();
+        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
+            fullyQualifiedName = fullyQualifiedName["global::".Length..];
+
+        return context.IsFlagsEnum(displayName)
+            || context.IsFlagsEnum(fullyQualifiedName);
+    }
+
+    private static bool HasFlagsAttribute(INamedTypeSymbol enumType)
+    {
         return enumType.GetAttributes().Any(a =>
             a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"
                 or "System.Flags"

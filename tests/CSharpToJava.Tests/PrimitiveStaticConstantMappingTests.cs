@@ -580,6 +580,60 @@ public class Sample
         Assert.Contains("Character.isWhitespace(c)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void FlagsEnumParameter_MapsToLongType()
+    {
+        var result = Convert("""
+public class Uri
+{
+    [Flags]
+    private enum Flags : ulong
+    {
+        Zero = 0x00000000,
+        SchemeNotCanonical = 0x1,
+        UserNotCanonical = 0x2,
+        HostNotCanonical = 0x4,
+    }
+
+    private bool InFact(Flags flags)
+    {
+        return (_flags & flags) != 0;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("private boolean inFact(long flags)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("inFact(Uri.Flags", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FlagsEnumParameter_QualifiedName_MapsToLongType()
+    {
+        var result = Convert("""
+public class Uri
+{
+    [Flags]
+    private enum Flags : ulong
+    {
+        Zero = 0x00000000,
+        SchemeNotCanonical = 0x1,
+        UserNotCanonical = 0x2,
+        HostNotCanonical = 0x4,
+    }
+
+    private bool InFact(Uri.Flags flags)
+    {
+        return (_flags & flags) != 0;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("private boolean inFact(long flags)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("inFact(Uri.Flags", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

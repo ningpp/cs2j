@@ -739,6 +739,53 @@ public class Sample
     }
 
     [Fact]
+    public void NonFlagsEnum_WithSameSimpleNameAsPreviouslyConvertedFlagsEnum_UsesGetValue()
+    {
+        var flagsResult = Convert(@"
+using System;
+
+public class OtherUri
+{
+    [Flags]
+    private enum Flags : ulong
+    {
+        Zero = 0,
+        Read = 1,
+        Write = 2,
+    }
+
+    public bool Has(Flags flags)
+    {
+        return (flags & Flags.Read) != 0;
+    }
+}");
+
+        Assert.True(flagsResult.Success, string.Join("\n", flagsResult.Diagnostics));
+
+        var result = Convert(@"
+public class UriParser
+{
+    public void Check(Flags flags)
+    {
+        flags |= Flags.UserNotCanonical;
+        if ((flags & Flags.HostNotCanonical) != 0) { }
+    }
+
+    private enum Flags : ulong
+    {
+        Zero = 0x00000000,
+        SchemeNotCanonical = 0x1,
+        UserNotCanonical = 0x2,
+        HostNotCanonical = 0x4,
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("getValue() |", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getValue() &", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FlagsEnum_BitwiseOperations_RemainNativeIntOps()
     {
         // [Flags] enums are mapped to int/long, so bitwise ops should work natively

@@ -1278,8 +1278,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
         if (lhsType?.TypeKind != TypeKind.Enum)
             return false;
 
-        // Flags enums are mapped to int/long, so compound assignments work natively
-        if (context.IsFlagsEnum(lhsType.Name) || context.IsFlagsEnum(lhsType.ToDisplayString()))
+        // Flags enums are mapped to int/long, so compound assignments work natively.
+        // Prefer the current symbol over simple-name registry lookups to avoid collisions
+        // with a different enum named "Flags" from another conversion/type group.
+        if (IsFlagsEnumType(lhsType, context))
             return false;
 
         return true;
@@ -1299,11 +1301,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         // Determine the value accessor suffix for the enum type.
         // Use semantic model directly to handle cases where the enum hasn't been registered yet.
-        var enumName = lhsType.ToDisplayString();
-        var simpleName = lhsType.Name;
-        bool isExplicitValueEnum = context.IsExplicitValueEnum(enumName)
-            || context.IsExplicitValueEnum(simpleName)
-            || EnumHasExplicitValues(lhsType);
+        bool isExplicitValueEnum = EnumHasExplicitValues(lhsType)
+            || IsRegisteredExplicitValueEnum(lhsType, context);
         string valueSuffix = isExplicitValueEnum ? ".getValue()" : ".ordinal()";
 
         // Build the expanded assignment:
@@ -1357,5 +1356,39 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
         return false;
+    }
+
+    private static bool IsFlagsEnumType(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        if (HasFlagsAttribute(enumType))
+            return true;
+
+        var displayName = enumType.ToDisplayString();
+        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
+            fullyQualifiedName = fullyQualifiedName["global::".Length..];
+
+        return context.IsFlagsEnum(displayName)
+            || context.IsFlagsEnum(fullyQualifiedName);
+    }
+
+    private static bool HasFlagsAttribute(INamedTypeSymbol enumType)
+    {
+        return enumType.GetAttributes().Any(a =>
+            a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"
+                or "System.Flags"
+                or "FlagsAttribute"
+                or "Flags");
+    }
+
+    private static bool IsRegisteredExplicitValueEnum(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        var displayName = enumType.ToDisplayString();
+        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
+            fullyQualifiedName = fullyQualifiedName["global::".Length..];
+
+        return context.IsExplicitValueEnum(displayName)
+            || context.IsExplicitValueEnum(fullyQualifiedName);
     }
 }

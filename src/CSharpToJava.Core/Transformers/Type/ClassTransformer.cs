@@ -109,8 +109,10 @@ public class ClassTransformer : ITypeTransformer
 
             if (isDirect)
             {
+                // Skip IEquatable<T> — it doesn't exist in Java and should not appear in implements
                 // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
-                if (iface.ToDisplayString() != "System.MarshalByRefObject")
+                if (iface.Name != "IEquatable" && iface.ToDisplayString() != "System.IEquatable`1"
+                    && iface.ToDisplayString() != "System.MarshalByRefObject")
                 {
                     var mappedIface = context.MapType(iface);
                     // ICollection<T> maps to java.util.Collection<T> for type bounds (CollectionUtilities),
@@ -227,6 +229,21 @@ public class ClassTransformer : ITypeTransformer
             context.CurrentType!.TypeParameters.Add(tp);
 
         var runtimeClassTypeParameters = AddRuntimeClassFields(javaClass, mergedType.TypeSymbol, context);
+
+        // Pre-register nested enums so that their type information (FlagsEnum, ExplicitValueEnum)
+        // is available when processing method bodies that reference them.
+        // Without this, enums declared after methods in source order would not be registered yet.
+        foreach (var originalNode in mergedType.OriginalSyntaxNodes)
+        {
+            foreach (var member in originalNode.Members)
+            {
+                if (member is EnumDeclarationSyntax nestedEnum)
+                {
+                    var enumTransformer = new Transformers.Type.EnumTransformer();
+                    enumTransformer.TransformEnum(nestedEnum, context);
+                }
+            }
+        }
 
         // Process members from original syntax nodes (not the synthetic merged node).
         // Original nodes are from the compilation trees, so semantic model works correctly.
@@ -358,7 +375,9 @@ public class ClassTransformer : ITypeTransformer
                 if (typeInfo.Type == null) continue;
 
                 var resolvedType = typeInfo.Type;
+                // Skip IEquatable<T> — it doesn't exist in Java and should not appear in implements
                 // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
+                if (resolvedType.Name == "IEquatable" || resolvedType.ToDisplayString() == "System.IEquatable`1") continue;
                 if (resolvedType.ToDisplayString() == "System.MarshalByRefObject") continue;
 
                 if (resolvedType.TypeKind == TypeKind.Class)
