@@ -23,7 +23,7 @@ public class CSharpToJavaHIRGenerator : CSharpSyntaxVisitor<IrNode?>, IHIRGenera
         {
             switch (member)
             {
-                case NamespaceDeclarationSyntax ns:
+                case BaseNamespaceDeclarationSyntax ns:
                     ProcessNamespace(ns, unit);
                     break;
                 case TypeDeclarationSyntax typeDecl:
@@ -46,7 +46,7 @@ public class CSharpToJavaHIRGenerator : CSharpSyntaxVisitor<IrNode?>, IHIRGenera
         return unit;
     }
 
-    private void ProcessNamespace(NamespaceDeclarationSyntax ns, IrCompilationUnit unit)
+    private void ProcessNamespace(BaseNamespaceDeclarationSyntax ns, IrCompilationUnit unit)
     {
         _context.EnterNamespace(ns.Name.ToString());
         if (string.IsNullOrEmpty(unit.Package))
@@ -55,6 +55,9 @@ public class CSharpToJavaHIRGenerator : CSharpSyntaxVisitor<IrNode?>, IHIRGenera
         {
             switch (member)
             {
+                case BaseNamespaceDeclarationSyntax nestedNs:
+                    ProcessNamespace(nestedNs, unit);
+                    break;
                 case TypeDeclarationSyntax typeDecl:
                     var type = _typeGen.Generate(typeDecl, _context);
                     if (type != null) unit.TypeDeclarations.Add(type);

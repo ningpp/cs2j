@@ -190,6 +190,7 @@ public class ConversionPipeline
                         "System.Text",
                         "System.Threading.Tasks",
                     })
+                    .WithAllowUnsafe(true)
             );
             var library = Cs2jLibraryFactory.CreateSingleFile(request.SourceCode, request.FileName, syntaxTree, compilation);
             context.ProjectCompilation = compilation;

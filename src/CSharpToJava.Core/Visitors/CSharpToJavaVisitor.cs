@@ -33,12 +33,12 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
         // 处理 using 语句
         ProcessUsings(node.Usings, compilation);
 
-        // 处理命名空间声明
+        // 处理命名空间声明（包括块作用域和文件作用域命名空间）
         foreach (var member in node.Members)
         {
-            if (member is NamespaceDeclarationSyntax namespaceDecl)
+            if (member is BaseNamespaceDeclarationSyntax baseNsDecl)
             {
-                ProcessNamespace(namespaceDecl, compilation);
+                ProcessNamespace(baseNsDecl, compilation);
             }
             else if (member is TypeDeclarationSyntax typeDecl)
             {
@@ -280,9 +280,9 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     }
 
     /// <summary>
-    /// 处理命名空间
+    /// 处理命名空间（支持块作用域和文件作用域命名空间）
     /// </summary>
-    private void ProcessNamespace(NamespaceDeclarationSyntax namespaceDecl, JavaCompilationUnit compilation)
+    private void ProcessNamespace(BaseNamespaceDeclarationSyntax namespaceDecl, JavaCompilationUnit compilation)
     {
         var ns = namespaceDecl.Name.ToString();
 
@@ -302,7 +302,11 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
         // 处理命名空间中的成员
         foreach (var member in namespaceDecl.Members)
         {
-            if (member is TypeDeclarationSyntax typeDecl)
+            if (member is BaseNamespaceDeclarationSyntax nestedNs)
+            {
+                ProcessNamespace(nestedNs, compilation);
+            }
+            else if (member is TypeDeclarationSyntax typeDecl)
             {
                 var javaType = VisitTypeDeclaration(typeDecl);
                 if (javaType is JavaTypeDeclaration typeDeclNode)
