@@ -359,7 +359,7 @@ class StringHelperTest {
     @Test
     void copyTo_withOffset() {
         String s = "Hello World";
-        char[] dest = new char[11];
+        char[] dest = new char[5];
         StringHelper.copyTo(s, 6, dest, 0, 5);
         assertArrayEquals("World".toCharArray(), dest);
     }
@@ -367,13 +367,13 @@ class StringHelperTest {
     @Test
     void copyTo_withDestinationOffset() {
         String s = "Hello";
-        char[] dest = new char[11];
+        char[] dest = new char[7];
         dest[0] = 'X';
         dest[1] = 'X';
         StringHelper.copyTo(s, 0, dest, 2, 5);
         assertEquals('X', dest[0]);
         assertEquals('X', dest[1]);
-        assertArrayEquals("Hello".toCharArray(), java.util.Arrays.copyOfRange(dest, 2, 7));
+        assertArrayEquals(new char[]{'X', 'X', 'H', 'e', 'l', 'l', 'o'}, dest);
     }
 
     @Test
