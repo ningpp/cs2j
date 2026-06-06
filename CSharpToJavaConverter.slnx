@@ -4,6 +4,7 @@
   <Project Path="src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" Id="e5f6a7b8-c9d0-4e8f-2a1b-5e6f7a8b9c0d" Type="Microsoft.VisualStudio.Project" />
   <Project Path="src\CSharpToJava.Workspace\CSharpToJava.Workspace.csproj" Id="a1b2c3d4-e5f6-4a5b-8c7d-2a3b4c5d6e7f" Type="Microsoft.VisualStudio.Project" />
   <Project Path="tests\CSharpToJava.Tests\CSharpToJava.Tests.csproj" Id="f6a7b8c9-d0e1-4f9a-3b2c-6f7a8b9c0d1e" Type="Microsoft.VisualStudio.Project" />
+  <Project Path="tests\CSharpToJava.ProjectTests\CSharpToJava.ProjectTests.csproj" Id="d2e3f4a5-b6c7-4d8e-0f1a-4b5c6d7e8f9a" Type="Microsoft.VisualStudio.Project" />
   <Folder Id="9a8b7c6d-5e4f-4a3b-2c1d-0f9e8d7c6b5a" Name="/src/" Path="/src/">
     <ProjectRef Id="a1b2c3d4-e5f6-4a5b-8c7d-1a2b3c4d5e6f" />
     <ProjectRef Id="b2c3d4e5-f6a7-4b5c-9d8e-2b3c4d5e6f7a" />
@@ -12,5 +13,6 @@
   </Folder>
   <Folder Id="8b9c7d6e-5f4a-4b3c-2d1e-0f9e8d7c6b5a" Name="/tests/" Path="/tests/">
     <ProjectRef Id="f6a7b8c9-d0e1-4f9a-3b2c-6f7a8b9c0d1e" />
+    <ProjectRef Id="d2e3f4a5-b6c7-4d8e-0f1a-4b5c6d7e8f9a" />
   </Folder>
 </Solution>
