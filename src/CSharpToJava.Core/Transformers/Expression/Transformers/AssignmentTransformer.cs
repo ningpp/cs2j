@@ -730,6 +730,40 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // Handle pointer += / -=
+        if ((op == "+=" || op == "-=") && context.SemanticModel != null)
+        {
+            var leftType = context.GetTypeInfo(leftNode).Type;
+            if (leftType is IPointerTypeSymbol ptrType)
+            {
+                var leftExpr = facade.Transform(leftNode, context);
+                var rightExpr = facade.Transform(rightNode, context);
+
+                var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
+                if (pointerInfo == null && ptrType.PointedAtType != null)
+                {
+                    var elementTypeName = ptrType.PointedAtType.ToDisplayString();
+                    pointerInfo = FfmHelper.CreatePointerInfo("", elementTypeName);
+                }
+
+                if (pointerInfo != null)
+                {
+                    if (pointerInfo.ElementSize == 1)
+                    {
+                        var sliceExpr = op == "+="
+                            ? $"{leftExpr}.asSlice({rightExpr})"
+                            : $"{leftExpr}.asSlice(-{rightExpr})";
+                        return $"{leftExpr} = {sliceExpr}";
+                    }
+                    else
+                    {
+                        var sign = op == "+=" ? "" : "-";
+                        return $"{leftExpr} = {leftExpr}.asSlice({sign}(long){rightExpr} * {pointerInfo.ElementSize})";
+                    }
+                }
+            }
+        }
+
         return $"{left} {op} {rightStr}";
     }
 

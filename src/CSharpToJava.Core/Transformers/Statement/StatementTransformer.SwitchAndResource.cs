@@ -751,12 +751,27 @@ public partial class StatementTransformer
 
             if (!isNull && declarator.Initializer != null)
             {
-                initExpr = ExpressionTransformerFacade.Instance.Transform(declarator.Initializer.Value, context);
-                var initType = context.GetTypeInfo(declarator.Initializer.Value).Type;
-                isString = initType?.SpecialType == SpecialType.System_String;
-            }
+                var initValue = declarator.Initializer.Value;
 
-            sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull));
+                // Handle address-of scalar: fixed (byte* p = &b)
+                if (initValue is PrefixUnaryExpressionSyntax addrOf && addrOf.OperatorToken.IsKind(SyntaxKind.AmpersandToken))
+                {
+                    var operandExpr = ExpressionTransformerFacade.Instance.Transform(addrOf.Operand, context);
+                    var arrayType = FfmHelper.GetScratchArrayType(info.CSharpElementTypeName);
+                    sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
+                }
+                else
+                {
+                    initExpr = ExpressionTransformerFacade.Instance.Transform(initValue, context);
+                    var initType = context.GetTypeInfo(initValue).Type;
+                    isString = initType?.SpecialType == SpecialType.System_String;
+                    sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull));
+                }
+            }
+            else
+            {
+                sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull));
+            }
         }
 
         var imports = FfmHelper.GetRequiredImports(false);

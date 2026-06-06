@@ -473,6 +473,116 @@ unsafe class Test {
         Assert.Contains("MemorySegment q = MemorySegment.ofArray(b)", result.GeneratedCode);
     }
 
+    [Fact]
+    public void FixedBytePointer_AddressOfScalar()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M() {
+        byte b = 42;
+        fixed (byte* p = &b) { }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("MemorySegment p = MemorySegment.ofArray(new byte[] { b })", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void FixedBytePointer_NestedFixed_AddressOfScalar()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(byte[] arr) {
+        byte b = 42;
+        fixed (byte* p = arr) {
+            fixed (byte* q = &b) { }
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("MemorySegment q = MemorySegment.ofArray(new byte[] { b })", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerSubtractOffset_BytePointer()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(byte[] arr) {
+        fixed (byte* p = arr) {
+            byte* q = p - 4;
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("p.asSlice(-4)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerSubtractPointers_BytePointer()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(byte[] arr) {
+        fixed (byte* p = arr) {
+            fixed (byte* q = arr) {
+                long diff = p - q;
+            }
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("(p.address() - q.address())", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerComparison_LessThan()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(byte[] a, byte[] b) {
+        fixed (byte* p = a) {
+            fixed (byte* q = b) {
+                bool v = p < q;
+            }
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("p.address() < q.address()", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerAddAssign_BytePointer()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(byte[] arr) {
+        fixed (byte* p = arr) {
+            p += 4;
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("p = p.asSlice(4)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerSubtractAssign_IntPointer()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(int[] arr) {
+        fixed (int* p = arr) {
+            p -= 2;
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("p = p.asSlice(-(long)2 * 4)", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

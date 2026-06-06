@@ -242,6 +242,68 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        if (op == "-")
+        {
+            var leftType = context.GetTypeInfo(node.Left).Type;
+            var rightType = context.GetTypeInfo(node.Right).Type;
+
+            // Pointer - pointer (must be checked before Pointer - integer)
+            if (leftType is IPointerTypeSymbol && rightType is IPointerTypeSymbol)
+            {
+                var facade2 = ExpressionTransformerFacade.Instance;
+                var leftExpr = facade2.Transform(node.Left, context);
+                var rightExpr = facade2.Transform(node.Right, context);
+
+                var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
+                if (pointerInfo == null && leftType is IPointerTypeSymbol leftPtr)
+                {
+                    var elementTypeName = leftPtr.PointedAtType?.ToDisplayString() ?? "byte";
+                    pointerInfo = FfmHelper.CreatePointerInfo("", elementTypeName);
+                }
+
+                var elementSize = pointerInfo?.ElementSize ?? 1;
+                if (elementSize == 1)
+                    return $"({leftExpr}.address() - {rightExpr}.address())";
+                return $"({leftExpr}.address() - {rightExpr}.address()) / {elementSize}";
+            }
+
+            // Pointer - integer
+            if (leftType is IPointerTypeSymbol leftPtrType)
+            {
+                var facade2 = ExpressionTransformerFacade.Instance;
+                var leftExpr = facade2.Transform(node.Left, context);
+                var rightExpr = facade2.Transform(node.Right, context);
+
+                var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
+                if (pointerInfo == null && leftPtrType.PointedAtType != null)
+                {
+                    var elementTypeName = leftPtrType.PointedAtType.ToDisplayString();
+                    pointerInfo = FfmHelper.CreatePointerInfo("", elementTypeName);
+                }
+
+                if (pointerInfo != null)
+                {
+                    if (pointerInfo.ElementSize == 1)
+                        return $"{leftExpr}.asSlice(-{rightExpr})";
+                    return $"{leftExpr}.asSlice(-(long){rightExpr} * {pointerInfo.ElementSize})";
+                }
+            }
+        }
+
+        // Handle pointer comparison operators (<, >, <=, >=)
+        if (IsComparisonOp(op) && context.SemanticModel != null)
+        {
+            var leftType = context.GetTypeInfo(node.Left).Type;
+            var rightType = context.GetTypeInfo(node.Right).Type;
+            if (leftType is IPointerTypeSymbol && rightType is IPointerTypeSymbol)
+            {
+                var facade2 = ExpressionTransformerFacade.Instance;
+                var leftExpr = facade2.Transform(node.Left, context);
+                var rightExpr = facade2.Transform(node.Right, context);
+                return $"{leftExpr}.address() {op} {rightExpr}.address()";
+            }
+        }
+
         var facade = ExpressionTransformerFacade.Instance;
 
         // Fix: Handle event null comparisons (e.g., ProgressChanged != null)
