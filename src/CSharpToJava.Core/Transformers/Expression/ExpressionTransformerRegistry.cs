@@ -76,14 +76,6 @@ public static class ExpressionTransformerRegistry
             new DelegateExpressionTransformer((node, ctx) =>
                 ExpressionTransformerFacade.Instance.Transform(((RefExpressionSyntax)node).Expression, ctx)));
 
-        Register(new[] { SyntaxKind.StackAllocArrayCreationExpression },
-            new DelegateExpressionTransformer((node, ctx) =>
-            {
-                var stackAlloc = (StackAllocArrayCreationExpressionSyntax)node;
-                // Approximate stackalloc T[n] as new T[n]
-                return $"new {stackAlloc.Type}";
-            }));
-
         Register(new[] { SyntaxKind.ImplicitStackAllocArrayCreationExpression },
             new DelegateExpressionTransformer((node, ctx) =>
             {

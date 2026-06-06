@@ -370,6 +370,22 @@ unsafe class Test {
     }
 
     [Fact]
+    public void StackAllocBytePointer_WithVariableLength_UsesMemorySegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    public static void DemoMethod(int numberOfLabels) {
+        unsafe {
+            byte* numbers = stackalloc byte[numberOfLabels];
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("MemorySegment numbers = MemorySegment.ofArray(new byte[numberOfLabels])", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("MemorySegment numbers = new byte[numberOfLabels]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FixedBufferField_Byte()
     {
         var result = Convert(@"

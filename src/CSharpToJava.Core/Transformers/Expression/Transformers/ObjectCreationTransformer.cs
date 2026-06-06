@@ -1425,7 +1425,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         // node.Type is TypeSyntax but stackalloc always produces an ArrayTypeSyntax
         var arrayTypeSyntax = (ArrayTypeSyntax)node.Type;
-        string elementType = context.MapTypeFromSyntax(arrayTypeSyntax.ElementType);
+        string elementType = GetStackAllocArrayElementType(arrayTypeSyntax.ElementType, context);
 
         var sizes = new List<string>();
         foreach (var rankSpec in arrayTypeSyntax.RankSpecifiers)
@@ -1453,6 +1453,22 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (node.Initializer != null)
             sb.Append(TransformArrayInitializer(node.Initializer, context));
 
-        return $"/* C# stackalloc — allocated on heap in Java */ {sb}";
+        var arrayCreation = sb.ToString();
+        var stackAllocType = context.GetTypeInfo(node).Type ?? context.GetTypeInfo(node).ConvertedType;
+        if (stackAllocType is IPointerTypeSymbol)
+        {
+            context.AddImport("java.lang.foreign.MemorySegment");
+            return $"MemorySegment.ofArray({arrayCreation})";
+        }
+
+        return $"/* C# stackalloc — allocated on heap in Java */ {arrayCreation}";
+    }
+
+    private static string GetStackAllocArrayElementType(TypeSyntax elementTypeSyntax, ConversionContext context)
+    {
+        var elementSymbol = context.GetTypeInfo(elementTypeSyntax).Type;
+        return elementSymbol?.SpecialType == SpecialType.System_Byte
+            ? "byte"
+            : context.MapTypeFromSyntax(elementTypeSyntax);
     }
 }
