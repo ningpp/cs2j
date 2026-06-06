@@ -500,6 +500,36 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# new string(char* ptr, int startIndex, int length) → Java String from MemorySegment slice.
+        // Java String has no constructor accepting MemorySegment, so we slice the segment
+        // to the correct byte range, convert to a primitive array, then construct the String.
+        if (bareType == "String" && argumentList.Arguments.Count == 3)
+        {
+            IPointerTypeSymbol? ptrType = null;
+            if (ctorSymbol?.Parameters.FirstOrDefault()?.Type is IPointerTypeSymbol pt)
+                ptrType = pt;
+            else if (context.GetTypeInfo(argumentList.Arguments[0].Expression).Type is IPointerTypeSymbol pt2)
+                ptrType = pt2;
+
+            if (ptrType != null)
+            {
+                var elementTypeName = FfmHelper.GetPointerElementTypeName(ptrType.PointedAtType);
+                var info = FfmHelper.CreatePointerInfo("ptr", elementTypeName);
+                var parts = SplitTopLevelArgs(args);
+                if (parts.Count == 3)
+                {
+                    var ptrExpr = parts[0];
+                    var startExpr = parts[1];
+                    var lengthExpr = parts[2];
+                    var sliceExpr = info.ElementSize == 1
+                        ? $"{ptrExpr}.asSlice({startExpr}, {lengthExpr})"
+                        : $"{ptrExpr}.asSlice((long)({startExpr}) * {info.ElementSize}, (long)({lengthExpr}) * {info.ElementSize})";
+                    context.AddImport("java.lang.foreign.ValueLayout");
+                    return $"new String({sliceExpr}.toArray(ValueLayout.{info.ValueLayoutName}))";
+                }
+            }
+        }
+
         return $"new {typeName}({args})";
     }
 
