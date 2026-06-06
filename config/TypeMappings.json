@@ -1,4 +1,4 @@
-﻿{
+{
     "typeMappings":  [
                          {
                              "csharp":  "System.String",
@@ -3839,6 +3839,11 @@
                                "type":  "System.String",
                                "method":  "Compare",
                                "javaMethod":  "StringHelper.compare"
+                           },
+                           {
+                               "type":  "System.String",
+                               "method":  "CompareOrdinal",
+                               "javaMethod":  "StringHelper.compareOrdinal"
                            },
                            {
                                "type":  "System.Double",

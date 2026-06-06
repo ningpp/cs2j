@@ -904,6 +904,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                 return $"StringHelper.compare({leftArg}, {rightArg}, {ToJavaBooleanLiteral(compareIgnoreCase)})";
             }
+
+            if (originalMethodName == "CompareOrdinal"
+                && (node.ArgumentList.Arguments.Count == 2 || node.ArgumentList.Arguments.Count == 5))
+            {
+                var compareOrdinalArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"StringHelper.compareOrdinal({compareOrdinalArgs})";
+            }
         }
 
         var stringEqualsReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
@@ -1153,6 +1160,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 var concatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                 return $"StringHelper.concat({concatArgs})";
+            }
+
+            // string.CompareOrdinal(...) → StringHelper.compareOrdinal(...)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "CompareOrdinal"
+                && (node.ArgumentList.Arguments.Count == 2 || node.ArgumentList.Arguments.Count == 5))
+            {
+                var compareOrdinalArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"StringHelper.compareOrdinal({compareOrdinalArgs})";
             }
 
             // Numeric TryParse: double.TryParse(s, out result) → MathHelper.tryParseDouble(s, holder)

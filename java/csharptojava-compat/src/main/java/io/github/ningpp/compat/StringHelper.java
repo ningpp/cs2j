@@ -43,6 +43,23 @@ public class StringHelper {
     public static int compare(String s1, String s2, int comparison) {
         return compare(s1, s2, comparison == 1 || comparison == 3 || comparison == 5);
     }
+    /** Mirrors C# String.CompareOrdinal(strA, strB) */
+    public static int compareOrdinal(String strA, String strB) {
+        if (strA == null && strB == null) return 0;
+        if (strA == null) return -1;
+        if (strB == null) return  1;
+        return strA.compareTo(strB);
+    }
+    /** Mirrors C# String.CompareOrdinal(strA, indexA, strB, indexB, length) */
+    public static int compareOrdinal(String strA, int indexA, String strB, int indexB, int length) {
+        if (strA == null || strB == null) {
+            if (strA == null && strB == null) return 0;
+            return strA == null ? -1 : 1;
+        }
+        String subA = strA.substring(indexA, Math.min(indexA + length, strA.length()));
+        String subB = strB.substring(indexB, Math.min(indexB + length, strB.length()));
+        return subA.compareTo(subB);
+    }
     /** Mirrors C# String.Equals(a, b) */
     public static boolean equals(String s1, String s2) {
         if (s1 == null || s2 == null) {

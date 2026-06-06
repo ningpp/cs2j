@@ -5,6 +5,75 @@ namespace CSharpToJava.Tests;
 
 public class PrimitiveStaticConstantMappingTests
 {
+
+    [Fact]
+    public void StringCompareOrdinal_TwoArgs_MapsToStringHelperCompareOrdinal()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public int Test(string a, string b)
+    {
+        return string.CompareOrdinal(a, b);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("StringHelper.compareOrdinal(a, b)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StringCompareOrdinal_FiveArgs_MapsToStringHelperCompareOrdinal()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public int Test(string a, string b)
+    {
+        return string.CompareOrdinal(a, 0, b, 0, 3);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("StringHelper.compareOrdinal(a, 0, b, 0, 3)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StringAliasCompareOrdinal_TwoArgs_MapsToStringHelperCompareOrdinal()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public int Test(string a, string b)
+    {
+        return String.CompareOrdinal(a, b);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("StringHelper.compareOrdinal(a, b)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StringAliasCompareOrdinal_FiveArgs_MapsToStringHelperCompareOrdinal()
+    {
+        var result = Convert("""
+public class Sample
+{
+    public int Test(string a, string b)
+    {
+        return String.CompareOrdinal(a, 1, b, 2, 4);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("StringHelper.compareOrdinal(a, 1, b, 2, 4)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void BoxedDoubleNaN_InStaticPropertyGetter_UsesJavaWrapperConstant()
     {
