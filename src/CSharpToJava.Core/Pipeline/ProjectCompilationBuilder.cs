@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using CSharpToJava.Core.Context;
 using DiagSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
@@ -70,7 +70,8 @@ public static class ProjectCompilationBuilder
                     "System.Linq",
                     "System.Text",
                     "System.Threading.Tasks",
-                }));
+                })
+                .WithAllowUnsafe(true));
 
         context.ProjectCompilation = compilation;
 

@@ -467,6 +467,20 @@
             ]
         },
         {
+            "csharp": "System.Span`1",
+            "java": "Span",
+            "imports": [
+                "io.github.ningpp.compat.Span"
+            ]
+        },
+        {
+            "csharp": "System.ReadOnlySpan`1",
+            "java": "ReadOnlySpan",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlySpan"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.SortedSet`1",
             "java": "TreeSet",
             "imports": [
