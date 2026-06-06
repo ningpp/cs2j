@@ -3870,7 +3870,7 @@
         {
             "type": "System.String",
             "method": "CopyTo",
-            "javaMethod": "getChars"
+            "javaMethod": "StringHelper.copyTo"
         },
         {
             "type": "System.String",

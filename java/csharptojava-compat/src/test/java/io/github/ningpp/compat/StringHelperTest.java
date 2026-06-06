@@ -337,4 +337,113 @@ class StringHelperTest {
     void contains_caseSensitive_false() {
         assertFalse(StringHelper.contains("Hello World", "world", false));
     }
+
+    // ---- copyTo ----
+
+    @Test
+    void copyTo_basic() {
+        String s = "Hello World";
+        char[] dest = new char[11];
+        StringHelper.copyTo(s, 0, dest, 0, 11);
+        assertArrayEquals("Hello World".toCharArray(), dest);
+    }
+
+    @Test
+    void copyTo_partialString() {
+        String s = "Hello World";
+        char[] dest = new char[5];
+        StringHelper.copyTo(s, 0, dest, 0, 5);
+        assertArrayEquals("Hello".toCharArray(), dest);
+    }
+
+    @Test
+    void copyTo_withOffset() {
+        String s = "Hello World";
+        char[] dest = new char[11];
+        StringHelper.copyTo(s, 6, dest, 0, 5);
+        assertArrayEquals("World".toCharArray(), dest);
+    }
+
+    @Test
+    void copyTo_withDestinationOffset() {
+        String s = "Hello";
+        char[] dest = new char[11];
+        dest[0] = 'X';
+        dest[1] = 'X';
+        StringHelper.copyTo(s, 0, dest, 2, 5);
+        assertEquals('X', dest[0]);
+        assertEquals('X', dest[1]);
+        assertArrayEquals("Hello".toCharArray(), java.util.Arrays.copyOfRange(dest, 2, 7));
+    }
+
+    @Test
+    void copyTo_emptyString() {
+        String s = "";
+        char[] dest = new char[0];
+        StringHelper.copyTo(s, 0, dest, 0, 0);
+        assertEquals(0, dest.length);
+    }
+
+    @Test
+    void copyTo_singleCharacter() {
+        String s = "A";
+        char[] dest = new char[1];
+        StringHelper.copyTo(s, 0, dest, 0, 1);
+        assertEquals('A', dest[0]);
+    }
+
+    @Test
+    void copyTo_overwriteDestination() {
+        String s = "Hello";
+        char[] dest = "XXXXXXXXXX".toCharArray();
+        StringHelper.copyTo(s, 0, dest, 0, 5);
+        assertArrayEquals("HelloXXXXX".toCharArray(), dest);
+    }
+
+    @Test
+    void copyTo_nullSource() {
+        char[] dest = new char[10];
+        assertThrows(NullPointerException.class, () -> StringHelper.copyTo(null, 0, dest, 0, 5));
+    }
+
+    @Test
+    void copyTo_nullDestination() {
+        String s = "Hello";
+        assertThrows(NullPointerException.class, () -> StringHelper.copyTo(s, 0, null, 0, 5));
+    }
+
+    @Test
+    void copyTo_negativeSourceIndex() {
+        String s = "Hello";
+        char[] dest = new char[10];
+        assertThrows(IndexOutOfBoundsException.class, () -> StringHelper.copyTo(s, -1, dest, 0, 5));
+    }
+
+    @Test
+    void copyTo_negativeDestinationIndex() {
+        String s = "Hello";
+        char[] dest = new char[10];
+        assertThrows(IndexOutOfBoundsException.class, () -> StringHelper.copyTo(s, 0, dest, -1, 5));
+    }
+
+    @Test
+    void copyTo_negativeCount() {
+        String s = "Hello";
+        char[] dest = new char[10];
+        assertThrows(IndexOutOfBoundsException.class, () -> StringHelper.copyTo(s, 0, dest, 0, -1));
+    }
+
+    @Test
+    void copyTo_sourceIndexPlusCountExceedsLength() {
+        String s = "Hello";
+        char[] dest = new char[10];
+        assertThrows(IndexOutOfBoundsException.class, () -> StringHelper.copyTo(s, 0, dest, 0, 10));
+    }
+
+    @Test
+    void copyTo_destinationIndexPlusCountExceedsLength() {
+        String s = "Hello";
+        char[] dest = new char[3];
+        assertThrows(IndexOutOfBoundsException.class, () -> StringHelper.copyTo(s, 0, dest, 0, 5));
+    }
 }

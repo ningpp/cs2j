@@ -652,6 +652,40 @@ class Sample
         Assert.Contains("StringHelper.tryCopyTo(s, dest, index)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void String_CopyTo_ConvertsToStringHelperCopyTo()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public void DoCopy(string s, int sourceIndex, char[] dest, int destIndex, int count)
+    {
+        s.CopyTo(sourceIndex, dest, destIndex, count);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.copyTo(s, sourceIndex, dest, destIndex, count)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void String_CopyTo_WithLiteralArguments_ConvertsCorrectly()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public void DoCopy()
+    {
+        string s = ""Hello World"";
+        char[] dest = new char[5];
+        s.CopyTo(0, dest, 0, 5);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.copyTo(s, 0, dest, 0, 5)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ==================== Import verification ====================
 
     [Fact]

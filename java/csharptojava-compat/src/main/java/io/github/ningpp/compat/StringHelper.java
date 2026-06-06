@@ -512,6 +512,26 @@ public class StringHelper {
         return true;
     }
 
+    // ==================== CopyTo ====================
+    /**
+     * Mirrors C# String.CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count).
+     * Copies a specified number of characters from a specified position in the string to a specified position in a Unicode character array.
+     * @throws NullPointerException if destination is null
+     * @throws IndexOutOfBoundsException if sourceIndex, destinationIndex, or count is negative,
+     *         or if sourceIndex + count exceeds the string length,
+     *         or if destinationIndex + count exceeds the destination length
+     */
+    public static void copyTo(String s, int sourceIndex, char[] destination, int destinationIndex, int count) {
+        if (s == null) throw new NullPointerException("Source string cannot be null");
+        if (destination == null) throw new NullPointerException("Destination array cannot be null");
+        if (sourceIndex < 0) throw new IndexOutOfBoundsException("sourceIndex cannot be negative");
+        if (destinationIndex < 0) throw new IndexOutOfBoundsException("destinationIndex cannot be negative");
+        if (count < 0) throw new IndexOutOfBoundsException("count cannot be negative");
+        if (sourceIndex + count > s.length()) throw new IndexOutOfBoundsException("sourceIndex + count exceeds string length");
+        if (destinationIndex + count > destination.length) throw new IndexOutOfBoundsException("destinationIndex + count exceeds destination array length");
+        s.getChars(sourceIndex, sourceIndex + count, destination, destinationIndex);
+    }
+
     private static void appendConcatValue(StringBuilder builder, Object value) {
         if (value == null) {
             return;
