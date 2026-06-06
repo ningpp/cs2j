@@ -24,7 +24,10 @@ public class UintKeywordMaxValueTests
             string.Equals(r.FileName, "Sample.java", StringComparison.OrdinalIgnoreCase));
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("4294967295L", result.GeneratedCode, StringComparison.Ordinal);
+
+        // uint.MaxValue and UInt32.MaxValue both emit 4294967295L
+        var count = result.GeneratedCode.Split("4294967295L").Length - 1;
+        Assert.Equal(2, count);
         Assert.DoesNotContain("Integer.MAX_VALUE", result.GeneratedCode, StringComparison.Ordinal);
     }
 }
