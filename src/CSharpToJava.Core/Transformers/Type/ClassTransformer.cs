@@ -2218,7 +2218,8 @@ public class ClassTransformer : ITypeTransformer
                 var nestedResult = nestedTransformer.Transform(nestedClass, context);
                 if (nestedResult is JavaClassDeclaration jc)
                 {
-                    jc.Modifiers |= JavaModifiers.Static; // C# nested types are always static in Java
+                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
+                        jc.Modifiers |= JavaModifiers.Static;
                     javaClass.NestedTypes.Add(jc);
                 }
                 break;
@@ -2294,7 +2295,8 @@ public class ClassTransformer : ITypeTransformer
                 var nestedStructResult = nestedStructTransformer.Transform(nestedStruct, context);
                 if (nestedStructResult is JavaClassDeclaration jcs)
                 {
-                    jcs.Modifiers |= JavaModifiers.Static; // nested structs/classes are static in Java
+                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedStruct, context))
+                        jcs.Modifiers |= JavaModifiers.Static;
                     javaClass.NestedTypes.Add(jcs);
                 }
                 break;

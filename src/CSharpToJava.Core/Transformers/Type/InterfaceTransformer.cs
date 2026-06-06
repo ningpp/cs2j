@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Type;
 
@@ -206,7 +207,8 @@ public class InterfaceTransformer : ITypeTransformer
                 var nestedClassResult = nestedClassTransformer.Transform(nestedClass, context);
                 if (nestedClassResult is JavaClassDeclaration jc)
                 {
-                    jc.Modifiers |= JavaModifiers.Static;
+                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
+                        jc.Modifiers |= JavaModifiers.Static;
                     javaInterface.NestedTypes.Add(jc);
                 }
                 break;

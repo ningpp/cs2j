@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Type;
 
@@ -726,7 +727,8 @@ public class StructTransformer : ITypeTransformer
                 var nestedStructResult = nestedStructTransformer.Transform(nestedStruct, context);
                 if (nestedStructResult is JavaClassDeclaration jcs)
                 {
-                    jcs.Modifiers |= JavaModifiers.Static;
+                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedStruct, context))
+                        jcs.Modifiers |= JavaModifiers.Static;
                     javaClass.NestedTypes.Add(jcs);
                 }
                 break;
@@ -736,7 +738,8 @@ public class StructTransformer : ITypeTransformer
                 var nestedClassResult = nestedClassTransformer.Transform(nestedClass, context);
                 if (nestedClassResult is JavaClassDeclaration jcn)
                 {
-                    jcn.Modifiers |= JavaModifiers.Static;
+                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
+                        jcn.Modifiers |= JavaModifiers.Static;
                     javaClass.NestedTypes.Add(jcn);
                 }
                 break;
