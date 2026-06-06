@@ -3428,9 +3428,41 @@
             "csharp": "System.Runtime.CompilerServices.MethodImplAttribute",
             "java": "Object",
             "imports": []
+        },
+        {
+            "csharp": "System.Buffer",
+            "java": "Buffer",
+            "imports": [
+                "io.github.ningpp.compat.Buffer"
+            ]
         }
     ],
     "methodMappings": [
+        {
+            "type": "System.Buffer",
+            "method": "BlockCopy",
+            "javaMethod": "blockCopy"
+        },
+        {
+            "type": "System.Buffer",
+            "method": "GetByte",
+            "javaMethod": "getByte"
+        },
+        {
+            "type": "System.Buffer",
+            "method": "SetByte",
+            "javaMethod": "setByte"
+        },
+        {
+            "type": "System.Buffer",
+            "method": "ByteLength",
+            "javaMethod": "byteLength"
+        },
+        {
+            "type": "System.Buffer",
+            "method": "MemoryCopy",
+            "javaMethod": "memoryCopy"
+        },
         {
             "type": "System.Globalization.IdnMapping",
             "method": "GetAscii",
