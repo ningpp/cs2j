@@ -65,6 +65,10 @@ public final class Span<T> {
         return offset;
     }
 
+    public void clear() {
+        Arrays.fill(array, offset, offset + length, null);
+    }
+
     public T[] toArray() {
         return Arrays.copyOfRange(array, offset, offset + length);
     }

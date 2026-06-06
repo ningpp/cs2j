@@ -599,6 +599,66 @@ unsafe class Test {
         Assert.Contains("p = p.asSlice(-(long)2 * 4)", result.GeneratedCode);
     }
 
+    [Fact]
+    public void StackAlloc_SpanUShort_WrapsInSpanConstructor()
+    {
+        var result = Convert(@"
+namespace Demo {
+    class Program {
+        public static unsafe void DemoMethod(int NumberOfLabels) {
+            unsafe {
+                Span<ushort> numbers = stackalloc ushort[NumberOfLabels];
+                numbers.Clear();
+            }
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("new Span<>(new Short[NumberOfLabels])", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("numbers.clear()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new short[NumberOfLabels]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StackAlloc_SpanInt_WrapsInSpanConstructor()
+    {
+        var result = Convert(@"
+class Test {
+    void M(int size) {
+        Span<int> buf = stackalloc int[size];
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("new Span<>(new Integer[size])", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StackAlloc_ReadOnlySpanByte_WrapsInReadOnlySpanConstructor()
+    {
+        var result = Convert(@"
+class Test {
+    void M(int size) {
+        ReadOnlySpan<byte> buf = stackalloc byte[size];
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("new ReadOnlySpan<>(new Byte[size])", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StackAlloc_PointerType_StillUsesMemorySegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(int size) {
+        byte* p = stackalloc byte[size];
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(new byte[size])", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Span<>", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

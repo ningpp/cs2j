@@ -1484,11 +1484,34 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             sb.Append(TransformArrayInitializer(node.Initializer, context));
 
         var arrayCreation = sb.ToString();
-        var stackAllocType = context.GetTypeInfo(node).Type ?? context.GetTypeInfo(node).ConvertedType;
+        var typeInfo = context.GetTypeInfo(node);
+        var stackAllocType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (stackAllocType is IPointerTypeSymbol)
         {
             context.AddImport("java.lang.foreign.MemorySegment");
             return $"MemorySegment.ofArray({arrayCreation})";
+        }
+
+        // When stackalloc is assigned to Span<T> or ReadOnlySpan<T>, wrap in Span constructor.
+        // Use ConvertedType to detect the actual target type, because stackalloc naturally
+        // produces Span<T> but can be implicitly converted to ReadOnlySpan<T>.
+        var spanTargetType = typeInfo.ConvertedType ?? typeInfo.Type;
+        if (spanTargetType is INamedTypeSymbol { IsGenericType: true } namedType)
+        {
+            var isSpan = namedType.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.Span`1";
+            var isReadOnlySpan = namedType.OriginalDefinition?.ToDisplayString() is "System.ReadOnlySpan<T>" or "System.ReadOnlySpan`1";
+            if (isSpan || isReadOnlySpan)
+            {
+                var spanJavaName = isSpan ? "Span" : "ReadOnlySpan";
+                var spanImport = isSpan ? "io.github.ningpp.compat.Span" : "io.github.ningpp.compat.ReadOnlySpan";
+                context.AddImport(spanImport);
+
+                // Use wrapper type for array element (Java generics require boxed types)
+                var wrapperElementType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(elementType);
+                var wrapperArrayCreation = arrayCreation.Replace($"new {elementType}", $"new {wrapperElementType}");
+
+                return $"new {spanJavaName}<>({wrapperArrayCreation})";
+            }
         }
 
         return $"/* C# stackalloc — allocated on heap in Java */ {arrayCreation}";
