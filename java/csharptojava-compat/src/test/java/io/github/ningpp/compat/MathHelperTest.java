@@ -204,4 +204,202 @@ class MathHelperTest {
         assertFalse(MathHelper.tryParseBool("1", holder));
         assertFalse(MathHelper.tryParseBool("", holder));
     }
+
+    // ---- tryFormatByte ----
+
+    @Test
+    void tryFormatByte_default() {
+        Character[] arr = new Character[10];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatByte((byte)255, dest, written, null));
+        assertEquals(3, written.value);
+        assertEquals('2', dest.get(0));
+        assertEquals('5', dest.get(1));
+        assertEquals('5', dest.get(2));
+    }
+
+    @Test
+    void tryFormatByte_hexFormat() {
+        Character[] arr = new Character[10];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatByte((byte)255, dest, written, "X2"));
+        assertEquals(2, written.value);
+        assertEquals('F', dest.get(0));
+        assertEquals('F', dest.get(1));
+    }
+
+    @Test
+    void tryFormatByte_bufferTooSmall() {
+        Character[] arr = new Character[1];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertFalse(MathHelper.tryFormatByte((byte)255, dest, written, null));
+    }
+
+    // ---- tryFormatInt ----
+
+    @Test
+    void tryFormatInt_default() {
+        Character[] arr = new Character[20];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatInt(42, dest, written, null));
+        assertEquals(2, written.value);
+        assertEquals('4', dest.get(0));
+        assertEquals('2', dest.get(1));
+    }
+
+    @Test
+    void tryFormatInt_hexFormat() {
+        Character[] arr = new Character[20];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatInt(255, dest, written, "X8"));
+        assertEquals(8, written.value);
+        assertEquals('0', dest.get(0));
+        assertEquals('F', dest.get(7));
+    }
+
+    @Test
+    void tryFormatInt_negative() {
+        Character[] arr = new Character[20];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatInt(-1, dest, written, null));
+        assertEquals(2, written.value);
+        assertEquals('-', dest.get(0));
+        assertEquals('1', dest.get(1));
+    }
+
+    // ---- tryFormatDouble ----
+
+    @Test
+    void tryFormatDouble_default() {
+        Character[] arr = new Character[30];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatDouble(3.14, dest, written, null));
+        assertTrue(written.value > 0);
+    }
+
+    @Test
+    void tryFormatDouble_fixedPoint() {
+        Character[] arr = new Character[30];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatDouble(3.14159, dest, written, "F2"));
+        assertEquals(4, written.value);
+        assertEquals('3', dest.get(0));
+        assertEquals('.', dest.get(1));
+        assertEquals('1', dest.get(2));
+        assertEquals('4', dest.get(3));
+    }
+
+    // ---- tryFormatLong ----
+
+    @Test
+    void tryFormatLong_default() {
+        Character[] arr = new Character[30];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatLong(123456789L, dest, written, null));
+        assertEquals(9, written.value);
+    }
+
+    // ---- tryFormatFloat ----
+
+    @Test
+    void tryFormatFloat_fixedPoint() {
+        Character[] arr = new Character[30];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatFloat(2.5f, dest, written, "F1"));
+        assertEquals(3, written.value);
+        assertEquals('2', dest.get(0));
+        assertEquals('.', dest.get(1));
+        assertEquals('5', dest.get(2));
+    }
+
+    // ---- tryFormatShort ----
+
+    @Test
+    void tryFormatShort_default() {
+        Character[] arr = new Character[10];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatShort((short)100, dest, written, null));
+        assertEquals(3, written.value);
+    }
+
+    // ---- tryFormatUInt (unsigned int via long) ----
+
+    @Test
+    void tryFormatUInt_default() {
+        Character[] arr = new Character[20];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatUInt(Integer.MAX_VALUE + 1L, dest, written, null));
+        assertTrue(written.value > 0);
+    }
+
+    // ---- tryFormatULong (unsigned long via BigInteger) ----
+
+    @Test
+    void tryFormatULong_default() {
+        Character[] arr = new Character[30];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatULong(-1L, dest, written, null));
+        assertEquals(20, written.value);
+    }
+
+    // ---- tryFormatSByte ----
+
+    @Test
+    void tryFormatSByte_default() {
+        Character[] arr = new Character[10];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatSByte((byte)-1, dest, written, null));
+        assertEquals(2, written.value);
+        assertEquals('-', dest.get(0));
+        assertEquals('1', dest.get(1));
+    }
+
+    // ---- tryFormatUShort ----
+
+    @Test
+    void tryFormatUShort_default() {
+        Character[] arr = new Character[10];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatUShort((short)65535, dest, written, null));
+        assertEquals(5, written.value);
+    }
+
+    // ---- tryFormatDecimal ----
+
+    @Test
+    void tryFormatDecimal_fixedPoint() {
+        Character[] arr = new Character[30];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatDecimal(Decimal.parse("123.45"), dest, written, "F2"));
+        assertEquals(6, written.value);
+        assertEquals('1', dest.get(0));
+    }
+
+    // ---- tryFormatObject ----
+
+    @Test
+    void tryFormatObject_string() {
+        Character[] arr = new Character[20];
+        Span<Character> dest = new Span<>(arr);
+        IntHolder written = new IntHolder();
+        assertTrue(MathHelper.tryFormatObject("hello", dest, written, null));
+        assertEquals(5, written.value);
+        assertEquals('h', dest.get(0));
+    }
 }

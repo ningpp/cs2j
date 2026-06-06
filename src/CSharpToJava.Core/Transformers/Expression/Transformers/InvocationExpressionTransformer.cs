@@ -602,6 +602,44 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Numeric TryFormat: a.TryFormat(buf, out w, "X2", null) → MathHelper.tryFormatXxx(a, buf, _wH, "X2")
+        if (originalMethodName == "TryFormat" && node.ArgumentList.Arguments.Count >= 2)
+        {
+            var tryFormatHelper = GetTryFormatHelperMethod(memberAccess.Expression, context);
+            if (tryFormatHelper != null)
+            {
+                // Determine how many arguments to include (skip trailing IFormatProvider)
+                int argCount = node.ArgumentList.Arguments.Count;
+                int maxArgs = argCount;
+                if (argCount >= 4)
+                {
+                    // TryFormat(Span, out int, ReadOnlySpan<char>, IFormatProvider?)
+                    // The 4th arg (index 3) is IFormatProvider — skip it
+                    maxArgs = 3;
+                }
+                else if (argCount == 3)
+                {
+                    // TryFormat(Span, out int, ReadOnlySpan<char>) or TryFormat(Span, out int, IFormatProvider?)
+                    if (earlyMethodSymbol != null && earlyMethodSymbol.Parameters.Length >= 3
+                        && earlyMethodSymbol.Parameters[2].Type.ToDisplayString() == "System.IFormatProvider")
+                    {
+                        maxArgs = 2;
+                    }
+                }
+
+                var tryFormatArgs = ArgumentTransformer.TransformArgumentList(
+                    node.ArgumentList, context, facade, 0, earlyMethodSymbol, maxArgCount: maxArgs);
+
+                // Prepend the receiver (the value being formatted) as the first argument
+                var tryFormatReceiver = facade.Transform(memberAccess.Expression, context);
+                tryFormatArgs = string.IsNullOrEmpty(tryFormatArgs)
+                    ? tryFormatReceiver
+                    : $"{tryFormatReceiver}, {tryFormatArgs}";
+
+                return $"{tryFormatHelper}({tryFormatArgs})";
+            }
+        }
+
         if (originalMethodName == "ReferenceEquals" && node.ArgumentList.Arguments.Count == 2)
         {
             var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
@@ -5843,6 +5881,36 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Decimal", "decimal", "System.Decimal"))
             return "Decimal.tryParse";
+
+        return null;
+    }
+
+    private static string? GetTryFormatHelperMethod(ExpressionSyntax receiverExpression, ConversionContext context)
+    {
+        // TryFormat is an instance method on numeric primitives.
+        // Check the receiver's type via semantic model.
+        if (context.SemanticModel != null)
+        {
+            var receiverType = context.GetTypeInfo(receiverExpression).Type;
+            if (receiverType != null)
+            {
+                return receiverType.SpecialType switch
+                {
+                    SpecialType.System_Byte    => "MathHelper.tryFormatByte",
+                    SpecialType.System_SByte    => "MathHelper.tryFormatSByte",
+                    SpecialType.System_Int16    => "MathHelper.tryFormatShort",
+                    SpecialType.System_UInt16   => "MathHelper.tryFormatUShort",
+                    SpecialType.System_Int32    => "MathHelper.tryFormatInt",
+                    SpecialType.System_UInt32   => "MathHelper.tryFormatUInt",
+                    SpecialType.System_Int64    => "MathHelper.tryFormatLong",
+                    SpecialType.System_UInt64   => "MathHelper.tryFormatULong",
+                    SpecialType.System_Single   => "MathHelper.tryFormatFloat",
+                    SpecialType.System_Double   => "MathHelper.tryFormatDouble",
+                    SpecialType.System_Decimal  => "MathHelper.tryFormatDecimal",
+                    _ => null
+                };
+            }
+        }
 
         return null;
     }
