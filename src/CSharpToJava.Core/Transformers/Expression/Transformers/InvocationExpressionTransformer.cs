@@ -5860,12 +5860,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsFrameworkCollectionToArray(IMethodSymbol methodSymbol)
     {
-        var ns = methodSymbol.ContainingType?.ContainingNamespace?.ToDisplayString();
-        return ns != null
-            && (ns == "System.Collections.Generic"
-                || ns == "System.Collections"
-                || ns == "System.Linq"
-                || ns.StartsWith("System.Collections.", StringComparison.Ordinal));
+        var containingType = methodSymbol.ContainingType;
+        if (containingType == null)
+            return false;
+        var ns = containingType.ContainingNamespace?.ToDisplayString();
+        if (ns == null
+            || (!ns.StartsWith("System.Collections.", StringComparison.Ordinal)
+                && ns != "System.Linq"))
+            return false;
+        // Only known framework collection types should use the Java Collection.toArray(IntFunction) pattern.
+        // Custom types in System.Collections.Generic (like ArrayBuilder<T>) define their own ToArray()
+        // that should be called without generator arguments.
+        var typeName = containingType.OriginalDefinition.ToDisplayString();
+        return typeName is "System.Collections.Generic.List<T>"
+            or "System.Collections.Generic.HashSet<T>"
+            or "System.Collections.Generic.SortedSet<T>"
+            or "System.Collections.Generic.SortedList<TKey, TValue>"
+            or "System.Collections.Generic.Queue<T>"
+            or "System.Collections.Generic.Stack<T>"
+            or "System.Collections.Generic.LinkedList<T>"
+            or "System.Collections.Generic.PriorityQueue<TElement, TPriority>"
+            or "System.Collections.ArrayList"
+            or "System.Collections.Generic.IEnumerable<T>"
+            or "System.Collections.Generic.ICollection<T>"
+            or "System.Collections.Generic.IList<T>"
+            or "System.Collections.Generic.ISet<T>"
+            or "System.Collections.ICollection"
+            or "System.Collections.IList"
+            or "System.Linq.Enumerable";
     }
 
     private static bool IsSystemStringMethod(

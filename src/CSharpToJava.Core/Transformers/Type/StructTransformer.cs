@@ -84,6 +84,10 @@ public class StructTransformer : ITypeTransformer
         // 处理成员
         context.EnterType(javaClass);
 
+        // Register runtime class fields before processing members so that
+        // method bodies can reference the field names for array creation etc.
+        var runtimeClassTypeParameters = ClassTransformer.AddRuntimeClassFields(javaClass, structSymbol as INamedTypeSymbol, context);
+
         // Pre-register nested enums so that their type information (FlagsEnum, ExplicitValueEnum)
         // is available when processing method bodies that reference them.
         foreach (var member in structDecl.Members)
@@ -141,7 +145,7 @@ public class StructTransformer : ITypeTransformer
             javaClass.ImplementedTypes.Add("Cloneable");
 
         // Fix 1: Emit a clone() method to approximate C# value-type copy semantics.
-        AddCloneMethod(javaClass, isReadOnly, structDecl, context);
+        AddCloneMethod(javaClass, isReadOnly, structDecl, context, runtimeClassTypeParameters);
 
         // Fix 6: If an equals() method was generated but hashCode() is absent, emit a hashCode().
         AddHashCodeIfMissing(javaClass, context);
@@ -170,11 +174,20 @@ public class StructTransformer : ITypeTransformer
 
         if ((hasExplicitCtors && !hasNoArgCtor) || (!hasNoArgCtor && hasStructFieldsNeedingInit))
         {
+            // Collect runtime class field names so we skip them in the default constructor.
+            // These fields are managed by AddRuntimeClassConstructorParameters.
+            var runtimeClassFieldNames = runtimeClassTypeParameters
+                .Select(f => f.FieldName)
+                .ToHashSet(StringComparer.Ordinal);
+
             var bodyLines = new List<string>();
             foreach (var field in javaClass.Fields)
             {
                 bool isInstance = (field.Modifiers & JavaModifiers.Static) == 0;
                 if (!isInstance) continue;
+
+                // Skip runtime class fields — they are initialized by AddRuntimeClassConstructorParameters
+                if (runtimeClassFieldNames.Contains(field.Name)) continue;
 
                 bool isFinal = (field.Modifiers & JavaModifiers.Final) != 0;
                 bool hasInitializer = !string.IsNullOrWhiteSpace(field.Initializer);
@@ -205,6 +218,10 @@ public class StructTransformer : ITypeTransformer
             javaClass.Constructors.Insert(0, defaultCtor);
         }
 
+        // Add Class<?> parameters to constructors for generic types that need
+        // runtime type information (e.g., types with new T[] array creation).
+        ClassTransformer.AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, structSymbol as INamedTypeSymbol, context);
+
         return javaClass;
     }
 
@@ -215,7 +232,8 @@ public class StructTransformer : ITypeTransformer
     /// because final fields cannot be reassigned after construction.
     /// </summary>
     private static void AddCloneMethod(JavaClassDeclaration javaClass, bool isReadOnly,
-        StructDeclarationSyntax structDecl, ConversionContext context)
+        StructDeclarationSyntax structDecl, ConversionContext context,
+        IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields)
     {
         // Skip if the C# struct already defined a Clone() method (mapped to clone()).
         if (javaClass.Methods.Any(m => m.Name == "clone"))
@@ -238,11 +256,18 @@ public class StructTransformer : ITypeTransformer
         string newTypeName = javaClass.TypeParameters.Count > 0
             ? $"{javaClass.Name}<>"
             : javaClass.Name;
+        // When the struct has runtime class fields, the no-arg constructor requires Class<?> args.
+        string runtimeClassCtorArgs = runtimeClassFields.Count > 0
+            ? string.Join(", ", runtimeClassFields.Select(f => $"this.{f.FieldName}"))
+            : "";
+        string newExpr = runtimeClassCtorArgs.Length > 0
+            ? $"new {newTypeName}({runtimeClassCtorArgs})"
+            : $"new {newTypeName}()";
 
         string cloneBody;
         if (instanceFields.Count == 0)
         {
-            cloneBody = $"return new {newTypeName}();";
+            cloneBody = $"return {newExpr};";
         }
         else if (isReadOnly)
         {
@@ -268,7 +293,7 @@ public class StructTransformer : ITypeTransformer
             else
             {
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"{typeName} copy = new {newTypeName}();");
+                sb.AppendLine($"{typeName} copy = {newExpr};");
                 foreach (var field in instanceFields)
                 {
                     if ((field.Modifiers & JavaModifiers.Final) == 0)
@@ -283,7 +308,7 @@ public class StructTransformer : ITypeTransformer
         else
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"{typeName} copy = new {newTypeName}();");
+            sb.AppendLine($"{typeName} copy = {newExpr};");
             foreach (var field in instanceFields)
             {
                 sb.AppendLine(BuildFieldCopyLine(field, structFieldNames));

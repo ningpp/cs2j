@@ -552,6 +552,74 @@ class LowLevelDictionary<TKey, TValue> {
         Assert.Contains("Entry<TKey, TValue>", code);
     }
 
+    [Fact]
+    public void StructWithGenericArrayCreation_AddsRuntimeClassParameter()
+    {
+        // C# struct with new T[] should get Class<?> parameter in Java,
+        // just like classes do. The StructTransformer was missing this.
+        var result = Convert("""
+struct ArrayBuilder<T> {
+    private T[] _array;
+    private int _count;
+
+    public ArrayBuilder(int capacity)
+    {
+        _count = 0;
+        _array = new T[capacity];
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Struct should get Class<?> field and constructor parameter
+        Assert.Contains("private final Class<?> tClass;", code);
+        Assert.Contains("public ArrayBuilder(int capacity, Class<?> tClass)", code);
+        // Array creation should use tClass
+        Assert.Contains("java.lang.reflect.Array.newInstance(tClass", code);
+        // clone() should pass tClass to constructor
+        Assert.Contains("new ArrayBuilder<>(this.tClass)", code);
+        // Should NOT have "this.tClass = null;" (the old bug)
+        Assert.DoesNotContain("this.tClass = null;", code);
+    }
+
+    [Fact]
+    public void CustomTypeToArray_DoesNotAddGeneratorArgument()
+    {
+        // Custom types in System.Collections.Generic namespace that define their own
+        // ToArray() should NOT get the Java Collection.toArray(IntFunction) pattern.
+        var result = Convert("""
+using System.Collections.Generic;
+
+namespace System.Collections.Generic {
+    struct ArrayBuilder<T> {
+        private T[] _array;
+
+        public T[] ToArray()
+        {
+            return _array;
+        }
+    }
+}
+
+class Demo {
+    public string[] Run(ArrayBuilder<string> builder)
+    {
+        return builder.ToArray();
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // ToArray() should be called without generator argument
+        Assert.Contains("builder.toArray()", code);
+        // Should NOT have String[]::new argument
+        Assert.DoesNotContain("String[]::new", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

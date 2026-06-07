@@ -559,7 +559,7 @@ public class ClassTransformer : ITypeTransformer
         return new JavaClassDeclaration { Name = name };
     }
 
-    private static IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> AddRuntimeClassFields(
+    internal static IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> AddRuntimeClassFields(
         JavaClassDeclaration javaClass,
         INamedTypeSymbol? typeSymbol,
         ConversionContext context)
@@ -592,7 +592,7 @@ public class ClassTransformer : ITypeTransformer
         return fields;
     }
 
-    private static void AddRuntimeClassConstructorParameters(
+    internal static void AddRuntimeClassConstructorParameters(
         JavaClassDeclaration javaClass,
         IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields,
         INamedTypeSymbol? typeSymbol,
@@ -878,7 +878,7 @@ public class ClassTransformer : ITypeTransformer
             && type.OriginalDefinition.ToDisplayString() != "System.Nullable<T>";
     }
 
-    private static IReadOnlyList<string> LiftRuntimeClassFieldInitializers(
+    internal static IReadOnlyList<string> LiftRuntimeClassFieldInitializers(
         JavaClassDeclaration javaClass,
         IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields)
     {
@@ -926,7 +926,7 @@ public class ClassTransformer : ITypeTransformer
     private static bool IsJavaIdentifierPart(char value)
         => char.IsLetterOrDigit(value) || value == '_' || value == '$';
 
-    private static IReadOnlyList<string> GetBaseRuntimeClassArguments(
+    internal static IReadOnlyList<string> GetBaseRuntimeClassArguments(
         INamedTypeSymbol? typeSymbol,
         ConversionContext context)
     {
@@ -958,7 +958,7 @@ public class ClassTransformer : ITypeTransformer
             baseRuntimeArgs.Where(arg => !ConstructorCallContainsArgument(ctor.Initializer, arg)));
     }
 
-    private static void EnsureStructuredBody(JavaConstructorDeclaration ctor)
+    internal static void EnsureStructuredBody(JavaConstructorDeclaration ctor)
     {
         if (ctor.StructuredBody != null)
             return;
@@ -971,13 +971,13 @@ public class ClassTransformer : ITypeTransformer
         }
     }
 
-    private static bool ConstructorBodyContains(JavaConstructorDeclaration ctor, string statement)
+    internal static bool ConstructorBodyContains(JavaConstructorDeclaration ctor, string statement)
     {
         var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? string.Empty;
         return body.Contains(statement, StringComparison.Ordinal);
     }
 
-    private static string AppendArgumentsToConstructorCall(string initializer, IEnumerable<string> arguments)
+    internal static string AppendArgumentsToConstructorCall(string initializer, IEnumerable<string> arguments)
     {
         var argsToAppend = arguments.ToList();
         if (argsToAppend.Count == 0)
@@ -996,7 +996,7 @@ public class ClassTransformer : ITypeTransformer
         return initializer[..(open + 1)] + combined + initializer[close..];
     }
 
-    private static bool ConstructorCallContainsArgument(string initializer, string argument)
+    internal static bool ConstructorCallContainsArgument(string initializer, string argument)
     {
         var open = initializer.IndexOf('(');
         var close = initializer.LastIndexOf(')');
@@ -1040,7 +1040,7 @@ public class ClassTransformer : ITypeTransformer
         return result;
     }
 
-    private static string AllocateRuntimeClassFieldName(string typeParameterName, JavaClassDeclaration javaClass)
+    internal static string AllocateRuntimeClassFieldName(string typeParameterName, JavaClassDeclaration javaClass)
     {
         var baseName = RuntimeClassParameterName(typeParameterName);
         var usedNames = javaClass.Fields.Select(f => f.Name).ToHashSet(StringComparer.Ordinal);
@@ -1056,7 +1056,7 @@ public class ClassTransformer : ITypeTransformer
         return baseName + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private static string RuntimeClassParameterName(string typeParameterName)
+    internal static string RuntimeClassParameterName(string typeParameterName)
     {
         var baseName = typeParameterName.Length == 1
             ? char.ToLowerInvariant(typeParameterName[0]) + "Class"
