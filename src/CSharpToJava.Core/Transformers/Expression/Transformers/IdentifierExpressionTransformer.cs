@@ -895,6 +895,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (prop.Name == "Length" && IsSystemIoStreamType(prop.ContainingType))
                 return $"{target}.getLength()";
 
+            // StringBuilder.Length → length() (Java's StringBuilder has length() not getLength())
+            if (prop.Name == "Length" && IsSystemTextStringBuilder(prop.ContainingType))
+                return $"{target}.length()";
+
             // Fix 2: no mapping configured — generate getXxx() for read accesses
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
             if (!isLhsOfAssignment)
@@ -1018,6 +1022,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     return $"{target}.getPosition()";
                 if (memberName == "Length" && IsSystemIoStreamType(exprType))
                     return $"{target}.getLength()";
+                if (memberName == "Length" && IsSystemTextStringBuilder(exprType))
+                    return $"{target}.length()";
 
             }
         }
@@ -1058,6 +1064,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Position" && IsSystemIoStreamType(receiverType)) return $"{target}.getPosition()";
         if (memberName == "Length" && IsSystemIoStreamType(receiverType)) return $"{target}.getLength()";
         if (memberName == "Length" && IsSystemStringType(receiverType)) return $"{target}.length()";
+        if (memberName == "Length" && IsSystemTextStringBuilder(receiverType)) return $"{target}.length()";
         if (memberName == "Length") return $"{target}.length";
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         // Only apply when receiver type is CONFIRMED to be KeyValuePair/IGrouping/Map.Entry.
@@ -1494,6 +1501,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     private static bool IsSystemStringType(ITypeSymbol? type)
         => type?.SpecialType == SpecialType.System_String
             || type?.ToDisplayString() is "string" or "System.String";
+
+    private static bool IsSystemTextStringBuilder(ITypeSymbol? type)
+        => type?.ToDisplayString() == "System.Text.StringBuilder";
 
     /// <summary>
     /// Maps C# primitive-type static field/property names to their Java equivalents.

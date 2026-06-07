@@ -728,7 +728,24 @@ public class StructTransformer : ITypeTransformer
                 if (nestedStructResult is JavaClassDeclaration jcs)
                 {
                     if (NestedTypeHelper.ShouldBeStaticInJava(nestedStruct, context))
+                    {
                         jcs.Modifiers |= JavaModifiers.Static;
+                        var usedEnclosingParams = NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedStruct, context);
+                        foreach (var param in usedEnclosingParams)
+                        {
+                            if (!jcs.TypeParameters.Any(tp => tp.Name == param.Name))
+                            {
+                                var jtp = new JavaTypeParameter(param.Name);
+                                foreach (var constraintType in param.ConstraintTypes)
+                                {
+                                    var bound = context.MapType(constraintType);
+                                    if (!string.IsNullOrEmpty(bound) && bound != "Object")
+                                        jtp.Bounds.Add(bound);
+                                }
+                                jcs.TypeParameters.Add(jtp);
+                            }
+                        }
+                    }
                     javaClass.NestedTypes.Add(jcs);
                 }
                 break;
@@ -739,7 +756,24 @@ public class StructTransformer : ITypeTransformer
                 if (nestedClassResult is JavaClassDeclaration jcn)
                 {
                     if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
+                    {
                         jcn.Modifiers |= JavaModifiers.Static;
+                        var usedEnclosingParams = NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedClass, context);
+                        foreach (var param in usedEnclosingParams)
+                        {
+                            if (!jcn.TypeParameters.Any(tp => tp.Name == param.Name))
+                            {
+                                var jtp = new JavaTypeParameter(param.Name);
+                                foreach (var constraintType in param.ConstraintTypes)
+                                {
+                                    var bound = context.MapType(constraintType);
+                                    if (!string.IsNullOrEmpty(bound) && bound != "Object")
+                                        jtp.Bounds.Add(bound);
+                                }
+                                jcn.TypeParameters.Add(jtp);
+                            }
+                        }
+                    }
                     javaClass.NestedTypes.Add(jcn);
                 }
                 break;

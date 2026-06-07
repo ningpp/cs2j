@@ -57,6 +57,13 @@ public class ConstructorTransformer : IMemberTransformer
         // 处理参数
         foreach (var param in ctorDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
         {
+            // Skip SerializationInfo and StreamingContext parameters — Java doesn't have these types
+            if (IsSerializationType(param.Type, context, "SerializationInfo")
+                || IsSerializationType(param.Type, context, "StreamingContext"))
+            {
+                continue;
+            }
+
             var typeInfo = context.GetTypeInfo(param.Type!);
             var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "Object";
 

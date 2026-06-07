@@ -440,6 +440,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# ArgumentException(paramName, value, message) maps to IllegalArgumentException,
+        // but Java has no 3-arg constructor. Fold all args into a single message string.
+        if (typeName == "IllegalArgumentException"
+            && argumentList.Arguments.Count == 3
+            && context.SemanticModel != null)
+        {
+            var parts = SplitTopLevelArgs(args);
+            if (parts.Count == 3)
+                args = $"\"\" + {parts[0]} + \": \" + {parts[2]} + \" (value: \" + {parts[1]} + \")\"";
+        }
+
         if (IsJavaCollectionType(typeName))
         {
             // Always enforce array->Collection wrapping for Java collection constructors.

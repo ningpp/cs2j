@@ -111,8 +111,10 @@ public class ClassTransformer : ITypeTransformer
             {
                 // Skip IEquatable<T> — it doesn't exist in Java and should not appear in implements
                 // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
+                // Skip ISerializable — Java doesn't have this interface
                 if (iface.Name != "IEquatable" && iface.ToDisplayString() != "System.IEquatable`1"
-                    && iface.ToDisplayString() != "System.MarshalByRefObject")
+                    && iface.ToDisplayString() != "System.MarshalByRefObject"
+                    && iface.ToDisplayString() != "System.Runtime.Serialization.ISerializable")
                 {
                     var mappedIface = context.MapType(iface);
                     // ICollection<T> maps to java.util.Collection<T> for type bounds (CollectionUtilities),
@@ -377,8 +379,10 @@ public class ClassTransformer : ITypeTransformer
                 var resolvedType = typeInfo.Type;
                 // Skip IEquatable<T> — it doesn't exist in Java and should not appear in implements
                 // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
+                // Skip ISerializable — Java doesn't have this interface
                 if (resolvedType.Name == "IEquatable" || resolvedType.ToDisplayString() == "System.IEquatable`1") continue;
                 if (resolvedType.ToDisplayString() == "System.MarshalByRefObject") continue;
+                if (resolvedType.ToDisplayString() == "System.Runtime.Serialization.ISerializable") continue;
 
                 if (resolvedType.TypeKind == TypeKind.Class)
                 {
@@ -2219,7 +2223,29 @@ public class ClassTransformer : ITypeTransformer
                 if (nestedResult is JavaClassDeclaration jc)
                 {
                     if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
+                    {
                         jc.Modifiers |= JavaModifiers.Static;
+                        // When making a nested type static, add any enclosing type parameters
+                        // that the nested type references as its own type parameters.
+                        // Java static nested classes cannot reference the enclosing class's
+                        // type parameters, so they need their own copies.
+                        var usedEnclosingParams = NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedClass, context);
+                        foreach (var param in usedEnclosingParams)
+                        {
+                            // Only add if not already present (avoid duplicates)
+                            if (!jc.TypeParameters.Any(tp => tp.Name == param.Name))
+                            {
+                                var jtp = new JavaTypeParameter(param.Name);
+                                foreach (var constraintType in param.ConstraintTypes)
+                                {
+                                    var bound = context.MapType(constraintType);
+                                    if (!string.IsNullOrEmpty(bound) && bound != "Object")
+                                        jtp.Bounds.Add(bound);
+                                }
+                                jc.TypeParameters.Add(jtp);
+                            }
+                        }
+                    }
                     javaClass.NestedTypes.Add(jc);
                 }
                 break;

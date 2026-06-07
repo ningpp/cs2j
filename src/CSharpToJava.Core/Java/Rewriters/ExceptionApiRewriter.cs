@@ -93,6 +93,21 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
         return result;
     }
 
+    /// <summary>
+    /// Java exception types that do NOT have a (String, Throwable) constructor.
+    /// When a .NET exception with an inner exception maps to one of these types,
+    /// the cause argument must be stripped (Java doesn't support it).
+    /// </summary>
+    private static readonly HashSet<string> JavaExceptionsWithoutCauseConstructor = new(StringComparer.Ordinal)
+    {
+        "NumberFormatException",
+        "IllegalArgumentException",
+        "IllegalStateException",
+        "IndexOutOfBoundsException",
+        "UnsupportedOperationException",
+        "NullPointerException",
+    };
+
     public override JavaNewExpression VisitNewExpression(JavaNewExpression node)
     {
         node = (JavaNewExpression)base.VisitNewExpression(node);
@@ -101,6 +116,17 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
         if (ExceptionTypeMap.TryGetValue(node.Type, out var javaType))
         {
             node.Type = javaType;
+            _rewriteCount++;
+        }
+
+        // Pattern: new NumberFormatException(msg, cause) → new NumberFormatException(msg)
+        // Java exceptions like NumberFormatException don't have a (String, Throwable) constructor.
+        // Strip the cause argument when the mapped type doesn't support it.
+        if (node.Arguments.Count == 2
+            && JavaExceptionsWithoutCauseConstructor.Contains(node.Type))
+        {
+            // Keep only the first argument (the message), discard the cause
+            node.Arguments.RemoveAt(1);
             _rewriteCount++;
         }
 

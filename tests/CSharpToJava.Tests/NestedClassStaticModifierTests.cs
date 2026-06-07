@@ -5,14 +5,16 @@ namespace CSharpToJava.Tests;
 
 /// <summary>
 /// Tests for nested class static modifier correctness.
-/// In Java, a static inner class cannot reference the enclosing class's type parameters.
-/// When a C# nested class uses the enclosing type's type parameters, it must be
-/// translated as a non-static inner class in Java.
+/// In Java, a static inner class cannot reference the enclosing class's type parameters
+/// directly, but it CAN have its own type parameters. When a C# nested class only uses
+/// the enclosing type's type parameters (not instance members), it should be translated
+/// as a static nested class with its own type parameters. This is critical for array
+/// creation — Java cannot create arrays of non-static inner classes.
 /// </summary>
 public class NestedClassStaticModifierTests
 {
     [Fact]
-    public void NestedClass_ReferencesEnclosingTypeParameters_IsNotStatic()
+    public void NestedClass_ReferencesEnclosingTypeParameters_IsStatic()
     {
         var result = Convert("""
 public class OuterDictionary<TKey, TValue>
@@ -27,8 +29,9 @@ public class OuterDictionary<TKey, TValue>
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("private final class Entry", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("private static final class Entry", result.GeneratedCode, StringComparison.Ordinal);
+        // Entry only references type parameters (not instance members), so it should be static
+        // with its own type parameters propagated from the enclosing type.
+        Assert.Contains("private static final class Entry", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -66,7 +69,7 @@ public class Outer
     }
 
     [Fact]
-    public void NestedClass_ReferencesEnclosingTypeParameterInMethod_IsNotStatic()
+    public void NestedClass_ReferencesEnclosingTypeParameterInMethod_IsStatic()
     {
         var result = Convert("""
 public class Container<T>
@@ -79,12 +82,13 @@ public class Container<T>
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("private class Inner", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("private static class Inner", result.GeneratedCode, StringComparison.Ordinal);
+        // Inner only references type parameters (not instance members), so it should be static
+        // with its own type parameters propagated from the enclosing type.
+        Assert.Contains("private static class Inner", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NestedStruct_ReferencesEnclosingTypeParameters_IsNotStatic()
+    public void NestedStruct_ReferencesEnclosingTypeParameters_IsStatic()
     {
         var result = Convert("""
 public class OuterDictionary<TKey, TValue>
@@ -98,12 +102,12 @@ public class OuterDictionary<TKey, TValue>
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("private class Entry", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("private static class Entry", result.GeneratedCode, StringComparison.Ordinal);
+        // Entry only references type parameters (not instance members), so it should be static
+        Assert.Contains("private static class Entry", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NestedClass_ReferencesEnclosingTypeParameterViaBaseType_IsNotStatic()
+    public void NestedClass_ReferencesEnclosingTypeParameterViaBaseType_IsStatic()
     {
         var result = Convert("""
 public class Outer<T>
@@ -115,8 +119,8 @@ public class Outer<T>
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("private class Inner", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("private static class Inner", result.GeneratedCode, StringComparison.Ordinal);
+        // Inner only references type parameters (not instance members), so it should be static
+        Assert.Contains("private static class Inner", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

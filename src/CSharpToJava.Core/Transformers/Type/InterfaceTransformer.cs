@@ -208,7 +208,24 @@ public class InterfaceTransformer : ITypeTransformer
                 if (nestedClassResult is JavaClassDeclaration jc)
                 {
                     if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
+                    {
                         jc.Modifiers |= JavaModifiers.Static;
+                        var usedEnclosingParams = NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedClass, context);
+                        foreach (var param in usedEnclosingParams)
+                        {
+                            if (!jc.TypeParameters.Any(tp => tp.Name == param.Name))
+                            {
+                                var jtp = new JavaTypeParameter(param.Name);
+                                foreach (var constraintType in param.ConstraintTypes)
+                                {
+                                    var bound = context.MapType(constraintType);
+                                    if (!string.IsNullOrEmpty(bound) && bound != "Object")
+                                        jtp.Bounds.Add(bound);
+                                }
+                                jc.TypeParameters.Add(jtp);
+                            }
+                        }
+                    }
                     javaInterface.NestedTypes.Add(jc);
                 }
                 break;

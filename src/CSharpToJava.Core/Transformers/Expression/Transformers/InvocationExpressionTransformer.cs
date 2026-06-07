@@ -2760,6 +2760,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.stripLeading()";
         }
 
+        // String.TrimEnd([chars]) -> stripTrailing() for common whitespace trimming usage.
+        bool isStringTrimEnd = originalMethodName == "TrimEnd"
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
+        if (isStringTrimEnd)
+        {
+            return $"{receiver}.stripTrailing()";
+        }
+
+        // String.Trim(chars) -> StringHelper.trim(str, chars)
+        // Java's String.trim() takes no args; C#'s String.Trim(char[]) trims specific characters.
+        bool isStringTrimWithArgs = originalMethodName == "Trim"
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context)
+            && node.ArgumentList.Arguments.Count > argStartIndex;
+        if (isStringTrimWithArgs)
+        {
+            var trimArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.trim({receiver}, {trimArgs})";
+        }
+
         // Fix: String.Format("{0}  {1}", a, b) → String.format("%s  %s", a, b)
         // C# uses {N} / {N:specifier} placeholders; Java uses printf-style % specifiers.
         // Only rewrite when the first argument is a string literal — dynamic format strings

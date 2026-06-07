@@ -3449,6 +3449,54 @@
             "imports": [
                 "io.github.ningpp.compat.Buffer"
             ]
+        },
+        {
+            "csharp": "System.IntPtr",
+            "java": "long",
+            "imports": []
+        },
+        {
+            "csharp": "System.Text.NormalizationForm",
+            "java": "Normalizer$Form",
+            "imports": [
+                "java.text.Normalizer"
+            ]
+        },
+        {
+            "csharp": "System.Text.EncoderReplacementFallback",
+            "java": "EncoderReplacementFallback",
+            "imports": [
+                "io.github.ningpp.compat.EncoderReplacementFallback"
+            ]
+        },
+        {
+            "csharp": "System.Text.DecoderReplacementFallback",
+            "java": "DecoderReplacementFallback",
+            "imports": [
+                "io.github.ningpp.compat.DecoderReplacementFallback"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.Serialization.ISerializable",
+            "java": "__suppress__",
+            "imports": []
+        },
+        {
+            "csharp": "System.Runtime.Serialization.SerializationInfo",
+            "java": "__suppress__",
+            "imports": []
+        },
+        {
+            "csharp": "System.Runtime.Serialization.StreamingContext",
+            "java": "__suppress__",
+            "imports": []
+        },
+        {
+            "csharp": "System.StringComparison",
+            "java": "StringComparison",
+            "imports": [
+                "io.github.ningpp.compat.StringComparison"
+            ]
         }
     ],
     "methodMappings": [
