@@ -449,11 +449,22 @@ public class ConversionContext
         var result = TypeMapper.MapType(typeSymbol);
         // When the mapped type's simple name collides with the current class name,
         // use the fully-qualified Java name (package prefixed) to avoid ambiguity.
-        if (CurrentType != null && typeSymbol is INamedTypeSymbol)
+        // However, skip qualification when the type IS the current class (self-reference)
+        // or is a nested type of the current class — no ambiguity exists in these cases.
+        if (CurrentType != null && typeSymbol is INamedTypeSymbol namedType)
         {
             var simpleName = typeSymbol.Name;
             if (simpleName == CurrentType.Name)
             {
+                // Skip FQN for self-references or references to nested types within
+                // the same enclosing type (handled by TryMapNestedType's isSameEnclosingType)
+                bool isSelfOrNestedReference = CurrentEnclosingRoslynType != null
+                    && (SymbolEqualityComparer.Default.Equals(CurrentEnclosingRoslynType, namedType)
+                        || SymbolEqualityComparer.Default.Equals(CurrentEnclosingRoslynType.OriginalDefinition, namedType.OriginalDefinition)
+                        || SymbolEqualityComparer.Default.Equals(CurrentEnclosingRoslynType, namedType.ContainingType));
+                if (isSelfOrNestedReference)
+                    return result;
+
                 var ns = typeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
                 if (!string.IsNullOrEmpty(ns) && ns != "<global namespace>")
                 {

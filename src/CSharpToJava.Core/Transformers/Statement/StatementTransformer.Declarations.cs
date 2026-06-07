@@ -35,8 +35,12 @@ public partial class StatementTransformer
                 javaType = "var";
             // LINQ extension method generic type parameters (TSource, TResult, TKey, TElement) that
             // leak into the resolved type indicate an uninstantiated generic — use var instead.
-            if (javaType.Contains("TSource") || javaType.Contains("TResult")
-                || javaType.Contains("TKey") || javaType.Contains("TElement"))
+            // Only match when the javaType IS the bare type parameter name (no angle brackets),
+            // not when it's a concrete type that merely contains the parameter name as a type argument
+            // (e.g., "Entry<TKey, TValue>" should NOT be replaced with "var").
+            if (!javaType.Contains('<')
+                && (javaType.Contains("TSource") || javaType.Contains("TResult")
+                    || javaType.Contains("TKey") || javaType.Contains("TElement")))
                 javaType = "var";
         }
         else

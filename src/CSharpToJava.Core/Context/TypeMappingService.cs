@@ -598,12 +598,24 @@ public class TypeMappingService
             }
         }
 
-        // When referencing a nested type from within the same enclosing type,
-        // use the simple name to avoid Java raw type issues (e.g., "LowLevelDictionary.Entry"
-        // is a raw type that loses generic parameters, while "Entry" preserves them).
+        // When referencing a nested type from within the same enclosing type
+        // OR from within the nested type itself, use the simple name to avoid
+        // Java raw type issues (e.g., "LowLevelDictionary.Entry" is a raw type
+        // that loses generic parameters, while "Entry" preserves them).
         var currentEnclosing = _getCurrentEnclosingType();
+
+        // Compare using OriginalDefinition to handle the case where a non-generic
+        // nested class (like Entry) references itself. The type symbol for the
+        // self-reference may have type arguments substituted from the outer class
+        // (e.g., Entry<TKey, TValue>), while CurrentEnclosingRoslynType is the
+        // declared symbol without type arguments (Entry). Comparing OriginalDefinition
+        // strips the type arguments and allows the equality check to succeed.
+        var currentEnclosingDef = currentEnclosing?.OriginalDefinition ?? currentEnclosing;
+        var typeSymbolDef = (typeSymbol as INamedTypeSymbol)?.OriginalDefinition ?? typeSymbol;
+
         bool isSameEnclosingType = currentEnclosing != null
-            && SymbolEqualityComparer.Default.Equals(currentEnclosing, outerType);
+            && (SymbolEqualityComparer.Default.Equals(currentEnclosing, outerType)
+                || SymbolEqualityComparer.Default.Equals(currentEnclosingDef, typeSymbolDef));
 
         var innerName = MapSimpleTypeName(name);
         var outerName = isSameEnclosingType
@@ -627,8 +639,123 @@ public class TypeMappingService
             if (allTypeArgs.Count > 0)
                 nestedStr += "<" + string.Join(", ", allTypeArgs) + ">";
         }
+        else if (typeSymbol is INamedTypeSymbol nestedClass
+            && nestedClass.TypeKind is TypeKind.Class or TypeKind.Struct
+            && outerType.TypeParameters.Length > 0)
+        {
+            // C# nested classes that use the outer class's type parameters are made
+            // static in Java with those type parameters added as their own.
+            // When referencing such a nested type, we must include the type parameters.
+            var usedParams = GetOuterTypeParamsReferencedByNested(nestedClass, outerType);
+            if (usedParams.Count > 0)
+            {
+                nestedStr += "<" + string.Join(", ", usedParams.Select(p => MapTypeForGeneric(p))) + ">";
+            }
+        }
 
         return nestedStr;
+    }
+
+    /// <summary>
+    /// Gets the outer type's type parameters that are referenced by a nested type.
+    /// Used to include type parameters in nested type references when the nested type
+    /// is made static in Java with those type parameters added as its own.
+    /// </summary>
+    private static List<ITypeSymbol> GetOuterTypeParamsReferencedByNested(
+        INamedTypeSymbol nestedType,
+        INamedTypeSymbol outerType)
+    {
+        var result = new List<ITypeSymbol>();
+        var outerClassParams = outerType.TypeParameters
+            .Where(tp => tp.DeclaringMethod == null)
+            .ToList();
+        if (outerClassParams.Count == 0)
+            return result;
+
+        // Collect names of the nested type's own type parameters (to skip shadowed ones)
+        var nestedOwnParamNames = new HashSet<string>(
+            nestedType.TypeParameters.Select(tp => tp.Name),
+            StringComparer.Ordinal);
+
+        foreach (var outerParam in outerClassParams)
+        {
+            if (nestedOwnParamNames.Contains(outerParam.Name))
+                continue; // Shadowed by the nested type's own parameter
+
+            if (NestedTypeReferencesTypeParam(nestedType, outerParam))
+                result.Add(outerParam);
+        }
+
+        return result;
+    }
+
+    private static bool NestedTypeReferencesTypeParam(INamedTypeSymbol nestedSymbol, ITypeParameterSymbol typeParam)
+    {
+        foreach (var member in nestedSymbol.GetMembers())
+        {
+            if (member.IsStatic)
+                continue;
+
+            foreach (var type in GetMemberTypes(member))
+            {
+                if (TypeReferencesTypeParam(type, typeParam))
+                    return true;
+            }
+        }
+
+        if (nestedSymbol.BaseType != null && TypeReferencesTypeParam(nestedSymbol.BaseType, typeParam))
+            return true;
+
+        foreach (var iface in nestedSymbol.Interfaces)
+        {
+            if (TypeReferencesTypeParam(iface, typeParam))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TypeReferencesTypeParam(ITypeSymbol type, ITypeParameterSymbol targetParam)
+    {
+        if (type is ITypeParameterSymbol tp && SymbolEqualityComparer.Default.Equals(tp, targetParam))
+            return true;
+
+        if (type is INamedTypeSymbol named && named.TypeArguments.Length > 0)
+        {
+            foreach (var arg in named.TypeArguments)
+            {
+                if (TypeReferencesTypeParam(arg, targetParam))
+                    return true;
+            }
+        }
+
+        if (type is IArrayTypeSymbol array)
+            return TypeReferencesTypeParam(array.ElementType, targetParam);
+
+        return false;
+    }
+
+    private static IEnumerable<ITypeSymbol> GetMemberTypes(ISymbol member)
+    {
+        switch (member)
+        {
+            case IFieldSymbol field:
+                yield return field.Type;
+                break;
+            case IPropertySymbol property:
+                yield return property.Type;
+                break;
+            case IEventSymbol eventSymbol:
+                yield return eventSymbol.Type;
+                break;
+            case IMethodSymbol method:
+                if (method.AssociatedSymbol != null)
+                    yield break;
+                yield return method.ReturnType;
+                foreach (var param in method.Parameters)
+                    yield return param.Type;
+                break;
+        }
     }
 
     private string QualifyTypeReferenceIfNeeded(ITypeSymbol typeSymbol, string simpleTypeName)

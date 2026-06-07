@@ -482,6 +482,76 @@ class Demo {
         Assert.DoesNotContain("T.class", code);
     }
 
+    [Fact]
+    public void ConstructorChaining_ThisWithNoArgs_DoesNotGenerateTClass()
+    {
+        // ArrayBuilder(int capacity) : this() — the parameterless ctor doesn't create arrays,
+        // but it still gets Class<?> parameter because the tClass field is private final.
+        // The key fix: this() should use tClass (parameter name), NOT T.class (invalid Java).
+        var result = Convert("""
+class ArrayBuilder<T> {
+    private T[] items;
+    private int count;
+
+    public ArrayBuilder()
+    {
+        count = 0;
+    }
+
+    public ArrayBuilder(int capacity) : this()
+    {
+        items = new T[capacity];
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Both constructors get Class<?> parameter (tClass field is final, must be initialized)
+        Assert.Contains("public ArrayBuilder(Class<?> tClass)", code);
+        Assert.Contains("public ArrayBuilder(int capacity, Class<?> tClass)", code);
+        // this() should pass tClass (parameter name), NOT T.class (invalid Java)
+        Assert.Contains("this(tClass);", code);
+        Assert.DoesNotContain("this(T.class)", code);
+        Assert.DoesNotContain("T.class", code);
+    }
+
+    [Fact]
+    public void NestedClassSelfReference_UsesSimpleNameNotFQN()
+    {
+        // When a non-generic nested class (Entry) inside a generic outer class
+        // references itself (e.g., Entry _next), the generated Java code should
+        // use the simple name "Entry<TKey, TValue>" not the FQN
+        // "pkg.Outer.Entry<TKey, TValue>".
+        var result = Convert("""
+using System.Collections.Generic;
+
+class LowLevelDictionary<TKey, TValue> {
+    private Entry[] _buckets;
+
+    private Entry find(TKey key)
+    {
+        return null;
+    }
+
+    private class Entry
+    {
+        public TKey _key;
+        public TValue _value;
+        public Entry _next;
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Entry should NOT have FQN prefix like "LowLevelDictionary.Entry"
+        Assert.DoesNotContain("LowLevelDictionary.Entry", code);
+        // Entry should be referenced with type parameters
+        Assert.Contains("Entry<TKey, TValue>", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

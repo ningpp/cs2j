@@ -42,17 +42,21 @@ public class ArgumentTransformer
     /// Issue 5: index of the first argument to include. Pass 1 when in the static-extension-receiver
     /// call path to skip the receiver that has already been prepended to the argument list.
     /// </param>
-    public static string TransformArgumentList(ArgumentListSyntax? argumentList, ConversionContext context, IExpressionTransformer transformer, int argStartIndex = 0, IMethodSymbol? methodSymbol = null, int maxArgCount = -1)
+    public static string TransformArgumentList(ArgumentListSyntax? argumentList, ConversionContext context, IExpressionTransformer transformer, int argStartIndex = 0, IMethodSymbol? methodSymbol = null, int maxArgCount = -1, bool skipRuntimeClassArguments = false)
     {
         if (argumentList == null)
         {
-            return string.Join(", ", GetRuntimeClassArguments(methodSymbol, context));
+            return skipRuntimeClassArguments
+                ? string.Empty
+                : string.Join(", ", GetRuntimeClassArguments(methodSymbol, context));
         }
 
         var args = argumentList.Arguments;
         if (args.Count <= argStartIndex)
         {
-            return string.Join(", ", GetRuntimeClassArguments(methodSymbol, context));
+            return skipRuntimeClassArguments
+                ? string.Empty
+                : string.Join(", ", GetRuntimeClassArguments(methodSymbol, context));
         }
 
         // When maxArgCount is specified, limit the arguments taken from the list
@@ -116,7 +120,10 @@ public class ArgumentTransformer
             return result;
         }).ToList();
 
-        transformed.AddRange(GetRuntimeClassArguments(methodSymbol, context));
+        if (!skipRuntimeClassArguments)
+        {
+            transformed.AddRange(GetRuntimeClassArguments(methodSymbol, context));
+        }
         return string.Join(", ", transformed);
     }
 

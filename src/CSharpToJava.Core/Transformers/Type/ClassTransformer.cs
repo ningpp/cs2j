@@ -640,6 +640,9 @@ public class ClassTransformer : ITypeTransformer
             if (!string.IsNullOrWhiteSpace(ctor.Initializer)
                 && ctor.Initializer.TrimStart().StartsWith("this(", StringComparison.Ordinal))
             {
+                // For this(...) calls, append the runtime class parameter names (e.g., tClass)
+                // so the target constructor receives the correct Class<?> argument.
+                // Note: ArgumentTransformer no longer adds T.class (invalid Java) for this() calls.
                 ctor.Initializer = AppendArgumentsToConstructorCall(
                     ctor.Initializer,
                     runtimeClassFields

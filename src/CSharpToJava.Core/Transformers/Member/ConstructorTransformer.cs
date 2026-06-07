@@ -187,12 +187,19 @@ public class ConstructorTransformer : IMemberTransformer
             ctorSymbol = symbolInfo.Symbol as IMethodSymbol;
         }
 
+        // For this(...) calls, skip runtime class arguments because:
+        // 1. T.class is invalid Java (can't use .class on type parameters)
+        // 2. The target constructor's Class<T> parameter (if any) is handled by
+        //    AddRuntimeClassConstructorParameters which appends the correct parameter name
+        bool isThisInitializer = initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword);
+
         var transformed = ArgumentTransformer.TransformArgumentList(
             initializer.ArgumentList,
             context,
             ExpressionTransformerFacade.Instance,
             argStartIndex: 0,
-            methodSymbol: ctorSymbol);
+            methodSymbol: ctorSymbol,
+            skipRuntimeClassArguments: isThisInitializer);
 
         return string.IsNullOrWhiteSpace(transformed)
             ? new List<string>()
