@@ -571,6 +571,23 @@ public class StringHelper {
         s.getChars(sourceIndex, sourceIndex + count, destination, destinationIndex);
     }
 
+    // ==================== Create ====================
+    /**
+     * Mirrors C# string.Create&lt;TState&gt;(int length, TState state, SpanAction&lt;char, TState&gt; action).
+     * Creates a new string of the given length, then calls the action to fill a Span&lt;Character&gt; buffer.
+     * Uses Character (boxed) instead of generic TState to avoid Java primitive type inference issues.
+     */
+    public static String createString(int length, Character state, java.util.function.BiConsumer<Span<Character>, Character> action) {
+        Character[] buf = new Character[length];
+        Span<Character> span = new Span<>(buf);
+        action.accept(span, state);
+        char[] chars = new char[length];
+        for (int i = 0; i < length; i++) {
+            chars[i] = buf[i];
+        }
+        return new String(chars);
+    }
+
     private static void appendConcatValue(StringBuilder builder, Object value) {
         if (value == null) {
             return;

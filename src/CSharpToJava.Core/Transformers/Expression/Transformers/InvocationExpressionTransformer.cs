@@ -1239,6 +1239,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"StringHelper.isInterned({isInternedArg})";
             }
 
+            // string.Create<TState>(length, state, action) → StringHelper.createString(length, state, action)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Create"
+                && node.ArgumentList.Arguments.Count == 3)
+            {
+                var lengthArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var stateArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var actionArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+                context.AddImport("io.github.ningpp.compat.StringHelper");
+                return $"StringHelper.createString({lengthArg}, {stateArg}, {actionArg})";
+            }
+
             // Numeric TryParse: double.TryParse(s, out result) → MathHelper.tryParseDouble(s, holder)
             if (originalMethodName == "TryParse" && node.ArgumentList.Arguments.Count >= 2)
             {
@@ -1378,6 +1389,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart, methodSymbol);
             return $"String.format({fmtArgs})";
+        }
+
+        // C# string.Create(length, state, action) -> Java char[] + new String(char[])
+        // string.Create<TState>(int length, TState state, SpanAction<char, TState> action)
+        // creates a string of the given length, then calls the action to fill a Span<char>.
+        // In Java, we use a char[] and wrap the result in new String(char[]).
+        if (originalMethodName == "Create"
+            && node.ArgumentList.Arguments.Count == 3
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context))
+        {
+            var lengthArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var stateArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var actionArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            // Generate: { char[] _cs2jBuf = new char[length]; action.accept(_cs2jBuf, state); new String(_cs2jBuf); }
+            // But since this is an expression context, we use a helper method.
+            // For simplicity, inline the pattern using a block expression workaround.
+            // Actually, the lambda body writes to Span<char> which maps to char[].
+            // The simplest approach: use StringHelper.createString(length, state, action)
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.createString({lengthArg}, {stateArg}, {actionArg})";
         }
 
         // Instance collection ToArray() should produce a typed array, not Object[].

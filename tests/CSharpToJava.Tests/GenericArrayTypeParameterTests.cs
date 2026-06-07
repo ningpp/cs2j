@@ -646,6 +646,36 @@ class Demo {
         Assert.DoesNotContain("Supplier<Object>", code);
     }
 
+    [Fact]
+    public void StringCreate_ConvertsToStringHelperCreateString()
+    {
+        // C# string.Create<TState>(int length, TState state, SpanAction<char, TState> action)
+        // should convert to StringHelper.createString(length, state, action)
+        var result = Convert("""
+using System;
+
+class Demo {
+    public static string HexEscape(char character)
+    {
+        return string.Create(3, character, (Span<char> chars, char c) =>
+        {
+            chars[0] = '%';
+            chars[1] = 'A';
+            chars[2] = 'B';
+        });
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should use StringHelper.createString
+        Assert.Contains("StringHelper.createString(", code);
+        // Should NOT use String.create (which doesn't exist in Java)
+        Assert.DoesNotContain("String.create(", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
