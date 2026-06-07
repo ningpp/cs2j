@@ -29,6 +29,18 @@ public class MethodTransformer : IMemberTransformer
         if (isPartialDeclaration)
             return null!;
 
+        // Skip methods with __suppress__ typed parameters (e.g. GetObjectData with SerializationInfo/StreamingContext)
+        bool hasSuppressedParam = methodDecl.ParameterList?.Parameters.Any(p =>
+        {
+            var ti = context.GetTypeInfo(p.Type!);
+            var jt = ti.Type != null && ti.Type is not IErrorTypeSymbol
+                ? context.MapType(ti.Type)
+                : context.MapTypeFromSyntax(p.Type!);
+            return jt == "__suppress__";
+        }) == true;
+        if (hasSuppressedParam)
+            return null!;
+
         var methodInfo = context.GetDeclaredSymbol(methodDecl) as IMethodSymbol;
         context.EnterMethod(methodInfo);
 
@@ -629,6 +641,10 @@ public class MethodTransformer : IMemberTransformer
         var javaType = typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol
             ? context.MapType(typeInfo.Type)
             : context.MapTypeFromSyntax(param.Type!);
+
+        // Skip parameters whose type is mapped to __suppress__ (e.g. SerializationInfo, StreamingContext)
+        if (javaType == "__suppress__")
+            return null;
 
         var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
         var javaParam = new JavaParameter(javaType, paramName);

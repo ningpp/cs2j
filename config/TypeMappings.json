@@ -3457,7 +3457,7 @@
         },
         {
             "csharp": "System.Text.NormalizationForm",
-            "java": "Normalizer$Form",
+            "java": "Normalizer.Form",
             "imports": [
                 "java.text.Normalizer"
             ]

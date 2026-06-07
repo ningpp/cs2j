@@ -117,6 +117,9 @@ public class ClassTransformer : ITypeTransformer
                     && iface.ToDisplayString() != "System.Runtime.Serialization.ISerializable")
                 {
                     var mappedIface = context.MapType(iface);
+                    // Skip types mapped to __suppress__ (e.g. ISerializable, SerializationInfo, StreamingContext)
+                    if (mappedIface == "__suppress__")
+                        continue;
                     // ICollection<T> maps to java.util.Collection<T> for type bounds (CollectionUtilities),
                     // but when used as an IMPLEMENTED interface it requires all abstract methods to be
                     // implemented (addAll, retainAll, containsAll, etc). Use Iterable instead since
