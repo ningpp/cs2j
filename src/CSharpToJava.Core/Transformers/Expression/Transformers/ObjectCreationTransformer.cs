@@ -511,6 +511,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# new string(Span<char>) → Java Span<Character>.toString()
+        // Java String has no constructor accepting Span<Character>.
+        if (bareType == "String" && argumentList.Arguments.Count == 1)
+        {
+            var argType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+            if (argType != null && argType.ToDisplayString().StartsWith("System.Span<char>"))
+            {
+                return $"{args}.toString()";
+            }
+        }
+
         // C# new string(char* ptr, int startIndex, int length) → Java String from MemorySegment slice.
         // Java String has no constructor accepting MemorySegment, so we slice the segment
         // to the correct byte range, convert to a primitive array, then construct the String.

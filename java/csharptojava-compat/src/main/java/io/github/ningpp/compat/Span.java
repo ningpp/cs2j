@@ -72,4 +72,16 @@ public final class Span<T> {
     public T[] toArray() {
         return Arrays.copyOfRange(array, offset, offset + length);
     }
+
+    @Override
+    public String toString() {
+        if (array instanceof Character[]) {
+            StringBuilder sb = new StringBuilder(length);
+            for (int i = 0; i < length; i++) {
+                sb.append((Character) array[offset + i]);
+            }
+            return sb.toString();
+        }
+        return super.toString();
+    }
 }

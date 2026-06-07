@@ -715,6 +715,19 @@ public class AssignmentTransformer : IIRExpressionTransformer
             var lhsType = context.GetTypeInfo(leftNode).Type;
             rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsType, context);
 
+            // byte[] element write: C# byte maps to Java int, but byte[] elements are Java byte.
+            // After AdaptExpressionToTargetType, the RHS is still int (with & 0xFF mask).
+            // Java requires explicit (byte) cast for int→byte narrowing in array element assignment.
+            if (lhsType?.SpecialType == SpecialType.System_Byte
+                && leftNode is ElementAccessExpressionSyntax elemAccess)
+            {
+                var containerType = context.GetTypeInfo(elemAccess.Expression).Type;
+                if (containerType is IArrayTypeSymbol)
+                {
+                    rightStr = $"(byte)({rightStr})";
+                }
+            }
+
             // Stream → Iterable/Collection: when LHS is IEnumerable/ICollection/IList (Java Iterable/Collection)
             // and RHS is a Java stream expression (from LINQ .Where/.Select), collect the stream.
             // Java Stream does NOT implement Iterable, so direct assignment would fail.

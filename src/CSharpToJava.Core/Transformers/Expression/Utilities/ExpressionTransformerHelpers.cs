@@ -129,7 +129,9 @@ public static class ExpressionTransformerHelpers
         {
             // When both are C# byte, source may originate from Java byte[] (signed byte)
             // while target is Java int (unsigned). Always mask for correctness.
-            if (sourceType.SpecialType == SpecialType.System_Byte)
+            // But skip if the expression already ends with & 0xFF (e.g. from (byte)cast).
+            if (sourceType.SpecialType == SpecialType.System_Byte
+                && !transformedExpression.TrimEnd().EndsWith("& 0xFF"))
                 return $"{transformedExpression} & 0xFF";
             return transformedExpression;
         }
@@ -165,7 +167,9 @@ public static class ExpressionTransformerHelpers
 
         // Both source and target are C# byte: source may originate from a Java byte[]
         // element (signed byte) while target is Java int (unsigned). Always mask.
-        if (sourceSpecial == SpecialType.System_Byte && targetSpecial == SpecialType.System_Byte)
+        // But skip if the expression already ends with & 0xFF (e.g. from (byte)cast).
+        if (sourceSpecial == SpecialType.System_Byte && targetSpecial == SpecialType.System_Byte
+            && !transformedExpression.TrimEnd().EndsWith("& 0xFF"))
             return $"{transformedExpression} & 0xFF";
 
         // C# char implicitly converts to string, but Java requires explicit String.valueOf()
@@ -200,6 +204,10 @@ public static class ExpressionTransformerHelpers
         // C# byte (unsigned) → Java int: when the target is System_Byte and source differs
         if (targetSpecial == SpecialType.System_Byte)
         {
+            // Skip if the expression already ends with & 0xFF (e.g. from (byte)cast)
+            if (transformedExpression.TrimEnd().EndsWith("& 0xFF"))
+                return transformedExpression;
+
             bool needsNarrowingCast = sourceSpecial is SpecialType.System_Int64
                 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double;
 

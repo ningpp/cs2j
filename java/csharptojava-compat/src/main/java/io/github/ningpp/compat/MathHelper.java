@@ -258,7 +258,11 @@ public class MathHelper {
         }
     }
 
-    public static boolean tryFormatByte(byte value, Span<Character> dest, IntHolder charsWritten, String format) {
+    public static boolean tryFormatByte(int value, Span<Character> dest, IntHolder charsWritten) {
+        return tryFormatByte(value, dest, charsWritten, null);
+    }
+
+    public static boolean tryFormatByte(int value, Span<Character> dest, IntHolder charsWritten, String format) {
         return writeFormattedToSpan(formatValue(format, value & 0xFF), dest, charsWritten);
     }
 
