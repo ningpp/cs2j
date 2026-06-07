@@ -2252,6 +2252,25 @@ public class ClassTransformer : ITypeTransformer
                         }
                     }
                     javaClass.NestedTypes.Add(jc);
+
+                    // When a nested class inherits from the outer class, Java's access rules
+                    // prevent the nested class from accessing the outer class's private fields
+                    // (even though it inherits them). C# allows this because nested classes can
+                    // access all members of the containing type. Promote private fields to
+                    // protected so the inheriting nested class can access them.
+                    if (!string.IsNullOrEmpty(jc.ExtendedType)
+                        && (jc.ExtendedType == javaClass.Name
+                            || jc.ExtendedType.StartsWith(javaClass.Name + "<", StringComparison.Ordinal)))
+                    {
+                        foreach (var field in javaClass.Fields)
+                        {
+                            if ((field.Modifiers & JavaModifiers.Private) != 0
+                                && (field.Modifiers & JavaModifiers.Static) == 0)
+                            {
+                                field.Modifiers = (field.Modifiers & ~JavaModifiers.Private) | JavaModifiers.Protected;
+                            }
+                        }
+                    }
                 }
                 break;
 
