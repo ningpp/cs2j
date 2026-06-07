@@ -197,6 +197,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             };
         }
 
+        // C# pointer-to-pointer cast (e.g., (char*)(lptr + 1), (int*)(ptr + offset))
+        // In Java, all pointers are MemorySegment, so pointer casts are no-ops.
+        if (targetSymbol is IPointerTypeSymbol)
+        {
+            return expression;
+        }
+
         // C# numeric -> enum cast: (MyEnum)i
         // Java cannot cast int to enum directly; map by ordinal index instead.
         // For enums with explicit values, use fromValue() instead of values()[] to avoid AIOOBE.

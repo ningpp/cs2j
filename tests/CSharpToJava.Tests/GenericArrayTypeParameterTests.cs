@@ -738,6 +738,32 @@ class Demo {
         Assert.DoesNotContain("switch (", code);
     }
 
+    [Fact]
+    public void PointerCastToPointer_DoesNotAddMemorySegmentCast()
+    {
+        // C# pointer-to-pointer cast should be a no-op in Java since all pointers are MemorySegment
+        var result = Convert("""
+using System;
+
+class Demo {
+    public static unsafe void Test(long* lptr, int offset)
+    {
+        char c = *(char*)(lptr + 1);
+        int i = *(int*)(lptr + 1);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should NOT contain (MemorySegment) cast on pointer dereference results
+        Assert.DoesNotContain("(MemorySegment)", code);
+        // Should contain MemorySegment.get() calls
+        Assert.Contains("get(ValueLayout.JAVA_CHAR", code);
+        Assert.Contains("get(ValueLayout.JAVA_INT", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
