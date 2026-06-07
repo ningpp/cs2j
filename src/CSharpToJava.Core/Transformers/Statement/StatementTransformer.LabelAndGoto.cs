@@ -119,13 +119,35 @@ public partial class StatementTransformer
 
     private JavaSyntaxNode TransformGotoStatement(GotoStatementSyntax stmt, ConversionContext context)
     {
-        // D class: goto case / goto default - handled by switch transformer.
-        if (stmt.Kind() == SyntaxKind.GotoCaseStatement)
+        // D class: goto case / goto default inside a switch-with-goto-case context.
+        if (stmt.Kind() == SyntaxKind.GotoCaseStatement || stmt.Kind() == SyntaxKind.GotoDefaultStatement)
         {
-            return new JavaStatementNode("/* TODO: goto case - unsupported */");
-        }
-        if (stmt.Kind() == SyntaxKind.GotoDefaultStatement)
-        {
+            if (context.TryGetSwitchGotoCaseInfo(out var stateName, out var loopName, out var stateByCaseValue, out var defaultState))
+            {
+                if (stmt.Kind() == SyntaxKind.GotoDefaultStatement)
+                {
+                    if (defaultState.HasValue)
+                    {
+                        return new JavaStatementNode($"{stateName} = {defaultState.Value}; continue {loopName};");
+                    }
+                    return new JavaStatementNode("/* TODO: goto default - default label not found */");
+                }
+
+                // goto case
+                var target = stmt.Expression != null
+                    ? stmt.Expression.NormalizeWhitespace().ToFullString()
+                    : "";
+                if (stateByCaseValue.TryGetValue(target, out var state))
+                {
+                    return new JavaStatementNode($"{stateName} = {state}; continue {loopName};");
+                }
+                return new JavaStatementNode($"/* TODO: goto case {target} - case label not found */");
+            }
+
+            if (stmt.Kind() == SyntaxKind.GotoCaseStatement)
+            {
+                return new JavaStatementNode("/* TODO: goto case - unsupported */");
+            }
             return new JavaStatementNode("/* TODO: goto default - unsupported */");
         }
 

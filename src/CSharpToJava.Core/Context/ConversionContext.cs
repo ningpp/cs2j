@@ -114,6 +114,38 @@ public class ConversionContext
     /// </summary>
     public MethodConversionState MethodState { get; } = new();
 
+    /// <summary>
+    /// Stack of switch-with-goto-case state mappings.
+    /// Each entry is a tuple of (stateName, loopName, stateByCaseValue, defaultState).
+    /// Used to transform nested goto case/default statements inside switch sections.
+    /// </summary>
+    private readonly Stack<(string StateName, string LoopName, IReadOnlyDictionary<string, int> StateByCaseValue, int? DefaultState)> _switchGotoCaseStack = new();
+
+    public bool IsInSwitchGotoCase => _switchGotoCaseStack.Count > 0;
+
+    public void PushSwitchGotoCase(string stateName, string loopName, IReadOnlyDictionary<string, int> stateByCaseValue, int? defaultState)
+        => _switchGotoCaseStack.Push((stateName, loopName, stateByCaseValue, defaultState));
+
+    public void PopSwitchGotoCase() => _switchGotoCaseStack.Pop();
+
+    public bool TryGetSwitchGotoCaseInfo(out string stateName, out string loopName, out IReadOnlyDictionary<string, int> stateByCaseValue, out int? defaultState)
+    {
+        if (_switchGotoCaseStack.Count > 0)
+        {
+            var info = _switchGotoCaseStack.Peek();
+            stateName = info.StateName;
+            loopName = info.LoopName;
+            stateByCaseValue = info.StateByCaseValue;
+            defaultState = info.DefaultState;
+            return true;
+        }
+        stateName = "";
+        loopName = "";
+        stateByCaseValue = null!;
+        defaultState = null;
+        return false;
+    }
+
     // ─── Facade properties delegating to MethodState for backward compatibility ───
 
     public HashSet<string> StreamLocalVariables => MethodState.StreamLocalVariables;

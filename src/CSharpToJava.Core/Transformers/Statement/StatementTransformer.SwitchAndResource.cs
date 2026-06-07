@@ -355,6 +355,12 @@ public partial class StatementTransformer
         sb.AppendLine($"{loopName}: while ({stateName} != -1) {{");
         sb.AppendLine($"    switch ({stateName}) {{");
 
+        // Push the switch-goto-case context so nested goto case/default statements
+        // can be properly transformed to state transitions.
+        context.PushSwitchGotoCase(stateName, loopName, stateByCaseValue, defaultState);
+        try
+        {
+
         foreach (var section in stmt.Sections)
         {
             sb.AppendLine($"        case {sectionStates[section]}:");
@@ -389,10 +395,45 @@ public partial class StatementTransformer
             }
         }
 
+        }
+        finally
+        {
+            context.PopSwitchGotoCase();
+        }
+
         sb.AppendLine("        default:");
+        sb.AppendLine($"            {stateName} = -1;");
         sb.AppendLine($"            break {loopName};");
         sb.AppendLine("    }");
         sb.AppendLine("}");
+
+        // Add a fallback return if the switch-with-goto-case is directly inside
+        // a method body and the method has a non-void return type.
+        // Java requires all paths to return a value, and the compiler can't verify
+        // that the while loop always hits a return case (the default branch breaks out).
+        // Only add when the switch is a direct child of the method body block,
+        // not when it's nested inside a for/while/if/etc. where code follows the switch.
+        if (stmt.Parent is BlockSyntax methodBlock && methodBlock.Parent is MethodDeclarationSyntax methodDecl)
+        {
+            var returnType = methodDecl.ReturnType;
+            if (returnType is PredefinedTypeSyntax pdt &&
+                !pdt.Keyword.IsKind(SyntaxKind.VoidKeyword))
+            {
+                var keyword = pdt.Keyword.Text;
+                var defaultReturn = keyword switch
+                {
+                    "int" or "long" or "short" or "byte" or "float" or "double" or "char" => "return 0;",
+                    "bool" => "return false;",
+                    _ => "return null;"
+                };
+                sb.AppendLine(defaultReturn);
+            }
+            else if (returnType is not PredefinedTypeSyntax)
+            {
+                // Non-predefined return type (e.g., String, custom class) - add return null as fallback.
+                sb.AppendLine("return null;");
+            }
+        }
 
         return new JavaStatementNode(sb.ToString());
 
@@ -519,8 +560,31 @@ public partial class StatementTransformer
             SyntaxKind.GotoStatement or
             SyntaxKind.GotoCaseStatement or
             SyntaxKind.GotoDefaultStatement => true,
+            // A while(true) loop that contains goto case/default is effectively terminal
+            // because those gotos translate to "continue switchLoop" which exits the loop.
+            SyntaxKind.WhileStatement => IsWhileTrueWithGotoCase(stmt),
             _ => false
         };
+
+    private static bool IsWhileTrueWithGotoCase(StatementSyntax stmt)
+    {
+        if (stmt is not WhileStatementSyntax whileStmt)
+            return false;
+
+        // Check if condition is literal true
+        if (whileStmt.Condition is not LiteralExpressionSyntax lit ||
+            !lit.Token.IsKind(SyntaxKind.TrueKeyword))
+            return false;
+
+        // Check if the body contains any goto case/default
+        return ContainsGotoCaseOrDefault(whileStmt.Statement);
+    }
+
+    private static bool ContainsGotoCaseOrDefault(StatementSyntax stmt)
+    {
+        return stmt.DescendantNodes().OfType<GotoStatementSyntax>().Any(g =>
+            g.IsKind(SyntaxKind.GotoCaseStatement) || g.IsKind(SyntaxKind.GotoDefaultStatement));
+    }
 
     private JavaSyntaxNode TransformTryStatement(TryStatementSyntax stmt, ConversionContext context)
     {

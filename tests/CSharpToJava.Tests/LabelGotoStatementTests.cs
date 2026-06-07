@@ -1450,4 +1450,52 @@ public class Runner {{
 
         return stdout;
     }
+
+    [Fact]
+    public void GotoCase_NonVoidMethod_HasFallbackReturn()
+    {
+        // A switch with goto case in a non-void method must have a fallback return
+        // after the while loop, otherwise Java compilation fails with "missing return statement".
+        var result = Convert(@"
+class Test {
+    static string M(int x) {
+        switch (x) {
+            case 1:
+                return ""one"";
+            case 2:
+                goto case 1;
+            default:
+                return null;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // The generated code should have a fallback return after the while loop
+        Assert.Contains("return null;", result.GeneratedCode);
+        // Verify it compiles
+        var output = CompileAndRun(result.GeneratedCode, "System.out.print(Test.m(2));");
+        Assert.Equal("one", output);
+    }
+
+    [Fact]
+    public void GotoCase_IntReturnMethod_HasFallbackReturn()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(int x) {
+        switch (x) {
+            case 1:
+                return 10;
+            case 2:
+                goto case 1;
+            default:
+                return 0;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("return 0;", result.GeneratedCode);
+        var output = CompileAndRun(result.GeneratedCode, "System.out.print(Test.m(2));");
+        Assert.Equal("10", output);
+    }
 }
