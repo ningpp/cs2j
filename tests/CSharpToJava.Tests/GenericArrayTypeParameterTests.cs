@@ -707,6 +707,37 @@ class Demo {
         Assert.DoesNotContain("switch (", code);
     }
 
+    [Fact]
+    public void SwitchWithConstLocalCaseLabel_ConvertsToIfElse()
+    {
+        // C# const local variables used as switch case labels should convert to if-else
+        // since Java doesn't allow non-final local variables as case labels
+        var result = Convert("""
+class Demo {
+    public static int Match(int value)
+    {
+        const int ftpMask = 'f' << 16 | 't' << 8 | 'p';
+        const int wssMask = 'w' << 16 | 's' << 8 | 's';
+        switch (value)
+        {
+            case ftpMask: return 1;
+            case wssMask: return 2;
+            default: return 0;
+        }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should use if-else instead of switch since case labels are local variables
+        Assert.Contains("if (", code);
+        Assert.Contains("else if (", code);
+        // Should NOT contain switch statement
+        Assert.DoesNotContain("switch (", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

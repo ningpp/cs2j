@@ -58,6 +58,22 @@ public partial class StatementTransformer
         if (needsIfElse)
             return TransformLongSwitchToIfElse(stmt, expression, context);
 
+        // Java switch case labels must be compile-time constants.
+        // C# const local variables are compile-time constants in C# but get converted
+        // to non-final local variables in Java, so they can't be used as case labels.
+        // If any case label references a local variable, convert to if-else.
+        foreach (var section in stmt.Sections)
+        {
+            foreach (var label in section.Labels.OfType<CaseSwitchLabelSyntax>())
+            {
+                var labelSymbol = context.GetSymbolInfo(label.Value).Symbol;
+                if (labelSymbol is ILocalSymbol)
+                {
+                    return TransformLongSwitchToIfElse(stmt, expression, context);
+                }
+            }
+        }
+
         // Java enum switch requires all case labels to be enum constants.
         // If any case label is a const field of the enum type (not an enum member),
         // convert to if-else since Java doesn't allow static final fields as case labels.
