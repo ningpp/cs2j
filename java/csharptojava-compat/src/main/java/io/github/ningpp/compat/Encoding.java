@@ -185,6 +185,12 @@ public final class Encoding {
         };
     }
 
+    /** Mirrors C# Encoding.GetEncoding(int, EncoderReplacementFallback, DecoderReplacementFallback) */
+    public static Encoding getEncoding(int codePage, EncoderReplacementFallback encoderFallback, DecoderReplacementFallback decoderFallback) {
+        // The fallback parameters are ignored in this compat implementation
+        return getEncoding(codePage);
+    }
+
     public static Encoding getEncoding() {
         return getDefault();
     }

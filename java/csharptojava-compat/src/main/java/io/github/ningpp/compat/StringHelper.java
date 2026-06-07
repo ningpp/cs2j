@@ -281,6 +281,27 @@ public class StringHelper {
         return s.substring(0, end + 1);
     }
 
+    /** Mirrors C# String.Trim(trimChars) - trims characters in the array from both ends */
+    public static String trim(String s, char[] trimChars) {
+        if (s == null) return null;
+        int start = 0, end = s.length() - 1;
+        while (start <= end && contains(trimChars, s.charAt(start))) {
+            start++;
+        }
+        while (end >= start && contains(trimChars, s.charAt(end))) {
+            end--;
+        }
+        return s.substring(start, end + 1);
+    }
+
+    private static boolean contains(char[] chars, char c) {
+        if (chars == null) return Character.isWhitespace(c);
+        for (char ch : chars) {
+            if (ch == c) return true;
+        }
+        return false;
+    }
+
     // ==================== IndexOf (char overloads) ====================
     /** Mirrors C# String.IndexOf(value) for char */
     public static int indexOf(String s, char value) {
