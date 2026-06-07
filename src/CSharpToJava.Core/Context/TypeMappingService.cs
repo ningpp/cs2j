@@ -17,6 +17,7 @@ public class TypeMappingService
     private readonly Func<string> _getCurrentNamespace;
     private readonly Func<INamespaceSymbol?> _getGlobalNamespace;
     private readonly Func<string, bool> _tryGetSynthesizedRecordMatch;
+    private readonly Func<INamedTypeSymbol?> _getCurrentEnclosingType;
 
     /// <summary>
     /// Per-file type symbol → Java type cache. Cleared per file via ClearCache().
@@ -46,7 +47,8 @@ public class TypeMappingService
         Func<string> getCurrentNamespace,
         Func<INamespaceSymbol?> getGlobalNamespace,
         Func<string, bool> tryGetSynthesizedRecordMatch,
-        Func<string, ITypeSymbol?>? resolveAlias = null)
+        Func<string, ITypeSymbol?>? resolveAlias = null,
+        Func<INamedTypeSymbol?>? getCurrentEnclosingType = null)
     {
         _options = options;
         _typeMappings = typeMappings;
@@ -56,6 +58,7 @@ public class TypeMappingService
         _getCurrentNamespace = getCurrentNamespace;
         _getGlobalNamespace = getGlobalNamespace;
         _tryGetSynthesizedRecordMatch = tryGetSynthesizedRecordMatch;
+        _getCurrentEnclosingType = getCurrentEnclosingType ?? (() => null);
     }
 
     public void RegisterFlagsEnum(string enumName) => RegisterFlagsEnum(enumName, "int");
@@ -595,8 +598,18 @@ public class TypeMappingService
             }
         }
 
-        var outerName = QualifyTypeReferenceIfNeeded(outerType, MapSimpleTypeName(outerType.Name));
-        var nestedStr = $"{outerName}.{MapSimpleTypeName(name)}";
+        // When referencing a nested type from within the same enclosing type,
+        // use the simple name to avoid Java raw type issues (e.g., "LowLevelDictionary.Entry"
+        // is a raw type that loses generic parameters, while "Entry" preserves them).
+        var currentEnclosing = _getCurrentEnclosingType();
+        bool isSameEnclosingType = currentEnclosing != null
+            && SymbolEqualityComparer.Default.Equals(currentEnclosing, outerType);
+
+        var innerName = MapSimpleTypeName(name);
+        var outerName = isSameEnclosingType
+            ? null  // No outer class prefix needed when inside the same class
+            : QualifyTypeReferenceIfNeeded(outerType, MapSimpleTypeName(outerType.Name));
+        var nestedStr = outerName != null ? $"{outerName}.{innerName}" : innerName;
 
         if (typeSymbol is INamedTypeSymbol namedNested && namedNested.TypeArguments.Length > 0)
         {

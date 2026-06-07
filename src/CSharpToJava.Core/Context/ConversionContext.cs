@@ -353,7 +353,8 @@ public class ConversionContext
             () => CurrentNamespace,
             () => SemanticModel?.Compilation?.GlobalNamespace,
             key => TryGetSynthesizedRecord(key, out _),
-            resolveAlias: name => ResolveAlias(name));
+            resolveAlias: name => ResolveAlias(name),
+            getCurrentEnclosingType: () => CurrentEnclosingRoslynType);
         TypeMapper.SetSynthesizedRecordNameResolver(key =>
             TryGetSynthesizedRecord(key, out var rec) && rec != null ? rec.RecordName : "Object");
     }
