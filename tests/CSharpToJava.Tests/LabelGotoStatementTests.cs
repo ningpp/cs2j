@@ -218,6 +218,56 @@ class Test {
     }
 
     [Fact]
+    public void Goto_BreakFromEnclosingLoop_WhileToSiblingLabel()
+    {
+        // goto target jumps from inside while(true) to a label that is a sibling
+        // of the while(true) loop in the same parent block.
+        // This is equivalent to break; from the while(true) loop.
+        var result = Convert(@"
+class Test {
+    void M() {
+        while (true) {
+            if (true) goto target;
+        }
+        target: ;
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("break;", result.GeneratedCode);
+        Assert.DoesNotContain("__state", result.GeneratedCode);
+        Assert.DoesNotContain("__gotoLoop", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Goto_BreakFromEnclosingLoop_InsideFixedBlock()
+    {
+        // Simulates the UriHelper.UnescapeString pattern:
+        // goto dest_fixed_loop_break inside a while(true) inside a fixed block,
+        // where the label is a sibling of the while(true) in the fixed block.
+        var result = Convert(@"
+class Test {
+    unsafe void M() {
+        while (true) {
+            fixed (char* p = """") {
+                while (true) {
+                    if (true) goto dest_fixed_loop_break;
+                    if (false) goto done;
+                }
+                dest_fixed_loop_break: ;
+            }
+        }
+        done: return;
+    }
+}");
+        Assert.True(result.Success);
+        // goto dest_fixed_loop_break should be converted to break;
+        Assert.Contains("break;", result.GeneratedCode);
+        // goto done should still use state machine
+        Assert.Contains("__state", result.GeneratedCode);
+        Assert.Contains("__gotoLoop", result.GeneratedCode);
+    }
+
+    [Fact]
     public void Break_Label_Preserved()
     {
         var result = Convert(@"

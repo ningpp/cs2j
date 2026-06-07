@@ -21,7 +21,11 @@ public enum GotoScopeClassification
     SameBodyOther,
 
     /// <summary>C: cross-scope goto (target is in a different nested scope)</summary>
-    CrossScope
+    CrossScope,
+
+    /// <summary>D: goto target label is a sibling of the enclosing loop (immediately after it),
+    /// equivalent to break; from that loop. No state machine needed.</summary>
+    BreakFromEnclosingLoop
 }
 
 /// <summary>
@@ -116,7 +120,8 @@ public class GotoAnalyzer
     public bool HasOnlyInScopeGotos =>
         _allGotos.Count == 0 || _allGotos.All(g =>
             g.Classification == GotoScopeClassification.InScopeLoop ||
-            g.Classification == GotoScopeClassification.InScopeBlock);
+            g.Classification == GotoScopeClassification.InScopeBlock ||
+            g.Classification == GotoScopeClassification.BreakFromEnclosingLoop);
 
     /// <summary>
     /// True if a state machine is needed (B1/B2/B3 or C class gotos exist).
@@ -305,6 +310,14 @@ public class GotoAnalyzer
             current = current.Parent;
         }
 
+        // Step 1.5: Check if the target label is a sibling of the enclosing loop
+        // (i.e., the label is immediately after the loop in the same parent block).
+        // This means the goto is equivalent to break; from that loop.
+        if (IsTargetLabelSiblingOfEnclosingLoop(gotoStmt, targetLabel))
+        {
+            return GotoScopeClassification.BreakFromEnclosingLoop;
+        }
+
         // Step 2: Check if the label is in the same method body (B class)
         // Find the method body block
         var methodBodyBlock = FindMethodBodyBlock(gotoStmt);
@@ -318,6 +331,82 @@ public class GotoAnalyzer
 
         // C class: cross-scope
         return GotoScopeClassification.CrossScope;
+    }
+
+    /// <summary>
+    /// Checks if the target label is a sibling of the enclosing loop statement.
+    /// This means the goto is inside a loop, and the target label comes immediately
+    /// after (or near) that loop in the same parent block. In this case, the goto
+    /// is equivalent to break; from the enclosing loop.
+    /// </summary>
+    private static bool IsTargetLabelSiblingOfEnclosingLoop(GotoStatementSyntax gotoStmt, string targetLabel)
+    {
+        // Walk up from the goto to find the enclosing loop statement
+        var node = gotoStmt.Parent;
+        StatementSyntax? enclosingLoop = null;
+        BlockSyntax? loopParentBlock = null;
+
+        while (node != null)
+        {
+            // Check if we've found an enclosing loop
+            if (node is WhileStatementSyntax or ForStatementSyntax or ForEachStatementSyntax or DoStatementSyntax)
+            {
+                enclosingLoop = (StatementSyntax)node;
+                // The loop's parent should be a block that also contains the target label
+                if (node.Parent is BlockSyntax parentBlock)
+                {
+                    loopParentBlock = parentBlock;
+                }
+                break;
+            }
+
+            // Stop at method body boundary
+            if (node is BlockSyntax block && block.Parent is MethodDeclarationSyntax
+                or ConstructorDeclarationSyntax
+                or OperatorDeclarationSyntax
+                or ConversionOperatorDeclarationSyntax
+                or ArrowExpressionClauseSyntax)
+            {
+                break;
+            }
+
+            node = node.Parent;
+        }
+
+        if (enclosingLoop == null || loopParentBlock == null)
+            return false;
+
+        // Check if the target label exists in the same parent block,
+        // and comes after the enclosing loop
+        var loopIndex = -1;
+        var labelIndex = -1;
+
+        for (var i = 0; i < loopParentBlock.Statements.Count; i++)
+        {
+            var stmt = loopParentBlock.Statements[i];
+            if (stmt == enclosingLoop)
+                loopIndex = i;
+
+            // Check direct label match
+            if (stmt is LabeledStatementSyntax labeled && labeled.Identifier.Text == targetLabel)
+                labelIndex = i;
+
+            // Also check inside fixed/using/unsafe/etc. blocks that wrap the loop
+            if (labelIndex == -1 && ContainsTargetLabel(stmt, targetLabel))
+                labelIndex = i;
+        }
+
+        // The label must come after the loop in the same parent block
+        return labelIndex > loopIndex;
+    }
+
+    /// <summary>
+    /// Checks if a statement (or its immediate wrapper like fixed/using) contains the target label.
+    /// </summary>
+    private static bool ContainsTargetLabel(StatementSyntax stmt, string targetLabel)
+    {
+        return stmt.DescendantNodes().OfType<LabeledStatementSyntax>()
+            .Any(l => l.Identifier.Text == targetLabel);
     }
 
     private static BlockSyntax? FindMethodBodyBlock(SyntaxNode node)

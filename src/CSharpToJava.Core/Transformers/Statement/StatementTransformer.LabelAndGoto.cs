@@ -181,6 +181,10 @@ public partial class StatementTransformer
                         // A2: goto inside labeled block -> break label.
                         return new JavaStatementNode($"break {targetLabel};");
 
+                    case GotoScopeClassification.BreakFromEnclosingLoop:
+                        // D: goto target is a sibling of the enclosing loop -> break;
+                        return new JavaStatementNode("break;");
+
                     case GotoScopeClassification.SameBodyLoop:
                     case GotoScopeClassification.SameBodyOther:
                     case GotoScopeClassification.CrossScope:
@@ -381,14 +385,18 @@ public partial class StatementTransformer
         // Variables declared inside try-catch, fixed, or other nested blocks were hoisted outside
         // the while loop, but their declarations inside the loop body were not converted to assignments
         // by TransformBasicBlockStatement (which only handles top-level LocalDeclarationStatementSyntax).
+        var result = sb.ToString();
         if (hoistedVarNames.Count > 0)
         {
-            var code = sb.ToString();
-            code = ConvertHoistedDeclarationsToAssignments(code, hoistedVarNames);
-            return code;
+            result = ConvertHoistedDeclarationsToAssignments(result, hoistedVarNames);
         }
 
-        return sb.ToString();
+        // Post-process: remove unreachable code after while(true) loops inside the state machine.
+        // When a while(true) loop only exits via state transitions (__state = N; continue __gotoLoop;),
+        // any code after it (labels, state transitions) is unreachable and causes Java compilation errors.
+        result = RemoveUnreachableCodeAfterInfiniteLoops(result);
+
+        return result;
     }
 
     private string TransformLabeledBasicBlockStatement(
@@ -710,6 +718,160 @@ public partial class StatementTransformer
         }
 
         return prefix + body;
+    }
+
+    /// <summary>
+    /// Removes unreachable code that appears after while(true) loops inside the state machine.
+    /// When a while(true) loop only exits via state transitions (__state = N; continue __gotoLoop;),
+    /// any code after the closing brace of that while(true) is unreachable.
+    /// Pattern: while (true) { ... } labelName: { } __state = N; continue __gotoLoop;
+    /// The label block and state transition after the while(true) are removed.
+    /// </summary>
+    private static string RemoveUnreachableCodeAfterInfiniteLoops(string code)
+    {
+        // Pattern: after a while(true) { ... } closing brace, there may be:
+        // 1. A label block: labelName: { }
+        // 2. A state transition: __state = N; continue __gotoLoop;
+        // These are unreachable if the while(true) only exits via state transitions.
+        // We detect this by finding while(true) { ... } blocks where the body only
+        // exits via __state/continue __gotoLoop, and remove code after the closing }.
+
+        var lines = code.Split('\n');
+        var result = new List<string>(lines.Length);
+        var i = 0;
+
+        while (i < lines.Length)
+        {
+            var line = lines[i];
+            result.Add(line);
+
+            // Detect closing brace of a while(true) block that only exits via state transitions
+            var trimmed = line.Trim();
+            if (trimmed == "}" && i >= 2)
+            {
+                // Look backwards to see if this closes a while(true) { ... } block
+                // where the body only has state-transition exits
+                if (IsClosingBraceOfInfiniteWhileLoop(lines, i, result))
+                {
+                    // Skip unreachable lines after this closing brace until we hit
+                    // a line that is not a label block or state transition
+                    i++;
+                    while (i < lines.Length)
+                    {
+                        var nextTrimmed = lines[i].Trim();
+                        // Skip label blocks: labelName: { } or labelName: { ... }
+                        if (Regex.IsMatch(nextTrimmed, @"^\w+:\s*\{?\s*\}?\s*$"))
+                        {
+                            i++;
+                            continue;
+                        }
+                        // Skip state transitions: __state = N; continue __gotoLoop;
+                        if (Regex.IsMatch(nextTrimmed, @"^__state\s*=\s*\d+;\s*continue\s+__gotoLoop;") ||
+                            nextTrimmed.StartsWith("__state =") ||
+                            nextTrimmed == "continue __gotoLoop;")
+                        {
+                            i++;
+                            continue;
+                        }
+                        // Not unreachable pattern - stop skipping
+                        break;
+                    }
+                    continue;
+                }
+            }
+
+            i++;
+        }
+
+        return string.Join("\n", result);
+    }
+
+    /// <summary>
+    /// Checks if the closing brace at lineIndex closes a while(true) block
+    /// that only exits via state transitions (no break/return that would make
+    /// code after it reachable).
+    /// </summary>
+    private static bool IsClosingBraceOfInfiniteWhileLoop(string[] lines, int lineIndex, List<string> result)
+    {
+        // Find the matching opening brace by scanning backwards
+        var depth = 1;
+        var start = lineIndex - 1;
+        while (start >= 0 && depth > 0)
+        {
+            var trimmed = lines[start].Trim();
+            foreach (var ch in trimmed.Reverse())
+            {
+                if (ch == '}') depth++;
+                else if (ch == '{') depth--;
+                if (depth == 0) break;
+            }
+            if (depth > 0) start--;
+        }
+
+        if (start < 0) return false;
+
+        // Check if the line before or at start contains "while (true)"
+        for (var j = start; j >= Math.Max(0, start - 2); j--)
+        {
+            if (lines[j].Contains("while (true)"))
+            {
+                // Check if the while(true) body only exits via state transitions
+                // by checking if there are any break/return statements that aren't
+                // inside nested blocks
+                var bodySb = new StringBuilder();
+                for (var k = j + 1; k < lineIndex; k++)
+                {
+                    bodySb.AppendLine(lines[k]);
+                }
+                var bodyTextStr = bodySb.ToString();
+
+                // If the body contains "break __gotoLoop" that
+                // would exit the while(true) normally, code after it might be reachable
+                if (bodyTextStr.Contains("break __gotoLoop") || bodyTextStr.Contains("break __gotoLoop;"))
+                {
+                    return false;
+                }
+
+                // Check for standalone "break;" statements that exit THIS while(true) loop
+                // (not inside nested loops). We track nested loop depth to determine this.
+                var nestedLoopDepth = 0;
+                for (var k = j + 1; k < lineIndex; k++)
+                {
+                    var lineTrimmed = lines[k].Trim();
+                    // Track entering nested loops
+                    if (lineTrimmed.StartsWith("while (") || lineTrimmed.StartsWith("for (") ||
+                        lineTrimmed.StartsWith("for (;") || lineTrimmed.StartsWith("do {") ||
+                        lineTrimmed.StartsWith("do "))
+                    {
+                        nestedLoopDepth++;
+                    }
+                    // Track exiting nested loops (closing braces reduce depth if we're in a nested loop)
+                    // This is a simple heuristic - we count { and } to track nesting
+                    if (nestedLoopDepth > 0)
+                    {
+                        foreach (var ch in lineTrimmed)
+                        {
+                            if (ch == '{') nestedLoopDepth++; // rough tracking
+                        }
+                        foreach (var ch in lineTrimmed.Reverse())
+                        {
+                            if (ch == '}' && nestedLoopDepth > 0) nestedLoopDepth--;
+                        }
+                    }
+
+                    if (lineTrimmed == "break;" && nestedLoopDepth == 0)
+                    {
+                        // This break; exits the while(true) loop at the top level
+                        return false;
+                    }
+                }
+
+                // If the body only has state transitions as exits, code after is unreachable
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private (List<string> declarations, HashSet<string> varNames) CollectStateMachineLocalDeclarations(
