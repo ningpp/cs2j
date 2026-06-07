@@ -29,10 +29,13 @@ public class IndexerTransformer : IMemberTransformer
 
         // Fix 1: use context-aware method name selection to avoid Map/List collisions.
         // The getter name is always "get" (same across List, Map, and default).
-        // The setter name is "put" when the containing class implements Map (to match Map.put contract).
+        // The setter name is "put" when the containing class implements Map (to match Map.put contract)
+        // or when the containing type is dictionary-like (name contains Dictionary/SortedList/Map),
+        // to stay consistent with AssignmentTransformer.IsDictionaryLikeContainer.
         bool implementsMap = context.ImplementsInterface("Map");
+        bool isDictionaryLikeType = IsDictionaryLikeTypeName(context);
         string getterName = "get";
-        string setterName = implementsMap ? "put" : "set";
+        string setterName = (implementsMap || isDictionaryLikeType) ? "put" : "set";
 
         // 获取参数列表
         var parameters = new List<JavaParameter>();
@@ -154,6 +157,32 @@ public class IndexerTransformer : IMemberTransformer
         }
 
         return new Java.JavaMemberCollection(results.Cast<Java.JavaSyntaxNode>().ToList());
+    }
+
+    /// <summary>
+    /// Checks if the current containing type is dictionary-like based on its name,
+    /// mirroring the logic in AssignmentTransformer.IsDictionaryLikeContainer.
+    /// </summary>
+    private static bool IsDictionaryLikeTypeName(ConversionContext context)
+    {
+        var roslynType = context.CurrentEnclosingRoslynType;
+        if (roslynType != null)
+        {
+            if (roslynType.Name.Contains("Dictionary", StringComparison.Ordinal)
+                || roslynType.Name.Contains("SortedList", StringComparison.Ordinal)
+                || roslynType.Name.Contains("Map", StringComparison.Ordinal))
+                return true;
+        }
+        // Fallback: check the Java type name
+        var javaType = context.CurrentType;
+        if (javaType != null)
+        {
+            if (javaType.Name.Contains("Dictionary", StringComparison.Ordinal)
+                || javaType.Name.Contains("SortedList", StringComparison.Ordinal)
+                || javaType.Name.Contains("Map", StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>
