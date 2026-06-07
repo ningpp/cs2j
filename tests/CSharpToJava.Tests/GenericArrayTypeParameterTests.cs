@@ -676,6 +676,37 @@ class Demo {
         Assert.DoesNotContain("String.create(", code);
     }
 
+    [Fact]
+    public void SwitchOnLong_ConvertsToIfElse()
+    {
+        // C# switch on long type should convert to if-else since Java doesn't support switch(long)
+        var result = Convert("""
+using System;
+
+class Demo {
+    public static string GetHostType(long hostType)
+    {
+        switch (hostType)
+        {
+            case 0x00010000L: return "IPv6";
+            case 0x00020000L: return "IPv4";
+            case 0x00030000L: return "Dns";
+            default: return "Unknown";
+        }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should use if-else instead of switch
+        Assert.Contains("if (", code);
+        Assert.Contains("else if (", code);
+        // Should NOT contain switch statement
+        Assert.DoesNotContain("switch (", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

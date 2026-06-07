@@ -27,6 +27,37 @@ public partial class StatementTransformer
         if (hasPatternCases)
             return TransformPatternSwitchToIfElse(stmt, expression, context);
 
+        // Java switch only supports byte, short, char, int, String, and enum types.
+        // If the switch expression type is long, float, or double, convert to if-else.
+        // Also convert if the type is a C# enum with long/ulong underlying type,
+        // since such enums are converted to long constants (not Java enums).
+        var switchType = context.GetTypeInfo(stmt.Expression).Type;
+        bool needsIfElse = false;
+        if (switchType != null)
+        {
+            if (switchType.SpecialType == SpecialType.System_Int64 ||
+                switchType.SpecialType == SpecialType.System_UInt64 ||
+                switchType.SpecialType == SpecialType.System_Single ||
+                switchType.SpecialType == SpecialType.System_Double ||
+                switchType.SpecialType == SpecialType.System_Decimal)
+            {
+                needsIfElse = true;
+            }
+            else if (switchType.TypeKind == TypeKind.Enum &&
+                     switchType is INamedTypeSymbol enumType &&
+                     enumType.EnumUnderlyingType != null)
+            {
+                var underlyingType = enumType.EnumUnderlyingType.SpecialType;
+                if (underlyingType == SpecialType.System_Int64 ||
+                    underlyingType == SpecialType.System_UInt64)
+                {
+                    needsIfElse = true;
+                }
+            }
+        }
+        if (needsIfElse)
+            return TransformLongSwitchToIfElse(stmt, expression, context);
+
         return TransformPlainSwitch(stmt, expression, context);
     }
 
@@ -69,6 +100,52 @@ public partial class StatementTransformer
                     {
                         continue;
                     }
+
+                    if (first)
+                    {
+                        sb.Append($"if ({condition}) {{\n        ");
+                        first = false;
+                    }
+                    else
+                    {
+                        sb.Append($" else if ({condition}) {{\n        ");
+                    }
+                    sb.Append(body);
+                    sb.Append("\n    }");
+                }
+            }
+        }
+
+        return new JavaStatementNode(sb.ToString());
+    }
+
+    private JavaSyntaxNode TransformLongSwitchToIfElse(SwitchStatementSyntax stmt, string expression, ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var sb = new System.Text.StringBuilder();
+        bool first = true;
+
+        foreach (var section in stmt.Sections)
+        {
+            var stmtTransformer = new StatementTransformer();
+            var statements = section.Statements.Select(s =>
+                stmtTransformer.Transform(s, context).ToString("")).ToList();
+            // Strip trailing break statements (they're implicit in if-else)
+            statements = statements.Where(s => s.Trim() != "break;").ToList();
+            var body = string.Join("\n        ", statements);
+
+            foreach (var label in section.Labels)
+            {
+                if (label is DefaultSwitchLabelSyntax)
+                {
+                    sb.Append(" else {\n        ");
+                    sb.Append(body);
+                    sb.Append("\n    }");
+                }
+                else if (label is CaseSwitchLabelSyntax caseLabel)
+                {
+                    var transformedLabel = exprTransformer.Transform(caseLabel.Value, context);
+                    var condition = $"(({expression}) == {transformedLabel})";
 
                     if (first)
                     {
