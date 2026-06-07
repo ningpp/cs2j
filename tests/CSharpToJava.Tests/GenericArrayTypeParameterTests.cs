@@ -620,6 +620,32 @@ class Demo {
         Assert.DoesNotContain("String[]::new", code);
     }
 
+    [Fact]
+    public void ThrowExpressionInIntTernary_UsesSupplierInteger()
+    {
+        // C# throw expressions in ternary operators need Supplier<Integer> (not Supplier<Object>)
+        // so the ternary type is compatible with int.
+        var result = Convert("""
+using System;
+
+class Demo {
+    public static int FromHex(char digit) =>
+        (uint)(digit - '0') <= '9' - '0' ? digit - '0' :
+        (uint)(digit - 'A') <= 'F' - 'A' ? digit - 'A' + 10 :
+        (uint)(digit - 'a') <= 'f' - 'a' ? digit - 'a' + 10 :
+        throw new ArgumentException(nameof(digit));
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should use Supplier<Integer> for int-returning ternary
+        Assert.Contains("Supplier<Integer>", code);
+        // Should NOT use Supplier<Object> (which causes type mismatch)
+        Assert.DoesNotContain("Supplier<Object>", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

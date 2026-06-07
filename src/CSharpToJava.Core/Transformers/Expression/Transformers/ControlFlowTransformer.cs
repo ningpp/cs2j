@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -237,8 +237,47 @@ public class ControlFlowTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         var expr = facade.Transform(node.Expression, context);
-        // Java has no throw expressions; wrap in a Supplier lambda (works for unchecked exceptions)
-        return $"((java.util.function.Supplier<Object>) () -> {{ throw {expr}; }}).get()";
+        // Java has no throw expressions; wrap in a Supplier lambda (works for unchecked exceptions).
+        // Use the context type to determine the Supplier type parameter so that
+        // ternary expressions like "a ? x : throw ..." compile correctly when x is int, etc.
+        var contextType = context.GetTypeInfo(node).ConvertedType;
+        string supplierType = "Object";
+        if (contextType != null)
+        {
+            var javaType = context.MapType(contextType);
+            if (javaType is "int" or "long" or "double" or "float" or "short" or "byte" or "char" or "boolean")
+                supplierType = javaType switch
+                {
+                    "int" => "Integer",
+                    "long" => "Long",
+                    "double" => "Double",
+                    "float" => "Float",
+                    "short" => "Short",
+                    "byte" => "Byte",
+                    "char" => "Character",
+                    "boolean" => "Boolean",
+                    _ => "Object"
+                };
+            else if (javaType is "Integer" or "Long" or "Double" or "Float" or "Short" or "Byte" or "Character" or "Boolean")
+                supplierType = javaType;
+            else if (contextType.SpecialType == SpecialType.System_Int32)
+                supplierType = "Integer";
+            else if (contextType.SpecialType == SpecialType.System_Int64)
+                supplierType = "Long";
+            else if (contextType.SpecialType == SpecialType.System_Double)
+                supplierType = "Double";
+            else if (contextType.SpecialType == SpecialType.System_Single)
+                supplierType = "Float";
+            else if (contextType.SpecialType == SpecialType.System_Boolean)
+                supplierType = "Boolean";
+            else if (contextType.SpecialType == SpecialType.System_Char)
+                supplierType = "Character";
+            else if (contextType.SpecialType == SpecialType.System_Byte)
+                supplierType = "Byte";
+            else if (contextType.SpecialType == SpecialType.System_Int16)
+                supplierType = "Short";
+        }
+        return $"((java.util.function.Supplier<{supplierType}>) () -> {{ throw {expr}; }}).get()";
     }
 
     private string TransformSwitchExpression(SwitchExpressionSyntax node, ConversionContext context)
