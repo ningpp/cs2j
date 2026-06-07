@@ -209,7 +209,9 @@ public class ClassTransformer : ITypeTransformer
                     else if (resolvedType.TypeKind == TypeKind.Interface
                         || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
                     {
-                        javaClass.ImplementedTypes.Add(context.MapType(resolvedType));
+                        var mapped = context.MapType(resolvedType);
+                        if (mapped != "__suppress__")
+                            javaClass.ImplementedTypes.Add(mapped);
                     }
                 }
             }

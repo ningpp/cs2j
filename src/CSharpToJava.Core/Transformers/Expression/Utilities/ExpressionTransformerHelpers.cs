@@ -20,6 +20,7 @@ public static class ExpressionTransformerHelpers
         "Decimal",
         "Encoding",
         "EnumHelper",
+        "IntPtrHelper",
         "MathHelper",
         "Regex",
         "StringHelper",
@@ -550,15 +551,28 @@ public static class ExpressionTransformerHelpers
 
         if (IsFlagsEnum(enumMember.ContainingType, context))
         {
-            formattedAccess = $"{GetJavaStaticTypeReference(enumMember.ContainingType, context, preserveEnumType: true)}.{enumMember.Name}";
+            var memberName = MapEnumMemberName(enumMember, context);
+            formattedAccess = $"{GetJavaStaticTypeReference(enumMember.ContainingType, context, preserveEnumType: true)}.{memberName}";
             return true;
         }
 
         var enumTypeReference = GetJavaStaticTypeReference(enumMember.ContainingType, context, preserveEnumType: false);
+        var mappedName = MapEnumMemberName(enumMember, context);
         formattedAccess = useUnqualifiedRegularEnumInSwitchLabel
-            ? enumMember.Name
-            : $"{enumTypeReference}.{enumMember.Name}";
+            ? mappedName
+            : $"{enumTypeReference}.{mappedName}";
         return true;
+    }
+
+    /// <summary>
+    /// Maps a C# enum member name to its Java equivalent using method mappings in TypeMappings.json.
+    /// This handles cases like NormalizationForm.FormC → Normalizer.Form.NFC.
+    /// </summary>
+    private static string MapEnumMemberName(IFieldSymbol enumMember, ConversionContext context)
+    {
+        var containingType = enumMember.ContainingType.ToDisplayString();
+        var mapped = context.TypeMappings?.MapMethod(containingType, enumMember.Name);
+        return mapped ?? enumMember.Name;
     }
 
     /// <summary>

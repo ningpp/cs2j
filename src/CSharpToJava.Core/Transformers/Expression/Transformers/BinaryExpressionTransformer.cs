@@ -1191,8 +1191,18 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 {
                     return left;
                 }
+                // Preserve trailing characters from falseBranch (e.g. closing parentheses)
+                // that are not part of the value itself. e.g. "null)" → keep ")"
+                var trailing = "";
+                for (int i = falseBranch.Length - 1; i >= 0; i--)
+                {
+                    if (falseBranch[i] == ')' || falseBranch[i] == ']' || falseBranch[i] == '}')
+                        trailing = falseBranch[i] + trailing;
+                    else
+                        break;
+                }
                 // Replace the false branch with the ?? right side
-                return $"{beforeColon} : {right}";
+                return $"{beforeColon} : {right}{trailing}";
             }
         }
 

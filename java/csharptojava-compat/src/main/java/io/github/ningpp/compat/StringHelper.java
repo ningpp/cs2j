@@ -43,6 +43,12 @@ public class StringHelper {
     public static int compare(String s1, String s2, int comparison) {
         return compare(s1, s2, comparison == 1 || comparison == 3 || comparison == 5);
     }
+    /** Mirrors C# String.Compare(s1, s2, StringComparison) - accepts mapped enum */
+    public static int compare(String s1, String s2, StringComparison comparison) {
+        return compare(s1, s2, comparison == StringComparison.CurrentCultureIgnoreCase
+            || comparison == StringComparison.InvariantCultureIgnoreCase
+            || comparison == StringComparison.OrdinalIgnoreCase);
+    }
     /** Mirrors C# String.CompareOrdinal(strA, strB) */
     public static int compareOrdinal(String strA, String strB) {
         if (strA == null && strB == null) return 0;
@@ -464,6 +470,12 @@ public class StringHelper {
         return java.text.Normalizer.normalize(s, javaForm);
     }
 
+    /** Mirrors C# String.Normalize(Normalizer.Form) - accepts mapped enum directly */
+    public static String normalize(String s, java.text.Normalizer.Form form) {
+        if (s == null) return null;
+        return java.text.Normalizer.normalize(s, form);
+    }
+
     /** Mirrors C# String.IsNormalized() */
     public static boolean isNormalized(String s) {
         if (s == null) return false;
@@ -475,6 +487,12 @@ public class StringHelper {
         if (s == null) return false;
         java.text.Normalizer.Form javaForm = convertToNormalizerForm(form);
         return java.text.Normalizer.isNormalized(s, javaForm);
+    }
+
+    /** Mirrors C# String.IsNormalized(Normalizer.Form) - accepts mapped enum directly */
+    public static boolean isNormalized(String s, java.text.Normalizer.Form form) {
+        if (s == null) return false;
+        return java.text.Normalizer.isNormalized(s, form);
     }
 
     private static java.text.Normalizer.Form convertToNormalizerForm(int form) {

@@ -3961,6 +3961,31 @@
             "javaMethod": "StringHelper.isNormalized"
         },
         {
+            "type": "System.Text.NormalizationForm",
+            "method": "FormC",
+            "javaMethod": "NFC"
+        },
+        {
+            "type": "System.Text.NormalizationForm",
+            "method": "FormD",
+            "javaMethod": "NFD"
+        },
+        {
+            "type": "System.Text.NormalizationForm",
+            "method": "FormKC",
+            "javaMethod": "NFKC"
+        },
+        {
+            "type": "System.Text.NormalizationForm",
+            "method": "FormKD",
+            "javaMethod": "NFKD"
+        },
+        {
+            "type": "System.IntPtr",
+            "method": "Size",
+            "javaMethod": "IntPtrHelper.getSize"
+        },
+        {
             "type": "System.String",
             "method": "ReplaceLineEndings",
             "javaMethod": "StringHelper.replaceLineEndings"
