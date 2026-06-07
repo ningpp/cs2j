@@ -143,6 +143,20 @@ public static class ExpressionTransformerHelpers
             return $"new PrintWriter({transformedExpression})";
         }
 
+        // C# Span<T> implicitly converts to ReadOnlySpan<T>
+        var sourceDisplay = sourceType.ToDisplayString();
+        var targetDisplay = targetType.ToDisplayString();
+        if (sourceDisplay.StartsWith("System.Span<") && targetDisplay.StartsWith("System.ReadOnlySpan<"))
+        {
+            // Check that the element types match
+            var sourceElem = sourceDisplay.Substring("System.Span<".Length).TrimEnd('>');
+            var targetElem = targetDisplay.Substring("System.ReadOnlySpan<".Length).TrimEnd('>');
+            if (sourceElem == targetElem)
+            {
+                return $"new ReadOnlySpan<>({transformedExpression})";
+            }
+        }
+
         // C# Stream types are compatible with the base Stream type, while Java splits
         // them across InputStream/OutputStream.  StreamWrapper bridges both concrete
         // stream subtypes and File.Open(...) calls whose read/write direction is chosen
