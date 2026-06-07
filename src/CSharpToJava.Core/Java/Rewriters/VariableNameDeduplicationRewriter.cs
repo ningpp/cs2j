@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace CSharpToJava.Core.Java.Rewriters;
 
 /// <summary>
@@ -6,8 +8,8 @@ namespace CSharpToJava.Core.Java.Rewriters;
 /// with another variable in the same or enclosing scope, a numeric suffix is appended
 /// (e.g. <c>result</c> → <c>result_1</c>).
 ///
-/// <para>Only operates on structured IR (<see cref="JavaVariableDeclarationStatement"/>).
-/// Variables in <see cref="JavaRawStatement"/> blocks are not tracked.</para>
+/// <para>Operates on structured IR (<see cref="JavaVariableDeclarationStatement"/>)
+/// and also scans <see cref="JavaRawStatement"/> blocks for variable declarations.</para>
 /// </summary>
 public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
 {
@@ -147,6 +149,49 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
 
         node.Body = VisitStatement(node.Body);
         PopScope();
+        return node;
+    }
+
+    public override JavaTryCatchStatement VisitTryCatchStatement(JavaTryCatchStatement node)
+    {
+        // Visit try body
+        node.TryBody = (JavaBlockStatement)VisitStatement(node.TryBody);
+
+        // Visit catch clauses — handle catch variable deduplication
+        foreach (var catchClause in node.CatchClauses)
+        {
+            PushScope(); // catch clause scope (includes catch variable)
+
+            string? originalCatchVarName = catchClause.VariableName;
+            if (!string.IsNullOrEmpty(catchClause.VariableName))
+            {
+                if (IsDeclaredInCurrentOrParentScope(catchClause.VariableName))
+                {
+                    var newName = AllocateUniqueName(catchClause.VariableName);
+                    _renameMap[catchClause.VariableName] = newName;
+                    catchClause.VariableName = newName;
+                    _rewriteCount++;
+                }
+                DeclareVariable(catchClause.VariableName);
+            }
+
+            catchClause.Body = (JavaBlockStatement)VisitStatement(catchClause.Body);
+
+            PopScope(); // catch clause scope
+
+            // Clean up rename map for catch variable (it's scoped to the catch block)
+            if (!string.IsNullOrEmpty(originalCatchVarName) && _renameMap.ContainsKey(originalCatchVarName))
+            {
+                _renameMap.Remove(originalCatchVarName);
+            }
+        }
+
+        // Visit finally body
+        if (node.FinallyBody != null)
+        {
+            node.FinallyBody = (JavaBlockStatement)VisitStatement(node.FinallyBody);
+        }
+
         return node;
     }
 

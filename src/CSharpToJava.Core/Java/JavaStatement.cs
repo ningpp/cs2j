@@ -294,6 +294,11 @@ public class JavaTryCatchStatement : JavaStatement
             {
                 sb.Append(' ').Append(catchClause.VariableName);
             }
+            else
+            {
+                // Java requires a variable name in catch clauses (C# allows omitting it)
+                sb.Append(" _ex");
+            }
             sb.Append(") ").Append(catchClause.Body.ToString(indentation));
         }
 

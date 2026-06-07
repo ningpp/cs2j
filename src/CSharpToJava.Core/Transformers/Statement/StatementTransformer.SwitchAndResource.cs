@@ -408,19 +408,23 @@ public partial class StatementTransformer
 
     private JavaSyntaxNode TransformTryStatement(TryStatementSyntax stmt, ConversionContext context)
     {
-        var stmtTransformer = new StatementTransformer();
-        var sb = new System.Text.StringBuilder();
+        var result = new Java.JavaTryCatchStatement();
 
-        sb.Append("try ");
-        sb.Append(stmt.Block is BlockSyntax block
-            ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : "{ }");
+        // Try body
+        if (stmt.Block != null)
+        {
+            context.MethodState.PushScope();
+            var tryStatements = TransformStatementsToIR(stmt.Block.Statements, context);
+            context.MethodState.PopScope();
+            foreach (var s in tryStatements)
+                result.TryBody.Statements.Add(s);
+        }
 
-        // catch 块
+        // Catch clauses
         foreach (var catchClause in stmt.Catches)
         {
             string javaType = "Exception";
-            string varName = "_ex";
+            string? varName = null;
             if (catchClause.Declaration != null)
             {
                 var typeInfo = context.GetTypeInfo(catchClause.Declaration.Type);
@@ -430,33 +434,51 @@ public partial class StatementTransformer
                     varName = ConversionContext.EscapeJavaKeyword(rawVarName);
             }
 
-            sb.Append($" catch ({javaType} {varName}) ");
+            var catchClauseIR = new Java.JavaCatchClause
+            {
+                ExceptionType = javaType,
+                VariableName = varName
+            };
 
             if (catchClause.Filter != null)
             {
-                // Java 不支持 catch 过滤器，需要转换为内部 if
+                // Java doesn't support catch filters — wrap body in if statement
                 var exprTransformer = ExpressionTransformerFacade.Instance;
                 var filter = exprTransformer.Transform(catchClause.Filter.FilterExpression, context);
-                sb.Append($"{{\n        if ({filter}) {{\n            {TransformBlock(catchClause.Block, context)}\n        }}\n    }}");
+                context.MethodState.PushScope();
+                var catchStatements = TransformStatementsToIR(catchClause.Block.Statements, context);
+                context.MethodState.PopScope();
+                var innerBody = new Java.JavaBlockStatement();
+                foreach (var s in catchStatements)
+                    innerBody.Statements.Add(s);
+                // Wrap the inner body in a raw if-check statement
+                catchClauseIR.Body.Statements.Add(
+                    new Java.JavaRawStatement($"if ({filter}) {innerBody.ToString("            ")}"));
             }
             else
             {
-                sb.Append(catchClause.Block is BlockSyntax catchBlock
-                    ? $"{{\n        {TransformBlock(catchBlock, context)}\n    }}"
-                    : "{ }");
+                context.MethodState.PushScope();
+                var catchStatements = TransformStatementsToIR(catchClause.Block.Statements, context);
+                context.MethodState.PopScope();
+                foreach (var s in catchStatements)
+                    catchClauseIR.Body.Statements.Add(s);
             }
+
+            result.CatchClauses.Add(catchClauseIR);
         }
 
-        // finally 块
-        if (stmt.Finally != null)
+        // Finally body
+        if (stmt.Finally != null && stmt.Finally.Block != null)
         {
-            sb.Append(" finally ");
-            sb.Append(stmt.Finally.Block is BlockSyntax finallyBlock
-                ? $"{{\n        {TransformBlock(finallyBlock, context)}\n    }}"
-                : "{ }");
+            context.MethodState.PushScope();
+            var finallyStatements = TransformStatementsToIR(stmt.Finally.Block.Statements, context);
+            context.MethodState.PopScope();
+            result.FinallyBody = new Java.JavaBlockStatement();
+            foreach (var s in finallyStatements)
+                result.FinallyBody.Statements.Add(s);
         }
 
-        return new JavaStatementNode(sb.ToString());
+        return result;
     }
 
     private JavaSyntaxNode TransformUsingStatement(UsingStatementSyntax stmt, ConversionContext context)
