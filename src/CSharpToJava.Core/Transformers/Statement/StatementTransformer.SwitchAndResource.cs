@@ -58,6 +58,29 @@ public partial class StatementTransformer
         if (needsIfElse)
             return TransformLongSwitchToIfElse(stmt, expression, context);
 
+        // Java enum switch requires all case labels to be enum constants.
+        // If any case label is a const field of the enum type (not an enum member),
+        // convert to if-else since Java doesn't allow static final fields as case labels.
+        if (switchType?.TypeKind == TypeKind.Enum)
+        {
+            foreach (var section in stmt.Sections)
+            {
+                foreach (var label in section.Labels.OfType<CaseSwitchLabelSyntax>())
+                {
+                    var labelSymbol = context.GetSymbolInfo(label.Value).Symbol;
+                    // If the case label is a const field of the enum type but NOT defined
+                    // in that enum (e.g., a const field in another class), Java can't use
+                    // it as a switch case label — only enum constants are allowed.
+                    if (labelSymbol is IFieldSymbol field &&
+                        field.Type?.TypeKind == TypeKind.Enum &&
+                        !SymbolEqualityComparer.Default.Equals(field.ContainingType, field.Type))
+                    {
+                        return TransformPatternSwitchToIfElse(stmt, expression, context);
+                    }
+                }
+            }
+        }
+
         return TransformPlainSwitch(stmt, expression, context);
     }
 
