@@ -55,6 +55,22 @@ public class Helper
         Assert.Contains("Normalizer.Form", result.GeneratedCode);
     }
 
+    [Fact]
+    public void FormatException_Maps_To_Compat_FormatException()
+    {
+        var result = Convert(@"
+public class MyFormatException : FormatException
+{
+    public MyFormatException() { }
+    public MyFormatException(string message) : base(message) { }
+    public MyFormatException(string message, Exception inner) : base(message, inner) { }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("NumberFormatException", result.GeneratedCode);
+        Assert.Contains("FormatException", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

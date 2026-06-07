@@ -2447,9 +2447,9 @@
         },
         {
             "csharp": "System.FormatException",
-            "java": "NumberFormatException",
+            "java": "FormatException",
             "imports": [
-                "java.lang.NumberFormatException"
+                "io.github.ningpp.compat.FormatException"
             ]
         },
         {
