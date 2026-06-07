@@ -1175,6 +1175,27 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             return right;
         }
 
+        // If the left operand is already a ternary from ?. conversion (e.g. _array?.Length),
+        // the null check is already embedded. Replace the false branch with the ?? right side.
+        // Pattern: "(expr != null ? ... : falseBranch)" → "(expr != null ? ... : rightSide)"
+        if (left.StartsWith("(") && left.Contains(" != null ? ") && left.Contains(" : "))
+        {
+            // Find the last " : " to split the ternary (handles nested ternaries)
+            var colonIndex = left.LastIndexOf(" : ");
+            if (colonIndex > 0)
+            {
+                var beforeColon = left.Substring(0, colonIndex);
+                var falseBranch = left.Substring(colonIndex + 3);
+                // If the false branch is already the same as right, return as-is
+                if (falseBranch.Trim() == right.Trim())
+                {
+                    return left;
+                }
+                // Replace the false branch with the ?? right side
+                return $"{beforeColon} : {right}";
+            }
+        }
+
         // Avoid evaluating the left operand twice when it has side effects.
         // Simple identifiers and single-level member accesses are safe to repeat.
         bool isSafeToRepeat = node.Left is IdentifierNameSyntax

@@ -2904,7 +2904,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        // Array.Empty<T>() → new T[0]
+        // Array.Empty<T>() → (T[]) new Object[0] for type parameters, or new Type[0] for concrete types
         if (methodSymbol is { IsStatic: true, IsExtensionMethod: false }
             && originalMethodName == "Empty"
             && methodSymbol.ContainingType.ToDisplayString() == "System.Array")
@@ -2913,7 +2913,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && ma.Name is GenericNameSyntax gns
                 && gns.TypeArgumentList.Arguments.Count > 0)
             {
-                var typeArg = facade.Transform(gns.TypeArgumentList.Arguments[0], context);
+                var typeArgSyntax = gns.TypeArgumentList.Arguments[0];
+                var typeArg = facade.Transform(typeArgSyntax, context);
+                // Check if the type argument is a type parameter (e.g. T) — Java forbids new T[0]
+                var typeArgInfo = context.GetTypeInfo(typeArgSyntax);
+                if (typeArgInfo.Type is { TypeKind: TypeKind.TypeParameter })
+                {
+                    return $"({typeArg}[]) new Object[0]";
+                }
                 return $"new {typeArg}[0]";
             }
             return "new Object[0]";

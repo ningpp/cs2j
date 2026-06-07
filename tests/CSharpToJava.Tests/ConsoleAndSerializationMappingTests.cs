@@ -206,7 +206,7 @@ class Test
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("catch (NumberFormatException _ex)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("catch (FormatException _ex)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("catch (IllegalArgumentException _ex)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
