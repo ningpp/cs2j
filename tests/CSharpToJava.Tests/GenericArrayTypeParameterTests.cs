@@ -764,6 +764,35 @@ class Demo {
         Assert.Contains("get(ValueLayout.JAVA_INT", code);
     }
 
+    [Fact]
+    public void SwitchWithGotoCase_HasFallbackReturnAfterLoop()
+    {
+        // Goto-case switch in a non-void method should have a fallback return
+        // after the while loop to satisfy Java's definite assignment analysis
+        var result = Convert("""
+class Demo {
+    public static string GetValue(int mode)
+    {
+        switch (mode)
+        {
+            case 1:
+                return "one";
+            case 2:
+                goto case 1;
+            default:
+                return null;
+        }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should contain a fallback return after the while loop
+        Assert.Contains("return null;", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

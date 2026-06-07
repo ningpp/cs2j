@@ -411,9 +411,11 @@ public partial class StatementTransformer
         // a method body and the method has a non-void return type.
         // Java requires all paths to return a value, and the compiler can't verify
         // that the while loop always hits a return case (the default branch breaks out).
-        // Only add when the switch is a direct child of the method body block,
-        // not when it's nested inside a for/while/if/etc. where code follows the switch.
-        if (stmt.Parent is BlockSyntax methodBlock && methodBlock.Parent is MethodDeclarationSyntax methodDecl)
+        // Only add when the switch is a direct child of the method body block
+        // AND is the last statement in that block (otherwise code after the switch
+        // handles the return, and a fallback return would be unreachable).
+        if (stmt.Parent is BlockSyntax methodBlock && methodBlock.Parent is MethodDeclarationSyntax methodDecl
+            && methodBlock.Statements.IndexOf(stmt) == methodBlock.Statements.Count - 1)
         {
             var returnType = methodDecl.ReturnType;
             if (returnType is PredefinedTypeSyntax pdt &&

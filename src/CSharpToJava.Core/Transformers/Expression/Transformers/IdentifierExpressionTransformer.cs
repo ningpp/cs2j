@@ -1085,6 +1085,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
         // Auto-properties emitted as fields in project pipeline
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
+        // GCHandle.IsAllocated → GCHandle.isAllocated(receiver)
+        // This property is unique to GCHandle but the C# source may declare the variable as 'object'.
+        if (memberName == "IsAllocated")
+        {
+            context.AddImport("io.github.ningpp.compat.GCHandle");
+            return $"GCHandle.isAllocated({target})";
+        }
         // System.Globalization.CultureInfo.InvariantCulture → java.util.Locale.ROOT
         if (memberName == "InvariantCulture" && target.EndsWith(".CultureInfo"))
         {
