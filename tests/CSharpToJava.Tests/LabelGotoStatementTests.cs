@@ -1266,6 +1266,74 @@ class Test {
         Assert.Equal("2,12", output);
     }
 
+    [Fact]
+    public void StateMachine_HoistsTryCatchVariableDeclarations()
+    {
+        var result = Convert(@"
+class Test {
+    void M(bool flag) {
+        if (flag) goto done;
+        try {
+            string s = null;
+            s = ""hello"";
+        } catch (System.Exception e) {
+            string msg = e.Message;
+        }
+        done: return;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // Variables declared inside try-catch should be hoisted outside the while loop
+        // and their declarations inside the loop should be converted to assignments
+        Assert.DoesNotMatch(@"\bString\s+s\s*=\s*null;", ExtractWhileBody(result.GeneratedCode));
+        Assert.DoesNotMatch(@"\bString\s+msg\s*=", ExtractWhileBody(result.GeneratedCode));
+        // The hoisted declarations should exist before the while loop
+        Assert.Matches(@"String\s+s\s*=\s*null;", ExtractBeforeWhile(result.GeneratedCode));
+    }
+
+    [Fact]
+    public void StateMachine_TryCatchDuplicateVariableNames()
+    {
+        var result = Convert(@"
+class Test {
+    void M(bool flag) {
+        if (flag) goto step2;
+        try {
+            string s = ""a"";
+        } catch (System.Exception e) {
+            string msg = e.Message;
+        }
+        step2:
+        try {
+            string s = ""b"";
+        } catch (System.Exception e) {
+            string msg = e.Message;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // Both 'e' and 's' are declared in multiple catch blocks;
+        // they should be hoisted (only one declaration each) and
+        // inner declarations converted to assignments
+        var whileBody = ExtractWhileBody(result.GeneratedCode);
+        // No duplicate type+name declarations inside the while loop
+        var eDeclCount = Regex.Matches(whileBody, @"\bString\s+e\s*=").Count
+                       + Regex.Matches(whileBody, @"\bException\s+e\s*=").Count;
+        Assert.True(eDeclCount == 0, $"Found {eDeclCount} 'Exception e' declarations in while body, expected 0");
+    }
+
+    private static string ExtractBeforeWhile(string code)
+    {
+        var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);
+        return idx < 0 ? code : code.Substring(0, idx);
+    }
+
+    private static string ExtractWhileBody(string code)
+    {
+        var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);
+        return idx < 0 ? "" : code.Substring(idx);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

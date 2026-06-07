@@ -33,11 +33,14 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
     private void PopScope()
     {
         var scope = _scopeStack.Pop();
-        // Remove renames that were scoped to this block
+        // Remove renames that were scoped to this block.
+        // The scope contains the declared name (which may be the renamed name).
+        // We need to find the original name in _renameMap that maps to this declared name.
         foreach (var name in scope)
         {
-            if (_renameMap.ContainsKey(name) && !IsInAnyScope(name))
-                _renameMap.Remove(name);
+            var originalName = _renameMap.FirstOrDefault(kvp => kvp.Value == name).Key;
+            if (originalName != null)
+                _renameMap.Remove(originalName);
         }
     }
 
@@ -200,6 +203,81 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
         if (_renameMap.TryGetValue(node.Name, out var renamed))
         {
             return new JavaIdentifierExpression { Name = renamed };
+        }
+        return node;
+    }
+
+    // Regex for variable declarations in raw statements: Type varName = ... or Type varName;
+    // Matches: UriFormatException e = ..., MemorySegment str = ..., int x = ..., etc.
+    private static readonly Regex RawVarDeclPattern = new(
+        @"(?:^|(?<=\s))((?:(?:final|volatile)\s+)?[\w.]+(?:<[^>]+>)?(?:\[\])*)\s+(\w+)\s*([=;])",
+        RegexOptions.Compiled);
+
+    // Java keywords that should not be treated as variable names
+    private static readonly HashSet<string> JavaKeywords = new(StringComparer.Ordinal)
+    {
+        "if", "else", "while", "for", "do", "switch", "case", "default",
+        "try", "catch", "finally", "throw", "throws", "return", "break",
+        "continue", "new", "class", "interface", "extends", "implements",
+        "import", "package", "public", "private", "protected", "static",
+        "final", "void", "abstract", "synchronized", "volatile", "transient",
+        "native", "strictfp", "assert", "enum", "instanceof", "super", "this",
+        "true", "false", "null", "goto", "const"
+    };
+
+    public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
+    {
+        var code = node.Code;
+
+        // First, apply existing renames from _renameMap to variable references in the raw statement
+        // Use word boundary matching to avoid renaming within type names or method names
+        foreach (var kvp in _renameMap)
+        {
+            var originalName = kvp.Key;
+            var renamedName = kvp.Value;
+            // Only rename standalone identifiers (word boundary matching)
+            code = Regex.Replace(code, $@"\b{Regex.Escape(originalName)}\b", renamedName);
+        }
+
+        // Then, scan for variable declarations and check for conflicts
+        var matches = RawVarDeclPattern.Matches(code);
+        foreach (Match match in matches)
+        {
+            var varName = match.Groups[2].Value;
+
+            // Skip Java keywords
+            if (JavaKeywords.Contains(varName))
+                continue;
+
+            // Skip if already renamed (has a suffix like _1, _2, etc.)
+            if (char.IsDigit(varName[^1]) && varName.Contains('_'))
+                continue;
+
+            // Skip if this variable was already declared in this raw statement's scope
+            // (i.e., it was already processed and added to the scope)
+            if (_scopeStack.Count > 0 && _scopeStack.Peek().Contains(varName))
+                continue;
+
+            // Check if the variable name conflicts with an existing declaration
+            if (IsDeclaredInCurrentOrParentScope(varName))
+            {
+                var newName = AllocateUniqueName(varName);
+                _renameMap[varName] = newName;
+
+                // Rename the variable in the raw statement text (declaration and all references)
+                code = Regex.Replace(code, $@"\b{Regex.Escape(varName)}\b", newName);
+                _rewriteCount++;
+                DeclareVariable(newName);
+            }
+            else
+            {
+                DeclareVariable(varName);
+            }
+        }
+
+        if (code != node.Code)
+        {
+            node.Code = code;
         }
         return node;
     }

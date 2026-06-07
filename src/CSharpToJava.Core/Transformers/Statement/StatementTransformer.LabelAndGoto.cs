@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
@@ -243,7 +244,7 @@ public partial class StatementTransformer
         var labelToBlockIndex = gotoAnalyzer.LabelToBlockIndex;
 
         // Hoist variable declarations
-        var hoistedDeclarations = CollectStateMachineLocalDeclarations(basicBlocks, context);
+        var (hoistedDeclarations, hoistedVarNames) = CollectStateMachineLocalDeclarations(basicBlocks, context);
         foreach (var hoistedLocal in hoistedDeclarations)
         {
             sb.AppendLine(hoistedLocal);
@@ -352,6 +353,17 @@ public partial class StatementTransformer
                 _ => "return null;"
             };
             sb.AppendLine(defaultReturn);
+        }
+
+        // Post-process: convert hoisted variable declarations inside the while loop to assignments.
+        // Variables declared inside try-catch, fixed, or other nested blocks were hoisted outside
+        // the while loop, but their declarations inside the loop body were not converted to assignments
+        // by TransformBasicBlockStatement (which only handles top-level LocalDeclarationStatementSyntax).
+        if (hoistedVarNames.Count > 0)
+        {
+            var code = sb.ToString();
+            code = ConvertHoistedDeclarationsToAssignments(code, hoistedVarNames);
+            return code;
         }
 
         return sb.ToString();
@@ -649,12 +661,42 @@ public partial class StatementTransformer
         return statement.Trim().TrimEnd(';') + ";";
     }
 
-    private List<string> CollectStateMachineLocalDeclarations(
+    /// <summary>
+    /// Post-processes the state machine code to convert hoisted variable declarations
+    /// inside the while loop to assignments. This handles cases where declarations are
+    /// inside try-catch, fixed, or other nested blocks that weren't converted by
+    /// TransformBasicBlockStatement.
+    /// </summary>
+    private static string ConvertHoistedDeclarationsToAssignments(string code, HashSet<string> hoistedVarNames)
+    {
+        // Pattern matches: Type varName = (where Type is a Java type and varName is a hoisted variable)
+        // We need to find the while loop section and only replace within it
+        var whileStart = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);
+        if (whileStart < 0)
+            return code;
+
+        var prefix = code.Substring(0, whileStart);
+        var body = code.Substring(whileStart);
+
+        foreach (var varName in hoistedVarNames)
+        {
+            // Match: Type varName = or Type[] varName = or Type<Generic> varName =
+            // The type can be: simple (int, String), qualified (MemorySegment, UriFormatException),
+            // generic (Span<Character>), or array (byte[], Character[][])
+            var pattern = $@"((?<=^\s*)[\w.]+(?:<[^>]+>)?(?:\[\])*)\s+\b{Regex.Escape(varName)}\b\s*=";
+            body = Regex.Replace(body, pattern, $"{varName} =", RegexOptions.Multiline);
+        }
+
+        return prefix + body;
+    }
+
+    private (List<string> declarations, HashSet<string> varNames) CollectStateMachineLocalDeclarations(
         IReadOnlyList<BasicBlock> basicBlocks,
         ConversionContext context)
     {
         var locals = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var varNames = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var declaration in CollectRewrittenLocalDeclarations(basicBlocks))
         {
@@ -671,11 +713,26 @@ public partial class StatementTransformer
                     continue;
                 }
 
+                varNames.Add(varName);
                 locals.Add($"{javaType} {varName} = {GetJavaDefaultValue(javaType)};");
             }
         }
 
-        return locals;
+        // Also collect variables from fixed statements (e.g., fixed (char* str = _string))
+        foreach (var fixedDecl in CollectFixedStatementDeclarations(basicBlocks))
+        {
+            var varName = ConversionContext.EscapeJavaKeyword(fixedDecl.Identifier.Text);
+            if (!seen.Add(varName))
+            {
+                continue;
+            }
+
+            varNames.Add(varName);
+            // fixed (char* str = ...) maps to MemorySegment in Java
+            locals.Add($"MemorySegment {varName} = null;");
+        }
+
+        return (locals, varNames);
     }
 
     private static IEnumerable<LocalDeclarationStatementSyntax> CollectRewrittenLocalDeclarations(
@@ -690,6 +747,166 @@ public partial class StatementTransformer
                     yield return declaration;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Collects variable declarators from fixed statements (e.g., fixed (char* str = _string))
+    /// within basic blocks. These are not LocalDeclarationStatementSyntax and need separate handling.
+    /// </summary>
+    private static IEnumerable<VariableDeclaratorSyntax> CollectFixedStatementDeclarations(
+        IReadOnlyList<BasicBlock> basicBlocks)
+    {
+        foreach (var basicBlock in basicBlocks)
+        {
+            foreach (var statement in basicBlock.Statements)
+            {
+                foreach (var decl in CollectFixedStatementDeclarations(statement))
+                {
+                    yield return decl;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<VariableDeclaratorSyntax> CollectFixedStatementDeclarations(
+        StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case FixedStatementSyntax fixedStmt:
+                foreach (var variable in fixedStmt.Declaration.Variables)
+                {
+                    yield return variable;
+                }
+                // Also recurse into the fixed body
+                if (fixedStmt.Statement is BlockSyntax block)
+                {
+                    foreach (var child in block.Statements)
+                    {
+                        foreach (var decl in CollectFixedStatementDeclarations(child))
+                        {
+                            yield return decl;
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var decl in CollectFixedStatementDeclarations(fixedStmt.Statement))
+                    {
+                        yield return decl;
+                    }
+                }
+                break;
+
+            case TryStatementSyntax tryStatement:
+                foreach (var decl in CollectFixedStatementDeclarationsInBlock(tryStatement.Block))
+                    yield return decl;
+                foreach (var catchClause in tryStatement.Catches)
+                    foreach (var decl in CollectFixedStatementDeclarationsInBlock(catchClause.Block))
+                        yield return decl;
+                if (tryStatement.Finally != null)
+                    foreach (var decl in CollectFixedStatementDeclarationsInBlock(tryStatement.Finally.Block))
+                        yield return decl;
+                break;
+
+            case IfStatementSyntax ifStatement:
+                foreach (var decl in CollectFixedStatementDeclarationsInIfBranch(ifStatement.Statement))
+                    yield return decl;
+                if (ifStatement.Else != null)
+                    foreach (var decl in CollectFixedStatementDeclarationsInIfBranch(ifStatement.Else.Statement))
+                        yield return decl;
+                break;
+
+            case BlockSyntax blockStmt:
+                foreach (var decl in CollectFixedStatementDeclarationsInBlock(blockStmt))
+                    yield return decl;
+                break;
+
+            case LabeledStatementSyntax labeled:
+                foreach (var decl in CollectFixedStatementDeclarations(labeled.Statement))
+                    yield return decl;
+                break;
+
+            case WhileStatementSyntax whileStatement:
+                if (whileStatement.Statement is BlockSyntax whileBlock)
+                    foreach (var decl in CollectFixedStatementDeclarationsInBlock(whileBlock))
+                        yield return decl;
+                else
+                    foreach (var decl in CollectFixedStatementDeclarations(whileStatement.Statement))
+                        yield return decl;
+                break;
+
+            case ForStatementSyntax forStatement:
+                if (forStatement.Statement is BlockSyntax forBlock)
+                    foreach (var decl in CollectFixedStatementDeclarationsInBlock(forBlock))
+                        yield return decl;
+                break;
+
+            case ForEachStatementSyntax forEachStatement:
+                if (forEachStatement.Statement is BlockSyntax forEachBlock)
+                    foreach (var decl in CollectFixedStatementDeclarationsInBlock(forEachBlock))
+                        yield return decl;
+                break;
+
+            case SwitchStatementSyntax switchStatement:
+                foreach (var section in switchStatement.Sections)
+                    foreach (var s in section.Statements)
+                        foreach (var decl in CollectFixedStatementDeclarations(s))
+                            yield return decl;
+                break;
+
+            case UsingStatementSyntax usingStatement:
+                if (usingStatement.Statement is BlockSyntax usingBlock)
+                    foreach (var decl in CollectFixedStatementDeclarationsInBlock(usingBlock))
+                        yield return decl;
+                else
+                    foreach (var decl in CollectFixedStatementDeclarations(usingStatement.Statement))
+                        yield return decl;
+                break;
+
+            case LockStatementSyntax lockStatement:
+                if (lockStatement.Statement is BlockSyntax lockBlock)
+                    foreach (var decl in CollectFixedStatementDeclarationsInBlock(lockBlock))
+                        yield return decl;
+                else
+                    foreach (var decl in CollectFixedStatementDeclarations(lockStatement.Statement))
+                        yield return decl;
+                break;
+        }
+    }
+
+    private static IEnumerable<VariableDeclaratorSyntax> CollectFixedStatementDeclarationsInBlock(
+        BlockSyntax? block)
+    {
+        if (block == null) yield break;
+        foreach (var child in block.Statements)
+        {
+            foreach (var decl in CollectFixedStatementDeclarations(child))
+            {
+                yield return decl;
+            }
+        }
+    }
+
+    private static IEnumerable<VariableDeclaratorSyntax> CollectFixedStatementDeclarationsInIfBranch(
+        StatementSyntax statement)
+    {
+        if (statement is BlockSyntax block)
+        {
+            foreach (var child in block.Statements)
+            {
+                foreach (var decl in CollectFixedStatementDeclarations(child))
+                {
+                    yield return decl;
+                }
+            }
+            yield break;
+        }
+
+        foreach (var decl in CollectFixedStatementDeclarations(statement))
+        {
+            yield return decl;
         }
     }
 
@@ -723,6 +940,146 @@ public partial class StatementTransformer
                     }
                 }
                 break;
+
+            case TryStatementSyntax tryStatement:
+                foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(tryStatement.Block))
+                {
+                    yield return declaration;
+                }
+                foreach (var catchClause in tryStatement.Catches)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(catchClause.Block))
+                    {
+                        yield return declaration;
+                    }
+                }
+                if (tryStatement.Finally != null)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(tryStatement.Finally.Block))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+
+            case FixedStatementSyntax fixedStatement:
+                foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(fixedStatement.Statement as BlockSyntax))
+                {
+                    yield return declaration;
+                }
+                if (fixedStatement.Statement is not BlockSyntax)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarations(fixedStatement.Statement))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+
+            case BlockSyntax block:
+                foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(block))
+                {
+                    yield return declaration;
+                }
+                break;
+
+            case WhileStatementSyntax whileStatement:
+                if (whileStatement.Statement is BlockSyntax whileBlock)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(whileBlock))
+                    {
+                        yield return declaration;
+                    }
+                }
+                else
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarations(whileStatement.Statement))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+
+            case ForStatementSyntax forStatement:
+                // for variable declarations are handled separately (they stay in the for loop)
+                if (forStatement.Statement is BlockSyntax forBlock)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(forBlock))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+
+            case ForEachStatementSyntax forEachStatement:
+                if (forEachStatement.Statement is BlockSyntax forEachBlock)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(forEachBlock))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+
+            case SwitchStatementSyntax switchStatement:
+                foreach (var section in switchStatement.Sections)
+                {
+                    foreach (var s in section.Statements)
+                    {
+                        foreach (var declaration in CollectRewrittenLocalDeclarations(s))
+                        {
+                            yield return declaration;
+                        }
+                    }
+                }
+                break;
+
+            case UsingStatementSyntax usingStatement:
+                if (usingStatement.Statement is BlockSyntax usingBlock)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(usingBlock))
+                    {
+                        yield return declaration;
+                    }
+                }
+                else
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarations(usingStatement.Statement))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+
+            case LockStatementSyntax lockStatement:
+                if (lockStatement.Statement is BlockSyntax lockBlock)
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarationsInBlock(lockBlock))
+                    {
+                        yield return declaration;
+                    }
+                }
+                else
+                {
+                    foreach (var declaration in CollectRewrittenLocalDeclarations(lockStatement.Statement))
+                    {
+                        yield return declaration;
+                    }
+                }
+                break;
+        }
+    }
+
+    private static IEnumerable<LocalDeclarationStatementSyntax> CollectRewrittenLocalDeclarationsInBlock(
+        BlockSyntax? block)
+    {
+        if (block == null) yield break;
+        foreach (var child in block.Statements)
+        {
+            foreach (var declaration in CollectRewrittenLocalDeclarations(child))
+            {
+                yield return declaration;
+            }
         }
     }
 
