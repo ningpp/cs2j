@@ -1,5 +1,7 @@
 package io.github.ningpp.compat;
 
+import java.lang.foreign.MemorySegment;
+
 /**
  * Mirrors System.Buffer static methods for cross-array byte-level copying
  * and byte access.  All methods operate on the underlying byte representation
@@ -286,5 +288,20 @@ public class Buffer {
             throw new IllegalArgumentException("count exceeds int range");
         }
         blockCopy(source, 0, destination, 0, intCount);
+    }
+
+    /**
+     * Copies bytes between two MemorySegments.
+     * This overload matches .NET's {@code Buffer.MemoryCopy(void*, void*, long, long)}
+     * where the fourth parameter ({@code sourceBytesToCopy}) determines the actual
+     * number of bytes to copy.
+     *
+     * @param source            the source MemorySegment
+     * @param destination       the destination MemorySegment
+     * @param sourceSizeBytes   the size of the source buffer in bytes (unused, kept for API compatibility)
+     * @param sourceBytesToCopy the number of bytes to copy
+     */
+    public static void memoryCopy(MemorySegment source, MemorySegment destination, long sourceSizeBytes, long sourceBytesToCopy) {
+        MemorySegment.copy(source, 0L, destination, 0L, sourceBytesToCopy);
     }
 }

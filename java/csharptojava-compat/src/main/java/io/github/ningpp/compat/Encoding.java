@@ -1,5 +1,7 @@
 package io.github.ningpp.compat;
 
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -273,6 +275,33 @@ public final class Encoding {
     public int getBytes(String s, int charIndex, int charCount, byte[] bytes, int byteIndex) {
         char[] chars = s.toCharArray();
         return getBytes(chars, charIndex, charCount, bytes, byteIndex);
+    }
+
+    /**
+     * Pointer-based overload matching .NET's
+     * {@code Encoding.GetBytes(char* src, int charCount, byte* dst, int byteCount)}.
+     * Reads {@code charCount} chars from the source MemorySegment (char-aligned),
+     * encodes them, and writes up to {@code byteCount} bytes to the destination
+     * MemorySegment.
+     *
+     * @param src       source MemorySegment containing chars (2 bytes each)
+     * @param charCount number of chars to read from src
+     * @param dst       destination MemorySegment for encoded bytes
+     * @param byteCount maximum number of bytes to write to dst
+     * @return the number of bytes written
+     */
+    public int getBytes(MemorySegment src, int charCount, MemorySegment dst, int byteCount) {
+        char[] chars = new char[charCount];
+        for (int i = 0; i < charCount; i++) {
+            chars[i] = src.get(ValueLayout.JAVA_CHAR, i * 2L);
+        }
+        CharBuffer cb = CharBuffer.wrap(chars);
+        ByteBuffer bb = charset.encode(cb);
+        int len = Math.min(bb.remaining(), byteCount);
+        for (int i = 0; i < len; i++) {
+            dst.set(ValueLayout.JAVA_BYTE, i, bb.get(i));
+        }
+        return len;
     }
 
     // ---- Instance Methods: GetCharCount ----
