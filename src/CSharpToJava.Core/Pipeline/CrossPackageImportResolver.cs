@@ -1,5 +1,6 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Pipeline.Compatibility;
 using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -62,6 +63,8 @@ public static class CrossPackageImportResolver
     /// </summary>
     public static void AddCrossPackageImports(List<ConversionResult> results, string? sharedCompatibilityPackage = null)
     {
+        sharedCompatibilityPackage = ResolveSharedCompatibilityPackage(sharedCompatibilityPackage);
+
         // Collect all unique non-null packages from generated results
         var allPackages = results
             .Where(r => !string.IsNullOrEmpty(r.Package))
@@ -143,6 +146,13 @@ public static class CrossPackageImportResolver
                     sharedCompatibilityPackage);
             }
         }
+    }
+
+    private static string? ResolveSharedCompatibilityPackage(string? sharedCompatibilityPackage)
+    {
+        return string.IsNullOrWhiteSpace(sharedCompatibilityPackage)
+            ? null
+            : CompatibilityRuntime.JavaPackage;
     }
 
     /// <summary>

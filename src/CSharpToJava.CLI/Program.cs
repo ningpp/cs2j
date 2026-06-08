@@ -1,10 +1,10 @@
 using CommandLine;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Workspace;
-using System.Text.RegularExpressions;
 
 namespace CSharpToJava.CLI;
 
@@ -329,10 +329,7 @@ class Program
         var mainProjects = projects.Where(p => !p.IsTestProject).ToList();
         var testProjects = projects.Where(p => p.IsTestProject).ToList();
 
-        var sharedCompatibilityPackage = BuildSharedCompatibilityPackage(opts.MavenGroupId);
-
-
-        options.SharedCompatibilityPackage = sharedCompatibilityPackage;
+        options.SharedCompatibilityPackage = CompatibilityRuntime.JavaPackage;
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
@@ -427,7 +424,7 @@ class Program
                 }
             }
 
-            var compatibilityRequirements = CompatibilityPackPlanner.Analyze(results, sharedCompatibilityPackage);
+            var compatibilityRequirements = CompatibilityPackPlanner.Analyze(results, CompatibilityRuntime.JavaPackage);
 
             var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
             foreach (var refPath in project.ProjectReferences)
@@ -485,10 +482,7 @@ class Program
             return 1;
         }
 
-        var sharedCompatibilityPackage = BuildSharedCompatibilityPackage(opts.MavenGroupId);
-
-
-        options.SharedCompatibilityPackage = sharedCompatibilityPackage;
+        options.SharedCompatibilityPackage = CompatibilityRuntime.JavaPackage;
         var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
@@ -599,7 +593,7 @@ class Program
 
             var compatibilityRequirements = CompatibilityPackPlanner.Analyze(
                 moduleResults,
-                sharedCompatibilityPackage);
+                CompatibilityRuntime.JavaPackage);
 
             var modulePlan = PlannedModuleToJavaModulePlan(
                 module,
@@ -626,18 +620,6 @@ class Program
         Console.WriteLine($"Conversion complete: {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={plan.ModulesInBuildOrder.Count}");
 
         return failureCount > 0 ? 1 : 0;
-    }
-
-    private static string BuildSharedCompatibilityPackage(string mavenGroupId)
-    {
-        var sanitized = Regex.Replace(mavenGroupId.ToLowerInvariant(), "[^a-z0-9.]", ".");
-        while (sanitized.Contains("..", StringComparison.Ordinal))
-        {
-            sanitized = sanitized.Replace("..", ".", StringComparison.Ordinal);
-        }
-
-        sanitized = sanitized.Trim('.');
-        return string.IsNullOrWhiteSpace(sanitized) ? "generated.compat" : sanitized + ".compat";
     }
 
     private static string MakeUniqueModuleName(string preferredName, IEnumerable<string> existingNames)
@@ -886,7 +868,7 @@ class Program
     {
         var compatibilityRequirements = CompatibilityPackPlanner.Analyze(
             convertedResults,
-            BuildSharedCompatibilityPackage(opts.MavenGroupId));
+            CompatibilityRuntime.JavaPackage);
 
         var deps = new List<JavaDependency>();
         deps.AddRange(WorkspacePlanBuilder.DefaultDependencies());

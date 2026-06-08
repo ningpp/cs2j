@@ -69,7 +69,8 @@ public class ConversionOptions
     public bool RewriteExtensionMethods { get; set; } = false;
 
     /// <summary>
-    /// Optional shared compatibility package that should be imported into all generated files.
+    /// Optional signal to import the published csharptojava-compat runtime package into generated files.
+    /// The package itself is fixed by the runtime artifact, not by the generated project's Maven groupId.
     /// </summary>
     public string? SharedCompatibilityPackage { get; set; }
 

@@ -1,4 +1,5 @@
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Pipeline;
 using Xunit;
 
 namespace CSharpToJava.Tests;
@@ -46,5 +47,59 @@ public class ImportWildcardDedupTests
         var output = cu.ToString("");
 
         Assert.Contains("import static java.lang.Math;", output);
+    }
+
+    [Fact]
+    public void CrossPackageImports_DoNotRewriteCompatImportsToProjectGroupPackage()
+    {
+        var cu = new JavaCompilationUnit { Package = "sample" };
+        cu.Imports.Add(new JavaImport("io.github.ningpp.compat.GCHandle"));
+
+        var results = new List<ConversionResult>
+        {
+            new()
+            {
+                Success = true,
+                FileName = "Sample.java",
+                Package = "sample",
+                Compilation = cu,
+                GeneratedCode = cu.ToString(""),
+            },
+        };
+
+        CrossPackageImportResolver.AddCrossPackageImports(results, "io.github.ningpp.csharp.uri.compat");
+
+        Assert.Contains("import io.github.ningpp.compat.GCHandle;", results[0].GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.*;", results[0].GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("import io.github.ningpp.csharp.uri.compat.*;", results[0].GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("import io.github.ningpp.csharp.uri.compat.GCHandle;", results[0].GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CrossPackageImports_StringFallbackDoesNotRewriteCompatImportsToProjectGroupPackage()
+    {
+        var results = new List<ConversionResult>
+        {
+            new()
+            {
+                Success = true,
+                FileName = "Sample.java",
+                Package = "sample",
+                GeneratedCode = """
+                    package sample;
+
+                    import io.github.ningpp.compat.GCHandle;
+
+                    class Sample {}
+                    """,
+            },
+        };
+
+        CrossPackageImportResolver.AddCrossPackageImports(results, "io.github.ningpp.csharp.uri.compat");
+
+        Assert.Contains("import io.github.ningpp.compat.GCHandle;", results[0].GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.*;", results[0].GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("import io.github.ningpp.csharp.uri.compat.*;", results[0].GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("import io.github.ningpp.csharp.uri.compat.GCHandle;", results[0].GeneratedCode, StringComparison.Ordinal);
     }
 }
