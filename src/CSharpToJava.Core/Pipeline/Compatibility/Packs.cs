@@ -115,3 +115,18 @@ public class TestPack : ICompatibilityPack
             "Microsoft.VisualStudio.TestTools.UnitTesting", "TestContext");
     }
 }
+
+/// <summary>
+/// Xunit Pack — Xunit.Assert
+/// </summary>
+public class XunitPack : ICompatibilityPack
+{
+    public string Id => "xunit";
+    public string Description => "Xunit compatibility (Assert)";
+    public IReadOnlyList<string> MavenDependencies => [];
+
+    public bool IsApplicable(CompatibilityPackContext context)
+    {
+        return context.ReferencesAnyType("Xunit.Assert", "Xunit.FactAttribute");
+    }
+}

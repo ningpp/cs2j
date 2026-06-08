@@ -3509,6 +3509,13 @@
             "imports": [
                 "io.github.ningpp.compat.StringComparison"
             ]
+        },
+        {
+            "csharp": "Xunit.Assert",
+            "java": "Assert",
+            "imports": [
+                "csharp.xunit.Assert"
+            ]
         }
     ],
     "methodMappings": [
@@ -5522,12 +5529,211 @@
             "type": "System.Reflection.AssemblyName",
             "method": "get_Version",
             "javaMethod": "toString"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "All",
+            "javaMethod": "all"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Collection",
+            "javaMethod": "collection"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Contains",
+            "javaMethod": "contains"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "DoesNotContain",
+            "javaMethod": "doesNotContain"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "DoesNotMatch",
+            "javaMethod": "doesNotMatch"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Distinct",
+            "javaMethod": "distinct"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Empty",
+            "javaMethod": "empty"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "EndsWith",
+            "javaMethod": "endsWith"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Equal",
+            "javaMethod": "equal"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Equals",
+            "javaMethod": "equals"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Equivalent",
+            "javaMethod": "equivalent"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Fail",
+            "javaMethod": "fail"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "False",
+            "javaMethod": "false_"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "InRange",
+            "javaMethod": "inRange"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "IsAssignableFrom",
+            "javaMethod": "isAssignableFrom"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "IsNotAssignableFrom",
+            "javaMethod": "isNotAssignableFrom"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "IsNotType",
+            "javaMethod": "isNotType"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "IsType",
+            "javaMethod": "isType"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Matches",
+            "javaMethod": "matches"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Multiple",
+            "javaMethod": "multiple"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "NotEmpty",
+            "javaMethod": "notEmpty"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "NotEqual",
+            "javaMethod": "notEqual"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "NotInRange",
+            "javaMethod": "notInRange"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "NotNull",
+            "javaMethod": "notNull"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "NotSame",
+            "javaMethod": "notSame"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "NotStrictEqual",
+            "javaMethod": "notStrictEqual"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Null",
+            "javaMethod": "null_"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "ProperSubset",
+            "javaMethod": "properSubset"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "ProperSuperset",
+            "javaMethod": "properSuperset"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "ReferenceEquals",
+            "javaMethod": "referenceEquals"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Same",
+            "javaMethod": "same"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Single",
+            "javaMethod": "single"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "StartsWith",
+            "javaMethod": "startsWith"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "StrictEqual",
+            "javaMethod": "strictEqual"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Subset",
+            "javaMethod": "subset"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Superset",
+            "javaMethod": "superset"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "Throws",
+            "javaMethod": "throws_"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "ThrowsAny",
+            "javaMethod": "throwsAny"
+        },
+        {
+            "type": "Xunit.Assert",
+            "method": "True",
+            "javaMethod": "true_"
         }
     ],
     "namespaceMappings": [
         {
             "csharp": "System",
             "java": "dotnet.system"
+        },
+        {
+            "csharp": "Xunit",
+            "java": "csharp.xunit"
         }
     ]
 }

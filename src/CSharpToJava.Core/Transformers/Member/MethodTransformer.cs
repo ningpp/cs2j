@@ -340,6 +340,20 @@ public class MethodTransformer : IMemberTransformer
             context.AddImport("org.junit.jupiter.api.Timeout");
         }
 
+        // Xunit [Fact] → JUnit 5 @Test
+        if (attributeNames.Contains("Fact"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("Test"));
+            context.AddImport("org.junit.jupiter.api.Test");
+        }
+
+        // Xunit [Theory] → JUnit 5 @ParameterizedTest
+        if (attributeNames.Contains("Theory"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("ParameterizedTest"));
+            context.AddImport("org.junit.jupiter.params.ParameterizedTest");
+        }
+
         if (attributeNames.Contains("DataTestMethod"))
         {
             javaMethod.Annotations.Add(new JavaAnnotation("ParameterizedTest"));

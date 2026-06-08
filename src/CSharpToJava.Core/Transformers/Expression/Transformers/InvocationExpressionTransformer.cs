@@ -1384,6 +1384,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"Assert.{mstestAssertName}({assertArgs})";
         }
 
+        // Xunit Assert.* -> csharp.xunit.Assert.* compatibility layer.
+        // The xunit assembly is not referenced by the conversion pipeline, so Roslyn
+        // cannot resolve Xunit.Assert symbols. We detect it syntactically and map
+        // method names to the Java camelCase equivalents (with keyword-escaping suffixes
+        // for true_, false_, null_, throws_).
+        if (TryMapXunitAssertInvocation(memberAccess.Expression, context, originalMethodName, methodSymbol, out var xunitAssertName))
+        {
+            var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            context.AddImport("csharp.xunit.Assert");
+            return $"Assert.{xunitAssertName}({assertArgs})";
+        }
+
         // C# String.Format(...) -> Java String.format(...)
         if (originalMethodName == "Format"
             && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context))
@@ -5651,6 +5663,102 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         };
 
         return !string.IsNullOrEmpty(mstestMethodName);
+    }
+
+    private static bool TryMapXunitAssertInvocation(
+        ExpressionSyntax receiverExpression,
+        ConversionContext context,
+        string originalMethodName,
+        IMethodSymbol? methodSymbol,
+        out string xunitMethodName)
+    {
+        xunitMethodName = string.Empty;
+
+        // Detect Xunit.Assert syntactically: "Assert.Xxx(...)" where the receiver
+        // identifier is "Assert" and the semantic type (if resolvable) is Xunit.Assert.
+        // Since the xunit assembly is not referenced by the conversion pipeline,
+        // we rely primarily on syntactic matching plus a guard against MSTest Assert.
+        if (receiverExpression is not IdentifierNameSyntax { Identifier.Text: "Assert" })
+        {
+            return false;
+        }
+
+        // If Roslyn resolved the symbol, verify it's Xunit.Assert (not MSTest).
+        var containingType = methodSymbol?.ContainingType.ToDisplayString();
+        if (containingType != null)
+        {
+            // Known MSTest Assert — skip, handled by TryMapMSTestAssertInvocation.
+            if (containingType == "Microsoft.VisualStudio.TestTools.UnitTesting.Assert")
+            {
+                return false;
+            }
+            // Xunit.Assert — confirmed.
+            if (containingType != "Xunit.Assert")
+            {
+                return false;
+            }
+        }
+
+        // When symbol is unresolved (xunit not referenced), check for "using Xunit;"
+        // in the source to confirm this is Xunit's Assert, not some other Assert.
+        if (containingType == null)
+        {
+            if (!context.HasUsingDirective("Xunit"))
+            {
+                return false;
+            }
+        }
+
+        // Map Xunit.Assert method names to csharp.xunit.Assert camelCase equivalents.
+        // Methods that clash with Java keywords get a trailing underscore.
+        xunitMethodName = originalMethodName switch
+        {
+            "All" => "all",
+            "Collection" => "collection",
+            "Contains" => "contains",
+            "DoesNotContain" => "doesNotContain",
+            "DoesNotMatch" => "doesNotMatch",
+            "Distinct" => "distinct",
+            "Empty" => "empty",
+            "EndsWith" => "endsWith",
+            "Equal" => "equal",
+            "Equals" => "equals",
+            "Equivalent" => "equivalent",
+            "Fail" => "fail",
+            "False" => "false_",
+            "InRange" => "inRange",
+            "IsAssignableFrom" => "isAssignableFrom",
+            "IsNotAssignableFrom" => "isNotAssignableFrom",
+            "IsNotType" => "isNotType",
+            "IsType" => "isType",
+            "Matches" => "matches",
+            "Multiple" => "multiple",
+            "NotEmpty" => "notEmpty",
+            "NotEqual" => "notEqual",
+            "NotInRange" => "notInRange",
+            "NotNull" => "notNull",
+            "NotSame" => "notSame",
+            "NotStrictEqual" => "notStrictEqual",
+            "Null" => "null_",
+            "ProperSubset" => "properSubset",
+            "ProperSuperset" => "properSuperset",
+            "PropertyChanged" => "propertyChanged",
+            "Raises" => "raises",
+            "RaisesAny" => "raisesAny",
+            "ReferenceEquals" => "referenceEquals",
+            "Same" => "same",
+            "Single" => "single",
+            "StartsWith" => "startsWith",
+            "StrictEqual" => "strictEqual",
+            "Subset" => "subset",
+            "Superset" => "superset",
+            "Throws" => "throws_",
+            "ThrowsAny" => "throwsAny",
+            "True" => "true_",
+            _ => string.Empty,
+        };
+
+        return !string.IsNullOrEmpty(xunitMethodName);
     }
 
     private static bool TryTransformDecimalStaticInvocation(

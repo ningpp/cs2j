@@ -750,6 +750,37 @@ public class ConversionContext
 
     public UsingAliasRegistry AliasRegistry { get; } = new();
 
+    // ─── Using directive tracking ───
+
+    private HashSet<string>? _cachedUsingNamespaces;
+
+    /// <summary>
+    /// Checks whether the source file contains a "using {namespace};" directive.
+    /// Used to disambiguate types that cannot be resolved by Roslyn (e.g. Xunit.Assert
+    /// when the xunit assembly is not referenced by the conversion pipeline).
+    /// </summary>
+    public bool HasUsingDirective(string namespaceName)
+    {
+        _cachedUsingNamespaces ??= BuildUsingNamespaceSet();
+        return _cachedUsingNamespaces.Contains(namespaceName);
+    }
+
+    private HashSet<string> BuildUsingNamespaceSet()
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        if (SemanticModel?.SyntaxTree?.GetRoot() is { } root)
+        {
+            foreach (var usingDir in root.DescendantNodes().OfType<UsingDirectiveSyntax>())
+            {
+                if (usingDir.Name != null && usingDir.Alias == null)
+                {
+                    result.Add(usingDir.Name.ToString());
+                }
+            }
+        }
+        return result;
+    }
+
     // ─── Facade properties/methods delegating to AliasRegistry ───
     public IReadOnlyDictionary<string, UsingAliasRegistry.UsingAliasInfo> UsingAliases => AliasRegistry.Aliases;
     public bool RegisterUsingAlias(string aliasName, ITypeSymbol targetType, Location? location)
