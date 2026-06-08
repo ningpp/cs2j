@@ -16,6 +16,41 @@ public final class GCHandle {
     private GCHandle() { /* utility class */ }
 
     /**
+     * Allocates a pinned handle for the given array.
+     * Mirrors {@code GCHandle.Alloc(obj, GCHandleType.Pinned)}.
+     *
+     * @param array the array to pin (char[], byte[], int[], long[], double[], float[])
+     * @return a MemorySegment representing the pinned array
+     */
+    public static MemorySegment alloc(Object array) {
+        if (array instanceof MemorySegment ms) {
+            return ms;
+        }
+        if (array instanceof char[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (array instanceof byte[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (array instanceof int[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (array instanceof long[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (array instanceof double[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (array instanceof float[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (array instanceof short[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        throw new IllegalArgumentException("Unsupported array type for GCHandle.alloc: " + array.getClass().getName());
+    }
+
+    /**
      * Returns the address of a pinned object as a MemorySegment.
      * If the handle is {@code null} (not allocated), returns {@code null}.
      *

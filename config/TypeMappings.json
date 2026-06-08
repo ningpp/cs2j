@@ -1123,6 +1123,18 @@
             ]
         },
         {
+            "csharp": "System.Runtime.InteropServices.GCHandle",
+            "java": "Object",
+            "imports": [
+                "io.github.ningpp.compat.GCHandle"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.InteropServices.GCHandleType",
+            "java": "int",
+            "imports": []
+        },
+        {
             "csharp": "System.Text.DecoderFallbackException",
             "java": "DecoderFallbackException",
             "imports": [

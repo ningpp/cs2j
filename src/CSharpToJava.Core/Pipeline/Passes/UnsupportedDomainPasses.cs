@@ -199,7 +199,6 @@ internal static class NativeInteropAnalyzer
     [
         "System.Runtime.InteropServices.Marshal",
         "System.Runtime.InteropServices.NativeLibrary",
-        "System.Runtime.InteropServices.GCHandle",
         "System.Runtime.InteropServices.HandleRef",
         "System.Runtime.InteropServices.SafeHandle",
     ];

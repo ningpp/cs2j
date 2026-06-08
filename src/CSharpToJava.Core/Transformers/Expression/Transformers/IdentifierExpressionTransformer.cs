@@ -903,6 +903,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
             if (!isLhsOfAssignment)
             {
+                // GCHandle.IsAllocated → GCHandle.isAllocated(receiver)
+                // The C# GCHandle type is mapped to Object in Java, so the default
+                // getter generation would produce destHandle.getIsAllocated() which
+                // doesn't exist on Object. Use the static compat helper instead.
+                if (prop.Name == "IsAllocated"
+                    && prop.ContainingType?.ToDisplayString() == "System.Runtime.InteropServices.GCHandle")
+                {
+                    context.AddImport("io.github.ningpp.compat.GCHandle");
+                    return $"GCHandle.isAllocated({target})";
+                }
+
                 if (prop.Name == "Length" && IsSystemStringType(prop.ContainingType))
                     return $"{target}.length()";
 

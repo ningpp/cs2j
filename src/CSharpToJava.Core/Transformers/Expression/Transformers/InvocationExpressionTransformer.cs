@@ -914,8 +914,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return "/* reset unsupported for Java Iterator */";
         }
 
+        // GCHandle.Alloc() → GCHandle.alloc(arg)
         // GCHandle.AddrOfPinnedObject() / GCHandle.Free() → GCHandle.addrOfPinnedObject(receiver) / GCHandle.free(receiver)
         // These methods are unique to GCHandle but the C# source may declare the variable as 'object'.
+        if (originalMethodName == "Alloc")
+        {
+            var allocArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            context.AddImport("io.github.ningpp.compat.GCHandle");
+            return $"GCHandle.alloc({allocArg})";
+        }
         if (originalMethodName is "AddrOfPinnedObject" or "Free")
         {
             var gcHandleReceiver = facade.Transform(memberAccess.Expression, context);
