@@ -76,7 +76,20 @@ class CultureInfoTest {
     @Test
     void setCurrentCulture_doesNotThrow() {
         // setCurrentCulture is a no-op, just verify it doesn't throw
-        assertDoesNotThrow(() -> CultureInfo.setCurrentCulture(Locale.US));
+        assertDoesNotThrow(() -> CultureInfo.setCurrentCulture(new CultureInfo("en-US")));
+    }
+
+    @Test
+    void setCurrentUICulture_doesNotThrow() {
+        // setCurrentUICulture is a no-op, just verify it doesn't throw
+        assertDoesNotThrow(() -> CultureInfo.setCurrentUICulture(new CultureInfo("en-US")));
+    }
+
+    @Test
+    void getCurrentUICulture_notNull() {
+        CultureInfo culture = CultureInfo.getCurrentUICulture();
+        assertNotNull(culture);
+        assertNotNull(culture.toLocale());
     }
 
     @Test

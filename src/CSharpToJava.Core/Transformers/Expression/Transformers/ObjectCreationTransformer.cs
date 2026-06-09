@@ -1196,7 +1196,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Add initializer if present
         if (node.Initializer != null)
         {
-            result.Append(TransformArrayInitializer(node.Initializer, context));
+            result.Append(TransformArrayInitializer(node.Initializer, context, elementType));
         }
 
         return result.ToString();
@@ -1321,7 +1321,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Add initializer
         if (node.Initializer != null)
         {
-            result.Append(TransformArrayInitializer(node.Initializer, context));
+            result.Append(TransformArrayInitializer(node.Initializer, context, rawElementType));
         }
 
         return result.ToString();
@@ -1380,17 +1380,59 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         return "Object";
     }
 
-    private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context)
+    private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context, string? javaElementType = null)
     {
         var facade = ExpressionTransformerFacade.Instance;
         var values = new List<string>();
+        bool isByteArray = javaElementType == "byte";
 
         foreach (var expr in node.Expressions)
         {
-            values.Add(facade.Transform(expr, context));
+            var transformed = facade.Transform(expr, context);
+
+            // In Java, byte is signed (-128..127). Hex literals like 0xF4 (244) or
+            // decimal literals > 127 cannot be assigned to byte without an explicit cast.
+            if (isByteArray && NeedsByteCast(expr, transformed))
+            {
+                transformed = $"(byte){transformed}";
+            }
+
+            values.Add(transformed);
         }
 
         return $" {{ {string.Join(", ", values)} }}";
+    }
+
+    /// <summary>
+    /// Determines whether a Java byte[] initializer element needs a (byte) cast.
+    /// Java byte is signed (-128..127), so any literal value outside that range requires casting.
+    /// </summary>
+    private static bool NeedsByteCast(ExpressionSyntax expr, string transformed)
+    {
+        // Already cast — avoid double-casting
+        if (transformed.StartsWith("(byte)"))
+            return false;
+
+        // Numeric literal (hex, decimal, binary)
+        if (expr is LiteralExpressionSyntax literal &&
+            literal.IsKind(SyntaxKind.NumericLiteralExpression))
+        {
+            var text = literal.Token.Text.Replace("_", "");
+            if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ||
+                text.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+            {
+                // Hex/binary literals in byte[] initializers always need (byte) cast
+                // because they are int-typed in Java and values > 0x7F don't fit.
+                return true;
+            }
+            // Decimal literal: check if value exceeds 127
+            if (literal.Token.Value is int intVal && intVal > 127)
+                return true;
+            if (literal.Token.Value is long longVal && longVal > 127)
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1503,7 +1545,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         if (node.Initializer != null)
-            sb.Append(TransformArrayInitializer(node.Initializer, context));
+            sb.Append(TransformArrayInitializer(node.Initializer, context, elementType));
 
         var arrayCreation = sb.ToString();
         var typeInfo = context.GetTypeInfo(node);

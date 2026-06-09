@@ -13,7 +13,13 @@ public class CultureInfo {
     public static CultureInfo getCurrentCulture() {
         return new CultureInfo(Locale.getDefault().toLanguageTag());
     }
-    public static void setCurrentCulture(Locale locale) {
+    public static void setCurrentCulture(CultureInfo cultureInfo) {
+        // no-op: JVM locale is JVM-wide setting, not thread-local
+    }
+    public static CultureInfo getCurrentUICulture() {
+        return new CultureInfo(Locale.getDefault().toLanguageTag());
+    }
+    public static void setCurrentUICulture(CultureInfo cultureInfo) {
         // no-op: JVM locale is JVM-wide setting, not thread-local
     }
     public static CultureInfo getInvariantCulture() {

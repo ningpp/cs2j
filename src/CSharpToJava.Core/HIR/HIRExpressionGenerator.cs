@@ -312,7 +312,7 @@ public class HIRExpressionGenerator
     private IrLambdaExpression GenerateSimpleLambda(SimpleLambdaExpressionSyntax node) =>
         new()
         {
-            Parameters = { new IrLambdaParameter { Name = node.Parameter.Identifier.Text, Type = node.Parameter.Type != null ? _ctx.MapTypeFromSyntax(node.Parameter.Type) : null } },
+            Parameters = { new IrLambdaParameter { Name = ConversionContext.EscapeJavaKeyword(node.Parameter.Identifier.Text), Type = node.Parameter.Type != null ? _ctx.MapTypeFromSyntax(node.Parameter.Type) : null } },
             ExpressionBody = node.Body is ExpressionSyntax expr ? Generate(expr, _ctx) : null,
             BlockBody = node.Body is BlockSyntax block ? new HIRStatementGenerator().GenerateBlock(block, _ctx) : null,
         };
@@ -324,7 +324,7 @@ public class HIRExpressionGenerator
             ExpressionBody = node.Body is ExpressionSyntax expr ? Generate(expr, _ctx) : null,
             BlockBody = node.Body is BlockSyntax block ? new HIRStatementGenerator().GenerateBlock(block, _ctx) : null,
         };
-        lambda.Parameters.AddRange(node.ParameterList.Parameters.Select(p => new IrLambdaParameter { Name = p.Identifier.Text, Type = p.Type != null ? _ctx.MapTypeFromSyntax(p.Type) : null }));
+        lambda.Parameters.AddRange(node.ParameterList.Parameters.Select(p => new IrLambdaParameter { Name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text), Type = p.Type != null ? _ctx.MapTypeFromSyntax(p.Type) : null }));
         return lambda;
     }
 

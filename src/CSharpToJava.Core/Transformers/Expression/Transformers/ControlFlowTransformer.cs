@@ -346,7 +346,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         var designation = dp.Designation switch
         {
             SingleVariableDesignationSyntax sv => ConversionContext.EscapeJavaKeyword(sv.Identifier.Text),
-            DiscardDesignationSyntax => "_",
+            DiscardDesignationSyntax => "_unused",
             _ => "_unused"
         };
         return $"({expr} instanceof {mappedType} {designation})";

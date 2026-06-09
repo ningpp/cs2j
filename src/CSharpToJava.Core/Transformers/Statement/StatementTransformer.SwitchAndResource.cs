@@ -1067,7 +1067,7 @@ public partial class StatementTransformer
         var designation = dp.Designation switch
         {
             SingleVariableDesignationSyntax sv => ConversionContext.EscapeJavaKeyword(sv.Identifier.Text),
-            DiscardDesignationSyntax => "_",
+            DiscardDesignationSyntax => "_unused",
             _ => "_unused"
         };
         return $"({expr} instanceof {mappedType} {designation})";

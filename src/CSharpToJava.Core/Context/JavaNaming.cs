@@ -30,7 +30,8 @@ public static class JavaNaming
             "protected" or "public" or "return" or "short" or "static" or "strictfp" or
             "super" or "switch" or "synchronized" or "this" or "throw" or "throws" or
             "transient" or "try" or "void" or "volatile" or "while"
-            or "true" or "false" or "null" => true,
+            or "true" or "false" or "null"
+            or "_" => true,
             _ => false
         };
     }
