@@ -119,7 +119,11 @@ public static class Cs2jLibraryFactory
     public static Cs2jLibrary CreateFromSourceFiles(
         IEnumerable<SourceFile> sourceFiles,
         CSharpCompilation compilation,
-        string? libraryName = null)
+        string? libraryName = null,
+        string? projectName = null,
+        string? projectFilePath = null,
+        IReadOnlyList<string>? projectReferences = null,
+        bool isTestProject = false)
     {
         ArgumentNullException.ThrowIfNull(sourceFiles);
         ArgumentNullException.ThrowIfNull(compilation);
@@ -140,20 +144,23 @@ public static class Cs2jLibraryFactory
             });
         }
 
-        var projectDirectory = DetermineProjectDirectory(null, sourceFileList.Select(f => f.FilePath));
-        var projectName = InferName(projectDirectory, compilation.AssemblyName, "source-set");
+        var projectDirectory = DetermineProjectDirectory(projectFilePath, sourceFileList.Select(f => f.FilePath));
+        var effectiveProjectName = projectName ?? InferName(projectDirectory, compilation.AssemblyName, "source-set");
 
         var project = new Cs2jLibraryProject
         {
-            Name = projectName,
+            Name = effectiveProjectName,
+            ProjectFilePath = NormalizeOptionalProjectFilePath(projectFilePath),
             ProjectDirectory = projectDirectory,
             Compilation = compilation,
             Documents = documents,
+            ProjectReferences = projectReferences ?? [],
+            IsTestProject = isTestProject,
         };
 
         return new Cs2jLibrary
         {
-            Name = libraryName ?? projectName,
+            Name = libraryName ?? effectiveProjectName,
             InputKind = Cs2jLibraryInputKind.SourceSet,
             Projects = [project],
             Documents = documents,

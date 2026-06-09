@@ -98,7 +98,10 @@ internal static class PlatformBoundaryAnalyzer
         "System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture",
     ];
 
-    public static IReadOnlyList<DiagnosticMessage> AnalyzeSyntaxTree(SyntaxTree syntaxTree, SemanticModel? semanticModel)
+    public static IReadOnlyList<DiagnosticMessage> AnalyzeSyntaxTree(
+        SyntaxTree syntaxTree,
+        SemanticModel? semanticModel,
+        bool shouldDowngradeTestPlatformProbes = false)
     {
         if (syntaxTree.GetRoot() is not CompilationUnitSyntax root)
         {
@@ -133,7 +136,10 @@ internal static class PlatformBoundaryAnalyzer
                     code: "CS2J3102",
                     category: "platform-boundary",
                     message: $"Platform-specific API '{identity}' must be isolated before Java conversion.",
-                    location: invocation.GetLocation());
+                    location: invocation.GetLocation(),
+                    severity: shouldDowngradeTestPlatformProbes && IsTestProjectPlatformProbe(identity)
+                        ? Context.DiagnosticSeverity.Warning
+                        : Context.DiagnosticSeverity.Error);
             }
         }
 
@@ -151,7 +157,10 @@ internal static class PlatformBoundaryAnalyzer
                     code: "CS2J3102",
                     category: "platform-boundary",
                     message: $"Platform-specific API '{identity}' must be isolated before Java conversion.",
-                    location: memberAccess.GetLocation());
+                    location: memberAccess.GetLocation(),
+                    severity: shouldDowngradeTestPlatformProbes && IsTestProjectPlatformProbe(identity)
+                        ? Context.DiagnosticSeverity.Warning
+                        : Context.DiagnosticSeverity.Error);
             }
         }
 
@@ -191,6 +200,12 @@ internal static class PlatformBoundaryAnalyzer
 
         return collector.Diagnostics;
     }
+
+    private static bool IsTestProjectPlatformProbe(string identity)
+        => identity is "System.OperatingSystem.IsWindows"
+            or "System.OperatingSystem.IsLinux"
+            or "System.OperatingSystem.IsMacOS"
+            or "System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform";
 }
 
 internal static class NativeInteropAnalyzer
@@ -406,7 +421,12 @@ internal sealed class BoundaryDiagnosticCollector
 
     public IReadOnlyList<DiagnosticMessage> Diagnostics => _diagnostics;
 
-    public void Add(string code, string category, string message, Location? location)
+    public void Add(
+        string code,
+        string category,
+        string message,
+        Location? location,
+        Context.DiagnosticSeverity severity = Context.DiagnosticSeverity.Error)
     {
         var lineSpan = location?.GetLineSpan();
         var path = lineSpan?.Path ?? string.Empty;
@@ -418,6 +438,6 @@ internal sealed class BoundaryDiagnosticCollector
             return;
         }
 
-        _diagnostics.Add(new DiagnosticMessage(Context.DiagnosticSeverity.Error, message, location, code, category));
+        _diagnostics.Add(new DiagnosticMessage(severity, message, location, code, category));
     }
 }

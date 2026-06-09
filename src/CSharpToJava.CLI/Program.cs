@@ -397,7 +397,13 @@ class Program
                 StringComparer.OrdinalIgnoreCase);
 
             var pipeline = new ProjectConversionPipeline(options);
-            var results = await pipeline.ConvertProjectAsync(project.Compilation, emitFilePaths);
+            var results = await pipeline.ConvertProjectAsync(
+                project.Compilation,
+                emitFilePaths,
+                project.Name,
+                project.FilePath,
+                project.ProjectReferences,
+                project.IsTestProject);
             MergeLinqStatistics(ref workspaceLinqStatistics, pipeline.LastLinqStatistics);
             canaryResults.AddRange(results);
             AddProjectPassProfileEntry(passProfileEntries, pipeline.LastPassMetrics, results, project.Name, moduleName);
@@ -544,7 +550,14 @@ class Program
                 }
 
                 var semanticContextDirs = GetReferencedProjectDirectories(assignment.Project, graph);
-                var results = await pipeline.ConvertProjectWithPartialMergeAsync(assignment.Project.ProjectDirectory, options, semanticContextDirs);
+                var results = await pipeline.ConvertProjectWithPartialMergeAsync(
+                    assignment.Project.ProjectDirectory,
+                    options,
+                    semanticContextDirs,
+                    assignment.Project.Name,
+                    assignment.Project.ProjectFilePath,
+                    assignment.Project.ProjectReferences,
+                    assignment.Project.Kind == ProjectKind.Test);
                 MergeLinqStatistics(ref projectGraphLinqStatistics, pipeline.LastLinqStatistics);
                 canaryResults.AddRange(results);
                 moduleResults.AddRange(results.Where(result => !string.IsNullOrEmpty(result.GeneratedCode)));

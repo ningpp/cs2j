@@ -81,7 +81,11 @@ public class ProjectConversionPipeline
     /// <returns>转换结果列表</returns>
     public Task<List<ConversionResult>> ConvertProjectAsync(
         IEnumerable<SourceFile> sourceFiles,
-        ISet<string>? emitFilePaths = null)
+        ISet<string>? emitFilePaths = null,
+        string? projectName = null,
+        string? projectFilePath = null,
+        IReadOnlyList<string>? projectReferences = null,
+        bool isTestProject = false)
     {
         LastPassMetrics = Array.Empty<Cs2jPassMetric>();
 
@@ -97,7 +101,13 @@ public class ProjectConversionPipeline
                 return Task.FromResult(TypeGroupResolver.CreateFailureResults(sourceFileList, context));
             }
 
-            var library = Cs2jLibraryFactory.CreateFromSourceFiles(sourceFileList, compilation);
+            var library = Cs2jLibraryFactory.CreateFromSourceFiles(
+                sourceFileList,
+                compilation,
+                projectName: projectName,
+                projectFilePath: projectFilePath,
+                projectReferences: projectReferences,
+                isTestProject: isTestProject);
             return Task.FromResult(ConvertCompilationCore(library, library.PrimaryCompilation!, context, emitFilePaths));
         }
         catch (Exception ex)
@@ -113,9 +123,18 @@ public class ProjectConversionPipeline
     /// </summary>
     public Task<List<ConversionResult>> ConvertProjectAsync(
         CSharpCompilation compilation,
-        ISet<string>? emitFilePaths = null)
+        ISet<string>? emitFilePaths = null,
+        string? projectName = null,
+        string? projectFilePath = null,
+        IReadOnlyList<string>? projectReferences = null,
+        bool isTestProject = false)
     {
-        var library = Cs2jLibraryFactory.CreateFromCompilation(compilation);
+        var library = Cs2jLibraryFactory.CreateFromCompilation(
+            compilation,
+            projectName,
+            projectFilePath,
+            projectReferences,
+            isTestProject);
         return ConvertLibraryAsync(library, emitFilePaths);
     }
 

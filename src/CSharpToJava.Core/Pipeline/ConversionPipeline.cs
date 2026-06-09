@@ -270,7 +270,11 @@ public class ConversionPipeline
     public async Task<List<ConversionResult>> ConvertProjectWithPartialMergeAsync(
         string projectPath,
         ConversionOptions options,
-        IEnumerable<string>? additionalSemanticProjectPaths = null)
+        IEnumerable<string>? additionalSemanticProjectPaths = null,
+        string? projectName = null,
+        string? projectFilePath = null,
+        IReadOnlyList<string>? projectReferences = null,
+        bool isTestProject = false)
     {
         LastProjectPassMetrics = Array.Empty<Cs2jPassMetric>();
 
@@ -334,7 +338,13 @@ public class ConversionPipeline
         // 使用 ProjectConversionPipeline 进行转换
         var pipeline = new ProjectConversionPipeline(options);
         var emitFilePaths = new HashSet<string>(csFiles.Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase);
-        var results = await pipeline.ConvertProjectAsync(sourceFiles, emitFilePaths);
+        var results = await pipeline.ConvertProjectAsync(
+            sourceFiles,
+            emitFilePaths,
+            projectName,
+            projectFilePath,
+            projectReferences,
+            isTestProject);
         LastProjectPassMetrics = pipeline.LastPassMetrics.ToList();
         LastLinqStatistics = pipeline.LastLinqStatistics;
         return results;

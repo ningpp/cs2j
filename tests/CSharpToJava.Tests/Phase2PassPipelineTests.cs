@@ -1,6 +1,9 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.TypeMapping;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using CoreDiagnosticSeverity = CSharpToJava.Core.Context.DiagnosticSeverity;
 
 namespace CSharpToJava.Tests;
 
@@ -237,6 +240,51 @@ public class Phase2PassPipelineTests
         Assert.Empty(failureResult.GeneratedCode);
         Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3102" && diagnostic.Category == "platform-boundary");
         Assert.Contains("ProjectPlatformBoundaryCheckPass", failureResult.PassMetrics.Select(metric => metric.Name));
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_AllowsPlatformProbeInTestProject()
+    {
+        var filePath = Path.GetFullPath(Path.Combine("tests", "Common", "System", "PlatformDetection.cs"));
+        var syntaxTree = CSharpSyntaxTree.ParseText(
+            """
+            using System.Runtime.InteropServices;
+
+            namespace dotnet.system
+            {
+                public static class PlatformDetection
+                {
+                    public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+                }
+            }
+            """,
+            CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Latest),
+            filePath);
+
+        var references = ProjectCompilationBuilder.GetMetadataReferences()
+            .Append(MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.RuntimeInformation).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "System.Private.Uri.Unit.Tests",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(
+            compilation,
+            new HashSet<string>([filePath], StringComparer.OrdinalIgnoreCase),
+            projectName: "System.Private.Uri.Unit.Tests",
+            projectFilePath: Path.GetFullPath("System.Private.Uri.Unit.Tests.csproj"),
+            isTestProject: true);
+
+        var result = Assert.Single(results, item => item.FileName == "PlatformDetection.java");
+        Assert.True(result.Success);
+        Assert.Contains("System.getProperty(\"os.name\")", result.GeneratedCode);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic =>
+            diagnostic.Code == "CS2J3102" && diagnostic.Severity == CoreDiagnosticSeverity.Error);
+        Assert.Contains(result.Diagnostics, diagnostic =>
+            diagnostic.Code == "CS2J3102"
+            && diagnostic.Category == "platform-boundary"
+            && diagnostic.Severity == CoreDiagnosticSeverity.Warning);
     }
 
     [Fact]

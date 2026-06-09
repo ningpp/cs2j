@@ -400,6 +400,90 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return $"{target}({args2})";
     }
 
+    private static bool TryTransformOperatingSystemProbe(
+        string originalMethodName,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        IMethodSymbol? methodSymbol,
+        ExpressionSyntax receiverExpression,
+        ConversionContext context,
+        out string expression)
+    {
+        expression = string.Empty;
+
+        if ((methodSymbol?.ContainingType.ToDisplayString() == "System.OperatingSystem"
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    receiverExpression,
+                    context,
+                    "OperatingSystem",
+                    "System.OperatingSystem"))
+            && arguments.Count == 0)
+        {
+            var platform = originalMethodName switch
+            {
+                "IsWindows" => "windows",
+                "IsLinux" => "linux",
+                "IsMacOS" => "macos",
+                _ => null,
+            };
+
+            if (platform == null)
+            {
+                return false;
+            }
+
+            expression = BuildJavaOsNameProbe(platform);
+            return true;
+        }
+
+        if (originalMethodName == "IsOSPlatform"
+            && arguments.Count == 1
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Runtime.InteropServices.RuntimeInformation"
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    receiverExpression,
+                    context,
+                    "RuntimeInformation",
+                    "System.Runtime.InteropServices.RuntimeInformation"))
+            && TryGetOSPlatformArgument(arguments[0].Expression, out var osPlatform))
+        {
+            expression = BuildJavaOsNameProbe(osPlatform);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetOSPlatformArgument(ExpressionSyntax expression, out string osPlatform)
+    {
+        osPlatform = string.Empty;
+
+        if (expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        var receiver = memberAccess.Expression.ToString();
+        if (receiver is not "OSPlatform" and not "System.Runtime.InteropServices.OSPlatform")
+        {
+            return false;
+        }
+
+        osPlatform = memberAccess.Name.Identifier.Text.ToLowerInvariant();
+        return osPlatform is "windows" or "linux" or "osx" or "freebsd";
+    }
+
+    private static string BuildJavaOsNameProbe(string osPlatform)
+    {
+        const string osName = "System.getProperty(\"os.name\").toLowerCase()";
+        return osPlatform switch
+        {
+            "windows" => $"{osName}.contains(\"win\")",
+            "linux" => $"{osName}.contains(\"linux\")",
+            "macos" or "osx" => $"{osName}.contains(\"mac\")",
+            "freebsd" => $"{osName}.contains(\"freebsd\")",
+            _ => $"{osName}.contains(\"{osPlatform}\")",
+        };
+    }
+
     /// <summary>
     /// Issue 6: nameof(expr) → Java string literal with the last dotted segment.
     /// Strips generic type arguments so nameof(List&lt;int&gt;) → "List".
@@ -556,6 +640,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+
+        if (TryTransformOperatingSystemProbe(
+            originalMethodName,
+            node.ArgumentList.Arguments,
+            earlyMethodSymbol,
+            memberAccess.Expression,
+            context,
+            out var osProbeExpression))
+        {
+            return osProbeExpression;
+        }
 
         if (TryTransformDecimalStaticInvocation(
             node,

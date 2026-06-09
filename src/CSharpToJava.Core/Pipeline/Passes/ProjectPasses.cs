@@ -431,6 +431,7 @@ public sealed class ProjectPlatformBoundaryCheckPass : ICs2jPass<ProjectPassStat
 
     public void Execute(ProjectPassState state)
     {
+        var isTestProject = state.Library.Projects.FirstOrDefault()?.IsTestProject == true;
         var syntaxTrees = state.Compilation.SyntaxTrees
             .Where(syntaxTree => !string.IsNullOrWhiteSpace(syntaxTree.FilePath) && !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
             .ToList();
@@ -440,7 +441,10 @@ public sealed class ProjectPlatformBoundaryCheckPass : ICs2jPass<ProjectPassStat
             state.Context.Options.EnableParallelProjectPasses,
             syntaxTree => new ProjectSyntaxTreeDiagnosticsResult(
                 syntaxTree.FilePath,
-                PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(syntaxTree, state.Compilation.GetSemanticModel(syntaxTree))));
+                PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(
+                    syntaxTree,
+                    state.Compilation.GetSemanticModel(syntaxTree),
+                    shouldDowngradeTestPlatformProbes: isTestProject)));
 
         foreach (var analysisResult in analysisResults)
         {
@@ -452,10 +456,24 @@ public sealed class ProjectPlatformBoundaryCheckPass : ICs2jPass<ProjectPassStat
 
             foreach (var diagnostic in diagnostics)
             {
-                state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+                if (diagnostic.Severity == Context.DiagnosticSeverity.Error)
+                {
+                    state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+                }
+                else
+                {
+                    state.Context.Diagnostics.Warning(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+                }
             }
 
-            state.RecordBlockingDiagnostics(analysisResult.FilePath, diagnostics);
+            if (diagnostics.Any(diagnostic => diagnostic.Severity == Context.DiagnosticSeverity.Error))
+            {
+                state.RecordBlockingDiagnostics(analysisResult.FilePath, diagnostics);
+            }
+            else
+            {
+                state.RegisterFileDiagnostics(analysisResult.FilePath, diagnostics, blockEmit: false);
+            }
         }
     }
 }
