@@ -435,6 +435,27 @@ public class TypeMappingService
             if (baseType == "Object")
                 return "Object";
 
+            // C# Func<T, bool> → Java Predicate<T> (not Function<T, Boolean>).
+            // Java Stream.filter() requires Predicate, not Function.
+            // Similarly, Func<T1, T2, bool> → BiPredicate<T1, T2>.
+            if ((fullQualifiedName == "System.Func`2" || configKey == "System.Func`2")
+                && namedType.TypeArguments.Length == 2
+                && namedType.TypeArguments[1].SpecialType == SpecialType.System_Boolean)
+            {
+                var tArg = MapTypeForGeneric(namedType.TypeArguments[0]);
+                AddImport("java.util.function.Predicate");
+                return $"Predicate<{tArg}>";
+            }
+            if ((fullQualifiedName == "System.Func`3" || configKey == "System.Func`3")
+                && namedType.TypeArguments.Length == 3
+                && namedType.TypeArguments[2].SpecialType == SpecialType.System_Boolean)
+            {
+                var tArg1 = MapTypeForGeneric(namedType.TypeArguments[0]);
+                var tArg2 = MapTypeForGeneric(namedType.TypeArguments[1]);
+                AddImport("java.util.function.BiPredicate");
+                return $"BiPredicate<{tArg1}, {tArg2}>";
+            }
+
             return $"{baseType}<{typeArgs}>";
         }
 

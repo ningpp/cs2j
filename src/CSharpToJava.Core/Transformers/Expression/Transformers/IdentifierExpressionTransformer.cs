@@ -641,6 +641,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (primTypeSyntax.Keyword.Text == "string" && rawMember == "Empty")
                 return "\"\"";
 
+            // Check if this is a method group (e.g. char.IsHighSurrogate used as a delegate value).
+            // If so, generate a Java method reference like Character::isHighSurrogate.
+            var primMemberSymbol = context.GetSymbolInfo(node).Symbol;
+            if (primMemberSymbol is IMethodSymbol primMethodGroup
+                && !(node.Parent is InvocationExpressionSyntax primInv && primInv.Expression == node))
+            {
+                var primMappedMethod = InvocationExpressionTransformer.MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, rawMember);
+                var primJavaMethodName = primMappedMethod ?? (rawMember.Length > 0
+                    ? char.ToLowerInvariant(rawMember[0]) + rawMember[1..]
+                    : rawMember);
+                return $"{boxedName}::{primJavaMethodName}";
+            }
+
             var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
             if (primTypeSyntax.Keyword.Text == "decimal")
                 context.AddImport("io.github.ningpp.compat.Decimal");
@@ -1036,6 +1049,40 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (memberName == "Length" && IsSystemTextStringBuilder(exprType))
                     return $"{target}.length()";
 
+            }
+        }
+
+        // Fix 4: When GetSymbolInfo returned null (e.g. missing assembly reference)
+        // but the static receiver type was resolved (e.g. IPAddress → InetAddress),
+        // try MapMethod using the C# type name from the expression text.
+        // This handles cases like IPAddress.Loopback → InetAddress.getLoopbackAddress()
+        // where the property symbol is unavailable but the type mapping is known.
+        if (staticTypeTarget != null && context.SemanticModel != null)
+        {
+            var receiverText = node.Expression.ToString();
+            var csharpTypeName = receiverText;
+            // Handle qualified names like System.Net.IPAddress → extract the FQN
+            if (node.Expression is MemberAccessExpressionSyntax maExpr)
+                csharpTypeName = maExpr.ToString();
+
+            var mappedStaticMethod = context.TypeMappings.MapMethod(csharpTypeName, memberName);
+            if (mappedStaticMethod == null)
+            {
+                // Try resolving the type symbol to get the FQN
+                var receiverTypeInfo = context.GetSymbolInfo(node.Expression);
+                if (receiverTypeInfo.Symbol is INamedTypeSymbol receiverNamedType)
+                {
+                    var fqn = $"{receiverNamedType.ContainingNamespace}.{receiverNamedType.Name}";
+                    mappedStaticMethod = context.TypeMappings.MapMethod(fqn, memberName);
+                }
+            }
+            if (mappedStaticMethod != null)
+            {
+                ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedStaticMethod, context);
+                if (IsJavaFieldMapping(mappedStaticMethod)) return mappedStaticMethod.Contains('.') ? mappedStaticMethod : $"{target}.{mappedStaticMethod}";
+                if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mappedStaticMethod))
+                    return $"{mappedStaticMethod}()";
+                return mappedStaticMethod.Contains('.') ? mappedStaticMethod : $"{target}.{mappedStaticMethod}()";
             }
         }
 

@@ -175,6 +175,10 @@ public class ConversionPipeline
                     // System.Linq.Expressions is in a separate assembly. Without this, Roslyn
                     // cannot resolve Expression<TDelegate> so the type-strip logic never fires.
                     MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
+                    // System.Net.IPAddress is in System.Net.Primitives on .NET Core.
+                    // Without this, Roslyn cannot resolve IPAddress.Loopback/IPv6Loopback
+                    // so MapMethod never fires for IPAddress property mappings.
+                    MetadataReference.CreateFromFile(typeof(System.Net.IPAddress).Assembly.Location),
                 }.Concat(GetFrameworkSupplementalReferences()).ToArray(),
                 options: new CSharpCompilationOptions(
                     OutputKind.DynamicallyLinkedLibrary,

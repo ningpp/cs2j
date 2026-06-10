@@ -281,16 +281,16 @@
         },
         {
             "csharp": "System.ArgumentException",
-            "java": "IllegalArgumentException",
+            "java": "ArgumentException",
             "imports": [
-                "java.lang.IllegalArgumentException"
+                "io.github.ningpp.compat.ArgumentException"
             ]
         },
         {
             "csharp": "System.ArgumentNullException",
-            "java": "NullPointerException",
+            "java": "ArgumentNullException",
             "imports": [
-                "java.lang.NullPointerException"
+                "io.github.ningpp.compat.ArgumentNullException"
             ]
         },
         {
@@ -2987,6 +2987,34 @@
             ]
         },
         {
+            "csharp": "System.Reflection.PropertyInfo",
+            "java": "PropertyInfo",
+            "imports": [
+                "io.github.ningpp.compat.PropertyInfo"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.PropertyInfo[]",
+            "java": "PropertyInfo[]",
+            "imports": [
+                "io.github.ningpp.compat.PropertyInfo"
+            ]
+        },
+        {
+            "csharp": "System.Globalization.CharUnicodeInfo",
+            "java": "CharUnicodeInfo",
+            "imports": [
+                "io.github.ningpp.compat.CharUnicodeInfo"
+            ]
+        },
+        {
+            "csharp": "System.Globalization.UnicodeCategory",
+            "java": "UnicodeCategory",
+            "imports": [
+                "io.github.ningpp.compat.UnicodeCategory"
+            ]
+        },
+        {
             "csharp": "System.Reflection.MethodInfo",
             "java": "Method",
             "imports": [
@@ -3858,6 +3886,16 @@
             "type": "string",
             "method": "Length",
             "javaMethod": "length"
+        },
+        {
+            "type": "System.Net.IPAddress",
+            "method": "Loopback",
+            "javaMethod": "getLoopbackAddress"
+        },
+        {
+            "type": "System.Net.IPAddress",
+            "method": "IPv6Loopback",
+            "javaMethod": "getLoopbackAddress"
         },
         {
             "type": "System.DateTime",
@@ -4820,6 +4858,11 @@
             "javaMethod": "get"
         },
         {
+            "type": "System.Reflection.PropertyInfo",
+            "method": "GetValue",
+            "javaMethod": "getValue"
+        },
+        {
             "type": "System.Text.RegularExpressions.Match",
             "method": "Success",
             "javaMethod": "getSuccess"
@@ -5494,6 +5537,16 @@
             "type": "System.TimeSpan",
             "method": "TotalDays",
             "javaMethod": "toDays"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetProperties",
+            "javaMethod": "PropertyInfo.getProperties"
+        },
+        {
+            "type": "System.Globalization.CharUnicodeInfo",
+            "method": "GetUnicodeCategory",
+            "javaMethod": "CharUnicodeInfo.getUnicodeCategory"
         },
         {
             "type": "System.Type",

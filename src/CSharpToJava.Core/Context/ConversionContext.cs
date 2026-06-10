@@ -271,9 +271,29 @@ public class ConversionContext
     /// <summary>
     /// Returns the Class&lt;T&gt; literal for a type symbol at a call site.
     /// E.g., for C# int → "int.class", for ValueType → "ValueType.class".
+    /// When the type symbol is a type parameter (e.g., T from a generic method),
+    /// returns the registered runtime class parameter name instead of "T.class".
     /// </summary>
     public static string GetClassLiteral(ITypeSymbol typeSymbol, ConversionContext context)
     {
+        // Handle type parameters (e.g., T from a generic method) — cannot use T.class in Java.
+        if (typeSymbol is ITypeParameterSymbol typeParam)
+        {
+            if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
+                return runtimeClassParam;
+            // Register a Class<T> parameter requirement for the current method so that
+            // ApplyPendingClassTypeParams adds the parameter to the method signature.
+            var currentMethod = context.CurrentMethod;
+            if (currentMethod != null)
+            {
+                context.RequireClassTypeParam(
+                    currentMethod.ContainingType?.MetadataName ?? "",
+                    currentMethod.MetadataName,
+                    typeParam.Name);
+            }
+            // The parameter naming convention is _cs2j_{typeParamName}.
+            return $"_cs2j_{typeParam.Name}";
+        }
         if (typeSymbol.SpecialType == SpecialType.System_Int32) return "int.class";
         if (typeSymbol.SpecialType == SpecialType.System_Int64) return "long.class";
         if (typeSymbol.SpecialType == SpecialType.System_Int16) return "short.class";

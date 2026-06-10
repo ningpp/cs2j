@@ -686,6 +686,42 @@ class Sample
         Assert.Contains("StringHelper.copyTo(s, 0, dest, 0, 5)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // ==================== String constructor: new string(char, int) → String.valueOf(char).repeat(int) ====================
+
+    [Fact]
+    public void String_Ctor_CharInt_ConvertsToValueOfRepeat()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public string Repeat(char c, int count)
+    {
+        return new string(c, count);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("String.valueOf(c).repeat(count)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new String(c, count)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void String_Ctor_CharLiteralInt_ConvertsToValueOfRepeat()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public string MakeString()
+    {
+        return new string('a', 5);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("String.valueOf('a').repeat(5)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new String('a', 5)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ==================== Import verification ====================
 
     [Fact]

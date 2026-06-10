@@ -511,6 +511,39 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# new string(char c, int count) → Java String.valueOf(c).repeat(count)
+        // Java String has no (char, int) constructor; C# creates a string by repeating the character.
+        if (bareType == "String" && argumentList.Arguments.Count == 2)
+        {
+            var isCharIntCtor = false;
+            if (ctorSymbol?.Parameters.Length == 2
+                && ctorSymbol.Parameters[0].Type.SpecialType == SpecialType.System_Char
+                && ctorSymbol.Parameters[1].Type.SpecialType == SpecialType.System_Int32)
+            {
+                isCharIntCtor = true;
+            }
+            else
+            {
+                // Fallback: check argument types via semantic model.
+                var arg0Type = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+                var arg1Type = context.GetTypeInfo(argumentList.Arguments[1].Expression).Type;
+                if (arg0Type != null && arg1Type != null
+                    && arg0Type.SpecialType == SpecialType.System_Char
+                    && arg1Type.SpecialType == SpecialType.System_Int32)
+                {
+                    isCharIntCtor = true;
+                }
+            }
+            if (isCharIntCtor)
+            {
+                var parts = SplitTopLevelArgs(args);
+                if (parts.Count == 2)
+                {
+                    return $"String.valueOf({parts[0]}).repeat({parts[1]})";
+                }
+            }
+        }
+
         // C# new string(Span<char>) → Java Span<Character>.toString()
         // Java String has no constructor accepting Span<Character>.
         if (bareType == "String" && argumentList.Arguments.Count == 1)

@@ -142,6 +142,14 @@ public partial class StatementTransformer
         var expression = exprTransformer.Transform(stmt.Expression, context);
         var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "var";
 
+        // C# allows foreach (char c in str) because string implements IEnumerable<char>.
+        // Java String does NOT implement Iterable<Character>, so we must use toCharArray().
+        var exprTypeInfo = context.GetTypeInfo(stmt.Expression).Type;
+        if (exprTypeInfo?.SpecialType == SpecialType.System_String)
+        {
+            expression = $"{expression}.toCharArray()";
+        }
+
         // LINQ type parameter names that leak through unresolved generics
         if (javaType is "TSource" or "TResult" or "TKey" or "TElement"
             or "TFirst" or "TSecond" or "TAccumulate")
@@ -165,7 +173,6 @@ public partial class StatementTransformer
             : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
 
         // Detect: iterating over a Dictionary/Map → need .entrySet() in Java
-        var exprTypeInfo = context.GetTypeInfo(stmt.Expression).Type;
         if (exprTypeInfo is INamedTypeSymbol exprNamed &&
             (exprNamed.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
              "HashMap" or "TreeMap" or "LinkedHashMap" ||

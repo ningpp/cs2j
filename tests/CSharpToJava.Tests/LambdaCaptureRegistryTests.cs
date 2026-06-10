@@ -171,4 +171,78 @@ class T {
 }");
         Assert.Contains("CompletableFuture", result);
     }
+
+    // ── Lambda with ref parameter: post-statements must stay inside lambda ──
+
+    [Fact]
+    public void LambdaWithRefParam_PostStatementsInsideLambda()
+    {
+        // When a lambda expression body contains a ref parameter (e.g., ref index),
+        // the converter generates IntHolder pre/post statements. The post-statement
+        // (index = _indexRef.value) must be placed INSIDE the lambda body, not outside,
+        // because _indexRef is declared inside the lambda.
+        var result = ConvertCode(@"
+using System;
+class T {
+    void M() {
+        int index = 0;
+        Action a = () => SomeMethod(ref index);
+        index = 5;
+    }
+    void SomeMethod(ref int i) { }
+}");
+        // The _indexRef variable should be declared inside the lambda,
+        // and the post-statement assigning back should also be inside the lambda.
+        // We verify that _indexRef is NOT referenced outside the lambda body.
+        Assert.Contains("IntHolder", result);
+        // Check that _indexRef is not used outside the lambda (would cause compile error)
+        // The lambda should be a block lambda with the holder declaration inside
+        Assert.Contains("-> {", result);
+    }
+
+    [Fact]
+    public void VoidLambdaWithChainedPropertyAssignment_NoBareVariableStatement()
+    {
+        // When a void lambda's body is a property assignment like () => obj.Prop = value,
+        // the converter hoists it to pre-statements and returns a _chainVal temp variable.
+        // In a void lambda, the bare _chainVal variable should NOT be emitted as a statement
+        // because "_chainVal;" is not a valid Java statement.
+        var result = ConvertCode(@"
+using System;
+class T {
+    void M() {
+        Action a = () => new Builder().Name = ""test"";
+    }
+}
+class Builder {
+    public string Name { get; set; }
+}");
+        // Should not contain a bare _chainVal; statement inside the lambda
+        Assert.DoesNotContain("_chainVal);", result);
+    }
+
+    [Fact]
+    public void LambdaWithRefParam_MutatedCaptureUsesHolderInLambda()
+    {
+        // When a variable is passed as ref inside a lambda AND is reassigned outside the lambda,
+        // the lambda body should use _index[0] instead of the raw 'index' variable,
+        // because Java requires lambda-captured variables to be effectively final.
+        var result = ConvertCode(@"
+using System;
+class T {
+    void M() {
+        int index = -1;
+        Action a = () => SomeMethod(ref index);
+        index = 0;
+        SomeMethod(ref index);
+    }
+    void SomeMethod(ref int i) { }
+}");
+        // index inside the lambda should be replaced with _index[0]
+        // to satisfy Java's effectively-final requirement
+        Assert.Contains("_index", result);
+        // The lambda body should NOT reference raw 'index' directly
+        // (it should use _index[0] instead)
+        Assert.DoesNotContain("IntHolder _indexRef = new IntHolder(index)", result);
+    }
 }

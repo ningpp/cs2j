@@ -1074,6 +1074,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"Objects.equals({receiver}, {arg})";
         }
 
+        // C# value-type Equals on primitives: intVar.Equals(other) → (intVar == other)
+        // Java primitives cannot call .equals(); use == instead.
+        // This also handles chained calls like GetHashCode().Equals(...) where the
+        // receiver is a primitive return value.
+        if (originalMethodName == "Equals"
+            && node.ArgumentList.Arguments.Count == 1
+            && stringEqualsReceiverType != null
+            && IsPrimitiveOrEnumType(stringEqualsReceiverType))
+        {
+            var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"({receiver} == {arg})";
+        }
+
         if (IsSystemStringType(stringEqualsReceiverType)
             && originalMethodName == "Equals"
             && node.ArgumentList.Arguments.Count == 2
@@ -1488,6 +1501,72 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             context.AddImport("csharp.xunit.Assert");
+
+            // For Throws<T> and ThrowsAny<T>, the generic type argument <T> must be
+            // converted to T.class and prepended as the first argument, because Java's
+            // throws_(Class<T>, Runnable) and throwsAny(Class<T>, Runnable) require it.
+            if ((xunitAssertName == "throws_" || xunitAssertName == "throwsAny")
+                && memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 } genericName)
+            {
+                string? classLiteral = null;
+
+                // Prefer semantic type info when available (handles type mappings correctly).
+                if (methodSymbol?.TypeArguments.Length > 0)
+                {
+                    var typeArg = methodSymbol.TypeArguments[0];
+                    if (typeArg is ITypeParameterSymbol typeParam)
+                    {
+                        // T is a type parameter from the enclosing method/type — cannot use T.class.
+                        // Register a Class<T> parameter requirement so MethodTransformer adds it.
+                        var currentMethod = context.CurrentMethod;
+                        if (currentMethod != null)
+                        {
+                            context.RequireClassTypeParam(
+                                currentMethod.ContainingType?.MetadataName ?? "",
+                                currentMethod.MetadataName,
+                                typeParam.Name);
+                        }
+                        // GetClassLiteral now handles ITypeParameterSymbol via TryGetRuntimeClassParameter.
+                        classLiteral = ConversionContext.GetClassLiteral(typeArg, context);
+                    }
+                    else
+                    {
+                        classLiteral = ConversionContext.GetClassLiteral(typeArg, context);
+                    }
+                }
+                else
+                {
+                    // Fallback: resolve the type argument syntax via Roslyn's semantic model.
+                    var typeArgSyntax = genericName.TypeArgumentList.Arguments[0];
+                    var typeArgSymbol = context.GetTypeInfo(typeArgSyntax).Type;
+                    if (typeArgSymbol != null)
+                    {
+                        if (typeArgSymbol is ITypeParameterSymbol typeParam)
+                        {
+                            var currentMethod = context.CurrentMethod;
+                            if (currentMethod != null)
+                            {
+                                context.RequireClassTypeParam(
+                                    currentMethod.ContainingType?.MetadataName ?? "",
+                                    currentMethod.MetadataName,
+                                    typeParam.Name);
+                            }
+                        }
+                        classLiteral = ConversionContext.GetClassLiteral(typeArgSymbol, context);
+                    }
+                    else
+                    {
+                        // Last resort: transform the type syntax directly and append .class.
+                        var mappedType = facade.Transform(typeArgSyntax, context);
+                        classLiteral = $"{mappedType}.class";
+                    }
+                }
+
+                assertArgs = string.IsNullOrEmpty(assertArgs)
+                    ? classLiteral
+                    : $"{classLiteral}, {assertArgs}";
+            }
+
             return $"Assert.{xunitAssertName}({assertArgs})";
         }
 
@@ -2822,7 +2901,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || methodName.StartsWith("StringHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("Regex.", StringComparison.Ordinal)
             || methodName.StartsWith("Encoding.", StringComparison.Ordinal)
-            || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal))
+            || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal)
+            || methodName.StartsWith("PropertyInfo.", StringComparison.Ordinal)
+            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal))
         {
             var helperArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
@@ -4517,7 +4598,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (methodName.StartsWith("Encoding.", StringComparison.Ordinal)
             || methodName.StartsWith("Regex.", StringComparison.Ordinal)
-            || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal))
+            || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal)
+            || methodName.StartsWith("PropertyInfo.", StringComparison.Ordinal)
+            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal))
             return $"{methodName}({args})";
 
         if (originalMethodName == "Parse"
@@ -4569,7 +4652,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (methodName.StartsWith("MathHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("EnumHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("StringHelper.", StringComparison.Ordinal)
-            || methodName.StartsWith("System.getenv", StringComparison.Ordinal))
+            || methodName.StartsWith("System.getenv", StringComparison.Ordinal)
+            || methodName.StartsWith("PropertyInfo.", StringComparison.Ordinal)
+            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal))
         {
             // When the original C# method is an instance method, the receiver must be
             // passed as the first argument to the static helper method.
@@ -5579,7 +5664,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// Maps C# built-in primitive static method names to their Java equivalents.
     /// e.g. double.IsInfinity → Double.isInfinite, int.Parse → Integer.parseInt
     /// </summary>
-    private static string MapPrimitiveStaticMethodName(string primitiveKeyword, string methodName)
+    internal static string MapPrimitiveStaticMethodName(string primitiveKeyword, string methodName)
         => (primitiveKeyword, methodName) switch
         {
             // char-specific mappings: C# and Java Character class have different method names
@@ -6103,6 +6188,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     private static bool IsSystemStringType(ITypeSymbol? typeSymbol)
     {
         return typeSymbol?.SpecialType == SpecialType.System_String;
+    }
+
+    private static bool IsPrimitiveOrEnumType(ITypeSymbol? typeSymbol)
+    {
+        if (typeSymbol == null) return false;
+        if (typeSymbol.TypeKind == TypeKind.Enum) return true;
+        return typeSymbol.SpecialType is
+            SpecialType.System_Boolean or
+            SpecialType.System_Byte or
+            SpecialType.System_SByte or
+            SpecialType.System_Int16 or
+            SpecialType.System_Int32 or
+            SpecialType.System_Int64 or
+            SpecialType.System_UInt16 or
+            SpecialType.System_UInt32 or
+            SpecialType.System_UInt64 or
+            SpecialType.System_Single or
+            SpecialType.System_Double or
+            SpecialType.System_Decimal or
+            SpecialType.System_Char;
     }
 
     private static bool IsSystemTextStringBuilder(ITypeSymbol? typeSymbol)

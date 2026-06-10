@@ -210,6 +210,74 @@ public class XunitAssertConversionTests
     }
 
     [Fact]
+    public void Xunit_Assert_Throws_includes_type_arg_as_class_literal()
+    {
+        var result = Convert("""
+            using Xunit;
+            using System;
+
+            class MyTests
+            {
+                [Fact]
+                public void TestThrowsTypeArg()
+                {
+                    Assert.Throws<ArgumentException>(() => { });
+                }
+            }
+            """);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // The generic type argument <ArgumentException> must be converted to
+        // ArgumentException.class (mapped) as the first argument of throws_().
+        Assert.Contains("ArgumentException.class", result.GeneratedCode);
+        Assert.Contains("throws_(ArgumentException.class", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Xunit_Assert_Throws_ArgumentNullException_maps_to_compat_class()
+    {
+        var result = Convert("""
+            using Xunit;
+            using System;
+
+            class MyTests
+            {
+                [Fact]
+                public void TestThrowsArgumentNullException()
+                {
+                    Assert.Throws<ArgumentNullException>(() => { });
+                }
+            }
+            """);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // ArgumentNullException should map to compat class, not NullPointerException,
+        // so it satisfies the <T extends ArgumentException> constraint in throws_().
+        Assert.Contains("ArgumentNullException.class", result.GeneratedCode);
+        Assert.Contains("throws_(ArgumentNullException.class", result.GeneratedCode);
+        Assert.DoesNotContain("NullPointerException.class", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Xunit_Assert_ThrowsAny_includes_type_arg_as_class_literal()
+    {
+        var result = Convert("""
+            using Xunit;
+            using System;
+
+            class MyTests
+            {
+                [Fact]
+                public void TestThrowsAnyTypeArg()
+                {
+                    Assert.ThrowsAny<Exception>(() => { });
+                }
+            }
+            """);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("RuntimeException.class", result.GeneratedCode);
+        Assert.Contains("throwsAny(RuntimeException.class", result.GeneratedCode);
+    }
+
+    [Fact]
     public void Xunit_Assert_IsType_converts_to_csharp_xunit_Assert_isType()
     {
         var result = Convert("""
