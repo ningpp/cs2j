@@ -134,7 +134,7 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 var idxExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 string offsetExpr = pointerInfo.ElementSize == 1
                     ? idxExpr
-                    : $"(long){idxExpr} * {pointerInfo.ElementSize}";
+                    : $"(long)({idxExpr}) * {pointerInfo.ElementSize}";
                 return FfmHelper.GeneratePointerRead(targetExpr.Trim(), pointerInfo, offsetExpr);
             }
         }

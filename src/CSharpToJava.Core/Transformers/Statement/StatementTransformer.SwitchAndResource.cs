@@ -960,9 +960,32 @@ public partial class StatementTransformer
                 // Handle address-of scalar: fixed (byte* p = &b)
                 if (initValue is PrefixUnaryExpressionSyntax addrOf && addrOf.OperatorToken.IsKind(SyntaxKind.AmpersandToken))
                 {
-                    var operandExpr = ExpressionTransformerFacade.Instance.Transform(addrOf.Operand, context);
-                    var arrayType = FfmHelper.GetScratchArrayType(info.CSharpElementTypeName);
-                    sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
+                    // Check for &arr[index] pattern (address of array element)
+                    if (addrOf.Operand is ElementAccessExpressionSyntax elemAccess
+                        && elemAccess.ArgumentList.Arguments.Count == 1)
+                    {
+                        var arrayExpr = ExpressionTransformerFacade.Instance.Transform(elemAccess.Expression, context);
+                        var indexExpr = ExpressionTransformerFacade.Instance.Transform(elemAccess.ArgumentList.Arguments[0].Expression, context);
+                        // If index is 0, wrap the entire array
+                        if (indexExpr.Trim() == "0")
+                        {
+                            sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray({arrayExpr});");
+                        }
+                        else
+                        {
+                            // Non-zero index: wrap array and slice
+                            var offsetCalc = info.ElementSize == 1
+                                ? indexExpr
+                                : $"(long)({indexExpr}) * {info.ElementSize}";
+                            sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray({arrayExpr}).asSlice({offsetCalc});");
+                        }
+                    }
+                    else
+                    {
+                        var operandExpr = ExpressionTransformerFacade.Instance.Transform(addrOf.Operand, context);
+                        var arrayType = FfmHelper.GetScratchArrayType(info.CSharpElementTypeName);
+                        sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
+                    }
                 }
                 else
                 {

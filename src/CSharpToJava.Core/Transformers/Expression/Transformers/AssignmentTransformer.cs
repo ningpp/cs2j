@@ -297,7 +297,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     var idxExpr = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
                     string offsetExpr = pointerInfo.ElementSize == 1
                         ? idxExpr
-                        : $"(long){idxExpr} * {pointerInfo.ElementSize}";
+                        : $"(long)({idxExpr}) * {pointerInfo.ElementSize}";
                     var pointerRightStr = facade.Transform(rightNode, context);
                     pointerRightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, pointerRightStr, null, context);
                     return FfmHelper.GeneratePointerWrite(targetExpr.Trim(), pointerInfo, offsetExpr, pointerRightStr) + ";";
@@ -771,7 +771,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     else
                     {
                         var sign = op == "+=" ? "" : "-";
-                        return $"{leftExpr} = {leftExpr}.asSlice({sign}(long){rightExpr} * {pointerInfo.ElementSize})";
+                        return $"{leftExpr} = {leftExpr}.asSlice({sign}(long)({rightExpr}) * {pointerInfo.ElementSize})";
                     }
                 }
             }

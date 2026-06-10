@@ -285,7 +285,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("asSlice((long)4 * 4)", result.GeneratedCode);
+        Assert.Contains("asSlice((long)(4) * 4)", result.GeneratedCode);
     }
 
     [Fact]
@@ -302,7 +302,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("pChars.asSlice((long)startPos * 2).asSlice((long)len * 2)", result.GeneratedCode);
+        Assert.Contains("pChars.asSlice((long)(startPos) * 2).asSlice((long)(len) * 2)", result.GeneratedCode);
     }
 
     [Fact]
@@ -320,8 +320,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("pChars.asSlice((long)startPos * 2)", result.GeneratedCode);
-        Assert.Contains("pChars.asSlice((long)startPos * 2).asSlice((long)len * 2)", result.GeneratedCode);
+        Assert.Contains("pChars.asSlice((long)(startPos) * 2)", result.GeneratedCode);
+        Assert.Contains("pChars.asSlice((long)(startPos) * 2).asSlice((long)(len) * 2)", result.GeneratedCode);
     }
 
     [Fact]
@@ -336,7 +336,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_INT, (long)2 * 4)", result.GeneratedCode);
+        Assert.Contains("p.get(ValueLayout.JAVA_INT, (long)(2) * 4)", result.GeneratedCode);
     }
 
     [Fact]
@@ -596,7 +596,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(-(long)2 * 4)", result.GeneratedCode);
+        Assert.Contains("p = p.asSlice(-(long)(2) * 4)", result.GeneratedCode);
     }
 
     [Fact]
@@ -657,6 +657,128 @@ unsafe class Test {
         Assert.True(result.Success, result.GeneratedCode);
         Assert.Contains("MemorySegment.ofArray(new byte[size])", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("new Span<>", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CharPointer_IndexWithCompoundExpression_ProducesCorrectOffset()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr, int next) {
+        fixed (char* p = arr) {
+            char ch = p[next + 1];
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("(long)(next + 1) * 2", result.GeneratedCode);
+        Assert.DoesNotContain("(long)next + 1 * 2", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void CharPointer_IndexWithCompoundExpression_Write_ProducesCorrectOffset()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr, int next) {
+        fixed (char* p = arr) {
+            p[next + 1] = 'a';
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("(long)(next + 1) * 2", result.GeneratedCode);
+        Assert.DoesNotContain("(long)next + 1 * 2", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void IntPointer_IndexWithCompoundExpression_ProducesCorrectOffset()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(int[] arr, int i, int count) {
+        fixed (int* p = arr) {
+            int v = p[i + count];
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("(long)(i + count) * 4", result.GeneratedCode);
+        Assert.DoesNotContain("(long)i + count * 4", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void CharPointer_ArithmeticWithCompoundExpression_ProducesCorrectOffset()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr, int next) {
+        fixed (char* p = arr) {
+            char* q = p + next + 1;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // p + next + 1 is split into chained asSlice calls, which is semantically equivalent
+        Assert.Contains("p.asSlice((long)(next) * 2).asSlice((long)(1) * 2)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void FixedBytePointer_AddressOfArrayElementZero()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M() {
+        byte[] encodedBytes = new byte[4];
+        fixed (byte* p = &encodedBytes[0]) { }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("MemorySegment p = MemorySegment.ofArray(encodedBytes)", result.GeneratedCode);
+        Assert.DoesNotContain("new byte[] { encodedBytes[0] }", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void FixedCharPointer_AddressOfArrayElementZero()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M() {
+        char[] chars = new char[10];
+        fixed (char* p = &chars[0]) { }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("MemorySegment p = MemorySegment.ofArray(chars)", result.GeneratedCode);
+        Assert.DoesNotContain("new char[] { chars[0] }", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void FixedBytePointer_AddressOfArrayElementNonZero()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M() {
+        byte[] encodedBytes = new byte[4];
+        fixed (byte* p = &encodedBytes[2]) { }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(encodedBytes).asSlice(2)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void FixedIntPointer_AddressOfArrayElementNonZero()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M() {
+        int[] data = new int[10];
+        fixed (int* p = &data[3]) { }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(data).asSlice((long)(3) * 4)", result.GeneratedCode);
     }
 
     private static ConversionResult Convert(string sourceCode)

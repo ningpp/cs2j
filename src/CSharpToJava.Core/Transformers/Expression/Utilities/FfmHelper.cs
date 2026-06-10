@@ -168,7 +168,7 @@ public static class FfmHelper
     {
         if (info.ElementSize == 1)
             return $"{segmentExpr}.asSlice({offsetExpr})";
-        return $"{segmentExpr}.asSlice((long){offsetExpr} * {info.ElementSize})";
+        return $"{segmentExpr}.asSlice((long)({offsetExpr}) * {info.ElementSize})";
     }
 
     public static string GenerateMemorySegmentInit(string variableName, string initializerExpr, FixedPointerInfo info, bool isString, bool isNull)

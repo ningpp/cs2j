@@ -351,7 +351,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_INT, (long)i * 4)", result.GeneratedCode);
+        Assert.Contains("p.get(ValueLayout.JAVA_INT, (long)(i) * 4)", result.GeneratedCode);
     }
 
     [Fact]
@@ -377,7 +377,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.set(ValueLayout.JAVA_INT, (long)i * 4", result.GeneratedCode);
+        Assert.Contains("p.set(ValueLayout.JAVA_INT, (long)(i) * 4", result.GeneratedCode);
     }
 
     [Fact]
@@ -455,7 +455,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.asSlice((long)n * 4)", result.GeneratedCode);
+        Assert.Contains("p.asSlice((long)(n) * 4)", result.GeneratedCode);
     }
 
     [Fact]
