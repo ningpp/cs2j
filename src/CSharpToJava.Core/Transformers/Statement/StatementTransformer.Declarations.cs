@@ -210,6 +210,46 @@ public partial class StatementTransformer
                     _ => null
                 };
                 var initExpr = exprTransformer.Transform(v.Initializer.Value, context);
+
+                // For pointer-typed local variables, propagate base segment info
+                if (localTargetType is IPointerTypeSymbol && v.Initializer.Value is BinaryExpressionSyntax binInit
+                    && binInit.OperatorToken.IsKind(SyntaxKind.MinusToken))
+                {
+                    var binLeftType = context.GetTypeInfo(binInit.Left).Type;
+                    if (binLeftType is IPointerTypeSymbol)
+                    {
+                        var binLeftExpr = exprTransformer.Transform(binInit.Left, context);
+                        if (context.TryGetPointerBase(binLeftExpr.Trim(), out var inheritedBase))
+                        {
+                            context.RegisterPointerBase(ConversionContext.EscapeJavaKeyword(v.Identifier.Text), inheritedBase);
+                        }
+                    }
+                }
+                // Also handle pointer addition that creates a new pointer variable (e.g., char* end = p + 5;)
+                if (localTargetType is IPointerTypeSymbol && v.Initializer.Value is BinaryExpressionSyntax binAddInit
+                    && binAddInit.OperatorToken.IsKind(SyntaxKind.PlusToken))
+                {
+                    var binAddLeftType = context.GetTypeInfo(binAddInit.Left).Type;
+                    if (binAddLeftType is IPointerTypeSymbol)
+                    {
+                        var binAddLeftExpr = exprTransformer.Transform(binAddInit.Left, context);
+                        if (context.TryGetPointerBase(binAddLeftExpr.Trim(), out var inheritedBase))
+                        {
+                            context.RegisterPointerBase(ConversionContext.EscapeJavaKeyword(v.Identifier.Text), inheritedBase);
+                        }
+                    }
+                }
+                // Handle pointer variable initialized from another pointer variable (e.g., char* newPos = curPos;)
+                // This propagates the base segment so subsequent pointer arithmetic on the new variable
+                // uses the base segment instead of the potentially zero-length slice.
+                if (localTargetType is IPointerTypeSymbol && v.Initializer.Value is IdentifierNameSyntax idInit)
+                {
+                    var idExpr = exprTransformer.Transform(idInit, context);
+                    if (context.TryGetPointerBase(idExpr.Trim(), out var inheritedBase))
+                    {
+                        context.RegisterPointerBase(ConversionContext.EscapeJavaKeyword(v.Identifier.Text), inheritedBase);
+                    }
+                }
                 // When the declared type is a primitive array (e.g., int[]) and the initializer is
                 // a generic method whose original return type is T[] (type-parameter array),
                 // Java generics substitute T with the boxed type (Integer[]) — we must unbox it.

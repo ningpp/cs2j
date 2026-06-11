@@ -107,6 +107,9 @@ public class EnumTransformer : ITypeTransformer
                 }
             }
 
+            // Add _UNMAPPED sentinel for unnamed enum values (e.g., (UriFormat)0x7FFF)
+            javaEnum.Values.Add($"_UNMAPPED(0)");
+
             // Register so that cast sites know to use getValue()/fromValue() instead of ordinal()/values()[]
             RegisterEnumNames(enumDecl, enumSymbol, context, name => context.RegisterExplicitValueEnum(name, enumValueType));
 
@@ -144,7 +147,17 @@ public class EnumTransformer : ITypeTransformer
                 ReturnType = enumName,
                 Name = "fromValue",
                 Modifiers = JavaModifiers.Public | JavaModifiers.Static,
-                Body = $"for ({enumName} e : values()) {{ if (e.value == v) return e; }}\n        throw new IllegalArgumentException(\"No enum constant with value \" + v);"
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
+            });
+            javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
+
+            // Add fromValueUnchecked() for unnamed enum value casts (e.g., (UriFormat)0x7FFF)
+            javaEnum.Methods.Add(new JavaMethodDeclaration
+            {
+                ReturnType = enumName,
+                Name = "fromValueUnchecked",
+                Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
             });
             javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
         }

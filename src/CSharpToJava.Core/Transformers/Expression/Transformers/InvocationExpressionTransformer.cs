@@ -1298,8 +1298,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         ? $"String.format({rewrittenFormat})"
                         : $"String.format({rewrittenFormat}, {remainingArgs})";
                 }
+                // Format string is NOT a literal (e.g. a variable like SR.SomeResource).
+                // Use StringHelper.formatCs() which converts {N} placeholders to %s at runtime.
+                context.AddImport("io.github.ningpp.compat.StringHelper");
                 var formatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart);
-                return $"String.format({formatArgs})";
+                return $"StringHelper.formatCs({formatArgs})";
             }
 
             // string.IsNullOrEmpty(s) → StringHelper.isNullOrEmpty(s)
@@ -1591,8 +1594,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     ? $"String.format({rewrittenFormat})"
                     : $"String.format({rewrittenFormat}, {remainingArgs})";
             }
-            var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart, methodSymbol);
-            return $"String.format({fmtArgs})";
+            // Format string is NOT a literal (e.g. a variable like SR.SomeResource).
+            // Use StringHelper.formatCs() which converts {N} placeholders to %s at runtime.
+            if (isRealSystemString)
+            {
+                context.AddImport("io.github.ningpp.compat.StringHelper");
+                var fmtArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart, methodSymbol);
+                return $"StringHelper.formatCs({fmtArgs})";
+            }
+            var fmtArgsFallback = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart, methodSymbol);
+            return $"String.format({fmtArgsFallback})";
         }
 
         // C# string.Create(length, state, action) -> Java char[] + new String(char[])
@@ -2696,7 +2707,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             var fmtArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, appendFmtStart, methodSymbol);
-            return $"{receiver}.append(String.format({fmtArgs}))";
+            // Format string is NOT a literal — use StringHelper.formatCs() for {N} placeholder support
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"{receiver}.append(StringHelper.formatCs({fmtArgs}))";
         }
 
         // Delegate .Invoke(args) fallback: when the semantic model couldn't identify this as
@@ -3020,7 +3033,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Fix: String.Format("{0}  {1}", a, b) → String.format("%s  %s", a, b)
         // C# uses {N} / {N:specifier} placeholders; Java uses printf-style % specifiers.
         // Only rewrite when the first argument is a string literal — dynamic format strings
-        // cannot be statically rewritten and are left as-is.
+        // cannot be statically rewritten, so use StringHelper.formatCs() for runtime conversion.
         bool isStringFormat = originalMethodName == "Format"
             && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringFormat && node.ArgumentList.Arguments.Count > argStartIndex)
@@ -3035,6 +3048,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     : $"{receiver}.{methodName}({rewrittenFormat}, {remainingArgs})";
                 return formatCall;
             }
+            // Format string is NOT a literal — use StringHelper.formatCs() for {N} placeholder support
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            var fmtArgsAll = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex);
+            return $"StringHelper.formatCs({fmtArgsAll})";
         }
 
         if (originalMethodName == "CreateRectangleNodeOnData"

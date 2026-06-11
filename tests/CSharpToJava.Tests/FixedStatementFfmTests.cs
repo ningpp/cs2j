@@ -15,7 +15,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("MemorySegment p = __base", result.GeneratedCode);
     }
 
     [Fact]
@@ -28,7 +30,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
     }
 
     [Fact]
@@ -41,7 +44,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
     }
 
     [Fact]
@@ -54,7 +58,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
     }
 
     [Fact]
@@ -67,7 +72,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
     }
 
     [Fact]
@@ -80,7 +86,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
     }
 
     [Fact]
@@ -93,7 +100,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
     }
 
     [Fact]
@@ -106,7 +114,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
     }
 
     [Fact]
@@ -121,7 +130,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_BYTE, 0) & 0xFF", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*1\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*\(__base\d+\.get\(ValueLayout\.JAVA_BYTE,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*&\s*0xFF\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -151,7 +162,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_BYTE, i) & 0xFF", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(i\)\)\s*\+\s*1\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*\(__base\d+\.get\(ValueLayout\.JAVA_BYTE,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(i\)\)\)\s*&\s*0xFF\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -196,7 +209,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_BYTE, 0)", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*1\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_BYTE,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*0\)",
+            result.GeneratedCode);
         Assert.DoesNotContain("& 0xFF", result.GeneratedCode);
     }
 
@@ -212,7 +227,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_CHAR, 0)", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_CHAR,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*'\\0'\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -240,6 +257,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
+        Assert.Contains("__base", result.GeneratedCode);
         Assert.Contains("MemorySegment.ofArray(str.toCharArray())", result.GeneratedCode);
     }
 
@@ -255,7 +273,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.asSlice(4)", result.GeneratedCode);
+        Assert.Contains("__base1.asSlice(p.address() - __base1.address() + 4)", result.GeneratedCode);
     }
 
     [Fact]
@@ -270,7 +288,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(1)", result.GeneratedCode);
+        Assert.Contains("__base1.asSlice(p.address() - __base1.address() + 1)", result.GeneratedCode);
+        Assert.Contains("byteSize()", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofAddress", result.GeneratedCode);
     }
 
     [Fact]
@@ -285,7 +305,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("asSlice((long)(4) * 4)", result.GeneratedCode);
+        Assert.Contains("__base1.asSlice(p.address() - __base1.address() + (long)(4) * 4)", result.GeneratedCode);
     }
 
     [Fact]
@@ -302,7 +322,11 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("pChars.asSlice((long)(startPos) * 2).asSlice((long)(len) * 2)", result.GeneratedCode);
+        // pChars + startPos generates a conditional expression with bounds check,
+        // then + len chains .asSlice((long)(len) * 2) on the result.
+        Assert.Matches(
+            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(pChars\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(len\)\s*\*\s*2\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -320,8 +344,14 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("pChars.asSlice((long)(startPos) * 2)", result.GeneratedCode);
-        Assert.Contains("pChars.asSlice((long)(startPos) * 2).asSlice((long)(len) * 2)", result.GeneratedCode);
+        // pChars + startPos generates a conditional expression with bounds check
+        Assert.Matches(
+            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(pChars\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\)",
+            result.GeneratedCode);
+        // pChars + startPos + len chains .asSlice((long)(len) * 2) on the conditional result
+        Assert.Matches(
+            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(pChars\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(len\)\s*\*\s*2\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -336,7 +366,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_INT, (long)(2) * 4)", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(2\)\s*\*\s*4\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_INT,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(2\)\s*\*\s*4\)\)\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -365,7 +397,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
         Assert.DoesNotContain("/* TODO: Unsafe", result.GeneratedCode);
     }
 
@@ -469,8 +502,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p1 = MemorySegment.ofArray(a)", result.GeneratedCode);
-        Assert.Contains("MemorySegment p2 = MemorySegment.ofArray(b)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(a)", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(b)", result.GeneratedCode);
     }
 
     [Fact]
@@ -485,8 +519,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(a)", result.GeneratedCode);
-        Assert.Contains("MemorySegment q = MemorySegment.ofArray(b)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(a)", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(b)", result.GeneratedCode);
     }
 
     [Fact]
@@ -516,7 +551,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(arr)", result.GeneratedCode);
         Assert.Contains("MemorySegment q = MemorySegment.ofArray(new byte[] { b })", result.GeneratedCode);
     }
 
@@ -532,7 +568,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.asSlice(-4)", result.GeneratedCode);
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
     }
 
     [Fact]
@@ -581,7 +618,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(4)", result.GeneratedCode);
+        Assert.Contains("__base1.asSlice(p.address() - __base1.address() + 4)", result.GeneratedCode);
+        Assert.Contains("byteSize()", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofAddress", result.GeneratedCode);
     }
 
     [Fact]
@@ -596,7 +635,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(-(long)(2) * 4)", result.GeneratedCode);
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
     }
 
     [Fact]
@@ -719,8 +759,11 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        // p + next + 1 is split into chained asSlice calls, which is semantically equivalent
-        Assert.Contains("p.asSlice((long)(next) * 2).asSlice((long)(1) * 2)", result.GeneratedCode);
+        // p + next generates a conditional expression with bounds check,
+        // then + 1 chains .asSlice((long)(1) * 2) on the result.
+        Assert.Matches(
+            @"p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(p\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(1\)\s*\*\s*2\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -734,7 +777,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(encodedBytes)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(encodedBytes)", result.GeneratedCode);
         Assert.DoesNotContain("new byte[] { encodedBytes[0] }", result.GeneratedCode);
     }
 
@@ -749,7 +793,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("MemorySegment p = MemorySegment.ofArray(chars)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(chars)", result.GeneratedCode);
         Assert.DoesNotContain("new char[] { chars[0] }", result.GeneratedCode);
     }
 
@@ -764,7 +809,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("MemorySegment.ofArray(encodedBytes).asSlice(2)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(encodedBytes)", result.GeneratedCode);
+        Assert.Contains(".asSlice(2)", result.GeneratedCode);
     }
 
     [Fact]
@@ -778,7 +825,187 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("MemorySegment.ofArray(data).asSlice((long)(3) * 4)", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment.ofArray(data)", result.GeneratedCode);
+        Assert.Contains("asSlice((long)(3) * 4)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerSubtractOffset_CharPointer_UsesBaseSegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) {
+            char* q = p - 2;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains(".address()", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerDerefSubtract_UsesBaseSegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) {
+            p += 3;
+            char ch = *(p - 1);
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerDerefSubtract_Write_UsesBaseSegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr, char ch) {
+        fixed (char* p = arr) {
+            char* pnew = p - 2;
+            *(pnew - 1) = ch;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains(".set(", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PrefixDecrement_CharPointer_UsesBaseSegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) {
+            char* end = p + 5;
+            char ch = *--end;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerSubtractAssign_CharPointer_UsesBaseSegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) {
+            p += 4;
+            p -= 2;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PostfixIncrement_BacktrackDeref_UsesBacktrackVar()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) {
+            char ch = *p++;
+            char prev = *(p - 1);
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // *(p - 1) after *p++ should use the backtrack variable, not asSlice(-N)
+        Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void FixedPointer_BaseSegmentRegistered()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) { }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("__base", result.GeneratedCode);
+        Assert.Contains("MemorySegment __base", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void LocalPointerFromIdentifier_PropagatesBaseSegment()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* curPos = arr) {
+            char* newPos = curPos;
+            newPos++;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // newPos should inherit curPos's base segment, so newPos++ uses base segment
+        // instead of newPos.asSlice(2)
+        Assert.Matches(@"__base\d+\.asSlice\(newPos\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*2\)", result.GeneratedCode);
+        Assert.DoesNotContain("newPos.asSlice(2)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerIncrement_BeyondSegmentEnd_GeneratesOutOfBoundsProtection()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) {
+            p++;
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // When pointer increment may go past the segment end, the generated code
+        // should include out-of-bounds protection: a conditional expression that
+        // uses asSlice when offset <= byteSize, otherwise falls back to
+        // MemorySegment.ofAddress() to create a zero-length segment for address comparison.
+        Assert.Contains("MemorySegment.ofAddress", result.GeneratedCode);
+        Assert.Contains("byteSize()", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void PointerIndexAccess_WithPostIncrement_NoDoubleEvaluation()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(char[] arr) {
+        fixed (char* p = arr) {
+            int i = 0;
+            char c = p[i++];
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // The offset expression should be evaluated only once, not twice.
+        // If i++ appears in the generated code, it should appear exactly once
+        // in the offset calculation, with the result stored in a temp variable.
+        // Count occurrences of "i++" - should be exactly 1 (in the pre-statement)
+        var matchCount = System.Text.RegularExpressions.Regex.Matches(
+            result.GeneratedCode, @"i\+\+").Count;
+        Assert.True(matchCount <= 1, $"i++ should appear at most once, but appeared {matchCount} times");
     }
 
     private static ConversionResult Convert(string sourceCode)

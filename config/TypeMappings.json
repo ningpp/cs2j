@@ -3793,16 +3793,6 @@
             "javaMethod": "containsKey"
         },
         {
-            "type": "System.Collections.Generic.Dictionary",
-            "method": "TryGetValue",
-            "javaMethod": "get"
-        },
-        {
-            "type": "System.Collections.Generic.IDictionary",
-            "method": "TryGetValue",
-            "javaMethod": "get"
-        },
-        {
             "type": "System.String",
             "method": "Equals",
             "javaMethod": "equals"

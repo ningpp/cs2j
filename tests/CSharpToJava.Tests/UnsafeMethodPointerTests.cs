@@ -199,7 +199,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_BYTE, 0) & 0xFF", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*1\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*\(__base\d+\.get\(ValueLayout\.JAVA_BYTE,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*&\s*0xFF\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -212,7 +214,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_BYTE, 0)", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*1\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_BYTE,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -225,7 +229,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_CHAR, 0)", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_CHAR,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*'\\0'\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -238,7 +244,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_INT, 0)", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_INT,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -338,7 +346,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_BYTE, i) & 0xFF", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(i\)\)\s*\+\s*1\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*\(__base\d+\.get\(ValueLayout\.JAVA_BYTE,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(i\)\)\)\s*&\s*0xFF\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -351,7 +361,9 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.get(ValueLayout.JAVA_INT, (long)(i) * 4)", result.GeneratedCode);
+        Assert.Matches(
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(i\)\s*\*\s*4\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_INT,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(i\)\s*\*\s*4\)\)\)\s*:\s*0\)",
+            result.GeneratedCode);
     }
 
     [Fact]
@@ -390,7 +402,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(1)", result.GeneratedCode);
+        // With base segment for pointer params, increment uses base segment approach
+        Assert.Matches(@"__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*1\)", result.GeneratedCode);
     }
 
     [Fact]
@@ -403,7 +416,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(4)", result.GeneratedCode);
+        // With base segment for pointer params, increment uses base segment approach
+        Assert.Matches(@"__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*4\)", result.GeneratedCode);
     }
 
     [Fact]
@@ -416,7 +430,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(-1)", result.GeneratedCode);
+        // With base segment for pointer params, decrement uses base segment approach
+        Assert.Matches(@"__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*-1\)", result.GeneratedCode);
     }
 
     [Fact]
@@ -429,7 +444,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p = p.asSlice(-4)", result.GeneratedCode);
+        // With base segment for pointer params, decrement uses base segment approach
+        Assert.Matches(@"__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*-4\)", result.GeneratedCode);
     }
 
     [Fact]
@@ -442,7 +458,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.asSlice(n)", result.GeneratedCode);
+        // With base segment for pointer params, pointer addition uses base segment approach
+        Assert.Matches(@"__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*n\)", result.GeneratedCode);
     }
 
     [Fact]
@@ -455,7 +472,8 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.asSlice((long)(n) * 4)", result.GeneratedCode);
+        // With base segment for pointer params, pointer addition uses base segment approach
+        Assert.Matches(@"__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(n\)\s*\*\s*4\)", result.GeneratedCode);
     }
 
     [Fact]
@@ -493,7 +511,9 @@ unsafe class Test {
 }");
         Assert.True(result.Success);
         Assert.Contains("MemorySegment p", result.GeneratedCode);
-        Assert.Contains("MemorySegment q = MemorySegment.ofArray(arr)", result.GeneratedCode);
+        // With base segment, fixed statement generates: __baseN = MemorySegment.ofArray(arr); q = __baseN;
+        Assert.Matches(@"MemorySegment __base\d+ = MemorySegment\.ofArray\(arr\)", result.GeneratedCode);
+        Assert.Matches(@"MemorySegment q = __base\d+", result.GeneratedCode);
     }
 
     [Fact]

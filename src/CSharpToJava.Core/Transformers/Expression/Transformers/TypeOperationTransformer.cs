@@ -214,9 +214,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             var sourceType = context.GetTypeInfo(node.Expression).Type;
             if (sourceType?.TypeKind != TypeKind.Enum)
             {
-                if (IsExplicitValueEnum(targetSymbol, context))
+                bool isExplicitValue = IsExplicitValueEnum(targetSymbol, context);
+                // Fallback: check the enum symbol directly if not yet registered
+                if (!isExplicitValue && targetSymbol is INamedTypeSymbol namedEnum)
                 {
-                    var valueType = GetExplicitValueEnumValueType(targetSymbol, context);
+                    isExplicitValue = namedEnum.GetMembers()
+                        .OfType<IFieldSymbol>()
+                        .Any(f => f.IsConst && f.HasConstantValue && f.Name != "_UNMAPPED");
+                }
+                if (isExplicitValue)
+                {
+                    var valueType = IsExplicitValueEnum(targetSymbol, context)
+                        ? GetExplicitValueEnumValueType(targetSymbol, context)
+                        : (targetSymbol is INamedTypeSymbol ne && ne.EnumUnderlyingType?.SpecialType
+                            is SpecialType.System_Int64 or SpecialType.System_UInt64 ? "long" : "int");
                     return $"{targetType}.fromValue(({valueType})({expression}))";
                 }
                 return $"{targetType}.values()[(int)({expression})]";
@@ -240,9 +251,21 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                         : $"({targetType})({expression})";
                 }
 
-                if (IsExplicitValueEnum(sourceType, context))
+                bool sourceIsExplicitValue = IsExplicitValueEnum(sourceType, context);
+                // Fallback: check the enum symbol directly if not yet registered
+                if (!sourceIsExplicitValue && sourceType is INamedTypeSymbol namedSourceEnum)
                 {
-                    return targetType == GetExplicitValueEnumValueType(sourceType, context)
+                    sourceIsExplicitValue = namedSourceEnum.GetMembers()
+                        .OfType<IFieldSymbol>()
+                        .Any(f => f.IsConst && f.HasConstantValue && f.Name != "_UNMAPPED");
+                }
+                if (sourceIsExplicitValue)
+                {
+                    var sourceValueType = IsExplicitValueEnum(sourceType, context)
+                        ? GetExplicitValueEnumValueType(sourceType, context)
+                        : (sourceType is INamedTypeSymbol nse && nse.EnumUnderlyingType?.SpecialType
+                            is SpecialType.System_Int64 or SpecialType.System_UInt64 ? "long" : "int");
+                    return targetType == sourceValueType
                         ? $"{expression}.getValue()"
                         : $"({targetType})({expression}.getValue())";
                 }

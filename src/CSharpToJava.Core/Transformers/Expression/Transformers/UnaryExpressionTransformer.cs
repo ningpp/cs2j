@@ -424,6 +424,55 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
     private string TransformPointerIndirection(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
+
+        // Detect *(ptr - N) pattern at the C# AST level
+        var unwrappedOperand = node.Operand;
+        while (unwrappedOperand is ParenthesizedExpressionSyntax paren)
+            unwrappedOperand = paren.Expression;
+
+        if (unwrappedOperand is BinaryExpressionSyntax binary
+            && binary.OperatorToken.IsKind(SyntaxKind.MinusToken))
+        {
+            var leftType = context.GetTypeInfo(binary.Left).Type;
+            if (leftType is IPointerTypeSymbol)
+            {
+                var leftExpr = facade.Transform(binary.Left, context);
+                var rightExpr = facade.Transform(binary.Right, context);
+                var subPointerInfo = context.FindPointerInfo(leftExpr.Trim());
+                if (subPointerInfo == null && leftType is IPointerTypeSymbol ptrType)
+                {
+                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
+                    subPointerInfo = FfmHelper.CreatePointerInfo(leftExpr.Trim(), elementTypeName);
+                }
+
+                if (subPointerInfo != null)
+                {
+                    // Prefer base segment over backtrack variable.
+                    // Backtrack variables are defined as pre-statements in one switch-case
+                    // but may be referenced in another, causing Java "may not have been initialized"
+                    // errors in state machine (goto→switch) conversion.
+                    if (context.TryGetPointerBase(leftExpr.Trim(), out var baseVar))
+                    {
+                        string byteOffsetExpr = subPointerInfo.ElementSize == 1
+                            ? $"{leftExpr}.address() - {baseVar}.address() - {rightExpr}"
+                            : $"{leftExpr}.address() - {baseVar}.address() - (long)({rightExpr}) * {subPointerInfo.ElementSize}";
+                        return FfmHelper.GeneratePointerReadWithBoundsCheck(baseVar, subPointerInfo, byteOffsetExpr, baseVar, context);
+                    }
+
+                    // Fallback to backtrack variable (e.g., *ptr++ then *(ptr - 1))
+                    if (int.TryParse(rightExpr.Trim(), out int stepCount)
+                        && context.TryGetPointerBacktrackVar(leftExpr.Trim(), stepCount, out var backtrackVar))
+                    {
+                        if (context.TryGetPointerBase(backtrackVar.Trim(), out var btBaseVar))
+                        {
+                            return FfmHelper.GeneratePointerReadWithBoundsCheck(backtrackVar, subPointerInfo, "0", btBaseVar, context);
+                        }
+                        return FfmHelper.GeneratePointerRead(backtrackVar, subPointerInfo, "0");
+                    }
+                }
+            }
+        }
+
         var operand = facade.Transform(node.Operand, context);
 
         var operandText = operand.Trim();
@@ -439,6 +488,10 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
         if (pointerInfo != null)
         {
+            if (context.TryGetPointerBase(operandText, out var baseVar))
+            {
+                return FfmHelper.GeneratePointerReadWithBoundsCheck(operandText, pointerInfo, "0", baseVar, context);
+            }
             return FfmHelper.GeneratePointerRead(operandText, pointerInfo, "0");
         }
 
@@ -464,13 +517,35 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 if (pointerInfo != null)
                 {
                     long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
+
+                    string sliceExpr;
+                    if (context.TryGetPointerBase(operandExpr.Trim(), out var baseVar))
+                    {
+                        // Use base segment for pointer arithmetic with out-of-bounds protection.
+                        // C# allows one-past-end pointers (used only for address comparison),
+                        // but Java's MemorySegment.asSlice throws if offset > byteSize or offset < 0.
+                        // When the offset exceeds the base segment size or goes negative,
+                        // create a zero-length address-only segment via MemorySegment.ofAddress().
+                        var offsetExpr = $"{operandExpr}.address() - {baseVar}.address() + {delta}";
+                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({operandExpr}.address() + {delta}))";
+                    }
+                    else
+                    {
+                        // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
+                        sliceExpr = $"MemorySegment.ofAddress({operandExpr}.address() + {delta})";
+                    }
+
                     if (IsDiscardedValueContext(node))
-                        return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+                        return $"{operandExpr} = {sliceExpr}";
 
                     var tmp = context.GenerateSyntheticName("_ptrPost");
                     context.AddImport("java.lang.foreign.MemorySegment");
                     context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
-                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {operandExpr}.asSlice({delta})");
+                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {sliceExpr}");
+                    // Register backtrack: after ptr++, *(ptr - 1) should use tmp
+                    context.RegisterPointerBacktrackVar(operandExpr.Trim(), 1, tmp);
+                    if (delta < 0)
+                        context.InvalidatePointerBacktrackVars(operandExpr.Trim());
                     return tmp;
                 }
             }
@@ -573,13 +648,35 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 if (pointerInfo != null)
                 {
                     long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
+
+                    string sliceExpr;
+                    if (context.TryGetPointerBase(operandExpr.Trim(), out var baseVar))
+                    {
+                        // Use base segment with out-of-bounds protection (same as TransformPostfix).
+                        // C# allows one-past-end pointers (used only for address comparison),
+                        // but Java's MemorySegment.asSlice throws if offset > byteSize or offset < 0.
+                        var offsetExpr = $"{operandExpr}.address() - {baseVar}.address() + {delta}";
+                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({operandExpr}.address() + {delta}))";
+                    }
+                    else
+                    {
+                        // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
+                        sliceExpr = $"MemorySegment.ofAddress({operandExpr}.address() + {delta})";
+                    }
+
                     if (IsDiscardedValueContext(node))
-                        return $"{operandExpr} = {operandExpr}.asSlice({delta})";
+                    {
+                        if (delta < 0)
+                            context.InvalidatePointerBacktrackVars(operandExpr.Trim());
+                        return $"{operandExpr} = {sliceExpr}";
+                    }
 
                     var tmp = context.GenerateSyntheticName("_ptrPre");
                     context.AddImport("java.lang.foreign.MemorySegment");
-                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {operandExpr}.asSlice({delta})");
+                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {sliceExpr}");
                     context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
+                    if (delta < 0)
+                        context.InvalidatePointerBacktrackVars(operandExpr.Trim());
                     return tmp;
                 }
             }

@@ -124,11 +124,25 @@ public class MethodTransformer : IMemberTransformer
                 pointerParams.Add(FfmHelper.CreatePointerInfo(varName, elementTypeName));
             }
         }
+        var baseSegmentDeclarations = new List<string>();
         if (pointerParams.Count > 0)
         {
             context.PushFixedScope(pointerParams);
             foreach (var imp in FfmHelper.GetRequiredImports(false))
                 context.AddImport(imp);
+
+            // Create base segment variables for pointer parameters so that
+            // negative offset operations (e.g., ptr.asSlice(-N)) can use them.
+            // These declarations are collected separately (not via AddPreStatement)
+            // so they can be placed at the very beginning of the method body,
+            // ensuring they are visible throughout the entire method scope.
+            foreach (var ptrParam in pointerParams)
+            {
+                var paramName = ConversionContext.EscapeJavaKeyword(ptrParam.VariableName);
+                var baseVarName = context.GenerateSyntheticName("__base");
+                baseSegmentDeclarations.Add($"MemorySegment {baseVarName} = {paramName};");
+                context.RegisterPointerBase(paramName, baseVarName);
+            }
         }
 
         // 处理方法体
@@ -176,12 +190,27 @@ public class MethodTransformer : IMemberTransformer
 
                 var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
                 var returnStmt = isIteratorReturn ? "return CSharpEnumerator.from(_yieldResult.iterator());" : "return _yieldResult;";
-                javaMethod.Body = $"{listType} _yieldResult = new {listType}();\n        {body}\n        {returnStmt}";
+                var baseSegPrefix = baseSegmentDeclarations.Count > 0
+                    ? string.Join("\n        ", baseSegmentDeclarations) + "\n        "
+                    : "";
+                javaMethod.Body = $"{baseSegPrefix}{listType} _yieldResult = new {listType}();\n        {body}\n        {returnStmt}";
                 context.IsInYieldMethod = false;
             }
             else
             {
                 javaMethod.StructuredBody = statementTransformer.TransformBlockToStructuredBody(methodDecl.Body, context);
+
+                // Insert base segment declarations at the very beginning of the method body
+                // (before any other statements) so they are visible throughout the entire method scope.
+                // This avoids the issue where AddPreStatement would drain them inside a nested block.
+                if (baseSegmentDeclarations.Count > 0)
+                {
+                    for (int i = baseSegmentDeclarations.Count - 1; i >= 0; i--)
+                    {
+                        javaMethod.StructuredBody.Statements.Insert(0,
+                            new Java.JavaRawStatement(baseSegmentDeclarations[i]));
+                    }
+                }
             }
         }
         else if (methodDecl.ExpressionBody != null)
@@ -193,7 +222,8 @@ public class MethodTransformer : IMemberTransformer
             exprBody = WrapExpressionBodyForIterableReturn(exprBody, methodDecl.ExpressionBody.Expression,
                 methodDecl.ReturnType, context);
 
-            bool hasPending = context.HasPendingPreStatements || context.HasPendingPostStatements;
+            bool hasPending = context.HasPendingPreStatements || context.HasPendingPostStatements
+                || baseSegmentDeclarations.Count > 0;
 
             if (!hasPending)
             {
@@ -203,6 +233,9 @@ public class MethodTransformer : IMemberTransformer
             else
             {
                 var bodyLines = new List<string>();
+                // Base segment declarations must come first (method-level scope)
+                foreach (var decl in baseSegmentDeclarations)
+                    bodyLines.Add(decl);
                 if (context.HasPendingPreStatements)
                 {
                     foreach (var pre in context.DrainPreStatements())

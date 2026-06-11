@@ -237,6 +237,17 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
                 if (pointerInfo != null)
                 {
+                    // Use base segment with out-of-bounds protection
+                    if (context.TryGetPointerBase(leftExpr.Trim(), out var baseVar))
+                    {
+                        string offsetExpr = pointerInfo.ElementSize == 1
+                            ? $"{leftExpr}.address() - {baseVar}.address() + {rightExpr}"
+                            : $"{leftExpr}.address() - {baseVar}.address() + (long)({rightExpr}) * {pointerInfo.ElementSize}";
+                        string deltaBytesExpr = pointerInfo.ElementSize == 1
+                            ? rightExpr
+                            : $"(long)({rightExpr}) * {pointerInfo.ElementSize}";
+                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({leftExpr}.address() + {deltaBytesExpr}))";
+                    }
                     return FfmHelper.GeneratePointerArithmetic(leftExpr.Trim(), pointerInfo, rightExpr);
                 }
             }
@@ -283,9 +294,22 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
                 if (pointerInfo != null)
                 {
+                    if (context.TryGetPointerBase(leftExpr.Trim(), out var baseVar))
+                    {
+                        // Use base segment with out-of-bounds protection.
+                        // Must check offsetExpr >= 0 to prevent negative offset in asSlice.
+                        string offsetExpr = pointerInfo.ElementSize == 1
+                            ? $"{leftExpr}.address() - {baseVar}.address() - {rightExpr}"
+                            : $"{leftExpr}.address() - {baseVar}.address() - (long)({rightExpr}) * {pointerInfo.ElementSize}";
+                        string deltaBytesExpr = pointerInfo.ElementSize == 1
+                            ? $"-{rightExpr}"
+                            : $"-(long)({rightExpr}) * {pointerInfo.ElementSize}";
+                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({leftExpr}.address() + {deltaBytesExpr}))";
+                    }
+                    // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
                     if (pointerInfo.ElementSize == 1)
-                        return $"{leftExpr}.asSlice(-{rightExpr})";
-                    return $"{leftExpr}.asSlice(-(long){rightExpr} * {pointerInfo.ElementSize})";
+                        return $"MemorySegment.ofAddress({leftExpr}.address() - {rightExpr})";
+                    return $"MemorySegment.ofAddress({leftExpr}.address() - (long)({rightExpr}) * {pointerInfo.ElementSize})";
                 }
             }
         }
@@ -305,6 +329,49 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         }
 
         var facade = ExpressionTransformerFacade.Instance;
+
+        // Handle pointer equality operators (==, !=)
+        // MemorySegment objects from asSlice() are never reference-equal even when pointing
+        // to the same address, so pointer comparisons must use .address().
+        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        {
+            var leftType = context.GetTypeInfo(node.Left).Type;
+            var rightType = context.GetTypeInfo(node.Right).Type;
+            bool leftIsPointer = leftType is IPointerTypeSymbol;
+            bool rightIsPointer = rightType is IPointerTypeSymbol;
+
+            // Pointer == pointer or pointer == null
+            if (leftIsPointer || rightIsPointer)
+            {
+                var facade2 = ExpressionTransformerFacade.Instance;
+                var leftExpr = facade2.Transform(node.Left, context);
+                var rightExpr = facade2.Transform(node.Right, context);
+
+                bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
+                bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
+
+                if (leftIsPointer && rightIsPointer)
+                {
+                    // Both are pointers: compare addresses
+                    return op == "=="
+                        ? $"{leftExpr}.address() == {rightExpr}.address()"
+                        : $"{leftExpr}.address() != {rightExpr}.address()";
+                }
+                if (leftIsPointer && rightIsNull)
+                {
+                    // Pointer == null: check if segment is null or zero-address
+                    return op == "=="
+                        ? $"({leftExpr} == null || {leftExpr}.address() == 0)"
+                        : $"({leftExpr} != null && {leftExpr}.address() != 0)";
+                }
+                if (rightIsPointer && leftIsNull)
+                {
+                    return op == "=="
+                        ? $"({rightExpr} == null || {rightExpr}.address() == 0)"
+                        : $"({rightExpr} != null && {rightExpr}.address() != 0)";
+                }
+            }
+        }
 
         // Fix: Handle event null comparisons (e.g., ProgressChanged != null)
         // C#: event != null  → Java: !_eventListeners.isEmpty()
@@ -416,6 +483,19 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
 
     private static bool IsComparisonOp(string op) => op is "<" or ">" or "<=" or ">=";
+
+    /// <summary>
+    /// Checks if a node is inside a pointer dereference expression *(expr),
+    /// traversing through ParenthesizedExpressionSyntax layers.
+    /// </summary>
+    private static bool IsInsidePointerDereference(ExpressionSyntax node)
+    {
+        var parent = node.Parent;
+        while (parent is ParenthesizedExpressionSyntax)
+            parent = parent.Parent;
+        return parent is PrefixUnaryExpressionSyntax prefix
+            && prefix.OperatorToken.IsKind(SyntaxKind.AsteriskToken);
+    }
 
     private static bool IsBitwiseOp(string op) => op is "&" or "|" or "^";
 

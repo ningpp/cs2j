@@ -330,6 +330,17 @@ public partial class StatementTransformer
         var loopName = switchId + "Loop";
         var sb = new StringBuilder();
 
+        // Drain any pending pre-statements BEFORE the switch statement.
+        // Pre-statements like base segment declarations (MemorySegment __baseN = ptr)
+        // must be placed before the switch, not inside a case, to avoid Java
+        // "may not have been initialized" errors when referenced across cases.
+        if (context.HasPendingPreStatements)
+        {
+            var pendingPre = context.DrainPreStatements();
+            foreach (var pre in pendingPre)
+                sb.AppendLine(pre.TrimEnd(';') + ";");
+        }
+
         sb.AppendLine($"int {stateName} = 0;");
         sb.AppendLine($"switch ({expression}) {{");
         foreach (var section in stmt.Sections)
@@ -969,7 +980,10 @@ public partial class StatementTransformer
                         // If index is 0, wrap the entire array
                         if (indexExpr.Trim() == "0")
                         {
-                            sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray({arrayExpr});");
+                            var baseVar = context.GenerateSyntheticName("__base");
+                            sb.AppendLine($"MemorySegment {baseVar} = MemorySegment.ofArray({arrayExpr});");
+                            sb.AppendLine($"MemorySegment {varName} = {baseVar};");
+                            context.RegisterPointerBase(varName, baseVar);
                         }
                         else
                         {
@@ -977,7 +991,10 @@ public partial class StatementTransformer
                             var offsetCalc = info.ElementSize == 1
                                 ? indexExpr
                                 : $"(long)({indexExpr}) * {info.ElementSize}";
-                            sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray({arrayExpr}).asSlice({offsetCalc});");
+                            var baseVar = context.GenerateSyntheticName("__base");
+                            sb.AppendLine($"MemorySegment {baseVar} = MemorySegment.ofArray({arrayExpr});");
+                            sb.AppendLine($"MemorySegment {varName} = {baseVar}.asSlice({offsetCalc});");
+                            context.RegisterPointerBase(varName, baseVar);
                         }
                     }
                     else
@@ -992,7 +1009,9 @@ public partial class StatementTransformer
                     initExpr = ExpressionTransformerFacade.Instance.Transform(initValue, context);
                     var initType = context.GetTypeInfo(initValue).Type;
                     isString = initType?.SpecialType == SpecialType.System_String;
-                    sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull));
+                    var baseVar = context.GenerateSyntheticName("__base");
+                    sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, baseVar));
+                    context.RegisterPointerBase(varName, baseVar);
                 }
             }
             else

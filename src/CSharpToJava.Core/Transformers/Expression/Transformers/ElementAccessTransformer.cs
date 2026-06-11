@@ -135,6 +135,12 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 string offsetExpr = pointerInfo.ElementSize == 1
                     ? idxExpr
                     : $"(long)({idxExpr}) * {pointerInfo.ElementSize}";
+                // Use base segment with bounds check for pointer element access
+                if (context.TryGetPointerBase(targetExpr.Trim(), out var baseVar))
+                {
+                    return FfmHelper.GeneratePointerReadWithBoundsCheck(
+                        targetExpr.Trim(), pointerInfo, offsetExpr, baseVar, context);
+                }
                 return FfmHelper.GeneratePointerRead(targetExpr.Trim(), pointerInfo, offsetExpr);
             }
         }

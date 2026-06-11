@@ -5,6 +5,9 @@ import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -20,15 +23,24 @@ public final class Encoding {
     private final Charset charset;
     private final int codePage;
     private final boolean isReadOnly;
+    private final String decoderReplacement;
+    private final String encoderReplacement;
 
     private Encoding(Charset charset, int codePage) {
-        this(charset, codePage, true);
+        this(charset, codePage, true, "\uFFFD", "?");
     }
 
     private Encoding(Charset charset, int codePage, boolean isReadOnly) {
+        this(charset, codePage, isReadOnly, "\uFFFD", "?");
+    }
+
+    private Encoding(Charset charset, int codePage, boolean isReadOnly,
+                     String decoderReplacement, String encoderReplacement) {
         this.charset = charset;
         this.codePage = codePage;
         this.isReadOnly = isReadOnly;
+        this.decoderReplacement = decoderReplacement;
+        this.encoderReplacement = encoderReplacement;
     }
 
     // ---- Static Properties ----
@@ -189,8 +201,11 @@ public final class Encoding {
 
     /** Mirrors C# Encoding.GetEncoding(int, EncoderReplacementFallback, DecoderReplacementFallback) */
     public static Encoding getEncoding(int codePage, EncoderReplacementFallback encoderFallback, DecoderReplacementFallback decoderFallback) {
-        // The fallback parameters are ignored in this compat implementation
-        return getEncoding(codePage);
+        Encoding baseEncoding = getEncoding(codePage);
+        String decReplacement = decoderFallback != null ? decoderFallback.getDefaultString() : "\uFFFD";
+        String encReplacement = encoderFallback != null ? encoderFallback.getDefaultString() : "?";
+        return new Encoding(baseEncoding.charset, baseEncoding.codePage, baseEncoding.isReadOnly,
+                            decReplacement, encReplacement);
     }
 
     public static Encoding getEncoding() {
@@ -237,8 +252,14 @@ public final class Encoding {
     }
 
     public int getByteCount(char[] chars, int index, int count) {
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars, index, count);
-        ByteBuffer bb = charset.encode(cb);
+        ByteBuffer bb;
+        try {
+            bb = encoder.encode(cb);
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return 0;
+        }
         return bb.remaining();
     }
 
@@ -257,16 +278,28 @@ public final class Encoding {
     }
 
     public byte[] getBytes(char[] chars, int index, int count) {
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars, index, count);
-        ByteBuffer bb = charset.encode(cb);
+        ByteBuffer bb;
+        try {
+            bb = encoder.encode(cb);
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return new byte[0];
+        }
         byte[] result = new byte[bb.remaining()];
         bb.get(result);
         return result;
     }
 
     public int getBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex) {
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars, charIndex, charCount);
-        ByteBuffer bb = charset.encode(cb);
+        ByteBuffer bb;
+        try {
+            bb = encoder.encode(cb);
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return 0;
+        }
         int len = bb.remaining();
         bb.get(bytes, byteIndex, len);
         return len;
@@ -295,8 +328,14 @@ public final class Encoding {
         for (int i = 0; i < charCount; i++) {
             chars[i] = src.get(ValueLayout.JAVA_CHAR, i * 2L);
         }
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars);
-        ByteBuffer bb = charset.encode(cb);
+        ByteBuffer bb;
+        try {
+            bb = encoder.encode(cb);
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return 0;
+        }
         int len = Math.min(bb.remaining(), byteCount);
         for (int i = 0; i < len; i++) {
             dst.set(ValueLayout.JAVA_BYTE, i, bb.get(i));
@@ -311,8 +350,14 @@ public final class Encoding {
     }
 
     public int getCharCount(byte[] bytes, int index, int count) {
+        CharsetDecoder decoder = newDecoder();
         ByteBuffer bb = ByteBuffer.wrap(bytes, index, count);
-        CharBuffer cb = charset.decode(bb);
+        CharBuffer cb;
+        try {
+            cb = decoder.decode(bb);
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return 0;
+        }
         return cb.remaining();
     }
 
@@ -323,16 +368,28 @@ public final class Encoding {
     }
 
     public char[] getChars(byte[] bytes, int index, int count) {
+        CharsetDecoder decoder = newDecoder();
         ByteBuffer bb = ByteBuffer.wrap(bytes, index, count);
-        CharBuffer cb = charset.decode(bb);
+        CharBuffer cb;
+        try {
+            cb = decoder.decode(bb);
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return new char[0];
+        }
         char[] result = new char[cb.remaining()];
         cb.get(result);
         return result;
     }
 
     public int getChars(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex) {
+        CharsetDecoder decoder = newDecoder();
         ByteBuffer bb = ByteBuffer.wrap(bytes, byteIndex, byteCount);
-        CharBuffer cb = charset.decode(bb);
+        CharBuffer cb;
+        try {
+            cb = decoder.decode(bb);
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return 0;
+        }
         int len = cb.remaining();
         cb.get(chars, charIndex, len);
         return len;
@@ -376,7 +433,7 @@ public final class Encoding {
     // ---- Instance Methods: Clone, GetDecoder, GetEncoder ----
 
     public Object clone() {
-        return new Encoding(charset, codePage, false);
+        return new Encoding(charset, codePage, false, decoderReplacement, encoderReplacement);
     }
 
     public Decoder getDecoder() {
@@ -413,6 +470,36 @@ public final class Encoding {
     }
 
     // ---- Helper ----
+
+    private CharsetDecoder newDecoder() {
+        CharsetDecoder decoder = charset.newDecoder();
+        if (decoderReplacement.isEmpty()) {
+            decoder.onMalformedInput(CodingErrorAction.IGNORE);
+            decoder.onUnmappableCharacter(CodingErrorAction.IGNORE);
+        } else {
+            decoder.replaceWith(decoderReplacement);
+            decoder.onMalformedInput(CodingErrorAction.REPLACE);
+            decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
+        }
+        return decoder;
+    }
+
+    private CharsetEncoder newEncoder() {
+        CharsetEncoder encoder = charset.newEncoder();
+        if (encoderReplacement.isEmpty()) {
+            encoder.onMalformedInput(CodingErrorAction.IGNORE);
+            encoder.onUnmappableCharacter(CodingErrorAction.IGNORE);
+        } else {
+            try {
+                encoder.replaceWith(encoderReplacement.getBytes(charset));
+            } catch (Exception e) {
+                // fallback: use default replacement
+            }
+            encoder.onMalformedInput(CodingErrorAction.REPLACE);
+            encoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
+        }
+        return encoder;
+    }
 
     private static int codePageFor(Charset charset) {
         String name = charset.name().toUpperCase(java.util.Locale.ROOT);
@@ -481,7 +568,13 @@ public final class Encoding {
                             char[] chars, int charIndex, int charCount, boolean flush,
                             int[] bytesUsed, int[] charsUsed, boolean[] completed) {
             // Simplified: decode all available bytes
-            CharBuffer cb = charset().decode(ByteBuffer.wrap(bytes, byteIndex, byteCount));
+            CharsetDecoder decoder = encoding.newDecoder();
+            CharBuffer cb;
+            try {
+                cb = decoder.decode(ByteBuffer.wrap(bytes, byteIndex, byteCount));
+            } catch (java.nio.charset.CharacterCodingException e) {
+                cb = CharBuffer.allocate(0);
+            }
             int len = Math.min(cb.remaining(), charCount - charIndex);
             cb.get(chars, charIndex, len);
             if (bytesUsed != null && bytesUsed.length > 0) bytesUsed[0] = byteCount;
@@ -510,7 +603,13 @@ public final class Encoding {
         public void convert(char[] chars, int charIndex, int charCount,
                             byte[] bytes, int byteIndex, int byteCount, boolean flush,
                             int[] charsUsed, int[] bytesUsed, boolean[] completed) {
-            ByteBuffer bb = charset().encode(CharBuffer.wrap(chars, charIndex, charCount));
+            CharsetEncoder encoder = encoding.newEncoder();
+            ByteBuffer bb;
+            try {
+                bb = encoder.encode(CharBuffer.wrap(chars, charIndex, charCount));
+            } catch (java.nio.charset.CharacterCodingException e) {
+                bb = ByteBuffer.allocate(0);
+            }
             int len = Math.min(bb.remaining(), byteCount - byteIndex);
             bb.get(bytes, byteIndex, len);
             if (charsUsed != null && charsUsed.length > 0) charsUsed[0] = charCount;

@@ -624,6 +624,69 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // Handle *(ptr - N) = val pattern (write to negative offset)
+        if (leftNode is PrefixUnaryExpressionSyntax ptrDerefWrite
+            && ptrDerefWrite.IsKind(SyntaxKind.PointerIndirectionExpression))
+        {
+            var unwrappedOperand = ptrDerefWrite.Operand;
+            while (unwrappedOperand is ParenthesizedExpressionSyntax paren)
+                unwrappedOperand = paren.Expression;
+
+            if (unwrappedOperand is BinaryExpressionSyntax binaryWrite
+                && binaryWrite.OperatorToken.IsKind(SyntaxKind.MinusToken))
+            {
+                var writeLeftType = context.GetTypeInfo(binaryWrite.Left).Type;
+                if (writeLeftType is IPointerTypeSymbol)
+                {
+                    var writeLeftExpr = facade.Transform(binaryWrite.Left, context);
+                    var writeRightExpr = facade.Transform(binaryWrite.Right, context);
+                    var writePointerInfo = context.FindPointerInfo(writeLeftExpr.Trim());
+                    if (writePointerInfo == null && writeLeftType is IPointerTypeSymbol writePtrType)
+                    {
+                        var elementTypeName = FfmHelper.GetPointerElementTypeName(writePtrType.PointedAtType);
+                        writePointerInfo = FfmHelper.CreatePointerInfo(writeLeftExpr.Trim(), elementTypeName);
+                    }
+
+                    if (writePointerInfo != null)
+                    {
+                        var pointerRightStr = facade.Transform(rightNode, context);
+                        pointerRightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, pointerRightStr, null, context);
+
+                        // Prefer base segment over backtrack variable.
+                        // Backtrack variables are defined as pre-statements in one switch-case
+                        // but may be referenced in another, causing Java "may not have been initialized"
+                        // errors in state machine (goto→switch) conversion.
+                        if (context.TryGetPointerBase(writeLeftExpr.Trim(), out var baseVar))
+                        {
+                            string byteOffsetExpr = writePointerInfo.ElementSize == 1
+                                ? $"{writeLeftExpr}.address() - {baseVar}.address() - {writeRightExpr}"
+                                : $"{writeLeftExpr}.address() - {baseVar}.address() - (long)({writeRightExpr}) * {writePointerInfo.ElementSize}";
+                            var write = FfmHelper.GeneratePointerWrite(baseVar, writePointerInfo, byteOffsetExpr, pointerRightStr);
+                            if (node.Parent is ExpressionStatementSyntax)
+                                return write + ";";
+                            var tmp = context.GenerateSyntheticName("_ptrAssign");
+                            context.AddPreStatement($"var {tmp} = {pointerRightStr}");
+                            context.AddPreStatementAllowDuplicate(FfmHelper.GeneratePointerWrite(baseVar, writePointerInfo, byteOffsetExpr, tmp));
+                            return tmp;
+                        }
+
+                        // Fallback to backtrack variable
+                        if (int.TryParse(writeRightExpr.Trim(), out int stepCount)
+                            && context.TryGetPointerBacktrackVar(writeLeftExpr.Trim(), stepCount, out var backtrackVar))
+                        {
+                            var write = FfmHelper.GeneratePointerWrite(backtrackVar, writePointerInfo, "0", pointerRightStr);
+                            if (node.Parent is ExpressionStatementSyntax)
+                                return write + ";";
+                            var tmp = context.GenerateSyntheticName("_ptrAssign");
+                            context.AddPreStatement($"var {tmp} = {pointerRightStr}");
+                            context.AddPreStatementAllowDuplicate(FfmHelper.GeneratePointerWrite(backtrackVar, writePointerInfo, "0", tmp));
+                            return tmp;
+                        }
+                    }
+                }
+            }
+        }
+
         if (leftNode is PrefixUnaryExpressionSyntax prefixUnary
             && prefixUnary.IsKind(SyntaxKind.PointerIndirectionExpression))
         {
@@ -761,17 +824,101 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
                 if (pointerInfo != null)
                 {
-                    if (pointerInfo.ElementSize == 1)
+                    string sliceExpr;
+                    if (context.TryGetPointerBase(leftExpr.Trim(), out var baseVar))
                     {
-                        var sliceExpr = op == "+="
-                            ? $"{leftExpr}.asSlice({rightExpr})"
-                            : $"{leftExpr}.asSlice(-{rightExpr})";
-                        return $"{leftExpr} = {sliceExpr}";
+                        // Use base segment with out-of-bounds protection.
+                        // C# allows one-past-end pointers, but Java's asSlice throws if offset > byteSize.
+                        string offsetExpr;
+                        string deltaBytesExpr;
+                        if (op == "-=")
+                        {
+                            if (pointerInfo.ElementSize == 1)
+                            {
+                                offsetExpr = $"{leftExpr}.address() - {baseVar}.address() - {rightExpr}";
+                                deltaBytesExpr = $"-{rightExpr}";
+                            }
+                            else
+                            {
+                                offsetExpr = $"{leftExpr}.address() - {baseVar}.address() - (long)({rightExpr}) * {pointerInfo.ElementSize}";
+                                deltaBytesExpr = $"-(long)({rightExpr}) * {pointerInfo.ElementSize}";
+                            }
+                        }
+                        else // +=
+                        {
+                            if (pointerInfo.ElementSize == 1)
+                            {
+                                offsetExpr = $"{leftExpr}.address() - {baseVar}.address() + {rightExpr}";
+                                deltaBytesExpr = rightExpr;
+                            }
+                            else
+                            {
+                                offsetExpr = $"{leftExpr}.address() - {baseVar}.address() + (long)({rightExpr}) * {pointerInfo.ElementSize}";
+                                deltaBytesExpr = $"(long)({rightExpr}) * {pointerInfo.ElementSize}";
+                            }
+                        }
+                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({leftExpr}.address() + {deltaBytesExpr}))";
+                    }
+                    else if (pointerInfo.ElementSize == 1)
+                    {
+                        // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
+                        sliceExpr = op == "+="
+                            ? $"MemorySegment.ofAddress({leftExpr}.address() + {rightExpr})"
+                            : $"MemorySegment.ofAddress({leftExpr}.address() - {rightExpr})";
                     }
                     else
                     {
-                        var sign = op == "+=" ? "" : "-";
-                        return $"{leftExpr} = {leftExpr}.asSlice({sign}(long)({rightExpr}) * {pointerInfo.ElementSize})";
+                        var sign = op == "+=" ? "+" : "-";
+                        sliceExpr = $"MemorySegment.ofAddress({leftExpr}.address() {sign} (long)({rightExpr}) * {pointerInfo.ElementSize})";
+                    }
+                    context.InvalidatePointerBacktrackVars(leftExpr.Trim());
+                    return $"{leftExpr} = {sliceExpr}";
+                }
+            }
+        }
+
+        // Handle simple pointer assignment: invalidate backtrack vars and propagate base segment
+        if (op == "=" && context.SemanticModel != null)
+        {
+            var leftType = context.GetTypeInfo(leftNode).Type;
+            if (leftType is IPointerTypeSymbol)
+            {
+                context.InvalidatePointerBacktrackVars(left.Trim());
+
+                // Propagate base segment from the right side
+                var rightUnwrapped = rightNode;
+                while (rightUnwrapped is ParenthesizedExpressionSyntax p)
+                    rightUnwrapped = p.Expression;
+
+                string? sourcePointerName = null;
+                if (rightUnwrapped is IdentifierNameSyntax id)
+                {
+                    sourcePointerName = id.Identifier.Text;
+                }
+                else if (rightUnwrapped is BinaryExpressionSyntax binExpr)
+                {
+                    // pch - 2, pch + N, etc.
+                    var binLeft = binExpr.Left;
+                    while (binLeft is ParenthesizedExpressionSyntax p2)
+                        binLeft = p2.Expression;
+                    if (binLeft is IdentifierNameSyntax binId)
+                        sourcePointerName = binId.Identifier.Text;
+                }
+                else if (rightUnwrapped is PrefixUnaryExpressionSyntax prefixExpr
+                         && prefixExpr.OperatorToken.IsKind(SyntaxKind.MinusMinusToken))
+                {
+                    // --ptr
+                    var prefixOperand = prefixExpr.Operand;
+                    if (prefixOperand is IdentifierNameSyntax prefixId)
+                        sourcePointerName = prefixId.Identifier.Text;
+                }
+
+                if (sourcePointerName != null)
+                {
+                    var escapedName = ConversionContext.EscapeJavaKeyword(sourcePointerName);
+                    if (context.TryGetPointerBase(escapedName, out var inheritedBase))
+                    {
+                        context.RegisterPointerBase(left.Trim(), inheritedBase);
                     }
                 }
             }

@@ -50,9 +50,10 @@ public partial class StatementTransformer
             return new JavaStatementNode($"if ({objExpr} != null) {{ {innerCall} }}");
         }
 
-        // Special case: dict.TryGetValue(key, out var v) as a standalone statement → v = dict.get(key);
-        // For value types (structs/primitives), use getOrDefault to avoid NPE since C# TryGetValue
-        // default-initializes the out parameter when the key is not found.
+        // Special case: dict.TryGetValue(key, out var v) as a standalone statement.
+        // For standard IDictionary implementations (mapped to Java Map), use containsKey() + get().
+        // For custom dictionaries (e.g. LowLevelDictionary), use tryGetValue(key, ObjectHolder).
+        // C# TryGetValue default-initializes the out parameter when the key is not found.
         if (stmt.Expression is InvocationExpressionSyntax tvInvoc &&
             tvInvoc.Expression is MemberAccessExpressionSyntax tvMa &&
             tvMa.Name.Identifier.Text == "TryGetValue" &&
@@ -61,6 +62,25 @@ public partial class StatementTransformer
             var tvTarget = exprTransformer.Transform(tvMa.Expression, context);
             var tvKey = exprTransformer.Transform(tvInvoc.ArgumentList.Arguments[0].Expression, context);
             var tvArg2 = tvInvoc.ArgumentList.Arguments[1];
+
+            // Determine if the receiver is a standard IDictionary (mapped to Java Map with containsKey)
+            // or a custom dictionary (needs tryGetValue with ObjectHolder)
+            bool isStandardMap = false;
+            if (context.SemanticModel != null)
+            {
+                var receiverTypeInfo = context.GetTypeInfo(tvMa.Expression);
+                if (receiverTypeInfo.Type != null)
+                {
+                    isStandardMap = receiverTypeInfo.Type.AllInterfaces.Any(i =>
+                        i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>");
+                    // Also check if the type itself is IDictionary
+                    if (!isStandardMap && receiverTypeInfo.Type is INamedTypeSymbol named)
+                    {
+                        isStandardMap = named.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>";
+                    }
+                }
+            }
+
             if (tvArg2.Expression is DeclarationExpressionSyntax tvDecl2)
             {
                 var declType = context.GetTypeInfo(tvDecl2.Type);
@@ -69,10 +89,27 @@ public partial class StatementTransformer
                 var defaultVal = GetValueTypeDefault(declType.Type, javaType);
                 if (declType.Type?.SpecialType == SpecialType.System_Decimal)
                     context.AddImport("io.github.ningpp.compat.Decimal");
-                var getCall = defaultVal != null
-                    ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
-                    : $"{tvTarget}.get({tvKey})";
-                return new JavaStatementNode($"{javaType} {varName} = {getCall};");
+
+                if (isStandardMap)
+                {
+                    // Standard Java Map: use containsKey + get/getOrDefault
+                    var getCall = defaultVal != null
+                        ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
+                        : $"{tvTarget}.get({tvKey})";
+                    return new JavaStatementNode($"{javaType} {varName} = {getCall};");
+                }
+                else
+                {
+                    // Custom dictionary (e.g. LowLevelDictionary): use tryGetValue(key, ObjectHolder)
+                    context.AddImport("io.github.ningpp.compat.ObjectHolder");
+                    var holderName = $"_{varName}Holder";
+                    var holderType = javaType == "var" ? "var" : $"ObjectHolder<{javaType}>";
+                    var sb = new System.Text.StringBuilder();
+                    sb.AppendLine($"{holderType} {holderName} = new ObjectHolder<>();");
+                    sb.Append($"{tvTarget}.tryGetValue({tvKey}, {holderName});");
+                    sb.Append($" {javaType} {varName} = {holderName}.value;");
+                    return new JavaStatementNode(sb.ToString());
+                }
             }
             else
             {
@@ -85,10 +122,27 @@ public partial class StatementTransformer
                     if (outType.SpecialType == SpecialType.System_Decimal)
                         context.AddImport("io.github.ningpp.compat.Decimal");
                 }
-                var getCall = defaultVal != null
-                    ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
-                    : $"{tvTarget}.get({tvKey})";
-                return new JavaStatementNode($"{tvOut2} = {getCall};");
+
+                if (isStandardMap)
+                {
+                    // Standard Java Map: use containsKey + get/getOrDefault
+                    var getCall = defaultVal != null
+                        ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
+                        : $"{tvTarget}.get({tvKey})";
+                    return new JavaStatementNode($"{tvOut2} = {getCall};");
+                }
+                else
+                {
+                    // Custom dictionary (e.g. LowLevelDictionary): use tryGetValue(key, ObjectHolder)
+                    context.AddImport("io.github.ningpp.compat.ObjectHolder");
+                    var outJavaType = outTypeInfo.Type != null ? context.MapType(outTypeInfo.Type) : "Object";
+                    var holderName = context.GenerateSyntheticName("_outHolder");
+                    var sb = new System.Text.StringBuilder();
+                    sb.AppendLine($"ObjectHolder<{outJavaType}> {holderName} = new ObjectHolder<>();");
+                    sb.Append($"{tvTarget}.tryGetValue({tvKey}, {holderName});");
+                    sb.Append($" {tvOut2} = {holderName}.value;");
+                    return new JavaStatementNode(sb.ToString());
+                }
             }
         }
 

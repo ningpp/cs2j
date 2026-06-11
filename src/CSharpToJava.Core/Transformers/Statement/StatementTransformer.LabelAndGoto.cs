@@ -276,6 +276,17 @@ public partial class StatementTransformer
             sb.AppendLine(hoistedLocal);
         }
 
+        // Drain any pending pre-statements BEFORE the switch statement.
+        // Pre-statements like base segment declarations (MemorySegment __baseN = ptr)
+        // must be placed before the switch, not inside a case, to avoid Java
+        // "may not have been initialized" errors when referenced across cases.
+        if (context.HasPendingPreStatements)
+        {
+            var pendingPre = context.DrainPreStatements();
+            foreach (var pre in pendingPre)
+                sb.AppendLine(pre.TrimEnd(';') + ";");
+        }
+
         sb.AppendLine("int __state = 0;");
         sb.AppendLine("__gotoLoop: while (true) {");
         sb.AppendLine("    switch (__state) {");

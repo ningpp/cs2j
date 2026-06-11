@@ -588,6 +588,45 @@ public class StringHelper {
         return new String(chars);
     }
 
+    // ==================== C#-style Format ====================
+    /**
+     * Formats a string using C#-style {N} placeholders, converting them to Java %s
+     * format specifiers at runtime before delegating to String.format.
+     * <p>
+     * C# uses {0}, {1}, {0:G} style placeholders; Java uses %s, %d style.
+     * This method handles the conversion so that resource strings containing
+     * {0}-style placeholders work correctly with Java's String.format().
+     *
+     * @param format the format string with C#-style {N} placeholders
+     * @param args   the arguments referenced by the placeholders
+     * @return the formatted string
+     */
+    public static String formatCs(String format, Object... args) {
+        return formatCs(Locale.ROOT, format, args);
+    }
+
+    /**
+     * Formats a string using C#-style {N} placeholders, converting them to Java %s format.
+     *
+     * @param l      the locale to use for formatting
+     * @param format the format string with C#-style {N} placeholders
+     * @param args   the arguments referenced by the placeholders
+     * @return the formatted string
+     */
+    public static String formatCs(Locale l, String format, Object... args) {
+        if (format == null) {
+            return null;
+        }
+        // Escape existing '%' to '%%' so they are treated as literal percent signs
+        String escaped = format.replace("%", "%%");
+        // Replace {N} and {N:specifier} placeholders with %s
+        String converted = escaped.replaceAll("\\{\\d+(?::[^}]*?)?\\}", "%s");
+        if (args == null || args.length == 0) {
+            return String.format(l, converted);
+        }
+        return String.format(l, converted, args);
+    }
+
     private static void appendConcatValue(StringBuilder builder, Object value) {
         if (value == null) {
             return;

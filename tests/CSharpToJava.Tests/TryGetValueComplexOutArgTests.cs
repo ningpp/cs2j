@@ -321,6 +321,97 @@ class Sample {
             $"get() should not precede the negated if. if at {negIf}, get at {getAfterNegIf}.\nCode:\n{code}");
     }
 
+    [Fact]
+    public void TryGetValue_StatementContext_CustomDict_UsesTryGetValue()
+    {
+        // When TryGetValue is used as a standalone statement on a custom dictionary
+        // (not implementing IDictionary), it should use tryGetValue(key, ObjectHolder)
+        // instead of get(key) which may throw KeyNotFoundException.
+        var result = Convert(@"
+using System;
+using System.Collections.Generic;
+
+namespace System.Collections.Generic {
+    class LowLevelDictionary<TKey, TValue> {
+        public bool TryGetValue(TKey key, out TValue value) {
+            value = default(TValue);
+            return false;
+        }
+        public TValue get(TKey key) { throw new Exception(); }
+    }
+}
+
+class UriParser {
+    LowLevelDictionary<string, UriParser> s_table;
+    void Find(string scheme) {
+        UriParser syntax = null;
+        s_table.TryGetValue(scheme, out syntax);
+        if (syntax != null) return;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        // Should use tryGetValue with ObjectHolder, NOT get()
+        Assert.Contains("tryGetValue(", code, StringComparison.Ordinal);
+        Assert.Contains("ObjectHolder", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("s_table.get(", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryGetValue_StatementContext_StandardDict_UsesGetOrDefault()
+    {
+        // When TryGetValue is used as a standalone statement on a standard Dictionary
+        // (implementing IDictionary), it should still use get/getOrDefault.
+        var result = Convert(@"
+using System.Collections.Generic;
+class Sample {
+    Dictionary<string, string> dict;
+    void M(string key) {
+        dict.TryGetValue(key, out var value);
+        System.Console.WriteLine(value);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        // Standard Dictionary should use get() or getOrDefault(), not tryGetValue
+        Assert.Contains(".get(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("tryGetValue(", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryGetValue_StatementContext_CustomDict_PredeclaredOut_UsesTryGetValue()
+    {
+        // Custom dictionary with pre-declared out variable (not out var)
+        var result = Convert(@"
+using System;
+using System.Collections.Generic;
+
+namespace System.Collections.Generic {
+    class LowLevelDictionary<TKey, TValue> {
+        public bool TryGetValue(TKey key, out TValue value) {
+            value = default(TValue);
+            return false;
+        }
+        public TValue get(TKey key) { throw new Exception(); }
+    }
+}
+
+class UriParser {
+    LowLevelDictionary<string, UriParser> s_table;
+    void GetSyntax(string scheme) {
+        UriParser ret = null;
+        s_table.TryGetValue(scheme, out ret);
+        if (ret == null) return;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        // Should use tryGetValue with ObjectHolder, NOT get()
+        Assert.Contains("tryGetValue(", code, StringComparison.Ordinal);
+        Assert.Contains("ObjectHolder", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("s_table.get(", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -22,6 +22,14 @@ public class ConversionContext
     private readonly Stack<List<FixedPointerInfo>> _fixedScopeStack = new();
     private readonly Dictionary<string, string> _addressOfScratchSegments = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FixedPointerInfo> _addressOfScratchPointerInfos = new(StringComparer.Ordinal);
+    // Maps "ptrName-stepCount" to the pre-increment variable name for pointer backtracking
+    // e.g., after "curPos++" generates "_ptrPost3 = curPos; curPos = curPos.asSlice(2);",
+    // this maps "curPos-1" → "_ptrPost3" so that *(curPos - 1) can use _ptrPost3
+    private readonly Dictionary<string, string> _pointerBacktrackVars = new(StringComparer.Ordinal);
+    // Maps pointer variable name to its base MemorySegment variable name
+    // e.g., after "fixed (char* p = arr)" generates "MemorySegment __base_p = MemorySegment.ofArray(arr); MemorySegment p = __base_p;",
+    // this maps "p" → "__base_p" so that p.asSlice(-N) can use __base_p.asSlice(p.address() - __base_p.address() - N)
+    private readonly Dictionary<string, string> _pointerBaseSegments = new(StringComparer.Ordinal);
     public bool IsInFixedScope => _fixedScopeStack.Count > 0;
     public void PushFixedScope(List<FixedPointerInfo> pointers) => _fixedScopeStack.Push(pointers);
     public void PopFixedScope() => _fixedScopeStack.Pop();
@@ -54,6 +62,33 @@ public class ConversionContext
             MaskSuffix = pointerInfo.MaskSuffix,
             WriteCast = pointerInfo.WriteCast
         };
+    }
+
+    public void RegisterPointerBacktrackVar(string pointerName, int stepCount, string preIncrementVar)
+    {
+        _pointerBacktrackVars[$"{pointerName}-{stepCount}"] = preIncrementVar;
+    }
+
+    public bool TryGetPointerBacktrackVar(string pointerName, int stepCount, out string preIncrementVar)
+    {
+        return _pointerBacktrackVars.TryGetValue($"{pointerName}-{stepCount}", out preIncrementVar!);
+    }
+
+    public void InvalidatePointerBacktrackVars(string pointerName)
+    {
+        var keysToRemove = _pointerBacktrackVars.Keys.Where(k => k.StartsWith(pointerName + "-", StringComparison.Ordinal)).ToList();
+        foreach (var key in keysToRemove)
+            _pointerBacktrackVars.Remove(key);
+    }
+
+    public void RegisterPointerBase(string pointerName, string baseSegmentName)
+    {
+        _pointerBaseSegments[pointerName] = baseSegmentName;
+    }
+
+    public bool TryGetPointerBase(string pointerName, out string baseSegmentName)
+    {
+        return _pointerBaseSegments.TryGetValue(pointerName, out baseSegmentName!);
     }
 
     public ConversionOptions Options { get; }
@@ -444,6 +479,8 @@ public class ConversionContext
         MethodState.Reset(readOnlyParams);
         _addressOfScratchSegments.Clear();
         _addressOfScratchPointerInfos.Clear();
+        _pointerBacktrackVars.Clear();
+        _pointerBaseSegments.Clear();
     }
 
     public void LeaveMethod()

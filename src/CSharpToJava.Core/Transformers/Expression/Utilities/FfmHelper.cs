@@ -1,4 +1,5 @@
 using System;
+using CSharpToJava.Core.Context;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -158,6 +159,63 @@ public static class FfmHelper
         return info.NeedsUnsignedMask ? $"({read} {info.MaskSuffix})" : read;
     }
 
+    /// <summary>
+    /// Generate pointer read with out-of-bounds protection.
+    /// C# raw pointer reads have no bounds checking (buffer over-read is undefined behavior but doesn't crash).
+    /// Java's MemorySegment.get() strictly checks bounds and throws IndexOutOfBoundsException.
+    /// When offset + elementSize exceeds the base segment size, return the type's default value
+    /// to safely simulate C#'s undefined behavior (reading garbage that won't match expected values).
+    /// </summary>
+    public static string GeneratePointerReadWithBoundsCheck(
+        string segmentExpr, FixedPointerInfo info, string offsetExpr, string baseSegmentExpr,
+        ConversionContext? context = null)
+    {
+        // When the pointer has been moved (segmentExpr != baseSegmentExpr),
+        // calculate the absolute offset from the base segment start.
+        string absOffsetExpr = segmentExpr == baseSegmentExpr
+            ? offsetExpr
+            : $"({segmentExpr}.address() - {baseSegmentExpr}.address() + ({offsetExpr}))";
+
+        // When the offset expression contains side effects (e.g., start++),
+        // evaluate it once into a temporary variable to avoid double evaluation
+        // in the ternary condition and branch.
+        string safeOffsetExpr = absOffsetExpr;
+        if (context != null && HasSideEffect(offsetExpr))
+        {
+            var offsetVar = context.GenerateSyntheticName("_offset");
+            context.AddPreStatement($"long {offsetVar} = {absOffsetExpr}");
+            safeOffsetExpr = offsetVar;
+        }
+
+        string read = $"{baseSegmentExpr}.get(ValueLayout.{info.ValueLayoutName}, {safeOffsetExpr})";
+        if (info.NeedsUnsignedMask)
+            read = $"({read} {info.MaskSuffix})";
+
+        string defaultValue = GetDefaultReadValue(info.CSharpElementTypeName);
+        return $"({safeOffsetExpr} + {info.ElementSize} <= {baseSegmentExpr}.byteSize() ? {read} : {defaultValue})";
+    }
+
+    private static bool HasSideEffect(string expr)
+    {
+        // Expressions containing ++ or -- have side effects and must not be
+        // evaluated more than once. Other expressions (variables, constants,
+        // casts, arithmetic, address() calls) are safe to evaluate repeatedly.
+        return expr.Contains("++") || expr.Contains("--");
+    }
+
+    private static string GetDefaultReadValue(string csharpElementType) => csharpElementType switch
+    {
+        "byte" or "sbyte" => "0",
+        "char" or "ushort" => "'\\0'",
+        "short" => "0",
+        "int" or "uint" => "0",
+        "long" or "ulong" => "0L",
+        "float" => "0.0f",
+        "double" => "0.0d",
+        "bool" => "false",
+        _ => "0"
+    };
+
     public static string GeneratePointerWrite(string segmentExpr, FixedPointerInfo info, string offsetExpr, string valueExpr)
     {
         string castValue = info.WriteCast.Length > 0 ? $"({info.WriteCast}({valueExpr}))" : valueExpr;
@@ -171,12 +229,18 @@ public static class FfmHelper
         return $"{segmentExpr}.asSlice((long)({offsetExpr}) * {info.ElementSize})";
     }
 
-    public static string GenerateMemorySegmentInit(string variableName, string initializerExpr, FixedPointerInfo info, bool isString, bool isNull)
+    public static string GenerateMemorySegmentInit(string variableName, string initializerExpr, FixedPointerInfo info, bool isString, bool isNull, string? baseVarName = null)
     {
         if (isNull)
             return $"MemorySegment {variableName} = MemorySegment.NULL;";
         if (isString)
+        {
+            if (baseVarName != null)
+                return $"MemorySegment {baseVarName} = MemorySegment.ofArray({initializerExpr}.toCharArray());\nMemorySegment {variableName} = {baseVarName};";
             return $"MemorySegment {variableName} = MemorySegment.ofArray({initializerExpr}.toCharArray());";
+        }
+        if (baseVarName != null)
+            return $"MemorySegment {baseVarName} = MemorySegment.ofArray({initializerExpr});\nMemorySegment {variableName} = {baseVarName};";
         return $"MemorySegment {variableName} = MemorySegment.ofArray({initializerExpr});";
     }
 
