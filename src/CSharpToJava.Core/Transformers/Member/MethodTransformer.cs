@@ -393,6 +393,107 @@ public class MethodTransformer : IMemberTransformer
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
         }
 
+        // Handle [InlineData] attributes → @CsvSource annotation
+        var inlineDataAttrs = allAttributes
+            .Where(a => NormalizeAttributeName(a.Name.ToString()).Equals("InlineData", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (inlineDataAttrs.Count > 0)
+        {
+            context.AddImport("org.junit.jupiter.params.provider.CsvSource");
+            var csvEntries = new List<string>();
+            bool hasNullValue = false;
+            foreach (var attr in inlineDataAttrs)
+            {
+                var args = attr.ArgumentList?.Arguments
+                    .Select(a => a.Expression)
+                    .Select(expr =>
+                    {
+                        if (expr is LiteralExpressionSyntax lit)
+                        {
+                            // Check for null literal first (node Kind, not token Kind)
+                            if (lit.IsKind(SyntaxKind.NullLiteralExpression))
+                            {
+                                hasNullValue = true;
+                                return "";  // Empty field in CSV, mapped to null via nullValues
+                            }
+                            var val = lit.Token.ValueText;
+                            // Empty string: use '' in CSV (JUnit @CsvSource single-quoted empty = empty string)
+                            if (val.Length == 0 && lit.Token.IsKind(SyntaxKind.StringLiteralToken))
+                                return "''";
+                            // Escape for CSV: wrap in single quotes if contains comma, quote, or is empty
+                            if (val.Contains(',') || val.Contains("'"))
+                                return "'" + val.Replace("'", "''") + "'";
+                            return val;
+                        }
+                        if (expr is TypeOfExpressionSyntax toe)
+                            return toe.Type.ToString() + ".class";
+                        // Handle other expressions that might represent null (e.g., cast expressions)
+                        var exprStr = expr.ToString();
+                        if (exprStr == "null")
+                        {
+                            hasNullValue = true;
+                            return "";
+                        }
+                        return exprStr;
+                    })
+                    .ToList();
+
+                if (args != null && args.Count > 0)
+                {
+                    csvEntries.Add(string.Join(", ", args));
+                }
+            }
+            var csvValue = string.Join(", ", csvEntries.Select(e => $"\"{EscapeCsvValue(e)}\""));
+            // If any InlineData contained null, add nullValues configuration so empty CSV fields
+            // are interpreted as null rather than empty strings
+            var nullValuesAttr = hasNullValue ? ", nullValues = {\"\", \"null\"}" : "";
+            javaMethod.Annotations.Add(new JavaAnnotation($"CsvSource(value = {{{csvValue}}}{nullValuesAttr})"));
+        }
+
+        // Handle [MemberData] attributes → @MethodSource
+        var memberDataAttrs = allAttributes
+            .Where(a => NormalizeAttributeName(a.Name.ToString()).Equals("MemberData", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (memberDataAttrs.Count > 0)
+        {
+            context.AddImport("org.junit.jupiter.params.provider.MethodSource");
+            // Use the first MemberData attribute's method name
+            var firstAttr = memberDataAttrs[0];
+            if (firstAttr.ArgumentList?.Arguments.Count > 0)
+            {
+                var firstArg = firstAttr.ArgumentList.Arguments[0].Expression;
+                string memberName;
+                if (firstArg is InvocationExpressionSyntax invoc)
+                {
+                    // nameof(XxxData) → extract the argument, not the "nameof" identifier
+                    if (invoc.ArgumentList.Arguments.Count > 0)
+                    {
+                        var nameofArg = invoc.ArgumentList.Arguments[0].Expression;
+                        if (nameofArg is IdentifierNameSyntax idArg)
+                            memberName = idArg.Identifier.Text;
+                        else
+                            memberName = nameofArg.ToString().Trim('"');
+                    }
+                    else
+                    {
+                        memberName = invoc.Expression.ToString();
+                    }
+                }
+                else if (firstArg is IdentifierNameSyntax idn)
+                {
+                    memberName = idn.Identifier.Text;
+                }
+                else
+                {
+                    // Direct string literal or other expression
+                    memberName = firstArg.ToString().Trim('"');
+                }
+                // Convert PascalCase to camelCase for Java convention
+                var javaMethodName = char.ToLowerInvariant(memberName[0]) + memberName.Substring(1);
+                javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{javaMethodName}\")"));
+            }
+        }
+
         if (attributeNames.Contains("Ignore"))
         {
             javaMethod.Annotations.Add(new JavaAnnotation("Disabled"));
@@ -462,6 +563,12 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.Annotations.Add(annotation);
             }
         }
+    }
+
+    private static string EscapeCsvValue(string value)
+    {
+        // Escape backslashes and double-quotes for Java string literals inside @CsvSource
+        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     private static string NormalizeAttributeName(string rawName)

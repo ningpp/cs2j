@@ -4962,8 +4962,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     /// <summary>
     /// Rewrites a C# String.Format literal format string to Java's printf-style format.
-    /// Escapes any bare '%' characters, then converts {N} placeholders to %s and
-    /// {N:specifier} placeholders to the corresponding Java format specifier.
+    /// Escapes any bare '%' characters, then converts {N} placeholders to Java positional
+    /// format specifiers (%N$s) and {N:specifier} placeholders to the corresponding Java
+    /// format specifier. Using positional specifiers preserves C# semantics where the same
+    /// argument can be referenced multiple times (e.g. "{0}/{0}" → "%1$s/%1$s").
     /// Returns the rewritten string as a Java string literal (with surrounding double-quotes).
     /// </summary>
     private static string RewriteStringFormatLiteral(string formatValue)
@@ -4971,12 +4973,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Escape existing '%' to '%%' so they are treated as literal percent signs in Java.
         var escaped = formatValue.Replace("%", "%%");
         // Match {index} or {index:formatSpec} — index is one or more digits.
+        // Use Java positional argument syntax (%N$s) where N = C# index + 1,
+        // so that repeated references like {0}/{0} become %1$s/%1$s.
         var result = Regex.Replace(escaped, @"\{(\d+)(?::([^}]*))?\}", m =>
         {
+            var index = int.Parse(m.Groups[1].Value) + 1; // Java positions are 1-based
             var spec = m.Groups[2].Success ? m.Groups[2].Value : "";
             return string.IsNullOrEmpty(spec)
-                ? "%s"
-                : StringExpressionTransformer.ConvertCSharpFormatToJava(spec);
+                ? $"%{index}$s"
+                : $"%{index}${StringExpressionTransformer.ConvertCSharpFormatToJava(spec)}";
         });
         // Wrap in Java string literal quotes.
         return $"\"{StringEscapeHelper.EscapeJavaString(result)}\"";

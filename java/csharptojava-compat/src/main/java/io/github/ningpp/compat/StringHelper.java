@@ -619,8 +619,17 @@ public class StringHelper {
         }
         // Escape existing '%' to '%%' so they are treated as literal percent signs
         String escaped = format.replace("%", "%%");
-        // Replace {N} and {N:specifier} placeholders with %s
-        String converted = escaped.replaceAll("\\{\\d+(?::[^}]*?)?\\}", "%s");
+        // Replace {N} and {N:specifier} placeholders with Java positional format %N$s
+        // where N = C# index + 1. This preserves C# semantics where the same argument
+        // can be referenced multiple times (e.g. "{0}/{0}" becomes "%1$s/%1$s").
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\{(\\d+)(?::[^}]*?)?\\}").matcher(escaped);
+        StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            int index = Integer.parseInt(matcher.group(1)) + 1; // Java positions are 1-based
+            matcher.appendReplacement(sb, "%" + index + "$s");
+        }
+        matcher.appendTail(sb);
+        String converted = sb.toString();
         if (args == null || args.length == 0) {
             return String.format(l, converted);
         }

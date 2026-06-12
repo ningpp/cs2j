@@ -544,12 +544,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        // C# new string(Span<char>) → Java Span<Character>.toString()
+        // C# new string(Span<char>) or new string(ReadOnlySpan<char>) → Java Span/ReadOnlySpan<Character>.toString()
         // Java String has no constructor accepting Span<Character>.
         if (bareType == "String" && argumentList.Arguments.Count == 1)
         {
             var argType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
-            if (argType != null && argType.ToDisplayString().StartsWith("System.Span<char>"))
+            if (argType != null &&
+                (argType.ToDisplayString().StartsWith("System.Span<char>") ||
+                 argType.ToDisplayString().StartsWith("System.ReadOnlySpan<char>")))
             {
                 return $"{args}.toString()";
             }

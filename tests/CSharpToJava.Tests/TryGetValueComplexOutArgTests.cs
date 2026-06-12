@@ -412,6 +412,28 @@ class UriParser {
         Assert.DoesNotContain("s_table.get(", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void InlineData_Null_ConvertedToCsvSourceWithNullValues()
+    {
+        var result = Convert(@"using Xunit; class T { [Theory] [InlineData(null)] [InlineData("""")] public void M(string s) {} }");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        Assert.Contains("CsvSource", code, StringComparison.Ordinal);
+        Assert.Contains("nullValues", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_EmptyString_UsesSingleQuotesInCsv()
+    {
+        var result = Convert(@"using Xunit; class T { [Theory] [InlineData("""")] [InlineData(""hello"")] public void M(string s) {} }");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        // empty string should use '' in CSV
+        Assert.Contains("''", code, StringComparison.Ordinal);
+        // no nullValues needed when no null
+        Assert.DoesNotContain("nullValues", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
