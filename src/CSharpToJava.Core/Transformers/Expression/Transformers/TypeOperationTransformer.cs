@@ -376,14 +376,18 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (targetSymbol?.SpecialType == SpecialType.System_UInt16)
             return $"(((int)({expression})) & 0xFFFF)";
 
-        // C# (uint)expr → ((expr) & 0xFFFFFFFFL) (uint maps to Java int, cast becomes masking)
+        // C# (uint)expr → (int)((expr) & 0xFFFFFFFFL) (uint maps to Java int, cast becomes masking)
         // This preserves unsigned semantics: (uint)(x - '0') <= 9 works correctly
         // because negative values wrap to large positive values via the mask.
         // Parentheses are required around the & expression because & has lower precedence
         // than <= in Java, so without them "x & 0xFFFFFFFFL <= 9" would be parsed as
         // "x & (0xFFFFFFFFL <= 9)" which is a type error (int & boolean).
+        // The (int) cast is needed because 0xFFFFFFFFL is a long literal, making the
+        // entire & expression a long; assigning a long to an int is a lossy conversion
+        // in Java. The mask ensures only the lower 32 bits are set, so the (int) cast
+        // produces the correct unsigned-to-signed mapping.
         if (targetSymbol?.SpecialType == SpecialType.System_UInt32)
-            return $"(({expression}) & 0xFFFFFFFFL)";
+            return $"(int)(({expression}) & 0xFFFFFFFFL)";
 
         // User-defined conversion operators (implicit/explicit operator)
         // e.g. (string)qilLiteral where QilLiteral defines "implicit operator string"
