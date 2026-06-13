@@ -117,4 +117,45 @@ class MyClass
         // Should NOT contain configureAwait method call on CompletableFuture
         Assert.DoesNotContain(".configureAwait(", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    // ── Task.CompletedTask tests ────────────────────────────────────
+
+    [Fact]
+    public void TaskCompletedTask_MapsToCompletedFutureNull()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class MyClass
+{
+    Task DoAsync()
+    {
+        return Task.CompletedTask;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("completedFuture(null)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getCompletedTask", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CompletedTask", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    // ── Task.FromResult tests ───────────────────────────────────────
+
+    [Fact]
+    public void TaskFromResult_MapsToCompletedFuture()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class MyClass
+{
+    Task<int> GetResultAsync()
+    {
+        return Task.FromResult(42);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("completedFuture", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("FromResult", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

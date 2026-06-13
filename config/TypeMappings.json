@@ -4446,6 +4446,16 @@
             "javaMethod": "delayedExecutor"
         },
         {
+            "type": "System.Threading.Tasks.Task",
+            "method": "CompletedTask",
+            "javaMethod": "CompletableFuture.completedFuture(null)"
+        },
+        {
+            "type": "System.Threading.Tasks.Task",
+            "method": "FromResult",
+            "javaMethod": "completedFuture"
+        },
+        {
             "type": "System.Threading.Tasks.Task`1",
             "method": "Delay",
             "javaMethod": "delayedExecutor"
