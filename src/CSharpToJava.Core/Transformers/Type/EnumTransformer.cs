@@ -79,6 +79,9 @@ public class EnumTransformer : ITypeTransformer
             AddFlagsMethod("or",         numType,   "return a | b;",               new JavaParameter(numType, "a"), new JavaParameter(numType, "b"));
             AddFlagsMethod("complement", numType,   "return ~a;",                  new JavaParameter(numType, "a"));
             AddFlagsMethod("has",        "boolean", "return (flags & flag) != 0;", new JavaParameter(numType, "flags"), new JavaParameter(numType, "flag"));
+            // fromValue and fromValueUnchecked for int→flags casts (identity)
+            AddFlagsMethod("fromValue",          numType, "return v;", new JavaParameter("int", "v"));
+            AddFlagsMethod("fromValueUnchecked", numType, "return v;", new JavaParameter("int", "v"));
             return flagsClass;
         }
 
