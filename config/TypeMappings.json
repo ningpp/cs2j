@@ -2676,6 +2676,100 @@
             ]
         },
         {
+            "csharp": "System.Net.ICredentials",
+            "java": "Object",
+            "imports": []
+        },
+        {
+            "csharp": "ICredentials",
+            "java": "Object",
+            "imports": []
+        },
+        {
+            "csharp": "System.Text.Decoder",
+            "java": "Decoder",
+            "imports": [
+                "io.github.ningpp.compat.Decoder"
+            ]
+        },
+        {
+            "csharp": "Decoder",
+            "java": "Decoder",
+            "imports": [
+                "io.github.ningpp.compat.Decoder"
+            ]
+        },
+        {
+            "csharp": "System.Text.EncoderFallback",
+            "java": "EncoderFallback",
+            "imports": [
+                "io.github.ningpp.compat.EncoderFallback"
+            ]
+        },
+        {
+            "csharp": "EncoderFallback",
+            "java": "EncoderFallback",
+            "imports": [
+                "io.github.ningpp.compat.EncoderFallback"
+            ]
+        },
+        {
+            "csharp": "System.Text.EncoderFallbackBuffer",
+            "java": "EncoderFallbackBuffer",
+            "imports": [
+                "io.github.ningpp.compat.EncoderFallbackBuffer"
+            ]
+        },
+        {
+            "csharp": "EncoderFallbackBuffer",
+            "java": "EncoderFallbackBuffer",
+            "imports": [
+                "io.github.ningpp.compat.EncoderFallbackBuffer"
+            ]
+        },
+        {
+            "csharp": "System.Text.EncoderExceptionFallback",
+            "java": "EncoderExceptionFallback",
+            "imports": [
+                "io.github.ningpp.compat.EncoderExceptionFallback"
+            ]
+        },
+        {
+            "csharp": "EncoderExceptionFallback",
+            "java": "EncoderExceptionFallback",
+            "imports": [
+                "io.github.ningpp.compat.EncoderExceptionFallback"
+            ]
+        },
+        {
+            "csharp": "System.Diagnostics.BooleanSwitch",
+            "java": "BooleanSwitch",
+            "imports": [
+                "io.github.ningpp.compat.BooleanSwitch"
+            ]
+        },
+        {
+            "csharp": "BooleanSwitch",
+            "java": "BooleanSwitch",
+            "imports": [
+                "io.github.ningpp.compat.BooleanSwitch"
+            ]
+        },
+        {
+            "csharp": "System.Diagnostics.TraceSwitch",
+            "java": "TraceSwitch",
+            "imports": [
+                "io.github.ningpp.compat.TraceSwitch"
+            ]
+        },
+        {
+            "csharp": "TraceSwitch",
+            "java": "TraceSwitch",
+            "imports": [
+                "io.github.ningpp.compat.TraceSwitch"
+            ]
+        },
+        {
             "csharp": "System.IO.BufferedStream",
             "java": "BufferedInputStream",
             "imports": [
