@@ -860,9 +860,10 @@ public static class ExpressionTransformerHelpers
         }
         else if (typeSymbol.TypeKind == TypeKind.Enum && IsFlagsEnum(typeSymbol, context))
         {
-            var flagsMapped = context.MapType(typeSymbol);
-            if (!string.IsNullOrWhiteSpace(flagsMapped))
-                return BoxJavaPrimitiveType(flagsMapped);
+            // [Flags] enum constants are collected in IntegerHelper (compat class)
+            // to avoid naming collision with java.lang.Integer.
+            context.AddImport("io.github.ningpp.compat.IntegerHelper");
+            return "IntegerHelper";
         }
 
         AddImportForTopLevelType(typeSymbol, context);

@@ -626,7 +626,7 @@ public class StringHelper {
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\{(\\d+)(?::([^}]*?))?\\}").matcher(escaped);
         StringBuffer sb = new StringBuffer();
         while (matcher.find()) {
-            int index = Integer.parseInt(matcher.group(1)) + 1; // Java positions are 1-based
+            int index = java.lang.Integer.parseInt(matcher.group(1)) + 1; // Java positions are 1-based
             String specifier = matcher.group(2); // may be null if no specifier
             String javaFormat;
             if (specifier != null) {

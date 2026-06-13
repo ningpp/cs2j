@@ -74,7 +74,7 @@ public final class Span<T> {
     private Object getDefaultValue() {
         // C# Span<T>.Clear() fills with default(T): 0 for numeric types, false for boolean, null for references
         if (array instanceof Short[]) return Short.valueOf((short)0);
-        if (array instanceof Integer[]) return Integer.valueOf(0);
+        if (array instanceof Integer[]) return java.lang.Integer.valueOf(0);
         if (array instanceof Long[]) return Long.valueOf(0L);
         if (array instanceof Byte[]) return Byte.valueOf((byte)0);
         if (array instanceof Float[]) return Float.valueOf(0.0f);

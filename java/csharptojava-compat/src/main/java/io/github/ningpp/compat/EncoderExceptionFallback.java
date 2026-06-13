@@ -17,7 +17,7 @@ class EncoderExceptionFallbackBuffer extends EncoderFallbackBuffer {
     @Override
     public boolean fallback(char charUnknown, int index) {
         throw new IllegalArgumentException("Unable to encode character \\u" +
-            Integer.toHexString(charUnknown) + " at index " + index);
+            java.lang.Integer.toHexString(charUnknown) + " at index " + index);
     }
 
     @Override

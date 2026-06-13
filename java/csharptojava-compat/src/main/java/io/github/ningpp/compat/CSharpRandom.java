@@ -2,7 +2,7 @@ package io.github.ningpp.compat;
 
 public class CSharpRandom {
 
-    private static final int MBIG = Integer.MAX_VALUE;
+    private static final int MBIG = java.lang.Integer.MAX_VALUE;
     private static final int MSEED = 161803398;
 
     private final int[] seedArray = new int[56];
@@ -14,7 +14,7 @@ public class CSharpRandom {
     }
 
     public CSharpRandom(int seed) {
-        int subtraction = seed == Integer.MIN_VALUE ? Integer.MAX_VALUE : Math.abs(seed);
+        int subtraction = seed == java.lang.Integer.MIN_VALUE ? java.lang.Integer.MAX_VALUE : Math.abs(seed);
         int mj = MSEED - subtraction;
         seedArray[55] = mj;
         int mk = 1;
@@ -61,7 +61,7 @@ public class CSharpRandom {
                 + minValue + ", maxValue: " + maxValue);
         }
         long range = (long) maxValue - minValue;
-        if (range <= Integer.MAX_VALUE) {
+        if (range <= java.lang.Integer.MAX_VALUE) {
             return ((int) (sample() * range) + minValue);
         } else {
             return (int) ((long) (getSampleForLargeRange() * range) + minValue);
@@ -79,8 +79,8 @@ public class CSharpRandom {
             result = -result;
         }
         double d = result;
-        d += (Integer.MAX_VALUE - 1);
-        d /= 2.0 * (long) Integer.MAX_VALUE - 1;
+        d += (java.lang.Integer.MAX_VALUE - 1);
+        d /= 2.0 * (long) java.lang.Integer.MAX_VALUE - 1;
         return d;
     }
 

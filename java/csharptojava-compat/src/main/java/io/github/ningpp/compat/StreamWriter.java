@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 /** Replacement for System.IO.StreamWriter. */
 public class StreamWriter extends PrintWriter {
     private final StreamWrapper baseStream;
+    private final Charset charset;
 
     public StreamWriter(StreamWrapper stream) {
         this(stream, StandardCharsets.UTF_8);
@@ -21,6 +22,11 @@ public class StreamWriter extends PrintWriter {
     public StreamWriter(StreamWrapper stream, Charset charset) {
         super(new OutputStreamWriter(stream.outputStream(), charset));
         this.baseStream = stream;
+        this.charset = charset;
+    }
+
+    public StreamWriter(StreamWrapper stream, Encoding encoding) {
+        this(stream, encoding.toCharset());
     }
 
     public StreamWriter(OutputStream stream) {
@@ -34,6 +40,7 @@ public class StreamWriter extends PrintWriter {
     public StreamWriter(Writer writer) {
         super(writer);
         this.baseStream = null;
+        this.charset = StandardCharsets.UTF_8;
     }
 
     public StreamWriter(String path) {
@@ -46,6 +53,11 @@ public class StreamWriter extends PrintWriter {
 
     public StreamWriter(String path, boolean append, Charset charset) {
         this(open(path, append), charset);
+    }
+
+    /** Mirrors C# StreamWriter.Encoding property */
+    public Encoding getEncoding() {
+        return Encoding.getEncoding(charset);
     }
 
     public StreamWrapper getBaseStream() {

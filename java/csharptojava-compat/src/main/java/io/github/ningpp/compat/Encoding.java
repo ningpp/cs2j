@@ -188,6 +188,10 @@ public class Encoding {
 
     // ---- Static Methods ----
 
+    public static Encoding getEncoding(Charset charset) {
+        return new Encoding(charset, codePageFor(charset));
+    }
+
     public static Encoding getEncoding(String name) {
         Charset charset = Charset.forName(name);
         return new Encoding(charset, codePageFor(charset));
@@ -521,7 +525,7 @@ public class Encoding {
         if ("UTF-7".equals(name)) return 65000;
         if (name.startsWith("WINDOWS-")) {
             try {
-                return Integer.parseInt(name.substring("WINDOWS-".length()));
+                return java.lang.Integer.parseInt(name.substring("WINDOWS-".length()));
             } catch (NumberFormatException ignored) {
                 return 0;
             }

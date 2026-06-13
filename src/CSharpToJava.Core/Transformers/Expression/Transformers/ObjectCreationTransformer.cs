@@ -509,8 +509,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        // Java StringWriter has no constructor accepting Locale/CultureInfo.
-        // Strip CultureInfo/IFormatProvider arguments from the constructor call.
+        // Java StringWriter has no constructor accepting Locale/CultureInfo
+        // or StringBuilder. Strip those arguments from the constructor call.
         var bareType = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
         if ((bareType == "StringWriter" || bareType == "java.io.StringWriter")
             && argumentList.Arguments.Count > 0)
@@ -521,7 +521,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 var argType = context.GetTypeInfo(arg.Expression).Type;
                 var argTypeDisplay = argType?.ToDisplayString();
                 if (argTypeDisplay != "System.Globalization.CultureInfo"
-                    && argTypeDisplay != "System.IFormatProvider")
+                    && argTypeDisplay != "System.IFormatProvider"
+                    && argTypeDisplay != "System.Text.StringBuilder")
                 {
                     filteredArgs.Add(arg);
                 }

@@ -133,7 +133,7 @@ public class MemoryStream extends StreamWrapper {
 
     @Override
     public void setPosition(long value) {
-        if (value < 0 || value > Integer.MAX_VALUE)
+        if (value < 0 || value > java.lang.Integer.MAX_VALUE)
             throw new IllegalArgumentException("Position out of range: " + value);
         position = (int)value;
     }
@@ -144,7 +144,7 @@ public class MemoryStream extends StreamWrapper {
     }
 
     public void setLength(long value) {
-        if (value < 0 || value > Integer.MAX_VALUE)
+        if (value < 0 || value > java.lang.Integer.MAX_VALUE)
             throw new IllegalArgumentException("Length out of range: " + value);
         int newLength = (int)value;
         ensureCapacity(newLength);

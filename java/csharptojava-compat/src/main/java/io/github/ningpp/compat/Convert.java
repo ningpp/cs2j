@@ -38,11 +38,34 @@ public class Convert {
 
     /** Mirrors C# Convert.ToInt32(String) */
     public static int toInt32(String value) {
-        return Integer.parseInt(value);
+        return java.lang.Integer.parseInt(value);
     }
 
     /** Mirrors C# Convert.ToBoolean(String) */
     public static boolean toBoolean(String value) {
         return Boolean.parseBoolean(value);
+    }
+
+    /** Mirrors C# Convert.ChangeType(Object, Type) for common types */
+    public static Object changeType(String value, Class<?> targetType, java.util.Locale locale) {
+        if (value == null) {
+            if (targetType == String.class) return null;
+            if (targetType.isPrimitive()) throw new IllegalArgumentException("Cannot convert null to primitive type");
+            return null;
+        }
+        if (targetType == String.class) return value;
+        if (targetType == java.lang.Integer.class || targetType == int.class) return java.lang.Integer.parseInt(value.trim());
+        if (targetType == Long.class || targetType == long.class) return Long.parseLong(value.trim());
+        if (targetType == Double.class || targetType == double.class) return Double.parseDouble(value.trim());
+        if (targetType == Float.class || targetType == float.class) return Float.parseFloat(value.trim());
+        if (targetType == Boolean.class || targetType == boolean.class) return Boolean.parseBoolean(value.trim());
+        if (targetType == Short.class || targetType == short.class) return Short.parseShort(value.trim());
+        if (targetType == Byte.class || targetType == byte.class) return Byte.parseByte(value.trim());
+        if (targetType == Character.class || targetType == char.class) {
+            if (value.length() > 0) return value.charAt(0);
+            return '\0';
+        }
+        if (targetType == java.math.BigDecimal.class) return new java.math.BigDecimal(value.trim());
+        return value;
     }
 }
