@@ -858,6 +858,12 @@ public static class ExpressionTransformerHelpers
             if (!string.IsNullOrWhiteSpace(mappedType))
                 return BoxJavaPrimitiveType(mappedType);
         }
+        else if (typeSymbol.TypeKind == TypeKind.Enum && IsFlagsEnum(typeSymbol, context))
+        {
+            var flagsMapped = context.MapType(typeSymbol);
+            if (!string.IsNullOrWhiteSpace(flagsMapped))
+                return BoxJavaPrimitiveType(flagsMapped);
+        }
 
         AddImportForTopLevelType(typeSymbol, context);
         return BuildNestedTypeReference(typeSymbol);
