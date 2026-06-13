@@ -684,23 +684,46 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
 
-        // Wrap enum operands with getValue() or ordinal() depending on enum kind
+        // Wrap enum operands with getValue() or ordinal() depending on enum kind.
+        // Guard: if the transformed expression already ends with a value-access
+        // suffix (from nested enum expression processing), don't append another.
         if (leftIsEnum)
         {
             var suffix = GetEnumAccessSuffix(leftType!, context);
-            if (suffix != null) left = $"{left}{suffix}";
+            if (suffix != null && !left.EndsWith(suffix, StringComparison.Ordinal))
+                left = ApplyEnumAccessSuffix(left, suffix);
         }
 
         if (rightIsEnum)
         {
             var suffix = GetEnumAccessSuffix(rightType!, context);
-            if (suffix != null) right = $"{right}{suffix}";
+            if (suffix != null && !right.EndsWith(suffix, StringComparison.Ordinal))
+                right = ApplyEnumAccessSuffix(right, suffix);
         }
 
         left = WrapOperandIfNeeded(node.Left, left, op, true);
         right = WrapOperandIfNeeded(node.Right, right, op, false);
 
         return $"{left} {op} {right}";
+    }
+
+    /// <summary>
+    /// Applies an enum access suffix (.getValue() or .ordinal()) to an expression,
+    /// wrapping in parentheses if the expression is compound to ensure the suffix
+    /// applies to the whole expression, not just the last token.
+    /// </summary>
+    private static string ApplyEnumAccessSuffix(string expr, string suffix)
+    {
+        // If the expression contains operators or is complex, wrap in parens
+        if (expr.Contains(" | ") || expr.Contains(" & ") || expr.Contains(" ^ ")
+            || expr.Contains(" << ") || expr.Contains(">>")
+            || expr.Contains(" + ") || expr.Contains(" - ") || expr.Contains(" * ")
+            || expr.Contains(" / ") || expr.Contains(" % ")
+            || expr.Contains(" ? ") || expr.Contains(" : "))
+        {
+            return $"({expr}){suffix}";
+        }
+        return $"{expr}{suffix}";
     }
 
     /// <summary>

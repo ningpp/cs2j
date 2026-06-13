@@ -1124,6 +1124,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         // C# static field/property mappings for non-primitive types
+        // TimeSpan.Zero maps to Duration.ZERO which is a java.time.Duration.
+        // When compared with ZoneOffset (from DateTimeOffset.Offset), use
+        // Duration.ZERO.toSeconds() to produce a comparable long value.
         if (target == "Duration" && memberName == "Zero") return "Duration.ZERO";
         if (target == "Duration" && memberName == "ZERO") return "Duration.ZERO";
 
