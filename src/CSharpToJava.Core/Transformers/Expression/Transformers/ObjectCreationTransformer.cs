@@ -537,6 +537,47 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // Java Map (LinkedHashMap, HashMap) constructors don't accept
+        // IEqualityComparer arguments. Strip them — detect by constructor parameter type,
+        // by interface check, and by the parameter name containing "Comparer" or "Hasher".
+        if ((bareType == "LinkedHashMap" || bareType == "HashMap")
+            && argumentList.Arguments.Count > 0)
+        {
+            var filteredMapArgs = new List<ArgumentSyntax>();
+            foreach (var arg in argumentList.Arguments)
+            {
+                var argType = context.GetTypeInfo(arg.Expression).Type;
+                var argTypeName = argType?.ToDisplayString() ?? "";
+                // Check via semantic model interfaces
+                var ifaces = argType?.AllInterfaces ?? [];
+                bool isComparer = ifaces.Any(i =>
+                    i.ToDisplayString().StartsWith("System.Collections.IEqualityComparer")
+                    || i.ToDisplayString().StartsWith("System.Collections.Generic.IEqualityComparer"));
+                // Also check by constructor parameter type name (fallback)
+                if (!isComparer && ctorSymbol != null)
+                {
+                    var argIndex = argumentList.Arguments.IndexOf(arg);
+                    if (argIndex >= 0 && argIndex < ctorSymbol.Parameters.Length)
+                    {
+                        var paramType = ctorSymbol.Parameters[argIndex].Type;
+                        isComparer = paramType.ToDisplayString().StartsWith("System.Collections.Generic.IEqualityComparer")
+                            || paramType.Name is "IEqualityComparer";
+                    }
+                }
+                if (isComparer)
+                    continue;
+                filteredMapArgs.Add(arg);
+            }
+            if (filteredMapArgs.Count < argumentList.Arguments.Count)
+            {
+                if (filteredMapArgs.Count == 0)
+                    return $"new {typeName}()";
+                args = ArgumentTransformer.TransformArgumentList(
+                    SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(filteredMapArgs)),
+                    context, ExpressionTransformerFacade.Instance, methodSymbol: ctorSymbol);
+            }
+        }
+
         // C# new string(char c, int count) → Java String.valueOf(c).repeat(count)
         // Java String has no (char, int) constructor; C# creates a string by repeating the character.
         if (bareType == "String" && argumentList.Arguments.Count == 2)
