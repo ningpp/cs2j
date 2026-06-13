@@ -66,7 +66,22 @@ public final class Span<T> {
     }
 
     public void clear() {
-        Arrays.fill(array, offset, offset + length, null);
+        Object fillValue = getDefaultValue();
+        Arrays.fill(array, offset, offset + length, (T) fillValue);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object getDefaultValue() {
+        // C# Span<T>.Clear() fills with default(T): 0 for numeric types, false for boolean, null for references
+        if (array instanceof Short[]) return Short.valueOf((short)0);
+        if (array instanceof Integer[]) return Integer.valueOf(0);
+        if (array instanceof Long[]) return Long.valueOf(0L);
+        if (array instanceof Byte[]) return Byte.valueOf((byte)0);
+        if (array instanceof Float[]) return Float.valueOf(0.0f);
+        if (array instanceof Double[]) return Double.valueOf(0.0d);
+        if (array instanceof Character[]) return Character.valueOf('\0');
+        if (array instanceof Boolean[]) return Boolean.FALSE;
+        return null;
     }
 
     public T[] toArray() {
