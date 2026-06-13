@@ -2063,15 +2063,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
         skipCopyToRewrite:
 
-        // Encoding.GetDecoder() returns Encoding.Decoder (inner final class),
-        // but the field type is Decoder (standalone extendable class).
+        // Encoding.GetDecoder() / GetEncoder() return inner final classes
+        // (Encoding.Decoder / Encoding.Encoder), but the field types are
+        // standalone extendable classes (Decoder / Encoder).
         // Add an explicit cast to resolve the type mismatch.
-        if (originalMethodName == "GetDecoder"
-            && node.ArgumentList.Arguments.Count == 0
+        if (node.ArgumentList.Arguments.Count == 0
             && methodSymbol?.ContainingType.ToDisplayString() == "System.Text.Encoding")
         {
-            context.AddImport("io.github.ningpp.compat.Decoder");
-            return $"(Decoder)(Object)({receiver}.getDecoder())";
+            if (originalMethodName == "GetDecoder")
+            {
+                context.AddImport("io.github.ningpp.compat.Decoder");
+                return $"(Decoder)(Object)({receiver}.getDecoder())";
+            }
+            if (originalMethodName == "GetEncoder")
+            {
+                context.AddImport("io.github.ningpp.compat.Encoder");
+                return $"(Encoder)(Object)({receiver}.getEncoder())";
+            }
         }
 
         // Dictionary.TryGetValue(key, out value) -> containsKey check + out assignment.

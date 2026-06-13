@@ -2,7 +2,6 @@ using CommandLine;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Compatibility;
-using CSharpToJava.Core.Java.Rewriters;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Workspace;
@@ -398,7 +397,6 @@ class Program
                 StringComparer.OrdinalIgnoreCase);
 
             var pipeline = new ProjectConversionPipeline(options);
-            pipeline.AddIRRewriter(new VariableNameDeduplicationRewriter());
             var results = await pipeline.ConvertProjectAsync(
                 project.Compilation,
                 emitFilePaths,
