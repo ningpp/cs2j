@@ -5375,6 +5375,21 @@
             "javaMethod": "getLength"
         },
         {
+            "type": "System.Text.RegularExpressions.Capture",
+            "method": "Index",
+            "javaMethod": "getIndex"
+        },
+        {
+            "type": "System.Text.RegularExpressions.Capture",
+            "method": "Length",
+            "javaMethod": "getLength"
+        },
+        {
+            "type": "System.Text.RegularExpressions.Capture",
+            "method": "Value",
+            "javaMethod": "getValue"
+        },
+        {
             "type": "System.Text.StringBuilder",
             "method": "ToString",
             "javaMethod": "substring",
