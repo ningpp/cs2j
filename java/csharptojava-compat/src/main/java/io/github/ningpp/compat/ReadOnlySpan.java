@@ -37,6 +37,11 @@ public final class ReadOnlySpan<T> {
         return length;
     }
 
+    /** Alias for length() — matches C# Span.Length property getter translation */
+    public int getLength() {
+        return length;
+    }
+
     public T get(int index) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);

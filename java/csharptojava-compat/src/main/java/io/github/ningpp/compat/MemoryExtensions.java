@@ -21,4 +21,24 @@ public class MemoryExtensions {
         }
         return new ReadOnlySpan<>(arr);
     }
+
+    /** C# Span<byte> → Java ReadOnlySpan<Byte> */
+    public static ReadOnlySpan<Byte> asSpan(byte[] data) {
+        if (data == null) return new ReadOnlySpan<>(new Byte[0]);
+        Byte[] arr = new Byte[data.length];
+        for (int i = 0; i < data.length; i++) {
+            arr[i] = data[i];
+        }
+        return new ReadOnlySpan<>(arr);
+    }
+
+    /** C# ReadOnlySpan<byte> slice → Java ReadOnlySpan<Byte> */
+    public static ReadOnlySpan<Byte> asSpan(byte[] data, int start, int length) {
+        if (data == null) return new ReadOnlySpan<>(new Byte[0]);
+        Byte[] arr = new Byte[length];
+        for (int i = 0; i < length; i++) {
+            arr[i] = data[start + i];
+        }
+        return new ReadOnlySpan<>(arr);
+    }
 }
