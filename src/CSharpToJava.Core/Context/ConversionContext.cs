@@ -379,6 +379,8 @@ public class ConversionContext
     public bool IsInShortCircuitOperand => MethodState.IsInShortCircuitOperand;
     public void EnterShortCircuitOperand() => MethodState.EnterShortCircuitOperand();
     public void ExitShortCircuitOperand() => MethodState.ExitShortCircuitOperand();
+    public void RegisterShortCircuitDeferredSideEffect(string tempVar, string sideEffect) => MethodState.RegisterShortCircuitDeferredSideEffect(tempVar, sideEffect);
+    public bool TryConsumeShortCircuitDeferredSideEffect(string tempVar, out string sideEffect) => MethodState.TryConsumeShortCircuitDeferredSideEffect(tempVar, out sideEffect!);
     public void RegisterRuntimeClassParameter(string typeParameterName, string parameterName)
         => MethodState.RegisterRuntimeClassParameter(typeParameterName, parameterName);
     public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)

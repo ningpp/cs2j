@@ -140,6 +140,22 @@ public class MethodConversionState
     /// <summary>Exit a short-circuit operand context. Call after transforming ||/&amp;&amp; right operand.</summary>
     public void ExitShortCircuitOperand() => _shortCircuitDepth--;
 
+    /// <summary>
+    /// Deferred side effects from expressions inside short-circuit operands.
+    /// Key: temp variable name (e.g. "_ptrPost3"), Value: side effect statement (e.g. "curPos = curPos.asSlice(2)").
+    /// These are consumed by the parent expression (e.g. TransformPointerIndirection) to inline them
+    /// into the short-circuit path.
+    /// </summary>
+    private readonly Dictionary<string, string> _shortCircuitDeferredSideEffects = new(StringComparer.Ordinal);
+
+    /// <summary>Register a deferred side effect for a temp variable in a short-circuit context.</summary>
+    public void RegisterShortCircuitDeferredSideEffect(string tempVar, string sideEffect)
+        => _shortCircuitDeferredSideEffects[tempVar] = sideEffect;
+
+    /// <summary>Try to consume a deferred side effect for a temp variable.</summary>
+    public bool TryConsumeShortCircuitDeferredSideEffect(string tempVar, out string sideEffect)
+        => _shortCircuitDeferredSideEffects.Remove(tempVar, out sideEffect!);
+
     // ─── Scope Tracking ────────────────────────────────────────────
 
     private int _scopeDepth;
@@ -370,6 +386,7 @@ public class MethodConversionState
         _outHolderAllocCounts.Clear();
         _readOnlyRefStructParams.Clear();
         _shortCircuitDepth = 0;
+        _shortCircuitDeferredSideEffects.Clear();
         _lambdaCaptureRegistry.Clear();
         _pendingLambdaCaptureHolders.Clear();
         _activeLambdaCaptureHolders.Clear();

@@ -476,23 +476,59 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var operand = facade.Transform(node.Operand, context);
 
         var operandText = operand.Trim();
-        var pointerInfo = context.FindPointerInfo(operandText);
-        if (pointerInfo == null)
+
+        // Check if the operand has a deferred side effect from a short-circuit context.
+        // This happens when *ptr++ appears inside || or && right operand.
+        // The pointer increment must be inlined into the short-circuit path.
+        if (context.TryConsumeShortCircuitDeferredSideEffect(operandText, out var deferredSideEffect))
+        {
+            var pointerInfo = context.FindPointerInfo(operandText);
+            if (pointerInfo == null)
+            {
+                var operandType = context.GetTypeInfo(node.Operand).Type;
+                if (operandType is IPointerTypeSymbol ptrType)
+                {
+                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
+                    pointerInfo = FfmHelper.CreatePointerInfo(operandText, elementTypeName);
+                }
+            }
+            if (pointerInfo != null)
+            {
+                // Generate: (deferredSideEffect) != null ? readValue : defaultValue
+                // The assignment always succeeds (non-null), so the read always executes,
+                // but the side effect (pointer increment) is now inside the short-circuit path.
+                var readExpr = context.TryGetPointerBase(operandText, out var baseVar)
+                    ? FfmHelper.GeneratePointerReadWithBoundsCheck(operandText, pointerInfo, "0", baseVar, context)
+                    : FfmHelper.GeneratePointerRead(operandText, pointerInfo, "0");
+                var defaultValue = pointerInfo.ElementSize switch
+                {
+                    1 => "(byte)0",
+                    2 => "'\\0'",
+                    4 => "0",
+                    8 => "0L",
+                    _ => "0"
+                };
+                return $"(({deferredSideEffect}) != null ? {readExpr} : {defaultValue})";
+            }
+        }
+
+        var pointerInfo2 = context.FindPointerInfo(operandText);
+        if (pointerInfo2 == null)
         {
             var operandType = context.GetTypeInfo(node.Operand).Type;
             if (operandType is IPointerTypeSymbol ptrType)
             {
                 var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
-                pointerInfo = FfmHelper.CreatePointerInfo(operandText, elementTypeName);
+                pointerInfo2 = FfmHelper.CreatePointerInfo(operandText, elementTypeName);
             }
         }
-        if (pointerInfo != null)
+        if (pointerInfo2 != null)
         {
             if (context.TryGetPointerBase(operandText, out var baseVar))
             {
-                return FfmHelper.GeneratePointerReadWithBoundsCheck(operandText, pointerInfo, "0", baseVar, context);
+                return FfmHelper.GeneratePointerReadWithBoundsCheck(operandText, pointerInfo2, "0", baseVar, context);
             }
-            return FfmHelper.GeneratePointerRead(operandText, pointerInfo, "0");
+            return FfmHelper.GeneratePointerRead(operandText, pointerInfo2, "0");
         }
 
         context.Diagnostics.Warning("Pointer indirection operator (*) has no Java equivalent - unsafe code not supported", node.GetLocation());
@@ -546,19 +582,17 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                         // In a short-circuit context (|| or && right operand), we cannot
                         // use pre-statements for the pointer increment because they would
                         // execute unconditionally before the if condition, breaking
-                        // short-circuit semantics. Instead, inline the increment as an
-                        // assignment expression within the short-circuit path.
-                        // Pattern: (curPos = curPos.asSlice(2)) != null && _ptrPost3.get(...)
-                        // The (curPos = ...) assignment always succeeds (non-null), so it's
-                        // effectively a no-op conditionally, but the side effect (increment)
-                        // only runs when the short-circuit path is taken.
+                        // short-circuit semantics. Instead, register the increment as a
+                        // deferred side effect. The parent expression (e.g. *ptr++ via
+                        // TransformPointerIndirection) will consume it and inline it into
+                        // the short-circuit path.
                         context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
+                        context.RegisterShortCircuitDeferredSideEffect(tmp, $"{operandExpr} = {sliceExpr}");
                         // Register backtrack: after ptr++, *(ptr - 1) should use tmp
                         context.RegisterPointerBacktrackVar(operandExpr.Trim(), 1, tmp);
                         if (delta < 0)
                             context.InvalidatePointerBacktrackVars(operandExpr.Trim());
-                        // Return the increment as an inline assignment expression + the temp var
-                        return $"({operandExpr} = {sliceExpr}) != null ? {tmp} : null";
+                        return tmp;
                     }
                     else
                     {
