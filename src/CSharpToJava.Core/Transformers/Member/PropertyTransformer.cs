@@ -22,6 +22,9 @@ public class PropertyTransformer : IMemberTransformer
             throw new ArgumentException($"Expected PropertyDeclarationSyntax, got {node.GetType()}");
         }
 
+        // Properties cannot be async in C#; reset any leaked async context from previous members
+        context.IsInAsyncContext = false;
+
         var results = new List<JavaSyntaxNode>();
         var typeInfo = context.GetTypeInfo(propDecl.Type);
         var propType = typeInfo.Type != null

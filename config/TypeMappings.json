@@ -76,6 +76,13 @@
             "imports": []
         },
         {
+            "csharp": "System.Convert",
+            "java": "Convert",
+            "imports": [
+                "io.github.ningpp.compat.Convert"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.List`1",
             "java": "ArrayList",
             "imports": [

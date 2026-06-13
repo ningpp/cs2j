@@ -211,6 +211,7 @@ public class MethodTransformer : IMemberTransformer
                             new Java.JavaRawStatement(baseSegmentDeclarations[i]));
                     }
                 }
+
             }
         }
         else if (methodDecl.ExpressionBody != null)
