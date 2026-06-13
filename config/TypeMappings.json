@@ -640,6 +640,20 @@
             ]
         },
         {
+            "csharp": "System.AppDomain",
+            "java": "AppDomain",
+            "imports": [
+                "io.github.ningpp.compat.AppDomain"
+            ]
+        },
+        {
+            "csharp": "AppDomain",
+            "java": "AppDomain",
+            "imports": [
+                "io.github.ningpp.compat.AppDomain"
+            ]
+        },
+        {
             "csharp": "System.ArithmeticException",
             "java": "ArithmeticException",
             "imports": [
@@ -3168,9 +3182,16 @@
         },
         {
             "csharp": "System.Reflection.Assembly",
-            "java": "Package",
+            "java": "AssemblyCompat",
             "imports": [
-                "java.lang.Package"
+                "io.github.ningpp.compat.AssemblyCompat"
+            ]
+        },
+        {
+            "csharp": "Assembly",
+            "java": "AssemblyCompat",
+            "imports": [
+                "io.github.ningpp.compat.AssemblyCompat"
             ]
         },
         {
@@ -5216,6 +5237,16 @@
             "javaMethod": "getValue"
         },
         {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "get_ParameterType",
+            "javaMethod": "getType"
+        },
+        {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "ParameterType",
+            "javaMethod": "getType"
+        },
+        {
             "type": "System.Text.RegularExpressions.Match",
             "method": "Success",
             "javaMethod": "getSuccess"
@@ -5919,12 +5950,27 @@
         {
             "type": "System.Reflection.Assembly",
             "method": "GetName",
-            "javaMethod": "getImplementationVersion"
+            "javaMethod": "getPackage"
         },
         {
             "type": "System.Reflection.Assembly",
             "method": "get_Name",
-            "javaMethod": "getImplementationVersion"
+            "javaMethod": "getFullName"
+        },
+        {
+            "type": "System.Reflection.Assembly",
+            "method": "LoadFrom",
+            "javaMethod": "loadFrom"
+        },
+        {
+            "type": "System.Reflection.Assembly",
+            "method": "GetType",
+            "javaMethod": "getClass"
+        },
+        {
+            "type": "System.Reflection.Assembly",
+            "method": "GetTypes",
+            "javaMethod": "getTypes"
         },
         {
             "type": "System.Reflection.AssemblyName",
@@ -6133,6 +6179,26 @@
         }
     ],
     "namespaceMappings": [
+        {
+            "csharp": "System.Xml",
+            "java": "dotnet.xml"
+        },
+        {
+            "csharp": "System.Xml.Schema",
+            "java": "dotnet.xml.schema"
+        },
+        {
+            "csharp": "System.Xml.XPath",
+            "java": "dotnet.xml.xpath"
+        },
+        {
+            "csharp": "System.Xml.Xsl",
+            "java": "dotnet.xml.xsl"
+        },
+        {
+            "csharp": "System.Xml.Resolvers",
+            "java": "dotnet.xml.resolvers"
+        },
         {
             "csharp": "System",
             "java": "dotnet.system"

@@ -32,4 +32,9 @@ public class ThreadHelper {
 
     /** Start (stub — not a real Thread). */
     public void start() { }
+
+    /** Mirrors C# Thread.MemoryBarrier() using VarHandle.fullFence */
+    public static void memoryBarrier() {
+        java.lang.invoke.VarHandle.fullFence();
+    }
 }

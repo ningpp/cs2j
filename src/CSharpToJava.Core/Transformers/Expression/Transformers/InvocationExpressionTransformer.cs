@@ -807,6 +807,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // Pass parameter types directly — Java can resolve the exact overload.
                 var typesExpr = facade.Transform(
                     node.ArgumentList.Arguments[typesArgIndex].Expression, context);
+                // Handle Type.EmptyTypes → new Class<?>[0]
+                if (typesExpr == "Class.EmptyTypes" || typesExpr == "java.lang.Class.EmptyTypes")
+                    typesExpr = "new Class<?>[0]";
                 var javaMethod = hasBindingFlags ? "getDeclaredMethod" : "getMethod";
                 return $"{receiver}.{javaMethod}({methodNameArg}, {typesExpr})";
             }
@@ -817,6 +820,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var helperMethod = hasBindingFlags ? "getDeclaredMethodByName" : "getMethodByName";
                 return $"ReflectionHelper.{helperMethod}({receiver}, {methodNameArg})";
             }
+        }
+
+        // C# Type.GetProperty(name) → TypeHelper.getProperty(class, name)
+        // Java Class has no getProperty; use compat helper that returns null if not found.
+        if (originalMethodName == "GetProperty"
+            && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Type"
+            && node.ArgumentList.Arguments.Count >= 1)
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var propNameArg = node.ArgumentList.Arguments[0].Expression is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax lit
+                ? $"\"{lit.Token.ValueText}\""
+                : facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"TypeHelper.getProperty({receiver}, {propNameArg})";
+        }
+
+        // C# Type.GetField(name) → TypeHelper.getField(class, name)
+        // Java Class.getDeclaredField throws; use compat helper returning null.
+        if (originalMethodName == "GetField"
+            && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Type"
+            && node.ArgumentList.Arguments.Count >= 1)
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var fieldNameArg = node.ArgumentList.Arguments[0].Expression is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax lit2
+                ? $"\"{lit2.Token.ValueText}\""
+                : facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"TypeHelper.getField({receiver}, {fieldNameArg})";
         }
 
         if (originalMethodName == "Exit"

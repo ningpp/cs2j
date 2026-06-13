@@ -431,6 +431,22 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# new StringReader(string) → new TextReader(new java.io.StringReader(string))
+        // StringReader in C# extends TextReader; Java's StringReader extends Reader.
+        // Wrap in TextReader adapter for type compatibility with methods expecting TextReader.
+        if (argumentList.Arguments.Count == 1
+            && typeName.EndsWith("StringReader", StringComparison.Ordinal))
+        {
+            var argType2 = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+            if (argType2?.SpecialType == SpecialType.System_String)
+            {
+                var textArg = ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
+                context.AddImport("io.github.ningpp.compat.TextReader");
+                context.AddImport("java.io.StringReader");
+                return $"new TextReader(new StringReader({textArg}))";
+            }
+        }
+
         // C# ArgumentOutOfRangeException(paramName, message) is commonly mapped to
         // IllegalArgumentException in Java, but Java has no (String, String) constructor.
         // Fold to a single message: "paramName: message".

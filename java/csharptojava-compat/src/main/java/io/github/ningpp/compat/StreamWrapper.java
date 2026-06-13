@@ -72,6 +72,11 @@ public class StreamWrapper implements AutoCloseable {
     public boolean isInputStream() { return inputStream != null; }
     public boolean isOutputStream() { return outputStream != null; }
 
+    /** Mirrors C# Stream.CanSeek */
+    public boolean getCanSeek() {
+        return false;
+    }
+
     public String getName() { return name == null ? "" : name; }
 
     public int read() {

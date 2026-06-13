@@ -54,6 +54,14 @@ public class MemoryStream extends StreamWrapper {
         this.length = buffer.length;
     }
 
+    /** Mirrors C# new MemoryStream(byte[], int, int) */
+    public MemoryStream(byte[] buffer, int offset, int count) {
+        super(null, null);
+        this.buffer = new byte[count];
+        System.arraycopy(buffer, offset, this.buffer, 0, count);
+        this.length = count;
+    }
+
     @Override
     public InputStream inputStream() {
         return inputAdapter;
