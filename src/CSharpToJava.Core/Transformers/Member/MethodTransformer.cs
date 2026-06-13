@@ -212,15 +212,15 @@ public class MethodTransformer : IMemberTransformer
                     }
                 }
 
-                // C# async Task methods implicitly return a completed Task when execution
-                // falls through the end of the method. Add the implicit return if the
-                // method body does not already end with an unconditional return statement.
-                // We check the last top-level statement rather than scanning the whole
-                // body for any "return" string: a conditional return inside an if-block
-                // does not cover the fall-through path after the if-block.
+                // C# async Task (non-generic) methods implicitly return a completed Task
+                // when execution falls through the end. Add the implicit return unless
+                // the last statement already returns or throws on all paths.
+                // We only apply this to non-generic CompletableFuture (Task), not
+                // CompletableFuture<T> (Task<T>), because C# requires Task<T> methods
+                // to explicitly return a value on every path.
                 if (context.IsInAsyncContext
                     && javaMethod.ReturnType != null
-                    && javaMethod.ReturnType.StartsWith("CompletableFuture")
+                    && javaMethod.ReturnType == "CompletableFuture"
                     && javaMethod.StructuredBody != null
                     && javaMethod.StructuredBody.Statements.Count > 0)
                 {
