@@ -577,6 +577,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Queue<T>.Dequeue→remove). Custom heap types (GenericBinaryHeapPriorityQueue, EventQueue,
         // etc.) go through normal camelCase so that call sites and declarations stay consistent.
 
+        // ConfigureAwait(bool) is a C#-specific concern about synchronization context capture.
+        // Java has no equivalent — strip the call and return just the receiver (the Task/CompletableFuture).
+        // e.g. task.ConfigureAwait(false) → task
+        if (memberAccess.Name.Identifier.Text == "ConfigureAwait"
+            && node.ArgumentList.Arguments.Count == 1)
+        {
+            return facade.Transform(memberAccess.Expression, context);
+        }
+
         // Count() with no args → size() (Collection) or count() (Iterable fallback)
         // Any() with no args → length>0 (array) or iterator().hasNext() (Iterable/Collection)
         if (node.ArgumentList.Arguments.Count == 0)
