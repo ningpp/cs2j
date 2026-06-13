@@ -22,22 +22,22 @@ public class MemoryExtensions {
         return new ReadOnlySpan<>(arr);
     }
 
-    /** C# Span<byte> → Java ReadOnlySpan<Byte> */
-    public static ReadOnlySpan<Byte> asSpan(byte[] data) {
-        if (data == null) return new ReadOnlySpan<>(new Byte[0]);
-        Byte[] arr = new Byte[data.length];
+    /** C# Span<byte> → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
+    public static ReadOnlySpan<Integer> asSpan(byte[] data) {
+        if (data == null) return new ReadOnlySpan<>(new Integer[0]);
+        Integer[] arr = new Integer[data.length];
         for (int i = 0; i < data.length; i++) {
-            arr[i] = data[i];
+            arr[i] = data[i] & 0xFF;
         }
         return new ReadOnlySpan<>(arr);
     }
 
-    /** C# ReadOnlySpan<byte> slice → Java ReadOnlySpan<Byte> */
-    public static ReadOnlySpan<Byte> asSpan(byte[] data, int start, int length) {
-        if (data == null) return new ReadOnlySpan<>(new Byte[0]);
-        Byte[] arr = new Byte[length];
+    /** C# ReadOnlySpan<byte> slice → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
+    public static ReadOnlySpan<Integer> asSpan(byte[] data, int start, int length) {
+        if (data == null) return new ReadOnlySpan<>(new Integer[0]);
+        Integer[] arr = new Integer[length];
         for (int i = 0; i < length; i++) {
-            arr[i] = data[start + i];
+            arr[i] = data[start + i] & 0xFF;
         }
         return new ReadOnlySpan<>(arr);
     }
