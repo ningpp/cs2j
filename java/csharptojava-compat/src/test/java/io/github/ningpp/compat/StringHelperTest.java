@@ -446,4 +446,45 @@ class StringHelperTest {
         char[] dest = new char[3];
         assertThrows(IndexOutOfBoundsException.class, () -> StringHelper.copyTo(s, 0, dest, 0, 5));
     }
+
+    // ---- formatCs ----
+
+    @Test
+    void formatCs_singlePlaceholder() {
+        assertEquals("hello", StringHelper.formatCs(java.util.Locale.ROOT, "{0}", "hello"));
+    }
+
+    @Test
+    void formatCs_multiplePlaceholders() {
+        assertEquals("a.b.c", StringHelper.formatCs(java.util.Locale.ROOT, "{0}.{1}.{2}", "a", "b", "c"));
+    }
+
+    @Test
+    void formatCs_withFormatSpecifier() {
+        // {0:x} is a C# format string - the :x part is ignored in formatCs
+        assertEquals("255", StringHelper.formatCs(java.util.Locale.ROOT, "{0:x}", 255));
+    }
+
+    @Test
+    void formatCs_ipv4EmbeddedFormat() {
+        // The pattern ":{0:d}.{1:d}.{2:d}.{3:d}" used in IPv6AddressHelper
+        assertEquals(":192.168.1.1", StringHelper.formatCs(java.util.Locale.ROOT, ":{0:d}.{1:d}.{2:d}.{3:d}", 192, 168, 1, 1));
+    }
+
+    @Test
+    void formatCs_repeatedPlaceholder() {
+        // C# allows referencing the same argument multiple times
+        assertEquals("aaa", StringHelper.formatCs(java.util.Locale.ROOT, "{0}{0}{0}", "a"));
+    }
+
+    @Test
+    void formatCs_noPlaceholders() {
+        assertEquals("hello world", StringHelper.formatCs(java.util.Locale.ROOT, "hello world"));
+    }
+
+    @Test
+    void formatCs_percentSignInFormat() {
+        // % in format string should be treated as literal
+        assertEquals("100%", StringHelper.formatCs(java.util.Locale.ROOT, "{0}%", 100));
+    }
 }

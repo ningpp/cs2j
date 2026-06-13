@@ -626,7 +626,7 @@ public class StringHelper {
         StringBuffer sb = new StringBuffer();
         while (matcher.find()) {
             int index = Integer.parseInt(matcher.group(1)) + 1; // Java positions are 1-based
-            matcher.appendReplacement(sb, "%" + index + "$s");
+            matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement("%" + index + "$s"));
         }
         matcher.appendTail(sb);
         String converted = sb.toString();
