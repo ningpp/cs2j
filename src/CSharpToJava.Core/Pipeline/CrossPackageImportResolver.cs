@@ -38,6 +38,7 @@ public static class CrossPackageImportResolver
         "MemoryStream",
         "NumberStyles",
         "FileAccess",
+        "FileShare",
         "StreamReader",
         "StreamWriter",
         "TextReader",

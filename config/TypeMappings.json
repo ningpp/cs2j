@@ -2662,6 +2662,20 @@
             ]
         },
         {
+            "csharp": "System.IO.FileShare",
+            "java": "FileShare",
+            "imports": [
+                "io.github.ningpp.compat.FileShare"
+            ]
+        },
+        {
+            "csharp": "FileShare",
+            "java": "FileShare",
+            "imports": [
+                "io.github.ningpp.compat.FileShare"
+            ]
+        },
+        {
             "csharp": "System.IO.BufferedStream",
             "java": "BufferedInputStream",
             "imports": [

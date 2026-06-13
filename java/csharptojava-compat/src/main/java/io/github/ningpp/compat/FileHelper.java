@@ -78,6 +78,12 @@ public class FileHelper {
             return StreamWrapper.of(new FileInputStream(path), path);
         } catch (IOException e) { throw new UncheckedIOException(e); }
     }
+    /** Mirrors File.Open(path, FileMode, FileAccess, FileShare, bufferSize, useAsync). */
+    public static StreamWrapper open(String path, int fileMode, int fileAccess, int fileShare,
+                                      int bufferSize, boolean useAsync) {
+        return open(path, fileMode, fileAccess);
+    }
+
     /** Mirrors File.Create(path). */
     public static OutputStream create(String path) {
         try { return new FileOutputStream(path); }
