@@ -4304,11 +4304,6 @@
             "javaMethod": "getOffset"
         },
         {
-            "type": "System.TimeSpan",
-            "method": "Zero",
-            "javaMethod": "ZERO"
-        },
-        {
             "type": "System.String",
             "method": "ToCharArray",
             "javaMethod": "toCharArray"

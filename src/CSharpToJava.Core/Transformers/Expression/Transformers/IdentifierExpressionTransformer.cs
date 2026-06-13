@@ -1123,6 +1123,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# static field/property mappings for non-primitive types
+        if (target == "Duration" && memberName == "Zero") return "Duration.ZERO";
+        if (target == "Duration" && memberName == "ZERO") return "Duration.ZERO";
+
         if (memberName == "Current") return $"{target}.getCurrent()";
         if (memberName == "Values") return $"{target}.values()";
         if (memberName == "Keys") return $"{target}.keySet()";
@@ -1653,6 +1657,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             ("decimal", "One") => "ONE",
             ("decimal", "Zero") => "ZERO",
             ("decimal", "MinusOne") => "MINUS_ONE",
+            // Duration (mapped from C# TimeSpan)
+            ("Duration", "Zero") => "ZERO",
             // Double/float MinValue = most negative finite → negate MAX_VALUE
             ("double" or "float", "MinValue") => $"(-{(primitiveKeyword == "double" ? "Double" : "Float")}.MAX_VALUE)",
             (_, "MaxValue")          => "MAX_VALUE",
