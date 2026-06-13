@@ -27,6 +27,7 @@ public static class ExpressionTransformerHelpers
         "PropertyInfo",
         "Regex",
         "StringHelper",
+        "TextWriterHelper",
     };
 
     private static readonly Regex _numericLiteralPattern = new Regex(

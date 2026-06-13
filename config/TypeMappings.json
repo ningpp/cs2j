@@ -5870,6 +5870,11 @@
             "javaMethod": "print"
         },
         {
+            "type": "System.IO.TextWriter",
+            "method": "Encoding",
+            "javaMethod": "TextWriterHelper.getEncoding"
+        },
+        {
             "type": "System.IO.StreamReader",
             "method": "ReadToEnd",
             "javaMethod": "readToEnd"
