@@ -70,6 +70,15 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
             _scopeStack.Peek().Add(name);
     }
 
+    private static bool IsValidIdentifier(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        if (!char.IsLetter(name[0]) && name[0] != '_') return false;
+        for (int i = 1; i < name.Length; i++)
+            if (!char.IsLetterOrDigit(name[i]) && name[i] != '_') return false;
+        return true;
+    }
+
     private string AllocateUniqueName(string name)
     {
         int suffix = 1;
@@ -123,7 +132,8 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
         // Visit initializer first (may reference renamed variables)
         var result = base.VisitVariableDeclarationStatement(node);
 
-        if (IsDeclaredInCurrentOrParentScope(result.Name))
+        if (IsValidIdentifier(result.Name)
+            && IsDeclaredInCurrentOrParentScope(result.Name))
         {
             var newName = AllocateUniqueName(result.Name);
             _renameMap[result.Name] = newName;
@@ -234,6 +244,8 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
         foreach (var kvp in _renameMap)
         {
             var originalName = kvp.Key;
+            if (!IsValidIdentifier(originalName))
+                continue;
             var renamedName = kvp.Value;
             // Only rename standalone identifiers (word boundary matching)
             code = Regex.Replace(code, $@"\b{Regex.Escape(originalName)}\b", renamedName);
@@ -253,9 +265,8 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
             if (char.IsDigit(varName[^1]) && varName.Contains('_'))
                 continue;
 
-            // Skip if this variable was already declared in this raw statement's scope
-            // (i.e., it was already processed and added to the scope)
-            if (_scopeStack.Count > 0 && _scopeStack.Peek().Contains(varName))
+            // Skip non-identifier names (numeric literals, etc.)
+            if (!IsValidIdentifier(varName))
                 continue;
 
             // Check if the variable name conflicts with an existing declaration
