@@ -122,6 +122,24 @@ public class MethodConversionState
         return holderName;
     }
 
+    // ─── Short-Circuit Context ──────────────────────────────────────
+
+    /// <summary>
+    /// Depth counter for short-circuit evaluation contexts (|| or &amp;&amp; right operands).
+    /// When &gt; 0, side effects from expressions like *ptr++ must be deferred to execute
+    /// only when the short-circuit path is actually taken, not unconditionally before the if.
+    /// </summary>
+    private int _shortCircuitDepth;
+
+    /// <summary>Whether currently inside a short-circuit operand (|| or &amp;&amp; right side).</summary>
+    public bool IsInShortCircuitOperand => _shortCircuitDepth > 0;
+
+    /// <summary>Enter a short-circuit operand context. Call before transforming ||/&amp;&amp; right operand.</summary>
+    public void EnterShortCircuitOperand() => _shortCircuitDepth++;
+
+    /// <summary>Exit a short-circuit operand context. Call after transforming ||/&amp;&amp; right operand.</summary>
+    public void ExitShortCircuitOperand() => _shortCircuitDepth--;
+
     // ─── Scope Tracking ────────────────────────────────────────────
 
     private int _scopeDepth;
@@ -351,6 +369,7 @@ public class MethodConversionState
         _pendingPostStatements.Clear();
         _outHolderAllocCounts.Clear();
         _readOnlyRefStructParams.Clear();
+        _shortCircuitDepth = 0;
         _lambdaCaptureRegistry.Clear();
         _pendingLambdaCaptureHolders.Clear();
         _activeLambdaCaptureHolders.Clear();

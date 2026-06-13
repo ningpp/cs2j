@@ -540,13 +540,36 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
                     var tmp = context.GenerateSyntheticName("_ptrPost");
                     context.AddImport("java.lang.foreign.MemorySegment");
-                    context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
-                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {sliceExpr}");
-                    // Register backtrack: after ptr++, *(ptr - 1) should use tmp
-                    context.RegisterPointerBacktrackVar(operandExpr.Trim(), 1, tmp);
-                    if (delta < 0)
-                        context.InvalidatePointerBacktrackVars(operandExpr.Trim());
-                    return tmp;
+
+                    if (context.IsInShortCircuitOperand)
+                    {
+                        // In a short-circuit context (|| or && right operand), we cannot
+                        // use pre-statements for the pointer increment because they would
+                        // execute unconditionally before the if condition, breaking
+                        // short-circuit semantics. Instead, inline the increment as an
+                        // assignment expression within the short-circuit path.
+                        // Pattern: (curPos = curPos.asSlice(2)) != null && _ptrPost3.get(...)
+                        // The (curPos = ...) assignment always succeeds (non-null), so it's
+                        // effectively a no-op conditionally, but the side effect (increment)
+                        // only runs when the short-circuit path is taken.
+                        context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
+                        // Register backtrack: after ptr++, *(ptr - 1) should use tmp
+                        context.RegisterPointerBacktrackVar(operandExpr.Trim(), 1, tmp);
+                        if (delta < 0)
+                            context.InvalidatePointerBacktrackVars(operandExpr.Trim());
+                        // Return the increment as an inline assignment expression + the temp var
+                        return $"({operandExpr} = {sliceExpr}) != null ? {tmp} : null";
+                    }
+                    else
+                    {
+                        context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
+                        context.AddPreStatementAllowDuplicate($"{operandExpr} = {sliceExpr}");
+                        // Register backtrack: after ptr++, *(ptr - 1) should use tmp
+                        context.RegisterPointerBacktrackVar(operandExpr.Trim(), 1, tmp);
+                        if (delta < 0)
+                            context.InvalidatePointerBacktrackVars(operandExpr.Trim());
+                        return tmp;
+                    }
                 }
             }
         }

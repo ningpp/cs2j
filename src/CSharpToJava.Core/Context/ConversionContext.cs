@@ -376,6 +376,9 @@ public class ConversionContext
     public bool TryGetActiveRefHolder(string varName, out string holderName) => MethodState.TryGetActiveRefHolder(varName, out holderName);
     public void SetActiveRefHolder(string varName, string holderName) => MethodState.SetActiveRefHolder(varName, holderName);
     public string AllocateRefHolderName(string varName) => MethodState.AllocateRefHolderName(varName);
+    public bool IsInShortCircuitOperand => MethodState.IsInShortCircuitOperand;
+    public void EnterShortCircuitOperand() => MethodState.EnterShortCircuitOperand();
+    public void ExitShortCircuitOperand() => MethodState.ExitShortCircuitOperand();
     public void RegisterRuntimeClassParameter(string typeParameterName, string parameterName)
         => MethodState.RegisterRuntimeClassParameter(typeParameterName, parameterName);
     public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)

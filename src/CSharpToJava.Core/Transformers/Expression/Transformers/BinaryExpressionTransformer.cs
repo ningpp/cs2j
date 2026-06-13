@@ -450,7 +450,17 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
         // Standard operator - use Java's built-in operators
         var left = facade.Transform(node.Left, context);
+
+        // For || and &&, the right operand is in a short-circuit context:
+        // side effects (like *ptr++) must only execute when the left operand
+        // doesn't short-circuit. Set the flag so TransformPostfix can defer
+        // the pointer increment into the expression instead of a pre-statement.
+        bool isShortCircuit = op == "||" || op == "&&";
+        if (isShortCircuit)
+            context.EnterShortCircuitOperand();
         var right = facade.Transform(node.Right, context);
+        if (isShortCircuit)
+            context.ExitShortCircuitOperand();
 
         if (TryTransformDecimalBinaryExpression(node, op, context, left, right, out var decimalResult))
             return decimalResult;
