@@ -528,7 +528,7 @@ public static class ExpressionTransformerHelpers
             "decimal" => "Decimal",
             "char" => "Character",
             "short" => "Short",
-            "byte" => "Byte",
+            "byte" => "Integer",
             "uint" => "Integer",
             "ulong" => "Long",
             "ushort" => "Short",

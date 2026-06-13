@@ -212,6 +212,25 @@ public class MethodTransformer : IMemberTransformer
                     }
                 }
 
+                // C# async Task methods implicitly return a completed Task when there is
+                // no explicit return statement. Add the implicit return if the body has no returns.
+                if (context.IsInAsyncContext
+                    && javaMethod.ReturnType != null
+                    && javaMethod.ReturnType.StartsWith("CompletableFuture")
+                    && javaMethod.StructuredBody != null)
+                {
+                    // Check the full body text (not just top-level statements) for returns,
+                    // since nested blocks (if-else, try-catch) may contain all the returns.
+                    string fullBody = string.Join("\n",
+                        javaMethod.StructuredBody.Statements.Select(s =>
+                            s is Java.JavaRawStatement raw ? raw.Code ?? "" : ""));
+                    if (!fullBody.Contains("return "))
+                    {
+                        context.AddImport("java.util.concurrent.CompletableFuture");
+                        javaMethod.StructuredBody.Statements.Add(
+                            new Java.JavaRawStatement("return CompletableFuture.completedFuture(null);"));
+                    }
+                }
             }
         }
         else if (methodDecl.ExpressionBody != null)

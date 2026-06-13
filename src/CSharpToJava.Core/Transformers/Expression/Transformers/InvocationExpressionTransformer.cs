@@ -3236,14 +3236,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && gns.TypeArgumentList.Arguments.Count > 0)
             {
                 var typeArgSyntax = gns.TypeArgumentList.Arguments[0];
-                var typeArg = facade.Transform(typeArgSyntax, context);
                 // Check if the type argument is a type parameter (e.g. T) — Java forbids new T[0]
                 var typeArgInfo = context.GetTypeInfo(typeArgSyntax);
                 if (typeArgInfo.Type is { TypeKind: TypeKind.TypeParameter })
                 {
+                    var typeArg = facade.Transform(typeArgSyntax, context);
                     return $"({typeArg}[]) new Object[0]";
                 }
-                return $"new {typeArg}[0]";
+                // Use MapType for the primitive/unboxed Java type (e.g., byte→int not Integer)
+                var mappedType = typeArgInfo.Type != null
+                    ? context.MapType(typeArgInfo.Type)
+                    : facade.Transform(typeArgSyntax, context);
+                return $"new {mappedType}[0]";
             }
             return "new Object[0]";
         }
