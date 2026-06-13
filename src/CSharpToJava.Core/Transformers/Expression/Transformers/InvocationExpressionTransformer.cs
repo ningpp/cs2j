@@ -4928,7 +4928,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var typeInfo = context.GetTypeInfo(expr);
             var typeName = typeInfo.Type?.ToDisplayString();
             if (typeName is "System.IFormatProvider" or "System.Globalization.CultureInfo"
-                or "System.Globalization.NumberFormatInfo" or "System.Globalization.NumberStyles")
+                or "System.Globalization.NumberFormatInfo" or "System.Globalization.NumberStyles"
+                or "System.Globalization.DateTimeStyles")
                 return true;
             if (typeInfo.Type != null)
             {
@@ -4953,6 +4954,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (argText.StartsWith("CultureInfo.", System.StringComparison.Ordinal)
             || argText.StartsWith("NumberFormatInfo.", System.StringComparison.Ordinal)
             || argText.StartsWith("NumberStyles.", System.StringComparison.Ordinal)
+            || argText.StartsWith("DateTimeStyles.", System.StringComparison.Ordinal)
             || argText.Contains("getUSCultureInfo()", System.StringComparison.Ordinal)
             || argText == "NumberFormatInfo.InvariantInfo"
             || argText.Contains("Locale.ROOT", System.StringComparison.Ordinal))
