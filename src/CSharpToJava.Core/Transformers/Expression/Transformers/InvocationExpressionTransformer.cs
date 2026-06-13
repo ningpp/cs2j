@@ -2719,6 +2719,35 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return "/* GC operation not needed in Java */";
         }
 
+        // StringBuilder.Clear() → sb.setLength(0)
+        // Java's StringBuilder has no Clear(); use setLength(0) instead.
+        if (originalMethodName == "Clear"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "StringBuilder",
+                    "System.Text.StringBuilder")))
+        {
+            return $"{receiver}.setLength(0)";
+        }
+
+        // StringBuilder.Remove(start, length) → sb.delete(start, start + length)
+        // Java's StringBuilder has delete(), not Remove().
+        if (originalMethodName == "Remove"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "StringBuilder",
+                    "System.Text.StringBuilder"))
+            && node.ArgumentList.Arguments.Count == 2)
+        {
+            var removeStart = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var removeLen = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"{receiver}.delete({removeStart}, {removeStart} + {removeLen})";
+        }
+
         // StringBuilder.AppendFormat(fmt, args) → sb.append(String.format(fmt, args))
         // Java's StringBuilder has no appendFormat(); use append(String.format()) instead.
         if (originalMethodName == "AppendFormat"

@@ -5273,6 +5273,16 @@
             "signature": "2"
         },
         {
+            "type": "System.Text.StringBuilder",
+            "method": "get_Capacity",
+            "javaMethod": "capacity"
+        },
+        {
+            "type": "System.Text.StringBuilder",
+            "method": "Capacity",
+            "javaMethod": "capacity"
+        },
+        {
             "type": "System.Drawing.Color",
             "method": "FromArgb",
             "javaMethod": "DrawingColor.fromArgb"
@@ -5946,6 +5956,16 @@
             "type": "System.Type",
             "method": "Assembly",
             "javaMethod": "getPackage"
+        },
+        {
+            "type": "System.Type",
+            "method": "get_Namespace",
+            "javaMethod": "getPackageName"
+        },
+        {
+            "type": "System.Type",
+            "method": "Namespace",
+            "javaMethod": "getPackageName"
         },
         {
             "type": "System.Reflection.Assembly",
