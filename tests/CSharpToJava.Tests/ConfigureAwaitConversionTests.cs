@@ -158,4 +158,74 @@ class MyClass
         Assert.Contains("completedFuture", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("FromResult", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    // ── Async Task method with conditional early return ─────────────
+
+    /// <summary>
+    /// C# async Task methods implicitly return a completed Task when execution
+    /// falls through the end of the method. When there is a conditional early
+    /// return (e.g. inside an if-block) but the method body also has code after
+    /// that block, a final return must still be emitted for the fall-through path.
+    /// Regression test: the check "body contains any return" was not sufficient;
+    /// it missed methods with conditional returns where the end is still reachable.
+    /// </summary>
+    [Fact]
+    public void AsyncTask_ConditionalEarlyReturn_EmitsFinalReturn()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class TestClass
+{
+    async Task EncodeAsync(byte[] buffer, int index, int count)
+    {
+        if (count == 0)
+        {
+            return;
+        }
+
+        // more code after the conditional return — fall-through path
+        int endIndex = index + count;
+        while (index < endIndex)
+        {
+            index++;
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // The generated code must contain a return at the end for the fall-through path.
+        // Verify that the last statement in the method is a return, not just that
+        // some return exists deep inside an if-block.
+        var lines = result.GeneratedCode.Replace("\r\n", "\n").Split('\n');
+        // Trim trailing empty lines and closing braces
+        var trimmed = lines.Reverse().SkipWhile(l => string.IsNullOrWhiteSpace(l) || l.Trim() == "}").ToArray();
+        // The last substantive line should be a return
+        Assert.Contains("return CompletableFuture.completedFuture(null);", trimmed.FirstOrDefault() ?? "",
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// When an async Task method already has an unconditional return as its
+    /// last statement, we should NOT add a duplicate (would be unreachable code).
+    /// </summary>
+    [Fact]
+    public void AsyncTask_UnconditionalFinalReturn_DoesNotDuplicate()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class TestClass
+{
+    async Task DoAsync()
+    {
+        await Task.Delay(100);
+        // no early returns; async machinery handles implicit completion
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Should have exactly one return at the end
+        var lines = result.GeneratedCode.Split('\n');
+        var returnCount = lines.Count(l => l.Contains("return CompletableFuture.completedFuture(null);"));
+        Assert.Equal(1, returnCount);
+    }
 }

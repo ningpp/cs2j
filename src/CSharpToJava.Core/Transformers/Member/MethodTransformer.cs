@@ -212,19 +212,24 @@ public class MethodTransformer : IMemberTransformer
                     }
                 }
 
-                // C# async Task methods implicitly return a completed Task when there is
-                // no explicit return statement. Add the implicit return if the body has no returns.
+                // C# async Task methods implicitly return a completed Task when execution
+                // falls through the end of the method. Add the implicit return if the
+                // method body does not already end with an unconditional return statement.
+                // We check the last top-level statement rather than scanning the whole
+                // body for any "return" string: a conditional return inside an if-block
+                // does not cover the fall-through path after the if-block.
                 if (context.IsInAsyncContext
                     && javaMethod.ReturnType != null
                     && javaMethod.ReturnType.StartsWith("CompletableFuture")
-                    && javaMethod.StructuredBody != null)
+                    && javaMethod.StructuredBody != null
+                    && javaMethod.StructuredBody.Statements.Count > 0)
                 {
-                    // Check the full body text (not just top-level statements) for returns,
-                    // since nested blocks (if-else, try-catch) may contain all the returns.
-                    string fullBody = string.Join("\n",
-                        javaMethod.StructuredBody.Statements.Select(s =>
-                            s is Java.JavaRawStatement raw ? raw.Code ?? "" : ""));
-                    if (!fullBody.Contains("return "))
+                    var lastStmt = javaMethod.StructuredBody.Statements.Last();
+                    bool lastIsReturn = lastStmt is Java.JavaReturnStatement
+                        || (lastStmt is Java.JavaRawStatement raw
+                            && raw.Code != null
+                            && raw.Code.TrimStart().StartsWith("return "));
+                    if (!lastIsReturn)
                     {
                         context.AddImport("java.util.concurrent.CompletableFuture");
                         javaMethod.StructuredBody.Statements.Add(
