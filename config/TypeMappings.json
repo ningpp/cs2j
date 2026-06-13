@@ -2742,6 +2742,20 @@
             ]
         },
         {
+            "csharp": "System.WeakReference",
+            "java": "WeakReference",
+            "imports": [
+                "io.github.ningpp.compat.WeakReference"
+            ]
+        },
+        {
+            "csharp": "WeakReference",
+            "java": "WeakReference",
+            "imports": [
+                "io.github.ningpp.compat.WeakReference"
+            ]
+        },
+        {
             "csharp": "System.Diagnostics.BooleanSwitch",
             "java": "BooleanSwitch",
             "imports": [
