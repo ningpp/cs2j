@@ -478,6 +478,7 @@ public class ConversionContext
     public void EnterMethod(IMethodSymbol? method)
     {
         _methodStack.Push(method);
+        IsInAsyncContext = false;
         var readOnlyParams = method?.Parameters
             .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnly(p))
             .Select(p => p.Name);

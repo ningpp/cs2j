@@ -227,6 +227,11 @@ public class MethodTransformer : IMemberTransformer
 
             if (!hasPending)
             {
+                if (context.IsInAsyncContext)
+                {
+                    context.AddImport("java.util.concurrent.CompletableFuture");
+                    exprBody = $"CompletableFuture.completedFuture({exprBody})";
+                }
                 javaMethod.Body = exprBody;
                 javaMethod.IsBodyExpression = true;
             }
@@ -257,11 +262,23 @@ public class MethodTransformer : IMemberTransformer
                     bodyLines.Add($"var {retHolder} = {exprBody};");
                     foreach (var post in context.DrainPostStatements())
                         bodyLines.Add(post.TrimEnd(';') + ";");
-                    bodyLines.Add($"return {retHolder};");
+                    if (context.IsInAsyncContext)
+                    {
+                        context.AddImport("java.util.concurrent.CompletableFuture");
+                        bodyLines.Add($"return CompletableFuture.completedFuture({retHolder});");
+                    }
+                    else
+                        bodyLines.Add($"return {retHolder};");
                 }
                 else
                 {
-                    bodyLines.Add($"return {exprBody.TrimEnd(';')};");
+                    if (context.IsInAsyncContext)
+                    {
+                        context.AddImport("java.util.concurrent.CompletableFuture");
+                        bodyLines.Add($"return CompletableFuture.completedFuture({exprBody.TrimEnd(';')});");
+                    }
+                    else
+                        bodyLines.Add($"return {exprBody.TrimEnd(';')};");
                 }
 
                 javaMethod.Body = string.Join("\n", bodyLines);

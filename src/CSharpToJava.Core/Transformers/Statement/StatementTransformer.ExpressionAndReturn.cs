@@ -364,6 +364,11 @@ public partial class StatementTransformer
     {
         if (stmt.Expression == null)
         {
+            if (context.IsInAsyncContext)
+            {
+                context.AddImport("java.util.concurrent.CompletableFuture");
+                return new JavaStatementNode("return CompletableFuture.completedFuture(null);");
+            }
             return new JavaStatementNode("return;");
         }
 
@@ -396,7 +401,12 @@ public partial class StatementTransformer
             var getCall = defaultVal != null
                 ? $"{dictExpr}.getOrDefault({keyExpr}, {defaultVal})"
                 : $"{dictExpr}.get({keyExpr})";
-            return new JavaStatementNode($"{javaType} {varName} = {getCall};\nreturn {varName};");
+            var retExpr2 = context.IsInAsyncContext
+                ? $"CompletableFuture.completedFuture({varName})"
+                : varName;
+            if (context.IsInAsyncContext)
+                context.AddImport("java.util.concurrent.CompletableFuture");
+            return new JavaStatementNode($"{javaType} {varName} = {getCall};\nreturn {retExpr2};");
         }
 
         var expr = exprTransformer.Transform(stmt.Expression, context);
@@ -550,15 +560,28 @@ public partial class StatementTransformer
                 var postStmts = context.DrainPostStatements();
                 sb.Append($"var _ret = {expr};\n");
                 sb.Append(string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
-                sb.Append("\nreturn _ret;");
+                var asyncRet = context.IsInAsyncContext
+                    ? "CompletableFuture.completedFuture(_ret)"
+                    : "_ret";
+                sb.Append($"\nreturn {asyncRet};");
             }
             else
             {
-                sb.Append($"return {expr};");
+                var asyncExpr = context.IsInAsyncContext
+                    ? $"CompletableFuture.completedFuture({expr})"
+                    : expr;
+                sb.Append($"return {asyncExpr};");
             }
+            if (context.IsInAsyncContext)
+                context.AddImport("java.util.concurrent.CompletableFuture");
             return new JavaStatementNode(sb.ToString());
         }
 
+        if (context.IsInAsyncContext)
+        {
+            context.AddImport("java.util.concurrent.CompletableFuture");
+            return new JavaStatementNode($"return CompletableFuture.completedFuture({expr});");
+        }
         return new JavaStatementNode($"return {expr};");
     }
 

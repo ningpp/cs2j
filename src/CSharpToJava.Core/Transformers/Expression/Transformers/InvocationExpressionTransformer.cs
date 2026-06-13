@@ -804,14 +804,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             if (hasExplicitTypes)
             {
-                // Pass parameter types directly — Java can resolve the exact overload.
+                // Pass parameter types directly — use TypeHelper.getMethod which returns null
+                // instead of throwing NoSuchMethodException (matching C# Type.GetMethod semantics).
                 var typesExpr = facade.Transform(
                     node.ArgumentList.Arguments[typesArgIndex].Expression, context);
                 // Handle Type.EmptyTypes → new Class<?>[0]
                 if (typesExpr == "Class.EmptyTypes" || typesExpr == "java.lang.Class.EmptyTypes")
                     typesExpr = "new Class<?>[0]";
-                var javaMethod = hasBindingFlags ? "getDeclaredMethod" : "getMethod";
-                return $"{receiver}.{javaMethod}({methodNameArg}, {typesExpr})";
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.getMethod({receiver}, {methodNameArg}, {typesExpr})";
             }
             else
             {

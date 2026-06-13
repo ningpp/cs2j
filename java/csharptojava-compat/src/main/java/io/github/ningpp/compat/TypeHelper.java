@@ -34,4 +34,13 @@ public class TypeHelper {
     public static Class<?>[] emptyTypes() {
         return new Class<?>[0];
     }
+
+    /** Mirrors C# Type.GetMethod(name, Type[]) — returns Method or null */
+    public static java.lang.reflect.Method getMethod(Class<?> clazz, String name, Class<?>... parameterTypes) {
+        try {
+            return clazz.getMethod(name, parameterTypes);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
 }
