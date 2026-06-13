@@ -1532,6 +1532,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         {
             if (context.Options.TargetJavaVersion >= JavaVersion.Java25)
             {
+                // C# HashSet silently ignores duplicates; Java Set.of() throws on duplicates.
+                // Deduplicate to match C# semantics.
+                items = items.Distinct().ToList();
+                itemsStr = string.Join(", ", items);
                 context.AddImport("java.util.Set");
                 return $"new {typeName}(Set.of({itemsStr}))";
             }

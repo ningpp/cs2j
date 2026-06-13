@@ -664,6 +664,40 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# unsigned types (ushort/byte/uint/ulong) wrap around on overflow,
+        // but Java signed types do not. For ++/-- on unsigned variables, we need
+        // to add bitmask to simulate wrap-around semantics.
+        // Postfix: i++/i-- returns old value, then applies mask.
+        if (context.SemanticModel != null && (op == "++" || op == "--"))
+        {
+            var postfixType = context.GetTypeInfo(node.Operand).Type;
+            if (postfixType?.SpecialType is SpecialType.System_UInt16 or SpecialType.System_Byte
+                or SpecialType.System_UInt32)
+            {
+                var postfixFacade = ExpressionTransformerFacade.Instance;
+                var postfixOperand = postfixFacade.Transform(node.Operand, context);
+                var postfixDelta = op == "++" ? "+ 1" : "- 1";
+                string maskExpr = postfixType.SpecialType switch
+                {
+                    SpecialType.System_UInt16 => $"(((int)({postfixOperand} {postfixDelta})) & 0xFFFF)",
+                    SpecialType.System_Byte => $"({postfixOperand} {postfixDelta}) & 0xFF",
+                    SpecialType.System_UInt32 => $"(({postfixOperand} {postfixDelta}) & 0xFFFFFFFFL)",
+                    _ => $"{postfixOperand} {postfixDelta}"
+                };
+                // In discarded value context (statement or for-incrementor),
+                // we can just use the assignment form
+                if (IsDiscardedValueContext(node))
+                {
+                    return $"{postfixOperand} = {maskExpr}";
+                }
+                // In expression context, we need to return the old value
+                var tmpVar = context.GenerateSyntheticName("_us");
+                context.AddPreStatement($"int {tmpVar} = {postfixOperand}");
+                context.AddPreStatement($"{postfixOperand} = {maskExpr}");
+                return tmpVar;
+            }
+        }
+
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
         return $"{operand}{op}";
@@ -790,6 +824,35 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 {
                     return TransformUserDefinedUnaryOperator(node, methodSymbol, context);
                 }
+            }
+        }
+
+        // C# unsigned types (ushort/byte/uint/ulong) wrap around on overflow,
+        // but Java signed types do not. For ++/-- on unsigned variables, we need
+        // to add bitmask to simulate wrap-around semantics.
+        // e.g. C# ushort --i when i=0 → i=65535; Java int --i when i=0 → i=-1
+        if (context.SemanticModel != null && (op == "++" || op == "--"))
+        {
+            var unsignedType = context.GetTypeInfo(node.Operand).Type;
+            if (unsignedType?.SpecialType is SpecialType.System_UInt16 or SpecialType.System_Byte
+                or SpecialType.System_UInt32)
+            {
+                var unsignedFacade = ExpressionTransformerFacade.Instance;
+                var unsignedOperand = unsignedFacade.Transform(node.Operand, context);
+                var unsignedDelta = op == "++" ? "+ 1" : "- 1";
+                var assignmentExpr = unsignedType.SpecialType switch
+                {
+                    SpecialType.System_UInt16 => $"{unsignedOperand} = (((int)({unsignedOperand} {unsignedDelta})) & 0xFFFF)",
+                    SpecialType.System_Byte => $"{unsignedOperand} = ({unsignedOperand} {unsignedDelta}) & 0xFF",
+                    SpecialType.System_UInt32 => $"{unsignedOperand} = (({unsignedOperand} {unsignedDelta}) & 0xFFFFFFFFL)",
+                    _ => $"{op}{unsignedOperand}"
+                };
+                // In discarded value context (statement or for-incrementor),
+                // no outer parentheses needed
+                if (IsDiscardedValueContext(node))
+                    return assignmentExpr;
+                // In expression context, wrap in parentheses for correct precedence
+                return $"({assignmentExpr})";
             }
         }
 

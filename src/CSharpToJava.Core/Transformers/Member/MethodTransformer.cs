@@ -414,14 +414,14 @@ public class MethodTransformer : IMemberTransformer
                             if (lit.IsKind(SyntaxKind.NullLiteralExpression))
                             {
                                 hasNullValue = true;
-                                return "";  // Empty field in CSV, mapped to null via nullValues
+                                return "null";  // Use literal "null" in CSV, mapped to null via nullValues={"null"}
                             }
                             var val = lit.Token.ValueText;
                             // Empty string: use '' in CSV (JUnit @CsvSource single-quoted empty = empty string)
                             if (val.Length == 0 && lit.Token.IsKind(SyntaxKind.StringLiteralToken))
                                 return "''";
                             // Escape for CSV: wrap in single quotes if contains comma, quote, or is empty
-                            if (val.Contains(',') || val.Contains("'"))
+                            if (val.Contains(',') || val.Contains("'") || val.Trim().Length == 0 || val.Length != val.Trim().Length)
                                 return "'" + val.Replace("'", "''") + "'";
                             return val;
                         }
@@ -432,7 +432,7 @@ public class MethodTransformer : IMemberTransformer
                         if (exprStr == "null")
                         {
                             hasNullValue = true;
-                            return "";
+                            return "null";
                         }
                         return exprStr;
                     })
@@ -446,7 +446,7 @@ public class MethodTransformer : IMemberTransformer
             var csvValue = string.Join(", ", csvEntries.Select(e => $"\"{EscapeCsvValue(e)}\""));
             // If any InlineData contained null, add nullValues configuration so empty CSV fields
             // are interpreted as null rather than empty strings
-            var nullValuesAttr = hasNullValue ? ", nullValues = {\"\", \"null\"}" : "";
+            var nullValuesAttr = hasNullValue ? ", nullValues = {\"null\"}" : "";
             javaMethod.Annotations.Add(new JavaAnnotation($"CsvSource(value = {{{csvValue}}}{nullValuesAttr})"));
         }
 
