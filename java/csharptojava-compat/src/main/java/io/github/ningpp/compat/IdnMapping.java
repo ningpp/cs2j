@@ -115,10 +115,13 @@ public class IdnMapping {
         // - STD3 rules are not enforced by the Java IDN class
         // We use IDN.DEFAULT which is the standard behavior
 
-        // Validate NFC normalization doesn't introduce forbidden decomposition
+        // Validate NFKC normalization doesn't introduce forbidden decomposition
         // (e.g., U+2100 -> "a/c", U+2488 -> "1.", which create invalid domain labels)
-        String normalized = Normalizer.normalize(substring, Normalizer.Form.NFC);
+        String normalized = Normalizer.normalize(substring, Normalizer.Form.NFKC);
         if (!substring.equals(normalized)) {
+            if (containsUnsafeForNormalizedHost(normalized)) {
+                throw new ArgumentException("The input contains characters that decompose to include URI-reserved characters");
+            }
             int originalDots = countDots(substring);
             int normalizedDots = countDots(normalized);
             if (normalizedDots > originalDots) {
@@ -131,6 +134,10 @@ public class IdnMapping {
             result = IDN.toASCII(substring);
         } catch (IllegalArgumentException e) {
             throw new ArgumentException(e.getMessage(), e);
+        }
+
+        if (containsUnsafeForNormalizedHost(result)) {
+            throw new ArgumentException("The normalized host contains URI-reserved characters");
         }
 
         if (useStd3AsciiRules && result != null) {
@@ -297,5 +304,21 @@ public class IdnMapping {
             }
         }
         return count;
+    }
+
+    private static final char[] UNSAFE_FOR_NORMALIZED_HOST = {
+        '\\', '/', '?', '@', '#', ':', '[', ']'
+    };
+
+    private static boolean containsUnsafeForNormalizedHost(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            for (char unsafe : UNSAFE_FOR_NORMALIZED_HOST) {
+                if (c == unsafe) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

@@ -4,7 +4,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Bridges C# System.Reflection.PropertyInfo to Java reflection.
@@ -15,6 +17,16 @@ public final class PropertyInfo {
 
     private final Method getter;
     private final String name;
+
+    // Methods that are C# methods (not properties) but follow Java getter naming convention.
+    // These should be excluded when bridging C# Type.GetProperties() semantics.
+    private static final Set<String> EXCLUDED_METHODS = Set.of(
+        "getClass",
+        "hashCode",
+        "isWellFormedOriginalString",
+        "getUserDrivenParsing",
+        "getHasAuthority"
+    );
 
     public PropertyInfo(Method getter) {
         this.getter = getter;
@@ -68,6 +80,8 @@ public final class PropertyInfo {
      * A property is defined as a public method starting with "get" (non-void return)
      * or "is" (boolean return), with zero parameters.
      * Bridges C# Type.GetProperties() semantics.
+     * Methods in the EXCLUDED_METHODS set are excluded since they correspond
+     * to C# methods (not properties).
      */
     public static PropertyInfo[] getProperties(Class<?> clazz) {
         List<PropertyInfo> props = new ArrayList<>();
@@ -75,7 +89,8 @@ public final class PropertyInfo {
             // Skip void returns and methods with parameters
             if (m.getParameterCount() != 0) continue;
             if (m.getReturnType() == void.class) continue;
-            // Skip getClass() and hashCode() and toString() etc.
+            // Skip methods that are C# methods (not properties)
+            if (EXCLUDED_METHODS.contains(m.getName())) continue;
             String methodName = m.getName();
             if (methodName.startsWith("get") && methodName.length() > 3) {
                 props.add(new PropertyInfo(m));
@@ -88,9 +103,9 @@ public final class PropertyInfo {
     }
 
     /**
-     * Wraps an array so that toString() returns a content-based string
-     * (like C# array ToString()) instead of the default Java array toString()
-     * which includes identity hash code.
+     * Wraps an array so that toString() returns a C#-compatible type name string
+     * (e.g., "System.String[]") instead of content-based or identity hash code strings.
+     * This matches C# array ToString() behavior where arrays return their type name.
      */
     static final class ArrayPropertyWrapper {
         private final Object array;
@@ -101,24 +116,39 @@ public final class PropertyInfo {
 
         @Override
         public String toString() {
-            if (array instanceof Object[]) {
-                return Arrays.deepToString((Object[]) array);
-            } else if (array instanceof int[]) {
-                return Arrays.toString((int[]) array);
-            } else if (array instanceof byte[]) {
-                return Arrays.toString((byte[]) array);
-            } else if (array instanceof char[]) {
-                return Arrays.toString((char[]) array);
-            } else if (array instanceof long[]) {
-                return Arrays.toString((long[]) array);
-            } else if (array instanceof double[]) {
-                return Arrays.toString((double[]) array);
-            } else if (array instanceof float[]) {
-                return Arrays.toString((float[]) array);
-            } else if (array instanceof short[]) {
-                return Arrays.toString((short[]) array);
-            } else if (array instanceof boolean[]) {
-                return Arrays.toString((boolean[]) array);
+            // C# arrays return their type name from ToString(), e.g., "System.String[]"
+            Class<?> componentType = array.getClass().getComponentType();
+            if (componentType != null) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("System.");
+                if (componentType == String.class) {
+                    sb.append("String");
+                } else if (componentType == int.class) {
+                    sb.append("Int32");
+                } else if (componentType == byte.class) {
+                    sb.append("Byte");
+                } else if (componentType == char.class) {
+                    sb.append("Char");
+                } else if (componentType == long.class) {
+                    sb.append("Int64");
+                } else if (componentType == double.class) {
+                    sb.append("Double");
+                } else if (componentType == float.class) {
+                    sb.append("Single");
+                } else if (componentType == short.class) {
+                    sb.append("Int16");
+                } else if (componentType == boolean.class) {
+                    sb.append("Boolean");
+                } else {
+                    sb.append("Object");
+                }
+                // Count array dimensions
+                Class<?> type = array.getClass();
+                while (type.isArray()) {
+                    sb.append("[]");
+                    type = type.getComponentType();
+                }
+                return sb.toString();
             }
             return array.toString();
         }
