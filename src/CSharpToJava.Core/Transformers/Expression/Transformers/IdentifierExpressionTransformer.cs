@@ -1151,6 +1151,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             return memberName == "Item1" ? $"{target}.getKey()" : $"{target}.getValue()";
         }
+        // C# tuple Item1/Item2/... → vavr Tuple._1()/_2()/...
+        if (IsTupleItemName(memberName, out var tupleIdx)
+            && receiverType is INamedTypeSymbol nts
+            && (nts.IsTupleType || IsVavrTupleType(nts)))
+        {
+            return $"{target}._{tupleIdx}()";
+        }
         // Auto-properties emitted as fields in project pipeline
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
         // GCHandle.IsAllocated → GCHandle.isAllocated(receiver)
@@ -1183,6 +1190,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             context.Diagnostics.Info(
                 $"Property fallback: '{node}' -> {target}.{memberName} | PathA: {reasonA} | PathC: {reasonReceiverType}",
                 node.GetLocation());
+        }
+
+        // Handle C# tuple field access fallthrough: Item1/Item2/... → vavr _1()/_2()/...
+        if (IsTupleItemName(memberName, out var tupIdx))
+        {
+            return $"{target}._{tupIdx}()";
         }
 
         var member = ConversionContext.EscapeJavaKeyword(memberName);
@@ -1576,6 +1589,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
                 if (m is IFieldSymbol { IsStatic: false })
                 {
+                    // Handle C# tuple field access: Item1/Item2/... → vavr _1()/_2()/...
+                    // (KeyValuePair Item1/Item2 case is handled earlier in TransformMemberAccess)
+                    if (IsTupleItemName(memberName, out var tupIdx))
+                    {
+                        return $"{target}._{tupIdx}()";
+                    }
                     // It's a field — just access it directly
                     return $"{target}.{memberName}";
                 }
@@ -1737,5 +1756,29 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Returns true if the member name is a C# tuple item name (Item1, Item2, ..., Item8).
+    /// Outputs the numeric index (1-based → 1,2,...,8).
+    /// </summary>
+    private static bool IsTupleItemName(string memberName, out int index)
+    {
+        index = 0;
+        if (memberName.Length >= 5 && memberName.StartsWith("Item") && int.TryParse(memberName.AsSpan(4), out index))
+        {
+            return index >= 1 && index <= 8;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true if the type is a vavr Tuple type (io.vavr.Tuple1..Tuple8).
+    /// These are the Java mapping targets for C# ValueTuple types.
+    /// </summary>
+    private static bool IsVavrTupleType(INamedTypeSymbol type)
+    {
+        var display = type.ToDisplayString();
+        return display.StartsWith("io.vavr.Tuple") && display.Contains("<");
     }
 }
