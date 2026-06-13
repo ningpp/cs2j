@@ -4279,6 +4279,36 @@
             "javaMethod": "now"
         },
         {
+            "type": "System.DateTimeOffset",
+            "method": "get_LocalDateTime",
+            "javaMethod": "toLocalDateTime"
+        },
+        {
+            "type": "System.DateTimeOffset",
+            "method": "LocalDateTime",
+            "javaMethod": "toLocalDateTime"
+        },
+        {
+            "type": "System.DateTimeOffset",
+            "method": "get_UtcDateTime",
+            "javaMethod": "toLocalDateTime"
+        },
+        {
+            "type": "System.DateTimeOffset",
+            "method": "UtcDateTime",
+            "javaMethod": "toLocalDateTime"
+        },
+        {
+            "type": "System.DateTimeOffset",
+            "method": "get_Offset",
+            "javaMethod": "getOffset"
+        },
+        {
+            "type": "System.TimeSpan",
+            "method": "Zero",
+            "javaMethod": "ZERO"
+        },
+        {
             "type": "System.String",
             "method": "ToCharArray",
             "javaMethod": "toCharArray"
