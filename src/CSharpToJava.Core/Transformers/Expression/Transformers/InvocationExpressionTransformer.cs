@@ -4720,6 +4720,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{hostTypeName}.{methodName}({allArgs})";
         }
 
+        // Compatibility helper methods (e.g. IPAddressHelper.toString) must be called
+        // as static methods with the receiver as the first argument, not as instance methods.
+        // Without this, "IPAddressHelper.toString" would be emitted as "receiver.IPAddressHelper.toString()"
+        // instead of "IPAddressHelper.toString(receiver)".
+        if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(methodName))
+        {
+            var helperArgs = string.IsNullOrEmpty(args) ? receiver : $"{receiver}, {args}";
+            return $"{methodName}({helperArgs})";
+        }
+
         return $"{receiver}.{methodName}({args})";
     }
 

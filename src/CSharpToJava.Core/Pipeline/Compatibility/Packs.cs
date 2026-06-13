@@ -35,6 +35,7 @@ public class DotNetCorePack : ICompatibilityPack
             "LinkedListNode", "LinkedListWithNodes",
             "InvalidDataException", "MemoryStream", "StreamReader", "StreamWriter",
             "TextReader", "ThreadHelper", "ArrayHelper", "MapHelper",
+            "IPAddressHelper",
             "GCHandle.");
     }
 }

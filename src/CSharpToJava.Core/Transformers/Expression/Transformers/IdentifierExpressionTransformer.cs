@@ -894,7 +894,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 // method — emit without parentheses.
                 // Otherwise it is a method name (e.g. "size") — emit as target.method().
                 if (mappedMethod.Contains('.'))
+                {
+                    // Add import for fully-qualified type references in mapped methods
+                    // e.g. Inet6Address.ofLiteral("::1") needs import java.net.Inet6Address
+                    AddImportForDottedMappedMethod(mappedMethod, context);
                     return mappedMethod;
+                }
                 if (prop.ContainingType.SpecialType == SpecialType.System_Array)
                 {
                     return $"{target}.{mappedMethod}";
@@ -1082,7 +1087,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (IsJavaFieldMapping(mappedStaticMethod)) return mappedStaticMethod.Contains('.') ? mappedStaticMethod : $"{target}.{mappedStaticMethod}";
                 if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mappedStaticMethod))
                     return $"{mappedStaticMethod}()";
-                return mappedStaticMethod.Contains('.') ? mappedStaticMethod : $"{target}.{mappedStaticMethod}()";
+                if (mappedStaticMethod.Contains('.'))
+                {
+                    AddImportForDottedMappedMethod(mappedStaticMethod, context);
+                    return mappedStaticMethod;
+                }
+                return $"{target}.{mappedStaticMethod}()";
             }
         }
 
@@ -1307,6 +1317,28 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         return symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Adds the appropriate Java import for a mapped method that contains a dot
+    /// (e.g. "Inet6Address.ofLiteral(\"::1\")" needs "java.net.Inet6Address").
+    /// The type name is extracted as the portion before the first dot.
+    /// </summary>
+    private static void AddImportForDottedMappedMethod(string mappedMethod, ConversionContext context)
+    {
+        var dotIndex = mappedMethod.IndexOf('.');
+        if (dotIndex <= 0) return;
+        var typeName = mappedMethod[..dotIndex];
+        var import = typeName switch
+        {
+            "Inet6Address" => "java.net.Inet6Address",
+            "InetAddress" => "java.net.InetAddress",
+            "Inet4Address" => "java.net.Inet4Address",
+            "Locale" => "java.util.Locale",
+            _ => null
+        };
+        if (import != null)
+            context.AddImport(import);
     }
 
     private static bool IsStaticMemberSymbol(ISymbol? symbol)

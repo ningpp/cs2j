@@ -382,6 +382,13 @@ public partial class StatementTransformer
                     sb.AppendLine($"            {stateName} = -1;");
                     sb.AppendLine($"            break {loopName};");
                 }
+                else if (statement is ContinueStatementSyntax)
+                {
+                    // C# continue inside a switch-with-goto-case should exit the while loop
+                    // so the enclosing for/while loop can continue naturally
+                    sb.AppendLine($"            {stateName} = -1;");
+                    sb.AppendLine($"            break {loopName};");
+                }
                 else if (statement is GotoStatementSyntax gotoStmt
                     && TryTransformSwitchGoto(gotoStmt, stateName, loopName, stateByCaseValue, defaultState, context, out var gotoCode))
                 {

@@ -21,6 +21,7 @@ public static class ExpressionTransformerHelpers
         "Decimal",
         "Encoding",
         "EnumHelper",
+        "IPAddressHelper",
         "IntPtrHelper",
         "MathHelper",
         "PropertyInfo",

@@ -2763,7 +2763,8 @@
             "csharp": "System.Net.IPAddress",
             "java": "InetAddress",
             "imports": [
-                "java.net.InetAddress"
+                "java.net.InetAddress",
+                "java.net.Inet6Address"
             ]
         },
         {
@@ -3885,7 +3886,12 @@
         {
             "type": "System.Net.IPAddress",
             "method": "IPv6Loopback",
-            "javaMethod": "getLoopbackAddress"
+            "javaMethod": "IPAddressHelper.ipv6Loopback"
+        },
+        {
+            "type": "System.Net.IPAddress",
+            "method": "ToString",
+            "javaMethod": "IPAddressHelper.toString"
         },
         {
             "type": "System.DateTime",
