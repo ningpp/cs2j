@@ -4653,6 +4653,46 @@
         },
         {
             "type": "System.Threading.Tasks.Task",
+            "method": "get_IsCompletedSuccessfully",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.Task",
+            "method": "IsCompletedSuccessfully",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.Task`1",
+            "method": "get_IsCompletedSuccessfully",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.Task`1",
+            "method": "IsCompletedSuccessfully",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.Task`1",
+            "method": "get_Result",
+            "javaMethod": "join"
+        },
+        {
+            "type": "System.Threading.Tasks.Task`1",
+            "method": "Result",
+            "javaMethod": "join"
+        },
+        {
+            "type": "System.Threading.Tasks.Task",
+            "method": "get_Result",
+            "javaMethod": "join"
+        },
+        {
+            "type": "System.Threading.Tasks.Task",
+            "method": "Result",
+            "javaMethod": "join"
+        },
+        {
+            "type": "System.Threading.Tasks.Task",
             "method": "ContinueWith",
             "javaMethod": "thenApply"
         },
