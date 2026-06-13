@@ -4724,6 +4724,16 @@
             "javaMethod": "join"
         },
         {
+            "type": "System.Threading.Tasks.ValueTask`1",
+            "method": "get_Result",
+            "javaMethod": "join"
+        },
+        {
+            "type": "System.Threading.Tasks.ValueTask`1",
+            "method": "Result",
+            "javaMethod": "join"
+        },
+        {
             "type": "System.Threading.Tasks.Task",
             "method": "ContinueWith",
             "javaMethod": "thenApply"

@@ -586,6 +586,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return facade.Transform(memberAccess.Expression, context);
         }
 
+        // Task.GetAwaiter().GetResult() → .join()
+        // C# Task.GetAwaiter().GetResult() blocks until completion; Java uses CompletableFuture.join().
+        // Also handle standalone .GetResult() on TaskAwaiter (produced after stripping GetAwaiter).
+        if (memberAccess.Name.Identifier.Text == "GetResult"
+            && node.ArgumentList.Arguments.Count == 0)
+        {
+            if (memberAccess.Expression is InvocationExpressionSyntax invExpr
+                && invExpr.Expression is MemberAccessExpressionSyntax awaitMa
+                && awaitMa.Name.Identifier.Text == "GetAwaiter"
+                && invExpr.ArgumentList.Arguments.Count == 0)
+            {
+                return $"{facade.Transform(awaitMa.Expression, context)}.join()";
+            }
+            // Standalone GetResult on a Task/TaskAwaiter — map to join()
+            return $"{facade.Transform(memberAccess.Expression, context)}.join()";
+        }
+        if (memberAccess.Name.Identifier.Text == "GetAwaiter"
+            && node.ArgumentList.Arguments.Count == 0)
+        {
+            return facade.Transform(memberAccess.Expression, context);
+        }
+
         // Count() with no args → size() (Collection) or count() (Iterable fallback)
         // Any() with no args → length>0 (array) or iterator().hasNext() (Iterable/Collection)
         if (node.ArgumentList.Arguments.Count == 0)
