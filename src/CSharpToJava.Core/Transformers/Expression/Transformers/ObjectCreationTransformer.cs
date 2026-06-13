@@ -207,11 +207,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         if (createdTypeSymbol?.ToDisplayString() is "System.Text.UTF8Encoding" or "System.Text.ASCIIEncoding")
         {
-            var charsetName = createdTypeSymbol?.ToDisplayString() == "System.Text.UTF8Encoding"
-                ? "StandardCharsets.UTF_8"
-                : "StandardCharsets.US_ASCII";
-            context.AddImport("java.nio.charset.StandardCharsets");
-            return charsetName;
+            var call = createdTypeSymbol?.ToDisplayString() == "System.Text.UTF8Encoding"
+                ? "Encoding.getUTF8()"
+                : "Encoding.getASCII()";
+            context.AddImport("io.github.ningpp.compat.Encoding");
+            return call;
         }
 
         if (createdTypeSymbol?.SpecialType == SpecialType.System_Decimal

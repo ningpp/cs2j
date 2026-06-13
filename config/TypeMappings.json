@@ -3577,18 +3577,16 @@
         },
         {
             "csharp": "System.Text.UTF8Encoding",
-            "java": "Charset",
+            "java": "Encoding",
             "imports": [
-                "java.nio.charset.Charset",
-                "java.nio.charset.StandardCharsets"
+                "io.github.ningpp.compat.Encoding"
             ]
         },
         {
             "csharp": "System.Text.ASCIIEncoding",
-            "java": "Charset",
+            "java": "Encoding",
             "imports": [
-                "java.nio.charset.Charset",
-                "java.nio.charset.StandardCharsets"
+                "io.github.ningpp.compat.Encoding"
             ]
         },
         {
