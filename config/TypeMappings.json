@@ -3618,6 +3618,34 @@
             ]
         },
         {
+            "csharp": "System.Globalization.NumberFormatInfo",
+            "java": "CultureInfo",
+            "imports": [
+                "io.github.ningpp.compat.CultureInfo"
+            ]
+        },
+        {
+            "csharp": "NumberFormatInfo",
+            "java": "CultureInfo",
+            "imports": [
+                "io.github.ningpp.compat.CultureInfo"
+            ]
+        },
+        {
+            "csharp": "System.Globalization.DateTimeFormatInfo",
+            "java": "CultureInfo",
+            "imports": [
+                "io.github.ningpp.compat.CultureInfo"
+            ]
+        },
+        {
+            "csharp": "DateTimeFormatInfo",
+            "java": "CultureInfo",
+            "imports": [
+                "io.github.ningpp.compat.CultureInfo"
+            ]
+        },
+        {
             "csharp": "System.Collections.ObjectModel.ObservableCollection`1",
             "java": "ObservableList",
             "imports": [
@@ -5550,6 +5578,16 @@
         {
             "type": "System.Globalization.CultureInfo",
             "method": "InvariantCulture",
+            "javaMethod": "java.util.Locale.ROOT"
+        },
+        {
+            "type": "System.Globalization.NumberFormatInfo",
+            "method": "InvariantInfo",
+            "javaMethod": "java.util.Locale.ROOT"
+        },
+        {
+            "type": "System.Globalization.DateTimeFormatInfo",
+            "method": "InvariantInfo",
             "javaMethod": "java.util.Locale.ROOT"
         },
         {
