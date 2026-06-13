@@ -136,6 +136,8 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                     ? idxExpr
                     : $"(long)({idxExpr}) * {pointerInfo.ElementSize}";
                 // Use base segment with bounds check for pointer element access
+                foreach (var imp in FfmHelper.GetRequiredImports(true))
+                    context.AddImport(imp);
                 if (context.TryGetPointerBase(targetExpr.Trim(), out var baseVar))
                 {
                     return FfmHelper.GeneratePointerReadWithBoundsCheck(
