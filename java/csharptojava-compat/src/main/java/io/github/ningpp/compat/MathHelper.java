@@ -195,6 +195,20 @@ public class MathHelper {
         return value.substring(0, i + 1);
     }
 
+    // ---- FormatNumeric (for C# value.ToString("X2") etc.) ----
+
+    /**
+     * Formats a numeric value using a C# format specifier string (e.g. "X2", "D4", "F2").
+     * This is used to convert C# {@code value.ToString("format")} calls to Java.
+     *
+     * @param format the C# format specifier (e.g. "X2", "x4", "D8", "F2")
+     * @param value  the numeric value to format
+     * @return the formatted string
+     */
+    public static String formatNumeric(String format, Object value) {
+        return formatValue(format, value);
+    }
+
     // ---- TryFormat helpers ----
 
     private static boolean writeFormattedToSpan(String formatted, Span<Character> dest, IntHolder charsWritten) {
@@ -217,17 +231,15 @@ public class MathHelper {
     }
 
     private static String translateFormat(String format, Object value) {
-        char spec = Character.toUpperCase(format.charAt(0));
+        char specChar = format.charAt(0);
+        char spec = Character.toUpperCase(specChar);
         String arg = format.substring(1);
         switch (spec) {
             case 'X': {
                 int width = arg.isEmpty() ? 0 : Integer.parseInt(arg);
-                String f = "%" + (width > 0 ? "0" + width : "") + "X";
-                return f;
-            }
-            case 'x': {
-                int width = arg.isEmpty() ? 0 : Integer.parseInt(arg);
-                String f = "%" + (width > 0 ? "0" + width : "") + "x";
+                // Preserve case: C# "X" → uppercase hex, C# "x" → lowercase hex
+                String caseChar = Character.isUpperCase(specChar) ? "X" : "x";
+                String f = "%" + (width > 0 ? "0" + width : "") + caseChar;
                 return f;
             }
             case 'F': {
@@ -244,7 +256,9 @@ public class MathHelper {
             }
             case 'E': {
                 int precision = arg.isEmpty() ? 6 : Integer.parseInt(arg);
-                return "%" + "." + precision + "e";
+                // Preserve case: C# "E" → uppercase, C# "e" → lowercase
+                String eChar = Character.isUpperCase(specChar) ? "E" : "e";
+                return "%" + "." + precision + eChar;
             }
             case 'G': {
                 int precision = arg.isEmpty() ? 0 : Integer.parseInt(arg);

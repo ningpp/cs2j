@@ -391,6 +391,57 @@ class MathHelperTest {
         assertEquals('1', dest.get(0));
     }
 
+    // ---- formatNumeric ----
+
+    @Test
+    void formatNumeric_hexUppercase() {
+        assertEquals("EF", MathHelper.formatNumeric("X2", 0xEF));
+    }
+
+    @Test
+    void formatNumeric_hexLowercase() {
+        assertEquals("ef", MathHelper.formatNumeric("x2", 0xEF));
+    }
+
+    @Test
+    void formatNumeric_hexWithPadding() {
+        assertEquals("00EF", MathHelper.formatNumeric("X4", 0xEF));
+    }
+
+    @Test
+    void formatNumeric_decimalWithPadding() {
+        assertEquals("00000042", MathHelper.formatNumeric("D8", 42));
+    }
+
+    @Test
+    void formatNumeric_fixedPoint() {
+        assertEquals("3.14", MathHelper.formatNumeric("F2", 3.14));
+    }
+
+    @Test
+    void formatNumeric_nullFormat() {
+        assertEquals("42", MathHelper.formatNumeric(null, 42));
+    }
+
+    @Test
+    void formatNumeric_emptyFormat() {
+        assertEquals("42", MathHelper.formatNumeric("", 42));
+    }
+
+    @Test
+    void formatNumeric_byteValueWithMask() {
+        // Simulates C# byte.ToString("X2") where byte is unsigned (0-255)
+        // In Java, a byte value of -17 (0xEF) should format as "EF" when masked with & 0xFF
+        int unsignedByteValue = ((int)(byte)0xEF) & 0xFF;
+        assertEquals("EF", MathHelper.formatNumeric("X2", unsignedByteValue));
+    }
+
+    @Test
+    void formatNumeric_scientific() {
+        String result = MathHelper.formatNumeric("E2", 1234.5);
+        assertTrue(result.startsWith("1.23")); // 1.23E+03 or similar
+    }
+
     // ---- tryFormatObject ----
 
     @Test

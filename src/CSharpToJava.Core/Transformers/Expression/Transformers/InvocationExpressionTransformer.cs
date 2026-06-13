@@ -2664,7 +2664,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     "GetHashCode" => $"{wrapperClass}.hashCode({receiver})",
                     "CompareTo"   => $"{wrapperClass}.compare({receiver}, {primArgs})",
-                    "ToString"    => $"String.valueOf({receiver})",
+                    "ToString"    => BuildPrimitiveToString(node, receiver, receiverSymbol, context, facade),
                     _             => $"{wrapperClass}.{char.ToLowerInvariant(originalMethodName[0]) + originalMethodName[1..]}({receiver})"
                 };
             }
@@ -5770,6 +5770,55 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_Boolean => "Boolean",
             _ => null
         };
+
+    /// <summary>
+    /// Builds the Java expression for a C# primitive ToString() call, including format arguments.
+    /// Without format args: <c>String.valueOf(receiver)</c>.
+    /// With format args (e.g. <c>b.ToString("X2")</c>): <c>MathHelper.formatNumeric("X2", receiver)</c>.
+    /// For unsigned types (byte, sbyte, ushort), applies the appropriate bitmask so that
+    /// hex formatting produces the correct unsigned representation.
+    /// </summary>
+    private static string BuildPrimitiveToString(
+        InvocationExpressionSyntax node,
+        string receiver,
+        ITypeSymbol? receiverSymbol,
+        ConversionContext context,
+        IExpressionTransformer facade)
+    {
+        if (node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0)
+        {
+            return $"String.valueOf({receiver})";
+        }
+
+        // Skip IFormatProvider if it is the first argument (e.g. ToString(provider))
+        int fmtStart = HasIFormatProviderFirstArg(node, context) ? 1 : 0;
+        int formatArgCount = node.ArgumentList.Arguments.Count - fmtStart;
+
+        if (formatArgCount == 0)
+        {
+            // Only IFormatProvider arg, no format string → just String.valueOf
+            return $"String.valueOf({receiver})";
+        }
+
+        // Transform the format argument (first non-IFormatProvider argument)
+        var formatExpr = facade.Transform(node.ArgumentList.Arguments[fmtStart].Expression, context);
+
+        // For unsigned C# types that map to signed Java types, apply bitmask so that
+        // hex formatting (X/x) produces the correct unsigned representation.
+        // C# byte (0-255) → Java int, but value may have originated from signed Java byte.
+        // C# sbyte → Java byte, hex formatting should show unsigned representation.
+        // C# ushort (0-65535) → Java short/int, needs & 0xFFFF for unsigned hex.
+        string valueExpr = receiverSymbol?.SpecialType switch
+        {
+            SpecialType.System_Byte  => $"({receiver} & 0xFF)",
+            SpecialType.System_SByte => $"({receiver} & 0xFF)",
+            SpecialType.System_UInt16 => $"({receiver} & 0xFFFF)",
+            _ => receiver
+        };
+
+        context.AddImport("io.github.ningpp.compat.MathHelper");
+        return $"MathHelper.formatNumeric({formatExpr}, {valueExpr})";
+    }
 
     /// <summary>
     /// Maps a C# primitive type's SpecialType to its keyword form (e.g. System.Char → "char").

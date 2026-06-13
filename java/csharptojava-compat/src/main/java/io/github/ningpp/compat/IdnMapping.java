@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.net.IDN;
+import java.text.Normalizer;
 
 /**
  * Facade for System.Globalization.IdnMapping.
@@ -114,9 +115,23 @@ public class IdnMapping {
         // - STD3 rules are not enforced by the Java IDN class
         // We use IDN.DEFAULT which is the standard behavior
 
-        // For compatibility with .NET behavior regarding UseStd3AsciiRules,
-        // we validate the result if useStd3AsciiRules is true
-        String result = IDN.toASCII(substring);
+        // Validate NFC normalization doesn't introduce forbidden decomposition
+        // (e.g., U+2100 -> "a/c", U+2488 -> "1.", which create invalid domain labels)
+        String normalized = Normalizer.normalize(substring, Normalizer.Form.NFC);
+        if (!substring.equals(normalized)) {
+            int originalDots = countDots(substring);
+            int normalizedDots = countDots(normalized);
+            if (normalizedDots > originalDots) {
+                throw new ArgumentException("The input contains characters that decompose to include dots");
+            }
+        }
+
+        String result;
+        try {
+            result = IDN.toASCII(substring);
+        } catch (IllegalArgumentException e) {
+            throw new ArgumentException(e.getMessage(), e);
+        }
 
         if (useStd3AsciiRules && result != null) {
             validateStd3AsciiRules(result);
@@ -180,7 +195,12 @@ public class IdnMapping {
         String substring = ascii.substring(index, index + count);
 
         // Java's IDN.toUnicode() converts Punycode to Unicode
-        String result = IDN.toUnicode(substring);
+        String result;
+        try {
+            result = IDN.toUnicode(substring);
+        } catch (IllegalArgumentException e) {
+            throw new ArgumentException(e.getMessage(), e);
+        }
 
         if (useStd3AsciiRules && result != null) {
             validateStd3AsciiRules(result);
@@ -258,5 +278,24 @@ public class IdnMapping {
                 }
             }
         }
+    }
+
+    /**
+     * Counts the number of dot characters in a string.
+     * Dots include ASCII dot (.), ideographic full stop (U+3002),
+     * fullwidth full stop (U+FF0E), and halfwidth ideographic stop (U+FF61).
+     *
+     * @param s The string to count dots in.
+     * @return The number of dot characters.
+     */
+    private static int countDots(String s) {
+        int count = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '.' || c == '\u3002' || c == '\uFF0E' || c == '\uFF61') {
+                count++;
+            }
+        }
+        return count;
     }
 }
