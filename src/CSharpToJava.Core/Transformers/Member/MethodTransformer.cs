@@ -23,11 +23,30 @@ public class MethodTransformer : IMemberTransformer
             throw new ArgumentException($"Expected MethodDeclarationSyntax, got {node.GetType()}");
         }
 
-        // Fix 6: Skip partial method declarations with no implementation — they are no-op in C#, emit nothing in Java.
-        bool isPartialDeclaration = methodDecl.Body == null && methodDecl.ExpressionBody == null
+        // Fix 6: Partial method declarations with no implementation are no-ops in C#.
+        // Generate an empty stub so that call sites don't break.
+        bool isUnimplementedPartial = methodDecl.Body == null && methodDecl.ExpressionBody == null
             && methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
-        if (isPartialDeclaration)
-            return null!;
+        if (isUnimplementedPartial)
+        {
+            var stubMethodInfo = context.GetDeclaredSymbol(methodDecl) as IMethodSymbol;
+            var partialMethod = new JavaMethodDeclaration
+            {
+                Name = GetJavaMethodName(methodDecl, stubMethodInfo, context),
+                Modifiers = ConvertModifiers(methodDecl.Modifiers),
+                ReturnType = GetReturnType(methodDecl, context),
+                Body = "{}"
+            };
+            foreach (var typeParam in methodDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
+                partialMethod.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
+            foreach (var paramSyntax in methodDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+            {
+                var converted = ConvertParameter(paramSyntax, context);
+                if (converted != null)
+                    partialMethod.Parameters.Add(converted);
+            }
+            return partialMethod;
+        }
 
         // Skip methods with __suppress__ typed parameters (e.g. GetObjectData with SerializationInfo/StreamingContext)
         bool hasSuppressedParam = methodDecl.ParameterList?.Parameters.Any(p =>

@@ -295,6 +295,7 @@ public class EnumTransformer : ITypeTransformer
         bool hasNonZero = false;
         bool hasPowerOfTwoBeyondOrdinal = false;
         int ordinal = 0;
+        long maxVal = 0;
         foreach (var member in enumType.GetMembers())
         {
             if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
@@ -313,6 +314,7 @@ public class EnumTransformer : ITypeTransformer
                 if (val < 0) return false;
                 if (val == 0) { ordinal++; continue; }
                 hasNonZero = true;
+                if (val > maxVal) maxVal = val;
                 // Check power of 2: val > 0 && (val & (val - 1)) == 0
                 if ((val & (val - 1)) != 0)
                     return false;
@@ -322,7 +324,10 @@ public class EnumTransformer : ITypeTransformer
                 ordinal++;
             }
         }
-        return hasNonZero && hasPowerOfTwoBeyondOrdinal;
+        // Require at least one value >= 4 to avoid false positives on enums
+        // with sequential values like {ExpandEntities=1, ExpandCharEntities=2}
+        // which happen to be powers of 2 but aren't bit flags.
+        return hasNonZero && hasPowerOfTwoBeyondOrdinal && maxVal >= 4;
     }
 
     private static string GetEnumValueJavaType(INamedTypeSymbol? enumSymbol, EnumDeclarationSyntax enumDecl)

@@ -1461,6 +1461,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var symbolInfo = context.GetSymbolInfo(node);
             methodSymbol = symbolInfo.Symbol as IMethodSymbol;
 
+
             // Fallback: when overload resolution fails but Roslyn found candidate(s)
             // (e.g. ToList/ToDictionary on IEnumerable<T> with incomplete assembly refs),
             // use the first candidate — but only when the receiver is still a LINQ extension
