@@ -236,6 +236,30 @@ public static class ExpressionTransformerHelpers
             return $"({transformedExpression}) & 0xFF";
         }
 
+        // C# ushort (unsigned) → Java int: mask to preserve unsigned semantics
+        // Consistent with (byte) → & 0xFF; produces int which can be assigned to int variables
+        // The (int) prefix is needed when expr is long (e.g. _flags & IndexMask where
+        // IndexMask is long), because long & 0xFFFF produces long, not int.
+        // Parentheses are required around the & expression because & has lower precedence
+        // than <, ==, etc. in Java (same as (uint) → & 0xFFFFFFFFL).
+        if (targetSpecial == SpecialType.System_UInt16)
+        {
+            // Skip if the expression already ends with & 0xFFFF) (e.g. from (ushort)cast)
+            if (transformedExpression.TrimEnd().EndsWith("& 0xFFFF)"))
+                return transformedExpression;
+
+            bool needsNarrowingCast = sourceSpecial is SpecialType.System_Int64
+                or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double;
+
+            if (needsNarrowingCast)
+            {
+                return $"((int) ({transformedExpression}) & 0xFFFF)";
+            }
+            // Always use (int) prefix to handle cases where the expression type
+            // may be long at runtime (e.g. _flags & IndexMask where IndexMask is long)
+            return $"(((int)({transformedExpression})) & 0xFFFF)";
+        }
+
         // C# uint (unsigned) → Java int: mask to preserve unsigned semantics
         if (targetSpecial == SpecialType.System_UInt32)
         {
@@ -247,7 +271,7 @@ public static class ExpressionTransformerHelpers
         var castKeyword = targetSpecial switch
         {
             SpecialType.System_SByte => "byte",
-            SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
+            SpecialType.System_Int16 => "short",
             SpecialType.System_Int32 => "int",
             SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
             SpecialType.System_Single => "float",

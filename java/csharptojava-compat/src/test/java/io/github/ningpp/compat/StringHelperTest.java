@@ -461,8 +461,32 @@ class StringHelperTest {
 
     @Test
     void formatCs_withFormatSpecifier() {
-        // {0:x} is a C# format string - the :x part is ignored in formatCs
-        assertEquals("255", StringHelper.formatCs(java.util.Locale.ROOT, "{0:x}", 255));
+        // {0:x} is a C# hex format string - should produce hex output
+        assertEquals("ff", StringHelper.formatCs(java.util.Locale.ROOT, "{0:x}", 255));
+    }
+
+    @Test
+    void formatCs_withUpperHexFormatSpecifier() {
+        // {0:X} is a C# uppercase hex format string
+        assertEquals("FF", StringHelper.formatCs(java.util.Locale.ROOT, "{0:X}", 255));
+    }
+
+    @Test
+    void formatCs_withDecimalFormatSpecifier() {
+        // {0:d} is a C# decimal format string
+        assertEquals("255", StringHelper.formatCs(java.util.Locale.ROOT, "{0:d}", 255));
+    }
+
+    @Test
+    void formatCs_withHexFormat_ushortValue() {
+        // ushort 0xFFFF stored as Short(-1) should format as "ffff" not "ffffffff"
+        assertEquals("ffff", StringHelper.formatCs(java.util.Locale.ROOT, "{0:x}", (short)-1));
+    }
+
+    @Test
+    void formatCs_withHexFormat_ushortPositiveValue() {
+        // ushort 0xFE08 stored as Short(-504) should format as "fe08"
+        assertEquals("fe08", StringHelper.formatCs(java.util.Locale.ROOT, "{0:x}", (short)0xFE08));
     }
 
     @Test

@@ -880,7 +880,7 @@ public class TypeMappingService
             "SByte" => "byte",
             "UInt32" => "int",
             "UInt64" => "long",
-            "UInt16" => "short",
+            "UInt16" => "int",
             "Single" => "float",
             "Double" => "double",
             "Boolean" => "boolean",

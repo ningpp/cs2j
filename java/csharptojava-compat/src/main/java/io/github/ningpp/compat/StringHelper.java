@@ -619,19 +619,54 @@ public class StringHelper {
         }
         // Escape existing '%' to '%%' so they are treated as literal percent signs
         String escaped = format.replace("%", "%%");
-        // Replace {N} and {N:specifier} placeholders with Java positional format %N$s
+        // Replace {N} and {N:specifier} placeholders with Java positional format.
+        // C# format specifiers: x/X = hex, d = decimal, default = general
         // where N = C# index + 1. This preserves C# semantics where the same argument
         // can be referenced multiple times (e.g. "{0}/{0}" becomes "%1$s/%1$s").
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\{(\\d+)(?::[^}]*?)?\\}").matcher(escaped);
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\{(\\d+)(?::([^}]*?))?\\}").matcher(escaped);
         StringBuffer sb = new StringBuffer();
         while (matcher.find()) {
             int index = Integer.parseInt(matcher.group(1)) + 1; // Java positions are 1-based
-            matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement("%" + index + "$s"));
+            String specifier = matcher.group(2); // may be null if no specifier
+            String javaFormat;
+            if (specifier != null) {
+                // Parse C# format specifier
+                String spec = specifier.trim().toLowerCase();
+                if (spec.startsWith("x")) {
+                    // Hexadecimal format: {0:x} -> %1$x, {0:X} -> %1$X
+                    boolean upper = specifier.trim().startsWith("X");
+                    javaFormat = "%" + index + "$" + (upper ? "X" : "x");
+                } else if (spec.startsWith("d")) {
+                    // Decimal format: {0:d} -> %1$d
+                    javaFormat = "%" + index + "$d";
+                } else if (spec.startsWith("f")) {
+                    // Fixed-point format: {0:f} -> %1$f
+                    javaFormat = "%" + index + "$f";
+                } else if (spec.startsWith("e")) {
+                    // Scientific format: {0:e} -> %1$e, {0:E} -> %1$E
+                    boolean upper = specifier.trim().startsWith("E");
+                    javaFormat = "%" + index + "$" + (upper ? "E" : "e");
+                } else {
+                    // Unknown specifier, fall back to string format
+                    javaFormat = "%" + index + "$s";
+                }
+            } else {
+                javaFormat = "%" + index + "$s";
+            }
+            matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(javaFormat));
         }
         matcher.appendTail(sb);
         String converted = sb.toString();
         if (args == null || args.length == 0) {
             return String.format(l, converted);
+        }
+        // Convert Short args to unsigned int values to preserve C# ushort semantics.
+        // In C#, ushort is unsigned (0-65535), but Java Short is signed (-32768 to 32767).
+        // Without this conversion, (short)-1 would format as "ffffffff" instead of "ffff".
+        for (int i = 0; i < args.length; i++) {
+            if (args[i] instanceof Short s) {
+                args[i] = s.intValue() & 0xFFFF;
+            }
         }
         return String.format(l, converted, args);
     }

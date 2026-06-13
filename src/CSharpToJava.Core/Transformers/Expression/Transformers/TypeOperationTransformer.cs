@@ -60,6 +60,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (node is CastExpressionSyntax castExpr)
         {
             var code = Transform(node, context);
+            // If the string-based result is a bitmask expression (e.g. ((expr) & 0xFFFF)),
+            // return it as raw code — it is NOT a Java cast expression.
+            if (code.Contains("& 0xFF") || code.Contains("& 0xFFFF") || code.Contains("& 0xFFFFFFFFL"))
+            {
+                return new JavaRawExpression(code);
+            }
             // If the string-based result looks like a cast, produce structured IR
             if (code.StartsWith("(") && code.Contains(")"))
             {
@@ -246,9 +252,19 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 if (mappedSourceType is "int" or "long" or "short" or "byte"
                     or "Integer" or "Long" or "Short" or "Byte")
                 {
-                    return targetType == "int"
+                    var baseResult = targetType == "int"
                         ? expression
                         : $"({targetType})({expression})";
+                    // When casting enum to unsigned types (ushort/byte/uint), apply
+                    // bitmask to preserve unsigned semantics, consistent with the
+                    // explicit (ushort)/(byte)/(uint) cast handling below.
+                    if (targetSymbol?.SpecialType == SpecialType.System_UInt16)
+                        return $"(((int)({expression})) & 0xFFFF)";
+                    if (targetSymbol?.SpecialType == SpecialType.System_Byte)
+                        return $"{expression} & 0xFF";
+                    if (targetSymbol?.SpecialType == SpecialType.System_UInt32)
+                        return $"(({expression}) & 0xFFFFFFFFL)";
+                    return baseResult;
                 }
 
                 bool sourceIsExplicitValue = IsExplicitValueEnum(sourceType, context);
@@ -347,6 +363,18 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // C# (byte)expr → & 0xFF (byte maps to Java int, cast becomes masking)
         if (targetSymbol?.SpecialType == SpecialType.System_Byte)
             return $"{expression} & 0xFF";
+
+        // C# (ushort)expr → ((int)(expr) & 0xFFFF) (ushort maps to Java short, but & 0xFFFF
+        // produces int which is the correct type for assignments and comparisons)
+        // This is consistent with (byte) → & 0xFF and avoids (short) cast which
+        // produces a short that can't be assigned to int variables.
+        // The (int) prefix is needed when expr is long (e.g. _flags & IndexMask where
+        // IndexMask is long), because long & 0xFFFF produces long, not int.
+        // Parentheses are required around the & expression because & has lower precedence
+        // than <, ==, etc. in Java, so without them "x & 0xFFFF < 10" would be parsed as
+        // "x & (0xFFFF < 10)" which is a type error (int & boolean).
+        if (targetSymbol?.SpecialType == SpecialType.System_UInt16)
+            return $"(((int)({expression})) & 0xFFFF)";
 
         // C# (uint)expr → ((expr) & 0xFFFFFFFFL) (uint maps to Java int, cast becomes masking)
         // This preserves unsigned semantics: (uint)(x - '0') <= 9 works correctly
