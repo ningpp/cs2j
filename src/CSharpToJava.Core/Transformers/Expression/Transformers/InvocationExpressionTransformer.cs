@@ -2063,6 +2063,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
         skipCopyToRewrite:
 
+        // Encoding.GetDecoder() returns Encoding.Decoder (inner final class),
+        // but the field type is Decoder (standalone extendable class).
+        // Add an explicit cast to resolve the type mismatch.
+        if (originalMethodName == "GetDecoder"
+            && node.ArgumentList.Arguments.Count == 0
+            && methodSymbol?.ContainingType.ToDisplayString() == "System.Text.Encoding")
+        {
+            context.AddImport("io.github.ningpp.compat.Decoder");
+            return $"(Decoder)(Object)({receiver}.getDecoder())";
+        }
+
         // Dictionary.TryGetValue(key, out value) -> containsKey check + out assignment.
         // C# assigns the out variable on both success and failure.  Java definite
         // assignment follows short-circuit branches, so the expression must assign
