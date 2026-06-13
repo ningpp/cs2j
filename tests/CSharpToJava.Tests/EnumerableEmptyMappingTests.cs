@@ -51,6 +51,34 @@ class Test
         Assert.DoesNotContain("Stream.<Integer>empty()", result.GeneratedCode);
     }
 
+    [Fact]
+    public void ArrayEmpty_Byte_MapsToNewByteArray()
+    {
+        var result = Convert(@"
+using System;
+class Test
+{
+    byte[] GetEmpty() => Array.Empty<byte>();
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("new byte[0]", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void ArrayEmpty_Int_MapsToNewIntArray()
+    {
+        var result = Convert(@"
+using System;
+class Test
+{
+    int[] GetEmpty() => Array.Empty<int>();
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("new int[0]", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

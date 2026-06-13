@@ -3258,6 +3258,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var mappedType = typeArgInfo.Type != null
                     ? context.MapType(typeArgInfo.Type)
                     : facade.Transform(typeArgSyntax, context);
+                // C# byte[] stays Java byte[] for API compatibility (MapType maps byte→int
+                // because Java byte is signed, but array types use the Java byte primitive).
+                if (typeArgInfo.Type?.SpecialType == SpecialType.System_Byte)
+                    mappedType = "byte";
                 return $"new {mappedType}[0]";
             }
             return "new Object[0]";
