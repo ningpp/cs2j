@@ -23,6 +23,7 @@ public class StreamWriter extends PrintWriter {
         super(new OutputStreamWriter(stream.outputStream(), charset));
         this.baseStream = stream;
         this.charset = charset;
+        // encoding stored for getEncoding()
     }
 
     public StreamWriter(StreamWrapper stream, Encoding encoding) {
@@ -41,6 +42,7 @@ public class StreamWriter extends PrintWriter {
         super(writer);
         this.baseStream = null;
         this.charset = StandardCharsets.UTF_8;
+        // encoding stored for getEncoding()
     }
 
     public StreamWriter(String path) {
