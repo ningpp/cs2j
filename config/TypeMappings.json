@@ -2742,6 +2742,20 @@
             ]
         },
         {
+            "csharp": "System.Text.Encoder",
+            "java": "Encoder",
+            "imports": [
+                "io.github.ningpp.compat.Encoder"
+            ]
+        },
+        {
+            "csharp": "Encoder",
+            "java": "Encoder",
+            "imports": [
+                "io.github.ningpp.compat.Encoder"
+            ]
+        },
+        {
             "csharp": "System.WeakReference",
             "java": "WeakReference",
             "imports": [
