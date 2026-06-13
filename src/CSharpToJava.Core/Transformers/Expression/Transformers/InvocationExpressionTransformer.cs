@@ -3152,6 +3152,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.{methodName}({firstArg}, {secondArg})";
         }
 
+        // C# TextWriter.Write(char[], int, int) is a subarray write, NOT a format call.
+        // Remap to write() so the multi-arg print handler below doesn't wrap it in
+        // String.format(char[], int, int) which doesn't exist in Java.
+        // Java's Writer.write(buf, off, len) is the correct mapping.
+        if (methodName == "print"
+            && originalMethodName == "Write"
+            && methodSymbol is { Parameters.Length: 3 }
+            && methodSymbol.Parameters[0].Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Char }
+            && methodSymbol.Parameters[1].Type.SpecialType == SpecialType.System_Int32
+            && methodSymbol.Parameters[2].Type.SpecialType == SpecialType.System_Int32)
+        {
+            methodName = "write";
+        }
+
         // Console.Write/WriteLine(format, args...) and TextWriter/PrintWriter print/println(format, args...)
         // only accept a single argument in Java; multi-arg C# overloads are formatting calls.
         bool isJavaPrintln = methodName == "println"

@@ -64,4 +64,52 @@ class Test
         // StreamWriter has getEncoding() directly
         Assert.Contains("sw.getEncoding()", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    // ── TextWriter.Write(char[], int, int) tests ────────────────────
+
+    /// <summary>
+    /// TextWriter.Write(char[], int, int) is a subarray write, NOT a format call.
+    /// It should map to writer.write(buf, off, len), not print(String.format(...)).
+    /// Java's PrintWriter has no print(char[], int, int), but Writer.write() does.
+    /// </summary>
+    [Fact]
+    public void TextWriter_Write_CharArray_MapsToWrite()
+    {
+        var result = Convert(@"
+using System.IO;
+class Test
+{
+    void Foo(TextWriter w, char[] buf)
+    {
+        w.Write(buf, 0, 10);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Should use write, not print+String.format
+        Assert.DoesNotContain("String.format", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("w.write(buf, 0, 10)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// TextWriter.Write(string, object[]) (format overload) should still use
+    /// print(String.format(...)) — this is the correct format call pattern.
+    /// </summary>
+    [Fact]
+    public void TextWriter_Write_StringFormat_StillUsesPrint()
+    {
+        var result = Convert(@"
+using System.IO;
+class Test
+{
+    void Foo(TextWriter w)
+    {
+        w.Write(""Hello {0}"", ""World"");
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Format overload should use print+String.format
+        Assert.Contains("w.print(String.format(", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }
