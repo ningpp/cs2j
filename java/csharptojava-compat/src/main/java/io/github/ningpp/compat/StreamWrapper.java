@@ -116,6 +116,21 @@ public class StreamWrapper implements AutoCloseable {
         } catch (IOException e) { throw new java.io.UncheckedIOException(e); }
     }
 
+    /** Mirrors C# Stream.CopyTo(Stream destination) */
+    public void copyTo(StreamWrapper destination) {
+        try {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            InputStream in = inputStream();
+            OutputStream out = destination.outputStream();
+            while ((bytesRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
     public long getPosition() {
         throw new UnsupportedOperationException("This stream does not support Position");
     }

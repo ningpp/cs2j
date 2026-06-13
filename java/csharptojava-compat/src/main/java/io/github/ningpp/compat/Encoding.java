@@ -18,7 +18,7 @@ import java.util.List;
  * Implements all public instance/static methods from .NET's System.Text.Encoding
  * that are expressible in Java (no pointer/Span overloads).
  */
-public final class Encoding {
+public class Encoding {
 
     private final Charset charset;
     private final int codePage;
@@ -41,6 +41,14 @@ public final class Encoding {
         this.isReadOnly = isReadOnly;
         this.decoderReplacement = decoderReplacement;
         this.encoderReplacement = encoderReplacement;
+    }
+
+    /**
+     * Protected parameterless constructor matching .NET's protected Encoding().
+     * Allows subclasses like Ucs4Encoding to extend Encoding.
+     */
+    protected Encoding() {
+        this(StandardCharsets.UTF_8, 65001);
     }
 
     // ---- Static Properties ----

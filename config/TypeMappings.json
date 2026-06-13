@@ -2686,6 +2686,54 @@
             "imports": []
         },
         {
+            "csharp": "System.Net.IWebProxy",
+            "java": "Object",
+            "imports": []
+        },
+        {
+            "csharp": "IWebProxy",
+            "java": "Object",
+            "imports": []
+        },
+        {
+            "csharp": "System.Net.Cache.RequestCachePolicy",
+            "java": "Object",
+            "imports": []
+        },
+        {
+            "csharp": "RequestCachePolicy",
+            "java": "Object",
+            "imports": []
+        },
+        {
+            "csharp": "System.Net.WebRequest",
+            "java": "WebRequest",
+            "imports": [
+                "io.github.ningpp.compat.WebRequest"
+            ]
+        },
+        {
+            "csharp": "WebRequest",
+            "java": "WebRequest",
+            "imports": [
+                "io.github.ningpp.compat.WebRequest"
+            ]
+        },
+        {
+            "csharp": "System.Net.WebResponse",
+            "java": "WebResponse",
+            "imports": [
+                "io.github.ningpp.compat.WebResponse"
+            ]
+        },
+        {
+            "csharp": "WebResponse",
+            "java": "WebResponse",
+            "imports": [
+                "io.github.ningpp.compat.WebResponse"
+            ]
+        },
+        {
             "csharp": "System.Text.Decoder",
             "java": "Decoder",
             "imports": [
