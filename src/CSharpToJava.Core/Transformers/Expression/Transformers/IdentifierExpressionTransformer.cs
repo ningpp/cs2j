@@ -1124,11 +1124,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         // C# static field/property mappings for non-primitive types
-        // TimeSpan.Zero maps to Duration.ZERO which is a java.time.Duration.
-        // When compared with ZoneOffset (from DateTimeOffset.Offset), use
-        // Duration.ZERO.toSeconds() to produce a comparable long value.
-        if (target == "Duration" && memberName == "Zero") return "Duration.ZERO";
-        if (target == "Duration" && memberName == "ZERO") return "Duration.ZERO";
+        // TimeSpan.Zero → ZoneOffset.UTC so that DateTimeOffset.Offset != TimeSpan.Zero
+        // becomes value.getOffset() != ZoneOffset.UTC (valid ZoneOffset comparison).
+        // ZoneOffset.ofTotalSeconds(0) returns the ZoneOffset.UTC singleton, and
+        // OffsetDateTime.getOffset() also returns cached instances, so reference
+        // comparison with != works correctly for the zero-offset check.
+        if (target == "Duration" && memberName is "Zero" or "ZERO")
+        {
+            context.AddImport("java.time.ZoneOffset");
+            return "ZoneOffset.UTC";
+        }
 
         if (memberName == "Current") return $"{target}.getCurrent()";
         if (memberName == "Values") return $"{target}.values()";
