@@ -2024,8 +2024,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // ICollection<T>.CopyTo(array, arrayIndex) / HashSet<T>.CopyTo(array, index)
         // Java collections do not expose copyTo; use System.arraycopy(source.toArray(), ...).
+        // Only apply this rewrite when the CopyTo belongs to a collection/array type,
+        // not when a custom type defines its own CopyTo method (e.g. NodeData.CopyTo(int, StringBuilder)).
         if (originalMethodName == "CopyTo" && node.ArgumentList.Arguments.Count == 2)
         {
+            // Verify this is a collection-type CopyTo (first arg is an array).
+            // If methodSymbol is available, check the first parameter type.
+            if (methodSymbol != null)
+            {
+                var firstParam = methodSymbol.Parameters.FirstOrDefault();
+                if (firstParam == null || firstParam.Type is not IArrayTypeSymbol)
+                {
+                    // Not a collection CopyTo(array, index) — custom type's own CopyTo method.
+                    // Fall through to normal method call handling.
+                    goto skipCopyToRewrite;
+                }
+            }
+            else
+            {
+                // No method symbol available — syntactic fallback: check if the target
+                // looks like a collection type by verifying the receiver is an array or
+                // the first argument expression is typed as an array.
+                var firstArgType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                if (firstArgType is not IArrayTypeSymbol)
+                {
+                    goto skipCopyToRewrite;
+                }
+            }
+
             var destArrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var destIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
             var copySourceType = context.GetTypeInfo(memberAccess.Expression).Type;
@@ -2035,6 +2061,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
         }
+        skipCopyToRewrite:
 
         // Dictionary.TryGetValue(key, out value) -> containsKey check + out assignment.
         // C# assigns the out variable on both success and failure.  Java definite
