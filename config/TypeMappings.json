@@ -2742,6 +2742,34 @@
             ]
         },
         {
+            "csharp": "System.MemoryExtensions",
+            "java": "MemoryExtensions",
+            "imports": [
+                "io.github.ningpp.compat.MemoryExtensions"
+            ]
+        },
+        {
+            "csharp": "MemoryExtensions",
+            "java": "MemoryExtensions",
+            "imports": [
+                "io.github.ningpp.compat.MemoryExtensions"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.InteropServices.MemoryMarshal",
+            "java": "MemoryMarshal",
+            "imports": [
+                "io.github.ningpp.compat.MemoryMarshal"
+            ]
+        },
+        {
+            "csharp": "MemoryMarshal",
+            "java": "MemoryMarshal",
+            "imports": [
+                "io.github.ningpp.compat.MemoryMarshal"
+            ]
+        },
+        {
             "csharp": "System.Text.Encoder",
             "java": "Encoder",
             "imports": [

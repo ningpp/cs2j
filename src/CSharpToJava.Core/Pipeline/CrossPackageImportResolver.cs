@@ -46,7 +46,9 @@ public static class CrossPackageImportResolver
         "ArrayHelper",
         "DrawingColor",
         "StreamWrapper",
-        "IPAddressHelper"
+        "IPAddressHelper",
+        "MemoryExtensions",
+        "MemoryMarshal"
     };
 
     private static readonly HashSet<string> DefaultWildcardPackages = new(StringComparer.Ordinal)
