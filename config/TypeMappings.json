@@ -3351,15 +3351,17 @@
         },
         {
             "csharp": "System.Text.UTF8Encoding",
-            "java": "StandardCharsets.UTF_8",
+            "java": "Charset",
             "imports": [
+                "java.nio.charset.Charset",
                 "java.nio.charset.StandardCharsets"
             ]
         },
         {
             "csharp": "System.Text.ASCIIEncoding",
-            "java": "StandardCharsets.US_ASCII",
+            "java": "Charset",
             "imports": [
+                "java.nio.charset.Charset",
                 "java.nio.charset.StandardCharsets"
             ]
         },

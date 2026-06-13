@@ -205,6 +205,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"FileHelper.open({args})";
         }
 
+        if (createdTypeSymbol?.ToDisplayString() is "System.Text.UTF8Encoding" or "System.Text.ASCIIEncoding")
+        {
+            var charsetName = createdTypeSymbol?.ToDisplayString() == "System.Text.UTF8Encoding"
+                ? "StandardCharsets.UTF_8"
+                : "StandardCharsets.US_ASCII";
+            context.AddImport("java.nio.charset.StandardCharsets");
+            return charsetName;
+        }
+
         if (createdTypeSymbol?.SpecialType == SpecialType.System_Decimal
             && (node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0))
         {
