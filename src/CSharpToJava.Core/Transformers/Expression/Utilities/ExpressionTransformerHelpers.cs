@@ -260,12 +260,14 @@ public static class ExpressionTransformerHelpers
             return $"(((int)({transformedExpression})) & 0xFFFF)";
         }
 
-        // C# uint (unsigned) → Java int: mask to preserve unsigned semantics
+        // C# uint (unsigned) → Java int: mask to preserve unsigned semantics.
+        // 0xFFFFFFFFL is a long literal, so the entire & expression is long;
+        // (int) cast is required to assign to int variables/fields.
         if (targetSpecial == SpecialType.System_UInt32)
         {
             if (transformedExpression.TrimEnd().EndsWith("& 0xFFFFFFFFL)"))
                 return transformedExpression;
-            return $"(({transformedExpression}) & 0xFFFFFFFFL)";
+            return $"(int)(({transformedExpression}) & 0xFFFFFFFFL)";
         }
 
         var castKeyword = targetSpecial switch
