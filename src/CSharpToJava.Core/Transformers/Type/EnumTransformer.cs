@@ -171,6 +171,26 @@ public class EnumTransformer : ITypeTransformer
                     javaEnum.Values.Add(enumMember.Identifier.Text);
                 }
             }
+
+            // Always generate getValue() and fromValue() so that enum-to-int
+            // conversions (e.g. (int)enumVal or 1 << enumVal) produce valid Java
+            // code regardless of whether the enum has explicit value initializers.
+            var enumName = enumDecl.Identifier.Text;
+            javaEnum.Methods.Add(new JavaMethodDeclaration
+            {
+                ReturnType = enumValueType,
+                Name = "getValue",
+                Modifiers = JavaModifiers.Public,
+                Body = "return ordinal();"
+            });
+            javaEnum.Methods.Add(new JavaMethodDeclaration
+            {
+                ReturnType = enumName,
+                Name = "fromValue",
+                Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+                Body = $"return values()[v];"
+            });
+            javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
         }
 
         // 处理底层类型（C# 支持 byte, sbyte, short, ushort, int, uint, long, ulong）
