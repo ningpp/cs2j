@@ -236,11 +236,27 @@ public static class ExpressionTransformerHelpers
             return $"({transformedExpression}) & 0xFF";
         }
 
+        // C# ushort (unsigned) → Java int: mask to preserve unsigned semantics
+        if (targetSpecial == SpecialType.System_UInt16)
+        {
+            if (transformedExpression.TrimEnd().EndsWith("& 0xFFFF"))
+                return transformedExpression;
+            return $"({transformedExpression}) & 0xFFFF";
+        }
+
+        // C# uint (unsigned) → Java int: mask to preserve unsigned semantics
+        if (targetSpecial == SpecialType.System_UInt32)
+        {
+            if (transformedExpression.TrimEnd().EndsWith("& 0xFFFFFFFFL"))
+                return transformedExpression;
+            return $"({transformedExpression}) & 0xFFFFFFFFL";
+        }
+
         var castKeyword = targetSpecial switch
         {
             SpecialType.System_SByte => "byte",
-            SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
-            SpecialType.System_Int32 or SpecialType.System_UInt32 => "int",
+            SpecialType.System_Int16 => "short",
+            SpecialType.System_Int32 => "int",
             SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
             SpecialType.System_Single => "float",
             SpecialType.System_Double => "double",

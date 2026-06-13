@@ -348,6 +348,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (targetSymbol?.SpecialType == SpecialType.System_Byte)
             return $"{expression} & 0xFF";
 
+        // C# (ushort)expr → & 0xFFFF (ushort maps to Java int, cast becomes masking)
+        if (targetSymbol?.SpecialType == SpecialType.System_UInt16)
+            return $"{expression} & 0xFFFF";
+
+        // C# (uint)expr → & 0xFFFFFFFFL (uint maps to Java int, cast becomes masking)
+        // This preserves unsigned semantics: (uint)(x - '0') <= 9 works correctly
+        // because negative values wrap to large positive values via the mask.
+        if (targetSymbol?.SpecialType == SpecialType.System_UInt32)
+            return $"({expression}) & 0xFFFFFFFFL";
+
         // User-defined conversion operators (implicit/explicit operator)
         // e.g. (string)qilLiteral where QilLiteral defines "implicit operator string"
         //      → QilLiteral.toSring(qilLiteral)
