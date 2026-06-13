@@ -17,6 +17,13 @@ public final class ReadOnlySpan<T> {
         this.length = array.length;
     }
 
+    /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
+    public ReadOnlySpan(ReadOnlySpan<T> other) {
+        this.array = other.array;
+        this.offset = other.offset;
+        this.length = other.length;
+    }
+
     public ReadOnlySpan(T[] array, int offset, int length) {
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
