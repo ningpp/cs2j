@@ -1149,13 +1149,6 @@
             ]
         },
         {
-            "csharp": "System.UriFormatException",
-            "java": "UriFormatException",
-            "imports": [
-                "io.github.ningpp.compat.UriFormatException"
-            ]
-        },
-        {
             "csharp": "System.Configuration.ConfigurationException",
             "java": "ConfigurationException",
             "imports": [
@@ -3544,6 +3537,146 @@
             "java": "Assert",
             "imports": [
                 "csharp.xunit.Assert"
+            ]
+        },
+        {
+            "csharp": "System.Uri",
+            "java": "Uri",
+            "imports": [
+                "dotnet.system.Uri"
+            ]
+        },
+        {
+            "csharp": "System.UriBuilder",
+            "java": "UriBuilder",
+            "imports": [
+                "dotnet.system.UriBuilder"
+            ]
+        },
+        {
+            "csharp": "System.UriFormatException",
+            "java": "UriFormatException",
+            "imports": [
+                "dotnet.system.UriFormatException"
+            ]
+        },
+        {
+            "csharp": "System.UriParser",
+            "java": "UriParser",
+            "imports": [
+                "dotnet.system.UriParser"
+            ]
+        },
+        {
+            "csharp": "System.UriPartial",
+            "java": "UriPartial",
+            "imports": [
+                "dotnet.system.UriPartial"
+            ]
+        },
+        {
+            "csharp": "System.UriHostNameType",
+            "java": "UriHostNameType",
+            "imports": [
+                "dotnet.system.UriHostNameType"
+            ]
+        },
+        {
+            "csharp": "System.UriFormat",
+            "java": "UriFormat",
+            "imports": [
+                "dotnet.system.UriFormat"
+            ]
+        },
+        {
+            "csharp": "System.UriComponents",
+            "java": "UriComponents",
+            "imports": [
+                "dotnet.system.UriComponents"
+            ]
+        },
+        {
+            "csharp": "System.UriKind",
+            "java": "UriKind",
+            "imports": [
+                "dotnet.system.UriKind"
+            ]
+        },
+        {
+            "csharp": "System.UriIdnScope",
+            "java": "UriIdnScope",
+            "imports": [
+                "dotnet.system.UriIdnScope"
+            ]
+        },
+        {
+            "csharp": "System.GenericUriParser",
+            "java": "GenericUriParser",
+            "imports": [
+                "dotnet.system.GenericUriParser"
+            ]
+        },
+        {
+            "csharp": "System.GenericUriParserOptions",
+            "java": "GenericUriParserOptions",
+            "imports": [
+                "dotnet.system.GenericUriParserOptions"
+            ]
+        },
+        {
+            "csharp": "System.FileStyleUriParser",
+            "java": "FileStyleUriParser",
+            "imports": [
+                "dotnet.system.FileStyleUriParser"
+            ]
+        },
+        {
+            "csharp": "System.FtpStyleUriParser",
+            "java": "FtpStyleUriParser",
+            "imports": [
+                "dotnet.system.FtpStyleUriParser"
+            ]
+        },
+        {
+            "csharp": "System.GopherStyleUriParser",
+            "java": "GopherStyleUriParser",
+            "imports": [
+                "dotnet.system.GopherStyleUriParser"
+            ]
+        },
+        {
+            "csharp": "System.HttpStyleUriParser",
+            "java": "HttpStyleUriParser",
+            "imports": [
+                "dotnet.system.HttpStyleUriParser"
+            ]
+        },
+        {
+            "csharp": "System.LdapStyleUriParser",
+            "java": "LdapStyleUriParser",
+            "imports": [
+                "dotnet.system.LdapStyleUriParser"
+            ]
+        },
+        {
+            "csharp": "System.NetPipeStyleUriParser",
+            "java": "NetPipeStyleUriParser",
+            "imports": [
+                "dotnet.system.NetPipeStyleUriParser"
+            ]
+        },
+        {
+            "csharp": "System.NetTcpStyleUriParser",
+            "java": "NetTcpStyleUriParser",
+            "imports": [
+                "dotnet.system.NetTcpStyleUriParser"
+            ]
+        },
+        {
+            "csharp": "System.NewsStyleUriParser",
+            "java": "NewsStyleUriParser",
+            "imports": [
+                "dotnet.system.NewsStyleUriParser"
             ]
         }
     ],
