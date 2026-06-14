@@ -2302,18 +2302,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 // Task.Run<T>(Func<T>) is a generic method on non-generic Task class,
                 // but it returns Task<T> so it needs supplyAsync, not runAsync.
-                if (mapped == "runAsync")
+                if (mapped == "runAsync"
+                    && methodSymbol.ReturnType is INamedTypeSymbol retType
+                    && retType.IsGenericType)
                 {
-                    var retType = methodSymbol.ReturnType;
-                    var isGeneric = retType is INamedTypeSymbol nts && nts.IsGenericType;
-                    var origDef = retType?.OriginalDefinition?.ToDisplayString();
-                    context.Diagnostics.Warning(
-                        $"DEBUG runAsync check: method={originalMethodName}, retType={retType?.ToDisplayString()}, isGeneric={isGeneric}, origDef={origDef}, containingType={methodSymbol.ContainingType.ToDisplayString()}",
-                        node.GetLocation());
-                    if (isGeneric && retType.OriginalDefinition.SpecialType != SpecialType.System_Void)
-                    {
-                        mapped = "supplyAsync";
-                    }
+                    mapped = "supplyAsync";
                 }
                 ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                 methodName = mapped;
@@ -2405,6 +2398,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             if (mappedStaticReceiverMethod != null)
             {
+                // Task.Run<T>(Func<T>) is a generic method on non-generic Task class,
+                // but it returns Task<T> so it needs supplyAsync, not runAsync.
+                if (mappedStaticReceiverMethod == "runAsync"
+                    && methodSymbol?.ReturnType is INamedTypeSymbol retType2
+                    && retType2.IsGenericType)
+                {
+                    mappedStaticReceiverMethod = "supplyAsync";
+                }
                 ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedStaticReceiverMethod, context);
                 methodName = mappedStaticReceiverMethod;
 
