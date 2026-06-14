@@ -1574,6 +1574,41 @@ class Test {
             whileBody.Substring(infiniteLoopIndex));
     }
 
+    [Fact]
+    public void StateMachine_LabeledBlockReturnInsideInfiniteLoop_DropsUnreachableCaseBreak()
+    {
+        var result = Convert(@"
+class Test {
+    static bool M(bool more, bool needMore) {
+        int pos = 0;
+        int[] input = new int[] { 0 };
+        for (;;)
+        {
+            if (needMore)
+            {
+                goto ReadData;
+            }
+
+        ReadData:
+            if (more)
+            {
+                needMore = false;
+            }
+            else
+            {
+                return false;
+            }
+            pos = input[0];
+        }
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.DoesNotMatch(@"(?s)return\s+false;.{0,300}?break\s+__gotoLoop;", code);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);

@@ -822,10 +822,11 @@ public partial class StatementTransformer
                             i++;
                             continue;
                         }
-                        // Skip state transitions: __state = N; continue __gotoLoop;
+                        // Skip state-machine exits after an infinite loop.
                         if (Regex.IsMatch(nextTrimmed, @"^__state\s*=\s*\d+;\s*continue\s+__gotoLoop;") ||
                             nextTrimmed.StartsWith("__state =") ||
-                            nextTrimmed == "continue __gotoLoop;")
+                            nextTrimmed == "continue __gotoLoop;" ||
+                            nextTrimmed == "break __gotoLoop;")
                         {
                             i++;
                             continue;

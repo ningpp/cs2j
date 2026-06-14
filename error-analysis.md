@@ -648,3 +648,32 @@
 - **分析**: 这次与上一轮 `switch goto case/default` 的 nested terminal reset 不同。当前错误来自普通方法级 `goto` state machine：`GotoAnalyzer` 将方法降成 `__gotoLoop` + `switch (__state)`，其中 `ParseXmlDeclaration` 的 `for (;;)` 生成 Java `while (true)`，循环之后又按 basic-block fall-through 追加 `__state = 2; continue __gotoLoop;` 跳到 `NoXmlDecl`。Java 对没有可达 `break` 的 `while (true)` 后续语句判定为不可达。转换器已有 `RemoveUnreachableCodeAfterInfiniteLoops` 后处理来删除这种无限循环后的 state transition，但它在判断循环体能否正常退出时只跟踪嵌套 loop，不跟踪嵌套 `switch`。本例循环体内的属性值解析 `switch (xmlDeclState)` 有多个普通 `break;`，这些 `break` 只退出内层 Java switch，不会退出外层 `while (true)`；后处理误把它们当作可退出无限循环的 break，因此保留了不可达的 fall-through state transition。
 
 ✅ **Fixed** — method-level goto state-machine cleanup now recognizes generated `for (; true; )` infinite loops and tracks nested breakable constructs so `break;` inside a nested switch/loop does not make code after the infinite loop appear reachable. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[2961,9]` unreachable statement disappeared; the next Maven first error is now `XmlTextReaderImpl.java:[3166,9] 无法访问的语句`.
+
+---
+
+## Iteration 28 — Method goto state-machine appends loop break after labeled block return
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 3166
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[3166,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          if (_fragmentType == XmlNodeType.None) {
+          _fragmentType = (_rootElementParsed ? XmlNodeType.Document : XmlNodeType.Element);
+          }
+          onEof();
+          return false;
+          } }
+          pos = _ps.charPos;
+          chars = _ps.chars;
+          }
+          break __gotoLoop;
+          default:
+          break __gotoLoop;
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs
+- **C# 原始代码**: `ParseDocumentContent()` 中 `for (;;)` 内部的 `ReadData:` 标签。该标签用于多个 `goto ReadData` 跳入缓冲区补读逻辑；`ReadData:` 标签块在 EOF 分支执行 `OnEof(); return false;`，否则更新 `pos/chars` 并回到外层无限循环。
+- **根因分类**: Transformer method goto state-machine lowering / terminal labeled block analysis
+- **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Context\GotoAnalyzer.cs; D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.LabelAndGoto.cs
+- **分析**: 本轮与 Iteration 27 的差异是：上一轮不可达语句是 `for (;;)` 无限循环之后错误保留的 fall-through state transition；本轮不可达语句位于同一个 state-machine case 的尾部，是 block exit 被错误分类为 `FallThrough` 后补出的 `break __gotoLoop;`。`GotoAnalyzer.BuildBasicBlocks` 只识别顶层 `return`/`throw`/`break`/`continue`，对 `ReadData:` 这种标签内的复杂 `if/else` 块没有做“所有路径是否终止”的分析。转换后的 Java 中 EOF 分支含 `return false;`，非 EOF 分支只更新变量后落回无限循环；从 Java 可达性看，该 labeled block 后的 case 尾部 `break __gotoLoop;` 无法到达。前两轮都属于方法级或 switch 级 state-machine 的不可达清理，但本轮根因更早，出在 basic-block exit 分类没有理解 labeled statement body 的终止形态。
+
+✅ **Fixed** — method-level goto state-machine cleanup now removes a `break __gotoLoop;` emitted immediately after a generated infinite loop whose body cannot normally exit. The focused regression first failed by matching `return false; ... break __gotoLoop;`, then passed after the cleanup was extended. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[3166,9]` unreachable `break __gotoLoop;` disappeared. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[3168,9] 无法访问的语句` on the fallback `return false;` after the same nonbreaking state-machine loop.
