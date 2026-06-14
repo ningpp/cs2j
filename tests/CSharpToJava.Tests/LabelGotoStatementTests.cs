@@ -1485,6 +1485,53 @@ class Test {
         Assert.Contains("charCount = 1;", whileBody);
     }
 
+    [Fact]
+    public void StateMachine_LabeledHoistedInitializedLocalDeclaration_IsConvertedToAssignment()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(bool jump, int start, int end) {
+        int total = 0;
+    OuterContinue:
+        int carried = total;
+        for (;;)
+        {
+            int startPos = start;
+            int pos = end;
+            for (;;)
+            {
+                if (pos - startPos > 0)
+                {
+                    goto AppendAndUpdate;
+                }
+                if (jump)
+                {
+                    goto OuterContinue;
+                }
+                break;
+            }
+        AppendAndUpdate:
+            total = carried + pos;
+        Append:
+            int charsParsed = pos - startPos;
+            if (charsParsed > 0)
+            {
+                total += charsParsed;
+            }
+            return total;
+        }
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var beforeWhile = ExtractBeforeWhile(result.GeneratedCode);
+        var whileBody = ExtractWhileBody(result.GeneratedCode);
+
+        Assert.Matches(@"\bint\s+charsParsed(?:_\d+)?\s*=\s*0\s*;", beforeWhile);
+        Assert.DoesNotMatch(@"\bAppend:\s*;\s*int\s+charsParsed(?:_\d+)?\s*=", whileBody);
+        Assert.Matches(@"\bAppend:\s*;\s*charsParsed(?:_\d+)?\s*=\s*pos\s*-\s*startPos\s*;", whileBody);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);

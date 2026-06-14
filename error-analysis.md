@@ -401,3 +401,47 @@
 ✅ **Fixed** — `System.Array`/`Array` now map to compact runtime `CSharpArray`; concrete Java arrays are wrapped with `CSharpArray.of(...)` when passed to `System.Array` parameters, and `System.Array.Length` lowers to `getLength()` while concrete arrays continue to use `.length`.
 
 ---
+## Iteration 1 — cannot find symbol CSharpArray
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\Base64Decoder.java
+- **行号**: 8
+- **错误信息**: [ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/Base64Decoder.java:[8,31] 找不到符号; 符号: 类 CSharpArray; 位置: 程序包 io.github.ningpp.compat
+- **代码片段**:
+  ```java
+  import java.util.stream.*;
+  import java.io.*;
+  import io.github.ningpp.compat.ArgumentNullException;
+  import io.github.ningpp.compat.CSharpArray;
+  import java.lang.foreign.MemorySegment;
+  import java.lang.foreign.ValueLayout;
+  import dotnet.system.*;
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Base64Decoder.cs
+- **根因分类**: 类型映射缺失
+- **涉及组件**: D:\code\cs2j\config\TypeMappings.json; D:\code\cs2j\src\CSharpToJava.Core\Pipeline\Planning\WorkspacePlanBuilder.cs; D:\code\cs2j\src\CSharpToJava.Core\Pipeline\Planning\MavenPomGenerator.cs
+- **分析**: 转换器将 `System.Array` 映射为 `io.github.ningpp.compat.CSharpArray`，但生成的 Maven workspace 只声明外部 `csharptojava-compat:1.0-SNAPSHOT` 依赖，未确保该依赖来自当前转换器随附的 compat 源码/模块，导致生成代码引用的运行时类型在编译类路径中不可用。
+- **状态**: In Progress
+
+---
+
+## Iteration 2 — CSharpArray cast to concrete byte array
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\Base64Decoder.java
+- **行号**: 113
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/Base64Decoder.java:[113,27] 不兼容的类型: io.github.ningpp.compat.CSharpArray无法转换为byte[]`
+- **代码片段**:
+  ```java
+          // Debug.Assert(buffer.getLength() - index >= count);
+  
+          // Debug.Assert(((buffer instanceof byte[] ? (byte[])(buffer) : null)) != null);
+  
+          _buffer = (byte[])(buffer);
+          _startIndex = index;
+          _curIndex = index;
+          _endIndex = index + count;
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Base64Decoder.cs
+- **C# 原始代码**: `_buffer = (byte[])buffer;`
+- **根因分类**: Transformer + compat
+- **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs; D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\CSharpArray.java
+- **分析**: 重新执行 Step 1/2 后，当前第一错误不再匹配末尾 `Iteration 1 — cannot find symbol CSharpArray`；`CSharpArray` 已进入 Maven 类路径。新的第一错误来自 `System.Array` 参数被映射为 `CSharpArray` 后，C# 的 `(byte[])buffer` 仍被 TypeOperationTransformer 直接生成为 Java cast `(byte[])(buffer)`。Java 不能把 wrapper 对象直接 cast 成底层数组，需要通过 compat API 暴露 wrapped array 并生成 `buffer.as(byte[].class)`。
+
+✅ **Fixed** — `System.Array` references cast to concrete arrays now lower to `CSharpArray.as(arrayClass)`, and the compact runtime exposes that typed unwrap helper. The original incompatible cast error disappeared after regenerating and rebuilding; the next Maven error is now `CSharpArray.binarySearch(...)` missing.

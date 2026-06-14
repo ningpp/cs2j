@@ -36,6 +36,10 @@ public final class CSharpArray {
         return array;
     }
 
+    public <T> T as(Class<T> type) {
+        return type.cast(array);
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof CSharpArray other && Objects.equals(array, other.array);

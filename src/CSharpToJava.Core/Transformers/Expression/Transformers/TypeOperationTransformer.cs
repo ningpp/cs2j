@@ -299,6 +299,14 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"{targetNameOf(targetType)}({expression})";
         }
 
+        if (context.SemanticModel != null
+            && targetSymbol is IArrayTypeSymbol
+            && node.Expression is not InvocationExpressionSyntax
+            && IsSystemArrayReferenceType(context.GetTypeInfo(node.Expression).Type))
+        {
+            return $"{expression}.as({ToRuntimeTypeForClassLiteral(targetType)}.class)";
+        }
+
         // C# arrays can be cast to IEnumerable/ICollection/IList, but Java arrays are not Collection subtypes.
         // Adapt arrays to collection views so constructor chaining like this((IEnumerable<T>)arr) compiles.
         if (context.SemanticModel != null
@@ -414,6 +422,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private static bool IsJavaNumericType(string javaType)
         => javaType is "int" or "long" or "short" or "byte" or "double" or "float" or "char"
             or "Integer" or "Long" or "Short" or "Byte" or "Double" or "Float" or "Character";
+
+    private static bool IsSystemArrayReferenceType(ITypeSymbol? type)
+        => type is not IArrayTypeSymbol
+            && type?.TypeKind != TypeKind.Array
+            && (type?.SpecialType == SpecialType.System_Array
+                || type?.ToDisplayString() == "System.Array");
 
     private static bool IsExplicitValueEnum(ITypeSymbol? typeSymbol, ConversionContext context)
     {

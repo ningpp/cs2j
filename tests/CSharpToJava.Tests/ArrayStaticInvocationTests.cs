@@ -66,6 +66,26 @@ class Test {
         Assert.Contains("return len(CSharpArray.of(values));", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemArrayCast_ToConcreteArray_UnwrapsCSharpArray()
+    {
+        var result = Convert(@"
+using System;
+
+class Test {
+    private byte[] _buffer;
+
+    void SetNextOutputBuffer(Array buffer) {
+        _buffer = (byte[])buffer;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("void setNextOutputBuffer(CSharpArray buffer)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("_buffer = buffer.as(byte[].class);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("_buffer = (byte[])(buffer);", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

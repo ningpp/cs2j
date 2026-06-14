@@ -14,6 +14,7 @@ class CSharpArrayTest {
         assertEquals(3, array.getLength());
         assertEquals(2, array.getValue(1));
         assertSame(values, array.unwrap());
+        assertSame(values, array.as(int[].class));
     }
 
     @Test
