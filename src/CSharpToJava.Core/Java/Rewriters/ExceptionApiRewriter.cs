@@ -44,6 +44,61 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
     };
 
     /// <summary>
+    /// Maps compat exception types to their Java parent exception types.
+    /// Used to reorder catch clauses so that more specific types come before
+    /// more general ones (required by Java).
+    /// </summary>
+    private static readonly Dictionary<string, string> ExceptionHierarchy = new(StringComparer.Ordinal)
+    {
+        // Compat exceptions that extend IllegalArgumentException (Java standard)
+        // These are NOT in ExceptionTypeMap, so they stay as-is after type mapping.
+        ["FormatException"] = "IllegalArgumentException",
+        ["CookieException"] = "IllegalArgumentException",
+        ["CultureNotFoundException"] = "IllegalArgumentException",
+        ["CustomAttributeFormatException"] = "IllegalArgumentException",
+        ["DecoderFallbackException"] = "IllegalArgumentException",
+        ["DuplicateWaitObjectException"] = "IllegalArgumentException",
+        ["EncoderFallbackException"] = "IllegalArgumentException",
+        ["HelpCategoryInvalidException"] = "IllegalArgumentException",
+        ["InvalidAsynchronousStateException"] = "IllegalArgumentException",
+        ["InvalidEnumArgumentException"] = "IllegalArgumentException",
+        ["PSArgumentException"] = "IllegalArgumentException",
+        ["UriFormatException"] = "IllegalArgumentException",
+        // Compat exceptions that extend IllegalStateException (Java standard)
+        ["PSInvalidOperationException"] = "IllegalStateException",
+        ["PingException"] = "IllegalStateException",
+        ["ProtocolViolationException"] = "IllegalStateException",
+        ["WebException"] = "IllegalStateException",
+        // Compat exceptions that extend IndexOutOfBoundsException (Java standard)
+        ["IndexOutOfRangeException"] = "IndexOutOfBoundsException",
+        ["PSArgumentOutOfRangeException"] = "IndexOutOfBoundsException",
+        // Compat exceptions that extend ClassCastException (Java standard)
+        ["InvalidCastException"] = "ClassCastException",
+        ["PSInvalidCastException"] = "ClassCastException",
+        // Compat exceptions that extend NullPointerException (Java standard)
+        ["PSArgumentNullException"] = "NullPointerException",
+        // Compat exceptions that extend UnsupportedOperationException (Java standard)
+        ["PlatformNotSupportedException"] = "UnsupportedOperationException",
+        ["PSNotImplementedException"] = "UnsupportedOperationException",
+        ["PSNotSupportedException"] = "UnsupportedOperationException",
+        // Compat exceptions that extend ArithmeticException (Java standard)
+        ["NotFiniteNumberException"] = "ArithmeticException",
+        ["OverflowException"] = "ArithmeticException",
+        // Compat exceptions that extend IOException (Java standard)
+        ["DriveNotFoundException"] = "IOException",
+        ["FileLoadException"] = "IOException",
+        ["PathTooLongException"] = "IOException",
+        // Compat exceptions that extend IllegalAccessException (Java standard)
+        ["FieldAccessException"] = "IllegalAccessException",
+        ["MethodAccessException"] = "IllegalAccessException",
+        ["MissingMemberException"] = "IllegalAccessException",
+        // Compat exceptions that extend ClassNotFoundException (Java standard)
+        ["DllNotFoundException"] = "ClassNotFoundException",
+        ["EntryPointNotFoundException"] = "ClassNotFoundException",
+        ["TypeAccessException"] = "ClassNotFoundException",
+    };
+
+    /// <summary>
     /// Maps .NET exception member names to Java equivalents.
     /// </summary>
     private static readonly Dictionary<string, string> ExceptionMethodMap = new(StringComparer.Ordinal)
@@ -147,7 +202,68 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
             }
         }
 
+        // Reorder catch clauses so that more specific exception types come before
+        // more general ones. In Java, a catch clause for a subclass must precede
+        // the catch clause for its superclass, otherwise it's unreachable.
+        // For example: catch (FormatException) must come before catch (IllegalArgumentException)
+        // because FormatException extends IllegalArgumentException.
+        if (node.CatchClauses.Count > 1)
+        {
+            ReorderCatchClauses(node);
+        }
+
         return node;
+    }
+
+    private void ReorderCatchClauses(JavaTryCatchStatement node)
+    {
+        // Build a depth map: how many levels up from each catch type to RuntimeException
+        var depths = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var cc in node.CatchClauses)
+        {
+            depths[cc.ExceptionType] = GetExceptionDepth(cc.ExceptionType);
+        }
+
+        // Sort: deeper (more specific) types first
+        var sorted = node.CatchClauses
+            .OrderByDescending(cc => depths.GetValueOrDefault(cc.ExceptionType, 0))
+            .ThenBy(cc => cc.ExceptionType, StringComparer.Ordinal)
+            .ToList();
+
+        // Check if order changed
+        bool changed = false;
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            if (!ReferenceEquals(sorted[i], node.CatchClauses[i]))
+            {
+                changed = true;
+                break;
+            }
+        }
+
+        if (changed)
+        {
+            node.CatchClauses.Clear();
+            foreach (var cc in sorted)
+                node.CatchClauses.Add(cc);
+            _rewriteCount++;
+        }
+    }
+
+    /// <summary>
+    /// Gets the depth of an exception type in the hierarchy (higher = more specific).
+    /// Returns 0 for unknown types (treated as top-level).
+    /// </summary>
+    private static int GetExceptionDepth(string exceptionType)
+    {
+        int depth = 0;
+        var current = exceptionType;
+        while (ExceptionHierarchy.TryGetValue(current, out var parent))
+        {
+            depth++;
+            current = parent;
+        }
+        return depth;
     }
 
     public override JavaThrowStatement VisitThrowStatement(JavaThrowStatement node)

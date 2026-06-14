@@ -526,6 +526,20 @@ public partial class StatementTransformer
                     && StatementCannotCompleteNormallyInStateMachine(ifStatement.Statement)
                     && StatementCannotCompleteNormallyInStateMachine(ifStatement.Else.Statement);
 
+            case TryStatementSyntax tryStatement:
+                // A try-catch-finally cannot complete normally if:
+                // - The finally block cannot complete normally, OR
+                // - The try block cannot complete normally AND all catch blocks cannot complete normally
+                //   AND (no finally block OR finally block can complete normally)
+                var tryCannotComplete = StatementCannotCompleteNormallyInStateMachine(tryStatement.Block);
+                var allCatchesCannotComplete = tryStatement.Catches.Count > 0
+                    && tryStatement.Catches.All(c => StatementCannotCompleteNormallyInStateMachine(c.Block));
+                var finallyCannotComplete = tryStatement.Finally != null
+                    && StatementCannotCompleteNormallyInStateMachine(tryStatement.Finally.Block);
+
+                if (finallyCannotComplete) return true;
+                return tryCannotComplete && allCatchesCannotComplete;
+
             default:
                 return false;
         }
