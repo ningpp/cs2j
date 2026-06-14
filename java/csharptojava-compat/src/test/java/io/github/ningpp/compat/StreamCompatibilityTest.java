@@ -37,6 +37,16 @@ class StreamCompatibilityTest {
     }
 
     @Test
+    void streamWrapper_readAsyncByteArray_returnsCompletedReadCount() {
+        StreamWrapper sw = StreamWrapper.of(new java.io.ByteArrayInputStream(new byte[] {1, 2, 3}));
+        byte[] buf = new byte[5];
+
+        assertEquals(3, sw.readAsync(buf, 1, 3).join());
+        assertArrayEquals(new byte[] {0, 1, 2, 3, 0}, buf);
+        assertEquals(0, sw.readAsync(buf, 0, 5).join());
+    }
+
+    @Test
     void memoryStream_readByteArray_emptyStream_returnsZero() {
         MemoryStream ms = new MemoryStream();
         byte[] buf = new byte[10];

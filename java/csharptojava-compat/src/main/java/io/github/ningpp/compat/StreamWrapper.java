@@ -3,6 +3,7 @@ package io.github.ningpp.compat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Wraps either an InputStream or OutputStream, bridging the gap between
@@ -98,6 +99,10 @@ public class StreamWrapper implements AutoCloseable {
             int result = inputStream().read(buffer, offset, count);
             return result == -1 ? 0 : result;
         } catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    public CompletableFuture<Integer> readAsync(byte[] buffer, int offset, int count) {
+        return CompletableFuture.completedFuture(read(buffer, offset, count));
     }
 
     public void write(int value) {

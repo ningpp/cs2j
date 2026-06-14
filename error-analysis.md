@@ -419,7 +419,7 @@
 - **根因分类**: 类型映射缺失
 - **涉及组件**: D:\code\cs2j\config\TypeMappings.json; D:\code\cs2j\src\CSharpToJava.Core\Pipeline\Planning\WorkspacePlanBuilder.cs; D:\code\cs2j\src\CSharpToJava.Core\Pipeline\Planning\MavenPomGenerator.cs
 - **分析**: 转换器将 `System.Array` 映射为 `io.github.ningpp.compat.CSharpArray`，但生成的 Maven workspace 只声明外部 `csharptojava-compat:1.0-SNAPSHOT` 依赖，未确保该依赖来自当前转换器随附的 compat 源码/模块，导致生成代码引用的运行时类型在编译类路径中不可用。
-- **状态**: In Progress
+✅ **Fixed** — `StreamWrapper.readAsync(byte[], int, int)` now exists in the compat runtime and returns a completed `CompletableFuture<Integer>` using the existing .NET-style `read(...)` EOF semantics. After reinstalling compat, regenerating, and rerunning Maven, the original `XmlTextReaderImpl.java:[8385,26]` compiler error disappeared; the next Maven first error is now `TextReader.readAsync(char[], int, int)` missing at `XmlTextReaderImpl.java:[8561,35]`.
 
 ---
 
@@ -469,3 +469,26 @@
 - **分析**: `System.Array` 已映射为 compact runtime `CSharpArray`，因此未被专门 lower 的静态 `Array.BinarySearch<T>` 会自然生成为 `CSharpArray.binarySearch(...)`。生成位置的 C# 调用使用 `object` 泛型参数、`NodeData[]` 数组、`IDtdDefaultAttributeInfo` 查找值和 `IComparer<object>` 比较器；Java 端缺少对应静态 helper，所以 Maven 在第一处 `CSharpArray.binarySearch(...)` 编译失败。
 
 ✅ **Fixed** — `CSharpArray.binarySearch(array, value, Comparator<Object>)` now exists in the compat runtime and preserves .NET/Java binary-search insertion-point semantics. After reinstalling compat, regenerating, and rerunning Maven, the original `CSharpArray.binarySearch(...)` compiler error disappeared; the next Maven first error is now `StreamWrapper.readAsync(byte[], int, int)` missing.
+
+---
+
+## Iteration 4 — StreamWrapper ReadAsync runtime API missing
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 8385
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[8385,26] 找不到符号; 符号: 方法 readAsync(byte[],int,int); 位置: 类型为io.github.ningpp.compat.StreamWrapper的变量 stream`
+- **代码片段**:
+  ```java
+          // make sure we have at least 4 bytes to detect the encoding (no preamble of System.Text supported encoding is longer than 4 bytes)
+          _ps.bytePos = 0;
+          while (_ps.bytesUsed < 4 && _ps.bytes.length - _ps.bytesUsed > 0) {
+          int read = stream.readAsync(_ps.bytes, _ps.bytesUsed, _ps.bytes.length - _ps.bytesUsed).join();
+          if (read == 0) {
+          _ps.isStreamEof = true;
+          break;
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs
+- **C# 原始代码**: `int read = stream.Read(_ps.bytes, _ps.bytesUsed, _ps.bytes.Length - _ps.bytesUsed);` in the synchronous path; the async converted path emits `stream.readAsync(...).join()`.
+- **根因分类**: compat runtime API 缺失
+- **涉及组件**: D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\StreamWrapper.java; D:\code\cs2j\config\TypeMappings.json; D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ControlFlowTransformer.cs
+- **分析**: `System.IO.Stream` maps to compat `StreamWrapper`, and the runtime already exposes synchronous `read(byte[], int, int)` with .NET EOF semantics. Async lowering maps awaited or joined task results to Java `CompletableFuture.join()`, so generated async XML reader code calls `StreamWrapper.readAsync(byte[], int, int).join()`. The compat runtime lacked that async facade, causing the first Maven compiler error.
+- **状态**: In Progress
