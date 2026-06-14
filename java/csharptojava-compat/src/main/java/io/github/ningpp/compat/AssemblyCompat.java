@@ -83,13 +83,20 @@ public class AssemblyCompat {
         return new AssemblyCompat(AssemblyCompat.class.getClassLoader(), "executing");
     }
 
-    /** Mirrors C# Assembly.GetManifestResourceStream(name) */
-    public java.io.InputStream getManifestResourceStream(String name) {
+    /** Creates an AssemblyCompat representing the assembly that declares the given class.
+     *  Mirrors C# {@code typeof(T).Assembly} / {@code GetType().Assembly}. */
+    public static AssemblyCompat fromClass(Class<?> clazz) {
+        return new AssemblyCompat(clazz.getClassLoader(), clazz.getName());
+    }
+
+    /** Mirrors C# Assembly.GetManifestResourceStream(name) — returns StreamWrapper
+     *  so the result is directly assignable to the Java mapping of System.IO.Stream. */
+    public StreamWrapper getManifestResourceStream(String name) {
         java.io.InputStream stream = classLoader.getResourceAsStream(name);
         if (stream == null) {
             stream = AssemblyCompat.class.getClassLoader().getResourceAsStream(name);
         }
-        return stream;
+        return stream != null ? StreamWrapper.of(stream) : null;
     }
 
     /** Nested type for AssemblyName compat */

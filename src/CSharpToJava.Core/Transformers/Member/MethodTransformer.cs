@@ -159,7 +159,11 @@ public class MethodTransformer : IMemberTransformer
             {
                 var paramName = ConversionContext.EscapeJavaKeyword(ptrParam.VariableName);
                 var baseVarName = context.GenerateSyntheticName("__base");
-                baseSegmentDeclarations.Add($"MemorySegment {baseVarName} = {paramName};");
+                var sourceParam = methodDecl.ParameterList?.Parameters.FirstOrDefault(p => p.Identifier.Text == ptrParam.VariableName);
+                var paramExpr = sourceParam?.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword)) == true
+                    ? $"{paramName}.value"
+                    : paramName;
+                baseSegmentDeclarations.Add($"MemorySegment {baseVarName} = {paramExpr};");
                 context.RegisterPointerBase(paramName, baseVarName);
             }
         }

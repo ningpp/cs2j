@@ -155,6 +155,26 @@ unsafe class Test {
     }
 
     [Fact]
+    public void UnsafeMethod_RefPointerParam_BaseSegmentUsesHolderValue()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void Encode(ref char* pSrc, char* pSrcEnd, ref char* pDst) {
+        int ch = *pSrc;
+        *pDst = (char)ch;
+        pSrc++;
+        pDst++;
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("MemorySegment __base1 = pSrc;", result.GeneratedCode);
+        Assert.DoesNotContain("MemorySegment __base3 = pDst;", result.GeneratedCode);
+        Assert.Contains("MemorySegment __base1 = pSrc.value;", result.GeneratedCode);
+        Assert.Contains("MemorySegment __base3 = pDst.value;", result.GeneratedCode);
+    }
+
+    [Fact]
     public void UnsafeMethod_PointerParam_ImportsAdded()
     {
         var result = Convert(@"

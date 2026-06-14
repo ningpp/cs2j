@@ -165,6 +165,30 @@ public class Sample
         Assert.DoesNotContain(".class.getPackage().getManifestResourceStream", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void GetType_Assembly_GetManifestResourceStream_UsesCompatHelper()
+    {
+        var result = Convert(@"
+using System.IO;
+using System.Reflection;
+
+public class Sample
+{
+    public Stream AsStream()
+    {
+        Assembly asm = GetType().Assembly;
+        return asm.GetManifestResourceStream(""resource.bin"");
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("import io.github.ningpp.compat.AssemblyCompat", code, StringComparison.Ordinal);
+        Assert.Contains("AssemblyCompat.fromClass(getClass())", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("getClass().getPackage()", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

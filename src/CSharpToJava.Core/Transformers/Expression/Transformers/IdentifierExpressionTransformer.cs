@@ -841,6 +841,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Auto-properties emitted as public fields in project pipeline: skip getter
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
 
+        // Special case: GetType().Assembly → AssemblyCompat.fromClass(getClass())
+        // Without this, the generic TypeMappings rule converts .Assembly → .getPackage(),
+        // which returns java.lang.Package instead of AssemblyCompat, breaking any
+        // subsequent method calls like GetManifestResourceStream.
+        if (memberName is "Assembly" or "get_Assembly"
+            && IsGetTypeInvocation(node.Expression))
+        {
+            context.AddImport("io.github.ningpp.compat.AssemblyCompat");
+            return "AssemblyCompat.fromClass(getClass())";
+        }
+
         if (context.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
@@ -1918,6 +1929,26 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     private static string GetFireMethodName(string eventName)
     {
         return $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+    }
+
+    /// <summary>
+    /// Checks whether the expression is a call to GetType(), possibly qualified with 'this.'.
+    /// Matches both <c>GetType()</c> and <c>this.GetType()</c>.
+    /// </summary>
+    private static bool IsGetTypeInvocation(ExpressionSyntax expression)
+    {
+        if (expression is InvocationExpressionSyntax inv)
+        {
+            // GetType()
+            if (inv.Expression is IdentifierNameSyntax id && id.Identifier.Text == "GetType")
+                return true;
+            // this.GetType()
+            if (inv.Expression is MemberAccessExpressionSyntax mas
+                && mas.Name.Identifier.Text == "GetType"
+                && mas.Expression is ThisExpressionSyntax)
+                return true;
+        }
+        return false;
     }
 
     private static bool IsEnumeratorCurrentProperty(IPropertySymbol prop)
