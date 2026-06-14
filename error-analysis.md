@@ -760,3 +760,27 @@
 - **分析**: `GotoAnalyzer` 会把“goto 目标是当前外层 loop 的后继 sibling label”的情况分类为 `BreakFromEnclosingLoop`，转换器再把它降成裸 Java `break;`。这个降级只在 goto 不位于其他 breakable construct 内时成立；本例 `goto ReturnPartial` 位于 `for (;;)` 内层的 `switch` section 里，裸 `break;` 只退出 Java `switch`，不会退出外层无限循环。结果所有能到达 `ReturnPartial:` 的路径都被错误困在 `for (;;)` 中，Java 编译器把循环后的 `ReturnPartial: { ... }` 判为不可达。这里的标签块本身包含最终 `return false;`，但首错不是标签块 terminal 未识别导致尾部 fallback/transition 不可达；真正缺口是 sibling-label goto 在嵌套 `switch`/loop 中需要生成能退出正确外层 loop 的 labeled break（或等价 state transition），同时仍保留普通非嵌套 sibling-label goto 的落出语义。
 
 ✅ **Fixed** — goto-to-post-loop-label lowering now emits a synthetic Java loop label and `break <label>;` when the `goto` is nested inside another breakable construct such as `switch`, while preserving plain `break;` for non-nested loop exits. The focused regression first failed because `break __cs2jLoop` was absent, then passed after the loop-label context was added. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[5086,9]` unreachable `ReturnPartial:` error disappeared; Maven still fails and the next first error is now `XmlTextReaderImpl.java:[9326,9] 无法访问的语句`.
+
+---
+
+## Iteration 32 — Async Task implicit fallback after nonbreaking infinite loop
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 9326
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[9326,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          case Done:
+          return CompletableFuture.completedFuture(null);
+          }
+          }
+          return CompletableFuture.completedFuture(null);
+      }
+      private CompletableFuture parseEndElementAsync_CheckEndTag(int nameLen, NodeData startTagNode, LineInfo endTagLineInfo) {
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImplAsync.cs`
+- **C# 原始代码**: `ParseEndElementAsync_Finish(Task task, ...)` 是 `async Task` helper；方法主体是 `while (true)`，循环内先 `await task.ConfigureAwait(false)`，再按 `_parseEndElement_NextFunc` 分支更新 `task` 或在 `Done` case 中 `return;`。循环没有可正常落出的 `break`。
+- **根因分类**: async Task implicit completion fallback / syntax reachability analysis
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Member\MethodTransformer.cs`
+- **分析**: 转换器为 `async Task` 非泛型方法补 `return CompletableFuture.completedFuture(null);` 来模拟 C# 方法末尾隐式完成 Task。原判断只检查生成后的最后一条 Java 语句是否已经是 `return`，无法识别 C# 源最后一条 `while (true)` 本身不可正常完成。本例循环内部的 `Done` case 已经把 C# 的 `return;` 转为 `return CompletableFuture.completedFuture(null);`，循环没有 `break`，因此循环后的隐式 fallback 在 Java 中不可达。需要在补 async Task fallback 前基于 C# 语法判断方法尾部是否仍可能落出；不可落出的 `while(true)` / `for(;;)` 应抑制 fallback，而含可达 `break` 的循环、条件早退后仍可落出的 async Task 方法仍必须保留 fallback。
+
+✅ **Fixed** — async `Task` fallback generation now checks whether the C# method body can complete normally before appending `CompletableFuture.completedFuture(null)`. The focused regression first failed by matching `while (true) ... return CompletableFuture.completedFuture(null);`, then passed after suppressing the fallback for nonbreaking infinite loops; a companion test verifies a `while(true)` with reachable `break` still emits the implicit Task completion fallback. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[9326,9]` unreachable fallback disappeared and line 9326 is now the method closing brace. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[9650,9] 无法访问的语句` on `return CompletableFuture.completedFuture(null);` after `throw new IllegalStateException("Unexpected state");`.

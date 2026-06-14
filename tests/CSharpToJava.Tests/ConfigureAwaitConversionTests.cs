@@ -281,4 +281,67 @@ class TestClass
         var returnCount = lines.Count(l => l.Contains("return CompletableFuture.completedFuture(null);"));
         Assert.Equal(1, returnCount);
     }
+
+    [Fact]
+    public void AsyncTask_NonBreakingInfiniteLoop_DoesNotEmitUnreachableFinalReturn()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class TestClass
+{
+    enum NextFunc
+    {
+        Again,
+        Done
+    }
+
+    NextFunc _next;
+
+    async Task FinishAsync(Task task)
+    {
+        while (true)
+        {
+            await task.ConfigureAwait(false);
+            switch (_next)
+            {
+                case NextFunc.Again:
+                    task = Task.CompletedTask;
+                    break;
+                case NextFunc.Done:
+                    return;
+            }
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+
+        Assert.DoesNotMatch(
+            @"(?s)while\s*\(true\).*?\}\s*return\s+CompletableFuture\.completedFuture\(null\);",
+            result.GeneratedCode);
+    }
+
+    [Fact]
+    public void AsyncTask_BreakingInfiniteLoop_StillEmitsFinalReturn()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class TestClass
+{
+    async Task FinishAsync(Task task, bool stop)
+    {
+        while (true)
+        {
+            await task.ConfigureAwait(false);
+            if (stop)
+            {
+                break;
+            }
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("return CompletableFuture.completedFuture(null);", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

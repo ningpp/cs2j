@@ -243,12 +243,7 @@ public class MethodTransformer : IMemberTransformer
                     && javaMethod.StructuredBody != null
                     && javaMethod.StructuredBody.Statements.Count > 0)
                 {
-                    var lastStmt = javaMethod.StructuredBody.Statements.Last();
-                    bool lastIsReturn = lastStmt is Java.JavaReturnStatement
-                        || (lastStmt is Java.JavaRawStatement raw
-                            && raw.Code != null
-                            && raw.Code.TrimStart().StartsWith("return "));
-                    if (!lastIsReturn)
+                    if (AsyncTaskBodyCanFallThrough(methodDecl.Body))
                     {
                         context.AddImport("java.util.concurrent.CompletableFuture");
                         javaMethod.StructuredBody.Statements.Add(
@@ -1012,6 +1007,101 @@ public class MethodTransformer : IMemberTransformer
             }
         }
         return null;
+    }
+
+    private static bool AsyncTaskBodyCanFallThrough(BlockSyntax? body)
+    {
+        if (body == null || body.Statements.Count == 0)
+        {
+            return true;
+        }
+
+        return StatementCanCompleteNormally(body.Statements[^1]);
+    }
+
+    private static bool StatementCanCompleteNormally(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+                return false;
+
+            case BlockSyntax block:
+                return block.Statements.Count == 0 || StatementCanCompleteNormally(block.Statements[^1]);
+
+            case LabeledStatementSyntax labeled:
+                return StatementCanCompleteNormally(labeled.Statement);
+
+            case IfStatementSyntax ifStatement:
+                return ifStatement.Else == null
+                    || StatementCanCompleteNormally(ifStatement.Statement)
+                    || StatementCanCompleteNormally(ifStatement.Else.Statement);
+
+            case WhileStatementSyntax whileStatement when IsTrueLiteral(whileStatement.Condition):
+                return ContainsReachableUnlabeledBreak(whileStatement.Statement);
+
+            case ForStatementSyntax forStatement when forStatement.Condition == null:
+                return ContainsReachableUnlabeledBreak(forStatement.Statement);
+
+            default:
+                return true;
+        }
+    }
+
+    private static bool IsTrueLiteral(ExpressionSyntax expression)
+    {
+        return expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.TrueLiteralExpression);
+    }
+
+    private static bool ContainsReachableUnlabeledBreak(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case BreakStatementSyntax:
+                return true;
+
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+            case ContinueStatementSyntax:
+                return false;
+
+            case BlockSyntax block:
+                foreach (var child in block.Statements)
+                {
+                    if (ContainsReachableUnlabeledBreak(child))
+                    {
+                        return true;
+                    }
+
+                    if (!StatementCanCompleteNormally(child))
+                    {
+                        return false;
+                    }
+                }
+
+                return false;
+
+            case IfStatementSyntax ifStatement:
+                return ContainsReachableUnlabeledBreak(ifStatement.Statement)
+                    || (ifStatement.Else != null && ContainsReachableUnlabeledBreak(ifStatement.Else.Statement));
+
+            case LabeledStatementSyntax labeled:
+                return ContainsReachableUnlabeledBreak(labeled.Statement);
+
+            case SwitchStatementSyntax:
+            case WhileStatementSyntax:
+            case ForStatementSyntax:
+            case ForEachStatementSyntax:
+            case DoStatementSyntax:
+                return false;
+
+            default:
+                return false;
+        }
     }
 
     private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
