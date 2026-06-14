@@ -715,6 +715,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (target == "String" && memberName == "Empty")
             return "\"\"";
 
+        // Fix: BitConverter.IsLittleEndian → ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
+        // C# BitConverter.IsLittleEndian is a static bool property; Java ByteBuffer has no
+        // equivalent. The correct Java idiom is ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN.
+        if (memberName == "IsLittleEndian"
+            && ExpressionTransformerHelpers.StaticReceiverMatches(
+                node.Expression,
+                context,
+                "BitConverter",
+                "System.BitConverter"))
+        {
+            context.AddImport("java.nio.ByteOrder");
+            return "(ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN)";
+        }
+
         // Fix: Stopwatch.Frequency → 1_000_000_000L (Java uses nanosecond precision via System.nanoTime)
         if (memberName == "Frequency"
             && ExpressionTransformerHelpers.StaticReceiverMatches(
