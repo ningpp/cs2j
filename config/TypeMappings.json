@@ -232,37 +232,37 @@
         },
         {
             "csharp": "System.DateTime",
-            "java": "LocalDateTime",
+            "java": "CSharpDateTime",
             "imports": [
-                "java.time.LocalDateTime"
+                "io.github.ningpp.compat.CSharpDateTime"
             ]
         },
         {
             "csharp": "System.DateTimeOffset",
-            "java": "OffsetDateTime",
+            "java": "CSharpDateTimeOffset",
             "imports": [
-                "java.time.OffsetDateTime"
+                "io.github.ningpp.compat.CSharpDateTimeOffset"
             ]
         },
         {
             "csharp": "System.TimeSpan",
-            "java": "Duration",
+            "java": "CSharpTimeSpan",
             "imports": [
-                "java.time.Duration"
+                "io.github.ningpp.compat.CSharpTimeSpan"
             ]
         },
         {
             "csharp": "System.DateOnly",
-            "java": "LocalDate",
+            "java": "CSharpDateOnly",
             "imports": [
-                "java.time.LocalDate"
+                "io.github.ningpp.compat.CSharpDateOnly"
             ]
         },
         {
             "csharp": "System.TimeOnly",
-            "java": "LocalTime",
+            "java": "CSharpTimeOnly",
             "imports": [
-                "java.time.LocalTime"
+                "io.github.ningpp.compat.CSharpTimeOnly"
             ]
         },
         {
@@ -4325,32 +4325,32 @@
         {
             "type": "System.DateTime",
             "method": "Now",
-            "javaMethod": "now"
+            "javaMethod": "getNow"
         },
         {
             "type": "System.DateTimeOffset",
             "method": "Now",
-            "javaMethod": "now"
+            "javaMethod": "getNow"
         },
         {
             "type": "System.DateTimeOffset",
             "method": "get_LocalDateTime",
-            "javaMethod": "toLocalDateTime"
+            "javaMethod": "getLocalDateTime"
         },
         {
             "type": "System.DateTimeOffset",
             "method": "LocalDateTime",
-            "javaMethod": "toLocalDateTime"
+            "javaMethod": "getLocalDateTime"
         },
         {
             "type": "System.DateTimeOffset",
             "method": "get_UtcDateTime",
-            "javaMethod": "toLocalDateTime"
+            "javaMethod": "getUtcDateTime"
         },
         {
             "type": "System.DateTimeOffset",
             "method": "UtcDateTime",
-            "javaMethod": "toLocalDateTime"
+            "javaMethod": "getUtcDateTime"
         },
         {
             "type": "System.DateTimeOffset",
@@ -6051,52 +6051,57 @@
         {
             "type": "System.TimeSpan",
             "method": "Hours",
-            "javaMethod": "toHoursPart"
+            "javaMethod": "getHours"
         },
         {
             "type": "System.TimeSpan",
             "method": "Minutes",
-            "javaMethod": "toMinutesPart"
+            "javaMethod": "getMinutes"
         },
         {
             "type": "System.TimeSpan",
             "method": "Seconds",
-            "javaMethod": "toSecondsPart"
+            "javaMethod": "getSeconds"
         },
         {
             "type": "System.TimeSpan",
             "method": "Milliseconds",
-            "javaMethod": "toMillisPart"
+            "javaMethod": "getMilliseconds"
         },
         {
             "type": "System.TimeSpan",
             "method": "Days",
-            "javaMethod": "toDaysPart"
+            "javaMethod": "getDays"
         },
         {
             "type": "System.TimeSpan",
             "method": "TotalHours",
-            "javaMethod": "toHours"
+            "javaMethod": "getTotalHours"
         },
         {
             "type": "System.TimeSpan",
             "method": "TotalMinutes",
-            "javaMethod": "toMinutes"
+            "javaMethod": "getTotalMinutes"
         },
         {
             "type": "System.TimeSpan",
             "method": "TotalSeconds",
-            "javaMethod": "toSeconds"
+            "javaMethod": "getTotalSeconds"
         },
         {
             "type": "System.TimeSpan",
             "method": "TotalMilliseconds",
-            "javaMethod": "toMillis"
+            "javaMethod": "getTotalMilliseconds"
         },
         {
             "type": "System.TimeSpan",
             "method": "TotalDays",
-            "javaMethod": "toDays"
+            "javaMethod": "getTotalDays"
+        },
+        {
+            "type": "System.TimeSpan",
+            "method": "Ticks",
+            "javaMethod": "getTicks"
         },
         {
             "type": "System.Type",
