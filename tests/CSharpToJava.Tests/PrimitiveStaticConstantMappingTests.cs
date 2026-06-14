@@ -726,6 +726,26 @@ public class Sample
     }
 
     [Fact]
+    public void TimeSpanZero_StaticMember_MapsToCompatConstant()
+    {
+        var result = Convert("""
+using System;
+
+public class Sample
+{
+    public bool IsNonZero(TimeSpan value)
+    {
+        return value != TimeSpan.Zero;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("CSharpTimeSpan.ZERO", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CSharpTimeSpan.Zero", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StringSplitOptionsStaticMember_MapsToIntegerHelper()
     {
         var result = Convert("""

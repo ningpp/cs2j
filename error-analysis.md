@@ -201,3 +201,28 @@
 - **分析**: `System.DateTime` 已映射为 compat `CSharpDateTime`，但 formatted `DateTime.ToString(format)` 的 transformer 仍按 Java `LocalDateTime` 生成 `.format(DateTimeFormatter.ofPattern(...))`，导致生成代码调用 compat 类型不存在的方法。
 
 ✅ **Fixed** — Formatted `DateTime`/`DateTimeOffset.ToString(...)` now targets compat `toString(...)` overloads, and the compat runtime implements round-trip `"o"` formatting.
+
+---
+
+## Iteration 10 — TimeSpan.Zero static constant casing ✅ Fixed
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlWriter.java`
+- **行号**: 180
+- **错误信息**: `找不到符号 符号: 变量 Zero 位置: 类 io.github.ningpp.compat.CSharpTimeSpan`
+- **代码片段**:
+  ```java
+          // might not have implemented it. This base implementation should call WriteValue(DateTime).
+          // The following conversion results in the same string as calling ToString with DateTimeOffset.
+          if (value.getOffset() != CSharpTimeSpan.Zero) {
+          writeValue(value.getLocalDateTime());
+          } else {
+          writeValue(value.getUtcDateTime());
+          }
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlWriter.cs`
+- **C# 原始代码**: `if (value.Offset != TimeSpan.Zero)`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`, `config/TypeMappings.json`, `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpTimeSpan.java`
+- **分析**: `System.TimeSpan` 当前映射到 compat `CSharpTimeSpan`，但静态成员访问仍原样保留 `Zero`（旧特殊分支只处理 `Duration.Zero`），而 compat 常量名是 Java 风格的 `ZERO`。
+
+✅ **Fixed** — `TimeSpan.Zero` now maps to `CSharpTimeSpan.ZERO`, and regenerated `XmlWriter.java` advanced past the original missing `Zero` symbol.
