@@ -287,8 +287,21 @@ public static class TypeGroupResolver
                 }
 
                 // Standard JDK wildcard imports are already emitted in file headers.
+                // However, System.* namespaces with explicit namespace mappings
+                // (e.g. "System.Xml" → "dotnet.xml") must still generate imports
+                // because they map to compat runtime packages that actually exist.
                 if (ns.StartsWith("System.", StringComparison.Ordinal) || ns == "System")
                 {
+                    if (context.TypeMappings.HasExplicitNamespaceMapping(ns))
+                    {
+                        var systemMapped = context.NamespaceToPackage(ns);
+                        if (!string.IsNullOrWhiteSpace(systemMapped))
+                        {
+                            if (!systemMapped.EndsWith(".*", StringComparison.Ordinal))
+                                systemMapped += ".*";
+                            context.ImportedTypes.Add(systemMapped);
+                        }
+                    }
                     continue;
                 }
 

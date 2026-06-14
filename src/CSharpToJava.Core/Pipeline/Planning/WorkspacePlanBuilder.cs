@@ -69,6 +69,7 @@ public sealed class WorkspacePlanBuilder
         new() { GroupId = "com.fasterxml.jackson.core", ArtifactId = "jackson-databind", Version = "2.17.2" },
         new() { GroupId = "io.github.ningpp", ArtifactId = "csharptojava-compat", Version = "1.0-SNAPSHOT" },
         new() { GroupId = "io.github.ningpp", ArtifactId = "System.Private.Uri", Version = "0.0.1-SNAPSHOT" },
+        new() { GroupId = "io.github.ningpp", ArtifactId = "System.Private.Xml", Version = "0.0.1-SNAPSHOT" },
     ];
 
     /// <summary>

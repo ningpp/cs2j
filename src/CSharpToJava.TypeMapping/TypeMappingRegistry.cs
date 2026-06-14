@@ -582,6 +582,18 @@ public class TypeMappingRegistry
             : ns.Replace(bestMatch.Key, bestMatch.Value);
     }
 
+    /// <summary>
+    /// Checks whether the namespace has an explicit (exact) mapping in the
+    /// namespaceMappings configuration, as opposed to a derived mapping obtained
+    /// via prefix replacement.  For example, "System.Xml" has an explicit mapping
+    /// to "dotnet.xml", while "System.IO" only has a derived mapping from the
+    /// "System" → "dotnet.system" catch-all.
+    /// </summary>
+    public bool HasExplicitNamespaceMapping(string ns)
+    {
+        return _namespaceMappings.ContainsKey(ns);
+    }
+
     private string ExtractGenericArgument(string type)
     {
         var start = type.IndexOf('<');

@@ -253,14 +253,24 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
         // System 命名空间映射
         if (csharpUsing.StartsWith("System."))
         {
-            return csharpUsing switch
+            // Explicitly suppressed namespaces — no import generated
+            if (csharpUsing is "System.Collections.Generic" or "System.Linq" or "System.Threading.Tasks")
+                return null;
+
+            // For other System.* namespaces, only generate an import if there
+            // is an explicit namespace mapping in TypeMappings.json (e.g.
+            // "System.Xml" → "dotnet.xml").  Derived mappings from the
+            // "System" → "dotnet.system" catch-all (e.g. "System.IO" →
+            // "dotnet.system.IO") are skipped because those packages don't
+            // actually exist in the Java compat runtime.
+            if (_context.TypeMappings.HasExplicitNamespaceMapping(csharpUsing))
             {
-                "System.Collections.Generic" => null, // 显式导入
-                "System.Linq" => null, // Java Stream API 隐式可用
-                "System.Threading.Tasks" => null, // CompletableFuture 需要显式导入
-                "System" => "java.lang",
-                _ => null
-            };
+                var mapped = _context.NamespaceToPackage(csharpUsing);
+                if (!string.IsNullOrWhiteSpace(mapped))
+                    return mapped.EndsWith(".*", StringComparison.Ordinal) ? mapped : mapped + ".*";
+            }
+
+            return null;
         }
 
         // Preserve custom namespace imports so cross-project symbols remain resolvable
