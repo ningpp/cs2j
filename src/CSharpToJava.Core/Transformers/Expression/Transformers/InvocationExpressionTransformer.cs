@@ -1778,9 +1778,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // Array.Sort(array[, comparer]) -> Arrays.sort(array[, comparer])
+        // Array.Sort(array, index, length) -> Arrays.sort(array, index, index + length)
         // System.Array may map syntactically to Object, so keep a fallback on the receiver text.
         if (originalMethodName == "Sort"
-            && node.ArgumentList.Arguments.Count is 1 or 2
+            && node.ArgumentList.Arguments.Count is 1 or 2 or 3
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
                 || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
                     memberAccess.Expression,
@@ -1794,6 +1795,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (node.ArgumentList.Arguments.Count == 1)
             {
                 return $"Arrays.sort({arrayArg})";
+            }
+
+            if (node.ArgumentList.Arguments.Count == 3)
+            {
+                var startArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var lengthArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+                return $"Arrays.sort({arrayArg}, {startArg}, {startArg} + {lengthArg})";
             }
 
             var sortArrayType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type as IArrayTypeSymbol;

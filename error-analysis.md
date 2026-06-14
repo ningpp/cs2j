@@ -276,3 +276,28 @@
 - **分析**: goto state-machine lowering hoists `tmpch2` to method scope, but nested normal statement transformation preserves the labeled bare declaration as `ContinueParseName: { char tmpch2; }`, and the hoisted-local cleanup only removes unlabeled bare declaration lines.
 
 ✅ **Fixed** — State-machine hoisted-local cleanup now removes single-line labeled bare declarations for hoisted variables, including renamed declaration clones such as `tmpch2_...`.
+
+---
+
+## Iteration 13 — Array.Sort range overload mapped to Object.sort
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 3847
+- **错误信息**: `找不到符号 符号: 方法 sort(dotnet.xml.XmlTextReaderImpl.NodeData[],int,int) 位置: 类 java.lang.Object`
+- **代码片段**:
+  ```java
+          _attrDuplSortingArray = new NodeData[_attrCount];
+          }
+          System.arraycopy(_nodes, _index + 1, _attrDuplSortingArray, 0, _attrCount);
+          Object.sort(_attrDuplSortingArray, 0, _attrCount);
+          NodeData attr1 = _attrDuplSortingArray[0];
+          for (int i = 1; i < _attrCount; i++) {
+          NodeData attr2 = _attrDuplSortingArray[i];
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `Array.Sort(_attrDuplSortingArray, 0, _attrCount);`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
+- **分析**: `System.Array` maps syntactically to `Object`, and the invocation transformer only special-cases the 1- and 2-argument `Array.Sort` overloads, so the 3-argument range overload falls through as a nonexistent `Object.sort(array, index, length)`.
+
+✅ **Fixed** — `Array.Sort(array, index, length)` now maps to `Arrays.sort(array, index, index + length)`, preserving C# range length semantics with Java's exclusive end index.
