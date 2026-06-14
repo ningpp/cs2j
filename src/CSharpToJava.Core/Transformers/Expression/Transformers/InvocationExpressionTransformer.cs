@@ -694,6 +694,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return decimalStaticInvocation;
         }
 
+        if (originalMethodName == "CompareExchange"
+            && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Threading.Interlocked")
+        {
+            context.AddImport("io.github.ningpp.compat.InterlockedHelper");
+            var interlockedArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, methodSymbol: earlyMethodSymbol);
+            return $"InterlockedHelper.compareExchange({interlockedArgs})";
+        }
+
         // Replace receiver with mapped static type reference ONLY when the method is
         // confirmed static.  When the semantic model cannot resolve the method
         // (earlyMethodSymbol is null, e.g. in project conversion with incomplete models),

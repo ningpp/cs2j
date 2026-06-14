@@ -808,3 +808,32 @@
 - **分析**: 上一轮的 `AsyncTaskBodyCanFallThrough` 只基于 C# 源语法判断方法末尾是否可能落出，能识别不可正常完成的 `while(true)`，但看不到 `TransformBlockWithStateMachine` 后续为非预定义返回类型追加的 synthetic `throw new IllegalStateException("Unexpected state")`。本例 C# 源尾部的 `End:` 标签可自然完成，所以 async fallback 逻辑决定追加 `return CompletableFuture.completedFuture(null);`；但生成后的结构化方法体最后一条已经是 state-machine fallback `throw`，Java 将 throw 后的 completedFuture return 判为不可达。终止检测漏掉 throw 的原因是它检查的是转换前 `methodDecl.Body`，没有检查转换后的 `javaMethod.StructuredBody.Statements`。
 
 ✅ **Fixed** — async `Task` fallback generation now also checks the generated structured body's last non-empty line before appending `CompletableFuture.completedFuture(null)`, so a synthetic state-machine `throw new IllegalStateException("Unexpected state");` is treated as terminal. The focused regression first failed by matching `throw new IllegalStateException("Unexpected state"); ... return CompletableFuture.completedFuture(null);`, then passed after the generated-body terminal check was added. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[9650,9]` unreachable fallback disappeared and line 9650 is now the method closing brace. Maven still fails; the next first error is now `XmlCharType.java:[68,22] 找不到符号`.
+
+---
+
+## Iteration 34 — Generic Interlocked.CompareExchange mapped to AtomicInteger
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlCharType.java`
+- **行号**: 68
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlCharType.java:[68,22] 找不到符号`
+- **完整符号信息**:
+  ```text
+  符号:   方法 compareExchange(io.github.ningpp.compat.ObjectHolder<java.lang.Object>,java.lang.Object,<nulltype>)
+  位置: 类 java.util.concurrent.atomic.AtomicInteger
+  ```
+- **代码片段**:
+  ```java
+          if (s_Lock == null) {
+          Object o = new Object();
+          ObjectHolder<Object> _s_LockRef = new ObjectHolder<>(s_Lock);
+          AtomicInteger.compareExchange(_s_LockRef, o, null);
+          s_Lock = _s_LockRef.value;
+          }
+          return s_Lock;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\XmlCharType.cs`
+- **C# 原始代码**: `StaticLock.get` 中 `Interlocked.CompareExchange<object>(ref s_Lock, o, null);`
+- **根因分类**: BCL static method mapping / generic ref argument lowering
+- **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`
+- **分析**: `config\TypeMappings.json` 把整个 `System.Threading.Interlocked` 类型映射到 `java.util.concurrent.atomic.AtomicInteger`。这个映射只可能适合少量整数场景；本例是泛型引用类型重载 `Interlocked.CompareExchange<T>(ref T location1, T value, T comparand)`。`ArgumentTransformer` 正确地为 `ref s_Lock` 生成了 `ObjectHolder<Object>` 并在调用后写回，但 `InvocationExpressionTransformer` 随后把静态接收者改成 `AtomicInteger`，生成了 Java 标准库不存在的 `AtomicInteger.compareExchange(ObjectHolder<Object>, Object, null)`。根因不是缺 import，也不是 `ObjectHolder` 生成错误，而是对 `Interlocked.CompareExchange` 缺少按重载/参数形态的专门 lowering，需要生成 converter compat helper 调用以接收 holder 并返回/更新旧值。
+
+✅ **Fixed** — `System.Threading.Interlocked.CompareExchange` calls are now lowered before the generic static type mapping path, producing `InterlockedHelper.compareExchange(...)` with the existing generated ref holder instead of `AtomicInteger.compareExchange(...)`. A new compat helper implements the holder update semantics for object, int, long, float, and double holders. The focused regression first failed because `InterlockedHelper.compareExchange(_s_LockRef, o, null)` was absent, then passed after the invocation special case and helper were added. After regenerating and rerunning Maven, the original `XmlCharType.java:[68,22]` `AtomicInteger.compareExchange(ObjectHolder<Object>, Object, null)` error disappeared; line 69 is now `InterlockedHelper.compareExchange(_s_LockRef, o, null);`. Maven still fails; the next first error is now `XmlCharType.java:[79,9] 找不到符号` for `UnmanagedMemoryStream`.
