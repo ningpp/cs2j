@@ -169,6 +169,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             bool rightIsNull = binExpr.Right.IsKind(SyntaxKind.NullLiteralExpression);
             if ((leftIsString || rightIsString) && !leftIsNull && !rightIsNull)
             {
+                context.AddImport("java.util.Objects");
                 var leftIR = facade.TransformToIR(binExpr.Left, context);
                 var rightIR = facade.TransformToIR(binExpr.Right, context);
                 var equalsCall = new JavaMethodCallExpression
@@ -477,6 +478,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
                 if (!leftIsNull && !rightIsNull)
                 {
+                    context.AddImport("java.util.Objects");
                     string eq = $"Objects.equals({left}, {right})";
                     return op == "!=" ? $"!{eq}" : eq;
                 }

@@ -1946,6 +1946,13 @@
             ]
         },
         {
+            "csharp": "System.Xml.XmlReader",
+            "java": "XmlReader",
+            "imports": [
+                "dotnet.xml.XmlReader"
+            ]
+        },
+        {
             "csharp": "System.Xml.Schema.XmlSchemaException",
             "java": "XmlSchemaException",
             "imports": [

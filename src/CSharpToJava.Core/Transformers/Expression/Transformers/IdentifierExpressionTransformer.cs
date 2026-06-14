@@ -645,6 +645,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             && TryTransformSimpleIdentifierReceiver(simpleReceiver, node, context, out var simpleReceiverText))
         {
             instanceReceiverTarget = simpleReceiverText;
+            // When the receiver was resolved as an instance property/field, also set receiverType
+            // so that subsequent property resolution paths can work. Without this, receiverType
+            // stays null because IdentifierNameSyntax is a TypeSyntax, causing the initial
+            // resolution at line ~515 to skip it.
+            if (receiverType == null || receiverType.TypeKind == TypeKind.Error)
+            {
+                var preferredSym = GetPreferredIdentifierSymbol(simpleReceiver, context, preferInstanceCandidate: true);
+                if (preferredSym is IPropertySymbol instProp)
+                    receiverType = instProp.Type;
+                else if (preferredSym is IFieldSymbol instField)
+                    receiverType = instField.Type;
+            }
         }
         else if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
             node.Expression,
@@ -1274,6 +1286,38 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             context.AddImport("java.util.Locale");
             return "Locale.ROOT";
         }
+
+        // Fix: when receiverType is an IErrorTypeSymbol (unresolved type, e.g. missing assembly
+        // reference like System.Xml.XmlReader), try MapMethod with the error type's FQN.
+        // If a mapping is found, use it; otherwise default to the getter pattern since C#
+        // properties should generally be converted to Java getters.
+        if (receiverType != null && receiverType.TypeKind == TypeKind.Error
+            && receiverType is INamedTypeSymbol errorType
+            && char.IsUpper(memberName[0]))
+        {
+            var errorTypeName = errorType.ToDisplayString();
+            var errorTypeFqn = errorType.ContainingNamespace != null && !errorType.ContainingNamespace.IsGlobalNamespace
+                ? $"{errorType.ContainingNamespace}.{errorType.Name}"
+                : errorType.Name;
+            var mappedMethod = context.TypeMappings.MapMethod(errorTypeFqn, memberName)
+                ?? context.TypeMappings.MapMethod(errorTypeName, memberName);
+            if (mappedMethod != null)
+            {
+                ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedMethod, context);
+                if (IsJavaFieldMapping(mappedMethod))
+                    return mappedMethod.Contains('.') ? mappedMethod : $"{target}.{mappedMethod}";
+                if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mappedMethod))
+                    return IsStaticReceiverExpression(node.Expression, context) ? $"{mappedMethod}()" : $"{mappedMethod}({target})";
+                return mappedMethod.Contains('.') ? mappedMethod : $"{target}.{mappedMethod}()";
+            }
+            // No explicit mapping — default to getter pattern for C# properties on unresolved types
+            var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
+            context.Diagnostics.Info(
+                $"Property fallback (unresolved type): '{node}' -> {target}.{getter}() | receiverType Error: {errorTypeFqn}",
+                node.GetLocation());
+            return $"{target}.{getter}()";
+        }
+
         // Phase 1 diagnostic: log why we fell through to raw field access
         if (memberName != "AlgorithmData") // AlgorithmData is intentionally a field
         {

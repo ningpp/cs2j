@@ -223,7 +223,7 @@ public class RecordTransformer : ITypeTransformer
         }
 
         // 生成 equals, hashCode, toString
-        GenerateObjectMethods(javaClass);
+        GenerateObjectMethods(javaClass, context);
 
         return javaClass;
     }
@@ -272,7 +272,7 @@ public class RecordTransformer : ITypeTransformer
         return assignments;
     }
 
-    private void GenerateObjectMethods(JavaClassDeclaration javaClass)
+    private void GenerateObjectMethods(JavaClassDeclaration javaClass, ConversionContext context)
     {
         var fields = javaClass.Fields;
         var fieldNames = fields.Select(f => f.Name).ToList();
@@ -286,6 +286,7 @@ public class RecordTransformer : ITypeTransformer
         }
         else
         {
+            context.AddImport("java.util.Objects");
             var comparisons = string.Join(" &&\n           ", fields.Select(f =>
             {
                 bool isDeepArray = f.Type.Contains("[][]");
@@ -315,15 +316,18 @@ public class RecordTransformer : ITypeTransformer
         bool hasArrayFields = fields.Any(f => f.Type.EndsWith("[]"));
         if (fieldNames.Count == 0)
         {
+            context.AddImport("java.util.Objects");
             hashCodeBody = $"return Objects.hash();";
         }
         else if (!hasArrayFields)
         {
+            context.AddImport("java.util.Objects");
             hashCodeBody = $"return Objects.hash({string.Join(", ", fieldNames)});";
         }
         else
         {
             // Mixed or all-array fields: build hash manually so Arrays.hashCode can be applied per field
+            context.AddImport("java.util.Objects");
             var sb = new System.Text.StringBuilder("int result = 1;\n");
             foreach (var f in fields)
             {

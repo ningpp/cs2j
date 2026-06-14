@@ -225,6 +225,12 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         _ => "null"
     };
 
+    private static string AddObjectsImportAndBuildEquals(string left, string right, ConversionContext context)
+    {
+        context.AddImport("java.util.Objects");
+        return $"Objects.equals({left}, {right})";
+    }
+
     private string TransformAwait(AwaitExpressionSyntax node, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
@@ -313,7 +319,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             ConstantPatternSyntax cp when cp.Expression.IsKind(SyntaxKind.NullLiteralExpression)
                 => $"({expr} == null)",
             ConstantPatternSyntax cp
-                => $"Objects.equals({expr}, {facade.Transform(cp.Expression, context)})",
+                => AddObjectsImportAndBuildEquals(expr, facade.Transform(cp.Expression, context), context),
             DeclarationPatternSyntax dp
                 => BuildDeclarationPatternCondition(expr, dp, context),
             TypePatternSyntax tp
