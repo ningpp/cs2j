@@ -8,7 +8,7 @@ using CSharpToJava.Workspace;
 
 namespace CSharpToJava.CLI;
 
-class Program
+public class Program
 {
     static async Task<int> Main(string[] args)
     {
@@ -333,8 +333,7 @@ class Program
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
-            Directory.Delete(opts.Destination, recursive: true);
-            Directory.CreateDirectory(opts.Destination);
+            ClearDestinationForFreshConversion(opts.Destination);
         }
 
         int successCount = 0;
@@ -493,8 +492,7 @@ class Program
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
-            Directory.Delete(opts.Destination, recursive: true);
-            Directory.CreateDirectory(opts.Destination);
+            ClearDestinationForFreshConversion(opts.Destination);
         }
 
         int successCount = 0;
@@ -700,6 +698,33 @@ class Program
         if (Directory.Exists(path))
         {
             Directory.Delete(path, recursive: true);
+        }
+    }
+
+    internal static void ClearDestinationForFreshConversion(string destinationRoot)
+    {
+        if (!Directory.Exists(destinationRoot))
+        {
+            Directory.CreateDirectory(destinationRoot);
+            return;
+        }
+
+        var fullDestinationPath = Path.GetFullPath(destinationRoot);
+        if (string.IsNullOrWhiteSpace(fullDestinationPath)
+            || Path.GetPathRoot(fullDestinationPath)?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(fullDestinationPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) == true)
+        {
+            throw new InvalidOperationException($"Refusing to clear unsafe destination path: {destinationRoot}");
+        }
+
+        foreach (var file in Directory.EnumerateFiles(fullDestinationPath))
+        {
+            File.Delete(file);
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(fullDestinationPath))
+        {
+            Directory.Delete(directory, recursive: true);
         }
     }
 

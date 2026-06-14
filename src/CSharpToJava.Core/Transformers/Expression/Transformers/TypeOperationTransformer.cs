@@ -401,7 +401,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         // C# (byte)expr → & 0xFF (byte maps to Java int, cast becomes masking)
         if (targetSymbol?.SpecialType == SpecialType.System_Byte)
-            return $"{expression} & 0xFF";
+            return $"({expression} & 0xFF)";
 
         // C# (ushort)expr → ((int)(expr) & 0xFFFF) (ushort maps to Java short, but & 0xFFFF
         // produces int which is the correct type for assignments and comparisons)

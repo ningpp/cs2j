@@ -39,6 +39,13 @@ public class PropertyTransformer : IMemberTransformer
             context.IsInStaticMember = true;
         var propertySymbol = context.GetDeclaredSymbol(propDecl);
         var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
+        var isEncodingPreambleProperty =
+            propertySymbol is IPropertySymbol
+            {
+                Name: "Preamble",
+                ContainingType: { } containingType
+            }
+            && IsSystemTextEncodingType(containingType);
 
         // 判断是否有显式实现
         var hasGetter = propDecl.AccessorList != null &&
@@ -139,7 +146,7 @@ public class PropertyTransformer : IMemberTransformer
 
             var getter = new JavaMethodDeclaration
             {
-                Name = "get" + ToPascalCase(propName),
+                Name = isEncodingPreambleProperty ? "getPreambleSpan" : "get" + ToPascalCase(propName),
                 ReturnType = propType,
                 Modifiers = getterModifiers,
                 LeadingComment = propertyComments,
@@ -163,6 +170,12 @@ public class PropertyTransformer : IMemberTransformer
                     : getAccessor?.ExpressionBody?.Expression;
                 if (csExpr != null)
                 {
+                    if (isEncodingPreambleProperty && typeInfo.Type?.ToDisplayString() == "System.ReadOnlySpan<byte>")
+                    {
+                        context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+                        getter.Body = $"MemoryExtensions.asSpan({getter.Body})";
+                    }
+
                     getter.Body = MethodTransformer.WrapExpressionBodyForIterableReturn(
                         getter.Body, csExpr, propDecl.Type, context);
                     getter.Body = StructCloneHelper.CloneStructValueIfNeeded(
@@ -318,6 +331,17 @@ public class PropertyTransformer : IMemberTransformer
     {
         if (string.IsNullOrEmpty(name)) return name;
         return char.ToUpperInvariant(name[0]) + name.Substring(1);
+    }
+
+    private static bool IsSystemTextEncodingType(ITypeSymbol type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.Text.Encoding")
+                return true;
+        }
+
+        return false;
     }
 
     private static string? PropertyYieldExtractElementType(string javaType)

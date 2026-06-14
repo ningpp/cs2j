@@ -93,6 +93,47 @@ class Sample
     }
 
     [Fact]
+    public void EncodingGetPreambleOverride_KeepsByteArrayReturnType()
+    {
+        var r = Convert(@"
+using System.Text;
+
+abstract class CustomEncoding : Encoding
+{
+    public override byte[] GetPreamble()
+    {
+        return new byte[] { 0xEF, 0xBB, 0xBF };
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        Assert.Contains("public byte[] getPreamble()", code);
+        Assert.DoesNotContain("public byte[] GetPreamble()", code);
+    }
+
+    [Fact]
+    public void EncodingPreambleOverride_DoesNotCollideWithGetPreambleMethod()
+    {
+        var r = Convert(@"
+using System;
+using System.Text;
+
+abstract class CustomEncoding : Encoding
+{
+    private static readonly byte[] s_preamble = new byte[] { 0xEF, 0xBB, 0xBF };
+
+    public override ReadOnlySpan<byte> Preamble => s_preamble;
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        Assert.Contains("public ReadOnlySpan<Integer> getPreambleSpan()", code);
+        Assert.Contains("return MemoryExtensions.asSpan(s_preamble);", code);
+        Assert.DoesNotContain("public ReadOnlySpan<Integer> getPreamble()", code);
+    }
+
+    [Fact]
     public void CompatEncodingGetEncoding_AcceptsCustomEncoderFallback()
     {
         var repoRoot = FindRepoRoot();

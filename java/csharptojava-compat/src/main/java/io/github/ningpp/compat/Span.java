@@ -7,7 +7,7 @@ import java.util.Arrays;
  * Does not simulate C# ref-struct lifetime semantics.
  */
 public final class Span<T> {
-    private final T[] array;
+    private final Object array;
     private final int offset;
     private final int length;
 
@@ -17,7 +17,23 @@ public final class Span<T> {
         this.length = array.length;
     }
 
+    public Span(byte[] array) {
+        this.array = array;
+        this.offset = 0;
+        this.length = array.length;
+    }
+
     public Span(T[] array, int offset, int length) {
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(
+                "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
+        }
+        this.array = array;
+        this.offset = offset;
+        this.length = length;
+    }
+
+    public Span(byte[] array, int offset, int length) {
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
@@ -35,14 +51,25 @@ public final class Span<T> {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
         }
-        return array[offset + index];
+        if (array instanceof byte[] bytes) {
+            @SuppressWarnings("unchecked")
+            T value = (T) java.lang.Integer.valueOf(bytes[offset + index] & 0xFF);
+            return value;
+        }
+        @SuppressWarnings("unchecked")
+        T value = ((T[]) array)[offset + index];
+        return value;
     }
 
     public void set(int index, T value) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
         }
-        array[offset + index] = value;
+        if (array instanceof byte[] bytes) {
+            bytes[offset + index] = (byte)(((Number) value).intValue() & 0xFF);
+            return;
+        }
+        ((T[]) array)[offset + index] = value;
     }
 
     public Span<T> slice(int start) {
@@ -54,10 +81,13 @@ public final class Span<T> {
             throw new IndexOutOfBoundsException(
                 "start=" + start + ", len=" + len + ", length=" + length);
         }
-        return new Span<>(array, offset + start, len);
+        if (array instanceof byte[] bytes) {
+            return new Span<>(bytes, offset + start, len);
+        }
+        return new Span<>((T[]) array, offset + start, len);
     }
 
-    T[] getArray() {
+    Object getArray() {
         return array;
     }
 
@@ -67,12 +97,17 @@ public final class Span<T> {
 
     public void clear() {
         Object fillValue = getDefaultValue();
-        Arrays.fill(array, offset, offset + length, (T) fillValue);
+        if (array instanceof byte[] bytes) {
+            Arrays.fill(bytes, offset, offset + length, (byte)0);
+            return;
+        }
+        Arrays.fill((T[]) array, offset, offset + length, (T) fillValue);
     }
 
     @SuppressWarnings("unchecked")
     private Object getDefaultValue() {
         // C# Span<T>.Clear() fills with default(T): 0 for numeric types, false for boolean, null for references
+        if (array instanceof byte[]) return Integer.valueOf(0);
         if (array instanceof Short[]) return Short.valueOf((short)0);
         if (array instanceof Integer[]) return java.lang.Integer.valueOf(0);
         if (array instanceof Long[]) return Long.valueOf(0L);
@@ -85,15 +120,23 @@ public final class Span<T> {
     }
 
     public T[] toArray() {
-        return Arrays.copyOfRange(array, offset, offset + length);
+        if (array instanceof byte[] bytes) {
+            @SuppressWarnings("unchecked")
+            T[] copy = (T[]) new Integer[length];
+            for (int i = 0; i < length; i++) {
+                copy[i] = (T) java.lang.Integer.valueOf(bytes[offset + i] & 0xFF);
+            }
+            return copy;
+        }
+        return Arrays.copyOfRange((T[]) array, offset, offset + length);
     }
 
     @Override
     public String toString() {
-        if (array instanceof Character[]) {
+        if (array instanceof Character[] chars) {
             StringBuilder sb = new StringBuilder(length);
             for (int i = 0; i < length; i++) {
-                sb.append((Character) array[offset + i]);
+                sb.append(chars[offset + i]);
             }
             return sb.toString();
         }

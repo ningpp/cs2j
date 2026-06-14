@@ -44,7 +44,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             SyntaxKind.AnonymousObjectCreationExpression => TransformAnonymousObjectCreation((AnonymousObjectCreationExpressionSyntax)node, context),
             SyntaxKind.ArrayCreationExpression => TransformArrayCreation((ArrayCreationExpressionSyntax)node, context),
             SyntaxKind.ImplicitArrayCreationExpression => TransformImplicitArrayCreation((ImplicitArrayCreationExpressionSyntax)node, context),
-            SyntaxKind.ArrayInitializerExpression => TransformArrayInitializer((InitializerExpressionSyntax)node, context),
+            SyntaxKind.ArrayInitializerExpression => TransformArrayInitializer(
+                (InitializerExpressionSyntax)node,
+                context,
+                ResolveBareArrayInitializerElementType((InitializerExpressionSyntax)node, context)),
             SyntaxKind.StackAllocArrayCreationExpression => TransformStackAlloc((StackAllocArrayCreationExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Object creation kind {node.Kind()} not supported.")
         };
@@ -1533,6 +1536,59 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         return $" {{ {string.Join(", ", values)} }}";
+    }
+
+    private static string? ResolveBareArrayInitializerElementType(InitializerExpressionSyntax node, ConversionContext context)
+    {
+        var typeInfo = context.GetTypeInfo(node);
+        if (typeInfo.ConvertedType is IArrayTypeSymbol convertedArray)
+        {
+            return MapArrayInitializerElementType(convertedArray.ElementType, context);
+        }
+
+        if (typeInfo.Type is IArrayTypeSymbol arrayType)
+        {
+            return MapArrayInitializerElementType(arrayType.ElementType, context);
+        }
+
+        if (node.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax variable })
+        {
+            var symbol = context.GetDeclaredSymbol(variable);
+            var declaredType = symbol switch
+            {
+                IFieldSymbol field => field.Type,
+                ILocalSymbol local => local.Type,
+                _ => null
+            };
+
+            if (declaredType is IArrayTypeSymbol declaredArray)
+            {
+                return MapArrayInitializerElementType(declaredArray.ElementType, context);
+            }
+
+            if (variable.Parent is VariableDeclarationSyntax declaration
+                && declaration.Type is ArrayTypeSyntax arraySyntax)
+            {
+                return MapArrayInitializerElementType(arraySyntax.ElementType, context);
+            }
+        }
+
+        return null;
+    }
+
+    private static string MapArrayInitializerElementType(ITypeSymbol elementType, ConversionContext context)
+    {
+        return elementType.SpecialType == SpecialType.System_Byte
+            ? "byte"
+            : context.MapType(elementType);
+    }
+
+    private static string MapArrayInitializerElementType(TypeSyntax elementType, ConversionContext context)
+    {
+        return elementType is PredefinedTypeSyntax predefined
+               && predefined.Keyword.IsKind(SyntaxKind.ByteKeyword)
+            ? "byte"
+            : context.MapTypeFromSyntax(elementType);
     }
 
     /// <summary>

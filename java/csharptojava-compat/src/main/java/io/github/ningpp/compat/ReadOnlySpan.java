@@ -7,7 +7,7 @@ import java.util.Arrays;
  * Does not simulate C# ref-struct lifetime semantics.
  */
 public final class ReadOnlySpan<T> {
-    private final T[] array;
+    private final Object array;
     private final int offset;
     private final int length;
 
@@ -53,7 +53,14 @@ public final class ReadOnlySpan<T> {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
         }
-        return array[offset + index];
+        if (array instanceof byte[] bytes) {
+            @SuppressWarnings("unchecked")
+            T value = (T) java.lang.Integer.valueOf(bytes[offset + index] & 0xFF);
+            return value;
+        }
+        @SuppressWarnings("unchecked")
+        T value = ((T[]) array)[offset + index];
+        return value;
     }
 
     public ReadOnlySpan<T> slice(int start) {
@@ -65,22 +72,43 @@ public final class ReadOnlySpan<T> {
             throw new IndexOutOfBoundsException(
                 "start=" + start + ", len=" + len + ", length=" + length);
         }
-        return new ReadOnlySpan<>(array, offset + start, len);
+        if (array instanceof byte[] bytes) {
+            return new ReadOnlySpan<>((T[]) toIntegerArray(bytes, offset + start, len));
+        }
+        return new ReadOnlySpan<>((T[]) array, offset + start, len);
     }
 
     public T[] toArray() {
-        return Arrays.copyOfRange(array, offset, offset + length);
+        if (array instanceof byte[] bytes) {
+            return (T[]) toIntegerArray(bytes, offset, length);
+        }
+        return Arrays.copyOfRange((T[]) array, offset, offset + length);
+    }
+
+    public void copyTo(Span<T> destination) {
+        int copyLength = Math.min(length, destination.length());
+        for (int i = 0; i < copyLength; i++) {
+            destination.set(i, get(i));
+        }
     }
 
     @Override
     public String toString() {
-        if (array instanceof Character[]) {
+        if (array instanceof Character[] chars) {
             StringBuilder sb = new StringBuilder(length);
             for (int i = 0; i < length; i++) {
-                sb.append((Character) array[offset + i]);
+                sb.append(chars[offset + i]);
             }
             return sb.toString();
         }
         return super.toString();
+    }
+
+    private static Integer[] toIntegerArray(byte[] bytes, int offset, int length) {
+        Integer[] copy = new Integer[length];
+        for (int i = 0; i < length; i++) {
+            copy[i] = bytes[offset + i] & 0xFF;
+        }
+        return copy;
     }
 }

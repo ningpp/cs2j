@@ -26,6 +26,40 @@ public class EncodingSubclassTest {
         }
     }
 
+    public static class TestDecoder extends Decoder {
+        @Override
+        public int getCharCount(byte[] bytes, int index, int count) {
+            return count;
+        }
+
+        @Override
+        public int getChars(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex) {
+            for (int i = 0; i < byteCount; i++) {
+                chars[charIndex + i] = (char)(bytes[byteIndex + i] & 0xFF);
+            }
+            return byteCount;
+        }
+
+        @Override
+        public void convert(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex, int charCount,
+                            boolean flush, IntHolder bytesUsed, IntHolder charsUsed, BoolHolder completed) {
+            int count = Math.min(byteCount, charCount);
+            getChars(bytes, byteIndex, count, chars, charIndex);
+            bytesUsed.value = count;
+            charsUsed.value = count;
+            completed.value = count == byteCount;
+        }
+    }
+
+    public static class EncodingWithCustomDecoder extends Encoding {
+        private final Decoder decoder = new TestDecoder();
+
+        @Override
+        public Decoder getDecoder() {
+            return decoder;
+        }
+    }
+
     // Simulates Ucs4Encoding4321 pattern (subclass of subclass)
     public static class TestSubEncoding extends TestEncoding {
         public TestSubEncoding() {
@@ -87,6 +121,16 @@ public class EncodingSubclassTest {
             passed++;
         } else {
             System.out.println("FAIL: Test 5 - instanceof chain");
+            failed++;
+        }
+
+        // Test 6: Encoding subclasses can override getDecoder with the standalone Decoder type
+        EncodingWithCustomDecoder customDecoderEncoding = new EncodingWithCustomDecoder();
+        if (customDecoderEncoding.getDecoder() instanceof TestDecoder) {
+            System.out.println("PASS: Test 6 - subclass getDecoder override returns standalone Decoder");
+            passed++;
+        } else {
+            System.out.println("FAIL: Test 6 - subclass getDecoder override");
             failed++;
         }
 

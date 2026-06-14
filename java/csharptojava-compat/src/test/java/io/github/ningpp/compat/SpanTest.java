@@ -33,6 +33,24 @@ class SpanTest {
     }
 
     @Test
+    void integerSpanCanWrapPrimitiveByteArray() {
+        byte[] arr = new byte[] {0, 0, 0};
+        Span<Integer> span = new Span<>(arr);
+        span.set(1, 255);
+        assertEquals(255, span.get(1));
+        assertEquals((byte)255, arr[1]);
+    }
+
+    @Test
+    void readOnlyIntegerSpanCopiesToPrimitiveByteSpan() {
+        ReadOnlySpan<Integer> source = new ReadOnlySpan<>(new Integer[] {0xEF, 0xBB, 0xBF});
+        byte[] target = new byte[] {0, 0, 0, 0};
+        source.copyTo(new Span<Integer>(target).slice(1));
+
+        assertArrayEquals(new byte[] {0, (byte)0xEF, (byte)0xBB, (byte)0xBF}, target);
+    }
+
+    @Test
     void sliceSharesUnderlyingArray() {
         Character[] arr = {'a', 'b', 'c', 'd'};
         Span<Character> span = new Span<>(arr);

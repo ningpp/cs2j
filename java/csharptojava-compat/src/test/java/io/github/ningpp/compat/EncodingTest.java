@@ -135,26 +135,26 @@ public class EncodingTest {
         }
 
         System.out.println("\n=== Decoder ===");
-        Encoding.Decoder dec = utf8.getDecoder();
+        Decoder dec = utf8.getDecoder();
         char[] dcbuf = new char[20];
         int dcn = dec.getChars(utf8Bytes, 0, utf8Bytes.length, dcbuf, 0);
         System.out.println("decoder.GetChars(bytes,0,len,cbuf,0)=" + dcn + " chars=" + fmt(Arrays.copyOf(dcbuf, dcn)));
 
         System.out.println("\n=== Encoder ===");
-        Encoding.Encoder encObj = utf8.getEncoder();
+        Encoder encObj = utf8.getEncoder();
         byte[] ebuf = new byte[20];
-        int[] bytesUsed = new int[1], charsUsed = new int[1];
-        boolean[] completed = new boolean[1];
+        IntHolder bytesUsed = new IntHolder(), charsUsed = new IntHolder();
+        BoolHolder completed = new BoolHolder();
         encObj.convert(testChars, 0, 5, ebuf, 0, 20, true, charsUsed, bytesUsed, completed);
-        System.out.println("encoder.Convert(chars,0,5,buf,0,20)=" + bytesUsed[0] + " buf=" + fmt(Arrays.copyOf(ebuf, bytesUsed[0])));
+        System.out.println("encoder.Convert(chars,0,5,buf,0,20)=" + bytesUsed.value + " buf=" + fmt(Arrays.copyOf(ebuf, bytesUsed.value)));
 
         System.out.println("\n=== Decoder ===");
-        Encoding.Decoder decObj = utf8.getDecoder();
+        Decoder decObj = utf8.getDecoder();
         char[] dcbuf2 = new char[20];
-        int[] bytesUsed2 = new int[1], charsUsed2 = new int[1];
-        boolean[] completed2 = new boolean[1];
+        IntHolder bytesUsed2 = new IntHolder(), charsUsed2 = new IntHolder();
+        BoolHolder completed2 = new BoolHolder();
         decObj.convert(utf8Bytes, 0, utf8Bytes.length, dcbuf2, 0, 20, true, bytesUsed2, charsUsed2, completed2);
-        System.out.println("decoder.Convert(bytes,0,len,cbuf,0,20)=" + charsUsed2[0] + " chars=" + fmt(Arrays.copyOf(dcbuf2, charsUsed2[0])));
+        System.out.println("decoder.Convert(bytes,0,len,cbuf,0,20)=" + charsUsed2.value + " chars=" + fmt(Arrays.copyOf(dcbuf2, charsUsed2.value)));
 
         System.out.println("\n=== Precise ASCII test ===");
         String simple = "AB";

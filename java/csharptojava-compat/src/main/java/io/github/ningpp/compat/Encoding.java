@@ -451,11 +451,11 @@ public class Encoding {
     }
 
     public Decoder getDecoder() {
-        return new Decoder(this);
+        return new CharsetDecoderAdapter(this);
     }
 
     public Encoder getEncoder() {
-        return new Encoder(this);
+        return new CharsetEncoderAdapter(this);
     }
 
     public DecoderReplacementFallback getDecoderFallback() {
@@ -571,10 +571,10 @@ public class Encoding {
         public int hashCode() { return codePage; }
     }
 
-    public static final class Decoder {
+    public static final class CharsetDecoderAdapter extends Decoder {
         private final Encoding encoding;
 
-        Decoder(Encoding encoding) {
+        CharsetDecoderAdapter(Encoding encoding) {
             this.encoding = encoding;
         }
 
@@ -588,7 +588,7 @@ public class Encoding {
 
         public void convert(byte[] bytes, int byteIndex, int byteCount,
                             char[] chars, int charIndex, int charCount, boolean flush,
-                            int[] bytesUsed, int[] charsUsed, boolean[] completed) {
+                            IntHolder bytesUsed, IntHolder charsUsed, BoolHolder completed) {
             // Simplified: decode all available bytes
             CharsetDecoder decoder = encoding.newDecoder();
             CharBuffer cb;
@@ -599,32 +599,32 @@ public class Encoding {
             }
             int len = Math.min(cb.remaining(), charCount - charIndex);
             cb.get(chars, charIndex, len);
-            if (bytesUsed != null && bytesUsed.length > 0) bytesUsed[0] = byteCount;
-            if (charsUsed != null && charsUsed.length > 0) charsUsed[0] = len;
-            if (completed != null && completed.length > 0) completed[0] = !cb.hasRemaining();
+            if (bytesUsed != null) bytesUsed.value = byteCount;
+            if (charsUsed != null) charsUsed.value = len;
+            if (completed != null) completed.value = !cb.hasRemaining();
         }
 
         private Charset charset() { return encoding.toCharset(); }
     }
 
-    public static final class Encoder {
+    public static final class CharsetEncoderAdapter extends Encoder {
         private final Encoding encoding;
 
-        Encoder(Encoding encoding) {
+        CharsetEncoderAdapter(Encoding encoding) {
             this.encoding = encoding;
         }
 
-        public int getByteCount(char[] chars, int index, int count) {
+        public int getByteCount(char[] chars, int index, int count, boolean flush) {
             return encoding.getByteCount(chars, index, count);
         }
 
-        public int getBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex) {
+        public int getBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex, boolean flush) {
             return encoding.getBytes(chars, charIndex, charCount, bytes, byteIndex);
         }
 
         public void convert(char[] chars, int charIndex, int charCount,
                             byte[] bytes, int byteIndex, int byteCount, boolean flush,
-                            int[] charsUsed, int[] bytesUsed, boolean[] completed) {
+                            IntHolder charsUsed, IntHolder bytesUsed, BoolHolder completed) {
             CharsetEncoder encoder = encoding.newEncoder();
             ByteBuffer bb;
             try {
@@ -634,9 +634,9 @@ public class Encoding {
             }
             int len = Math.min(bb.remaining(), byteCount - byteIndex);
             bb.get(bytes, byteIndex, len);
-            if (charsUsed != null && charsUsed.length > 0) charsUsed[0] = charCount;
-            if (bytesUsed != null && bytesUsed.length > 0) bytesUsed[0] = len;
-            if (completed != null && completed.length > 0) completed[0] = !bb.hasRemaining();
+            if (charsUsed != null) charsUsed.value = charCount;
+            if (bytesUsed != null) bytesUsed.value = len;
+            if (completed != null) completed.value = !bb.hasRemaining();
         }
 
         private Charset charset() { return encoding.toCharset(); }
