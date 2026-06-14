@@ -243,7 +243,8 @@ public class MethodTransformer : IMemberTransformer
                     && javaMethod.StructuredBody != null
                     && javaMethod.StructuredBody.Statements.Count > 0)
                 {
-                    if (AsyncTaskBodyCanFallThrough(methodDecl.Body))
+                    if (AsyncTaskBodyCanFallThrough(methodDecl.Body)
+                        && StructuredBodyCanFallThrough(javaMethod.StructuredBody))
                     {
                         context.AddImport("java.util.concurrent.CompletableFuture");
                         javaMethod.StructuredBody.Statements.Add(
@@ -1017,6 +1018,27 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return StatementCanCompleteNormally(body.Statements[^1]);
+    }
+
+    private static bool StructuredBodyCanFallThrough(Java.JavaMethodBody? body)
+    {
+        if (body == null || body.Statements.Count == 0)
+        {
+            return true;
+        }
+
+        var lastLine = body
+            .ToBodyString()
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Reverse()
+            .Select(line => line.TrimStart())
+            .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
+
+        return lastLine == null
+            || (!lastLine.StartsWith("return ", StringComparison.Ordinal)
+                && !lastLine.StartsWith("return;", StringComparison.Ordinal)
+                && !lastLine.StartsWith("throw ", StringComparison.Ordinal));
     }
 
     private static bool StatementCanCompleteNormally(StatementSyntax statement)

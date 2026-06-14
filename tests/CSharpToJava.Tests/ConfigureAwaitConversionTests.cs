@@ -344,4 +344,33 @@ class TestClass
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("return CompletableFuture.completedFuture(null);", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void AsyncTask_StateMachineTerminalThrow_DoesNotEmitUnreachableFinalReturn()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class TestClass
+{
+    async Task FinishAsync(bool more)
+    {
+        if (more)
+        {
+            await Task.Delay(1);
+            goto Done;
+        }
+
+        await Task.Delay(2);
+
+    Done:
+        more = false;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("throw new IllegalStateException(\"Unexpected state\");", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotMatch(
+            @"(?s)throw\s+new\s+IllegalStateException\(""Unexpected state""\);\s*return\s+CompletableFuture\.completedFuture\(null\);",
+            result.GeneratedCode);
+    }
 }

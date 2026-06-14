@@ -784,3 +784,27 @@
 - **分析**: 转换器为 `async Task` 非泛型方法补 `return CompletableFuture.completedFuture(null);` 来模拟 C# 方法末尾隐式完成 Task。原判断只检查生成后的最后一条 Java 语句是否已经是 `return`，无法识别 C# 源最后一条 `while (true)` 本身不可正常完成。本例循环内部的 `Done` case 已经把 C# 的 `return;` 转为 `return CompletableFuture.completedFuture(null);`，循环没有 `break`，因此循环后的隐式 fallback 在 Java 中不可达。需要在补 async Task fallback 前基于 C# 语法判断方法尾部是否仍可能落出；不可落出的 `while(true)` / `for(;;)` 应抑制 fallback，而含可达 `break` 的循环、条件早退后仍可落出的 async Task 方法仍必须保留 fallback。
 
 ✅ **Fixed** — async `Task` fallback generation now checks whether the C# method body can complete normally before appending `CompletableFuture.completedFuture(null)`. The focused regression first failed by matching `while (true) ... return CompletableFuture.completedFuture(null);`, then passed after suppressing the fallback for nonbreaking infinite loops; a companion test verifies a `while(true)` with reachable `break` still emits the implicit Task completion fallback. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[9326,9]` unreachable fallback disappeared and line 9326 is now the method closing brace. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[9650,9] 无法访问的语句` on `return CompletableFuture.completedFuture(null);` after `throw new IllegalStateException("Unexpected state");`.
+
+---
+
+## Iteration 33 — Async Task fallback appended after state-machine terminal throw
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 9650
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[9650,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          }
+          }
+          throw new IllegalStateException("Unexpected state");
+
+          return CompletableFuture.completedFuture(null);
+      }
+      private CompletableFuture parseAttributeValueSlowAsync(int curPos, char quoteChar, NodeData attr) {
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImplAsync.cs`
+- **C# 原始代码**: `ParseAttributesAsync()` 是 `async Task`，方法中包含 `continue;`、`ReadData:` 与 `End:` 标签；转换器因此把方法降成 `__gotoLoop` state machine。`End:` 标签完成默认属性、命名空间和重复属性处理后自然结束。
+- **根因分类**: async Task implicit completion fallback / generated state-machine terminal statement detection
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Member\MethodTransformer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.LabelAndGoto.cs`
+- **分析**: 上一轮的 `AsyncTaskBodyCanFallThrough` 只基于 C# 源语法判断方法末尾是否可能落出，能识别不可正常完成的 `while(true)`，但看不到 `TransformBlockWithStateMachine` 后续为非预定义返回类型追加的 synthetic `throw new IllegalStateException("Unexpected state")`。本例 C# 源尾部的 `End:` 标签可自然完成，所以 async fallback 逻辑决定追加 `return CompletableFuture.completedFuture(null);`；但生成后的结构化方法体最后一条已经是 state-machine fallback `throw`，Java 将 throw 后的 completedFuture return 判为不可达。终止检测漏掉 throw 的原因是它检查的是转换前 `methodDecl.Body`，没有检查转换后的 `javaMethod.StructuredBody.Statements`。
+
+✅ **Fixed** — async `Task` fallback generation now also checks the generated structured body's last non-empty line before appending `CompletableFuture.completedFuture(null)`, so a synthetic state-machine `throw new IllegalStateException("Unexpected state");` is treated as terminal. The focused regression first failed by matching `throw new IllegalStateException("Unexpected state"); ... return CompletableFuture.completedFuture(null);`, then passed after the generated-body terminal check was added. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[9650,9]` unreachable fallback disappeared and line 9650 is now the method closing brace. Maven still fails; the next first error is now `XmlCharType.java:[68,22] 找不到符号`.
