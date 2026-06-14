@@ -703,6 +703,51 @@ public class Uri
         Assert.DoesNotContain("inFact(Uri.Flags", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DateTimeStylesStaticMember_MapsToIntegerHelper()
+    {
+        var result = Convert("""
+using System;
+using System.Globalization;
+
+public class Sample
+{
+    public DateTime Parse(string text)
+    {
+        return DateTime.ParseExact(text, "o", CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("IntegerHelper.RoundtripKind", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.IntegerHelper", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet.system.Globalization.DateTimeStyles", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StringSplitOptionsStaticMember_MapsToIntegerHelper()
+    {
+        var result = Convert("""
+using System;
+
+public class Sample
+{
+    private static readonly char[] Separators = new[] { ' ' };
+
+    public string[] Split(string value)
+    {
+        return value.Split(Separators, StringSplitOptions.RemoveEmptyEntries);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("IntegerHelper.RemoveEmptyEntries", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.IntegerHelper", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet.system.StringSplitOptions", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

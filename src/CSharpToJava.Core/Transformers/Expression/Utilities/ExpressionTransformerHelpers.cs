@@ -22,6 +22,7 @@ public static class ExpressionTransformerHelpers
         "Encoding",
         "EnumHelper",
         "IPAddressHelper",
+        "IntegerHelper",
         "IntPtrHelper",
         "MathHelper",
         "PropertyInfo",
@@ -612,6 +613,9 @@ public static class ExpressionTransformerHelpers
         if (TryFormatCompatIoEnumMemberAccess(enumMember, context, out formattedAccess))
             return true;
 
+        if (TryFormatConfiguredEnumMemberAccess(enumMember, context, out formattedAccess))
+            return true;
+
         if (IsFlagsEnum(enumMember.ContainingType, context))
         {
             var memberName = MapEnumMemberName(enumMember, context);
@@ -643,6 +647,64 @@ public static class ExpressionTransformerHelpers
         context.AddImport($"io.github.ningpp.compat.{simpleName}");
         formattedAccess = $"{simpleName}.{enumMember.Name}";
         return true;
+    }
+
+    private static bool TryFormatConfiguredEnumMemberAccess(
+        IFieldSymbol enumMember,
+        ConversionContext context,
+        out string formattedAccess)
+    {
+        formattedAccess = string.Empty;
+
+        if (TryGetExplicitTypeMappingKey(enumMember.ContainingType, context, out var configKey))
+        {
+            var mappedType = context.TypeMappings.MapType(configKey);
+            var javaType = StripPackageQualifier(StripTypeArguments(mappedType));
+            var memberName = MapEnumMemberName(enumMember, context);
+            if (string.IsNullOrWhiteSpace(javaType)
+                || (javaType == enumMember.ContainingType.Name && memberName == enumMember.Name))
+            {
+                return false;
+            }
+
+            foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
+                context.AddImport(import);
+
+            formattedAccess = $"{javaType}.{memberName}";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetExplicitTypeMappingKey(
+        INamedTypeSymbol typeSymbol,
+        ConversionContext context,
+        out string configKey)
+    {
+        var displayName = typeSymbol.ToDisplayString();
+        if (context.TypeMappings.HasTypeMapping(displayName))
+        {
+            configKey = displayName;
+            return true;
+        }
+
+        var fullyQualifiedName = NormalizeFullyQualifiedName(
+            typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        if (context.TypeMappings.HasTypeMapping(fullyQualifiedName))
+        {
+            configKey = fullyQualifiedName;
+            return true;
+        }
+
+        if (context.TypeMappings.HasTypeMapping(typeSymbol.Name))
+        {
+            configKey = typeSymbol.Name;
+            return true;
+        }
+
+        configKey = string.Empty;
+        return false;
     }
 
     /// <summary>
@@ -914,6 +976,27 @@ public static class ExpressionTransformerHelpers
         return typeSymbol.ContainingType is INamedTypeSymbol parentType
             ? $"{BuildNestedTypeReference(parentType)}.{typeSymbol.Name}"
             : typeSymbol.Name;
+    }
+
+    private static string StripPackageQualifier(string javaType)
+    {
+        var imports = new[]
+        {
+            "io.github.ningpp.compat.",
+            "java.text.",
+            "java.time.",
+            "java.util.",
+            "java.util.regex.",
+            "java.math.",
+        };
+
+        foreach (var importPrefix in imports)
+        {
+            if (javaType.StartsWith(importPrefix, StringComparison.Ordinal))
+                return javaType[importPrefix.Length..];
+        }
+
+        return javaType;
     }
 
     private static string NormalizeFullyQualifiedName(string name)

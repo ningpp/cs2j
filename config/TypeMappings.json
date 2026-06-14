@@ -3618,6 +3618,34 @@
             ]
         },
         {
+            "csharp": "System.Globalization.DateTimeStyles",
+            "java": "IntegerHelper",
+            "imports": [
+                "io.github.ningpp.compat.IntegerHelper"
+            ]
+        },
+        {
+            "csharp": "DateTimeStyles",
+            "java": "IntegerHelper",
+            "imports": [
+                "io.github.ningpp.compat.IntegerHelper"
+            ]
+        },
+        {
+            "csharp": "System.StringSplitOptions",
+            "java": "IntegerHelper",
+            "imports": [
+                "io.github.ningpp.compat.IntegerHelper"
+            ]
+        },
+        {
+            "csharp": "StringSplitOptions",
+            "java": "IntegerHelper",
+            "imports": [
+                "io.github.ningpp.compat.IntegerHelper"
+            ]
+        },
+        {
             "csharp": "System.Globalization.NumberFormatInfo",
             "java": "CultureInfo",
             "imports": [

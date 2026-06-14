@@ -79,3 +79,26 @@
 - **根因分类**: Transformer 逻辑缺陷
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`
 - **分析**: `System.Text.Encoding.Preamble` 在 C# 中是 `ReadOnlySpan<byte>` 属性，但转换器按普通属性生成了 `encoding.getPreamble()`；compat `Encoding.getPreamble()` 当前表示 `GetPreamble()` 的 `byte[]` 结果，导致 Java 初始化 `ReadOnlySpan<Integer>` 时收到 `byte[]`。
+
+---
+
+## Iteration 5 — Missing compat enum type mapping ✅ Fixed
+
+- **Java 文件**: `System.Private.Xml/src/main/java/dotnet/xml/XmlConvert.java`
+- **行号**: 7
+- **错误信息**: `程序包dotnet.system.Globalization不存在`
+- **代码片段**:
+  ```java
+  import java.util.function.*;
+  import java.util.stream.*;
+  import java.io.*;
+  import dotnet.system.Globalization.DateTimeStyles;
+  import io.github.ningpp.compat.NumberStyles;
+  import dotnet.system.StringSplitOptions;
+  import dotnet.system.Uri;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\XmlConvert.cs`
+- **C# 原始代码**: `using System.Globalization;` with `DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite`; `StringSplitOptions.RemoveEmptyEntries`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `config/TypeMappings.json`, `src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs`
+- **分析**: 外部 BCL enum `System.Globalization.DateTimeStyles` 和 `System.StringSplitOptions` 缺少 compat 类型映射，静态 enum 成员访问回落到 `dotnet.system.*` 导入，生成了项目中不存在的包。
