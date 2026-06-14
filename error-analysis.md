@@ -152,3 +152,28 @@
 - **分析**: goto state-machine lowering hoists `char[] chars;` to `char[] chars = null;` before the switch, but the post-pass only rewrites hoisted declarations with initializers (`Type name = ...`), so the original bare declaration remains inside the state-machine case and duplicates the hoisted local.
 
 ✅ **Fixed** — Removed bare declarations for hoisted state-machine locals inside `__gotoLoop` while preserving initializer-to-assignment rewrites.
+
+---
+
+## Iteration 8 — Switch expression out holder used before declaration
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 3097
+- **错误信息**: `找不到符号 符号: 变量 _iHolder1 位置: 类 dotnet.xml.XmlTextReaderImpl`
+- **代码片段**:
+  ```java
+          if (_fragmentType == XmlNodeType.None) {
+          _fragmentType = XmlNodeType.Element;
+          }
+          switch (handleEntityReference(false, EntityExpandType.OnlyGeneral, _iHolder1)) {
+          case Unexpanded:
+          IntHolder _iHolder1 = new IntHolder();
+          var _ifCond1 = _parsingFunction == ParsingFunction.EntityReference;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `switch (HandleEntityReference(false, EntityExpandType.OnlyGeneral, out i))`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs`, `src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs`
+- **分析**: switch expression transformation lets an `out` argument enqueue holder pre/post statements, but plain switch lowering does not drain the switch expression pre-statements before emitting `switch (...)`, so the holder declaration is later emitted inside the first case after the holder is already used.
+
+✅ **Fixed** — Captured switch expressions with pending pre/post side effects into a synthetic temporary before emitting the switch, so holder declarations and out read-backs are emitted before switch dispatch.

@@ -206,11 +206,17 @@ public partial class StatementTransformer
 
     private JavaSyntaxNode TransformPlainSwitch(SwitchStatementSyntax stmt, string expression, ConversionContext context)
     {
+        var preambleStatements = DrainSwitchExpressionSideEffects(expression, context, out expression);
+
         if (stmt.DescendantNodes().OfType<GotoStatementSyntax>()
             .Any(gotoStmt => gotoStmt.IsKind(SyntaxKind.GotoCaseStatement)
                 || gotoStmt.IsKind(SyntaxKind.GotoDefaultStatement)))
         {
-            return TransformSwitchWithGotoCase(stmt, expression, context);
+            var switchWithGoto = TransformSwitchWithGotoCase(stmt, expression, context).ToString("");
+            if (preambleStatements.Count == 0)
+                return new JavaStatementNode(switchWithGoto);
+
+            return new JavaStatementNode(string.Join("\n", preambleStatements) + "\n" + switchWithGoto);
         }
 
         var exprTransformer = ExpressionTransformerFacade.Instance;
@@ -295,7 +301,46 @@ public partial class StatementTransformer
 
         var bodyStr = string.Join("\n\n        ", sections);
 
-        return new JavaStatementNode($"switch ({expression}) {{\n        {bodyStr}\n    }}");
+        var switchText = $"switch ({expression}) {{\n        {bodyStr}\n    }}";
+        if (preambleStatements.Count > 0)
+            switchText = string.Join("\n", preambleStatements) + "\n" + switchText;
+
+        return new JavaStatementNode(switchText);
+    }
+
+    private static List<string> DrainSwitchExpressionSideEffects(
+        string expression,
+        ConversionContext context,
+        out string effectiveExpression)
+    {
+        var statements = new List<string>();
+        effectiveExpression = expression;
+
+        var hasPre = context.HasPendingPreStatements;
+        var hasPost = context.HasPendingPostStatements;
+        if (!hasPre && !hasPost)
+            return statements;
+
+        if (hasPre)
+        {
+            statements.AddRange(context.DrainPreStatements().Select(EnsureStatementSemicolon));
+        }
+
+        var switchExprName = context.GenerateSyntheticName("_switchExpr");
+        statements.Add($"var {switchExprName} = {expression};");
+
+        if (hasPost)
+        {
+            statements.AddRange(context.DrainPostStatements().Select(EnsureStatementSemicolon));
+        }
+
+        effectiveExpression = switchExprName;
+        return statements;
+    }
+
+    private static string EnsureStatementSemicolon(string statement)
+    {
+        return statement.TrimEnd().TrimEnd(';') + ";";
     }
 
     private JavaSyntaxNode TransformSwitchWithGotoCase(

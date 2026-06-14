@@ -128,6 +128,45 @@ class C {
         Assert.Matches("case \"b\":\\s*\\{\\s*int value_1 = 2;\\s*total \\+= value_1;", code);
     }
 
+    [Fact]
+    public void PlainSwitch_OutArgumentInExpression_DeclaresHolderBeforeSwitch()
+    {
+        var result = Convert(@"
+enum EntityType { Unexpanded, Expanded }
+
+class C {
+    EntityType Read(out int i) {
+        i = 1;
+        return EntityType.Unexpanded;
+    }
+
+    int Test() {
+        int i;
+        switch (Read(out i)) {
+            case EntityType.Unexpanded:
+                return i;
+            default:
+                return 0;
+        }
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+        var holderIndex = code.IndexOf("IntHolder _iHolder", StringComparison.Ordinal);
+        var callIndex = code.IndexOf("var _switchExpr", StringComparison.Ordinal);
+        var readBackIndex = code.IndexOf("i = _iHolder", StringComparison.Ordinal);
+        var switchIndex = code.IndexOf("switch (_switchExpr", StringComparison.Ordinal);
+
+        Assert.True(holderIndex >= 0, result.GeneratedCode);
+        Assert.True(callIndex >= 0, result.GeneratedCode);
+        Assert.True(readBackIndex >= 0, result.GeneratedCode);
+        Assert.True(switchIndex >= 0, result.GeneratedCode);
+        Assert.True(holderIndex < callIndex, result.GeneratedCode);
+        Assert.True(callIndex < readBackIndex, result.GeneratedCode);
+        Assert.True(readBackIndex < switchIndex, result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string csharpCode)
     {
         var pipeline = new ConversionPipeline();
