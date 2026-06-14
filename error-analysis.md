@@ -973,3 +973,28 @@
 - **Analysis**: `System.IO.TextWriter` maps to `java.io.PrintWriter`, and the converter already maps synchronous `TextWriter.Write`/`WriteLine` overloads through `TypeMappings.json`. Async `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` were not mapped, so `InvocationExpressionTransformer` fell through to the generic camelCase member-call path and emitted `writer.flushAsync()` / `writer.writeAsync(...)`. `ControlFlowTransformer` then lowered `await` to `.join()`, which is valid for compat async APIs such as `StreamWrapper.flushAsync()`, but invalid for `PrintWriter` because Java's `PrintWriter` only exposes synchronous `flush()` / `write(...)`. The semantic model correctly identifies the receiver type as `System.IO.TextWriter`; the missing piece was transformer/member mapping for TextWriter async calls to synchronous PrintWriter calls before the await `.join()` is added.
 
 ✅ **Fixed** - `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` now lower to `CompletableFuture.runAsync(...)` around synchronous `PrintWriter.flush()` / `PrintWriter.write(...)`, so the existing `await` lowering can safely append `.join()`. The focused regression first failed because generated code contained `w.flushAsync().join()`, then passed after the transformer special case. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `XmlEncodedRawTextWriter.java:[1965,15]` `PrintWriter.flushAsync()` error disappeared; line 1965 is now `CompletableFuture.runAsync(() -> writer.flush()).join();`, and line 1998 is now `CompletableFuture.runAsync(() -> writer.write(bufChars, 1, bufPos - 1)).join();`. Maven still fails; the next first error is now `HtmlEncodedRawTextWriter.java:[257,181] int cannot be dereferenced`.
+---
+
+## Iteration 2 — Enum flag expression adds `.getValue()` to int OR result
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\HtmlEncodedRawTextWriter.java`
+- **行号**: 257
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/HtmlEncodedRawTextWriter.java:[257,181] 无法取消引用int`
+- **代码片段**:
+  ```java
+          if (super.attrEndPos == bufPos) {
+          super.bufChars[bufPos++] = (char)(' ');
+          }
+          super.rawText(localName);
+          if ((currentElementProperties.getValue() & ((ElementProperties.BOOL_PARENT.getValue() | ElementProperties.URI_PARENT.getValue() | ElementProperties.NAME_PARENT.getValue())).getValue()) != 0) {
+          _currentAttributeProperties = AttributeProperties.fromValue((int)(attributePropertySearch.findCaseInsensitiveString(localName))).getValue() & (AttributeProperties)(currentElementProperties).getValue();
+          if ((_currentAttributeProperties.getValue() & AttributeProperties.BOOLEAN.getValue()) != 0) {
+          super.inAttributeValue = true;
+          return;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\HtmlEncodedRawTextWriter.cs`
+- **C# 原始代码**: `if ((currentElementProperties & (ElementProperties.BOOL_PARENT | ElementProperties.URI_PARENT | ElementProperties.NAME_PARENT)) != 0)` where `ElementProperties : uint` is an explicit-valued enum used as a bitmask without `[Flags]`.
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\BinaryExpressionTransformer.cs`
+- **分析**: For explicit-valued non-`[Flags]` enum bitwise expressions, `TryTransformEnumBitwiseOperation` converts each enum operand to its numeric value using `.getValue()`. That is correct for simple operands, but nested bitwise expressions already become numeric Java expressions. The outer bitwise transform still sees the nested C# expression type as the enum and appends another enum access suffix to the whole transformed expression, producing `(...int | int...).getValue()`. Java then reports `无法取消引用int`. The semantic model is available and the enum mapping is known; the missing transformer guard is recognizing that compound bitwise enum operands have already been lowered to numeric expressions and must not receive a second enum-object suffix.
+
+✅ **Fixed** — nested explicit-valued enum bitwise operands now avoid a second enum access suffix after their recursive transform has already lowered the expression to numeric Java. The focused regression first failed with `Assert.DoesNotContain() Failure` because generated code contained `...NameParent.getValue())).getValue()) != 0`, then passed after the transformer guard. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `HtmlEncodedRawTextWriter.java:[257,181] 无法取消引用int` error disappeared; line 257 is now `currentElementProperties.getValue() & (ElementProperties.BOOL_PARENT.getValue() | ElementProperties.URI_PARENT.getValue() | ElementProperties.NAME_PARENT.getValue())`. Maven still fails; the next first error is now `HtmlEncodedRawTextWriter.java:[258,207] 不兼容的类型: int无法转换为dotnet.xml.AttributeProperties`.

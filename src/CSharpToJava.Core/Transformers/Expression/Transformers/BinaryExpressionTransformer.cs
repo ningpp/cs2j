@@ -690,14 +690,18 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (leftIsEnum)
         {
             var suffix = GetEnumAccessSuffix(leftType!, context);
-            if (suffix != null && !left.EndsWith(suffix, StringComparison.Ordinal))
+            if (suffix != null
+                && !IsNestedBitwiseExpression(node.Left)
+                && !left.EndsWith(suffix, StringComparison.Ordinal))
                 left = ApplyEnumAccessSuffix(left, suffix);
         }
 
         if (rightIsEnum)
         {
             var suffix = GetEnumAccessSuffix(rightType!, context);
-            if (suffix != null && !right.EndsWith(suffix, StringComparison.Ordinal))
+            if (suffix != null
+                && !IsNestedBitwiseExpression(node.Right)
+                && !right.EndsWith(suffix, StringComparison.Ordinal))
                 right = ApplyEnumAccessSuffix(right, suffix);
         }
 
@@ -705,6 +709,21 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         right = WrapOperandIfNeeded(node.Right, right, op, false);
 
         return $"{left} {op} {right}";
+    }
+
+    private static bool IsNestedBitwiseExpression(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+
+        return expression is BinaryExpressionSyntax binary
+            && IsBitwiseOp(binary.Kind() switch
+            {
+                SyntaxKind.BitwiseAndExpression => "&",
+                SyntaxKind.BitwiseOrExpression => "|",
+                SyntaxKind.ExclusiveOrExpression => "^",
+                _ => string.Empty
+            });
     }
 
     /// <summary>

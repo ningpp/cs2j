@@ -811,4 +811,31 @@ public class Sample
         Assert.DoesNotContain("Permissions.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("p | Permissions.Write", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ExplicitValueEnum_NestedBitwiseOrOperand_DoesNotGetValueOnIntExpression()
+    {
+        var result = Convert(@"
+public enum ElementProperties : uint
+{
+    Default = 0,
+    UriParent = 1,
+    BoolParent = 2,
+    NameParent = 4
+}
+
+public class Sample
+{
+    private ElementProperties currentElementProperties;
+
+    public bool HasParent()
+    {
+        return (currentElementProperties & (ElementProperties.BoolParent | ElementProperties.UriParent | ElementProperties.NameParent)) != 0;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("currentElementProperties.getValue() &", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(").getValue()", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }
