@@ -5,7 +5,7 @@ import java.util.Locale;
 /**
  * Stub for System.Globalization.DateTimeFormatInfo.
  */
-public class DateTimeFormatInfo {
+public class DateTimeFormatInfo implements IFormatProvider {
     private String[] abbreviatedDayNames = new String[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
     private String[] abbreviatedMonthGenitiveNames = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "" };
     private String[] abbreviatedMonthNames = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "" };

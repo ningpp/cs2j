@@ -3,7 +3,7 @@ package io.github.ningpp.compat;
 /**
  * Stub for System.Globalization.NumberFormatInfo.
  */
-public class NumberFormatInfo {
+public class NumberFormatInfo implements IFormatProvider {
     private int currencyDecimalDigits = 2;
     private String currencyDecimalSeparator = ".";
     private String currencyGroupSeparator = ",";

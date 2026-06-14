@@ -81,11 +81,19 @@ public final class Decimal implements Comparable<Decimal> {
         return parse(value);
     }
 
+    public static Decimal parse(String value, NumberFormatInfo formatInfo) {
+        return parse(value);
+    }
+
     public static Decimal parse(String value, java.util.Locale locale) {
         return parse(value);
     }
 
     public static Decimal parse(String value, int style, CultureInfo culture) {
+        return new Decimal(new BigDecimal(normalizeNumberString(value, style)), true);
+    }
+
+    public static Decimal parse(String value, int style, NumberFormatInfo formatInfo) {
         return new Decimal(new BigDecimal(normalizeNumberString(value, style)), true);
     }
 
@@ -105,6 +113,10 @@ public final class Decimal implements Comparable<Decimal> {
     }
 
     public static boolean tryParse(String value, int style, CultureInfo culture, ObjectHolder<Decimal> result) {
+        return tryParseWithStyle(value, style, result);
+    }
+
+    public static boolean tryParse(String value, int style, NumberFormatInfo formatInfo, ObjectHolder<Decimal> result) {
         return tryParseWithStyle(value, style, result);
     }
 
