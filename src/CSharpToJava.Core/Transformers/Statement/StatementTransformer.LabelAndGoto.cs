@@ -778,8 +778,8 @@ public partial class StatementTransformer
     }
 
     /// <summary>
-    /// Removes unreachable code that appears after while(true) loops inside the state machine.
-    /// When a while(true) loop only exits via state transitions (__state = N; continue __gotoLoop;),
+    /// Removes unreachable code that appears after infinite loops inside the state machine.
+    /// When an infinite loop only exits via state transitions (__state = N; continue __gotoLoop;),
     /// any code after the closing brace of that while(true) is unreachable.
     /// Pattern: while (true) { ... } labelName: { } __state = N; continue __gotoLoop;
     /// The label block and state transition after the while(true) are removed.
@@ -806,7 +806,7 @@ public partial class StatementTransformer
             var trimmed = line.Trim();
             if (trimmed == "}" && i >= 2)
             {
-                // Look backwards to see if this closes a while(true) { ... } block
+                // Look backwards to see if this closes an infinite loop block
                 // where the body only has state-transition exits
                 if (IsClosingBraceOfInfiniteWhileLoop(lines, i, result))
                 {
@@ -844,7 +844,7 @@ public partial class StatementTransformer
     }
 
     /// <summary>
-    /// Checks if the closing brace at lineIndex closes a while(true) block
+    /// Checks if the closing brace at lineIndex closes an infinite loop block
     /// that only exits via state transitions (no break/return that would make
     /// code after it reachable).
     /// </summary>
@@ -867,12 +867,12 @@ public partial class StatementTransformer
 
         if (start < 0) return false;
 
-        // Check if the line before or at start contains "while (true)"
+        // Check if the line before or at start contains an infinite loop header.
         for (var j = start; j >= Math.Max(0, start - 2); j--)
         {
-            if (lines[j].Contains("while (true)"))
+            if (IsInfiniteLoopHeader(lines[j]))
             {
-                // Check if the while(true) body only exits via state transitions
+                // Check if the infinite loop body only exits via state transitions
                 // by checking if there are any break/return statements that aren't
                 // inside nested blocks
                 var bodySb = new StringBuilder();
@@ -889,38 +889,9 @@ public partial class StatementTransformer
                     return false;
                 }
 
-                // Check for standalone "break;" statements that exit THIS while(true) loop
-                // (not inside nested loops). We track nested loop depth to determine this.
-                var nestedLoopDepth = 0;
-                for (var k = j + 1; k < lineIndex; k++)
+                if (ContainsTopLevelBreakExitingLoop(lines, j + 1, lineIndex))
                 {
-                    var lineTrimmed = lines[k].Trim();
-                    // Track entering nested loops
-                    if (lineTrimmed.StartsWith("while (") || lineTrimmed.StartsWith("for (") ||
-                        lineTrimmed.StartsWith("for (;") || lineTrimmed.StartsWith("do {") ||
-                        lineTrimmed.StartsWith("do "))
-                    {
-                        nestedLoopDepth++;
-                    }
-                    // Track exiting nested loops (closing braces reduce depth if we're in a nested loop)
-                    // This is a simple heuristic - we count { and } to track nesting
-                    if (nestedLoopDepth > 0)
-                    {
-                        foreach (var ch in lineTrimmed)
-                        {
-                            if (ch == '{') nestedLoopDepth++; // rough tracking
-                        }
-                        foreach (var ch in lineTrimmed.Reverse())
-                        {
-                            if (ch == '}' && nestedLoopDepth > 0) nestedLoopDepth--;
-                        }
-                    }
-
-                    if (lineTrimmed == "break;" && nestedLoopDepth == 0)
-                    {
-                        // This break; exits the while(true) loop at the top level
-                        return false;
-                    }
+                    return false;
                 }
 
                 // If the body only has state transitions as exits, code after is unreachable
@@ -929,6 +900,65 @@ public partial class StatementTransformer
         }
 
         return false;
+    }
+
+    private static bool IsInfiniteLoopHeader(string line)
+    {
+        var trimmed = line.Trim();
+        return trimmed.Contains("while (true)", StringComparison.Ordinal)
+            || trimmed.Contains("for (; true; )", StringComparison.Ordinal)
+            || trimmed.Contains("for (;;)", StringComparison.Ordinal);
+    }
+
+    private static bool ContainsTopLevelBreakExitingLoop(string[] lines, int bodyStart, int bodyEndExclusive)
+    {
+        var braceDepth = 0;
+        var nestedBreakableDepths = new Stack<int>();
+        for (var k = bodyStart; k < bodyEndExclusive; k++)
+        {
+            var lineTrimmed = lines[k].Trim();
+            while (nestedBreakableDepths.Count > 0 && braceDepth < nestedBreakableDepths.Peek())
+            {
+                nestedBreakableDepths.Pop();
+            }
+
+            var opensNestedBreakable = IsNestedBreakableHeader(lineTrimmed);
+            var breakableDepthForLine = nestedBreakableDepths.Count;
+            if (lineTrimmed == "break;" && breakableDepthForLine == 0)
+            {
+                return true;
+            }
+
+            var opensOnLine = 0;
+            foreach (var ch in lineTrimmed)
+            {
+                if (ch == '{')
+                {
+                    opensOnLine++;
+                    braceDepth++;
+                }
+                else if (ch == '}' && braceDepth > 0)
+                {
+                    braceDepth--;
+                }
+            }
+
+            if (opensNestedBreakable && opensOnLine > 0)
+            {
+                nestedBreakableDepths.Push(braceDepth);
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsNestedBreakableHeader(string line)
+    {
+        return line.Contains("switch (", StringComparison.Ordinal)
+            || line.Contains("while (", StringComparison.Ordinal)
+            || line.Contains("for (", StringComparison.Ordinal)
+            || line.Contains("do ", StringComparison.Ordinal)
+            || line.Contains("do{", StringComparison.Ordinal);
     }
 
     private (List<string> declarations, HashSet<string> varNames) CollectStateMachineLocalDeclarations(

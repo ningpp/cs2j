@@ -617,3 +617,34 @@
 - **分析**: `TransformSwitchWithGotoCase` lowers switches containing `goto case/default` into a `_switchNState`/`_switchNLoop` state machine. Its section-tail logic only treats top-level terminal statements as terminal. In this case the terminal behavior is nested inside an `if/else`: the `if` branch has a C# `break`, while the `else` branch has `goto default`. The nested `goto default` is correctly transformed to `_switch31State = 5; continue _switch31Loop;`, but the nested `break` is transformed by the generic statement path to a bare Java `break;`. Both branches already terminate the state-machine case, yet the section-tail detector does not recognize the `if/else` as terminal and appends `_switch31State = -1; break _switch31Loop;` after the `if`, which Java reports as unreachable. The same generic nested `break` lowering is also semantically wrong in the state-machine loop because it exits the inner Java `switch` rather than the `_switch31Loop`.
 
 ✅ **Fixed** — switch-with-goto-case lowering now keeps the source `SwitchStatementSyntax` in the switch-goto context, rewrites nested `break`/`continue` that target that switch into `{state} = -1; break {loop};`, and recognizes `if/else` and block statements whose all paths terminate the state-machine case. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[2273,9]` unreachable statement disappeared and the generated XmlDeclaration case now directly exits `_switch31Loop` without the extra reset. Maven still fails; the next first error is `XmlTextReaderImpl.java:[2961,9] 无法访问的语句`.
+
+---
+
+## Iteration 27 — Method goto state-machine keeps fallthrough after infinite loop with nested switch breaks
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 2961
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[2961,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          } else {
+          throwValue((isTextDecl ? SR.getXml_InvalidTextDecl() : SR.getXml_InvalidXmlDecl()));
+          }
+          }
+          ReadData: { if (_ps.isEof || readData() == 0) {
+          throwValue(SR.getXml_UnexpectedEOF1());
+          } }
+          }
+          __state = 2;
+          continue __gotoLoop;
+          case 2: // NoXmlDecl
+          NoXmlDecl: { if (!isTextDecl) {
+          _parsingFunction = _nextParsingFunction;
+          } }
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs
+- **C# 原始代码**: `ParseXmlDeclaration(bool isTextDecl)` 中 `for (;;)` 循环包含 `Continue:` / `ReadData:` 标签、`goto Continue`，并在循环后有 `NoXmlDecl:` 标签。
+- **根因分类**: Transformer method goto state-machine lowering / unreachable cleanup
+- **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.LabelAndGoto.cs
+- **分析**: 这次与上一轮 `switch goto case/default` 的 nested terminal reset 不同。当前错误来自普通方法级 `goto` state machine：`GotoAnalyzer` 将方法降成 `__gotoLoop` + `switch (__state)`，其中 `ParseXmlDeclaration` 的 `for (;;)` 生成 Java `while (true)`，循环之后又按 basic-block fall-through 追加 `__state = 2; continue __gotoLoop;` 跳到 `NoXmlDecl`。Java 对没有可达 `break` 的 `while (true)` 后续语句判定为不可达。转换器已有 `RemoveUnreachableCodeAfterInfiniteLoops` 后处理来删除这种无限循环后的 state transition，但它在判断循环体能否正常退出时只跟踪嵌套 loop，不跟踪嵌套 `switch`。本例循环体内的属性值解析 `switch (xmlDeclState)` 有多个普通 `break;`，这些 `break` 只退出内层 Java switch，不会退出外层 `while (true)`；后处理误把它们当作可退出无限循环的 break，因此保留了不可达的 fall-through state transition。
+
+✅ **Fixed** — method-level goto state-machine cleanup now recognizes generated `for (; true; )` infinite loops and tracks nested breakable constructs so `break;` inside a nested switch/loop does not make code after the infinite loop appear reachable. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[2961,9]` unreachable statement disappeared; the next Maven first error is now `XmlTextReaderImpl.java:[3166,9] 无法访问的语句`.

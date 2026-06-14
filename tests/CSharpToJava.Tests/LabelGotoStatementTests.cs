@@ -1532,6 +1532,48 @@ class Test {
         Assert.Matches(@"\bAppend:\s*;\s*charsParsed(?:_\d+)?\s*=\s*pos\s*-\s*startPos\s*;", whileBody);
     }
 
+    [Fact]
+    public void StateMachine_InfiniteLoopWithNestedSwitchBreaks_DropsUnreachableFallthrough()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(bool restart, int mode) {
+        if (restart) goto Done;
+
+        for (;;)
+        {
+        Again:
+            switch (mode)
+            {
+                case 0:
+                    mode = 1;
+                    break;
+                default:
+                    break;
+            }
+
+            if (restart)
+            {
+                goto Again;
+            }
+        }
+
+    Done:
+        return mode;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var whileBody = ExtractWhileBody(result.GeneratedCode);
+        var infiniteLoopIndex = whileBody.IndexOf("for (; true; )", StringComparison.Ordinal);
+
+        Assert.Contains("while (true)", whileBody);
+        Assert.True(infiniteLoopIndex >= 0, result.GeneratedCode);
+        Assert.DoesNotMatch(
+            @"__state\s*=\s*2;\s*continue\s+__gotoLoop;",
+            whileBody.Substring(infiniteLoopIndex));
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);
