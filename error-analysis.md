@@ -445,3 +445,27 @@
 - **分析**: 重新执行 Step 1/2 后，当前第一错误不再匹配末尾 `Iteration 1 — cannot find symbol CSharpArray`；`CSharpArray` 已进入 Maven 类路径。新的第一错误来自 `System.Array` 参数被映射为 `CSharpArray` 后，C# 的 `(byte[])buffer` 仍被 TypeOperationTransformer 直接生成为 Java cast `(byte[])(buffer)`。Java 不能把 wrapper 对象直接 cast 成底层数组，需要通过 compat API 暴露 wrapped array 并生成 `buffer.as(byte[].class)`。
 
 ✅ **Fixed** — `System.Array` references cast to concrete arrays now lower to `CSharpArray.as(arrayClass)`, and the compact runtime exposes that typed unwrap helper. The original incompatible cast error disappeared after regenerating and rebuilding; the next Maven error is now `CSharpArray.binarySearch(...)` missing.
+
+---
+
+## Iteration 3 — CSharpArray BinarySearch runtime API missing
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 7261
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[7261,24] 找不到符号; 符号: 方法 binarySearch(dotnet.xml.XmlTextReaderImpl.NodeData[],dotnet.xml.IDtdDefaultAttributeInfo,java.util.Comparator<java.lang.Object>); 位置: 类 io.github.ningpp.compat.CSharpArray`
+- **代码片段**:
+  ```java
+          String prefix = defAttrInfo.getPrefix();
+          // check for duplicates
+          if (nameSortedNodeData != null) {
+          if (CSharpArray.binarySearch(nameSortedNodeData, defAttrInfo, DtdDefaultAttributeInfoToNodeDataComparer.getInstance()) >= 0) {
+          return false;
+          }
+          } else {
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs
+- **C# 原始代码**: `if (Array.BinarySearch<object>(nameSortedNodeData, defAttrInfo, DtdDefaultAttributeInfoToNodeDataComparer.Instance) >= 0)`
+- **根因分类**: compat runtime API 缺失
+- **涉及组件**: D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\CSharpArray.java; D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs
+- **分析**: `System.Array` 已映射为 compact runtime `CSharpArray`，因此未被专门 lower 的静态 `Array.BinarySearch<T>` 会自然生成为 `CSharpArray.binarySearch(...)`。生成位置的 C# 调用使用 `object` 泛型参数、`NodeData[]` 数组、`IDtdDefaultAttributeInfo` 查找值和 `IComparer<object>` 比较器；Java 端缺少对应静态 helper，所以 Maven 在第一处 `CSharpArray.binarySearch(...)` 编译失败。
+
+✅ **Fixed** — `CSharpArray.binarySearch(array, value, Comparator<Object>)` now exists in the compat runtime and preserves .NET/Java binary-search insertion-point semantics. After reinstalling compat, regenerating, and rerunning Maven, the original `CSharpArray.binarySearch(...)` compiler error disappeared; the next Maven first error is now `StreamWrapper.readAsync(byte[], int, int)` missing.

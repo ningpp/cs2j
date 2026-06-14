@@ -1,6 +1,8 @@
 package io.github.ningpp.compat;
 
 import java.lang.reflect.Array;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Objects;
 
 /**
@@ -18,6 +20,12 @@ public final class CSharpArray {
 
     public static CSharpArray of(Object array) {
         return new CSharpArray(array);
+    }
+
+    public static <T> int binarySearch(T[] array, Object value, Comparator<? super Object> comparer) {
+        Objects.requireNonNull(array, "array");
+        Objects.requireNonNull(comparer, "comparer");
+        return Arrays.binarySearch(array, value, comparer);
     }
 
     public int getLength() {
