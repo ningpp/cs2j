@@ -112,4 +112,26 @@ class Test
         // Format overload should use print+String.format
         Assert.Contains("w.print(String.format(", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void TextWriter_AsyncFlushAndWrite_MapToCompletedFutureSynchronousCalls()
+    {
+        var result = Convert(@"
+using System.IO;
+using System.Threading.Tasks;
+class Test
+{
+    async Task Foo(TextWriter w, char[] buf)
+    {
+        await w.FlushAsync();
+        await w.WriteAsync(buf, 1, 2);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain("w.flushAsync().join()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("w.writeAsync(buf, 1, 2).join()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CompletableFuture.runAsync(() -> w.flush()).join()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CompletableFuture.runAsync(() -> w.write(buf, 1, 2)).join()", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

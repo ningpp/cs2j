@@ -945,3 +945,31 @@
 - **分析**: The converter correctly maps `System.Text.EncoderFallback` and the custom C# subclass to compat `EncoderFallback`, and correctly lowers the static `Encoding.GetEncoding` call to `Encoding.getEncoding(...)`. The compile error comes from the compat overload signature itself: it accepts only `EncoderReplacementFallback`, even though the .NET API accepts any `EncoderFallback`. `CharEntityEncoderFallback` is a valid custom fallback subclass, so Java rejects passing it to the too-narrow compat overload. This is not a TypeMappings or transformer issue; the generated call exposes a semantic mismatch in the compat runtime surface. The minimal fix is to widen the encoder parameter to `EncoderFallback` while preserving replacement-string behavior when the fallback is an `EncoderReplacementFallback`.
 
 ✅ **Fixed** — `Encoding.getEncoding(int, ..., DecoderReplacementFallback)` now accepts the abstract compat `EncoderFallback` type instead of only `EncoderReplacementFallback`, while preserving replacement-string behavior for replacement fallback instances. The focused regression first failed because `Encoding.java` still contained the narrow `EncoderReplacementFallback` overload, then passed after the runtime signature was widened. `dotnet build`, the focused test, full `dotnet test`, and `mvn -f java\csharptojava-compat\pom.xml clean install -e` all pass. After regenerating and rerunning Maven for `D:\csharpxml-java`, the original `XmlEncodedRawTextWriter.java:[144,84]` `CharEntityEncoderFallback` mismatch disappeared. Maven still fails; the next first error is now `XmlEncodedRawTextWriter.java:[1333,34] 不兼容的类型: io.github.ningpp.compat.ObjectHolder<java.lang.foreign.MemorySegment>无法转换为java.lang.foreign.MemorySegment`.
+---
+
+## Iteration 1 - TextWriter async methods emitted on PrintWriter
+- **Java file**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlEncodedRawTextWriter.java`
+- **Line**: 1965
+- **Error**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlEncodedRawTextWriter.java:[1965,15] cannot find symbol`
+- **Full symbol details**:
+  ```text
+  symbol:   method flushAsync()
+  location: variable writer of type java.io.PrintWriter
+  ```
+- **Generated Java context**:
+  ```java
+          stream.flushAsync().join();
+          } else {
+          if (writer != null) {
+          writer.flushAsync().join();
+          }
+          }
+          return CompletableFuture.completedFuture(null);
+  ```
+- **C# source**: `D:\csharpxml\System\Xml\Core\XmlEncodedRawTextWriterAsync.cs`
+- **Original C#**: `await writer.FlushAsync().ConfigureAwait(false);`
+- **Root cause classification**: Transformer
+- **Components**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ControlFlowTransformer.cs`; `D:\code\cs2j\config\TypeMappings.json`
+- **Analysis**: `System.IO.TextWriter` maps to `java.io.PrintWriter`, and the converter already maps synchronous `TextWriter.Write`/`WriteLine` overloads through `TypeMappings.json`. Async `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` were not mapped, so `InvocationExpressionTransformer` fell through to the generic camelCase member-call path and emitted `writer.flushAsync()` / `writer.writeAsync(...)`. `ControlFlowTransformer` then lowered `await` to `.join()`, which is valid for compat async APIs such as `StreamWrapper.flushAsync()`, but invalid for `PrintWriter` because Java's `PrintWriter` only exposes synchronous `flush()` / `write(...)`. The semantic model correctly identifies the receiver type as `System.IO.TextWriter`; the missing piece was transformer/member mapping for TextWriter async calls to synchronous PrintWriter calls before the await `.join()` is added.
+
+✅ **Fixed** - `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` now lower to `CompletableFuture.runAsync(...)` around synchronous `PrintWriter.flush()` / `PrintWriter.write(...)`, so the existing `await` lowering can safely append `.join()`. The focused regression first failed because generated code contained `w.flushAsync().join()`, then passed after the transformer special case. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `XmlEncodedRawTextWriter.java:[1965,15]` `PrintWriter.flushAsync()` error disappeared; line 1965 is now `CompletableFuture.runAsync(() -> writer.flush()).join();`, and line 1998 is now `CompletableFuture.runAsync(() -> writer.write(bufChars, 1, bufPos - 1)).join();`. Maven still fails; the next first error is now `HtmlEncodedRawTextWriter.java:[257,181] int cannot be dereferenced`.

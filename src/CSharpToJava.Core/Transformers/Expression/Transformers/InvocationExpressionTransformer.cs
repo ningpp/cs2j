@@ -3259,6 +3259,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             methodName = "write";
         }
 
+        if (TryTransformTextWriterAsyncInvocation(
+            originalMethodName,
+            receiver,
+            node.ArgumentList,
+            context,
+            facade,
+            argStartIndex,
+            methodSymbol,
+            out var textWriterAsyncInvocation))
+        {
+            return textWriterAsyncInvocation;
+        }
+
         // Console.Write/WriteLine(format, args...) and TextWriter/PrintWriter print/println(format, args...)
         // only accept a single argument in Java; multi-arg C# overloads are formatting calls.
         bool isJavaPrintln = methodName == "println"
@@ -4968,6 +4981,43 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && lit.IsKind(SyntaxKind.CharacterLiteralExpression))
                 return true;
         }
+        return false;
+    }
+
+    private static bool TryTransformTextWriterAsyncInvocation(
+        string originalMethodName,
+        string receiver,
+        ArgumentListSyntax argumentList,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        int argStartIndex,
+        IMethodSymbol? methodSymbol,
+        out string invocation)
+    {
+        invocation = string.Empty;
+        if (methodSymbol?.ContainingType.ToDisplayString() != "System.IO.TextWriter")
+            return false;
+
+        if (originalMethodName == "FlushAsync" && argumentList.Arguments.Count == argStartIndex)
+        {
+            context.AddImport("java.util.concurrent.CompletableFuture");
+            invocation = $"CompletableFuture.runAsync(() -> {receiver}.flush())";
+            return true;
+        }
+
+        if (originalMethodName == "WriteAsync"
+            && methodSymbol.Parameters.Length == 3
+            && methodSymbol.Parameters[0].Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Char }
+            && methodSymbol.Parameters[1].Type.SpecialType == SpecialType.System_Int32
+            && methodSymbol.Parameters[2].Type.SpecialType == SpecialType.System_Int32)
+        {
+            var args = ArgumentTransformer.TransformArgumentList(
+                argumentList, context, facade, argStartIndex, methodSymbol);
+            context.AddImport("java.util.concurrent.CompletableFuture");
+            invocation = $"CompletableFuture.runAsync(() -> {receiver}.write({args}))";
+            return true;
+        }
+
         return false;
     }
 
