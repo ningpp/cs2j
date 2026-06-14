@@ -4757,10 +4757,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.{methodName}()";
         }
 
-        // Strip trailing IFormatProvider/CultureInfo/NumberStyles arguments from Parse methods.
-        // Java's Integer.parseInt, Double.parseDouble, etc. do not accept locale/style parameters.
+        // Strip trailing IFormatProvider/CultureInfo/NumberStyles arguments from Parse methods
+        // and Convert.ToXxx methods. Java's Integer.parseInt, Double.parseDouble, etc. do not
+        // accept locale/style parameters.
         int parseStripCount = 0;
-        if (originalMethodName == "Parse"
+        bool isParseLike = originalMethodName == "Parse"
+            || (originalMethodName is "ToBoolean" or "ToInt32" or "ToInt64"
+                or "ToDouble" or "ToSingle" or "ToInt16" or "ToByte");
+        if (isParseLike
             && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
         {
             int lastArgIdx = node.ArgumentList.Arguments.Count - 1;
