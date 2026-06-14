@@ -588,3 +588,32 @@
 - **分析**: `XmlNamespaceManager` implements non-generic `System.Collections.IEnumerable`, which maps to raw Java `Iterable`. `NoNamespaceManager` only extends `XmlNamespaceManager` and overrides `GetEnumerator()`. During member conversion that override is lowered to an `iterator()` method, and `ClassTransformer.AddIterableBridgeFromIteratorMethod` treated any class with an iterator-like method as a pattern-enumerable class that must declare `implements Iterable<Object>`. That is correct for standalone pattern enumerators, but wrong when a base class already provides the enumerable contract: the generated subclass then inherits raw `Iterable` from the base and directly implements `Iterable<Object>`, which Java rejects as conflicting parameterizations of the same generic interface.
 
 ✅ **Fixed** — `AddIterableBridgeFromIteratorMethod` now receives the Roslyn class symbol and skips adding a synthetic `Iterable<T>` when any base type already implements `System.Collections.IEnumerable` or `System.Collections.Generic.IEnumerable<T>`. Standalone pattern enumerator classes still get `Iterable<T>`. After regenerating and rerunning Maven, `NoNamespaceManager` now emits `private static class NoNamespaceManager extends XmlNamespaceManager` with no duplicate `implements Iterable<Object>`, and the original `XmlTextReaderImpl.java:[12306,20]` Iterable inheritance conflict disappeared. The next Maven first error is now `XmlTextReaderImpl.java:[2273,9] 无法访问的语句`.
+
+---
+
+## Iteration 26 — Switch goto-case nested terminal branch emits unreachable reset
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 2273
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[2273,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          if (allowXmlDeclFragment) {
+          _ps.appendMode = false;
+          _parsingFunction = ParsingFunction.SwitchToInteractive;
+          _nextParsingFunction = ParsingFunction.XmlDeclarationFragment;
+          break;
+          } else {
+          _switch31State = 5; continue _switch31Loop;
+          }
+          _switch31State = -1;
+          break _switch31Loop;
+          case 5:
+          throwValue(SR.getXml_PartialContentNodeTypeNotSupportedEx(), fragmentType.toString());
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs
+- **C# 原始代码**: `case XmlNodeType.XmlDeclaration: if (allowXmlDeclFragment) { ... break; } else { goto default; }`
+- **根因分类**: Transformer switch/goto-case state-machine lowering
+- **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.SwitchAndResource.cs; D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.cs
+- **分析**: `TransformSwitchWithGotoCase` lowers switches containing `goto case/default` into a `_switchNState`/`_switchNLoop` state machine. Its section-tail logic only treats top-level terminal statements as terminal. In this case the terminal behavior is nested inside an `if/else`: the `if` branch has a C# `break`, while the `else` branch has `goto default`. The nested `goto default` is correctly transformed to `_switch31State = 5; continue _switch31Loop;`, but the nested `break` is transformed by the generic statement path to a bare Java `break;`. Both branches already terminate the state-machine case, yet the section-tail detector does not recognize the `if/else` as terminal and appends `_switch31State = -1; break _switch31Loop;` after the `if`, which Java reports as unreachable. The same generic nested `break` lowering is also semantically wrong in the state-machine loop because it exits the inner Java `switch` rather than the `_switch31Loop`.
+
+✅ **Fixed** — switch-with-goto-case lowering now keeps the source `SwitchStatementSyntax` in the switch-goto context, rewrites nested `break`/`continue` that target that switch into `{state} = -1; break {loop};`, and recognizes `if/else` and block statements whose all paths terminate the state-machine case. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[2273,9]` unreachable statement disappeared and the generated XmlDeclaration case now directly exits `_switch31Loop` without the extra reset. Maven still fails; the next first error is `XmlTextReaderImpl.java:[2961,9] 无法访问的语句`.

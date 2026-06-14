@@ -106,6 +106,33 @@ class Test {
     }
 
     [Fact]
+    public void IfElseBreakAndGotoDefault_InSwitchWithGotoDefault_DoesNotEmitUnreachableReset()
+    {
+        var result = Convert(@"
+class Test {
+    void M(int x, bool allow) {
+        switch (x) {
+            case 1:
+                if (allow) {
+                    x = 2;
+                    break;
+                } else {
+                    goto default;
+                }
+            default:
+                throw new System.Exception(""bad"");
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"(?s)break;\s*}\s*else\s*\{[^}]*continue\s+_switch\d+Loop;\s*}\s*_switch\d+State\s*=\s*-1;", code);
+        Assert.Matches(@"(?s)x = 2;\s*_switch\d+State\s*=\s*-1;\s*break\s+_switch\d+Loop;", code);
+    }
+
+    [Fact]
     public void Continue_InPlainSwitch_NoGotoCase_RemainsContinue()
     {
         // When there is no goto case/default, the switch does NOT use a while loop,

@@ -151,29 +151,34 @@ public class ConversionContext
 
     /// <summary>
     /// Stack of switch-with-goto-case state mappings.
-    /// Each entry is a tuple of (stateName, loopName, stateByCaseValue, defaultState).
+    /// Each entry is a tuple of (switchStatement, stateName, loopName, stateByCaseValue, defaultState).
     /// Used to transform nested goto case/default statements inside switch sections.
     /// </summary>
-    private readonly Stack<(string StateName, string LoopName, IReadOnlyDictionary<string, int> StateByCaseValue, int? DefaultState)> _switchGotoCaseStack = new();
+    private readonly Stack<(Microsoft.CodeAnalysis.CSharp.Syntax.SwitchStatementSyntax SwitchStatement, string StateName, string LoopName, IReadOnlyDictionary<string, int> StateByCaseValue, int? DefaultState)> _switchGotoCaseStack = new();
 
     public bool IsInSwitchGotoCase => _switchGotoCaseStack.Count > 0;
 
-    public void PushSwitchGotoCase(string stateName, string loopName, IReadOnlyDictionary<string, int> stateByCaseValue, int? defaultState)
-        => _switchGotoCaseStack.Push((stateName, loopName, stateByCaseValue, defaultState));
+    public void PushSwitchGotoCase(Microsoft.CodeAnalysis.CSharp.Syntax.SwitchStatementSyntax switchStatement, string stateName, string loopName, IReadOnlyDictionary<string, int> stateByCaseValue, int? defaultState)
+        => _switchGotoCaseStack.Push((switchStatement, stateName, loopName, stateByCaseValue, defaultState));
 
     public void PopSwitchGotoCase() => _switchGotoCaseStack.Pop();
 
     public bool TryGetSwitchGotoCaseInfo(out string stateName, out string loopName, out IReadOnlyDictionary<string, int> stateByCaseValue, out int? defaultState)
+        => TryGetSwitchGotoCaseInfo(out _, out stateName, out loopName, out stateByCaseValue, out defaultState);
+
+    public bool TryGetSwitchGotoCaseInfo(out Microsoft.CodeAnalysis.CSharp.Syntax.SwitchStatementSyntax switchStatement, out string stateName, out string loopName, out IReadOnlyDictionary<string, int> stateByCaseValue, out int? defaultState)
     {
         if (_switchGotoCaseStack.Count > 0)
         {
             var info = _switchGotoCaseStack.Peek();
+            switchStatement = info.SwitchStatement;
             stateName = info.StateName;
             loopName = info.LoopName;
             stateByCaseValue = info.StateByCaseValue;
             defaultState = info.DefaultState;
             return true;
         }
+        switchStatement = null!;
         stateName = "";
         loopName = "";
         stateByCaseValue = null!;

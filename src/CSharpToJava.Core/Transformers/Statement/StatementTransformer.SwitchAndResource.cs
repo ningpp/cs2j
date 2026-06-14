@@ -413,7 +413,7 @@ public partial class StatementTransformer
 
         // Push the switch-goto-case context so nested goto case/default statements
         // can be properly transformed to state transitions.
-        context.PushSwitchGotoCase(stateName, loopName, stateByCaseValue, defaultState);
+        context.PushSwitchGotoCase(stmt, stateName, loopName, stateByCaseValue, defaultState);
         try
         {
 
@@ -451,7 +451,7 @@ public partial class StatementTransformer
                 }
             }
 
-            if (!section.Statements.Any(IsSwitchSectionTerminal))
+            if (!section.Statements.Any(StatementAlwaysTerminatesSwitchSection))
             {
                 sb.AppendLine($"            {stateName} = -1;");
                 sb.AppendLine($"            break {loopName};");
@@ -615,21 +615,107 @@ public partial class StatementTransformer
         return result;
     }
 
-    private static bool IsSwitchSectionTerminal(StatementSyntax stmt) =>
-        stmt.Kind() switch
+    private JavaSyntaxNode TransformBreakStatement(BreakStatementSyntax? stmt, ConversionContext context)
+    {
+        if (stmt != null
+            && context.TryGetSwitchGotoCaseInfo(
+                out SwitchStatementSyntax switchStatement,
+                out var stateName,
+                out var loopName,
+                out _,
+                out _)
+            && IsJumpTargetingSwitch(stmt, switchStatement))
         {
-            SyntaxKind.ReturnStatement or
-            SyntaxKind.ThrowStatement or
-            SyntaxKind.BreakStatement or
-            SyntaxKind.ContinueStatement or
-            SyntaxKind.GotoStatement or
-            SyntaxKind.GotoCaseStatement or
-            SyntaxKind.GotoDefaultStatement => true,
-            // A while(true) loop that contains goto case/default is effectively terminal
-            // because those gotos translate to "continue switchLoop" which exits the loop.
-            SyntaxKind.WhileStatement => IsWhileTrueWithGotoCase(stmt),
-            _ => false
-        };
+            return new JavaStatementNode($"{stateName} = -1; break {loopName};");
+        }
+
+        return new JavaStatementNode("break;");
+    }
+
+    private JavaSyntaxNode TransformContinueStatement(ContinueStatementSyntax? stmt, ConversionContext context)
+    {
+        if (stmt != null
+            && context.TryGetSwitchGotoCaseInfo(
+                out SwitchStatementSyntax switchStatement,
+                out var stateName,
+                out var loopName,
+                out _,
+                out _)
+            && IsContinueTargetingEnclosingLoopThroughSwitch(stmt, switchStatement))
+        {
+            return new JavaStatementNode($"{stateName} = -1; break {loopName};");
+        }
+
+        return new JavaStatementNode("continue;");
+    }
+
+    private static bool IsSwitchSectionTerminal(StatementSyntax stmt) =>
+        StatementAlwaysTerminatesSwitchSection(stmt);
+
+    private static bool StatementAlwaysTerminatesSwitchSection(StatementSyntax stmt)
+    {
+        switch (stmt.Kind())
+        {
+            case SyntaxKind.ReturnStatement:
+            case SyntaxKind.ThrowStatement:
+            case SyntaxKind.BreakStatement:
+            case SyntaxKind.ContinueStatement:
+            case SyntaxKind.GotoStatement:
+            case SyntaxKind.GotoCaseStatement:
+            case SyntaxKind.GotoDefaultStatement:
+                return true;
+            case SyntaxKind.WhileStatement:
+                // A while(true) loop that contains goto case/default is effectively terminal
+                // because those gotos translate to "continue switchLoop" which exits the loop.
+                return IsWhileTrueWithGotoCase(stmt);
+            case SyntaxKind.Block:
+                return stmt is BlockSyntax block
+                    && block.Statements.Any()
+                    && StatementAlwaysTerminatesSwitchSection(block.Statements.Last());
+            case SyntaxKind.IfStatement:
+                return stmt is IfStatementSyntax ifStmt
+                    && ifStmt.Else != null
+                    && StatementAlwaysTerminatesSwitchSection(ifStmt.Statement)
+                    && StatementAlwaysTerminatesSwitchSection(ifStmt.Else.Statement);
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsJumpTargetingSwitch(StatementSyntax jump, SwitchStatementSyntax switchStatement)
+    {
+        for (var parent = jump.Parent; parent != null; parent = parent.Parent)
+        {
+            if (ReferenceEquals(parent, switchStatement))
+                return true;
+
+            if (parent is SwitchStatementSyntax
+                or WhileStatementSyntax
+                or ForStatementSyntax
+                or ForEachStatementSyntax
+                or DoStatementSyntax)
+                return false;
+        }
+
+        return false;
+    }
+
+    private static bool IsContinueTargetingEnclosingLoopThroughSwitch(ContinueStatementSyntax stmt, SwitchStatementSyntax switchStatement)
+    {
+        for (var parent = stmt.Parent; parent != null; parent = parent.Parent)
+        {
+            if (ReferenceEquals(parent, switchStatement))
+                return true;
+
+            if (parent is WhileStatementSyntax
+                or ForStatementSyntax
+                or ForEachStatementSyntax
+                or DoStatementSyntax)
+                return false;
+        }
+
+        return false;
+    }
 
     private static bool IsWhileTrueWithGotoCase(StatementSyntax stmt)
     {
