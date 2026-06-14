@@ -3113,6 +3113,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{earlyParseHelper}({helperArgs})";
         }
 
+        if (originalMethodName == "AsTask"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemThreadingValueTaskType(context.GetTypeInfo(memberAccess.Expression).Type))
+        {
+            return receiver;
+        }
+
         // Regex.Split(input, pattern) -> input.split(pattern)
         bool isRegexSplit = originalMethodName == "Split"
             && node.ArgumentList.Arguments.Count >= 2
@@ -7140,6 +7147,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var prefix = string.Join(", ", classTypeTokens);
         return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
+    }
+
+    private static bool IsSystemThreadingValueTaskType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol namedType)
+            return false;
+
+        var original = namedType.OriginalDefinition;
+        return original.Name == "ValueTask"
+            && original.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
     }
 
     /// <summary>

@@ -516,3 +516,29 @@
 - **分析**: `System.IO.TextReader` maps to compat `TextReader`, and synchronous `TextReader.Read(char[], int, int)` already maps to `TextReader.read(char[], int, int)`. The async XML reader path lowers awaited `ReadAsync(char[], int, int)` to `TextReader.readAsync(char[], int, int).join()`, but compat `TextReader` exposes only the synchronous block-read API, so generated code compiles against a missing runtime method.
 
 ✅ **Fixed** — `TextReader.readAsync(char[], int, int)` now exists in the compat runtime and returns a completed `CompletableFuture<Integer>` using the existing .NET-style `read(...)` EOF semantics. After reinstalling compat, regenerating, and rerunning Maven, the original `XmlTextReaderImpl.java:[8561,35]` compiler error disappeared; the next Maven first error is now `CompletableFuture.getIsCompletedSuccessfully()` missing at `XmlTextReaderImpl.java:[9948,27]`.
+
+---
+
+## Iteration 23 — ValueTask IsCompletedSuccessfully property mapping missing
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 9948
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[9948,27] 找不到符号; 符号: 方法 getIsCompletedSuccessfully(); 位置: 类型为java.util.concurrent.CompletableFuture<io.github.ningpp.compat.Tuple4<java.lang.Integer,java.lang.Integer,java.lang.Integer,java.lang.Boolean>>的变量 parseTextTask`
+- **代码片段**:
+  ```java
+          // the whole value is in buffer
+          CompletableFuture<Tuple4<Integer, Integer, Integer, Boolean>> parseTextTask = parseTextAsync(orChars);
+          boolean fullValue = false;
+          if (!parseTextTask.getIsCompletedSuccessfully()) {
+          return _ParseTextAsync(parseTextTask.asTask());
+          } else {
+          var tuple_10 = parseTextTask.getResult();
+          startPos = tuple_10._1();
+          endPos = tuple_10._2();
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImplAsync.cs
+- **C# 原始代码**: `if (!parseTextTask.IsCompletedSuccessfully) { return _ParseTextAsync(parseTextTask.AsTask()); } ... var tuple_10 = parseTextTask.Result;`
+- **根因分类**: Transformer property/method mapping
+- **涉及组件**: D:\code\cs2j\config\TypeMappings.json; D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs
+- **分析**: `System.Threading.Tasks.ValueTask<T>` is mapped to Java `CompletableFuture<T>`. The generated Java proves the property-access path is treating `IsCompletedSuccessfully` and `Result` as ordinary C# properties, emitting default getters `getIsCompletedSuccessfully()` and `getResult()`. The existing TypeMappings already map `Task/Task<T>.IsCompletedSuccessfully` to `isDone()` and `Task/Task<T>/ValueTask<T>.Result` to `join()`, but `ValueTask<T>.IsCompletedSuccessfully` is not configured. The real failing receiver type is `ValueTask<ValueTuple<int,int,int,bool>>`; TypeMappingRegistry's generic-arity matcher counted commas inside Roslyn tuple display syntax as top-level type parameters, so the `ValueTask`1` mapping was missed for tuple-valued tasks. `AsTask()` similarly remains `asTask()` in later lines and should be identity for the `CompletableFuture` representation.
+
+✅ **Fixed** — `ValueTask<T>.IsCompletedSuccessfully` now maps to `CompletableFuture.isDone()`, `ValueTask<T>.Result` maps through the existing `join()` mapping even when `T` is a tuple, and `ValueTask<T>.AsTask()` is emitted as the existing `CompletableFuture` receiver. After regenerating and rerunning Maven, the original `getIsCompletedSuccessfully()` / `getResult()` / `asTask()` call sites disappeared; the next Maven first error is now `new CompletableFuture<T>(...)` constructor usage at `XmlTextReaderImpl.java:[10133,16]`.

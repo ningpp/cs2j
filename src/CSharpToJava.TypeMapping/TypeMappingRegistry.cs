@@ -600,13 +600,16 @@ public class TypeMappingRegistry
     private static int CountTopLevelTypeArgs(string typeName, int openAnglePos)
     {
         int depth = 0;
+        int tupleDepth = 0;
         int count = 1;
         for (int i = openAnglePos; i < typeName.Length; i++)
         {
             char c = typeName[i];
             if (c == '<') depth++;
             else if (c == '>') { depth--; if (depth < 0) break; }
-            else if (c == ',' && depth == 1) count++;
+            else if (c == '(' && depth >= 1) tupleDepth++;
+            else if (c == ')' && tupleDepth > 0) tupleDepth--;
+            else if (c == ',' && depth == 1 && tupleDepth == 0) count++;
         }
         return count;
     }

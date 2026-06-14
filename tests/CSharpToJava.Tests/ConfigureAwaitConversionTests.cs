@@ -159,6 +159,35 @@ class MyClass
         Assert.DoesNotContain("FromResult", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ValueTaskCompletionMembers_MapToCompletableFutureMembers()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class MyClass
+{
+    bool IsReady(ValueTask<(int, int, int, bool)> task)
+    {
+        if (!task.IsCompletedSuccessfully)
+            return false;
+        return task.Result.Item1 == 42;
+    }
+
+    Task<(int, int, int, bool)> AsTask(ValueTask<(int, int, int, bool)> task)
+    {
+        return task.AsTask();
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("!task.isDone()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("task.join()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return task;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getIsCompletedSuccessfully", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getResult", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".asTask(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ── Async Task method with conditional early return ─────────────
 
     /// <summary>

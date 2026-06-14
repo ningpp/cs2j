@@ -4785,6 +4785,16 @@
         },
         {
             "type": "System.Threading.Tasks.ValueTask`1",
+            "method": "get_IsCompletedSuccessfully",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.ValueTask`1",
+            "method": "IsCompletedSuccessfully",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.ValueTask`1",
             "method": "get_Result",
             "javaMethod": "join"
         },
