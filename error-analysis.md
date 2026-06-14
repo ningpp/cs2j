@@ -492,3 +492,27 @@
 - **涉及组件**: D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\StreamWrapper.java; D:\code\cs2j\config\TypeMappings.json; D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ControlFlowTransformer.cs
 - **分析**: `System.IO.Stream` maps to compat `StreamWrapper`, and the runtime already exposes synchronous `read(byte[], int, int)` with .NET EOF semantics. Async lowering maps awaited or joined task results to Java `CompletableFuture.join()`, so generated async XML reader code calls `StreamWrapper.readAsync(byte[], int, int).join()`. The compat runtime lacked that async facade, causing the first Maven compiler error.
 - **状态**: In Progress
+
+---
+
+## Iteration 5 — TextReader ReadAsync runtime API missing
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 8561
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[8561,35] 找不到符号; 符号: 方法 readAsync(char[],int,int); 位置: 类型为io.github.ningpp.compat.TextReader的变量 textReader`
+- **代码片段**:
+  ```java
+          } else {
+          if (_ps.textReader != null) {
+          // read chars
+          charsRead = _ps.textReader.readAsync(_ps.chars, _ps.charsUsed, _ps.chars.length - _ps.charsUsed - 1).join();
+          _ps.charsUsed += charsRead;
+          } else {
+          charsRead = 0;
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImplAsync.cs
+- **C# 原始代码**: `charsRead = await _ps.textReader.ReadAsync(_ps.chars, _ps.charsUsed, _ps.chars.Length - _ps.charsUsed - 1).ConfigureAwait(false);`
+- **根因分类**: compat runtime API 缺失
+- **涉及组件**: D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\TextReader.java; D:\code\cs2j\java\csharptojava-compat\src\test\java\io\github\ningpp\compat\TextReaderTest.java
+- **分析**: `System.IO.TextReader` maps to compat `TextReader`, and synchronous `TextReader.Read(char[], int, int)` already maps to `TextReader.read(char[], int, int)`. The async XML reader path lowers awaited `ReadAsync(char[], int, int)` to `TextReader.readAsync(char[], int, int).join()`, but compat `TextReader` exposes only the synchronous block-read API, so generated code compiles against a missing runtime method.
+
+✅ **Fixed** — `TextReader.readAsync(char[], int, int)` now exists in the compat runtime and returns a completed `CompletableFuture<Integer>` using the existing .NET-style `read(...)` EOF semantics. After reinstalling compat, regenerating, and rerunning Maven, the original `XmlTextReaderImpl.java:[8561,35]` compiler error disappeared; the next Maven first error is now `CompletableFuture.getIsCompletedSuccessfully()` missing at `XmlTextReaderImpl.java:[9948,27]`.

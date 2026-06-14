@@ -20,4 +20,18 @@ class TextReaderTest {
 
         assertEquals(0, reader.read(buffer, 0, buffer.length));
     }
+
+    @Test
+    void readAsync_copiesCharactersAndReturnsZeroAtEnd() {
+        TextReader reader = new TextReader(new StringReader("abcd"));
+        char[] buffer = new char[6];
+
+        assertEquals(3, reader.readAsync(buffer, 1, 3).join());
+        assertArrayEquals(new char[] { '\0', 'a', 'b', 'c', '\0', '\0' }, buffer);
+
+        assertEquals(1, reader.readAsync(buffer, 4, 2).join());
+        assertEquals('d', buffer[4]);
+
+        assertEquals(0, reader.readAsync(buffer, 0, buffer.length).join());
+    }
 }
