@@ -91,7 +91,8 @@ public static class ExpressionTransformerHelpers
             expression,
             transformedExpression,
             typeInfo.Type,
-            typeInfo.ConvertedType);
+            typeInfo.ConvertedType,
+            context);
     }
 
     /// <summary>
@@ -112,14 +113,16 @@ public static class ExpressionTransformerHelpers
             expression,
             transformedExpression,
             sourceType,
-            targetType);
+            targetType,
+            context);
     }
 
     private static string AdaptExpressionToTargetTypeCore(
         ExpressionSyntax expression,
         string transformedExpression,
         ITypeSymbol? sourceType,
-        ITypeSymbol? targetType)
+        ITypeSymbol? targetType,
+        ConversionContext context)
     {
         if (sourceType == null || targetType == null)
             return transformedExpression;
@@ -160,6 +163,12 @@ public static class ExpressionTransformerHelpers
             {
                 return $"new ReadOnlySpan<>({transformedExpression})";
             }
+        }
+
+        if (sourceType is IArrayTypeSymbol && targetType.SpecialType == SpecialType.System_Array)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.of({transformedExpression})";
         }
 
         // C# Stream types are compatible with the base Stream type, while Java splits

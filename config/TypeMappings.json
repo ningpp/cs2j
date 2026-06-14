@@ -180,13 +180,17 @@
         },
         {
             "csharp": "System.Array",
-            "java": "Object",
-            "imports": []
+            "java": "CSharpArray",
+            "imports": [
+                "io.github.ningpp.compat.CSharpArray"
+            ]
         },
         {
             "csharp": "Array",
-            "java": "Object",
-            "imports": []
+            "java": "CSharpArray",
+            "imports": [
+                "io.github.ningpp.compat.CSharpArray"
+            ]
         },
         {
             "csharp": "Dictionary",
@@ -510,8 +514,10 @@
         },
         {
             "csharp": "System.Array",
-            "java": "Object",
-            "imports": []
+            "java": "CSharpArray",
+            "imports": [
+                "io.github.ningpp.compat.CSharpArray"
+            ]
         },
         {
             "csharp": "System.Collections.Generic.KeyValuePair`2",

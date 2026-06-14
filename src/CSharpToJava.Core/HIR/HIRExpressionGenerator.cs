@@ -96,8 +96,23 @@ public class HIRExpressionGenerator
             name = _ctx.MapType(typeSym);
             return new IrIdentifierExpression { Name = name, Symbol = symbol, JavaType = name };
         }
-        return new IrIdentifierExpression { Name = name, Symbol = symbol };
+        return new IrIdentifierExpression
+        {
+            Name = name,
+            Symbol = symbol,
+            JavaType = GetSymbolJavaType(symbol),
+        };
     }
+
+    private string? GetSymbolJavaType(ISymbol? symbol)
+        => symbol switch
+        {
+            ILocalSymbol local => _ctx.MapType(local.Type),
+            IParameterSymbol parameter => _ctx.MapType(parameter.Type),
+            IFieldSymbol field => _ctx.MapType(field.Type),
+            IPropertySymbol property => _ctx.MapType(property.Type),
+            _ => null,
+        };
 
     private IrExpression GenerateBinary(BinaryExpressionSyntax node)
     {

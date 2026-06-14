@@ -89,7 +89,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     // captured variables with holder element access (_varNameCap[0]).
                     if (symbol is ILocalSymbol && context.MethodState.TryGetActiveLambdaCaptureHolder(id.Identifier.Text, out var irHolderName))
                         return new JavaArrayAccessExpression { Target = new JavaIdentifierExpression { Name = irHolderName }, Index = new JavaLiteralExpression { Value = "0" } };
-                    return new JavaIdentifierExpression { Name = name };
+                    return new JavaRawExpression(name, context.MapType(GetSymbolType(symbol)!));
                 }
 
                 // Property read → JavaMethodCallExpression for getter
@@ -149,6 +149,37 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgnM && asgnM.Left == node;
                     if (!isLhsOfAssignment)
                     {
+                        var receiverType = ResolveReceiverType(memberAccess.Expression, context);
+                        if (IsSystemArrayLengthOnConcreteArray(prop, receiverType))
+                        {
+                            var targetCode = Transform(memberAccess.Expression, context);
+                            return new JavaRawExpression($"{targetCode}.length", context.MapType(prop.Type));
+                        }
+                        if (prop.Name == "Length" && IsDeclaredAsConcreteArray(memberAccess.Expression, context))
+                        {
+                            var targetCode = Transform(memberAccess.Expression, context);
+                            return new JavaRawExpression($"{targetCode}.length", context.MapType(prop.Type));
+                        }
+
+                        if (prop.Name == "Length" && IsSystemArrayLengthOnCSharpArray(prop, receiverType))
+                        {
+                            var target = facade.TransformToIR(memberAccess.Expression, context);
+                            return new JavaMethodCallExpression
+                            {
+                                Target = target,
+                                MethodName = "getLength",
+                            };
+                        }
+                        if (prop.Name == "Length" && IsDeclaredAsSystemArray(memberAccess.Expression, context))
+                        {
+                            var target = facade.TransformToIR(memberAccess.Expression, context);
+                            return new JavaMethodCallExpression
+                            {
+                                Target = target,
+                                MethodName = "getLength",
+                            };
+                        }
+
                         var code = Transform(node, context);
                         // Convert getter calls to JavaMethodCallExpression when possible
                         if (code.EndsWith("()"))
@@ -481,10 +512,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         // Extract receiver type early for fallback property resolution.
         // Try multiple approaches: GetTypeInfo first, then GetSymbolInfo on the expression.
-        ITypeSymbol? receiverType = null;
-        if (context.SemanticModel != null && node.Expression is not TypeSyntax)
+        ITypeSymbol? receiverType = node.Expression is not TypeSyntax
+            ? ResolveReceiverType(node.Expression, context)
+            : null;
+        if ((receiverType == null || receiverType.TypeKind == TypeKind.Error)
+            && context.SemanticModel != null && node.Expression is not TypeSyntax)
         {
-            receiverType = context.GetTypeInfo(node.Expression).Type;
             if (receiverType == null)
             {
                 var exprSym = context.GetSymbolInfo(node.Expression).Symbol;
@@ -813,6 +846,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.getCurrent()";
 
+            if (IsSystemArrayLengthOnConcreteArray(prop, receiverType))
+                return $"{target}.length";
+            if (prop.Name == "Length" && IsDeclaredAsConcreteArray(node.Expression, context))
+                return $"{target}.length";
+
+            if (prop.Name == "Length" && IsSystemArrayLengthOnCSharpArray(prop, receiverType))
+                return CSharpArrayLength(target);
+            if (prop.Name == "Length" && IsDeclaredAsSystemArray(node.Expression, context))
+                return CSharpArrayLength(target);
+
             var propContainer = prop.ContainingType;
             bool isGenericDictionaryLike =
                 propContainer?.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
@@ -988,6 +1031,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (memberName == "Length" && IsSystemStringType(exprType))
                     return $"{target}.length()";
 
+                if (memberName == "Length" && IsSystemArrayReferenceType(exprType))
+                    return CSharpArrayLength(target);
+
                 // KeyValuePair<K,V>.Key/.Value → getKey()/getValue()
                 if (exprType is INamedTypeSymbol kvpType
                     && kvpType.Name == "KeyValuePair"
@@ -1151,6 +1197,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Length" && IsSystemIoStreamType(receiverType)) return $"{target}.getLength()";
         if (memberName == "Length" && IsSystemStringType(receiverType)) return $"{target}.length()";
         if (memberName == "Length" && IsSystemTextStringBuilder(receiverType)) return $"{target}.length()";
+        if (memberName == "Length" && IsSystemArrayReferenceType(receiverType)) return CSharpArrayLength(target);
+        if (memberName == "Length" && IsDeclaredAsSystemArray(node.Expression, context)) return CSharpArrayLength(target);
         if (memberName == "Length") return $"{target}.length";
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         // Only apply when receiver type is CONFIRMED to be KeyValuePair/IGrouping/Map.Entry.
@@ -1512,6 +1560,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (receiverType.TypeKind == TypeKind.Error)
             return null;
 
+        if (memberName == "Length" && IsSystemArrayReferenceType(receiverType))
+            return CSharpArrayLength(target);
+
         // Array: Length is a property in C# but a field in Java
         if (receiverType.TypeKind == TypeKind.Array)
         {
@@ -1635,6 +1686,140 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     private static bool IsSystemStringType(ITypeSymbol? type)
         => type?.SpecialType == SpecialType.System_String
             || type?.ToDisplayString() is "string" or "System.String";
+
+    private static bool IsSystemArrayReferenceType(ITypeSymbol? type)
+        => type is not IArrayTypeSymbol
+            && type?.TypeKind != TypeKind.Array
+            && (type?.SpecialType == SpecialType.System_Array
+                || type?.ToDisplayString() == "System.Array");
+
+    private static bool IsDeclaredAsSystemArray(ExpressionSyntax receiver, ConversionContext context)
+    {
+        if (receiver is not IdentifierNameSyntax id)
+            return false;
+
+        var name = id.Identifier.Text;
+        var root = receiver.SyntaxTree.GetRoot();
+
+        var declarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .LastOrDefault(v => v.Identifier.Text == name && v.SpanStart <= receiver.SpanStart);
+        if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration
+            && IsSystemArraySyntax(variableDeclaration.Type, context))
+            return true;
+
+        var parameter = root.DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .LastOrDefault(p => p.Identifier.Text == name && p.SpanStart <= receiver.SpanStart);
+        return parameter?.Type != null && IsSystemArraySyntax(parameter.Type, context);
+    }
+
+    private static bool IsDeclaredAsConcreteArray(ExpressionSyntax receiver, ConversionContext context)
+    {
+        if (receiver is not IdentifierNameSyntax id)
+            return false;
+
+        var name = id.Identifier.Text;
+        var root = receiver.SyntaxTree.GetRoot();
+
+        var declarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .LastOrDefault(v => v.Identifier.Text == name && v.SpanStart <= receiver.SpanStart);
+        if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration
+            && IsConcreteArraySyntax(variableDeclaration.Type, context))
+            return true;
+
+        var parameter = root.DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .LastOrDefault(p => p.Identifier.Text == name && p.SpanStart <= receiver.SpanStart);
+        return parameter?.Type != null && IsConcreteArraySyntax(parameter.Type, context);
+    }
+
+    private static bool IsConcreteArraySyntax(TypeSyntax typeSyntax, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(typeSyntax).Type;
+        if (type is IArrayTypeSymbol || type?.TypeKind == TypeKind.Array)
+            return true;
+
+        return typeSyntax is ArrayTypeSyntax;
+    }
+
+    private static bool IsSystemArraySyntax(TypeSyntax typeSyntax, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(typeSyntax).Type;
+        if (IsSystemArrayReferenceType(type))
+            return true;
+
+        var text = typeSyntax.ToString().Trim();
+        return text is "Array" or "System.Array" or "global::System.Array";
+    }
+
+    private static bool IsSystemArrayLengthOnCSharpArray(IPropertySymbol prop, ITypeSymbol? receiverType)
+        => prop.Name == "Length"
+            && prop.ContainingType?.SpecialType == SpecialType.System_Array
+            && IsSystemArrayReferenceType(receiverType);
+
+    private static bool IsSystemArrayLengthOnConcreteArray(IPropertySymbol prop, ITypeSymbol? receiverType)
+        => prop.Name == "Length"
+            && prop.ContainingType?.SpecialType == SpecialType.System_Array
+            && (receiverType is IArrayTypeSymbol || receiverType?.TypeKind == TypeKind.Array);
+
+    private static ITypeSymbol? GetSymbolType(ISymbol? symbol)
+        => symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => null,
+        };
+
+    private static ITypeSymbol? ResolveReceiverType(ExpressionSyntax receiver, ConversionContext context)
+    {
+        var typeInfo = context.GetTypeInfo(receiver);
+        var resolved = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (resolved != null && resolved.TypeKind != TypeKind.Error)
+            return resolved;
+
+        resolved = GetSymbolType(context.GetSymbolInfo(receiver).Symbol);
+        if (resolved != null && resolved.TypeKind != TypeKind.Error)
+            return resolved;
+
+        if (receiver is IdentifierNameSyntax id)
+        {
+            var name = id.Identifier.Text;
+            if (context.VarTypeMap.TryGetValue(name, out var mappedType)
+                && mappedType.TypeKind != TypeKind.Error)
+                return mappedType;
+
+            var declarator = receiver.SyntaxTree.GetRoot()
+                .DescendantNodes()
+                .OfType<VariableDeclaratorSyntax>()
+                .LastOrDefault(v => v.Identifier.Text == name && v.SpanStart <= receiver.SpanStart);
+            if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration)
+            {
+                var declaredType = context.GetTypeInfo(variableDeclaration.Type).Type;
+                if (declaredType != null && declaredType.TypeKind != TypeKind.Error)
+                    return declaredType;
+            }
+
+            var parameter = receiver.SyntaxTree.GetRoot()
+                .DescendantNodes()
+                .OfType<ParameterSyntax>()
+                .LastOrDefault(p => p.Identifier.Text == name && p.SpanStart <= receiver.SpanStart);
+            if (parameter?.Type != null)
+            {
+                var parameterType = context.GetTypeInfo(parameter.Type).Type;
+                if (parameterType != null && parameterType.TypeKind != TypeKind.Error)
+                    return parameterType;
+            }
+        }
+
+        return null;
+    }
+
+    private static string CSharpArrayLength(string target)
+        => $"{target}.getLength()";
 
     private static bool IsSystemTextStringBuilder(ITypeSymbol? type)
         => type?.ToDisplayString() == "System.Text.StringBuilder";

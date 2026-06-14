@@ -22,6 +22,50 @@ class Test {
         Assert.DoesNotContain("Object.sort", result.GeneratedCode);
     }
 
+    [Fact]
+    public void SystemArrayParameter_MapsToCSharpArray()
+    {
+        var result = Convert(@"
+using System;
+
+class Test {
+    int Remaining(Array array, int index, int count) {
+        if (array.Length - index < count) {
+            return -1;
+        }
+        return array.Length;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.CSharpArray;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("int remaining(CSharpArray array, int index, int count)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("array.getLength() - index < count", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return array.getLength();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Object array", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("java.lang.reflect.Array.getLength(array)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("array.length", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConcreteArrayArgument_ToSystemArrayParameter_WrapsInCSharpArray()
+    {
+        var result = Convert(@"
+using System;
+
+class Test {
+    int Len(Array array) => array.Length;
+
+    int M(int[] values) {
+        return Len(values);
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("int len(CSharpArray array)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return len(CSharpArray.of(values));", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

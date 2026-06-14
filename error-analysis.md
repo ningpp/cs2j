@@ -374,3 +374,30 @@
 - **分析**: labeled local declarations are now converted to Java's `label: ; declaration` form, but the state-machine hoisted-local cleanup only removes older labeled block declarations and leaves the declaration after the empty label.
 
 ✅ **Fixed** — State-machine hoisted-local cleanup now also removes declarations emitted after empty labeled statements, matching the `label: ; declaration` form used for labeled local declarations.
+
+---
+
+## Iteration 17 — System.Array length on Object receiver
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 6460
+- **错误信息**: `找不到符号 符号: 变量 length 位置: 类型为java.lang.Object的变量 array`
+- **代码片段**:
+  ```java
+          if (index < 0) {
+          throw new IllegalArgumentException(((_incReadDecoder instanceof IncrementalReadCharsDecoder) ? "index" : "offset"));
+          }
+          if (array.length - index < count) {
+          throw new ArgumentException(((_incReadDecoder instanceof IncrementalReadCharsDecoder) ? "count" : "len"));
+          }
+          if (count == 0) {
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `if (array.Length - index < count)`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`, `src/CSharpToJava.Core/Lowering/LowerProperty.cs`
+- **分析**: `System.Array` was mapped to Java `Object`, which lost the static type needed to model `Array.Length` and produced `array.length` on an `Object` receiver.
+
+✅ **Fixed** — `System.Array`/`Array` now map to compact runtime `CSharpArray`; concrete Java arrays are wrapped with `CSharpArray.of(...)` when passed to `System.Array` parameters, and `System.Array.Length` lowers to `getLength()` while concrete arrays continue to use `.length`.
+
+---

@@ -65,9 +65,33 @@ public class LowerProperty : ILoweringPass
         var propSymbol = prop.Symbol as IPropertySymbol;
         var loweredTarget = LowerExpression(prop.Target);
 
-        // System.Array.Length → .length (Java array field, not a method)
+        if (propSymbol?.ContainingType?.SpecialType == SpecialType.System_Array
+            && prop.PropertyName == "Length"
+            && IsJavaArrayType(prop.Target.JavaType))
+        {
+            return new IrMemberAccessExpression
+            {
+                Target = loweredTarget,
+                MemberName = "length",
+                Symbol = prop.Symbol,
+                JavaType = prop.JavaType,
+            };
+        }
+
+        // System.Array references map to CSharpArray in compact.
         if (propSymbol?.ContainingType?.SpecialType == SpecialType.System_Array)
         {
+            if (prop.PropertyName == "Length")
+            {
+                return new IrInvocationExpression
+                {
+                    Target = loweredTarget,
+                    MethodName = "getLength",
+                    Symbol = prop.Symbol,
+                    JavaType = prop.JavaType,
+                };
+            }
+
             var mappedName = TryMapPropertyName(propSymbol, prop.PropertyName);
             return new IrMemberAccessExpression
             {
@@ -222,4 +246,7 @@ public class LowerProperty : ILoweringPass
 
         return csharpName;
     }
+
+    private static bool IsJavaArrayType(string? javaType)
+        => javaType?.TrimEnd().EndsWith("[]", StringComparison.Ordinal) == true;
 }
