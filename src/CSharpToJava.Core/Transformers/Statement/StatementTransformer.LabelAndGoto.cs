@@ -370,32 +370,6 @@ public partial class StatementTransformer
         sb.AppendLine("    }");
         sb.AppendLine("}");
 
-        // Add a fallback return if the method has a non-void return type
-        // (Java requires all paths to return a value, and the compiler can't
-        // verify that the state machine always hits a return case)
-        if (block.Parent is MethodDeclarationSyntax methodDecl &&
-            !methodDecl.ReturnType.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.PredefinedType) &&
-            !(methodDecl.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.PredefinedTypeSyntax pt &&
-              pt.Keyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.VoidKeyword)))
-        {
-            // Non-predefined return type - add throw as fallback.
-            sb.AppendLine("throw new IllegalStateException(\"Unexpected state\");");
-        }
-        else if (block.Parent is MethodDeclarationSyntax md &&
-            md.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.PredefinedTypeSyntax pdt &&
-            !pdt.Keyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.VoidKeyword))
-        {
-            // Predefined non-void return type - add default return.
-            var returnType = pdt.Keyword.Text;
-            var defaultReturn = returnType switch
-            {
-                "int" or "long" or "short" or "byte" or "float" or "double" or "char" => "return 0;",
-                "bool" => "return false;",
-                _ => "return null;"
-            };
-            sb.AppendLine(defaultReturn);
-        }
-
         // Post-process: convert hoisted variable declarations inside the while loop to assignments.
         // Variables declared inside try-catch, fixed, or other nested blocks were hoisted outside
         // the while loop, but their declarations inside the loop body were not converted to assignments
@@ -411,7 +385,48 @@ public partial class StatementTransformer
         // any code after it (labels, state transitions) is unreachable and causes Java compilation errors.
         result = RemoveUnreachableCodeAfterInfiniteLoops(result);
 
+        // Add a fallback return only if the cleaned state machine can still break out
+        // normally. Otherwise Java rejects the fallback itself as unreachable.
+        if (StateMachineCanFallThrough(result) && TryGetStateMachineFallbackReturn(block, out var fallbackReturn))
+        {
+            result += fallbackReturn + Environment.NewLine;
+        }
+
         return result;
+    }
+
+    private static bool StateMachineCanFallThrough(string stateMachineCode)
+    {
+        return Regex.IsMatch(stateMachineCode, @"\bbreak\s+__gotoLoop\s*;");
+    }
+
+    private static bool TryGetStateMachineFallbackReturn(BlockSyntax block, out string fallbackReturn)
+    {
+        fallbackReturn = "";
+
+        if (block.Parent is not MethodDeclarationSyntax methodDecl)
+        {
+            return false;
+        }
+
+        if (methodDecl.ReturnType is PredefinedTypeSyntax predefinedType)
+        {
+            if (predefinedType.Keyword.IsKind(SyntaxKind.VoidKeyword))
+            {
+                return false;
+            }
+
+            fallbackReturn = predefinedType.Keyword.Text switch
+            {
+                "int" or "long" or "short" or "byte" or "float" or "double" or "char" => "return 0;",
+                "bool" => "return false;",
+                _ => "return null;"
+            };
+            return true;
+        }
+
+        fallbackReturn = "throw new IllegalStateException(\"Unexpected state\");";
+        return true;
     }
 
     private string TransformLabeledBasicBlockStatement(

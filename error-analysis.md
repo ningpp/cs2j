@@ -677,3 +677,27 @@
 - **分析**: 本轮与 Iteration 27 的差异是：上一轮不可达语句是 `for (;;)` 无限循环之后错误保留的 fall-through state transition；本轮不可达语句位于同一个 state-machine case 的尾部，是 block exit 被错误分类为 `FallThrough` 后补出的 `break __gotoLoop;`。`GotoAnalyzer.BuildBasicBlocks` 只识别顶层 `return`/`throw`/`break`/`continue`，对 `ReadData:` 这种标签内的复杂 `if/else` 块没有做“所有路径是否终止”的分析。转换后的 Java 中 EOF 分支含 `return false;`，非 EOF 分支只更新变量后落回无限循环；从 Java 可达性看，该 labeled block 后的 case 尾部 `break __gotoLoop;` 无法到达。前两轮都属于方法级或 switch 级 state-machine 的不可达清理，但本轮根因更早，出在 basic-block exit 分类没有理解 labeled statement body 的终止形态。
 
 ✅ **Fixed** — method-level goto state-machine cleanup now removes a `break __gotoLoop;` emitted immediately after a generated infinite loop whose body cannot normally exit. The focused regression first failed by matching `return false; ... break __gotoLoop;`, then passed after the cleanup was extended. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[3166,9]` unreachable `break __gotoLoop;` disappeared. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[3168,9] 无法访问的语句` on the fallback `return false;` after the same nonbreaking state-machine loop.
+
+---
+
+## Iteration 29 — Method goto state-machine appends fallback return after nonbreaking infinite loop
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 3168
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[3168,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          }
+          }
+          }
+          return false;
+
+      }
+          // Parses element content
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs
+- **C# 原始代码**: `ParseDocumentContent()` 中 `for (;;)` 包含 `goto ReadData` 和 `ReadData:` 标签块；EOF 分支 `return false;`，非 EOF 分支更新 `pos/chars` 后继续外层无限循环，方法本身没有可正常落出的路径。
+- **根因分类**: Transformer method goto state-machine lowering / fallback return reachability
+- **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.LabelAndGoto.cs
+- **分析**: Iteration 28 已删除同一 state-machine case 尾部不可达的 `break __gotoLoop;`，但 `TransformBlockWithStateMachine` 随后仍按“非 void 方法 Java 需要兜底返回”的通用规则追加 `return false;`。这个兜底对 `switch goto case` 等可能落出 state-machine 的场景仍需要保留；但本例方法级 state-machine 主体中外层 `__gotoLoop` 的唯一可执行路径被一个不可正常退出的 C# `for (;;)` 包住，循环体只通过 `return/throw/continue` 或 state transition 继续执行，没有裸 `break` 能退出循环。Java 因此认定整个 `__gotoLoop` 后的 fallback return 不可达。应在 state-machine 清理后识别这种“不可正常落出”的主循环，并抑制方法尾部 fallback return；不要手改生成 Java。
+
+✅ **Fixed** — method-level goto state-machine fallback generation now runs after unreachable infinite-loop cleanup and only emits a fallback when the cleaned state machine can still break out normally. The focused regression first failed by matching `__gotoLoop: while (true) ... return false;`, then passed after the fallback was suppressed for nonbreaking state machines while the existing goto-case fallback test stayed green. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[3168,9]` fallback `return false;` disappeared. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[4292,9] 无法访问的语句` on `__state = 2; continue __gotoLoop;`.

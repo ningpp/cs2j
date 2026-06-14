@@ -1609,6 +1609,41 @@ class Test {
         Assert.DoesNotMatch(@"(?s)return\s+false;.{0,300}?break\s+__gotoLoop;", code);
     }
 
+    [Fact]
+    public void StateMachine_NonBreakingInfiniteLoop_DropsUnreachableFallbackReturn()
+    {
+        var result = Convert(@"
+class Test {
+    static bool M(bool more, bool needMore) {
+        int pos = 0;
+        int[] input = new int[] { 0 };
+        for (;;)
+        {
+            if (needMore)
+            {
+                goto ReadData;
+            }
+
+        ReadData:
+            if (more)
+            {
+                needMore = false;
+            }
+            else
+            {
+                return false;
+            }
+            pos = input[0];
+        }
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.DoesNotMatch(@"(?s)__gotoLoop:\s*while\s*\(true\).*?\}\s*return\s+false;", code);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);
