@@ -351,3 +351,26 @@
 - **分析**: normal labeled-statement conversion wraps non-block labeled statements in a Java block, but a C# label on a local declaration does not create a scope, so `ReadData: { int tmp3 = ...; }` hides `tmp3` from following statements.
 
 ✅ **Fixed** — Labels on local declarations now emit an empty labeled statement followed by the declaration at the original scope, preserving Java syntax and C# variable visibility.
+
+---
+
+## Iteration 16 — Hoisted local after empty labeled statement
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 3693
+- **错误信息**: `已在方法 parseAttributes()中定义了变量 tmpch2`
+- **代码片段**:
+  ```java
+          // parse attribute name
+          ContinueParseName: ; char tmpch2;
+          for (; true; ) {
+          if (_xmlCharType.isNCNameSingleChar(tmpch2 = chars[pos])) {
+          pos++;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `ContinueParseName: char tmpch2;`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.LabelAndGoto.cs`
+- **分析**: labeled local declarations are now converted to Java's `label: ; declaration` form, but the state-machine hoisted-local cleanup only removes older labeled block declarations and leaves the declaration after the empty label.
+
+✅ **Fixed** — State-machine hoisted-local cleanup now also removes declarations emitted after empty labeled statements, matching the `label: ; declaration` form used for labeled local declarations.

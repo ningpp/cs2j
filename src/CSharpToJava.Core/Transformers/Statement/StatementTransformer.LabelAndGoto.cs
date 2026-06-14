@@ -751,6 +751,9 @@ public partial class StatementTransformer
             var renamedVarPattern = $@"{Regex.Escape(varName)}(?:_[A-Za-z0-9]+)?";
             var labeledBareDeclarationLinePattern = $@"^[ \t]*[A-Za-z_$][\w$]*[ \t]*:[ \t]*\{{[ \t]*{typePattern}[ \t]+\b{renamedVarPattern}\b[ \t]*;[ \t]*\}}[ \t]*(?:\r?\n)?";
             body = Regex.Replace(body, labeledBareDeclarationLinePattern, "", RegexOptions.Multiline);
+
+            var emptyLabelBareDeclarationLinePattern = $@"^[ \t]*[A-Za-z_$][\w$]*[ \t]*:[ \t]*;[ \t]*{typePattern}[ \t]+\b{renamedVarPattern}\b[ \t]*;[ \t]*(?:\r?\n)?";
+            body = Regex.Replace(body, emptyLabelBareDeclarationLinePattern, "", RegexOptions.Multiline);
         }
 
         return prefix + body;

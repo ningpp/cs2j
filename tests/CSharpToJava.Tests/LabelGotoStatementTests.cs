@@ -1450,6 +1450,7 @@ class Test {
 
         Assert.Matches(@"\bchar\s+tmpch2(?:_\d+)?\s*=\s*'\\0'\s*;", beforeWhile);
         Assert.DoesNotMatch(@"\bagain:\s*\{\s*char\s+tmpch2(?:_\d+)?\s*;\s*\}", whileBody);
+        Assert.DoesNotMatch(@"\bagain:\s*;\s*char\s+tmpch2(?:_\d+)?\s*;", whileBody);
     }
 
     [Fact]
