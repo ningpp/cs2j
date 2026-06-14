@@ -158,6 +158,25 @@ public class Sample
     }
 
     [Fact]
+    public void DateTimeToStringRoundtrip_UsesCompatToStringFormat()
+    {
+        var result = Convert(@"
+using System;
+
+public class Sample
+{
+    public string Format(DateTime value)
+    {
+        return value.ToString(""o"");
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("value.toString(\"o\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("value.format(DateTimeFormatter.ofPattern(\"o\"))", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IntToStringWithProviderOnly_GeneratesStringValueOf()
     {
         var result = Convert(@"

@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 
 /**
  * C# System.DateTimeOffset compatibility class.
@@ -133,6 +134,35 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         int m = (int) (rem / CSharpTimeSpan.TICKS_PER_MINUTE);
         int s = (int) (rem % CSharpTimeSpan.TICKS_PER_MINUTE / CSharpTimeSpan.TICKS_PER_SECOND);
         return dtStr + " " + (negative ? "-" : "+") + String.format("%02d:%02d:%02d", h, m, s);
+    }
+
+    public String toString(String format) {
+        if (format == null || format.isEmpty()) {
+            return toString();
+        }
+
+        if ("o".equals(format) || "O".equals(format)) {
+            long offsetTicks = offset.getTicks();
+            long offsetSeconds = offsetTicks / CSharpTimeSpan.TICKS_PER_SECOND;
+            ZoneOffset zoneOffset = ZoneOffset.ofTotalSeconds((int) offsetSeconds);
+            LocalDateTime ldt = ticksToLocalDateTime(dateTime.getTicks());
+            OffsetDateTime odt = OffsetDateTime.of(ldt, zoneOffset);
+            return odt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX"));
+        }
+
+        return ticksToLocalDateTime(dateTime.getTicks()).format(DateTimeFormatter.ofPattern(format));
+    }
+
+    private static LocalDateTime ticksToLocalDateTime(long ticks) {
+        long javaEpochTicks = ticks - 621355968000000000L;
+        long epochDay = javaEpochTicks / CSharpTimeSpan.TICKS_PER_DAY;
+        long nanoOfDay = (javaEpochTicks % CSharpTimeSpan.TICKS_PER_DAY) * 100;
+        if (nanoOfDay < 0) {
+            epochDay--;
+            nanoOfDay += 24L * 3600 * 1_000_000_000L;
+        }
+
+        return LocalDateTime.of(LocalDate.ofEpochDay(epochDay), LocalTime.ofNanoOfDay(nanoOfDay));
     }
 
     @Override

@@ -159,4 +159,10 @@ class CSharpDateTimeTest {
         CSharpDateTime dt = new CSharpDateTime(2024, 6, 15, 10, 30, 45);
         assertEquals("6/15/2024 10:30:45", dt.toString());
     }
+
+    @Test
+    void toString_roundtripFormat() {
+        CSharpDateTime dt = new CSharpDateTime(2024, 6, 15, 10, 30, 45, 123);
+        assertEquals("2024-06-15T10:30:45.1230000", dt.toString("o"));
+    }
 }

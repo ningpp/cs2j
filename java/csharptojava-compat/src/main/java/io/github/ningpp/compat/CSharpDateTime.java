@@ -209,6 +209,35 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
             + " " + h + ":" + String.format("%02d", m) + ":" + String.format("%02d", s);
     }
 
+    public String toString(String format) {
+        if (format == null || format.isEmpty()) {
+            return toString();
+        }
+
+        LocalDateTime ldt = ticksToLdt();
+        if ("o".equals(format) || "O".equals(format)) {
+            String base = ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+            String fraction = String.format("%07d", ldt.getNano() / 100);
+            return switch (kind) {
+                case Utc -> base + "." + fraction + "Z";
+                case Local -> base + "." + fraction + getLocalOffsetText();
+                default -> base + "." + fraction;
+            };
+        }
+
+        return ldt.format(DateTimeFormatter.ofPattern(format));
+    }
+
+    private static String getLocalOffsetText() {
+        ZoneOffset offset = OffsetDateTime.now().getOffset();
+        int totalSeconds = offset.getTotalSeconds();
+        char sign = totalSeconds < 0 ? '-' : '+';
+        int absSeconds = Math.abs(totalSeconds);
+        int hours = absSeconds / 3600;
+        int minutes = (absSeconds % 3600) / 60;
+        return String.format("%c%02d:%02d", sign, hours, minutes);
+    }
+
     // --- Comparable / equals / hashCode ---
 
     @Override

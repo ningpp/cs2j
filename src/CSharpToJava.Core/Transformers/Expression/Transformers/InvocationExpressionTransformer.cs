@@ -2818,15 +2818,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.delete({removeStart}, {removeStart} + {removeLen})";
         }
 
-        // C# DateTime.ToString(format) / DateTimeOffset.ToString(format)
-        // Java's LocalDateTime/OffsetDateTime toString() takes no args; use .format(DateTimeFormatter) instead.
+        // C# DateTime.ToString(format) / DateTimeOffset.ToString(format).
+        // These types map to compat wrappers, so keep formatted output on the
+        // wrapper instead of assuming the receiver is a java.time type.
         if (originalMethodName == "ToString"
             && node.ArgumentList.Arguments.Count == 1
             && methodSymbol?.ContainingType.ToDisplayString() is "System.DateTime" or "System.DateTimeOffset")
         {
             var formatArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            context.AddImport("java.time.format.DateTimeFormatter");
-            return $"{receiver}.format(DateTimeFormatter.ofPattern({formatArg}))";
+            return $"{receiver}.toString({formatArg})";
         }
 
         // StringBuilder.AppendFormat(fmt, args) → sb.append(String.format(fmt, args))

@@ -177,3 +177,27 @@
 - **分析**: switch expression transformation lets an `out` argument enqueue holder pre/post statements, but plain switch lowering does not drain the switch expression pre-statements before emitting `switch (...)`, so the holder declaration is later emitted inside the first case after the holder is already used.
 
 ✅ **Fixed** — Captured switch expressions with pending pre/post side effects into a synthetic temporary before emitting the switch, so holder declarations and out read-backs are emitted before switch dispatch.
+
+---
+
+## Iteration 9 — DateTime formatted ToString emits missing compat format method
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlWriter.java`
+- **行号**: 174
+- **错误信息**: `找不到符号 符号: 方法 format(java.time.format.DateTimeFormatter) 位置: 类型为io.github.ningpp.compat.CSharpDateTime的变量 value`
+- **代码片段**:
+  ```java
+          // Writes out the specified value.
+  public void writeValue(CSharpDateTime value) {
+          writeString(value.format(DateTimeFormatter.ofPattern("o")));
+      }
+          // Writes out the specified value.
+  public void writeValue(CSharpDateTimeOffset value) {
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlWriter.cs`
+- **C# 原始代码**: `WriteString(value.ToString("o"));`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`, `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpDateTime.java`
+- **分析**: `System.DateTime` 已映射为 compat `CSharpDateTime`，但 formatted `DateTime.ToString(format)` 的 transformer 仍按 Java `LocalDateTime` 生成 `.format(DateTimeFormatter.ofPattern(...))`，导致生成代码调用 compat 类型不存在的方法。
+
+✅ **Fixed** — Formatted `DateTime`/`DateTimeOffset.ToString(...)` now targets compat `toString(...)` overloads, and the compat runtime implements round-trip `"o"` formatting.
