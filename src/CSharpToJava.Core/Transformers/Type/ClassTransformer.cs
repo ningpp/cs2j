@@ -120,12 +120,7 @@ public class ClassTransformer : ITypeTransformer
                     // Skip types mapped to __suppress__ (e.g. ISerializable, SerializationInfo, StreamingContext)
                     if (mappedIface == "__suppress__")
                         continue;
-                    // ICollection<T> maps to java.util.Collection<T> for type bounds (CollectionUtilities),
-                    // but when used as an IMPLEMENTED interface it requires all abstract methods to be
-                    // implemented (addAll, retainAll, containsAll, etc). Use Iterable instead since
-                    // custom collection classes typically don't implement the full Collection contract.
-                    // Only substitute when the class does NOT declare ICollection members itself.
-                    if (iface.Name == "ICollection" && iface.ContainingNamespace?.ToString()?.StartsWith("System") == true && !hasICollectionImpl)
+                    if (ShouldUseIterableForImplementedCollectionInterface(iface, hasICollectionImpl))
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
 
                     // Check for Java type-erasure conflict: if a base class already implements the same
@@ -397,12 +392,8 @@ public class ClassTransformer : ITypeTransformer
                     || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
                 {
                     var mappedIface = context.MapType(resolvedType);
-                    // ICollection<T> as an implemented interface → use Iterable to avoid requiring all abstract Collection methods.
-                    // Only substitute when the class does NOT declare ICollection members itself.
                     if (resolvedType is INamedTypeSymbol namedIface &&
-                        namedIface.Name == "ICollection" &&
-                        namedIface.ContainingNamespace?.ToString()?.StartsWith("System") == true &&
-                        !hasICollectionImpl)
+                        ShouldUseIterableForImplementedCollectionInterface(namedIface, hasICollectionImpl))
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
 
                     // Check for Java type-erasure conflict: if a base class already implements the same
@@ -1912,6 +1903,24 @@ public class ClassTransformer : ITypeTransformer
                 Body = "return getCount();"
             });
         }
+    }
+
+    private static bool ShouldUseIterableForImplementedCollectionInterface(INamedTypeSymbol iface, bool hasICollectionImpl)
+    {
+        if (iface.Name != "ICollection"
+            || iface.ContainingNamespace?.ToString()?.StartsWith("System") != true)
+            return false;
+
+        // Non-generic System.Collections.ICollection only exposes Count/CopyTo/SyncRoot/
+        // IsSynchronized, so Java's full Collection contract is too strong even when those
+        // members are explicitly implemented.
+        if (!iface.IsGenericType)
+            return true;
+
+        // ICollection<T> maps to java.util.Collection<T> for type bounds (CollectionUtilities),
+        // but as an implemented interface it requires addAll, retainAll, containsAll, etc.
+        // Use Iterable unless the class declares the full generic collection surface itself.
+        return !hasICollectionImpl;
     }
 
     /// <summary>

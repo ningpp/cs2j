@@ -55,4 +55,32 @@ class NodeCollection : IList<string> {
         Assert.Contains("return true;", code);
         Assert.DoesNotContain("void add(", code);
     }
+
+    [Fact]
+    public void NonGenericICollectionImplementation_DoesNotEmitJavaCollectionContract()
+    {
+        var r = Convert(@"
+using System.Collections;
+
+class NodeMap : IEnumerable
+{
+    public int Count => 0;
+    public IEnumerator GetEnumerator() { return null; }
+}
+
+class NodeCollection : NodeMap, ICollection
+{
+    bool ICollection.IsSynchronized => false;
+    object ICollection.SyncRoot => this;
+    int ICollection.Count => Count;
+    void ICollection.CopyTo(Array array, int index) { }
+}");
+
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        Assert.DoesNotContain("implements Collection", code);
+        Assert.Contains("implements Iterable", code);
+        Assert.Contains("int size()", code);
+    }
 }
