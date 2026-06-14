@@ -90,6 +90,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.Generic.ValueListBuilder`1",
+            "java": "ValueListBuilder",
+            "imports": [
+                "io.github.ningpp.compat.ValueListBuilder"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.IList`1",
             "java": "List",
             "imports": [

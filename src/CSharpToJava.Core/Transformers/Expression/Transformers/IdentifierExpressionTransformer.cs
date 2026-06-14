@@ -1217,7 +1217,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Length" && IsSystemTextStringBuilder(receiverType)) return $"{target}.length()";
         if (memberName == "Length" && IsSystemArrayReferenceType(receiverType)) return CSharpArrayLength(target);
         if (memberName == "Length" && IsDeclaredAsSystemArray(node.Expression, context)) return CSharpArrayLength(target);
-        if (memberName == "Length") return $"{target}.length";
+        // For types not matched above (e.g. ValueListBuilder, custom structs with a
+        // Length property), use getter pattern.  Only plain .length (field access) is
+        // correct for Java arrays — those are handled earlier via IsDeclaredAsConcreteArray.
+        if (memberName == "Length") return $"{target}.getLength()";
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         // Only apply when receiver type is CONFIRMED to be KeyValuePair/IGrouping/Map.Entry.
         // Do NOT apply as a best-effort guess when receiverType is unknown (null) — many
