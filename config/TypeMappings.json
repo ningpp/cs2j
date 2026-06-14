@@ -5719,17 +5719,17 @@
         {
             "type": "System.Globalization.CultureInfo",
             "method": "InvariantCulture",
-            "javaMethod": "java.util.Locale.ROOT"
+            "javaMethod": "CultureInfo.getInvariantCulture()"
         },
         {
             "type": "System.Globalization.NumberFormatInfo",
             "method": "InvariantInfo",
-            "javaMethod": "java.util.Locale.ROOT"
+            "javaMethod": "CultureInfo.getInvariantCulture()"
         },
         {
             "type": "System.Globalization.DateTimeFormatInfo",
             "method": "InvariantInfo",
-            "javaMethod": "java.util.Locale.ROOT"
+            "javaMethod": "CultureInfo.getInvariantCulture()"
         },
         {
             "type": "System.Double",

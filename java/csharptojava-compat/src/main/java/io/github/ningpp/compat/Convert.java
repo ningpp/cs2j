@@ -46,8 +46,8 @@ public class Convert {
         return Boolean.parseBoolean(value);
     }
 
-    /** Mirrors C# Convert.ChangeType(Object, Type) for common types */
-    public static Object changeType(String value, Class<?> targetType, java.util.Locale locale) {
+    /** Mirrors C# Convert.ChangeType(Object, Type, IFormatProvider) for common types */
+    public static Object changeType(String value, Class<?> targetType, IFormatProvider provider) {
         if (value == null) {
             if (targetType == String.class) return null;
             if (targetType.isPrimitive()) throw new IllegalArgumentException("Cannot convert null to primitive type");
