@@ -542,3 +542,26 @@
 - **分析**: `System.Threading.Tasks.ValueTask<T>` is mapped to Java `CompletableFuture<T>`. The generated Java proves the property-access path is treating `IsCompletedSuccessfully` and `Result` as ordinary C# properties, emitting default getters `getIsCompletedSuccessfully()` and `getResult()`. The existing TypeMappings already map `Task/Task<T>.IsCompletedSuccessfully` to `isDone()` and `Task/Task<T>/ValueTask<T>.Result` to `join()`, but `ValueTask<T>.IsCompletedSuccessfully` is not configured. The real failing receiver type is `ValueTask<ValueTuple<int,int,int,bool>>`; TypeMappingRegistry's generic-arity matcher counted commas inside Roslyn tuple display syntax as top-level type parameters, so the `ValueTask`1` mapping was missed for tuple-valued tasks. `AsTask()` similarly remains `asTask()` in later lines and should be identity for the `CompletableFuture` representation.
 
 ✅ **Fixed** — `ValueTask<T>.IsCompletedSuccessfully` now maps to `CompletableFuture.isDone()`, `ValueTask<T>.Result` maps through the existing `join()` mapping even when `T` is a tuple, and `ValueTask<T>.AsTask()` is emitted as the existing `CompletableFuture` receiver. After regenerating and rerunning Maven, the original `getIsCompletedSuccessfully()` / `getResult()` / `asTask()` call sites disappeared; the next Maven first error is now `new CompletableFuture<T>(...)` constructor usage at `XmlTextReaderImpl.java:[10133,16]`.
+
+---
+
+## Iteration 24 — ValueTask constructor mapped to invalid CompletableFuture constructor
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 10133
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[10133,16] 无法将类 java.util.concurrent.CompletableFuture<T>中的构造器 CompletableFuture应用到给定类型;`
+- **代码片段**:
+  ```java
+          CompletableFuture<Tuple4<Integer, Integer, Integer, Boolean>> task = parseTextAsync(outOrChars, _ps.chars, _ps.charPos, 0, -1, outOrChars, (char)(0));
+          while (true) {
+          if (!AsyncHelper.isSuccess(task)) {
+          return new CompletableFuture<Tuple4<Integer, Integer, Integer, Boolean>>(parseTextAsync_AsyncFunc(task));
+          }
+          outOrChars = _lastParseTextState.outOrChars;
+          char[] chars = _lastParseTextState.chars;
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImplAsync.cs
+- **C# 原始代码**: `return new ValueTask<ValueTuple<int, int, int, bool>>(ParseTextAsync_AsyncFunc(task));`
+- **根因分类**: Transformer object-creation/type mapping lowering
+- **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs; D:\code\cs2j\tests\CSharpToJava.Tests\ConfigureAwaitConversionTests.cs
+- **分析**: `System.Threading.Tasks.ValueTask<T>` 在当前转换器里映射到 Java `CompletableFuture<T>`，上一轮也已让其成员访问按 `CompletableFuture` 表示工作。但对象创建转换仍走通用构造器路径，把 C# `new ValueTask<T>(Task<T>)` 机械生成为 `new CompletableFuture<T>(future)`。Java `CompletableFuture` 没有接收另一个 future/result 的公开构造器；正确 lower 是：`new ValueTask<T>(Task<T>)`/`new ValueTask<T>(ValueTask<T>)` 直接返回已有 `CompletableFuture<T>` 表达式，`new ValueTask<T>(T result)` 则用 `CompletableFuture.completedFuture(result)`。
+✅ **Fixed** — `new ValueTask<T>(Task<T>)` and `new ValueTask<T>(ValueTask<T>)` now lower to the existing `CompletableFuture<T>` expression, while `new ValueTask<T>(T result)` lowers to `CompletableFuture.completedFuture(result)`. After regenerating and rerunning Maven, the original `new CompletableFuture<T>(...)` constructor error at `XmlTextReaderImpl.java:[10133,16]` disappeared; the next Maven first error is now an `Iterable` generic inheritance conflict at `XmlTextReaderImpl.java:[12306,20]`.

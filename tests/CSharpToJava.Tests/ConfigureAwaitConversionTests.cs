@@ -188,6 +188,30 @@ class MyClass
         Assert.DoesNotContain(".asTask(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ValueTaskConstructors_MapToCompletableFutureRepresentation()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class MyClass
+{
+    ValueTask<(int, int, int, bool)> FromTask(Task<(int, int, int, bool)> task)
+    {
+        return new ValueTask<(int, int, int, bool)>(task);
+    }
+
+    ValueTask<int> FromResult()
+    {
+        return new ValueTask<int>(42);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("return task;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return CompletableFuture.completedFuture(42);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new CompletableFuture", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ── Async Task method with conditional early return ─────────────
 
     /// <summary>

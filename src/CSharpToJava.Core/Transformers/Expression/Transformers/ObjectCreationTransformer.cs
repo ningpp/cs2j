@@ -402,6 +402,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (ctorSymbol == null)
             AppendRuntimeClassArguments(createdTypeSymbol, context, ref args);
 
+        if (IsSystemThreadingValueTaskType(createdTypeSymbol) && argumentList.Arguments.Count == 1)
+        {
+            var argType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+            if (IsSystemThreadingTaskLikeType(argType))
+                return args;
+
+            context.AddImport("java.util.concurrent.CompletableFuture");
+            return $"CompletableFuture.completedFuture({args})";
+        }
+
         var erasedFactoryCall = TryBuildErasedFactoryConstructorCall(ctorSymbol, typeName, args, context);
         if (erasedFactoryCall != null)
             return erasedFactoryCall;
@@ -721,6 +731,26 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         return false;
+    }
+
+    private static bool IsSystemThreadingValueTaskType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol namedType)
+            return false;
+
+        var original = namedType.OriginalDefinition;
+        return original.Name == "ValueTask"
+            && original.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
+    }
+
+    private static bool IsSystemThreadingTaskLikeType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol namedType)
+            return false;
+
+        var original = namedType.OriginalDefinition;
+        return original.Name is "Task" or "ValueTask"
+            && original.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
     }
 
     private static int? GetSourceStart(IMethodSymbol symbol)
