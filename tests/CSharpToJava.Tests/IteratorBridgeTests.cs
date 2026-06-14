@@ -155,6 +155,35 @@ class Walker
     }
 
     [Fact]
+    public void ExplicitNonGenericIEnumeratorLocalInitializedToNull_UsesCSharpEnumeratorType()
+    {
+        var r = Convert(@"
+using System.Collections;
+
+class Walker
+{
+    public int First(IEnumerable values)
+    {
+        IEnumerator en = null;
+        if (values != null)
+        {
+            en = values.GetEnumerator();
+        }
+        return en != null && en.MoveNext() ? (int)en.Current : 0;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("CSharpEnumerator en = null;", code);
+        Assert.DoesNotContain("var en = null;", code);
+        Assert.Contains("en = CSharpEnumerator.from(values.iterator())", code);
+        Assert.Contains("en.moveNext()", code);
+        Assert.Contains("en.getCurrent()", code);
+    }
+
+    [Fact]
     public void ExplicitIEnumeratorParameter_UsesCSharpEnumeratorType()
     {
         var r = Convert(@"

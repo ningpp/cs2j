@@ -21,15 +21,15 @@ public partial class StatementTransformer
         if (typeInfo.Type != null)
         {
             var resolvedType = typeInfo.Type;
-            // C# enumerator structs (e.g. Dictionary<K,V>.Enumerator, List<T>.Enumerator) have no Java equivalent.
-            // The .iterator() call returns an Iterator<T>, so let Java infer the type with var.
+            // C# concrete enumerator structs (e.g. Dictionary<K,V>.Enumerator, List<T>.Enumerator)
+            // have no Java equivalent. The .iterator() call returns a Java-compatible adapter,
+            // so let Java infer the concrete type. Explicit IEnumerator declarations are mapped
+            // through TypeMappings.json to CSharpEnumerator and must stay explicit because
+            // Java cannot infer var from a null initializer.
             bool isEnumeratorStruct = resolvedType is INamedTypeSymbol nes
                 && nes.Name == "Enumerator"
                 && nes.ContainingType != null;
-            // Also handle IEnumerator<T> mapped via GetEnumerator — use var so Java infers Iterator<T>
-            bool isIEnumerator = resolvedType is INamedTypeSymbol ien
-                && (ien.Name is "IEnumerator" or "IEnumerator`1");
-            javaType = (isEnumeratorStruct || isIEnumerator) ? "var" : context.MapType(resolvedType);
+            javaType = isEnumeratorStruct ? "var" : context.MapType(resolvedType);
             // Fallback: if MapType returns empty (e.g. unresolved error type), use var to let Java infer
             if (string.IsNullOrWhiteSpace(javaType))
                 javaType = "var";
