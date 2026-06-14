@@ -80,7 +80,7 @@ class Sample
 
         Assert.True(result.Success);
         // The foreach over the array should iterate directly, NOT collect
-        Assert.Contains("for (Point p : pts)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("for (Point p : pts_1)", result.GeneratedCode, StringComparison.Ordinal);
         // Must NOT wrap the array pts in .collect(...)
         Assert.DoesNotContain("pts.collect(", result.GeneratedCode, StringComparison.Ordinal);
     }

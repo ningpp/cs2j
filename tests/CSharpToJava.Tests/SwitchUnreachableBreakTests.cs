@@ -124,8 +124,8 @@ class C {
         Assert.True(result.Success);
         var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
         Assert.Contains("case \"a\":", code, StringComparison.Ordinal);
-        Assert.Matches("case \"a\":\\s*\\{\\s*int value = 1;", code);
-        Assert.Matches("case \"b\":\\s*\\{\\s*int value = 2;", code);
+        Assert.Matches("case \"a\":\\s*\\{\\s*int value_1 = 1;\\s*total \\+= value_1;", code);
+        Assert.Matches("case \"b\":\\s*\\{\\s*int value_1 = 2;\\s*total \\+= value_1;", code);
     }
 
     private static ConversionResult Convert(string csharpCode)

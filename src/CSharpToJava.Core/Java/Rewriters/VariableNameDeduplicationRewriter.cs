@@ -235,6 +235,24 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
         "true", "false", "null", "goto", "const"
     };
 
+    private static readonly HashSet<string> NonDeclarationStatementPrefixes = new(StringComparer.Ordinal)
+    {
+        "if", "else", "while", "for", "do", "switch", "case", "default",
+        "try", "catch", "finally", "throw", "throws", "return", "break",
+        "continue", "new", "assert"
+    };
+
+    private static bool IsRawDeclarationCandidate(string typeText, string varName)
+    {
+        if (!IsValidIdentifier(varName) || JavaKeywords.Contains(varName))
+            return false;
+
+        var firstTypeToken = typeText.Split([' ', '<', '['], StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault();
+        return firstTypeToken is not null
+            && !NonDeclarationStatementPrefixes.Contains(firstTypeToken);
+    }
+
     public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
     {
         var code = node.Code;
@@ -255,10 +273,12 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
         var matches = RawVarDeclPattern.Matches(code);
         foreach (Match match in matches)
         {
+            var typeName = match.Groups[1].Value.Trim();
             var varName = match.Groups[2].Value;
 
-            // Skip Java keywords
-            if (JavaKeywords.Contains(varName))
+            // Skip non-declaration statements that superficially match "word name;"
+            // such as "return x;".
+            if (!IsRawDeclarationCandidate(typeName, varName))
                 continue;
 
             // Skip if already renamed (has a suffix like _1, _2, etc.)

@@ -224,7 +224,7 @@ namespace Layout
         var code = result.GeneratedCode;
 
         Assert.Contains("public static Box createFrom_Iterable_Rectangle(Iterable<Rectangle> rectangles)", code);
-        Assert.Contains(".Box.createFrom_Iterable_Rectangle(rectangles);", code);
+        Assert.Contains("return Box.createFrom_Iterable_Rectangle(rectangles);", code);
         Assert.DoesNotContain("createFrom_Iterable_Geometry", code);
     }
 }

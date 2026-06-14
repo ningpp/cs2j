@@ -839,6 +839,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{target}.size()";
             }
 
+            if (prop.Name == "Preamble" && IsSystemTextEncodingType(prop.ContainingType))
+            {
+                context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+                return $"MemoryExtensions.asSpan({target}.getPreamble())";
+            }
+
             // Fix 1: check TypeMappings for a configured method/member name mapping
             var typeName = prop.ContainingType.ToDisplayString();
             var mappedMethod = context.TypeMappings.MapMethod(typeName, prop.Name);
@@ -1632,6 +1638,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsSystemTextStringBuilder(ITypeSymbol? type)
         => type?.ToDisplayString() == "System.Text.StringBuilder";
+
+    private static bool IsSystemTextEncodingType(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.Text.Encoding")
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Maps C# primitive-type static field/property names to their Java equivalents.

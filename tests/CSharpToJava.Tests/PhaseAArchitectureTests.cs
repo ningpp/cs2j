@@ -492,6 +492,37 @@ class Sample
         Assert.True(rewriter.RewriteCount > 0);
     }
 
+    [Fact]
+    public void VarDedup_NestedDuplicateRename_DoesNotLeakPastBlock()
+    {
+        var rewriter = new VariableNameDeduplicationRewriter();
+
+        var cu = CreateCuWithMethod(new JavaBlockStatement
+        {
+            Statements =
+            {
+                new JavaVariableDeclarationStatement { Type = "int", Name = "x", Initializer = new JavaLiteralExpression("1") },
+                new JavaBlockStatement
+                {
+                    Statements =
+                    {
+                        new JavaVariableDeclarationStatement { Type = "int", Name = "x", Initializer = new JavaLiteralExpression("2") },
+                        new JavaRawStatement("System.out.println(x);"),
+                    }
+                },
+                new JavaRawStatement("return x;"),
+            }
+        });
+
+        rewriter.VisitCompilationUnit(cu);
+        var code = cu.ToString("");
+
+        Assert.Contains("int x_1 = 2;", code, StringComparison.Ordinal);
+        Assert.Contains("System.out.println(x_1);", code, StringComparison.Ordinal);
+        Assert.Contains("return x;", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("return x_1;", code, StringComparison.Ordinal);
+    }
+
     // ═══════════════════════════════════════════════════════════
     // Test Helpers
     // ═══════════════════════════════════════════════════════════

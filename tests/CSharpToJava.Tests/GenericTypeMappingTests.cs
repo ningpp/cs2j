@@ -188,7 +188,7 @@ class Factory {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
         Assert.Contains("List<String> getNames", code);
-        Assert.Contains("Function<Integer, Boolean> getPredicate", code);
+        Assert.Contains("Predicate<Integer> getPredicate", code);
         Assert.DoesNotContain("IList<", code);
         Assert.DoesNotContain("Func<", code);
     }

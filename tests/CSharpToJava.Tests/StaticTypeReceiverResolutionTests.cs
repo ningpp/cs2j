@@ -198,10 +198,10 @@ public class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("String.format(\"%s %s\", x, n)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("String.format(\"%04d\", n)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("String.format(\"%.2f\", d)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("String.format(\"%s%% done\", n)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.format(\"%1$s %2$s\", x, n)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.format(\"%1$04d\", n)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.format(\"%1$.2f\", d)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.format(\"%1$s%% done\", n)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -221,8 +221,8 @@ public class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("sb.append(String.format(\"%s %s\", x, n))", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("sb.append(String.format(\"%04d\", n))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("sb.append(String.format(\"%1$s %2$s\", x, n))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("sb.append(String.format(\"%1$04d\", n))", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

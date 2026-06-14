@@ -24,7 +24,7 @@ class Test
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("System.err.print(\"state\");", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("System.err.println(String.format(\"%s\", 42));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("System.err.println(String.format(\"%1$s\", 42));", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("System.getError()", result.GeneratedCode, StringComparison.Ordinal);
     }
 

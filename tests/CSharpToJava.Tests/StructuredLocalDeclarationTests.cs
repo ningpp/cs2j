@@ -370,8 +370,10 @@ class T {
     {
         var result = ConvertCode(CreateRbTreeRegressionCode());
 
-        Assert.Contains("RBNode<T> w = x.parent.right;", result);
-        Assert.Contains("RBNode<T> w = x.parent.left;", result);
+        Assert.Contains("RBNode<T> w_1 = x.parent.right;", result);
+        Assert.Contains("w_1 = x.parent.right;", result);
+        Assert.Contains("RBNode<T> w_1 = x.parent.left;", result);
+        Assert.Contains("w_1 = x.parent.left;", result);
     }
 
     [Fact]
@@ -379,8 +381,9 @@ class T {
     {
         var result = ConvertCode(CreateRbTreeRegressionCode());
 
-        Assert.Contains("RBNode<T> y = x.parent.parent.right;", result);
-        Assert.Contains("RBNode<T> y = x.parent.parent.left;", result);
+        Assert.Contains("RBNode<T> y_1 = x.parent.parent.right;", result);
+        Assert.Contains("y_1.color = RBColor.Black;", result);
+        Assert.Contains("RBNode<T> y_1 = x.parent.parent.left;", result);
     }
 
     [Fact]

@@ -68,4 +68,27 @@ class Sample
         Assert.Contains("Encoding.getASCII()", code);
         Assert.DoesNotContain("StandardCharsets", code);
     }
+
+    [Fact]
+    public void EncodingPreambleProperty_WrapsByteArrayAsReadOnlySpan()
+    {
+        var r = Convert(@"
+using System;
+using System.Text;
+
+class Sample
+{
+    void M(Encoding enc)
+    {
+        ReadOnlySpan<byte> preamble = enc.Preamble;
+        int len = preamble.Length;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+        Assert.Contains("ReadOnlySpan<Integer> preamble = MemoryExtensions.asSpan(enc.getPreamble())", code);
+        Assert.DoesNotContain("ReadOnlySpan<Integer> preamble = enc.getPreamble()", code);
+        Assert.Contains("import io.github.ningpp.compat.MemoryExtensions", code);
+    }
 }

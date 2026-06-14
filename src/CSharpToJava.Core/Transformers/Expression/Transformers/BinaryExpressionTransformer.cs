@@ -745,46 +745,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             || context.IsFlagsEnum(fullyQualifiedName))
             return true;
 
-        // Heuristic: if all non-zero enum values are powers of 2, treat as [Flags].
-        // Covers enums like ElementProperties that are used with bitwise ops
-        // but lack the explicit [Flags] attribute.
-        if (HasPowerOfTwoValues(enumType))
-            return true;
-
         return false;
-    }
-
-    /// <summary>
-    /// Returns true if all non-zero field values in the enum are powers of 2,
-    /// which is a strong signal that the enum is used as bit flags.
-    /// </summary>
-    private static bool HasPowerOfTwoValues(INamedTypeSymbol enumType)
-    {
-        bool hasNonZero = false;
-        foreach (var member in enumType.GetMembers())
-        {
-            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
-                && field.Name != WellKnownMemberNames.InstanceConstructorName)
-            {
-                long val = field.ConstantValue switch
-                {
-                    int iv => iv,
-                    uint uv => uv,
-                    long lv => lv,
-                    ulong ulv => (long)ulv,
-                    byte bv => bv,
-                    short sv => sv,
-                    _ => -1
-                };
-                if (val < 0) return false; // non-numeric or unsupported type
-                if (val == 0) continue;
-                hasNonZero = true;
-                // Check power of 2: val > 0 && (val & (val - 1)) == 0
-                if ((val & (val - 1)) != 0)
-                    return false;
-            }
-        }
-        return hasNonZero;
     }
 
     private static bool HasFlagsAttribute(INamedTypeSymbol enumType)

@@ -58,3 +58,24 @@
   ```java
   _ps.decoder = encoding.getDecoder();  // returns Encoding.Decoder, field type is Decoder
   ```
+
+---
+
+## Iteration 4 — ReadOnlySpan byte preamble type mismatch — ✅ Fixed
+
+- **Java 文件**: `System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java`
+- **行号**: 2426
+- **错误信息**: `不兼容的类型: byte[]无法转换为io.github.ningpp.compat.ReadOnlySpan<java.lang.Integer>`
+- **代码片段**:
+  ```java
+      private void eatPreamble() {
+          ReadOnlySpan<Integer> preamble = _ps.encoding.getPreamble();
+          int preambleLen = preamble.getLength();
+          int i;
+      }
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `ReadOnlySpan<byte> preamble = _ps.encoding.Preamble;`
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`
+- **分析**: `System.Text.Encoding.Preamble` 在 C# 中是 `ReadOnlySpan<byte>` 属性，但转换器按普通属性生成了 `encoding.getPreamble()`；compat `Encoding.getPreamble()` 当前表示 `GetPreamble()` 的 `byte[]` 结果，导致 Java 初始化 `ReadOnlySpan<Integer>` 时收到 `byte[]`。

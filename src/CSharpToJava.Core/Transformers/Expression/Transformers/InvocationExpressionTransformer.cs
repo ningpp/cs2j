@@ -5163,7 +5163,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var spec = m.Groups[2].Success ? m.Groups[2].Value : "";
             return string.IsNullOrEmpty(spec)
                 ? $"%{index}$s"
-                : $"%{index}${StringExpressionTransformer.ConvertCSharpFormatToJava(spec)}";
+                : $"%{index}${StringExpressionTransformer.ConvertCSharpFormatToJava(spec).TrimStart('%')}";
         });
         // Wrap in Java string literal quotes.
         return $"\"{StringEscapeHelper.EscapeJavaString(result)}\"";

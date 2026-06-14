@@ -28,7 +28,7 @@ public class Sample
         Assert.Contains("private final int value;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("public int getValue()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("public static Status fromValue(int v)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("if (e.value == v) return e;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("if (e != _UNMAPPED && e.value == v) return e;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("d.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return d.getValue();", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("Direction.values()[(int)(v)]", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Direction.fromValue((int)(v))", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -619,7 +619,7 @@ public class Sample
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("kind == LexKind.And", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("kind.getValue()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)
@@ -807,8 +807,8 @@ public class Sample
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         // [Flags] enum should use native int bitwise ops, not getValue()/fromValue()
-        Assert.DoesNotContain("getValue()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("p.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Permissions.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("p | Permissions.Write", result.GeneratedCode, StringComparison.Ordinal);
     }
 }

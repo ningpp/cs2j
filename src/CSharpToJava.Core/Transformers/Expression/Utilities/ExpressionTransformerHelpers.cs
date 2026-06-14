@@ -609,6 +609,9 @@ public static class ExpressionTransformerHelpers
         if (!TryGetEnumMemberSymbol(expression, context, out var enumMember))
             return false;
 
+        if (TryFormatCompatIoEnumMemberAccess(enumMember, context, out formattedAccess))
+            return true;
+
         if (IsFlagsEnum(enumMember.ContainingType, context))
         {
             var memberName = MapEnumMemberName(enumMember, context);
@@ -621,6 +624,24 @@ public static class ExpressionTransformerHelpers
         formattedAccess = useUnqualifiedRegularEnumInSwitchLabel
             ? mappedName
             : $"{enumTypeReference}.{mappedName}";
+        return true;
+    }
+
+    private static bool TryFormatCompatIoEnumMemberAccess(
+        IFieldSymbol enumMember,
+        ConversionContext context,
+        out string formattedAccess)
+    {
+        formattedAccess = string.Empty;
+
+        var enumType = enumMember.ContainingType;
+        var typeDisplay = enumType.ToDisplayString();
+        if (typeDisplay is not ("System.IO.FileMode" or "System.IO.FileAccess" or "System.IO.FileShare"))
+            return false;
+
+        var simpleName = enumType.Name;
+        context.AddImport($"io.github.ningpp.compat.{simpleName}");
+        formattedAccess = $"{simpleName}.{enumMember.Name}";
         return true;
     }
 
@@ -863,10 +884,8 @@ public static class ExpressionTransformerHelpers
         }
         else if (typeSymbol.TypeKind == TypeKind.Enum && IsFlagsEnum(typeSymbol, context))
         {
-            // [Flags] enum constants are collected in IntegerHelper (compat class)
-            // to avoid naming collision with java.lang.Integer.
-            context.AddImport("io.github.ningpp.compat.IntegerHelper");
-            return "IntegerHelper";
+            AddImportForTopLevelType(typeSymbol, context);
+            return BuildNestedTypeReference(typeSymbol);
         }
 
         AddImportForTopLevelType(typeSymbol, context);

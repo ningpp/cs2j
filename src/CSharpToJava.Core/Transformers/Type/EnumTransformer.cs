@@ -280,57 +280,7 @@ public class EnumTransformer : ITypeTransformer
                 return true;
         }
 
-        // Heuristic: if all non-zero enum values are powers of 2, treat as [Flags]
-        // (covers enums like ElementProperties used with bitwise ops but lacking the attribute).
-        if (enumSymbol != null && HasPowerOfTwoValues(enumSymbol))
-            return true;
-
         return false;
-    }
-
-    /// <summary>
-    /// Returns true if all non-zero field values in the enum are powers of 2 AND
-    /// at least one value differs from its ordinal, which strongly suggests the
-    /// enum is used as bit flags (vs simple sequential enums like 0,1,2).
-    /// </summary>
-    private static bool HasPowerOfTwoValues(INamedTypeSymbol enumType)
-    {
-        bool hasNonZero = false;
-        bool hasPowerOfTwoBeyondOrdinal = false;
-        int ordinal = 0;
-        long maxVal = 0;
-        foreach (var member in enumType.GetMembers())
-        {
-            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
-                && field.Name != WellKnownMemberNames.InstanceConstructorName)
-            {
-                long val = field.ConstantValue switch
-                {
-                    int iv => iv,
-                    uint uv => uv,
-                    long lv => lv,
-                    ulong ulv => (long)ulv,
-                    byte bv => bv,
-                    short sv => sv,
-                    _ => -1
-                };
-                if (val < 0) return false;
-                if (val == 0) { ordinal++; continue; }
-                hasNonZero = true;
-                if (val > maxVal) maxVal = val;
-                // Check power of 2: val > 0 && (val & (val - 1)) == 0
-                if ((val & (val - 1)) != 0)
-                    return false;
-                // Check if this value is beyond simple sequential (suggests bit flags)
-                if (val != ordinal)
-                    hasPowerOfTwoBeyondOrdinal = true;
-                ordinal++;
-            }
-        }
-        // Require at least one value >= 4 to avoid false positives on enums
-        // with sequential values like {ExpandEntities=1, ExpandCharEntities=2}
-        // which happen to be powers of 2 but aren't bit flags.
-        return hasNonZero && hasPowerOfTwoBeyondOrdinal && maxVal >= 4;
     }
 
     private static string GetEnumValueJavaType(INamedTypeSymbol? enumSymbol, EnumDeclarationSyntax enumDecl)

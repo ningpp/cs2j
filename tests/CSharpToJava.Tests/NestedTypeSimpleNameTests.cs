@@ -42,7 +42,7 @@ class Outer<TKey, TValue>
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         // Should use "Entry" not "Outer.Entry" to preserve generic type parameters
-        Assert.Contains("Entry e =", result.GeneratedCode);
+        Assert.Contains("Entry<TKey, TValue> e =", result.GeneratedCode);
         Assert.DoesNotContain("Outer.Entry", result.GeneratedCode);
     }
 
