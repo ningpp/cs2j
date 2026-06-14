@@ -6510,6 +6510,31 @@
             "javaMethod": "isDone"
         },
         {
+            "type": "System.Threading.Tasks.Task",
+            "method": "IsCompleted",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.Task`1",
+            "method": "get_IsCompleted",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.Task`1",
+            "method": "IsCompleted",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.ValueTask`1",
+            "method": "get_IsCompleted",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Threading.Tasks.ValueTask`1",
+            "method": "IsCompleted",
+            "javaMethod": "isDone"
+        },
+        {
             "type": "System.Globalization.CultureInfo",
             "method": "get_InvariantCulture",
             "javaMethod": "CultureInfo.getInvariantCulture",
