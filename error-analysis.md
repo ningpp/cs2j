@@ -226,3 +226,28 @@
 - **分析**: `System.TimeSpan` 当前映射到 compat `CSharpTimeSpan`，但静态成员访问仍原样保留 `Zero`（旧特殊分支只处理 `Duration.Zero`），而 compat 常量名是 Java 风格的 `ZERO`。
 
 ✅ **Fixed** — `TimeSpan.Zero` now maps to `CSharpTimeSpan.ZERO`, and regenerated `XmlWriter.java` advanced past the original missing `Zero` symbol.
+
+---
+
+## Iteration 11 — DateTimeOffset.Parse missing compat runtime method ✅ Fixed
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlReader.java`
+- **行号**: 179
+- **错误信息**: `找不到符号 符号: 方法 parse(java.lang.String) 位置: 类 io.github.ningpp.compat.CSharpDateTimeOffset`
+- **代码片段**:
+  ```java
+          throw createReadContentAsException("ReadContentAsDateTimeOffset");
+          }
+          try {
+              return CSharpDateTimeOffset.parse(internalReadContentAsString());
+          } catch (FormatException e) {
+              throw new XmlException(SR.getXml_ReadContentAsFormatException(), "DateTimeOffset", e, (this instanceof IXmlLineInfo ? (IXmlLineInfo)(this) : null));
+          }
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlReader.cs`
+- **C# 原始代码**: `return DateTimeOffset.Parse(InternalReadContentAsString(), CultureInfo.InvariantCulture);`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `config/TypeMappings.json`, `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`, `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpDateTimeOffset.java`
+- **分析**: `System.DateTimeOffset` 已映射为 compat `CSharpDateTimeOffset`，静态 `Parse` 调用被转换为 `CSharpDateTimeOffset.parse(...)`，但 compat runtime 没有提供该静态方法。
+
+✅ **Fixed** — Added `CSharpDateTimeOffset.parse(String)` to compat, installed the updated runtime artifact, and regenerated Maven now advances past the original `XmlReader.java:[179]` missing method.

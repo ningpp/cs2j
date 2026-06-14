@@ -118,6 +118,29 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         return new CSharpDateTimeOffset(dt, CSharpTimeSpan.ZERO);
     }
 
+    public static CSharpDateTimeOffset parse(String s) {
+        String trimmed = s.trim();
+        try {
+            OffsetDateTime odt;
+            try {
+                odt = OffsetDateTime.parse(trimmed);
+            } catch (Exception ignored) {
+                LocalDateTime ldt = trimmed.contains("T")
+                    ? LocalDateTime.parse(trimmed)
+                    : trimmed.contains(":")
+                        ? LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                        : LocalDate.parse(trimmed).atStartOfDay();
+                odt = OffsetDateTime.of(ldt, ZoneOffset.UTC);
+            }
+
+            CSharpDateTime dt = new CSharpDateTime(odt.getYear(), odt.getMonthValue(), odt.getDayOfMonth(),
+                odt.getHour(), odt.getMinute(), odt.getSecond(), odt.getNano() / 1_000_000, DateTimeKind.Unspecified);
+            return new CSharpDateTimeOffset(dt, CSharpTimeSpan.fromSeconds(odt.getOffset().getTotalSeconds()));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s, e);
+        }
+    }
+
     // --- toString ---
     // C# format: "M/d/yyyy h:mm:ss +HH:mm:ss"
     @Override

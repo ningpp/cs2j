@@ -80,6 +80,18 @@ class CSharpDateTimeOffsetTest {
     }
 
     @Test
+    void parse_isoOffsetString() {
+        CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("2024-06-15T10:30:45+08:00");
+        assertEquals(2024, dto.getYear());
+        assertEquals(6, dto.getMonth());
+        assertEquals(15, dto.getDay());
+        assertEquals(10, dto.getHour());
+        assertEquals(30, dto.getMinute());
+        assertEquals(45, dto.getSecond());
+        assertEquals(CSharpTimeSpan.fromHours(8), dto.getOffset());
+    }
+
+    @Test
     void addTimeSpan() {
         CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, offset);
