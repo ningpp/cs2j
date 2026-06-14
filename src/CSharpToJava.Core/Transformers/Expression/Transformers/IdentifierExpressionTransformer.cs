@@ -1180,6 +1180,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (target == "CSharpTimeSpan" && memberName is "Zero" or "ZERO")
             return "CSharpTimeSpan.ZERO";
 
+        // Guid.Empty → new UUID(0L, 0L) — java.util.UUID has no Empty field.
+        if ((target == "UUID" || target == "Guid") && memberName == "Empty")
+        {
+            context.AddImport("java.util.UUID");
+            return "new UUID(0L, 0L)";
+        }
+
         // Legacy TimeSpan mapping fallback for older Duration-based conversions.
         if (target == "Duration" && memberName is "Zero" or "ZERO")
         {

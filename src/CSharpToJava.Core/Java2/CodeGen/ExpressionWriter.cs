@@ -62,7 +62,7 @@ public class ExpressionWriter
             IrConditionalExpression cond => Write(cond.Condition) + " ? " + Write(cond.WhenTrue) + " : " + Write(cond.WhenFalse),
             IrCastExpression cast => "(" + cast.TargetType + ") " + Write(cast.Expression),
             IrNewExpression n => WriteNew(n),
-            IrMemberAccessExpression mem => Write(mem.Target) + "." + mem.MemberName,
+            IrMemberAccessExpression mem => WriteMemberAccess(mem),
             IrInvocationExpression inv => WriteInvocation(inv),
             IrAssignmentExpression asgn => Write(asgn.Target) + " " + AssignmentOpStrings[asgn.Operator] + " " + Write(asgn.Value),
             IrArrayAccessExpression arr => Write(arr.Target) + "[" + Write(arr.Index) + "]",
@@ -70,6 +70,15 @@ public class ExpressionWriter
             IrInstanceOfExpression inst => Write(inst.Expression) + " instanceof " + inst.TypeName + (inst.PatternVariable != null ? " " + inst.PatternVariable : ""),
             _ => "<unhandled expression: " + expr.GetType().Name + ">",
         };
+    }
+
+    private string WriteMemberAccess(IrMemberAccessExpression mem)
+    {
+        var target = Write(mem.Target);
+        // Guid.Empty → new UUID(0L, 0L) — java.util.UUID has no Empty field.
+        if (mem.MemberName == "Empty" && (target == "UUID" || target == "Guid"))
+            return "new UUID(0L, 0L)";
+        return target + "." + mem.MemberName;
     }
 
     private string WriteBinary(IrBinaryExpression bin)
