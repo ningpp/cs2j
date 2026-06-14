@@ -134,6 +134,45 @@ class Sample
         Assert.DoesNotContain("Boolean.tryParse(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConversionPipeline_UnsignedPrimitiveParseAndTryParse_GenerateValidJavaHelpers()
+    {
+        var result = Convert(@"
+using System;
+using System.Globalization;
+
+class Sample
+{
+    public void Parse(string s)
+    {
+        ushort us = UInt16.Parse(s, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, NumberFormatInfo.InvariantInfo);
+        uint ui = UInt32.Parse(s, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, NumberFormatInfo.InvariantInfo);
+        ulong ul = UInt64.Parse(s, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, NumberFormatInfo.InvariantInfo);
+    }
+
+    public void Try(string s, out UInt16 us, out UInt32 ui, out UInt64 ul)
+    {
+        UInt16.TryParse(s, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, NumberFormatInfo.InvariantInfo, out us);
+        UInt32.TryParse(s, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, NumberFormatInfo.InvariantInfo, out ui);
+        UInt64.TryParse(s, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, NumberFormatInfo.InvariantInfo, out ul);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("MathHelper.parseUShort(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MathHelper.parseUInt(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MathHelper.parseULong(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MathHelper.tryParseUShort(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MathHelper.tryParseUInt(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MathHelper.tryParseULong(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ushort.", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("uint.", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ulong.", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("UInt16.", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("UInt32.", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("UInt64.", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

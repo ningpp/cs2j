@@ -94,6 +94,47 @@ class MathHelperTest {
         assertEquals(Long.MAX_VALUE, holder.value);
     }
 
+    // ---- unsigned integer parsing ----
+
+    @Test
+    void tryParseUShort_acceptsMaxValueIntoIntHolder() {
+        IntHolder holder = new IntHolder();
+        assertTrue(MathHelper.tryParseUShort(" 65535 ", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+        assertEquals(65535, holder.value);
+    }
+
+    @Test
+    void tryParseUShort_rejectsOverflow() {
+        IntHolder holder = new IntHolder();
+        assertFalse(MathHelper.tryParseUShort("65536", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+    }
+
+    @Test
+    void tryParseUInt_acceptsMaxValueIntoIntHolder() {
+        IntHolder holder = new IntHolder();
+        assertTrue(MathHelper.tryParseUInt("4294967295", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+        assertEquals(-1, holder.value);
+    }
+
+    @Test
+    void tryParseUInt_rejectsOverflow() {
+        IntHolder holder = new IntHolder();
+        assertFalse(MathHelper.tryParseUInt("4294967296", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+    }
+
+    @Test
+    void tryParseULong_acceptsMaxValueIntoLongHolder() {
+        LongHolder holder = new LongHolder();
+        assertTrue(MathHelper.tryParseULong("18446744073709551615", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+        assertEquals(-1L, holder.value);
+    }
+
+    @Test
+    void tryParseULong_rejectsOverflow() {
+        LongHolder holder = new LongHolder();
+        assertFalse(MathHelper.tryParseULong("18446744073709551616", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+    }
+
     // ---- tryParseDouble ----
 
     @Test

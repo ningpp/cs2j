@@ -513,7 +513,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var typeName = sym.ContainingType.ToDisplayString();
             var mapped = context.TypeMappings.MapMethod(typeName, originalName);
             if (mapped != null)
+            {
+                // Task.Run<T>(Func<T>) is a generic method on non-generic Task class,
+                // but it returns Task<T> so it needs supplyAsync, not runAsync.
+                if (mapped == "runAsync" && sym.ReturnType is INamedTypeSymbol retType
+                    && retType.IsGenericType
+                    && retType.OriginalDefinition.SpecialType != SpecialType.System_Void)
+                {
+                    return ConversionContext.EscapeJavaKeyword("supplyAsync");
+                }
                 return ConversionContext.EscapeJavaKeyword(mapped);
+            }
 
             // Primitive type static method mapping (e.g. char.IsLower → Character.isLowerCase)
             // When the containing type is a C# primitive, use the specialized method name mapper
@@ -1452,15 +1462,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Numeric TryParse: double.TryParse(s, out result) → MathHelper.tryParseDouble(s, holder)
             if (originalMethodName == "TryParse" && node.ArgumentList.Arguments.Count >= 2)
             {
-                string? tryParseHelper = primTypeSyntax.Keyword.Text switch
-                {
-                    "double" => "MathHelper.tryParseDouble",
-                    "float"  => "MathHelper.tryParseFloat",
-                    "int"    => "MathHelper.tryParseInt",
-                    "long"   => "MathHelper.tryParseLong",
-                    "bool"   => "MathHelper.tryParseBool",
-                    _        => null
-                };
+                string? tryParseHelper = MapPrimitiveTryParseHelper(primTypeSyntax.Keyword.Text);
                 if (tryParseHelper != null)
                 {
                     var helperArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
@@ -2298,6 +2300,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             if (mapped != null)
             {
+                // Task.Run<T>(Func<T>) is a generic method on non-generic Task class,
+                // but it returns Task<T> so it needs supplyAsync, not runAsync.
+                if (mapped == "runAsync")
+                {
+                    var retType = methodSymbol.ReturnType;
+                    var isGeneric = retType is INamedTypeSymbol nts && nts.IsGenericType;
+                    var origDef = retType?.OriginalDefinition?.ToDisplayString();
+                    context.Diagnostics.Warning(
+                        $"DEBUG runAsync check: method={originalMethodName}, retType={retType?.ToDisplayString()}, isGeneric={isGeneric}, origDef={origDef}, containingType={methodSymbol.ContainingType.ToDisplayString()}",
+                        node.GetLocation());
+                    if (isGeneric && retType.OriginalDefinition.SpecialType != SpecialType.System_Void)
+                    {
+                        mapped = "supplyAsync";
+                    }
+                }
                 ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                 methodName = mapped;
             }
@@ -2490,6 +2507,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var mappedByReceiverType = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
                     if (mappedByReceiverType != null)
                     {
+                        // Task.Run<T>(Func<T>) has generic type args in syntax and returns Task<T>,
+                        // so it needs supplyAsync, not runAsync.
+                        if (mappedByReceiverType == "runAsync"
+                            && memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 })
+                        {
+                            mappedByReceiverType = "supplyAsync";
+                        }
                         ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedByReceiverType, context);
                         methodName = mappedByReceiverType;
                         var mappedReceiverType = context.TypeMappings.MapType(receiverTypeName);
@@ -2615,10 +2639,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var aliasMethod = MapPrimitiveStaticMethodName(primitiveForAlias, originalMethodName);
                 if (aliasMethod != originalMethodName)
                 {
-                    methodName = originalMethodName == "Parse"
-                        ? MapPrimitiveParseHelper(primitiveForAlias) ?? aliasMethod
-                        : aliasMethod;
-                    receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias);
+                    var helper = originalMethodName switch
+                    {
+                        "Parse" => MapPrimitiveParseHelper(primitiveForAlias),
+                        "TryParse" => MapPrimitiveTryParseHelper(primitiveForAlias),
+                        _ => null
+                    };
+
+                    if (helper != null)
+                    {
+                        methodName = helper;
+                    }
+                    else
+                    {
+                        methodName = aliasMethod;
+                        receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias);
+                    }
                 }
             }
 
@@ -2903,8 +2939,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var primMethodMapped = MapPrimitiveStaticMethodName(primKeywordForMethod, originalMethodName);
                 if (primMethodMapped != originalMethodName)
                 {
-                    methodName = primMethodMapped;
-                    receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primKeywordForMethod);
+                    var helper = originalMethodName switch
+                    {
+                        "Parse" => MapPrimitiveParseHelper(primKeywordForMethod),
+                        "TryParse" => MapPrimitiveTryParseHelper(primKeywordForMethod),
+                        _ => null
+                    };
+
+                    if (helper != null)
+                    {
+                        methodName = helper;
+                    }
+                    else
+                    {
+                        methodName = primMethodMapped;
+                        receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primKeywordForMethod);
+                    }
                 }
             }
         }
@@ -4821,7 +4871,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         args = PrependClassTypeTokens(args,
             methodSymbol != null ? GetClassTypeTokensForCall(methodSymbol, context) : null);
 
-        if (originalMethodName == "Parse" && methodName.StartsWith("MathHelper.", StringComparison.Ordinal))
+        if ((originalMethodName == "Parse" || originalMethodName == "TryParse")
+            && methodName.StartsWith("MathHelper.", StringComparison.Ordinal))
             return $"{methodName}({args})";
 
         if (methodName.StartsWith("Encoding.", StringComparison.Ordinal)
@@ -6006,6 +6057,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "float"  => "parseFloat",
                 "short"  => "parseShort",
                 "byte"   => "parseByte",
+                "uint"   => "parseUnsignedInt",
+                "ulong"  => "parseUnsignedLong",
+                "ushort" => "parseUnsignedInt",
                 _        => "parse" + char.ToUpperInvariant(primitiveKeyword[0]) + primitiveKeyword[1..]
             },
             _ when methodName.Length > 0 => char.ToLowerInvariant(methodName[0]) + methodName[1..],
@@ -6020,9 +6074,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "double" => "MathHelper.parseDouble",
             "float" => "MathHelper.parseFloat",
             "decimal" => "Decimal.parse",
-            "uint" => "Integer.parseUnsignedInt",
-            "ulong" => "Long.parseUnsignedLong",
-            "ushort" => "Integer.parseUnsignedInt",
+            "uint" => "MathHelper.parseUInt",
+            "ulong" => "MathHelper.parseULong",
+            "ushort" => "MathHelper.parseUShort",
+            _ => null
+        };
+
+    private static string? MapPrimitiveTryParseHelper(string primitiveKeyword)
+        => primitiveKeyword switch
+        {
+            "double" => "MathHelper.tryParseDouble",
+            "float" => "MathHelper.tryParseFloat",
+            "int" => "MathHelper.tryParseInt",
+            "long" => "MathHelper.tryParseLong",
+            "bool" => "MathHelper.tryParseBool",
+            "uint" => "MathHelper.tryParseUInt",
+            "ulong" => "MathHelper.tryParseULong",
+            "ushort" => "MathHelper.tryParseUShort",
             _ => null
         };
 
@@ -6098,7 +6166,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
-    /// Maps a C# primitive type's SpecialType to its keyword form (e.g. System.Char → "char").
+    /// Maps a C# primitive type's SpecialType to its C# keyword form (e.g. System.UInt16 → "ushort").
     /// Returns true when the type is a recognized C# primitive.
     /// </summary>
     private static bool TryGetPrimitiveKeyword(ITypeSymbol type, out string keyword)
@@ -6640,6 +6708,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int64", "Long", "long", "System.Int64"))
             return "MathHelper.tryParseLong";
 
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "UInt16", "ushort", "System.UInt16"))
+            return "MathHelper.tryParseUShort";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "UInt32", "uint", "System.UInt32"))
+            return "MathHelper.tryParseUInt";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "UInt64", "ulong", "System.UInt64"))
+            return "MathHelper.tryParseULong";
+
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Boolean", "bool", "System.Boolean"))
             return "MathHelper.tryParseBool";
 
@@ -6704,6 +6781,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int64", "Long", "long", "System.Int64"))
         {
             helper = "MathHelper.parseLong";
+            return true;
+        }
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "UInt16", "ushort", "System.UInt16"))
+        {
+            helper = "MathHelper.parseUShort";
+            return true;
+        }
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "UInt32", "uint", "System.UInt32"))
+        {
+            helper = "MathHelper.parseUInt";
+            return true;
+        }
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "UInt64", "ulong", "System.UInt64"))
+        {
+            helper = "MathHelper.parseULong";
             return true;
         }
 

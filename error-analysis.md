@@ -922,6 +922,24 @@
 
 ✅ **Fixed** — declaration-site `System.Collections.ICollection` now maps to `Iterable` even when explicit non-generic collection members such as `ICollection.Count` are present. Generic `ICollection<T>` keeps the existing heuristic: full implementations may still bridge to Java `Collection`, while partial/custom collection classes use `Iterable`. The focused regression first failed with `NodeCollection extends NodeMap implements Collection`, then passed after the helper split non-generic and generic collection interface handling. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `XmlAttributeCollection.java:[14,14]` `clear()` contract error disappeared; the generated declaration is now `public final class XmlAttributeCollection extends XmlNamedNodeMap implements Iterable`. Maven still fails; the next first error is now `XmlEncodedRawTextWriter.java:[144,84] 不兼容的类型: dotnet.xml.CharEntityEncoderFallback无法转换为io.github.ningpp.compat.EncoderReplacementFallback`.
 
+## Iteration 39 — TypeAssembly-GetType-StreamWrapper
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\resolvers\XmlPreloadedResolver.java`
+- **行号**: 282
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/resolvers/XmlPreloadedResolver.java:[282,49] 不兼容的类型: java.io.InputStream无法转换为io.github.ningpp.compat.StreamWrapper`
+- **代码片段**:
+  ```java
+      public StreamWrapper asStream() {
+          AssemblyCompat asm = getClass().getPackage();
+          return asm.getManifestResourceStream(_resourceName);
+      }
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Resolvers\XmlPreloadedResolver.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`; `D:\code\cs2j\config\TypeMappings.json`; `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\AssemblyCompat.java`
+- **分析**: `TypeMappings.json` 将 `System.Type.Assembly`/`System.Type.get_Assembly` 映射为 `getPackage()`，所以 `GetType().Assembly` 被转换为 `getClass().getPackage()`，返回 `java.lang.Package` 而非 `AssemblyCompat`。已有的 `TryTransformTypeAssemblyManifestResourceStream` 只处理 `typeof(T).Assembly.GetManifestResourceStream(name)` 链式调用模式（`TypeOfExpressionSyntax`），不处理 `GetType().Assembly` 分离赋值模式。此外 `AssemblyCompat.getManifestResourceStream(String)` 实例方法返回 `InputStream` 而非 `StreamWrapper`，导致类型不兼容。
+
+✅ **Fixed** — `GetType().Assembly` now converts to `AssemblyCompat.fromClass(getClass())` instead of `getClass().getPackage()`, producing a proper `AssemblyCompat` instance. The `AssemblyCompat.getManifestResourceStream(String)` instance method now returns `StreamWrapper` instead of `InputStream`. A new `AssemblyCompat.fromClass(Class<?>)` factory method was added. The focused regression first failed because `AssemblyCompat.fromClass(getClass())` was absent from the generated code, then passed after the special case and compat changes were added. After regenerating and rerunning Maven, the original `XmlPreloadedResolver.java:[282,49]` `InputStream无法转换为StreamWrapper` error disappeared; line 281 is now `AssemblyCompat asm = AssemblyCompat.fromClass(getClass());` and line 282 returns `StreamWrapper`. Maven errors dropped from 170 to 150.
+
 ---
 
 ## Iteration 38 — Encoding.GetEncoding overload rejects custom EncoderFallback
@@ -945,18 +963,39 @@
 - **分析**: The converter correctly maps `System.Text.EncoderFallback` and the custom C# subclass to compat `EncoderFallback`, and correctly lowers the static `Encoding.GetEncoding` call to `Encoding.getEncoding(...)`. The compile error comes from the compat overload signature itself: it accepts only `EncoderReplacementFallback`, even though the .NET API accepts any `EncoderFallback`. `CharEntityEncoderFallback` is a valid custom fallback subclass, so Java rejects passing it to the too-narrow compat overload. This is not a TypeMappings or transformer issue; the generated call exposes a semantic mismatch in the compat runtime surface. The minimal fix is to widen the encoder parameter to `EncoderFallback` while preserving replacement-string behavior when the fallback is an `EncoderReplacementFallback`.
 
 ✅ **Fixed** — `Encoding.getEncoding(int, ..., DecoderReplacementFallback)` now accepts the abstract compat `EncoderFallback` type instead of only `EncoderReplacementFallback`, while preserving replacement-string behavior for replacement fallback instances. The focused regression first failed because `Encoding.java` still contained the narrow `EncoderReplacementFallback` overload, then passed after the runtime signature was widened. `dotnet build`, the focused test, full `dotnet test`, and `mvn -f java\csharptojava-compat\pom.xml clean install -e` all pass. After regenerating and rerunning Maven for `D:\csharpxml-java`, the original `XmlEncodedRawTextWriter.java:[144,84]` `CharEntityEncoderFallback` mismatch disappeared. Maven still fails; the next first error is now `XmlEncodedRawTextWriter.java:[1333,34] 不兼容的类型: io.github.ningpp.compat.ObjectHolder<java.lang.foreign.MemorySegment>无法转换为java.lang.foreign.MemorySegment`.
+
+## Iteration 40 — Ref pointer parameter base segment uses holder instead of value
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlEncodedRawTextWriter.java`
+- **行号**: 1333
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlEncodedRawTextWriter.java:[1333,34] 不兼容的类型: io.github.ningpp.compat.ObjectHolder<java.lang.foreign.MemorySegment>无法转换为java.lang.foreign.MemorySegment`
+- **代码片段**:
+  ```java
+      public void encodeChar(ObjectHolder<MemorySegment> pSrc, MemorySegment pSrcEnd, ObjectHolder<MemorySegment> pDst) {
+          MemorySegment __base71 = pSrc;
+          MemorySegment __base72 = pSrcEnd;
+          MemorySegment __base73 = pDst;
+          int ch = (int) (pSrc.value.get(ValueLayout.JAVA_CHAR, 0));
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlEncodedRawTextWriter.cs`
+- **C# 原始代码**: `internal unsafe void EncodeChar(ref char* pSrc, char* pSrcEnd, ref char* pDst)` followed by pointer reads, writes, and increments through the two `ref char*` parameters.
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Member\MethodTransformer.cs`
+- **分析**: Pointer method parameters are registered with synthetic method-entry base segments so later pointer arithmetic can use bounded `__base.asSlice(...)` expressions. Plain `char*` parameters are generated as `MemorySegment`, but `ref char*`/`out char*` parameters are generated as `ObjectHolder<MemorySegment>`. `MethodTransformer` did not distinguish the holder case when emitting the synthetic base declarations, so it generated `MemorySegment __base = pSrc;` and `MemorySegment __base = pDst;` even though the usable pointer segment is stored in `pSrc.value` / `pDst.value`. This is not a TypeMappings or compat runtime issue; the semantic model and holder lowering are present, but the pointer-base prologue uses the wrong Java expression for ref/out pointer parameters.
+
+✅ **Fixed** — the focused regression first failed because generated code contained `MemorySegment __base1 = pSrc;`, then passed after method-entry pointer base declarations for `ref`/`out` pointer parameters were changed to use `pSrc.value` / `pDst.value`. `dotnet build` and `dotnet test --filter "FullyQualifiedName~UnsafeMethod_RefPointerParam_BaseSegmentUsesHolderValue"` pass. A full `dotnet test` run is currently blocked by an unrelated concurrent `ValueListBuilderMappingTests.ValueListBuilder_LengthConvertedToGetLength` change, so this commit is scoped to the holder fix. After regenerating and rerunning Maven, the original `XmlEncodedRawTextWriter.java:[1333,34]` `ObjectHolder<MemorySegment>` to `MemorySegment` error disappeared; Maven still fails and the next first error is now `XmlEncodedRawTextWriter.java:[1965,15] 找不到符号` for `PrintWriter.flushAsync()`.
+
 ---
 
-## Iteration 1 - TextWriter async methods emitted on PrintWriter
-- **Java file**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlEncodedRawTextWriter.java`
-- **Line**: 1965
-- **Error**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlEncodedRawTextWriter.java:[1965,15] cannot find symbol`
-- **Full symbol details**:
+## Iteration 1 — TextWriter async methods emitted on PrintWriter
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlEncodedRawTextWriter.java`
+- **行号**: 1965
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlEncodedRawTextWriter.java:[1965,15] 找不到符号`
+- **完整符号信息**:
   ```text
-  symbol:   method flushAsync()
-  location: variable writer of type java.io.PrintWriter
+  符号:   方法 flushAsync()
+  位置: 类型为java.io.PrintWriter的变量 writer
   ```
-- **Generated Java context**:
+- **代码片段**:
   ```java
           stream.flushAsync().join();
           } else {
@@ -966,13 +1005,14 @@
           }
           return CompletableFuture.completedFuture(null);
   ```
-- **C# source**: `D:\csharpxml\System\Xml\Core\XmlEncodedRawTextWriterAsync.cs`
-- **Original C#**: `await writer.FlushAsync().ConfigureAwait(false);`
-- **Root cause classification**: Transformer
-- **Components**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ControlFlowTransformer.cs`; `D:\code\cs2j\config\TypeMappings.json`
-- **Analysis**: `System.IO.TextWriter` maps to `java.io.PrintWriter`, and the converter already maps synchronous `TextWriter.Write`/`WriteLine` overloads through `TypeMappings.json`. Async `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` were not mapped, so `InvocationExpressionTransformer` fell through to the generic camelCase member-call path and emitted `writer.flushAsync()` / `writer.writeAsync(...)`. `ControlFlowTransformer` then lowered `await` to `.join()`, which is valid for compat async APIs such as `StreamWrapper.flushAsync()`, but invalid for `PrintWriter` because Java's `PrintWriter` only exposes synchronous `flush()` / `write(...)`. The semantic model correctly identifies the receiver type as `System.IO.TextWriter`; the missing piece was transformer/member mapping for TextWriter async calls to synchronous PrintWriter calls before the await `.join()` is added.
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlEncodedRawTextWriterAsync.cs`
+- **C# 原始代码**: `await writer.FlushAsync().ConfigureAwait(false);`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ControlFlowTransformer.cs`; `D:\code\cs2j\config\TypeMappings.json`
+- **分析**: `System.IO.TextWriter` maps to `java.io.PrintWriter`, and the converter already maps synchronous `TextWriter.Write`/`WriteLine` overloads through `TypeMappings.json`. Async `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` are not mapped, so `InvocationExpressionTransformer` falls through to the generic camelCase member-call path and emits `writer.flushAsync()` / `writer.writeAsync(...)`. `ControlFlowTransformer` then lowers `await` to `.join()`, which is valid for compat async APIs such as `StreamWrapper.flushAsync()`, but invalid for `PrintWriter` because Java's `PrintWriter` only exposes synchronous `flush()` / `write(...)`. The semantic model correctly identifies the receiver type as `System.IO.TextWriter`; the missing piece is transformer/member mapping for TextWriter async calls to synchronous PrintWriter calls before the await `.join()` is added.
 
-✅ **Fixed** - `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` now lower to `CompletableFuture.runAsync(...)` around synchronous `PrintWriter.flush()` / `PrintWriter.write(...)`, so the existing `await` lowering can safely append `.join()`. The focused regression first failed because generated code contained `w.flushAsync().join()`, then passed after the transformer special case. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `XmlEncodedRawTextWriter.java:[1965,15]` `PrintWriter.flushAsync()` error disappeared; line 1965 is now `CompletableFuture.runAsync(() -> writer.flush()).join();`, and line 1998 is now `CompletableFuture.runAsync(() -> writer.write(bufChars, 1, bufPos - 1)).join();`. Maven still fails; the next first error is now `HtmlEncodedRawTextWriter.java:[257,181] int cannot be dereferenced`.
+✅ **Fixed** — `TextWriter.FlushAsync()` and `TextWriter.WriteAsync(char[], int, int)` now lower to `CompletableFuture.runAsync(...)` around synchronous `PrintWriter.flush()` / `PrintWriter.write(...)`, so the existing `await` lowering can safely append `.join()`. The focused regression first failed because generated code contained `w.flushAsync().join()`, then passed after the transformer special case. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `XmlEncodedRawTextWriter.java:[1965,15]` `PrintWriter.flushAsync()` error disappeared; line 1965 is now `CompletableFuture.runAsync(() -> writer.flush()).join();`, and line 1998 is now `CompletableFuture.runAsync(() -> writer.write(bufChars, 1, bufPos - 1)).join();`. Maven still fails; the next first error is now `HtmlEncodedRawTextWriter.java:[257,181] 无法取消引用int`.
+
 ---
 
 ## Iteration 2 — Enum flag expression adds `.getValue()` to int OR result

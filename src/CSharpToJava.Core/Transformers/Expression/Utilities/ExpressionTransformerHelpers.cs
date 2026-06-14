@@ -588,6 +588,11 @@ public static class ExpressionTransformerHelpers
             "byte"    => "Byte",
             "char"    => "Character",
             "boolean" => "Boolean",
+            // C# unsigned keyword aliases → Java boxed types
+            "uint"    => "Integer",
+            "ulong"   => "Long",
+            "ushort"  => "Short",
+            "bool"    => "Boolean",
             _ => javaType
         };
     }
