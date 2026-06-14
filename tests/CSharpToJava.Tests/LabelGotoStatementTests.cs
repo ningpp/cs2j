@@ -1434,6 +1434,38 @@ class Test {
         Assert.DoesNotMatch(@"\bagain:\s*\{\s*char\s+tmpch2(?:_\d+)?\s*;\s*\}", whileBody);
     }
 
+    [Fact]
+    public void StateMachine_HoistedMultiVariableBareLocalDeclaration_IsNotRedeclaredInCaseBody()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(bool jump, char ch) {
+        int value = 0;
+        if (jump) goto done;
+        switch (ch) {
+            case '&':
+                int charRefEndPos, charCount;
+                charRefEndPos = 3;
+                charCount = 1;
+                value += charRefEndPos - charCount;
+                break;
+        }
+    done:
+        return value;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var beforeWhile = ExtractBeforeWhile(result.GeneratedCode);
+        var whileBody = ExtractWhileBody(result.GeneratedCode);
+
+        Assert.Matches(@"\bint\s+charRefEndPos(?:_\d+)?\s*=\s*0\s*;", beforeWhile);
+        Assert.Matches(@"\bint\s+charCount(?:_\d+)?\s*=\s*0\s*;", beforeWhile);
+        Assert.DoesNotMatch(@"\bint\s+charRefEndPos(?:_\d+)?\s*,\s*charCount(?:_\d+)?\s*;", whileBody);
+        Assert.Contains("charRefEndPos = 3;", whileBody);
+        Assert.Contains("charCount = 1;", whileBody);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);

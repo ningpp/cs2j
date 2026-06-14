@@ -719,12 +719,25 @@ public partial class StatementTransformer
         var prefix = code.Substring(0, whileStart);
         var body = code.Substring(whileStart);
 
+        var typePattern = @"(?!(?:return|throw|break|continue|case|default|if|else|while|for|switch|catch|new|this|super)\b)[\w.]+(?:<[^>]+>)?(?:\[\])*";
+        var multiBareDeclarationLinePattern = $@"^[ \t]*{typePattern}[ \t]+(?<declaredNames>[A-Za-z_$][\w$]*(?:[ \t]*,[ \t]*[A-Za-z_$][\w$]*)+)[ \t]*;[ \t]*(?:\r?\n)?";
+        body = Regex.Replace(body, multiBareDeclarationLinePattern, match =>
+        {
+            var declaredNames = Regex.Matches(match.Groups["declaredNames"].Value, @"[A-Za-z_$][\w$]*")
+                .Select(name => name.Value)
+                .ToList();
+
+            return declaredNames.Count > 1
+                && declaredNames.All(name => IsHoistedVariableName(name, hoistedVarNames))
+                ? ""
+                : match.Value;
+        }, RegexOptions.Multiline);
+
         foreach (var varName in hoistedVarNames)
         {
             // Match: Type varName = or Type[] varName = or Type<Generic> varName =
             // The type can be: simple (int, String), qualified (MemorySegment, UriFormatException),
             // generic (Span<Character>), or array (byte[], Character[][])
-            var typePattern = @"(?!(?:return|throw|break|continue|case|default|if|else|while|for|switch|catch|new|this|super)\b)[\w.]+(?:<[^>]+>)?(?:\[\])*";
             var initializedDeclarationPattern = $@"((?<=^\s*){typePattern})\s+\b{Regex.Escape(varName)}\b\s*=(?!=)";
             body = Regex.Replace(body, initializedDeclarationPattern, $"{varName} =", RegexOptions.Multiline);
 
@@ -737,6 +750,17 @@ public partial class StatementTransformer
         }
 
         return prefix + body;
+    }
+
+    private static bool IsHoistedVariableName(string candidateName, HashSet<string> hoistedVarNames)
+    {
+        if (hoistedVarNames.Contains(candidateName))
+        {
+            return true;
+        }
+
+        return hoistedVarNames.Any(varName =>
+            candidateName.StartsWith(varName + "_", StringComparison.Ordinal));
     }
 
     /// <summary>

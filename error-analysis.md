@@ -301,3 +301,28 @@
 - **分析**: `System.Array` maps syntactically to `Object`, and the invocation transformer only special-cases the 1- and 2-argument `Array.Sort` overloads, so the 3-argument range overload falls through as a nonexistent `Object.sort(array, index, length)`.
 
 ✅ **Fixed** — `Array.Sort(array, index, length)` now maps to `Arrays.sort(array, index, index + length)`, preserving C# range length semantics with Java's exclusive end index.
+
+---
+
+## Iteration 14 — Hoisted multi-variable local redeclaration
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 4424
+- **错误信息**: `已在方法 parseText(io.github.ningpp.compat.IntHolder,io.github.ningpp.compat.IntHolder,io.github.ningpp.compat.IntHolder)中定义了变量 charRefEndPos`
+- **代码片段**:
+  ```java
+          case 4:
+          break;
+          case 5:
+          int charRefEndPos, charCount;
+          IntHolder _charCountHolder1 = new IntHolder();
+          ObjectHolder<EntityType> _entityTypeHolder1 = new ObjectHolder<>();
+          var _ifCond2 = (charRefEndPos = parseCharRefInline(pos, _charCountHolder1, _entityTypeHolder1)) > 0;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `int charRefEndPos, charCount;`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.LabelAndGoto.cs`
+- **分析**: goto state-machine lowering already hoists both locals to the generated method prelude, but the state-machine cleanup only removes single-variable bare declarations inside the loop and leaves comma-separated declarations like `int charRefEndPos, charCount;` behind.
+
+✅ **Fixed** — State-machine hoisted-local cleanup now removes comma-separated bare declarations when every declared variable has already been hoisted.
