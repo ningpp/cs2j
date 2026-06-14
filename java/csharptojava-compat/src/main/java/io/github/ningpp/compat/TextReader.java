@@ -31,6 +31,14 @@ public class TextReader implements AutoCloseable {
         try { return inner.read(); } catch (IOException e) { return -1; }
     }
 
+    /** Reads up to count characters into buffer. Returns 0 at end of stream. */
+    public int read(char[] buffer, int index, int count) {
+        try {
+            int result = inner.read(buffer, index, count);
+            return result == -1 ? 0 : result;
+        } catch (IOException e) { return 0; }
+    }
+
     /** Reads text until end of line. Returns null at end of stream. */
     public String readLine() {
         try {

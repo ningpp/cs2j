@@ -102,3 +102,29 @@
 - **根因分类**: 类型映射缺失
 - **涉及组件**: `config/TypeMappings.json`, `src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs`
 - **分析**: 外部 BCL enum `System.Globalization.DateTimeStyles` 和 `System.StringSplitOptions` 缺少 compat 类型映射，静态 enum 成员访问回落到 `dotnet.system.*` 导入，生成了项目中不存在的包。
+
+✅ **Fixed** — commit `5078fb6`: Added compat mappings for `DateTimeStyles`/`StringSplitOptions` and made enum member formatting honor explicit mappings.
+
+---
+
+## Iteration 6 — TextReader block Read overload missing ✅ Fixed
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 2614
+- **错误信息**: `无法将类 io.github.ningpp.compat.TextReader中的方法 read应用到给定类型; 需要: 没有参数 找到: char[],int,int 原因: 实际参数列表和形式参数列表长度不同`
+- **代码片段**:
+  ```java
+          } else {
+          if (_ps.textReader != null) {
+          // read chars
+          charsRead = _ps.textReader.read(_ps.chars, _ps.charsUsed, _ps.chars.length - _ps.charsUsed - 1);
+          _ps.charsUsed += charsRead;
+          } else {
+          charsRead = 0;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TextReader.java`, `config/TypeMappings.json`
+- **分析**: `System.IO.TextReader.Read(char[], int, int)` 被方法映射正常转换为 `TextReader.read(char[], int, int)`，但 compat runtime 的 `TextReader` 只实现了无参 `read()`，导致生成项目引用的 runtime API 不完整。
+
+✅ **Fixed** — Added `TextReader.read(char[], int, int)` to the compat runtime and verified the generated Java project now advances past the original line 2614 overload error.
