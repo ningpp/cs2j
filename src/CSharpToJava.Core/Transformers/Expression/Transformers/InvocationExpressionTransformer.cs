@@ -2448,6 +2448,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Track whether Convert.ToString had its IFormatProvider argument stripped early,
+        // so the later parseStripCount logic doesn't double-strip.
+        bool toStringFormatProviderStripped = false;
+
         // System.Convert static methods → Java boxed-type equivalents (semantic-resolved path)
         if (methodSymbol is { IsStatic: true }
             && methodSymbol.ContainingType.ToDisplayString() == "System.Convert")
@@ -2461,9 +2465,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "ToSingle"  => ("Float", "parseFloat"),
                 "ToInt16"   => ("Short", "parseShort"),
                 "ToByte"    => ("Byte", "parseByte"),
-                "ToString"  => node.ArgumentList.Arguments.Count >= 2
-                    ? ("Integer", "toString")
-                    : ("String", "valueOf"),
+                "ToString"  => ResolveConvertToString(node, context, ref toStringFormatProviderStripped),
                 _ => (receiver, methodName)
             };
         }
@@ -2673,9 +2675,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "ToInt16"   => ("Short", "parseShort"),
                     "ToByte"    => ("Byte", "parseByte"),
                     "ToChar"    => ("(char)", ""),        // handled as cast below
-                    "ToString"  => node.ArgumentList.Arguments.Count >= 2
-                        ? ("Integer", "toString")   // Convert.ToString(val, radix)
-                        : ("String", "valueOf"),     // Convert.ToString(val)
+                    "ToString"  => ResolveConvertToString(node, context, ref toStringFormatProviderStripped),
                     _ => (receiver, methodName)
                 };
             }
@@ -2821,11 +2821,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             if (wrapperClass != null)
             {
-                var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                // Note: we transform arguments lazily inside each helper rather than
+                // eagerly via TransformArgumentList here. This prevents stripped
+                // trailing IFormatProvider arguments (e.g. CultureInfo.InvariantCulture
+                // in byte.ToString("X2", CultureInfo.InvariantCulture)) from adding
+                // unnecessary imports to the generated output.
                 return originalMethodName switch
                 {
                     "GetHashCode" => $"{wrapperClass}.hashCode({receiver})",
-                    "CompareTo"   => $"{wrapperClass}.compare({receiver}, {primArgs})",
+                    "CompareTo"   => $"{wrapperClass}.compare({receiver}, {ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade)})",
                     "ToString"    => BuildPrimitiveToString(node, receiver, receiverSymbol, context, facade),
                     _             => $"{wrapperClass}.{char.ToLowerInvariant(originalMethodName[0]) + originalMethodName[1..]}({receiver})"
                 };
@@ -3205,6 +3209,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (TryTransformSplitWithRemoveEmptyEntries(node.ArgumentList, receiver, methodName, context, facade, argStartIndex, out var removeEmptySplit))
             {
                 return removeEmptySplit;
+            }
+
+            // String.Split(char[], ...) — Java's split() takes a regex String, not char[].
+            // When the separator is a char[] field reference (not a char literal or inline array),
+            // route to StringHelper.split() which converts char[] to regex at runtime.
+            if (IsCharArrayArgument(node.ArgumentList.Arguments[argStartIndex].Expression, context))
+            {
+                context.AddImport("io.github.ningpp.compat.StringHelper");
+                var separatorArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+                if (node.ArgumentList.Arguments.Count - argStartIndex >= 2
+                    && IsStringSplitOptionsArgument(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context))
+                {
+                    var optionsArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
+                    return $"StringHelper.split({receiver}, {separatorArg}, {optionsArg})";
+                }
+                return $"StringHelper.split({receiver}, {separatorArg})";
             }
 
             var splitArgs = TransformSplitArguments(node.ArgumentList, context, facade, argStartIndex);
@@ -4811,10 +4831,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Strip trailing IFormatProvider/CultureInfo/NumberStyles arguments from Parse methods
         // and Convert.ToXxx methods. Java's Integer.parseInt, Double.parseDouble, etc. do not
         // accept locale/style parameters.
+        // For Convert.ToString, only strip when the last arg is an IFormatProvider (not a radix).
         int parseStripCount = 0;
         bool isParseLike = originalMethodName == "Parse"
             || (originalMethodName is "ToBoolean" or "ToInt32" or "ToInt64"
-                or "ToDouble" or "ToSingle" or "ToInt16" or "ToByte");
+                or "ToDouble" or "ToSingle" or "ToInt16" or "ToByte")
+            || (originalMethodName == "ToString" && toStringFormatProviderStripped);
         if (isParseLike
             && node.ArgumentList.Arguments.Count - argStartIndex >= 2)
         {
@@ -4868,6 +4890,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 maxArgCount: node.ArgumentList.Arguments.Count - parseStripCount)
             : ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+
+        // Convert.ToXxx(Object) → parseXxx(Object.toString())
+        // Java's parseXxx methods require String arguments, but C#'s Convert.ToXxx
+        // can accept Object. When the first argument's type is Object (not String),
+        // wrap it with .toString() so Java can parse it.
+        if (isParseLike && argStartIndex < node.ArgumentList.Arguments.Count)
+        {
+            var firstArgType = context.GetTypeInfo(
+                node.ArgumentList.Arguments[argStartIndex].Expression).Type;
+            if (firstArgType != null
+                && firstArgType.SpecialType == SpecialType.System_Object
+                && methodName is "parseInt" or "parseLong" or "parseDouble" or "parseFloat"
+                    or "parseShort" or "parseByte" or "parseBoolean")
+            {
+                args = $"{args}.toString()";
+            }
+        }
 
         args = PrependClassTypeTokens(args,
             methodSymbol != null ? GetClassTypeTokensForCall(methodSymbol, context) : null);
@@ -5040,6 +5079,41 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return false;
     }
 
+    /// <summary>
+    /// Returns true when the expression's C# type is char[] (array of char).
+    /// Used to detect field references like WhitespaceChars that are char arrays.
+    /// </summary>
+    private static bool IsCharArrayArgument(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (context.SemanticModel != null)
+        {
+            var typeInfo = context.GetTypeInfo(expr);
+            if (typeInfo.Type is IArrayTypeSymbol arrayType
+                && arrayType.ElementType.SpecialType == SpecialType.System_Char)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the expression is a StringSplitOptions value
+    /// (mapped to IntegerHelper in Java) or a field/property of that type.
+    /// </summary>
+    private static bool IsStringSplitOptionsArgument(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (context.SemanticModel != null)
+        {
+            var typeInfo = context.GetTypeInfo(expr);
+            var typeName = typeInfo.Type?.ToDisplayString();
+            if (typeName is "System.StringSplitOptions")
+                return true;
+        }
+        // Syntactic fallback: check for known patterns
+        var text = expr.ToString();
+        return text.Contains("StringSplitOptions", StringComparison.Ordinal)
+            || text.Contains("RemoveEmptyEntries", StringComparison.Ordinal);
+    }
+
     private static bool TryTransformTextWriterAsyncInvocation(
         string originalMethodName,
         string receiver,
@@ -5104,6 +5178,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
         return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Resolves the Java mapping for Convert.ToString(val) / Convert.ToString(val, provider) /
+    /// Convert.ToString(val, radix). When the last argument is an IFormatProvider, it is
+    /// stripped and the call maps to String.valueOf. Otherwise, with a radix argument, it
+    /// maps to Integer.toString.
+    /// </summary>
+    private static (string receiver, string method) ResolveConvertToString(
+        InvocationExpressionSyntax node,
+        ConversionContext context,
+        ref bool formatProviderStripped)
+    {
+        var args = node.ArgumentList.Arguments;
+        if (args.Count >= 2)
+        {
+            var lastArg = args[args.Count - 1].Expression;
+            if (HasIFormatProviderOrNumberStylesArg(lastArg, context))
+            {
+                // Convert.ToString(value, IFormatProvider) → String.valueOf(value)
+                // The IFormatProvider arg will be stripped by the caller.
+                formatProviderStripped = true;
+                return ("String", "valueOf");
+            }
+            // Assume radix: Convert.ToString(int, int radix) → Integer.toString(int, radix)
+            return ("Integer", "toString");
+        }
+        return ("String", "valueOf");
     }
 
     /// <summary>
@@ -6140,12 +6242,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // Skip IFormatProvider if it is the first argument (e.g. ToString(provider))
+        // and/or the last argument (e.g. ToString(format, provider)).
+        int argsCount = node.ArgumentList.Arguments.Count;
         int fmtStart = HasIFormatProviderFirstArg(node, context) ? 1 : 0;
-        int formatArgCount = node.ArgumentList.Arguments.Count - fmtStart;
+        bool hasTrailingProvider = argsCount >= 2 &&
+            HasIFormatProviderOrNumberStylesArg(
+                node.ArgumentList.Arguments[argsCount - 1].Expression,
+                context);
+        int formatArgCount = argsCount - fmtStart - (hasTrailingProvider ? 1 : 0);
 
-        if (formatArgCount == 0)
+        if (formatArgCount <= 0)
         {
-            // Only IFormatProvider arg, no format string → just String.valueOf
+            // Only IFormatProvider arg(s), no format string → just String.valueOf
             return $"String.valueOf({receiver})";
         }
 

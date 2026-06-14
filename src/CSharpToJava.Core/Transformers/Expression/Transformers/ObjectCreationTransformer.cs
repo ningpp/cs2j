@@ -224,6 +224,21 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return "Decimal.ZERO";
         }
 
+        // C# `new Guid(string)` → Java `UUID.fromString(string)`.
+        // Java's UUID class has no UUID(String) constructor; must use the static factory.
+        if (createdTypeSymbol?.ToDisplayString() == "System.Guid"
+            && node.ArgumentList != null
+            && node.ArgumentList.Arguments.Count == 1)
+        {
+            var argType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+            if (argType == null || argType.SpecialType == SpecialType.System_String)
+            {
+                var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                context.AddImport("java.util.UUID");
+                return $"UUID.fromString({arg})";
+            }
+        }
+
         // Java cannot instantiate a type parameter directly (new T()).
         // For C# where T : ICollection<...>, new() we map to ArrayList and cast.
         // For other new()-constrained type params, keep a compilable fallback cast.

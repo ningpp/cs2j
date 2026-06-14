@@ -260,6 +260,16 @@ public class StringHelper {
         return s.substring(start);
     }
 
+    /** Mirrors C# String.TrimStart(char[]) - trims any character in the array from the start */
+    public static String trimStart(String s, char[] trimChars) {
+        if (s == null) return null;
+        int start = 0;
+        while (start < s.length() && contains(trimChars, s.charAt(start))) {
+            start++;
+        }
+        return s.substring(start);
+    }
+
     // ==================== TrimEnd ====================
     /** Mirrors C# String.TrimEnd() */
     public static String trimEnd(String s) {
@@ -276,6 +286,16 @@ public class StringHelper {
         if (s == null) return null;
         int end = s.length() - 1;
         while (end >= 0 && s.charAt(end) == trimChar) {
+            end--;
+        }
+        return s.substring(0, end + 1);
+    }
+
+    /** Mirrors C# String.TrimEnd(char[]) - trims any character in the array from the end */
+    public static String trimEnd(String s, char[] trimChars) {
+        if (s == null) return null;
+        int end = s.length() - 1;
+        while (end >= 0 && contains(trimChars, s.charAt(end))) {
             end--;
         }
         return s.substring(0, end + 1);
@@ -300,6 +320,45 @@ public class StringHelper {
             if (ch == c) return true;
         }
         return false;
+    }
+
+    // ==================== Split (char[] overloads) ====================
+    /** Mirrors C# String.Split(char[]) — converts char array to regex at runtime */
+    public static String[] split(String s, char[] separators) {
+        if (s == null) return null;
+        return s.split(charArrayToRegex(separators));
+    }
+
+    /** Mirrors C# String.Split(char[], StringSplitOptions) — with RemoveEmptyEntries support */
+    public static String[] split(String s, char[] separators, int options) {
+        if (s == null) return null;
+        String regex = charArrayToRegex(separators);
+        if (options == IntegerHelper.RemoveEmptyEntries) {
+            return java.util.Arrays.stream(s.split(regex))
+                    .filter(x -> !x.isEmpty())
+                    .toArray(String[]::new);
+        }
+        return s.split(regex);
+    }
+
+    /** Converts a char array to a regex character class, e.g. {' ', '\t'} → "[ \\t]" */
+    private static String charArrayToRegex(char[] chars) {
+        if (chars == null || chars.length == 0) return "";
+        StringBuilder sb = new StringBuilder();
+        sb.append('[');
+        for (char c : chars) {
+            if (c == '\\' || c == '^' || c == '-' || c == ']' || c == '[') {
+                sb.append('\\');
+            }
+            switch (c) {
+                case '\t': sb.append("\\t"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                default: sb.append(c);
+            }
+        }
+        sb.append(']');
+        return sb.toString();
     }
 
     // ==================== IndexOf (char overloads) ====================
