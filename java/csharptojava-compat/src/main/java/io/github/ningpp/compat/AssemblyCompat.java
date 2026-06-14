@@ -78,6 +78,20 @@ public class AssemblyCompat {
         return location;
     }
 
+    /** Mirrors C# Assembly.GetExecutingAssembly() */
+    public static AssemblyCompat getExecutingAssembly() {
+        return new AssemblyCompat(AssemblyCompat.class.getClassLoader(), "executing");
+    }
+
+    /** Mirrors C# Assembly.GetManifestResourceStream(name) */
+    public java.io.InputStream getManifestResourceStream(String name) {
+        java.io.InputStream stream = classLoader.getResourceAsStream(name);
+        if (stream == null) {
+            stream = AssemblyCompat.class.getClassLoader().getResourceAsStream(name);
+        }
+        return stream;
+    }
+
     /** Nested type for AssemblyName compat */
     public static class AssemblyNameCompat {
         private final String name;

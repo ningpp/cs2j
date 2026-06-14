@@ -3,6 +3,7 @@ package io.github.ningpp.compat;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.Locale;
 import java.util.Objects;
 
 public final class Decimal implements Comparable<Decimal> {
@@ -266,6 +267,17 @@ public final class Decimal implements Comparable<Decimal> {
 
     @Override
     public String toString() {
+        return toStringPlain();
+    }
+
+    public String toString(String format, IFormatProvider provider) {
+        if (format == null || format.isEmpty()) {
+            return toStringPlain();
+        }
+        return MathHelper.formatNumeric(format, doubleValue());
+    }
+
+    public String toString(IFormatProvider provider) {
         return toStringPlain();
     }
 

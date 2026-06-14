@@ -176,6 +176,32 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         return ticksToLocalDateTime(dateTime.getTicks()).format(DateTimeFormatter.ofPattern(format));
     }
 
+    public String toString(String format, IFormatProvider provider) {
+        return toString(format);
+    }
+
+    public static CSharpDateTimeOffset parseExact(String s, String format, IFormatProvider provider) {
+        return parseExact(s, format, provider, 0);
+    }
+
+    public static CSharpDateTimeOffset parseExact(String s, String format, IFormatProvider provider, int style) {
+        try {
+            return parse(s);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s, e);
+        }
+    }
+
+    public static CSharpDateTimeOffset parseExact(String s, String[] formats, IFormatProvider provider, int style) {
+        for (String fmt : formats) {
+            try {
+                return parseExact(s, fmt, provider, style);
+            } catch (Exception ignored) {
+            }
+        }
+        throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s);
+    }
+
     private static LocalDateTime ticksToLocalDateTime(long ticks) {
         long javaEpochTicks = ticks - 621355968000000000L;
         long epochDay = javaEpochTicks / CSharpTimeSpan.TICKS_PER_DAY;

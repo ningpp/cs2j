@@ -127,6 +127,60 @@ public class MathHelper {
         return false;
     }
 
+    public static boolean tryParseFloat(String s, int style, CultureInfo culture, FloatHolder result) {
+        try { result.value = (float) parseDoubleWithStyle(s, style); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseFloat(String s, int style, Locale locale, FloatHolder result) {
+        try { result.value = (float) parseDoubleWithStyle(s, style); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseByte(String s, ByteHolder result) {
+        try { result.value = Byte.parseByte(s.trim()); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseByte(String s, int style, CultureInfo culture, ByteHolder result) {
+        try { result.value = (byte) parseIntWithStyle(s, style); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseByte(String s, int style, Locale locale, ByteHolder result) {
+        try { result.value = (byte) parseIntWithStyle(s, style); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseShort(String s, ShortHolder result) {
+        try { result.value = Short.parseShort(s.trim()); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseShort(String s, int style, CultureInfo culture, ShortHolder result) {
+        try { result.value = (short) parseIntWithStyle(s, style); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseShort(String s, int style, Locale locale, ShortHolder result) {
+        try { result.value = (short) parseIntWithStyle(s, style); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseChar(String s, CharHolder result) {
+        if (s != null && s.length() == 1) { result.value = s.charAt(0); return true; }
+        return false;
+    }
+
+    public static boolean tryParseUInt(String s, int style, CultureInfo culture, IntHolder result) {
+        try { result.value = (int) Long.parseLong(normalizeIntegerLiteral(s, style), (style & NumberStyles.AllowHexSpecifier) != 0 ? 16 : 10); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseUInt(String s, int style, Locale locale, IntHolder result) {
+        return tryParseUInt(s, style, (CultureInfo)null, result);
+    }
+
     private static double parseDoubleWithStyle(String s, int style) {
         if (s == null) {
             throw new NumberFormatException("null");

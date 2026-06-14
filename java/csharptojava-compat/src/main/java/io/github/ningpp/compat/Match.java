@@ -20,4 +20,18 @@ public final class Match {
     public GroupCollection getGroups() {
         return Groups;
     }
+
+    public int getIndex() {
+        if (Groups != null && Groups.get(0) != null) {
+            return Groups.get(0).getIndex();
+        }
+        return -1;
+    }
+
+    public String getValue() {
+        if (Groups != null && Groups.get(0) != null) {
+            return Groups.get(0).getValue();
+        }
+        return "";
+    }
 }

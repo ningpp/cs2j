@@ -5,6 +5,7 @@ package io.github.ningpp.compat;
  * Extends IllegalArgumentException and adds support for the ParamName property.
  */
 public class ArgumentException extends IllegalArgumentException {
+    private int hresult;
     private final String paramName;
 
     public ArgumentException() {
@@ -35,4 +36,7 @@ public class ArgumentException extends IllegalArgumentException {
     public String getParamName() {
         return paramName;
     }
+
+    public int getHResult() { return hresult; }
+    public void setHResult(int value) { this.hresult = value; }
 }

@@ -19,11 +19,21 @@ public final class GroupCollection {
 
     public Group get(int index) {
         if (!success || matcher == null) return Group.Empty;
-        try { return new Group(matcher.group(index)); }
-        catch (Exception ex) { return Group.Empty; }
+        try {
+            String val = matcher.group(index);
+            if (val != null) {
+                return new Group(matcher, true, matcher.start(index), val);
+            }
+            return Group.Empty;
+        } catch (Exception ex) { return Group.Empty; }
     }
 
     public Group getItem(int index) {
         return get(index);
+    }
+
+    public int getCount() {
+        if (!success || matcher == null) return 1;
+        return matcher.groupCount() + 1;
     }
 }

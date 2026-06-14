@@ -23,6 +23,26 @@ public final class Regex {
         return pattern.matcher(input == null ? "" : input).find();
     }
 
+    public MatchCollection matches(String input) {
+        MatchCollection collection = new MatchCollection();
+        java.util.regex.Matcher matcher = pattern.matcher(input == null ? "" : input);
+        while (matcher.find()) {
+            collection.add(new Match(matcher, true));
+        }
+        return collection;
+    }
+
+    public MatchCollection matches(String input, int startat) {
+        MatchCollection collection = new MatchCollection();
+        java.util.regex.Matcher matcher = pattern.matcher(input == null ? "" : input);
+        int start = startat;
+        while (matcher.find(start)) {
+            collection.add(new Match(matcher, true));
+            start = matcher.end();
+        }
+        return collection;
+    }
+
     public static Match match(String input, String pattern) {
         return new Regex(pattern).match(input);
     }

@@ -456,6 +456,14 @@ public class Encoding {
         return new Encoder(this);
     }
 
+    public DecoderReplacementFallback getDecoderFallback() {
+        return new DecoderReplacementFallback(decoderReplacement);
+    }
+
+    public EncoderFallback getEncoderFallback() {
+        return new EncoderReplacementFallback(encoderReplacement);
+    }
+
     // ---- Instance Methods: IsAlwaysNormalized ----
 
     public boolean isAlwaysNormalized() {

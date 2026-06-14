@@ -141,6 +141,32 @@ public class StreamWrapper implements AutoCloseable {
         }
     }
 
+    public void copyTo(MemoryStream destination) {
+        copyTo((StreamWrapper) destination);
+    }
+
+    public CompletableFuture<Void> flushAsync() {
+        return CompletableFuture.runAsync(this::flush);
+    }
+
+    public CompletableFuture<Void> writeAsync(byte[] buffer, int offset, int count) {
+        return CompletableFuture.runAsync(() -> write(buffer, offset, count));
+    }
+
+    public CompletableFuture<Void> copyToAsync(StreamWrapper destination) {
+        return CompletableFuture.runAsync(() -> copyTo(destination));
+    }
+
+    public CompletableFuture<Void> copyToAsync(MemoryStream destination) {
+        return CompletableFuture.runAsync(() -> copyTo(destination));
+    }
+
+    public void write(ReadOnlySpan<Integer> span) {
+        for (int i = 0; i < span.length(); i++) {
+            write(span.get(i));
+        }
+    }
+
     public long getPosition() {
         throw new UnsupportedOperationException("This stream does not support Position");
     }

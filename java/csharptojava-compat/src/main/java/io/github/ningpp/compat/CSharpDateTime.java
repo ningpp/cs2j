@@ -228,6 +228,32 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
         return ldt.format(DateTimeFormatter.ofPattern(format));
     }
 
+    public String toString(String format, IFormatProvider provider) {
+        return toString(format);
+    }
+
+    public static CSharpDateTime parseExact(String s, String format, IFormatProvider provider) {
+        return parseExact(s, format, provider, 0);
+    }
+
+    public static CSharpDateTime parseExact(String s, String format, IFormatProvider provider, int style) {
+        try {
+            return parse(s);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid DateTime format: " + s, e);
+        }
+    }
+
+    public static CSharpDateTime parseExact(String s, String[] formats, IFormatProvider provider, int style) {
+        for (String fmt : formats) {
+            try {
+                return parseExact(s, fmt, provider, style);
+            } catch (Exception ignored) {
+            }
+        }
+        throw new IllegalArgumentException("Invalid DateTime format: " + s);
+    }
+
     private static String getLocalOffsetText() {
         ZoneOffset offset = OffsetDateTime.now().getOffset();
         int totalSeconds = offset.getTotalSeconds();

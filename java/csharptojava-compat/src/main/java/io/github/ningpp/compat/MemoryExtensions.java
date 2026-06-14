@@ -41,4 +41,22 @@ public class MemoryExtensions {
         }
         return new ReadOnlySpan<>(arr);
     }
+
+    public static ReadOnlySpan<Integer> asSpan(char[] data) {
+        if (data == null) return new ReadOnlySpan<>(new Integer[0]);
+        Integer[] arr = new Integer[data.length];
+        for (int i = 0; i < data.length; i++) {
+            arr[i] = (int) data[i];
+        }
+        return new ReadOnlySpan<>(arr);
+    }
+
+    public static ReadOnlySpan<Integer> asSpan(char[] data, int start, int length) {
+        if (data == null) return new ReadOnlySpan<>(new Integer[0]);
+        Integer[] arr = new Integer[length];
+        for (int i = 0; i < length; i++) {
+            arr[i] = (int) data[start + i];
+        }
+        return new ReadOnlySpan<>(arr);
+    }
 }

@@ -3987,6 +3987,69 @@
             "imports": [
                 "dotnet.system.NewsStyleUriParser"
             ]
+        },
+        {
+            "csharp": "System.IFormatProvider",
+            "java": "IFormatProvider",
+            "imports": [
+                "io.github.ningpp.compat.IFormatProvider"
+            ]
+        },
+        {
+            "csharp": "System.Globalization.NumberStyles",
+            "java": "NumberStyles",
+            "imports": [
+                "io.github.ningpp.compat.NumberStyles"
+            ]
+        },
+        {
+            "csharp": "System.Text.RegularExpressions.MatchCollection",
+            "java": "MatchCollection",
+            "imports": [
+                "io.github.ningpp.compat.MatchCollection"
+            ]
+        },
+        {
+            "csharp": "System.Threading.Interlocked",
+            "java": "Interlocked",
+            "imports": [
+                "io.github.ningpp.compat.Interlocked"
+            ]
+        },
+        {
+            "csharp": "System.IO.UnmanagedMemoryStream",
+            "java": "UnmanagedMemoryStream",
+            "imports": [
+                "io.github.ningpp.compat.UnmanagedMemoryStream"
+            ]
+        },
+        {
+            "csharp": "System.UInt16",
+            "java": "UShort",
+            "imports": [
+                "io.github.ningpp.compat.UShort"
+            ]
+        },
+        {
+            "csharp": "System.UInt32",
+            "java": "UInt",
+            "imports": [
+                "io.github.ningpp.compat.UInt"
+            ]
+        },
+        {
+            "csharp": "System.UInt64",
+            "java": "ULong",
+            "imports": [
+                "io.github.ningpp.compat.ULong"
+            ]
+        },
+        {
+            "csharp": "System.Xml.XmlException",
+            "java": "XmlException",
+            "imports": [
+                "io.github.ningpp.compat.XmlException"
+            ]
         }
     ],
     "methodMappings": [
@@ -6390,6 +6453,69 @@
             "type": "Xunit.Assert",
             "method": "True",
             "javaMethod": "true_"
+        },
+        {
+            "type": "System.Threading.Interlocked",
+            "method": "CompareExchange",
+            "javaMethod": "compareExchange",
+            "imports": [
+                "io.github.ningpp.compat.Interlocked"
+            ]
+        },
+        {
+            "type": "System.Threading.Interlocked",
+            "method": "Exchange",
+            "javaMethod": "exchange",
+            "imports": [
+                "io.github.ningpp.compat.Interlocked"
+            ]
+        },
+        {
+            "type": "System.Threading.Interlocked",
+            "method": "Increment",
+            "javaMethod": "increment",
+            "imports": [
+                "io.github.ningpp.compat.Interlocked"
+            ]
+        },
+        {
+            "type": "System.Threading.Interlocked",
+            "method": "Decrement",
+            "javaMethod": "decrement",
+            "imports": [
+                "io.github.ningpp.compat.Interlocked"
+            ]
+        },
+        {
+            "type": "System.Collections.Hashtable",
+            "method": "Add",
+            "javaMethod": "put"
+        },
+        {
+            "type": "System.Reflection.Assembly",
+            "method": "GetExecutingAssembly",
+            "javaMethod": "AssemblyCompat.getExecutingAssembly",
+            "imports": [
+                "io.github.ningpp.compat.AssemblyCompat"
+            ]
+        },
+        {
+            "type": "System.Reflection.Assembly",
+            "method": "GetManifestResourceStream",
+            "javaMethod": "getManifestResourceStream"
+        },
+        {
+            "type": "System.Threading.Tasks.Task",
+            "method": "get_IsCompleted",
+            "javaMethod": "isDone"
+        },
+        {
+            "type": "System.Globalization.CultureInfo",
+            "method": "get_InvariantCulture",
+            "javaMethod": "CultureInfo.getInvariantCulture",
+            "imports": [
+                "io.github.ningpp.compat.CultureInfo"
+            ]
         }
     ],
     "namespaceMappings": [
@@ -6420,6 +6546,10 @@
         {
             "csharp": "Xunit",
             "java": "csharp.xunit"
+        },
+        {
+            "csharp": "System.Threading",
+            "java": "io.github.ningpp.compat"
         }
     ]
 }
