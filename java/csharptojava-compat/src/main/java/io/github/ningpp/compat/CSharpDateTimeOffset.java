@@ -180,6 +180,24 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         return toString(format);
     }
 
+    public static CSharpDateTimeOffset parseExact(String s, String format) {
+        try {
+            return parse(s);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s, e);
+        }
+    }
+
+    public static CSharpDateTimeOffset parseExact(String s, String[] formats) {
+        for (String fmt : formats) {
+            try {
+                return parseExact(s, fmt);
+            } catch (Exception ignored) {
+            }
+        }
+        throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s);
+    }
+
     public static CSharpDateTimeOffset parseExact(String s, String format, IFormatProvider provider) {
         return parseExact(s, format, provider, 0);
     }
