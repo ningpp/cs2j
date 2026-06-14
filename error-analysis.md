@@ -128,3 +128,27 @@
 - **分析**: `System.IO.TextReader.Read(char[], int, int)` 被方法映射正常转换为 `TextReader.read(char[], int, int)`，但 compat runtime 的 `TextReader` 只实现了无参 `read()`，导致生成项目引用的 runtime API 不完整。
 
 ✅ **Fixed** — Added `TextReader.read(char[], int, int)` to the compat runtime and verified the generated Java project now advances past the original line 2614 overload error.
+
+---
+
+## Iteration 7 — State-machine hoisted bare local remains redeclared
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 2891
+- **错误信息**: `已在方法 parseXmlDeclaration(boolean)中定义了变量 chars`
+- **代码片段**:
+  ```java
+          // parse attribute value
+          pos = _ps.charPos;
+          char[] chars;
+          Continue: { chars = _ps.chars; }
+          while (_xmlCharType.isAttributeValueChar(chars[pos])) {
+          pos++;
+          }
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **根因分类**: Lowering
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.LabelAndGoto.cs`
+- **分析**: goto state-machine lowering hoists `char[] chars;` to `char[] chars = null;` before the switch, but the post-pass only rewrites hoisted declarations with initializers (`Type name = ...`), so the original bare declaration remains inside the state-machine case and duplicates the hoisted local.
+
+✅ **Fixed** — Removed bare declarations for hoisted state-machine locals inside `__gotoLoop` while preserving initializer-to-assignment rewrites.

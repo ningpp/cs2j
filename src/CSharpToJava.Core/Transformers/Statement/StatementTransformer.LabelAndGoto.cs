@@ -724,8 +724,12 @@ public partial class StatementTransformer
             // Match: Type varName = or Type[] varName = or Type<Generic> varName =
             // The type can be: simple (int, String), qualified (MemorySegment, UriFormatException),
             // generic (Span<Character>), or array (byte[], Character[][])
-            var pattern = $@"((?<=^\s*)[\w.]+(?:<[^>]+>)?(?:\[\])*)\s+\b{Regex.Escape(varName)}\b\s*=(?!=)";
-            body = Regex.Replace(body, pattern, $"{varName} =", RegexOptions.Multiline);
+            var typePattern = @"(?!(?:return|throw|break|continue|case|default|if|else|while|for|switch|catch|new|this|super)\b)[\w.]+(?:<[^>]+>)?(?:\[\])*";
+            var initializedDeclarationPattern = $@"((?<=^\s*){typePattern})\s+\b{Regex.Escape(varName)}\b\s*=(?!=)";
+            body = Regex.Replace(body, initializedDeclarationPattern, $"{varName} =", RegexOptions.Multiline);
+
+            var bareDeclarationLinePattern = $@"^[ \t]*{typePattern}[ \t]+\b{Regex.Escape(varName)}\b[ \t]*;[ \t]*(?:\r?\n)?";
+            body = Regex.Replace(body, bareDeclarationLinePattern, "", RegexOptions.Multiline);
         }
 
         return prefix + body;

@@ -1372,6 +1372,36 @@ class Test {
         Assert.True(eDeclCount == 0, $"Found {eDeclCount} 'Exception e' declarations in while body, expected 0");
     }
 
+    [Fact]
+    public void StateMachine_HoistedBareLocalDeclaration_IsNotRedeclaredInCaseBody()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(bool jump, char[] input) {
+        int value = 0;
+        if (jump) goto done;
+        for (;;)
+        {
+            char[] chars;
+        again:
+            chars = input;
+            value += chars.Length;
+            if (value < 2) goto again;
+            break;
+        }
+    done:
+        return value;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var beforeWhile = ExtractBeforeWhile(result.GeneratedCode);
+        var whileBody = ExtractWhileBody(result.GeneratedCode);
+
+        Assert.Matches(@"\bchar\[\]\s+chars(?:_\d+)?\s*=\s*null\s*;", beforeWhile);
+        Assert.DoesNotMatch(@"\bchar\[\]\s+chars(?:_\d+)?\s*;", whileBody);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);
