@@ -701,3 +701,34 @@
 - **分析**: Iteration 28 已删除同一 state-machine case 尾部不可达的 `break __gotoLoop;`，但 `TransformBlockWithStateMachine` 随后仍按“非 void 方法 Java 需要兜底返回”的通用规则追加 `return false;`。这个兜底对 `switch goto case` 等可能落出 state-machine 的场景仍需要保留；但本例方法级 state-machine 主体中外层 `__gotoLoop` 的唯一可执行路径被一个不可正常退出的 C# `for (;;)` 包住，循环体只通过 `return/throw/continue` 或 state transition 继续执行，没有裸 `break` 能退出循环。Java 因此认定整个 `__gotoLoop` 后的 fallback return 不可达。应在 state-machine 清理后识别这种“不可正常落出”的主循环，并抑制方法尾部 fallback return；不要手改生成 Java。
 
 ✅ **Fixed** — method-level goto state-machine fallback generation now runs after unreachable infinite-loop cleanup and only emits a fallback when the cleaned state machine can still break out normally. The focused regression first failed by matching `__gotoLoop: while (true) ... return false;`, then passed after the fallback was suppressed for nonbreaking state machines while the existing goto-case fallback test stayed green. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[3168,9]` fallback `return false;` disappeared. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[4292,9] 无法访问的语句` on `__state = 2; continue __gotoLoop;`.
+
+---
+
+## Iteration 30 — Method goto state-machine appends next-label transition after terminal labeled block
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 4292
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[4292,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          _curNode.setValueNode(nodeType, _stringBuilder.toString());
+          _stringBuilder.setLength(0);
+          if (!fullValue) {
+          _nextParsingFunction = _parsingFunction;
+          _parsingFunction = ParsingFunction.PartialTextValue;
+          }
+          return true;
+          }
+          }
+          __state = 2;
+          continue __gotoLoop;
+          case 2: // IgnoredNode
+          IgnoredNode: { if (_parsingFunction == ParsingFunction.ReportEndEntity) {
+          setupEndEntityNodeInContent();
+          ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `ParseText()` 中根据 `_parsingMode`、`GetTextNodeType(...) == XmlNodeType.None` 等分支多次 `goto IgnoredNode`；主 `if/else` 文本解析分支在其他路径上都 `return true`，方法尾部 `IgnoredNode:` 根据 entity 状态 `return true` 或 `return false`。
+- **根因分类**: Transformer method goto state-machine lowering / terminal labeled block analysis
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Context\GotoAnalyzer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.LabelAndGoto.cs`
+- **分析**: `GotoAnalyzer.SplitIntoBasicBlocks` 只把顶层的 `goto`/`return`/`throw`/`break`/`continue` 识别为 block exit。`ParseText()` 的主 basic block 是复杂的顶层 `if/else`：若进入 `goto IgnoredNode` 分支，转换器已在嵌套位置生成 `__state = 2; continue __gotoLoop;`；其他路径都通过嵌套 `return true` 终止。Java 已能判定该 `if/else` 后不可达，但 analyzer 仍把该 block 标为 `FallThrough`，并因后面存在 `IgnoredNode:` basic block 而生成额外的 `__state = 2; continue __gotoLoop;`。这是 Iteration 29 之后剩下的同类 reachability 缺口：fallback return 已被抑制，但 case body 末尾为嵌套 block/if 后 `return` 时，next-label transition 仍按 basic-block fallthrough 补出。
+
+✅ **Fixed** — method-level goto state-machine case-tail generation now suppresses synthetic fallthrough/conditional fallthrough transitions when the source statement at the end of a basic block cannot complete normally, including nested `if/else` blocks where both branches terminate via return/throw/goto/break/continue. The focused regression first failed by matching `return true; ... __state = N; continue __gotoLoop;`, then passed after the syntax-level terminal check was added; a companion test verifies a non-terminal labeled block still keeps a next-label transition. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[4292,9]` unreachable transition disappeared and line 4292 is now `case 2: // IgnoredNode`. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[5086,9] 无法访问的语句` on `ReturnPartial: { ... }`.

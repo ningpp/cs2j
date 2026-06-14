@@ -305,6 +305,7 @@ public partial class StatementTransformer
                     ? $" // {basicBlock.Label}"
                     : $" // block_{basicBlock.Index}";
                 sb.AppendLine($"        case {basicBlock.Index}:{labelComment}");
+                var blockBodyCannotCompleteNormally = false;
 
                 // Transform statements in the block
                 for (var statementIndex = 0; statementIndex < basicBlock.Statements.Count; statementIndex++)
@@ -318,12 +319,22 @@ public partial class StatementTransformer
                     {
                         AppendIndentedLines(sb, transformed, "            ");
                     }
+
+                    if (statementIndex == basicBlock.Statements.Count - 1)
+                    {
+                        blockBodyCannotCompleteNormally = StatementCannotCompleteNormallyInStateMachine(stmt);
+                    }
                 }
 
                 // Handle block exit
                 switch (basicBlock.Exit)
                 {
                     case BlockExit.FallThrough:
+                        if (blockBodyCannotCompleteNormally)
+                        {
+                            break;
+                        }
+
                         if (basicBlock.FallThroughTarget.HasValue)
                         {
                             sb.AppendLine($"            __state = {basicBlock.FallThroughTarget.Value};");
@@ -342,6 +353,11 @@ public partial class StatementTransformer
                     case BlockExit.ConditionalGoto:
                         // Conditional goto is handled within the if statement transformation
                         // Fall through to next block if condition is false
+                        if (blockBodyCannotCompleteNormally)
+                        {
+                            break;
+                        }
+
                         if (basicBlock.FallThroughTarget.HasValue)
                         {
                             sb.AppendLine($"            __state = {basicBlock.FallThroughTarget.Value};");
@@ -393,6 +409,34 @@ public partial class StatementTransformer
         }
 
         return result;
+    }
+
+    private static bool StatementCannotCompleteNormallyInStateMachine(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+            case BreakStatementSyntax:
+            case ContinueStatementSyntax:
+                return true;
+
+            case LabeledStatementSyntax labeled:
+                return StatementCannotCompleteNormallyInStateMachine(labeled.Statement);
+
+            case BlockSyntax block:
+                return block.Statements.Count > 0
+                    && StatementCannotCompleteNormallyInStateMachine(block.Statements[^1]);
+
+            case IfStatementSyntax ifStatement:
+                return ifStatement.Else != null
+                    && StatementCannotCompleteNormallyInStateMachine(ifStatement.Statement)
+                    && StatementCannotCompleteNormallyInStateMachine(ifStatement.Else.Statement);
+
+            default:
+                return false;
+        }
     }
 
     private static bool StateMachineCanFallThrough(string stateMachineCode)

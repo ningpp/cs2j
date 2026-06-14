@@ -1644,6 +1644,90 @@ class Test {
         Assert.DoesNotMatch(@"(?s)__gotoLoop:\s*while\s*\(true\).*?\}\s*return\s+false;", code);
     }
 
+    [Fact]
+    public void StateMachine_TerminalLabeledBlockBeforeNextLabel_DropsUnreachableTransition()
+    {
+        var result = Convert(@"
+class Test {
+    static bool M(bool partial, bool v1, bool none, bool reportIgnored) {
+        if (partial)
+        {
+            if (none)
+            {
+                goto IgnoredNode;
+            }
+
+            return true;
+        }
+        else
+        {
+            if (v1)
+            {
+                if (none)
+                {
+                    goto IgnoredNode;
+                }
+
+                return true;
+            }
+
+            if (none)
+            {
+                goto IgnoredNode;
+            }
+
+            if (!reportIgnored)
+            {
+                partial = false;
+            }
+
+            return true;
+        }
+
+    IgnoredNode:
+        if (reportIgnored)
+        {
+            return true;
+        }
+
+        return false;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.DoesNotMatch(
+            @"(?s)return\s+true;\s*\}\s*__state\s*=\s*\d+;\s*continue\s+__gotoLoop;",
+            code);
+    }
+
+    [Fact]
+    public void StateMachine_NonTerminalLabeledBlockBeforeNextLabel_KeepsFallthroughTransition()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(bool skip) {
+        if (skip)
+        {
+            goto First;
+        }
+
+    First:
+        int x = 1;
+
+    Second:
+        return x + 1;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Matches(
+            @"(?s)case\s+\d+:\s*//\s*First.*?__state\s*=\s*\d+;\s*continue\s+__gotoLoop;\s*case\s+\d+:\s*//\s*Second",
+            code);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);
