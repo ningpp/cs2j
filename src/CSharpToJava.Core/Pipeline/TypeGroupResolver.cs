@@ -33,6 +33,10 @@ public static class TypeGroupResolver
         context.ClearImports();
         context.ClearAliases();
 
+        // Skip nested types — they are processed through their parent class via ClassTransformer.TransformMerged
+        if (typeGroup.TypeSymbol.ContainingType != null)
+            return null;
+
         try
         {
             // Handle Enum types specially — EnumDeclarationSyntax is not TypeDeclarationSyntax

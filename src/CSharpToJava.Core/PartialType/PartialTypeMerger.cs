@@ -77,12 +77,60 @@ public class PartialTypeMerger
                         GetFirstLocation(syntaxNodes));
                 }
             }
+
+            // Recursively discover nested types within this type
+            FindNestedTypes(typeMember, typeGroups, processedSymbols);
         }
 
         // Recursively process nested namespaces
         foreach (var childNamespace in namespaceSymbol.GetNamespaceMembers())
         {
             FindTypesInNamespace(childNamespace, typeGroups, processedSymbols);
+        }
+    }
+
+    /// <summary>
+    /// Recursively finds all nested types within a type and its sub-types.
+    /// This ensures partial inner types (e.g. structs/classes split across files) are discovered.
+    /// </summary>
+    private void FindNestedTypes(
+        INamedTypeSymbol parentType,
+        Dictionary<string, PartialTypeGroup> typeGroups,
+        HashSet<INamedTypeSymbol> processedSymbols)
+    {
+        foreach (var nestedType in parentType.GetTypeMembers())
+        {
+            if (processedSymbols.Contains(nestedType))
+                continue;
+
+            // Skip types from referenced assemblies
+            if (!nestedType.Locations.Any(l => l.IsInSource))
+                continue;
+
+            processedSymbols.Add(nestedType);
+
+            var typeKey = GetTypeKey(nestedType);
+
+            if (!typeGroups.ContainsKey(typeKey))
+            {
+                var partialParts = CollectPartialParts(nestedType);
+                var syntaxNodes = CollectSyntaxNodes(partialParts);
+
+                typeGroups[typeKey] = new PartialTypeGroup(
+                    nestedType,
+                    partialParts,
+                    syntaxNodes);
+
+                if (partialParts.Count > 1)
+                {
+                    _diagnostics.Info(
+                        $"Found partial nested type '{nestedType.Name}' with {partialParts.Count} parts",
+                        GetFirstLocation(syntaxNodes));
+                }
+            }
+
+            // Recurse into deeper nesting levels
+            FindNestedTypes(nestedType, typeGroups, processedSymbols);
         }
     }
 

@@ -249,6 +249,18 @@ public class ClassTransformer : ITypeTransformer
 
         // Process members from original syntax nodes (not the synthetic merged node).
         // Original nodes are from the compilation trees, so semantic model works correctly.
+
+        // Process members from original syntax nodes (not the synthetic merged node).
+        // Original nodes are from the compilation trees, so semantic model works correctly.
+
+        // Process members from original syntax nodes (not the synthetic merged node).
+        // Original nodes are from the compilation trees, so semantic model works correctly.
+        //
+        // For nested partial types (inner types split across files), we need special handling:
+        // - First occurrence is processed normally via ProcessMember → creates Java nested type
+        // - Subsequent occurrences have their members added to the already-created nested type
+        // We track partial nested types by their semantic symbol key.
+        var nestedPartialTypeJavaClasses = new Dictionary<string, JavaClassDeclaration>();
         var seenMemberKeys = new HashSet<string>();
         foreach (var originalNode in mergedType.OriginalSyntaxNodes)
         {
@@ -266,21 +278,65 @@ public class ClassTransformer : ITypeTransformer
                               p.Modifiers.Any(m => m.IsKind(SyntaxKind.InKeyword))  ? "in_"  : "";
                     return mod + (p.Type?.ToString() ?? "?");
                 }
-                var key = member switch
+
+                // For nested types, use semantic symbol for deduplication so partial inner types
+                // (split across files) are recognized as the same type.
+                string key;
+                INamedTypeSymbol? nestedSymbolForKey = null;
+                if (member is TypeDeclarationSyntax nestedTypeForDedup)
                 {
-                    MethodDeclarationSyntax m => $"m:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
-                    PropertyDeclarationSyntax p => $"p:{p.Identifier.Text}",
-                    FieldDeclarationSyntax f => $"f:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
-                    ConstructorDeclarationSyntax c => c.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
-                        ? "cctor"
-                        : $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
-                    EventDeclarationSyntax e => $"ev:{e.Identifier.Text}",
-                    DelegateDeclarationSyntax d => $"del:{d.Identifier.Text}",
-                    TypeDeclarationSyntax t => $"type:{t.Identifier.Text}",
-                    _ => $"other:{member.GetHashCode()}"
-                };
-                if (seenMemberKeys.Add(key))
+                    nestedSymbolForKey = nodeModel?.GetDeclaredSymbol(nestedTypeForDedup) as INamedTypeSymbol;
+                    key = nestedSymbolForKey != null
+                        ? $"type:{nestedSymbolForKey.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"
+                        : $"type:{nestedTypeForDedup.Identifier.Text}";
+                }
+                else
+                {
+                    key = member switch
+                    {
+                        MethodDeclarationSyntax m => $"m:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
+                        PropertyDeclarationSyntax p => $"p:{p.Identifier.Text}",
+                        FieldDeclarationSyntax f => $"f:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
+                        ConstructorDeclarationSyntax c => c.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
+                            ? "cctor"
+                            : $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
+                        EventDeclarationSyntax e => $"ev:{e.Identifier.Text}",
+                        DelegateDeclarationSyntax d => $"del:{d.Identifier.Text}",
+                        _ => $"other:{member.GetHashCode()}"
+                    };
+                }
+
+                // For nested types that are partial (appear in multiple files):
+                // - On first occurrence: process normally, then store reference to the created Java type
+                // - On subsequent occurrences: add additional members to the stored Java type
+                if (member is TypeDeclarationSyntax nestedTypeDecl && nestedSymbolForKey != null
+                    && nestedSymbolForKey.DeclaringSyntaxReferences.Length > 1)
+                {
+                    var nestedKey = nestedSymbolForKey.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    if (nestedPartialTypeJavaClasses.TryGetValue(nestedKey, out var existingJavaClass))
+                    {
+                        // Subsequent occurrence: add members from this occurrence to existing Java type
+                        AddMembersFromOccurrence(nestedTypeDecl, existingJavaClass, context);
+                        continue;
+                    }
+
+                    // First occurrence: process normally
                     ProcessMember(member, javaClass, context);
+
+                    // Find the just-created Java nested type and store a reference to it
+                    var createdType = javaClass.NestedTypes.LastOrDefault(
+                        nt => nt.Name == nestedTypeDecl.Identifier.Text);
+                    if (createdType is JavaClassDeclaration createdClass)
+                    {
+                        nestedPartialTypeJavaClasses[nestedKey] = createdClass;
+                    }
+                    continue;
+                }
+
+                if (!seenMemberKeys.Add(key))
+                    continue;
+
+                ProcessMember(member, javaClass, context);
             }
         }
 
@@ -2119,6 +2175,92 @@ public class ClassTransformer : ITypeTransformer
             var bridge = new JavaMethodDeclaration { Modifiers = JavaModifiers.Public, ReturnType = "void", Name = "add", Body = $"add(({primitiveType}) point);" };
             bridge.Parameters.Add(new JavaParameter(boxedType, "point"));
             javaClass.Methods.Add(bridge);
+        }
+    }
+
+    /// <summary>
+    /// Processes members from a subsequent occurrence of a partial nested type and adds them
+    /// to the already-created Java nested type. This handles the case where a nested type
+    /// (e.g. a struct or class) is declared as partial across multiple files.
+    /// </summary>
+    private void AddMembersFromOccurrence(
+        TypeDeclarationSyntax nestedTypeDecl,
+        JavaClassDeclaration existingJavaClass,
+        ConversionContext context)
+    {
+        var factory = new Transformers.TransformerFactory();
+        foreach (var member in nestedTypeDecl.Members)
+        {
+            switch (member)
+            {
+                case FieldDeclarationSyntax fieldDecl:
+                    var fieldTransformer = new Transformers.Member.FieldTransformer();
+                    foreach (var javaField in fieldTransformer.TransformAll(fieldDecl, context))
+                    {
+                        existingJavaClass.Fields.Add(javaField);
+                        StructTransformer.DrainFieldPreStatementsPublic(javaField, existingJavaClass, context);
+                    }
+                    break;
+
+                case MethodDeclarationSyntax methodDecl:
+                    var methodTransformer = factory.CreateMethodTransformer();
+                    var method = methodTransformer.Transform(methodDecl, context);
+                    if (method is JavaMethodDeclaration javaMethod)
+                    {
+                        AddMethodIfNotDuplicate(existingJavaClass, javaMethod);
+                    }
+                    else if (method is JavaMemberCollection methodCollection)
+                    {
+                        foreach (var m in methodCollection.Members.OfType<JavaMethodDeclaration>())
+                        {
+                            AddMethodIfNotDuplicate(existingJavaClass, m);
+                        }
+                    }
+                    break;
+
+                case PropertyDeclarationSyntax propDecl:
+                    var propTransformer = factory.CreatePropertyTransformer();
+                    var props = propTransformer.Transform(propDecl, context);
+                    if (props is JavaMemberCollection collection)
+                    {
+                        foreach (var prop in collection.Members)
+                        {
+                            if (prop is JavaFieldDeclaration jf) existingJavaClass.Fields.Add(jf);
+                            if (prop is JavaMethodDeclaration jm) AddMethodIfNotDuplicate(existingJavaClass, jm);
+                        }
+                    }
+                    else if (props is JavaFieldDeclaration jf)
+                    {
+                        existingJavaClass.Fields.Add(jf);
+                    }
+                    else if (props is JavaMethodDeclaration jm)
+                    {
+                        AddMethodIfNotDuplicate(existingJavaClass, jm);
+                    }
+                    break;
+
+                case ConstructorDeclarationSyntax ctorDecl:
+                    var ctorTransformer = factory.CreateConstructorTransformer();
+                    var ctor = ctorTransformer.Transform(ctorDecl, context);
+                    if (ctor is JavaConstructorDeclaration jc)
+                    {
+                        existingJavaClass.Constructors.Add(jc);
+                    }
+                    else if (ctor is JavaMemberCollection ctorCollection)
+                    {
+                        foreach (var ctorMember in ctorCollection.Members)
+                        {
+                            if (ctorMember is JavaConstructorDeclaration jcc)
+                                existingJavaClass.Constructors.Add(jcc);
+                        }
+                    }
+                    break;
+
+                // For other member types (events, delegates, nested types), skip duplicates
+                // as they would have been processed in the first occurrence.
+                default:
+                    break;
+            }
         }
     }
 
