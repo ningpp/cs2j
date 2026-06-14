@@ -1402,6 +1402,38 @@ class Test {
         Assert.DoesNotMatch(@"\bchar\[\]\s+chars(?:_\d+)?\s*;", whileBody);
     }
 
+    [Fact]
+    public void StateMachine_LabeledHoistedBareLocalDeclaration_IsNotRedeclaredInCaseBody()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(bool jump, char[] input) {
+        int pos = 0;
+        if (jump) goto done;
+        for (;;)
+        {
+        again:
+            char tmpch2;
+            {
+                tmpch2 = input[pos];
+                pos++;
+            }
+            if (tmpch2 == ':' && pos < input.Length) goto again;
+            break;
+        }
+    done:
+        return pos;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var beforeWhile = ExtractBeforeWhile(result.GeneratedCode);
+        var whileBody = ExtractWhileBody(result.GeneratedCode);
+
+        Assert.Matches(@"\bchar\s+tmpch2(?:_\d+)?\s*=\s*'\\0'\s*;", beforeWhile);
+        Assert.DoesNotMatch(@"\bagain:\s*\{\s*char\s+tmpch2(?:_\d+)?\s*;\s*\}", whileBody);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);

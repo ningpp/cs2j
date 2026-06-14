@@ -251,3 +251,28 @@
 - **分析**: `System.DateTimeOffset` 已映射为 compat `CSharpDateTimeOffset`，静态 `Parse` 调用被转换为 `CSharpDateTimeOffset.parse(...)`，但 compat runtime 没有提供该静态方法。
 
 ✅ **Fixed** — Added `CSharpDateTimeOffset.parse(String)` to compat, installed the updated runtime artifact, and regenerated Maven now advances past the original `XmlReader.java:[179]` missing method.
+
+---
+
+## Iteration 12 — Labeled hoisted bare local redeclaration
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 3693
+- **错误信息**: `已在方法 parseAttributes()中定义了变量 tmpch2`
+- **代码片段**:
+  ```java
+          // case occurs (like end of buffer, invalid name char)
+          pos += startNameCharSize; // start name char has already been checked
+          // parse attribute name
+          ContinueParseName: { char tmpch2; }
+          for (; true; ) {
+          if (_xmlCharType.isNCNameSingleChar(tmpch2 = chars[pos])) {
+          pos++;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `ContinueParseName: char tmpch2;`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.LabelAndGoto.cs`
+- **分析**: goto state-machine lowering hoists `tmpch2` to method scope, but nested normal statement transformation preserves the labeled bare declaration as `ContinueParseName: { char tmpch2; }`, and the hoisted-local cleanup only removes unlabeled bare declaration lines.
+
+✅ **Fixed** — State-machine hoisted-local cleanup now removes single-line labeled bare declarations for hoisted variables, including renamed declaration clones such as `tmpch2_...`.
