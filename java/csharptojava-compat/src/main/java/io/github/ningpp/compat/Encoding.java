@@ -211,11 +211,13 @@ public class Encoding {
         };
     }
 
-    /** Mirrors C# Encoding.GetEncoding(int, EncoderReplacementFallback, DecoderReplacementFallback) */
-    public static Encoding getEncoding(int codePage, EncoderReplacementFallback encoderFallback, DecoderReplacementFallback decoderFallback) {
+    /** Mirrors C# Encoding.GetEncoding(int, EncoderFallback, DecoderReplacementFallback) */
+    public static Encoding getEncoding(int codePage, EncoderFallback encoderFallback, DecoderReplacementFallback decoderFallback) {
         Encoding baseEncoding = getEncoding(codePage);
         String decReplacement = decoderFallback != null ? decoderFallback.getDefaultString() : "\uFFFD";
-        String encReplacement = encoderFallback != null ? encoderFallback.getDefaultString() : "?";
+        String encReplacement = encoderFallback instanceof EncoderReplacementFallback replacementFallback
+                ? replacementFallback.getDefaultString()
+                : "?";
         return new Encoding(baseEncoding.charset, baseEncoding.codePage, baseEncoding.isReadOnly,
                             decReplacement, encReplacement);
     }

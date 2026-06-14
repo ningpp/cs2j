@@ -91,4 +91,50 @@ class Sample
         Assert.DoesNotContain("ReadOnlySpan<Integer> preamble = enc.getPreamble()", code);
         Assert.Contains("import io.github.ningpp.compat.MemoryExtensions", code);
     }
+
+    [Fact]
+    public void CompatEncodingGetEncoding_AcceptsCustomEncoderFallback()
+    {
+        var repoRoot = FindRepoRoot();
+        var encodingPath = Path.Combine(
+            repoRoot,
+            "java",
+            "csharptojava-compat",
+            "src",
+            "main",
+            "java",
+            "io",
+            "github",
+            "ningpp",
+            "compat",
+            "Encoding.java");
+
+        var source = File.ReadAllText(encodingPath);
+
+        Assert.Contains(
+            "public static Encoding getEncoding(int codePage, EncoderFallback encoderFallback, DecoderReplacementFallback decoderFallback)",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "getEncoding(int codePage, EncoderReplacementFallback encoderFallback, DecoderReplacementFallback decoderFallback)",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    private static string FindRepoRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null)
+        {
+            if (File.Exists(Path.Combine(dir, "CSharpToJavaConverter.slnx"))
+                && Directory.Exists(Path.Combine(dir, "java", "csharptojava-compat")))
+            {
+                return dir;
+            }
+
+            dir = Path.GetDirectoryName(dir);
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root from test output directory.");
+    }
 }

@@ -921,3 +921,27 @@
 - **分析**: `config\TypeMappings.json` maps `System.Collections.ICollection` to Java `Collection`, which is acceptable for some use-site collection APIs but wrong as an implemented interface. C# non-generic `ICollection` is much smaller than `java.util.Collection`: it does not require `clear`, `add`, `remove`, `containsAll`, etc. `ClassTransformer` already has special declaration-site handling for `ICollection<T>` to avoid overpromising Java `Collection`, but the heuristic treats the presence of `Count` as a full collection implementation and keeps `implements Collection`. In this non-generic case the generated class correctly contains `copyTo`, `getIsSynchronized`, `getSyncRoot`, and `getCount`, yet Java requires the unrelated full `Collection` contract and fails on `clear()`. The fix should make declaration-site `System.Collections.ICollection` use a weaker iterable-compatible contract instead of Java `Collection`, while preserving `size()` bridging from `getCount()`.
 
 ✅ **Fixed** — declaration-site `System.Collections.ICollection` now maps to `Iterable` even when explicit non-generic collection members such as `ICollection.Count` are present. Generic `ICollection<T>` keeps the existing heuristic: full implementations may still bridge to Java `Collection`, while partial/custom collection classes use `Iterable`. The focused regression first failed with `NodeCollection extends NodeMap implements Collection`, then passed after the helper split non-generic and generic collection interface handling. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `XmlAttributeCollection.java:[14,14]` `clear()` contract error disappeared; the generated declaration is now `public final class XmlAttributeCollection extends XmlNamedNodeMap implements Iterable`. Maven still fails; the next first error is now `XmlEncodedRawTextWriter.java:[144,84] 不兼容的类型: dotnet.xml.CharEntityEncoderFallback无法转换为io.github.ningpp.compat.EncoderReplacementFallback`.
+
+---
+
+## Iteration 38 — Encoding.GetEncoding overload rejects custom EncoderFallback
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlEncodedRawTextWriter.java`
+- **行号**: 144
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlEncodedRawTextWriter.java:[144,84] 不兼容的类型: dotnet.xml.CharEntityEncoderFallback无法转换为io.github.ningpp.compat.EncoderReplacementFallback`
+- **代码片段**:
+  ```java
+          _charEntityFallback = new CharEntityEncoderFallback();
+          // grab bom before possibly changing encoding settings
+          ReadOnlySpan<Integer> bom = MemoryExtensions.asSpan(encoding.getPreamble());
+          // the encoding instance this creates can differ from the one passed in
+          this.encoding = Encoding.getEncoding(settings.getEncoding().getCodePage(), _charEntityFallback, settings.getEncoding().getDecoderFallback());
+          encoder = (Encoder)(Object)(encoding.getEncoder());
+          if (!stream.getCanSeek() || stream.getPosition() == 0) {
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlEncodedRawTextWriter.cs`
+- **C# 原始代码**: The constructor creates `_charEntityFallback = new CharEntityEncoderFallback();` where `CharEntityEncoderFallback : EncoderFallback`, then calls `Encoding.GetEncoding(settings.Encoding.CodePage, _charEntityFallback, settings.Encoding.DecoderFallback);`.
+- **根因分类**: compat runtime API shape
+- **涉及组件**: `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\Encoding.java`
+- **分析**: The converter correctly maps `System.Text.EncoderFallback` and the custom C# subclass to compat `EncoderFallback`, and correctly lowers the static `Encoding.GetEncoding` call to `Encoding.getEncoding(...)`. The compile error comes from the compat overload signature itself: it accepts only `EncoderReplacementFallback`, even though the .NET API accepts any `EncoderFallback`. `CharEntityEncoderFallback` is a valid custom fallback subclass, so Java rejects passing it to the too-narrow compat overload. This is not a TypeMappings or transformer issue; the generated call exposes a semantic mismatch in the compat runtime surface. The minimal fix is to widen the encoder parameter to `EncoderFallback` while preserving replacement-string behavior when the fallback is an `EncoderReplacementFallback`.
+
+✅ **Fixed** — `Encoding.getEncoding(int, ..., DecoderReplacementFallback)` now accepts the abstract compat `EncoderFallback` type instead of only `EncoderReplacementFallback`, while preserving replacement-string behavior for replacement fallback instances. The focused regression first failed because `Encoding.java` still contained the narrow `EncoderReplacementFallback` overload, then passed after the runtime signature was widened. `dotnet build`, the focused test, full `dotnet test`, and `mvn -f java\csharptojava-compat\pom.xml clean install -e` all pass. After regenerating and rerunning Maven for `D:\csharpxml-java`, the original `XmlEncodedRawTextWriter.java:[144,84]` `CharEntityEncoderFallback` mismatch disappeared. Maven still fails; the next first error is now `XmlEncodedRawTextWriter.java:[1333,34] 不兼容的类型: io.github.ningpp.compat.ObjectHolder<java.lang.foreign.MemorySegment>无法转换为java.lang.foreign.MemorySegment`.
