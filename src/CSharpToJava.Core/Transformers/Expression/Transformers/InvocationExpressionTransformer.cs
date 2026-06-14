@@ -6088,6 +6088,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "float" => "MathHelper.tryParseFloat",
             "int" => "MathHelper.tryParseInt",
             "long" => "MathHelper.tryParseLong",
+            "short" => "MathHelper.tryParseShort",
+            "byte" => "MathHelper.tryParseByte",
+            "char" => "MathHelper.tryParseChar",
             "bool" => "MathHelper.tryParseBool",
             "uint" => "MathHelper.tryParseUInt",
             "ulong" => "MathHelper.tryParseULong",
@@ -6708,6 +6711,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int64", "Long", "long", "System.Int64"))
             return "MathHelper.tryParseLong";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Int16", "Short", "short", "System.Int16"))
+            return "MathHelper.tryParseShort";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "SByte", "sbyte", "System.SByte"))
+            return "MathHelper.tryParseByte";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Byte", "System.Byte"))
+            return "MathHelper.tryParseByte";
+
+        if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "Char", "char", "System.Char"))
+            return "MathHelper.tryParseChar";
 
         if (ExpressionTransformerHelpers.StaticReceiverMatches(receiverExpression, context, "UInt16", "ushort", "System.UInt16"))
             return "MathHelper.tryParseUShort";
