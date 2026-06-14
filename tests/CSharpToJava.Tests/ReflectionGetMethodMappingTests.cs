@@ -138,6 +138,33 @@ public class Sample
         Assert.DoesNotContain("(Iterable<Double>)(methodInfo.invoke", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TypeAssembly_GetManifestResourceStream_AsUnmanagedMemoryStream_UsesCompatHelper()
+    {
+        var result = Convert(@"
+using System.IO;
+
+public class XmlWriter { }
+
+public class Sample
+{
+    public static unsafe void Test()
+    {
+        UnmanagedMemoryStream memStream = (UnmanagedMemoryStream)typeof(XmlWriter).Assembly.GetManifestResourceStream(""XmlCharType.bin"");
+        byte* chProps = memStream.PositionPointer;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("import io.github.ningpp.compat.AssemblyCompat", code, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.UnmanagedMemoryStream", code, StringComparison.Ordinal);
+        Assert.Contains("UnmanagedMemoryStream memStream = (UnmanagedMemoryStream)(AssemblyCompat.getManifestResourceStream(XmlWriter.class, \"XmlCharType.bin\"))", code, StringComparison.Ordinal);
+        Assert.Contains("MemorySegment chProps = memStream.getPositionPointer()", code, StringComparison.Ordinal);
+        Assert.DoesNotContain(".class.getPackage().getManifestResourceStream", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -837,3 +837,36 @@
 - **分析**: `config\TypeMappings.json` 把整个 `System.Threading.Interlocked` 类型映射到 `java.util.concurrent.atomic.AtomicInteger`。这个映射只可能适合少量整数场景；本例是泛型引用类型重载 `Interlocked.CompareExchange<T>(ref T location1, T value, T comparand)`。`ArgumentTransformer` 正确地为 `ref s_Lock` 生成了 `ObjectHolder<Object>` 并在调用后写回，但 `InvocationExpressionTransformer` 随后把静态接收者改成 `AtomicInteger`，生成了 Java 标准库不存在的 `AtomicInteger.compareExchange(ObjectHolder<Object>, Object, null)`。根因不是缺 import，也不是 `ObjectHolder` 生成错误，而是对 `Interlocked.CompareExchange` 缺少按重载/参数形态的专门 lowering，需要生成 converter compat helper 调用以接收 holder 并返回/更新旧值。
 
 ✅ **Fixed** — `System.Threading.Interlocked.CompareExchange` calls are now lowered before the generic static type mapping path, producing `InterlockedHelper.compareExchange(...)` with the existing generated ref holder instead of `AtomicInteger.compareExchange(...)`. A new compat helper implements the holder update semantics for object, int, long, float, and double holders. The focused regression first failed because `InterlockedHelper.compareExchange(_s_LockRef, o, null)` was absent, then passed after the invocation special case and helper were added. After regenerating and rerunning Maven, the original `XmlCharType.java:[68,22]` `AtomicInteger.compareExchange(ObjectHolder<Object>, Object, null)` error disappeared; line 69 is now `InterlockedHelper.compareExchange(_s_LockRef, o, null);`. Maven still fails; the next first error is now `XmlCharType.java:[79,9] 找不到符号` for `UnmanagedMemoryStream`.
+
+---
+
+## Iteration 35 — Manifest resource stream keeps unmapped UnmanagedMemoryStream
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlCharType.java`
+- **行号**: 79
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlCharType.java:[79,9] 找不到符号`
+- **完整符号信息**:
+  ```text
+  符号:   类 UnmanagedMemoryStream
+  位置: 类 dotnet.xml.XmlCharType
+  [ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlCharType.java:[79,44] 找不到符号
+  符号:   类 UnmanagedMemoryStream
+  位置: 类 dotnet.xml.XmlCharType
+  [ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlCharType.java:[79,95] 找不到符号
+  符号:   方法 getManifestResourceStream(java.lang.String)
+  位置: 类 java.lang.Package
+  ```
+- **代码片段**:
+  ```java
+          }
+          UnmanagedMemoryStream memStream = (UnmanagedMemoryStream)(XmlWriter.class.getPackage().getManifestResourceStream("XmlCharType.bin"));
+          // Debug.Assert(memStream.getLength() == CharPropertiesSize);
+
+          MemorySegment chProps = memStream.getPositionPointer();
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\XmlCharType.cs`
+- **C# 原始代码**: `UnmanagedMemoryStream memStream = (UnmanagedMemoryStream)typeof(XmlWriter).Assembly.GetManifestResourceStream("XmlCharType.bin");` followed by `byte* chProps = memStream.PositionPointer;`
+- **根因分类**: type mapping missing + manifest resource stream lowering missing + compat class missing
+- **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`; `D:\code\cs2j\java\csharptojava-compat`
+- **分析**: `System.IO.UnmanagedMemoryStream` has no TypeMappings entry, so the generated local declaration and cast keep a raw Java `UnmanagedMemoryStream` simple name with no import. The receiver side is also wrong: `System.Type.Assembly` is globally mapped to `getPackage`, so `typeof(XmlWriter).Assembly.GetManifestResourceStream(...)` becomes `XmlWriter.class.getPackage().getManifestResourceStream(...)`, but Java `Package` has no such method and the existing `AssemblyCompat` class also lacks this API. This is not a case for `StreamWrapper` or `MemoryStream`: the C# use immediately consumes `PositionPointer`, so the Java surface must expose a `MemorySegment` over the resource bytes. The minimal fix is a compat `UnmanagedMemoryStream` with `getPositionPointer()`/`getLength()`, a mapping/import for the C# type, and a converter special case that lowers manifest resource reads to an `AssemblyCompat` helper instead of the generic `Type.Assembly` property mapping.
+
+✅ **Fixed** — `System.IO.UnmanagedMemoryStream` now maps to a compat `UnmanagedMemoryStream`, the compat runtime exposes `getPositionPointer()` over resource bytes, and `typeof(T).Assembly.GetManifestResourceStream(name)` lowers to `AssemblyCompat.getManifestResourceStream(T.class, name)` instead of Java `Package`. The focused converter regression first failed because `AssemblyCompat` was absent from the generated imports and `.class.getPackage().getManifestResourceStream(...)` remained, then passed after the lowering special case and mapping were added. After regenerating and rerunning Maven, the original `XmlCharType.java:[79,9]` `UnmanagedMemoryStream` error disappeared; line 81 is now `UnmanagedMemoryStream memStream = (UnmanagedMemoryStream)(AssemblyCompat.getManifestResourceStream(XmlWriter.class, "XmlCharType.bin"));`. Maven still fails; the next first error is now `XmlDocument.java:[161,29] 找不到符号` for `Hashtable.add(XmlName, XmlName)`.

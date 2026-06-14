@@ -3,6 +3,8 @@ package io.github.ningpp.compat;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Minimal compat stub for System.Reflection.Assembly.
@@ -26,6 +28,23 @@ public class AssemblyCompat {
             return new AssemblyCompat(loader, path);
         } catch (Exception e) {
             throw new RuntimeException("Failed to load assembly from: " + path, e);
+        }
+    }
+
+    /** Mirrors typeof(T).Assembly.GetManifestResourceStream(name) for classpath resources. */
+    public static UnmanagedMemoryStream getManifestResourceStream(Class<?> anchorType, String name) {
+        String packagePrefix = anchorType.getPackageName().replace('.', '/');
+        String packageResource = packagePrefix.isEmpty() ? name : packagePrefix + "/" + name;
+        InputStream stream = anchorType.getClassLoader().getResourceAsStream(packageResource);
+        if (stream == null)
+            stream = anchorType.getClassLoader().getResourceAsStream(name);
+        if (stream == null)
+            throw new IllegalArgumentException("Manifest resource not found: " + name);
+
+        try (InputStream input = stream) {
+            return new UnmanagedMemoryStream(input.readAllBytes());
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
         }
     }
 

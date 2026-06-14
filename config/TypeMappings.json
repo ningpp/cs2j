@@ -2591,6 +2591,13 @@
             ]
         },
         {
+            "csharp": "System.IO.UnmanagedMemoryStream",
+            "java": "UnmanagedMemoryStream",
+            "imports": [
+                "io.github.ningpp.compat.UnmanagedMemoryStream"
+            ]
+        },
+        {
             "csharp": "System.IO.StringReader",
             "java": "StringReader",
             "imports": [

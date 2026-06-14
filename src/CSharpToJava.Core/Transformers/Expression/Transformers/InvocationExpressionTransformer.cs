@@ -4924,7 +4924,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{methodName}({helperArgs})";
         }
 
+        if (TryTransformTypeAssemblyManifestResourceStream(node, memberAccess, context, facade, out var manifestResourceCall))
+            return manifestResourceCall;
+
         return $"{receiver}.{methodName}({args})";
+    }
+
+    private static bool TryTransformTypeAssemblyManifestResourceStream(
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        out string result)
+    {
+        result = string.Empty;
+        if (memberAccess.Name.Identifier.Text != "GetManifestResourceStream"
+            || node.ArgumentList.Arguments.Count != 1
+            || memberAccess.Expression is not MemberAccessExpressionSyntax assemblyAccess
+            || assemblyAccess.Name.Identifier.Text is not ("Assembly" or "get_Assembly")
+            || assemblyAccess.Expression is not TypeOfExpressionSyntax typeOfExpression)
+        {
+            return false;
+        }
+
+        context.AddImport("io.github.ningpp.compat.AssemblyCompat");
+        var anchorClass = facade.Transform(typeOfExpression, context);
+        var resourceName = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+        result = $"AssemblyCompat.getManifestResourceStream({anchorClass}, {resourceName})";
+        return true;
     }
 
     /// <summary>
