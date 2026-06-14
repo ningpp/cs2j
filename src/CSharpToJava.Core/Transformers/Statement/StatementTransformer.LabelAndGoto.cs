@@ -111,6 +111,10 @@ public partial class StatementTransformer
         {
             return new JavaStatementNode($"{labelName}: {innerResult}");
         }
+        else if (stmt.Statement is LocalDeclarationStatementSyntax)
+        {
+            return new JavaStatementNode($"{labelName}: ; {innerResult}");
+        }
         else
         {
             return new JavaStatementNode($"{labelName}: {{ {innerResult} }}");

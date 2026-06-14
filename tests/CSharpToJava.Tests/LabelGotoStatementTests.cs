@@ -88,6 +88,24 @@ class Test {
     }
 
     [Fact]
+    public void Label_LocalDeclaration_DoesNotWrapDeclarationInBlock()
+    {
+        var result = Convert(@"
+class Test {
+    static int M(int pos, int start) {
+        target:
+            int tmp = pos - start;
+        return tmp;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Matches(@"target:\s*;\s*int\s+tmp\s*=\s*pos\s*-\s*start\s*;", result.GeneratedCode);
+        Assert.DoesNotContain("target: int tmp = pos - start;", result.GeneratedCode);
+        Assert.DoesNotContain("target: { int tmp = pos - start; }", result.GeneratedCode);
+    }
+
+    [Fact]
     public void Label_NestedLabels()
     {
         var result = Convert(@"

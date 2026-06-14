@@ -326,3 +326,28 @@
 - **分析**: goto state-machine lowering already hoists both locals to the generated method prelude, but the state-machine cleanup only removes single-variable bare declarations inside the loop and leaves comma-separated declarations like `int charRefEndPos, charCount;` behind.
 
 ✅ **Fixed** — State-machine hoisted-local cleanup now removes comma-separated bare declarations when every declared variable has already been hoisted.
+
+---
+
+## Iteration 15 — Labeled local declaration scope
+
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 5652
+- **错误信息**: `找不到符号 符号: 变量 tmp3 位置: 类 dotnet.xml.XmlTextReaderImpl`
+- **代码片段**:
+  ```java
+          }
+          }
+          ReadData: { int tmp3 = pos - _ps.charPos; }
+          if (tmp3 > 0) {
+          if (sb != null) {
+          sb.append(_ps.chars, _ps.charPos, tmp3);
+          }
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `ReadData: int tmp3 = pos - _ps.charPos;`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.LabelAndGoto.cs`
+- **分析**: normal labeled-statement conversion wraps non-block labeled statements in a Java block, but a C# label on a local declaration does not create a scope, so `ReadData: { int tmp3 = ...; }` hides `tmp3` from following statements.
+
+✅ **Fixed** — Labels on local declarations now emit an empty labeled statement followed by the declaration at the original scope, preserving Java syntax and C# variable visibility.
