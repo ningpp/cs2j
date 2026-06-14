@@ -870,3 +870,31 @@
 - **分析**: `System.IO.UnmanagedMemoryStream` has no TypeMappings entry, so the generated local declaration and cast keep a raw Java `UnmanagedMemoryStream` simple name with no import. The receiver side is also wrong: `System.Type.Assembly` is globally mapped to `getPackage`, so `typeof(XmlWriter).Assembly.GetManifestResourceStream(...)` becomes `XmlWriter.class.getPackage().getManifestResourceStream(...)`, but Java `Package` has no such method and the existing `AssemblyCompat` class also lacks this API. This is not a case for `StreamWrapper` or `MemoryStream`: the C# use immediately consumes `PositionPointer`, so the Java surface must expose a `MemorySegment` over the resource bytes. The minimal fix is a compat `UnmanagedMemoryStream` with `getPositionPointer()`/`getLength()`, a mapping/import for the C# type, and a converter special case that lowers manifest resource reads to an `AssemblyCompat` helper instead of the generic `Type.Assembly` property mapping.
 
 ✅ **Fixed** — `System.IO.UnmanagedMemoryStream` now maps to a compat `UnmanagedMemoryStream`, the compat runtime exposes `getPositionPointer()` over resource bytes, and `typeof(T).Assembly.GetManifestResourceStream(name)` lowers to `AssemblyCompat.getManifestResourceStream(T.class, name)` instead of Java `Package`. The focused converter regression first failed because `AssemblyCompat` was absent from the generated imports and `.class.getPackage().getManifestResourceStream(...)` remained, then passed after the lowering special case and mapping were added. After regenerating and rerunning Maven, the original `XmlCharType.java:[79,9]` `UnmanagedMemoryStream` error disappeared; line 81 is now `UnmanagedMemoryStream memStream = (UnmanagedMemoryStream)(AssemblyCompat.getManifestResourceStream(XmlWriter.class, "XmlCharType.bin"));`. Maven still fails; the next first error is now `XmlDocument.java:[161,29] 找不到符号` for `Hashtable.add(XmlName, XmlName)`.
+
+## Iteration 36 — Explicit event accessors emit delegate +=/-= as Java compound assignment
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlDocument.java`
+- **行号**: 1003
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlDocument.java:[1003,34] 二元运算符 '+' 的操作数类型错误`
+- **完整类型信息**:
+  ```text
+  第一个类型:  dotnet.xml.XmlNodeChangedEventHandler
+  第二个类型: dotnet.xml.XmlNodeChangedEventHandler
+  ```
+- **代码片段**:
+  ```java
+          n.writeTo(xw);
+          }
+      }
+      public void addNodeInsertingListener(XmlNodeChangedEventHandler handler) {
+          _onNodeInsertingDelegate += handler;
+      }
+      public void removeNodeInsertingListener(XmlNodeChangedEventHandler handler) {
+          _onNodeInsertingDelegate -= handler;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Dom\XmlDocument.cs`
+- **C# 原始代码**: explicit event accessors for `public event XmlNodeChangedEventHandler NodeInserting` call `_onNodeInsertingDelegate += value;` and `_onNodeInsertingDelegate -= value;` against a private delegate backing field.
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Member\EventFieldTransformer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\AssignmentTransformer.cs`; `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\DelegateHelper.java`
+- **分析**: `EventFieldTransformer.TransformExplicitEvent` preserves explicit accessor bodies by running the normal statement/expression transformers and replacing C# `value` with Java `handler`. `AssignmentTransformer` handles `event += handler` when the left side resolves to `IEventSymbol`, but here the left side is a private delegate field (`IFieldSymbol` whose type is a delegate). Since no branch recognizes delegate-valued fields, the generic compound assignment path emits `_onNodeInsertingDelegate += handler` / `-= handler`, which Java rejects for functional-interface values. The existing compat `DelegateHelper.combine/remove` indicates the intended lowering surface is available; the missing piece is transformer lowering for `+=`/`-=` where the left operand type is a delegate.
+
+✅ **Fixed** — delegate-typed `+=`/`-=` assignments now lower through `DelegateHelper.combine/remove` when the left operand is a field/property/local/parameter whose type is a C# delegate. The focused regression first failed because the generated accessor body had no `DelegateHelper` import and still emitted raw `_changed += handler`; after the transformer fix it passed with `_changed = DelegateHelper.combine(_changed, handler);` and `_changed = DelegateHelper.remove(_changed, handler);`. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `XmlDocument.java:[1003,34]` delegate `+` error disappeared; line 1004 now uses `DelegateHelper.combine`. Maven still fails; the next first error is now `XmlAttributeCollection.java:[14,14] dotnet.xml.XmlAttributeCollection不是抽象的, 并且未覆盖java.util.Collection中的抽象方法clear()`.

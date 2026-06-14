@@ -42,6 +42,27 @@ class Sample {
         Assert.DoesNotContain(".invoke(", result.GeneratedCode);
     }
 
+    [Fact]
+    public void ExplicitEventAccessorCombiningDelegateField_UsesDelegateHelper()
+    {
+        var source = @"
+delegate void MyHandler(object sender, object args);
+class Sample {
+    private MyHandler _changed;
+    public event MyHandler Changed {
+        add { _changed += value; }
+        remove { _changed -= value; }
+    }
+}";
+        var result = Convert(source);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Contains("import io.github.ningpp.compat.DelegateHelper;", result.GeneratedCode);
+        Assert.Contains("_changed = DelegateHelper.combine(_changed, handler);", result.GeneratedCode);
+        Assert.Contains("_changed = DelegateHelper.remove(_changed, handler);", result.GeneratedCode);
+        Assert.DoesNotContain("_changed += handler", result.GeneratedCode);
+        Assert.DoesNotContain("_changed -= handler", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

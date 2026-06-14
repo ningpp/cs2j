@@ -743,6 +743,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         var rightStr = facade.Transform(rightNode, context);
 
+        if ((op == "+=" || op == "-=") && IsDelegateTypedExpression(leftNode, context))
+        {
+            context.AddImport("io.github.ningpp.compat.DelegateHelper");
+            var helperMethod = op == "+=" ? "combine" : "remove";
+            return $"{left} = DelegateHelper.{helperMethod}({left}, {rightStr})";
+        }
+
         if ((op == "+=" || op == "-=")
             && rightNode is IdentifierNameSyntax { Identifier.Text: "value" }
             && left.StartsWith("fire", StringComparison.Ordinal)
@@ -1221,6 +1228,23 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var rightStr = facade.Transform(node.Right, context);
 
         return $"{leftStr} = {qualifiedMethod}({leftStr}, {rightStr})";
+    }
+
+    private static bool IsDelegateTypedExpression(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (context.SemanticModel == null) return false;
+
+        var type = context.GetTypeInfo(expression).Type;
+        if (type?.TypeKind == TypeKind.Delegate) return true;
+
+        return context.GetSymbolInfo(expression).Symbol switch
+        {
+            IFieldSymbol { Type.TypeKind: TypeKind.Delegate } => true,
+            IPropertySymbol { Type.TypeKind: TypeKind.Delegate } => true,
+            ILocalSymbol { Type.TypeKind: TypeKind.Delegate } => true,
+            IParameterSymbol { Type.TypeKind: TypeKind.Delegate } => true,
+            _ => false
+        };
     }
 
     // Fix 3 + Fix 5: Handle ??= (CoalesceAssignment), avoiding double evaluation of complex LHS

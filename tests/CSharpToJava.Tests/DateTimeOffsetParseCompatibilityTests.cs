@@ -48,6 +48,7 @@ class Sample {
             "CSharpTimeSpan.java",
             "DateTimeKind.java",
             "DayOfWeek.java",
+            "IFormatProvider.java",
             "ObjectHolder.java",
         }.Select(name => Path.Combine(compatDir, name)).ToArray();
 
