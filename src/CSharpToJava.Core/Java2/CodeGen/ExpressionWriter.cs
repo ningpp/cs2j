@@ -97,7 +97,30 @@ public class ExpressionWriter
                 right = "(" + right + ")";
         }
 
+        // Object-typed comparison operators (<, <=, >, >=) are illegal in Java.
+        // Emit "left.compareTo(right) OP 0" instead. Detect by looking at the operand's JavaType.
+        if (bin.Operator is IrBinaryOp.LessThan or IrBinaryOp.LessThanOrEqual or
+            IrBinaryOp.GreaterThan or IrBinaryOp.GreaterThanOrEqual)
+        {
+            var leftType = bin.Left.JavaType;
+            var rightType = bin.Right.JavaType;
+            if (!IsJavaPrimitive(leftType) || !IsJavaPrimitive(rightType))
+            {
+                return left + ".compareTo(" + right + ") " + op + " 0";
+            }
+        }
+
         return left + " " + op + " " + right;
+    }
+
+    private static bool IsJavaPrimitive(string? javaType)
+    {
+        if (string.IsNullOrEmpty(javaType)) return false;
+        return javaType switch
+        {
+            "int" or "long" or "short" or "byte" or "double" or "float" or "char" or "boolean" => true,
+            _ => false,
+        };
     }
 
     private string WriteUnary(IrUnaryExpression un)

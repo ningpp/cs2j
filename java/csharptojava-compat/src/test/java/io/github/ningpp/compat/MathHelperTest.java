@@ -123,6 +123,40 @@ class MathHelperTest {
     }
 
     @Test
+    void tryParseByte_acceptsUnsignedByteIntoIntHolder() {
+        IntHolder holder = new IntHolder();
+        assertTrue(MathHelper.tryParseByte(" 255 ", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+        assertEquals(255, holder.value);
+    }
+
+    @Test
+    void tryParseByte_rejectsUnsignedByteOverflowIntoIntHolder() {
+        IntHolder holder = new IntHolder();
+        assertFalse(MathHelper.tryParseByte("256", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));
+    }
+
+    @Test
+    void numericParseHelpers_acceptNumberFormatInfoProvider() {
+        NumberFormatInfo provider = NumberFormatInfo.getInvariantInfo();
+
+        assertEquals(42, MathHelper.parseInt(" 42 ", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, provider));
+        assertEquals(42L, MathHelper.parseLong(" 42 ", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, provider));
+        assertEquals(42.5d, MathHelper.parseDouble(" 42.5 ", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite | NumberStyles.AllowDecimalPoint, provider), 0.0001d);
+        assertEquals(42.5f, MathHelper.parseFloat(" 42.5 ", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite | NumberStyles.AllowDecimalPoint, provider), 0.0001f);
+        assertEquals(255, MathHelper.parseUShort("255", NumberStyles.None, provider));
+        assertEquals(255, MathHelper.parseUInt("255", NumberStyles.None, provider));
+        assertEquals(255L, MathHelper.parseULong("255", NumberStyles.None, provider));
+
+        IntHolder intHolder = new IntHolder();
+        assertTrue(MathHelper.tryParseByte("255", NumberStyles.None, provider, intHolder));
+        assertEquals(255, intHolder.value);
+
+        ByteHolder byteHolder = new ByteHolder();
+        assertTrue(MathHelper.tryParseByte("127", NumberStyles.None, provider, byteHolder));
+        assertEquals((byte)127, byteHolder.value);
+    }
+
+    @Test
     void tryParseULong_acceptsMaxValueIntoLongHolder() {
         LongHolder holder = new LongHolder();
         assertTrue(MathHelper.tryParseULong("18446744073709551615", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));

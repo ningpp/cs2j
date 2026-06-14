@@ -135,6 +135,29 @@ class Sample
     }
 
     [Fact]
+    public void ConversionPipeline_ByteTryParseWithNumberStyles_UsesIntHolderCompatibleHelper()
+    {
+        var result = Convert(@"
+using System;
+using System.Globalization;
+
+class Sample
+{
+    public bool Parse(string s)
+    {
+        byte result;
+        return Byte.TryParse(s, NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, NumberFormatInfo.InvariantInfo, out result);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("IntHolder", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MathHelper.tryParseByte(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ByteHolder", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Byte.tryParse(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ConversionPipeline_UnsignedPrimitiveParseAndTryParse_GenerateValidJavaHelpers()
     {
         var result = Convert(@"

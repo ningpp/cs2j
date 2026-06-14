@@ -218,6 +218,11 @@ public class MathHelper {
         catch (NumberFormatException e) { return false; }
     }
 
+    public static boolean tryParseByte(String s, IntHolder result) {
+        try { result.value = (int) parseUnsignedLongInRange(s, NumberStyles.Integer, 0xFFL); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
     public static boolean tryParseByte(String s, int style, CultureInfo culture, ByteHolder result) {
         try { result.value = (byte) parseIntWithStyle(s, style); return true; }
         catch (NumberFormatException e) { return false; }
@@ -226,6 +231,15 @@ public class MathHelper {
     public static boolean tryParseByte(String s, int style, Locale locale, ByteHolder result) {
         try { result.value = (byte) parseIntWithStyle(s, style); return true; }
         catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseByte(String s, int style, CultureInfo culture, IntHolder result) {
+        try { result.value = (int) parseUnsignedLongInRange(s, style, 0xFFL); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+
+    public static boolean tryParseByte(String s, int style, Locale locale, IntHolder result) {
+        return tryParseByte(s, style, (CultureInfo)null, result);
     }
 
     public static boolean tryParseShort(String s, ShortHolder result) {

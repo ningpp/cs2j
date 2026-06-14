@@ -60,6 +60,16 @@ class DecimalTest {
     }
 
     @Test
+    void parseAndTryParse_acceptNumberFormatInfoProvider() {
+        NumberFormatInfo provider = NumberFormatInfo.getInvariantInfo();
+        assertEquals("42.5", Decimal.parse("42.5", NumberStyles.Number, provider).toString());
+
+        ObjectHolder<Decimal> holder = new ObjectHolder<>();
+        assertTrue(Decimal.tryParse("42.5", NumberStyles.Number, provider, holder));
+        assertEquals(Decimal.parse("42.5"), holder.value);
+    }
+
+    @Test
     void arithmetic_basicOperations() {
         Decimal a = Decimal.parse("10.5");
         Decimal b = Decimal.parse("2");

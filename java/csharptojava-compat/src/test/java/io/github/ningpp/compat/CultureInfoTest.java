@@ -97,4 +97,16 @@ class CultureInfoTest {
         CultureInfo culture = CultureInfo.getInvariantCulture();
         assertNotNull(culture.toString());
     }
+
+    @Test
+    void numberFormatInfo_isFormatProvider() {
+        IFormatProvider provider = NumberFormatInfo.getInvariantInfo();
+        assertSame(provider, provider.getFormat(NumberFormatInfo.class));
+    }
+
+    @Test
+    void dateTimeFormatInfo_isFormatProvider() {
+        IFormatProvider provider = DateTimeFormatInfo.getInvariantInfo();
+        assertSame(provider, provider.getFormat(DateTimeFormatInfo.class));
+    }
 }
