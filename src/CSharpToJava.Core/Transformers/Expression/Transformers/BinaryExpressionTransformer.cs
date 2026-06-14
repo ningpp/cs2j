@@ -487,7 +487,41 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         left = WrapOperandIfNeeded(node.Left, left, op, true);
         right = WrapOperandIfNeeded(node.Right, right, op, false);
 
-        return $"{left} {op} {right}";
+        var result = $"{left} {op} {right}";
+        if (TryWrapEnumBitwiseResult(node, result, context, out var wrappedResult))
+            return wrappedResult;
+
+        return result;
+    }
+
+    private static bool TryWrapEnumBitwiseResult(
+        BinaryExpressionSyntax node,
+        string numericExpression,
+        ConversionContext context,
+        out string result)
+    {
+        result = string.Empty;
+
+        var resultType = context.GetTypeInfo(node).ConvertedType as INamedTypeSymbol
+            ?? context.GetTypeInfo(node).Type as INamedTypeSymbol;
+        if (resultType?.TypeKind != TypeKind.Enum || IsFlagsEnumType(resultType, context))
+            return false;
+
+        var javaEnumType = context.MapType(resultType);
+        var angleIndex = javaEnumType.IndexOf('<');
+        if (angleIndex > 0)
+            javaEnumType = javaEnumType[..angleIndex];
+
+        if (EnumHasExplicitValues(resultType) || IsRegisteredExplicitValueEnum(resultType, context))
+        {
+            result = $"{javaEnumType}.fromValue({numericExpression})";
+        }
+        else
+        {
+            result = $"{javaEnumType}.values()[{numericExpression}]";
+        }
+
+        return true;
     }
 
     private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
@@ -765,6 +799,17 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             return true;
 
         return false;
+    }
+
+    private static bool IsRegisteredExplicitValueEnum(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        var displayName = enumType.ToDisplayString();
+        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
+            fullyQualifiedName = fullyQualifiedName["global::".Length..];
+
+        return context.IsExplicitValueEnum(displayName)
+            || context.IsExplicitValueEnum(fullyQualifiedName);
     }
 
     private static bool HasFlagsAttribute(INamedTypeSymbol enumType)

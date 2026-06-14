@@ -210,6 +210,37 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return expression;
         }
 
+        // C# enum -> enum cast: convert through the underlying value.
+        // Java enum casts only work within an inheritance hierarchy, which enums do not have.
+        if (targetSymbol?.TypeKind == TypeKind.Enum
+            && context.SemanticModel != null
+            && targetType is not ("int" or "long" or "short" or "byte" or "double" or "float"))
+        {
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            if (sourceType?.TypeKind == TypeKind.Enum)
+            {
+                var sourceValue = GetEnumUnderlyingValueExpression(sourceType, expression, context);
+                bool targetIsExplicitValue = IsExplicitValueEnum(targetSymbol, context);
+                if (!targetIsExplicitValue && targetSymbol is INamedTypeSymbol namedTargetEnum)
+                {
+                    targetIsExplicitValue = namedTargetEnum.GetMembers()
+                        .OfType<IFieldSymbol>()
+                        .Any(f => f.IsConst && f.HasConstantValue && f.Name != "_UNMAPPED");
+                }
+
+                if (targetIsExplicitValue)
+                {
+                    var valueType = IsExplicitValueEnum(targetSymbol, context)
+                        ? GetExplicitValueEnumValueType(targetSymbol, context)
+                        : (targetSymbol is INamedTypeSymbol ne && ne.EnumUnderlyingType?.SpecialType
+                            is SpecialType.System_Int64 or SpecialType.System_UInt64 ? "long" : "int");
+                    return $"{targetType}.fromValue(({valueType})({sourceValue}))";
+                }
+
+                return $"{targetType}.values()[(int)({sourceValue})]";
+            }
+        }
+
         // C# numeric -> enum cast: (MyEnum)i
         // Java cannot cast int to enum directly; map by ordinal index instead.
         // For enums with explicit values, use fromValue() instead of values()[] to avoid AIOOBE.
@@ -450,6 +481,21 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         return named.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
             ? "long"
             : "int";
+    }
+
+    private static string GetEnumUnderlyingValueExpression(ITypeSymbol enumType, string expression, ConversionContext context)
+    {
+        bool isExplicitValue = IsExplicitValueEnum(enumType, context);
+        if (!isExplicitValue && enumType is INamedTypeSymbol namedEnum)
+        {
+            isExplicitValue = namedEnum.GetMembers()
+                .OfType<IFieldSymbol>()
+                .Any(f => f.IsConst && f.HasConstantValue && f.Name != "_UNMAPPED");
+        }
+
+        return isExplicitValue
+            ? $"{expression}.getValue()"
+            : $"{expression}.ordinal()";
     }
 
     private static bool IsIterableLikeJavaType(string mappedType)

@@ -783,6 +783,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
             var rhsTypeForClone = context.GetTypeInfo(rightNode).Type;
             rightStr = StructCloneHelper.CloneStructValueIfNeeded(rightNode, rightStr, rhsTypeForClone, context);
             var lhsType = context.GetTypeInfo(leftNode).Type;
+            if (op == "="
+                && lhsType is INamedTypeSymbol lhsEnum
+                && lhsEnum.TypeKind == TypeKind.Enum
+                && IsEnumBitwiseExpression(rightNode, context))
+            {
+                rightStr = WrapEnumBitwiseAssignmentValue(rightStr, lhsEnum, context);
+            }
             rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsType, context);
 
             // byte[] element write: C# byte maps to Java int, but byte[] elements are Java byte.
@@ -1510,6 +1517,37 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return false;
 
         return true;
+    }
+
+    private static bool IsEnumBitwiseExpression(ExpressionSyntax expression, ConversionContext context)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+
+        if (expression is not BinaryExpressionSyntax binary
+            || binary.Kind() is not (SyntaxKind.BitwiseAndExpression or SyntaxKind.BitwiseOrExpression or SyntaxKind.ExclusiveOrExpression))
+        {
+            return false;
+        }
+
+        return context.GetTypeInfo(binary.Left).Type?.TypeKind == TypeKind.Enum
+            || context.GetTypeInfo(binary.Right).Type?.TypeKind == TypeKind.Enum;
+    }
+
+    private static string WrapEnumBitwiseAssignmentValue(string numericExpression, INamedTypeSymbol enumType, ConversionContext context)
+    {
+        if (IsFlagsEnumType(enumType, context))
+            return numericExpression;
+
+        var javaEnumType = context.MapType(enumType);
+        var angleIdx = javaEnumType.IndexOf('<');
+        if (angleIdx > 0)
+            javaEnumType = javaEnumType[..angleIdx];
+
+        if (EnumHasExplicitValues(enumType) || IsRegisteredExplicitValueEnum(enumType, context))
+            return $"{javaEnumType}.fromValue({numericExpression})";
+
+        return $"{javaEnumType}.values()[{numericExpression}]";
     }
 
     private string ExpandEnumBitwiseCompoundAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)

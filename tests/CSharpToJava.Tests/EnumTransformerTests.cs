@@ -838,4 +838,42 @@ public class Sample
         Assert.Contains("currentElementProperties.getValue() &", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain(").getValue()", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ExplicitValueEnum_BitwiseAssignmentFromCastedOperands_WrapsResultInEnumFromValue()
+    {
+        var result = Convert(@"
+public enum ElementProperties : uint
+{
+    Default = 0,
+    UriParent = 1,
+    BoolParent = 2,
+    NameParent = 4
+}
+
+public enum AttributeProperties : uint
+{
+    Default = 0,
+    Uri = 1,
+    Boolean = 2,
+    Name = 4
+}
+
+public class Sample
+{
+    private ElementProperties currentElementProperties;
+    private AttributeProperties currentAttributeProperties;
+
+    public void Set(int attributeValue)
+    {
+        currentAttributeProperties = (AttributeProperties)attributeValue & (AttributeProperties)currentElementProperties;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("currentAttributeProperties = AttributeProperties.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("currentElementProperties.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(AttributeProperties)(currentElementProperties)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("currentAttributeProperties = AttributeProperties.fromValue((int)(attributeValue)).getValue() &", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

@@ -998,3 +998,31 @@
 - **分析**: For explicit-valued non-`[Flags]` enum bitwise expressions, `TryTransformEnumBitwiseOperation` converts each enum operand to its numeric value using `.getValue()`. That is correct for simple operands, but nested bitwise expressions already become numeric Java expressions. The outer bitwise transform still sees the nested C# expression type as the enum and appends another enum access suffix to the whole transformed expression, producing `(...int | int...).getValue()`. Java then reports `无法取消引用int`. The semantic model is available and the enum mapping is known; the missing transformer guard is recognizing that compound bitwise enum operands have already been lowered to numeric expressions and must not receive a second enum-object suffix.
 
 ✅ **Fixed** — nested explicit-valued enum bitwise operands now avoid a second enum access suffix after their recursive transform has already lowered the expression to numeric Java. The focused regression first failed with `Assert.DoesNotContain() Failure` because generated code contained `...NameParent.getValue())).getValue()) != 0`, then passed after the transformer guard. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `HtmlEncodedRawTextWriter.java:[257,181] 无法取消引用int` error disappeared; line 257 is now `currentElementProperties.getValue() & (ElementProperties.BOOL_PARENT.getValue() | ElementProperties.URI_PARENT.getValue() | ElementProperties.NAME_PARENT.getValue())`. Maven still fails; the next first error is now `HtmlEncodedRawTextWriter.java:[258,207] 不兼容的类型: int无法转换为dotnet.xml.AttributeProperties`.
+
+---
+
+## Iteration 3 — Casted enum bitwise assignment loses enum wrapper
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\HtmlEncodedRawTextWriter.java`
+- **行号**: 258
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/HtmlEncodedRawTextWriter.java:[258,207] 不兼容的类型: int无法转换为dotnet.xml.AttributeProperties`
+- **代码片段**:
+  ```java
+          }
+          super.rawText(localName);
+          if ((currentElementProperties.getValue() & (ElementProperties.BOOL_PARENT.getValue() | ElementProperties.URI_PARENT.getValue() | ElementProperties.NAME_PARENT.getValue())) != 0) {
+          _currentAttributeProperties = AttributeProperties.fromValue((int)(attributePropertySearch.findCaseInsensitiveString(localName))).getValue() & (AttributeProperties)(currentElementProperties).getValue();
+          if ((_currentAttributeProperties.getValue() & AttributeProperties.BOOLEAN.getValue()) != 0) {
+          super.inAttributeValue = true;
+          return;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\HtmlEncodedRawTextWriter.cs`
+- **C# 原始代码**:
+  ```csharp
+  _currentAttributeProperties = (AttributeProperties)attributePropertySearch.FindCaseInsensitiveString(localName) &
+                                (AttributeProperties)currentElementProperties;
+  ```
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\BinaryExpressionTransformer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs`
+- **分析**: The assignment target is the enum type `AttributeProperties`, so the full C# bitwise expression must produce an `AttributeProperties` value. The operands are explicit casts to `AttributeProperties`; `TypeOperationTransformer` correctly lowers the int lookup to `AttributeProperties.fromValue(...)`, but `TryTransformEnumBitwiseOperation` then treats the left cast operand as an enum operand and appends `.getValue()` to it. The binary expression therefore returns a raw int (`fromValue(...).getValue() & ...getValue()`) and assignment emits no outer `AttributeProperties.fromValue(...)` wrapper. This is a transformer bug: enum bitwise operations used as enum-valued expressions need numeric operands internally but must be wrapped back to the result enum type when the operation result is consumed as that enum.
+
+✅ **Fixed** — simple assignments into explicit-valued enum targets now wrap enum bitwise RHS values with the target enum's `fromValue(...)`, and explicit enum-to-enum casts convert through the source enum's underlying value instead of emitting invalid Java enum casts. The focused regression first failed because the generated assignment had no outer `AttributeProperties.fromValue(...)`; after the fix it passed and generated `_currentAttributeProperties = AttributeProperties.fromValue(...)`. `dotnet build`, the focused test, and full `dotnet test` pass. After regenerating and rerunning Maven, the original `HtmlEncodedRawTextWriter.java:[258,207]` `int无法转换为dotnet.xml.AttributeProperties` error disappeared; line 258 now assigns `AttributeProperties.fromValue(AttributeProperties.fromValue(...).getValue() & AttributeProperties.fromValue((int)(currentElementProperties.getValue())).getValue())`. Maven still fails; the next first error is now `HtmlTernaryTree.java:[13,51] 不兼容的类型: 从int转换到byte可能会有损失`.
