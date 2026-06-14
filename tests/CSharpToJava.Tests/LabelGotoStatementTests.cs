@@ -1728,6 +1728,65 @@ class Test {
             code);
     }
 
+    [Fact]
+    public void GotoSiblingLabelAfterLoop_FromNestedSwitch_UsesLabeledLoopBreak()
+    {
+        var result = Convert(@"
+class Test {
+    static bool M(int mode) {
+        for (;;)
+        {
+            switch (mode)
+            {
+                case 0:
+                    goto ReturnPartial;
+                default:
+                    mode++;
+                    continue;
+            }
+        }
+
+    ReturnPartial:
+        return false;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("break __cs2jLoop", code);
+        Assert.DoesNotMatch(@"(?s)switch\s*\(mode\).*?case\s+0:\s*break;\s*default:", code);
+        Assert.Matches(@"(?s)__cs2jLoop\d*:\s*for\s*\(;\s*true;\s*\).*?case\s+0:\s*break\s+__cs2jLoop\d*\s*;.*?ReturnPartial:", code);
+    }
+
+    [Fact]
+    public void GotoSiblingLabelAfterLoop_WithoutNestedBreakable_KeepsPlainBreak()
+    {
+        var result = Convert(@"
+class Test {
+    static bool M(bool stop) {
+        for (;;)
+        {
+            if (stop)
+            {
+                goto Done;
+            }
+
+            stop = true;
+        }
+
+    Done:
+        return stop;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("break;", code);
+        Assert.DoesNotContain("break __cs2jLoop", code);
+    }
+
     private static string ExtractBeforeWhile(string code)
     {
         var idx = code.IndexOf("__gotoLoop: while (true)", StringComparison.Ordinal);

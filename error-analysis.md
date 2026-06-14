@@ -732,3 +732,31 @@
 - **分析**: `GotoAnalyzer.SplitIntoBasicBlocks` 只把顶层的 `goto`/`return`/`throw`/`break`/`continue` 识别为 block exit。`ParseText()` 的主 basic block 是复杂的顶层 `if/else`：若进入 `goto IgnoredNode` 分支，转换器已在嵌套位置生成 `__state = 2; continue __gotoLoop;`；其他路径都通过嵌套 `return true` 终止。Java 已能判定该 `if/else` 后不可达，但 analyzer 仍把该 block 标为 `FallThrough`，并因后面存在 `IgnoredNode:` basic block 而生成额外的 `__state = 2; continue __gotoLoop;`。这是 Iteration 29 之后剩下的同类 reachability 缺口：fallback return 已被抑制，但 case body 末尾为嵌套 block/if 后 `return` 时，next-label transition 仍按 basic-block fallthrough 补出。
 
 ✅ **Fixed** — method-level goto state-machine case-tail generation now suppresses synthetic fallthrough/conditional fallthrough transitions when the source statement at the end of a basic block cannot complete normally, including nested `if/else` blocks where both branches terminate via return/throw/goto/break/continue. The focused regression first failed by matching `return true; ... __state = N; continue __gotoLoop;`, then passed after the syntax-level terminal check was added; a companion test verifies a non-terminal labeled block still keeps a next-label transition. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[4292,9]` unreachable transition disappeared and line 4292 is now `case 2: // IgnoredNode`. Maven still fails; the next first error is now `XmlTextReaderImpl.java:[5086,9] 无法访问的语句` on `ReturnPartial: { ... }`.
+
+---
+
+## Iteration 31 — Goto-to-post-loop label inside nested switch exits only the switch
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 5086
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[5086,9] 无法访问的语句`
+- **代码片段**:
+  ```java
+          }
+          throwInvalidChar(chars, _ps.charsUsed, pos);
+          break;
+          }
+          }
+          }
+          ReturnPartial: { if (rcount > 0) {
+          shiftBuffer(rpos + rcount, rpos, pos - rpos - rcount);
+          outEndPos.value = pos - rcount;
+          } else {
+          outEndPos.value = pos;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **C# 原始代码**: `ParsePI(...)` 中 `for (;;)` 内部的 `switch (chars[pos])` 多处 `goto ReturnPartial;`，目标 `ReturnPartial:` 是紧跟在无限循环之后的标签块，最终设置 out 参数并 `return false;`。
+- **根因分类**: Transformer goto-to-post-loop lowering / nested breakable construct handling
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Context\GotoAnalyzer.cs`; `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.LabelAndGoto.cs`
+- **分析**: `GotoAnalyzer` 会把“goto 目标是当前外层 loop 的后继 sibling label”的情况分类为 `BreakFromEnclosingLoop`，转换器再把它降成裸 Java `break;`。这个降级只在 goto 不位于其他 breakable construct 内时成立；本例 `goto ReturnPartial` 位于 `for (;;)` 内层的 `switch` section 里，裸 `break;` 只退出 Java `switch`，不会退出外层无限循环。结果所有能到达 `ReturnPartial:` 的路径都被错误困在 `for (;;)` 中，Java 编译器把循环后的 `ReturnPartial: { ... }` 判为不可达。这里的标签块本身包含最终 `return false;`，但首错不是标签块 terminal 未识别导致尾部 fallback/transition 不可达；真正缺口是 sibling-label goto 在嵌套 `switch`/loop 中需要生成能退出正确外层 loop 的 labeled break（或等价 state transition），同时仍保留普通非嵌套 sibling-label goto 的落出语义。
+
+✅ **Fixed** — goto-to-post-loop-label lowering now emits a synthetic Java loop label and `break <label>;` when the `goto` is nested inside another breakable construct such as `switch`, while preserving plain `break;` for non-nested loop exits. The focused regression first failed because `break __cs2jLoop` was absent, then passed after the loop-label context was added. After regenerating and rerunning Maven, the original `XmlTextReaderImpl.java:[5086,9]` unreachable `ReturnPartial:` error disappeared; Maven still fails and the next first error is now `XmlTextReaderImpl.java:[9326,9] 无法访问的语句`.

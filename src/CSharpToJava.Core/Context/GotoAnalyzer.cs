@@ -152,6 +152,12 @@ public class GotoAnalyzer
             .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
+    /// Gotos that jump to a label after an enclosing loop and can be lowered as a loop break.
+    /// </summary>
+    public IEnumerable<GotoInfo> BreakFromEnclosingLoopGotos =>
+        _allGotos.Where(g => g.Classification == GotoScopeClassification.BreakFromEnclosingLoop);
+
+    /// <summary>
     /// Analyzes a method body for goto patterns and produces basic block splitting.
     /// </summary>
     public static GotoAnalyzer Analyze(BlockSyntax methodBody, LabelRegistry labelRegistry)

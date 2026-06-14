@@ -37,18 +37,35 @@ public partial class StatementTransformer
 
         var stmtTransformer = new StatementTransformer();
         string body;
-        if (stmt.Statement is BlockSyntax block)
+        var hasPostLoopBreakLabel = LoopNeedsPostLabelForBreakFromNestedBreakable(stmt, context, out var postLoopBreakLabel);
+        if (hasPostLoopBreakLabel)
         {
-            var bodyStr = TransformBlock(block, context);
-            body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
-        }
-        else
-        {
-            var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-            body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
+            context.MethodState.PushPostLoopGotoLabel(stmt, postLoopBreakLabel);
         }
 
-        return new JavaStatementNode($"{whilePreamble}while ({condition}) {body}{whilePostAfterLoop}");
+        try
+        {
+            if (stmt.Statement is BlockSyntax block)
+            {
+                var bodyStr = TransformBlock(block, context);
+                body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
+            }
+            else
+            {
+                var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
+                body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
+            }
+        }
+        finally
+        {
+            if (hasPostLoopBreakLabel)
+            {
+                context.MethodState.PopPostLoopGotoLabel(stmt);
+            }
+        }
+
+        var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
+        return new JavaStatementNode($"{whilePreamble}{loopPrefix}while ({condition}) {body}{whilePostAfterLoop}");
     }
 
     private JavaSyntaxNode TransformForStatement(ForStatementSyntax stmt, ConversionContext context)
@@ -106,18 +123,36 @@ public partial class StatementTransformer
 
         var stmtTransformer = new StatementTransformer();
         string body;
-        if (stmt.Statement is BlockSyntax block)
+        var hasPostLoopBreakLabel = LoopNeedsPostLabelForBreakFromNestedBreakable(stmt, context, out var postLoopBreakLabel);
+        if (hasPostLoopBreakLabel)
         {
-            var bodyStr = TransformBlock(block, context);
-            body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
-        }
-        else
-        {
-            var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-            body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
+            context.MethodState.PushPostLoopGotoLabel(stmt, postLoopBreakLabel);
         }
 
-        return new JavaStatementNode($"{forPreamble}for ({initializers}; {condition}; {incrementors}) {body}");
+        try
+        {
+            if (stmt.Statement is BlockSyntax block)
+            {
+                var bodyStr = TransformBlock(block, context);
+                body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
+            }
+            else
+            {
+                var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
+                body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
+            }
+        }
+        finally
+        {
+            if (hasPostLoopBreakLabel)
+            {
+                context.MethodState.PopPostLoopGotoLabel(stmt);
+            }
+        }
+
+        var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
+
+        return new JavaStatementNode($"{forPreamble}{loopPrefix}for ({initializers}; {condition}; {incrementors}) {body}");
     }
 
     private JavaSyntaxNode TransformForEachStatement(ForEachStatementSyntax stmt, ConversionContext context)
@@ -168,9 +203,26 @@ public partial class StatementTransformer
 
 
         var stmtTransformer = new StatementTransformer();
-        var body = stmt.Statement is BlockSyntax block
-            ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+        string body;
+        var hasPostLoopBreakLabel = LoopNeedsPostLabelForBreakFromNestedBreakable(stmt, context, out var postLoopBreakLabel);
+        if (hasPostLoopBreakLabel)
+        {
+            context.MethodState.PushPostLoopGotoLabel(stmt, postLoopBreakLabel);
+        }
+
+        try
+        {
+            body = stmt.Statement is BlockSyntax block
+                ? $"{{\n        {TransformBlock(block, context)}\n    }}"
+                : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+        }
+        finally
+        {
+            if (hasPostLoopBreakLabel)
+            {
+                context.MethodState.PopPostLoopGotoLabel(stmt);
+            }
+        }
 
         // Detect: iterating over a Dictionary/Map → need .entrySet() in Java
         if (exprTypeInfo is INamedTypeSymbol exprNamed &&
@@ -333,7 +385,8 @@ public partial class StatementTransformer
             catch { /* SemanticModel may fail for some edge cases — skip silently */ }
         }
 
-        return new JavaStatementNode($"for ({javaType} {identifier} : {expression}) {body}");
+        var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
+        return new JavaStatementNode($"{loopPrefix}for ({javaType} {identifier} : {expression}) {body}");
     }
 
     /// <summary>
@@ -568,9 +621,26 @@ public partial class StatementTransformer
         var exprTransformer = ExpressionTransformerFacade.Instance;
 
         var stmtTransformer = new StatementTransformer();
-        var bodyBlock = stmt.Statement is BlockSyntax block
-            ? TransformBlock(block, context)
-            : stmtTransformer.Transform(stmt.Statement, context).ToString("");
+        string bodyBlock;
+        var hasPostLoopBreakLabel = LoopNeedsPostLabelForBreakFromNestedBreakable(stmt, context, out var postLoopBreakLabel);
+        if (hasPostLoopBreakLabel)
+        {
+            context.MethodState.PushPostLoopGotoLabel(stmt, postLoopBreakLabel);
+        }
+
+        try
+        {
+            bodyBlock = stmt.Statement is BlockSyntax block
+                ? TransformBlock(block, context)
+                : stmtTransformer.Transform(stmt.Statement, context).ToString("");
+        }
+        finally
+        {
+            if (hasPostLoopBreakLabel)
+            {
+                context.MethodState.PopPostLoopGotoLabel(stmt);
+            }
+        }
 
         // Condition is evaluated at end of each iteration. Any Holder declarations it produces
         // must live outside the loop; value read-backs are injected into the body tail.
@@ -594,6 +664,7 @@ public partial class StatementTransformer
         }
 
         var body = $"{{\n        {bodyBlock}{doBodyTail}\n    }}";
-        return new JavaStatementNode($"{doPreamble}do {body} while ({condition});");
+        var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
+        return new JavaStatementNode($"{doPreamble}{loopPrefix}do {body} while ({condition});");
     }
 }

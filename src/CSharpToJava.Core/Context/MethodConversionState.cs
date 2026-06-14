@@ -272,6 +272,38 @@ public class MethodConversionState
     /// </summary>
     public GotoAnalyzer? GotoAnalyzer { get; set; }
 
+    // ─── Goto-to-post-loop labels ───────────────────────────────────
+
+    private readonly Stack<(Microsoft.CodeAnalysis.CSharp.Syntax.StatementSyntax Loop, string JavaLabel)> _postLoopGotoLabels = new();
+
+    public void PushPostLoopGotoLabel(Microsoft.CodeAnalysis.CSharp.Syntax.StatementSyntax loop, string javaLabel)
+    {
+        _postLoopGotoLabels.Push((loop, javaLabel));
+    }
+
+    public void PopPostLoopGotoLabel(Microsoft.CodeAnalysis.CSharp.Syntax.StatementSyntax loop)
+    {
+        if (_postLoopGotoLabels.Count > 0 && ReferenceEquals(_postLoopGotoLabels.Peek().Loop, loop))
+        {
+            _postLoopGotoLabels.Pop();
+        }
+    }
+
+    public bool TryGetPostLoopGotoLabel(Microsoft.CodeAnalysis.CSharp.Syntax.StatementSyntax loop, out string javaLabel)
+    {
+        foreach (var entry in _postLoopGotoLabels)
+        {
+            if (ReferenceEquals(entry.Loop, loop))
+            {
+                javaLabel = entry.JavaLabel;
+                return true;
+            }
+        }
+
+        javaLabel = "";
+        return false;
+    }
+
     /// <summary>
     /// Pending holders: registered during pre-scan for variables that are captured by lambdas
     /// and externally reassigned. The holder declaration will be emitted right after the
@@ -394,6 +426,7 @@ public class MethodConversionState
         LambdaCapturePreScanDone = false;
         Labels.Clear();
         GotoAnalyzer = null;
+        _postLoopGotoLabels.Clear();
 
         if (readOnlyRefStructParamNames != null)
         {

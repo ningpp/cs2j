@@ -187,6 +187,11 @@ public partial class StatementTransformer
 
                     case GotoScopeClassification.BreakFromEnclosingLoop:
                         // D: goto target is a sibling of the enclosing loop -> break;
+                        if (TryGetNestedPostLoopBreakLabel(gotoInfo, context, out var javaLoopLabel))
+                        {
+                            return new JavaStatementNode($"break {javaLoopLabel};");
+                        }
+
                         return new JavaStatementNode("break;");
 
                     case GotoScopeClassification.SameBodyLoop:
@@ -261,6 +266,93 @@ public partial class StatementTransformer
             }
             current = current.Parent;
         }
+        return false;
+    }
+
+    private static bool LoopNeedsPostLabelForBreakFromNestedBreakable(
+        StatementSyntax loop,
+        ConversionContext context,
+        out string javaLabel)
+    {
+        javaLabel = "";
+        var analyzer = context.MethodState.GotoAnalyzer;
+        if (analyzer == null)
+        {
+            return false;
+        }
+
+        foreach (var gotoInfo in analyzer.BreakFromEnclosingLoopGotos)
+        {
+            if (TryFindEnclosingLoopForPostLoopGoto(gotoInfo.GotoStatement, out var enclosingLoop)
+                && ReferenceEquals(enclosingLoop, loop)
+                && IsInsideNestedBreakableBeforeLoop(gotoInfo.GotoStatement, loop))
+            {
+                javaLabel = context.GenerateSyntheticName("__cs2jLoop");
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetNestedPostLoopBreakLabel(
+        GotoInfo gotoInfo,
+        ConversionContext context,
+        out string javaLabel)
+    {
+        javaLabel = "";
+        if (!TryFindEnclosingLoopForPostLoopGoto(gotoInfo.GotoStatement, out var enclosingLoop)
+            || !IsInsideNestedBreakableBeforeLoop(gotoInfo.GotoStatement, enclosingLoop))
+        {
+            return false;
+        }
+
+        return context.MethodState.TryGetPostLoopGotoLabel(enclosingLoop, out javaLabel);
+    }
+
+    private static bool TryFindEnclosingLoopForPostLoopGoto(
+        GotoStatementSyntax gotoStmt,
+        out StatementSyntax enclosingLoop)
+    {
+        for (var node = gotoStmt.Parent; node != null; node = node.Parent)
+        {
+            if (node is WhileStatementSyntax
+                or ForStatementSyntax
+                or ForEachStatementSyntax
+                or DoStatementSyntax)
+            {
+                enclosingLoop = (StatementSyntax)node;
+                return true;
+            }
+
+            if (node is BlockSyntax block && block.Parent is MethodDeclarationSyntax
+                or ConstructorDeclarationSyntax
+                or OperatorDeclarationSyntax
+                or ConversionOperatorDeclarationSyntax
+                or ArrowExpressionClauseSyntax)
+            {
+                break;
+            }
+        }
+
+        enclosingLoop = null!;
+        return false;
+    }
+
+    private static bool IsInsideNestedBreakableBeforeLoop(GotoStatementSyntax gotoStmt, StatementSyntax loop)
+    {
+        for (var node = gotoStmt.Parent; node != null && !ReferenceEquals(node, loop); node = node.Parent)
+        {
+            if (node is SwitchStatementSyntax
+                or WhileStatementSyntax
+                or ForStatementSyntax
+                or ForEachStatementSyntax
+                or DoStatementSyntax)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
