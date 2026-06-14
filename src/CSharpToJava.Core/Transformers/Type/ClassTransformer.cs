@@ -307,7 +307,7 @@ public class ClassTransformer : ITypeTransformer
         RemoveCompareToBridgeConflicts(javaClass);
         RemoveCloneBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
-        AddIterableBridgeFromIteratorMethod(javaClass);
+        AddIterableBridgeFromIteratorMethod(javaClass, mergedType.TypeSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
@@ -515,7 +515,7 @@ public class ClassTransformer : ITypeTransformer
         RemoveCompareToBridgeConflicts(javaClass);
         RemoveCloneBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
-        AddIterableBridgeFromIteratorMethod(javaClass);
+        AddIterableBridgeFromIteratorMethod(javaClass, classSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
@@ -1684,10 +1684,13 @@ public class ClassTransformer : ITypeTransformer
         }
     }
 
-    private static void AddIterableBridgeFromIteratorMethod(JavaClassDeclaration javaClass)
+    private static void AddIterableBridgeFromIteratorMethod(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol)
     {
         bool alreadyIterable = javaClass.ImplementedTypes.Any(t => t == "Iterable" || t.StartsWith("Iterable<"));
         if (alreadyIterable)
+            return;
+
+        if (BaseTypeAlreadyProvidesEnumerable(classSymbol))
             return;
 
         var iteratorMethod = javaClass.Methods.FirstOrDefault(m =>
@@ -1703,6 +1706,26 @@ public class ClassTransformer : ITypeTransformer
             iterableType = $"Iterable<{elemType}>";
 
         javaClass.ImplementedTypes.Add(iterableType);
+    }
+
+    private static bool BaseTypeAlreadyProvidesEnumerable(INamedTypeSymbol? classSymbol)
+    {
+        for (var baseType = classSymbol?.BaseType;
+             baseType != null && baseType.SpecialType != SpecialType.System_Object;
+             baseType = baseType.BaseType)
+        {
+            if (baseType.AllInterfaces.Any(IsEnumerableInterface))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsEnumerableInterface(INamedTypeSymbol iface)
+    {
+        var original = iface.OriginalDefinition.ToDisplayString();
+        return original is "System.Collections.IEnumerable"
+            or "System.Collections.Generic.IEnumerable<T>";
     }
 
     private static bool IsIteratorLikeInterfaceType(string type)

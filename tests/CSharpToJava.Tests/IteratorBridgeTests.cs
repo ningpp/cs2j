@@ -282,4 +282,31 @@ class Walker
         Assert.Contains("public CSharpEnumerator<Integer> iterator()", code);
         Assert.Contains("for (int v : new Succ())", code);
     }
+
+    [Fact]
+    public void OverrideNonGenericEnumeratorFromEnumerableBase_DoesNotReimplementIterable()
+    {
+        var r = Convert(@"
+using System.Collections;
+
+abstract class NamespaceManager : IEnumerable
+{
+    public abstract IEnumerator GetEnumerator();
+}
+
+class NoNamespaceManager : NamespaceManager
+{
+    public override IEnumerator GetEnumerator()
+    {
+        return null;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        Assert.Contains("abstract class NamespaceManager implements Iterable", code);
+        Assert.Contains("class NoNamespaceManager extends NamespaceManager", code);
+        Assert.DoesNotContain("class NoNamespaceManager extends NamespaceManager implements Iterable<Object>", code);
+    }
 }

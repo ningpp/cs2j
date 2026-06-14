@@ -565,3 +565,26 @@
 - **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs; D:\code\cs2j\tests\CSharpToJava.Tests\ConfigureAwaitConversionTests.cs
 - **分析**: `System.Threading.Tasks.ValueTask<T>` 在当前转换器里映射到 Java `CompletableFuture<T>`，上一轮也已让其成员访问按 `CompletableFuture` 表示工作。但对象创建转换仍走通用构造器路径，把 C# `new ValueTask<T>(Task<T>)` 机械生成为 `new CompletableFuture<T>(future)`。Java `CompletableFuture` 没有接收另一个 future/result 的公开构造器；正确 lower 是：`new ValueTask<T>(Task<T>)`/`new ValueTask<T>(ValueTask<T>)` 直接返回已有 `CompletableFuture<T>` 表达式，`new ValueTask<T>(T result)` 则用 `CompletableFuture.completedFuture(result)`。
 ✅ **Fixed** — `new ValueTask<T>(Task<T>)` and `new ValueTask<T>(ValueTask<T>)` now lower to the existing `CompletableFuture<T>` expression, while `new ValueTask<T>(T result)` lowers to `CompletableFuture.completedFuture(result)`. After regenerating and rerunning Maven, the original `new CompletableFuture<T>(...)` constructor error at `XmlTextReaderImpl.java:[10133,16]` disappeared; the next Maven first error is now an `Iterable` generic inheritance conflict at `XmlTextReaderImpl.java:[12306,20]`.
+
+---
+
+## Iteration 25 — Inherited raw IEnumerable re-emitted as generic Iterable
+- **Java 文件**: D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java
+- **行号**: 12306
+- **错误信息**: `[ERROR] /D:/csharpxml-java/System.Private.Xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[12306,20] 无法使用以下不同的参数继承java.lang.Iterable: <java.lang.Object> 和 <>`
+- **代码片段**:
+  ```java
+      //
+      // NoNamespaceManager
+      //
+      private static class NoNamespaceManager extends XmlNamespaceManager implements Iterable<Object> {
+          public NoNamespaceManager() {
+          }
+  ```
+- **对应 C# 文件**: D:\csharpxml\System\Xml\Core\XmlTextReaderImplHelpers.cs
+- **C# 原始代码**: `private class NoNamespaceManager : XmlNamespaceManager`; base type `XmlNamespaceManager` is declared in `D:\csharpxml\System\Xml\XmlNamespacemanager.cs` as `public class XmlNamespaceManager : IXmlNamespaceResolver, IEnumerable`.
+- **根因分类**: Transformer class/interface emission
+- **涉及组件**: D:\code\cs2j\src\CSharpToJava.Core\Transformers\Type\ClassTransformer.cs; D:\code\cs2j\config\TypeMappings.json
+- **分析**: `XmlNamespaceManager` implements non-generic `System.Collections.IEnumerable`, which maps to raw Java `Iterable`. `NoNamespaceManager` only extends `XmlNamespaceManager` and overrides `GetEnumerator()`. During member conversion that override is lowered to an `iterator()` method, and `ClassTransformer.AddIterableBridgeFromIteratorMethod` treated any class with an iterator-like method as a pattern-enumerable class that must declare `implements Iterable<Object>`. That is correct for standalone pattern enumerators, but wrong when a base class already provides the enumerable contract: the generated subclass then inherits raw `Iterable` from the base and directly implements `Iterable<Object>`, which Java rejects as conflicting parameterizations of the same generic interface.
+
+✅ **Fixed** — `AddIterableBridgeFromIteratorMethod` now receives the Roslyn class symbol and skips adding a synthetic `Iterable<T>` when any base type already implements `System.Collections.IEnumerable` or `System.Collections.Generic.IEnumerable<T>`. Standalone pattern enumerator classes still get `Iterable<T>`. After regenerating and rerunning Maven, `NoNamespaceManager` now emits `private static class NoNamespaceManager extends XmlNamespaceManager` with no duplicate `implements Iterable<Object>`, and the original `XmlTextReaderImpl.java:[12306,20]` Iterable inheritance conflict disappeared. The next Maven first error is now `XmlTextReaderImpl.java:[2273,9] 无法访问的语句`.
