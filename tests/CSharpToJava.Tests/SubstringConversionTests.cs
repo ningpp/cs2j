@@ -120,6 +120,53 @@ class Sample
         Assert.Contains("attrString.toLowerCase().substring(1, 1 + attrString.length() - 1)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ToLower_WithCultureInfo_ConvertsCultureArgumentToLocale()
+    {
+        var result = Convert(@"
+using System.Globalization;
+
+class Sample
+{
+    public string LowerFirst(string attrString)
+    {
+        attrString = attrString.Substring(0, 1).ToLower(CultureInfo.InvariantCulture)
+            + attrString.Substring(1, attrString.Length - 1);
+        return attrString;
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains(
+            "attrString.substring(0, 0 + 1).toLowerCase(CultureInfo.getInvariantCulture().toLocale())",
+            result.GeneratedCode,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "toLowerCase(CultureInfo.getInvariantCulture())",
+            result.GeneratedCode,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToLower_WithFullyQualifiedCultureInfo_DoesNotAppendToLocaleToLocaleRoot()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public string Lower(string value)
+    {
+        return value.ToLower(System.Globalization.CultureInfo.InvariantCulture);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains(
+            "value.toLowerCase(CultureInfo.getInvariantCulture().toLocale())",
+            result.GeneratedCode,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("Locale.ROOT.toLocale()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

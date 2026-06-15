@@ -3026,6 +3026,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // that was already prepended; use 0 for standard instance calls.
         int argStartIndex = isExtensionInStaticPath ? 1 : 0;
 
+        // String.ToLower(CultureInfo) / ToUpper(CultureInfo) map to Java's
+        // Locale-taking overloads, while CultureInfo itself remains a compat type.
+        bool isStringCasingWithCulture = originalMethodName is "ToLower" or "ToUpper"
+            && methodName is "toLowerCase" or "toUpperCase"
+            && node.ArgumentList.Arguments.Count - argStartIndex == 1
+            && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context)
+            && IsCultureInfoArgument(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+        if (isStringCasingWithCulture)
+        {
+            var cultureArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+            return $"{receiver}.{methodName}({cultureArg}.toLocale())";
+        }
+
         // Fallback: String.IsNullOrEmpty(s) -> StringHelper.isNullOrEmpty(s)
         bool isStringIsNullOrEmpty = originalMethodName == "IsNullOrEmpty"
             && node.ArgumentList.Arguments.Count - argStartIndex >= 1
@@ -5261,6 +5274,48 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
 
         return false;
+    }
+
+    private static bool IsCultureInfoArgument(ExpressionSyntax expr, ConversionContext context)
+    {
+        static bool IsCultureInfoType(ITypeSymbol? typeSymbol)
+            => typeSymbol?.OriginalDefinition.ToDisplayString() == "System.Globalization.CultureInfo"
+                || typeSymbol?.ToDisplayString() == "System.Globalization.CultureInfo";
+
+        if (context.SemanticModel != null)
+        {
+            var typeInfo = context.GetTypeInfo(expr);
+            if (IsCultureInfoType(typeInfo.Type) || IsCultureInfoType(typeInfo.ConvertedType))
+                return true;
+        }
+
+        var innerExpr = expr;
+        while (true)
+        {
+            if (innerExpr is ParenthesizedExpressionSyntax parenthesized)
+            {
+                innerExpr = parenthesized.Expression;
+                continue;
+            }
+
+            if (innerExpr is CastExpressionSyntax castExpr)
+            {
+                var castTypeName = castExpr.Type.ToString();
+                if (castTypeName is "CultureInfo" or "System.Globalization.CultureInfo")
+                    return true;
+
+                innerExpr = castExpr.Expression;
+                continue;
+            }
+
+            break;
+        }
+
+        var argText = innerExpr.ToString();
+        return argText.StartsWith("CultureInfo.", System.StringComparison.Ordinal)
+            || argText.StartsWith("System.Globalization.CultureInfo.", System.StringComparison.Ordinal)
+            || argText.StartsWith("new CultureInfo(", System.StringComparison.Ordinal)
+            || argText.StartsWith("new System.Globalization.CultureInfo(", System.StringComparison.Ordinal);
     }
 
     /// <summary>

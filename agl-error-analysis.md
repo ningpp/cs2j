@@ -200,3 +200,25 @@
 - **根因分类**: Transformer
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`
 - **分析**: `Array.Copy` 被特例降低为 `System.arraycopy`，但该分支先完整转换实参；C# 的 `(Array)this.array` 因 `System.Array` 映射为 compat `CSharpArray` 而输出 `(CSharpArray)(this.array)`，传给 Java `System.arraycopy(Object,...)` 时既不需要包装也无法编译。
+
+## Iteration 11 - String.ToLower culture argument remains CultureInfo
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout.Drawing\src\main\java\Microsoft\Msagl\Drawing\GraphWriter.java`
+- **行号**: 65
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout.Drawing/src/main/java/Microsoft/Msagl/Drawing/GraphWriter.java:[65,96] 不兼容的类型: io.github.ningpp.compat.CultureInfo无法转换为java.util.Locale`
+- **代码片段**:
+  ```java
+        writeEndElement();
+    }
+    public static String firstCharToLower(Tokens attrKind) {
+        var attrString = attrKind.toString();
+        attrString = attrString.substring(0, 0 + 1).toLowerCase(CultureInfo.getInvariantCulture()) + attrString.substring(1, 1 + attrString.length() - 1);
+        return attrString;
+    }
+    void writeAttribute(Tokens attrKind, Object val) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\GraphWriter.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\CultureInfo.java`
+- **分析**: `System.String.ToLower(CultureInfo)` 被方法映射输出为 Java `String.toLowerCase(...)`，但实参仍按 C# `CultureInfo.InvariantCulture` 映射为 compat `CultureInfo.getInvariantCulture()`；Java `String.toLowerCase(Locale)` 需要 `java.util.Locale`，转换器缺少该 overload 的文化参数适配。
+- **修复验证**: 新增 `ToLower_WithCultureInfo_ConvertsCultureArgumentToLocale` 红测，修复后聚焦测试与全量 `dotnet test` 通过；重新转换后 `GraphWriter.java:65` 错误消失，Maven 第一错推进到 `SvgGraphWriter.java:205`。
