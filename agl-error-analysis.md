@@ -222,3 +222,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\CultureInfo.java`
 - **分析**: `System.String.ToLower(CultureInfo)` 被方法映射输出为 Java `String.toLowerCase(...)`，但实参仍按 C# `CultureInfo.InvariantCulture` 映射为 compat `CultureInfo.getInvariantCulture()`；Java `String.toLowerCase(Locale)` 需要 `java.util.Locale`，转换器缺少该 overload 的文化参数适配。
 - **修复验证**: 新增 `ToLower_WithCultureInfo_ConvertsCultureArgumentToLocale` 红测，修复后聚焦测试与全量 `dotnet test` 通过；重新转换后 `GraphWriter.java:65` 错误消失，Maven 第一错推进到 `SvgGraphWriter.java:205`。
+
+## Iteration 12 - typeof(T).Assembly.GetName emits Package.getPackage()
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout.Drawing\src\main\java\Microsoft\Msagl\Drawing\SvgGraphWriter.java`
+- **行号**: 205
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout.Drawing/src/main/java/Microsoft/Msagl/Drawing/SvgGraphWriter.java:[205,78] 无法将类 java.lang.Package中的方法 getPackage应用到给定类型; 需要: java.lang.String 找到: 没有参数 原因: 实际参数列表和形式参数列表长度不同`
+- **代码片段**:
+  ```java
+    static void writeGraphAttr(GraphAttr graphAttr) {
+    }
+    void open() {
+        writeComment("SvgWriter version " + SvgGraphWriter.class.getPackage().getPackage().toString());
+        var box = _graph.getBoundingBox().clone();
+        xmlWriter.writeStartElement("svg", "http://www.w3.org/2000/svg");
+        writeAttributeWithPrefix("xmlns", "xlink", "http://www.w3.org/1999/xlink");
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\SvgGraphWriter.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\AssemblyCompat.java`
+- **分析**: `typeof(SvgGraphWriter).Assembly` 走通用 `System.Type.Assembly -> getPackage` 映射，产出 Java `Class.getPackage()`；随后 `Assembly.GetName()` 又映射为 `getPackage()`，导致在 `java.lang.Package` 上调用不存在的无参实例 `getPackage()`，转换器缺少 `typeof(T).Assembly` 到 `AssemblyCompat.fromClass(T.class)` 的成员访问特例。
+- **修复验证**: 新增 `TypeOf_Assembly_GetName_Version_UsesAssemblyCompat` 红测，修复后聚焦测试与全量 `dotnet test` 通过；重新转换后 `SvgGraphWriter.java:205` 错误消失，`D:\agl26` 下 `mvn clean test-compile -e` 通过并输出 `BUILD SUCCESS`。

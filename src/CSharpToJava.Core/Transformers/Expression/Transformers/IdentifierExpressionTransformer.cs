@@ -874,15 +874,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Auto-properties emitted as public fields in project pipeline: skip getter
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
 
-        // Special case: GetType().Assembly → AssemblyCompat.fromClass(getClass())
+        // Special case: GetType().Assembly / typeof(T).Assembly → AssemblyCompat.fromClass(...)
         // Without this, the generic TypeMappings rule converts .Assembly → .getPackage(),
         // which returns java.lang.Package instead of AssemblyCompat, breaking any
-        // subsequent method calls like GetManifestResourceStream.
+        // subsequent method calls like GetManifestResourceStream or GetName.
         if (memberName is "Assembly" or "get_Assembly"
-            && IsGetTypeInvocation(node.Expression))
+            && (IsGetTypeInvocation(node.Expression) || node.Expression is TypeOfExpressionSyntax))
         {
             context.AddImport("io.github.ningpp.compat.AssemblyCompat");
-            return "AssemblyCompat.fromClass(getClass())";
+            return $"AssemblyCompat.fromClass({target})";
         }
 
         if (context.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
