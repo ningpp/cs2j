@@ -179,3 +179,24 @@
 - **根因分类**: Lowering
 - **涉及组件**: `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\DataContractSerializer.java`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`
 - **分析**: 转换器将 `DataContractSerializer.ReadObject(XmlReader,bool)` 按普通实例方法输出为 `readObject(xr, true)`，但兼容运行时 `DataContractSerializer` 只有构造器，没有对应的 `readObject`/`writeObject` 表面，因此生成代码链接不到方法。
+
+## Iteration 10 - Array.Copy casts arrays to CSharpArray
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\QUT.ShiftReduceParser\src\main\java\QUT\Gppg\PushdownPrefixState.java`
+- **行号**: 49
+- **错误信息**: `[ERROR] /D:/agl26/QUT.ShiftReduceParser/src/main/java/QUT/Gppg/PushdownPrefixState.java:[49,43] 不兼容的类型: T[]无法转换为io.github.ningpp.compat.CSharpArray`
+- **代码片段**:
+  ```java
+        public void push(T value) {
+        try {
+            if (this.tos >= this.array.length) {
+            T[] objArray = (T[]) java.lang.reflect.Array.newInstance(tClass, this.array.length * 2);
+            System.arraycopy((CSharpArray)(this.array), 0, (CSharpArray)(objArray), 0, this.tos);
+            this.array = objArray;
+            }
+            this.array[this.tos++] = clonePushValue(value);
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\tools\QUT.ShiftReduceParser\PushdownPrefixState.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`
+- **分析**: `Array.Copy` 被特例降低为 `System.arraycopy`，但该分支先完整转换实参；C# 的 `(Array)this.array` 因 `System.Array` 映射为 compat `CSharpArray` 而输出 `(CSharpArray)(this.array)`，传给 Java `System.arraycopy(Object,...)` 时既不需要包装也无法编译。

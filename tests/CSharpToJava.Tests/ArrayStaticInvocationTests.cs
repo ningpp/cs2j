@@ -23,6 +23,27 @@ class Test {
     }
 
     [Fact]
+    public void ArrayCopy_WithSystemArrayCasts_UsesRawJavaArrays()
+    {
+        var result = Convert(@"
+using System;
+
+class Test<T> {
+    void Grow(T[] values) {
+        T[] grown = new T[values.Length * 2];
+        Array.Copy((Array)values, (Array)grown, values.Length);
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("System.arraycopy(values, 0, grown, 0, values.length);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(CSharpArray)(values)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(CSharpArray)(grown)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CSharpArray.of(values)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CSharpArray.of(grown)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SystemArrayParameter_MapsToCSharpArray()
     {
         var result = Convert(@"

@@ -1873,15 +1873,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             if (node.ArgumentList.Arguments.Count == 3)
             {
-                var srcArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                var destArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var srcArg = TransformArrayCopyArrayArgument(node.ArgumentList.Arguments[0].Expression, context);
+                var destArg = TransformArrayCopyArrayArgument(node.ArgumentList.Arguments[1].Expression, context);
                 var lengthArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
                 return $"System.arraycopy({srcArg}, 0, {destArg}, 0, {lengthArg})";
             }
 
-            var srcArg5 = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var srcArg5 = TransformArrayCopyArrayArgument(node.ArgumentList.Arguments[0].Expression, context);
             var srcIndexArg5 = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            var destArg5 = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            var destArg5 = TransformArrayCopyArrayArgument(node.ArgumentList.Arguments[2].Expression, context);
             var destIndexArg5 = facade.Transform(node.ArgumentList.Arguments[3].Expression, context);
             var lengthArg5 = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
             return $"System.arraycopy({srcArg5}, {srcIndexArg5}, {destArg5}, {destIndexArg5}, {lengthArg5})";
@@ -7482,6 +7482,35 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var prefix = string.Join(", ", classTypeTokens);
         return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
+    }
+
+    private static string TransformArrayCopyArrayArgument(ExpressionSyntax expression, ConversionContext context)
+    {
+        var unwrapped = expression;
+        while (unwrapped is ParenthesizedExpressionSyntax parenthesized)
+            unwrapped = parenthesized.Expression;
+
+        if (unwrapped is CastExpressionSyntax cast
+            && IsSystemArrayCastTarget(cast.Type, context)
+            && context.GetTypeInfo(cast.Expression).Type is IArrayTypeSymbol)
+        {
+            return ExpressionTransformerFacade.Instance.Transform(cast.Expression, context);
+        }
+
+        return ExpressionTransformerFacade.Instance.Transform(expression, context);
+    }
+
+    private static bool IsSystemArrayCastTarget(TypeSyntax type, ConversionContext context)
+    {
+        var targetType = context.GetTypeInfo(type).Type;
+        if (targetType?.SpecialType == SpecialType.System_Array
+            || targetType?.ToDisplayString() == "System.Array")
+        {
+            return true;
+        }
+
+        var syntaxText = type.ToString();
+        return syntaxText is "Array" or "System.Array";
     }
 
     private static bool IsSystemThreadingValueTaskType(ITypeSymbol? type)
