@@ -40,6 +40,7 @@ namespace CSharpToJava.Core.LinqRewrite
 
             if (RootMethodsThatRequireYieldReturn.Contains(aggregationMethod))
             {
+                returnType = ResolveRootYieldReturnType(aggregationMethod, returnType, semanticReturnType, collection);
                 return RewriteAsLoop(
                     returnType,
                     Enumerable.Empty<StatementSyntax>(),
@@ -2009,6 +2010,48 @@ namespace CSharpToJava.Core.LinqRewrite
 
             throw new NotSupportedException();
         }
+
+        private TypeSyntax ResolveRootYieldReturnType(string aggregationMethod, TypeSyntax returnType, ITypeSymbol semanticReturnType, ExpressionSyntax collection)
+        {
+            if (!IsItemPreservingYieldMethod(aggregationMethod))
+                return returnType;
+
+            var returnItemType = GetItemType(semanticReturnType);
+            if (!IsFallbackType(returnItemType))
+                return returnType;
+
+            var collectionItemType = GetItemType(ResolveCollectionType(collection));
+            if (IsFallbackType(collectionItemType))
+                return returnType;
+
+            var ienumerableType = semantic.Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T);
+            return SyntaxFactory.ParseTypeName(ienumerableType.Construct(collectionItemType).ToDisplayString());
+        }
+
+        private static bool IsItemPreservingYieldMethod(string aggregationMethod)
+            => aggregationMethod == WhereMethod
+                || aggregationMethod == WhereWithIndexMethod
+                || aggregationMethod == DistinctMethod
+                || aggregationMethod == DistinctByMethod
+                || aggregationMethod == SkipMethod
+                || aggregationMethod == TakeMethod
+                || aggregationMethod == SkipWhileMethod
+                || aggregationMethod == SkipWhileWithIndexMethod
+                || aggregationMethod == TakeWhileMethod
+                || aggregationMethod == TakeWhileWithIndexMethod
+                || aggregationMethod == SkipLastMethod
+                || aggregationMethod == TakeLastMethod
+                || aggregationMethod == AppendMethod
+                || aggregationMethod == PrependMethod
+                || aggregationMethod == DefaultIfEmptyMethod
+                || aggregationMethod == DefaultIfEmptyWithValueMethod
+                || aggregationMethod == AsEnumerableMethod
+                || aggregationMethod == OrderByMethod
+                || aggregationMethod == OrderByDescendingMethod
+                || aggregationMethod == ThenByMethod
+                || aggregationMethod == ThenByDescendingMethod
+                || aggregationMethod == OrderMethod
+                || aggregationMethod == OrderDescendingMethod;
 
 
         readonly static string ToDictionaryWithKeyMethod = "System.Collections.Generic.IEnumerable<TSource>.ToDictionary<TSource, TKey>(System.Func<TSource, TKey>)";

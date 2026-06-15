@@ -345,7 +345,7 @@ namespace CSharpToJava.Core.LinqRewrite
                     while (collection is ParenthesizedExpressionSyntax collectionParen)
                         collection = collectionParen.Expression;
 
-                    if (!CanUseRecordsForAnonymousTypes && IsAnonymousType(semantic.GetTypeInfo(collection).Type))
+                    if (!CanUseRecordsForAnonymousTypes && IsAnonymousType(ResolveCollectionType(collection)))
                     {
                         Statistics.SkippedChains.Add(new LinqSkipInfo(
                             LinqSkipReason.AnonymousTypeRequiresRecords, chainLineNumber,
@@ -364,7 +364,7 @@ namespace CSharpToJava.Core.LinqRewrite
                             "Return type could not be resolved"));
                         return null;
                     }
-                    if (!CanUseRecordsForAnonymousTypes && (IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(GetSymbolType(x.Symbol)))))
+                    if (!CanUseRecordsForAnonymousTypes && (IsAnonymousType(semanticReturnType) || currentFlow.Any(x => IsAnonymousType(ResolveSymbolType(x.Symbol)))))
                     {
                         Statistics.SkippedChains.Add(new LinqSkipInfo(
                             LinqSkipReason.AnonymousTypeRequiresRecords, chainLineNumber,
@@ -1109,10 +1109,10 @@ namespace CSharpToJava.Core.LinqRewrite
             var old = currentAggregation;
             currentAggregation = k;
 
-            var collectionType = semantic.GetTypeInfo(collection).Type;
+            var collectionType = ResolveCollectionType(collection);
             var collectionItemType = GetItemType(collectionType);
             if (collectionItemType == null) throw new NotSupportedException();
-            var collectionSemanticType = semantic.GetTypeInfo(collection).Type;
+            var collectionSemanticType = collectionType;
 
             // Indexed for-loop will be generated for List<T> and arrays
             // (must match the condition in the indexed-vs-foreach branch below).
@@ -1134,7 +1134,7 @@ namespace CSharpToJava.Core.LinqRewrite
                 linqItemsParamType = ienumerableType.Construct(collectionItemType);
             }
 
-            var parameters =  new[] { CreateParameter(ItemsName, linqItemsParamType) }.Concat(currentFlow.Select(x => CreateParameter(x.Name, GetSymbolType(x.Symbol)).WithRef(x.Changes)));
+            var parameters =  new[] { CreateParameter(ItemsName, linqItemsParamType) }.Concat(currentFlow.Select(x => CreateParameter(x.Name, ResolveSymbolType(x.Symbol)).WithRef(x.Changes)));
             if (additionalParameters != null) parameters = parameters.Concat(additionalParameters.Select(x => x.Item1));
 
             // Add parameters for intermediates that need non-lambda arguments passed in
@@ -1342,6 +1342,102 @@ namespace CSharpToJava.Core.LinqRewrite
             return itemType;
         }
 
+        private ITypeSymbol ResolveCollectionType(ExpressionSyntax collection)
+        {
+            var type = semantic.GetTypeInfo(collection).Type
+                ?? semantic.GetTypeInfo(collection).ConvertedType;
+
+            if (type is IArrayTypeSymbol arrayType
+                && IsFallbackType(arrayType.ElementType)
+                && collection is IdentifierNameSyntax identifier
+                && semantic.GetSymbolInfo(identifier).Symbol is ILocalSymbol local
+                && TryInferImplicitArrayElementType(local, out var inferredElementType))
+            {
+                return semantic.Compilation.CreateArrayTypeSymbol(inferredElementType);
+            }
+
+            return type ?? semantic.Compilation.GetSpecialType(SpecialType.System_Object);
+        }
+
+        private ITypeSymbol ResolveSymbolType(ISymbol symbol)
+        {
+            var type = GetRawSymbolType(symbol);
+            if (type is IArrayTypeSymbol arrayType
+                && IsFallbackType(arrayType.ElementType)
+                && symbol is ILocalSymbol local
+                && TryInferImplicitArrayElementType(local, out var inferredElementType))
+            {
+                return semantic.Compilation.CreateArrayTypeSymbol(inferredElementType);
+            }
+
+            return type;
+        }
+
+        private bool TryInferImplicitArrayElementType(ILocalSymbol local, out ITypeSymbol elementType)
+        {
+            foreach (var syntaxReference in local.DeclaringSyntaxReferences)
+            {
+                if (syntaxReference.GetSyntax() is VariableDeclaratorSyntax
+                    {
+                        Initializer.Value: ImplicitArrayCreationExpressionSyntax
+                        {
+                            Initializer: { } initializer
+                        }
+                    })
+                {
+                    var inferred = initializer.Expressions
+                        .Select(TryGetConcreteInitializerType)
+                        .Where(t => t != null)
+                        .Cast<ITypeSymbol>()
+                        .ToList();
+                    var unique = inferred
+                        .Where((type, index) => inferred.FindIndex(t => SymbolEqualityComparer.Default.Equals(t, type)) == index)
+                        .ToArray();
+
+                    if (unique.Length == 1)
+                    {
+                        elementType = unique[0];
+                        return true;
+                    }
+                }
+            }
+
+            elementType = null!;
+            return false;
+        }
+
+        private ITypeSymbol? TryGetConcreteInitializerType(ExpressionSyntax expression)
+        {
+            if (expression.IsKind(SyntaxKind.NullLiteralExpression))
+                return null;
+
+            var typeInfo = semantic.GetTypeInfo(expression);
+            if (!IsFallbackType(typeInfo.Type))
+                return typeInfo.Type;
+            if (!IsFallbackType(typeInfo.ConvertedType))
+                return typeInfo.ConvertedType;
+
+            if (expression is BinaryExpressionSyntax binary)
+            {
+                var leftType = semantic.GetTypeInfo(binary.Left).Type;
+                var rightType = semantic.GetTypeInfo(binary.Right).Type;
+                if (!IsFallbackType(leftType)
+                    && !IsFallbackType(rightType)
+                    && SymbolEqualityComparer.Default.Equals(leftType, rightType))
+                {
+                    return leftType;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsFallbackType(ITypeSymbol? type)
+            => type == null
+                || type.TypeKind is TypeKind.Error or TypeKind.Unknown
+                || type.SpecialType == SpecialType.System_Object
+                || type is ITypeParameterSymbol;
+
         /// <summary>Returns true when <paramref name="tp"/> is declared by the enclosing
         /// method or the enclosing type — i.e. it is a legitimate generic parameter, not a
         /// leaked LINQ-method type parameter (e.g. TSource from Enumerable.Select).</summary>
@@ -1493,6 +1589,9 @@ namespace CSharpToJava.Core.LinqRewrite
         }
 
         private ITypeSymbol GetSymbolType(ISymbol x)
+            => ResolveSymbolType(x);
+
+        private ITypeSymbol GetRawSymbolType(ISymbol x)
         {
             var local = x as ILocalSymbol;
             if (local != null) return local.Type;

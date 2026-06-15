@@ -580,3 +580,23 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.cs`, `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.Rules.cs`
 - **分析**: `baseDirectory` 来自 `TestContext?.DeploymentDirectory`，在缺少 MSTest 编译引用时 Roslyn 把该 `var` seed/capture 退化为 `object`；LINQ helper 直接采用退化语义类型，生成 `Object getDeploymentPath_ProceduralLinq1(... Object _seed)`，但 C# 方法返回和 `Path.Combine` 聚合结果实际是 `string`。
 - **修复验证**: 新增 `ProjectAggregateWithSeed_MSTestConditionalAccessSeedKeepsStringHelperType` 红测，确认 unresolved/error Aggregate 返回类型曾生成 `Object` helper；修复后 `dotnet build`、该聚焦测试和全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`MsaglTestBase.java:148` 的 helper 返回值类型错误消失，第一错推进为 `MsaglTestBase.java:156` 的 `Object` 到 `String` 类型不兼容。
+
+## Iteration 29 - Implicit string array lowered as Object array ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\MsaglTestBase.java`
+- **行号**: 156
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/MsaglTestBase.java:[156,50] 不兼容的类型: java.lang.Object无法转换为java.lang.String`
+- **代码片段**:
+  ```java
+        if (PathHelper.isPathRooted(filePath) || FileHelper.exists(filePath)) {
+        return filePath;
+        }
+        var baseDirectories = new Object[] { (getTestContext() != null ? getTestContext().getDeploymentDirectory() : null), (StringHelper.isNullOrEmpty((getTestContext() != null ? getTestContext().getTestRunDirectory() : null)) ? null : java.nio.file.Paths.get(getTestContext().getTestRunDirectory(), "Out").toString()), AppContext.getBaseDirectory() };
+        for (var baseDirectory : resolveTestFilePath_ProceduralLinq1(baseDirectories, baseDirectories)) {
+        var directPath = java.nio.file.Paths.get(baseDirectory, filePath).toString();
+        if (FileHelper.exists(directPath)) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`
+- **根因分类**: 语义丢失
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.cs`
+- **分析**: `new[] { TestContext?.DeploymentDirectory, ..., AppContext.BaseDirectory }` 的元素实际都是 `string`/`null`，但 MSTest 未解析时语义模型把隐式数组元素类型退化为 `object`；数组创建和后续 `Where` helper 都沿用 `Object[]`/`List<Object>`，导致 `Path.Combine` 映射的 `Paths.get(Object, String)` 无法匹配 Java 的 `String` 参数。
+- **修复验证**: 新增 `ProjectImplicitStringArray_WithUnresolvedConditionalAccessFirstElement_StaysStringArray` 红测，确认隐式字符串数组和根 `Where` helper 曾生成 `Object[]`/`List<Object>`；修复后 `dotnet build`、该聚焦测试和全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`MsaglTestBase.java:156` 的 `Object` 到 `String` 类型错误消失，第一错推进为 `ResultVerifierBase.java:256` 的 `java.time.Duration` 到 `CSharpTimeSpan` 类型不兼容。

@@ -1394,7 +1394,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         // If semantic inference failed (e.g. overloaded operators in large project mode),
         // try to infer from initializer expressions and operand symbols.
-        if (string.IsNullOrWhiteSpace(elementType) && node.Initializer != null)
+        if ((string.IsNullOrWhiteSpace(elementType) || elementType == "Object") && node.Initializer != null)
         {
             elementType = InferElementTypeFromInitializer(node.Initializer.Expressions, context);
         }
@@ -1472,12 +1472,21 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         foreach (var expr in expressions)
         {
-            var type = context.GetTypeInfo(expr).Type
-                ?? context.GetTypeInfo(expr).ConvertedType;
+            if (expr.IsKind(SyntaxKind.NullLiteralExpression))
+            {
+                continue;
+            }
+
+            var typeInfo = context.GetTypeInfo(expr);
+            var type = IsConcreteInitializerType(typeInfo.Type)
+                ? typeInfo.Type
+                : IsConcreteInitializerType(typeInfo.ConvertedType)
+                    ? typeInfo.ConvertedType
+                    : null;
             if (type != null)
             {
                 var mapped = context.MapType(type);
-                if (!string.IsNullOrWhiteSpace(mapped))
+                if (!string.IsNullOrWhiteSpace(mapped) && mapped != "Object")
                 {
                     inferred.Add(mapped);
                     continue;
@@ -1513,6 +1522,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         return "Object";
     }
+
+    private static bool IsConcreteInitializerType(ITypeSymbol? type)
+        => type != null
+            && type.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
+            && type.SpecialType != SpecialType.System_Object;
 
     private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context, string? javaElementType = null)
     {
