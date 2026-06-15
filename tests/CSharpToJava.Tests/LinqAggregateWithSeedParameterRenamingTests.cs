@@ -128,6 +128,47 @@ public class MyClass
     }
 
     [Fact]
+    public async Task ProjectAggregateWithSeed_MSTestConditionalAccessSeedKeepsStringHelperType()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Sample.cs",
+                Content = @"
+using System;
+using System.IO;
+using System.Linq;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+public class MyClass
+{
+    public TestContext TestContext { get; set; }
+
+    public string Build(params string[] parts)
+    {
+        var baseDirectory = TestContext?.DeploymentDirectory;
+        if (string.IsNullOrEmpty(baseDirectory)) {
+            baseDirectory = Path.Combine(TestContext?.TestRunDirectory ?? AppContext.BaseDirectory, ""Out"");
+        }
+        return parts.Aggregate(baseDirectory, Path.Combine);
+    }
+}",
+            },
+        });
+
+        var result = Assert.Single(results, item => item.FileName == "MyClass.java");
+        var java = result.GeneratedCode;
+
+        Assert.True(result.Success, java);
+        Assert.True(java.Contains("String build_ProceduralLinq1", StringComparison.Ordinal), java);
+        Assert.Contains("String _seed", java);
+        Assert.DoesNotContain("Object build_ProceduralLinq1", java, StringComparison.Ordinal);
+        Assert.DoesNotContain("Object _seed", java, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AggregateWithSeed_GetMethodFullNameUsesSeedOverloadWhenSyntaxHasSeedArgument()
     {
         var source = @"

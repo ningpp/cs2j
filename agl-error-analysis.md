@@ -559,3 +559,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.cs`, `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.Rules.cs`
 - **分析**: `relativePathSegments.Aggregate(baseDirectory, Path.Combine)` 的第二个参数是方法组而不是 lambda；LINQ lowering 的 `AggregateWithSeed` 路径既没有把该终端视为可无 lambda 重写，也在规则中强制转换为 `AnonymousFunctionExpressionSyntax`，因此跳过 rewrite，普通 invocation fallback 将扩展方法错误输出为 `String[]` 实例调用。
 - **修复验证**: 新增 `AggregateWithSeed_GetMethodFullNameUsesSeedOverloadWhenSyntaxHasSeedArgument` 红测，确认语义退化时两个参数的 `Aggregate` 曾被错判为 no-seed overload；修复后该聚焦测试、`FullyQualifiedName~AggregateWithSeed`、`dotnet build` 与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`relativePathSegments.aggregate(baseDirectory, PathHelper::combine)` 消失，第一错推进为 `MsaglTestBase.java:148` 的 `Object` 到 `String` 类型不兼容。
+
+## Iteration 28 - Aggregate helper returns Object
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\MsaglTestBase.java`
+- **行号**: 148
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/MsaglTestBase.java:[148,49] 不兼容的类型: java.lang.Object无法转换为java.lang.String`
+- **代码片段**:
+  ```java
+        if (StringHelper.isNullOrEmpty(baseDirectory)) {
+        baseDirectory = java.nio.file.Paths.get((getTestContext() != null ? getTestContext().getTestRunDirectory() : AppContext.getBaseDirectory()), "Out").toString();
+        }
+        return getDeploymentPath_ProceduralLinq1(relativePathSegments, baseDirectory, relativePathSegments, baseDirectory);
+    }
+    String resolveTestFilePath(String filePath) {
+        if (PathHelper.isPathRooted(filePath) || FileHelper.exists(filePath)) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`
+- **根因分类**: 语义丢失
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.cs`, `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.Rules.cs`
+- **分析**: `baseDirectory` 来自 `TestContext?.DeploymentDirectory`，在缺少 MSTest 编译引用时 Roslyn 把该 `var` seed/capture 退化为 `object`；LINQ helper 直接采用退化语义类型，生成 `Object getDeploymentPath_ProceduralLinq1(... Object _seed)`，但 C# 方法返回和 `Path.Combine` 聚合结果实际是 `string`。
+- **修复验证**: 新增 `ProjectAggregateWithSeed_MSTestConditionalAccessSeedKeepsStringHelperType` 红测，确认 unresolved/error Aggregate 返回类型曾生成 `Object` helper；修复后 `dotnet build`、该聚焦测试和全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`MsaglTestBase.java:148` 的 helper 返回值类型错误消失，第一错推进为 `MsaglTestBase.java:156` 的 `Object` 到 `String` 类型不兼容。

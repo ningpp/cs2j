@@ -590,8 +590,10 @@ namespace CSharpToJava.Core.LinqRewrite
 
             if (aggregationMethod == AggregateWithSeedMethod)
             {
+                var aggregateReturnType = ResolveAggregateWithSeedReturnType(node, semanticReturnType);
+                var aggregateReturnTypeSyntax = SyntaxFactory.ParseTypeName(SanitizeAnonymousTypeDisplay(aggregateReturnType));
                 return RewriteAsLoop(
-                    returnType,
+                    aggregateReturnTypeSyntax,
                     new[] { CreateLocalVariableDeclaration("_acc", SyntaxFactory.IdentifierName("_seed")) },
                     new[] { SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("_acc")) },
                     collection,
@@ -644,7 +646,7 @@ namespace CSharpToJava.Core.LinqRewrite
                         // Block body: wrap as statement
                         return (StatementSyntax)renamedBody;
                     },
-                    additionalParameters: new[] { Tuple.Create(CreateParameter("_seed", returnType), node.ArgumentList.Arguments.First().Expression) }
+                    additionalParameters: new[] { Tuple.Create(CreateParameter("_seed", aggregateReturnTypeSyntax), node.ArgumentList.Arguments.First().Expression) }
                 );
             }
 
@@ -1243,6 +1245,122 @@ namespace CSharpToJava.Core.LinqRewrite
 #endif
             return null;
         }
+
+        private ITypeSymbol ResolveAggregateWithSeedReturnType(InvocationExpressionSyntax node, ITypeSymbol semanticReturnType)
+        {
+            if (!IsObjectFallbackType(semanticReturnType))
+                return semanticReturnType;
+
+            var typeInfo = semantic.GetTypeInfo(node);
+            if (IsSpecificType(typeInfo.ConvertedType))
+                return typeInfo.ConvertedType!;
+
+            var contextualReturnType = TryGetContextualReturnType(node);
+            if (IsSpecificType(contextualReturnType))
+                return contextualReturnType!;
+
+            var aggregateFunc = node.ArgumentList.Arguments.Count > 1
+                ? node.ArgumentList.Arguments[1].Expression
+                : null;
+            var aggregateFuncReturnType = TryGetAggregateFunctionReturnType(aggregateFunc);
+            if (IsSpecificType(aggregateFuncReturnType))
+                return aggregateFuncReturnType!;
+
+            var seed = node.ArgumentList.Arguments.Count > 0
+                ? node.ArgumentList.Arguments[0].Expression
+                : null;
+            if (seed != null)
+            {
+                var seedTypeInfo = semantic.GetTypeInfo(seed);
+                if (IsSpecificType(seedTypeInfo.ConvertedType))
+                    return seedTypeInfo.ConvertedType!;
+                if (IsSpecificType(seedTypeInfo.Type))
+                    return seedTypeInfo.Type!;
+            }
+
+            return semanticReturnType;
+        }
+
+        private ITypeSymbol? TryGetContextualReturnType(InvocationExpressionSyntax node)
+        {
+            if (node.Ancestors().OfType<ReturnStatementSyntax>().FirstOrDefault() == null)
+                return null;
+
+            var method = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+            if (method != null)
+            {
+                var methodSymbol = semantic.GetDeclaredSymbol(method);
+                if (IsSpecificType(methodSymbol?.ReturnType))
+                    return methodSymbol!.ReturnType;
+
+                var methodReturnType = semantic.GetTypeInfo(method.ReturnType).Type;
+                if (IsSpecificType(methodReturnType))
+                    return methodReturnType;
+            }
+
+            var localFunction = node.Ancestors().OfType<LocalFunctionStatementSyntax>().FirstOrDefault();
+            if (localFunction != null)
+            {
+                var localFunctionSymbol = semantic.GetDeclaredSymbol(localFunction);
+                if (IsSpecificType(localFunctionSymbol?.ReturnType))
+                    return localFunctionSymbol!.ReturnType;
+
+                var localFunctionReturnType = semantic.GetTypeInfo(localFunction.ReturnType).Type;
+                if (IsSpecificType(localFunctionReturnType))
+                    return localFunctionReturnType;
+            }
+
+            return null;
+        }
+
+        private ITypeSymbol? TryGetAggregateFunctionReturnType(ExpressionSyntax? aggregateFunc)
+        {
+            if (aggregateFunc == null)
+                return null;
+
+            if (aggregateFunc is AnonymousFunctionExpressionSyntax lambda)
+            {
+                var lambdaBody = new Lambda(lambda).Body;
+                if (lambdaBody is ExpressionSyntax expressionBody)
+                {
+                    var bodyTypeInfo = semantic.GetTypeInfo(expressionBody);
+                    if (IsSpecificType(bodyTypeInfo.Type))
+                        return bodyTypeInfo.Type;
+                    if (IsSpecificType(bodyTypeInfo.ConvertedType))
+                        return bodyTypeInfo.ConvertedType;
+                }
+                else if (lambdaBody is BlockSyntax block)
+                {
+                    foreach (var returnStatement in block.DescendantNodes().OfType<ReturnStatementSyntax>())
+                    {
+                        if (returnStatement.Expression == null)
+                            continue;
+                        var returnTypeInfo = semantic.GetTypeInfo(returnStatement.Expression);
+                        if (IsSpecificType(returnTypeInfo.Type))
+                            return returnTypeInfo.Type;
+                        if (IsSpecificType(returnTypeInfo.ConvertedType))
+                            return returnTypeInfo.ConvertedType;
+                    }
+                }
+            }
+
+            var symbolInfo = semantic.GetSymbolInfo(aggregateFunc);
+            var method = symbolInfo.Symbol as IMethodSymbol
+                ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault(m => IsSpecificType(m.ReturnType));
+            return method?.ReturnType;
+        }
+
+        private static bool IsObjectFallbackType(ITypeSymbol? type)
+            => type == null
+                || type.TypeKind is TypeKind.Error or TypeKind.Unknown
+                || type.SpecialType == SpecialType.System_Object
+                || type is ITypeParameterSymbol;
+
+        private static bool IsSpecificType(ITypeSymbol? type)
+            => type != null
+                && type.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
+                && type.SpecialType != SpecialType.System_Object
+                && type is not ITypeParameterSymbol;
 
         private StatementSyntax IfNullableIsNotNull(bool nullable, IdentifierNameSyntax currentValue, Func<ExpressionSyntax, StatementSyntax> p)
         {
