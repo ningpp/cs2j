@@ -264,3 +264,25 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
 - **分析**: `System.Xml.XmlReader.IsEmptyElement` 在参数接收者 `reader` 上没有命中显式成员映射或 getter 回退，成员访问转换落到原始字段访问 `reader.IsEmptyElement`，而生成项目里的 compat `XmlReader` 暴露的是 Java getter `getIsEmptyElement()`。
 - **修复验证**: 新增 `SystemXml_XmlReader_IsEmptyElement_OnParameter_GeneratesGetter` 红测，修复后聚焦测试、`UsingAlias_MappedFrameworkType_UsesConfiguredImport` 回归测试、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `GeometryGraphReader.java:193` 错误消失，Maven 第一错推进到 `DebugCurveCollection.java:76`。
+
+## Iteration 14 - List constructor wraps array field through missing getter
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\DebugHelpers\DebugCurveCollection.java`
+- **行号**: 76
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/DebugHelpers/DebugCurveCollection.java:[76,85] 找不到符号  符号: 方法 getDebugCurvesArray()  位置: 类型为Microsoft.Msagl.DebugHelpers.DebugCurveCollection的变量 debugCurveCollection`
+- **代码片段**:
+  ```java
+          try {
+              String jsonString = FileHelper.readAllText(fileName);
+              var debugCurveCollection = JsonSerializer.deserialize(jsonString, DebugCurveCollection.class);
+              return new ArrayList<DebugCurve>(ArrayHelper.toList(debugCurveCollection.getDebugCurvesArray()));
+          } catch (RuntimeException e) {
+              System.out.println(e.toString());
+              return new ArrayList<DebugCurve>();
+          }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\DebugHelpers\DebugCurveCollection.cs`
+- **根因分类**: 语义丢失
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ConversionPipeline.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ProjectCompilationBuilder.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
+- **分析**: 转换器构建 Roslyn 编译时缺少 `System.Text.Json.dll` 引用，导致 `var debugCurveCollection = JsonSerializer.Deserialize<DebugCurveCollection>(...)` 的局部变量类型不可用；成员访问退入 unresolved-type getter 回退，把 C# 公共字段 `DebugCurvesArray` 错误生成为 `getDebugCurvesArray()`。
+- **修复验证**: 新增 `ListConstructor_FromPublicArrayField_UsesFieldAccess` 红测，修复后聚焦测试、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `DebugCurveCollection.java` 改为 `debugCurveCollection.DebugCurvesArray`，Maven 第一错推进到 `GeometryGraphReader.java:599`。
