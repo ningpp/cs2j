@@ -1824,19 +1824,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return false;
 
         var name = id.Identifier.Text;
-        var root = receiver.SyntaxTree.GetRoot();
+        if (TryGetCurrentIdentifierType(id, context, out var currentType))
+            return IsSystemArrayReferenceType(currentType);
 
-        var declarator = root.DescendantNodes()
-            .OfType<VariableDeclaratorSyntax>()
-            .LastOrDefault(v => v.Identifier.Text == name && v.SpanStart <= receiver.SpanStart);
-        if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration
-            && IsSystemArraySyntax(variableDeclaration.Type, context))
+        if (TryGetScopedIdentifierTypeSyntax(id, name, out var typeSyntax)
+            && IsSystemArraySyntax(typeSyntax, context))
             return true;
 
-        var parameter = root.DescendantNodes()
-            .OfType<ParameterSyntax>()
-            .LastOrDefault(p => p.Identifier.Text == name && p.SpanStart <= receiver.SpanStart);
-        return parameter?.Type != null && IsSystemArraySyntax(parameter.Type, context);
+        return false;
     }
 
     private static bool IsDeclaredAsConcreteArray(ExpressionSyntax receiver, ConversionContext context)
@@ -1845,19 +1840,121 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return false;
 
         var name = id.Identifier.Text;
-        var root = receiver.SyntaxTree.GetRoot();
+        if (TryGetCurrentIdentifierType(id, context, out var currentType))
+            return currentType is IArrayTypeSymbol || currentType.TypeKind == TypeKind.Array;
+
+        if (TryGetScopedIdentifierTypeSyntax(id, name, out var typeSyntax)
+            && IsConcreteArraySyntax(typeSyntax, context))
+            return true;
+
+        return false;
+    }
+
+    private static bool TryGetCurrentIdentifierType(
+        IdentifierNameSyntax identifier,
+        ConversionContext context,
+        out ITypeSymbol type)
+    {
+        type = null!;
+
+        var typeInfo = context.GetTypeInfo(identifier);
+        var resolved = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (resolved != null && resolved.TypeKind != TypeKind.Error)
+        {
+            type = resolved;
+            return true;
+        }
+
+        resolved = GetSymbolType(context.GetSymbolInfo(identifier).Symbol);
+        if (resolved != null && resolved.TypeKind != TypeKind.Error)
+        {
+            type = resolved;
+            return true;
+        }
+
+        if (context.VarTypeMap.TryGetValue(identifier.Identifier.Text, out var mappedType)
+            && mappedType.TypeKind != TypeKind.Error)
+        {
+            type = mappedType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetScopedIdentifierTypeSyntax(
+        IdentifierNameSyntax identifier,
+        string name,
+        out TypeSyntax typeSyntax)
+    {
+        typeSyntax = null!;
+        var root = identifier.SyntaxTree.GetRoot();
 
         var declarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
-            .LastOrDefault(v => v.Identifier.Text == name && v.SpanStart <= receiver.SpanStart);
-        if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration
-            && IsConcreteArraySyntax(variableDeclaration.Type, context))
+            .Where(v => v.Identifier.Text == name && v.SpanStart <= identifier.SpanStart)
+            .OrderByDescending(v => v.SpanStart)
+            .FirstOrDefault(v => v.Parent is VariableDeclarationSyntax declaration
+                && IsVariableDeclarationInScope(declaration, identifier));
+        if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration)
+        {
+            typeSyntax = variableDeclaration.Type;
             return true;
+        }
 
         var parameter = root.DescendantNodes()
             .OfType<ParameterSyntax>()
-            .LastOrDefault(p => p.Identifier.Text == name && p.SpanStart <= receiver.SpanStart);
-        return parameter?.Type != null && IsConcreteArraySyntax(parameter.Type, context);
+            .Where(p => p.Identifier.Text == name && p.SpanStart <= identifier.SpanStart)
+            .OrderByDescending(p => p.SpanStart)
+            .FirstOrDefault(p => p.Type != null && IsParameterInScope(p, identifier));
+        if (parameter?.Type != null)
+        {
+            typeSyntax = parameter.Type;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsVariableDeclarationInScope(
+        VariableDeclarationSyntax declaration,
+        IdentifierNameSyntax use)
+    {
+        if (declaration.Parent is LocalDeclarationStatementSyntax local)
+        {
+            var block = local.Parent as BlockSyntax;
+            return block != null
+                && block.Span.Contains(use.SpanStart)
+                && local.SpanStart <= use.SpanStart;
+        }
+
+        if (declaration.Parent is FieldDeclarationSyntax field)
+        {
+            var declaringType = field.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+            return declaringType != null && declaringType.Span.Contains(use.SpanStart);
+        }
+
+        var owner = declaration.Parent?.AncestorsAndSelf().FirstOrDefault(n =>
+            n is ForStatementSyntax
+                or UsingStatementSyntax
+                or FixedStatementSyntax
+                or BaseMethodDeclarationSyntax
+                or LocalFunctionStatementSyntax
+                or AnonymousFunctionExpressionSyntax);
+
+        return owner != null
+            && owner.Span.Contains(use.SpanStart)
+            && declaration.SpanStart <= use.SpanStart;
+    }
+
+    private static bool IsParameterInScope(ParameterSyntax parameter, IdentifierNameSyntax use)
+    {
+        var owner = parameter.Ancestors().FirstOrDefault(n =>
+            n is BaseMethodDeclarationSyntax
+                or LocalFunctionStatementSyntax
+                or AnonymousFunctionExpressionSyntax);
+
+        return owner != null && owner.Span.Contains(use.SpanStart);
     }
 
     private static bool IsConcreteArraySyntax(TypeSyntax typeSyntax, ConversionContext context)

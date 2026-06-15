@@ -119,3 +119,23 @@
 - **根因分类**: 类型映射缺失
 - **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\ReadState.java`
 - **分析**: `System.Xml` using 会生成 `dotnet.xml.*`，兼容层又全局引入 `io.github.ningpp.compat.*`；两边都含 `ReadState`。`System.Xml.ReadState` 只靠命名空间映射到 `dotnet.xml`，没有显式类型映射，且缺引用场景下 `ReadState.EndOfFile` 不能走符号型 enum 处理，因此生成裸 `ReadState.EndOfFile` 并在两个 wildcard import 下产生 Java 歧义。
+
+## Iteration 7 - Property getter lost in dictionary indexer assignment
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\Routing\Spline\Bundling\NodePositionsAdjuster.java`
+- **行号**: 268
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/Routing/Spline/Bundling/NodePositionsAdjuster.java:[268,48] length 在 Microsoft.Msagl.Routing.Spline.Bundling.Metroline 中是 private 访问控制`
+- **代码片段**:
+  ```java
+        polylineLength = new LinkedHashMap<Metroline, Double>();
+        //create polylines
+        for (Metroline metroline : metroGraphData.getMetrolines()) {
+        polylineLength.put(metroline, metroline.length);
+        for (PolylinePoint pp = metroline.getPolyline().getStartPoint(); pp.getNext() != null; pp = pp.getNext()) {
+        var segment = new PointPair(pp.getPoint().clone(), pp.getNext().getPoint().clone());
+        { Set<Metroline> _tc14 = segsToPolylines.get(segment); if (_tc14 == null) { _tc14 = new Set<Metroline>(); segsToPolylines.put(segment, _tc14); } _tc14.add(metroline); };
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Routing\Spline\Bundling\NodePositionsAdjuster.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
+- **分析**: 同一 C# 文件早先有 `Station[] metroline` 参数，后面又在 `foreach (var metroline in metroGraphData.Metrolines)` 中复用名称；`IsDeclaredAsConcreteArray` 按整棵语法树查找早于访问点的同名声明，误把后者的 `Metroline.Length` 当成数组 `Length` 输出 `.length`，但 `Metroline` 的 Java auto-property backing field 是 private。

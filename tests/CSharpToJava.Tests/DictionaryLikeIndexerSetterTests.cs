@@ -87,6 +87,41 @@ class Usage
         Assert.DoesNotContain("public int put(int index, int value)", result.GeneratedCode);
     }
 
+    [Fact]
+    public void DictionaryIndexerAssignment_RhsPropertyUsesGetter()
+    {
+        var source = @"
+using System.Collections.Generic;
+
+class Metroline
+{
+    internal double Length { get; set; }
+}
+
+class Station { }
+
+class Usage
+{
+    static void Seed(Station[] metroline)
+    {
+        var n = metroline.Length;
+    }
+
+    void M(Dictionary<Metroline, double> polylineLength, IEnumerable<Metroline> metrolines)
+    {
+        foreach (var metroline in metrolines)
+        {
+            polylineLength[metroline] = metroline.Length;
+        }
+    }
+}";
+        var result = Convert(source);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("polylineLength.put(metroline, metroline.getLength())", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("var n = metroline.length", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("polylineLength.put(metroline, metroline.length)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
