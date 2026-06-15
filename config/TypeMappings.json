@@ -90,6 +90,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.ArrayList",
+            "java": "ArrayList",
+            "imports": [
+                "java.util.ArrayList"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.ValueListBuilder`1",
             "java": "ValueListBuilder",
             "imports": [

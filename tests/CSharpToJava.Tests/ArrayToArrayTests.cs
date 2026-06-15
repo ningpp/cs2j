@@ -6,6 +6,32 @@ namespace CSharpToJava.Tests;
 public class ArrayToArrayTests
 {
     [Fact]
+    public void NonGenericArrayListCreation_MapsToJavaArrayList()
+    {
+        var result = Convert("""
+using System.Collections;
+
+class Edge { }
+
+class Graph
+{
+    void RemoveNode(Edge edge)
+    {
+        var delendi = new ArrayList();
+        delendi.Add(edge);
+        foreach (Edge e in delendi) { }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("import java.util.ArrayList;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("var delendi = new ArrayList();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("delendi.add(edge);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet.system.Collections.ArrayList", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NonGenericArrayListToArray_WithJaggedArrayElement_UsesJavaArrayPrototype()
     {
         var result = Convert("""

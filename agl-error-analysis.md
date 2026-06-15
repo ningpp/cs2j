@@ -454,3 +454,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Context\ConversionContext.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`
 - **分析**: `using Color = System.Drawing.Color` 注册后，类型映射仅用 `typeSymbol.Name == "Color"` 判断 alias，导致显式限定的 `Microsoft.Msagl.Drawing.Color` 参数也被误映射为 alias 目标 `System.Drawing.Color`/`java.awt.Color`；方法体成员访问仍按真实 MSAGL Color 符号生成 `getA/getR/getG/getB`，形成签名和语义不一致。
 - **修复验证**: 新增 `UsingAlias_QualifiedSameSimpleNameParameter_DoesNotResolveToAliasTarget` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `AttributeValuePair.java` 生成为 `msaglColorToDrawingColor(Microsoft.Msagl.Drawing.Color gleeColor)`，Maven 第一错推进到 `Microsoft/Msagl/Drawing/Graph.java:199` 的 `dotnet.system.Collections` 包不存在问题。
+
+## Iteration 23 - Non-generic ArrayList falls through to dotnet.system package
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\automaticgraphlayout-drawing\src\main\java\Microsoft\Msagl\Drawing\Graph.java`
+- **行号**: 199
+- **错误信息**: `[ERROR] /D:/agl26/automaticgraphlayout-drawing/src/main/java/Microsoft/Msagl/Drawing/Graph.java:[199,52] 程序包dotnet.system.Collections不存在`
+- **代码片段**:
+  ```java
+        if (node == null || !getNodeMap().containsKey(node.getId())) {
+        return;
+        }
+        var delendi = new dotnet.system.Collections.ArrayList();
+        for (Edge e : node.getInEdges()) { delendi.add(e); }
+        for (Edge e : node.getOutEdges()) { delendi.add(e); }
+        for (Edge e : node.getSelfEdges()) { delendi.add(e); }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\Graph.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`
+- **分析**: `System.Collections.ArrayList` 只有 `Count` 方法映射，没有类型映射；对象创建转换时 `context.MapType` 未命中配置，回落到 `System` → `dotnet.system` 命名空间映射，生成了不存在的 `dotnet.system.Collections.ArrayList`。
+- **修复验证**: 新增 `NonGenericArrayListCreation_MapsToJavaArrayList` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `Graph.java:199` 生成为 `var delendi = new ArrayList();`，Maven 第一错推进到 `DgmlParser/DgmlParser.java:18` 的 `XDocument` 未解析问题。
