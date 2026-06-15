@@ -2047,12 +2047,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // not when a custom type defines its own CopyTo method (e.g. NodeData.CopyTo(int, StringBuilder)).
         if (originalMethodName == "CopyTo" && node.ArgumentList.Arguments.Count == 2)
         {
+            var copySourceType = context.GetTypeInfo(memberAccess.Expression).Type;
+            var firstArgType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+            var isArrayReceiverCopyTo = copySourceType is IArrayTypeSymbol
+                && methodSymbol?.ContainingType.ToDisplayString() == "System.Array";
+
             // Verify this is a collection-type CopyTo (first arg is an array).
             // If methodSymbol is available, check the first parameter type.
             if (methodSymbol != null)
             {
                 var firstParam = methodSymbol.Parameters.FirstOrDefault();
-                if (firstParam == null || firstParam.Type is not IArrayTypeSymbol)
+                var firstParamIsArray = firstParam?.Type is IArrayTypeSymbol
+                    || (isArrayReceiverCopyTo && firstParam?.Type.SpecialType == SpecialType.System_Array);
+                if (!firstParamIsArray)
                 {
                     // Not a collection CopyTo(array, index) — custom type's own CopyTo method.
                     // Fall through to normal method call handling.
@@ -2064,7 +2071,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // No method symbol available — syntactic fallback: check if the target
                 // looks like a collection type by verifying the receiver is an array or
                 // the first argument expression is typed as an array.
-                var firstArgType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
                 if (firstArgType is not IArrayTypeSymbol)
                 {
                     goto skipCopyToRewrite;
@@ -2073,8 +2079,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             var destArrayArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var destIndexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            var copySourceType = context.GetTypeInfo(memberAccess.Expression).Type;
-            if (copySourceType is IArrayTypeSymbol copyArr)
+            if (copySourceType is IArrayTypeSymbol)
             {
                 return $"System.arraycopy({receiver}, 0, {destArrayArg}, {destIndexArg}, {receiver}.length)";
             }

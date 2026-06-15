@@ -77,3 +77,24 @@
 - **根因分类**: Transformer
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\UnaryExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`
 - **分析**: `uint` 字段映射为 Java `int`，但 `UnaryExpressionTransformer` 为 `uint` 的 `++` 生成 `& 0xFFFFFFFFL` 掩码表达式后未转回 `int`；`0xFFFFFFFFL` 使右值成为 `long`，导致生成的 `this.nextNodeId = <long>` 不能赋给 Java `int` 字段。
+
+## Iteration 5 - array CopyTo emitted as missing instance method
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\Core\Geometry\MultidimensionalScaling.java`
+- **行号**: 291
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/Core/Geometry/MultidimensionalScaling.java:[291,13] 找不到符号  符号: 方法 copyTo(io.github.ningpp.compat.CSharpArray,int)  位置: 类 double[]`
+- **代码片段**:
+  ```java
+        ValidateArg.isNotNull(d, "d");
+        double[][] b = new double[d.length][];
+        for (int i = 0; i < d.length; i++) {
+        b[i] = new double[d[0].length];
+        d[i].copyTo(CSharpArray.of(b[i]), 0);
+        }
+        squareEntries(b);
+        doubleCenter(b);
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\MultidimensionalScaling.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`
+- **分析**: `InvocationExpressionTransformer` 的 `CopyTo` 特例只接受第一个参数语义类型为 `IArrayTypeSymbol`，但数组实例的 `System.Array.CopyTo(Array,int)` 参数类型是 `System.Array`；转换器因此退回普通方法调用，`ArgumentTransformer` 又按 `System.Array` 参数把目标数组包成 `CSharpArray.of(...)`，最终在 Java 数组上生成不存在的 `copyTo` 实例方法。
