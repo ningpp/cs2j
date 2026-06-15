@@ -518,3 +518,24 @@
 - **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\Microsoft\VisualStudio\TestTools\UnitTesting\TestContext.java`
 - **分析**: compat runtime 已提供 `Microsoft.VisualStudio.TestTools.UnitTesting.TestContext`，但 `TypeMappings.json` 没有 MSTest `TestContext` 的显式类型映射；字段/属性转换通过 `context.MapType` 保留裸 `TestContext`，没有注册对应 Java import。
 - **修复验证**: 新增 `MSTestTestContextField_ImportsCompatType` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`ClusterDef.java:52` 的 `TestContext` 未解析错误消失，第一错推进到 `TestFileStrings.java:7` 的 `dotnet.system.Text.RegularExpressions` 包缺失问题。
+
+## Iteration 26 - RegexOptions import uses phantom dotnet.system package
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\Constraints\TestFileStrings.java`
+- **行号**: 7
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/Constraints/TestFileStrings.java:[7,45] 程序包dotnet.system.Text.RegularExpressions不存在`
+- **代码片段**:
+  ```java
+  import java.util.function.*;
+  import java.util.stream.*;
+  import java.io.*;
+  import dotnet.system.Text.RegularExpressions.RegexOptions;
+  import io.github.ningpp.compat.Regex;
+  import Microsoft.Msagl.UnitTests.*;
+  import Microsoft.Msagl.UnitTests.DelaunayTriangulation.*;
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\Constraints\TestFileStrings.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`, `D:\code\cs2j\config\TypeMappings.json`
+- **分析**: `RegexOptions` 已在 `TypeMappings.json` 中映射到 `io.github.ningpp.compat.RegexOptions`，但 flags enum 静态成员 receiver 的保留 enum 类型路径绕过显式类型映射，直接按 `System` catch-all namespace mapping 合成 `dotnet.system.Text.RegularExpressions.RegexOptions`。
+- **修复验证**: 新增 `ProjectRegexOptionsStaticMember_UsesCompatImportOnly` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`TestFileStrings.java:7` 与 `RectFileStrings.java:7` 的 `dotnet.system.Text.RegularExpressions` 包缺失错误消失，第一错推进到 `MsaglTestBase.java:148` 的数组 `aggregate` 调用问题。

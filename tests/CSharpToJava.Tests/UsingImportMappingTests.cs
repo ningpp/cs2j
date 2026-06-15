@@ -1,11 +1,20 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using System;
+using System.IO;
 using Xunit;
 
 namespace CSharpToJava.Tests;
 
 public class UsingImportMappingTests
 {
+    private static ConversionOptions CreateProjectOptions()
+        => new()
+        {
+            TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
+            PreferStreamApi = false,
+        };
+
     private ConversionResult Convert(string src, string file = "Sample.cs")
     {
         var pipeline = new ConversionPipeline();
@@ -134,5 +143,33 @@ namespace Microsoft.Msagl.UnitTests.Constraints {
         Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
         Assert.Contains("import Microsoft.VisualStudio.TestTools.UnitTesting.TestContext;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("private static TestContext testContext;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProjectRegexOptionsStaticMember_UsesCompatImportOnly()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "TestFileStrings.cs",
+                Content = @"
+using System.Text.RegularExpressions;
+
+namespace Microsoft.Msagl.UnitTests.Constraints {
+    internal struct TestFileStrings {
+        internal static Regex ParseSeed = new Regex(
+            @""^Seed\s+(?<" + "seed" + @">(0x)?\S+)"",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    }
+}"
+            }
+        });
+
+        var result = Assert.Single(results, r => r.FileName == "TestFileStrings.java");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("import io.github.ningpp.compat.RegexOptions;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet.system.Text.RegularExpressions.RegexOptions", result.GeneratedCode, StringComparison.Ordinal);
     }
 }

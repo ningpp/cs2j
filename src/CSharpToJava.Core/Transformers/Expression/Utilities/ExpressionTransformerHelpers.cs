@@ -959,6 +959,18 @@ public static class ExpressionTransformerHelpers
         ConversionContext context,
         bool preserveEnumType)
     {
+        if (preserveEnumType
+            && TryGetExplicitTypeMappingKey(typeSymbol, context, out var configKey))
+        {
+            foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
+                context.AddImport(import);
+
+            var mappedType = context.TypeMappings.MapType(configKey);
+            var javaType = StripPackageQualifier(StripTypeArguments(mappedType));
+            if (!string.IsNullOrWhiteSpace(javaType))
+                return javaType;
+        }
+
         if (!preserveEnumType)
         {
             var mappedType = context.MapType(typeSymbol);
