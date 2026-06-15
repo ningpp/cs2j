@@ -98,3 +98,24 @@
 - **根因分类**: Transformer
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`
 - **分析**: `InvocationExpressionTransformer` 的 `CopyTo` 特例只接受第一个参数语义类型为 `IArrayTypeSymbol`，但数组实例的 `System.Array.CopyTo(Array,int)` 参数类型是 `System.Array`；转换器因此退回普通方法调用，`ArgumentTransformer` 又按 `System.Array` 参数把目标数组包成 `CSharpArray.of(...)`，最终在 Java 数组上生成不存在的 `copyTo` 实例方法。
+
+## Iteration 6 - ReadState enum member ambiguous between wildcard imports
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\DebugHelpers\Persistence\GeometryGraphReader.java`
+- **行号**: 594
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/DebugHelpers/Persistence/GeometryGraphReader.java:[594,46] 对ReadState的引用不明确  io.github.ningpp.compat 中的类 io.github.ningpp.compat.ReadState 和 dotnet.xml 中的枚举 dotnet.xml.ReadState 都匹配`
+- **代码片段**:
+  ```java
+        if (getXmlReader().getNodeType() == XmlNodeType.EndElement && Objects.equals(getXmlReader().getName(), "graph")) {
+        return GeometryToken.End;
+        }
+        GeometryToken token;
+        if (getXmlReader().getReadState() == ReadState.EndOfFile) {
+        return GeometryToken.Graph;
+        }
+        ObjectHolder<GeometryToken> _tokenHolder1 = new ObjectHolder<>();
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\ReadState.java`
+- **分析**: `System.Xml` using 会生成 `dotnet.xml.*`，兼容层又全局引入 `io.github.ningpp.compat.*`；两边都含 `ReadState`。`System.Xml.ReadState` 只靠命名空间映射到 `dotnet.xml`，没有显式类型映射，且缺引用场景下 `ReadState.EndOfFile` 不能走符号型 enum 处理，因此生成裸 `ReadState.EndOfFile` 并在两个 wildcard import 下产生 Java 歧义。

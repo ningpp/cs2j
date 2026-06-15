@@ -137,6 +137,25 @@ namespace Test {
         Assert.Contains("import dotnet.xml", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemXml_ReadState_EnumMember_IsQualifiedToAvoidCompatAmbiguity()
+    {
+        var result = Convert(@"
+using System.Xml;
+namespace Test {
+    public class Demo {
+        XmlReader Reader { get; set; }
+        public bool IsDone() {
+            return Reader.ReadState == ReadState.EndOfFile;
+        }
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import dotnet.xml.ReadState;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getReader().getReadState() == ReadState.EndOfFile", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ── Fix 4: Record equals/hashCode Objects import ────────────────────────
 
     [Fact]

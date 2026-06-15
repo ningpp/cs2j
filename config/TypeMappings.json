@@ -1953,6 +1953,13 @@
             ]
         },
         {
+            "csharp": "System.Xml.ReadState",
+            "java": "ReadState",
+            "imports": [
+                "dotnet.xml.ReadState"
+            ]
+        },
+        {
             "csharp": "System.Xml.Schema.XmlSchemaException",
             "java": "XmlSchemaException",
             "imports": [

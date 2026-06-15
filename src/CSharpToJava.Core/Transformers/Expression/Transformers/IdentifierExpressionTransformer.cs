@@ -719,6 +719,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return formattedEnumMemberAccess;
         }
 
+        if (instanceReceiverTarget == null
+            && staticTypeTarget == null
+            && TryMapConfiguredSimpleStaticReceiver(node.Expression, context, out var configuredStaticReceiver))
+        {
+            return $"{configuredStaticReceiver}.{ConversionContext.EscapeJavaKeyword(memberName)}";
+        }
+
         var transformedExpr = instanceReceiverTarget ?? facade.Transform(node.Expression, context);
         var target = staticTypeTarget ?? transformedExpr;
         // Strip type arguments from type qualifiers — Java forbids Type<T>.member().
@@ -1521,6 +1528,45 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsStaticReceiverExpression(ExpressionSyntax expression, ConversionContext context)
         => ExpressionTransformerHelpers.TryGetStaticReceiverType(expression, context, out _);
+
+    private static bool TryMapConfiguredSimpleStaticReceiver(
+        ExpressionSyntax expression,
+        ConversionContext context,
+        out string javaReceiver)
+    {
+        javaReceiver = string.Empty;
+
+        if (expression is not IdentifierNameSyntax receiver)
+            return false;
+
+        var receiverName = receiver.Identifier.Text;
+        if (string.IsNullOrWhiteSpace(receiverName)
+            || !char.IsUpper(receiverName[0]))
+        {
+            return false;
+        }
+
+        var preferredSymbol = GetPreferredIdentifierSymbol(receiver, context, preferInstanceCandidate: true);
+        if (preferredSymbol is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol
+            or IEventSymbol or IMethodSymbol)
+        {
+            return false;
+        }
+
+        var configKey = context.TypeMappings.FindConfigKeyBySimpleName(receiverName);
+        if (configKey == null)
+            return false;
+
+        var mappedType = context.TypeMappings.MapType(configKey);
+        javaReceiver = ExpressionTransformerHelpers.StripTypeArguments(mappedType);
+        if (javaReceiver.Contains('.'))
+            javaReceiver = javaReceiver[(javaReceiver.LastIndexOf('.') + 1)..];
+
+        foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
+            context.AddImport(import);
+
+        return !string.IsNullOrWhiteSpace(javaReceiver);
+    }
 
     private static string MapAliasTypeReceiver(string javaType, ConversionContext context)
     {
