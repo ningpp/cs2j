@@ -14,4 +14,11 @@ public class DataContractSerializer {
         this.type = type;
     }
 
+    public Object readObject(Object reader, boolean verifyObjectName) {
+        return null;
+    }
+
+    public void writeObject(Object writer, Object graph) {
+    }
+
 }

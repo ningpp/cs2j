@@ -232,6 +232,12 @@ public class TypeMappingService
 
             // Try simple-name fuzzy lookup without arity
             var simpleMapped = _typeMappings.MapTypeBySimpleName(errorName);
+            var simpleConfigKey = _typeMappings.FindConfigKeyBySimpleName(errorName);
+            if (simpleConfigKey != null)
+            {
+                AddImportsForType(simpleConfigKey);
+                return MapSimpleTypeName(simpleMapped);
+            }
             if (simpleMapped != errorName)
                 return MapSimpleTypeName(simpleMapped);
 
@@ -1041,6 +1047,13 @@ public class TypeMappingService
         {
             AddImportsForType(typeName);
             return MapSimpleTypeName(mapped);
+        }
+
+        var simpleConfigKey = _typeMappings.FindConfigKeyBySimpleName(typeName);
+        if (simpleConfigKey != null)
+        {
+            AddImportsForType(simpleConfigKey);
+            return MapSimpleTypeName(_typeMappings.MapTypeBySimpleName(typeName));
         }
 
         return MapSimpleTypeName(typeName);

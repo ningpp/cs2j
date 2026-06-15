@@ -1073,6 +1073,13 @@
             ]
         },
         {
+            "csharp": "System.Runtime.Serialization.DataContractSerializer",
+            "java": "DataContractSerializer",
+            "imports": [
+                "io.github.ningpp.compat.DataContractSerializer"
+            ]
+        },
+        {
             "csharp": "System.Runtime.Remoting.RemotingException",
             "java": "RemotingException",
             "imports": [

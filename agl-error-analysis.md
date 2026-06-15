@@ -159,3 +159,23 @@
 - **根因分类**: Transformer
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Declarations.cs`, `D:\code\cs2j\config\TypeMappings.json`
 - **分析**: `TypeMappings.json` 正确把局部变量声明 `System.IO.StringReader` 映射为 `java.io.StringReader`，但 `ObjectCreationTransformer` 对 `new StringReader(string)` 无条件返回 `new TextReader(new StringReader(...))`，声明和初始化表达式类型因此不一致。
+
+## Iteration 9 - DataContractSerializer ReadObject overload missing
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout.Drawing\src\main\java\Microsoft\Msagl\Drawing\GraphReader.java`
+- **行号**: 147
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout.Drawing/src/main/java/Microsoft/Msagl/Drawing/GraphReader.java:[147,23] 找不到符号  符号: 方法 readObject(dotnet.xml.XmlReader,boolean)  位置: 类型为io.github.ningpp.compat.DataContractSerializer的变量 dcs`
+- **代码片段**:
+  ```java
+            DataContractSerializer dcs = new DataContractSerializer(t);
+            StringReader sr = new StringReader(serString);
+            XmlReader xr = XmlReader.create(new TextReader(sr));
+            return dcs.readObject(xr, true);
+        } catch (Exception _e_cs2j) {
+            throw new RuntimeException(_e_cs2j);
+        }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\GraphReader.cs`
+- **根因分类**: Lowering
+- **涉及组件**: `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\DataContractSerializer.java`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`
+- **分析**: 转换器将 `DataContractSerializer.ReadObject(XmlReader,bool)` 按普通实例方法输出为 `readObject(xr, true)`，但兼容运行时 `DataContractSerializer` 只有构造器，没有对应的 `readObject`/`writeObject` 表面，因此生成代码链接不到方法。
