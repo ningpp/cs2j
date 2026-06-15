@@ -716,6 +716,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        if (op == "="
+            && leftNode is MemberAccessExpressionSyntax unresolvedPropertyAccess
+            && TryTransformFallbackPropertySetterAssignment(node, unresolvedPropertyAccess, context, out var fallbackSetter))
+        {
+            return fallbackSetter;
+        }
+
         var left = facade.Transform(leftNode, context);
         // Guard: if the RHS is a property setter assignment, hoist it so we don't embed a void call
         // as the RHS of a plain assignment. e.g. a = p2.X = p3.X → pre: ...; a = _chainVal0
@@ -952,7 +959,102 @@ public class AssignmentTransformer : IIRExpressionTransformer
             || assign.Kind() != SyntaxKind.SimpleAssignmentExpression)
             return false;
 
-        return context.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol;
+        if (context.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol)
+            return true;
+
+        return assign.Left is MemberAccessExpressionSyntax memberAccess
+            && IsFallbackPropertySetterCandidate(memberAccess, context);
+    }
+
+    private static bool TryTransformFallbackPropertySetterAssignment(
+        AssignmentExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        out string result)
+    {
+        result = string.Empty;
+
+        if (!IsFallbackPropertySetterCandidate(memberAccess, context))
+            return false;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var receiver = facade.Transform(memberAccess.Expression, context);
+        var right = facade.Transform(node.Right, context);
+        var propertyName = memberAccess.Name.Identifier.Text;
+        var setter = "set" + char.ToUpperInvariant(propertyName[0]) + propertyName[1..];
+
+        if (node.Parent is ExpressionStatementSyntax)
+        {
+            result = $"{receiver}.{setter}({right})";
+            return true;
+        }
+
+        var temp = context.GenerateSyntheticName("_chainVal");
+        context.AddPreStatement($"var {temp} = {right}");
+        context.AddPreStatement($"{receiver}.{setter}({temp})");
+        result = temp;
+        return true;
+    }
+
+    private static bool IsFallbackPropertySetterCandidate(
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context)
+    {
+        var propertyName = memberAccess.Name.Identifier.Text;
+        if (string.IsNullOrEmpty(propertyName) || !char.IsUpper(propertyName[0]))
+            return false;
+
+        var symbol = context.GetSymbolInfo(memberAccess).Symbol;
+        if (symbol is IPropertySymbol)
+            return true;
+        if (symbol is IFieldSymbol)
+            return false;
+        if (symbol != null)
+            return false;
+
+        var typeInfo = context.GetTypeInfo(memberAccess.Expression);
+        var receiverType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (receiverType == null || receiverType.TypeKind is TypeKind.Error or TypeKind.Unknown)
+            return true;
+
+        if (HasInstanceField(receiverType, propertyName))
+            return false;
+
+        return HasInstanceProperty(receiverType, propertyName);
+    }
+
+    private static bool HasInstanceProperty(ITypeSymbol type, string name)
+        => EnumerateTypeHierarchy(type)
+            .SelectMany(t => t.GetMembers(name))
+            .OfType<IPropertySymbol>()
+            .Any(p => !p.IsStatic);
+
+    private static bool HasInstanceField(ITypeSymbol type, string name)
+        => EnumerateTypeHierarchy(type)
+            .SelectMany(t => t.GetMembers(name))
+            .OfType<IFieldSymbol>()
+            .Any(f => !f.IsStatic);
+
+    private static IEnumerable<INamedTypeSymbol> EnumerateTypeHierarchy(ITypeSymbol type)
+    {
+        if (type is ITypeParameterSymbol typeParameter)
+        {
+            foreach (var constraint in typeParameter.ConstraintTypes)
+            {
+                foreach (var constrainedType in EnumerateTypeHierarchy(constraint))
+                    yield return constrainedType;
+            }
+            yield break;
+        }
+
+        if (type is not INamedTypeSymbol namedType)
+            yield break;
+
+        for (var current = namedType; current != null; current = current.BaseType)
+            yield return current;
+
+        foreach (var iface in namedType.AllInterfaces)
+            yield return iface;
     }
 
     private static bool IsInExplicitSetterMethod(IPropertySymbol property, ConversionContext context)

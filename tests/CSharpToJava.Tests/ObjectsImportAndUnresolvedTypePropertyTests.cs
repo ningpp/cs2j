@@ -174,6 +174,28 @@ namespace Test {
         Assert.DoesNotContain("reader.IsEmptyElement", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemXml_XmlReaderSettings_PropertyAssignment_GeneratesSetter()
+    {
+        var result = Convert(@"
+using System.Xml;
+namespace Test {
+    public class Demo {
+        public void Configure() {
+            XmlReaderSettings settings = new XmlReaderSettings();
+            settings.IgnoreWhitespace = true;
+            settings.IgnoreComments = true;
+        }
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("settings.setIgnoreWhitespace(true)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("settings.setIgnoreComments(true)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("settings.getIgnoreWhitespace() = true", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("settings.getIgnoreComments() = true", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ── Fix 4: Record equals/hashCode Objects import ────────────────────────
 
     [Fact]

@@ -349,3 +349,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Loops.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\VarTypeResolver.cs`
 - **分析**: `VisibilityVertex.Point` 是继承来的字段，Java 基类也生成为 `Point` 字段；但 LINQ/var 转换后 `source.Point` 的接收者类型没有被可靠恢复，成员访问 fallback 把大写成员当作属性 getter，生成了不存在的 `source.getPoint()`。
 - **修复验证**: 新增 `ExtractedLinqMethod_VarAliasToInheritedField_UsesFieldAccess` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `MsmtRectilinearPath.java:103` 生成为 `PointComparer.equal(source.Point, target.Point)`，Maven 第一错推进到 `GraphReader.java:40`。
+
+## Iteration 18 - property setter emitted as getter assignment
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\automaticgraphlayout-drawing\src\main\java\Microsoft\Msagl\Drawing\GraphReader.java`
+- **行号**: 40
+- **错误信息**: `[ERROR] /D:/agl26/automaticgraphlayout-drawing/src/main/java/Microsoft/Msagl/Drawing/GraphReader.java:[40,43] 意外的类型  需要: 变量  找到:    值`
+- **代码片段**:
+  ```java
+      public GraphReader(StreamWrapper streamP) {
+          stream = streamP;
+          XmlReaderSettings readerSettings = new XmlReaderSettings();
+          readerSettings.getIgnoreWhitespace() = true;
+          readerSettings.getIgnoreComments() = true;
+          xmlReader = XmlReader.create(stream, readerSettings);
+      }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\GraphReader.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\AssignmentTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
+- **分析**: `System.Xml.XmlReaderSettings.IgnoreWhitespace = true` 的左侧属性符号在当前转换语义下没有被 `AssignmentTransformer` 识别为 `IPropertySymbol`；随后通用赋值路径先把左侧成员访问转换为 getter，产出无效的 `readerSettings.getIgnoreWhitespace() = true`。
+- **修复验证**: 新增 `SystemXml_XmlReaderSettings_PropertyAssignment_GeneratesSetter` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `GraphReader.java:40-41` 生成为 `readerSettings.setIgnoreWhitespace(true)` / `readerSettings.setIgnoreComments(true)`，Maven 第一错推进到 `GraphReader.java:124`。
