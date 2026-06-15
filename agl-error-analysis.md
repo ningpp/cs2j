@@ -539,3 +539,23 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`, `D:\code\cs2j\config\TypeMappings.json`
 - **分析**: `RegexOptions` 已在 `TypeMappings.json` 中映射到 `io.github.ningpp.compat.RegexOptions`，但 flags enum 静态成员 receiver 的保留 enum 类型路径绕过显式类型映射，直接按 `System` catch-all namespace mapping 合成 `dotnet.system.Text.RegularExpressions.RegexOptions`。
 - **修复验证**: 新增 `ProjectRegexOptionsStaticMember_UsesCompatImportOnly` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`TestFileStrings.java:7` 与 `RectFileStrings.java:7` 的 `dotnet.system.Text.RegularExpressions` 包缺失错误消失，第一错推进到 `MsaglTestBase.java:148` 的数组 `aggregate` 调用问题。
+
+## Iteration 27 - LINQ Aggregate left as array instance method ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\MsaglTestBase.java`
+- **行号**: 148
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/MsaglTestBase.java:[148,36] 找不到符号  符号:   方法 aggregate(java.lang.String,PathHelper::combine)  位置: 类型为java.lang.String[]的变量 relativePathSegments`
+- **代码片段**:
+  ```java
+        if (StringHelper.isNullOrEmpty(baseDirectory)) {
+        baseDirectory = java.nio.file.Paths.get((getTestContext() != null ? getTestContext().getTestRunDirectory() : AppContext.getBaseDirectory()), "Out").toString();
+        }
+        return relativePathSegments.aggregate(baseDirectory, PathHelper::combine);
+    }
+    String resolveTestFilePath(String filePath) {
+        if (PathHelper.isPathRooted(filePath) || FileHelper.exists(filePath)) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`
+- **根因分类**: Lowering
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.cs`, `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.Rules.cs`
+- **分析**: `relativePathSegments.Aggregate(baseDirectory, Path.Combine)` 的第二个参数是方法组而不是 lambda；LINQ lowering 的 `AggregateWithSeed` 路径既没有把该终端视为可无 lambda 重写，也在规则中强制转换为 `AnonymousFunctionExpressionSyntax`，因此跳过 rewrite，普通 invocation fallback 将扩展方法错误输出为 `String[]` 实例调用。
+- **修复验证**: 新增 `AggregateWithSeed_GetMethodFullNameUsesSeedOverloadWhenSyntaxHasSeedArgument` 红测，确认语义退化时两个参数的 `Aggregate` 曾被错判为 no-seed overload；修复后该聚焦测试、`FullyQualifiedName~AggregateWithSeed`、`dotnet build` 与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`relativePathSegments.aggregate(baseDirectory, PathHelper::combine)` 消失，第一错推进为 `MsaglTestBase.java:148` 的 `Object` 到 `String` 类型不兼容。

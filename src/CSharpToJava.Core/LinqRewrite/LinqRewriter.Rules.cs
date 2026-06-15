@@ -598,7 +598,17 @@ namespace CSharpToJava.Core.LinqRewrite
                     chain,
                     (inv, arguments, param) =>
                     {
-                        var lambdaExpr = (AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments.ElementAt(1).Expression;
+                        var aggregateFunc = node.ArgumentList.Arguments.ElementAt(1).Expression;
+                        if (aggregateFunc is not AnonymousFunctionExpressionSyntax)
+                        {
+                            var call = SyntaxFactory.InvocationExpression(
+                                aggregateFunc,
+                                CreateArguments(new[] { SyntaxFactory.IdentifierName("_acc"), SyntaxFactory.IdentifierName(param.Identifier.ValueText) }));
+                            return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+                                SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName("_acc"), call));
+                        }
+
+                        var lambdaExpr = (AnonymousFunctionExpressionSyntax)aggregateFunc;
                         var lambda = new Lambda(lambdaExpr);
                         var accParamName = GetLambdaParameter(lambda, 0).Identifier.ValueText;
                         var elemParamName = GetLambdaParameter(lambda, 1).Identifier.ValueText;

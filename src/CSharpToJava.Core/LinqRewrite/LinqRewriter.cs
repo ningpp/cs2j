@@ -233,6 +233,7 @@ namespace CSharpToJava.Core.LinqRewrite
                             || x.MethodName == DefaultIfEmptyMethod || x.MethodName == DefaultIfEmptyWithValueMethod
                             || x.MethodName == ChunkMethod
                             || x.MethodName == OrderMethod || x.MethodName == OrderDescendingMethod
+                            || x.MethodName == AggregateMethod || x.MethodName == AggregateWithSeedMethod
                             || x.MethodName == CountMethod || x.MethodName == LongCountMethod)
                         && !chain.Any(x => x.MethodName == SequenceEqualMethod
                             || x.MethodName == UnionByMethod || x.MethodName == IntersectByMethod || x.MethodName == ExceptByMethod
@@ -663,6 +664,8 @@ namespace CSharpToJava.Core.LinqRewrite
         private string GetMethodFullName(InvocationExpressionSyntax invocation)
         {
             var n = (semantic.GetSymbolInfo(invocation.Expression).Symbol as IMethodSymbol)?.OriginalDefinition.ToDisplayString();
+            if (n == AggregateMethod && IsAggregateInvocationWithSeed(invocation))
+                n = AggregateWithSeedMethod;
 
             // Fallback: when semantic model can't resolve the LINQ method (common in
             // project pipeline), derive the method identity from syntax for known methods.
@@ -685,7 +688,7 @@ namespace CSharpToJava.Core.LinqRewrite
                     "ElementAtOrDefault" => "System.Collections.Generic.IEnumerable<TSource>.ElementAtOrDefault<TSource>(int)",
                     "Contains" => "System.Collections.Generic.IEnumerable<TSource>.Contains<TSource>(TSource)",
                     "SequenceEqual" => "System.Collections.Generic.IEnumerable<TSource>.SequenceEqual<TSource>(System.Collections.Generic.IEnumerable<TSource>)",
-                    "Aggregate" => "System.Collections.Generic.IEnumerable<TSource>.Aggregate<TSource>(System.Func<TSource, TSource, TSource>)",
+                    "Aggregate" => IsAggregateInvocationWithSeed(invocation) ? AggregateWithSeedMethod : AggregateMethod,
                     // ── Materialization ───────────────────────────────────────────
                     "ToList" => "System.Collections.Generic.IEnumerable<TSource>.ToList<TSource>()",
                     "ToArray" => "System.Collections.Generic.IEnumerable<TSource>.ToArray<TSource>()",
@@ -743,6 +746,13 @@ namespace CSharpToJava.Core.LinqRewrite
             }
 
             return n;
+        }
+
+        private static bool IsAggregateInvocationWithSeed(InvocationExpressionSyntax invocation)
+        {
+            return invocation.Expression is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name.Identifier.Text == "Aggregate"
+                && invocation.ArgumentList.Arguments.Count == 2;
         }
 
         const string ItemsName = "_linqitems";
