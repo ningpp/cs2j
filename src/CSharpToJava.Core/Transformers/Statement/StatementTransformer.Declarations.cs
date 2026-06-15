@@ -81,6 +81,13 @@ public partial class StatementTransformer
             if (!hasTernaryWithLambda)
                 javaType = "var";
         }
+        if (stmt.Declaration.Variables.Count == 1
+            && stmt.Declaration.Variables[0].Initializer?.Value is { } singleInitializer
+            && TryInferStringTypeFromDegradedInitializer(singleInitializer, context, out var inferredStringType))
+        {
+            javaType = "String";
+            context.LocalTypeOverrides[stmt.Declaration.Variables[0].Identifier.Text] = inferredStringType;
+        }
         bool wasConvertedFromVar = false;
         if (javaType == "var" && hasNoInitializer && context.SemanticModel != null)
         {
@@ -226,6 +233,11 @@ public partial class StatementTransformer
                     && TryInferAnonymousRecordComponentType(memberInit, context, out var componentType))
                 {
                     context.LocalTypeOverrides[v.Identifier.Text] = componentType;
+                }
+                if (!IsUsableLocalOverrideType(localTargetType)
+                    && TryInferStringTypeFromDegradedInitializer(v.Initializer.Value, context, out var inferredStringType))
+                {
+                    context.LocalTypeOverrides[v.Identifier.Text] = inferredStringType;
                 }
 
                 // For pointer-typed local variables, propagate base segment info
@@ -692,6 +704,91 @@ public partial class StatementTransformer
 
     private static bool IsUsableLocalOverrideType(ITypeSymbol? type)
         => type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) };
+
+    private static bool TryInferStringTypeFromDegradedInitializer(
+        ExpressionSyntax initializer,
+        ConversionContext context,
+        out ITypeSymbol stringType)
+    {
+        stringType = null!;
+        if (context.SemanticModel == null)
+            return false;
+
+        var initializerTypeInfo = context.GetTypeInfo(initializer);
+        var initializerType = initializerTypeInfo.Type ?? initializerTypeInfo.ConvertedType;
+        if (initializerType != null
+            && initializerType.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
+            && initializerType.SpecialType != SpecialType.System_Object)
+        {
+            return false;
+        }
+
+        if (initializer is ConditionalExpressionSyntax conditional
+            && IsStringLikeConditionalBranch(conditional.WhenTrue, context)
+            && IsStringLikeConditionalBranch(conditional.WhenFalse, context))
+        {
+            stringType = context.SemanticModel.Compilation.GetSpecialType(SpecialType.System_String);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsStringLikeConditionalBranch(ExpressionSyntax expression, ConversionContext context)
+    {
+        var typeInfo = context.GetTypeInfo(expression);
+        var type = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (type?.SpecialType == SpecialType.System_String)
+            return true;
+
+        if (expression.IsKind(SyntaxKind.NullLiteralExpression))
+            return true;
+
+        return expression switch
+        {
+            InvocationExpressionSyntax invocation => IsKnownStringReturningInvocation(invocation, context),
+            MemberAccessExpressionSyntax memberAccess => IsKnownStringPropertyAccess(memberAccess),
+            ParenthesizedExpressionSyntax parenthesized => IsStringLikeConditionalBranch(parenthesized.Expression, context),
+            _ => false,
+        };
+    }
+
+    private static bool IsKnownStringReturningInvocation(InvocationExpressionSyntax invocation, ConversionContext context)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+
+        var methodName = memberAccess.Name.Identifier.Text;
+        if (methodName == "GetTempPath"
+            && ExpressionTransformerHelpers.StaticReceiverMatches(
+                memberAccess.Expression,
+                context,
+                "Path",
+                "Paths",
+                "System.IO.Path"))
+        {
+            return true;
+        }
+
+        if (methodName == "Combine"
+            && ExpressionTransformerHelpers.StaticReceiverMatches(
+                memberAccess.Expression,
+                context,
+                "Path",
+                "Paths",
+                "System.IO.Path"))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsKnownStringPropertyAccess(MemberAccessExpressionSyntax memberAccess)
+    {
+        var propertyName = memberAccess.Name.Identifier.Text;
+        return propertyName is "DeploymentDirectory" or "TestRunDirectory" or "BaseDirectory";
+    }
 
     private static bool TryInferAnonymousRecordComponentType(
         MemberAccessExpressionSyntax memberAccess,

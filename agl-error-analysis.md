@@ -641,3 +641,24 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`
 - **分析**: `CollectionAssert.AreEqual(expected, r)` 被直接映射为兼容运行时的 `CollectionAssert.areEqual(expected, r)`，但 Java 兼容方法接收 `Iterable<?>`，而转换器没有像 `IEnumerable<T>` 参数和 `AddRange` 那样把 C# 数组参数包装成 Java collection，导致 primitive `int[]` 无法传给 `Iterable<?>`。
 - **修复验证**: 新增 `CollectionAssertAreEqual_PrimitiveArrayExpected_WrapsArrayForIterable` 红测，确认 primitive array 参数曾直接输出为 `CollectionAssert.areEqual(expected, actual)`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`EdgeLabelPlacementTest.java:41` 的 `int[]` 到 `Iterable<?>` 错误消失，第一错推进为 `SplineRouterTests.java:324` 的 `Object` 到 `String` 类型不兼容。
+
+## Iteration 32 - Conditional string local inferred as Object
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\SplineRouterTests.java`
+- **行号**: 324
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/SplineRouterTests.java:[324,40] 不兼容的类型: java.lang.Object无法转换为java.lang.String`
+- **代码片段**:
+  ```java
+        router.run();
+    }
+    String getGeomGraphFileName(String graphName) {
+        Object dirName = ((null != this.getTestContext()) ? this.getTestContext().getDeploymentDirectory() : System.getProperty("java.io.tmpdir"));
+        return java.nio.file.Paths.get(dirName, graphName).toString();
+    }
+        @Test
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\SplineRouterTests.cs`
+- **根因分类**: 语义丢失
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Declarations.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ControlFlowTransformer.cs`
+- **分析**: `var dirName = TestContext != null ? TestContext.DeploymentDirectory : Path.GetTempPath()` 两个分支实际都是 `string`，但 MSTest 引用缺失时 Roslyn 将条件表达式/local 退化为 `object`；转换器把该退化类型写成 `Object dirName`，随后 `Path.Combine`/`Paths.get` 需要 `String` 参数而编译失败。
+- **修复验证**: 新增 `ProjectConditionalStringLocal_WithMSTestPropertyAndPathFallback_StaysString` 红测，确认退化条件表达式曾生成 `Object dirName`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`SplineRouterTests.java:324` 的 `Object` 到 `String` 错误消失，第一错推进为 `Validate.java:59` 的 `boolean` 和 `int` 不可比较。
