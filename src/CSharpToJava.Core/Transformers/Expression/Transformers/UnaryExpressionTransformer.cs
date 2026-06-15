@@ -207,6 +207,9 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 && method.ReturnType.SpecialType == SpecialType.System_Boolean)
                 return true;
 
+            if (IsSourceDeclaredBooleanInvocation(invExpr, context))
+                return true;
+
             // Fallback: when the semantic model can't resolve the method
             // (e.g. after LINQ rewrite in project pipeline), use a naming
             // heuristic — methods starting with "Is", "Has", "Can", etc.
@@ -224,6 +227,42 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             return true;
 
         return false;
+    }
+
+    private static bool IsSourceDeclaredBooleanInvocation(InvocationExpressionSyntax invocation, ConversionContext context)
+    {
+        var methodName = invocation.Expression switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax id } => id.Identifier.Text,
+            _ => null
+        };
+        if (string.IsNullOrEmpty(methodName))
+            return false;
+
+        var argumentCount = invocation.ArgumentList.Arguments.Count;
+        var containingType = invocation.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (containingType == null)
+            return false;
+
+        return containingType.Members
+            .OfType<MethodDeclarationSyntax>()
+            .Any(method => method.Identifier.Text == methodName
+                && method.ParameterList.Parameters.Count == argumentCount
+                && IsBooleanReturnType(method.ReturnType, context));
+    }
+
+    private static bool IsBooleanReturnType(TypeSyntax returnType, ConversionContext context)
+    {
+        if (returnType is PredefinedTypeSyntax predefined
+            && predefined.Keyword.IsKind(SyntaxKind.BoolKeyword))
+        {
+            return true;
+        }
+
+        var typeInfo = context.GetTypeInfo(returnType);
+        return typeInfo.Type?.SpecialType == SpecialType.System_Boolean
+            || typeInfo.ConvertedType?.SpecialType == SpecialType.System_Boolean;
     }
 
     private static bool IsBooleanMethodName(string methodName)

@@ -662,3 +662,25 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Declarations.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ControlFlowTransformer.cs`
 - **分析**: `var dirName = TestContext != null ? TestContext.DeploymentDirectory : Path.GetTempPath()` 两个分支实际都是 `string`，但 MSTest 引用缺失时 Roslyn 将条件表达式/local 退化为 `object`；转换器把该退化类型写成 `Object dirName`，随后 `Path.Combine`/`Paths.get` 需要 `String` 参数而编译失败。
 - **修复验证**: 新增 `ProjectConditionalStringLocal_WithMSTestPropertyAndPathFallback_StaysString` 红测，确认退化条件表达式曾生成 `Object dirName`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`SplineRouterTests.java:324` 的 `Object` 到 `String` 错误消失，第一错推进为 `Validate.java:59` 的 `boolean` 和 `int` 不可比较。
+
+## Iteration 33 - Logical not on degraded bool invocation
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\Validate.java`
+- **行号**: 59
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/Validate.java:[59,45] 不可比较的类型: boolean和int`
+- **代码片段**:
+  ```java
+    public static <T> void areEqual(T expected, T actual, String message) {
+        try {
+            Assert.areEqual(expected, actual, message);
+        } catch (UnitTestAssertException ex) {
+            if ((raiseInteractiveAssert(ex) == 0)) {
+            throw ex;
+            }
+        }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\Validate.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\UnaryExpressionTransformer.cs`
+- **分析**: `if (!RaiseInteractiveAssert(ex))` 中的 `RaiseInteractiveAssert` 返回 `bool`，但该类还有 `RaiseInteractiveAssert(string)` 重载且 `UnitTestAssertException` 来自缺失 MSTest 元数据，导致语义解析无法可靠给出调用返回类型；`UnaryExpressionTransformer` 的降级逻辑只对显式 boolean 语义或少量名称前缀保留 `!`，于是把 boolean 调用误当数值表达式输出为 `raiseInteractiveAssert(ex) == 0`。
+- **修复验证**: 新增 `ProjectLogicalNot_OnOverloadedBoolMethodWithDegradedCatchType_KeepsExclamation` 红测，确认项目转换路径曾把 `!RaiseInteractiveAssert(ex)` 输出为 `raiseInteractiveAssert(ex) == 0`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 `mvn clean test-compile -e` 后，`Validate.java:59` 的 `boolean` 和 `int` 不可比较错误消失，Maven 输出 `BUILD SUCCESS` 且退出码为 0。

@@ -63,6 +63,57 @@ class Test
         Assert.Contains("!raiseInteractiveAssert(ex)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ProjectLogicalNot_OnOverloadedBoolMethodWithDegradedCatchType_KeepsExclamation()
+    {
+        var pipeline = new ProjectConversionPipeline(new ConversionOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Validate.cs",
+                Content = @"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Validate
+{
+    private static bool InteractiveMode { get; set; }
+
+    private static bool RaiseInteractiveAssert(Exception ex)
+    {
+        return InteractiveMode;
+    }
+
+    internal static void RaiseInteractiveAssert(string message)
+    {
+    }
+
+    internal static void AreEqual<T>(T expected, T actual, string message)
+    {
+        try
+        {
+            Assert.AreEqual(expected, actual, message);
+        }
+        catch (UnitTestAssertException ex)
+        {
+            if (!RaiseInteractiveAssert(ex))
+            {
+                throw;
+            }
+        }
+    }
+}",
+            },
+        });
+
+        var result = Assert.Single(results, item => item.FileName == "Validate.java");
+        var java = result.GeneratedCode;
+
+        Assert.True(result.Success, java);
+        Assert.Contains("if (!raiseInteractiveAssert(ex))", java, StringComparison.Ordinal);
+        Assert.DoesNotContain("raiseInteractiveAssert(ex) == 0", java, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
