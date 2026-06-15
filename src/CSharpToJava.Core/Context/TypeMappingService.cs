@@ -822,6 +822,12 @@ public class TypeMappingService
             return simpleTypeName;
 
         var curNs = _getCurrentNamespace();
+        if (AliasNameCollidesWithDifferentType(typeSymbol)
+            || ImportedSimpleNameCollidesWithType(ns, simpleTypeName))
+        {
+            return $"{NamespaceToPackage(ns)}.{simpleTypeName}";
+        }
+
         if (string.Equals(curNs, ns, StringComparison.Ordinal))
             return simpleTypeName;
 
@@ -832,6 +838,47 @@ public class TypeMappingService
         }
 
         return simpleTypeName;
+    }
+
+    private bool AliasNameCollidesWithDifferentType(ITypeSymbol typeSymbol)
+    {
+        var aliasTarget = _resolveAlias(typeSymbol.Name);
+        return aliasTarget != null && !SameTypeSymbol(aliasTarget, typeSymbol);
+    }
+
+    private bool ImportedSimpleNameCollidesWithType(string namespaceName, string simpleTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(simpleTypeName))
+            return false;
+
+        var ownJavaName = $"{NamespaceToPackage(namespaceName)}.{simpleTypeName}";
+        foreach (var importedType in _importedTypes)
+        {
+            if (importedType.EndsWith(".*", StringComparison.Ordinal))
+                continue;
+
+            var lastDot = importedType.LastIndexOf('.');
+            if (lastDot < 0)
+                continue;
+
+            if (importedType[(lastDot + 1)..] == simpleTypeName
+                && !string.Equals(importedType, ownJavaName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool SameTypeSymbol(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        return left is INamedTypeSymbol leftNamed
+            && right is INamedTypeSymbol rightNamed
+            && SymbolEqualityComparer.Default.Equals(leftNamed.OriginalDefinition, rightNamed.OriginalDefinition);
     }
 
     private bool TypeNameIsAmbiguousOutsideNamespace(string typeName, string ownNamespace)

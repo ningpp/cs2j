@@ -120,6 +120,44 @@ namespace Dot2Graph
     }
 
     [Fact]
+    public void UsingAlias_QualifiedSameSimpleNameParameter_DoesNotResolveToAliasTarget()
+    {
+        var result = Convert("""
+using Color = System.Drawing.Color;
+
+namespace Microsoft.Msagl.Drawing
+{
+    public struct Color
+    {
+        public byte A { get; }
+        public byte R { get; }
+        public byte G { get; }
+        public byte B { get; }
+    }
+}
+
+namespace Dot2Graph
+{
+    class AttributeValuePair
+    {
+        public static Color MsaglColorToDrawingColor(Microsoft.Msagl.Drawing.Color gleeColor)
+        {
+            return Color.FromArgb(gleeColor.A, gleeColor.R, gleeColor.G, gleeColor.B);
+        }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("import java.awt.Color;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("DrawingColor.fromArgb(gleeColor.getA(), gleeColor.getR(), gleeColor.getG(), gleeColor.getB())", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.True(
+            result.GeneratedCode.Contains("public static Color msaglColorToDrawingColor(Microsoft.Msagl.Drawing.Color gleeColor)", StringComparison.Ordinal),
+            result.GeneratedCode);
+        Assert.DoesNotContain("msaglColorToDrawingColor(Color gleeColor)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NumericArguments_ToByteConstructor_AreExplicitlyCast()
     {
         var result = Convert("""
@@ -150,7 +188,7 @@ namespace Dot2Graph
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("new Color(DrawingColor.getA(drawingColor), DrawingColor.getR(drawingColor), DrawingColor.getG(drawingColor), DrawingColor.getB(drawingColor))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("new Microsoft.Msagl.Drawing.Color(DrawingColor.getA(drawingColor), DrawingColor.getR(drawingColor), DrawingColor.getG(drawingColor), DrawingColor.getB(drawingColor))", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

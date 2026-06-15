@@ -555,6 +555,7 @@ public class ConversionContext
             && aliasTarget.Name != typeSymbol.Name)
             return TypeMapper.MapType(aliasTarget);
         var result = TypeMapper.MapType(typeSymbol);
+        result = QualifyMappedTypeIfImportedTypeNameCollides(typeSymbol, result);
         return QualifyMappedTypeIfCurrentTypeNameCollides(typeSymbol, result);
     }
 
@@ -603,6 +604,80 @@ public class ConversionContext
             }
         }
         return result;
+    }
+
+    private string QualifyMappedTypeIfImportedTypeNameCollides(ITypeSymbol typeSymbol, string result)
+    {
+        if (string.IsNullOrWhiteSpace(result))
+            return result;
+
+        var genericStart = result.IndexOf('<');
+        var baseName = genericStart >= 0 ? result[..genericStart] : result;
+        if (baseName.Contains('.', StringComparison.Ordinal))
+            return result;
+
+        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+        if (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>")
+            return result;
+
+        if (HasConfiguredTypeMapping(typeSymbol))
+            return result;
+
+        var ownJavaName = $"{NamespaceToPackage(ns)}.{baseName}";
+        var hasConflictingImport = ImportedTypes.Any(import =>
+        {
+            if (import.EndsWith(".*", StringComparison.Ordinal))
+                return false;
+
+            var lastDot = import.LastIndexOf('.');
+            if (lastDot < 0)
+                return false;
+
+            return import[(lastDot + 1)..] == baseName
+                && !string.Equals(import, ownJavaName, StringComparison.Ordinal);
+        });
+
+        if (!hasConflictingImport)
+            return result;
+
+        var typeArgs = genericStart >= 0 ? result[genericStart..] : string.Empty;
+        return $"{ownJavaName}{typeArgs}";
+    }
+
+    private bool HasConfiguredTypeMapping(ITypeSymbol typeSymbol)
+    {
+        var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullName.StartsWith("global::", StringComparison.Ordinal))
+            fullName = fullName["global::".Length..];
+
+        if (TypeMappings.HasTypeMapping(fullName))
+            return true;
+
+        if (IsFrameworkTypeSymbol(typeSymbol)
+            && TypeMappings.FindConfigKeyBySimpleName(typeSymbol.Name) is not null)
+            return true;
+
+        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
+        {
+            var ns = namedType.ContainingNamespace?.ToDisplayString();
+            var qualifiedGenericName = !string.IsNullOrWhiteSpace(ns) && ns != "<global namespace>"
+                ? $"{ns}.{namedType.Name}`{namedType.TypeArguments.Length}"
+                : $"{namedType.Name}`{namedType.TypeArguments.Length}";
+
+            if (TypeMappings.HasTypeMapping(qualifiedGenericName))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsFrameworkTypeSymbol(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol.SpecialType != SpecialType.None)
+            return true;
+
+        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+        return ns == "System" || ns?.StartsWith("System.", StringComparison.Ordinal) == true;
     }
 
     // ─── Facade methods delegating to TypeMapper for backward compatibility ───
