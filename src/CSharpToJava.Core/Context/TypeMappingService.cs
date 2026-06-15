@@ -10,6 +10,12 @@ namespace CSharpToJava.Core.Context;
 /// </summary>
 public class TypeMappingService
 {
+    private enum TypeReferenceContext
+    {
+        Default,
+        DeclarationHeader
+    }
+
     private readonly ConversionOptions _options;
     private readonly TypeMapping.TypeMappingRegistry _typeMappings;
     private readonly DiagnosticCollector _diagnostics;
@@ -99,9 +105,14 @@ public class TypeMappingService
         if (TypeCache.TryGetValue(typeSymbol, out var cached))
             return cached;
 
-        var result = MapTypeInternal(typeSymbol);
+        var result = MapTypeInternal(typeSymbol, TypeReferenceContext.Default);
         TypeCache[typeSymbol] = result;
         return result;
+    }
+
+    public string MapTypeForDeclarationHeader(ITypeSymbol typeSymbol)
+    {
+        return MapTypeInternal(typeSymbol, TypeReferenceContext.DeclarationHeader);
     }
 
     public string MapTypeFromSyntax(TypeSyntax typeSyntax)
@@ -152,14 +163,14 @@ public class TypeMappingService
 
     // ─── Internal mapping implementation ───
 
-    private string MapTypeInternal(ITypeSymbol typeSymbol)
+    private string MapTypeInternal(ITypeSymbol typeSymbol, TypeReferenceContext referenceContext)
     {
         // Check using alias registry first: if the type name matches a registered
         // alias, resolve via the alias target type (handles project-pipeline aliases).
         // Guard: skip if alias target has the same name (prevents infinite recursion).
         if (_resolveAlias(typeSymbol.Name) is ITypeSymbol aliasTarget
             && aliasTarget.Name != typeSymbol.Name)
-            return MapType(aliasTarget);
+            return MapTypeInternal(aliasTarget, referenceContext);
 
         if (typeSymbol is IPointerTypeSymbol)
         {
@@ -188,7 +199,7 @@ public class TypeMappingService
                     $"Type '{errorType.ToDisplayString()}' resolved via single candidate symbol (reason: {errorType.CandidateReason})",
                     code: "CS2J1001",
                     category: "TypeResolution");
-                return MapType(candidateType);
+                return MapTypeInternal(candidateType, referenceContext);
             }
 
             var errorName = errorType.Name;
@@ -214,7 +225,7 @@ public class TypeMappingService
                     var configKey = _typeMappings.FindConfigKeyBySimpleName(errorName, arity);
                     if (configKey != null) AddImportsForType(configKey);
                     var typeArgs = string.Join(", ",
-                        namedError.TypeArguments.Select(t => MapTypeForGeneric(t)));
+                        namedError.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext)));
                     return $"{MapSimpleTypeName(fuzzyMapped)}<{typeArgs}>";
                 }
             }
@@ -291,7 +302,7 @@ public class TypeMappingService
                 return "Object";
             }
             var underlyingType = nullableType.TypeArguments[0];
-            var javaType = MapType(underlyingType);
+            var javaType = MapTypeInternal(underlyingType, referenceContext);
 
             if (_options.UseOptionalForNullable)
             {
@@ -326,7 +337,7 @@ public class TypeMappingService
                     fieldName = char.IsUpper(fieldName[0])
                         ? char.ToLower(fieldName[0]) + fieldName.Substring(1)
                         : fieldName;
-                    var propJavaType = prop.Type.IsAnonymousType ? "Object" : MapType(prop.Type);
+                    var propJavaType = prop.Type.IsAnonymousType ? "Object" : MapTypeInternal(prop.Type, referenceContext);
                     fieldParts.Add($"{fieldName}:{propJavaType}");
                 }
                 var key = string.Join(",", fieldParts);
@@ -339,7 +350,7 @@ public class TypeMappingService
         // Array types
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
-            var elementType = MapType(arrayType.ElementType);
+            var elementType = MapTypeInternal(arrayType.ElementType, referenceContext);
             // C# byte[] stays Java byte[] for API compatibility
             if (arrayType.ElementType.SpecialType == SpecialType.System_Byte)
                 elementType = "byte";
@@ -351,7 +362,7 @@ public class TypeMappingService
             && typeSymbol.ContainingType is INamedTypeSymbol outerTypeForNested
             && outerTypeForNested.TypeKind != TypeKind.Error)
         {
-            var nestedMapped = TryMapNestedType(typeSymbol, outerTypeForNested, typeSymbol.Name);
+            var nestedMapped = TryMapNestedType(typeSymbol, outerTypeForNested, typeSymbol.Name, referenceContext);
             if (nestedMapped != null)
                 return nestedMapped;
         }
@@ -367,7 +378,7 @@ public class TypeMappingService
                 && namedType.ContainingNamespace?.ToDisplayString() == "System.Linq.Expressions"
                 && namedType.TypeArguments.Length == 1)
             {
-                return MapType(namedType.TypeArguments[0]);
+                return MapTypeInternal(namedType.TypeArguments[0], referenceContext);
             }
 
             var originalDefinition = namedType.OriginalDefinition ?? namedType.ConstructedFrom;
@@ -403,7 +414,7 @@ public class TypeMappingService
                 AddImportsForType(configKey);
             }
 
-            var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t)));
+            var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext)));
 
             // IGrouping<K, V> maps to Map.Entry<K, List<V>> because Collectors.groupingBy()
             // groups element values into List<V>. Without this, the type arg V would not be
@@ -411,8 +422,8 @@ public class TypeMappingService
             if (fullQualifiedName == "System.Linq.IGrouping`2"
                 || configKey == "System.Linq.IGrouping`2")
             {
-                var keyArg = MapTypeForGeneric(namedType.TypeArguments[0]);
-                var valueArg = MapTypeForGeneric(namedType.TypeArguments[1]);
+                var keyArg = MapTypeForGeneric(namedType.TypeArguments[0], referenceContext);
+                var valueArg = MapTypeForGeneric(namedType.TypeArguments[1], referenceContext);
                 AddImport("java.util.List");
                 typeArgs = $"{keyArg}, List<{valueArg}>";
             }
@@ -442,7 +453,7 @@ public class TypeMappingService
                 && namedType.TypeArguments.Length == 2
                 && namedType.TypeArguments[1].SpecialType == SpecialType.System_Boolean)
             {
-                var tArg = MapTypeForGeneric(namedType.TypeArguments[0]);
+                var tArg = MapTypeForGeneric(namedType.TypeArguments[0], referenceContext);
                 AddImport("java.util.function.Predicate");
                 return $"Predicate<{tArg}>";
             }
@@ -450,8 +461,8 @@ public class TypeMappingService
                 && namedType.TypeArguments.Length == 3
                 && namedType.TypeArguments[2].SpecialType == SpecialType.System_Boolean)
             {
-                var tArg1 = MapTypeForGeneric(namedType.TypeArguments[0]);
-                var tArg2 = MapTypeForGeneric(namedType.TypeArguments[1]);
+                var tArg1 = MapTypeForGeneric(namedType.TypeArguments[0], referenceContext);
+                var tArg2 = MapTypeForGeneric(namedType.TypeArguments[1], referenceContext);
                 AddImport("java.util.function.BiPredicate");
                 return $"BiPredicate<{tArg1}, {tArg2}>";
             }
@@ -575,7 +586,11 @@ public class TypeMappingService
         return javaType;
     }
 
-    private string? TryMapNestedType(ITypeSymbol typeSymbol, INamedTypeSymbol outerType, string name)
+    private string? TryMapNestedType(
+        ITypeSymbol typeSymbol,
+        INamedTypeSymbol outerType,
+        string name,
+        TypeReferenceContext referenceContext)
     {
         // [Flags] enums are mapped to their underlying value type (int/long),
         // not to a nested class reference. Check before constructing the
@@ -607,13 +622,13 @@ public class TypeMappingService
         {
             if (name == "KeyCollection")
             {
-                var keyType = MapTypeForGeneric(outerType.TypeArguments[0]);
+                var keyType = MapTypeForGeneric(outerType.TypeArguments[0], referenceContext);
                 AddImport("java.util.Set");
                 return $"Set<{keyType}>";
             }
             if (name == "ValueCollection")
             {
-                var valueType = MapTypeForGeneric(outerType.TypeArguments[1]);
+                var valueType = MapTypeForGeneric(outerType.TypeArguments[1], referenceContext);
                 AddImport("java.util.Collection");
                 return $"Collection<{valueType}>";
             }
@@ -635,7 +650,8 @@ public class TypeMappingService
         var typeSymbolDef = (typeSymbol as INamedTypeSymbol)?.OriginalDefinition ?? typeSymbol;
 
         bool isSameEnclosingType = currentEnclosing != null
-            && (SymbolEqualityComparer.Default.Equals(currentEnclosing, outerType)
+            && ((referenceContext != TypeReferenceContext.DeclarationHeader
+                    && SymbolEqualityComparer.Default.Equals(currentEnclosing, outerType))
                 || SymbolEqualityComparer.Default.Equals(currentEnclosingDef, typeSymbolDef));
 
         var innerName = MapSimpleTypeName(name);
@@ -646,7 +662,7 @@ public class TypeMappingService
 
         if (typeSymbol is INamedTypeSymbol namedNested && namedNested.TypeArguments.Length > 0)
         {
-            nestedStr += "<" + string.Join(", ", namedNested.TypeArguments.Select(t => MapTypeForGeneric(t))) + ">";
+            nestedStr += "<" + string.Join(", ", namedNested.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext))) + ">";
         }
         else if (typeSymbol.TypeKind == TypeKind.Delegate)
         {
@@ -654,7 +670,7 @@ public class TypeMappingService
             var allTypeArgs = new List<string>();
             while (curOuter != null)
             {
-                allTypeArgs.InsertRange(0, curOuter.TypeArguments.Select(t => MapTypeForGeneric(t)));
+                allTypeArgs.InsertRange(0, curOuter.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext)));
                 curOuter = curOuter.ContainingType;
             }
             if (allTypeArgs.Count > 0)
@@ -670,7 +686,7 @@ public class TypeMappingService
             var usedParams = GetOuterTypeParamsReferencedByNested(nestedClass, outerType);
             if (usedParams.Count > 0)
             {
-                nestedStr += "<" + string.Join(", ", usedParams.Select(p => MapTypeForGeneric(p))) + ">";
+                nestedStr += "<" + string.Join(", ", usedParams.Select(p => MapTypeForGeneric(p, referenceContext))) + ">";
             }
         }
 
@@ -892,9 +908,11 @@ public class TypeMappingService
         };
     }
 
-    private string MapTypeForGeneric(ITypeSymbol typeSymbol)
+    private string MapTypeForGeneric(ITypeSymbol typeSymbol, TypeReferenceContext referenceContext = TypeReferenceContext.Default)
     {
-        var result = MapType(typeSymbol);
+        var result = referenceContext == TypeReferenceContext.Default
+            ? MapType(typeSymbol)
+            : MapTypeInternal(typeSymbol, referenceContext);
         return BoxPrimitive(QualifyIfCurrentNamespaceHasDifferentType(typeSymbol, result));
     }
 

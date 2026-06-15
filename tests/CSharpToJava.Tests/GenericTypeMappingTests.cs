@@ -215,6 +215,22 @@ class SegmentIntersector : IComparer<SegmentIntersector.SegEvent>, IComparer<Sca
     }
 
     [Fact]
+    public void ClassImplementsIComparerOfOwnNestedType_QualifiesNestedTypeInImplementsClause()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class SegmentIntersector : IComparer<SegmentIntersector.SegEvent> {
+    internal class SegEvent { }
+    public int Compare(SegEvent a, SegEvent b) { return 0; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("class SegmentIntersector implements Comparator<SegmentIntersector.SegEvent>", code);
+        Assert.DoesNotContain("class SegmentIntersector implements Comparator<SegEvent>", code);
+    }
+
+    [Fact]
     public void ClassImplementsSingleIComparer_UsesImplements()
     {
         var result = Convert(@"

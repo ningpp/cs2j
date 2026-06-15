@@ -547,6 +547,19 @@ public class ConversionContext
             && aliasTarget.Name != typeSymbol.Name)
             return TypeMapper.MapType(aliasTarget);
         var result = TypeMapper.MapType(typeSymbol);
+        return QualifyMappedTypeIfCurrentTypeNameCollides(typeSymbol, result);
+    }
+
+    public string MapTypeForDeclarationHeader(ITypeSymbol typeSymbol)
+    {
+        // Class declaration headers have a narrower scope than class bodies:
+        // a nested member type is not visible by simple name in "extends"/"implements".
+        var result = TypeMapper.MapTypeForDeclarationHeader(typeSymbol);
+        return QualifyMappedTypeIfCurrentTypeNameCollides(typeSymbol, result);
+    }
+
+    private string QualifyMappedTypeIfCurrentTypeNameCollides(ITypeSymbol typeSymbol, string result)
+    {
         // When the mapped type's simple name collides with the current class name,
         // use the fully-qualified Java name (package prefixed) to avoid ambiguity.
         // However, skip qualification when the type IS the current class (self-reference)

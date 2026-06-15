@@ -56,7 +56,7 @@ public class ClassTransformer : ITypeTransformer
             // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
             if (baseType.ToDisplayString() != "System.MarshalByRefObject")
             {
-                javaClass.ExtendedType = context.MapType(baseType);
+                javaClass.ExtendedType = context.MapTypeForDeclarationHeader(baseType);
             }
         }
 
@@ -116,7 +116,7 @@ public class ClassTransformer : ITypeTransformer
                     && iface.ToDisplayString() != "System.MarshalByRefObject"
                     && iface.ToDisplayString() != "System.Runtime.Serialization.ISerializable")
                 {
-                    var mappedIface = context.MapType(iface);
+                    var mappedIface = context.MapTypeForDeclarationHeader(iface);
                     // Skip types mapped to __suppress__ (e.g. ISerializable, SerializationInfo, StreamingContext)
                     if (mappedIface == "__suppress__")
                         continue;
@@ -199,12 +199,12 @@ public class ClassTransformer : ITypeTransformer
                         && resolvedType.SpecialType != SpecialType.System_Object
                         && javaClass.ExtendedType == null)
                     {
-                        javaClass.ExtendedType = context.MapType(resolvedType);
+                        javaClass.ExtendedType = context.MapTypeForDeclarationHeader(resolvedType);
                     }
                     else if (resolvedType.TypeKind == TypeKind.Interface
                         || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
                     {
-                        var mapped = context.MapType(resolvedType);
+                        var mapped = context.MapTypeForDeclarationHeader(resolvedType);
                         if (mapped != "__suppress__")
                             javaClass.ImplementedTypes.Add(mapped);
                     }
@@ -442,12 +442,12 @@ public class ClassTransformer : ITypeTransformer
 
                 if (resolvedType.TypeKind == TypeKind.Class)
                 {
-                    javaClass.ExtendedType = context.MapType(resolvedType);
+                    javaClass.ExtendedType = context.MapTypeForDeclarationHeader(resolvedType);
                 }
                 else if (resolvedType.TypeKind == TypeKind.Interface
                     || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
                 {
-                    var mappedIface = context.MapType(resolvedType);
+                    var mappedIface = context.MapTypeForDeclarationHeader(resolvedType);
                     if (resolvedType is INamedTypeSymbol namedIface &&
                         ShouldUseIterableForImplementedCollectionInterface(namedIface, hasICollectionImpl))
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
