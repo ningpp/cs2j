@@ -681,7 +681,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 {
                     SpecialType.System_UInt16 => $"(((int)({postfixOperand} {postfixDelta})) & 0xFFFF)",
                     SpecialType.System_Byte => $"({postfixOperand} {postfixDelta}) & 0xFF",
-                    SpecialType.System_UInt32 => $"(({postfixOperand} {postfixDelta}) & 0xFFFFFFFFL)",
+                    SpecialType.System_UInt32 => $"(int)(({postfixOperand} {postfixDelta}) & 0xFFFFFFFFL)",
                     _ => $"{postfixOperand} {postfixDelta}"
                 };
                 // In discarded value context (statement or for-incrementor),
@@ -844,7 +844,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 {
                     SpecialType.System_UInt16 => $"{unsignedOperand} = (((int)({unsignedOperand} {unsignedDelta})) & 0xFFFF)",
                     SpecialType.System_Byte => $"{unsignedOperand} = ({unsignedOperand} {unsignedDelta}) & 0xFF",
-                    SpecialType.System_UInt32 => $"{unsignedOperand} = (({unsignedOperand} {unsignedDelta}) & 0xFFFFFFFFL)",
+                    SpecialType.System_UInt32 => $"{unsignedOperand} = (int)(({unsignedOperand} {unsignedDelta}) & 0xFFFFFFFFL)",
                     _ => $"{op}{unsignedOperand}"
                 };
                 // In discarded value context (statement or for-incrementor),
