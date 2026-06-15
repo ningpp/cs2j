@@ -412,3 +412,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`
 - **分析**: `XmlReader.Create(TextReader)` 被转换为 Java compat `XmlReader.create(TextReader)` 时，静态工厂调用路径没有在 `StringReader` 实参处应用已有的 `System.IO.StringReader` → compat `TextReader` 适配，导致 Java 收到 `java.io.StringReader` 而非 `io.github.ningpp.compat.TextReader`。
 - **修复验证**: 新增 `XmlReaderCreate_WithStringReader_WrapsArgumentAsCompatTextReader` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `GraphReader.java:147` 生成为 `XmlReader.create(new TextReader(sr))`，Maven 第一错推进到 `GraphWriter.java:111` 的 `XmlWriter.create(StringWriter)` 重载匹配问题。
+
+## Iteration 21 - XmlWriter factory receives StringWriter
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\automaticgraphlayout-drawing\src\main\java\Microsoft\Msagl\Drawing\GraphWriter.java`
+- **行号**: 111
+- **错误信息**: `[ERROR] /D:/agl26/automaticgraphlayout-drawing/src/main/java/Microsoft/Msagl/Drawing/GraphWriter.java:[111,33] 对于create(java.io.StringWriter), 找不到合适的方法`
+- **代码片段**:
+  ```java
+      private static StringWriter writeUserDataToStream(Object obj, ObjectHolder<DataContractSerializer> dcs) {
+          dcs.value = new DataContractSerializer(obj.getClass());
+          var sw = new StringWriter();
+          XmlWriter xw = XmlWriter.create(sw);
+          dcs.value.writeObject(xw, obj);
+          xw.flush();
+          return sw;
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\GraphWriter.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`
+- **分析**: `XmlWriter.Create(TextWriter)` 被转换为 Java compat `XmlWriter.create(PrintWriter)` 时，静态工厂调用路径没有在 `StringWriter` 实参处应用已有的 `System.IO.StringWriter` → `PrintWriter` 适配，导致 Java 收到 `java.io.StringWriter` 而非 `java.io.PrintWriter`。
+- **修复验证**: 新增 `XmlWriterCreate_WithStringWriter_WrapsArgumentAsPrintWriter` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `GraphWriter.java:112` 生成为 `XmlWriter.create(new PrintWriter(sw))`，Maven 第一错推进到 `Dot2Graph/AttributeValuePair.java:552` 的 `java.awt.Color`/MSAGL `Color` 类型混用问题。

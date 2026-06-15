@@ -5142,6 +5142,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"new TextReader({args})";
         }
 
+        if (receiverName is "XmlWriter" or "dotnet.xml.XmlWriter"
+            && IsSystemIoStringWriter(argExpression, context)
+            && !IsAlreadyWrappedAs(args, "PrintWriter"))
+        {
+            context.AddImport("java.io.PrintWriter");
+            return $"new PrintWriter({args})";
+        }
+
         return args;
     }
 
@@ -5155,6 +5163,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsSystemIoStringReader(ExpressionSyntax expression, ConversionContext context)
         => IsExpressionType(expression, context, "System.IO.StringReader");
+
+    private static bool IsSystemIoStringWriter(ExpressionSyntax expression, ConversionContext context)
+        => IsExpressionType(expression, context, "System.IO.StringWriter");
 
     private static bool IsExpressionType(ExpressionSyntax expression, ConversionContext context, string typeName)
     {
