@@ -37,3 +37,23 @@
 - **根因分类**: Transformer
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`, `D:\code\cs2j\config\TypeMappings.json`
 - **分析**: `TypeMappingService` 已把 `System.Func<T,bool>` 类型特化为 Java `Predicate<T>`，但委托调用转换仍通过 `TypeMappings.json`/SAM 推断把 `Func.Invoke` 统一生成为 `apply`，导致生成的 `Predicate<T>` 调用不存在的 `apply(T)` 而不是 `test(T)`。
+
+## Iteration 3 - Array.CreateInstance returns raw Object for CSharpArray local
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\Core\DataStructures\Set.java`
+- **行号**: 121
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/Core/DataStructures/Set.java:[121,66] 不兼容的类型: java.lang.Object无法转换为io.github.ningpp.compat.CSharpArray`
+- **代码片段**:
+  ```java
+        }
+        public CSharpArray toArray(Class type) {
+            try {
+                CSharpArray ret = java.lang.reflect.Array.newInstance(type, this.size());
+                int i = 0;
+                for (T o : this) {
+                java.lang.reflect.Array.set(ret, i++, o);
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\DataStructures\Set.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\CSharpArray.java`
+- **分析**: `System.Array` 类型映射为兼容层 `CSharpArray`，但 `InvocationExpressionTransformer` 将 `System.Array.CreateInstance(type, length)` 直接降为返回 `Object` 的 `java.lang.reflect.Array.newInstance(...)`，没有用 `CSharpArray.of(...)` 包装，导致 `CSharpArray ret = <Object>` 类型不匹配。

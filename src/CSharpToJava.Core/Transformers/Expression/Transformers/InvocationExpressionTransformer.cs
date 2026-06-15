@@ -1990,7 +1990,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"StreamSupport.stream({sourceExpr}.spliterator(), true).forEach({actionExpr})";
         }
 
-        // System.Array.CreateInstance(type, length) → java.lang.reflect.Array.newInstance(type, length)
+        // System.Array.CreateInstance(type, length) → CSharpArray wrapper around a reflected Java array.
         if (originalMethodName == "CreateInstance"
             && node.ArgumentList.Arguments.Count == 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
@@ -2003,7 +2003,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var lengthArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            return $"java.lang.reflect.Array.newInstance({typeArg}, {lengthArg})";
+            context.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.of(java.lang.reflect.Array.newInstance({typeArg}, {lengthArg}))";
         }
 
         // System.Activator.CreateInstance(type) → type.getDeclaredConstructor().newInstance()

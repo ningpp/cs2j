@@ -86,6 +86,25 @@ class Test {
         Assert.DoesNotContain("_buffer = (byte[])(buffer);", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ArrayCreateInstance_ForSystemArrayReturn_WrapsInCSharpArray()
+    {
+        var result = Convert(@"
+using System;
+
+class Test {
+    Array Make(Type type, int count, object value) {
+        Array ret = Array.CreateInstance(type, count);
+        ret.SetValue(value, 0);
+        return ret;
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("CSharpArray ret = CSharpArray.of(java.lang.reflect.Array.newInstance(type, count));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CSharpArray ret = java.lang.reflect.Array.newInstance(type, count);", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
