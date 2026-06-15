@@ -328,3 +328,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\VarTypeResolver.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ConversionPipeline.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ProjectCompilationBuilder.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`
 - **分析**: `var lineParsed = Regex.Split(...)` 的语义类型应为 `string[]`，但 `var` 局部类型缓存没有可靠记录初始化器/声明符号推断出的数组类型，导致 `ElementAccessTransformer` 在语义较弱时把 `lineParsed[0]` 退化为 Java List 风格的 `lineParsed.get(0)`。
 - **修复验证**: 新增 `VarLocal_FromRegexSplit_UsesArrayBracketAccess` 红测，修复后该测试、`ValueListBuilder_MappedToCompatClass` 聚焦回归、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `SteinerCdt.java:152` 生成为 `lineParsed[0]`，Maven 第一错推进到 `MsmtRectilinearPath.java:103 getPoint()`。
+
+## Iteration 17 - inherited field access emitted as getter
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\Routing\Rectilinear\MsmtRectilinearPath.java`
+- **行号**: 103
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/Routing/Rectilinear/MsmtRectilinearPath.java:[103,43] 找不到符号  符号:   方法 getPoint()  位置: 类型为Microsoft.Msagl.Routing.Rectilinear.VisibilityVertexRectilinear的变量 source`
+- **代码片段**:
+  ```java
+              for (var pair : getPathStage_ProceduralLinq1(sources, targets, sources)) {
+              var source = pair.sourceV;
+              var target = pair.targetV;
+              if (PointComparer.equal(source.getPoint(), target.getPoint())) {
+              continue;
+              }
+              var sourceCostAdjustment = SsstRectilinearPath.manhattanDistance(source.getPoint(), sourceCenter) * interiorLengthAdjustment;
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Routing\Rectilinear\MsmtRectilinearPath.cs`, `E:\agl-master\GraphLayout\MSAGL\Routing\Visibility\VisibilityVertex.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Loops.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\VarTypeResolver.cs`
+- **分析**: `VisibilityVertex.Point` 是继承来的字段，Java 基类也生成为 `Point` 字段；但 LINQ/var 转换后 `source.Point` 的接收者类型没有被可靠恢复，成员访问 fallback 把大写成员当作属性 getter，生成了不存在的 `source.getPoint()`。
+- **修复验证**: 新增 `ExtractedLinqMethod_VarAliasToInheritedField_UsesFieldAccess` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `MsmtRectilinearPath.java:103` 生成为 `PointComparer.equal(source.Point, target.Point)`，Maven 第一错推进到 `GraphReader.java:40`。

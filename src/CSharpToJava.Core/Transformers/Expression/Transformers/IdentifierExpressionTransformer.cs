@@ -662,9 +662,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             && instanceReceiverTarget == null
             && (receiverType == null || receiverType.TypeKind == TypeKind.Error))
         {
-            var preferredSym = GetPreferredIdentifierSymbol(simpleValueReceiver, context, preferInstanceCandidate: true);
-            if (preferredSym is ILocalSymbol or IParameterSymbol)
-                receiverType = GetSymbolType(preferredSym);
+            if (context.LocalTypeOverrides.TryGetValue(simpleValueReceiver.Identifier.Text, out var overrideType)
+                && overrideType.TypeKind != TypeKind.Error)
+            {
+                receiverType = overrideType;
+            }
+            else
+            {
+                var preferredSym = GetPreferredIdentifierSymbol(simpleValueReceiver, context, preferInstanceCandidate: true);
+                if (preferredSym is ILocalSymbol or IParameterSymbol)
+                    receiverType = GetSymbolType(preferredSym);
+            }
         }
         if (instanceReceiverTarget == null
             && ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
@@ -1866,6 +1874,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     {
         type = null!;
 
+        if (context.LocalTypeOverrides.TryGetValue(identifier.Identifier.Text, out var overrideType)
+            && overrideType.TypeKind != TypeKind.Error)
+        {
+            type = overrideType;
+            return true;
+        }
+
+        if (TryGetNearestScopedIdentifierType(identifier, context, out type))
+            return true;
+
         var typeInfo = context.GetTypeInfo(identifier);
         var resolved = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolved != null && resolved.TypeKind != TypeKind.Error)
@@ -1890,6 +1908,63 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         return false;
     }
+
+    private static bool TryGetNearestScopedIdentifierType(
+        IdentifierNameSyntax identifier,
+        ConversionContext context,
+        out ITypeSymbol type)
+    {
+        type = null!;
+        var name = identifier.Identifier.Text;
+        var root = identifier.SyntaxTree.GetRoot();
+
+        var declarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(v => v.Identifier.Text == name && v.SpanStart <= identifier.SpanStart)
+            .OrderByDescending(v => v.SpanStart)
+            .FirstOrDefault(v => v.Parent is VariableDeclarationSyntax declaration
+                && IsVariableDeclarationInScope(declaration, identifier));
+        if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration)
+        {
+            var declaredType = context.GetTypeInfo(variableDeclaration.Type).Type;
+            if (IsUsableResolvedType(declaredType))
+            {
+                type = declaredType!;
+                return true;
+            }
+
+            if (declarator.Initializer?.Value != null)
+            {
+                var initializerTypeInfo = context.GetTypeInfo(declarator.Initializer.Value);
+                var initializerType = initializerTypeInfo.Type ?? initializerTypeInfo.ConvertedType;
+                if (IsUsableResolvedType(initializerType))
+                {
+                    type = initializerType!;
+                    return true;
+                }
+            }
+        }
+
+        var parameter = root.DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .Where(p => p.Identifier.Text == name && p.SpanStart <= identifier.SpanStart)
+            .OrderByDescending(p => p.SpanStart)
+            .FirstOrDefault(p => p.Type != null && IsParameterInScope(p, identifier));
+        if (parameter?.Type != null)
+        {
+            var parameterType = context.GetTypeInfo(parameter.Type).Type;
+            if (IsUsableResolvedType(parameterType))
+            {
+                type = parameterType!;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsUsableResolvedType(ITypeSymbol? type)
+        => type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) };
 
     private static bool TryGetScopedIdentifierTypeSyntax(
         IdentifierNameSyntax identifier,
@@ -2007,6 +2082,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private static ITypeSymbol? ResolveReceiverType(ExpressionSyntax receiver, ConversionContext context)
     {
+        if (receiver is IdentifierNameSyntax overrideIdentifier
+            && context.LocalTypeOverrides.TryGetValue(overrideIdentifier.Identifier.Text, out var overrideType)
+            && overrideType.TypeKind != TypeKind.Error)
+        {
+            return overrideType;
+        }
+
+        if (receiver is IdentifierNameSyntax scopedIdentifier
+            && TryGetNearestScopedIdentifierType(scopedIdentifier, context, out var scopedType))
+        {
+            return scopedType;
+        }
+
         var typeInfo = context.GetTypeInfo(receiver);
         var resolved = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolved != null && resolved.TypeKind != TypeKind.Error)

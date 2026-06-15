@@ -68,6 +68,49 @@ class PathFinder
         Assert.Contains("record", code, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ExtractedLinqMethod_VarAliasToInheritedField_UsesFieldAccess()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+
+class Point { }
+
+class VisibilityVertex
+{
+    public Point Point;
+}
+
+class VisibilityVertexRectilinear : VisibilityVertex { }
+
+class PathFinder
+{
+    void FindPath(IEnumerable<VisibilityVertexRectilinear> sources, IEnumerable<VisibilityVertexRectilinear> targets)
+    {
+        foreach (var pair in
+            from VisibilityVertexRectilinear source in sources
+            from VisibilityVertexRectilinear target in targets
+            orderby 0
+            select new { sourceV = source, targetV = target })
+        {
+            var source = pair.sourceV;
+            var target = pair.targetV;
+            if (source.Point == target.Point)
+                continue;
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode;
+
+        Assert.Contains("source.Point", code, StringComparison.Ordinal);
+        Assert.Contains("target.Point", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("source.getPoint()", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("target.getPoint()", code, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Method chain variant: items.Cast().SelectMany(...).Select(x => new { ... })
     /// with foreach body containing 'continue', forcing extraction.

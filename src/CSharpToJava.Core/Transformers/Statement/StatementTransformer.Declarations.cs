@@ -209,7 +209,24 @@ public partial class StatementTransformer
                     ILocalSymbol localSymbol => localSymbol.Type,
                     _ => null
                 };
+                if (IsUsableLocalOverrideType(localTargetType))
+                {
+                    context.LocalTypeOverrides[v.Identifier.Text] = localTargetType!;
+                }
                 var initExpr = exprTransformer.Transform(v.Initializer.Value, context);
+                if (!IsUsableLocalOverrideType(localTargetType) && context.SemanticModel != null)
+                {
+                    var initTypeInfoForOverride = context.GetTypeInfo(v.Initializer.Value);
+                    var initTypeForOverride = initTypeInfoForOverride.Type ?? initTypeInfoForOverride.ConvertedType;
+                    if (IsUsableLocalOverrideType(initTypeForOverride))
+                        context.LocalTypeOverrides[v.Identifier.Text] = initTypeForOverride!;
+                }
+                if (!IsUsableLocalOverrideType(localTargetType)
+                    && v.Initializer.Value is MemberAccessExpressionSyntax memberInit
+                    && TryInferAnonymousRecordComponentType(memberInit, context, out var componentType))
+                {
+                    context.LocalTypeOverrides[v.Identifier.Text] = componentType;
+                }
 
                 // For pointer-typed local variables, propagate base segment info
                 if (localTargetType is IPointerTypeSymbol && v.Initializer.Value is BinaryExpressionSyntax binInit
@@ -671,6 +688,141 @@ public partial class StatementTransformer
             }
         }
         return null;
+    }
+
+    private static bool IsUsableLocalOverrideType(ITypeSymbol? type)
+        => type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) };
+
+    private static bool TryInferAnonymousRecordComponentType(
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        out ITypeSymbol componentType)
+    {
+        componentType = null!;
+
+        if (context.SemanticModel == null
+            || memberAccess.Expression is not IdentifierNameSyntax receiver)
+        {
+            return false;
+        }
+
+        var receiverName = receiver.Identifier.Text;
+        var componentName = memberAccess.Name.Identifier.Text;
+        var foreachStmt = memberAccess.Ancestors().OfType<ForEachStatementSyntax>()
+            .FirstOrDefault(f => f.Identifier.Text == receiverName);
+        if (foreachStmt?.Expression is not InvocationExpressionSyntax invocation)
+            return false;
+
+        var helperName = invocation.Expression switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            GenericNameSyntax genericName => genericName.Identifier.Text,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax memberName } => memberName.Identifier.Text,
+            _ => null
+        };
+        if (string.IsNullOrWhiteSpace(helperName))
+            return false;
+        
+
+        var containingType = foreachStmt.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (containingType == null)
+            return false;
+
+        foreach (var helper in containingType.Members.OfType<MethodDeclarationSyntax>()
+                     .Where(m => m.Identifier.Text == helperName))
+        {
+            if (TryInferAnonymousRecordComponentTypeFromHelper(helper, componentName, context, out componentType))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryInferAnonymousRecordComponentTypeFromHelper(
+        MethodDeclarationSyntax helper,
+        string componentName,
+        ConversionContext context,
+        out ITypeSymbol componentType)
+    {
+        componentType = null!;
+
+        foreach (var local in helper.Body?.DescendantNodes().OfType<VariableDeclaratorSyntax>() ?? Enumerable.Empty<VariableDeclaratorSyntax>())
+        {
+            if (local.Initializer?.Value is not InvocationExpressionSyntax invocation)
+                continue;
+
+            if (TryInferAnonymousRecordComponentTypeFromInvocation(invocation, componentName, context, out componentType))
+                return true;
+        }
+
+        foreach (var anonymous in helper.Body?.DescendantNodes().OfType<AnonymousObjectCreationExpressionSyntax>() ?? Enumerable.Empty<AnonymousObjectCreationExpressionSyntax>())
+        {
+            if (TryInferAnonymousRecordComponentTypeFromAnonymousCreation(anonymous, componentName, context, out componentType))
+                return true;
+        }
+
+        foreach (var yieldReturn in helper.Body?.DescendantNodes().OfType<YieldStatementSyntax>() ?? Enumerable.Empty<YieldStatementSyntax>())
+        {
+            if (yieldReturn.Expression is AnonymousObjectCreationExpressionSyntax anonymous
+                && TryInferAnonymousRecordComponentTypeFromAnonymousCreation(anonymous, componentName, context, out componentType))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryInferAnonymousRecordComponentTypeFromInvocation(
+        InvocationExpressionSyntax invocation,
+        string componentName,
+        ConversionContext context,
+        out ITypeSymbol componentType)
+    {
+        componentType = null!;
+
+        if (invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.Text: "Select" }
+            && invocation.ArgumentList.Arguments.LastOrDefault()?.Expression is AnonymousFunctionExpressionSyntax lambda
+            && lambda.Body is AnonymousObjectCreationExpressionSyntax anonymous
+            && TryInferAnonymousRecordComponentTypeFromAnonymousCreation(anonymous, componentName, context, out componentType))
+        {
+            return true;
+        }
+
+        foreach (var nested in invocation.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (TryInferAnonymousRecordComponentTypeFromInvocation(nested, componentName, context, out componentType))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryInferAnonymousRecordComponentTypeFromAnonymousCreation(
+        AnonymousObjectCreationExpressionSyntax anonymous,
+        string componentName,
+        ConversionContext context,
+        out ITypeSymbol componentType)
+    {
+        componentType = null!;
+
+        foreach (var initializer in anonymous.Initializers)
+        {
+            var fieldName = initializer.NameEquals?.Name.Identifier.Text
+                ?? (initializer.Expression is IdentifierNameSyntax id ? id.Identifier.Text : null);
+            if (!string.Equals(fieldName, componentName, StringComparison.Ordinal))
+                continue;
+
+            var typeInfo = context.GetTypeInfo(initializer.Expression);
+            var inferred = typeInfo.Type ?? typeInfo.ConvertedType;
+            if (IsUsableLocalOverrideType(inferred))
+            {
+                componentType = inferred!;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private JavaSyntaxNode TransformYieldReturn(YieldStatementSyntax? stmt, ConversionContext context)

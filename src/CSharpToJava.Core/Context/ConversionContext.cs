@@ -99,6 +99,13 @@ public class ConversionContext
     /// <summary>Pre-scanned var-declared local types, populated by VarTypeResolver.</summary>
     public Dictionary<string, ITypeSymbol> VarTypeMap { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Types learned while transforming statements in order. These are scoped to
+    /// the current method conversion state and take precedence over the coarse
+    /// name-only pre-scan cache.
+    /// </summary>
+    public Dictionary<string, ITypeSymbol> LocalTypeOverrides { get; } = new(StringComparer.Ordinal);
+
     internal ConvertedCommentSet GetDeclarationComments(SyntaxNode node, ISymbol? symbol = null)
     {
         return CommentConversion.ExtractDeclarationComments(node, symbol, this);
@@ -492,6 +499,7 @@ public class ConversionContext
         _addressOfScratchPointerInfos.Clear();
         _pointerBacktrackVars.Clear();
         _pointerBaseSegments.Clear();
+        LocalTypeOverrides.Clear();
     }
 
     public void LeaveMethod()
