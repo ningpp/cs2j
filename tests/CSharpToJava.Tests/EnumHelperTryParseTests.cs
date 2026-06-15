@@ -168,6 +168,38 @@ public class Sample
         Assert.Contains("Direction.class", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void EnumTryParse_IgnoreCase_InferredOutEnum_GeneratesClassArg()
+    {
+        var result = Convert(@"
+using System;
+using System.Xml;
+
+public enum GeometryToken { Graph, Unknown }
+
+public class Sample
+{
+    XmlReader XmlReader;
+
+    public GeometryToken NameToToken()
+    {
+        GeometryToken token;
+        if (Enum.TryParse(XmlReader.Name, true, out token))
+            return token;
+        return GeometryToken.Unknown;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("EnumHelper.tryParse(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Matches(
+            @"EnumHelper\.tryParse\([^;\r\n]*,\s*true,\s*[^;\r\n]*,\s*GeometryToken\.class\)",
+            result.GeneratedCode);
+        Assert.DoesNotMatch(
+            @"EnumHelper\.tryParse\([^;\r\n]*,\s*true,\s*[^;\r\n]*Holder\d+\)",
+            result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

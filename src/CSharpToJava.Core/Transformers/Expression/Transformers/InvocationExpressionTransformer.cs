@@ -3176,11 +3176,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Enum.TryParse<T>(name, out result) -> EnumHelper.tryParse(name, holder, T.class)
             // The generic type argument T is not part of the C# argument list, so we must
             // append T.class explicitly so the Java method can resolve the enum at runtime.
-            if (methodName == "EnumHelper.tryParse" && methodSymbol != null
-                && methodSymbol.TypeArguments.Length > 0)
+            if (methodName == "EnumHelper.tryParse"
+                && TryGetEnumTryParseClassLiteral(node, methodSymbol, context, out var enumClassLiteral)
+                && !helperArgs.Contains(enumClassLiteral, StringComparison.Ordinal))
             {
-                var classLiteral = ConversionContext.GetClassLiteral(methodSymbol.TypeArguments[0], context);
-                helperArgs = string.IsNullOrEmpty(helperArgs) ? classLiteral : $"{helperArgs}, {classLiteral}";
+                helperArgs = string.IsNullOrEmpty(helperArgs) ? enumClassLiteral : $"{helperArgs}, {enumClassLiteral}";
             }
 
             return $"{methodName}({helperArgs})";
@@ -5002,11 +5002,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 args = string.IsNullOrEmpty(args) ? receiver : $"{receiver}, {args}";
             }
 
-            if (methodName == "EnumHelper.tryParse" && methodSymbol != null
-                && methodSymbol.TypeArguments.Length > 0)
+            if (methodName == "EnumHelper.tryParse"
+                && TryGetEnumTryParseClassLiteral(node, methodSymbol, context, out var enumClassLiteral)
+                && !args.Contains(enumClassLiteral, StringComparison.Ordinal))
             {
-                var classLiteral = ConversionContext.GetClassLiteral(methodSymbol.TypeArguments[0], context);
-                args = string.IsNullOrEmpty(args) ? classLiteral : $"{args}, {classLiteral}";
+                args = string.IsNullOrEmpty(args) ? enumClassLiteral : $"{args}, {enumClassLiteral}";
             }
             return $"{methodName}({args})";
         }
@@ -5095,6 +5095,59 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return true;
         }
         return false;
+    }
+
+    private static bool TryGetEnumTryParseClassLiteral(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol? methodSymbol,
+        ConversionContext context,
+        out string classLiteral)
+    {
+        classLiteral = string.Empty;
+
+        if (methodSymbol?.TypeArguments.Length > 0)
+        {
+            classLiteral = ConversionContext.GetClassLiteral(methodSymbol.TypeArguments[0], context);
+            return !string.IsNullOrWhiteSpace(classLiteral);
+        }
+
+        var outArgument = invocation.ArgumentList.Arguments
+            .LastOrDefault(argument => argument.RefKindKeyword.Kind() is SyntaxKind.OutKeyword or SyntaxKind.RefKeyword);
+        if (outArgument == null)
+            return false;
+
+        var enumType = TryGetOutArgumentEnumType(outArgument.Expression, context);
+        if (enumType == null)
+            return false;
+
+        classLiteral = ConversionContext.GetClassLiteral(enumType, context);
+        return !string.IsNullOrWhiteSpace(classLiteral);
+    }
+
+    private static ITypeSymbol? TryGetOutArgumentEnumType(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (expression is DeclarationExpressionSyntax declaration)
+        {
+            var declaredType = context.GetTypeInfo(declaration.Type).Type
+                ?? context.GetTypeInfo(declaration.Type).ConvertedType;
+            if (declaredType?.TypeKind == TypeKind.Enum)
+                return declaredType;
+        }
+
+        var expressionType = context.GetTypeInfo(expression).Type
+            ?? context.GetTypeInfo(expression).ConvertedType;
+        if (expressionType?.TypeKind == TypeKind.Enum)
+            return expressionType;
+
+        var symbolType = context.GetSymbolInfo(expression).Symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => null,
+        };
+        return symbolType?.TypeKind == TypeKind.Enum ? symbolType : null;
     }
 
     /// <summary>

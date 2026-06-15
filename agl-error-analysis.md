@@ -286,3 +286,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ConversionPipeline.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ProjectCompilationBuilder.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
 - **分析**: 转换器构建 Roslyn 编译时缺少 `System.Text.Json.dll` 引用，导致 `var debugCurveCollection = JsonSerializer.Deserialize<DebugCurveCollection>(...)` 的局部变量类型不可用；成员访问退入 unresolved-type getter 回退，把 C# 公共字段 `DebugCurvesArray` 错误生成为 `getDebugCurvesArray()`。
 - **修复验证**: 新增 `ListConstructor_FromPublicArrayField_UsesFieldAccess` 红测，修复后聚焦测试、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `DebugCurveCollection.java` 改为 `debugCurveCollection.DebugCurvesArray`，Maven 第一错推进到 `GeometryGraphReader.java:599`。
+
+## Iteration 15 - Enum.TryParse missing enum class literal
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\DebugHelpers\Persistence\GeometryGraphReader.java`
+- **行号**: 599
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/DebugHelpers/Persistence/GeometryGraphReader.java:[599,35] 对于tryParse(java.lang.String,boolean,io.github.ningpp.compat.ObjectHolder<Microsoft.Msagl.DebugHelpers.GeometryToken>), 找不到合适的方法`
+- **代码片段**:
+  ```java
+          return GeometryToken.Graph;
+          }
+          ObjectHolder<GeometryToken> _tokenHolder1 = new ObjectHolder<>();
+          var _ifCond81 = EnumHelper.tryParse(getXmlReader().getName(), true, _tokenHolder1);
+          token = _tokenHolder1.value;
+          if (_ifCond81) {
+          return token;
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`
+- **分析**: `Enum.TryParse(XmlReader.Name, true, out token)` 的泛型枚举类型由 `out token` 推断；当前转换器只有在 Roslyn `methodSymbol.TypeArguments` 可用时才给 `EnumHelper.tryParse` 追加 `GeometryToken.class`，项目转换中该语义信息缺失时生成了少一个参数的 helper 调用。
+- **修复验证**: 新增 `EnumTryParse_IgnoreCase_InferredOutEnum_GeneratesClassArg` 红测，修复后聚焦测试、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `GeometryGraphReader.java:599` 改为追加 `GeometryToken.class`，Maven 第一错推进到 `SteinerCdt.java:151`。
