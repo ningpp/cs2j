@@ -118,4 +118,21 @@ namespace Foo {
         // "dotnet.system.Globalization" package does not exist.
         Assert.DoesNotContain("import dotnet.system.Globalization", result.GeneratedCode);
     }
+
+    [Fact]
+    public void MSTestTestContextField_ImportsCompatType()
+    {
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace Microsoft.Msagl.UnitTests.Constraints {
+    internal class ClusterDef {
+        internal static TestContext TestContext { get; set; }
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
+        Assert.Contains("import Microsoft.VisualStudio.TestTools.UnitTesting.TestContext;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("private static TestContext testContext;", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

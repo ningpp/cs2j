@@ -496,3 +496,25 @@
 - **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat`
 - **分析**: `System.Xml.Linq.XDocument`/`XElement`/`XAttribute`/`XName` 没有类型映射，也没有对应的 Java compat runtime 类；转换器保留了 `XDocument.load`、`descendants`、`attribute` 等 LINQ-to-XML API 形状，但生成项目依赖中不存在这些符号。
 - **修复验证**: 新增 `XDocumentDescendants_WithNameAndAttribute_MapsToCompatTypes` 红测和 compat `XmlLinqTest` 红测；修复后 `dotnet build`、聚焦测试、全量 `dotnet test` 与 `mvn -f java\csharptojava-compat\pom.xml clean install` 均通过。重新转换后 `DgmlParser.java` 导入 `io.github.ningpp.compat.XDocument`，`dgmlparser` 模块在 Maven 中编译成功，第一错推进到 `msagltests/Constraints/ClusterDef.java:52` 的 `TestContext` 未解析问题。
+
+## Iteration 25 - TestContext type lacks explicit import
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\Constraints\ClusterDef.java`
+- **行号**: 52
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/Constraints/ClusterDef.java:[52,20] 找不到符号  符号:   类 TestContext  位置: 类 Microsoft.Msagl.UnitTests.Constraints.ClusterDef`
+- **代码片段**:
+  ```java
+    private double rightResultPos;
+    private double topResultPos;
+    private double bottomResultPos;
+    private boolean resultPosWasSet;
+    private static TestContext testContext;
+    private double positionX;
+    private double positionY;
+    private double desiredPosX;
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\Constraints\ClusterDef.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\Microsoft\VisualStudio\TestTools\UnitTesting\TestContext.java`
+- **分析**: compat runtime 已提供 `Microsoft.VisualStudio.TestTools.UnitTesting.TestContext`，但 `TypeMappings.json` 没有 MSTest `TestContext` 的显式类型映射；字段/属性转换通过 `context.MapType` 保留裸 `TestContext`，没有注册对应 Java import。
+- **修复验证**: 新增 `MSTestTestContextField_ImportsCompatType` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`ClusterDef.java:52` 的 `TestContext` 未解析错误消失，第一错推进到 `TestFileStrings.java:7` 的 `dotnet.system.Text.RegularExpressions` 包缺失问题。

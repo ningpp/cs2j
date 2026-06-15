@@ -3968,6 +3968,13 @@
             ]
         },
         {
+            "csharp": "Microsoft.VisualStudio.TestTools.UnitTesting.TestContext",
+            "java": "TestContext",
+            "imports": [
+                "Microsoft.VisualStudio.TestTools.UnitTesting.TestContext"
+            ]
+        },
+        {
             "csharp": "System.Uri",
             "java": "Uri",
             "imports": [
