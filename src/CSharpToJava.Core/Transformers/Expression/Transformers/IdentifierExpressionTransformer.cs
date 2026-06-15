@@ -658,7 +658,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     receiverType = instField.Type;
             }
         }
-        else if (ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
+        if (node.Expression is IdentifierNameSyntax simpleValueReceiver
+            && instanceReceiverTarget == null
+            && (receiverType == null || receiverType.TypeKind == TypeKind.Error))
+        {
+            var preferredSym = GetPreferredIdentifierSymbol(simpleValueReceiver, context, preferInstanceCandidate: true);
+            if (preferredSym is ILocalSymbol or IParameterSymbol)
+                receiverType = GetSymbolType(preferredSym);
+        }
+        if (instanceReceiverTarget == null
+            && ExpressionTransformerHelpers.TryGetStaticTypeReceiverJavaReference(
             node.Expression,
             context,
             boxJavaPrimitiveType: true,

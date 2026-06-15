@@ -156,6 +156,24 @@ namespace Test {
         Assert.Contains("getReader().getReadState() == ReadState.EndOfFile", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemXml_XmlReader_IsEmptyElement_OnParameter_GeneratesGetter()
+    {
+        var result = Convert(@"
+using System.Xml;
+namespace Test {
+    public class Demo {
+        public bool Check(XmlReader reader) {
+            return reader.IsEmptyElement;
+        }
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("return reader.getIsEmptyElement();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("reader.IsEmptyElement", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     // ── Fix 4: Record equals/hashCode Objects import ────────────────────────
 
     [Fact]

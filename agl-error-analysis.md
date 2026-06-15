@@ -243,3 +243,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`, `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\AssemblyCompat.java`
 - **分析**: `typeof(SvgGraphWriter).Assembly` 走通用 `System.Type.Assembly -> getPackage` 映射，产出 Java `Class.getPackage()`；随后 `Assembly.GetName()` 又映射为 `getPackage()`，导致在 `java.lang.Package` 上调用不存在的无参实例 `getPackage()`，转换器缺少 `typeof(T).Assembly` 到 `AssemblyCompat.fromClass(T.class)` 的成员访问特例。
 - **修复验证**: 新增 `TypeOf_Assembly_GetName_Version_UsesAssemblyCompat` 红测，修复后聚焦测试与全量 `dotnet test` 通过；重新转换后 `SvgGraphWriter.java:205` 错误消失，`D:\agl26` 下 `mvn clean test-compile -e` 通过并输出 `BUILD SUCCESS`。
+
+## Iteration 13 - XmlReader IsEmptyElement emitted as field access
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\DebugHelpers\Persistence\GeometryGraphReader.java`
+- **行号**: 193
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/DebugHelpers/Persistence/GeometryGraphReader.java:[193,19] 找不到符号  符号: 变量 IsEmptyElement  位置: 类型为dotnet.xml.XmlReader的变量 reader`
+- **代码片段**:
+  ```java
+      LayoutAlgorithmSettings readLayoutAlgorithmSettings(XmlReader reader) {
+          LayoutAlgorithmSettings layoutSettings = null;
+          checkToken(GeometryToken.LayoutAlgorithmSettings);
+          if (reader.IsEmptyElement) {
+          reader.read();
+          return null;
+          }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
+- **分析**: `System.Xml.XmlReader.IsEmptyElement` 在参数接收者 `reader` 上没有命中显式成员映射或 getter 回退，成员访问转换落到原始字段访问 `reader.IsEmptyElement`，而生成项目里的 compat `XmlReader` 暴露的是 Java getter `getIsEmptyElement()`。
+- **修复验证**: 新增 `SystemXml_XmlReader_IsEmptyElement_OnParameter_GeneratesGetter` 红测，修复后聚焦测试、`UsingAlias_MappedFrameworkType_UsesConfiguredImport` 回归测试、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `GeometryGraphReader.java:193` 错误消失，Maven 第一错推进到 `DebugCurveCollection.java:76`。
