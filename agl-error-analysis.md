@@ -139,3 +139,23 @@
 - **根因分类**: Transformer
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
 - **分析**: 同一 C# 文件早先有 `Station[] metroline` 参数，后面又在 `foreach (var metroline in metroGraphData.Metrolines)` 中复用名称；`IsDeclaredAsConcreteArray` 按整棵语法树查找早于访问点的同名声明，误把后者的 `Metroline.Length` 当成数组 `Length` 输出 `.length`，但 `Metroline` 的 Java auto-property backing field 是 private。
+
+## Iteration 8 - StringReader constructor wrapped as TextReader
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout.Drawing\src\main\java\Microsoft\Msagl\Drawing\GraphReader.java`
+- **行号**: 145
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout.Drawing/src/main/java/Microsoft/Msagl/Drawing/GraphReader.java:[145,31] 不兼容的类型: io.github.ningpp.compat.TextReader无法转换为java.io.StringReader`
+- **代码片段**:
+  ```java
+            readEndElement();
+            Class t = Class.forName(typeString);
+            DataContractSerializer dcs = new DataContractSerializer(t);
+            StringReader sr = new TextReader(new StringReader(serString));
+            XmlReader xr = XmlReader.create(sr);
+            return dcs.readObject(xr, true);
+        } catch (Exception _e_cs2j) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\GraphReader.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Declarations.cs`, `D:\code\cs2j\config\TypeMappings.json`
+- **分析**: `TypeMappings.json` 正确把局部变量声明 `System.IO.StringReader` 映射为 `java.io.StringReader`，但 `ObjectCreationTransformer` 对 `new StringReader(string)` 无条件返回 `new TextReader(new StringReader(...))`，声明和初始化表达式类型因此不一致。

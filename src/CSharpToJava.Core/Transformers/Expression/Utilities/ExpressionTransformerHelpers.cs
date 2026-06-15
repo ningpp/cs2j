@@ -151,6 +151,13 @@ public static class ExpressionTransformerHelpers
             return $"new PrintWriter({transformedExpression})";
         }
 
+        if (sourceType.ToDisplayString() == "System.IO.StringReader"
+            && targetType.ToDisplayString() == "System.IO.TextReader")
+        {
+            context.AddImport("io.github.ningpp.compat.TextReader");
+            return $"new TextReader({transformedExpression})";
+        }
+
         // C# Span<T> implicitly converts to ReadOnlySpan<T>
         var sourceDisplay = sourceType.ToDisplayString();
         var targetDisplay = targetType.ToDisplayString();

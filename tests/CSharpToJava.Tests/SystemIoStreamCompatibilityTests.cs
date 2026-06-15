@@ -93,6 +93,28 @@ class Sample {
         Assert.True(javac.ExitCode == 0, javac.Output);
     }
 
+    [Fact]
+    public void StringReaderVariableInitialization_RemainsJavaStringReader()
+    {
+        var result = Convert("""
+using System.IO;
+
+class Sample {
+    static int Read(string text) {
+        StringReader sr = new StringReader(text);
+        return sr.Read();
+    }
+}
+""");
+
+        _out.WriteLine(result.GeneratedCode ?? "FAILED");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("StringReader sr = new StringReader(text)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("StringReader sr = new TextReader", code, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
