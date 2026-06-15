@@ -4910,6 +4910,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
 
         args = CoerceAddRangeArrayArgument(node, args, argStartIndex, originalMethodName, methodName, context);
+        args = CoerceXmlFactoryReaderWriterArgument(node, args, argStartIndex, receiver, methodName, context);
 
         // Convert.ToXxx(Object) → parseXxx(Object.toString())
         // Java's parseXxx methods require String arguments, but C#'s Convert.ToXxx
@@ -5115,6 +5116,59 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return receiverType == null
             || receiverType.TypeKind is TypeKind.Error or TypeKind.Unknown
             || receiverType.SpecialType == SpecialType.System_String;
+    }
+
+    private static string CoerceXmlFactoryReaderWriterArgument(
+        InvocationExpressionSyntax node,
+        string args,
+        int argStartIndex,
+        string receiver,
+        string methodName,
+        ConversionContext context)
+    {
+        if (methodName != "create"
+            || node.ArgumentList.Arguments.Count - argStartIndex != 1)
+        {
+            return args;
+        }
+
+        var receiverName = receiver.Trim();
+        var argExpression = node.ArgumentList.Arguments[argStartIndex].Expression;
+        if (receiverName is "XmlReader" or "dotnet.xml.XmlReader"
+            && IsSystemIoStringReader(argExpression, context)
+            && !IsAlreadyWrappedAs(args, "TextReader"))
+        {
+            context.AddImport("io.github.ningpp.compat.TextReader");
+            return $"new TextReader({args})";
+        }
+
+        return args;
+    }
+
+    private static bool IsAlreadyWrappedAs(string expression, string wrapperType)
+    {
+        var trimmed = expression.TrimStart();
+        return trimmed.StartsWith($"new {wrapperType}(", StringComparison.Ordinal)
+            || trimmed.StartsWith($"new java.io.{wrapperType}(", StringComparison.Ordinal)
+            || trimmed.StartsWith($"new io.github.ningpp.compat.{wrapperType}(", StringComparison.Ordinal);
+    }
+
+    private static bool IsSystemIoStringReader(ExpressionSyntax expression, ConversionContext context)
+        => IsExpressionType(expression, context, "System.IO.StringReader");
+
+    private static bool IsExpressionType(ExpressionSyntax expression, ConversionContext context, string typeName)
+    {
+        var expressionType = context.GetTypeInfo(expression).Type;
+        if (expressionType?.ToDisplayString() == typeName)
+            return true;
+
+        if (expression is IdentifierNameSyntax identifier
+            && context.LocalTypeOverrides.TryGetValue(identifier.Identifier.Text, out var overrideType))
+        {
+            return overrideType.ToDisplayString() == typeName;
+        }
+
+        return false;
     }
 
     private static bool TryTransformTypeAssemblyManifestResourceStream(

@@ -391,3 +391,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`
 - **分析**: `List<T>.AddRange(IEnumerable<T>)` 被映射为 Java `addAll(Collection<T>)`，但当参数是来自弱语义 `var` 的 `string.Split` 调用时，参数适配未识别 Java 表达式会返回数组，导致未包装的 `split(...)` 直接传给 `addAll`。
 - **修复验证**: 新增 `AddRange_WithStringSplitArray_WrapsArrayForAddAll` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `GraphReader.java:124/128` 生成为 `addAll(ArrayHelper.toList(...split(" ")))`，Maven 第一错推进到 `GraphReader.java:146` 的 `XmlReader.create(StringReader)` 重载匹配问题。
+
+## Iteration 20 - XmlReader factory receives StringReader
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\automaticgraphlayout-drawing\src\main\java\Microsoft\Msagl\Drawing\GraphReader.java`
+- **行号**: 146
+- **错误信息**: `[ERROR] /D:/agl26/automaticgraphlayout-drawing/src/main/java/Microsoft/Msagl/Drawing/GraphReader.java:[146,37] 对于create(java.io.StringReader), 找不到合适的方法`
+- **代码片段**:
+  ```java
+              Class t = Class.forName(typeString);
+              DataContractSerializer dcs = new DataContractSerializer(t);
+              StringReader sr = new StringReader(serString);
+              XmlReader xr = XmlReader.create(sr);
+              return dcs.readObject(xr, true);
+          } catch (Exception _e_cs2j) {
+              throw new RuntimeException(_e_cs2j);
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\GraphReader.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`
+- **分析**: `XmlReader.Create(TextReader)` 被转换为 Java compat `XmlReader.create(TextReader)` 时，静态工厂调用路径没有在 `StringReader` 实参处应用已有的 `System.IO.StringReader` → compat `TextReader` 适配，导致 Java 收到 `java.io.StringReader` 而非 `io.github.ningpp.compat.TextReader`。
+- **修复验证**: 新增 `XmlReaderCreate_WithStringReader_WrapsArgumentAsCompatTextReader` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `GraphReader.java:147` 生成为 `XmlReader.create(new TextReader(sr))`，Maven 第一错推进到 `GraphWriter.java:111` 的 `XmlWriter.create(StringWriter)` 重载匹配问题。

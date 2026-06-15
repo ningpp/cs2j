@@ -115,6 +115,30 @@ class Sample {
         Assert.DoesNotContain("StringReader sr = new TextReader", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void XmlReaderCreate_WithStringReader_WrapsArgumentAsCompatTextReader()
+    {
+        var result = Convert("""
+using System.IO;
+using System.Xml;
+
+class Sample {
+    static XmlReader Read(string text) {
+        StringReader sr = new StringReader(text);
+        return XmlReader.Create(sr);
+    }
+}
+""");
+
+        _out.WriteLine(result.GeneratedCode ?? "FAILED");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("StringReader sr = new StringReader(text)", code, StringComparison.Ordinal);
+        Assert.Contains("XmlReader.create(new TextReader(sr))", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("XmlReader.create(sr)", code, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
