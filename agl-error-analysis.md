@@ -307,3 +307,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`
 - **分析**: `Enum.TryParse(XmlReader.Name, true, out token)` 的泛型枚举类型由 `out token` 推断；当前转换器只有在 Roslyn `methodSymbol.TypeArguments` 可用时才给 `EnumHelper.tryParse` 追加 `GeometryToken.class`，项目转换中该语义信息缺失时生成了少一个参数的 helper 调用。
 - **修复验证**: 新增 `EnumTryParse_IgnoreCase_InferredOutEnum_GeneratesClassArg` 红测，修复后聚焦测试、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `GeometryGraphReader.java:599` 改为追加 `GeometryToken.class`，Maven 第一错推进到 `SteinerCdt.java:151`。
+
+## Iteration 16 - var array local indexed as list
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\AutomaticGraphLayout\src\main\java\Microsoft\Msagl\Miscellaneous\ConstrainedSkeleton\SteinerCdt.java`
+- **行号**: 151
+- **错误信息**: `[ERROR] /D:/agl26/AutomaticGraphLayout/src/main/java/Microsoft/Msagl/Miscellaneous/ConstrainedSkeleton/SteinerCdt.java:[151,53] 找不到符号  符号:   方法 get(int)  位置: 类型为java.lang.String[]的变量 lineParsed`
+- **代码片段**:
+  ```java
+              }
+              line = StringHelper.trimStart(line, ' ');
+              var lineParsed = line.split("\\s{2,}");
+              int ind = MathHelper.parseInt(lineParsed.get(0)) - 1;
+              if (ind < oldPoints) {
+              _outPoints.put(ind, _visGraph.findVertex(_pointList.get(ind)));
+              } else {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Miscellaneous\ConstrainedSkeleton\SteinerCdt.cs`
+- **根因分类**: 语义丢失
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\VarTypeResolver.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ConversionPipeline.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\ProjectCompilationBuilder.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`
+- **分析**: `var lineParsed = Regex.Split(...)` 的语义类型应为 `string[]`，但 `var` 局部类型缓存没有可靠记录初始化器/声明符号推断出的数组类型，导致 `ElementAccessTransformer` 在语义较弱时把 `lineParsed[0]` 退化为 Java List 风格的 `lineParsed.get(0)`。
+- **修复验证**: 新增 `VarLocal_FromRegexSplit_UsesArrayBracketAccess` 红测，修复后该测试、`ValueListBuilder_MappedToCompatClass` 聚焦回归、`dotnet build` 与全量 `dotnet test` 通过；重新转换后 `SteinerCdt.java:152` 生成为 `lineParsed[0]`，Maven 第一错推进到 `MsmtRectilinearPath.java:103 getPoint()`。

@@ -179,6 +179,7 @@ public class ConversionPipeline
                     // Without this, Roslyn cannot resolve IPAddress.Loopback/IPv6Loopback
                     // so MapMethod never fires for IPAddress property mappings.
                     MetadataReference.CreateFromFile(typeof(System.Net.IPAddress).Assembly.Location),
+                    MetadataReference.CreateFromFile(typeof(System.Text.RegularExpressions.Regex).Assembly.Location),
                     MetadataReference.CreateFromFile(typeof(System.Text.Json.JsonSerializer).Assembly.Location),
                 }.Concat(GetFrameworkSupplementalReferences()).ToArray(),
                 options: new CSharpCompilationOptions(

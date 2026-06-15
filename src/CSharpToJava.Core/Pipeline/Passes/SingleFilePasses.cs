@@ -215,6 +215,7 @@ public sealed class SingleFileContextNormalizationPass : ICs2jPass<SingleFilePas
         state.Context.ClearMergedTypes();
         state.Context.ClearSynthesizedRecords();
         state.Context.SemanticModel = state.Compilation.GetSemanticModel(state.SyntaxTree);
+        VarTypeResolver.PreScan(state.Compilation, state.Context);
     }
 }
 

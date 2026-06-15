@@ -28,7 +28,9 @@ public class TypeMappingService
     /// <summary>
     /// Per-file type symbol → Java type cache. Cleared per file via ClearCache().
     /// </summary>
-    public Dictionary<ITypeSymbol, string> TypeCache { get; } = new();
+    public Dictionary<ITypeSymbol, TypeMappingCacheEntry> TypeCache { get; } = new();
+
+    public sealed record TypeMappingCacheEntry(string JavaType, IReadOnlyList<string> Imports);
 
     /// <summary>
     /// [Flags] enum names mapped to int/long in Java. Scoped to this conversion context.
@@ -103,10 +105,18 @@ public class TypeMappingService
     public string MapType(ITypeSymbol typeSymbol)
     {
         if (TypeCache.TryGetValue(typeSymbol, out var cached))
-            return cached;
+        {
+            foreach (var import in cached.Imports)
+                AddImport(import);
+            return cached.JavaType;
+        }
 
+        var importsBefore = _importedTypes.ToHashSet(StringComparer.Ordinal);
         var result = MapTypeInternal(typeSymbol, TypeReferenceContext.Default);
-        TypeCache[typeSymbol] = result;
+        var addedImports = _importedTypes
+            .Where(import => !importsBefore.Contains(import))
+            .ToArray();
+        TypeCache[typeSymbol] = new TypeMappingCacheEntry(result, addedImports);
         return result;
     }
 
@@ -405,13 +415,17 @@ public class TypeMappingService
             if (fullQualifiedName.StartsWith("global::"))
                 fullQualifiedName = fullQualifiedName.Substring(8);
 
-            var mappedBase = _typeMappings.MapType(fullQualifiedName);
-
             var configKey = fullQualifiedName;
+            var mappedBase = _typeMappings.HasTypeMapping(configKey)
+                ? _typeMappings.MapType(configKey)
+                : fullQualifiedName;
+
             if (mappedBase == fullQualifiedName)
             {
                 configKey = baseType + "`" + namedType.TypeArguments.Length;
-                mappedBase = _typeMappings.MapType(configKey);
+                mappedBase = _typeMappings.HasTypeMapping(configKey)
+                    ? _typeMappings.MapType(configKey)
+                    : fullQualifiedName;
             }
 
             if (mappedBase != fullQualifiedName)
@@ -1022,12 +1036,15 @@ public class TypeMappingService
             var mappedArgsString = string.Join(", ", mappedInnerArgs);
 
             var arity = mappedInnerArgs.Count;
-            var mappedBase = _typeMappings.MapTypeBySimpleName(baseTypeName, arity);
-            if (mappedBase != baseTypeName)
+            var configKey = _typeMappings.FindConfigKeyBySimpleName(baseTypeName, arity);
+            var mappedBase = configKey != null
+                ? _typeMappings.MapType(configKey)
+                : _typeMappings.MapTypeBySimpleName(baseTypeName, arity);
+            if (configKey != null)
+                AddImportsForType(configKey);
+
+            if (configKey != null || mappedBase != baseTypeName)
             {
-                var configKey = _typeMappings.FindConfigKeyBySimpleName(baseTypeName, arity);
-                if (configKey != null)
-                    AddImportsForType(configKey);
                 mappedBase = MapSimpleTypeName(mappedBase);
             }
             if (mappedBase == "Object") return "Object";

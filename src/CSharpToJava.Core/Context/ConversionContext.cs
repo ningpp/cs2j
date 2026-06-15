@@ -196,7 +196,7 @@ public class ConversionContext
     }
 
     public TypeMappingService TypeMapper { get; private set; } = null!;
-    public Dictionary<ITypeSymbol, string> TypeCache => TypeMapper.TypeCache;
+    public Dictionary<ITypeSymbol, TypeMappingService.TypeMappingCacheEntry> TypeCache => TypeMapper.TypeCache;
 
     private readonly SynthesizedRecordStore _synthesizedRecordStore = new();
     public IReadOnlyCollection<SynthesizedRecordInfo> SynthesizedRecords => _synthesizedRecordStore.Records;
@@ -866,7 +866,18 @@ public class ConversionContext
     public IReadOnlyDictionary<string, UsingAliasRegistry.UsingAliasInfo> UsingAliases => AliasRegistry.Aliases;
     public bool RegisterUsingAlias(string aliasName, ITypeSymbol targetType, Location? location)
     {
-        var registered = AliasRegistry.Register(aliasName, targetType, location, Diagnostics, CurrentNamespace, GlobalNamespace, TypeCache);
+        var typeCacheView = new Dictionary<ITypeSymbol, string>(SymbolEqualityComparer.Default);
+        foreach (var kvp in TypeCache)
+            typeCacheView[kvp.Key] = kvp.Value.JavaType;
+
+        var registered = AliasRegistry.Register(
+            aliasName,
+            targetType,
+            location,
+            Diagnostics,
+            CurrentNamespace,
+            GlobalNamespace,
+            typeCacheView);
         if (registered)
         {
             var mapped = MapType(targetType);

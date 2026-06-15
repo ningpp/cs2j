@@ -27,9 +27,20 @@ public static class VarTypeResolver
                     var name = v.Identifier.Text;
                     if (seen.Add(name))
                     {
-                        var ti = sm.GetTypeInfo(vd.Type);
-                        if (ti.Type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) })
-                            context.VarTypeMap[name] = ti.Type;
+                        var inferredType = (sm.GetDeclaredSymbol(v) as ILocalSymbol)?.Type;
+                        if (IsUsableType(inferredType))
+                        {
+                            context.VarTypeMap[name] = inferredType!;
+                            continue;
+                        }
+
+                        if (v.Initializer?.Value != null)
+                        {
+                            var initInfo = sm.GetTypeInfo(v.Initializer.Value);
+                            inferredType = initInfo.Type ?? initInfo.ConvertedType;
+                            if (IsUsableType(inferredType))
+                                context.VarTypeMap[name] = inferredType!;
+                        }
                     }
                 }
             }
@@ -46,4 +57,7 @@ public static class VarTypeResolver
             }
         }
     }
+
+    private static bool IsUsableType(ITypeSymbol? type)
+        => type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) };
 }

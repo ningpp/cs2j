@@ -62,6 +62,30 @@ class Test
         Assert.DoesNotContain("items[((count) .add", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void VarLocal_FromRegexSplit_UsesArrayBracketAccess()
+    {
+        var result = Convert("""
+using System;
+using System.Text.RegularExpressions;
+
+class Test
+{
+    void M(string line)
+    {
+        var parts = Regex.Split(line, @"\s{2,}");
+        int value = Int32.Parse(parts[0]);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.True(
+            result.GeneratedCode.Contains("parts[0]", StringComparison.Ordinal),
+            result.GeneratedCode);
+        Assert.DoesNotContain("parts.get(0)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

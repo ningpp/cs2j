@@ -87,6 +87,7 @@ public static class ProjectCompilationBuilder
         var objectAssembly = typeof(object).Assembly.Location;
         var listAssembly = typeof(System.Collections.Generic.List<>).Assembly.Location;
         var jsonAssembly = typeof(System.Text.Json.JsonSerializer).Assembly.Location;
+        var regexAssembly = typeof(System.Text.RegularExpressions.Regex).Assembly.Location;
 
         if (!string.IsNullOrEmpty(objectAssembly) && File.Exists(objectAssembly))
         {
@@ -101,6 +102,11 @@ public static class ProjectCompilationBuilder
         if (!string.IsNullOrEmpty(jsonAssembly) && File.Exists(jsonAssembly))
         {
             references.Add(MetadataReference.CreateFromFile(jsonAssembly));
+        }
+
+        if (!string.IsNullOrEmpty(regexAssembly) && File.Exists(regexAssembly))
+        {
+            references.Add(MetadataReference.CreateFromFile(regexAssembly));
         }
 
         // Add common .NET assemblies
