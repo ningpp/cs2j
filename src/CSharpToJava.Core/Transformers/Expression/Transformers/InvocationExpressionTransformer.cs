@@ -269,9 +269,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         }
                     }
 
-                    var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
-                    var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
-                        ?? InferSamMethodName(delegateInvoke);
+                    var javaMethod = ResolveDelegateInvokeMethodName(delegateInvoke, context);
                     var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                     // Use facade.Transform so properties are emitted as getXxx() rather than bare identifier.
                     // e.g. Sequence(m) where Sequence is a Func<int,double> property → getSequence().apply(m)
@@ -291,16 +289,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     IMethodSymbol? bareInvokeMethod = bareDelegateType.TypeKind == TypeKind.Delegate
                         ? bareDelegateType.DelegateInvokeMethod
                         : null;
-                    string bareJavaMethod = bareInvokeMethod != null
-                        ? (context.TypeMappings.MapMethod(bareDelegateType.ToDisplayString(), "Invoke")
-                            ?? InferSamMethodName(bareInvokeMethod))
-                        : InferSamMethodName(
-                            bareExprTypeInfo.ConvertedType?.TypeKind == TypeKind.Delegate
-                                && bareExprTypeInfo.ConvertedType is INamedTypeSymbol convertedDel
-                                && convertedDel.DelegateInvokeMethod != null
-                                ? convertedDel.DelegateInvokeMethod.ReturnsVoid
-                                : node.Parent is ExpressionStatementSyntax,
+                    string bareJavaMethod;
+                    if (bareInvokeMethod != null)
+                    {
+                        bareJavaMethod = ResolveDelegateInvokeMethodName(bareInvokeMethod, context);
+                    }
+                    else if (bareExprTypeInfo.ConvertedType?.TypeKind == TypeKind.Delegate
+                             && bareExprTypeInfo.ConvertedType is INamedTypeSymbol convertedDel
+                             && convertedDel.DelegateInvokeMethod != null)
+                    {
+                        bareJavaMethod = ResolveDelegateInvokeMethodName(convertedDel.DelegateInvokeMethod, context);
+                    }
+                    else
+                    {
+                        bareJavaMethod = InferSamMethodName(
+                            node.Parent is ExpressionStatementSyntax,
                             node.ArgumentList.Arguments.Count);
+                    }
                     var bareDelReceiver = facade.Transform(bareIdent, context);
                     var bareDelArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                     return $"{bareDelReceiver}.{bareJavaMethod}({bareDelArgs})";
@@ -325,9 +330,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var symInfo = context.GetSymbolInfo(node);
             if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
             {
-                var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
-                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
-                    ?? InferSamMethodName(delegateInvoke);
+                var javaMethod = ResolveDelegateInvokeMethodName(delegateInvoke, context);
                 var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                 var delegateReceiver = facade.Transform(node.Expression, context);
                 return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
@@ -341,9 +344,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var invokeMethod = delegateType.DelegateInvokeMethod;
                 if (invokeMethod != null)
                 {
-                    var containingTypeName = delegateType.ToDisplayString();
-                    var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
-                        ?? InferSamMethodName(invokeMethod);
+                    var javaMethod = ResolveDelegateInvokeMethodName(invokeMethod, context);
                     var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                     var delegateReceiver = facade.Transform(node.Expression, context);
                     return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
@@ -1340,9 +1341,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
                 }
 
-                var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
-                var javaMethod = context.TypeMappings.MapMethod(containingTypeName, "Invoke")
-                    ?? InferSamMethodName(delegateInvoke);
+                var javaMethod = ResolveDelegateInvokeMethodName(delegateInvoke, context);
                 var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
 
                 // If the accessed member is a property, emit the Java getter call.
@@ -5916,6 +5915,27 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static string InferSamMethodName(bool returnsVoid, int parameterCount) =>
         Type.DelegateTransformer.InferSamMethodName(returnsVoid, parameterCount);
+
+    private static string ResolveDelegateInvokeMethodName(IMethodSymbol delegateInvoke, ConversionContext context)
+    {
+        if (IsPredicateCompatibleDelegate(delegateInvoke.ContainingType, delegateInvoke))
+            return "test";
+
+        var containingTypeName = delegateInvoke.ContainingType.ToDisplayString();
+        return context.TypeMappings.MapMethod(containingTypeName, "Invoke")
+            ?? InferSamMethodName(delegateInvoke);
+    }
+
+    private static bool IsPredicateCompatibleDelegate(INamedTypeSymbol delegateType, IMethodSymbol invokeMethod)
+    {
+        if (invokeMethod.ReturnType.SpecialType != SpecialType.System_Boolean)
+            return false;
+
+        var originalDefinition = delegateType.OriginalDefinition.ToDisplayString();
+        return originalDefinition is "System.Func<T, TResult>"
+            or "System.Func<T1, T2, TResult>"
+            or "System.Predicate<T>";
+    }
 
     private static bool IsReceiverOfType(ExpressionSyntax receiver, string typeName, ConversionContext context)
     {
