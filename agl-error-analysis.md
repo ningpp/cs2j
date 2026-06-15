@@ -370,3 +370,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\AssignmentTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
 - **分析**: `System.Xml.XmlReaderSettings.IgnoreWhitespace = true` 的左侧属性符号在当前转换语义下没有被 `AssignmentTransformer` 识别为 `IPropertySymbol`；随后通用赋值路径先把左侧成员访问转换为 getter，产出无效的 `readerSettings.getIgnoreWhitespace() = true`。
 - **修复验证**: 新增 `SystemXml_XmlReaderSettings_PropertyAssignment_GeneratesSetter` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `GraphReader.java:40-41` 生成为 `readerSettings.setIgnoreWhitespace(true)` / `readerSettings.setIgnoreComments(true)`，Maven 第一错推进到 `GraphReader.java:124`。
+
+## Iteration 19 - AddRange receives split array
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\automaticgraphlayout-drawing\src\main\java\Microsoft\Msagl\Drawing\GraphReader.java`
+- **行号**: 124
+- **错误信息**: `[ERROR] /D:/agl26/automaticgraphlayout-drawing/src/main/java/Microsoft/Msagl/Drawing/GraphReader.java:[124,66] 不兼容的类型: java.lang.String[]无法转换为java.util.Collection<? extends java.lang.String>`
+- **代码片段**:
+  ```java
+          var listOfSubgraphs = xmlReader.getAttribute(Tokens.listOfSubgraphs.toString());
+          var subgraphTempl = new SubgraphTemplate();
+          if (!StringHelper.isNullOrEmpty(listOfSubgraphs)) {
+          subgraphTempl.SubgraphIdList.addAll(listOfSubgraphs.split(" "));
+          }
+          var listOfNodes = xmlReader.getAttribute(Tokens.listOfNodes.toString());
+          if (!StringHelper.isNullOrEmpty(listOfNodes)) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Drawing\GraphReader.cs`, `E:\agl-master\GraphLayout\Drawing\SubgraphTemplate.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ArgumentTransformer.cs`
+- **分析**: `List<T>.AddRange(IEnumerable<T>)` 被映射为 Java `addAll(Collection<T>)`，但当参数是来自弱语义 `var` 的 `string.Split` 调用时，参数适配未识别 Java 表达式会返回数组，导致未包装的 `split(...)` 直接传给 `addAll`。
+- **修复验证**: 新增 `AddRange_WithStringSplitArray_WrapsArrayForAddAll` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `GraphReader.java:124/128` 生成为 `addAll(ArrayHelper.toList(...split(" ")))`，Maven 第一错推进到 `GraphReader.java:146` 的 `XmlReader.create(StringReader)` 重载匹配问题。

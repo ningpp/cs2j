@@ -73,6 +73,30 @@ class Sample {
     }
 
     [Fact]
+    public void AddRange_WithStringSplitArray_WrapsArrayForAddAll()
+    {
+        var r = Convert(@"
+using System.Collections.Generic;
+using System.Xml;
+class Holder {
+    public List<string> Values = new List<string>();
+}
+class Sample {
+    XmlReader reader;
+    void Test() {
+        var text = reader.GetAttribute(""ids"");
+        var holder = new Holder();
+        holder.Values.AddRange(text.Split(' '));
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success, string.Join("\n", r.Diagnostics));
+        var code = r.GeneratedCode ?? "";
+        Assert.Contains("holder.Values.addAll(ArrayHelper.toList(text.split(\" \")))", code);
+        Assert.DoesNotContain("holder.Values.addAll(text.split(\" \"))", code);
+    }
+
+    [Fact]
     public void AddRange_WithIEnumerableInterface_UsesForEach()
     {
         var r = Convert(@"

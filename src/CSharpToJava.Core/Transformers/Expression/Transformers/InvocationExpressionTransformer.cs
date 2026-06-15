@@ -4909,6 +4909,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             : ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
 
+        args = CoerceAddRangeArrayArgument(node, args, argStartIndex, originalMethodName, methodName, context);
+
         // Convert.ToXxx(Object) → parseXxx(Object.toString())
         // Java's parseXxx methods require String arguments, but C#'s Convert.ToXxx
         // can accept Object. When the first argument's type is Object (not String),
@@ -5054,6 +5056,65 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return manifestResourceCall;
 
         return $"{receiver}.{methodName}({args})";
+    }
+
+    private static string CoerceAddRangeArrayArgument(
+        InvocationExpressionSyntax node,
+        string args,
+        int argStartIndex,
+        string originalMethodName,
+        string methodName,
+        ConversionContext context)
+    {
+        if (originalMethodName != "AddRange"
+            || methodName != "addAll"
+            || node.ArgumentList.Arguments.Count - argStartIndex != 1
+            || IsAlreadyCollectionWrapped(args))
+        {
+            return args;
+        }
+
+        var argExpression = node.ArgumentList.Arguments[argStartIndex].Expression;
+        var argType = context.GetTypeInfo(argExpression).Type;
+        if (argType is IArrayTypeSymbol arrayType)
+            return ObjectCreationTransformer.WrapArrayForCollectionArg(args, arrayType, context);
+
+        if (IsStringSplitArrayExpression(argExpression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            return $"ArrayHelper.toList({args})";
+        }
+
+        return args;
+    }
+
+    private static bool IsAlreadyCollectionWrapped(string expression)
+    {
+        var trimmed = expression.Trim();
+        return trimmed.StartsWith("ArrayHelper.toList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+            || trimmed.StartsWith("IntStream.range(", StringComparison.Ordinal);
+    }
+
+    private static bool IsStringSplitArrayExpression(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (expression is not InvocationExpressionSyntax invocation
+            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "Split")
+        {
+            return false;
+        }
+
+        var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (methodSymbol?.ContainingType.SpecialType == SpecialType.System_String)
+            return true;
+
+        var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+        return receiverType == null
+            || receiverType.TypeKind is TypeKind.Error or TypeKind.Unknown
+            || receiverType.SpecialType == SpecialType.System_String;
     }
 
     private static bool TryTransformTypeAssemblyManifestResourceStream(
