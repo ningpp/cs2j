@@ -600,3 +600,24 @@
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.cs`
 - **分析**: `new[] { TestContext?.DeploymentDirectory, ..., AppContext.BaseDirectory }` 的元素实际都是 `string`/`null`，但 MSTest 未解析时语义模型把隐式数组元素类型退化为 `object`；数组创建和后续 `Where` helper 都沿用 `Object[]`/`List<Object>`，导致 `Path.Combine` 映射的 `Paths.get(Object, String)` 无法匹配 Java 的 `String` 参数。
 - **修复验证**: 新增 `ProjectImplicitStringArray_WithUnresolvedConditionalAccessFirstElement_StaysStringArray` 红测，确认隐式字符串数组和根 `Where` helper 曾生成 `Object[]`/`List<Object>`；修复后 `dotnet build`、该聚焦测试和全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`MsaglTestBase.java:156` 的 `Object` 到 `String` 类型错误消失，第一错推进为 `ResultVerifierBase.java:256` 的 `java.time.Duration` 到 `CSharpTimeSpan` 类型不兼容。
+
+## Iteration 30 - Stopwatch elapsed returns Duration ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\Constraints\ResultVerifierBase.java`
+- **行号**: 256
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/Constraints/ResultVerifierBase.java:[256,42] 不兼容的类型: java.time.Duration无法转换为io.github.ningpp.compat.CSharpTimeSpan`
+- **代码片段**:
+  ```java
+        }
+        }
+        }
+        CSharpTimeSpan ts = sw.getElapsed();
+        writeLine("  Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}", ts.getHours(), ts.getMinutes(), ts.getSeconds(), ts.getMilliseconds());
+        if (hasResultDiff) {
+        writeLine("  {0} X diff(s), {1} Y diff(s)", diffsX, diffsY);
+        if (diffsX > 0) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\Constraints\ResultVerifierBase.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\StopwatchHelper.java`
+- **分析**: 转换器把 `System.TimeSpan` 映射为 `CSharpTimeSpan`，但 `System.Diagnostics.Stopwatch.Elapsed` 对应的兼容运行时 `StopwatchHelper.getElapsed()` 仍返回 `java.time.Duration`，导致 `TimeSpan ts = sw.Elapsed` 生成的 `CSharpTimeSpan ts = sw.getElapsed()` 与 helper 返回类型不兼容。
+- **修复验证**: 新增 `StopwatchElapsed_AssignedToTimeSpan_CompilesAgainstCompatRuntime` 红测，确认 `StopwatchHelper.getElapsed()` 的 `Duration` 返回类型无法赋给生成代码中的 `CSharpTimeSpan`；修复后 `dotnet build`、该聚焦测试、全量 `dotnet test`、兼容运行时 `mvn test install` 均通过。重新转换并运行 Maven 后，`ResultVerifierBase.java:256` 的 `Duration` 到 `CSharpTimeSpan` 类型错误消失，第一错推进为 `EdgeLabelPlacementTest.java:41` 的 `int[]` 到 `Iterable<?>` 类型不兼容。
