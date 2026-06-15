@@ -475,3 +475,24 @@
 - **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\ObjectCreationTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`
 - **分析**: `System.Collections.ArrayList` 只有 `Count` 方法映射，没有类型映射；对象创建转换时 `context.MapType` 未命中配置，回落到 `System` → `dotnet.system` 命名空间映射，生成了不存在的 `dotnet.system.Collections.ArrayList`。
 - **修复验证**: 新增 `NonGenericArrayListCreation_MapsToJavaArrayList` 红测；修复后 `dotnet build`、聚焦测试与全量 `dotnet test` 均通过。重新转换后 `Graph.java:199` 生成为 `var delendi = new ArrayList();`，Maven 第一错推进到 `DgmlParser/DgmlParser.java:18` 的 `XDocument` 未解析问题。
+
+## Iteration 24 - XDocument has no Java mapping or runtime bridge
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\dgmlparser\src\main\java\DgmlParser\DgmlParser.java`
+- **行号**: 18
+- **错误信息**: `[ERROR] /D:/agl26/dgmlparser/src/main/java/DgmlParser/DgmlParser.java:[18,9] 找不到符号  符号:   类 XDocument  位置: 类 DgmlParser.DgmlParser`
+- **代码片段**:
+  ```java
+    public static Graph parse(String filename) {
+        XDocument doc = XDocument.load(filename);
+        var drawingGraph = new Graph();
+        // Parse nodes
+        var nodes = StreamSupport.stream(doc.descendants().spliterator(), false).filter(e -> Objects.equals(e.getName().LocalName, "Node")).collect(Collectors.toCollection(() -> new ArrayList<>()));
+        for (var nodeElement : nodes) {
+        String id = (nodeElement.attribute("Id") != null ? nodeElement.attribute("Id").getValue() : null);
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\tools\DgmlParser\DGMLParser.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat`
+- **分析**: `System.Xml.Linq.XDocument`/`XElement`/`XAttribute`/`XName` 没有类型映射，也没有对应的 Java compat runtime 类；转换器保留了 `XDocument.load`、`descendants`、`attribute` 等 LINQ-to-XML API 形状，但生成项目依赖中不存在这些符号。
+- **修复验证**: 新增 `XDocumentDescendants_WithNameAndAttribute_MapsToCompatTypes` 红测和 compat `XmlLinqTest` 红测；修复后 `dotnet build`、聚焦测试、全量 `dotnet test` 与 `mvn -f java\csharptojava-compat\pom.xml clean install` 均通过。重新转换后 `DgmlParser.java` 导入 `io.github.ningpp.compat.XDocument`，`dgmlparser` 模块在 Maven 中编译成功，第一错推进到 `msagltests/Constraints/ClusterDef.java:52` 的 `TestContext` 未解析问题。

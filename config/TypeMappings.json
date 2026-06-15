@@ -1974,6 +1974,34 @@
             ]
         },
         {
+            "csharp": "System.Xml.Linq.XDocument",
+            "java": "XDocument",
+            "imports": [
+                "io.github.ningpp.compat.XDocument"
+            ]
+        },
+        {
+            "csharp": "System.Xml.Linq.XElement",
+            "java": "XElement",
+            "imports": [
+                "io.github.ningpp.compat.XElement"
+            ]
+        },
+        {
+            "csharp": "System.Xml.Linq.XAttribute",
+            "java": "XAttribute",
+            "imports": [
+                "io.github.ningpp.compat.XAttribute"
+            ]
+        },
+        {
+            "csharp": "System.Xml.Linq.XName",
+            "java": "XName",
+            "imports": [
+                "io.github.ningpp.compat.XName"
+            ]
+        },
+        {
             "csharp": "System.Xml.Schema.XmlSchemaException",
             "java": "XmlSchemaException",
             "imports": [
