@@ -621,3 +621,23 @@
 - **涉及组件**: `D:\code\cs2j\config\TypeMappings.json`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\StopwatchHelper.java`
 - **分析**: 转换器把 `System.TimeSpan` 映射为 `CSharpTimeSpan`，但 `System.Diagnostics.Stopwatch.Elapsed` 对应的兼容运行时 `StopwatchHelper.getElapsed()` 仍返回 `java.time.Duration`，导致 `TimeSpan ts = sw.Elapsed` 生成的 `CSharpTimeSpan ts = sw.getElapsed()` 与 helper 返回类型不兼容。
 - **修复验证**: 新增 `StopwatchElapsed_AssignedToTimeSpan_CompilesAgainstCompatRuntime` 红测，确认 `StopwatchHelper.getElapsed()` 的 `Duration` 返回类型无法赋给生成代码中的 `CSharpTimeSpan`；修复后 `dotnet build`、该聚焦测试、全量 `dotnet test`、兼容运行时 `mvn test install` 均通过。重新转换并运行 Maven 后，`ResultVerifierBase.java:256` 的 `Duration` 到 `CSharpTimeSpan` 类型错误消失，第一错推进为 `EdgeLabelPlacementTest.java:41` 的 `int[]` 到 `Iterable<?>` 类型不兼容。
+
+## Iteration 31 - CollectionAssert primitive array expected ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\EdgeLabelPlacementTest.java`
+- **行号**: 41
+- **错误信息**: `[ERROR] /D:/agl26/msagltests/src/test/java/Microsoft/Msagl/UnitTests/EdgeLabelPlacementTest.java:[41,35] 不兼容的类型: int[]无法转换为java.lang.Iterable<?>`
+- **代码片段**:
+  ```java
+    @Timeout(120)
+public void expandingSearchTest_IncreasingOnly() {
+        int[] expected = new int[] { 0, 1, 2, 3, 4 };
+        var r = StreamSupport.stream(EdgeLabelPlacement.expandingSearch(0, 0, 5).spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()));
+        CollectionAssert.areEqual(expected, r);
+    }
+        /**
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\EdgeLabelPlacementTest.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`
+- **分析**: `CollectionAssert.AreEqual(expected, r)` 被直接映射为兼容运行时的 `CollectionAssert.areEqual(expected, r)`，但 Java 兼容方法接收 `Iterable<?>`，而转换器没有像 `IEnumerable<T>` 参数和 `AddRange` 那样把 C# 数组参数包装成 Java collection，导致 primitive `int[]` 无法传给 `Iterable<?>`。
+- **修复验证**: 新增 `CollectionAssertAreEqual_PrimitiveArrayExpected_WrapsArrayForIterable` 红测，确认 primitive array 参数曾直接输出为 `CollectionAssert.areEqual(expected, actual)`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 Maven 后，`EdgeLabelPlacementTest.java:41` 的 `int[]` 到 `Iterable<?>` 错误消失，第一错推进为 `SplineRouterTests.java:324` 的 `Object` 到 `String` 类型不兼容。

@@ -1567,6 +1567,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"Assert.{mstestAssertName}({assertArgs})";
         }
 
+        if (TryMapMSTestCollectionAssertInvocation(
+            memberAccess.Expression,
+            context,
+            originalMethodName,
+            methodSymbol,
+            out var mstestCollectionAssertName))
+        {
+            var collectionAssertArgs = TransformMSTestCollectionAssertArguments(node.ArgumentList, context, facade);
+            context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.CollectionAssert");
+            return $"CollectionAssert.{mstestCollectionAssertName}({collectionAssertArgs})";
+        }
+
         // Xunit Assert.* -> csharp.xunit.Assert.* compatibility layer.
         // The xunit assembly is not referenced by the conversion pipeline, so Roslyn
         // cannot resolve Xunit.Assert symbols. We detect it syntactically and map
@@ -6641,6 +6653,57 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         };
 
         return !string.IsNullOrEmpty(mstestMethodName);
+    }
+
+    private static bool TryMapMSTestCollectionAssertInvocation(
+        ExpressionSyntax receiverExpression,
+        ConversionContext context,
+        string originalMethodName,
+        IMethodSymbol? methodSymbol,
+        out string mstestMethodName)
+    {
+        mstestMethodName = string.Empty;
+
+        var isCollectionAssertReceiver = ExpressionTransformerHelpers.StaticReceiverMatches(
+            receiverExpression,
+            context,
+            "CollectionAssert",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.CollectionAssert");
+        var containingType = methodSymbol?.ContainingType.ToDisplayString();
+        var isMSTestCollectionAssert = containingType == "Microsoft.VisualStudio.TestTools.UnitTesting.CollectionAssert";
+        if (!isCollectionAssertReceiver && !isMSTestCollectionAssert)
+            return false;
+
+        mstestMethodName = originalMethodName switch
+        {
+            "AreEqual" => "areEqual",
+            _ => string.Empty,
+        };
+
+        return !string.IsNullOrEmpty(mstestMethodName);
+    }
+
+    private static string TransformMSTestCollectionAssertArguments(
+        ArgumentListSyntax argumentList,
+        ConversionContext context,
+        IExpressionTransformer facade)
+    {
+        var transformedArgs = new List<string>(argumentList.Arguments.Count);
+        for (var i = 0; i < argumentList.Arguments.Count; i++)
+        {
+            var argument = argumentList.Arguments[i];
+            var transformedArg = facade.Transform(argument.Expression, context);
+            if (i < 2 && !IsAlreadyCollectionWrapped(transformedArg))
+            {
+                var argumentType = context.GetTypeInfo(argument.Expression).Type;
+                if (argumentType is IArrayTypeSymbol arrayType)
+                    transformedArg = ObjectCreationTransformer.WrapArrayForCollectionArg(transformedArg, arrayType, context);
+            }
+
+            transformedArgs.Add(transformedArg);
+        }
+
+        return string.Join(", ", transformedArgs);
     }
 
     private static bool TryMapXunitAssertInvocation(
