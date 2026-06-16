@@ -182,7 +182,7 @@ public static class TypeGroupResolver
                         GeneratedCode = javaCompilation.ToString(""),
                         Compilation = javaCompilation,
                         Diagnostics = new List<Context.DiagnosticMessage>(),
-                        FileName = mergedDeclaration.OutputFileName,
+                        FileName = $"{javaType.Name}.java",
                         Package = pkg
                     };
                 }

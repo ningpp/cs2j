@@ -27,13 +27,13 @@ public class ClassTransformer : ITypeTransformer
             throw new ArgumentException($"Expected merged ClassDeclarationSyntax, got {mergedType.MergedSyntax.GetType()}");
         }
 
-        context.EnterType(CreatePlaceholderClass(classDecl.Identifier.Text));
+        context.EnterType(CreatePlaceholderClass(context.GetJavaTopLevelTypeName(mergedType.TypeSymbol)));
         var previousEnclosingRoslynType = context.CurrentEnclosingRoslynType;
         context.CurrentEnclosingRoslynType = mergedType.TypeSymbol;
 
         var javaClass = new JavaClassDeclaration
         {
-            Name = mergedType.TypeSymbol.Name,
+            Name = context.GetJavaTopLevelTypeName(mergedType.TypeSymbol),
             Modifiers = ConvertModifiers(classDecl.Modifiers, context),
         };
 
@@ -402,6 +402,8 @@ public class ClassTransformer : ITypeTransformer
 
         var classSymbol = context.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
         context.CurrentEnclosingRoslynType = classSymbol;
+        if (classSymbol != null)
+            javaClass.Name = context.GetJavaTopLevelTypeName(classSymbol);
         // Ensure abstract modifier is set from the semantic symbol
         if (classSymbol?.IsAbstract == true)
             javaClass.Modifiers |= JavaModifiers.Abstract;

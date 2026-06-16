@@ -226,6 +226,28 @@ public class Sample
     }
 
     [Fact]
+    public void ConversionPipeline_StripsFormatProviderFromStringBuilderAppendFormat()
+    {
+        var result = Convert(@"
+using System.Globalization;
+using System.Text;
+
+public class Sample
+{
+    private const string Format = ""{0:x}"";
+
+    public void Build(StringBuilder sb, int n)
+    {
+        sb.AppendFormat(CultureInfo.InvariantCulture, Format, n);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("sb.append(StringHelper.formatCs(Format, n))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("StringHelper.formatCs(CultureInfo", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ConversionPipeline_DoesNotRewriteFormatString_ForCustomStringTypes()
     {
         var result = Convert(@"

@@ -2925,6 +2925,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "System.Text.StringBuilder")))
         {
             int appendFmtStart = isExtensionInStaticPath ? 1 : 0;
+            if (HasIFormatProviderArgAt(node, appendFmtStart, context))
+                appendFmtStart++;
+
             // Rewrite C# {N} format placeholders to Java % specifiers inside String.format()
             if (node.ArgumentList.Arguments.Count > appendFmtStart
                 && node.ArgumentList.Arguments[appendFmtStart].Expression is LiteralExpressionSyntax
@@ -5433,11 +5436,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// do not accept IFormatProvider).
     /// </summary>
     private static bool HasIFormatProviderFirstArg(InvocationExpressionSyntax node, ConversionContext context)
+        => HasIFormatProviderArgAt(node, 0, context);
+
+    private static bool HasIFormatProviderArgAt(
+        InvocationExpressionSyntax node,
+        int argumentIndex,
+        ConversionContext context)
     {
-        if (node.ArgumentList.Arguments.Count == 0)
+        if (argumentIndex < 0 || node.ArgumentList.Arguments.Count <= argumentIndex)
             return false;
 
-        var firstArg = node.ArgumentList.Arguments[0].Expression;
+        var firstArg = node.ArgumentList.Arguments[argumentIndex].Expression;
 
         // Semantic check: resolve the parameter type
         if (context.SemanticModel != null)

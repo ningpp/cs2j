@@ -23,6 +23,7 @@ public class TypeMappingService
     private readonly Func<string> _getCurrentNamespace;
     private readonly Func<INamespaceSymbol?> _getGlobalNamespace;
     private readonly Func<string, bool> _tryGetSynthesizedRecordMatch;
+    private readonly Func<INamedTypeSymbol, string?> _getAssemblyScopedTypeName;
     private readonly Func<INamedTypeSymbol?> _getCurrentEnclosingType;
 
     /// <summary>
@@ -55,6 +56,7 @@ public class TypeMappingService
         Func<string> getCurrentNamespace,
         Func<INamespaceSymbol?> getGlobalNamespace,
         Func<string, bool> tryGetSynthesizedRecordMatch,
+        Func<INamedTypeSymbol, string?>? getAssemblyScopedTypeName = null,
         Func<string, ITypeSymbol?>? resolveAlias = null,
         Func<INamedTypeSymbol?>? getCurrentEnclosingType = null)
     {
@@ -66,6 +68,7 @@ public class TypeMappingService
         _getCurrentNamespace = getCurrentNamespace;
         _getGlobalNamespace = getGlobalNamespace;
         _tryGetSynthesizedRecordMatch = tryGetSynthesizedRecordMatch;
+        _getAssemblyScopedTypeName = getAssemblyScopedTypeName ?? (_ => null);
         _getCurrentEnclosingType = getCurrentEnclosingType ?? (() => null);
     }
 
@@ -520,6 +523,11 @@ public class TypeMappingService
 
         // Non-generic named types — check config mapping
         var name = typeSymbol.Name;
+        var assemblyScopedName = typeSymbol is INamedTypeSymbol namedNonGeneric
+            ? _getAssemblyScopedTypeName(namedNonGeneric)
+            : null;
+        if (!string.IsNullOrWhiteSpace(assemblyScopedName))
+            name = assemblyScopedName;
 
         var fullQualifiedNameSimple = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         if (fullQualifiedNameSimple.StartsWith("global::"))

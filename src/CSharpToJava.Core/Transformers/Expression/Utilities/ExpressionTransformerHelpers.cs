@@ -819,8 +819,84 @@ public static class ExpressionTransformerHelpers
                 return true;
 
             default:
-                return false;
+                break;
         }
+
+        if (symbol != null)
+            return false;
+
+        if (expression is IdentifierNameSyntax identifier
+            && TryResolveVisibleTypeIdentifier(identifier, context, out var resolvedType))
+        {
+            typeSymbol = resolvedType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveVisibleTypeIdentifier(
+        IdentifierNameSyntax identifier,
+        ConversionContext context,
+        out INamedTypeSymbol typeSymbol)
+    {
+        typeSymbol = null!;
+        if (HasEnclosingTypeMember(identifier))
+            return false;
+
+        var name = identifier.Identifier.Text;
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        if (context.SemanticModel != null)
+        {
+            var visibleTypes = new List<INamedTypeSymbol>();
+            foreach (var symbol in context.SemanticModel.LookupNamespacesAndTypes(identifier.SpanStart, name: name)
+                         .OfType<INamedTypeSymbol>()
+                         .Where(t => t.TypeKind != TypeKind.Error && t.Name == name))
+            {
+                if (!visibleTypes.Any(existing => SymbolEqualityComparer.Default.Equals(existing, symbol)))
+                    visibleTypes.Add(symbol);
+            }
+
+            if (visibleTypes.Count == 1)
+            {
+                typeSymbol = visibleTypes[0];
+                return true;
+            }
+        }
+
+        var compilation = context.SemanticModel?.Compilation ?? context.ProjectCompilation;
+        if (compilation == null)
+            return false;
+
+        foreach (var metadataName in EnumerateNamespaceCandidateTypeNames(context.CurrentNamespace, name))
+        {
+            var candidate = compilation.GetTypeByMetadataName(metadataName);
+            if (candidate is { TypeKind: not TypeKind.Error })
+            {
+                typeSymbol = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> EnumerateNamespaceCandidateTypeNames(string currentNamespace, string typeName)
+    {
+        var ns = currentNamespace;
+        while (!string.IsNullOrWhiteSpace(ns))
+        {
+            yield return $"{ns}.{typeName}";
+            var lastDot = ns.LastIndexOf('.');
+            if (lastDot < 0)
+                break;
+
+            ns = ns[..lastDot];
+        }
+
+        yield return typeName;
     }
 
     /// <summary>
@@ -959,6 +1035,13 @@ public static class ExpressionTransformerHelpers
         ConversionContext context,
         bool preserveEnumType)
     {
+        if (typeSymbol.ContainingType == null
+            && context.TryGetAssemblyScopedJavaTypeName(typeSymbol, out var scopedName))
+        {
+            AddImportForTopLevelType(typeSymbol, context);
+            return scopedName;
+        }
+
         if (preserveEnumType
             && TryGetExplicitTypeMappingKey(typeSymbol, context, out var configKey))
         {
@@ -980,11 +1063,11 @@ public static class ExpressionTransformerHelpers
         else if (typeSymbol.TypeKind == TypeKind.Enum && IsFlagsEnum(typeSymbol, context))
         {
             AddImportForTopLevelType(typeSymbol, context);
-            return BuildNestedTypeReference(typeSymbol);
+            return BuildNestedTypeReference(typeSymbol, context);
         }
 
         AddImportForTopLevelType(typeSymbol, context);
-        return BuildNestedTypeReference(typeSymbol);
+        return BuildNestedTypeReference(typeSymbol, context);
     }
 
     private static void AddImportForTopLevelType(INamedTypeSymbol typeSymbol, ConversionContext context)
@@ -1001,14 +1084,14 @@ public static class ExpressionTransformerHelpers
             return;
         }
 
-        context.AddImport($"{context.NamespaceToPackage(namespaceName)}.{topLevelType.Name}");
+        context.AddImport($"{context.NamespaceToPackage(namespaceName)}.{context.GetJavaTopLevelTypeName(topLevelType)}");
     }
 
-    private static string BuildNestedTypeReference(INamedTypeSymbol typeSymbol)
+    private static string BuildNestedTypeReference(INamedTypeSymbol typeSymbol, ConversionContext context)
     {
         return typeSymbol.ContainingType is INamedTypeSymbol parentType
-            ? $"{BuildNestedTypeReference(parentType)}.{typeSymbol.Name}"
-            : typeSymbol.Name;
+            ? $"{BuildNestedTypeReference(parentType, context)}.{typeSymbol.Name}"
+            : context.GetJavaTopLevelTypeName(typeSymbol);
     }
 
     private static string StripPackageQualifier(string javaType)

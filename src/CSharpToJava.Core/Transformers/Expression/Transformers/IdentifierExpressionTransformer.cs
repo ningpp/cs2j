@@ -907,15 +907,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.getCurrent()";
 
+            var propertyTarget = prop.IsStatic
+                ? MapStaticTypeReceiver(prop.ContainingType, context)
+                : target;
+
             if (IsSystemArrayLengthOnConcreteArray(prop, receiverType))
-                return $"{target}.length";
+                return $"{propertyTarget}.length";
             if (prop.Name == "Length" && IsDeclaredAsConcreteArray(node.Expression, context))
-                return $"{target}.length";
+                return $"{propertyTarget}.length";
 
             if (prop.Name == "Length" && IsSystemArrayLengthOnCSharpArray(prop, receiverType))
-                return CSharpArrayLength(target);
+                return CSharpArrayLength(propertyTarget);
             if (prop.Name == "Length" && IsDeclaredAsSystemArray(node.Expression, context))
-                return CSharpArrayLength(target);
+                return CSharpArrayLength(propertyTarget);
 
             var propContainer = prop.ContainingType;
             bool isGenericDictionaryLike =
@@ -924,8 +928,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
             if (isGenericDictionaryLike)
             {
-                if (prop.Name == "Values") return $"{target}.values()";
-                if (prop.Name == "Keys") return $"{target}.keySet()";
+                if (prop.Name == "Values") return $"{propertyTarget}.values()";
+                if (prop.Name == "Keys") return $"{propertyTarget}.keySet()";
             }
 
             // KeyValuePair<K,V>.Key/.Value → Map.Entry<K,V>.getKey()/.getValue()
@@ -933,7 +937,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 && propContainer?.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
                 && prop.Name is "Key" or "Value")
             {
-                return prop.Name == "Key" ? $"{target}.getKey()" : $"{target}.getValue()";
+                return prop.Name == "Key" ? $"{propertyTarget}.getKey()" : $"{propertyTarget}.getValue()";
             }
 
             if (prop.Name == "Capacity"
@@ -982,17 +986,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 var fqnForRemap = $"{prop.ContainingType.ContainingNamespace}.{prop.ContainingType.Name}";
                 var mappedType = context.TypeMappings.MapType(fqnForRemap);
                 if (!string.IsNullOrEmpty(mappedType) && mappedType != fqnForRemap)
-                    target = mappedType;
+                    propertyTarget = mappedType;
             }
                 if (mappedMethod != null)
                 {
                     ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedMethod, context);
                     if (mappedMethod == "getValues")
-                        return $"{target}.values()";
+                        return $"{propertyTarget}.values()";
                     if (mappedMethod == "getKeys")
-                        return $"{target}.keySet()";
+                        return $"{propertyTarget}.keySet()";
                     if (IsJavaFieldMapping(mappedMethod))
-                        return mappedMethod.Contains('.') ? mappedMethod : $"{target}.{mappedMethod}";
+                        return mappedMethod.Contains('.') ? mappedMethod : $"{propertyTarget}.{mappedMethod}";
                     if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mappedMethod))
                         return prop.IsStatic || IsStaticReceiverExpression(node.Expression, context)
                             ? $"{mappedMethod}()"
@@ -1012,20 +1016,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
                 if (prop.ContainingType.SpecialType == SpecialType.System_Array)
                 {
-                    return $"{target}.{mappedMethod}";
+                    return $"{propertyTarget}.{mappedMethod}";
                 }
-                return $"{target}.{mappedMethod}()";
+                return $"{propertyTarget}.{mappedMethod}()";
             }
 
             if (prop.Name == "Position" && IsSystemIoStreamType(prop.ContainingType))
-                return $"{target}.getPosition()";
+                return $"{propertyTarget}.getPosition()";
 
             if (prop.Name == "Length" && IsSystemIoStreamType(prop.ContainingType))
-                return $"{target}.getLength()";
+                return $"{propertyTarget}.getLength()";
 
             // StringBuilder.Length → length() (Java's StringBuilder has length() not getLength())
             if (prop.Name == "Length" && IsSystemTextStringBuilder(prop.ContainingType))
-                return $"{target}.length()";
+                return $"{propertyTarget}.length()";
 
             // Fix 2: no mapping configured — generate getXxx() for read accesses
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
@@ -1043,14 +1047,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
 
                 if (prop.Name == "Length" && IsSystemStringType(prop.ContainingType))
-                    return $"{target}.length()";
+                    return $"{propertyTarget}.length()";
 
                 // For anonymous types synthesized as Java records, use camelCase accessor (e.g. id() not getId())
                 if (prop.ContainingType.IsAnonymousType
                     && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java25)
                 {
                     var recordAccessor = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
-                    return $"{target}.{recordAccessor}()";
+                    return $"{propertyTarget}.{recordAccessor}()";
                 }
                 // C# IEnumerator.Current is a stable read after MoveNext().
                 if (prop.Name == "Current"
@@ -1058,10 +1062,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         || IsEnumeratorLikeType(receiverType)
                         || (receiverType != null
                             && context.TypeMappings.MapType(receiverType.ToDisplayString()) is "Iterator" or "Iterator<T>")))
-                    return $"{target}.getCurrent()";
+                    return $"{propertyTarget}.getCurrent()";
 
                 var getter = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
-                return $"{target}.{getter}()";
+                return $"{propertyTarget}.{getter}()";
             }
         }
 
@@ -1389,6 +1393,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         if (IsStaticMemberSymbol(accessedSymbol))
         {
+            if (accessedSymbol?.ContainingType is INamedTypeSymbol staticContainingType)
+            {
+                transformedReceiver = MapStaticTypeReceiver(staticContainingType, context);
+                return true;
+            }
+
             var receiverSymbol = GetPreferredIdentifierSymbol(receiver, context, preferInstanceCandidate: false);
             if (receiverSymbol is IAliasSymbol { Target: INamedTypeSymbol aliasedType })
             {
@@ -1541,7 +1551,24 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         => $"get{char.ToUpperInvariant(propertyName[0])}{propertyName[1..]}()";
 
     private static string MapStaticTypeReceiver(ITypeSymbol typeSymbol, ConversionContext context)
-        => ExpressionTransformerHelpers.StripTypeArguments(context.MapType(typeSymbol));
+    {
+        if (typeSymbol is INamedTypeSymbol namedType
+            && namedType.ContainingType == null
+            && context.TryGetAssemblyScopedJavaTypeName(namedType, out var scopedName))
+        {
+            var namespaceName = namedType.ContainingNamespace?.ToDisplayString();
+            if (!string.IsNullOrWhiteSpace(namespaceName)
+                && namespaceName != "<global namespace>"
+                && !string.Equals(namespaceName, context.CurrentNamespace, StringComparison.Ordinal))
+            {
+                context.AddImport($"{context.NamespaceToPackage(namespaceName)}.{scopedName}");
+            }
+
+            return scopedName;
+        }
+
+        return ExpressionTransformerHelpers.StripTypeArguments(context.MapType(typeSymbol));
+    }
 
     private static bool IsStaticReceiverExpression(ExpressionSyntax expression, ConversionContext context)
         => ExpressionTransformerHelpers.TryGetStaticReceiverType(expression, context, out _);
@@ -1748,6 +1775,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 if (m is IPropertySymbol foundProp)
                 {
+                    var propertyTarget = foundProp.IsStatic
+                        ? MapStaticTypeReceiver(foundProp.ContainingType, context)
+                        : target;
+
                     // Check TypeMappings for a configured method name override
                     var typeName = foundProp.ContainingType.ToDisplayString();
                     var mapped = context.TypeMappings.MapMethod(typeName, memberName);
@@ -1772,31 +1803,31 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         if (mapped == "getValues") return $"{target}.values()";
                         if (mapped == "getKeys") return $"{target}.keySet()";
                         if (IsJavaFieldMapping(mapped))
-                            return mapped.Contains('.') ? mapped : $"{target}.{mapped}";
+                            return mapped.Contains('.') ? mapped : $"{propertyTarget}.{mapped}";
                         if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mapped))
                             return foundProp.IsStatic
                                 ? $"{mapped}()"
-                                : $"{mapped}({target})";
+                                : $"{mapped}({propertyTarget})";
                         if (mapped.StartsWith("get", StringComparison.Ordinal)
                             && mapped.Length > 3
                             && memberName == mapped[3..])
-                            return $"{target}.{mapped}()";
-                        return mapped.Contains('.') ? mapped : $"{target}.{mapped}()";
+                            return $"{propertyTarget}.{mapped}()";
+                        return mapped.Contains('.') ? mapped : $"{propertyTarget}.{mapped}()";
                     }
 
                     if (memberName == "Position" && IsSystemIoStreamType(foundProp.ContainingType))
-                        return $"{target}.getPosition()";
+                        return $"{propertyTarget}.getPosition()";
                     if (memberName == "Length" && IsSystemIoStreamType(foundProp.ContainingType))
-                        return $"{target}.getLength()";
+                        return $"{propertyTarget}.getLength()";
 
                     if (memberName == "Current"
                         && (IsEnumeratorLikeType(foundProp.ContainingType)
                             || IsEnumeratorLikeType(namedReceiver)))
-                        return $"{target}.getCurrent()";
+                        return $"{propertyTarget}.getCurrent()";
 
                     // Default: generate getXxx() getter
                     var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
-                    return $"{target}.{getter}()";
+                    return $"{propertyTarget}.{getter}()";
                 }
                 if (m is IFieldSymbol { IsStatic: false })
                 {

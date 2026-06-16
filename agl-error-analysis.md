@@ -817,3 +817,25 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Type\EnumTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs`
 - **分析**: C# 允许 `(DtdProcessing)(-1)` 产生一个未命名 enum 值并把它当作哨兵保存；转换器把 numeric→enum cast 降为 `DtdProcessing.fromValue(-1)`，而普通 Java enum 的 `fromValue` 实现直接 `values()[v]`，导致负数哨兵在赋值时立刻越界。
 - **修复验证**: 新增 `SimpleEnum_CastFromNegativeInt_UsesUncheckedSentinel` 红测，确认简单 enum 的 `(Mode)(-1)` 曾无法生成 `_UNMAPPED` 哨兵且会走数组下标转换；修复后简单 enum 和显式值 enum 一样生成 `value` 字段、`_UNMAPPED(-1)`、安全的 `fromValue`/`fromValueUnchecked`，numeric→enum cast 统一调用 `fromValue` 而不再索引 `values()`。`dotnet build`、该聚焦测试、全量 `dotnet test` 均通过；重新转换并 `mvn clean install -e` 安装 `D:\csharpxml-java` 成功。随后重新转换 `E:\agl-master\GraphLayout\` 到 `D:\agl26` 并运行保存日志的 `mvn clean package -e`，旧的 `DtdProcessing.fromValue(-1)` / `ArrayIndexOutOfBoundsException` 不再出现，第一错推进为 `dotnet.system.SR.getXml_InvalidRootData()` 缺失；该 Maven 运行随后在生成项目单元测试阶段进入长时间运行，已保留 `D:\agl26\mvn-build.log` 中的输出并停止残留测试进程。
+
+## Iteration 40 - Assembly-local System.SR classpath collision
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **行号**: 4723
+- **错误信息**: `java.lang.NoSuchMethodError: 'java.lang.String dotnet.system.SR.getXml_InvalidRootData()'`
+- **代码片段**:
+  ```java
+          }
+          }
+          if (_xmlCharType.isCharData(_ps.chars[_ps.charPos])) {
+          throwValue(SR.getXml_InvalidRootData());
+          } else {
+          throwInvalidChar(_ps.chars, _ps.charsUsed, _ps.charPos);
+          }
+          return false;
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlTextReaderImpl.cs`
+- **根因分类**: 语义丢失
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Context\ConversionContext.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Type\ClassTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
+- **分析**: C# 的 `internal System.SR` 按 assembly 隔离，`System.Private.Xml` 与 `System.Private.Uri` 可以各自拥有同名 helper；转换器把两者都生成成 Java 的 `dotnet.system.SR`，运行时 classpath 只能加载其中一个 jar 的 `SR.class`，导致 XML 代码链接到 URI 的 `SR` 时找不到 `getXml_InvalidRootData()`。
+- **修复验证**: 新增 `AssemblyLocalSystemSrTests` 红测覆盖 `System.SR`、`dotnet.system.SR` 以及 `SR.Format(...)` 静态 receiver；修复后聚焦测试、`dotnet build` 和全量 `dotnet test` 通过。重新转换并安装 `D:\csharpuri-java`、`D:\csharpxml-java` 后，`SystemPrivateUriSR.java`/`SystemPrivateXmlSR.java` 取代冲突的 `SR.java`，`XmlTextReaderImpl.java` 改为调用 `SystemPrivateXmlSR.getXml_InvalidRootData()`。随后重新转换 `E:\agl-master\GraphLayout\` 到 `D:\agl26` 并运行保存日志的 `mvn clean package -e`，旧的 `NoSuchMethodError: dotnet.system.SR.getXml_InvalidRootData()` 已消失；Maven 继续推进到 `InitialLayoutTests` 的 XML 数据错误并在 `SplineRouterTests` 阶段长时间未退出。

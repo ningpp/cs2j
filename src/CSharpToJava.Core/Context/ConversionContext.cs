@@ -96,6 +96,13 @@ public class ConversionContext
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
 
+    /// <summary>
+    /// Name of the project/assembly currently being converted. Some C# internal
+    /// helper types are assembly-local even when their namespace and simple name
+    /// match helpers in another project.
+    /// </summary>
+    public string? CurrentProjectName { get; set; }
+
     /// <summary>Pre-scanned var-declared local types, populated by VarTypeResolver.</summary>
     public Dictionary<string, ITypeSymbol> VarTypeMap { get; } = new(StringComparer.Ordinal);
 
@@ -457,6 +464,7 @@ public class ConversionContext
             () => CurrentNamespace,
             () => SemanticModel?.Compilation?.GlobalNamespace,
             key => TryGetSynthesizedRecord(key, out _),
+            typeSymbol => TryGetAssemblyScopedJavaTypeName(typeSymbol, out var javaName) ? javaName : null,
             resolveAlias: name => ResolveAlias(name),
             getCurrentEnclosingType: () => CurrentEnclosingRoslynType);
         TypeMapper.SetSynthesizedRecordNameResolver(key =>
@@ -548,6 +556,65 @@ public class ConversionContext
     }
 
     public string NamespaceToPackage(string ns) => TypeMapper.NamespaceToPackage(ns);
+    public string GetJavaTopLevelTypeName(INamedTypeSymbol typeSymbol)
+    {
+        if (TryGetAssemblyScopedJavaTypeName(typeSymbol, out var scopedName))
+            return scopedName;
+
+        return typeSymbol.Name;
+    }
+
+    public bool TryGetAssemblyScopedJavaTypeName(INamedTypeSymbol typeSymbol, out string javaName)
+    {
+        javaName = string.Empty;
+        if (!IsAssemblyScopedSystemResourceType(typeSymbol)
+            || string.IsNullOrWhiteSpace(CurrentProjectName))
+        {
+            return false;
+        }
+
+        javaName = BuildAssemblyScopedJavaTypeName(CurrentProjectName, typeSymbol.Name);
+        return true;
+    }
+
+    private static bool IsAssemblyScopedSystemResourceType(INamedTypeSymbol typeSymbol)
+    {
+        var namespaceName = typeSymbol.ContainingNamespace?.ToDisplayString();
+        return typeSymbol.Name == "SR"
+            && typeSymbol.ContainingType == null
+            && namespaceName is "System" or "dotnet.system";
+    }
+
+    private static string BuildAssemblyScopedJavaTypeName(string projectName, string typeName)
+    {
+        var prefix = ToPascalIdentifier(projectName);
+        return string.IsNullOrWhiteSpace(prefix) ? typeName : prefix + typeName;
+    }
+
+    private static string ToPascalIdentifier(string value)
+    {
+        var builder = new System.Text.StringBuilder();
+        var capitalizeNext = true;
+
+        foreach (var ch in value)
+        {
+            if (char.IsLetterOrDigit(ch) || ch == '_')
+            {
+                if (builder.Length == 0 && char.IsDigit(ch))
+                    builder.Append('_');
+
+                builder.Append(capitalizeNext ? char.ToUpperInvariant(ch) : ch);
+                capitalizeNext = false;
+            }
+            else
+            {
+                capitalizeNext = true;
+            }
+        }
+
+        return EscapeJavaKeyword(builder.ToString());
+    }
+
     public string MapType(ITypeSymbol typeSymbol)
     {
         // Check using alias: if the type name matches a registered alias, resolve it

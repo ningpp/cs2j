@@ -71,6 +71,7 @@ public class ProjectConversionPipeline
             });
         }
 
+        context.CurrentProjectName = library.Projects.FirstOrDefault()?.Name ?? library.Name;
         context.ProjectCompilation = compilation;
         return Task.FromResult(ConvertCompilationCore(library, compilation, context, emitFilePaths));
     }
@@ -91,6 +92,7 @@ public class ProjectConversionPipeline
 
         var context = new ConversionContext(_options, _typeMappings);
         var sourceFileList = sourceFiles.ToList();
+        context.CurrentProjectName = projectName;
 
         try
         {
