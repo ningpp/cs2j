@@ -726,3 +726,24 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\MathHelper.java`
 - **分析**: `Point.DoubleToString` 中的 `d.ToString("#.##########", CultureInfo.InvariantCulture)` 被转换为 `MathHelper.formatNumeric("#.##########", d)`，但兼容运行时只支持标准格式符并把未知格式交给 `String.format("%" + format, value)`，于是 C# 自定义数字占位符 `#` 在 Java `Formatter` 中触发 `UnknownFormatConversionException`。
 - **修复验证**: 新增 `DoubleToStringCustomHashFormat_RunsAgainstCompatRuntime` 红测，确认转换后的 Java 运行时曾抛出 `UnknownFormatConversionException: Conversion = '#'`；修复后 `dotnet build`、该聚焦测试、全量 `dotnet test` 均通过，并且 `mvn -f java\csharptojava-compat\pom.xml install` 通过 683 个 compat 测试。重新转换并运行 `mvn clean package -e` 后，`ConvexHullTest` 9 个测试通过，错误摘要中不再包含 `UnknownFormatConversion`，第一错推进为 `IncrementalSugiyamaTests.nodeShapeChange` 的 `drawingGraph` 空引用/资源加载相关问题。
+
+## Iteration 36 - Dot parser returns null graph
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\IncrementalSugiyamaTests.java`
+- **行号**: 37
+- **错误信息**: `java.lang.NullPointerException: Cannot invoke "Microsoft.Msagl.Drawing.Graph.createGeometryGraph()" because "drawingGraph" is null`
+- **代码片段**:
+  ```java
+  public void nodeShapeChange() {
+          // Setup
+          String filePath = getDeploymentPath("Dots", "chat.dot");
+          GeometryGraph graph = this.loadGraph(filePath);
+          var settings = new SugiyamaLayoutSettings();
+          // Initial layout
+          LayeredLayout layeredLayout = new LayeredLayout(graph, settings);
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\tools\Dot2Graph\AttributeValuePair.cs`; 调用点为 `E:\agl-master\GraphLayout\Test\MSAGLTests\Layout\Layered\IncrementalSugiyamaTests.cs` 和 `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs`
+- **分析**: `AttributeValuePair.CreateFromsStrings` 将 `LayerDirection.LR` 存入 `object val`，C# 的 `(LayerDirection)attrVal.val` 是 unbox 到 enum；转换器因源表达式静态类型为 `object` 把它误当数值到 enum 转换，生成 `LayerDirection.fromValue((int)(attrVal.val))`，运行时对 enum 对象执行 `(int)` 导致 `Parser.parse` 捕获 `ClassCastException` 并返回 null，随后 `drawingGraph.createGeometryGraph()` 空引用。
+- **修复验证**: 新增 `EnumCastFromObject_UsesJavaReferenceCast` 红测，确认 object 中 boxed enum 到 enum 的 cast 曾生成数值 enum 转换；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 `mvn clean package -e` 后，`AttributeValuePair.java` 生成 `setLayerDirection((LayerDirection)(attrVal.val))`，`IncrementalSugiyamaTests` 1 个测试通过，旧的 `drawingGraph` 空引用错误消失，第一错推进为 `XmlCharType.bin` manifest resource 缺失。

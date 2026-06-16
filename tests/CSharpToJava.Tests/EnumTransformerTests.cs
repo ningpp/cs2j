@@ -149,6 +149,26 @@ public class Sample
     }
 
     [Fact]
+    public void EnumCastFromObject_UsesJavaReferenceCast()
+    {
+        var result = Convert(@"
+public enum Direction { None, LR, TB }
+
+public class Sample
+{
+    public Direction FromObject(object boxed)
+    {
+        return (Direction)boxed;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("return (Direction)(boxed);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Direction.fromValue((int)(boxed))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Direction.values()[(int)(boxed)]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NestedFlagsEnum_NotSilentlyDropped()
     {
         var result = Convert(@"

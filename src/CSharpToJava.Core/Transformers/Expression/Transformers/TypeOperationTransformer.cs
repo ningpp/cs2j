@@ -249,6 +249,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && targetType is not ("int" or "long" or "short" or "byte" or "double" or "float"))
         {
             var sourceType = context.GetTypeInfo(node.Expression).Type;
+            if (sourceType?.SpecialType == SpecialType.System_Object)
+            {
+                return $"({targetType})({expression})";
+            }
+
             if (sourceType?.TypeKind != TypeKind.Enum)
             {
                 bool isExplicitValue = IsExplicitValueEnum(targetSymbol, context);
