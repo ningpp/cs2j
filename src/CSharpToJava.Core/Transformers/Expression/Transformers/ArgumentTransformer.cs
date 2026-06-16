@@ -469,6 +469,16 @@ public class ArgumentTransformer
         if (context.SemanticModel == null)
             return transformedExpr;
 
+        // System.Buffer methods (BlockCopy, GetByte, SetByte, ByteLength) accept Array
+        // parameters in C#, but the Java Buffer compat class operates on raw Java arrays.
+        // Skip the CSharpArray.of() wrapping so the raw array is passed directly.
+        if (targetParam.Type?.SpecialType == SpecialType.System_Array
+            && targetParam.ContainingSymbol is IMethodSymbol { ContainingType: { } containingType }
+            && containingType.ToDisplayString() == "System.Buffer")
+        {
+            return transformedExpr;
+        }
+
         // When 'this' is passed as IComparer<T>, emit a typed method reference instead.
         // This handles erasure conflicts where the class implements multiple IComparer<T>
         // but Java only allows one Comparator<T>. Using this::compare with type context
