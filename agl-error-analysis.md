@@ -684,3 +684,24 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\UnaryExpressionTransformer.cs`
 - **分析**: `if (!RaiseInteractiveAssert(ex))` 中的 `RaiseInteractiveAssert` 返回 `bool`，但该类还有 `RaiseInteractiveAssert(string)` 重载且 `UnitTestAssertException` 来自缺失 MSTest 元数据，导致语义解析无法可靠给出调用返回类型；`UnaryExpressionTransformer` 的降级逻辑只对显式 boolean 语义或少量名称前缀保留 `!`，于是把 boolean 调用误当数值表达式输出为 `raiseInteractiveAssert(ex) == 0`。
 - **修复验证**: 新增 `ProjectLogicalNot_OnOverloadedBoolMethodWithDegradedCatchType_KeepsExclamation` 红测，确认项目转换路径曾把 `!RaiseInteractiveAssert(ex)` 输出为 `raiseInteractiveAssert(ex) == 0`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 `mvn clean test-compile -e` 后，`Validate.java:59` 的 `boolean` 和 `int` 不可比较错误消失，Maven 输出 `BUILD SUCCESS` 且退出码为 0。
+
+## Iteration 34 - OfType generic filter erased at runtime
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\MsaglTestBase.java`
+- **行号**: 73
+- **错误信息**: `[ERROR] Microsoft.Msagl.UnitTests.Constraints.OverlapRemovalFileTests -- Time elapsed: 0.049 s <<< ERROR! java.lang.ArrayStoreException: Microsoft.Msagl.UnitTests.DebugAssertRedirector`
+- **代码片段**:
+  ```java
+        if (!Validate.getInteractiveMode()) {
+        // If we are not in interactive mode, translate all Debug.Asserts to Assert.Fail
+        // by replacing any default trace listeners with a redirecting listener.
+        var defaultListeners = StreamSupport.stream(Trace.Listeners.ofType().spliterator(), false).toArray(DefaultTraceListener[]::new);
+        for (DefaultTraceListener defaultListener : defaultListeners) {
+        Trace.Listeners.remove(defaultListener);
+        }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\Trace.java`
+- **分析**: `Trace.Listeners.OfType<DefaultTraceListener>().ToArray()` 的 `OfType<T>` 目标类型在过程化 LINQ/普通调用路径中被擦除为 `Trace.Listeners.ofType()`，兼容运行时无法按 `DefaultTraceListener` 过滤，后续 `toArray(DefaultTraceListener[]::new)` 将 `DebugAssertRedirector` 写入 `DefaultTraceListener[]` 时抛出 `ArrayStoreException`。
+- **修复验证**: 新增 `ProjectOfTypeToArray_OnTraceListeners_FiltersByRequestedType` 红测，确认项目转换路径曾生成无类型过滤的 `.ofType()`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 `mvn clean package -e` 后，`OverlapRemovalFileTests` 从 `ArrayStoreException` 推进为 81 个测试通过，第一错推进为 `ConvexHullTest.java:58` 的 `UnknownFormatConversion Conversion = '#'`。

@@ -683,6 +683,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
+        if (TryTransformGenericOfTypeInvocation(
+            memberAccess,
+            receiver,
+            context,
+            facade,
+            out var ofTypeExpression))
+        {
+            return ofTypeExpression;
+        }
+
         if (TryTransformOperatingSystemProbe(
             originalMethodName,
             node.ArgumentList.Arguments,
@@ -5924,6 +5934,46 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         }
         return false;
+    }
+
+    private static bool TryTransformGenericOfTypeInvocation(
+        MemberAccessExpressionSyntax memberAccess,
+        string receiver,
+        ConversionContext context,
+        ExpressionTransformerFacade facade,
+        out string expression)
+    {
+        expression = "";
+
+        if (memberAccess.Name is not GenericNameSyntax
+            {
+                Identifier.Text: "OfType",
+                TypeArgumentList.Arguments.Count: > 0
+            } genericName)
+        {
+            return false;
+        }
+
+        var targetTypeSyntax = genericName.TypeArgumentList.Arguments[0];
+        var targetType = facade.Transform(targetTypeSyntax, context);
+        if (string.IsNullOrWhiteSpace(targetType) || targetType == "Object")
+            return false;
+
+        var targetTypeRef = targetType.Contains('<', StringComparison.Ordinal)
+            ? targetType[..targetType.IndexOf('<')]
+            : targetType;
+
+        var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+        var streamReceiver = BuildStreamReceiverExpression(
+            receiver,
+            receiverType,
+            context,
+            boxPrimitiveArrayElements: false,
+            preserveGroupingValueStream: true,
+            receiverSyntaxNode: memberAccess.Expression);
+
+        expression = $"{streamReceiver}.filter(x -> x instanceof {targetTypeRef}).map(x -> ({targetType}) x)";
+        return true;
     }
 
     private static string BuildArrayCopyExpression(
