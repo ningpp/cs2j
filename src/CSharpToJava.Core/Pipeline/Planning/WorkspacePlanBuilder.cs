@@ -43,7 +43,7 @@ public sealed class WorkspacePlanBuilder
             {
                 TestSources = hasTests ? ["test"] : [],
             },
-            Dependencies = dependencies ?? DefaultDependencies(),
+            Dependencies = dependencies ?? DefaultDependenciesForModule(_groupId, _artifactId),
             RequiredCompatPacks = compatPacks ?? [],
             RequiredRuntimeBridges = runtimeBridges ?? [],
         });
@@ -71,6 +71,16 @@ public sealed class WorkspacePlanBuilder
         new() { GroupId = "io.github.ningpp", ArtifactId = "System.Private.Uri", Version = "0.0.1-SNAPSHOT" },
         new() { GroupId = "io.github.ningpp", ArtifactId = "System.Private.Xml", Version = "0.0.1-SNAPSHOT" },
     ];
+
+    public static IReadOnlyList<JavaDependency> DefaultDependenciesForModule(string groupId, string artifactId) =>
+        DefaultDependencies()
+            .Where(dependency => !IsSelfDependency(dependency, groupId, artifactId))
+            .ToList();
+
+    private static bool IsSelfDependency(JavaDependency dependency, string groupId, string artifactId) =>
+        string.Equals(dependency.GroupId, groupId, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(dependency.ArtifactId, artifactId, StringComparison.OrdinalIgnoreCase)
+        && dependency.Scope == JavaDependencyScope.Compile;
 
     /// <summary>
     /// 从 Maven 坐标字符串构建外部依赖。

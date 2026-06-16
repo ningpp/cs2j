@@ -770,3 +770,26 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\AssemblyCompat.java`, `D:\code\cs2j\src\CSharpToJava.Workspace\SolutionLoader.cs`, `D:\code\cs2j\src\CSharpToJava.CLI\ProjectDiscovery.cs`
 - **分析**: `XmlCharType.cs` 通过 `typeof(XmlWriter).Assembly.GetManifestResourceStream("XmlCharType.bin")` 读取 `System.Private.Xml.csproj` 中声明为 `EmbeddedResource LogicalName="XmlCharType.bin"` 的二进制表；现有 Java runtime 依赖 jar/classpath 没有携带该 manifest resource，`AssemblyCompat` 因而找不到资源并在 XML reader 初始化时抛出异常。
 - **修复验证**: 新增 `XmlCharTypeBin_IsAvailableAsManifestResource` 红测，确认 `AssemblyCompat.getManifestResourceStream(XmlWriter.class, "XmlCharType.bin")` 曾在 Java 运行时抛出 `Manifest resource not found`；将 `XmlCharType.bin` 纳入 `csharptojava-compat` Maven resources 后，`dotnet build`、该聚焦测试、全量 `dotnet test` 和 `mvn -f java\csharptojava-compat\pom.xml install` 均通过，compat jar 中包含 `XmlCharType.bin`。重新转换并运行 `mvn clean package -e` 后，旧的 `XmlCharType.bin` manifest resource 缺失错误消失，第一错推进为 `XmlNamespaceManager` 构造函数中 `_nsdecls[0]` 为空。
+
+## Iteration 38 - Struct array elements default to null
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlNamespaceManager.java`
+- **行号**: 43
+- **错误信息**: `java.lang.RuntimeException: java.lang.NullPointerException: Cannot invoke "dotnet.xml.XmlNamespaceManager$NamespaceDeclaration.set(String, String, int, int)" because "this._nsdecls[0]" is null`
+- **代码片段**:
+  ```java
+      public XmlNamespaceManager(XmlNameTable nameTable) {
+          _nameTable = nameTable;
+          _xml = nameTable.add("xml");
+          _xmlNs = nameTable.add("xmlns");
+          _nsdecls = new NamespaceDeclaration[8];
+          String emptyStr = nameTable.add("");
+          _nsdecls[0].set(emptyStr, emptyStr, -1, -1);
+          _nsdecls[1].set(_xmlNs, nameTable.add(XmlReservedNs.NsXmlNs), -1, -1);
+          _nsdecls[2].set(_xml, nameTable.add(XmlReservedNs.NsXml), 0, -1);
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\XmlNamespacemanager.cs`; AGL 调用入口为 `E:\agl-master\GraphLayout\Test\MSAGLTests\InitialLayoutTests.cs` 经 `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`、`E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\AssignmentTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Declarations.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\Planning\WorkspacePlanBuilder.cs`, `D:\code\cs2j\src\CSharpToJava.CLI\Program.cs`
+- **分析**: C# 的 `new NamespaceDeclaration[8]` 会把每个元素初始化为默认 struct 实例，后续 `_nsdecls[0].Set(...)` 合法；转换器只对 enum 局部数组补默认填充，未对 struct 数组赋值生成元素实例填充，导致 Java 的 `new NamespaceDeclaration[8]` 元素保持 null。
+- **修复验证**: 新增 `StructArray_Assignment_FillsElementsWithDefaultInstances` 红测，确认转换器曾只生成 `entries = new Entry[8];` 而没有元素实例填充；修复后 struct 数组赋值生成 `Arrays.setAll(..., _i -> new Entry())`。验证 `System.Private.Xml` 时发现生成的 `System.Private.Xml` POM 默认依赖自身，补充 `WorkspacePlanBuilder_DefaultDependenciesForModule_OmitsCurrentModule` 红测并修复默认依赖过滤，使运行时依赖可由转换器重新生成并安装。`dotnet build`、两个聚焦测试、全量 `dotnet test` 均通过；重新转换 `D:\csharpxml` 并 `mvn clean install -e` 安装 `System.Private.Xml` 成功。随后重新转换 `E:\agl-master\GraphLayout\` 到 `D:\agl26` 并运行保存完整日志的 `mvn clean package -e`，旧的 `_nsdecls[0]` null 错误消失，第一错推进为 `DtdProcessing.fromValue(-1)` 的 `ArrayIndexOutOfBoundsException`。

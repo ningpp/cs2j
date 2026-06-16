@@ -718,6 +718,35 @@ public class Simple
         Assert.DoesNotContain("public double Value = ", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void StructArray_Assignment_FillsElementsWithDefaultInstances()
+    {
+        var result = Convert(@"
+public class NamespaceTable
+{
+    private struct Entry
+    {
+        public string Prefix;
+        public void Set(string prefix) { Prefix = prefix; }
+    }
+
+    private Entry[] entries;
+
+    public NamespaceTable()
+    {
+        entries = new Entry[8];
+        entries[0].Set("""");
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("import java.util.Arrays;", code, StringComparison.Ordinal);
+        Assert.Contains("entries = new Entry[8];", code, StringComparison.Ordinal);
+        Assert.Contains("Arrays.setAll(entries, _i -> new Entry());", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("entries[0].set", code[..code.IndexOf("Arrays.setAll", StringComparison.Ordinal)], StringComparison.Ordinal);
+    }
+
     // ── Generic type parameter struct binding tests ──────────────────────────
 
     [Fact]

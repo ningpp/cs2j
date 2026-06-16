@@ -226,6 +226,21 @@ public class PlanningTests
     }
 
     [Fact]
+    public void WorkspacePlanBuilder_DefaultDependenciesForModule_OmitsCurrentModule()
+    {
+        var dependencies = WorkspacePlanBuilder.DefaultDependenciesForModule(
+            "io.github.ningpp",
+            "System.Private.Xml");
+
+        Assert.DoesNotContain(dependencies, dependency =>
+            dependency.GroupId == "io.github.ningpp"
+            && dependency.ArtifactId == "System.Private.Xml");
+        Assert.Contains(dependencies, dependency =>
+            dependency.GroupId == "io.github.ningpp"
+            && dependency.ArtifactId == "System.Private.Uri");
+    }
+
+    [Fact]
     public void WorkspacePlanBuilder_MergeRuntimeBridges_DeduplicatesBridgeIdsAndDependencies()
     {
         var merged = WorkspacePlanBuilder.MergeRuntimeBridges(

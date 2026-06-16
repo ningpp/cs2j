@@ -827,6 +827,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        if (op == "="
+            && TryGetStructArrayFillStatement(leftNode, rightNode, left, context, out var structArrayFillStatement))
+        {
+            context.AddPostStatement(structArrayFillStatement);
+        }
+
         // Handle pointer += / -=
         if ((op == "+=" || op == "-=") && context.SemanticModel != null)
         {
@@ -946,6 +952,42 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
 
         return $"{left} {op} {rightStr}";
+    }
+
+    private static bool TryGetStructArrayFillStatement(
+        ExpressionSyntax leftNode,
+        ExpressionSyntax rightNode,
+        string leftExpression,
+        ConversionContext context,
+        out string statement)
+    {
+        statement = string.Empty;
+        if (context.SemanticModel == null)
+            return false;
+
+        if (rightNode is not ArrayCreationExpressionSyntax { Initializer: null } arrayCreation)
+            return false;
+
+        if (arrayCreation.Type.RankSpecifiers.Count != 1)
+            return false;
+
+        var firstRank = arrayCreation.Type.RankSpecifiers[0];
+        if (firstRank.Sizes.Count != 1 || firstRank.Sizes[0].IsKind(SyntaxKind.OmittedArraySizeExpression))
+            return false;
+
+        var rhsType = context.GetTypeInfo(rightNode).Type;
+        var lhsType = context.GetTypeInfo(leftNode).Type;
+        var arrayType = rhsType as IArrayTypeSymbol ?? lhsType as IArrayTypeSymbol;
+        if (arrayType == null || !StructCloneHelper.IsUserDefinedStruct(arrayType.ElementType))
+            return false;
+
+        var elementType = context.MapType(arrayType.ElementType);
+        if (string.IsNullOrWhiteSpace(elementType) || elementType.EndsWith("[]", StringComparison.Ordinal))
+            return false;
+
+        context.AddImport("java.util.Arrays");
+        statement = $"Arrays.setAll({leftExpression}, _i -> new {elementType}())";
+        return true;
     }
 
     /// <summary>

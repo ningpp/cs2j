@@ -431,7 +431,9 @@ public class Program
 
             var compatibilityRequirements = CompatibilityPackPlanner.Analyze(results, CompatibilityRuntime.JavaPackage);
 
-            var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
+            var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependenciesForModule(
+                opts.MavenGroupId,
+                moduleName));
             foreach (var refPath in project.ProjectReferences)
             {
                 var refProject = projects.FirstOrDefault(p =>
@@ -909,7 +911,9 @@ public class Program
             CompatibilityRuntime.JavaPackage);
 
         var deps = new List<JavaDependency>();
-        deps.AddRange(WorkspacePlanBuilder.DefaultDependencies());
+        deps.AddRange(WorkspacePlanBuilder.DefaultDependenciesForModule(
+            opts.MavenGroupId,
+            new DirectoryInfo(opts.Destination).Name));
         deps.AddRange(compatibilityRequirements.ExternalDependencies);
 
         return new JavaModulePlan
@@ -1544,7 +1548,9 @@ public class Program
         IReadOnlyList<string>? requiredCompatPacks = null,
         IReadOnlyList<JavaRuntimeBridgeRequirement>? requiredRuntimeBridges = null)
     {
-        var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependencies());
+        var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependenciesForModule(
+            groupId,
+            module.Name));
 
         foreach (var dep in module.CompileDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
         {
