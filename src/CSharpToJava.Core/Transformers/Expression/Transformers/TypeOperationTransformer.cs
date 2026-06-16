@@ -272,7 +272,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                             is SpecialType.System_Int64 or SpecialType.System_UInt64 ? "long" : "int");
                     return $"{targetType}.fromValue(({valueType})({expression}))";
                 }
-                return $"{targetType}.values()[(int)({expression})]";
+
+                return $"{targetType}.fromValue((int)({expression}))";
             }
         }
 

@@ -149,6 +149,27 @@ public class Sample
     }
 
     [Fact]
+    public void SimpleEnum_CastFromNegativeInt_UsesUncheckedSentinel()
+    {
+        var result = Convert(@"
+public enum Mode { Off, On }
+
+public class Sample
+{
+    public Mode GetSentinel() { return (Mode)(-1); }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Off(0)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("On(1)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("_UNMAPPED", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static Mode fromValue(int v)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public static Mode fromValueUnchecked(int v)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return Mode.fromValue((int)((-1)))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Mode.values()[(int)((-1))]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EnumCastFromObject_UsesJavaReferenceCast()
     {
         var result = Convert(@"

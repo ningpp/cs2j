@@ -167,31 +167,56 @@ public class EnumTransformer : ITypeTransformer
         else
         {
             // 处理枚举成员
+            long ordinalValue = 0;
             foreach (var member in enumDecl.Members)
             {
                 if (member is EnumMemberDeclarationSyntax enumMember)
                 {
-                    javaEnum.Values.Add(enumMember.Identifier.Text);
+                    javaEnum.Values.Add($"{enumMember.Identifier.Text}({FormatIntegralValue(ordinalValue, enumValueType)})");
+                    ordinalValue++;
                 }
             }
+            javaEnum.Values.Add($"_UNMAPPED({FormatIntegralValue(-1, enumValueType)})");
 
             // Always generate getValue() and fromValue() so that enum-to-int
             // conversions (e.g. (int)enumVal or 1 << enumVal) produce valid Java
             // code regardless of whether the enum has explicit value initializers.
             var enumName = enumDecl.Identifier.Text;
+            javaEnum.Fields.Add(new JavaFieldDeclaration
+            {
+                Type = enumValueType,
+                Name = "value",
+                Modifiers = JavaModifiers.Private | JavaModifiers.Final
+            });
+            var ctor = new JavaConstructorDeclaration
+            {
+                ClassName = javaEnum.Name,
+                Modifiers = JavaModifiers.None,
+                Body = "this.value = v;"
+            };
+            ctor.Parameters.Add(new JavaParameter(enumValueType, "v"));
+            javaEnum.Constructors.Add(ctor);
             javaEnum.Methods.Add(new JavaMethodDeclaration
             {
                 ReturnType = enumValueType,
                 Name = "getValue",
                 Modifiers = JavaModifiers.Public,
-                Body = "return ordinal();"
+                Body = "return value;"
             });
             javaEnum.Methods.Add(new JavaMethodDeclaration
             {
                 ReturnType = enumName,
                 Name = "fromValue",
                 Modifiers = JavaModifiers.Public | JavaModifiers.Static,
-                Body = $"return values()[v];"
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
+            });
+            javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
+            javaEnum.Methods.Add(new JavaMethodDeclaration
+            {
+                ReturnType = enumName,
+                Name = "fromValueUnchecked",
+                Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
             });
             javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
         }

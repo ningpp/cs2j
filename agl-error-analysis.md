@@ -793,3 +793,27 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\AssignmentTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Statement\StatementTransformer.Declarations.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Pipeline\Planning\WorkspacePlanBuilder.cs`, `D:\code\cs2j\src\CSharpToJava.CLI\Program.cs`
 - **分析**: C# 的 `new NamespaceDeclaration[8]` 会把每个元素初始化为默认 struct 实例，后续 `_nsdecls[0].Set(...)` 合法；转换器只对 enum 局部数组补默认填充，未对 struct 数组赋值生成元素实例填充，导致 Java 的 `new NamespaceDeclaration[8]` 元素保持 null。
 - **修复验证**: 新增 `StructArray_Assignment_FillsElementsWithDefaultInstances` 红测，确认转换器曾只生成 `entries = new Entry[8];` 而没有元素实例填充；修复后 struct 数组赋值生成 `Arrays.setAll(..., _i -> new Entry())`。验证 `System.Private.Xml` 时发现生成的 `System.Private.Xml` POM 默认依赖自身，补充 `WorkspacePlanBuilder_DefaultDependenciesForModule_OmitsCurrentModule` 红测并修复默认依赖过滤，使运行时依赖可由转换器重新生成并安装。`dotnet build`、两个聚焦测试、全量 `dotnet test` 均通过；重新转换 `D:\csharpxml` 并 `mvn clean install -e` 安装 `System.Private.Xml` 成功。随后重新转换 `E:\agl-master\GraphLayout\` 到 `D:\agl26` 并运行保存完整日志的 `mvn clean package -e`，旧的 `_nsdecls[0]` null 错误消失，第一错推进为 `DtdProcessing.fromValue(-1)` 的 `ArrayIndexOutOfBoundsException`。
+
+## Iteration 39 - Numeric enum cast sentinel indexes Java enum array
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\csharpxml-java\System.Private.Xml\src\main\java\dotnet\xml\XmlReaderSettings.java`
+- **行号**: 314
+- **错误信息**: `java.lang.RuntimeException: java.lang.ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 3`
+- **代码片段**:
+  ```java
+      public XmlReader addConformanceWrapper(XmlReader baseReader) {
+          XmlReaderSettings baseReaderSettings = baseReader.getSettings();
+          boolean checkChars = false;
+          boolean noWhitespace = false;
+          boolean noComments = false;
+          boolean noPIs = false;
+          DtdProcessing dtdProc = DtdProcessing.fromValue((int)((-1)));
+          boolean needWrap = false;
+          if (baseReaderSettings == null) {
+          if (_conformanceLevel != ConformanceLevel.Auto && _conformanceLevel != XmlReader.getV1ConformanceLevel(baseReader)) {
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\XmlReaderSettings.cs`; AGL 调用入口为 `E:\agl-master\GraphLayout\Test\MSAGLTests\InitialLayoutTests.cs` 经 `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`、`E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Type\EnumTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs`
+- **分析**: C# 允许 `(DtdProcessing)(-1)` 产生一个未命名 enum 值并把它当作哨兵保存；转换器把 numeric→enum cast 降为 `DtdProcessing.fromValue(-1)`，而普通 Java enum 的 `fromValue` 实现直接 `values()[v]`，导致负数哨兵在赋值时立刻越界。
+- **修复验证**: 新增 `SimpleEnum_CastFromNegativeInt_UsesUncheckedSentinel` 红测，确认简单 enum 的 `(Mode)(-1)` 曾无法生成 `_UNMAPPED` 哨兵且会走数组下标转换；修复后简单 enum 和显式值 enum 一样生成 `value` 字段、`_UNMAPPED(-1)`、安全的 `fromValue`/`fromValueUnchecked`，numeric→enum cast 统一调用 `fromValue` 而不再索引 `values()`。`dotnet build`、该聚焦测试、全量 `dotnet test` 均通过；重新转换并 `mvn clean install -e` 安装 `D:\csharpxml-java` 成功。随后重新转换 `E:\agl-master\GraphLayout\` 到 `D:\agl26` 并运行保存日志的 `mvn clean package -e`，旧的 `DtdProcessing.fromValue(-1)` / `ArrayIndexOutOfBoundsException` 不再出现，第一错推进为 `dotnet.system.SR.getXml_InvalidRootData()` 缺失；该 Maven 运行随后在生成项目单元测试阶段进入长时间运行，已保留 `D:\agl26\mvn-build.log` 中的输出并停止残留测试进程。
