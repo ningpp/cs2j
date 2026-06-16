@@ -747,3 +747,26 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\TypeOperationTransformer.cs`
 - **分析**: `AttributeValuePair.CreateFromsStrings` 将 `LayerDirection.LR` 存入 `object val`，C# 的 `(LayerDirection)attrVal.val` 是 unbox 到 enum；转换器因源表达式静态类型为 `object` 把它误当数值到 enum 转换，生成 `LayerDirection.fromValue((int)(attrVal.val))`，运行时对 enum 对象执行 `(int)` 导致 `Parser.parse` 捕获 `ClassCastException` 并返回 null，随后 `drawingGraph.createGeometryGraph()` 空引用。
 - **修复验证**: 新增 `EnumCastFromObject_UsesJavaReferenceCast` 红测，确认 object 中 boxed enum 到 enum 的 cast 曾生成数值 enum 转换；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 `mvn clean package -e` 后，`AttributeValuePair.java` 生成 `setLayerDirection((LayerDirection)(attrVal.val))`，`IncrementalSugiyamaTests` 1 个测试通过，旧的 `drawingGraph` 空引用错误消失，第一错推进为 `XmlCharType.bin` manifest resource 缺失。
+
+## Iteration 37 - XmlCharType manifest resource missing
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\InitialLayoutTests.java`
+- **行号**: 202
+- **错误信息**: `java.lang.RuntimeException: java.lang.IllegalArgumentException: Manifest resource not found: XmlCharType.bin`
+- **代码片段**:
+  ```java
+      @Timeout(120)
+  public void graphModelGroupedForceDirectedRectilinearTest() {
+          LayoutAlgorithmSettings settings;
+          ObjectHolder<LayoutAlgorithmSettings> _settingsHolder1 = new ObjectHolder<>();
+          var graph = loadGraph("GraphModelGrouped.msagl.geom", _settingsHolder1);
+          settings = _settingsHolder1.value;
+          var _obj47 = new FastIncrementalLayoutSettings();
+          _obj47.setNodeSeparation(5.0);
+          _obj47.setPackingAspectRatio(1.2);
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\XmlCharType.cs`; AGL 调用入口为 `E:\agl-master\GraphLayout\Test\MSAGLTests\InitialLayoutTests.cs` 经 `E:\agl-master\GraphLayout\Test\MSAGLTests\Infrastructure\MsaglTestBase.cs`、`E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs`
+- **根因分类**: 语义丢失
+- **涉及组件**: `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\AssemblyCompat.java`, `D:\code\cs2j\src\CSharpToJava.Workspace\SolutionLoader.cs`, `D:\code\cs2j\src\CSharpToJava.CLI\ProjectDiscovery.cs`
+- **分析**: `XmlCharType.cs` 通过 `typeof(XmlWriter).Assembly.GetManifestResourceStream("XmlCharType.bin")` 读取 `System.Private.Xml.csproj` 中声明为 `EmbeddedResource LogicalName="XmlCharType.bin"` 的二进制表；现有 Java runtime 依赖 jar/classpath 没有携带该 manifest resource，`AssemblyCompat` 因而找不到资源并在 XML reader 初始化时抛出异常。
+- **修复验证**: 新增 `XmlCharTypeBin_IsAvailableAsManifestResource` 红测，确认 `AssemblyCompat.getManifestResourceStream(XmlWriter.class, "XmlCharType.bin")` 曾在 Java 运行时抛出 `Manifest resource not found`；将 `XmlCharType.bin` 纳入 `csharptojava-compat` Maven resources 后，`dotnet build`、该聚焦测试、全量 `dotnet test` 和 `mvn -f java\csharptojava-compat\pom.xml install` 均通过，compat jar 中包含 `XmlCharType.bin`。重新转换并运行 `mvn clean package -e` 后，旧的 `XmlCharType.bin` manifest resource 缺失错误消失，第一错推进为 `XmlNamespaceManager` 构造函数中 `_nsdecls[0]` 为空。
