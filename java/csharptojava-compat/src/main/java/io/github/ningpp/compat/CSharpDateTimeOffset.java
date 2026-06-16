@@ -99,6 +99,20 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         return new CSharpTimeSpan(getUtcTicks() - other.getUtcTicks());
     }
 
+    // --- Static operator methods (C# operator overloads are static) ---
+
+    public static CSharpDateTimeOffset subtract(CSharpDateTimeOffset left, CSharpTimeSpan right) {
+        return left.subtract(right);
+    }
+
+    public static CSharpTimeSpan subtract(CSharpDateTimeOffset left, CSharpDateTimeOffset right) {
+        return left.subtract(right);
+    }
+
+    public static CSharpDateTimeOffset add(CSharpDateTimeOffset left, CSharpTimeSpan right) {
+        return left.add(right);
+    }
+
     // --- Static Methods ---
 
     public static CSharpDateTimeOffset getNow() {

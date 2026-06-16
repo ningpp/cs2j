@@ -1245,6 +1245,37 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (target == "CSharpTimeSpan" && memberName is "Zero" or "ZERO")
             return "CSharpTimeSpan.ZERO";
 
+        // CSharpTimeSpan static fields: C# PascalCase → Java UPPER_SNAKE_CASE
+        if (target == "CSharpTimeSpan")
+        {
+            var tsField = memberName switch
+            {
+                "TicksPerMillisecond" => "TICKS_PER_MILLISECOND",
+                "TicksPerSecond" => "TICKS_PER_SECOND",
+                "TicksPerMinute" => "TICKS_PER_MINUTE",
+                "TicksPerHour" => "TICKS_PER_HOUR",
+                "TicksPerDay" => "TICKS_PER_DAY",
+                "MinValue" => "MIN_VALUE",
+                "MaxValue" => "MAX_VALUE",
+                _ => null
+            };
+            if (tsField != null)
+                return $"CSharpTimeSpan.{tsField}";
+        }
+
+        // CSharpDateTime static fields: C# PascalCase → Java UPPER_SNAKE_CASE
+        if (target == "CSharpDateTime")
+        {
+            var dtField = memberName switch
+            {
+                "MinValue" => "MIN_VALUE",
+                "MaxValue" => "MAX_VALUE",
+                _ => null
+            };
+            if (dtField != null)
+                return $"CSharpDateTime.{dtField}";
+        }
+
         // Guid.Empty → new UUID(0L, 0L) — java.util.UUID has no Empty field.
         if ((target == "UUID" || target == "Guid") && memberName == "Empty")
         {

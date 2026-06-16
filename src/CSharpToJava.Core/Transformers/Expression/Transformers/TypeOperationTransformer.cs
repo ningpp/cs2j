@@ -300,7 +300,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     if (targetSymbol?.SpecialType == SpecialType.System_Byte)
                         return $"{expression} & 0xFF";
                     if (targetSymbol?.SpecialType == SpecialType.System_UInt32)
-                        return $"(({expression}) & 0xFFFFFFFFL)";
+                        return $"(int)(({expression}) & 0xFFFFFFFFL)";
                     return baseResult;
                 }
 

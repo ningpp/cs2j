@@ -151,12 +151,20 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 return call;
             }
 
-            // Fallback: when GetSymbolInfo fails, use operand type info
-            if (symbolInfo.Symbol == null && IsArithmeticOp(op))
+            // Fallback: when GetSymbolInfo fails or operator is from a non-source (BCL) type,
+            // use operand type info to detect compat library method calls
+            if (IsArithmeticOp(op))
             {
-                var fallbackResult = TryTransformOperatorByTypeInfoToIR(binExpr, op, context);
-                if (fallbackResult != null)
-                    return fallbackResult;
+                bool shouldFallback = symbolInfo.Symbol == null
+                    || (symbolInfo.Symbol is IMethodSymbol ms2
+                        && ms2.MethodKind == MethodKind.UserDefinedOperator
+                        && !OperatorHasSourceDeclaration(ms2));
+                if (shouldFallback)
+                {
+                    var fallbackResult = TryTransformOperatorByTypeInfoToIR(binExpr, op, context);
+                    if (fallbackResult != null)
+                        return fallbackResult;
+                }
             }
         }
 
@@ -421,13 +429,22 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
 
             // Fallback: when GetSymbolInfo fails to resolve the operator (possible when the
-            // compilation has incomplete metadata references), use GetTypeInfo on the operands
-            // to detect user-defined types and emit the corresponding Java static method call.
-            if (symbolInfo.Symbol == null && IsArithmeticOp(op))
+            // compilation has incomplete metadata references), or when the operator is from a
+            // non-source (BCL) type that maps to a compat library type (e.g. DateTime - DateTime),
+            // use GetTypeInfo on the operands to detect user-defined types and emit the
+            // corresponding Java static method call.
+            if (IsArithmeticOp(op))
             {
-                var fallbackResult = TryTransformOperatorByTypeInfo(node, op, context);
-                if (fallbackResult != null)
-                    return fallbackResult;
+                bool shouldFallback = symbolInfo.Symbol == null
+                    || (symbolInfo.Symbol is IMethodSymbol ms2
+                        && ms2.MethodKind == MethodKind.UserDefinedOperator
+                        && !OperatorHasSourceDeclaration(ms2));
+                if (shouldFallback)
+                {
+                    var fallbackResult = TryTransformOperatorByTypeInfo(node, op, context);
+                    if (fallbackResult != null)
+                        return fallbackResult;
+                }
             }
         }
 
@@ -728,7 +745,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             var suffix = GetEnumAccessSuffix(leftType!, context);
             if (suffix != null
                 && !IsNestedBitwiseExpression(node.Left)
-                && !left.EndsWith(suffix, StringComparison.Ordinal))
+                && !left.EndsWith(suffix, StringComparison.Ordinal)
+                && !IsBitwiseNotWithSuffix(left, suffix))
                 left = ApplyEnumAccessSuffix(left, suffix);
         }
 
@@ -737,7 +755,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             var suffix = GetEnumAccessSuffix(rightType!, context);
             if (suffix != null
                 && !IsNestedBitwiseExpression(node.Right)
-                && !right.EndsWith(suffix, StringComparison.Ordinal))
+                && !right.EndsWith(suffix, StringComparison.Ordinal)
+                && !IsBitwiseNotWithSuffix(right, suffix))
                 right = ApplyEnumAccessSuffix(right, suffix);
         }
 
@@ -779,6 +798,23 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             return $"({expr}){suffix}";
         }
         return $"{expr}{suffix}";
+    }
+
+    /// <summary>
+    /// Checks if the expression is a bitwise-not (~) whose inner operand already
+    /// contains the enum value-access suffix (e.g. ~(A.getValue() | B.getValue())).
+    /// In that case the ~result is already an int, so appending another .getValue()
+    /// would be invalid (cannot dereference int).
+    /// </summary>
+    private static bool IsBitwiseNotWithSuffix(string expr, string suffix)
+    {
+        if (!expr.StartsWith("~", StringComparison.Ordinal))
+            return false;
+        var inner = expr[1..].TrimStart();
+        // Strip outer parens added by the unary transformer
+        if (inner.StartsWith("(", StringComparison.Ordinal) && inner.EndsWith(")", StringComparison.Ordinal))
+            inner = inner[1..^1];
+        return inner.Contains(suffix, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -909,10 +945,15 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (roslynOpName == null) return null;
 
         // Verify the type actually declares this operator
-        if (!operatorType.GetMembers(roslynOpName).Any(m =>
+        bool hasSrcOp = operatorType.GetMembers(roslynOpName).Any(m =>
                 m is IMethodSymbol operatorMethod
                 && operatorMethod.MethodKind == MethodKind.UserDefinedOperator
-                && OperatorHasSourceDeclaration(operatorMethod)))
+                && OperatorHasSourceDeclaration(operatorMethod));
+        bool hasBclOp = !hasSrcOp
+            && operatorType.GetMembers(roslynOpName).Any(m =>
+                m is IMethodSymbol operatorMethod
+                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator);
+        if (!hasSrcOp && !hasBclOp)
             return null;
 
         var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
@@ -960,10 +1001,24 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var roslynOpName = SyntaxKindToRoslynOperatorName(node.Kind());
         if (roslynOpName == null) return null;
 
-        if (!operatorType.GetMembers(roslynOpName).Any(m =>
+        // Check if the operator type maps to a compat library type that supports the operation
+        var mappedType = context.MapType(operatorType);
+        var angleIdx2 = mappedType.IndexOf('<');
+        if (angleIdx2 > 0) mappedType = mappedType[..angleIdx2];
+
+        bool hasSourceOperator = operatorType.GetMembers(roslynOpName).Any(m =>
                 m is IMethodSymbol operatorMethod
                 && operatorMethod.MethodKind == MethodKind.UserDefinedOperator
-                && OperatorHasSourceDeclaration(operatorMethod)))
+                && OperatorHasSourceDeclaration(operatorMethod));
+
+        // Also check for BCL operators on types that map to compat types
+        // (e.g. DateTime - DateTime → CSharpDateTime.subtract)
+        bool hasBclOperator = !hasSourceOperator
+            && operatorType.GetMembers(roslynOpName).Any(m =>
+                m is IMethodSymbol operatorMethod
+                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator);
+
+        if (!hasSourceOperator && !hasBclOperator)
             return null;
 
         var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
@@ -1190,7 +1245,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     internal static bool IsBuiltInTypeStatic(INamedTypeSymbol type) =>
         type.TypeKind == TypeKind.Enum ||
-        type.SpecialType != SpecialType.None ||
+        (type.SpecialType != SpecialType.None && !IsMappedToCompatType(type.ToDisplayString())) ||
         BuiltInTypeNames.Contains(type.ToDisplayString());
 
     private static bool IsBuiltInType(INamedTypeSymbol type)
@@ -1198,9 +1253,24 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         // Check if the type is a built-in C# type (int, double, string, bool, etc.)
         var typeName = type.ToDisplayString();
         return type.TypeKind == TypeKind.Enum ||
-               type.SpecialType != SpecialType.None ||
+               (type.SpecialType != SpecialType.None && !IsMappedToCompatType(typeName)) ||
                BuiltInTypeNames.Contains(typeName);
     }
+
+    // Types that have SpecialType != None but are mapped to compat library types
+    // which support operator methods (e.g. DateTime - DateTime → CSharpDateTime.subtract)
+    private static readonly HashSet<string> CompatMappedTypeNames = new(StringComparer.Ordinal)
+    {
+        "System.DateTime",
+        "System.TimeSpan",
+        "System.DateTimeOffset",
+        "DateTime",
+        "TimeSpan",
+        "DateTimeOffset",
+    };
+
+    private static bool IsMappedToCompatType(string typeName)
+        => CompatMappedTypeNames.Contains(typeName);
 
     private static readonly HashSet<string> BuiltInTypeNames = new(StringComparer.Ordinal)
     {

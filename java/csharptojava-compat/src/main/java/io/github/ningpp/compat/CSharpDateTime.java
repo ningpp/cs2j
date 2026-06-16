@@ -55,6 +55,10 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
 
     // --- Conversion helpers ---
 
+    public LocalDateTime ticksToLdtPublic() {
+        return ticksToLdt();
+    }
+
     private static long ldtToTicks(LocalDateTime ldt) {
         long epochDay = ldt.toLocalDate().toEpochDay();
         long nanoOfDay = ldt.toLocalTime().toNanoOfDay();
@@ -145,6 +149,46 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
 
     public CSharpDateTime subtract(CSharpTimeSpan ts) {
         return new CSharpDateTime(ticks - ts.getTicks(), kind);
+    }
+
+    // --- Static operator methods (C# operator overloads are static) ---
+
+    public static CSharpTimeSpan subtract(CSharpDateTime left, CSharpDateTime right) {
+        return left.subtract(right);
+    }
+
+    public static CSharpDateTime subtract(CSharpDateTime left, CSharpTimeSpan right) {
+        return left.subtract(right);
+    }
+
+    public static CSharpDateTime add(CSharpDateTime left, CSharpTimeSpan right) {
+        return left.add(right);
+    }
+
+    // --- ToLocalTime / ToUniversalTime ---
+
+    public CSharpDateTime toLocalTime() {
+        if (kind == DateTimeKind.Local) return this;
+        LocalDateTime ldt = ticksToLdt();
+        if (kind == DateTimeKind.Utc) {
+            ZonedDateTime zdt = ldt.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault());
+            return new CSharpDateTime(ldtToTicks(zdt.toLocalDateTime()), DateTimeKind.Local);
+        }
+        // Unspecified: treat as UTC for conversion
+        ZonedDateTime zdt2 = ldt.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault());
+        return new CSharpDateTime(ldtToTicks(zdt2.toLocalDateTime()), DateTimeKind.Local);
+    }
+
+    public CSharpDateTime toUniversalTime() {
+        if (kind == DateTimeKind.Utc) return this;
+        LocalDateTime ldt = ticksToLdt();
+        if (kind == DateTimeKind.Local) {
+            ZonedDateTime zdt = ldt.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneOffset.UTC);
+            return new CSharpDateTime(ldtToTicks(zdt.toLocalDateTime()), DateTimeKind.Utc);
+        }
+        // Unspecified: treat as Local for conversion
+        ZonedDateTime zdt2 = ldt.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneOffset.UTC);
+        return new CSharpDateTime(ldtToTicks(zdt2.toLocalDateTime()), DateTimeKind.Utc);
     }
 
     // --- Static Methods ---

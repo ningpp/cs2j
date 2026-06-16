@@ -3639,9 +3639,9 @@
         },
         {
             "csharp": "System.TimeZoneInfo",
-            "java": "ZoneId",
+            "java": "CSharpTimeZoneInfo",
             "imports": [
-                "java.time.ZoneId"
+                "io.github.ningpp.compat.CSharpTimeZoneInfo"
             ]
         },
         {
@@ -6672,6 +6672,26 @@
             "imports": [
                 "io.github.ningpp.compat.CultureInfo"
             ]
+        },
+        {
+            "type": "System.TimeZoneInfo",
+            "method": "get_Local",
+            "javaMethod": "getLocal"
+        },
+        {
+            "type": "System.TimeZoneInfo",
+            "method": "Local",
+            "javaMethod": "getLocal"
+        },
+        {
+            "type": "System.TimeZoneInfo",
+            "method": "GetUtcOffset",
+            "javaMethod": "getUtcOffset"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetElementType",
+            "javaMethod": "getComponentType"
         }
     ],
     "namespaceMappings": [

@@ -231,6 +231,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     return $"{receiver}.ensureCapacity({rightCapacity})";
                 }
 
+                // StringBuilder.Length = value → setLength(value)
+                if (prop.Name == "Length"
+                    && prop.ContainingType?.ToDisplayString() == "System.Text.StringBuilder")
+                {
+                    var rightLen = facade.Transform(rightNode, context);
+                    return $"{receiver}.setLength({rightLen})";
+                }
+
                 if (prop.Name == "Position"
                     && IsSystemIoStreamType(prop.ContainingType))
                 {
@@ -322,6 +330,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     string method = "set"; // default for indexers
                     bool isKnownDictionary = false;
                     bool isKnownList = false;
+                    bool isStringBuilder = false;
                     if (containerType is INamedTypeSymbol namedContainer)
                     {
                         var fullName = namedContainer.OriginalDefinition.ToDisplayString();
@@ -331,8 +340,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
                             or "System.Collections.Generic.IList<T>"
                             or "System.Collections.Generic.IReadOnlyList<T>"
                             or "System.Collections.Immutable.ImmutableArray<T>";
+                        isStringBuilder = fullName == "System.Text.StringBuilder";
                         if (isKnownDictionary) method = "put";
                         else if (isKnownList) method = "set";
+                        else if (isStringBuilder) method = "setCharAt";
 
                         if (namedContainer.TypeArguments.Length >= 2 && isKnownDictionary)
                         {
@@ -519,6 +530,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
             {
                 var getter = "get" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
                 var setter = "set" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
+                // StringBuilder.Length: getter is length(), setter is setLength()
+                if (compoundProp.Name == "Length"
+                    && compoundProp.ContainingType?.ToDisplayString() == "System.Text.StringBuilder")
+                {
+                    getter = "length";
+                    setter = "setLength";
+                }
                 var rhs = facade.Transform(rightNode, context);
                 string baseOp = op[..^1]; // "+=" → "+", "-=" → "-", "*=" → "*", etc.
                 // If the property type has a user-defined operator for this operation,

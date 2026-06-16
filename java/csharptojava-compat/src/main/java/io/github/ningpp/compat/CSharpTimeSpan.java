@@ -63,6 +63,11 @@ public final class CSharpTimeSpan implements Comparable<CSharpTimeSpan> {
     public CSharpTimeSpan add(CSharpTimeSpan ts) { return new CSharpTimeSpan(ticks + ts.ticks); }
     public CSharpTimeSpan subtract(CSharpTimeSpan ts) { return new CSharpTimeSpan(ticks - ts.ticks); }
 
+    // --- Static operator methods (C# operator overloads are static) ---
+
+    public static CSharpTimeSpan add(CSharpTimeSpan left, CSharpTimeSpan right) { return left.add(right); }
+    public static CSharpTimeSpan subtract(CSharpTimeSpan left, CSharpTimeSpan right) { return left.subtract(right); }
+
     @Override
     public int compareTo(CSharpTimeSpan other) { return Long.compare(ticks, other.ticks); }
 
