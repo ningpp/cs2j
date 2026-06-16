@@ -829,6 +829,12 @@ public class TypeMappingService
         if (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>")
             return simpleTypeName;
 
+        // When the type has an explicit configured mapping (e.g. System.Decimal → Decimal
+        // with import io.github.ningpp.compat.Decimal), the configured import already
+        // resolves any ambiguity — skip namespace qualification.
+        if (HasConfiguredTypeMapping(typeSymbol))
+            return simpleTypeName;
+
         var curNs = _getCurrentNamespace();
         if (AliasNameCollidesWithDifferentType(typeSymbol)
             || ImportedSimpleNameCollidesWithType(ns, simpleTypeName))
@@ -946,6 +952,46 @@ public class TypeMappingService
 
     private static string TrimGlobalPrefix(string name)
         => name.StartsWith("global::", StringComparison.Ordinal) ? name["global::".Length..] : name;
+
+    private bool HasConfiguredTypeMapping(ITypeSymbol typeSymbol)
+    {
+        var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullName.StartsWith("global::", StringComparison.Ordinal))
+            fullName = fullName["global::".Length..];
+
+        if (_typeMappings.HasTypeMapping(fullName))
+            return true;
+
+        if (IsFrameworkTypeSymbol(typeSymbol)
+            && _typeMappings.FindConfigKeyBySimpleName(typeSymbol.Name) is not null)
+            return true;
+
+        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
+        {
+            var ns = namedType.ContainingNamespace?.ToDisplayString();
+            var qualifiedGenericName = !string.IsNullOrWhiteSpace(ns) && ns != "<global namespace>"
+                ? $"{ns}.{namedType.Name}`{namedType.TypeArguments.Length}"
+                : $"{namedType.Name}`{namedType.TypeArguments.Length}";
+
+            if (_typeMappings.HasTypeMapping(qualifiedGenericName))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsFrameworkTypeSymbol(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol.SpecialType != SpecialType.None)
+            return true;
+
+        var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+        if (string.IsNullOrWhiteSpace(ns))
+            return false;
+
+        return ns.StartsWith("System.", StringComparison.Ordinal)
+            || ns == "System";
+    }
 
     private static INamespaceSymbol? ResolveNamespaceSymbol(INamespaceSymbol root, string namespaceName)
     {

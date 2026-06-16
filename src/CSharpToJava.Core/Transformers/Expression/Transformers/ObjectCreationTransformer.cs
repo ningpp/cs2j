@@ -666,6 +666,41 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# DateTime(year, month, day, hour, minute, second, DateTimeKind) has 7 params,
+        // but CSharpDateTime only has 6-param (without DateTimeKind) and 8-param (with millisecond + DateTimeKind).
+        // Insert a 0 millisecond argument before the DateTimeKind argument.
+        if (bareType == "CSharpDateTime" && argumentList.Arguments.Count == 7 && ctorSymbol != null)
+        {
+            var lastParam = ctorSymbol.Parameters.LastOrDefault();
+            if (lastParam != null && lastParam.Type.ToDisplayString() == "System.DateTimeKind")
+            {
+                var parts = SplitTopLevelArgs(args);
+                if (parts.Count == 7)
+                {
+                    // Insert 0 (millisecond) before the last argument (DateTimeKind)
+                    parts.Insert(6, "0");
+                    return $"new {typeName}({string.Join(", ", parts)})";
+                }
+            }
+        }
+
+        // C# DateTimeOffset(year, month, day, hour, minute, second, DateTimeKind) has 7 params,
+        // but CSharpDateTimeOffset only has 8-param (with millisecond + DateTimeKind).
+        // Insert a 0 millisecond argument before the DateTimeKind argument.
+        if (bareType == "CSharpDateTimeOffset" && argumentList.Arguments.Count == 7 && ctorSymbol != null)
+        {
+            var lastParam = ctorSymbol.Parameters.LastOrDefault();
+            if (lastParam != null && lastParam.Type.ToDisplayString() == "System.DateTimeKind")
+            {
+                var parts = SplitTopLevelArgs(args);
+                if (parts.Count == 7)
+                {
+                    parts.Insert(6, "0");
+                    return $"new {typeName}({string.Join(", ", parts)})";
+                }
+            }
+        }
+
         return $"new {typeName}({args})";
     }
 

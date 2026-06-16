@@ -640,6 +640,8 @@ public class ConversionContext
         // use the fully-qualified Java name (package prefixed) to avoid ambiguity.
         // However, skip qualification when the type IS the current class (self-reference)
         // or is a nested type of the current class — no ambiguity exists in these cases.
+        // Also skip when the type has an explicit configured mapping (e.g. System.Decimal → Decimal),
+        // since the configured import already resolves any ambiguity.
         if (CurrentType != null && typeSymbol is INamedTypeSymbol namedType)
         {
             var simpleName = typeSymbol.Name;
@@ -652,6 +654,11 @@ public class ConversionContext
                         || SymbolEqualityComparer.Default.Equals(CurrentEnclosingRoslynType.OriginalDefinition, namedType.OriginalDefinition)
                         || SymbolEqualityComparer.Default.Equals(CurrentEnclosingRoslynType, namedType.ContainingType));
                 if (isSelfOrNestedReference)
+                    return result;
+
+                // Skip FQN when the type has an explicit configured mapping —
+                // the import from the mapping resolves the ambiguity.
+                if (HasConfiguredTypeMapping(typeSymbol))
                     return result;
 
                 var ns = typeSymbol.ContainingNamespace?.ToDisplayString() ?? "";

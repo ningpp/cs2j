@@ -31,6 +31,15 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         this(year, month, day, hour, minute, second, 0, offset);
     }
 
+    public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, int millisecond, DateTimeKind kind) {
+        this.dateTime = new CSharpDateTime(year, month, day, hour, minute, second, millisecond, kind);
+        this.offset = CSharpTimeSpan.ZERO;
+    }
+
+    public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, DateTimeKind kind) {
+        this(year, month, day, hour, minute, second, 0, kind);
+    }
+
     public CSharpDateTimeOffset(CSharpDateTime dateTime) {
         this.dateTime = dateTime;
         this.offset = CSharpTimeSpan.ZERO;
@@ -89,6 +98,10 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
 
     public CSharpDateTimeOffset addYears(int years) {
         return new CSharpDateTimeOffset(dateTime.addYears(years), offset);
+    }
+
+    public CSharpDateTimeOffset addTicks(long value) {
+        return new CSharpDateTimeOffset(dateTime.addTicks(value), offset);
     }
 
     public CSharpDateTimeOffset subtract(CSharpTimeSpan ts) {
