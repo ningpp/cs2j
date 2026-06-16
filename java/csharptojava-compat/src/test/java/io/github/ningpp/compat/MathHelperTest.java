@@ -494,6 +494,12 @@ class MathHelperTest {
     }
 
     @Test
+    void formatNumeric_customHashFormat() {
+        assertEquals("1.23456789", MathHelper.formatNumeric("#.##########", 1.23456789));
+        assertEquals(".5", MathHelper.formatNumeric("#.##########", 0.5));
+    }
+
+    @Test
     void formatNumeric_nullFormat() {
         assertEquals("42", MathHelper.formatNumeric(null, 42));
     }

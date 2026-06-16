@@ -705,3 +705,24 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\Trace.java`
 - **分析**: `Trace.Listeners.OfType<DefaultTraceListener>().ToArray()` 的 `OfType<T>` 目标类型在过程化 LINQ/普通调用路径中被擦除为 `Trace.Listeners.ofType()`，兼容运行时无法按 `DefaultTraceListener` 过滤，后续 `toArray(DefaultTraceListener[]::new)` 将 `DebugAssertRedirector` 写入 `DefaultTraceListener[]` 时抛出 `ArrayStoreException`。
 - **修复验证**: 新增 `ProjectOfTypeToArray_OnTraceListeners_FiltersByRequestedType` 红测，确认项目转换路径曾生成无类型过滤的 `.ofType()`；修复后 `dotnet build`、该聚焦测试与全量 `dotnet test` 均通过。重新转换并运行 `mvn clean package -e` 后，`OverlapRemovalFileTests` 从 `ArrayStoreException` 推进为 81 个测试通过，第一错推进为 `ConvexHullTest.java:58` 的 `UnknownFormatConversion Conversion = '#'`。
+
+## Iteration 35 - Custom numeric # format
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl26\msagltests\src\test\java\Microsoft\Msagl\UnitTests\ConvexHullTest.java`
+- **行号**: 58
+- **错误信息**: `java.util.UnknownFormatConversionException: Conversion = '#'`
+- **代码片段**:
+  ```java
+          }
+          var actual = ConvexHull.calculateConvexHull(points);
+          Assert.areEqual(4, calculateConvexHullTest_ProceduralLinq1(actual, actual), "Expected only 4 points in convex hull");
+          for (Point point : expected) {
+          Assert.isTrue(StreamSupport.stream(actual.spliterator(), false).collect(Collectors.toSet()).contains(point), "expected point not found in convex hull " + point);
+          }
+      }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\Point.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\InvocationExpressionTransformer.cs`, `D:\code\cs2j\java\csharptojava-compat\src\main\java\io\github\ningpp\compat\MathHelper.java`
+- **分析**: `Point.DoubleToString` 中的 `d.ToString("#.##########", CultureInfo.InvariantCulture)` 被转换为 `MathHelper.formatNumeric("#.##########", d)`，但兼容运行时只支持标准格式符并把未知格式交给 `String.format("%" + format, value)`，于是 C# 自定义数字占位符 `#` 在 Java `Formatter` 中触发 `UnknownFormatConversionException`。
+- **修复验证**: 新增 `DoubleToStringCustomHashFormat_RunsAgainstCompatRuntime` 红测，确认转换后的 Java 运行时曾抛出 `UnknownFormatConversionException: Conversion = '#'`；修复后 `dotnet build`、该聚焦测试、全量 `dotnet test` 均通过，并且 `mvn -f java\csharptojava-compat\pom.xml install` 通过 683 个 compat 测试。重新转换并运行 `mvn clean package -e` 后，`ConvexHullTest` 9 个测试通过，错误摘要中不再包含 `UnknownFormatConversion`，第一错推进为 `IncrementalSugiyamaTests.nodeShapeChange` 的 `drawingGraph` 空引用/资源加载相关问题。
