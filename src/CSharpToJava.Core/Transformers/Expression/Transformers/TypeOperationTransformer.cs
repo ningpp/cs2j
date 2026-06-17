@@ -1010,6 +1010,22 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Struct })
             return $"new {typeName}()";
 
+        // For enum types, C# default(EnumType) returns the member with value 0,
+        // but Java enum references default to null. Return the 0-valued member.
+        if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        {
+            bool isFlags = context.IsFlagsEnum(enumType.Name)
+                || enumType.GetAttributes().Any(a =>
+                    a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+            if (isFlags)
+                return "0";
+            var enumTypeRef = BuildEnumTypeReference(enumType);
+            var zeroMember = FindEnumMemberByValue(enumType, 0);
+            return zeroMember != null
+                ? $"{enumTypeRef}.{zeroMember}"
+                : $"{enumTypeRef}.values()[0]";
+        }
+
         // For type parameters with struct constraint, emit new T().
         // C# default(T) where T : struct yields the zero-initialized value,
         // which in Java corresponds to new T() (structs become classes).
@@ -1153,5 +1169,39 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             "Character" => "Character.valueOf",
             _ => wrapperType
         };
+    }
+
+    private static string BuildEnumTypeReference(INamedTypeSymbol enumType)
+    {
+        return enumType.ContainingType is INamedTypeSymbol parentType
+            ? $"{BuildEnumTypeReference(parentType)}.{enumType.Name}"
+            : enumType.Name;
+    }
+
+    private static string? FindEnumMemberByValue(INamedTypeSymbol enumType, long value)
+    {
+        foreach (var member in enumType.GetMembers())
+        {
+            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field)
+            {
+                if (field.ConstantValue is int intVal && intVal == value)
+                    return field.Name;
+                if (field.ConstantValue is long longVal && longVal == value)
+                    return field.Name;
+                if (field.ConstantValue is short shortVal && shortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is byte byteVal && byteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is sbyte sbyteVal && sbyteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ushort ushortVal && ushortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is uint uintVal && uintVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ulong ulongVal && ulongVal == (ulong)value)
+                    return field.Name;
+            }
+        }
+        return null;
     }
 }

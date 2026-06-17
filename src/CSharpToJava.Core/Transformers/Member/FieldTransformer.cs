@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -126,7 +126,24 @@ public class FieldTransformer : IMemberTransformer
 
             // C# structs are value types that can never be null — initialize fields
             // with default instances so Java code doesn't encounter null struct references.
+            // C# enum fields without initializers default to the member with value 0,
+            // but Java enum references default to null. Initialize to the 0-valued member.
             if (variable.Initializer == null
+                && fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            {
+                bool isFlags = context.IsFlagsEnum(enumType.Name)
+                    || enumType.GetAttributes().Any(a =>
+                        a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+                if (!isFlags)
+                {
+                    var enumTypeRef = BuildEnumTypeReference(enumType);
+                    var zeroMember = FindEnumMemberByValue(enumType, 0);
+                    javaField.Initializer = zeroMember != null
+                        ? $"{enumTypeRef}.{zeroMember}"
+                        : $"{enumTypeRef}.values()[0]";
+                }
+            }
+            else if (variable.Initializer == null
                 && fieldTypeSymbol?.SpecialType == SpecialType.System_Decimal)
             {
                 context.AddImport("io.github.ningpp.compat.Decimal");
@@ -277,5 +294,39 @@ public class FieldTransformer : IMemberTransformer
             || text.Contains("IList", StringComparison.Ordinal)
             || text.Contains("IReadOnlyCollection", StringComparison.Ordinal)
             || text.Contains("IReadOnlyList", StringComparison.Ordinal);
+    }
+
+    private static string BuildEnumTypeReference(INamedTypeSymbol enumType)
+    {
+        return enumType.ContainingType is INamedTypeSymbol parentType
+            ? $"{BuildEnumTypeReference(parentType)}.{enumType.Name}"
+            : enumType.Name;
+    }
+
+    private static string? FindEnumMemberByValue(INamedTypeSymbol enumType, long value)
+    {
+        foreach (var member in enumType.GetMembers())
+        {
+            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field)
+            {
+                if (field.ConstantValue is int intVal && intVal == value)
+                    return field.Name;
+                if (field.ConstantValue is long longVal && longVal == value)
+                    return field.Name;
+                if (field.ConstantValue is short shortVal && shortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is byte byteVal && byteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is sbyte sbyteVal && sbyteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ushort ushortVal && ushortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is uint uintVal && uintVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ulong ulongVal && ulongVal == (ulong)value)
+                    return field.Name;
+            }
+        }
+        return null;
     }
 }

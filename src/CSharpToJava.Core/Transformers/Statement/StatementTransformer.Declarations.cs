@@ -453,7 +453,32 @@ public partial class StatementTransformer
             }
             else
             {
-                init = "";
+                // C# enum local variables without initializers default to the member with value 0,
+                // but Java enum references default to null. Initialize to the 0-valued member.
+                var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
+                if (localSym?.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+                    && context.SemanticModel != null)
+                {
+                    bool isFlags = context.IsFlagsEnum(enumType.Name)
+                        || enumType.GetAttributes().Any(a =>
+                            a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+                    if (!isFlags)
+                    {
+                        var enumTypeRef = BuildEnumTypeReference(enumType);
+                        var zeroMember = FindEnumMemberByValue(enumType, 0);
+                        init = zeroMember != null
+                            ? $" = {enumTypeRef}.{zeroMember}"
+                            : $" = {enumTypeRef}.values()[0]";
+                    }
+                    else
+                    {
+                        init = "";
+                    }
+                }
+                else
+                {
+                    init = "";
+                }
             }
             return $"{ConversionContext.EscapeJavaKeyword(v.Identifier.Text)}{init}";
         }));

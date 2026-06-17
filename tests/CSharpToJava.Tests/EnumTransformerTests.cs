@@ -917,4 +917,167 @@ public class Sample
         Assert.DoesNotContain("(AttributeProperties)(currentElementProperties)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("currentAttributeProperties = AttributeProperties.fromValue((int)(attributeValue)).getValue() &", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void EnumField_WithoutInitializer_DefaultsToZeroMember()
+    {
+        // C# enum field without initializer defaults to the member with value 0 (Full),
+        // but Java enum reference defaults to null. The converter should initialize
+        // the field to the 0-valued enum member.
+        var result = Convert(@"
+public enum AccessMode
+{
+    Full,
+    ReadOnly,
+    WriteOnly
+}
+
+public class Document
+{
+    private AccessMode mode;
+    public AccessMode GetMode() { return mode; }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Field should be initialized to the 0-valued member, not left as null
+        Assert.Contains("AccessMode mode = AccessMode.Full", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("AccessMode mode;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DefaultExpression_EnumType_ReturnsZeroMember()
+    {
+        // C# default(EnumType) returns the member with value 0, not null.
+        var result = Convert(@"
+public enum Status
+{
+    Full,
+    Partial,
+    None
+}
+
+public class Sample
+{
+    public Status GetDefault() { return default(Status); }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Status.Full", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("null", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumLocalVariable_WithoutInitializer_DefaultsToZeroMember()
+    {
+        // C# local enum variable with default(VertStatus) defaults to the 0-valued member,
+        // but Java enum reference defaults to null. The converter should use the 0-valued member.
+        var result = Convert(@"
+public enum VertStatus
+{
+    NotVisited,
+    InStack,
+    Visited,
+}
+
+public class Program
+{
+    public void Check()
+    {
+        VertStatus status = default(VertStatus);
+        System.Console.WriteLine(status);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("VertStatus.NotVisited", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumField_ExplicitValueEnumNoZeroMember_DefaultsToFirstValue()
+    {
+        // When no member has value 0, fall back to values()[0] (first declared member).
+        var result = Convert(@"
+public enum Status
+{
+    Open = 10,
+    Closed = 20
+}
+
+public class Sample
+{
+    private Status mode;
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Status.values()[0]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumField_FlagsEnum_NoInitializerNeeded()
+    {
+        // [Flags] enums map to int/long, Java default is 0, which matches C# default.
+        // No explicit initializer should be added.
+        var result = Convert(@"
+using System;
+
+public class Container
+{
+    [Flags]
+    public enum Options
+    {
+        None = 0,
+        Fast = 1,
+        Safe = 2
+    }
+
+    private Options currentOptions;
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // [Flags] enum fields should NOT get explicit initialization
+        Assert.DoesNotContain("Options.None", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("values()[0]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DefaultExpression_ExplicitValueEnumNoZeroMember_ReturnsFirstValue()
+    {
+        // When no member has value 0, default(EnumType) should fall back to values()[0].
+        var result = Convert(@"
+public enum Priority
+{
+    Low = 1,
+    Medium = 2,
+    High = 3
+}
+
+public class Sample
+{
+    public Priority GetDefault() { return default(Priority); }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Priority.values()[0]", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("null", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumField_NestedEnum_DefaultsToZeroMember()
+    {
+        // Nested enum field should use qualified name for the zero member.
+        var result = Convert(@"
+public class Container
+{
+    public enum InnerStatus
+    {
+        Full,
+        Partial
+    }
+
+    private InnerStatus status;
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Container.InnerStatus.Full", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }
