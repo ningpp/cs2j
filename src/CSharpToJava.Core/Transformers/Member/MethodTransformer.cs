@@ -432,6 +432,8 @@ public class MethodTransformer : IMemberTransformer
             // Add a timeout to prevent tests from hanging indefinitely
             javaMethod.Annotations.Add(new JavaAnnotation("Timeout(120)"));
             context.AddImport("org.junit.jupiter.api.Timeout");
+            // JUnit @Test methods cannot be static
+            javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
 
         // Xunit [Fact] → JUnit 5 @Test
@@ -439,6 +441,8 @@ public class MethodTransformer : IMemberTransformer
         {
             javaMethod.Annotations.Add(new JavaAnnotation("Test"));
             context.AddImport("org.junit.jupiter.api.Test");
+            // JUnit @Test methods cannot be static
+            javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
 
         // Xunit [Theory] → JUnit 5 @ParameterizedTest
@@ -446,12 +450,16 @@ public class MethodTransformer : IMemberTransformer
         {
             javaMethod.Annotations.Add(new JavaAnnotation("ParameterizedTest"));
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
+            // JUnit @ParameterizedTest methods cannot be static
+            javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
 
         if (attributeNames.Contains("DataTestMethod"))
         {
             javaMethod.Annotations.Add(new JavaAnnotation("ParameterizedTest"));
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
+            // JUnit @ParameterizedTest methods cannot be static
+            javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
 
         // Handle [InlineData] attributes → @CsvSource annotation

@@ -432,4 +432,90 @@ public class XunitAssertConversionTests
         Assert.Contains("@Test", result.GeneratedCode);
         Assert.Contains("org.junit.jupiter.api.Test", result.GeneratedCode);
     }
+
+    [Fact]
+    public void Xunit_FactAttribute_removes_static_modifier()
+    {
+        var result = Convert("""
+            using Xunit;
+
+            class MyTests
+            {
+                [Fact]
+                public static void StaticTest()
+                {
+                    Assert.True(true);
+                }
+            }
+            """);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("@Test", result.GeneratedCode);
+        Assert.DoesNotContain("static void staticTest", result.GeneratedCode);
+        Assert.Contains("void staticTest", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Xunit_TheoryAttribute_removes_static_modifier()
+    {
+        var result = Convert("""
+            using Xunit;
+
+            class MyTests
+            {
+                [Theory]
+                [InlineData(1)]
+                public static void StaticTheoryTest(int value)
+                {
+                    Assert.True(value > 0);
+                }
+            }
+            """);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("@ParameterizedTest", result.GeneratedCode);
+        Assert.DoesNotContain("static void staticTheoryTest", result.GeneratedCode);
+        Assert.Contains("void staticTheoryTest", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void MSTest_TestMethodAttribute_removes_static_modifier()
+    {
+        var result = Convert("""
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+            class MyTests
+            {
+                [TestMethod]
+                public static void StaticMSTest()
+                {
+                    Assert.IsTrue(true);
+                }
+            }
+            """);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("@Test", result.GeneratedCode);
+        Assert.DoesNotContain("static void staticMSTest", result.GeneratedCode);
+        Assert.Contains("void staticMSTest", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void MSTest_DataTestMethodAttribute_removes_static_modifier()
+    {
+        var result = Convert("""
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+            class MyTests
+            {
+                [DataTestMethod]
+                [DataRow(1)]
+                public static void StaticDataTest(int value)
+                {
+                    Assert.IsTrue(value > 0);
+                }
+            }
+            """);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("@ParameterizedTest", result.GeneratedCode);
+        Assert.DoesNotContain("static void staticDataTest", result.GeneratedCode);
+        Assert.Contains("void staticDataTest", result.GeneratedCode);
+    }
 }
