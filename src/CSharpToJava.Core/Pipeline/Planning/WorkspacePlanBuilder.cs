@@ -68,8 +68,6 @@ public sealed class WorkspacePlanBuilder
         new() { GroupId = "io.vavr", ArtifactId = "vavr", Version = "0.10.4" },
         new() { GroupId = "com.fasterxml.jackson.core", ArtifactId = "jackson-databind", Version = "2.17.2" },
         new() { GroupId = "io.github.ningpp", ArtifactId = "csharptojava-compat", Version = "1.0-SNAPSHOT" },
-        new() { GroupId = "io.github.ningpp", ArtifactId = "System.Private.Uri", Version = "0.0.1-SNAPSHOT" },
-        new() { GroupId = "io.github.ningpp", ArtifactId = "System.Private.Xml", Version = "0.0.1-SNAPSHOT" },
     ];
 
     public static IReadOnlyList<JavaDependency> DefaultDependenciesForModule(string groupId, string artifactId) =>
