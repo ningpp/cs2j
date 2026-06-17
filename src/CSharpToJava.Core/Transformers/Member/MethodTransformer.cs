@@ -557,8 +557,33 @@ public class MethodTransformer : IMemberTransformer
                     // Direct string literal or other expression
                     memberName = firstArg.ToString().Trim('"');
                 }
-                // Convert PascalCase to camelCase for Java convention
-                var javaMethodName = char.ToLowerInvariant(memberName[0]) + memberName.Substring(1);
+                // Determine if the MemberData references a property or a method.
+                // Properties are converted to getter methods (get + PascalCase) by PropertyTransformer,
+                // so @MethodSource must reference the getter name. Methods use camelCase.
+                SyntaxNode? memberRefNode = null;
+                if (firstArg is InvocationExpressionSyntax invocExpr
+                    && invocExpr.ArgumentList.Arguments.Count > 0)
+                {
+                    memberRefNode = invocExpr.ArgumentList.Arguments[0].Expression;
+                }
+                else
+                {
+                    memberRefNode = firstArg;
+                }
+                var memberSymbol = context.GetSymbolInfo(memberRefNode).Symbol;
+                bool isPropertyMember = memberSymbol is IPropertySymbol;
+
+                string javaMethodName;
+                if (isPropertyMember)
+                {
+                    // PropertyTransformer generates getter as "get" + PascalCase(propName)
+                    javaMethodName = "get" + char.ToUpperInvariant(memberName[0]) + memberName.Substring(1);
+                }
+                else
+                {
+                    // Methods use camelCase
+                    javaMethodName = char.ToLowerInvariant(memberName[0]) + memberName.Substring(1);
+                }
                 javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{javaMethodName}\")"));
             }
         }
