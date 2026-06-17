@@ -33,7 +33,7 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
 
     public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, int millisecond, DateTimeKind kind) {
         this.dateTime = new CSharpDateTime(year, month, day, hour, minute, second, millisecond, kind);
-        this.offset = CSharpTimeSpan.ZERO;
+        this.offset = offsetFromKind(kind);
     }
 
     public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, DateTimeKind kind) {
@@ -42,7 +42,16 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
 
     public CSharpDateTimeOffset(CSharpDateTime dateTime) {
         this.dateTime = dateTime;
-        this.offset = CSharpTimeSpan.ZERO;
+        this.offset = offsetFromKind(dateTime.getKind());
+    }
+
+    private static CSharpTimeSpan offsetFromKind(DateTimeKind kind) {
+        if (kind == DateTimeKind.Utc) {
+            return CSharpTimeSpan.ZERO;
+        }
+        // Local and Unspecified both use the local timezone offset, matching .NET behavior
+        int offsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
+        return CSharpTimeSpan.fromSeconds(offsetSeconds);
     }
 
     // --- Properties ---
