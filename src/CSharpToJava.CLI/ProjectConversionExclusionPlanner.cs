@@ -1,5 +1,5 @@
 using System.Xml.Linq;
-using CSharpToJava.Workspace;
+using CSharpToJava.Core.Workspace;
 
 namespace CSharpToJava.CLI;
 

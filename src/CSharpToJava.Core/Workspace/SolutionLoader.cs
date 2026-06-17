@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.MSBuild;
 
-namespace CSharpToJava.Workspace;
+namespace CSharpToJava.Core.Workspace;
 
 /// <summary>
 /// Loads .sln or .csproj files using MSBuildWorkspace for full semantic resolution.

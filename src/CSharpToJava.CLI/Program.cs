@@ -4,7 +4,7 @@ using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.TypeMapping;
-using CSharpToJava.Workspace;
+using CSharpToJava.Core.Workspace;
 
 namespace CSharpToJava.CLI;
 

@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace CSharpToJava.Workspace;
+namespace CSharpToJava.Core.Workspace;
 
 /// <summary>
 /// Represents a file resource that should be copied to the output directory,
