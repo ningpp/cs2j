@@ -39,6 +39,13 @@ public class PropertyTransformer : IMemberTransformer
             context.IsInStaticMember = true;
         var propertySymbol = context.GetDeclaredSymbol(propDecl);
         var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
+
+        // Detect if this property hides a base class member (C# `new` keyword or implicit hiding).
+        // In C#, hiding is non-virtual: base-typed references call the base getter.
+        // In Java, all methods are virtual, so generating an override would cause incorrect
+        // dispatch. Skip generating getters/setters for hiding properties to preserve C# semantics.
+        var isHidingBaseMember = IsHidingBaseMember(propertySymbol);
+
         var isEncodingPreambleProperty =
             propertySymbol is IPropertySymbol
             {
@@ -123,7 +130,7 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         // 创建 getter
-        if (hasGetter || propDecl.AccessorList == null)  // 默认有 getter
+        if (!isHidingBaseMember && (hasGetter || propDecl.AccessorList == null))  // 默认有 getter
         {
             var getterModifiers = modifiers;
             // 如果属性本身没有访问修饰符，默认为 public
@@ -215,7 +222,7 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         // 创建 setter
-        if (hasSetter)
+        if (!isHidingBaseMember && hasSetter)
         {
             var setterModifiers = modifiers;
             // 如果属性本身没有访问修饰符，默认为 public
@@ -349,5 +356,34 @@ public class PropertyTransformer : IMemberTransformer
         var m = System.Text.RegularExpressions.Regex.Match(javaType,
             @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
         return m.Success ? m.Groups[1].Value : null;
+    }
+
+    /// <summary>
+    /// Checks whether a C# property hides a base class property (using `new` keyword or implicit hiding).
+    /// In C#, hiding is non-virtual: base-typed references call the base getter.
+    /// In Java, all methods are virtual, so we must skip generating getters/setters for hiding
+    /// properties to preserve C# dispatch semantics.
+    /// </summary>
+    private static bool IsHidingBaseMember(ISymbol? propertySymbol)
+    {
+        if (propertySymbol is not IPropertySymbol prop) return false;
+        if (prop.IsOverride) return false;  // explicit override is not hiding
+        if (prop.IsStatic) return false;    // static members don't participate in hiding
+
+        var baseType = prop.ContainingType.BaseType;
+        while (baseType != null)
+        {
+            foreach (var member in baseType.GetMembers(prop.Name))
+            {
+                // Only non-private members are hidden (private members are not visible to derived classes)
+                if (member.DeclaredAccessibility != Accessibility.Private
+                    && (member is IPropertySymbol or IMethodSymbol))
+                {
+                    return true;
+                }
+            }
+            baseType = baseType.BaseType;
+        }
+        return false;
     }
 }
