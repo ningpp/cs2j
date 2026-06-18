@@ -349,15 +349,25 @@ public class ArgumentTransformer
                         javaType = context.MapType(typeInfo.Type);
                 }
                 var refHolderType = HolderTypeResolver.GetHolderType(javaType);
+                // If this variable has an active lambda capture holder (e.g., int[] _index = { index }),
+                // use the holder element access (_index[0]) instead of the raw variable name for
+                // both the seed value and the write-back target.
+                string valueExpr = varName;
+                string writeBackTarget = ConversionContext.EscapeJavaKeyword(varName);
+                if (context.MethodState.TryGetActiveLambdaCaptureHolder(varName, out var captureHolderName))
+                {
+                    valueExpr = $"{captureHolderName}[0]";
+                    writeBackTarget = $"{captureHolderName}[0]";
+                }
                 // `ref` is normally read/write, but procedural LINQ extraction can
                 // turn an outer `out` write inside a lambda into a helper `ref`
                 // parameter. In that generated shape the caller local can be
                 // declared-but-unassigned, so reading it would create invalid Java.
                 var refHolderInit = ShouldSeedRefHolderFromCurrentValue(refIdent, context)
-                    ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, varName)
+                    ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, valueExpr)
                     : HolderTypeResolver.GetHolderInstantiation(refHolderType);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
-                context.AddPostStatement($"{ConversionContext.EscapeJavaKeyword(varName)} = {refHolderName}.value");
+                context.AddPostStatement($"{writeBackTarget} = {refHolderName}.value");
                 return refHolderName;
             }
 

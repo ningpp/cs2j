@@ -124,6 +124,14 @@ public class EnumTransformer : ITypeTransformer
                 Modifiers = JavaModifiers.Private | JavaModifiers.Final
             });
 
+            // Add mutable unmappedValue field for preserving original int on _UNMAPPED
+            javaEnum.Fields.Add(new JavaFieldDeclaration
+            {
+                Type = enumValueType,
+                Name = "unmappedValue",
+                Modifiers = JavaModifiers.Private
+            });
+
             // Add enum constructor (implicitly private in Java)
             var ctor = new JavaConstructorDeclaration
             {
@@ -140,7 +148,7 @@ public class EnumTransformer : ITypeTransformer
                 ReturnType = enumValueType,
                 Name = "getValue",
                 Modifiers = JavaModifiers.Public,
-                Body = "return value;"
+                Body = "if (this == _UNMAPPED) return unmappedValue;\n        return value;"
             });
 
             // Add fromValue() reverse lookup for int → enum casts
@@ -150,7 +158,7 @@ public class EnumTransformer : ITypeTransformer
                 ReturnType = enumName,
                 Name = "fromValue",
                 Modifiers = JavaModifiers.Public | JavaModifiers.Static,
-                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        _UNMAPPED.unmappedValue = v;\n        return _UNMAPPED;"
             });
             javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
 
@@ -160,7 +168,7 @@ public class EnumTransformer : ITypeTransformer
                 ReturnType = enumName,
                 Name = "fromValueUnchecked",
                 Modifiers = JavaModifiers.Public | JavaModifiers.Static,
-                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        _UNMAPPED.unmappedValue = v;\n        return _UNMAPPED;"
             });
             javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
         }
@@ -188,6 +196,12 @@ public class EnumTransformer : ITypeTransformer
                 Name = "value",
                 Modifiers = JavaModifiers.Private | JavaModifiers.Final
             });
+            javaEnum.Fields.Add(new JavaFieldDeclaration
+            {
+                Type = enumValueType,
+                Name = "unmappedValue",
+                Modifiers = JavaModifiers.Private
+            });
             var ctor = new JavaConstructorDeclaration
             {
                 ClassName = javaEnum.Name,
@@ -201,14 +215,14 @@ public class EnumTransformer : ITypeTransformer
                 ReturnType = enumValueType,
                 Name = "getValue",
                 Modifiers = JavaModifiers.Public,
-                Body = "return value;"
+                Body = "if (this == _UNMAPPED) return unmappedValue;\n        return value;"
             });
             javaEnum.Methods.Add(new JavaMethodDeclaration
             {
                 ReturnType = enumName,
                 Name = "fromValue",
                 Modifiers = JavaModifiers.Public | JavaModifiers.Static,
-                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        _UNMAPPED.unmappedValue = v;\n        return _UNMAPPED;"
             });
             javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
             javaEnum.Methods.Add(new JavaMethodDeclaration
@@ -216,7 +230,7 @@ public class EnumTransformer : ITypeTransformer
                 ReturnType = enumName,
                 Name = "fromValueUnchecked",
                 Modifiers = JavaModifiers.Public | JavaModifiers.Static,
-                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        return _UNMAPPED;"
+                Body = $"for ({enumName} e : values()) {{ if (e != _UNMAPPED && e.value == v) return e; }}\n        _UNMAPPED.unmappedValue = v;\n        return _UNMAPPED;"
             });
             javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
         }

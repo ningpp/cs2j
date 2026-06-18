@@ -245,4 +245,26 @@ class T {
         // (it should use _index[0] instead)
         Assert.DoesNotContain("IntHolder _indexRef = new IntHolder(index)", result);
     }
+
+    [Fact]
+    public void RefCallOutsideLambda_UsesCaptureHolderNotRawVariable()
+    {
+        // When a variable is captured by a lambda (creating int[] _index = { index })
+        // and then passed as ref OUTSIDE the lambda, the ref holder should be
+        // seeded from _index[0] (not the raw 'index' variable which may be stale).
+        var result = ConvertCode(@"
+using System;
+class T {
+    void M() {
+        int index = -1;
+        Action a = () => SomeMethod(ref index);
+        index = 0;
+        SomeMethod(ref index);
+    }
+    void SomeMethod(ref int i) { }
+}");
+        // The ref call outside the lambda should use _index[0], not raw 'index'
+        Assert.DoesNotContain("new IntHolder(index)", result);
+        Assert.Contains("new IntHolder(_index[0])", result);
+    }
 }

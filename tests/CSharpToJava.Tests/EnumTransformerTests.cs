@@ -6,6 +6,36 @@ namespace CSharpToJava.Tests;
 public class EnumTransformerTests
 {
     [Fact]
+    public void EnumFromValue_PreservesUnmappedIntegerValue()
+    {
+        // C# enums are named integers — any int can be cast to an enum type.
+        // When (UriFormat)Int32.MinValue is cast, the enum must retain the
+        // original integer so that bitwise checks like (value & ~3) != 0 work.
+        // Java enums are fixed instances; fromValue() must preserve the original
+        // int via a mutable unmappedValue field on _UNMAPPED.
+        var result = Convert(@"
+public enum UriFormat
+{
+    UriEscaped = 1,
+    Unescaped = 2,
+    SafeUnescaped = 3
+}
+
+public class Sample
+{
+    public UriFormat Cast(int v) { return (UriFormat)v; }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // _UNMAPPED must have a mutable unmappedValue field (not final)
+        Assert.Contains("private int unmappedValue;", result.GeneratedCode, StringComparison.Ordinal);
+        // fromValue must set _UNMAPPED.unmappedValue before returning
+        Assert.Contains("_UNMAPPED.unmappedValue = v", result.GeneratedCode, StringComparison.Ordinal);
+        // getValue must return unmappedValue for _UNMAPPED
+        Assert.Contains("if (this == _UNMAPPED) return unmappedValue;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ExplicitValueEnum_GeneratesGetValueAndFromValue()
     {
         var result = Convert(@"
