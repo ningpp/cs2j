@@ -26,14 +26,14 @@ public class StringHelper {
         if (s1 == null && s2 == null) return 0;
         if (s1 == null) return -1;
         if (s2 == null) return  1;
-        return s1.compareTo(s2);
+        return Integer.signum(s1.compareTo(s2));
     }
     /** Mirrors C# String.Compare(s1, s2, ignoreCase) */
     public static int compare(String s1, String s2, boolean ignoreCase) {
         if (s1 == null && s2 == null) return 0;
         if (s1 == null) return -1;
         if (s2 == null) return  1;
-        return ignoreCase ? s1.compareToIgnoreCase(s2) : s1.compareTo(s2);
+        return ignoreCase ? Integer.signum(s1.compareToIgnoreCase(s2)) : Integer.signum(s1.compareTo(s2));
     }
     /** Mirrors C# String.Compare(s1, s2, ignoreCase, culture) */
     public static int compare(String s1, String s2, boolean ignoreCase, Object culture) {
@@ -54,7 +54,7 @@ public class StringHelper {
         if (strA == null && strB == null) return 0;
         if (strA == null) return -1;
         if (strB == null) return  1;
-        return strA.compareTo(strB);
+        return Integer.signum(strA.compareTo(strB));
     }
     /** Mirrors C# String.CompareOrdinal(strA, indexA, strB, indexB, length) */
     public static int compareOrdinal(String strA, int indexA, String strB, int indexB, int length) {
@@ -64,7 +64,7 @@ public class StringHelper {
         }
         String subA = strA.substring(indexA, Math.min(indexA + length, strA.length()));
         String subB = strB.substring(indexB, Math.min(indexB + length, strB.length()));
-        return subA.compareTo(subB);
+        return Integer.signum(subA.compareTo(subB));
     }
     /** Mirrors C# String.Equals(a, b) */
     public static boolean equals(String s1, String s2) {
@@ -519,7 +519,7 @@ public class StringHelper {
         if (s == null) throw new NullPointerException("String cannot be null");
         if (obj == null) throw new NullPointerException("Object cannot be null");
         if (!(obj instanceof String)) throw new ClassCastException("Object must be of type String");
-        return s.compareTo((String) obj);
+        return Integer.signum(s.compareTo((String) obj));
     }
 
     // ==================== Intern / IsInterned ====================

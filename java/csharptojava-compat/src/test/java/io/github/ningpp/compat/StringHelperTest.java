@@ -126,6 +126,35 @@ class StringHelperTest {
         assertTrue(StringHelper.compare("b", "a") > 0);
     }
 
+    // C# String.Compare returns sign values (-1/0/1), not raw code point differences.
+    // Reproduces testCompare bug: "http://www.contoso.com" vs "http://www.contosooo.com"
+    // differ at position 18 ('.' ASCII 46 vs 'o' ASCII 111), raw diff = -65, expected -1.
+    @Test
+    void compare_returnsSignValue_notRawDifference() {
+        assertEquals(-1, StringHelper.compare("http://www.contoso.com", "http://www.contosooo.com"));
+    }
+
+    @Test
+    void compare_returnsSignValue_positive() {
+        assertEquals(1, StringHelper.compare("http://www.contosooo.com", "http://www.contoso.com"));
+    }
+
+    @Test
+    void compare_ignoreCase_returnsSignValue_notRawDifference() {
+        assertEquals(-1, StringHelper.compare("http://www.contoso.com", "http://www.contosooo.com", false));
+    }
+
+    @Test
+    void compareOrdinal_returnsSignValue_notRawDifference() {
+        assertEquals(-1, StringHelper.compareOrdinal("http://www.contoso.com", "http://www.contosooo.com"));
+    }
+
+    @Test
+    void compareOrdinal_substring_returnsSignValue_notRawDifference() {
+        // substrings: "contoso.com" vs "contosooo.c" differ at position 7 ('.' vs 'o')
+        assertEquals(-1, StringHelper.compareOrdinal("xxcontoso.com", 2, "xxcontosooo.com", 2, 11));
+    }
+
     @Test
     void compare_ignoreCase_true() {
         assertEquals(0, StringHelper.compare("ABC", "abc", true));
