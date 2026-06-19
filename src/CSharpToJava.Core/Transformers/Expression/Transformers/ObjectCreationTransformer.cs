@@ -1156,9 +1156,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        context.AddPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
+        context.AddBranchScopedPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
         foreach (var assignment in pendingAssignments)
-            context.AddPreStatement(assignment);
+            context.AddBranchScopedPreStatement(assignment);
 
         return tmpVar;
     }

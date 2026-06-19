@@ -384,6 +384,10 @@ public class ConversionContext
     public IReadOnlyList<string> DrainPreStatements() => MethodState.DrainPreStatements();
     public bool HasPendingPreStatements => MethodState.HasPendingPreStatements;
 
+    public void AddBranchScopedPreStatement(string statement) => MethodState.AddBranchScopedPreStatement(statement);
+    public IReadOnlyList<string> DrainBranchScopedPreStatements() => MethodState.DrainBranchScopedPreStatements();
+    public bool HasBranchScopedPreStatements => MethodState.HasBranchScopedPreStatements;
+
     public void AddPostStatement(string statement) => MethodState.AddPostStatement(statement);
     public IReadOnlyList<string> DrainPostStatements() => MethodState.DrainPostStatements();
     public bool HasPendingPostStatements => MethodState.HasPendingPostStatements;

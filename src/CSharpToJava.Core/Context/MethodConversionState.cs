@@ -25,12 +25,50 @@ public class MethodConversionState
 
     public IReadOnlyList<string> DrainPreStatements()
     {
+        // Promote any remaining branch-scoped pre-statements to the regular list.
+        // This handles object initializers at statement level (not inside ternary).
+        // Inside ternaries, the ternary handler drains branch-scoped pre-statements
+        // first, so there's nothing to promote here.
+        if (_branchScopedPreStatements.Count > 0)
+        {
+            foreach (var s in _branchScopedPreStatements)
+            {
+                if (!_pendingPreStatements.Contains(s))
+                    _pendingPreStatements.Add(s);
+            }
+            _branchScopedPreStatements.Clear();
+        }
+
         var result = _pendingPreStatements.ToList();
         _pendingPreStatements.Clear();
         return result;
     }
 
-    public bool HasPendingPreStatements => _pendingPreStatements.Count > 0;
+    public bool HasPendingPreStatements => _pendingPreStatements.Count > 0 || _branchScopedPreStatements.Count > 0;
+
+    // ─── Branch-Scoped Pre-Statements ──────────────────────────────────
+
+    /// <summary>
+    /// Pre-statements that must be emitted inside a conditional branch (if-else)
+    /// rather than hoisted to the enclosing statement level. Used by object
+    /// initializer extraction inside ternary expressions to avoid calling
+    /// side-effectful code unconditionally.
+    /// </summary>
+    private readonly List<string> _branchScopedPreStatements = new();
+
+    public void AddBranchScopedPreStatement(string statement)
+    {
+        _branchScopedPreStatements.Add(statement);
+    }
+
+    public IReadOnlyList<string> DrainBranchScopedPreStatements()
+    {
+        var result = _branchScopedPreStatements.ToList();
+        _branchScopedPreStatements.Clear();
+        return result;
+    }
+
+    public bool HasBranchScopedPreStatements => _branchScopedPreStatements.Count > 0;
 
     private readonly List<string> _pendingPostStatements = new();
 
