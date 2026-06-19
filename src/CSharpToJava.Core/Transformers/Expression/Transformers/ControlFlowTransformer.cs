@@ -146,6 +146,22 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         {
             var resultVar = context.GenerateSyntheticName("_condResult");
 
+            // Java's `var` requires an initializer to infer the type, but this
+            // variable is assigned inside both if-else branches. Resolve the
+            // explicit Java type from the conditional expression's type symbol.
+            string resultType = "Object";
+            if (context.SemanticModel != null)
+            {
+                var typeInfo = context.GetTypeInfo(node);
+                var typeSymbol = typeInfo.Type ?? typeInfo.ConvertedType;
+                if (typeSymbol != null)
+                {
+                    var mapped = context.MapType(typeSymbol);
+                    if (!string.IsNullOrWhiteSpace(mapped))
+                        resultType = mapped;
+                }
+            }
+
             var trueBlock = string.Join("\n", trueBranchPres)
                 + (trueBranchPres.Count > 0 ? "\n" : "")
                 + $"{resultVar} = {trueExpr};";
@@ -153,7 +169,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                 + (falseBranchPres.Count > 0 ? "\n" : "")
                 + $"{resultVar} = {falseExpr};";
 
-            context.AddPreStatement($"var {resultVar};");
+            context.AddPreStatement($"{resultType} {resultVar};");
             context.AddPreStatement(
                 $"if ({condition}) {{\n{trueBlock}\n}} else {{\n{falseBlock}\n}}");
 

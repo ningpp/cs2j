@@ -65,6 +65,10 @@ class TestClass
         // The ternary condition must still be present
         Assert.Contains("str != null", code, StringComparison.Ordinal);
 
+        // The result variable must be declared with an explicit type, not `var`
+        // (Java forbids `var x;` without an initializer).
+        Assert.DoesNotContain("var _condResult", code, StringComparison.Ordinal);
+
         // BUG: The object initializer is hoisted out of the ternary, causing
         // parsePoint(str) to be called unconditionally even when str is null.
         // The generated code looks like:
@@ -129,6 +133,10 @@ class TestClass
         var code = result.GeneratedCode;
         Assert.Contains("str != null", code, StringComparison.Ordinal);
 
+        // The result variable must be declared with an explicit type, not `var`
+        // (Java forbids `var x;` without an initializer).
+        Assert.DoesNotContain("var _condResult", code, StringComparison.Ordinal);
+
         // Same bug: setter hoisted before the ternary
         var lines = code.Split('\n').Select(l => l.Trim()).ToList();
         var ternaryLineIndex = lines.FindIndex(l => l.Contains("str != null"));
@@ -170,6 +178,10 @@ class TestClass
 
         var code = result.GeneratedCode;
         Assert.Contains("str != null", code, StringComparison.Ordinal);
+
+        // The result variable must be declared with an explicit type, not `var`
+        // (Java forbids `var x;` without an initializer).
+        Assert.DoesNotContain("var _condResult", code, StringComparison.Ordinal);
 
         // Transform(str) must not be called unconditionally
         var lines = code.Split('\n').Select(l => l.Trim()).ToList();
@@ -216,6 +228,10 @@ class TestClass
 
         var code = result.GeneratedCode;
         Assert.Contains("str != null", code, StringComparison.Ordinal);
+
+        // The result variable must be declared with an explicit type, not `var`
+        // (Java forbids `var x;` without an initializer).
+        Assert.DoesNotContain("var _condResult", code, StringComparison.Ordinal);
 
         // Neither property setter should be hoisted out of the ternary guard
         var lines = code.Split('\n').Select(l => l.Trim()).ToList();
