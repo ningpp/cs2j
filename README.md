@@ -80,4 +80,4 @@ tests/
 
 ## License
 
-私有的、需付费使用
+本项目采用 [MIT License](LICENSE) 开源许可。
