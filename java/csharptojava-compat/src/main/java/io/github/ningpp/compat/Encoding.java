@@ -8,6 +8,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CodingErrorAction;
+import java.nio.charset.CoderResult;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -589,19 +590,26 @@ public class Encoding {
         public void convert(byte[] bytes, int byteIndex, int byteCount,
                             char[] chars, int charIndex, int charCount, boolean flush,
                             IntHolder bytesUsed, IntHolder charsUsed, BoolHolder completed) {
-            // Simplified: decode all available bytes
             CharsetDecoder decoder = encoding.newDecoder();
-            CharBuffer cb;
-            try {
-                cb = decoder.decode(ByteBuffer.wrap(bytes, byteIndex, byteCount));
-            } catch (java.nio.charset.CharacterCodingException e) {
-                cb = CharBuffer.allocate(0);
+            ByteBuffer source = ByteBuffer.wrap(bytes, byteIndex, byteCount);
+            CharBuffer destination = CharBuffer.wrap(chars, charIndex, charCount);
+            CoderResult result = decoder.decode(source, destination, flush);
+            if (flush && !result.isError() && !result.isOverflow() && !source.hasRemaining()) {
+                CoderResult flushResult = decoder.flush(destination);
+                if (flushResult.isError() || flushResult.isOverflow()) {
+                    result = flushResult;
+                }
             }
-            int len = Math.min(cb.remaining(), charCount);
-            cb.get(chars, charIndex, len);
-            if (bytesUsed != null) bytesUsed.value = byteCount;
-            if (charsUsed != null) charsUsed.value = len;
-            if (completed != null) completed.value = !cb.hasRemaining();
+            if (result.isError()) {
+                try {
+                    result.throwException();
+                } catch (java.nio.charset.CharacterCodingException e) {
+                    throw new IllegalArgumentException(e);
+                }
+            }
+            if (bytesUsed != null) bytesUsed.value = source.position() - byteIndex;
+            if (charsUsed != null) charsUsed.value = destination.position() - charIndex;
+            if (completed != null) completed.value = !source.hasRemaining() && !result.isOverflow();
         }
 
         private Charset charset() { return encoding.toCharset(); }
