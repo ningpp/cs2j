@@ -235,7 +235,7 @@ public class PlanningTests
         Assert.DoesNotContain(dependencies, dependency =>
             dependency.GroupId == "io.github.ningpp"
             && dependency.ArtifactId == "System.Private.Xml");
-        Assert.Contains(dependencies, dependency =>
+        Assert.DoesNotContain(dependencies, dependency =>
             dependency.GroupId == "io.github.ningpp"
             && dependency.ArtifactId == "System.Private.Uri");
     }
