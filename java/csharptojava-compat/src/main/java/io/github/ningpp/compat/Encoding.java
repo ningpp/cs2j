@@ -597,7 +597,7 @@ public class Encoding {
             } catch (java.nio.charset.CharacterCodingException e) {
                 cb = CharBuffer.allocate(0);
             }
-            int len = Math.min(cb.remaining(), charCount - charIndex);
+            int len = Math.min(cb.remaining(), charCount);
             cb.get(chars, charIndex, len);
             if (bytesUsed != null) bytesUsed.value = byteCount;
             if (charsUsed != null) charsUsed.value = len;
