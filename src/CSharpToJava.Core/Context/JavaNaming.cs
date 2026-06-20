@@ -38,6 +38,14 @@ public static class JavaNaming
 
     public static string EscapeJavaKeyword(string word)
     {
+        // Strip C# verbatim identifier prefix '@' (e.g., @event → event, @object → object).
+        // In C#, '@' allows reserved keywords to be used as identifiers.
+        // In Java, '@' is an annotation marker and cannot appear in identifiers.
+        // After stripping, the bare name may become a Java keyword, so we still
+        // need to escape it below.
+        if (word.StartsWith("@", StringComparison.Ordinal))
+            word = word[1..];
+
         return IsJavaKeyword(word) ? word + "Value" : word;
     }
 
