@@ -78,6 +78,10 @@ tests/
 - [J2CL-informed Java-only architecture plan for large C# projects](docs/j2cl-architecture-upgrade.md)
 - [LINQ 重写引擎架构设计 / LINQ Rewrite Engine Architecture Design](docs/linq-rewrite-engine-architecture.md)
 
+## Third-Party Credits
+
+- **[roslyn-linq-rewrite](https://github.com/antiufo/roslyn-linq-rewrite)** by Michał Komorowski (MIT License) — The LINQ rewriting engine in `src/CSharpToJava.Core/LinqRewrite/` is based on this project, which converts C# LINQ expressions to procedural code. We adapted it to generate Java-compatible output.
+
 ## License
 
 本项目采用 [MIT License](LICENSE) 开源许可。
