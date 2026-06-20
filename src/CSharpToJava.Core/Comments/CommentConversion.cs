@@ -133,7 +133,8 @@ internal static class CommentConversion
                 lines.Add($" * {exception}");
             lines.Add(" */");
 
-            return lines.Count > 2 ? string.Join("\n", lines) : null;
+            var result = lines.Count > 2 ? string.Join("\n", lines) : null;
+            return EscapeUnicodeInComment(result);
         }
         catch
         {
@@ -176,7 +177,7 @@ internal static class CommentConversion
             .Where(static comment => !string.IsNullOrWhiteSpace(comment))
             .ToList();
 
-        return comments.Count == 0 ? null : string.Join("\n", comments);
+        return comments.Count == 0 ? null : EscapeUnicodeInComment(string.Join("\n", comments));
     }
 
     private static bool IsRegularCommentTrivia(SyntaxTrivia trivia)
@@ -290,5 +291,22 @@ internal static class CommentConversion
     private static IEnumerable<string> SplitLines(string text)
     {
         return text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+    }
+
+    /// <summary>
+    /// Escapes Java Unicode escape sequences in comment text.
+    /// Java's compiler processes \uXXXX sequences even inside comments, which causes
+    /// compilation errors when C# doc comments contain literal \u or \U text
+    /// (e.g., '\uxxxx\uxxxx' in a remarks block). Replace \u with \\u to prevent this.
+    /// </summary>
+    private static string? EscapeUnicodeInComment(string? text)
+    {
+        if (text == null)
+            return null;
+        // Replace \u followed by any characters with \\u to prevent the Java compiler
+        // from interpreting \uXXXX in comments. We must handle both valid hex sequences
+        // (like \u0041) and invalid ones (like \uxxxx) since Java tries to parse both.
+        return System.Text.RegularExpressions.Regex.Replace(
+            text, @"\\([uU])", @"\\$1");
     }
 }

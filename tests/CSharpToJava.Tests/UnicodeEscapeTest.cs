@@ -335,6 +335,27 @@ public class UnicodeEscapeTest
         Assert.Contains("\\0", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UnicodeEscapeInDocComment_EscapedForJava()
+    {
+        // C# doc comments may contain literal \uXXXX text (e.g. YAML escape sequences).
+        // Java's compiler processes \uXXXX even inside comments, so we must escape them.
+        var result = Convert("""
+            public class C
+            {
+                /// <summary>
+                /// Expects two escaped 2-byte character '\u0041\u0042'.
+                /// </summary>
+                public void M() { }
+            }
+            """);
+
+        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics)}");
+        // The \u0041 in the comment should be escaped to \\u0041 to prevent Java from
+        // interpreting it as a Unicode escape sequence during compilation.
+        Assert.Contains("\\\\u0041", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
