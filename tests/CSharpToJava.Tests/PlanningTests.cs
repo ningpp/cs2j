@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CSharpToJava.CLI;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Planning;
@@ -7,6 +8,25 @@ namespace CSharpToJava.Tests;
 
 public class PlanningTests
 {
+    [Fact]
+    public void NormalizeModuleName_ReplacesParenthesesWithHyphens()
+    {
+        // Maven artifactId only allows [a-zA-Z0-9._-]
+        // C# project names like "YamlDotNet(net8.0)" must be normalized
+        var result = MultiModulePlanner.NormalizeModuleName("YamlDotNet(net8.0)");
+        Assert.DoesNotContain("(", result);
+        Assert.DoesNotContain(")", result);
+        Assert.Matches(@"^[a-z0-9._-]+$", result);
+    }
+
+    [Fact]
+    public void NormalizeModuleName_ProducesValidMavenArtifactId()
+    {
+        var result = MultiModulePlanner.NormalizeModuleName("YamlDotNet.Test(net10.0)");
+        Assert.DoesNotContain("(", result);
+        Assert.DoesNotContain(")", result);
+        Assert.Matches(@"^[a-z0-9._-]+$", result);
+    }
     [Fact]
     public void MavenPomGenerator_GenerateModuleBuildFile_UsesChildPomShape_ForSingleModulePlan()
     {

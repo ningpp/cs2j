@@ -147,7 +147,7 @@ internal static class MultiModulePlanner
         }
     }
 
-    private static string NormalizeModuleName(string rawName)
+    internal static string NormalizeModuleName(string rawName)
     {
         var chars = rawName.ToLowerInvariant()
             .Select(c => char.IsLetterOrDigit(c) ? c : '-')

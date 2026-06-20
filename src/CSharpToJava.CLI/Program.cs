@@ -354,7 +354,7 @@ public class Program
         {
             if (!opts.IncludeTests && project.IsTestProject) continue;
 
-            var moduleName = project.Name;
+            var moduleName = MultiModulePlanner.NormalizeModuleName(project.Name);
             convertedModuleCount++;
             var moduleRoot = Path.Combine(opts.Destination, moduleName);
 
@@ -440,7 +440,7 @@ public class Program
                     string.Equals(p.FilePath, refPath, StringComparison.OrdinalIgnoreCase));
                 if (refProject != null)
                 {
-                    deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, refProject.Name));
+                    deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, MultiModulePlanner.NormalizeModuleName(refProject.Name)));
                 }
             }
 
