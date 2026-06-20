@@ -212,7 +212,7 @@ public class ArgumentTransformer
             if (arg.Expression is DeclarationExpressionSyntax outDecl &&
                 outDecl.Designation is SingleVariableDesignationSyntax svd)
             {
-                var varName = svd.Identifier.Text;
+                var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
                 var holderName = context.AllocateOutHolderName(varName);
                 var javaType = ResolveOutVarType(outDecl, context);
                 var holderType = HolderTypeResolver.GetHolderType(javaType);
@@ -235,7 +235,7 @@ public class ArgumentTransformer
                     return ConversionContext.EscapeJavaKeyword(outParam.Name);
                 }
 
-                var varName = ident.Identifier.Text;
+                var varName = ConversionContext.EscapeJavaKeyword(ident.Identifier.Text);
                 var holderName = context.AllocateOutHolderName(varName);
                 var javaType = "Object";
                 var identResolved = false;
@@ -331,7 +331,7 @@ public class ArgumentTransformer
 
                 // Bug 2: local variable (or non-ref parameter) passed as ref — wrap it in a holder
                 // so it can be mutated by the callee and the new value written back afterward.
-                var varName = refIdent.Identifier.Text;
+                var varName = ConversionContext.EscapeJavaKeyword(refIdent.Identifier.Text);
 
                 // Bug 4: if a holder is already active for this variable (e.g. the same local is passed
                 // as ref a second time before the first holder's writeback has been drained), reuse the

@@ -1,5 +1,7 @@
 namespace CSharpToJava.Core.Context;
 
+using CSharpToJava.Core.Context;
+
 /// <summary>
 /// Method-level mutable state used during conversion.
 /// Tracks pre/post statements, ref/out holder allocations, stream local variables,
@@ -115,7 +117,8 @@ public class MethodConversionState
 
     public string AllocateOutHolderName(string varName)
     {
-        var key = $"_{varName}Holder";
+        var escaped = JavaNaming.EscapeJavaKeyword(varName);
+        var key = $"_{escaped}Holder";
         var count = _outHolderAllocCounts.GetValueOrDefault(key, 0) + 1;
         _outHolderAllocCounts[key] = count;
         return $"{key}{count}";
@@ -153,9 +156,10 @@ public class MethodConversionState
 
     public string AllocateRefHolderName(string varName)
     {
-        var count = _refHolderAllocCounts.GetValueOrDefault(varName, 0);
-        _refHolderAllocCounts[varName] = count + 1;
-        var holderName = count == 0 ? $"_{varName}Ref" : $"_{varName}Ref{count + 1}";
+        var escaped = JavaNaming.EscapeJavaKeyword(varName);
+        var count = _refHolderAllocCounts.GetValueOrDefault(escaped, 0);
+        _refHolderAllocCounts[escaped] = count + 1;
+        var holderName = count == 0 ? $"_{escaped}Ref" : $"_{escaped}Ref{count + 1}";
         _activeRefHolders[varName] = holderName;
         return holderName;
     }
@@ -364,7 +368,8 @@ public class MethodConversionState
     /// </summary>
     public void RegisterPendingLambdaCaptureHolder(string varName, string javaType)
     {
-        var holderName = $"_{varName}";
+        var escaped = JavaNaming.EscapeJavaKeyword(varName);
+        var holderName = $"_{escaped}";
         _pendingLambdaCaptureHolders[varName] = (javaType, holderName);
     }
 
