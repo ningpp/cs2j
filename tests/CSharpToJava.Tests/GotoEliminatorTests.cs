@@ -227,4 +227,36 @@ public partial class GotoEliminatorTests
         Assert.Contains("__state", out_);
         Assert.Contains("while (true)", out_);
     }
+
+    // ---- Task 7: try/finally + nested loop break/continue ----
+
+    [Fact]
+    public void Build_GotoInsideTry_PreservesFinallyStructure()
+    {
+        var body = "t: try { if (true) goto t; } finally { System.Console.WriteLine(\"fin\"); }";
+        var out_ = BuildMethod(body);
+        AssertNoGotoOrLabel(out_);
+        // finally 仍在
+        Assert.Contains("finally", out_);
+        Assert.Contains("fin", out_);
+    }
+
+    [Fact]
+    public void Build_NestedLoopBreakContinue_Preserved()
+    {
+        var body = """
+        t: for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (j == 1) break;
+                if (j == 2) continue;
+                if (i == 2) goto t;
+            }
+        }
+        """;
+        var out_ = BuildMethod(body);
+        AssertNoGotoOrLabel(out_);
+        // 内层 break/continue 保留（不为 0）
+        Assert.Contains("break", out_);
+        Assert.Contains("continue", out_);
+    }
 }
