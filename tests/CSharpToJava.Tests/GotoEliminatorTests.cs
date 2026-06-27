@@ -290,4 +290,54 @@ public partial class GotoEliminatorTests
         Assert.NotEmpty(diags);
         Assert.Contains(diags, d => d.Severity == GotoEliminatorSeverity.Warning);
     }
+
+    // ---- Task 9: GotoEliminator public entry ----
+
+    private static string Eliminate(string src)
+        => new CSharpToJava.Core.GotoEliminator.GotoEliminator()
+            .Eliminate(src).OutputCode;
+
+    [Fact]
+    public void Eliminate_CleanFile_ByteIdentical()
+    {
+        var src = """
+        class C {
+            void M() {
+                for (int i = 0; i < 3; i++) {
+                    if (i == 1) break;
+                    System.Console.WriteLine(i);
+                }
+            }
+        }
+        """;
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+    }
+
+    [Fact]
+    public void Eliminate_GotoInStringLiteral_NotDirty()
+    {
+        var src = """class C { string s = "goto label"; }""";
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+    }
+
+    [Fact]
+    public void Eliminate_DirtyFile_HasNoGotoOrLabel()
+    {
+        var src = "class C { void M() { goto skip; int x = 1; skip: int y = 2; } }";
+        var out_ = Eliminate(src);
+        AssertNoGotoOrLabel(out_);
+    }
+
+    [Fact]
+    public void Eliminate_Idempotent_SecondPassUnchanged()
+    {
+        var src = "class C { void M() { goto skip; int x = 1; skip: int y = 2; } }";
+        var first = Eliminate(src);
+        var second = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(first);
+        Assert.False(second.Changed);
+    }
 }
