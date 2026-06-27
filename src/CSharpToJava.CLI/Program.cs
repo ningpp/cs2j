@@ -1635,6 +1635,10 @@ public class Program
             return 1;
         }
         Directory.CreateDirectory(opts.Destination);
+        bool inPlace = string.Equals(
+            Path.GetFullPath(opts.Source.TrimEnd('\\', '/')),
+            Path.GetFullPath(opts.Destination.TrimEnd('\\', '/')),
+            StringComparison.OrdinalIgnoreCase);
         int transformed = 0, clean = 0, failed = 0;
         foreach (var file in Directory.GetFiles(opts.Source, "*.cs", SearchOption.AllDirectories))
         {
@@ -1645,8 +1649,8 @@ public class Program
             var result = elim.Eliminate(sourceCode, goOpts);
             if (!result.Changed)
             {
-                // 字节复制保真
-                File.Copy(file, dst, overwrite: true);
+                // 字节复制保真（in-place 模式下源==目标，跳过自复制）
+                if (!inPlace) File.Copy(file, dst, overwrite: true);
                 clean++;
                 if (opts.Verbose) Console.WriteLine($"clean (copy): {rel}");
             }
@@ -1663,14 +1667,17 @@ public class Program
                 Console.Error.WriteLine($"[{d.Severity}] {d.MethodName}: {d.Message}");
             if (result.Diagnostics.Any(d => d.Severity == GotoEliminatorSeverity.Warning)) failed++;
         }
-        // 非 .cs 文件字节复制
-        foreach (var file in Directory.GetFiles(opts.Source, "*.*", SearchOption.AllDirectories)
-                     .Where(f => !f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+        // 非 .cs 文件字节复制（in-place 模式下源==目标，跳过自复制）
+        if (!inPlace)
         {
-            var rel = Path.GetRelativePath(opts.Source, file);
-            var dst = Path.Combine(opts.Destination, rel);
-            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
-            File.Copy(file, dst, overwrite: true);
+            foreach (var file in Directory.GetFiles(opts.Source, "*.*", SearchOption.AllDirectories)
+                         .Where(f => !f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+            {
+                var rel = Path.GetRelativePath(opts.Source, file);
+                var dst = Path.Combine(opts.Destination, rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                File.Copy(file, dst, overwrite: true);
+            }
         }
         Console.WriteLine($"eliminate-goto: {transformed} transformed, {clean} clean, {failed} with-warnings");
         return failed > 0 ? 1 : 0;
