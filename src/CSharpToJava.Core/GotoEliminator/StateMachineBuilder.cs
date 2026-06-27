@@ -219,3 +219,187 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
             .Any(id => set.Contains(id.Identifier.ValueText));
     }
 }
+
+/// <summary>Pass 2 发射部分：重写 dirty 方法为 while(true){switch(__state){...}}。</summary>
+internal sealed partial class StateMachineBuilder
+{
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
+        if (visited.Body == null) return visited; // 表达式体无 goto
+        if (!ContainsLabelOrGoto(visited.Body)) return visited;
+
+        try
+        {
+            var blocks = SplitToBlocks(visited.Body.Statements);
+            var hoisted = HoistSpanningLocals(blocks);
+            var newBody = EmitStateMachine(blocks, hoisted, visited.Body);
+            TransformedMethods++;
+            GotosEliminated += CountGotos(visited.Body);
+            return visited.WithBody(newBody);
+        }
+        catch (GotoEliminatorException ex)
+        {
+            SkippedMethods++;
+            Diagnostics.Add(new GotoEliminatorDiagnostic(
+                GotoEliminatorSeverity.Warning, ex.Message,
+                visited.Identifier.ValueText));
+            return visited; // 原样保留该方法
+        }
+    }
+
+    public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
+        => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
+    public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
+        => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
+
+    private SyntaxNode RewriteBaseMethod<T>(
+        T node,
+        Func<T, BlockSyntax?> getBody,
+        Func<T, BlockSyntax, T> withBody) where T : BaseMethodDeclarationSyntax
+    {
+        var visited = (T)base.Visit(node)!;
+        var body = getBody(visited);
+        if (body == null || !ContainsLabelOrGoto(body)) return visited;
+        try
+        {
+            var blocks = SplitToBlocks(body.Statements);
+            var hoisted = HoistSpanningLocals(blocks);
+            var newBody = EmitStateMachine(blocks, hoisted, body);
+            TransformedMethods++;
+            GotosEliminated += CountGotos(body);
+            return withBody(visited, newBody);
+        }
+        catch (GotoEliminatorException ex)
+        {
+            SkippedMethods++;
+            Diagnostics.Add(new GotoEliminatorDiagnostic(
+                GotoEliminatorSeverity.Warning, ex.Message));
+            return visited;
+        }
+    }
+
+    private static int CountGotos(SyntaxNode node)
+        => node.DescendantNodes().OfType<GotoStatementSyntax>().Count();
+
+    /// <summary>发射 while(true){switch(__state){case i: ...}} 并替换原方法体。</summary>
+    internal static BlockSyntax EmitStateMachine(
+        List<BasicBlock> blocks, List<StatementSyntax> hoisted, BlockSyntax originalBody)
+    {
+        // 标签 -> 块 index
+        var labelToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < blocks.Count; i++)
+            if (blocks[i].Label != null) labelToIndex[blocks[i].Label!] = i;
+
+        var sections = new List<SwitchSectionSyntax>();
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            var block = blocks[i];
+            var caseStmts = new List<StatementSyntax>(block.Statements);
+            // 改写块内 goto / conditional-goto；追加转移
+            RewriteBlockStatements(caseStmts, block, labelToIndex, i, blocks);
+            var label = SyntaxFactory.CaseSwitchLabel(
+                SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
+                    SyntaxFactory.Literal(block.Index)));
+            sections.Add(SyntaxFactory.SwitchSection(
+                SyntaxFactory.SingletonList<SwitchLabelSyntax>(label),
+                SyntaxFactory.List(caseStmts)));
+        }
+
+        // int __state = 0;
+        var stateDecl = SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.IntKeyword)),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator("__state")
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                            SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
+                                SyntaxFactory.Literal(0)))))));
+
+        // while (true) { switch (__state) { ... } }
+        var whileStmt = SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            SyntaxFactory.Block(
+                SyntaxFactory.SwitchStatement(SyntaxFactory.IdentifierName("__state"))
+                    .WithSections(SyntaxFactory.List(sections))));
+
+        var allStmts = new List<StatementSyntax>();
+        allStmts.AddRange(hoisted);
+        allStmts.Add(stateDecl);
+        allStmts.Add(whileStmt);
+
+        // 保留原方法体的 leading trivia（如文档注释）挂在第一个语句上
+        if (allStmts.Count > 0 && originalBody.Statements.Count > 0)
+        {
+            var origLeading = originalBody.Statements[0].GetLeadingTrivia();
+            allStmts[0] = allStmts[0].WithLeadingTrivia(origLeading);
+        }
+        return SyntaxFactory.Block(allStmts);
+    }
+
+    /// <summary>改写块内语句：goto label -> __state=N; continue; ；追加块转移。</summary>
+    private static void RewriteBlockStatements(
+        List<StatementSyntax> stmts, BasicBlock block,
+        Dictionary<string, int> labelToIndex, int selfIndex,
+        List<BasicBlock> blocks)
+    {
+        for (int i = 0; i < stmts.Count; i++)
+        {
+            stmts[i] = RewriteNode(stmts[i], labelToIndex);
+        }
+
+        switch (block.Exit)
+        {
+            case BlockExit.Goto:
+                // 末语句是 goto；已被 RewriteNode 改写为 __state=N; continue;
+                break;
+            case BlockExit.ConditionalGoto:
+                // if (c) goto L;  已被改写为 if (c){__state=L;continue;}
+                // 追加 fall-through 转移
+                if (block.FallThroughTarget is int ft)
+                    stmts.Add(StateAssignContinue(ft));
+                break;
+            case BlockExit.FallThrough:
+                if (block.FallThroughTarget is int ft2)
+                    stmts.Add(StateAssignContinue(ft2));
+                else
+                    stmts.Add(StateAssignContinue(selfIndex)); // 末块自循环？不应发生；安全起见 break while
+                break;
+            case BlockExit.Return:
+            case BlockExit.Break:
+                // 块内已含 return/throw/break/continue，无需追加
+                break;
+        }
+    }
+
+    private static StatementSyntax RewriteNode(SyntaxNode node, Dictionary<string, int> labelToIndex)
+    {
+        var rewriter = new GotoTransitionRewriter(labelToIndex);
+        return (StatementSyntax)rewriter.Visit(node)!;
+    }
+
+    private static StatementSyntax StateAssignContinue(int target)
+        => SyntaxFactory.Block(
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName("__state"),
+                    SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
+                        SyntaxFactory.Literal(target)))),
+            SyntaxFactory.ContinueStatement());
+
+    /// <summary>把 goto &lt;identifier&gt; 改写为 { __state=N; continue; }。递归处理嵌套控制语句内的 goto。</summary>
+    private sealed class GotoTransitionRewriter : CSharpSyntaxRewriter
+    {
+        private readonly Dictionary<string, int> _labelToIndex;
+        internal GotoTransitionRewriter(Dictionary<string, int> labelToIndex) { _labelToIndex = labelToIndex; }
+        public override SyntaxNode? VisitGotoStatement(GotoStatementSyntax node)
+        {
+            // 此时只可能是 goto <identifier>（goto case/default 已去糖）
+            if (node.Expression is IdentifierNameSyntax id
+                && _labelToIndex.TryGetValue(id.Identifier.ValueText, out var idx))
+            {
+                return StateAssignContinue(idx).WithTriviaFrom(node);
+            }
+            return base.VisitGotoStatement(node);
+        }
+    }
+}

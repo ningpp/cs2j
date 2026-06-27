@@ -2,6 +2,7 @@ using CSharpToJava.Core.GotoEliminator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Formatting;
 using System.Reflection;
 
 namespace CSharpToJava.Tests;
@@ -188,5 +189,42 @@ public partial class GotoEliminatorTests
             var t = s.ToString().Replace(" ", "");
             return t.Contains("x=1") && !t.Contains("int");
         });
+    }
+
+    // ---- Task 6: State machine emission ----
+
+    private static string BuildMethod(string body)
+    {
+        var asm = typeof(CSharpToJava.Core.GotoEliminator.GotoEliminatorOptions).Assembly;
+        var smbType = asm.GetType("CSharpToJava.Core.GotoEliminator.StateMachineBuilder")!;
+        var builder = (CSharpSyntaxRewriter)Activator.CreateInstance(smbType)!;
+        var src = $"class C {{ void M() {{ {body} }} }}";
+        var root = Parse(src);
+        var visited = (CompilationUnitSyntax)builder.Visit(root)!;
+        // 格式化以规整间距（与真实管线 §4.1 step 7 一致），避免未格式化输出 `case0:` 被误判为 label。
+        using var workspace = new AdhocWorkspace();
+        var formatted = Formatter.Format(visited, workspace);
+        return formatted.ToFullString();
+    }
+
+    private static void AssertNoGotoOrLabel(string code)
+    {
+        var root = Parse(code);
+        Assert.Empty(root.DescendantNodes().OfType<GotoStatementSyntax>());
+        Assert.Empty(root.DescendantNodes().OfType<LabeledStatementSyntax>());
+    }
+
+    [Theory]
+    [InlineData("goto skip; int x = 1; skip: int y = 2;")]                       // B3 前向
+    [InlineData("t: int x = 1; if (x > 0) goto t; int y = 2;")]                   // B2 后向
+    [InlineData("outer: for (int i = 0; i < 3; i++) { if (i == 1) goto outer; }")] // A1
+    [InlineData("target: { if (true) goto target; }")]                            // A2
+    [InlineData("t: int x = 1; for (int i = 0; i < 3; i++) { if (i == 1) goto t; } int y = 2;")] // C 跨域
+    public void Build_EliminatesGotoAndLabel(string body)
+    {
+        var out_ = BuildMethod(body);
+        AssertNoGotoOrLabel(out_);
+        Assert.Contains("__state", out_);
+        Assert.Contains("while (true)", out_);
     }
 }
