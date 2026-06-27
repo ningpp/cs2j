@@ -259,4 +259,35 @@ public partial class GotoEliminatorTests
         Assert.Contains("break", out_);
         Assert.Contains("continue", out_);
     }
+
+    // ---- Task 8: unsupported method fallback (spanning using/fixed/ref) ----
+
+    [Fact]
+    public void Build_SpanningUsing_WarnsAndKeepsMethod()
+    {
+        // using var 跨标签使用 -> 不支持，方法原样保留 + 诊断
+        var asm = typeof(CSharpToJava.Core.GotoEliminator.GotoEliminatorOptions).Assembly;
+        var smbType = asm.GetType("CSharpToJava.Core.GotoEliminator.StateMachineBuilder")!;
+        var builder = (CSharpSyntaxRewriter)Activator.CreateInstance(smbType)!;
+        var src = """
+        using System.IO;
+        class C {
+            void M() {
+                using var s = new MemoryStream();
+                t: s.WriteByte(1);
+                if (s.Length > 0) goto t;
+            }
+        }
+        """;
+        var root = Parse(src);
+        var visited = (CompilationUnitSyntax)builder.Visit(root)!;
+        var out_ = visited.ToFullString();
+        // 方法仍含 goto（未转换）
+        Assert.Contains("goto t", out_);
+        // 诊断列表非空
+        var diags = (List<GotoEliminatorDiagnostic>)
+            smbType.GetProperty("Diagnostics")!.GetValue(builder)!;
+        Assert.NotEmpty(diags);
+        Assert.Contains(diags, d => d.Severity == GotoEliminatorSeverity.Warning);
+    }
 }
