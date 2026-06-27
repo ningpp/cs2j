@@ -156,7 +156,10 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
         for (int i = 0; i < bbList.Count; i++)
         {
             var blockStmts = bbList[i].Statements;
-            for (int s = 0; s < blockStmts.Count; s++)
+            // 从后向前迭代：提升某声明（尤其无 initializer 时）会令块内语句列表收缩，
+            // 若从前向后迭代会跳过紧随其后的下一条声明（XsdDuration.cs 中 `string errorCode;`
+            // 后紧跟 `int length;` 即触发此 bug，导致 length 未被提升 → CS0165）。
+            for (int s = blockStmts.Count - 1; s >= 0; s--)
             {
                 if (blockStmts[s] is not LocalDeclarationStatementSyntax decl) continue;
                 if (decl.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
@@ -233,7 +236,12 @@ internal sealed partial class StateMachineBuilder
         {
             var blocks = SplitToBlocks(visited.Body.Statements);
             var hoisted = HoistSpanningLocals(blocks);
-            var newBody = EmitStateMachine(blocks, hoisted, visited.Body);
+            // out 参数在 while 循环前初始化为 default：状态机的 switch(__state) 破坏确定赋值分析，
+            // 编译器无法证明所有 case 路径都赋过 out 参数 / 结构字段（XsdDuration.TryParse 的
+            // out XsdDuration result + result._nanoseconds |= ... 即触发 CS0170/CS0177）。
+            var prologue = BuildOutParameterInitializers(visited);
+            prologue.AddRange(hoisted);
+            var newBody = EmitStateMachine(blocks, prologue, visited.Body);
             TransformedMethods++;
             GotosEliminated += CountGotos(visited.Body);
             return visited.WithBody(newBody);
@@ -258,14 +266,18 @@ internal sealed partial class StateMachineBuilder
         Func<T, BlockSyntax?> getBody,
         Func<T, BlockSyntax, T> withBody) where T : BaseMethodDeclarationSyntax
     {
-        var visited = (T)base.Visit(node)!;
+        // 不调用 base.Visit(node)——会经 Visit(SyntaxNode) 派发回 VisitConstructorDeclaration → 无限递归。
+        // 方法体的实际改写由 SplitToBlocks + HoistSpanningLocals + EmitStateMachine 完成。
+        var visited = node;
         var body = getBody(visited);
         if (body == null || !ContainsLabelOrGoto(body)) return visited;
         try
         {
             var blocks = SplitToBlocks(body.Statements);
             var hoisted = HoistSpanningLocals(blocks);
-            var newBody = EmitStateMachine(blocks, hoisted, body);
+            var prologue = BuildOutParameterInitializers(visited);
+            prologue.AddRange(hoisted);
+            var newBody = EmitStateMachine(blocks, prologue, body);
             TransformedMethods++;
             GotosEliminated += CountGotos(body);
             return withBody(visited, newBody);
@@ -277,6 +289,29 @@ internal sealed partial class StateMachineBuilder
                 GotoEliminatorSeverity.Warning, ex.Message));
             return visited;
         }
+    }
+
+    /// <summary>为方法的每个 out 参数生成 `param = default(T)!;` 初始化语句。</summary>
+    private static List<StatementSyntax> BuildOutParameterInitializers(BaseMethodDeclarationSyntax method)
+    {
+        var result = new List<StatementSyntax>();
+        if (method.ParameterList == null) return result;
+        foreach (var p in method.ParameterList.Parameters)
+        {
+            if (!p.Modifiers.Any(SyntaxKind.OutKeyword)) continue;
+            if (p.Type == null) continue;
+            // default(T)! —— `!` 抑制可空引用类型的 null 警告；值类型上无害。
+            var defaultExpr = SyntaxFactory.PostfixUnaryExpression(
+                SyntaxKind.SuppressNullableWarningExpression,
+                SyntaxFactory.DefaultExpression(p.Type));
+            var assign = SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(p.Identifier),
+                    defaultExpr));
+            result.Add(assign);
+        }
+        return result;
     }
 
     private static int CountGotos(SyntaxNode node)

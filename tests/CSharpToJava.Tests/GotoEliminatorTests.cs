@@ -383,4 +383,35 @@ public partial class GotoEliminatorTests
         }
         finally { Directory.Delete(tmp, recursive: true); }
     }
+
+    // ---- Task 11: real-file snapshot (XsdDuration.cs) ----
+
+    [Fact]
+    public void Eliminate_XsdDuration_RealFile_NoGotoAndCompiles()
+    {
+        // XsdDuration.cs 含 ~40 goto。从 D:\csharpxml 读取（只读）。
+        var path = @"D:\csharpxml\System\Xml\Schema\XsdDuration.cs";
+        if (!File.Exists(path))
+        {
+            return; // 跳过：环境无 csharpxml
+        }
+        var src = File.ReadAllText(path);
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+        Assert.True(result.Changed, "XsdDuration.cs 应被转换");
+        AssertNoGotoOrLabel(result.OutputCode);
+        // 编译校验：用 CSharpCompilation 单独编译该文件（语法层）
+        var tree = CSharpSyntaxTree.ParseText(result.OutputCode);
+        var comp = CSharpCompilation.Create("xsddur_check",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diags = comp.GetDiagnostics();
+        var errors = diags.Where(d => d.Severity == DiagnosticSeverity.Error
+            && d.Id != "CS5001" // 输出类型无关
+            && d.Id != "CS0246" // 缺少引用（环境无关，仅语法层校验）
+            && d.Id != "CS0103" // 未定义名称（同上）
+            && d.Id != "CS0122" // 内部类型不可访问（SR 等，单文件隔离编译，非转换引入）
+            ).ToList();
+        Assert.Empty(errors);
+    }
 }
