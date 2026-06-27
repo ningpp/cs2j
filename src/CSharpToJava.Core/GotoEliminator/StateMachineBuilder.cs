@@ -141,4 +141,81 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 || (iff.Else != null && IsOrContainsGotoDirect(iff.Else.Statement));
         return false;
     }
+
+    /// <summary>
+    /// 提升「跨基本块使用」的局部声明到 while 循环之前：
+    /// 循环外 `T x = default;`，原位置改为赋值 `x = expr;`。
+    /// const 原地保留；using/fixed/ref 跨块抛 GotoEliminatorException（由调用方按 Strict 决定 warn-skip）。
+    /// </summary>
+    internal static List<StatementSyntax> HoistSpanningLocals(System.Collections.IList blocks)
+    {
+        var hoisted = new List<StatementSyntax>();
+        var bbList = new List<BasicBlock>();
+        foreach (var b in blocks) bbList.Add((BasicBlock)b);
+
+        for (int i = 0; i < bbList.Count; i++)
+        {
+            var blockStmts = bbList[i].Statements;
+            for (int s = 0; s < blockStmts.Count; s++)
+            {
+                if (blockStmts[s] is not LocalDeclarationStatementSyntax decl) continue;
+                if (decl.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
+
+                bool isUsing = decl.UsingKeyword.IsKind(SyntaxKind.UsingKeyword);
+                bool isFixed = decl.Modifiers.Any(SyntaxKind.FixedKeyword)
+                               || decl.Modifiers.Any(SyntaxKind.UnsafeKeyword);
+                bool isRef = decl.Declaration.Variables
+                    .Any(v => v.Initializer is null && decl.Modifiers.Any(SyntaxKind.RefKeyword));
+                if (decl.Modifiers.Any(SyntaxKind.RefKeyword)
+                    || decl.Modifiers.Any(SyntaxKind.OutKeyword))
+                    isRef = true;
+
+                var names = decl.Declaration.Variables.Select(v => v.Identifier.ValueText).ToList();
+                bool spans = false;
+                for (int j = i + 1; j < bbList.Count; j++)
+                    if (bbList[j].Statements.Any(st => ReferencesAny(st, names))) { spans = true; break; }
+                if (!spans) continue;
+
+                if (isUsing) throw new GotoEliminatorException("spanning 'using' local not supported");
+                if (isFixed) throw new GotoEliminatorException("spanning 'fixed/unsafe' local not supported");
+                if (isRef) throw new GotoEliminatorException("spanning 'ref/out' local not supported");
+
+                var type = decl.Declaration.Type;
+                foreach (var v in decl.Declaration.Variables)
+                {
+                    var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(type,
+                            SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.VariableDeclarator(v.Identifier)
+                                    .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                        SyntaxFactory.DefaultExpression(type))))));
+                    hoisted.Add(defaultDecl);
+                }
+
+                // 原位置：前缀语句 + 赋值（替代声明） + 后缀语句
+                var assignStmts = new List<StatementSyntax>();
+                for (int k = 0; k < s; k++) assignStmts.Add(blockStmts[k]);
+                foreach (var v in decl.Declaration.Variables)
+                    if (v.Initializer != null)
+                    {
+                        var assign = SyntaxFactory.ExpressionStatement(
+                            SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                SyntaxFactory.IdentifierName(v.Identifier), v.Initializer.Value));
+                        assignStmts.Add(assign);
+                    }
+                for (int k = s + 1; k < blockStmts.Count; k++) assignStmts.Add(blockStmts[k]);
+
+                bbList[i].Statements.Clear();
+                bbList[i].Statements.AddRange(assignStmts);
+            }
+        }
+        return hoisted;
+    }
+
+    private static bool ReferencesAny(SyntaxNode node, IEnumerable<string> names)
+    {
+        var set = new HashSet<string>(names);
+        return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
+            .Any(id => set.Contains(id.Identifier.ValueText));
+    }
 }

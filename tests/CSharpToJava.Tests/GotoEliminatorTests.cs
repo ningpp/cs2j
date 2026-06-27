@@ -156,4 +156,37 @@ public partial class GotoEliminatorTests
         var exit1 = bbType.GetProperty("Exit")!.GetValue(blocks[1]);
         Assert.Equal("FallThrough", exit1!.ToString());
     }
+
+    // ---- Task 5: Variable hoisting ----
+
+    [Fact]
+    public void Hoist_SpanningLocal_MovedBeforeLoop_ReplacedByAssignment()
+    {
+        // int x = 1; skip: int y = x;  → x 跨块使用，需提升
+        var asm = typeof(CSharpToJava.Core.GotoEliminator.GotoEliminatorOptions).Assembly;
+        var smbType = asm.GetType("CSharpToJava.Core.GotoEliminator.StateMachineBuilder")!;
+        var hoist = smbType.GetMethod("HoistSpanningLocals",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var src = "class C { void M() { int x = 1; skip: int y = x; } }";
+        var root = Parse(src);
+        var methodBodyBlock = root.DescendantNodes().OfType<BlockSyntax>().First();
+        var blocks = (System.Collections.IList)smbType.GetMethod("SplitToBlocks",
+            BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, new object[] { methodBodyBlock.Statements })!;
+        // 调用 HoistSpanningLocals(blocks) -> (List<StatementSyntax> hoistedDecls, blocks mutated)
+        var result = (System.Collections.IList)hoist.Invoke(null, new object[] { blocks })!;
+        // 应有 1 个提升声明 int x = default;
+        Assert.Single(result);
+        var declText = result[0]!.ToString();
+        Assert.Contains("int x", declText);
+        Assert.Contains("default", declText);
+        // 第一块内原声明应变为赋值 x = 1（空格由后续 Formatter 规整，此处按去空格比较）
+        var bbType = blocks[0]!.GetType();
+        var stmts = (System.Collections.Generic.List<StatementSyntax>)bbType.GetProperty("Statements")!.GetValue(blocks[0])!;
+        Assert.Contains(stmts, s =>
+        {
+            var t = s.ToString().Replace(" ", "");
+            return t.Contains("x=1") && !t.Contains("int");
+        });
+    }
 }
