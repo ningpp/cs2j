@@ -340,4 +340,47 @@ public partial class GotoEliminatorTests
         var second = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(first);
         Assert.False(second.Changed);
     }
+
+    // ---- Task 10: CLI verb eliminate-goto ----
+
+    [Fact]
+    public async System.Threading.Tasks.Task Cli_SingleFile_TransformsAndWrites()
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "cs2j_cli_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tmp);
+        try
+        {
+            var input = Path.Combine(tmp, "in.cs");
+            var output = Path.Combine(tmp, "out.cs");
+            await File.WriteAllTextAsync(input, "class C { void M() { goto s; int x=1; s: int y=2; } }");
+            var exit = await CSharpToJava.CLI.Program.MainImpl(new[] { "eliminate-goto", "-i", input, "-o", output });
+            Assert.Equal(0, exit);
+            var result = await File.ReadAllTextAsync(output);
+            AssertNoGotoOrLabel(result);
+        }
+        finally { Directory.Delete(tmp, recursive: true); }
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task Cli_Directory_CopiesAndTransformsOnlyDirty()
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "cs2j_dir_" + Guid.NewGuid().ToString("N"));
+        var srcDir = Path.Combine(tmp, "src"); var dstDir = Path.Combine(tmp, "dst");
+        Directory.CreateDirectory(srcDir);
+        try
+        {
+            var dirty = Path.Combine(srcDir, "dirty.cs");
+            var clean = Path.Combine(srcDir, "clean.cs");
+            await File.WriteAllTextAsync(dirty, "class C { void M() { goto s; int x=1; s: int y=2; } }");
+            await File.WriteAllTextAsync(clean, "class C { void M() { int x=1; } }");
+            var exit = await CSharpToJava.CLI.Program.MainImpl(new[] { "eliminate-goto", "-s", srcDir, "-d", dstDir, "-v" });
+            Assert.Equal(0, exit);
+            var dirtyOut = await File.ReadAllTextAsync(Path.Combine(dstDir, "dirty.cs"));
+            var cleanOut = await File.ReadAllTextAsync(Path.Combine(dstDir, "clean.cs"));
+            AssertNoGotoOrLabel(dirtyOut);
+            // clean 文件字节一致
+            Assert.Equal(await File.ReadAllTextAsync(clean), cleanOut);
+        }
+        finally { Directory.Delete(tmp, recursive: true); }
+    }
 }

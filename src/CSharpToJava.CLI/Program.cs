@@ -1,5 +1,6 @@
 using CommandLine;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.GotoEliminator;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.Core.Pipeline.Planning;
@@ -14,12 +15,17 @@ public class Program
     {
         // Register MSBuild locator early, before any Roslyn workspace APIs.
         SolutionLoader.EnsureMSBuildRegistered();
+        return await MainImpl(args);
+    }
 
-        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions>(args)
+    internal static async Task<int> MainImpl(string[] args)
+    {
+        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
                 (AnalyzeOptions opts) => AnalyzeProject(opts),
+                (EliminateGotoOptions opts) => EliminateGoto(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -1593,6 +1599,107 @@ public class Program
         var column = lineSpan.StartLinePosition.Character + 1;
         return $"{label}{diag.Message} ({lineSpan.Path}:{line}:{column})";
     }
+
+    private static async Task<int> EliminateGoto(EliminateGotoOptions opts)
+    {
+        var elim = new GotoEliminator();
+        var goOpts = new GotoEliminatorOptions(opts.Verbose, opts.Strict);
+
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var result = elim.Eliminate(sourceCode, goOpts);
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose) Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else Console.Write(result.OutputCode);
+            return DiagnosticsExitCode(result);
+        }
+
+        // 目录模式
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i/-o) or (-s/-d).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source directory not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+        int transformed = 0, clean = 0, failed = 0;
+        foreach (var file in Directory.GetFiles(opts.Source, "*.cs", SearchOption.AllDirectories))
+        {
+            var rel = Path.GetRelativePath(opts.Source, file);
+            var dst = Path.Combine(opts.Destination, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            var sourceCode = await File.ReadAllTextAsync(file);
+            var result = elim.Eliminate(sourceCode, goOpts);
+            if (!result.Changed)
+            {
+                // 字节复制保真
+                File.Copy(file, dst, overwrite: true);
+                clean++;
+                if (opts.Verbose) Console.WriteLine($"clean (copy): {rel}");
+            }
+            else
+            {
+                // 原子写：先 .tmp 再替换
+                await File.WriteAllTextAsync(dst + ".tmp", result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (File.Exists(dst)) File.Delete(dst);
+                File.Move(dst + ".tmp", dst);
+                transformed++;
+                if (opts.Verbose) Console.WriteLine($"transformed: {rel}");
+            }
+            foreach (var d in result.Diagnostics)
+                Console.Error.WriteLine($"[{d.Severity}] {d.MethodName}: {d.Message}");
+            if (result.Diagnostics.Any(d => d.Severity == GotoEliminatorSeverity.Warning)) failed++;
+        }
+        // 非 .cs 文件字节复制
+        foreach (var file in Directory.GetFiles(opts.Source, "*.*", SearchOption.AllDirectories)
+                     .Where(f => !f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+        {
+            var rel = Path.GetRelativePath(opts.Source, file);
+            var dst = Path.Combine(opts.Destination, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            File.Copy(file, dst, overwrite: true);
+        }
+        Console.WriteLine($"eliminate-goto: {transformed} transformed, {clean} clean, {failed} with-warnings");
+        return failed > 0 ? 1 : 0;
+    }
+
+    private static int DiagnosticsExitCode(GotoEliminatorResult result)
+    {
+        foreach (var d in result.Diagnostics)
+            Console.Error.WriteLine($"[{d.Severity}] {d.MethodName}: {d.Message}");
+        return result.Diagnostics.Any(d => d.Severity == GotoEliminatorSeverity.Warning) ? 1 : 0;
+    }
+}
+
+// 命令行选项
+[Verb("eliminate-goto", HelpText = "Eliminate goto/label from C# source")]
+class EliminateGotoOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat unsupported-method diagnostics as fatal")]
+    public bool Strict { get; set; }
 }
 
 // 命令行选项
