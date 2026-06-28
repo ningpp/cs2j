@@ -73,6 +73,21 @@ class Test {
     }
 
     [Fact]
+    public void FuncTaskField_MapsTaskResultToWildcardCompletableFuture()
+    {
+        var result = Convert(@"
+using System;
+using System.Threading.Tasks;
+class Test {
+    Func<Task> supplier;
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        Assert.Contains("Supplier<CompletableFuture<?>>", code);
+        Assert.DoesNotContain("Supplier<CompletableFuture> supplier", code);
+    }
+
+    [Fact]
     public void FieldWithoutAccessModifier_GetsPrivateInJava()
     {
         var result = Convert(@"

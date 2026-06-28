@@ -549,6 +549,7 @@ public static class ExpressionTransformerHelpers
             "char" => "Character",
             "short" => "Short",
             "byte" => "Integer",
+            "sbyte" => "Byte",
             "uint" => "Integer",
             "ulong" => "Long",
             "ushort" => "Short",

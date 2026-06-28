@@ -22,6 +22,22 @@ class CSharpDateTimeOffsetTest {
     }
 
     @Test
+    void constructor_rejectsOffsetsOutsideDateTimeOffsetRange() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, new CSharpTimeSpan(14, 1, 0)));
+        assertThrows(IllegalArgumentException.class,
+            () -> new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, new CSharpTimeSpan(-14, -1, 0)));
+        assertThrows(IllegalArgumentException.class,
+            () -> new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, CSharpTimeSpan.fromHours(15)));
+    }
+
+    @Test
+    void constructor_rejectsOffsetWithSubMinutePrecision() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, CSharpTimeSpan.fromSeconds(30)));
+    }
+
+    @Test
     void dateTime() {
         // C#: dto1.DateTime = 2024/6/15 10:30:45
         CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);

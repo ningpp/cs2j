@@ -406,6 +406,43 @@ class StringHelperTest {
         assertFalse(StringHelper.contains("Hello World", "world", false));
     }
 
+    // ---- StringBuilder compatibility ----
+
+    @Test
+    void stringBuilderAppendStringNullAppendsNothing() {
+        StringBuilder builder = new StringBuilder("a");
+
+        StringHelper.append(builder, (String) null);
+
+        assertEquals("a", builder.toString());
+    }
+
+    @Test
+    void stringBuilderInsertStringNullInsertsNothingButValidatesOffset() {
+        StringBuilder builder = new StringBuilder("hello");
+
+        StringHelper.insert(builder, 5, (String) null);
+
+        assertEquals("hello", builder.toString());
+        assertThrows(IllegalArgumentException.class, () -> StringHelper.insert(builder, 6, "x"));
+    }
+
+    @Test
+    void stringBuilderRemoveMapsCountToEndAndUsesArgumentException() {
+        StringBuilder builder = new StringBuilder("abcdef");
+
+        StringHelper.remove(builder, 2, 3);
+
+        assertEquals("abf", builder.toString());
+        assertThrows(IllegalArgumentException.class, () -> StringHelper.remove(builder, -1, 1));
+    }
+
+    @Test
+    void substringWithStartAndCountUsesArgumentExceptionForInvalidRange() {
+        assertEquals("bc", StringHelper.substring("abcd", 1, 2));
+        assertThrows(IllegalArgumentException.class, () -> StringHelper.substring("abcd", -1, 1));
+    }
+
     // ---- copyTo ----
 
     @Test

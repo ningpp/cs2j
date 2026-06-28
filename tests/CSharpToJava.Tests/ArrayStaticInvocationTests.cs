@@ -126,6 +126,24 @@ class Test {
         Assert.DoesNotContain("CSharpArray ret = java.lang.reflect.Array.newInstance(type, count);", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemArraySetValue_OnSystemArrayParameter_UsesCSharpArrayWrapper()
+    {
+        var result = Convert(@"
+using System;
+
+class Test {
+    void Store(Array array, object value, int index) {
+        array.SetValue(value, index);
+    }
+}");
+
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("void store(CSharpArray array, Object value, int index)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("array.setValue(value, index);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("java.lang.reflect.Array.set(array", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

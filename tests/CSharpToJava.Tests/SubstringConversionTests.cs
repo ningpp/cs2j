@@ -22,7 +22,7 @@ class Sample
     }
 
     [Fact]
-    public void Substring_TwoArgs_ConvertsLengthToEndIndex()
+    public void Substring_TwoArgs_UsesStringHelperForDotNetRangeSemantics()
     {
         var result = Convert(@"
 class Sample
@@ -34,11 +34,11 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("s.substring(2, 2 + 3)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.substring(s, 2, 3)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Substring_TwoArgs_VariableArgs_ConvertsLengthToEndIndex()
+    public void Substring_TwoArgs_VariableArgs_UsesStringHelperForDotNetRangeSemantics()
     {
         var result = Convert(@"
 class Sample
@@ -50,11 +50,11 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("s.substring(start, start + len)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.substring(s, start, len)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Substring_TwoArgs_ExpressionArgs_ConvertsLengthToEndIndex()
+    public void Substring_TwoArgs_ExpressionArgs_UsesStringHelperForDotNetRangeSemantics()
     {
         var result = Convert(@"
 class Sample
@@ -66,11 +66,11 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("s.substring(offset + 1, offset + 1 + 5)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.substring(s, offset + 1, 5)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Substring_TwoArgs_LengthProperty_ConvertsLengthToEndIndex()
+    public void Substring_TwoArgs_LengthProperty_UsesStringHelperForDotNetRangeSemantics()
     {
         var result = Convert(@"
 class Sample
@@ -82,11 +82,11 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("s.substring(0, 0 + s.length() - 1)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.substring(s, 0, s.length() - 1)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void StringBuilder_ToString_TwoArgs_ConvertsLengthToEndIndex()
+    public void StringBuilder_ToString_TwoArgs_UsesStringHelperForDotNetRangeSemantics()
     {
         var result = Convert(@"
 using System.Text;
@@ -99,7 +99,7 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("sb.substring(2, 2 + 3)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.substring(sb.toString(), 2, 3)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -116,8 +116,8 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("attrString.substring(0, 0 + 1)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("attrString.toLowerCase().substring(1, 1 + attrString.length() - 1)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.substring(attrString, 0, 1)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.substring(attrString.toLowerCase(), 1, attrString.length() - 1)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -138,7 +138,7 @@ class Sample
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
         Assert.Contains(
-            "attrString.substring(0, 0 + 1).toLowerCase(CultureInfo.getInvariantCulture().toLocale())",
+            "StringHelper.substring(attrString, 0, 1).toLowerCase(CultureInfo.getInvariantCulture().toLocale())",
             result.GeneratedCode,
             StringComparison.Ordinal);
         Assert.DoesNotContain(

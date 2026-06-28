@@ -93,6 +93,35 @@ class C {
     }
 
     [Fact]
+    public void TupleDefaultExpression_ProducesTupleOfElementDefaults()
+    {
+        var result = Convert(@"
+class C {
+    (int, string, bool) GetDefault() => default((int, string, bool));
+}");
+        Assert.True(result.Success);
+        Assert.Contains("Tuple.of(0, null, false)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.vavr.Tuple;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Tuple3<Integer, String, Boolean>()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TupleDefaultLiteral_ProducesTupleOfElementDefaults()
+    {
+        var result = Convert(@"
+class C {
+    (int, int, int, bool) GetDefault() {
+        (int, int, int, bool) value = default;
+        return value;
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("Tuple.of(0, 0, 0, false)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.vavr.Tuple;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Tuple4<Integer, Integer, Integer, Boolean>()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TupleExpression_NoTodoComment()
     {
         var result = Convert(@"

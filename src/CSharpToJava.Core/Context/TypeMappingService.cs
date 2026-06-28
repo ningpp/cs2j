@@ -489,6 +489,13 @@ public class TypeMappingService
                 AddImport("java.util.function.BiPredicate");
                 return $"BiPredicate<{tArg1}, {tArg2}>";
             }
+            if ((fullQualifiedName == "System.Func`1" || configKey == "System.Func`1")
+                && namedType.TypeArguments.Length == 1)
+            {
+                var resultType = MapTypeForGeneric(namedType.TypeArguments[0], referenceContext);
+                if (resultType == "CompletableFuture")
+                    return "Supplier<CompletableFuture<?>>";
+            }
 
             return $"{baseType}<{typeArgs}>";
         }

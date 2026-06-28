@@ -188,6 +188,36 @@ public class JavaValidationPassTests
     }
 
     [Fact]
+    public void ExceptionCheck_WrapperRethrowsRuntimeExceptionsBeforeWrappingCheckedExceptions()
+    {
+        var (rewriter, diagnostics) = CreateExceptionChecker();
+        var cu = new JavaCompilationUnit();
+        var method = new JavaMethodDeclaration
+        {
+            Name = "readFile",
+            ReturnType = "void",
+            StructuredBody = new JavaMethodBody(),
+        };
+        method.StructuredBody.Statements.Add(new JavaRawStatement(
+            "try (InputStream stream = FileHelper.openRead(fileName)) {\n    throw new IllegalArgumentException(\"bad\");\n}"));
+
+        var clazz = new JavaClassDeclaration { Name = "TestClass" };
+        clazz.Methods.Add(method);
+        cu.TypeDeclarations.Add(clazz);
+
+        rewriter.VisitCompilationUnit(cu);
+
+        var wrapper = Assert.IsType<JavaTryCatchStatement>(Assert.Single(method.StructuredBody!.Statements));
+        var catchClause = Assert.Single(wrapper.CatchClauses);
+        var catchCode = string.Join("\n", catchClause.Body.Statements
+            .OfType<JavaRawStatement>()
+            .Select(s => s.Code));
+        Assert.Contains("if (_e_cs2j instanceof RuntimeException)", catchCode, StringComparison.Ordinal);
+        Assert.Contains("throw (RuntimeException)_e_cs2j;", catchCode, StringComparison.Ordinal);
+        Assert.Contains("throw new RuntimeException(_e_cs2j);", catchCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ExceptionCheck_RuntimeException_NotAdded()
     {
         // ArrayList.add() doesn't throw checked exceptions

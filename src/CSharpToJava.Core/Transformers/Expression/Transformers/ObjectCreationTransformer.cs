@@ -420,6 +420,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (ctorSymbol == null)
             AppendRuntimeClassArguments(createdTypeSymbol, context, ref args);
 
+        if (typeName == "StringBuilder"
+            && argumentList.Arguments.Count == 1
+            && context.GetTypeInfo(argumentList.Arguments[0].Expression).Type?.SpecialType == SpecialType.System_String)
+        {
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            var initialValue = ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
+            return $"new StringBuilder(StringHelper.stringBuilderInitialValue({initialValue}))";
+        }
+
         if (IsSystemThreadingValueTaskType(createdTypeSymbol) && argumentList.Arguments.Count == 1)
         {
             var argType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
@@ -1301,6 +1310,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 && context.TryGetRuntimeClassParameter(typeParameterForRuntimeClass.Name, out var runtimeClassParameter))
             {
                 var lengthExpr = string.IsNullOrEmpty(sizeExpr) ? "0" : sizeExpr;
+                if (typeParameterForRuntimeClass.DeclaringMethod != null
+                    && SymbolEqualityComparer.Default.Equals(
+                        typeParameterForRuntimeClass.DeclaringMethod,
+                        context.CurrentMethod?.OriginalDefinition))
+                {
+                    return $"java.lang.reflect.Array.newInstance({runtimeClassParameter}, {lengthExpr})";
+                }
                 return $"({elementType}[]) java.lang.reflect.Array.newInstance({runtimeClassParameter}, {lengthExpr})";
             }
 

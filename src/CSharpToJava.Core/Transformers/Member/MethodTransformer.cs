@@ -70,6 +70,9 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = GetReturnType(methodDecl, context)
         };
 
+        if (ShouldReturnObjectForRuntimeTypeParameterArray(methodInfo, context))
+            javaMethod.ReturnType = "Object";
+
         // Type-erasure conflict: rename overload so it survives Java type erasure.
         // Different type param counts get _Ntp suffix; same counts get _erasure_N.
         if (methodInfo != null)
@@ -259,74 +262,83 @@ public class MethodTransformer : IMemberTransformer
         }
         else if (methodDecl.ExpressionBody != null)
         {
-            var exprBody = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
-
-            // Expression-bodied methods skip TransformReturnStatement, so Stream/Array wrapping
-            // for IEnumerable/ICollection/IList return types must be handled here.
-            exprBody = WrapExpressionBodyForIterableReturn(exprBody, methodDecl.ExpressionBody.Expression,
-                methodDecl.ReturnType, context);
-
-            bool hasPending = context.HasPendingPreStatements || context.HasPendingPostStatements
-                || baseSegmentDeclarations.Count > 0;
-
-            if (!hasPending)
+            if (methodDecl.ExpressionBody.Expression is ThrowExpressionSyntax throwExpression)
             {
-                if (context.IsInAsyncContext)
-                {
-                    context.AddImport("java.util.concurrent.CompletableFuture");
-                    exprBody = $"CompletableFuture.completedFuture({exprBody})";
-                }
-                javaMethod.Body = exprBody;
-                javaMethod.IsBodyExpression = true;
+                var thrown = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(throwExpression.Expression, context);
+                javaMethod.Body = $"throw {thrown};";
+                javaMethod.IsBodyExpression = false;
             }
             else
             {
-                var bodyLines = new List<string>();
-                // Base segment declarations must come first (method-level scope)
-                foreach (var decl in baseSegmentDeclarations)
-                    bodyLines.Add(decl);
-                if (context.HasPendingPreStatements)
-                {
-                    foreach (var pre in context.DrainPreStatements())
-                        bodyLines.Add(pre.TrimEnd(';') + ";");
-                }
+                var exprBody = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
 
-                if (javaMethod.ReturnType == "void")
+                // Expression-bodied methods skip TransformReturnStatement, so Stream/Array wrapping
+                // for IEnumerable/ICollection/IList return types must be handled here.
+                exprBody = WrapExpressionBodyForIterableReturn(exprBody, methodDecl.ExpressionBody.Expression,
+                    methodDecl.ReturnType, context);
+
+                bool hasPending = context.HasPendingPreStatements || context.HasPendingPostStatements
+                    || baseSegmentDeclarations.Count > 0;
+
+                if (!hasPending)
                 {
-                    bodyLines.Add(exprBody.TrimEnd(';') + ";");
-                    if (context.HasPendingPostStatements)
-                    {
-                        foreach (var post in context.DrainPostStatements())
-                            bodyLines.Add(post.TrimEnd(';') + ";");
-                    }
-                }
-                else if (context.HasPendingPostStatements)
-                {
-                    var retHolder = context.GenerateSyntheticName("_ret");
-                    bodyLines.Add($"var {retHolder} = {exprBody};");
-                    foreach (var post in context.DrainPostStatements())
-                        bodyLines.Add(post.TrimEnd(';') + ";");
                     if (context.IsInAsyncContext)
                     {
                         context.AddImport("java.util.concurrent.CompletableFuture");
-                        bodyLines.Add($"return CompletableFuture.completedFuture({retHolder});");
+                        exprBody = $"CompletableFuture.completedFuture({exprBody})";
                     }
-                    else
-                        bodyLines.Add($"return {retHolder};");
+                    javaMethod.Body = exprBody;
+                    javaMethod.IsBodyExpression = true;
                 }
                 else
                 {
-                    if (context.IsInAsyncContext)
+                    var bodyLines = new List<string>();
+                    // Base segment declarations must come first (method-level scope)
+                    foreach (var decl in baseSegmentDeclarations)
+                        bodyLines.Add(decl);
+                    if (context.HasPendingPreStatements)
                     {
-                        context.AddImport("java.util.concurrent.CompletableFuture");
-                        bodyLines.Add($"return CompletableFuture.completedFuture({exprBody.TrimEnd(';')});");
+                        foreach (var pre in context.DrainPreStatements())
+                            bodyLines.Add(pre.TrimEnd(';') + ";");
+                    }
+
+                    if (javaMethod.ReturnType == "void")
+                    {
+                        bodyLines.Add(exprBody.TrimEnd(';') + ";");
+                        if (context.HasPendingPostStatements)
+                        {
+                            foreach (var post in context.DrainPostStatements())
+                                bodyLines.Add(post.TrimEnd(';') + ";");
+                        }
+                    }
+                    else if (context.HasPendingPostStatements)
+                    {
+                        var retHolder = context.GenerateSyntheticName("_ret");
+                        bodyLines.Add($"var {retHolder} = {exprBody};");
+                        foreach (var post in context.DrainPostStatements())
+                            bodyLines.Add(post.TrimEnd(';') + ";");
+                        if (context.IsInAsyncContext)
+                        {
+                            context.AddImport("java.util.concurrent.CompletableFuture");
+                            bodyLines.Add($"return CompletableFuture.completedFuture({retHolder});");
+                        }
+                        else
+                            bodyLines.Add($"return {retHolder};");
                     }
                     else
-                        bodyLines.Add($"return {exprBody.TrimEnd(';')};");
-                }
+                    {
+                        if (context.IsInAsyncContext)
+                        {
+                            context.AddImport("java.util.concurrent.CompletableFuture");
+                            bodyLines.Add($"return CompletableFuture.completedFuture({exprBody.TrimEnd(';')});");
+                        }
+                        else
+                            bodyLines.Add($"return {exprBody.TrimEnd(';')};");
+                    }
 
-                javaMethod.Body = string.Join("\n", bodyLines);
-                javaMethod.IsBodyExpression = false;
+                    javaMethod.Body = string.Join("\n", bodyLines);
+                    javaMethod.IsBodyExpression = false;
+                }
             }
         }
         else if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)) ||
@@ -359,6 +371,7 @@ public class MethodTransformer : IMemberTransformer
         // Checked exceptions from try-with-resources (close()) or Dispose→close
         // are handled by JavaExceptionCheckRewriter which wraps method bodies
         // with try-catch instead of adding throws declarations.
+        AddPendingRuntimeClassParameters(javaMethod, context);
 
         if (pointerParams.Count > 0)
             context.PopFixedScope();
@@ -883,6 +896,22 @@ public class MethodTransformer : IMemberTransformer
         return context.MapTypeFromSyntax(methodDecl.ReturnType);
     }
 
+    private static bool ShouldReturnObjectForRuntimeTypeParameterArray(
+        IMethodSymbol? methodSymbol,
+        ConversionContext context)
+    {
+        if (methodSymbol?.OriginalDefinition.ReturnType is not IArrayTypeSymbol { Rank: 1 } returnArray
+            || returnArray.ElementType is not ITypeParameterSymbol typeParameter
+            || typeParameter.DeclaringMethod == null
+            || !SymbolEqualityComparer.Default.Equals(typeParameter.DeclaringMethod, methodSymbol.OriginalDefinition))
+        {
+            return false;
+        }
+
+        return RuntimeClassParameterHelper.GetRequiredTypeParameters(methodSymbol, context)
+            .Any(tp => SymbolEqualityComparer.Default.Equals(tp, typeParameter));
+    }
+
     private JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
         var typeInfo = context.GetTypeInfo(param.Type!);
@@ -959,6 +988,25 @@ public class MethodTransformer : IMemberTransformer
         {
             var parameterName = AllocateRuntimeClassParameterName(typeParameterName, javaMethod);
             javaMethod.Parameters.Add(new JavaParameter("Class<?>", parameterName));
+            context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
+        }
+    }
+
+    private static void AddPendingRuntimeClassParameters(
+        JavaMethodDeclaration javaMethod,
+        ConversionContext context)
+    {
+        var pendingTypeParameters = context.DrainClassTypeParams();
+        if (pendingTypeParameters == null || pendingTypeParameters.Count == 0)
+            return;
+
+        foreach (var typeParameterName in pendingTypeParameters.OrderBy(name => name, StringComparer.Ordinal))
+        {
+            var parameterName = $"_cs2j_{typeParameterName}";
+            if (javaMethod.Parameters.Any(p => p.Name == parameterName))
+                continue;
+
+            javaMethod.Parameters.Insert(0, new JavaParameter($"Class<{typeParameterName}>", parameterName));
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
         }
     }

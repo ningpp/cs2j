@@ -43,8 +43,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         ["Int32"]    = ("int",     "Integer"),
         ["Int64"]    = ("long",    "Long"),
         ["Int16"]    = ("short",   "Short"),
-        ["Byte"]     = ("int",     "Integer"),
-        ["SByte"]    = ("byte",    "Byte"),
+        ["Byte"]     = ("byte",    "Integer"),
+        ["SByte"]    = ("sbyte",   "Byte"),
         ["UInt32"]   = ("uint",    "Long"),
         ["UInt64"]   = ("ulong",   "Long"),
         ["UInt16"]   = ("ushort",  "Short"),
@@ -1072,6 +1072,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Path C: Per-type property/field resolution via receiverType.GetMembers().
         // This runs immediately after Path A (GetSymbolInfo) fails. It uses the
         // type's own metadata to decide — no global whitelist needed.
+        // Type-parameter receivers such as Assert.Throws<T>(...).Message need to
+        // resolve through their constraints even when the transformed receiver is
+        // an invocation expression that starts with an uppercase static type name.
+        if (receiverType is ITypeParameterSymbol
+            && staticTypeTarget == null
+            && instanceReceiverTarget == null)
+        {
+            var resolved = TryResolvePropertyByType(memberName, target, receiverType, context);
+            if (resolved != null)
+                return resolved;
+        }
+
         // Only fires for instance access (target starts with lowercase).
         // Guard: if either staticTypeTarget or instanceReceiverTarget is set, this is
         // a resolved receiver (static type or instance property), not a raw instance access.
@@ -2157,6 +2169,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return scopedType;
         }
 
+        if (TryResolveXunitGenericExceptionAssertResultType(receiver, context, out var xunitResultType))
+            return xunitResultType;
+
         var typeInfo = context.GetTypeInfo(receiver);
         var resolved = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolved != null && resolved.TypeKind != TypeKind.Error)
@@ -2197,6 +2212,38 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         return null;
+    }
+
+    private static bool TryResolveXunitGenericExceptionAssertResultType(
+        ExpressionSyntax receiver,
+        ConversionContext context,
+        out ITypeSymbol? resultType)
+    {
+        resultType = null;
+
+        if (!context.HasUsingDirective("Xunit"))
+            return false;
+
+        if (receiver is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Expression: IdentifierNameSyntax { Identifier.Text: "Assert" },
+                    Name: GenericNameSyntax genericName
+                }
+            })
+            return false;
+
+        if (genericName.Identifier.Text is not ("Throws" or "ThrowsAny" or "ThrowsAsync")
+            || genericName.TypeArgumentList.Arguments.Count == 0)
+            return false;
+
+        var candidate = context.GetTypeInfo(genericName.TypeArgumentList.Arguments[0]).Type;
+        if (candidate == null || candidate.TypeKind == TypeKind.Error)
+            return false;
+
+        resultType = candidate;
+        return true;
     }
 
     private static string CSharpArrayLength(string target)

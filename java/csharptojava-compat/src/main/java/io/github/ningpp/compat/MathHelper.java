@@ -12,7 +12,7 @@ public class MathHelper {
     private static final BigInteger UINT64_MAX_VALUE = new BigInteger("18446744073709551615");
 
     public static double parseDouble(String s) {
-        return Double.parseDouble(s);
+        return parseNumber(() -> Double.parseDouble(s));
     }
 
     public static double parseDouble(String s, CultureInfo culture) {
@@ -28,19 +28,19 @@ public class MathHelper {
     }
 
     public static double parseDouble(String s, int style, CultureInfo culture) {
-        return parseDoubleWithStyle(s, style);
+        return parseNumber(() -> parseDoubleWithStyle(s, style));
     }
 
     public static double parseDouble(String s, int style, NumberFormatInfo formatInfo) {
-        return parseDoubleWithStyle(s, style);
+        return parseNumber(() -> parseDoubleWithStyle(s, style));
     }
 
     public static double parseDouble(String s, int style, Locale locale) {
-        return parseDoubleWithStyle(s, style);
+        return parseNumber(() -> parseDoubleWithStyle(s, style));
     }
 
     public static float parseFloat(String s) {
-        return Float.parseFloat(s);
+        return parseNumber(() -> Float.parseFloat(s));
     }
 
     public static float parseFloat(String s, CultureInfo culture) {
@@ -56,23 +56,23 @@ public class MathHelper {
     }
 
     public static float parseFloat(String s, int style, CultureInfo culture) {
-        return (float) parseDoubleWithStyle(s, style);
+        return parseNumber(() -> (float) parseDoubleWithStyle(s, style));
     }
 
     public static float parseFloat(String s, int style, NumberFormatInfo formatInfo) {
-        return (float) parseDoubleWithStyle(s, style);
+        return parseNumber(() -> (float) parseDoubleWithStyle(s, style));
     }
 
     public static float parseFloat(String s, int style, Locale locale) {
-        return (float) parseDoubleWithStyle(s, style);
+        return parseNumber(() -> (float) parseDoubleWithStyle(s, style));
     }
 
     public static int parseInt(String s) {
-        return Integer.parseInt(s);
+        return parseNumber(() -> Integer.parseInt(s));
     }
 
     public static int parseInt(String s, int style) {
-        return parseIntWithStyle(s, style);
+        return parseNumber(() -> parseIntWithStyle(s, style));
     }
 
     public static int parseInt(String s, CultureInfo culture) {
@@ -88,23 +88,23 @@ public class MathHelper {
     }
 
     public static int parseInt(String s, int style, CultureInfo culture) {
-        return parseIntWithStyle(s, style);
+        return parseNumber(() -> parseIntWithStyle(s, style));
     }
 
     public static int parseInt(String s, int style, NumberFormatInfo formatInfo) {
-        return parseIntWithStyle(s, style);
+        return parseNumber(() -> parseIntWithStyle(s, style));
     }
 
     public static int parseInt(String s, int style, Locale locale) {
-        return parseIntWithStyle(s, style);
+        return parseNumber(() -> parseIntWithStyle(s, style));
     }
 
     public static long parseLong(String s) {
-        return Long.parseLong(s);
+        return parseNumber(() -> Long.parseLong(s));
     }
 
     public static long parseLong(String s, int style) {
-        return parseLongWithStyle(s, style);
+        return parseNumber(() -> parseLongWithStyle(s, style));
     }
 
     public static long parseLong(String s, CultureInfo culture) {
@@ -120,15 +120,15 @@ public class MathHelper {
     }
 
     public static long parseLong(String s, int style, CultureInfo culture) {
-        return parseLongWithStyle(s, style);
+        return parseNumber(() -> parseLongWithStyle(s, style));
     }
 
     public static long parseLong(String s, int style, NumberFormatInfo formatInfo) {
-        return parseLongWithStyle(s, style);
+        return parseNumber(() -> parseLongWithStyle(s, style));
     }
 
     public static long parseLong(String s, int style, Locale locale) {
-        return parseLongWithStyle(s, style);
+        return parseNumber(() -> parseLongWithStyle(s, style));
     }
 
     public static int parseUShort(String s) {
@@ -136,7 +136,7 @@ public class MathHelper {
     }
 
     public static int parseUShort(String s, int style) {
-        long value = parseUnsignedLongInRange(s, style, 0xFFFFL);
+        long value = parseNumber(() -> parseUnsignedLongInRange(s, style, 0xFFFFL));
         return (int) value;
     }
 
@@ -169,7 +169,7 @@ public class MathHelper {
     }
 
     public static int parseUInt(String s, int style) {
-        long value = parseUnsignedLongInRange(s, style, 0xFFFFFFFFL);
+        long value = parseNumber(() -> parseUnsignedLongInRange(s, style, 0xFFFFFFFFL));
         return (int) value;
     }
 
@@ -202,7 +202,7 @@ public class MathHelper {
     }
 
     public static long parseULong(String s, int style) {
-        return parseUnsignedBigIntegerInRange(s, style, UINT64_MAX_VALUE).longValue();
+        return parseNumber(() -> parseUnsignedBigIntegerInRange(s, style, UINT64_MAX_VALUE).longValue());
     }
 
     public static long parseULong(String s, CultureInfo culture) {
@@ -349,7 +349,7 @@ public class MathHelper {
 
     public static boolean tryParseUInt(String s, int style, CultureInfo culture, IntHolder result) {
         try { result.value = parseUInt(s, style); return true; }
-        catch (NumberFormatException e) { return false; }
+        catch (FormatException e) { return false; }
     }
 
     public static boolean tryParseUInt(String s, int style, NumberFormatInfo formatInfo, IntHolder result) {
@@ -362,17 +362,17 @@ public class MathHelper {
 
     public static boolean tryParseUInt(String s, IntHolder result) {
         try { result.value = parseUInt(s); return true; }
-        catch (NumberFormatException e) { return false; }
+        catch (FormatException e) { return false; }
     }
 
     public static boolean tryParseUShort(String s, IntHolder result) {
         try { result.value = parseUShort(s); return true; }
-        catch (NumberFormatException e) { return false; }
+        catch (FormatException e) { return false; }
     }
 
     public static boolean tryParseUShort(String s, int style, CultureInfo culture, IntHolder result) {
         try { result.value = parseUShort(s, style); return true; }
-        catch (NumberFormatException e) { return false; }
+        catch (FormatException e) { return false; }
     }
 
     public static boolean tryParseUShort(String s, int style, NumberFormatInfo formatInfo, IntHolder result) {
@@ -385,12 +385,12 @@ public class MathHelper {
 
     public static boolean tryParseULong(String s, LongHolder result) {
         try { result.value = parseULong(s); return true; }
-        catch (NumberFormatException e) { return false; }
+        catch (FormatException e) { return false; }
     }
 
     public static boolean tryParseULong(String s, int style, CultureInfo culture, LongHolder result) {
         try { result.value = parseULong(s, style); return true; }
-        catch (NumberFormatException e) { return false; }
+        catch (FormatException e) { return false; }
     }
 
     public static boolean tryParseULong(String s, int style, NumberFormatInfo formatInfo, LongHolder result) {
@@ -482,6 +482,19 @@ public class MathHelper {
             i--;
         }
         return value.substring(0, i + 1);
+    }
+
+    @FunctionalInterface
+    private interface NumberParser<T> {
+        T parse();
+    }
+
+    private static <T> T parseNumber(NumberParser<T> parser) {
+        try {
+            return parser.parse();
+        } catch (NumberFormatException ex) {
+            throw new FormatException(ex.getMessage(), ex);
+        }
     }
 
     // ---- FormatNumeric (for C# value.ToString("X2") etc.) ----

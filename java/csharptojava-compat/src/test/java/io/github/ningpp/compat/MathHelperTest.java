@@ -157,6 +157,21 @@ class MathHelperTest {
     }
 
     @Test
+    void numericParseHelpers_invalidInputThrowsFormatException() {
+        NumberFormatInfo provider = NumberFormatInfo.getInvariantInfo();
+        int integerStyle = NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
+        int decimalStyle = integerStyle | NumberStyles.AllowDecimalPoint;
+
+        assertThrows(FormatException.class, () -> MathHelper.parseInt("false", integerStyle, provider));
+        assertThrows(FormatException.class, () -> MathHelper.parseLong("false", integerStyle, provider));
+        assertThrows(FormatException.class, () -> MathHelper.parseDouble("not-a-number", decimalStyle, provider));
+        assertThrows(FormatException.class, () -> MathHelper.parseFloat("not-a-number", decimalStyle, provider));
+        assertThrows(FormatException.class, () -> MathHelper.parseUShort("-1", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, provider));
+        assertThrows(FormatException.class, () -> MathHelper.parseUInt("-1", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, provider));
+        assertThrows(FormatException.class, () -> MathHelper.parseULong("-1", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, provider));
+    }
+
+    @Test
     void tryParseULong_acceptsMaxValueIntoLongHolder() {
         LongHolder holder = new LongHolder();
         assertTrue(MathHelper.tryParseULong("18446744073709551615", NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.getInvariantCulture(), holder));

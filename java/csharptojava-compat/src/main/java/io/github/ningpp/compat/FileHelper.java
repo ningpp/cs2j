@@ -25,12 +25,12 @@ public class FileHelper {
         catch (IOException e) { throw new UncheckedIOException(e); }
     }
     public static InputStream openRead(String path) {
-        try { return new FileInputStream(path); }
+        try { return openReadStream(path); }
         catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
     }
     public static TextReader openText(String path) {
         try {
-            InputStream fs = new FileInputStream(path);
+            InputStream fs = openReadStream(path);
             PushbackInputStream pbs = new PushbackInputStream(fs, 3);
             byte[] bom = new byte[3];
             int read = pbs.read(bom);
@@ -44,6 +44,30 @@ public class FileHelper {
         } catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
         catch (IOException e) { throw new UncheckedIOException(e); }
     }
+
+    private static InputStream openReadStream(String path) throws FileNotFoundException {
+        try {
+            return new FileInputStream(path);
+        } catch (FileNotFoundException fileNotFound) {
+            InputStream resource = openClasspathResource(path);
+            if (resource != null) return resource;
+            throw fileNotFound;
+        }
+    }
+
+    private static InputStream openClasspathResource(String path) {
+        if (path == null) return null;
+        String resourceName = path.replace('\\', '/');
+        while (resourceName.startsWith("/")) {
+            resourceName = resourceName.substring(1);
+        }
+
+        ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
+        InputStream stream = contextLoader == null ? null : contextLoader.getResourceAsStream(resourceName);
+        if (stream != null) return stream;
+        return FileHelper.class.getClassLoader().getResourceAsStream(resourceName);
+    }
+
     /** Mirrors File.Open(path, FileMode). */
     public static StreamWrapper open(String path, int fileMode) {
         return open(path, fileMode, FileAccess.ReadWrite);

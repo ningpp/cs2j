@@ -3,6 +3,7 @@ package io.github.ningpp.compat;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -45,6 +46,20 @@ class FileHelperTest {
             }
         } finally {
             Files.deleteIfExists(tmp);
+        }
+    }
+
+    @Test
+    void openText_ShouldReadClasspathResourceByName() throws Exception {
+        try (TextReader reader = FileHelper.openText("io/github/ningpp/compat/file-helper-classpath.txt")) {
+            assertEquals("classpath payload", reader.readToEnd().trim());
+        }
+    }
+
+    @Test
+    void openRead_ShouldReadClasspathResourceByName() throws Exception {
+        try (InputStream stream = FileHelper.openRead("io/github/ningpp/compat/file-helper-classpath.txt")) {
+            assertEquals("classpath payload", new String(stream.readAllBytes(), StandardCharsets.UTF_8).trim());
         }
     }
 }

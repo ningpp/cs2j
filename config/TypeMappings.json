@@ -133,9 +133,9 @@
         },
         {
             "csharp": "System.Collections.ICollection",
-            "java": "Collection",
+            "java": "CSharpCollection",
             "imports": [
-                "java.util.Collection"
+                "io.github.ningpp.compat.CSharpCollection"
             ]
         },
         {
@@ -6254,6 +6254,11 @@
             "type": "System.Random",
             "method": "NextBytes",
             "javaMethod": "nextBytes"
+        },
+        {
+            "type": "System.Exception",
+            "method": "Message",
+            "javaMethod": "getMessage"
         },
         {
             "type": "System.Exception",

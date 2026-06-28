@@ -922,6 +922,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.GetTypeInfo(node.Type);
+        if (typeInfo.Type != null
+            && TryGetDistinctRuntimeClassLiteralForTypeOf(typeInfo.Type, context, out var runtimeClassLiteral))
+        {
+            return runtimeClassLiteral;
+        }
+
         string typeName;
         if (typeInfo.Type != null)
         {
@@ -936,9 +942,34 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
                 return runtimeClassParam;
-            return $"/* WARNING: type parameter erased at runtime; T.class may fail */ {ToRuntimeTypeForClassLiteral(typeName)}.class";
+            return ConversionContext.GetClassLiteral(typeParam, context);
         }
         return $"{ToRuntimeTypeForClassLiteral(typeName)}.class";
+    }
+
+    private static bool TryGetDistinctRuntimeClassLiteralForTypeOf(
+        ITypeSymbol typeSymbol,
+        ConversionContext context,
+        out string classLiteral)
+    {
+        classLiteral = string.Empty;
+
+        var markerType = typeSymbol.SpecialType switch
+        {
+            SpecialType.System_Byte => "CSharpByte",
+            SpecialType.System_SByte => "CSharpSByte",
+            SpecialType.System_UInt16 => "CSharpUInt16",
+            SpecialType.System_UInt32 => "CSharpUInt32",
+            SpecialType.System_UInt64 => "CSharpUInt64",
+            _ => null
+        };
+
+        if (markerType == null)
+            return false;
+
+        context.AddImport($"io.github.ningpp.compat.{markerType}");
+        classLiteral = $"{markerType}.class";
+        return true;
     }
 
     private string TransformDefault(DefaultExpressionSyntax node, ConversionContext context)
@@ -985,6 +1016,14 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     /// </summary>
     internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol, ConversionContext context)
     {
+        if (typeSymbol is INamedTypeSymbol { IsTupleType: true } tupleType)
+        {
+            context.AddImport("io.vavr.Tuple");
+            var elementDefaults = tupleType.TupleElements
+                .Select(element => GetDefaultValueForType(context.MapType(element.Type), element.Type, context));
+            return $"Tuple.of({string.Join(", ", elementDefaults)})";
+        }
+
         var defaultValue = typeName switch
         {
             "int" => "0",
@@ -1080,6 +1119,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 // proper default (zero for int, new ValueType() for structs, null for ref types).
                 if (typeParam.DeclaringMethod != null && containingType != null)
                 {
+                    if (context.TryGetRuntimeClassParameter(typeParam.Name, out var existingRuntimeClassParameter))
+                    {
+                        context.AddImport("io.github.ningpp.compat.DefaultValue");
+                        return $"DefaultValue.of({existingRuntimeClassParameter})";
+                    }
+
                     var method = typeParam.DeclaringMethod;
                     context.RequireClassTypeParam(
                         containingType.MetadataName,

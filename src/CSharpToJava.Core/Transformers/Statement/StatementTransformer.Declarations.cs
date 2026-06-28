@@ -151,6 +151,7 @@ public partial class StatementTransformer
         }
 
         var exprTransformer = ExpressionTransformerFacade.Instance;
+        var effectiveJavaType = GetEffectiveLocalDeclarationType(stmt, javaType, context);
 
         // Special case: var x = target.Property = value
         // Property setters return void in Java — split into two statements: "Type x = value; target.setProperty(x);"
@@ -591,7 +592,7 @@ public partial class StatementTransformer
 
             var structured = new JavaVariableDeclarationStatement
             {
-                Type = javaType,
+                Type = effectiveJavaType,
                 Name = varName,
                 Initializer = initializerIR,
                 IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
@@ -636,7 +637,7 @@ public partial class StatementTransformer
 
             var decl = new JavaVariableDeclarationStatement
             {
-                Type = javaType,
+                Type = effectiveJavaType,
                 Name = varName,
                 Initializer = initializerIR,
                 IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
@@ -681,7 +682,7 @@ public partial class StatementTransformer
 
             var decl = new JavaVariableDeclarationStatement
             {
-                Type = javaType,
+                Type = effectiveJavaType,
                 Name = varName,
                 Initializer = initializerIR,
                 IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
@@ -690,7 +691,47 @@ public partial class StatementTransformer
             return new JavaMemberCollection(decl, new JavaStatementNode(lambdaCaptureHolderCode));
         }
 
-        return new JavaStatementNode($"{localDeclPreCode}{javaType} {declarations};{localDeclPostCode}");
+        return new JavaStatementNode($"{localDeclPreCode}{effectiveJavaType} {declarations};{localDeclPostCode}");
+    }
+
+    private static string GetEffectiveLocalDeclarationType(
+        LocalDeclarationStatementSyntax stmt,
+        string javaType,
+        ConversionContext context)
+    {
+        if (stmt.Declaration.Variables.Count != 1)
+            return javaType;
+
+        var variable = stmt.Declaration.Variables[0];
+        if (variable.Initializer == null)
+            return javaType;
+
+        var localType = (context.GetDeclaredSymbol(variable) as ILocalSymbol)?.Type;
+        return IsRuntimeTypeParameterArrayLocal(localType, variable.Initializer.Value, context)
+            ? "Object"
+            : javaType;
+    }
+
+    private static bool IsRuntimeTypeParameterArrayLocal(
+        ITypeSymbol? localType,
+        ExpressionSyntax initializer,
+        ConversionContext context)
+    {
+        if (localType is not IArrayTypeSymbol { Rank: 1, ElementType: ITypeParameterSymbol typeParameter }
+            || typeParameter.DeclaringMethod == null
+            || !SymbolEqualityComparer.Default.Equals(typeParameter.DeclaringMethod, context.CurrentMethod?.OriginalDefinition))
+        {
+            return false;
+        }
+
+        if (initializer is not ArrayCreationExpressionSyntax { Type.RankSpecifiers.Count: 1 } arrayCreation
+            || arrayCreation.Type.ElementType is not IdentifierNameSyntax elementName
+            || elementName.Identifier.Text != typeParameter.Name)
+        {
+            return false;
+        }
+
+        return context.TryGetRuntimeClassParameter(typeParameter.Name, out _);
     }
 
     private static string BuildEnumTypeReference(INamedTypeSymbol enumType)

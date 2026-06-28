@@ -291,6 +291,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
             var indexerSymbol = context.GetSymbolInfo(ela).Symbol as IPropertySymbol;
             var containerExprType = context.GetTypeInfo(ela.Expression).Type;
             bool isArrayElement = containerExprType is IArrayTypeSymbol;
+            if (isArrayElement && TryTransformRuntimeTypeParameterArraySet(ela, rightNode, context, out var runtimeArraySet))
+            {
+                return runtimeArraySet;
+            }
             if (containerExprType is IPointerTypeSymbol)
             {
                 var targetExpr = facade.Transform(ela.Expression, context);
@@ -970,6 +974,34 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
 
         return $"{left} {op} {rightStr}";
+    }
+
+    private static bool TryTransformRuntimeTypeParameterArraySet(
+        ElementAccessExpressionSyntax elementAccess,
+        ExpressionSyntax rightNode,
+        ConversionContext context,
+        out string expression)
+    {
+        expression = string.Empty;
+        if (elementAccess.ArgumentList.Arguments.Count != 1)
+            return false;
+
+        var arrayType = context.GetTypeInfo(elementAccess.Expression).Type as IArrayTypeSymbol;
+        if (arrayType?.ElementType is not ITypeParameterSymbol typeParameter
+            || typeParameter.DeclaringMethod == null
+            || !SymbolEqualityComparer.Default.Equals(typeParameter.DeclaringMethod, context.CurrentMethod?.OriginalDefinition)
+            || !context.TryGetRuntimeClassParameter(typeParameter.Name, out _))
+        {
+            return false;
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var target = facade.Transform(elementAccess.Expression, context);
+        var index = facade.Transform(elementAccess.ArgumentList.Arguments[0].Expression, context);
+        var value = facade.Transform(rightNode, context);
+        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, value, arrayType.ElementType, context);
+        expression = $"java.lang.reflect.Array.set({target}, {index}, {value})";
+        return true;
     }
 
     private static bool TryGetStructArrayFillStatement(

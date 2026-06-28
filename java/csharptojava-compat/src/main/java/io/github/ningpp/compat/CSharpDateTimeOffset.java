@@ -9,6 +9,8 @@ import java.time.format.DateTimeFormatter;
  */
 public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffset> {
 
+    private static final long MAX_OFFSET_TICKS = 14L * CSharpTimeSpan.TICKS_PER_HOUR;
+
     private final CSharpDateTime dateTime;
     private final CSharpTimeSpan offset;
 
@@ -18,12 +20,14 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         new CSharpDateTimeOffset(CSharpDateTime.MAX_VALUE, CSharpTimeSpan.ZERO);
 
     public CSharpDateTimeOffset(CSharpDateTime dateTime, CSharpTimeSpan offset) {
+        validateOffset(dateTime, offset);
         this.dateTime = dateTime;
         this.offset = offset;
     }
 
     public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, int millisecond, CSharpTimeSpan offset) {
         this.dateTime = new CSharpDateTime(year, month, day, hour, minute, second, millisecond, DateTimeKind.Unspecified);
+        validateOffset(this.dateTime, offset);
         this.offset = offset;
     }
 
@@ -52,6 +56,34 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         // Local and Unspecified both use the local timezone offset, matching .NET behavior
         int offsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
         return CSharpTimeSpan.fromSeconds(offsetSeconds);
+    }
+
+    private static void validateOffset(CSharpDateTime dateTime, CSharpTimeSpan offset) {
+        if (dateTime == null) {
+            throw new NullPointerException("dateTime");
+        }
+        if (offset == null) {
+            throw new NullPointerException("offset");
+        }
+
+        long offsetTicks = offset.getTicks();
+        if (Math.abs(offsetTicks) > MAX_OFFSET_TICKS) {
+            throw new IllegalArgumentException("Offset must be within plus or minus 14 hours.");
+        }
+        if (offsetTicks % CSharpTimeSpan.TICKS_PER_MINUTE != 0) {
+            throw new IllegalArgumentException("Offset must be specified in whole minutes.");
+        }
+
+        long utcTicks;
+        try {
+            utcTicks = Math.subtractExact(dateTime.getTicks(), offsetTicks);
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("The UTC time represented by dateTime and offset is out of range.", ex);
+        }
+
+        if (utcTicks < CSharpDateTime.MIN_VALUE.getTicks() || utcTicks > CSharpDateTime.MAX_VALUE.getTicks()) {
+            throw new IllegalArgumentException("The UTC time represented by dateTime and offset is out of range.");
+        }
     }
 
     // --- Properties ---

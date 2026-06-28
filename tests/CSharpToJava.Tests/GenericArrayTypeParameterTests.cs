@@ -32,8 +32,9 @@ class Demo {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("public <T> T[] repeat(T value, int count, Class<?> clazz)", code);
-        Assert.Contains("(T[]) java.lang.reflect.Array.newInstance(clazz, count)", code);
+        Assert.Contains("public <T> Object repeat(T value, int count, Class<?> clazz)", code);
+        Assert.Contains("java.lang.reflect.Array.newInstance(clazz, count)", code);
+        Assert.Contains("java.lang.reflect.Array.set(result", code);
         Assert.DoesNotContain("new Object[count]", code);
     }
 
@@ -59,7 +60,7 @@ class UseDemo {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("repeat(\"x\", 2, String.class)", code);
+        Assert.Contains("(String[]) new Demo().repeat(\"x\", 2, String.class)", code);
     }
 
     [Fact]
@@ -82,8 +83,8 @@ class Demo {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("public <T> T[] twice(T value, Class<?> clazz)", code);
-        Assert.Contains("repeat(value, 2, clazz)", code);
+        Assert.Contains("public <T> Object twice(T value, Class<?> clazz)", code);
+        Assert.Contains("(T[]) repeat(value, 2, clazz)", code);
         Assert.DoesNotContain("T.class", code);
     }
 
@@ -130,9 +131,9 @@ class Demo {
         Assert.True(stopwatch.ElapsedMilliseconds < 5000, $"Conversion took {stopwatch.ElapsedMilliseconds} ms");
         var code = result.GeneratedCode!;
 
-        Assert.Contains("public <T> T[] repeat(T value, int count, Class<?> clazz)", code);
-        Assert.Contains("public <T> T[] wrapper23(T value, Class<?> clazz)", code);
-        Assert.Contains("repeat(value, 24, clazz)", code);
+        Assert.Contains("public <T> Object repeat(T value, int count, Class<?> clazz)", code);
+        Assert.Contains("public <T> Object wrapper23(T value, Class<?> clazz)", code);
+        Assert.Contains("(T[]) repeat(value, 24, clazz)", code);
     }
 
     [Fact]
@@ -169,7 +170,7 @@ class UseDemo {
         Assert.Contains("this.vClass = vClass;", code);
         Assert.Contains("java.lang.reflect.Array.newInstance(kClass, count)", code);
         Assert.Contains("java.lang.reflect.Array.newInstance(vClass, count)", code);
-        Assert.Contains("new Demo<String, Integer>(String.class, Integer.class).keys(2)", code);
+        Assert.Contains("new Demo<String, Integer>(String.class, int.class).keys(2)", code);
         Assert.DoesNotContain("K.class", code);
         Assert.DoesNotContain("V.class", code);
     }
@@ -476,7 +477,7 @@ class Demo {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("public <T> T[] copy(Iterable<T> items, Class<?> clazz)", code);
+        Assert.Contains("public <T> Object copy(Iterable<T> items, Class<?> clazz)", code);
         Assert.Contains("java.lang.reflect.Array.newInstance(clazz, size)", code);
         Assert.DoesNotContain("new Object[size]", code);
         Assert.DoesNotContain("T.class", code);

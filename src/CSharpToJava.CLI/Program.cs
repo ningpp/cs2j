@@ -118,6 +118,9 @@ public class Program
     {
         try
         {
+            opts.FingerprintSourcePath = opts.Source;
+            opts.FingerprintInputRoot = ResolveInputRoot(opts.Source);
+
             var hasDirectorySource = Directory.Exists(opts.Source);
             var hasProjectSource = File.Exists(opts.Source)
                 && (Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase)
@@ -139,6 +142,45 @@ public class Program
             else
             {
                 Directory.CreateDirectory(opts.Destination);
+            }
+
+            opts.ParsedExtraDependencies = ParseExtraDependencies(opts.ExtraDependencies);
+
+            if (opts.EliminateGoto)
+            {
+                var originalSource = opts.Source;
+                var preprocessResult = await ProjectGotoPreprocessor.PreprocessAsync(new ProjectGotoPreprocessRequest
+                {
+                    SourcePath = originalSource,
+                    DestinationRoot = opts.Destination,
+                    Force = opts.Force,
+                    Verbose = opts.Verbose,
+                });
+
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"No-goto source: {originalSource} -> {preprocessResult.PreprocessedSourcePath}");
+                }
+
+                Console.WriteLine(
+                    $"eliminate-goto: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+                    $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{preprocessResult.Statistics.GotosEliminated} goto(s) eliminated");
+
+                foreach (var diagnostic in preprocessResult.Diagnostics)
+                {
+                    Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+                }
+
+                if (!preprocessResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = preprocessResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath = originalSource;
+                opts.FingerprintInputRoot = preprocessResult.SourceRoot;
+                opts.UsingGotoPreprocessedSource = true;
             }
 
             var options = new ConversionOptions
@@ -339,7 +381,7 @@ public class Program
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
-            ClearDestinationForFreshConversion(opts.Destination);
+            ClearDestinationForFreshConversion(opts.Destination, GetPreservedDestinationDirectories(opts));
         }
 
         int successCount = 0;
@@ -440,6 +482,7 @@ public class Program
             var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependenciesForModule(
                 opts.MavenGroupId,
                 moduleName));
+            deps.AddRange(compatibilityRequirements.ExternalDependencies);
             foreach (var refPath in project.ProjectReferences)
             {
                 var refProject = projects.FirstOrDefault(p =>
@@ -449,13 +492,14 @@ public class Program
                     deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, MultiModulePlanner.NormalizeModuleName(refProject.Name)));
                 }
             }
+            deps.AddRange(GetExtraDependencies(opts));
 
             var modulePlan = new JavaModulePlan
             {
                 ModuleName = moduleName,
                 IsTestOnly = isTest,
                 SourceSets = isTest ? new JavaSourceSets { TestSources = ["test"] } : new JavaSourceSets(),
-                Dependencies = deps,
+                Dependencies = WorkspacePlanBuilder.MergeDependencies(deps),
                 RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
                 RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
             };
@@ -500,7 +544,7 @@ public class Program
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
-            ClearDestinationForFreshConversion(opts.Destination);
+            ClearDestinationForFreshConversion(opts.Destination, GetPreservedDestinationDirectories(opts));
         }
 
         int successCount = 0;
@@ -618,7 +662,9 @@ public class Program
                 module,
                 opts.MavenGroupId,
                 compatibilityRequirements.RequiredPackIds,
-                compatibilityRequirements.RuntimeBridges);
+                compatibilityRequirements.RuntimeBridges,
+                compatibilityRequirements.ExternalDependencies,
+                GetExtraDependencies(opts));
             modulePlans.Add(modulePlan);
             await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
         }
@@ -709,7 +755,9 @@ public class Program
         }
     }
 
-    internal static void ClearDestinationForFreshConversion(string destinationRoot)
+    internal static void ClearDestinationForFreshConversion(
+        string destinationRoot,
+        IReadOnlySet<string>? preservedDirectoryNames = null)
     {
         if (!Directory.Exists(destinationRoot))
         {
@@ -732,9 +780,22 @@ public class Program
 
         foreach (var directory in Directory.EnumerateDirectories(fullDestinationPath))
         {
+            if (preservedDirectoryNames?.Contains(Path.GetFileName(directory)) == true)
+            {
+                continue;
+            }
+
             Directory.Delete(directory, recursive: true);
         }
     }
+
+    private static IReadOnlySet<string>? GetPreservedDestinationDirectories(ConvertProjectOptions opts) =>
+        opts.UsingGotoPreprocessedSource
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ProjectGotoPreprocessor.IntermediateDirectoryName,
+            }
+            : null;
 
     private static IReadOnlyList<string> GetReferencedProjectDirectories(DiscoveredProject project, ProjectGraph graph)
     {
@@ -921,6 +982,7 @@ public class Program
             opts.MavenGroupId,
             new DirectoryInfo(opts.Destination).Name));
         deps.AddRange(compatibilityRequirements.ExternalDependencies);
+        deps.AddRange(GetExtraDependencies(opts));
 
         return new JavaModulePlan
         {
@@ -1150,7 +1212,9 @@ public class Program
         ConvertProjectOptions opts,
         IReadOnlyList<WorkspaceProject> projects)
     {
-        var commonRoot = GetCommonRoot(projects.Select(project => project.Directory).Append(ResolveInputRoot(opts.Source)));
+        var commonRoot = opts.UsingGotoPreprocessedSource
+            ? GetFingerprintInputRoot(opts)
+            : GetCommonRoot(projects.Select(project => project.Directory).Append(GetFingerprintInputRoot(opts)));
         return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(commonRoot, opts.Destination));
     }
 
@@ -1158,13 +1222,15 @@ public class Program
         ConvertProjectOptions opts,
         ProjectGraph graph)
     {
-        var commonRoot = GetCommonRoot(graph.ProjectsInTopologicalOrder.Select(project => project.ProjectDirectory).Append(ResolveInputRoot(opts.Source)));
+        var commonRoot = opts.UsingGotoPreprocessedSource
+            ? GetFingerprintInputRoot(opts)
+            : GetCommonRoot(graph.ProjectsInTopologicalOrder.Select(project => project.ProjectDirectory).Append(GetFingerprintInputRoot(opts)));
         return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(commonRoot, opts.Destination));
     }
 
     private static InputFingerprintSnapshot BuildManualInputFingerprintSnapshot(ConvertProjectOptions opts)
     {
-        var sourceRoot = ResolveInputRoot(opts.Source);
+        var sourceRoot = GetFingerprintInputRoot(opts);
         return BuildInputFingerprintSnapshot(opts, EnumerateInputFiles(sourceRoot, opts.Destination));
     }
 
@@ -1347,10 +1413,11 @@ public class Program
         ConvertProjectOptions opts,
         IReadOnlyList<string> inputFiles)
     {
+        var fingerprintSourcePath = GetFingerprintSourcePath(opts);
         return InputFingerprintSnapshotBuilder.Build(new InputFingerprintBuildRequest
         {
-            SourceName = GetSourceName(opts.Source),
-            SourcePath = opts.Source,
+            SourceName = GetSourceName(fingerprintSourcePath),
+            SourcePath = fingerprintSourcePath,
             InputFilePaths = inputFiles,
             OptionTokens = GetProjectConversionOptionTokens(opts),
             TemplateFilePaths = GeneratedProjectAssets.GetTemplateAssetPaths(),
@@ -1373,7 +1440,50 @@ public class Program
             $"maven-group-id={opts.MavenGroupId}",
             $"maven-version={opts.MavenVersion}",
             $"include-tests={opts.IncludeTests}",
+            $"eliminate-goto={opts.EliminateGoto}",
+            $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
+    }
+
+    private static string GetFingerprintSourcePath(ConvertProjectOptions opts) =>
+        string.IsNullOrWhiteSpace(opts.FingerprintSourcePath) ? opts.Source : opts.FingerprintSourcePath!;
+
+    private static string GetFingerprintInputRoot(ConvertProjectOptions opts) =>
+        string.IsNullOrWhiteSpace(opts.FingerprintInputRoot)
+            ? ResolveInputRoot(GetFingerprintSourcePath(opts))
+            : opts.FingerprintInputRoot!;
+
+    private static IReadOnlyList<JavaDependency> ParseExtraDependencies(string? extraDependencies)
+    {
+        if (string.IsNullOrWhiteSpace(extraDependencies))
+        {
+            return [];
+        }
+
+        var dependencies = new List<JavaDependency>();
+        foreach (var coordinate in extraDependencies.Split(','))
+        {
+            if (string.IsNullOrWhiteSpace(coordinate))
+            {
+                throw new ArgumentException("Extra dependency coordinates cannot be empty.");
+            }
+
+            dependencies.Add(WorkspacePlanBuilder.ExternalDependency(coordinate));
+        }
+
+        return WorkspacePlanBuilder.MergeDependencies(dependencies);
+    }
+
+    private static IReadOnlyList<JavaDependency> GetExtraDependencies(ConvertProjectOptions opts) =>
+        opts.ParsedExtraDependencies ?? [];
+
+    private static string GetNormalizedExtraDependencyToken(ConvertProjectOptions opts)
+    {
+        var dependencies = GetExtraDependencies(opts);
+        return dependencies.Count == 0
+            ? "<none>"
+            : string.Join(",", dependencies.Select(dependency =>
+                $"{dependency.GroupId}:{dependency.ArtifactId}:{dependency.Version}:{dependency.Scope}"));
     }
 
     private static IReadOnlyList<string> GetToolAssemblyPaths()
@@ -1552,11 +1662,14 @@ public class Program
         PlannedModule module,
         string groupId,
         IReadOnlyList<string>? requiredCompatPacks = null,
-        IReadOnlyList<JavaRuntimeBridgeRequirement>? requiredRuntimeBridges = null)
+        IReadOnlyList<JavaRuntimeBridgeRequirement>? requiredRuntimeBridges = null,
+        IReadOnlyList<JavaDependency>? externalDependencies = null,
+        IReadOnlyList<JavaDependency>? extraDependencies = null)
     {
         var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependenciesForModule(
             groupId,
             module.Name));
+        deps.AddRange(externalDependencies ?? []);
 
         foreach (var dep in module.CompileDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
         {
@@ -1567,6 +1680,7 @@ public class Program
         {
             deps.Add(WorkspacePlanBuilder.InternalModuleRef(groupId, dep, JavaDependencyScope.Test));
         }
+        deps.AddRange(extraDependencies ?? []);
 
         return new JavaModulePlan
         {
@@ -1575,7 +1689,7 @@ public class Program
             SourceSets = module.HasTestSources
                 ? new JavaSourceSets { TestSources = ["test"] }
                 : new JavaSourceSets(),
-            Dependencies = deps,
+            Dependencies = WorkspacePlanBuilder.MergeDependencies(deps),
             RequiredCompatPacks = requiredCompatPacks ?? [],
             RequiredRuntimeBridges = requiredRuntimeBridges ?? [],
         };
@@ -1813,12 +1927,24 @@ class ConvertProjectOptions
     [Option("linq-report", Default = false, HelpText = "Output LINQ preprocessing report (rewrite stats, skipped chains, uncovered operators)")]
     public bool LinqReport { get; set; }
 
+    [Option("no-eliminate-goto", Default = false, HelpText = "Disable the default goto-elimination preprocessing step")]
+    public bool NoEliminateGoto { get; set; }
+
+    [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
+    public string? ExtraDependencies { get; set; }
+
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;
     public bool EnableLinqRewrite => !NoLinqRewrite;
+    public bool EliminateGoto => !NoEliminateGoto;
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;
+
+    internal IReadOnlyList<JavaDependency>? ParsedExtraDependencies { get; set; }
+    internal string? FingerprintSourcePath { get; set; }
+    internal string? FingerprintInputRoot { get; set; }
+    internal bool UsingGotoPreprocessedSource { get; set; }
 }
 
 [Verb("analyze", HelpText = "Analyze a C# project and generate type mapping report")]

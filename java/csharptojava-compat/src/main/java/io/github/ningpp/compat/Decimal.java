@@ -67,14 +67,7 @@ public final class Decimal implements Comparable<Decimal> {
     }
 
     public static Decimal parse(String value) {
-        if (value == null) {
-            throw new NumberFormatException("null");
-        }
-        String normalized = normalizeNumberString(value, NumberStyles.Number);
-        if (normalized.isEmpty()) {
-            throw new NumberFormatException("empty");
-        }
-        return new Decimal(new BigDecimal(normalized), true);
+        return parseCore(value, NumberStyles.Number);
     }
 
     public static Decimal parse(String value, CultureInfo culture) {
@@ -90,15 +83,15 @@ public final class Decimal implements Comparable<Decimal> {
     }
 
     public static Decimal parse(String value, int style, CultureInfo culture) {
-        return new Decimal(new BigDecimal(normalizeNumberString(value, style)), true);
+        return parseCore(value, style);
     }
 
     public static Decimal parse(String value, int style, NumberFormatInfo formatInfo) {
-        return new Decimal(new BigDecimal(normalizeNumberString(value, style)), true);
+        return parseCore(value, style);
     }
 
     public static Decimal parse(String value, int style, java.util.Locale locale) {
-        return new Decimal(new BigDecimal(normalizeNumberString(value, style)), true);
+        return parseCore(value, style);
     }
 
     public static boolean tryParse(String value, ObjectHolder<Decimal> result) {
@@ -132,6 +125,15 @@ public final class Decimal implements Comparable<Decimal> {
         } catch (RuntimeException ex) {
             result.value = ZERO;
             return false;
+        }
+    }
+
+    private static Decimal parseCore(String value, int style) {
+        try {
+            String normalized = normalizeNumberString(value, style);
+            return new Decimal(new BigDecimal(normalized), true);
+        } catch (NumberFormatException ex) {
+            throw new FormatException(ex.getMessage(), ex);
         }
     }
 

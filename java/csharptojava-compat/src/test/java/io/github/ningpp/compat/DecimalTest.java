@@ -30,13 +30,13 @@ class DecimalTest {
 
     @Test
     void parse_rejectsInvalidValues() {
-        assertThrows(NumberFormatException.class, () -> Decimal.parse(null));
-        assertThrows(NumberFormatException.class, () -> Decimal.parse(""));
-        assertThrows(NumberFormatException.class, () -> Decimal.parse("abc"));
-        assertThrows(NumberFormatException.class, () -> Decimal.parse("NaN"));
-        assertThrows(NumberFormatException.class, () -> Decimal.parse("Infinity"));
-        assertThrows(NumberFormatException.class, () -> Decimal.parse("1e2"));
-        assertThrows(NumberFormatException.class, () -> Decimal.parse("(123)"));
+        assertThrows(FormatException.class, () -> Decimal.parse(null));
+        assertThrows(FormatException.class, () -> Decimal.parse(""));
+        assertThrows(FormatException.class, () -> Decimal.parse("abc"));
+        assertThrows(FormatException.class, () -> Decimal.parse("NaN"));
+        assertThrows(FormatException.class, () -> Decimal.parse("Infinity"));
+        assertThrows(FormatException.class, () -> Decimal.parse("1e2"));
+        assertThrows(FormatException.class, () -> Decimal.parse("(123)"));
         assertEquals("0.0000000000000000000000000000",
             Decimal.parse("0.00000000000000000000000000001").toString());
         assertEquals("0.0000000000000000000000000001",

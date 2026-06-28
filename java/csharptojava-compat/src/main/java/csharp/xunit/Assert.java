@@ -9,9 +9,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import io.github.ningpp.compat.StringComparison;
 
 /**
  * Xunit.Assert compatibility layer for Java.
@@ -128,6 +132,10 @@ public final class Assert {
         }
     }
 
+    public static void contains(String expectedSubstring, String actualString, StringComparison comparisonType) {
+        contains(expectedSubstring, actualString, isIgnoreCase(comparisonType));
+    }
+
     public static <T> void contains(T expected, Set<T> set) {
         if (!set.contains(expected)) {
             throw new AssertionError("Assert.contains() failure: Item not found in set\nNot found: " + expected);
@@ -193,6 +201,10 @@ public final class Assert {
                 doesNotContain(expectedSubstring, actualString);
             }
         }
+    }
+
+    public static void doesNotContain(String expectedSubstring, String actualString, StringComparison comparisonType) {
+        doesNotContain(expectedSubstring, actualString, isIgnoreCase(comparisonType));
     }
 
     public static <T> void doesNotContain(T expected, Set<T> set) {
@@ -268,6 +280,10 @@ public final class Assert {
         } else {
             endsWith(expectedEndString, actualString);
         }
+    }
+
+    public static void endsWith(String expectedEndString, String actualString, StringComparison comparisonType) {
+        endsWith(expectedEndString, actualString, isIgnoreCase(comparisonType));
     }
 
     // ── Equal ────────────────────────────────────────────────────────
@@ -364,6 +380,12 @@ public final class Assert {
     }
 
     public static <T> void equal(Iterable<T> expected, Iterable<T> actual) {
+        if (expected == null || actual == null) {
+            if (expected == actual) return;
+            throw new AssertionError("Assert.equal() failure: Values differ\n"
+                + "Expected: " + expected + "\n"
+                + "Actual: " + actual);
+        }
         Iterator<T> expectedIter = expected.iterator();
         Iterator<T> actualIter = actual.iterator();
         int index = 0;
@@ -846,6 +868,10 @@ public final class Assert {
         }
     }
 
+    public static void startsWith(String expectedStartString, String actualString, StringComparison comparisonType) {
+        startsWith(expectedStartString, actualString, isIgnoreCase(comparisonType));
+    }
+
     // ── StrictEqual ──────────────────────────────────────────────────
     // Reflection: void StrictEqual<T>(T expected, T actual)
 
@@ -951,6 +977,34 @@ public final class Assert {
             + "Expected: " + exceptionType.getName() + " (or subclass)");
     }
 
+    // ── ThrowsAsync ──────────────────────────────────────────────────
+    // Reflection: Task<T> ThrowsAsync<T>(Func<Task> testCode)
+
+    public static <T extends Throwable> CompletableFuture<T> throwsAsync(
+        Class<T> exceptionType,
+        Supplier<? extends CompletableFuture<?>> testCode) {
+        CompletableFuture<?> future;
+        try {
+            future = testCode.get();
+        } catch (Throwable t) {
+            return CompletableFuture.completedFuture(assertExactThrowable(exceptionType, t, "throwsAsync"));
+        }
+
+        if (future == null) {
+            return failedFuture(new AssertionError("Assert.throwsAsync() failure: No task returned\n"
+                + "Expected: " + exceptionType.getName()));
+        }
+
+        return future.handle((ignored, failure) -> {
+            var thrown = unwrapCompletionException(failure);
+            if (thrown == null) {
+                throw new AssertionError("Assert.throwsAsync() failure: No exception thrown\n"
+                    + "Expected: " + exceptionType.getName());
+            }
+            return assertExactThrowable(exceptionType, thrown, "throwsAsync");
+        });
+    }
+
     // ── True ─────────────────────────────────────────────────────────
     // Reflection: void True(bool condition)
     //            void True(bool condition, string userMessage)
@@ -1013,5 +1067,41 @@ public final class Assert {
             return da == db;
         }
         return false;
+    }
+
+    private static boolean isIgnoreCase(StringComparison comparisonType) {
+        return comparisonType == StringComparison.CurrentCultureIgnoreCase
+            || comparisonType == StringComparison.InvariantCultureIgnoreCase
+            || comparisonType == StringComparison.OrdinalIgnoreCase;
+    }
+
+    private static Throwable unwrapCompletionException(Throwable throwable) {
+        if (throwable instanceof CompletionException && throwable.getCause() != null) {
+            return throwable.getCause();
+        }
+        return throwable;
+    }
+
+    private static <T extends Throwable> T assertExactThrowable(
+        Class<T> exceptionType,
+        Throwable thrown,
+        String assertName) {
+        if (exceptionType == thrown.getClass()) {
+            return exceptionType.cast(thrown);
+        }
+        if (exceptionType.isInstance(thrown)) {
+            throw new AssertionError("Assert." + assertName + "() failure: Exception type was not exact match\n"
+                + "Expected: " + exceptionType.getName() + "\n"
+                + "Actual: " + thrown.getClass().getName(), thrown);
+        }
+        throw new AssertionError("Assert." + assertName + "() failure: Wrong exception type\n"
+            + "Expected: " + exceptionType.getName() + "\n"
+            + "Actual: " + thrown.getClass().getName(), thrown);
+    }
+
+    private static <T> CompletableFuture<T> failedFuture(Throwable throwable) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        future.completeExceptionally(throwable);
+        return future;
     }
 }

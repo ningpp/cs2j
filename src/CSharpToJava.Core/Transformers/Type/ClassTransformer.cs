@@ -294,8 +294,8 @@ public class ClassTransformer : ITypeTransformer
                 {
                     key = member switch
                     {
-                        MethodDeclarationSyntax m => $"m:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
-                        PropertyDeclarationSyntax p => $"p:{p.Identifier.Text}",
+                        MethodDeclarationSyntax m => $"m:{m.ExplicitInterfaceSpecifier?.Name}.:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
+                        PropertyDeclarationSyntax p => $"p:{p.ExplicitInterfaceSpecifier?.Name}.:{p.Identifier.Text}",
                         FieldDeclarationSyntax f => $"f:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
                         ConstructorDeclarationSyntax c => c.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
                             ? "cctor"
@@ -1338,6 +1338,21 @@ public class ClassTransformer : ITypeTransformer
         bool existingIsPrivate = (existing.Modifiers & JavaModifiers.Private) != 0;
         bool incomingIsPrivate = (javaMethod.Modifiers & JavaModifiers.Private) != 0;
 
+        if (IsSelfForwardingDuplicateBridge(javaMethod, existing))
+        {
+            return;
+        }
+
+        if (IsSelfForwardingDuplicateBridge(existing, javaMethod))
+        {
+            int idx = javaClass.Methods.IndexOf(existing);
+            if (idx >= 0)
+            {
+                javaClass.Methods[idx] = javaMethod;
+            }
+            return;
+        }
+
         // If an auto-property private setter collides with an explicit non-private method,
         // keep the non-private method so cross-type call sites remain accessible.
         if (existingIsPrivate && !incomingIsPrivate)
@@ -1406,6 +1421,20 @@ public class ClassTransformer : ITypeTransformer
             }
             return;
         }
+    }
+
+    private static bool IsSelfForwardingDuplicateBridge(JavaMethodDeclaration candidateBridge, JavaMethodDeclaration target)
+    {
+        if (candidateBridge.Name != target.Name)
+            return false;
+
+        var body = candidateBridge.StructuredBody?.ToBodyString() ?? candidateBridge.Body;
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+
+        var normalized = new string(body.Where(c => !char.IsWhiteSpace(c)).ToArray());
+        return normalized == $"returnthis.{candidateBridge.Name}();"
+            || normalized == $"return{candidateBridge.Name}();";
     }
 
     internal static void AddCtorIfNotDuplicateInternal(JavaClassDeclaration javaClass, JavaConstructorDeclaration ctor)
@@ -1735,7 +1764,11 @@ public class ClassTransformer : ITypeTransformer
 
     private static void AddIterableBridgeFromIteratorMethod(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol)
     {
-        bool alreadyIterable = javaClass.ImplementedTypes.Any(t => t == "Iterable" || t.StartsWith("Iterable<"));
+        bool alreadyIterable = javaClass.ImplementedTypes.Any(t =>
+            t == "Iterable"
+            || t.StartsWith("Iterable<")
+            || t == "CSharpCollection"
+            || t.StartsWith("CSharpCollection<"));
         if (alreadyIterable)
             return;
 
@@ -1969,11 +2002,10 @@ public class ClassTransformer : ITypeTransformer
             || iface.ContainingNamespace?.ToString()?.StartsWith("System") != true)
             return false;
 
-        // Non-generic System.Collections.ICollection only exposes Count/CopyTo/SyncRoot/
-        // IsSynchronized, so Java's full Collection contract is too strong even when those
-        // members are explicitly implemented.
+        // Non-generic System.Collections.ICollection maps to the compat CSharpCollection
+        // interface, which models Count/CopyTo/SyncRoot/IsSynchronized directly.
         if (!iface.IsGenericType)
-            return true;
+            return false;
 
         // ICollection<T> maps to java.util.Collection<T> for type bounds (CollectionUtilities),
         // but as an implemented interface it requires addAll, retainAll, containsAll, etc.
@@ -1990,8 +2022,12 @@ public class ClassTransformer : ITypeTransformer
     /// </summary>
     private static void AddIterableSizeBridgeMethods(JavaClassDeclaration javaClass)
     {
-        bool hasIterable = javaClass.ImplementedTypes.Any(t => t == "Iterable" || t.StartsWith("Iterable<"));
-        if (!hasIterable) return;
+        bool needsSizeBridge = javaClass.ImplementedTypes.Any(t =>
+            t == "Iterable"
+            || t.StartsWith("Iterable<")
+            || t == "CSharpCollection"
+            || t.StartsWith("CSharpCollection<"));
+        if (!needsSizeBridge) return;
         if (javaClass.Methods.Any(m => m.Name == "size")) return; // already has size()
 
         bool hasGetCount = javaClass.Methods.Any(m => m.Name == "getCount" && m.Parameters.Count == 0);

@@ -12,7 +12,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
+import io.github.ningpp.compat.StringComparison;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -133,6 +136,12 @@ class AssertTest {
     }
 
     @Test
+    void equal_iterables_failsWithAssertionErrorWhenExpectedIsNull() {
+        assertThrows(AssertionError.class,
+            () -> Assert.equal((Iterable<Integer>) null, Arrays.asList(1, 2, 3)));
+    }
+
+    @Test
     void equal_numberTypes() {
         Assert.equal(1, 1L);
         Assert.equal(Integer.valueOf(42), Long.valueOf(42));
@@ -211,6 +220,18 @@ class AssertTest {
     @Test
     void contains_string_ignoreCase() {
         Assert.contains("WORLD", "hello world", true);
+    }
+
+    @Test
+    void contains_string_stringComparison_succeeds() {
+        Assert.contains("WORLD", "hello world", StringComparison.OrdinalIgnoreCase);
+        Assert.contains("world", "hello world", StringComparison.Ordinal);
+    }
+
+    @Test
+    void contains_string_stringComparison_failsWhenCaseSensitive() {
+        assertThrows(AssertionError.class,
+            () -> Assert.contains("WORLD", "hello world", StringComparison.Ordinal));
     }
 
     @Test
@@ -564,6 +585,28 @@ class AssertTest {
     void fail_withMessage() {
         AssertionError e = assertThrows(AssertionError.class, () -> Assert.fail("custom"));
         assertEquals("custom", e.getMessage());
+    }
+
+    @Test
+    void throwsAsync_returnsExpectedException() {
+        IllegalArgumentException ex = Assert.throwsAsync(
+            IllegalArgumentException.class,
+            () -> {
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                future.completeExceptionally(new IllegalArgumentException("boom"));
+                return future;
+            }).join();
+
+        assertEquals("boom", ex.getMessage());
+    }
+
+    @Test
+    void throwsAsync_failsWhenNoException() {
+        CompletionException ex = assertThrows(CompletionException.class, () ->
+            Assert.throwsAsync(
+                IllegalArgumentException.class,
+                () -> CompletableFuture.completedFuture(null)).join());
+        assertInstanceOf(AssertionError.class, ex.getCause());
     }
 
     // ── Multiple ─────────────────────────────────────────────────────

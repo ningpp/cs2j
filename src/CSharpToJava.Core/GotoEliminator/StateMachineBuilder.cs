@@ -215,14 +215,15 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 if (isRef) throw new GotoEliminatorException("spanning 'ref/out' local not supported");
 
                 var type = decl.Declaration.Type;
+                var synthesizedType = CleanSynthesizedType(type);
                 foreach (var v in decl.Declaration.Variables)
                 {
                     var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
-                        SyntaxFactory.VariableDeclaration(type,
+                        SyntaxFactory.VariableDeclaration(synthesizedType,
                             SyntaxFactory.SingletonSeparatedList(
                                 SyntaxFactory.VariableDeclarator(v.Identifier)
                                     .WithInitializer(SyntaxFactory.EqualsValueClause(
-                                        SyntaxFactory.DefaultExpression(type))))));
+                                        SyntaxFactory.DefaultExpression(synthesizedType))))));
                     hoisted.Add(defaultDecl);
                 }
 
@@ -425,7 +426,7 @@ internal sealed partial class StateMachineBuilder
             // default(T)! —— `!` 抑制可空引用类型的 null 警告；值类型上无害。
             var defaultExpr = SyntaxFactory.PostfixUnaryExpression(
                 SyntaxKind.SuppressNullableWarningExpression,
-                SyntaxFactory.DefaultExpression(p.Type));
+                SyntaxFactory.DefaultExpression(CleanSynthesizedType(p.Type)));
             var assign = SyntaxFactory.ExpressionStatement(
                 SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
@@ -941,7 +942,7 @@ internal sealed partial class StateMachineBuilder
         // default(T)! —— `!` 抑制可空引用类型的 null 警告；值类型上无害。
         var defaultExpr = SyntaxFactory.PostfixUnaryExpression(
             SyntaxKind.SuppressNullableWarningExpression,
-            SyntaxFactory.DefaultExpression(returnType!));
+            SyntaxFactory.DefaultExpression(CleanSynthesizedType(returnType!)));
         return SyntaxFactory.ReturnStatement(defaultExpr);
     }
 
@@ -989,7 +990,7 @@ internal sealed partial class StateMachineBuilder
 
             var initialized = variables.Select(v => v.Initializer == null
                 ? v.WithInitializer(SyntaxFactory.EqualsValueClause(
-                    SyntaxFactory.DefaultExpression(node.Declaration.Type)))
+                    SyntaxFactory.DefaultExpression(CleanSynthesizedType(node.Declaration.Type))))
                 : v);
 
             return node.WithDeclaration(node.Declaration.WithVariables(
@@ -1001,6 +1002,9 @@ internal sealed partial class StateMachineBuilder
         => SyntaxFactory.LiteralExpression(
             SyntaxKind.NumericLiteralExpression,
             SyntaxFactory.Literal(value));
+
+    private static TypeSyntax CleanSynthesizedType(TypeSyntax type)
+        => type.WithoutTrivia();
 
     private static StatementSyntax BoolDeclaration(string name)
         => SyntaxFactory.LocalDeclarationStatement(

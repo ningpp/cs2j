@@ -129,6 +129,80 @@ class C {
     }
 
     [Fact]
+    public void NestedBlock_BreakWithTrailingSiblingBreak_StripsUnreachableSibling()
+    {
+        var result = Convert(@"
+class C {
+    void Test(int state) {
+        switch (state) {
+            case 1:
+                {
+                    {
+                        state = 2;
+                        break;
+                    }
+
+                    break;
+                }
+        }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("state = 2;", code, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"(?s)state\s*=\s*2;\s*break;\s*\}\s*break;", code);
+    }
+
+    [Fact]
+    public void InfiniteForWithoutReachableBreak_StripsUnreachableFallbackReturn()
+    {
+        var result = Convert(@"
+class C {
+    bool Test(bool done) {
+        for (;;) {
+            if (done) {
+                return true;
+            }
+            done = true;
+        }
+
+        return default(bool);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("for (; true; )", code, StringComparison.Ordinal);
+        Assert.Contains("return true;", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("return false;", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InfiniteForWithReachableBreak_KeepsFollowingReturn()
+    {
+        var result = Convert(@"
+class C {
+    int Test(bool done) {
+        for (;;) {
+            if (done) {
+                break;
+            }
+            done = true;
+        }
+
+        return 0;
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("for (; true; )", code, StringComparison.Ordinal);
+        Assert.Contains("break;", code, StringComparison.Ordinal);
+        Assert.Contains("return 0;", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PlainSwitch_OutArgumentInExpression_DeclaresHolderBeforeSwitch()
     {
         var result = Convert(@"

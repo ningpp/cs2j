@@ -528,7 +528,7 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
             tryStmt.TryBody.Statements.Add(stmt);
 
         var catchBody = new JavaBlockStatement();
-        catchBody.Statements.Add(new JavaRawStatement("throw new RuntimeException(_e_cs2j);"));
+        catchBody.Statements.Add(new JavaRawStatement(GetRuntimePreservingCatchBody()));
         tryStmt.CatchClauses.Add(new JavaCatchClause
         {
             ExceptionType = "Exception",
@@ -545,6 +545,11 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
             ? $"return {body.TrimEnd(';')};"
             : body;
 
-        return $"try {{\n        {content}\n    }} catch (Exception _e_cs2j) {{\n        throw new RuntimeException(_e_cs2j);\n    }}";
+        return $"try {{\n        {content}\n    }} catch (Exception _e_cs2j) {{\n        {GetRuntimePreservingCatchBody()}\n    }}";
+    }
+
+    private static string GetRuntimePreservingCatchBody()
+    {
+        return "if (_e_cs2j instanceof RuntimeException) throw (RuntimeException)_e_cs2j;\nthrow new RuntimeException(_e_cs2j);";
     }
 }

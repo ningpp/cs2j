@@ -88,10 +88,19 @@ public sealed class WorkspacePlanBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(coordinate);
 
-        var parts = coordinate.Split(':');
+        var parts = coordinate.Split(':')
+            .Select(part => part.Trim())
+            .ToArray();
         if (parts.Length < 3)
         {
             throw new ArgumentException($"Unsupported Maven coordinate '{coordinate}'. Expected 'groupId:artifactId:version'.", nameof(coordinate));
+        }
+
+        if (string.IsNullOrWhiteSpace(parts[0])
+            || string.IsNullOrWhiteSpace(parts[1])
+            || parts.Skip(2).All(string.IsNullOrWhiteSpace))
+        {
+            throw new ArgumentException($"Unsupported Maven coordinate '{coordinate}'. Expected non-empty groupId, artifactId, and version.", nameof(coordinate));
         }
 
         return new JavaDependency

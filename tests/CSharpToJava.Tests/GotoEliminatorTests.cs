@@ -29,6 +29,39 @@ public partial class GotoEliminatorTests
     }
 
     [Fact]
+    public void Eliminate_SpanningPointerLocalAfterPreprocessorDirective_KeepsDefaultTypeSyntaxValid()
+    {
+        var src = """
+        unsafe class C
+        {
+            void M(byte* p)
+            {
+        #if DEBUG
+                System.Diagnostics.Debug.Assert(p != null);
+        #endif
+                byte* q = p;
+                goto Done;
+            Done:
+                q++;
+            }
+        }
+        """;
+
+        var result = new GotoEliminator().Eliminate(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("default(\r\n#if", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("default(\n#if", result.OutputCode, StringComparison.Ordinal);
+
+        var tree = CSharpSyntaxTree.ParseText(result.OutputCode);
+        Assert.DoesNotContain(tree.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var parsed = tree.GetRoot();
+        Assert.DoesNotContain(parsed.DescendantNodes().OfType<LocalDeclarationStatementSyntax>(), declaration =>
+            declaration.Declaration.Variables.Any(variable => string.IsNullOrWhiteSpace(variable.Identifier.ValueText)));
+    }
+
+    [Fact]
     public void Statistics_Starts_Zero()
     {
         var s = new GotoEliminatorStatistics();

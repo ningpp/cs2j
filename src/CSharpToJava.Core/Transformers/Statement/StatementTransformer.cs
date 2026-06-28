@@ -278,11 +278,105 @@ public partial class StatementTransformer : IStatementTransformer
     }
 
     private static bool IsUnconditionalJump(StatementSyntax statement)
-        => statement is ReturnStatementSyntax
-            or ThrowStatementSyntax
-            or BreakStatementSyntax
-            or ContinueStatementSyntax
-            or GotoStatementSyntax;
+    {
+        switch (statement)
+        {
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case BreakStatementSyntax:
+            case ContinueStatementSyntax:
+            case GotoStatementSyntax:
+                return true;
+
+            case WhileStatementSyntax whileStatement:
+                return IsTrueLiteral(whileStatement.Condition)
+                    && !ContainsReachableUnlabeledBreak(whileStatement.Statement);
+
+            case ForStatementSyntax forStatement:
+                return forStatement.Condition == null
+                    && !ContainsReachableUnlabeledBreak(forStatement.Statement);
+
+            case LabeledStatementSyntax labeled:
+                return IsUnconditionalJump(labeled.Statement);
+
+            case BlockSyntax block:
+                return block.Statements.Count > 0
+                    && IsUnconditionalJump(block.Statements[^1]);
+
+            case IfStatementSyntax ifStatement:
+                return ifStatement.Else != null
+                    && IsUnconditionalJump(ifStatement.Statement)
+                    && IsUnconditionalJump(ifStatement.Else.Statement);
+
+            case TryStatementSyntax tryStatement:
+                var finallyCannotComplete = tryStatement.Finally != null
+                    && IsUnconditionalJump(tryStatement.Finally.Block);
+                if (finallyCannotComplete)
+                    return true;
+
+                var tryCannotComplete = IsUnconditionalJump(tryStatement.Block);
+                var allCatchesCannotComplete = tryStatement.Catches.Count > 0
+                    && tryStatement.Catches.All(c => IsUnconditionalJump(c.Block));
+                return tryCannotComplete && allCatchesCannotComplete;
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsTrueLiteral(ExpressionSyntax expression)
+    {
+        return expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.TrueLiteralExpression);
+    }
+
+    private static bool ContainsReachableUnlabeledBreak(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case BreakStatementSyntax:
+                return true;
+
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+            case ContinueStatementSyntax:
+                return false;
+
+            case BlockSyntax block:
+                foreach (var child in block.Statements)
+                {
+                    if (ContainsReachableUnlabeledBreak(child))
+                    {
+                        return true;
+                    }
+
+                    if (IsUnconditionalJump(child))
+                    {
+                        return false;
+                    }
+                }
+
+                return false;
+
+            case IfStatementSyntax ifStatement:
+                return ContainsReachableUnlabeledBreak(ifStatement.Statement)
+                    || (ifStatement.Else != null && ContainsReachableUnlabeledBreak(ifStatement.Else.Statement));
+
+            case LabeledStatementSyntax labeled:
+                return ContainsReachableUnlabeledBreak(labeled.Statement);
+
+            case SwitchStatementSyntax:
+            case WhileStatementSyntax:
+            case ForStatementSyntax:
+            case ForEachStatementSyntax:
+            case DoStatementSyntax:
+                return false;
+
+            default:
+                return false;
+        }
+    }
 
     private static bool IsUsingDeclaration(LocalDeclarationStatementSyntax statement)
         => statement.UsingKeyword.IsKind(SyntaxKind.UsingKeyword);

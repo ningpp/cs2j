@@ -9,6 +9,7 @@ using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Utilities;
 using CSharpToJava.Core.Transformers.Member;
 using CSharpToJava.Core.Transformers;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -226,7 +227,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context) : null;
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
             args = PrependClassTypeTokens(args, classTokens);
-            return $"{methodName}({args})";
+            return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
         }
 
         // Bare identifier call: e.g. LandmarkClassicalScaling(...) → landmarkClassicalScaling(...)
@@ -319,7 +320,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
             args = PrependClassTypeTokens(args, classTokens);
-            return $"{methodName}({args})";
+            return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym2, context);
         }
 
         // Delegate invocation via non-identifier expressions (e.g. dict[key](args)).
@@ -1608,10 +1609,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             context.AddImport("csharp.xunit.Assert");
 
-            // For Throws<T> and ThrowsAny<T>, the generic type argument <T> must be
+            // For Throws<T>, ThrowsAny<T>, and ThrowsAsync<T>, the generic type argument <T> must be
             // converted to T.class and prepended as the first argument, because Java's
-            // throws_(Class<T>, Runnable) and throwsAny(Class<T>, Runnable) require it.
-            if ((xunitAssertName == "throws_" || xunitAssertName == "throwsAny")
+            // throws_(Class<T>, Runnable), throwsAny(Class<T>, Runnable), and
+            // throwsAsync(Class<T>, Supplier<CompletableFuture<?>>) require it.
+            if ((xunitAssertName == "throws_" || xunitAssertName == "throwsAny" || xunitAssertName == "throwsAsync")
                 && memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 } genericName)
             {
                 string? classLiteral = null;
@@ -2061,7 +2063,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"Class.forName({typeNameArg})";
         }
 
-        // System.Array.SetValue(value, index) → java.lang.reflect.Array.set(arrayObj, index, value)
+        // System.Array.SetValue(value, index) maps to the CSharpArray wrapper when
+        // the receiver is a System.Array value.
         if (originalMethodName == "SetValue"
             && node.ArgumentList.Arguments.Count == 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Array"
@@ -2069,6 +2072,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var indexArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType?.ToDisplayString() == "System.Array")
+                return $"{receiver}.setValue({valueArg}, {indexArg})";
+
             return $"java.lang.reflect.Array.set({receiver}, {indexArg}, {valueArg})";
         }
 
@@ -2087,6 +2094,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // If methodSymbol is available, check the first parameter type.
             if (methodSymbol != null)
             {
+                var isFrameworkCopyTo = isArrayReceiverCopyTo || IsFrameworkCollectionCopyTo(methodSymbol);
+                if (!isFrameworkCopyTo)
+                {
+                    // Concrete/user-defined CopyTo methods should stay as instance calls.
+                    goto skipCopyToRewrite;
+                }
+
                 var firstParam = methodSymbol.Parameters.FirstOrDefault();
                 var firstParamIsArray = firstParam?.Type is IArrayTypeSymbol
                     || (isArrayReceiverCopyTo && firstParam?.Type.SpecialType == SpecialType.System_Array);
@@ -2896,8 +2910,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.setLength(0)";
         }
 
-        // StringBuilder.Remove(start, length) → sb.delete(start, start + length)
-        // Java's StringBuilder has delete(), not Remove().
+        if (originalMethodName == "Append"
+            && node.ArgumentList.Arguments.Count == 1
+            && methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
+            && IsSystemStringType(context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.append({receiver}, {valueArg})";
+        }
+
+        if (originalMethodName == "Insert"
+            && node.ArgumentList.Arguments.Count == 2
+            && methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
+            && IsSystemStringType(context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type))
+        {
+            var offsetArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.insert({receiver}, {offsetArg}, {valueArg})";
+        }
+
+        // StringBuilder.Remove(start, length) → StringHelper.remove(sb, start, length)
+        // so .NET range validation is preserved instead of Java's raw delete exceptions.
         if (originalMethodName == "Remove"
             && (methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
                 || ExpressionTransformerHelpers.StaticReceiverMatches(
@@ -2909,7 +2944,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var removeStart = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var removeLen = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            return $"{receiver}.delete({removeStart}, {removeStart} + {removeLen})";
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.remove({receiver}, {removeStart}, {removeLen})";
         }
 
         // C# DateTime.ToString(format) / DateTimeOffset.ToString(format).
@@ -4858,7 +4894,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var start = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
             var length = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
-            return $"{receiver}.substring({start}, {start} + {length})";
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.substring({receiver}.toString(), {start}, {length})";
         }
 
         if (originalMethodName == "Substring"
@@ -4868,7 +4905,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var start = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
             var length = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
-            return $"{receiver}.substring({start}, {start} + {length})";
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.substring({receiver}, {start}, {length})";
         }
 
         // Custom collection types can define a parameterless ToArray(). Do not apply Java Stream
@@ -5090,7 +5128,35 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (TryTransformTypeAssemblyManifestResourceStream(node, memberAccess, context, facade, out var manifestResourceCall))
             return manifestResourceCall;
 
-        return $"{receiver}.{methodName}({args})";
+        return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{receiver}.{methodName}({args})", methodSymbol, context);
+    }
+
+    private static string CastRuntimeTypeParameterArrayInvocationIfNeeded(
+        string invocation,
+        IMethodSymbol? methodSymbol,
+        ConversionContext context)
+    {
+        if (methodSymbol?.OriginalDefinition.ReturnType is not IArrayTypeSymbol { Rank: 1 } originalReturn
+            || originalReturn.ElementType is not ITypeParameterSymbol typeParameter
+            || typeParameter.DeclaringMethod == null
+            || !SymbolEqualityComparer.Default.Equals(typeParameter.DeclaringMethod, methodSymbol.OriginalDefinition))
+        {
+            return invocation;
+        }
+
+        if (!RuntimeClassParameterHelper.GetRequiredTypeParameters(methodSymbol, context)
+            .Any(tp => SymbolEqualityComparer.Default.Equals(tp, typeParameter)))
+        {
+            return invocation;
+        }
+
+        if (methodSymbol.ReturnType is not IArrayTypeSymbol actualReturn)
+            return invocation;
+
+        var targetType = context.MapType(actualReturn);
+        return string.IsNullOrWhiteSpace(targetType)
+            ? invocation
+            : $"({targetType}) {invocation}";
     }
 
     private static string CoerceAddRangeArrayArgument(
@@ -6863,6 +6929,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "Superset" => "superset",
             "Throws" => "throws_",
             "ThrowsAny" => "throwsAny",
+            "ThrowsAsync" => "throwsAsync",
             "True" => "true_",
             _ => string.Empty,
         };
@@ -7174,6 +7241,30 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             or "System.Collections.ICollection"
             or "System.Collections.IList"
             or "System.Linq.Enumerable";
+    }
+
+    private static bool IsFrameworkCollectionCopyTo(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol.Name != "CopyTo")
+            return false;
+
+        var containingType = methodSymbol.ContainingType;
+        if (containingType == null)
+            return false;
+
+        var typeName = containingType.OriginalDefinition.ToDisplayString();
+        return typeName is "System.Collections.Generic.List<T>"
+            or "System.Collections.Generic.HashSet<T>"
+            or "System.Collections.Generic.SortedSet<T>"
+            or "System.Collections.Generic.Queue<T>"
+            or "System.Collections.Generic.Stack<T>"
+            or "System.Collections.Generic.LinkedList<T>"
+            or "System.Collections.ArrayList"
+            or "System.Collections.Generic.ICollection<T>"
+            or "System.Collections.Generic.IList<T>"
+            or "System.Collections.Generic.ISet<T>"
+            or "System.Collections.ICollection"
+            or "System.Collections.IList";
     }
 
     private static bool IsSystemStringMethod(
@@ -7776,6 +7867,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (typeParamNames == null || typeParamNames.Count == 0)
             return null;
 
+        var runtimeArrayTypeParameterNames = RuntimeClassParameterHelper
+            .GetRequiredTypeParameters(methodSymbol, context)
+            .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, originalDef))
+            .Select(tp => tp.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
         var typeParamMap = new Dictionary<string, int>();
         for (int i = 0; i < originalDef.TypeParameters.Length; i++)
             typeParamMap[originalDef.TypeParameters[i].Name] = i;
@@ -7785,6 +7882,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var tokens = new List<string>();
         foreach (var tpName in typeParamNames)
         {
+            if (runtimeArrayTypeParameterNames.Contains(tpName))
+                continue;
+
             if (typeParamMap.TryGetValue(tpName, out var index) && index < typeArgs.Length)
             {
                 var concreteType = typeArgs[index];

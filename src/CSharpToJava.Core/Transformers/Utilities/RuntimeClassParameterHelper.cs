@@ -662,19 +662,6 @@ internal static class RuntimeClassParameterHelper
         }
 
         var javaType = context.MapType(runtimeType);
-        javaType = javaType switch
-        {
-            "int" => "Integer",
-            "long" => "Long",
-            "double" => "Double",
-            "float" => "Float",
-            "boolean" => "Boolean",
-            "char" => "Character",
-            "byte" => "Byte",
-            "short" => "Short",
-            _ => javaType
-        };
-
         var genericStart = javaType.IndexOf('<');
         if (genericStart > 0)
             javaType = javaType[..genericStart];

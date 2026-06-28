@@ -248,6 +248,57 @@ public class StringHelper {
     public static boolean contains(String s, String value, int comparison) {
         return contains(s, value, comparison == 1 || comparison == 3 || comparison == 5);
     }
+
+    // ==================== StringBuilder helpers ====================
+    public static String stringBuilderInitialValue(String value) {
+        return value == null ? "" : value;
+    }
+
+    public static StringBuilder append(StringBuilder builder, String value) {
+        if (builder == null) throw new NullPointerException("builder");
+        if (value != null) {
+            builder.append(value);
+        }
+        return builder;
+    }
+
+    public static StringBuilder insert(StringBuilder builder, int offset, String value) {
+        if (builder == null) throw new NullPointerException("builder");
+        validateStringBuilderOffset(builder, offset);
+        if (value != null) {
+            builder.insert(offset, value);
+        }
+        return builder;
+    }
+
+    public static StringBuilder remove(StringBuilder builder, int startIndex, int count) {
+        if (builder == null) throw new NullPointerException("builder");
+        validateRange(builder.length(), startIndex, count);
+        builder.delete(startIndex, startIndex + count);
+        return builder;
+    }
+
+    public static String substring(String s, int startIndex, int count) {
+        if (s == null) throw new NullPointerException("s");
+        validateRange(s.length(), startIndex, count);
+        return s.substring(startIndex, startIndex + count);
+    }
+
+    private static void validateStringBuilderOffset(StringBuilder builder, int offset) {
+        if (offset < 0 || offset > builder.length()) {
+            throw new IllegalArgumentException("offset");
+        }
+    }
+
+    private static void validateRange(int length, int startIndex, int count) {
+        if (startIndex < 0 || startIndex > length) {
+            throw new IllegalArgumentException("startIndex");
+        }
+        if (count < 0 || startIndex + count > length) {
+            throw new IllegalArgumentException("count");
+        }
+    }
+
     /** Mirrors C# String.IndexOf(value, StringComparison) */
     public static int indexOf(String s, String value, boolean ignoreCase) {
         return ignoreCase
