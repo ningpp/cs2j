@@ -29,6 +29,94 @@ class Sample
     }
 
     [Fact]
+    public void String_Join_StringArray_ConvertsToStringHelperJoin()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public string JoinParts(string[] parts)
+    {
+        return string.Join("", "", parts);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.join(\", \", parts)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.StringHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("String.join(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StringAlias_Join_StringArray_ConvertsToStringHelperJoin()
+    {
+        var result = Convert(@"
+using System;
+class Sample
+{
+    public string JoinParts(string[] parts)
+    {
+        return String.Join("";"", parts);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.join(\";\", parts)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("String.join(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void String_Join_ObjectArray_ConvertsToStringHelperJoin()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public string JoinValues(object[] values)
+    {
+        return string.Join(""|"", values);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.join(\"|\", values)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("String.join(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void String_Join_GenericEnumerable_ConvertsToStringHelperJoin()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Sample
+{
+    public string JoinValues(IEnumerable<int> values)
+    {
+        return string.Join<int>("","", values);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.join(\",\", values)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("String.join(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void String_Join_ArrayRange_ConvertsToStringHelperJoin()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public string JoinRange(string[] parts, int startIndex, int count)
+    {
+        return string.Join("","", parts, startIndex, count);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.join(\",\", parts, startIndex, count)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("String.join(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void String_IsNullOrEmpty_ConvertsToStringHelperIsNullOrEmpty()
     {
         var result = Convert(@"

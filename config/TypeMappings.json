@@ -4482,7 +4482,7 @@
         {
             "type": "System.String",
             "method": "Join",
-            "javaMethod": "join"
+            "javaMethod": "StringHelper.join"
         },
         {
             "type": "System.String",

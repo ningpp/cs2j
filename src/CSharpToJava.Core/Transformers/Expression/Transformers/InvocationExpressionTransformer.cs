@@ -1418,6 +1418,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"StringHelper.concat({concatArgs})";
             }
 
+            // string.Join(...) -> StringHelper.join(...)
+            if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Join"
+                && node.ArgumentList.Arguments.Count >= 2)
+            {
+                var joinArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                context.AddImport("io.github.ningpp.compat.StringHelper");
+                return $"StringHelper.join({joinArgs})";
+            }
+
             // string.CompareOrdinal(...) → StringHelper.compareOrdinal(...)
             if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "CompareOrdinal"
                 && (node.ArgumentList.Arguments.Count == 2 || node.ArgumentList.Arguments.Count == 5))

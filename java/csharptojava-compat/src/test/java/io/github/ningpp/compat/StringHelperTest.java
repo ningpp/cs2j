@@ -1,5 +1,7 @@
 package io.github.ningpp.compat;
 
+import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -92,6 +94,43 @@ class StringHelperTest {
     @Test
     void concat_withNumbers() {
         assertEquals("12", StringHelper.concat(1, 2));
+    }
+
+    // ---- join ----
+
+    @Test
+    void join_stringArray_usesCSharpArgumentOrder() {
+        assertEquals("a, b, c", StringHelper.join(", ", new String[] { "a", "b", "c" }));
+    }
+
+    @Test
+    void join_objectArray_convertsNullElementsToEmptyStrings() {
+        assertEquals("a||3", StringHelper.join("|", new Object[] { "a", null, 3 }));
+    }
+
+    @Test
+    void join_objectArray_usesCSharpBooleanText() {
+        assertEquals("True|False", StringHelper.join("|", new Object[] { true, false }));
+    }
+
+    @Test
+    void join_booleanArray_usesCSharpBooleanText() {
+        assertEquals("True/False", StringHelper.join("/", new boolean[] { true, false }));
+    }
+
+    @Test
+    void join_iterable_usesCSharpArgumentOrder() {
+        assertEquals("a/b/c", StringHelper.join("/", Arrays.asList("a", "b", "c")));
+    }
+
+    @Test
+    void join_arrayRange_joinsOnlyRequestedSlice() {
+        assertEquals("b-c", StringHelper.join("-", new String[] { "a", "b", "c", "d" }, 1, 2));
+    }
+
+    @Test
+    void join_nullSeparator_treatsSeparatorAsEmpty() {
+        assertEquals("abc", StringHelper.join(null, new String[] { "a", "b", "c" }));
     }
 
     // ---- compare ----

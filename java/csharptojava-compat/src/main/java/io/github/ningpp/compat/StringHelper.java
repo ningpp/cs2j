@@ -15,6 +15,125 @@ public class StringHelper {
         }
         return builder.toString();
     }
+
+    public static String join(char separator, String[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, Object[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, Iterable<?> values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(String separator, String[] values) {
+        return joinArray(separator, values);
+    }
+
+    public static String join(String separator, Object[] values) {
+        return joinArray(separator, values);
+    }
+
+    public static String join(String separator, Iterable<?> values) {
+        if (values == null) {
+            throw new NullPointerException("values");
+        }
+
+        String actualSeparator = separator == null ? "" : separator;
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (Object value : values) {
+            if (!first) {
+                builder.append(actualSeparator);
+            }
+            appendJoinValue(builder, value);
+            first = false;
+        }
+        return builder.toString();
+    }
+
+    public static String join(String separator, String[] values, int startIndex, int count) {
+        return joinArrayRange(separator, values, startIndex, count);
+    }
+
+    public static String join(String separator, Object[] values, int startIndex, int count) {
+        return joinArrayRange(separator, values, startIndex, count);
+    }
+
+    public static String join(char separator, String[] values, int startIndex, int count) {
+        return join(String.valueOf(separator), values, startIndex, count);
+    }
+
+    public static String join(char separator, Object[] values, int startIndex, int count) {
+        return join(String.valueOf(separator), values, startIndex, count);
+    }
+
+    public static String join(String separator, int[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(String separator, long[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(String separator, short[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(String separator, byte[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(String separator, char[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(String separator, boolean[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(String separator, float[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(String separator, double[] values) {
+        return joinPrimitiveArray(separator, values);
+    }
+
+    public static String join(char separator, int[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, long[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, short[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, byte[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, char[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, boolean[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, float[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
+    public static String join(char separator, double[] values) {
+        return join(String.valueOf(separator), values);
+    }
+
     public static boolean isNullOrEmpty(String s) {
         return s == null || s.isEmpty();
     }
@@ -750,5 +869,69 @@ public class StringHelper {
         }
 
         builder.append(value);
+    }
+
+    private static String joinArray(String separator, Object[] values) {
+        if (values == null) {
+            throw new NullPointerException("values");
+        }
+
+        return joinArrayRange(separator, values, 0, values.length);
+    }
+
+    private static String joinArrayRange(String separator, Object[] values, int startIndex, int count) {
+        if (values == null) {
+            throw new NullPointerException("values");
+        }
+        if (startIndex < 0) {
+            throw new IndexOutOfBoundsException("startIndex");
+        }
+        if (count < 0) {
+            throw new IndexOutOfBoundsException("count");
+        }
+        if (startIndex > values.length - count) {
+            throw new IndexOutOfBoundsException("startIndex + count");
+        }
+
+        String actualSeparator = separator == null ? "" : separator;
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                builder.append(actualSeparator);
+            }
+            appendJoinValue(builder, values[startIndex + i]);
+        }
+        return builder.toString();
+    }
+
+    private static String joinPrimitiveArray(String separator, Object values) {
+        if (values == null) {
+            throw new NullPointerException("values");
+        }
+
+        String actualSeparator = separator == null ? "" : separator;
+        int length = java.lang.reflect.Array.getLength(values);
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            if (i > 0) {
+                builder.append(actualSeparator);
+            }
+            appendJoinValue(builder, java.lang.reflect.Array.get(values, i));
+        }
+        return builder.toString();
+    }
+
+    private static void appendJoinValue(StringBuilder builder, Object value) {
+        if (value != null) {
+            builder.append(formatJoinValue(value));
+        }
+    }
+
+    private static String formatJoinValue(Object value) {
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue ? "True" : "False";
+        }
+
+        return value.toString();
     }
 }
