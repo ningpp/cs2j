@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
+using System.Runtime.Loader;
 using System.Reflection;
 
 namespace CSharpToJava.Tests;
@@ -42,7 +43,7 @@ public partial class GotoEliminatorTests
         => CSharpToJava.Core.GotoEliminator.GotoCaseDesugarer.Run(Parse(csharp)).ToFullString();
 
     [Fact]
-    public void Desugar_GotoCase_Forward_Produces_SyntheticGotoAndLabel()
+    public void Desugar_GotoCase_Forward_Produces_LocalSwitchStateMachine()
     {
         var src = """
         class C {
@@ -55,14 +56,14 @@ public partial class GotoEliminatorTests
         }
         """;
         var out_ = Desugar(src);
-        Assert.Contains("goto __case0_2", out_);
-        Assert.Contains("__case0_2:", out_);
-        // 原 goto case 2 不再出现
-        Assert.DoesNotContain("goto case 2", out_);
+        Assert.DoesNotContain("goto", out_);
+        Assert.DoesNotContain("__case0_2", out_);
+        Assert.Contains("__cs2jSwitchState0", out_);
+        Assert.Contains("while", out_);
     }
 
     [Fact]
-    public void Desugar_GotoDefault_Produces_SyntheticGotoAndLabel()
+    public void Desugar_GotoDefault_Produces_LocalSwitchStateMachine()
     {
         var src = """
         class C {
@@ -75,9 +76,10 @@ public partial class GotoEliminatorTests
         }
         """;
         var out_ = Desugar(src);
-        Assert.Contains("goto __default0", out_);
-        Assert.Contains("__default0:", out_);
-        Assert.DoesNotContain("goto default", out_);
+        Assert.DoesNotContain("goto", out_);
+        Assert.DoesNotContain("__default0", out_);
+        Assert.Contains("__cs2jSwitchState0", out_);
+        Assert.Contains("while", out_);
     }
 
     [Fact]
@@ -110,8 +112,9 @@ public partial class GotoEliminatorTests
         }
         """;
         var out_ = Desugar(src);
-        Assert.Contains("__case0_2", out_);
-        Assert.Contains("__default1", out_);
+        Assert.Contains("__cs2jSwitchState0", out_);
+        Assert.Contains("__cs2jSwitchState1", out_);
+        Assert.DoesNotContain("goto", out_);
     }
 
     // ---- Task 4: BasicBlock + SplitToBlocks ----
@@ -214,6 +217,43 @@ public partial class GotoEliminatorTests
         Assert.Empty(root.DescendantNodes().OfType<LabeledStatementSyntax>());
     }
 
+    private static int CompileAndInvokeInt32(
+        string code,
+        string typeName = "C",
+        string methodName = "M",
+        bool allowUnsafe = false)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var references = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location))
+            .Cast<MetadataReference>()
+            .ToArray();
+        var compilation = CSharpCompilation.Create(
+            "goto_eliminator_exec_" + Guid.NewGuid().ToString("N"),
+            new[] { tree },
+            references,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: allowUnsafe));
+
+        using var pe = new MemoryStream();
+        var emit = compilation.Emit(pe);
+        Assert.True(emit.Success, string.Join(Environment.NewLine, emit.Diagnostics));
+        pe.Position = 0;
+        var alc = new AssemblyLoadContext("goto_eliminator_exec", isCollectible: true);
+        try
+        {
+            var asm = alc.LoadFromStream(pe);
+            var method = asm.GetType(typeName)!.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static)!;
+            return (int)method.Invoke(null, null)!;
+        }
+        finally
+        {
+            alc.Unload();
+        }
+    }
+
     [Theory]
     [InlineData("goto skip; int x = 1; skip: int y = 2;")]                       // B3 前向
     [InlineData("t: int x = 1; if (x > 0) goto t; int y = 2;")]                   // B2 后向
@@ -258,6 +298,594 @@ public partial class GotoEliminatorTests
         // 内层 break/continue 保留（不为 0）
         Assert.Contains("break", out_);
         Assert.Contains("continue", out_);
+    }
+
+    [Fact]
+    public void Eliminate_GotoCaseAndDefaultInsideSwitch_RemovesGotoAndLabels()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M(int x)
+            {
+                int y = 0;
+                switch (x)
+                {
+                    case 1:
+                        y = 10;
+                        goto case 2;
+                    case 2:
+                        y += 2;
+                        break;
+                    case 3:
+                        goto default;
+                    default:
+                        y = 7;
+                        break;
+                }
+                return y;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        Assert.True(result.Changed);
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.DoesNotContain("goto case", result.OutputCode);
+        Assert.DoesNotContain("goto default", result.OutputCode);
+    }
+
+    [Fact]
+    public void Eliminate_GotoCaseTargetWithLocalDeclaration_CompilesWithoutShadowing()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                switch (0)
+                {
+                    case 0:
+                        goto case 1;
+                    case 1:
+                        int read = 42;
+                        return read;
+                    default:
+                        return -1;
+                }
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(42, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_GotoCaseOnlyReturnSwitch_CompilesNonVoidMethod()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                switch (0)
+                {
+                    case 0:
+                        goto case 1;
+                    case 1:
+                        return 9;
+                    default:
+                        return -1;
+                }
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(9, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_GotoInsideSwitchNestedInLoop_DoesNotExecuteStatementsAfterSwitch()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int value = 0;
+                for (int i = 0; i < 3; i++)
+                {
+                    switch (i)
+                    {
+                        case 0:
+                            goto Exit;
+                    }
+                    value = 99;
+                }
+            Exit:
+                return value;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(0, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_GotoCaseInsideLoop_PreservesSwitchSectionContinue()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int value = 0;
+                for (int i = 0; i < 2; i++)
+                {
+                    switch (i)
+                    {
+                        case 0:
+                            goto case 1;
+                        case 1:
+                            value++;
+                            continue;
+                    }
+                    value = 99;
+                }
+                return value;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_MultipleAdjacentLabels_RemovesAllLabelsAndPreservesTarget()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                goto L2;
+            L1:
+            L2:
+                return 1;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(1, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_LocalFunctionGoto_IsRewrittenInsideLocalFunctionNotOuterMethod()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int F()
+                {
+                    int i = 0;
+                Again:
+                    i++;
+                    if (i < 2) goto Again;
+                    return i;
+                }
+                return F();
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_IteratorWithGotoAndYieldBreak_Compiles()
+    {
+        var src = """
+        using System.Collections.Generic;
+        public static class C
+        {
+            public static IEnumerable<int> M(bool skip)
+            {
+                if (skip) goto Done;
+                yield return 1;
+            Done:
+                yield break;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        var tree = CSharpSyntaxTree.ParseText(result.OutputCode);
+        var references = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location));
+        var compilation = CSharpCompilation.Create(
+            "iterator_goto_check",
+            new[] { tree },
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Eliminate_GotoInsideUnsafeBlock_RemovesGotoAndLabels()
+    {
+        var src = """
+        public unsafe class C
+        {
+            public static int M()
+            {
+                unsafe
+                {
+                    goto Done;
+                Done:
+                    return 1;
+                }
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(1, CompileAndInvokeInt32(result.OutputCode, allowUnsafe: true));
+    }
+
+    [Fact]
+    public void Eliminate_LabelInsideIfBlock_RemovesNestedGotoAndPreservesBehavior()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int position = 0;
+                int length = 3;
+                if (length > 0)
+                {
+                Continue:
+                    if (position == length)
+                    {
+                        return position;
+                    }
+
+                    position++;
+                    goto Continue;
+                }
+
+                return -1;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(3, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_NestedConditionalGotoAtBlockEnd_ExitsNestedStateMachine()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int position = 0;
+                if (true)
+                {
+                Continue:
+                    if (position == 3)
+                    {
+                        return position;
+                    }
+
+                    if (position < 2)
+                    {
+                        position++;
+                        goto Continue;
+                    }
+                }
+
+                return 7;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(7, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_NestedFallThroughWithLoopAtBlockEnd_Compiles()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int value = 0;
+                if (true)
+                {
+                Again:
+                    while (value < 2)
+                    {
+                        value++;
+                        goto Again;
+                    }
+                }
+
+                return value;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_UninitializedLocalSpanningNestedBlocks_IsDefaultInitialized()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int value = 0;
+                if (true)
+                {
+                    int pos;
+                Again:
+                    pos = value;
+                    if (pos < 2)
+                    {
+                        value++;
+                        goto Again;
+                    }
+
+                    return pos;
+                }
+
+                return -1;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_UninitializedLocalAssignedInsideRewrittenLoopAndUsedAfterLoop_Compiles()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int value = 0;
+                int pos;
+                for (;;)
+                {
+                Again:
+                    pos = value;
+                    if (value == 0)
+                    {
+                        value++;
+                        goto Again;
+                    }
+
+                    break;
+                }
+
+                return pos;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(1, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_LabelInsideLoopBody_PreservesOuterContinue()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int i = 0;
+                int value = 0;
+                for (;;)
+                {
+                    i++;
+                    if (i < 3)
+                    {
+                        goto Again;
+                    }
+
+                    return value;
+
+                Again:
+                    value += i;
+                    continue;
+                }
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(3, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_MultipleLabelsInsideLoopWithUnsafeGoto_RemovesNestedGotoAndLabels()
+    {
+        var src = """
+        public unsafe class C
+        {
+            public static int M()
+            {
+                int pos = 0;
+                for (;;)
+                {
+                    unsafe
+                    {
+                        if (pos == 0)
+                        {
+                            goto ReadData;
+                        }
+                    }
+
+                ContinueParseName:
+                    pos++;
+                    if (pos < 3)
+                    {
+                        goto ContinueParseName;
+                    }
+
+                    return pos;
+
+                ReadData:
+                    pos = 1;
+                }
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(3, CompileAndInvokeInt32(result.OutputCode, allowUnsafe: true));
+    }
+
+    [Fact]
+    public void Eliminate_LoopLocalLabelsWithOuterTarget_RemovesNestedGotoAndLabels()
+    {
+        var src = """
+        public unsafe class C
+        {
+            public static int M()
+            {
+                int pos = 0;
+                for (;;)
+                {
+                    if (pos < 0)
+                    {
+                        goto End;
+                    }
+
+                    unsafe
+                    {
+                        if (pos == 0)
+                        {
+                            goto ReadData;
+                        }
+                    }
+
+                ContinueParseName:
+                    pos++;
+                    if (pos < 3)
+                    {
+                        goto ContinueParseName;
+                    }
+
+                    goto End;
+
+                ReadData:
+                    pos = 1;
+                }
+
+            End:
+                return pos;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(3, CompileAndInvokeInt32(result.OutputCode, allowUnsafe: true));
+    }
+
+    [Fact]
+    public void Eliminate_LabelInsideTryBlock_RemovesNestedGotoAndPreservesBehavior()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int value = 0;
+                try
+                {
+                    if (value == 0)
+                    {
+                        goto Skip;
+                    }
+
+                    value = 9;
+
+                Skip:
+                    value += 2;
+                }
+                catch
+                {
+                    value = -1;
+                }
+
+                return value;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
     }
 
     // ---- Task 8: unsupported method fallback (spanning using/fixed/ref) ----

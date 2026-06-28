@@ -50,7 +50,8 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 // 无条件跳转：标记 Exit，不开新块——后续语句（若有）作为死代码与 goto 同块。
                 blk.Exit = BlockExit.Goto;
             }
-            else if (s is ReturnStatementSyntax || s is ThrowStatementSyntax)
+            else if (s is ReturnStatementSyntax || s is ThrowStatementSyntax
+                     || s.IsKind(SyntaxKind.YieldBreakStatement))
             {
                 blk.Exit = BlockExit.Return;
             }
@@ -68,26 +69,35 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
             }
         }
 
-        foreach (var stmt in flat)
+        void AddStatement(StatementSyntax stmt)
         {
             // 标签：开新块并记标签（除非当前块可复用）
             if (stmt is LabeledStatementSyntax labeled)
             {
                 NewBlock(labeled.Identifier.ValueText);
+                if (labeled.Statement is LabeledStatementSyntax nestedLabel)
+                {
+                    AddStatement(nestedLabel);
+                    return;
+                }
                 // 标签后的实际语句：labeled.Statement（可能是空语句）
                 if (!labeled.Statement.IsKind(SyntaxKind.EmptyStatement))
                 {
                     current.Statements.Add(labeled.Statement);
                     // labeled.Statement 仍是终结语句（return/throw/goto/conditional-goto），
-                    // 必须同步设置 Exit，否则块被误判为 FallThrough 而追加死代码转移
-                    // （XsdDuration 的 InvalidFormat:/Error: 块仅含 return 时即触发）。
+                    // 必须同步设置 Exit，否则标签块会被误判为 FallThrough 并追加死代码转移。
                     ApplyExit(current, labeled.Statement);
                 }
-                continue;
+                return;
             }
 
             current.Statements.Add(stmt);
             ApplyExit(current, stmt);
+        }
+
+        foreach (var stmt in flat)
+        {
+            AddStatement(stmt);
         }
 
         // 删除末尾空块（若为空且 FallThrough）
@@ -119,6 +129,10 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 // 展开裸块
                 result.AddRange(Flatten(block.Statements));
             }
+            else if (s is UnsafeStatementSyntax unsafeStatement && ContainsLabelOrGoto(unsafeStatement.Block))
+            {
+                result.AddRange(Flatten(unsafeStatement.Block.Statements));
+            }
             else
             {
                 result.Add(s);
@@ -128,7 +142,14 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
     }
 
     private static bool ContainsLabelOrGoto(SyntaxNode node)
-        => node.DescendantNodesAndSelf().Any(n => n is LabeledStatementSyntax or GotoStatementSyntax);
+        => node.DescendantNodesAndSelf(ShouldDescendIntoChildren)
+            .Any(n => n is LabeledStatementSyntax or GotoStatementSyntax);
+
+    private static bool ShouldDescendIntoChildren(SyntaxNode node)
+        => node is not LocalFunctionStatementSyntax
+            and not ParenthesizedLambdaExpressionSyntax
+            and not SimpleLambdaExpressionSyntax
+            and not AnonymousMethodExpressionSyntax;
 
     /// <summary>语句自身（非后代控制体）是否含顶层 goto——用于 if/switch 包裹的 goto。</summary>
     private static bool ContainsTopLevelGoto(StatementSyntax stmt)
@@ -167,9 +188,8 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
         for (int i = 0; i < bbList.Count; i++)
         {
             var blockStmts = bbList[i].Statements;
-            // 从后向前迭代：提升某声明（尤其无 initializer 时）会令块内语句列表收缩，
-            // 若从前向后迭代会跳过紧随其后的下一条声明（XsdDuration.cs 中 `string errorCode;`
-            // 后紧跟 `int length;` 即触发此 bug，导致 length 未被提升 → CS0165）。
+            // 从后向前迭代：提升某声明（尤其无 initializer 时）会令块内语句列表收缩；
+            // 若从前向后迭代，会跳过紧随其后的下一条声明，进而漏提升跨块局部。
             for (int s = blockStmts.Count - 1; s >= 0; s--)
             {
                 if (blockStmts[s] is not LocalDeclarationStatementSyntax decl) continue;
@@ -243,21 +263,34 @@ internal sealed partial class StateMachineBuilder
         if (visited.Body == null) return visited; // 表达式体无 goto
         if (!ContainsLabelOrGoto(visited.Body)) return visited;
 
+        var originalGotoCount = CountGotos(visited.Body);
+        var body = RewriteNestedClosedBlocks(visited.Body, out var nestedChanged);
+        body = DefaultInitializeUnassignedLocals(body);
+        if (!ContainsLabelOrGoto(body))
+        {
+            if (!nestedChanged) return visited;
+            bool isAsync = visited.Modifiers.Any(SyntaxKind.AsyncKeyword);
+            var returnType = UnwrapAsyncReturnType(visited.ReturnType, isAsync);
+            body = AppendUnreachableReturn(body, returnType, IsIteratorBody(body));
+            TransformedMethods++;
+            GotosEliminated += originalGotoCount;
+            return visited.WithBody(body);
+        }
+
         try
         {
-            var blocks = SplitToBlocks(visited.Body.Statements);
+            var blocks = SplitToBlocks(body.Statements);
             var hoisted = HoistSpanningLocals(blocks);
             // out 参数在 while 循环前初始化为 default：状态机的 switch(__state) 破坏确定赋值分析，
-            // 编译器无法证明所有 case 路径都赋过 out 参数 / 结构字段（XsdDuration.TryParse 的
-            // out XsdDuration result + result._nanoseconds |= ... 即触发 CS0170/CS0177）。
+            // 编译器无法证明所有 case 路径都赋过 out 参数或其结构字段。
             var prologue = BuildOutParameterInitializers(visited);
             prologue.AddRange(hoisted);
             // async 方法的方法体内 return 返回 T（编译器包装为 Task<T>）；末块兜底需用 T
             bool isAsync = visited.Modifiers.Any(SyntaxKind.AsyncKeyword);
             var returnType = UnwrapAsyncReturnType(visited.ReturnType, isAsync);
-            var newBody = EmitStateMachine(blocks, prologue, visited.Body, returnType);
+            var newBody = EmitStateMachine(blocks, prologue, body, returnType, IsIteratorBody(body));
             TransformedMethods++;
-            GotosEliminated += CountGotos(visited.Body);
+            GotosEliminated += originalGotoCount;
             return visited.WithBody(newBody);
         }
         catch (GotoEliminatorException ex)
@@ -274,6 +307,46 @@ internal sealed partial class StateMachineBuilder
         => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
     public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
         => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
+    {
+        var visited = node;
+        if (visited.Body == null || !ContainsLabelOrGoto(visited.Body)) return visited;
+        var originalGotoCount = CountGotos(visited.Body);
+        var body = RewriteNestedClosedBlocks(visited.Body, out var nestedChanged);
+        body = DefaultInitializeUnassignedLocals(body);
+        if (!ContainsLabelOrGoto(body))
+        {
+            if (!nestedChanged) return visited;
+            bool isAsync = visited.Modifiers.Any(SyntaxKind.AsyncKeyword);
+            var returnType = UnwrapAsyncReturnType(visited.ReturnType, isAsync);
+            body = AppendUnreachableReturn(body, returnType, IsIteratorBody(body));
+            TransformedMethods++;
+            GotosEliminated += originalGotoCount;
+            return visited.WithBody(body);
+        }
+
+        try
+        {
+            var blocks = SplitToBlocks(body.Statements);
+            var hoisted = HoistSpanningLocals(blocks);
+            var prologue = BuildOutParameterInitializers(visited.ParameterList);
+            prologue.AddRange(hoisted);
+            bool isAsync = visited.Modifiers.Any(SyntaxKind.AsyncKeyword);
+            var returnType = UnwrapAsyncReturnType(visited.ReturnType, isAsync);
+            var newBody = EmitStateMachine(blocks, prologue, body, returnType, IsIteratorBody(body));
+            TransformedMethods++;
+            GotosEliminated += originalGotoCount;
+            return visited.WithBody(newBody);
+        }
+        catch (GotoEliminatorException ex)
+        {
+            SkippedMethods++;
+            Diagnostics.Add(new GotoEliminatorDiagnostic(
+                GotoEliminatorSeverity.Warning, ex.Message,
+                visited.Identifier.ValueText));
+            return visited;
+        }
+    }
 
     private SyntaxNode RewriteBaseMethod<T>(
         T node,
@@ -285,9 +358,30 @@ internal sealed partial class StateMachineBuilder
         var visited = node;
         var body = getBody(visited);
         if (body == null || !ContainsLabelOrGoto(body)) return visited;
+        var originalGotoCount = CountGotos(body);
+        var rewrittenBody = RewriteNestedClosedBlocks(body, out var nestedChanged);
+        rewrittenBody = DefaultInitializeUnassignedLocals(rewrittenBody);
+        if (!ContainsLabelOrGoto(rewrittenBody))
+        {
+            if (!nestedChanged) return visited;
+            bool isAsync = node.Modifiers.Any(SyntaxKind.AsyncKeyword);
+            TypeSyntax? rawReturnType = node switch
+            {
+                ConstructorDeclarationSyntax => null,
+                OperatorDeclarationSyntax op => op.ReturnType,
+                MethodDeclarationSyntax m => m.ReturnType,
+                _ => null,
+            };
+            var returnType = UnwrapAsyncReturnType(rawReturnType, isAsync);
+            rewrittenBody = AppendUnreachableReturn(rewrittenBody, returnType, IsIteratorBody(rewrittenBody));
+            TransformedMethods++;
+            GotosEliminated += originalGotoCount;
+            return withBody(visited, rewrittenBody);
+        }
+
         try
         {
-            var blocks = SplitToBlocks(body.Statements);
+            var blocks = SplitToBlocks(rewrittenBody.Statements);
             var hoisted = HoistSpanningLocals(blocks);
             var prologue = BuildOutParameterInitializers(visited);
             prologue.AddRange(hoisted);
@@ -302,9 +396,9 @@ internal sealed partial class StateMachineBuilder
                 _ => null,
             };
             var returnType = UnwrapAsyncReturnType(rawReturnType, isAsync);
-            var newBody = EmitStateMachine(blocks, prologue, body, returnType);
+            var newBody = EmitStateMachine(blocks, prologue, rewrittenBody, returnType, IsIteratorBody(rewrittenBody));
             TransformedMethods++;
-            GotosEliminated += CountGotos(body);
+            GotosEliminated += originalGotoCount;
             return withBody(visited, newBody);
         }
         catch (GotoEliminatorException ex)
@@ -318,10 +412,13 @@ internal sealed partial class StateMachineBuilder
 
     /// <summary>为方法的每个 out 参数生成 `param = default(T)!;` 初始化语句。</summary>
     private static List<StatementSyntax> BuildOutParameterInitializers(BaseMethodDeclarationSyntax method)
+        => BuildOutParameterInitializers(method.ParameterList);
+
+    private static List<StatementSyntax> BuildOutParameterInitializers(ParameterListSyntax? parameterList)
     {
         var result = new List<StatementSyntax>();
-        if (method.ParameterList == null) return result;
-        foreach (var p in method.ParameterList.Parameters)
+        if (parameterList == null) return result;
+        foreach (var p in parameterList.Parameters)
         {
             if (!p.Modifiers.Any(SyntaxKind.OutKeyword)) continue;
             if (p.Type == null) continue;
@@ -342,10 +439,151 @@ internal sealed partial class StateMachineBuilder
     private static int CountGotos(SyntaxNode node)
         => node.DescendantNodes().OfType<GotoStatementSyntax>().Count();
 
+    private static bool IsIteratorBody(BlockSyntax body)
+        => body.DescendantNodes()
+            .OfType<YieldStatementSyntax>()
+            .Any();
+
+    private static BlockSyntax RewriteNestedClosedBlocks(BlockSyntax body, out bool changed)
+    {
+        var rewriter = new NestedClosedBlockRewriter(body);
+        var rewritten = (BlockSyntax)rewriter.Visit(body)!;
+        changed = rewriter.Changed;
+        return rewritten;
+    }
+
+    private sealed class NestedClosedBlockRewriter : CSharpSyntaxRewriter
+    {
+        private readonly BlockSyntax _root;
+        private readonly HashSet<string> _usedNames;
+        private int _nameIndex;
+
+        internal bool Changed { get; private set; }
+
+        internal NestedClosedBlockRewriter(BlockSyntax root)
+        {
+            _root = root;
+            _usedNames = root.DescendantTokens()
+                .Where(t => t.IsKind(SyntaxKind.IdentifierToken))
+                .Select(t => t.ValueText)
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
+        public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
+        public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
+
+        public override SyntaxNode? VisitBlock(BlockSyntax node)
+        {
+            var visited = (BlockSyntax)base.VisitBlock(node)!;
+            if (node.Span == _root.Span || !ContainsLabelOrGoto(visited) || !HasClosedLocalLabels(node, visited))
+                return visited;
+
+            try
+            {
+                var blocks = SplitToBlocks(visited.Statements);
+                var hoisted = HoistSpanningLocals(blocks);
+                var stateName = NextName("__cs2jBlockState");
+                var exitName = NextName("__cs2jBlockExit");
+                var breakName = NextName("__cs2jBlockBreak");
+                var continueName = NextName("__cs2jBlockContinue");
+                var lowered = EmitNestedBlockStateMachine(
+                    blocks,
+                    hoisted,
+                    visited,
+                    stateName,
+                    exitName,
+                    breakName,
+                    continueName,
+                    CanBreakFrom(node) && ContainsEscapingBreak(visited),
+                    CanContinueFrom(node) && ContainsEscapingContinue(visited));
+                Changed = true;
+                return lowered.WithTriviaFrom(visited);
+            }
+            catch (GotoEliminatorException)
+            {
+                return visited;
+            }
+        }
+
+        private string NextName(string prefix)
+        {
+            string name;
+            do
+            {
+                name = prefix + _nameIndex++;
+            }
+            while (!_usedNames.Add(name));
+            return name;
+        }
+
+        private bool HasClosedLocalLabels(BlockSyntax originalBlock, BlockSyntax visitedBlock)
+        {
+            var labels = visitedBlock.DescendantNodesAndSelf(ShouldDescendIntoChildren)
+                .OfType<LabeledStatementSyntax>()
+                .Select(l => l.Identifier.ValueText)
+                .ToHashSet(StringComparer.Ordinal);
+            if (labels.Count == 0) return false;
+
+            var internalGotos = visitedBlock.DescendantNodesAndSelf(ShouldDescendIntoChildren)
+                .OfType<GotoStatementSyntax>()
+                .Where(g => g.Expression is IdentifierNameSyntax)
+                .ToList();
+            if (internalGotos.Count == 0) return false;
+            if (!internalGotos.Any(g => labels.Contains(((IdentifierNameSyntax)g.Expression!).Identifier.ValueText)))
+                return false;
+
+            var blockSpan = originalBlock.Span;
+            var outsideTargets = _root.DescendantNodesAndSelf(ShouldDescendIntoChildren)
+                .OfType<GotoStatementSyntax>()
+                .Where(g => !blockSpan.Contains(g.Span))
+                .Select(g => g.Expression as IdentifierNameSyntax)
+                .Where(id => id != null)
+                .Select(id => id!.Identifier.ValueText);
+            return !outsideTargets.Any(labels.Contains);
+        }
+
+        private static bool CanBreakFrom(SyntaxNode node)
+            => node.Ancestors()
+                .TakeWhile(IsSameExecutableBody)
+                .Any(a => a is ForStatementSyntax or ForEachStatementSyntax
+                    or WhileStatementSyntax or DoStatementSyntax or SwitchStatementSyntax);
+
+        private static bool CanContinueFrom(SyntaxNode node)
+            => node.Ancestors()
+                .TakeWhile(IsSameExecutableBody)
+                .Any(a => a is ForStatementSyntax or ForEachStatementSyntax
+                    or WhileStatementSyntax or DoStatementSyntax);
+
+        private static bool ContainsEscapingBreak(BlockSyntax block)
+            => block.DescendantNodesAndSelf(ShouldDescendIntoChildren)
+                .OfType<BreakStatementSyntax>()
+                .Any(b => !b.Ancestors()
+                    .TakeWhile(a => a != block)
+                    .Any(a => a is ForStatementSyntax or ForEachStatementSyntax
+                        or WhileStatementSyntax or DoStatementSyntax or SwitchStatementSyntax));
+
+        private static bool ContainsEscapingContinue(BlockSyntax block)
+            => block.DescendantNodesAndSelf(ShouldDescendIntoChildren)
+                .OfType<ContinueStatementSyntax>()
+                .Any(c => !c.Ancestors()
+                    .TakeWhile(a => a != block)
+                    .Any(a => a is ForStatementSyntax or ForEachStatementSyntax
+                        or WhileStatementSyntax or DoStatementSyntax));
+
+        private static bool IsSameExecutableBody(SyntaxNode node)
+            => node is not BaseMethodDeclarationSyntax
+                and not LocalFunctionStatementSyntax
+                and not ParenthesizedLambdaExpressionSyntax
+                and not SimpleLambdaExpressionSyntax
+                and not AnonymousMethodExpressionSyntax;
+    }
+
     /// <summary>发射 while(true){switch(__state){case i: ...}} 并替换原方法体。</summary>
     internal static BlockSyntax EmitStateMachine(
         List<BasicBlock> blocks, List<StatementSyntax> hoisted, BlockSyntax originalBody,
-        TypeSyntax? returnType)
+        TypeSyntax? returnType, bool isIterator = false)
     {
         // 标签 -> 块 index
         var labelToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -366,7 +604,7 @@ internal sealed partial class StateMachineBuilder
             var block = blocks[i];
             var caseStmts = new List<StatementSyntax>(block.Statements);
             // 改写块内 goto / conditional-goto；追加转移
-            RewriteBlockStatements(caseStmts, block, labelToIndex, i, blocks, returnType, needsExitMechanism);
+            RewriteBlockStatements(caseStmts, block, labelToIndex, i, blocks, returnType, needsExitMechanism, isIterator);
             if (needsExitMechanism)
             {
                 // 插入循环退出检查（处理循环内 goto 的 break 传播）
@@ -454,11 +692,130 @@ internal sealed partial class StateMachineBuilder
         return SyntaxFactory.Block(allStmts);
     }
 
+    private static BlockSyntax EmitNestedBlockStateMachine(
+        List<BasicBlock> blocks,
+        List<StatementSyntax> hoisted,
+        BlockSyntax originalBlock,
+        string stateName,
+        string exitName,
+        string breakName,
+        string continueName,
+        bool canBreak,
+        bool canContinue)
+    {
+        var labelToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < blocks.Count; i++)
+            if (blocks[i].Label != null) labelToIndex[blocks[i].Label!] = i;
+
+        bool needsExitMechanism = StateMachineHasLoops(blocks);
+        var processedCases = new List<List<StatementSyntax>>();
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            var block = blocks[i];
+            var caseStmts = new List<StatementSyntax>(block.Statements);
+            RewriteNestedBlockStatements(
+                caseStmts,
+                block,
+                labelToIndex,
+                blocks,
+                stateName,
+                exitName,
+                breakName,
+                continueName,
+                canBreak,
+                canContinue,
+                needsExitMechanism);
+            if (needsExitMechanism)
+            {
+                var inserter = new NamedLoopExitInserter(exitName);
+                for (int s = 0; s < caseStmts.Count; s++)
+                {
+                    caseStmts[s] = (StatementSyntax)inserter.Visit(caseStmts[s])!;
+                }
+            }
+
+            processedCases.Add(caseStmts);
+        }
+
+        var sections = new List<SwitchSectionSyntax>();
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            var block = blocks[i];
+            var caseStmts = processedCases[i];
+            if (needsExitMechanism)
+            {
+                bool endsWithGuardedFallthrough =
+                    block.Exit == BlockExit.ConditionalGoto
+                    || block.Exit == BlockExit.FallThrough;
+                if (endsWithGuardedFallthrough)
+                    caseStmts.Add(SyntaxFactory.BreakStatement());
+            }
+
+            sections.Add(SyntaxFactory.SwitchSection(
+                SyntaxFactory.SingletonList<SwitchLabelSyntax>(SyntaxFactory.CaseSwitchLabel(Number(block.Index))),
+                SyntaxFactory.List(caseStmts)));
+        }
+
+        var stateDecl = SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.IntKeyword)),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(stateName)
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(Number(0))))));
+
+        var whileBodyStmts = new List<StatementSyntax>
+        {
+            SyntaxFactory.SwitchStatement(SyntaxFactory.IdentifierName(stateName))
+                .WithSections(SyntaxFactory.List(sections))
+        };
+
+        var allStmts = new List<StatementSyntax>();
+        allStmts.AddRange(hoisted);
+        allStmts.Add(stateDecl);
+
+        if (needsExitMechanism)
+        {
+            allStmts.Add(BoolDeclaration(exitName));
+            whileBodyStmts.Add(AssignBoolIfTrue(exitName, false));
+        }
+
+        if (canBreak)
+            allStmts.Add(BoolDeclaration(breakName));
+        if (canContinue)
+            allStmts.Add(BoolDeclaration(continueName));
+
+        allStmts.Add(SyntaxFactory.WhileStatement(
+            SyntaxFactory.BinaryExpression(
+                SyntaxKind.GreaterThanOrEqualExpression,
+                SyntaxFactory.IdentifierName(stateName),
+                Number(0)),
+            SyntaxFactory.Block(whileBodyStmts)));
+
+        if (canBreak)
+        {
+            allStmts.Add(SyntaxFactory.IfStatement(
+                SyntaxFactory.IdentifierName(breakName),
+                SyntaxFactory.BreakStatement()));
+        }
+
+        if (canContinue)
+        {
+            allStmts.Add(SyntaxFactory.IfStatement(
+                SyntaxFactory.IdentifierName(continueName),
+                SyntaxFactory.ContinueStatement()));
+        }
+
+        if (allStmts.Count > 0 && originalBlock.Statements.Count > 0)
+            allStmts[0] = allStmts[0].WithLeadingTrivia(originalBlock.Statements[0].GetLeadingTrivia());
+
+        return SyntaxFactory.Block(allStmts);
+    }
+
     /// <summary>改写块内语句：goto label -> __state=N; continue; ；追加块转移。</summary>
     private static void RewriteBlockStatements(
         List<StatementSyntax> stmts, BasicBlock block,
         Dictionary<string, int> labelToIndex, int selfIndex,
-        List<BasicBlock> blocks, TypeSyntax? returnType, bool needsExitMechanism)
+        List<BasicBlock> blocks, TypeSyntax? returnType, bool needsExitMechanism, bool isIterator)
     {
         for (int i = 0; i < stmts.Count; i++)
         {
@@ -481,6 +838,8 @@ internal sealed partial class StateMachineBuilder
                 // 追加 fall-through 转移（若循环内已发起 __exit 则跳过，避免覆盖目标 state）
                 if (block.FallThroughTarget is int ft)
                     stmts.Add(fallthrough(ft));
+                else
+                    stmts.Add(BuildUnreachableReturn(returnType, isIterator));
                 break;
             case BlockExit.FallThrough:
                 if (block.FallThroughTarget is int ft2)
@@ -490,14 +849,70 @@ internal sealed partial class StateMachineBuilder
                     // void 方法（returnType 为 null/void）：return; 即隐式返回。
                     // 非 void 方法：本路径不可达（块内必有显式 return/throw，否则原代码就 CS0126），
                     //              但语法上需要返回值，故 emit `return default(T)!;`（永远不可达，仅满足编译器）。
-                    // 注意：之前用 StateAssignContinue(selfIndex) 会造成 case 自循环无限重执行
-                    // （XmlTextReaderImpl.ParseElement 是 void 且末块无 return → 第二轮重读
-                    // _ps.charPos 导致 ArgumentOutOfRangeException）。
-                    stmts.Add(BuildUnreachableReturn(returnType));
+                    // 注意：不能回到当前 state；末块无 fall-through 目标时应退出方法，
+                    // 否则会自循环并重执行有副作用的语句。
+                    stmts.Add(BuildUnreachableReturn(returnType, isIterator));
                 break;
             case BlockExit.Return:
             case BlockExit.Break:
                 // 块内已含 return/throw/break/continue，无需追加
+                break;
+        }
+    }
+
+    private static void RewriteNestedBlockStatements(
+        List<StatementSyntax> stmts,
+        BasicBlock block,
+        Dictionary<string, int> labelToIndex,
+        List<BasicBlock> blocks,
+        string stateName,
+        string exitName,
+        string breakName,
+        string continueName,
+        bool canBreak,
+        bool canContinue,
+        bool needsExitMechanism)
+    {
+        for (int i = 0; i < stmts.Count; i++)
+        {
+            stmts[i] = RewriteNestedNode(
+                stmts[i],
+                labelToIndex,
+                stateName,
+                exitName,
+                breakName,
+                continueName,
+                canBreak,
+                canContinue);
+        }
+
+        StatementSyntax fallthrough(int target)
+            => needsExitMechanism
+                ? GuardedAssignStateContinue(stateName, exitName, target)
+                : AssignStateContinue(stateName, target);
+
+        switch (block.Exit)
+        {
+            case BlockExit.Goto:
+                break;
+            case BlockExit.ConditionalGoto:
+                if (block.FallThroughTarget is int ft)
+                    stmts.Add(fallthrough(ft));
+                else
+                    stmts.Add(needsExitMechanism
+                        ? GuardedExitNestedBlock(stateName, exitName)
+                        : ExitNestedBlock(stateName));
+                break;
+            case BlockExit.FallThrough:
+                if (block.FallThroughTarget is int ft2)
+                    stmts.Add(fallthrough(ft2));
+                else
+                    stmts.Add(needsExitMechanism
+                        ? GuardedExitNestedBlock(stateName, exitName)
+                        : ExitNestedBlock(stateName));
+                break;
+            case BlockExit.Return:
+            case BlockExit.Break:
                 break;
         }
     }
@@ -515,8 +930,10 @@ internal sealed partial class StateMachineBuilder
     }
 
     /// <summary>构造末块兜底 return：void 方法返回裸 return;，非 void 方法返回 default(T)!（不可达）。</summary>
-    private static StatementSyntax BuildUnreachableReturn(TypeSyntax? returnType)
+    private static StatementSyntax BuildUnreachableReturn(TypeSyntax? returnType, bool isIterator)
     {
+        if (isIterator)
+            return SyntaxFactory.YieldStatement(SyntaxKind.YieldBreakStatement);
         bool isVoid = returnType == null
             || (returnType is PredefinedTypeSyntax pt && pt.Keyword.IsKind(SyntaxKind.VoidKeyword));
         if (isVoid)
@@ -527,6 +944,151 @@ internal sealed partial class StateMachineBuilder
             SyntaxFactory.DefaultExpression(returnType!));
         return SyntaxFactory.ReturnStatement(defaultExpr);
     }
+
+    private static BlockSyntax AppendUnreachableReturn(
+        BlockSyntax body,
+        TypeSyntax? returnType,
+        bool isIterator)
+    {
+        bool isVoid = returnType == null
+            || (returnType is PredefinedTypeSyntax pt && pt.Keyword.IsKind(SyntaxKind.VoidKeyword));
+        if (isVoid)
+            return body;
+        return body.WithStatements(body.Statements.Add(BuildUnreachableReturn(returnType, isIterator)));
+    }
+
+    private static BlockSyntax DefaultInitializeUnassignedLocals(BlockSyntax body)
+        => (BlockSyntax)new UnassignedLocalInitializer().Visit(body)!;
+
+    private sealed class UnassignedLocalInitializer : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
+        public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
+
+        public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
+        {
+            if (node.Modifiers.Any(SyntaxKind.ConstKeyword)
+                || node.Modifiers.Any(SyntaxKind.RefKeyword)
+                || node.Modifiers.Any(SyntaxKind.OutKeyword)
+                || node.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
+            {
+                return node;
+            }
+
+            if (node.Declaration.Type is IdentifierNameSyntax id
+                && id.Identifier.ValueText == "var")
+            {
+                return node;
+            }
+
+            var variables = node.Declaration.Variables;
+            if (variables.All(v => v.Initializer != null))
+                return node;
+
+            var initialized = variables.Select(v => v.Initializer == null
+                ? v.WithInitializer(SyntaxFactory.EqualsValueClause(
+                    SyntaxFactory.DefaultExpression(node.Declaration.Type)))
+                : v);
+
+            return node.WithDeclaration(node.Declaration.WithVariables(
+                SyntaxFactory.SeparatedList(initialized, variables.GetSeparators())));
+        }
+    }
+
+    private static LiteralExpressionSyntax Number(int value)
+        => SyntaxFactory.LiteralExpression(
+            SyntaxKind.NumericLiteralExpression,
+            SyntaxFactory.Literal(value));
+
+    private static StatementSyntax BoolDeclaration(string name)
+        => SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(name)
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                            SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression))))));
+
+    private static StatementSyntax AssignBoolIfTrue(string name, bool value)
+        => SyntaxFactory.IfStatement(
+            SyntaxFactory.IdentifierName(name),
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(name),
+                    SyntaxFactory.LiteralExpression(value
+                        ? SyntaxKind.TrueLiteralExpression
+                        : SyntaxKind.FalseLiteralExpression))));
+
+    private static StatementSyntax AssignStateBreak(
+        string stateName,
+        string exitName,
+        int target)
+        => SyntaxFactory.Block(
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(stateName),
+                    Number(target))),
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(exitName),
+                    SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression))),
+            SyntaxFactory.BreakStatement());
+
+    private static StatementSyntax AssignStateContinue(string stateName, int target)
+        => SyntaxFactory.Block(
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(stateName),
+                    Number(target))),
+            SyntaxFactory.ContinueStatement());
+
+    private static StatementSyntax GuardedAssignStateContinue(
+        string stateName,
+        string exitName,
+        int target)
+        => SyntaxFactory.IfStatement(
+            SyntaxFactory.PrefixUnaryExpression(
+                SyntaxKind.LogicalNotExpression,
+                SyntaxFactory.IdentifierName(exitName)),
+            AssignStateContinue(stateName, target));
+
+    private static StatementSyntax ExitNestedBlock(string stateName)
+        => SyntaxFactory.Block(
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(stateName),
+                    Number(-1))),
+            SyntaxFactory.ContinueStatement());
+
+    private static StatementSyntax GuardedExitNestedBlock(string stateName, string exitName)
+        => SyntaxFactory.IfStatement(
+            SyntaxFactory.PrefixUnaryExpression(
+                SyntaxKind.LogicalNotExpression,
+                SyntaxFactory.IdentifierName(exitName)),
+            ExitNestedBlock(stateName));
+
+    private static StatementSyntax SignalControlAndExit(
+        string stateName,
+        string signalName)
+        => SyntaxFactory.Block(
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(signalName),
+                    SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression))),
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(stateName),
+                    Number(-1))),
+            SyntaxFactory.ContinueStatement());
 
     /// <summary>
     /// async 方法的方法体内 return 语句返回的是 T（编译器包装为 Task&lt;T&gt;/ValueTask&lt;T&gt;）。
@@ -555,6 +1117,27 @@ internal sealed partial class StateMachineBuilder
     private static StatementSyntax RewriteNode(SyntaxNode node, Dictionary<string, int> labelToIndex)
     {
         var rewriter = new GotoTransitionRewriter(labelToIndex);
+        return (StatementSyntax)rewriter.Visit(node)!;
+    }
+
+    private static StatementSyntax RewriteNestedNode(
+        SyntaxNode node,
+        Dictionary<string, int> labelToIndex,
+        string stateName,
+        string exitName,
+        string breakName,
+        string continueName,
+        bool canBreak,
+        bool canContinue)
+    {
+        var rewriter = new NestedBlockTransitionRewriter(
+            labelToIndex,
+            stateName,
+            exitName,
+            breakName,
+            continueName,
+            canBreak,
+            canContinue);
         return (StatementSyntax)rewriter.Visit(node)!;
     }
 
@@ -623,11 +1206,124 @@ internal sealed partial class StateMachineBuilder
         }
     }
 
-    /// <summary>在每层循环体末尾和循环后各追加 if(__exit) break;。
-    /// 循环体末尾的检查：StateAssignBreak 的 break 仅退出内层 switch（switch(NodeType) 等），
+    private sealed class NestedBlockTransitionRewriter : CSharpSyntaxRewriter
+    {
+        private readonly Dictionary<string, int> _labelToIndex;
+        private readonly string _stateName;
+        private readonly string _exitName;
+        private readonly string _breakName;
+        private readonly string _continueName;
+        private readonly bool _canBreak;
+        private readonly bool _canContinue;
+        private int _loopDepth;
+        private int _breakableDepth;
+        private int _continuableDepth;
+
+        internal NestedBlockTransitionRewriter(
+            Dictionary<string, int> labelToIndex,
+            string stateName,
+            string exitName,
+            string breakName,
+            string continueName,
+            bool canBreak,
+            bool canContinue)
+        {
+            _labelToIndex = labelToIndex;
+            _stateName = stateName;
+            _exitName = exitName;
+            _breakName = breakName;
+            _continueName = continueName;
+            _canBreak = canBreak;
+            _canContinue = canContinue;
+        }
+
+        public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
+        {
+            _loopDepth++;
+            _breakableDepth++;
+            _continuableDepth++;
+            var r = base.VisitForStatement(node);
+            _continuableDepth--;
+            _breakableDepth--;
+            _loopDepth--;
+            return r;
+        }
+        public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+        {
+            _loopDepth++;
+            _breakableDepth++;
+            _continuableDepth++;
+            var r = base.VisitForEachStatement(node);
+            _continuableDepth--;
+            _breakableDepth--;
+            _loopDepth--;
+            return r;
+        }
+        public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
+        {
+            _loopDepth++;
+            _breakableDepth++;
+            _continuableDepth++;
+            var r = base.VisitWhileStatement(node);
+            _continuableDepth--;
+            _breakableDepth--;
+            _loopDepth--;
+            return r;
+        }
+        public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
+        {
+            _loopDepth++;
+            _breakableDepth++;
+            _continuableDepth++;
+            var r = base.VisitDoStatement(node);
+            _continuableDepth--;
+            _breakableDepth--;
+            _loopDepth--;
+            return r;
+        }
+
+        public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        {
+            _breakableDepth++;
+            var result = base.VisitSwitchStatement(node);
+            _breakableDepth--;
+            return result;
+        }
+
+        public override SyntaxNode? VisitBreakStatement(BreakStatementSyntax node)
+        {
+            if (_breakableDepth == 0 && _canBreak)
+                return SignalControlAndExit(_stateName, _breakName).WithTriviaFrom(node);
+            return node;
+        }
+
+        public override SyntaxNode? VisitContinueStatement(ContinueStatementSyntax node)
+        {
+            if (_continuableDepth == 0 && _canContinue)
+                return SignalControlAndExit(_stateName, _continueName).WithTriviaFrom(node);
+            return node;
+        }
+
+        public override SyntaxNode? VisitGotoStatement(GotoStatementSyntax node)
+        {
+            if (node.Expression is IdentifierNameSyntax id
+                && _labelToIndex.TryGetValue(id.Identifier.ValueText, out var idx))
+            {
+                if (_loopDepth > 0)
+                    return AssignStateBreak(_stateName, _exitName, idx).WithTriviaFrom(node);
+                return AssignStateContinue(_stateName, idx).WithTriviaFrom(node);
+            }
+
+            return base.VisitGotoStatement(node);
+        }
+    }
+
+    /// <summary>在每层循环体末尾、循环后和嵌套 switch 后追加 if(__exit) break;。
+    /// 循环体末尾的检查：StateAssignBreak 的 break 仅退出内层 switch，
     /// 不退出本层循环；若无此检查，do-while 的 while(cond) 在 __exit=true 后仍被求值，
-    /// 调用 Read() 等有副作用的条件，导致 reader 被错误推进（InternalReadContentAsString 的
-    /// goto ReturnContent 即触发此 bug）。末尾检查使 break 能进一步跳出本层循环。
+    /// 有副作用的条件会被错误执行。末尾检查使 break 能进一步跳出本层循环。
+    /// switch 后检查：goto 位于循环内嵌 switch 时，StateAssignBreak 的 break 先退出 switch；
+    /// 必须在执行 switch 后续 sibling 语句前传播 __exit，否则这些语句会被错误执行。
     /// 循环后的检查（WrapLoop）：把 __exit 传播到外层循环或 switch(__state)。
     /// 嵌套循环逐层传播：内层末尾退出内层循环→内层 WrapLoop 退出外层循环→外层末尾退出外层循环→外层 WrapLoop 退出 switch。
     /// 注意：不在循环体首部插入检查——那会导致循环在首轮即退出而不执行变量赋值，引发 CS0165。</summary>
@@ -676,6 +1372,69 @@ internal sealed partial class StateMachineBuilder
             var visited = (DoStatementSyntax)base.VisitDoStatement(node)!;
             var withExit = visited.WithStatement(AppendExitCheckToBody(visited.Statement));
             return WrapLoop(withExit);
+        }
+
+        public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        {
+            var visited = (SwitchStatementSyntax)base.VisitSwitchStatement(node)!;
+            return SyntaxFactory.Block(visited, ExitCheck());
+        }
+    }
+
+    private sealed class NamedLoopExitInserter : CSharpSyntaxRewriter
+    {
+        private readonly ExpressionSyntax _exitFlag;
+
+        internal NamedLoopExitInserter(string exitName)
+        {
+            _exitFlag = SyntaxFactory.IdentifierName(exitName);
+        }
+
+        private StatementSyntax ExitCheck()
+            => SyntaxFactory.IfStatement(_exitFlag, SyntaxFactory.BreakStatement());
+
+        private StatementSyntax WrapLoop(StatementSyntax loop)
+            => SyntaxFactory.Block(loop, ExitCheck());
+
+        private StatementSyntax AppendExitCheckToBody(StatementSyntax body)
+        {
+            if (body is BlockSyntax block)
+                return block.WithStatements(block.Statements.Add(ExitCheck()));
+            return SyntaxFactory.Block(body, ExitCheck());
+        }
+
+        public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
+        {
+            var visited = (ForStatementSyntax)base.VisitForStatement(node)!;
+            var withExit = visited.WithStatement(AppendExitCheckToBody(visited.Statement));
+            return WrapLoop(withExit);
+        }
+
+        public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+        {
+            var visited = (ForEachStatementSyntax)base.VisitForEachStatement(node)!;
+            var withExit = visited.WithStatement(AppendExitCheckToBody(visited.Statement));
+            return WrapLoop(withExit);
+        }
+
+        public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
+        {
+            var visited = (WhileStatementSyntax)base.VisitWhileStatement(node)!;
+            var withExit = visited.WithStatement(AppendExitCheckToBody(visited.Statement));
+            return WrapLoop(withExit);
+        }
+
+        public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
+        {
+            var visited = (DoStatementSyntax)base.VisitDoStatement(node)!;
+            var withExit = visited.WithStatement(AppendExitCheckToBody(visited.Statement));
+            return WrapLoop(withExit);
+        }
+
+        public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        {
+            var visited = (SwitchStatementSyntax)base.VisitSwitchStatement(node)!;
+            return SyntaxFactory.Block(visited, ExitCheck());
         }
     }
 }

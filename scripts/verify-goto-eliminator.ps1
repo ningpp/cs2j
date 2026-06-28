@@ -12,9 +12,79 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$repo = 'D:\code\cs2j'
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $src = 'D:\csharpxml'
 $tmp = "D:\temp\cs2j_verify_" + [guid]::NewGuid().ToString('N')
+
+function ConvertTo-ProcessArgument($argument) {
+    $text = [string]$argument
+    if ($text -ne '' -and $text -notmatch '[\s"]') {
+        return $text
+    }
+
+    $builder = New-Object System.Text.StringBuilder
+    [void]$builder.Append('"')
+    $backslashes = 0
+    foreach ($ch in $text.ToCharArray()) {
+        if ($ch -eq '\') {
+            $backslashes++
+            continue
+        }
+
+        if ($ch -eq '"') {
+            [void]$builder.Append('\' * (($backslashes * 2) + 1))
+            [void]$builder.Append('"')
+            $backslashes = 0
+            continue
+        }
+
+        if ($backslashes -gt 0) {
+            [void]$builder.Append('\' * $backslashes)
+            $backslashes = 0
+        }
+        [void]$builder.Append($ch)
+    }
+
+    if ($backslashes -gt 0) {
+        [void]$builder.Append('\' * ($backslashes * 2))
+    }
+    [void]$builder.Append('"')
+    return $builder.ToString()
+}
+
+function Join-ProcessArguments([string[]]$arguments) {
+    return ($arguments | ForEach-Object { ConvertTo-ProcessArgument $_ }) -join ' '
+}
+
+function Invoke-WithTimeout($name, $filePath, [string[]]$arguments, [int]$timeoutSeconds) {
+    Write-Host "> $name (timeout: ${timeoutSeconds}s)"
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $filePath
+    $startInfo.Arguments = Join-ProcessArguments $arguments
+    $startInfo.WorkingDirectory = (Get-Location).ProviderPath
+    $startInfo.UseShellExecute = $false
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    [void]$process.Start()
+    if (-not $process.WaitForExit($timeoutSeconds * 1000)) {
+        try {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
+        finally {
+            throw "$name timed out after ${timeoutSeconds}s"
+        }
+    }
+
+    $process.Refresh()
+    if ($process.ExitCode -ne 0) {
+        throw "$name failed (exit $($process.ExitCode))"
+    }
+}
+
+function Invoke-DotnetWithTimeout($name, [string[]]$arguments, [int]$timeoutSeconds) {
+    Invoke-WithTimeout $name 'dotnet' $arguments $timeoutSeconds
+}
 
 function Get-TreeHashes($root) {
     Get-ChildItem -Recurse -File $root |
@@ -49,6 +119,39 @@ function Copy-TreeExcludingBuildDirs($source, $destination) {
     }
 }
 
+function Assert-NoGotoSyntax($root) {
+    $scan = "D:\temp\cs2j_verify_goto_scan_" + [guid]::NewGuid().ToString('N')
+    try {
+        Invoke-DotnetWithTimeout 'create goto scanner project' @('new', 'console', '-o', $scan, '--framework', 'net10.0', '--no-restore') 120
+        @'
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+var rootDir = args[0];
+var remaining = new List<string>();
+foreach (var file in Directory.EnumerateFiles(rootDir, "*.cs", SearchOption.AllDirectories))
+{
+    var root = CSharpSyntaxTree.ParseText(File.ReadAllText(file), path: file).GetRoot();
+    var gotos = root.DescendantNodes().OfType<GotoStatementSyntax>().Count();
+    var labels = root.DescendantNodes().OfType<LabeledStatementSyntax>().Count();
+    if (gotos != 0 || labels != 0)
+        remaining.Add($"{file}|goto={gotos}|label={labels}");
+}
+
+Console.WriteLine($"REMAINING={remaining.Count}");
+foreach (var item in remaining.Take(100))
+    Console.WriteLine(item);
+return remaining.Count == 0 ? 0 : 2;
+'@ | Set-Content -Path (Join-Path $scan 'Program.cs') -Encoding UTF8
+        $project = (Get-ChildItem -Path $scan -Filter *.csproj | Select-Object -First 1).FullName
+        Invoke-DotnetWithTimeout 'restore goto scanner dependencies' @('add', $project, 'package', 'Microsoft.CodeAnalysis.CSharp', '--version', '4.12.0') 300
+        Invoke-DotnetWithTimeout 'run Roslyn goto/label scan' @('run', '--project', $project, '--', $root) 300
+    }
+    finally {
+        Remove-Item -Recurse -Force $scan -ErrorAction SilentlyContinue
+    }
+}
+
 $before = $null
 if (-not $SkipSha256) {
     Write-Host "Recording source SHA256 baseline (excluding .git/bin/obj)..."
@@ -62,23 +165,27 @@ Copy-TreeExcludingBuildDirs $src $tmp
 
 try {
     Write-Host "Running eliminate-goto on copy..."
-    & dotnet run --project "$repo\src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" -- `
-        eliminate-goto -s $tmp -d $tmp --verbose
-    if ($LASTEXITCODE -ne 0) { throw "eliminate-goto failed (exit $LASTEXITCODE)" }
+    Invoke-DotnetWithTimeout 'run eliminate-goto' @(
+        'run',
+        '--project',
+        "$repo\src\CSharpToJava.CLI\CSharpToJava.CLI.csproj",
+        '--',
+        'eliminate-goto',
+        '-s',
+        $tmp,
+        '-d',
+        $tmp,
+        '--verbose') 900
 
     Write-Host "--- dotnet build ---"
     Set-Location $tmp
-    dotnet build csharpxml.sln -c Release
-    if ($LASTEXITCODE -ne 0) { throw "build failed (exit $LASTEXITCODE)" }
+    Invoke-DotnetWithTimeout 'build transformed csharpxml' @('build', 'csharpxml.sln', '-c', 'Release') 900
 
     Write-Host "--- dotnet test ---"
-    dotnet test csharpxml.sln -c Release --no-build
-    if ($LASTEXITCODE -ne 0) { throw "test failed (exit $LASTEXITCODE)" }
+    Invoke-DotnetWithTimeout 'test transformed csharpxml' @('test', 'csharpxml.sln', '-c', 'Release', '--no-build') 900
 
     Write-Host "--- self-check: no goto/label in transformed .cs ---"
-    $remaining = Get-ChildItem -Recurse -File $tmp -Filter *.cs | Select-String -Pattern '\bgoto\b' -SimpleMatch:$false
-    # 注：注释/字符串里的 goto 可能误报；用 Roslyn 自检更准。此处仅粗检。
-    if ($remaining) { Write-Warning "Possible goto remnants (verify manually): $($remaining.Count)" }
+    Assert-NoGotoSyntax $tmp
 
     Write-Host "VERIFY OK"
 }
