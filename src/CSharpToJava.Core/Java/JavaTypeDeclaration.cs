@@ -30,8 +30,8 @@ public abstract class JavaTypeDeclaration : JavaSyntaxNode
         var modifiers = new List<string>();
 
         if ((Modifiers & JavaModifiers.Public) != 0) modifiers.Add("public");
-        if ((Modifiers & JavaModifiers.Protected) != 0) modifiers.Add("protected");
-        if ((Modifiers & JavaModifiers.Private) != 0) modifiers.Add("private");
+        else if ((Modifiers & JavaModifiers.Protected) != 0) modifiers.Add("protected");
+        else if ((Modifiers & JavaModifiers.Private) != 0) modifiers.Add("private");
         if ((Modifiers & JavaModifiers.Static) != 0) modifiers.Add("static");
         if ((Modifiers & JavaModifiers.Final) != 0) modifiers.Add("final");
         if ((Modifiers & JavaModifiers.Abstract) != 0) modifiers.Add("abstract");

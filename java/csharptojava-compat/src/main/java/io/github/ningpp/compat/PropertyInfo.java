@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,9 +14,10 @@ import java.util.Set;
  * C# properties have getter/setter methods; Java uses separate getter/setter methods.
  * This class wraps a Java getter Method to provide C# PropertyInfo semantics.
  */
-public final class PropertyInfo {
+public final class PropertyInfo implements MemberInfo {
 
     private final Method getter;
+    private final Method setter;
     private final String name;
 
     // Methods that are C# methods (not properties) but follow Java getter naming convention.
@@ -29,21 +31,40 @@ public final class PropertyInfo {
     );
 
     public PropertyInfo(Method getter) {
+        this(getter, null);
+    }
+
+    public PropertyInfo(Method getter, Method setter) {
         this.getter = getter;
-        this.getter.setAccessible(true);
+        this.setter = setter;
+        if (this.getter != null) {
+            this.getter.setAccessible(true);
+        }
+        if (this.setter != null) {
+            this.setter.setAccessible(true);
+        }
         // Derive property name from getter: "getFoo" → "Foo", "isBar" → "Bar"
-        String methodName = getter.getName();
+        String methodName = getter != null ? getter.getName() : setter.getName();
         if (methodName.startsWith("get") && methodName.length() > 3) {
             this.name = methodName.substring(3);
         } else if (methodName.startsWith("is") && methodName.length() > 2) {
             this.name = methodName.substring(2);
+        } else if (methodName.startsWith("set") && methodName.length() > 3) {
+            this.name = methodName.substring(3);
         } else {
             this.name = methodName;
         }
     }
 
+    @Override
     public String getName() {
         return name;
+    }
+
+    @Override
+    public Class<?> getDeclaringType() {
+        Method method = getter != null ? getter : setter;
+        return method == null ? null : method.getDeclaringClass();
     }
 
     public Object getValue(Object obj, Object[] index) {
@@ -75,6 +96,42 @@ public final class PropertyInfo {
         return getter;
     }
 
+    public MethodInfo getGetMethod() {
+        return getter == null ? null : new MethodInfo(getter);
+    }
+
+    public MethodInfo getGetMethod(boolean nonPublic) {
+        if (getter == null) {
+            return null;
+        }
+        if (!nonPublic && !Modifier.isPublic(getter.getModifiers())) {
+            return null;
+        }
+        return new MethodInfo(getter);
+    }
+
+    public MethodInfo getSetMethod() {
+        return setter == null ? null : new MethodInfo(setter);
+    }
+
+    public MethodInfo getSetMethod(boolean nonPublic) {
+        if (setter == null) {
+            return null;
+        }
+        if (!nonPublic && !Modifier.isPublic(setter.getModifiers())) {
+            return null;
+        }
+        return new MethodInfo(setter);
+    }
+
+    public boolean getCanRead() {
+        return getter != null;
+    }
+
+    public boolean getCanWrite() {
+        return setter != null;
+    }
+
     /**
      * Returns all public properties (getter methods) of the given class.
      * A property is defined as a public method starting with "get" (non-void return)
@@ -100,6 +157,10 @@ public final class PropertyInfo {
             }
         }
         return props.toArray(new PropertyInfo[0]);
+    }
+
+    public static PropertyInfo[] getProperties(Class<?> clazz, int bindingFlags) {
+        return getProperties(clazz);
     }
 
     /**

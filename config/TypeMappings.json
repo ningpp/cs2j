@@ -139,6 +139,34 @@
             ]
         },
         {
+            "csharp": "System.Collections.IList",
+            "java": "IList",
+            "imports": [
+                "io.github.ningpp.compat.IList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IDictionary",
+            "java": "IDictionary",
+            "imports": [
+                "io.github.ningpp.compat.IDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IDictionaryEnumerator",
+            "java": "IDictionaryEnumerator",
+            "imports": [
+                "io.github.ningpp.compat.IDictionaryEnumerator"
+            ]
+        },
+        {
+            "csharp": "System.Collections.DictionaryEntry",
+            "java": "DictionaryEntry",
+            "imports": [
+                "io.github.ningpp.compat.DictionaryEntry"
+            ]
+        },
+        {
             "csharp": "System.Text.Json.JsonSerializer",
             "java": "JsonSerializer",
             "imports": []
@@ -517,6 +545,13 @@
             "java": "Collection",
             "imports": [
                 "java.util.Collection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.KeyedCollection`2",
+            "java": "KeyedCollection",
+            "imports": [
+                "io.github.ningpp.compat.KeyedCollection"
             ]
         },
         {
@@ -3264,6 +3299,41 @@
             ]
         },
         {
+            "csharp": "System.TypeCode",
+            "java": "TypeCode",
+            "imports": [
+                "io.github.ningpp.compat.TypeCode"
+            ]
+        },
+        {
+            "csharp": "System.Linq.Expressions.LambdaExpression",
+            "java": "LambdaExpression",
+            "imports": [
+                "io.github.ningpp.compat.LambdaExpression"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.MemberInfo",
+            "java": "MemberInfo",
+            "imports": [
+                "io.github.ningpp.compat.MemberInfo"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.TypeInfo",
+            "java": "TypeInfo",
+            "imports": [
+                "io.github.ningpp.compat.TypeInfo"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.IntrospectionExtensions",
+            "java": "IntrospectionExtensions",
+            "imports": [
+                "io.github.ningpp.compat.IntrospectionExtensions"
+            ]
+        },
+        {
             "csharp": "System.Reflection.Assembly",
             "java": "AssemblyCompat",
             "imports": [
@@ -3346,10 +3416,38 @@
             ]
         },
         {
+            "csharp": "System.Reflection.RuntimeReflectionExtensions",
+            "java": "RuntimeReflectionExtensions",
+            "imports": [
+                "io.github.ningpp.compat.RuntimeReflectionExtensions"
+            ]
+        },
+        {
             "csharp": "System.Reflection.ParameterInfo",
             "java": "Parameter",
             "imports": [
                 "java.lang.reflect.Parameter"
+            ]
+        },
+        {
+            "csharp": "System.ComponentModel.TypeDescriptor",
+            "java": "TypeDescriptor",
+            "imports": [
+                "io.github.ningpp.compat.TypeDescriptor"
+            ]
+        },
+        {
+            "csharp": "System.ComponentModel.TypeConverter",
+            "java": "ComponentModelTypeConverter",
+            "imports": [
+                "io.github.ningpp.compat.ComponentModelTypeConverter"
+            ]
+        },
+        {
+            "csharp": "System.ComponentModel.TypeConverterAttribute",
+            "java": "TypeConverterAttribute",
+            "imports": [
+                "io.github.ningpp.compat.TypeConverterAttribute"
             ]
         },
         {
@@ -3620,7 +3718,7 @@
             "csharp": "System.Lazy`1",
             "java": "Lazy",
             "imports": [
-                "java.util.concurrent.atomic.AtomicReference"
+                "io.github.ningpp.compat.Lazy"
             ]
         },
         {
@@ -3978,7 +4076,7 @@
             "csharp": "System.Uri",
             "java": "Uri",
             "imports": [
-                "dotnet.system.Uri"
+                "io.github.ningpp.compat.Uri"
             ]
         },
         {
@@ -3992,7 +4090,7 @@
             "csharp": "System.UriFormatException",
             "java": "UriFormatException",
             "imports": [
-                "dotnet.system.UriFormatException"
+                "io.github.ningpp.compat.UriFormatException"
             ]
         },
         {
@@ -4034,7 +4132,7 @@
             "csharp": "System.UriKind",
             "java": "UriKind",
             "imports": [
-                "dotnet.system.UriKind"
+                "io.github.ningpp.compat.UriKind"
             ]
         },
         {
@@ -6329,6 +6427,36 @@
             "type": "System.Type",
             "method": "GetProperties",
             "javaMethod": "PropertyInfo.getProperties"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetTypeInfo",
+            "javaMethod": "IntrospectionExtensions.getTypeInfo"
+        },
+        {
+            "type": "System.Reflection.IntrospectionExtensions",
+            "method": "GetTypeInfo",
+            "javaMethod": "IntrospectionExtensions.getTypeInfo"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetTypeCode",
+            "javaMethod": "TypeHelper.getTypeCode"
+        },
+        {
+            "type": "System.ComponentModel.TypeDescriptor",
+            "method": "GetConverter",
+            "javaMethod": "TypeDescriptor.getConverter"
+        },
+        {
+            "type": "System.ComponentModel.TypeDescriptor",
+            "method": "GetAttributes",
+            "javaMethod": "TypeDescriptor.getAttributes"
+        },
+        {
+            "type": "System.ComponentModel.TypeDescriptor",
+            "method": "AddAttributes",
+            "javaMethod": "TypeDescriptor.addAttributes"
         },
         {
             "type": "System.Globalization.CharUnicodeInfo",

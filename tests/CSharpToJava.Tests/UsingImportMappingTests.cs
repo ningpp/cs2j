@@ -129,6 +129,20 @@ namespace Foo {
     }
 
     [Fact]
+    public void UsingSystem_DoesNotGeneratePhantomImport()
+    {
+        var result = Convert(@"
+using System;
+namespace Foo {
+    public class Bar { }
+}");
+        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
+        // The System namespace mapping is a catch-all for type/package fallback,
+        // not a real compat package that can be imported as dotnet.system.*.
+        Assert.DoesNotContain("import dotnet.system.*;", result.GeneratedCode);
+    }
+
+    [Fact]
     public void MSTestTestContextField_ImportsCompatType()
     {
         var result = Convert(@"

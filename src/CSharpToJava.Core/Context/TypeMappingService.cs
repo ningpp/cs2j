@@ -158,6 +158,9 @@ public class TypeMappingService
     {
         var normalizedNs = (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>") ? "" : ns;
 
+        if (IsSystemNamespaceWithoutExplicitPackageMapping(normalizedNs))
+            return normalizedNs;
+
         var mapped = _typeMappings.MapNamespace(normalizedNs);
         if (mapped != null)
             return mapped;
@@ -172,6 +175,12 @@ public class TypeMappingService
         }
 
         return normalizedNs;
+    }
+
+    private bool IsSystemNamespaceWithoutExplicitPackageMapping(string normalizedNs)
+    {
+        return (normalizedNs == "System" || normalizedNs.StartsWith("System.", StringComparison.Ordinal))
+            && !_typeMappings.HasExplicitNamespaceMapping(normalizedNs);
     }
 
     // ─── Internal mapping implementation ───
@@ -386,6 +395,18 @@ public class TypeMappingService
                 return nestedMapped;
         }
 
+        if (typeSymbol is INamedTypeSymbol { IsTupleType: true } tupleSymbol)
+        {
+            var elements = tupleSymbol.TupleElements.Length > 0
+                ? tupleSymbol.TupleElements.Select(e => e.Type)
+                : tupleSymbol.TypeArguments;
+            var mappedElements = elements
+                .Select(t => MapTypeForGeneric(t))
+                .ToList();
+            AddImport($"io.vavr.Tuple{mappedElements.Count}");
+            return $"Tuple{mappedElements.Count}<{string.Join(", ", mappedElements)}>";
+        }
+
         // Generic types
         if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
         {
@@ -419,14 +440,16 @@ public class TypeMappingService
                 fullQualifiedName = fullQualifiedName.Substring(8);
 
             var configKey = fullQualifiedName;
-            var mappedBase = _typeMappings.HasTypeMapping(configKey)
+            var mappedFromConfig = _typeMappings.HasTypeMapping(configKey);
+            var mappedBase = mappedFromConfig
                 ? _typeMappings.MapType(configKey)
                 : fullQualifiedName;
 
             if (mappedBase == fullQualifiedName)
             {
                 configKey = baseType + "`" + namedType.TypeArguments.Length;
-                mappedBase = _typeMappings.HasTypeMapping(configKey)
+                mappedFromConfig = _typeMappings.HasTypeMapping(configKey);
+                mappedBase = mappedFromConfig
                     ? _typeMappings.MapType(configKey)
                     : fullQualifiedName;
             }
@@ -454,6 +477,8 @@ public class TypeMappingService
             var tickIndex = baseType.IndexOf('`');
             if (tickIndex > 0)
                 baseType = baseType.Substring(0, tickIndex);
+            if (!mappedFromConfig && _getAssemblyScopedTypeName(namedType) is { Length: > 0 } customBaseType)
+                baseType = customBaseType;
 
             var currentNamespace = _getCurrentNamespace();
             if (!string.IsNullOrEmpty(genericTypeNamespace)
@@ -1087,6 +1112,10 @@ public class TypeMappingService
     private string MapTypeFromSyntaxString(string typeName)
     {
         if (string.IsNullOrWhiteSpace(typeName)) return "Object";
+        typeName = typeName.Trim();
+
+        if (TryMapTupleTypeFromSyntaxString(typeName, out var tupleType))
+            return tupleType;
 
         // [Flags] enum types are mapped to their underlying value type (int/long).
         // When the semantic model cannot resolve the type (e.g. due to compilation errors
@@ -1144,10 +1173,18 @@ public class TypeMappingService
             var mappedArgsString = string.Join(", ", mappedInnerArgs);
 
             var arity = mappedInnerArgs.Count;
-            var configKey = _typeMappings.FindConfigKeyBySimpleName(baseTypeName, arity);
+            if (IsExpressionTypeName(baseTypeName) && arity == 1)
+                return mappedInnerArgs[0];
+
+            var simpleBaseTypeName = GetSimpleTypeName(baseTypeName);
+            var exactGenericConfigKey = $"{baseTypeName}`{arity}";
+            var configKey = _typeMappings.HasTypeMapping(exactGenericConfigKey)
+                ? exactGenericConfigKey
+                : _typeMappings.FindConfigKeyBySimpleName(baseTypeName, arity)
+                    ?? _typeMappings.FindConfigKeyBySimpleName(simpleBaseTypeName, arity);
             var mappedBase = configKey != null
                 ? _typeMappings.MapType(configKey)
-                : _typeMappings.MapTypeBySimpleName(baseTypeName, arity);
+                : MapGenericBaseTypeByFallbackName(baseTypeName, simpleBaseTypeName, arity);
             if (configKey != null)
                 AddImportsForType(configKey);
 
@@ -1182,6 +1219,89 @@ public class TypeMappingService
         }
 
         return MapSimpleTypeName(typeName);
+    }
+
+    private bool TryMapTupleTypeFromSyntaxString(string typeName, out string mappedTupleType)
+    {
+        mappedTupleType = string.Empty;
+        if (typeName.Length < 2 || typeName[0] != '(' || typeName[^1] != ')')
+            return false;
+
+        var innerText = typeName[1..^1].Trim();
+        var elementTexts = SplitGenericArguments(innerText);
+        if (elementTexts.Count == 0)
+            return false;
+
+        var mappedElements = new List<string>();
+        foreach (var elementText in elementTexts)
+        {
+            var elementTypeText = ExtractTupleElementTypeText(elementText.Trim());
+            if (string.IsNullOrWhiteSpace(elementTypeText))
+                return false;
+
+            mappedElements.Add(BoxPrimitive(MapTypeFromSyntaxString(elementTypeText)));
+        }
+
+        AddImport($"io.vavr.Tuple{mappedElements.Count}");
+        mappedTupleType = $"Tuple{mappedElements.Count}<{string.Join(", ", mappedElements)}>";
+        return true;
+    }
+
+    private static string ExtractTupleElementTypeText(string elementText)
+    {
+        if (string.IsNullOrWhiteSpace(elementText))
+            return string.Empty;
+
+        var depth = 0;
+        for (var i = elementText.Length - 1; i >= 0; i--)
+        {
+            var ch = elementText[i];
+            if (ch is '>' or ')' or ']')
+            {
+                depth++;
+            }
+            else if (ch is '<' or '(' or '[')
+            {
+                depth--;
+            }
+            else if (depth == 0 && char.IsWhiteSpace(ch))
+            {
+                var candidateName = elementText[(i + 1)..].Trim();
+                if (IsLikelyTupleElementName(candidateName))
+                    return elementText[..i].Trim();
+                break;
+            }
+        }
+
+        return elementText.Trim();
+    }
+
+    private static bool IsExpressionTypeName(string baseTypeName)
+        => baseTypeName == "Expression"
+            || baseTypeName == "System.Linq.Expressions.Expression"
+            || baseTypeName.EndsWith(".Expression", StringComparison.Ordinal);
+
+    private string MapGenericBaseTypeByFallbackName(string baseTypeName, string simpleBaseTypeName, int arity)
+    {
+        var mappedSimpleBase = _typeMappings.MapTypeBySimpleName(simpleBaseTypeName, arity);
+        return mappedSimpleBase != simpleBaseTypeName ? mappedSimpleBase : baseTypeName;
+    }
+
+    private static string GetSimpleTypeName(string typeName)
+    {
+        var lastDot = typeName.LastIndexOf('.');
+        return lastDot >= 0 ? typeName[(lastDot + 1)..] : typeName;
+    }
+
+    private static bool IsLikelyTupleElementName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (!(char.IsLetter(value[0]) || value[0] == '_'))
+            return false;
+
+        return value.Skip(1).All(ch => char.IsLetterOrDigit(ch) || ch == '_');
     }
 
     // ─── Synthesized record name lookup (delegated back to context) ───
@@ -1262,21 +1382,39 @@ public class TypeMappingService
     }
 
     /// <summary>
-    /// Splits generic type arguments by top-level commas, respecting nested angle brackets.
+    /// Splits generic type arguments by top-level commas, respecting nested type syntax.
     /// e.g. "int, List<string>, Dictionary<int, string>" → ["int", "List<string>", "Dictionary<int, string>"]
     /// </summary>
     private static List<string> SplitGenericArguments(string argsText)
     {
         var result = new List<string>();
-        int depth = 0;
+        int angleDepth = 0;
+        int parenDepth = 0;
+        int bracketDepth = 0;
         int start = 0;
         for (int i = 0; i < argsText.Length; i++)
         {
             switch (argsText[i])
             {
-                case '<': depth++; break;
-                case '>': depth--; break;
-                case ',' when depth == 0:
+                case '<':
+                    angleDepth++;
+                    break;
+                case '>':
+                    if (angleDepth > 0) angleDepth--;
+                    break;
+                case '(':
+                    parenDepth++;
+                    break;
+                case ')':
+                    if (parenDepth > 0) parenDepth--;
+                    break;
+                case '[':
+                    bracketDepth++;
+                    break;
+                case ']':
+                    if (bracketDepth > 0) bracketDepth--;
+                    break;
+                case ',' when angleDepth == 0 && parenDepth == 0 && bracketDepth == 0:
                     result.Add(argsText.Substring(start, i - start));
                     start = i + 1;
                     break;

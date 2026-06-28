@@ -318,8 +318,7 @@ public partial class StatementTransformer
             // If the main expression is just a simple variable or an out-param holder field access
             // (from chain-assignment hoisting), skip it as a statement — e.g. "anchors.value;" is
             // not valid Java. Valid Java statements must be method calls, assignments, etc.
-            bool isNonStatement = expr.All(c => char.IsLetterOrDigit(c) || c == '_')
-                || expr.EndsWith(".value");  // out-param XHolder field access (e.g. anchors.value)
+            bool isNonStatement = IsBareReadExpression(expr);
             string stmtBlock = isNonStatement ? preStmtLines : preStmtLines + "\n" + expr + ";";
             if (context.HasPendingPostStatements)
             {
@@ -337,6 +336,23 @@ public partial class StatementTransformer
         }
 
         return new JavaStatementNode(expr + ";");
+    }
+
+    private static bool IsBareReadExpression(string expr)
+    {
+        if (string.IsNullOrWhiteSpace(expr))
+            return false;
+
+        var trimmed = expr.Trim();
+        return trimmed.EndsWith(".value", StringComparison.Ordinal)
+            || trimmed.Split('.').All(IsIdentifierLikeSegment);
+    }
+
+    private static bool IsIdentifierLikeSegment(string segment)
+    {
+        return segment.Length > 0
+            && (char.IsLetter(segment[0]) || segment[0] == '_' || segment[0] == '$')
+            && segment.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
     }
 
     private JavaSyntaxNode TransformThrowStatement(ThrowStatementSyntax stmt, ConversionContext context)

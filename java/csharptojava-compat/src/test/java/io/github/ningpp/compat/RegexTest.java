@@ -181,6 +181,14 @@ class RegexTest {
         assertEquals(1, RegexOptions.Compiled);
         assertEquals(2, RegexOptions.CultureInvariant);
         assertEquals(4, RegexOptions.IgnoreCase);
+        assertEquals(16, RegexOptions.Singleline);
+    }
+
+    @Test
+    void regexOptions_singleline_allowsDotToMatchNewline() {
+        Regex re = new Regex("a.b", RegexOptions.Singleline);
+
+        assertTrue(re.isMatch("a\nb"));
     }
 
     // ---- Multiple matches ----

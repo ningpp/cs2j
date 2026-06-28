@@ -1,7 +1,9 @@
 package io.github.ningpp.compat;
 
 public interface CSharpCollection extends Iterable {
-    int size();
+    default int size() {
+        return getCount();
+    }
 
     default int getCount() {
         return size();

@@ -468,7 +468,7 @@ public class ConversionContext
             () => CurrentNamespace,
             () => SemanticModel?.Compilation?.GlobalNamespace,
             key => TryGetSynthesizedRecord(key, out _),
-            typeSymbol => TryGetAssemblyScopedJavaTypeName(typeSymbol, out var javaName) ? javaName : null,
+            typeSymbol => TryGetCustomJavaTopLevelTypeName(typeSymbol, out var javaName) ? javaName : null,
             resolveAlias: name => ResolveAlias(name),
             getCurrentEnclosingType: () => CurrentEnclosingRoslynType);
         TypeMapper.SetSynthesizedRecordNameResolver(key =>
@@ -562,10 +562,73 @@ public class ConversionContext
     public string NamespaceToPackage(string ns) => TypeMapper.NamespaceToPackage(ns);
     public string GetJavaTopLevelTypeName(INamedTypeSymbol typeSymbol)
     {
-        if (TryGetAssemblyScopedJavaTypeName(typeSymbol, out var scopedName))
-            return scopedName;
+        if (TryGetCustomJavaTopLevelTypeName(typeSymbol, out var customName))
+            return customName;
 
         return typeSymbol.Name;
+    }
+
+    private bool TryGetCustomJavaTopLevelTypeName(INamedTypeSymbol typeSymbol, out string javaName)
+    {
+        if (TryGetAssemblyScopedJavaTypeName(typeSymbol, out javaName))
+            return true;
+
+        return TryGetAritySafeJavaTypeName(typeSymbol, out javaName);
+    }
+
+    private static bool TryGetAritySafeJavaTypeName(INamedTypeSymbol typeSymbol, out string javaName)
+    {
+        javaName = string.Empty;
+        var definition = typeSymbol.OriginalDefinition ?? typeSymbol;
+        if (definition.ContainingType != null || definition.Arity == 0)
+            return false;
+
+        var namespaceSymbol = definition.ContainingNamespace;
+        if (namespaceSymbol == null || namespaceSymbol.IsGlobalNamespace)
+            return false;
+
+        var sameNameTypes = new List<INamedTypeSymbol>();
+        foreach (var sameNameType in namespaceSymbol.GetTypeMembers(definition.Name)
+            .Where(t => t.ContainingType == null && t.Locations.Any(l => l.IsInSource)))
+        {
+            var originalDefinition = sameNameType.OriginalDefinition;
+            if (sameNameTypes.Any(existing => SymbolEqualityComparer.Default.Equals(existing, originalDefinition)))
+                continue;
+
+            sameNameTypes.Add(originalDefinition);
+        }
+        if (sameNameTypes.Select(t => t.Arity).Distinct().Count() <= 1)
+            return false;
+
+        var candidate = definition.Name + definition.Arity.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (!ConflictsWithDifferentSourceType(namespaceSymbol, candidate, definition))
+        {
+            javaName = EscapeJavaKeyword(candidate);
+            return true;
+        }
+
+        candidate = definition.Name + "_" + definition.Arity.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var suffix = 1;
+        while (ConflictsWithDifferentSourceType(namespaceSymbol, candidate, definition))
+        {
+            candidate = definition.Name + "_" + definition.Arity.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "_" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            suffix++;
+        }
+
+        javaName = EscapeJavaKeyword(candidate);
+        return true;
+    }
+
+    private static bool ConflictsWithDifferentSourceType(
+        INamespaceSymbol namespaceSymbol,
+        string candidateName,
+        INamedTypeSymbol originalDefinition)
+    {
+        return namespaceSymbol.GetTypeMembers(candidateName)
+            .Where(t => t.ContainingType == null && t.Locations.Any(l => l.IsInSource))
+            .Select(t => t.OriginalDefinition ?? t)
+            .Any(t => !SymbolEqualityComparer.Default.Equals(t, originalDefinition));
     }
 
     public bool TryGetAssemblyScopedJavaTypeName(INamedTypeSymbol typeSymbol, out string javaName)
@@ -698,7 +761,8 @@ public class ConversionContext
         if (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>")
             return result;
 
-        if (HasConfiguredTypeMapping(typeSymbol))
+        if (HasConfiguredTypeMapping(typeSymbol)
+            || MappedGenericTypeArgumentsHaveConfiguredMappings(typeSymbol))
             return result;
 
         var ownJavaName = $"{NamespaceToPackage(ns)}.{baseName}";
@@ -744,6 +808,23 @@ public class ConversionContext
 
             if (TypeMappings.HasTypeMapping(qualifiedGenericName))
                 return true;
+        }
+
+        return false;
+    }
+
+    private bool MappedGenericTypeArgumentsHaveConfiguredMappings(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is not INamedTypeSymbol { TypeArguments.Length: > 0 } namedType)
+            return false;
+
+        foreach (var typeArgument in namedType.TypeArguments)
+        {
+            if (HasConfiguredTypeMapping(typeArgument)
+                || MappedGenericTypeArgumentsHaveConfiguredMappings(typeArgument))
+            {
+                return true;
+            }
         }
 
         return false;

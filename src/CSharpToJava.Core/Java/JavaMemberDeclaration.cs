@@ -2,6 +2,16 @@ using System.Text;
 
 namespace CSharpToJava.Core.Java;
 
+internal static class JavaMemberFormatting
+{
+    public static void AppendAccessModifier(StringBuilder sb, JavaModifiers modifiers)
+    {
+        if ((modifiers & JavaModifiers.Public) != 0) sb.Append("public ");
+        else if ((modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
+        else if ((modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+    }
+}
+
 /// <summary>
 /// Java 字段声明
 /// </summary>
@@ -29,9 +39,7 @@ public class JavaFieldDeclaration : JavaSyntaxNode
         }
 
         // 修饰符
-        if ((Modifiers & JavaModifiers.Public) != 0) sb.Append("public ");
-        if ((Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
-        if ((Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+        JavaMemberFormatting.AppendAccessModifier(sb, Modifiers);
         if ((Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
         if ((Modifiers & JavaModifiers.Final) != 0) sb.Append("final ");
         if ((Modifiers & JavaModifiers.Volatile) != 0) sb.Append("volatile ");
@@ -90,9 +98,7 @@ public class JavaMethodDeclaration : JavaSyntaxNode
         }
 
         // 修饰符
-        if ((Modifiers & JavaModifiers.Public) != 0) sb.Append("public ");
-        if ((Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
-        if ((Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+        JavaMemberFormatting.AppendAccessModifier(sb, Modifiers);
         if ((Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
         if ((Modifiers & JavaModifiers.Final) != 0) sb.Append("final ");
         if ((Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
@@ -198,9 +204,7 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
         }
 
         // 修饰符
-        if ((Modifiers & JavaModifiers.Public) != 0) sb.Append("public ");
-        if ((Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
-        if ((Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+        JavaMemberFormatting.AppendAccessModifier(sb, Modifiers);
 
         sb.Append(ClassName).Append('(');
 
@@ -258,6 +262,7 @@ public class JavaConstructorDeclaration : JavaSyntaxNode
 
         return sb.ToString();
     }
+
 }
 
 /// <summary>
@@ -350,4 +355,3 @@ public enum JavaModifiers
     Default = 1 << 11,  // 接口默认方法
     Native = 1 << 12,
 }
-

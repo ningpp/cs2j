@@ -216,7 +216,7 @@ public class JavaLambdaExpression : JavaExpression
     {
         var sb = new StringBuilder();
 
-        if (Parameters.Count == 1)
+        if (Parameters.Count == 1 && IsBareParameterName(Parameters[0]))
         {
             sb.Append(Parameters[0]);
         }
@@ -238,6 +238,9 @@ public class JavaLambdaExpression : JavaExpression
 
         return sb.ToString();
     }
+
+    private static bool IsBareParameterName(string parameter)
+        => parameter.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
 }
 
 /// <summary>

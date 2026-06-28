@@ -16,9 +16,10 @@ public class DelegateTransformer : IDelegateTransformer
 {
     public JavaTypeDeclaration? TransformDelegate(DelegateDeclarationSyntax node, ConversionContext context)
     {
+        var sym = context.GetDeclaredSymbol(node) as INamedTypeSymbol;
         var javaInterface = new JavaInterfaceDeclaration
         {
-            Name = node.Identifier.Text,
+            Name = sym != null ? context.GetJavaTopLevelTypeName(sym) : node.Identifier.Text,
             Modifiers = ConvertModifiers(node.Modifiers),
         };
 
@@ -58,7 +59,6 @@ public class DelegateTransformer : IDelegateTransformer
 
         // 1. Enclosing class type parameters — only include those actually referenced
         //    by the delegate's return type or parameter types.
-        var sym = context.GetDeclaredSymbol(node) as INamedTypeSymbol;
         if (sym != null)
         {
             var enclosingParams = new List<JavaTypeParameter>();

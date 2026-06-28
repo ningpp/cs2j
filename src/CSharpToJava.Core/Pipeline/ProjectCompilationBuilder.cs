@@ -88,6 +88,7 @@ public static class ProjectCompilationBuilder
         var listAssembly = typeof(System.Collections.Generic.List<>).Assembly.Location;
         var jsonAssembly = typeof(System.Text.Json.JsonSerializer).Assembly.Location;
         var regexAssembly = typeof(System.Text.RegularExpressions.Regex).Assembly.Location;
+        var expressionAssembly = typeof(System.Linq.Expressions.Expression).Assembly.Location;
 
         if (!string.IsNullOrEmpty(objectAssembly) && File.Exists(objectAssembly))
         {
@@ -109,13 +110,23 @@ public static class ProjectCompilationBuilder
             references.Add(MetadataReference.CreateFromFile(regexAssembly));
         }
 
+        if (!string.IsNullOrEmpty(expressionAssembly) && File.Exists(expressionAssembly))
+        {
+            references.Add(MetadataReference.CreateFromFile(expressionAssembly));
+        }
+
         // Add common .NET assemblies
         var dotnetAssemblies = new[]
         {
             "System.Runtime.dll",
             "System.Collections.dll",
+            "System.ObjectModel.dll", // KeyedCollection<TKey,TItem>, ObservableCollection<T>
             "System.Collections.NonGeneric.dll",  // System.Collections.Queue, Stack, Hashtable, ArrayList
+            "System.ComponentModel.dll",
+            "System.ComponentModel.Primitives.dll",
+            "System.ComponentModel.TypeConverter.dll",
             "System.Linq.dll",
+            "System.Linq.Expressions.dll",
             "System.Threading.dll",
             "System.Threading.Tasks.dll",
             "System.Threading.Tasks.Parallel.dll", // ParallelOptions, Parallel.ForEach, etc.

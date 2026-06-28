@@ -1225,6 +1225,12 @@ public class ClassTransformer : ITypeTransformer
             {
                 if (constraint is TypeConstraintSyntax typeConstraint)
                 {
+                    if (typeConstraint.Type is IdentifierNameSyntax identifierName
+                        && string.Equals(identifierName.Identifier.Text, "notnull", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
                     var typeInfo = context.GetTypeInfo(typeConstraint.Type);
                     if (typeInfo.Type != null)
                     {

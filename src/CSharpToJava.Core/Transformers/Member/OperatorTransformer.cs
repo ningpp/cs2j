@@ -1,10 +1,11 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System.Text.RegularExpressions;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -150,10 +151,8 @@ public class OperatorTransformer
         else
             targetType = context.MapTypeFromSyntax(convDecl.Type);
 
-        // Build method name: toDouble, toInt, etc.
-        string methodName = targetType.Length > 0
-            ? $"to{char.ToUpper(targetType[0])}{targetType[1..]}"
-            : "toObject";
+        // Build method name: toDouble, toInt, toOptionalString, etc.
+        string methodName = $"to{BuildConversionMethodSuffix(targetType)}";
 
         var javaMethod = new JavaMethodDeclaration
         {
@@ -252,5 +251,28 @@ public class OperatorTransformer
             ">>>" => "unsignedRightShift",
             _ => opToken
         };
+    }
+
+    private static string BuildConversionMethodSuffix(string javaType)
+    {
+        if (string.IsNullOrWhiteSpace(javaType))
+            return "Object";
+
+        var sb = new StringBuilder();
+        var capitalizeNext = true;
+        foreach (var ch in javaType.Replace("[]", "Array", StringComparison.Ordinal))
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(capitalizeNext ? char.ToUpperInvariant(ch) : ch);
+                capitalizeNext = false;
+            }
+            else
+            {
+                capitalizeNext = true;
+            }
+        }
+
+        return sb.Length == 0 ? "Object" : sb.ToString();
     }
 }

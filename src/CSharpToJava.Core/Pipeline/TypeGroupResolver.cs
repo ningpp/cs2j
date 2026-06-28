@@ -292,7 +292,7 @@ public static class TypeGroupResolver
                 // because they map to compat runtime packages that actually exist.
                 if (ns.StartsWith("System.", StringComparison.Ordinal) || ns == "System")
                 {
-                    if (context.TypeMappings.HasExplicitNamespaceMapping(ns))
+                    if (ns != "System" && context.TypeMappings.HasExplicitNamespaceMapping(ns))
                     {
                         var systemMapped = context.NamespaceToPackage(ns);
                         if (!string.IsNullOrWhiteSpace(systemMapped))
@@ -480,7 +480,7 @@ public static class TypeGroupResolver
                         Success = true,
                         GeneratedCode = javaCompilation.ToString(""),
                         Compilation = javaCompilation,
-                        FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                        FileName = $"{javaInterface.Name}.java",
                         Package = pkg,
                         Diagnostics = new List<Context.DiagnosticMessage>()
                     };

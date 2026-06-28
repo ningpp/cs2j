@@ -109,6 +109,11 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     return $"{objExpr}.{mapped}";
                 }
 
+                if (binding.Parent is InvocationExpressionSyntax)
+                {
+                    return $"{objExpr}.{ApplyMethodBindingNameMapping(null, memberName, context)}";
+                }
+
                 // Check property-to-method mapping (e.g., Count → size()) via semantic model
                 if (context.GetSymbolInfo(binding).Symbol is IPropertySymbol prop)
                 {
@@ -282,23 +287,26 @@ public class ExpressionTransformerFacade : IExpressionTransformer
     /// and falls back to camelCase. Does NOT append parentheses — the parent
     /// InvocationExpressionSyntax case adds them.
     /// </summary>
-    private static string ApplyMethodBindingNameMapping(IMethodSymbol method, string memberName, ConversionContext context)
+    private static string ApplyMethodBindingNameMapping(IMethodSymbol? method, string memberName, ConversionContext context)
     {
         // Try TypeMappings via semantic model first
-        var typeName = method.ContainingType.ToDisplayString();
-        var mapped = context.TypeMappings.MapMethod(typeName, memberName);
-        if (mapped != null)
+        if (method != null)
         {
-            Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
-            return ConversionContext.EscapeJavaKeyword(mapped);
-        }
+            var typeName = method.ContainingType.ToDisplayString();
+            var mapped = context.TypeMappings.MapMethod(typeName, memberName);
+            if (mapped != null)
+            {
+                Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
+                return ConversionContext.EscapeJavaKeyword(mapped);
+            }
 
-        var fqn = $"{method.ContainingType.ContainingNamespace}.{method.ContainingType.Name}";
-        mapped = context.TypeMappings.MapMethod(fqn, memberName);
-        if (mapped != null)
-        {
-            Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
-            return ConversionContext.EscapeJavaKeyword(mapped);
+            var fqn = $"{method.ContainingType.ContainingNamespace}.{method.ContainingType.Name}";
+            mapped = context.TypeMappings.MapMethod(fqn, memberName);
+            if (mapped != null)
+            {
+                Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
+                return ConversionContext.EscapeJavaKeyword(mapped);
+            }
         }
 
         // Apply well-known renames + camelCase (same logic as InvocationExpressionTransformer.ApplyCamelCaseAndMappings)

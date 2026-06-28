@@ -29,6 +29,9 @@ public static class ExpressionTransformerHelpers
         "Regex",
         "StringHelper",
         "TextWriterHelper",
+        "TypeDescriptor",
+        "TypeHelper",
+        "IntrospectionExtensions",
     };
 
     private static readonly Regex _numericLiteralPattern = new Regex(

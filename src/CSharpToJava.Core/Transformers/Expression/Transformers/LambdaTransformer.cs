@@ -132,7 +132,7 @@ public class LambdaTransformer : IIRExpressionTransformer
             })
             .ToList();
 
-        var paramStr = javaParams.Count == 1 ? javaParams[0] : $"({string.Join(", ", javaParams)})";
+        var paramStr = FormatLambdaParameterList(javaParams);
 
         // Fix 3: Detect mutated captured variables and add array-holder pre-statements
         var mutatedCaptures = GetMutatedCaptures(node, context);
@@ -325,8 +325,7 @@ public class LambdaTransformer : IIRExpressionTransformer
                         // If the body is just a simple variable or an out-param holder field access
                         // (from chain-assignment hoisting), skip it — e.g. "_chainVal1;" or "anchors.value;"
                         // are not valid Java statements.
-                        bool isNonStatement = body.All(c => char.IsLetterOrDigit(c) || c == '_')
-                            || body.EndsWith(".value");
+                        bool isNonStatement = IsBareReadExpression(body);
                         string bodyStmt = isNonStatement ? "" : $"\n{body};";
                         result = $"{paramStr} -> {{\n{preBlock}{bodyStmt}\n{postBlock}\n}}";
                     }
@@ -396,6 +395,35 @@ public class LambdaTransformer : IIRExpressionTransformer
 
         var body = stmtTransformer.TransformBlock(node.Block, context);
         return $"{paramStr} -> {{\n{body}\n}}";
+    }
+
+    private static string FormatLambdaParameterList(IReadOnlyList<string> javaParams)
+    {
+        return javaParams.Count == 1 && IsBareLambdaParameterName(javaParams[0])
+            ? javaParams[0]
+            : $"({string.Join(", ", javaParams)})";
+    }
+
+    private static bool IsBareLambdaParameterName(string parameter)
+    {
+        return IsIdentifierLikeSegment(parameter);
+    }
+
+    private static bool IsBareReadExpression(string expr)
+    {
+        if (string.IsNullOrWhiteSpace(expr))
+            return false;
+
+        var trimmed = expr.Trim();
+        return trimmed.EndsWith(".value", StringComparison.Ordinal)
+            || trimmed.Split('.').All(IsIdentifierLikeSegment);
+    }
+
+    private static bool IsIdentifierLikeSegment(string segment)
+    {
+        return segment.Length > 0
+            && (char.IsLetter(segment[0]) || segment[0] == '_' || segment[0] == '$')
+            && segment.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
     }
 
     /// <summary>

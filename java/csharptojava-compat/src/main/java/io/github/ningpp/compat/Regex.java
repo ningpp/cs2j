@@ -60,6 +60,9 @@ public final class Regex {
         if ((options & RegexOptions.IgnoreCase) != 0) {
             flags |= Pattern.CASE_INSENSITIVE;
         }
+        if ((options & RegexOptions.Singleline) != 0) {
+            flags |= Pattern.DOTALL;
+        }
         return flags;
     }
 }

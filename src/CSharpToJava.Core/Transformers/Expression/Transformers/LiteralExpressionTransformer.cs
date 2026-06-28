@@ -99,6 +99,11 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             return literal.TrimEnd('l', 'L') + "L";
         }
 
+        if (token.Value is ulong unsuffixedUlong && unsuffixedUlong > long.MaxValue)
+        {
+            return $"Long.parseUnsignedLong(\"{literal.Replace("_", "")}\")";
+        }
+
         return literal;
     }
 

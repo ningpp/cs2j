@@ -3224,7 +3224,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || methodName.StartsWith("Encoding.", StringComparison.Ordinal)
             || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal)
             || methodName.StartsWith("PropertyInfo.", StringComparison.Ordinal)
-            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal))
+            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal)
+            || methodName.StartsWith("TypeHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("TypeDescriptor.", StringComparison.Ordinal)
+            || methodName.StartsWith("IntrospectionExtensions.", StringComparison.Ordinal))
         {
             var helperArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol);
@@ -5012,7 +5015,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || methodName.StartsWith("Regex.", StringComparison.Ordinal)
             || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal)
             || methodName.StartsWith("PropertyInfo.", StringComparison.Ordinal)
-            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal))
+            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal)
+            || methodName.StartsWith("TypeHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("TypeDescriptor.", StringComparison.Ordinal)
+            || methodName.StartsWith("IntrospectionExtensions.", StringComparison.Ordinal))
             return $"{methodName}({args})";
 
         if (originalMethodName == "Parse"
@@ -5066,7 +5072,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || methodName.StartsWith("StringHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("System.getenv", StringComparison.Ordinal)
             || methodName.StartsWith("PropertyInfo.", StringComparison.Ordinal)
-            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal))
+            || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal)
+            || methodName.StartsWith("TypeHelper.", StringComparison.Ordinal)
+            || methodName.StartsWith("TypeDescriptor.", StringComparison.Ordinal)
+            || methodName.StartsWith("IntrospectionExtensions.", StringComparison.Ordinal))
         {
             // When the original C# method is an instance method, the receiver must be
             // passed as the first argument to the static helper method.
@@ -5101,7 +5110,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (hostNs is not null and not "<global namespace>" and not "")
             {
                 var hostPackage = context.NamespaceToPackage(hostNs);
-                if (!string.IsNullOrEmpty(hostPackage))
+                if (!string.IsNullOrEmpty(hostPackage)
+                    && !string.Equals(hostPackage, hostNs, StringComparison.Ordinal))
                     context.AddImport($"{hostPackage}.{hostType.Name}");
             }
 
@@ -5121,7 +5131,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // instead of "IPAddressHelper.toString(receiver)".
         if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(methodName))
         {
-            var helperArgs = string.IsNullOrEmpty(args) ? receiver : $"{receiver}, {args}";
+            bool isInstanceCall = methodSymbol is { IsStatic: false }
+                || (methodSymbol == null && !LooksLikeTypeReceiver(memberAccess.Expression, context));
+            var helperArgs = isInstanceCall
+                ? (string.IsNullOrEmpty(args) ? receiver : $"{receiver}, {args}")
+                : args;
             return $"{methodName}({helperArgs})";
         }
 
@@ -6039,7 +6053,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         var targetTypeSyntax = genericName.TypeArgumentList.Arguments[0];
-        var targetType = facade.Transform(targetTypeSyntax, context);
+        var targetType = context.MapTypeFromSyntax(targetTypeSyntax);
         if (string.IsNullOrWhiteSpace(targetType) || targetType == "Object")
             return false;
 
