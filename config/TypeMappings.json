@@ -84,16 +84,16 @@
         },
         {
             "csharp": "System.Collections.Generic.List`1",
-            "java": "ArrayList",
+            "java": "CSharpList",
             "imports": [
-                "java.util.ArrayList"
+                "io.github.ningpp.compat.CSharpList"
             ]
         },
         {
             "csharp": "System.Collections.ArrayList",
-            "java": "ArrayList",
+            "java": "CSharpArrayList",
             "imports": [
-                "java.util.ArrayList"
+                "io.github.ningpp.compat.CSharpArrayList"
             ]
         },
         {
@@ -105,30 +105,30 @@
         },
         {
             "csharp": "System.Collections.Generic.IList`1",
-            "java": "List",
+            "java": "CSharpGenericIList",
             "imports": [
-                "java.util.List"
+                "io.github.ningpp.compat.CSharpGenericIList"
             ]
         },
         {
             "csharp": "System.Collections.Generic.Dictionary`2",
-            "java": "LinkedHashMap",
+            "java": "CSharpDictionary",
             "imports": [
-                "java.util.LinkedHashMap"
+                "io.github.ningpp.compat.CSharpDictionary"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IDictionary`2",
-            "java": "Map",
+            "java": "CSharpGenericIDictionary",
             "imports": [
-                "java.util.Map"
+                "io.github.ningpp.compat.CSharpGenericIDictionary"
             ]
         },
         {
             "csharp": "System.Collections.Generic.HashSet`1",
-            "java": "HashSet",
+            "java": "CSharpHashSet",
             "imports": [
-                "java.util.HashSet"
+                "io.github.ningpp.compat.CSharpHashSet"
             ]
         },
         {
@@ -140,30 +140,30 @@
         },
         {
             "csharp": "System.Collections.IList",
-            "java": "IList",
+            "java": "CSharpIList",
             "imports": [
-                "io.github.ningpp.compat.IList"
+                "io.github.ningpp.compat.CSharpIList"
             ]
         },
         {
             "csharp": "System.Collections.IDictionary",
-            "java": "IDictionary",
+            "java": "CSharpIDictionary",
             "imports": [
-                "io.github.ningpp.compat.IDictionary"
+                "io.github.ningpp.compat.CSharpIDictionary"
             ]
         },
         {
             "csharp": "System.Collections.IDictionaryEnumerator",
-            "java": "IDictionaryEnumerator",
+            "java": "CSharpDictEnumerator",
             "imports": [
-                "io.github.ningpp.compat.IDictionaryEnumerator"
+                "io.github.ningpp.compat.CSharpDictEnumerator"
             ]
         },
         {
             "csharp": "System.Collections.DictionaryEntry",
-            "java": "DictionaryEntry",
+            "java": "CSharpDictEntry",
             "imports": [
-                "io.github.ningpp.compat.DictionaryEntry"
+                "io.github.ningpp.compat.CSharpDictEntry"
             ]
         },
         {
@@ -210,8 +210,10 @@
         },
         {
             "csharp": "System.Collections.IEnumerable",
-            "java": "Iterable",
-            "imports": []
+            "java": "CSharpIterable",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIterable"
+            ]
         },
         {
             "csharp": "System.Collections.IEnumerator",
@@ -243,16 +245,16 @@
         },
         {
             "csharp": "System.Collections.Generic.IEnumerable`1",
-            "java": "Iterable",
+            "java": "CSharpGenericIterable",
             "imports": [
-                "java.lang.Iterable"
+                "io.github.ningpp.compat.CSharpGenericIterable"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IEnumerator`1",
-            "java": "CSharpEnumerator",
+            "java": "CSharpGenericEnumerator",
             "imports": [
-                "io.github.ningpp.compat.CSharpEnumerator"
+                "io.github.ningpp.compat.CSharpGenericEnumerator"
             ]
         },
         {
@@ -404,9 +406,9 @@
         },
         {
             "csharp": "System.Collections.Queue",
-            "java": "ArrayDeque<Object>",
+            "java": "CSharpObjQueue",
             "imports": [
-                "java.util.ArrayDeque"
+                "io.github.ningpp.compat.CSharpObjQueue"
             ]
         },
         {
@@ -444,9 +446,9 @@
         },
         {
             "csharp": "System.Collections.Generic.Queue`1",
-            "java": "LinkedList",
+            "java": "CSharpQueue",
             "imports": [
-                "java.util.LinkedList"
+                "io.github.ningpp.compat.CSharpQueue"
             ]
         },
         {
@@ -458,65 +460,65 @@
         },
         {
             "csharp": "System.Collections.Generic.PriorityQueue`2",
-            "java": "PriorityQueue",
+            "java": "CSharpPriorityQueue",
             "imports": [
-                "java.util.PriorityQueue"
+                "io.github.ningpp.compat.CSharpPriorityQueue"
             ]
         },
         {
             "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
-            "java": "Collections.unmodifiableList",
+            "java": "CSharpReadOnlyCollection",
             "imports": [
-                "java.util.Collections"
+                "io.github.ningpp.compat.CSharpReadOnlyCollection"
             ]
         },
         {
             "csharp": "System.Collections.ObjectModel.ReadOnlyDictionary`2",
-            "java": "Collections.unmodifiableMap",
+            "java": "CSharpReadOnlyDict",
             "imports": [
-                "java.util.Collections"
+                "io.github.ningpp.compat.CSharpReadOnlyDict"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IReadOnlyCollection`1",
-            "java": "Collection",
+            "java": "CSharpReadOnlyCollection",
             "imports": [
-                "java.util.Collection"
+                "io.github.ningpp.compat.CSharpReadOnlyCollection"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IReadOnlyList`1",
-            "java": "List",
+            "java": "CSharpReadOnlyList",
             "imports": [
-                "java.util.List"
+                "io.github.ningpp.compat.CSharpReadOnlyList"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IReadOnlyDictionary`2",
-            "java": "Map",
+            "java": "CSharpReadOnlyDict",
             "imports": [
-                "java.util.Map"
+                "io.github.ningpp.compat.CSharpReadOnlyDict"
             ]
         },
         {
             "csharp": "System.Collections.Generic.LinkedList`1",
-            "java": "LinkedListWithNodes",
+            "java": "CSharpLinkedList",
             "imports": [
-                "io.github.ningpp.compat.LinkedListWithNodes"
+                "io.github.ningpp.compat.CSharpLinkedList"
             ]
         },
         {
             "csharp": "System.Collections.Generic.SortedList`2",
-            "java": "SortedList",
+            "java": "CSharpSortedList",
             "imports": [
-                "io.github.ningpp.compat.SortedList"
+                "io.github.ningpp.compat.CSharpSortedList"
             ]
         },
         {
             "csharp": "System.Collections.Generic.SortedDictionary`2",
-            "java": "TreeMap",
+            "java": "CSharpSortedDict",
             "imports": [
-                "java.util.TreeMap"
+                "io.github.ningpp.compat.CSharpSortedDict"
             ]
         },
         {
@@ -535,30 +537,65 @@
         },
         {
             "csharp": "System.Collections.Generic.SortedSet`1",
-            "java": "TreeSet",
+            "java": "CSharpSortedSet",
             "imports": [
-                "java.util.TreeSet"
+                "io.github.ningpp.compat.CSharpSortedSet"
             ]
         },
         {
             "csharp": "System.Collections.Generic.ICollection`1",
-            "java": "Collection",
+            "java": "CSharpICollection",
             "imports": [
-                "java.util.Collection"
+                "io.github.ningpp.compat.CSharpICollection"
             ]
         },
         {
             "csharp": "System.Collections.ObjectModel.KeyedCollection`2",
-            "java": "KeyedCollection",
+            "java": "CSharpKeyedCollection",
             "imports": [
-                "io.github.ningpp.compat.KeyedCollection"
+                "io.github.ningpp.compat.CSharpKeyedCollection"
             ]
         },
         {
             "csharp": "System.Collections.Generic.ISet`1",
-            "java": "Set",
+            "java": "CSharpISet",
             "imports": [
-                "java.util.Set"
+                "io.github.ningpp.compat.CSharpISet"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.LinkedListNode`1",
+            "java": "CSharpLinkedListNode",
+            "imports": [
+                "io.github.ningpp.compat.CSharpLinkedListNode"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.Comparer`1",
+            "java": "CSharpDefaultComparerGeneric",
+            "imports": [
+                "io.github.ningpp.compat.CSharpDefaultComparerGeneric"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.ReferenceEqualityComparer",
+            "java": "CSharpRefEqualityComparer",
+            "imports": [
+                "io.github.ningpp.compat.CSharpRefEqualityComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.KeyedByTypeCollection`1",
+            "java": "CSharpKeyedByTypeCollection",
+            "imports": [
+                "io.github.ningpp.compat.CSharpKeyedByTypeCollection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IReadOnlySet`1",
+            "java": "CSharpReadOnlySet",
+            "imports": [
+                "io.github.ningpp.compat.CSharpReadOnlySet"
             ]
         },
         {
@@ -570,16 +607,107 @@
         },
         {
             "csharp": "System.Collections.Generic.KeyValuePair`2",
-            "java": "Map.Entry",
+            "java": "CSharpKeyValuePair",
             "imports": [
-                "java.util.Map"
+                "io.github.ningpp.compat.CSharpKeyValuePair"
             ]
         },
         {
             "csharp": "System.Collections.BitArray",
-            "java": "BitSet",
+            "java": "CSharpBitArray",
             "imports": [
-                "java.util.BitSet"
+                "io.github.ningpp.compat.CSharpBitArray"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Hashtable",
+            "java": "CSharpHashtable",
+            "imports": [
+                "io.github.ningpp.compat.CSharpHashtable"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Stack",
+            "java": "CSharpObjStack",
+            "imports": [
+                "io.github.ningpp.compat.CSharpObjStack"
+            ]
+        },
+        {
+            "csharp": "System.Collections.SortedList",
+            "java": "CSharpObjSortedList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpObjSortedList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IComparer",
+            "java": "CSharpComparer",
+            "imports": [
+                "io.github.ningpp.compat.CSharpComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IEqualityComparer",
+            "java": "CSharpEqualityComparer",
+            "imports": [
+                "io.github.ningpp.compat.CSharpEqualityComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IStructuralComparable",
+            "java": "CSharpStructuralComparable",
+            "imports": [
+                "io.github.ningpp.compat.CSharpStructuralComparable"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IStructuralEquatable",
+            "java": "CSharpStructuralEquatable",
+            "imports": [
+                "io.github.ningpp.compat.CSharpStructuralEquatable"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Comparer",
+            "java": "CSharpDefaultComparer",
+            "imports": [
+                "io.github.ningpp.compat.CSharpDefaultComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.CaseInsensitiveComparer",
+            "java": "CSharpCaseInsensitiveComparer",
+            "imports": [
+                "io.github.ningpp.compat.CSharpCaseInsensitiveComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.CollectionBase",
+            "java": "CSharpCollectionBase",
+            "imports": [
+                "io.github.ningpp.compat.CSharpCollectionBase"
+            ]
+        },
+        {
+            "csharp": "System.Collections.DictionaryBase",
+            "java": "CSharpDictionaryBase",
+            "imports": [
+                "io.github.ningpp.compat.CSharpDictionaryBase"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ReadOnlyCollectionBase",
+            "java": "CSharpReadOnlyCollectionBase",
+            "imports": [
+                "io.github.ningpp.compat.CSharpReadOnlyCollectionBase"
+            ]
+        },
+        {
+            "csharp": "System.Collections.StructuralComparisons",
+            "java": "CSharpStructuralComparisons",
+            "imports": [
+                "io.github.ningpp.compat.CSharpStructuralComparisons"
             ]
         },
         {
@@ -3218,16 +3346,16 @@
         },
         {
             "csharp": "System.Collections.Generic.IComparer`1",
-            "java": "Comparator",
+            "java": "CSharpGenericComparer",
             "imports": [
-                "java.util.Comparator"
+                "io.github.ningpp.compat.CSharpGenericComparer"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IEqualityComparer`1",
-            "java": "IEqualityComparer",
+            "java": "CSharpGenericEqualityComparer",
             "imports": [
-                "io.github.ningpp.compat.IEqualityComparer"
+                "io.github.ningpp.compat.CSharpGenericEqualityComparer"
             ]
         },
         {
@@ -3239,9 +3367,9 @@
         },
         {
             "csharp": "System.Collections.Generic.EqualityComparer`1",
-            "java": "EqualityComparer",
+            "java": "CSharpDefaultEqualityComparerGeneric",
             "imports": [
-                "io.github.ningpp.compat.EqualityComparer"
+                "io.github.ningpp.compat.CSharpDefaultEqualityComparerGeneric"
             ]
         },
         {
@@ -3941,30 +4069,30 @@
         },
         {
             "csharp": "System.Collections.Generic.IReadOnlyList`1",
-            "java": "List",
+            "java": "CSharpReadOnlyList",
             "imports": [
-                "java.util.List"
+                "io.github.ningpp.compat.CSharpReadOnlyList"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IReadOnlyDictionary`2",
-            "java": "Map",
+            "java": "CSharpReadOnlyDict",
             "imports": [
-                "java.util.Map"
+                "io.github.ningpp.compat.CSharpReadOnlyDict"
             ]
         },
         {
             "csharp": "System.Collections.Generic.IReadOnlyCollection`1",
-            "java": "Collection",
+            "java": "CSharpReadOnlyCollection",
             "imports": [
-                "java.util.Collection"
+                "io.github.ningpp.compat.CSharpReadOnlyCollection"
             ]
         },
         {
             "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
-            "java": "List",
+            "java": "CSharpReadOnlyCollection",
             "imports": [
-                "java.util.List"
+                "io.github.ningpp.compat.CSharpReadOnlyCollection"
             ]
         },
         {
@@ -4470,17 +4598,17 @@
         {
             "type": "System.Collections.Generic.SortedList`2",
             "method": "Add",
-            "javaMethod": "put"
+            "javaMethod": "add"
         },
         {
             "type": "System.Collections.Generic.Dictionary",
             "method": "Add",
-            "javaMethod": "put"
+            "javaMethod": "add"
         },
         {
             "type": "System.Collections.Generic.IDictionary",
             "method": "Add",
-            "javaMethod": "put"
+            "javaMethod": "add"
         },
         {
             "type": "System.Collections.Generic.List",
@@ -4870,32 +4998,32 @@
         {
             "type": "System.Collections.Generic.List",
             "method": "AddRange",
-            "javaMethod": "addAll"
+            "javaMethod": "addRange"
         },
         {
             "type": "System.Collections.Generic.IList",
             "method": "AddRange",
-            "javaMethod": "addAll"
+            "javaMethod": "addRange"
         },
         {
             "type": "System.Collections.Generic.List",
             "method": "Insert",
-            "javaMethod": "add"
+            "javaMethod": "insert"
         },
         {
             "type": "System.Collections.Generic.IList",
             "method": "Insert",
-            "javaMethod": "add"
+            "javaMethod": "insert"
         },
         {
             "type": "System.Collections.Generic.List",
             "method": "InsertRange",
-            "javaMethod": "addAll"
+            "javaMethod": "insertRange"
         },
         {
             "type": "System.Collections.Generic.IList",
             "method": "InsertRange",
-            "javaMethod": "addAll"
+            "javaMethod": "insertRange"
         },
         {
             "type": "System.Collections.Generic.List",
@@ -4910,22 +5038,22 @@
         {
             "type": "System.Collections.Generic.List",
             "method": "CopyTo",
-            "javaMethod": "toArray"
+            "javaMethod": "copyTo"
         },
         {
             "type": "System.Collections.Generic.IList",
             "method": "CopyTo",
-            "javaMethod": "toArray"
+            "javaMethod": "copyTo"
         },
         {
             "type": "System.Collections.Generic.List",
             "method": "GetEnumerator",
-            "javaMethod": "iterator"
+            "javaMethod": "getEnumerator"
         },
         {
             "type": "System.Collections.Generic.IList",
             "method": "GetEnumerator",
-            "javaMethod": "iterator"
+            "javaMethod": "getEnumerator"
         },
         {
             "type": "System.Collections.Generic.List",
@@ -4996,6 +5124,26 @@
             "type": "System.Collections.Generic.IDictionary",
             "method": "ContainsValue",
             "javaMethod": "containsValue"
+        },
+        {
+            "type": "System.Collections.Generic.Dictionary`2",
+            "method": "EnsureCapacity",
+            "javaMethod": "ensureCapacity"
+        },
+        {
+            "type": "System.Collections.Generic.Dictionary`2",
+            "method": "TryAdd",
+            "javaMethod": "tryAdd"
+        },
+        {
+            "type": "System.Collections.Generic.Dictionary`2",
+            "method": "TryGetValue",
+            "javaMethod": "tryGetValue"
+        },
+        {
+            "type": "System.Collections.Generic.Dictionary`2",
+            "method": "TrimExcess",
+            "javaMethod": "trimExcess"
         },
         {
             "type": "System.Threading.Tasks.Task",
@@ -5368,14 +5516,74 @@
             "javaMethod": "clear"
         },
         {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "ExceptWith",
+            "javaMethod": "exceptWith"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "IntersectWith",
+            "javaMethod": "intersectWith"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "IsProperSubsetOf",
+            "javaMethod": "isProperSubsetOf"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "IsProperSupersetOf",
+            "javaMethod": "isProperSupersetOf"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "IsSubsetOf",
+            "javaMethod": "isSubsetOf"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "IsSupersetOf",
+            "javaMethod": "isSupersetOf"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "Overlaps",
+            "javaMethod": "overlaps"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "SetEquals",
+            "javaMethod": "setEquals"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "SymmetricExceptWith",
+            "javaMethod": "symmetricExceptWith"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "TrimExcess",
+            "javaMethod": "trimExcess"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "UnionWith",
+            "javaMethod": "unionWith"
+        },
+        {
             "type": "System.Collections.Generic.Queue`1",
             "method": "Enqueue",
-            "javaMethod": "add"
+            "javaMethod": "enqueue"
         },
         {
             "type": "System.Collections.Generic.Queue`1",
             "method": "Dequeue",
-            "javaMethod": "remove"
+            "javaMethod": "dequeue"
+        },
+        {
+            "type": "System.Collections.Generic.Queue`1",
+            "method": "TryDequeue",
+            "javaMethod": "tryDequeue"
         },
         {
             "type": "System.Collections.Generic.Queue`1",
@@ -5386,6 +5594,11 @@
             "type": "System.Collections.Generic.Queue`1",
             "method": "Count",
             "javaMethod": "size"
+        },
+        {
+            "type": "System.Collections.Generic.Queue`1",
+            "method": "TryPeek",
+            "javaMethod": "tryPeek"
         },
         {
             "type": "System.Collections.Generic.Stack`1",
@@ -5446,6 +5659,196 @@
             "type": "System.Collections.Generic.Stack`1",
             "method": "GetEnumerator",
             "javaMethod": "getEnumerator"
+        },
+        {
+            "type": "System.Collections.ArrayList",
+            "method": "AddRange",
+            "javaMethod": "addRange"
+        },
+        {
+            "type": "System.Collections.ArrayList",
+            "method": "BinarySearch",
+            "javaMethod": "binarySearch"
+        },
+        {
+            "type": "System.Collections.ArrayList",
+            "method": "Clone",
+            "javaMethod": "clone"
+        },
+        {
+            "type": "System.Collections.ArrayList",
+            "method": "GetRange",
+            "javaMethod": "getRange"
+        },
+        {
+            "type": "System.Collections.ArrayList",
+            "method": "Repeat",
+            "javaMethod": "repeat"
+        },
+        {
+            "type": "System.Collections.ArrayList",
+            "method": "TrimToSize",
+            "javaMethod": "trimToSize"
+        },
+        {
+            "type": "System.Collections.Hashtable",
+            "method": "Clone",
+            "javaMethod": "clone"
+        },
+        {
+            "type": "System.Collections.Hashtable",
+            "method": "Contains",
+            "javaMethod": "contains"
+        },
+        {
+            "type": "System.Collections.Hashtable",
+            "method": "ContainsKey",
+            "javaMethod": "containsKey"
+        },
+        {
+            "type": "System.Collections.Hashtable",
+            "method": "ContainsValue",
+            "javaMethod": "containsValue"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "AsReadOnly",
+            "javaMethod": "asReadOnly"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "BinarySearch",
+            "javaMethod": "binarySearch"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "ConvertAll",
+            "javaMethod": "convertAll"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "Exists",
+            "javaMethod": "exists"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "Find",
+            "javaMethod": "find"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "FindAll",
+            "javaMethod": "findAll"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "FindIndex",
+            "javaMethod": "findIndex"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "FindLast",
+            "javaMethod": "findLast"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "FindLastIndex",
+            "javaMethod": "findLastIndex"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "ForEach",
+            "javaMethod": "forEach"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "GetRange",
+            "javaMethod": "getRange"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "RemoveAll",
+            "javaMethod": "removeAllMatching"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "RemoveRange",
+            "javaMethod": "removeRange"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "TrimExcess",
+            "javaMethod": "trimExcess"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
+            "method": "TrueForAll",
+            "javaMethod": "trueForAll"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "AddAfter",
+            "javaMethod": "addAfter"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "AddBefore",
+            "javaMethod": "addBefore"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "AddFirst",
+            "javaMethod": "addFirst"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "AddLast",
+            "javaMethod": "addLast"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "Find",
+            "javaMethod": "find"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "FindLast",
+            "javaMethod": "findLast"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "RemoveFirst",
+            "javaMethod": "removeFirst"
+        },
+        {
+            "type": "System.Collections.Generic.LinkedList`1",
+            "method": "RemoveLast",
+            "javaMethod": "removeLast"
+        },
+        {
+            "type": "System.Collections.Generic.PriorityQueue`2",
+            "method": "Dequeue",
+            "javaMethod": "dequeue"
+        },
+        {
+            "type": "System.Collections.Generic.PriorityQueue`2",
+            "method": "Enqueue",
+            "javaMethod": "enqueue"
+        },
+        {
+            "type": "System.Collections.Generic.PriorityQueue`2",
+            "method": "EnqueueRange",
+            "javaMethod": "enqueueRange"
+        },
+        {
+            "type": "System.Collections.Generic.PriorityQueue`2",
+            "method": "TryDequeue",
+            "javaMethod": "tryDequeue"
+        },
+        {
+            "type": "System.Collections.Generic.PriorityQueue`2",
+            "method": "TryPeek",
+            "javaMethod": "tryPeek"
         },
         {
             "type": "System.Linq.Enumerable",
@@ -6753,7 +7156,7 @@
         {
             "type": "System.Collections.Hashtable",
             "method": "Add",
-            "javaMethod": "put"
+            "javaMethod": "add"
         },
         {
             "type": "System.Reflection.Assembly",
