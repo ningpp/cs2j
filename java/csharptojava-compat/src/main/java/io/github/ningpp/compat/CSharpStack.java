@@ -157,8 +157,9 @@ public class CSharpStack<T> implements Iterable<T> {
         deque = newDeque;
     }
 
-    public CSharpEnumerator<T> getEnumerator() {
-        return CSharpEnumerator.from(iterator());
+    @SuppressWarnings("unchecked")
+    public CSharpEnumerator getEnumerator() {
+        return CSharpEnumerator.from((Iterator<Object>) (Iterator<?>) iterator());
     }
 
     @Override
