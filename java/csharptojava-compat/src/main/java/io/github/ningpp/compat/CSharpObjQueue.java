@@ -31,7 +31,6 @@ public class CSharpObjQueue implements CSharpIterable, Cloneable {
     public boolean getIsSynchronized() { return false; }
     @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(queue.iterator()); }
     @Override public CSharpObjQueue clone() {
-        try { CSharpObjQueue c = (CSharpObjQueue) super.clone(); return c; }
-        catch (CloneNotSupportedException e) { throw new InternalError(); }
+        return new CSharpObjQueue(queue);
     }
 }

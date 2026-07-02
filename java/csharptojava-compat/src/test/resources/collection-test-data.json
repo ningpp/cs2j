@@ -1,0 +1,1257 @@
+[
+  {
+    "type": "ArrayList",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new ArrayList",
+        "output": "[]"
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027cherry\u0027",
+        "input": "cherry",
+        "output": 0
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027apple\u0027",
+        "input": "apple",
+        "output": 1
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027banana\u0027",
+        "input": "banana",
+        "output": 2
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "Capacity",
+        "description": "Get capacity",
+        "output": 4
+      },
+      {
+        "operation": "this[]",
+        "description": "Get index 0",
+        "input": 0,
+        "output": "cherry"
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027apple\u0027",
+        "input": "apple",
+        "output": true
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027missing\u0027",
+        "input": "missing",
+        "output": false
+      },
+      {
+        "operation": "IndexOf",
+        "description": "IndexOf \u0027banana\u0027",
+        "input": "banana",
+        "output": 2
+      },
+      {
+        "operation": "Insert",
+        "description": "Insert \u0027date\u0027 at 1",
+        "input": "{ index = 1, item = date }",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count after insert",
+        "output": 4
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027cherry\u0027",
+        "input": "cherry",
+        "output": true
+      },
+      {
+        "operation": "RemoveAt",
+        "description": "RemoveAt 0",
+        "input": 0,
+        "output": "void"
+      },
+      {
+        "operation": "ToArray",
+        "description": "ToArray",
+        "output": [
+          "apple",
+          "banana"
+        ]
+      },
+      {
+        "operation": "Clone",
+        "description": "Clone",
+        "output": "ArrayList"
+      },
+      {
+        "operation": "Sort",
+        "description": "Sort",
+        "output": "void"
+      },
+      {
+        "operation": "Reverse",
+        "description": "Reverse",
+        "output": "void"
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          "banana",
+          "apple"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "Hashtable",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new Hashtable",
+        "output": "{}"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027name\u0027 value=\u0027Alice\u0027",
+        "input": "{ key = name, value = Alice }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027age\u0027 value=30",
+        "input": "{ key = age, value = 30 }",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 2
+      },
+      {
+        "operation": "this[]",
+        "description": "Get key \u0027name\u0027",
+        "input": "name",
+        "output": "Alice"
+      },
+      {
+        "operation": "this[]",
+        "description": "Set key \u0027age\u0027 to 31",
+        "input": "{ key = age, value = 31 }",
+        "output": "void"
+      },
+      {
+        "operation": "ContainsKey",
+        "description": "ContainsKey \u0027name\u0027",
+        "input": "name",
+        "output": true
+      },
+      {
+        "operation": "ContainsKey",
+        "description": "ContainsKey \u0027missing\u0027",
+        "input": "missing",
+        "output": false
+      },
+      {
+        "operation": "ContainsValue",
+        "description": "ContainsValue \u0027Alice\u0027",
+        "input": "Alice",
+        "output": true
+      },
+      {
+        "operation": "Keys",
+        "description": "Get Keys",
+        "output": [
+          "age",
+          "name"
+        ]
+      },
+      {
+        "operation": "Values",
+        "description": "Get Values",
+        "output": [
+          31,
+          "Alice"
+        ]
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027age\u0027",
+        "input": "age",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Count after remove",
+        "output": 1
+      }
+    ]
+  },
+  {
+    "type": "List\u003Cstring\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new List\u003Cstring\u003E",
+        "output": "[]"
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027alpha\u0027",
+        "input": "alpha",
+        "output": 0
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027beta\u0027",
+        "input": "beta",
+        "output": 1
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027gamma\u0027",
+        "input": "gamma",
+        "output": 2
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "this[]",
+        "description": "Get index 1",
+        "input": 1,
+        "output": "beta"
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027beta\u0027",
+        "input": "beta",
+        "output": true
+      },
+      {
+        "operation": "IndexOf",
+        "description": "IndexOf \u0027gamma\u0027",
+        "input": "gamma",
+        "output": 2
+      },
+      {
+        "operation": "Insert",
+        "description": "Insert \u0027delta\u0027 at 1",
+        "input": "{ index = 1, item = delta }",
+        "output": "void"
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027beta\u0027",
+        "input": "beta",
+        "output": true
+      },
+      {
+        "operation": "RemoveAt",
+        "description": "RemoveAt 0",
+        "input": 0,
+        "output": "void"
+      },
+      {
+        "operation": "Sort",
+        "description": "Sort",
+        "output": "void"
+      },
+      {
+        "operation": "Reverse",
+        "description": "Reverse",
+        "output": "void"
+      },
+      {
+        "operation": "ToArray",
+        "description": "ToArray",
+        "output": [
+          "gamma",
+          "delta"
+        ]
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          "gamma",
+          "delta"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "Dictionary\u003Cstring,int\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new Dictionary\u003Cstring,int\u003E",
+        "output": "{}"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027a\u0027 value=1",
+        "input": "{ key = a, value = 1 }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027b\u0027 value=2",
+        "input": "{ key = b, value = 2 }",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 2
+      },
+      {
+        "operation": "this[]",
+        "description": "Get key \u0027a\u0027",
+        "input": "a",
+        "output": 1
+      },
+      {
+        "operation": "this[]",
+        "description": "Set key \u0027c\u0027 to 3",
+        "input": "{ key = c, value = 3 }",
+        "output": "void"
+      },
+      {
+        "operation": "ContainsKey",
+        "description": "ContainsKey \u0027b\u0027",
+        "input": "b",
+        "output": true
+      },
+      {
+        "operation": "ContainsKey",
+        "description": "ContainsKey \u0027z\u0027",
+        "input": "z",
+        "output": false
+      },
+      {
+        "operation": "ContainsValue",
+        "description": "ContainsValue 2",
+        "input": 2,
+        "output": true
+      },
+      {
+        "operation": "TryGetValue",
+        "description": "TryGetValue \u0027a\u0027",
+        "input": "a",
+        "output": true
+      },
+      {
+        "operation": "Keys",
+        "description": "Get Keys",
+        "output": [
+          "a",
+          "b",
+          "c"
+        ]
+      },
+      {
+        "operation": "Values",
+        "description": "Get Values",
+        "output": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027b\u0027",
+        "input": "b",
+        "output": true
+      },
+      {
+        "operation": "Count",
+        "description": "Count after remove",
+        "output": 2
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": {
+          "a": 1,
+          "c": 3
+        }
+      }
+    ]
+  },
+  {
+    "type": "Stack\u003Cint\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new Stack\u003Cint\u003E",
+        "output": "[]"
+      },
+      {
+        "operation": "Push",
+        "description": "Push 10",
+        "input": 10,
+        "output": "void"
+      },
+      {
+        "operation": "Push",
+        "description": "Push 20",
+        "input": 20,
+        "output": "void"
+      },
+      {
+        "operation": "Push",
+        "description": "Push 30",
+        "input": 30,
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "Peek",
+        "description": "Peek",
+        "output": 30
+      },
+      {
+        "operation": "Pop",
+        "description": "Pop",
+        "output": 30
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains 10",
+        "input": 10,
+        "output": true
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains 99",
+        "input": 99,
+        "output": false
+      },
+      {
+        "operation": "ToArray",
+        "description": "ToArray",
+        "output": [
+          20,
+          10
+        ]
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          20,
+          10
+        ]
+      }
+    ]
+  },
+  {
+    "type": "Queue\u003Cstring\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new Queue\u003Cstring\u003E",
+        "output": "[]"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue \u0027first\u0027",
+        "input": "first",
+        "output": "void"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue \u0027second\u0027",
+        "input": "second",
+        "output": "void"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue \u0027third\u0027",
+        "input": "third",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "Peek",
+        "description": "Peek",
+        "output": "first"
+      },
+      {
+        "operation": "Dequeue",
+        "description": "Dequeue",
+        "output": "first"
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027second\u0027",
+        "input": "second",
+        "output": true
+      },
+      {
+        "operation": "ToArray",
+        "description": "ToArray",
+        "output": [
+          "second",
+          "third"
+        ]
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          "second",
+          "third"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "HashSet\u003Cstring\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new HashSet\u003Cstring\u003E",
+        "output": "[]"
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027apple\u0027",
+        "input": "apple",
+        "output": true
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027banana\u0027",
+        "input": "banana",
+        "output": true
+      },
+      {
+        "operation": "Add",
+        "description": "Add \u0027apple\u0027 (duplicate)",
+        "input": "apple",
+        "output": false
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 2
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027apple\u0027",
+        "input": "apple",
+        "output": true
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027cherry\u0027",
+        "input": "cherry",
+        "output": false
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027banana\u0027",
+        "input": "banana",
+        "output": true
+      },
+      {
+        "operation": "Count",
+        "description": "Count after remove",
+        "output": 1
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          "apple"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "SortedSet\u003Cint\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new SortedSet\u003Cint\u003E",
+        "output": "[]"
+      },
+      {
+        "operation": "Add",
+        "description": "Add 30",
+        "input": 30,
+        "output": true
+      },
+      {
+        "operation": "Add",
+        "description": "Add 10",
+        "input": 10,
+        "output": true
+      },
+      {
+        "operation": "Add",
+        "description": "Add 20",
+        "input": 20,
+        "output": true
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "Min",
+        "description": "Get Min",
+        "output": 10
+      },
+      {
+        "operation": "Max",
+        "description": "Get Max",
+        "output": 30
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains 20",
+        "input": 20,
+        "output": true
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove 20",
+        "input": 20,
+        "output": true
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          10,
+          30
+        ]
+      }
+    ]
+  },
+  {
+    "type": "SortedDictionary\u003Cstring,int\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new SortedDictionary\u003Cstring,int\u003E",
+        "output": "{}"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027cherry\u0027 value=3",
+        "input": "{ key = cherry, value = 3 }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027apple\u0027 value=1",
+        "input": "{ key = apple, value = 1 }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027banana\u0027 value=2",
+        "input": "{ key = banana, value = 2 }",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "this[]",
+        "description": "Get key \u0027apple\u0027",
+        "input": "apple",
+        "output": 1
+      },
+      {
+        "operation": "ContainsKey",
+        "description": "ContainsKey \u0027banana\u0027",
+        "input": "banana",
+        "output": true
+      },
+      {
+        "operation": "Keys",
+        "description": "Get Keys (sorted)",
+        "output": [
+          "apple",
+          "banana",
+          "cherry"
+        ]
+      },
+      {
+        "operation": "Values",
+        "description": "Get Values (sorted)",
+        "output": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027cherry\u0027",
+        "input": "cherry",
+        "output": true
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": {
+          "apple": 1,
+          "banana": 2
+        }
+      }
+    ]
+  },
+  {
+    "type": "SortedList\u003Cstring,int\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new SortedList\u003Cstring,int\u003E",
+        "output": "{}"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027delta\u0027 value=4",
+        "input": "{ key = delta, value = 4 }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027alpha\u0027 value=1",
+        "input": "{ key = alpha, value = 1 }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027charlie\u0027 value=3",
+        "input": "{ key = charlie, value = 3 }",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "this[]",
+        "description": "Get key \u0027alpha\u0027",
+        "input": "alpha",
+        "output": 1
+      },
+      {
+        "operation": "Keys",
+        "description": "Get Keys",
+        "output": [
+          "alpha",
+          "charlie",
+          "delta"
+        ]
+      },
+      {
+        "operation": "Values",
+        "description": "Get Values",
+        "output": [
+          1,
+          3,
+          4
+        ]
+      },
+      {
+        "operation": "IndexOfKey",
+        "description": "IndexOfKey \u0027charlie\u0027",
+        "input": "charlie",
+        "output": 1
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027delta\u0027",
+        "input": "delta",
+        "output": true
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": {
+          "alpha": 1,
+          "charlie": 3
+        }
+      }
+    ]
+  },
+  {
+    "type": "LinkedList\u003Cstring\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new LinkedList\u003Cstring\u003E",
+        "output": "[]"
+      },
+      {
+        "operation": "AddLast",
+        "description": "AddLast \u0027middle\u0027",
+        "input": "middle",
+        "output": "LinkedListNode"
+      },
+      {
+        "operation": "AddFirst",
+        "description": "AddFirst \u0027first\u0027",
+        "input": "first",
+        "output": "LinkedListNode"
+      },
+      {
+        "operation": "AddLast",
+        "description": "AddLast \u0027last\u0027",
+        "input": "last",
+        "output": "LinkedListNode"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "First",
+        "description": "Get First.Value",
+        "output": "first"
+      },
+      {
+        "operation": "Last",
+        "description": "Get Last.Value",
+        "output": "last"
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027middle\u0027",
+        "input": "middle",
+        "output": true
+      },
+      {
+        "operation": "Find",
+        "description": "Find \u0027middle\u0027",
+        "input": "middle",
+        "output": "LinkedListNode"
+      },
+      {
+        "operation": "FindLast",
+        "description": "FindLast \u0027middle\u0027",
+        "input": "middle",
+        "output": "LinkedListNode"
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027first\u0027",
+        "input": "first",
+        "output": true
+      },
+      {
+        "operation": "Count",
+        "description": "Count after remove",
+        "output": 2
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          "middle",
+          "last"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "BitArray",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new BitArray(5)",
+        "input": 5,
+        "output": "[false,false,false,false,false]"
+      },
+      {
+        "operation": "this[]",
+        "description": "Set bits 0,2,4 to true",
+        "input": [
+          0,
+          2,
+          4
+        ],
+        "output": "[true,false,true,false,true]"
+      },
+      {
+        "operation": "this[]",
+        "description": "Get index 0",
+        "input": 0,
+        "output": true
+      },
+      {
+        "operation": "this[]",
+        "description": "Get index 1",
+        "input": 1,
+        "output": false
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 5
+      },
+      {
+        "operation": "Length",
+        "description": "Get length",
+        "output": 5
+      },
+      {
+        "operation": "And",
+        "description": "And with [true,true,false,false,true]",
+        "input": "[true,true,false,false,true]",
+        "output": "BitArray"
+      },
+      {
+        "operation": "Not",
+        "description": "Not",
+        "output": "BitArray"
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state (as booleans)",
+        "output": [
+          false,
+          true,
+          true,
+          true,
+          false
+        ]
+      }
+    ]
+  },
+  {
+    "type": "PriorityQueue\u003Cstring,int\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new PriorityQueue\u003Cstring,int\u003E",
+        "output": "empty"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue \u0027low\u0027 with priority 3",
+        "input": "{ element = low, priority = 3 }",
+        "output": "void"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue \u0027high\u0027 with priority 1",
+        "input": "{ element = high, priority = 1 }",
+        "output": "void"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue \u0027medium\u0027 with priority 2",
+        "input": "{ element = medium, priority = 2 }",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "Peek",
+        "description": "Peek",
+        "output": "high"
+      },
+      {
+        "operation": "Dequeue",
+        "description": "Dequeue",
+        "output": "high"
+      },
+      {
+        "operation": "Peek",
+        "description": "Peek after dequeue",
+        "output": "medium"
+      },
+      {
+        "operation": "Count",
+        "description": "Count after dequeue",
+        "output": 2
+      },
+      {
+        "operation": "FinalState",
+        "description": "Remaining count",
+        "output": 2
+      }
+    ]
+  },
+  {
+    "type": "KeyValuePair\u003Cstring,int\u003E",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new KeyValuePair\u003Cstring,int\u003E",
+        "input": "{ key = test, value = 42 }",
+        "output": "KeyValuePair"
+      },
+      {
+        "operation": "Key",
+        "description": "Get Key",
+        "output": "test"
+      },
+      {
+        "operation": "Value",
+        "description": "Get Value",
+        "output": 42
+      },
+      {
+        "operation": "ToString",
+        "description": "ToString",
+        "output": "[test, 42]"
+      }
+    ]
+  },
+  {
+    "type": "Stack",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new Stack",
+        "output": "[]"
+      },
+      {
+        "operation": "Push",
+        "description": "Push \u0027a\u0027",
+        "input": "a",
+        "output": "void"
+      },
+      {
+        "operation": "Push",
+        "description": "Push 42",
+        "input": 42,
+        "output": "void"
+      },
+      {
+        "operation": "Push",
+        "description": "Push null",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "Peek",
+        "description": "Peek",
+        "output": null
+      },
+      {
+        "operation": "Pop",
+        "description": "Pop",
+        "output": null
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains \u0027a\u0027",
+        "input": "a",
+        "output": true
+      },
+      {
+        "operation": "ToArray",
+        "description": "ToArray",
+        "output": [
+          42,
+          "a"
+        ]
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          42,
+          "a"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "Queue",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new Queue",
+        "output": "[]"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue \u0027x\u0027",
+        "input": "x",
+        "output": "void"
+      },
+      {
+        "operation": "Enqueue",
+        "description": "Enqueue 99",
+        "input": 99,
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 2
+      },
+      {
+        "operation": "Peek",
+        "description": "Peek",
+        "output": "x"
+      },
+      {
+        "operation": "Dequeue",
+        "description": "Dequeue",
+        "output": "x"
+      },
+      {
+        "operation": "Contains",
+        "description": "Contains 99",
+        "input": 99,
+        "output": true
+      },
+      {
+        "operation": "ToArray",
+        "description": "ToArray",
+        "output": [
+          99
+        ]
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": [
+          99
+        ]
+      }
+    ]
+  },
+  {
+    "type": "SortedList",
+    "steps": [
+      {
+        "operation": "new",
+        "description": "Create new SortedList",
+        "output": "{}"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027b\u0027 value=2",
+        "input": "{ key = b, value = 2 }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027a\u0027 value=1",
+        "input": "{ key = a, value = 1 }",
+        "output": "void"
+      },
+      {
+        "operation": "Add",
+        "description": "Add key=\u0027c\u0027 value=3",
+        "input": "{ key = c, value = 3 }",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Get count",
+        "output": 3
+      },
+      {
+        "operation": "this[]",
+        "description": "Get key \u0027a\u0027",
+        "input": "a",
+        "output": 1
+      },
+      {
+        "operation": "GetByIndex",
+        "description": "GetByIndex 0",
+        "input": 0,
+        "output": 1
+      },
+      {
+        "operation": "GetKey",
+        "description": "GetKey 0",
+        "input": 0,
+        "output": "a"
+      },
+      {
+        "operation": "ContainsKey",
+        "description": "ContainsKey \u0027b\u0027",
+        "input": "b",
+        "output": true
+      },
+      {
+        "operation": "Keys",
+        "description": "Get Keys",
+        "output": [
+          "a",
+          "b",
+          "c"
+        ]
+      },
+      {
+        "operation": "Values",
+        "description": "Get Values",
+        "output": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "operation": "Remove",
+        "description": "Remove \u0027c\u0027",
+        "input": "c",
+        "output": "void"
+      },
+      {
+        "operation": "Count",
+        "description": "Count after remove",
+        "output": 2
+      },
+      {
+        "operation": "FinalState",
+        "description": "Final state",
+        "output": {
+          "a": 1,
+          "b": 2
+        }
+      }
+    ]
+  }
+]

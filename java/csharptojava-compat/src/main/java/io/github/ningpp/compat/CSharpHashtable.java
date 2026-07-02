@@ -40,8 +40,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
             .iterator());
     }
     @Override public CSharpHashtable clone() {
-        try { CSharpHashtable c = (CSharpHashtable) super.clone(); return c; }
-        catch (CloneNotSupportedException e) { throw new InternalError(); }
+        return new CSharpHashtable(map);
     }
 
     // Inner helper collections for Keys/Values

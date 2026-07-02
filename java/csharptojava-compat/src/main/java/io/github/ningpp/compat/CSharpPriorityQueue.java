@@ -9,18 +9,15 @@ public class CSharpPriorityQueue<E, P> {
     private final PriorityQueue<PriorityEntry<E, P>> pq;
 
     public CSharpPriorityQueue() {
-        this.pq = new PriorityQueue<>();
-    }
-
-    public CSharpPriorityQueue(Comparator<? super P> priorityComparator) {
         this.pq = new PriorityQueue<>((a, b) -> {
             @SuppressWarnings("unchecked")
             Comparable<Object> cp = (Comparable<Object>) a.priority;
-            if (priorityComparator != null) {
-                return priorityComparator.compare(a.priority, b.priority);
-            }
             return cp.compareTo(b.priority);
         });
+    }
+
+    public CSharpPriorityQueue(Comparator<? super P> priorityComparator) {
+        this.pq = new PriorityQueue<>((a, b) -> priorityComparator.compare(a.priority, b.priority));
     }
 
     public void enqueue(E element, P priority) {

@@ -161,12 +161,19 @@ public class CSharpSortedSet<T> implements CSharpISet<T>, Cloneable {
     }
 
     public CSharpSortedSet<T> getReverse() {
-        return new CSharpSortedSet<>(set.descendingSet(), set.comparator());
+        Comparator<? super T> currentComp = set.comparator();
+        @SuppressWarnings("unchecked")
+        Comparator<? super T> reverseComp = currentComp != null
+            ? currentComp.reversed()
+            : (a, b) -> ((Comparable<Object>) b).compareTo(a);
+        return new CSharpSortedSet<>(set, reverseComp);
     }
 
     @SuppressWarnings("unchecked")
     public Comparator<? super T> getComparer() {
-        return set.comparator();
+        Comparator<? super T> comp = set.comparator();
+        if (comp != null) return comp;
+        return (a, b) -> ((Comparable<Object>) a).compareTo(b);
     }
 
     public int removeWhere(Predicate<? super T> match) {

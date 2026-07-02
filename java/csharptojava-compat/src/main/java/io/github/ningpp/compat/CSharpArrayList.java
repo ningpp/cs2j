@@ -70,7 +70,6 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     }
     public int lastIndexOf(Object value) { return list.lastIndexOf(value); }
     @Override public CSharpArrayList clone() {
-        try { CSharpArrayList c = (CSharpArrayList) super.clone(); return c; }
-        catch (CloneNotSupportedException e) { throw new InternalError(); }
+        return new CSharpArrayList(list);
     }
 }

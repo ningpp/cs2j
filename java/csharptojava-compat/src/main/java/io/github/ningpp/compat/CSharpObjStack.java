@@ -1,15 +1,15 @@
 package io.github.ningpp.compat;
 
-import java.util.ArrayDeque;
+import java.util.LinkedList;
 import java.util.NoSuchElementException;
 
 public class CSharpObjStack implements CSharpIterable, Cloneable {
-    private final ArrayDeque<Object> stack;
+    private final LinkedList<Object> stack;
     private final Object syncRoot = new Object();
 
-    public CSharpObjStack() { this.stack = new ArrayDeque<>(); }
-    public CSharpObjStack(int capacity) { this.stack = new ArrayDeque<>(capacity); }
-    public CSharpObjStack(java.util.Collection<?> c) { this.stack = new ArrayDeque<>(c); }
+    public CSharpObjStack() { this.stack = new LinkedList<>(); }
+    public CSharpObjStack(int capacity) { this.stack = new LinkedList<>(); }
+    public CSharpObjStack(java.util.Collection<?> c) { this.stack = new LinkedList<>(c); }
 
     public void push(Object obj) { stack.addLast(obj); }
     public Object pop() {
@@ -26,6 +26,7 @@ public class CSharpObjStack implements CSharpIterable, Cloneable {
     public void clear() { stack.clear(); }
     public void copyTo(Object[] array, int index) {
         int i = index;
+        // C# Stack.CopyTo copies top-to-bottom (LIFO order)
         java.util.Iterator<Object> it = stack.descendingIterator();
         while (it.hasNext()) array[i++] = it.next();
     }
@@ -47,7 +48,6 @@ public class CSharpObjStack implements CSharpIterable, Cloneable {
         });
     }
     @Override public CSharpObjStack clone() {
-        try { CSharpObjStack c = (CSharpObjStack) super.clone(); return c; }
-        catch (CloneNotSupportedException e) { throw new InternalError(); }
+        return new CSharpObjStack(stack);
     }
 }

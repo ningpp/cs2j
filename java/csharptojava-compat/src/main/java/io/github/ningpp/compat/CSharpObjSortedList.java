@@ -93,7 +93,8 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
     public int getCapacity() { return map.size(); }
     public void trimToSize() { /* no-op for TreeMap */ }
     @Override public CSharpObjSortedList clone() {
-        try { CSharpObjSortedList c = (CSharpObjSortedList) super.clone(); return c; }
-        catch (CloneNotSupportedException e) { throw new InternalError(); }
+        CSharpObjSortedList c = new CSharpObjSortedList();
+        c.map.putAll(this.map);
+        return c;
     }
 }
