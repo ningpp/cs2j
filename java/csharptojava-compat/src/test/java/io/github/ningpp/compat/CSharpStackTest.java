@@ -12,22 +12,20 @@ class CSharpStackTest {
     @Test
     void defaultConstructor_createsEmptyStack() {
         CSharpStack<Integer> s = new CSharpStack<>();
-        assertEquals(0, s.size());
-        assertTrue(s.isEmpty());
+        assertEquals(0, s.getCount());
     }
 
     @Test
     void capacityConstructor_createsEmptyStack() {
         CSharpStack<String> s = new CSharpStack<>(100);
-        assertEquals(0, s.size());
-        assertTrue(s.isEmpty());
+        assertEquals(0, s.getCount());
     }
 
     @Test
     void collectionConstructor_pushesInOrder() {
         List<String> items = Arrays.asList("A", "B", "C");
         CSharpStack<String> s = new CSharpStack<>(items);
-        assertEquals(3, s.size());
+        assertEquals(3, s.getCount());
         assertEquals("C", s.peek());
     }
 
@@ -42,7 +40,7 @@ class CSharpStackTest {
         assertEquals(20, s.peek());
         assertEquals(20, s.pop());
         assertEquals(10, s.pop());
-        assertTrue(s.isEmpty());
+        assertEquals(0, s.getCount());
     }
 
     @Test
@@ -58,15 +56,13 @@ class CSharpStackTest {
     }
 
     @Test
-    void size_isEmpty_reflectState() {
+    void getCount_reflectsState() {
         CSharpStack<String> s = new CSharpStack<>();
-        assertTrue(s.isEmpty());
-        assertEquals(0, s.size());
+        assertEquals(0, s.getCount());
         s.push("x");
-        assertFalse(s.isEmpty());
-        assertEquals(1, s.size());
+        assertEquals(1, s.getCount());
         s.pop();
-        assertTrue(s.isEmpty());
+        assertEquals(0, s.getCount());
     }
 
     @Test
@@ -86,8 +82,7 @@ class CSharpStackTest {
         s.push(1);
         s.push(2);
         s.clear();
-        assertEquals(0, s.size());
-        assertTrue(s.isEmpty());
+        assertEquals(0, s.getCount());
     }
 
     @Test
@@ -97,7 +92,7 @@ class CSharpStackTest {
         s.push("B");
         s.push("C");
         s.ensureCapacity(100);
-        assertEquals(3, s.size());
+        assertEquals(3, s.getCount());
         assertEquals("C", s.peek());
         assertEquals("C", s.pop());
         assertEquals("B", s.pop());
@@ -115,7 +110,7 @@ class CSharpStackTest {
         CSharpStack<Integer> s = new CSharpStack<>();
         s.push(42);
         s.ensureCapacity(0);
-        assertEquals(1, s.size());
+        assertEquals(1, s.getCount());
         assertEquals(42, s.peek());
     }
 
@@ -129,16 +124,6 @@ class CSharpStackTest {
         for (String item : s) {
             result.add(item);
         }
-        assertEquals(Arrays.asList("C", "B", "A"), result);
-    }
-
-    @Test
-    void stream_returnsLIFOOrder() {
-        CSharpStack<String> s = new CSharpStack<>();
-        s.push("A");
-        s.push("B");
-        s.push("C");
-        List<String> result = s.stream().toList();
         assertEquals(Arrays.asList("C", "B", "A"), result);
     }
 
@@ -194,34 +179,28 @@ class CSharpStackTest {
     void tryPeek_succeedsOnNonEmpty() {
         CSharpStack<String> s = new CSharpStack<>();
         s.push("hello");
-        ObjectHolder<String> holder = new ObjectHolder<>();
-        assertTrue(s.tryPeek(holder));
-        assertEquals("hello", holder.value);
-        assertEquals(1, s.size());
+        assertEquals("hello", s.tryPeek());
+        assertEquals(1, s.getCount());
     }
 
     @Test
     void tryPeek_failsOnEmpty() {
         CSharpStack<String> s = new CSharpStack<>();
-        ObjectHolder<String> holder = new ObjectHolder<>();
-        assertFalse(s.tryPeek(holder));
+        assertNull(s.tryPeek());
     }
 
     @Test
     void tryPop_succeedsOnNonEmpty() {
         CSharpStack<Integer> s = new CSharpStack<>();
         s.push(42);
-        ObjectHolder<Integer> holder = new ObjectHolder<>();
-        assertTrue(s.tryPop(holder));
-        assertEquals(42, holder.value);
-        assertTrue(s.isEmpty());
+        assertEquals(42, s.tryPop());
+        assertEquals(0, s.getCount());
     }
 
     @Test
     void tryPop_failsOnEmpty() {
         CSharpStack<Integer> s = new CSharpStack<>();
-        ObjectHolder<Integer> holder = new ObjectHolder<>();
-        assertFalse(s.tryPop(holder));
+        assertNull(s.tryPop());
     }
 
     @Test
@@ -231,77 +210,46 @@ class CSharpStackTest {
             s.push(i);
         }
         s.trimExcess();
-        assertEquals(100, s.size());
+        assertEquals(100, s.getCount());
         assertEquals(99, s.peek());
     }
 
     @Test
-    void trimExcessWithCapacity_preservesElements() {
-        CSharpStack<Integer> s = new CSharpStack<>();
-        for (int i = 0; i < 10; i++) {
-            s.push(i);
-        }
-        s.trimExcess(50);
-        assertEquals(10, s.size());
-        assertEquals(9, s.peek());
+    void getIsReadOnly_returnsFalse() {
+        CSharpStack<String> s = new CSharpStack<>();
+        assertFalse(s.getIsReadOnly());
     }
 
     @Test
-    void getEnumerator_returnsLIFOOrder() {
+    void add_pushesToStack() {
+        CSharpStack<String> s = new CSharpStack<>();
+        s.add("A");
+        s.add("B");
+        assertEquals(2, s.getCount());
+        assertEquals("B", s.peek());
+    }
+
+    @Test
+    void remove_removesElement() {
         CSharpStack<String> s = new CSharpStack<>();
         s.push("A");
         s.push("B");
         s.push("C");
-        CSharpEnumerator e = s.getEnumerator();
-        assertTrue(e.moveNext());
-        assertEquals("C", e.getCurrent());
-        assertTrue(e.moveNext());
-        assertEquals("B", e.getCurrent());
-        assertTrue(e.moveNext());
-        assertEquals("A", e.getCurrent());
-        assertFalse(e.moveNext());
+        assertTrue(s.remove("B"));
+        assertEquals(2, s.getCount());
+        assertFalse(s.contains("B"));
     }
 
     @Test
-    void equals_sameElementsSameOrder() {
-        CSharpStack<String> s1 = new CSharpStack<>();
-        s1.push("A");
-        s1.push("B");
-        CSharpStack<String> s2 = new CSharpStack<>();
-        s2.push("A");
-        s2.push("B");
-        assertEquals(s1, s2);
-    }
-
-    @Test
-    void equals_differentOrder_notEqual() {
-        CSharpStack<String> s1 = new CSharpStack<>();
-        s1.push("A");
-        s1.push("B");
-        CSharpStack<String> s2 = new CSharpStack<>();
-        s2.push("B");
-        s2.push("A");
-        assertNotEquals(s1, s2);
-    }
-
-    @Test
-    void equals_differentSize_notEqual() {
-        CSharpStack<String> s1 = new CSharpStack<>();
-        s1.push("A");
-        CSharpStack<String> s2 = new CSharpStack<>();
-        s2.push("A");
-        s2.push("B");
-        assertNotEquals(s1, s2);
-    }
-
-    @Test
-    void hashCode_consistentWithEquals() {
-        CSharpStack<String> s1 = new CSharpStack<>();
-        s1.push("A");
-        s1.push("B");
-        CSharpStack<String> s2 = new CSharpStack<>();
-        s2.push("A");
-        s2.push("B");
-        assertEquals(s1.hashCode(), s2.hashCode());
+    void clone_createsCopy() {
+        CSharpStack<String> s = new CSharpStack<>();
+        s.push("A");
+        s.push("B");
+        CSharpStack<String> c = s.clone();
+        assertEquals(2, c.getCount());
+        assertEquals("B", c.peek());
+        // Modifying clone should not affect original
+        c.pop();
+        assertEquals(2, s.getCount());
     }
 }

@@ -12,31 +12,34 @@ class SortedListTest {
 
     @Test
     void defaultConstructor() {
-        SortedList<String, Integer> list = new SortedList<>();
-        assertEquals(0, list.size());
-        assertTrue(list.isEmpty());
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        assertEquals(0, list.getCount());
     }
 
     @Test
     void comparatorConstructor() {
-        SortedList<String, Integer> list = new SortedList<>(Comparator.<String>reverseOrder());
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>(Comparator.<String>reverseOrder());
         list.put("b", 2);
         list.put("a", 1);
-        assertEquals(List.of("b", "a"), list.keys());
+        // Keys should be in reverse order
+        assertEquals("b", list.getKeyAtIndex(0));
+        assertEquals("a", list.getKeyAtIndex(1));
     }
 
     @Test
     void mapConstructor() {
-        SortedList<String, Integer> list = new SortedList<>(Map.of("c", 3, "a", 1, "b", 2));
-        assertEquals(3, list.size());
-        assertEquals(List.of("a", "b", "c"), list.keys());
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>(Map.of("c", 3, "a", 1, "b", 2));
+        assertEquals(3, list.getCount());
+        assertEquals("a", list.getKeyAtIndex(0));
+        assertEquals("b", list.getKeyAtIndex(1));
+        assertEquals("c", list.getKeyAtIndex(2));
     }
 
     // ---- Core operations ----
 
     @Test
     void putAndGet() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("b", 2);
         list.put("a", 1);
         list.put("c", 3);
@@ -47,16 +50,23 @@ class SortedListTest {
 
     @Test
     void put_overwritesExisting() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("a", 1);
         list.put("a", 10);
         assertEquals(10, list.get("a"));
-        assertEquals(1, list.size());
+        assertEquals(1, list.getCount());
+    }
+
+    @Test
+    void add_throwsOnDuplicateKey() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        list.add("a", 1);
+        assertThrows(IllegalArgumentException.class, () -> list.add("a", 2));
     }
 
     @Test
     void containsKey() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("a", 1);
         assertTrue(list.containsKey("a"));
         assertFalse(list.containsKey("z"));
@@ -64,7 +74,7 @@ class SortedListTest {
 
     @Test
     void containsValue() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("a", 1);
         assertTrue(list.containsValue(1));
         assertFalse(list.containsValue(99));
@@ -72,58 +82,36 @@ class SortedListTest {
 
     @Test
     void remove_byKey() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("a", 1);
         list.put("b", 2);
-        list.remove("a");
-        assertEquals(1, list.size());
+        assertTrue(list.remove("a"));
+        assertEquals(1, list.getCount());
         assertFalse(list.containsKey("a"));
         assertNull(list.get("a"));
     }
 
     @Test
-    void clear_removesAll() {
-        SortedList<String, Integer> list = new SortedList<>();
+    void remove_nonExistingKey() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("a", 1);
-        list.put("b", 2);
-        list.clear();
-        assertTrue(list.isEmpty());
-        assertEquals(0, list.size());
+        assertFalse(list.remove("z"));
     }
 
     @Test
-    void putAll_bulkInsert() {
-        SortedList<String, Integer> list = new SortedList<>();
-        list.putAll(Map.of("c", 3, "a", 1, "b", 2));
-        assertEquals(3, list.size());
-        assertEquals(1, list.get("a"));
+    void clear_removesAll() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        list.put("a", 1);
+        list.put("b", 2);
+        list.clear();
+        assertEquals(0, list.getCount());
     }
 
     // ---- Index-based access ----
 
     @Test
-    void keys_returnsSortedList() {
-        SortedList<String, Integer> list = new SortedList<>();
-        list.put("c", 3);
-        list.put("a", 1);
-        list.put("b", 2);
-        List<String> keys = list.keys();
-        assertEquals(List.of("a", "b", "c"), keys);
-    }
-
-    @Test
-    void values_returnsSortedValues() {
-        SortedList<String, Integer> list = new SortedList<>();
-        list.put("c", 30);
-        list.put("a", 10);
-        list.put("b", 20);
-        List<Integer> values = list.values();
-        assertEquals(List.of(10, 20, 30), values);
-    }
-
-    @Test
     void getKeyAtIndex() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("c", 3);
         list.put("a", 1);
         list.put("b", 2);
@@ -134,7 +122,7 @@ class SortedListTest {
 
     @Test
     void getValueAtIndex() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("c", 30);
         list.put("a", 10);
         list.put("b", 20);
@@ -145,7 +133,7 @@ class SortedListTest {
 
     @Test
     void indexOfKey() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("c", 3);
         list.put("a", 1);
         list.put("b", 2);
@@ -157,7 +145,7 @@ class SortedListTest {
 
     @Test
     void indexOfValue() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("c", 30);
         list.put("a", 10);
         list.put("b", 20);
@@ -167,62 +155,86 @@ class SortedListTest {
         assertEquals(-1, list.indexOfValue(99));
     }
 
-    // ---- Extended operations ----
+    // ---- IDictionary-specific operations ----
 
     @Test
     void tryGetValue_existing() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("a", 1);
-        ObjectHolder<Integer> holder = new ObjectHolder<>();
-        assertTrue(list.tryGetValue("a", holder));
-        assertEquals(1, holder.value);
+        assertEquals(1, list.tryGetValue("a"));
     }
 
     @Test
     void tryGetValue_missing() {
-        SortedList<String, Integer> list = new SortedList<>();
-        ObjectHolder<Integer> holder = new ObjectHolder<>();
-        assertFalse(list.tryGetValue("z", holder));
-        assertNull(holder.value);
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        assertNull(list.tryGetValue("z"));
     }
 
     @Test
-    void removeAt() {
-        SortedList<String, Integer> list = new SortedList<>();
+    void getKeys() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("c", 3);
         list.put("a", 1);
         list.put("b", 2);
-        list.removeAt(1); // remove "b"
-        assertEquals(2, list.size());
-        assertEquals(List.of("a", "c"), list.keys());
+        CSharpICollection<String> keys = list.getKeys();
+        assertEquals(3, keys.getCount());
+        assertTrue(keys.contains("a"));
+        assertTrue(keys.contains("b"));
+        assertTrue(keys.contains("c"));
     }
 
     @Test
-    void capacity_returnsSize() {
-        SortedList<String, Integer> list = new SortedList<>();
-        list.put("a", 1);
-        assertEquals(1, list.capacity());
+    void getValues() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        list.put("c", 30);
+        list.put("a", 10);
+        list.put("b", 20);
+        CSharpICollection<Integer> values = list.getValues();
+        assertEquals(3, values.getCount());
+        assertTrue(values.contains(10));
+        assertTrue(values.contains(20));
+        assertTrue(values.contains(30));
+    }
+
+    @Test
+    void getIsReadOnly_returnsFalse() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        assertFalse(list.getIsReadOnly());
+    }
+
+    @Test
+    void getComparer() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        assertNotNull(list.getComparer());
     }
 
     @Test
     void ensureCapacity_noOp() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.ensureCapacity(100); // should not throw
-        assertEquals(0, list.size());
+        assertEquals(0, list.getCount());
+    }
+
+    @Test
+    void trimExcess_noOp() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        list.put("a", 1);
+        list.trimExcess(); // should not throw
+        assertEquals(1, list.getCount());
     }
 
     // ---- Edge cases ----
 
     @Test
-    void emptyList_keysReturnsEmpty() {
-        SortedList<String, Integer> list = new SortedList<>();
-        assertTrue(list.keys().isEmpty());
-        assertTrue(list.values().isEmpty());
+    void emptyList_keysAndValuesEmpty() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        assertEquals(0, list.getKeys().getCount());
+        assertEquals(0, list.getValues().getCount());
     }
 
     @Test
     void singleElement() {
-        SortedList<String, Integer> list = new SortedList<>();
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.put("only", 42);
         assertEquals("only", list.getKeyAtIndex(0));
         assertEquals(42, list.getValueAtIndex(0));
@@ -230,45 +242,37 @@ class SortedListTest {
     }
 
     @Test
+    void getKeyAtIndex_outOfBounds() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        list.put("a", 1);
+        assertThrows(IndexOutOfBoundsException.class, () -> list.getKeyAtIndex(5));
+    }
+
+    // ---- clone ----
+
+    @Test
+    void clone_createsCopy() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        list.put("a", 1);
+        list.put("b", 2);
+        CSharpSortedList<String, Integer> cloned = list.clone();
+        assertEquals(2, cloned.getCount());
+        assertEquals(1, cloned.get("a"));
+        // Modifying clone should not affect original
+        cloned.put("c", 3);
+        assertEquals(2, list.getCount());
+    }
+
+    // ---- comparator custom order ----
+
+    @Test
     void comparator_customOrder() {
-        // Reverse natural order
-        SortedList<String, Integer> list = new SortedList<>(Comparator.<String>reverseOrder());
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>(Comparator.<String>reverseOrder());
         list.put("a", 1);
         list.put("b", 2);
         list.put("c", 3);
-        assertEquals(List.of("c", "b", "a"), list.keys());
-        assertEquals(List.of(3, 2, 1), list.values());
-    }
-
-    // ---- Java interop ----
-
-    @Test
-    void entrySet_returnsEntries() {
-        SortedList<String, Integer> list = new SortedList<>();
-        list.put("a", 1);
-        list.put("b", 2);
-        assertEquals(2, list.entrySet().size());
-    }
-
-    @Test
-    void keySet_returnsKeys() {
-        SortedList<String, Integer> list = new SortedList<>();
-        list.put("a", 1);
-        list.put("b", 2);
-        assertEquals(2, list.keySet().size());
-        assertTrue(list.keySet().contains("a"));
-    }
-
-    @Test
-    void comparator_returnsNullForNaturalOrder() {
-        SortedList<String, Integer> list = new SortedList<>();
-        assertNull(list.comparator()); // TreeMap returns null for natural ordering
-    }
-
-    @Test
-    void comparator_returnsCustomComparator() {
-        Comparator<String> cmp = Comparator.<String>reverseOrder();
-        SortedList<String, Integer> list = new SortedList<>(cmp);
-        assertSame(cmp, list.comparator());
+        assertEquals("c", list.getKeyAtIndex(0));
+        assertEquals("b", list.getKeyAtIndex(1));
+        assertEquals("a", list.getKeyAtIndex(2));
     }
 }

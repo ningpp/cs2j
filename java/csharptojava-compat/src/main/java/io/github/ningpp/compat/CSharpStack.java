@@ -2,15 +2,10 @@ package io.github.ningpp.compat;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
-public class CSharpStack<T> implements Iterable<T> {
+public class CSharpStack<T> implements CSharpICollection<T>, Cloneable {
     private ArrayDeque<T> deque;
 
     public CSharpStack() {
@@ -34,66 +29,50 @@ public class CSharpStack<T> implements Iterable<T> {
 
     public T pop() {
         if (deque.isEmpty()) {
-            throw new NoSuchElementException();
+            throw new NoSuchElementException("Stack is empty");
         }
         return deque.removeLast();
     }
 
     public T peek() {
         if (deque.isEmpty()) {
-            throw new NoSuchElementException();
+            throw new NoSuchElementException("Stack is empty");
         }
         return deque.peekLast();
     }
 
-    public int size() {
-        return deque.size();
-    }
-
-    public boolean isEmpty() {
-        return deque.isEmpty();
-    }
-
+    @Override
     public void clear() {
         deque.clear();
     }
 
-    public int ensureCapacity(int capacity) {
-        if (capacity < 0) {
-            throw new IllegalArgumentException("capacity must be non-negative");
-        }
-        if (capacity > deque.size()) {
-            int targetCapacity = Math.max(capacity, deque.size());
-            ArrayDeque<T> newDeque = new ArrayDeque<>(targetCapacity);
-            newDeque.addAll(deque);
-            deque = newDeque;
-        }
-        return capacity;
-    }
-
-    public boolean contains(Object item) {
-        return deque.contains(item);
+    @Override
+    public boolean contains(Object o) {
+        return deque.contains(o);
     }
 
     @Override
-    public Iterator<T> iterator() {
-        return deque.descendingIterator();
-    }
-
-    @Override
-    public Spliterator<T> spliterator() {
-        return Spliterators.spliteratorUnknownSize(iterator(), Spliterator.ORDERED);
-    }
-
-    public Stream<T> stream() {
-        return StreamSupport.stream(spliterator(), false);
+    public void copyTo(T[] array, int arrayIndex) {
+        Objects.checkIndex(arrayIndex, array.length + 1);
+        if (arrayIndex + deque.size() > array.length) {
+            throw new IndexOutOfBoundsException(
+                "Destination array is not long enough to copy all elements.");
+        }
+        int i = arrayIndex;
+        // C# Stack.CopyTo copies top-to-bottom (LIFO order)
+        java.util.Iterator<T> it = deque.descendingIterator();
+        while (it.hasNext()) {
+            array[i++] = it.next();
+        }
     }
 
     public Object[] toArray() {
         Object[] result = new Object[deque.size()];
         int i = 0;
-        for (T item : this) {
-            result[i++] = item;
+        // C# Stack.ToArray returns top-to-bottom
+        java.util.Iterator<T> it = deque.descendingIterator();
+        while (it.hasNext()) {
+            result[i++] = it.next();
         }
         return result;
     }
@@ -105,8 +84,9 @@ public class CSharpStack<T> implements Iterable<T> {
             ? a
             : (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);
         int i = 0;
-        for (T item : this) {
-            result[i++] = item;
+        java.util.Iterator<T> it = deque.descendingIterator();
+        while (it.hasNext()) {
+            result[i++] = it.next();
         }
         if (result.length > size) {
             result[size] = null;
@@ -114,74 +94,73 @@ public class CSharpStack<T> implements Iterable<T> {
         return result;
     }
 
-    public void copyTo(T[] array, int arrayIndex) {
-        Objects.checkIndex(arrayIndex, array.length + 1);
-        if (arrayIndex + deque.size() > array.length) {
-            throw new IndexOutOfBoundsException(
-                "Destination array is not long enough to copy all elements.");
-        }
-        int i = arrayIndex;
-        for (T item : this) {
-            array[i++] = item;
-        }
-    }
-
-    public boolean tryPeek(ObjectHolder<T> holder) {
-        if (deque.isEmpty()) {
-            return false;
-        }
-        holder.value = deque.peekLast();
-        return true;
-    }
-
-    public boolean tryPop(ObjectHolder<T> holder) {
-        if (deque.isEmpty()) {
-            return false;
-        }
-        holder.value = deque.removeLast();
-        return true;
-    }
-
     public void trimExcess() {
         ArrayDeque<T> newDeque = new ArrayDeque<>(deque);
         deque = newDeque;
     }
 
-    public void trimExcess(int capacity) {
-        if (capacity < deque.size()) {
-            throw new IllegalArgumentException(
-                "capacity must be >= current size");
+    public int ensureCapacity(int capacity) {
+        if (capacity < 0) {
+            throw new IllegalArgumentException("capacity must be non-negative");
         }
-        ArrayDeque<T> newDeque = new ArrayDeque<>(capacity);
-        newDeque.addAll(deque);
-        deque = newDeque;
+        if (capacity > deque.size()) {
+            ArrayDeque<T> newDeque = new ArrayDeque<>(capacity);
+            newDeque.addAll(deque);
+            deque = newDeque;
+        }
+        return capacity;
     }
 
-    @SuppressWarnings("unchecked")
-    public CSharpEnumerator getEnumerator() {
-        return CSharpEnumerator.from((Iterator<Object>) (Iterator<?>) iterator());
+    public T tryPop() {
+        if (deque.isEmpty()) {
+            return null;
+        }
+        return deque.removeLast();
+    }
+
+    public T tryPeek() {
+        if (deque.isEmpty()) {
+            return null;
+        }
+        return deque.peekLast();
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof CSharpStack)) return false;
-        CSharpStack<?> other = (CSharpStack<?>) obj;
-        if (this.size() != other.size()) return false;
-        Iterator<T> it1 = this.iterator();
-        Iterator<?> it2 = other.iterator();
-        while (it1.hasNext() && it2.hasNext()) {
-            if (!Objects.equals(it1.next(), it2.next())) return false;
-        }
+    public int getCount() {
+        return deque.size();
+    }
+
+    @Override
+    public boolean getIsReadOnly() {
+        return false;
+    }
+
+    @Override
+    public boolean add(T item) {
+        push(item);
         return true;
     }
 
     @Override
-    public int hashCode() {
-        int h = 1;
-        for (T item : this) {
-            h = 31 * h + Objects.hashCode(item);
+    public boolean remove(Object o) {
+        return deque.remove(o);
+    }
+
+    @Override
+    public CSharpGenericEnumerator<T> iterator() {
+        // C# Stack enumerator iterates top-to-bottom (LIFO order)
+        return CSharpGenericEnumerator.from(deque.descendingIterator());
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public CSharpStack<T> clone() {
+        try {
+            CSharpStack<T> c = (CSharpStack<T>) super.clone();
+            c.deque = new ArrayDeque<>(this.deque);
+            return c;
+        } catch (CloneNotSupportedException e) {
+            throw new InternalError();
         }
-        return h;
     }
 }

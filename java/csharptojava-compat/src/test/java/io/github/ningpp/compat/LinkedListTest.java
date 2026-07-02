@@ -2,13 +2,14 @@ package io.github.ningpp.compat;
 
 import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for LinkedListWithNodes and LinkedListNode.
+ * Tests for CSharpLinkedList and CSharpLinkedListNode.
  */
 class LinkedListTest {
 
@@ -16,50 +17,48 @@ class LinkedListTest {
 
     @Test
     void emptyList() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
-        assertEquals(0, list.size());
-        assertTrue(list.isEmpty());
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        assertEquals(0, list.getCount());
         assertNull(list.getFirst());
         assertNull(list.getLast());
     }
 
     @Test
     void addFirst_singleElement() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addFirst("a");
-        assertEquals(1, list.size());
-        assertFalse(list.isEmpty());
+        assertEquals(1, list.getCount());
         assertEquals("a", list.getFirst().getValue());
         assertEquals("a", list.getLast().getValue());
     }
 
     @Test
     void addLast_singleElement() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
-        assertEquals(1, list.size());
+        assertEquals(1, list.getCount());
         assertEquals("a", list.getFirst().getValue());
         assertEquals("a", list.getLast().getValue());
     }
 
     @Test
     void addFirst_multipleElements() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addFirst("c");
         list.addFirst("b");
         list.addFirst("a");
-        assertEquals(3, list.size());
+        assertEquals(3, list.getCount());
         assertEquals("a", list.getFirst().getValue());
         assertEquals("c", list.getLast().getValue());
     }
 
     @Test
     void addLast_multipleElements() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         list.addLast("c");
-        assertEquals(3, list.size());
+        assertEquals(3, list.getCount());
         assertEquals("a", list.getFirst().getValue());
         assertEquals("c", list.getLast().getValue());
     }
@@ -68,16 +67,16 @@ class LinkedListTest {
 
     @Test
     void add_returnsTrue() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         assertTrue(list.add("a"));
-        assertEquals(1, list.size());
+        assertEquals(1, list.getCount());
     }
 
     // ---- contains ----
 
     @Test
     void contains_existing() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         assertTrue(list.contains("a"));
@@ -86,14 +85,14 @@ class LinkedListTest {
 
     @Test
     void contains_nonExisting() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         assertFalse(list.contains("z"));
     }
 
     @Test
     void contains_null() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast((String) null);
         assertTrue(list.contains(null));
     }
@@ -102,26 +101,26 @@ class LinkedListTest {
 
     @Test
     void remove_existingValue() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         list.addLast("c");
         assertTrue(list.remove("b"));
-        assertEquals(2, list.size());
+        assertEquals(2, list.getCount());
         assertFalse(list.contains("b"));
     }
 
     @Test
     void remove_nonExistingValue() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         assertFalse(list.remove("z"));
-        assertEquals(1, list.size());
+        assertEquals(1, list.getCount());
     }
 
     @Test
     void remove_firstElement() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         assertTrue(list.remove("a"));
@@ -130,7 +129,7 @@ class LinkedListTest {
 
     @Test
     void remove_lastElement() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         assertTrue(list.remove("b"));
@@ -139,10 +138,10 @@ class LinkedListTest {
 
     @Test
     void remove_singleElement() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         assertTrue(list.remove("a"));
-        assertTrue(list.isEmpty());
+        assertEquals(0, list.getCount());
         assertNull(list.getFirst());
         assertNull(list.getLast());
     }
@@ -151,20 +150,42 @@ class LinkedListTest {
 
     @Test
     void removeNode_directly() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
-        LinkedListNode<String> nodeB = list.addLast("b");
+        CSharpLinkedListNode<String> nodeB = list.addLast("b");
         list.addLast("c");
-        assertTrue(list.remove(nodeB));
-        assertEquals(2, list.size());
+        list.remove(nodeB);
+        assertEquals(2, list.getCount());
         assertFalse(list.contains("b"));
+    }
+
+    // ---- removeFirst / removeLast ----
+
+    @Test
+    void removeFirst() {
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        list.addLast("a");
+        list.addLast("b");
+        list.removeFirst();
+        assertEquals(1, list.getCount());
+        assertEquals("b", list.getFirst().getValue());
+    }
+
+    @Test
+    void removeLast() {
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        list.addLast("a");
+        list.addLast("b");
+        list.removeLast();
+        assertEquals(1, list.getCount());
+        assertEquals("a", list.getLast().getValue());
     }
 
     // ---- Iteration ----
 
     @Test
     void iteration_correctOrder() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         list.addLast("c");
@@ -178,7 +199,7 @@ class LinkedListTest {
 
     @Test
     void iteration_emptyList() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         List<String> result = new ArrayList<>();
         for (String s : list) {
             result.add(s);
@@ -188,7 +209,7 @@ class LinkedListTest {
 
     @Test
     void iterator_throwsWhenExhausted() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         Iterator<String> it = list.iterator();
         assertEquals("a", it.next());
@@ -197,7 +218,7 @@ class LinkedListTest {
 
     @Test
     void iterator_hasNext_falseOnEmpty() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         Iterator<String> it = list.iterator();
         assertFalse(it.hasNext());
     }
@@ -206,38 +227,38 @@ class LinkedListTest {
 
     @Test
     void addAfter_middle() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
-        LinkedListNode<String> nodeA = list.getFirst();
+        CSharpLinkedListNode<String> nodeA = list.getFirst();
         list.addLast("c");
         list.addAfter(nodeA, "b");
 
         List<String> result = new ArrayList<>();
         for (String s : list) result.add(s);
         assertEquals(List.of("a", "b", "c"), result);
-        assertEquals(3, list.size());
+        assertEquals(3, list.getCount());
     }
 
     @Test
     void addAfter_last() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
-        LinkedListNode<String> nodeA = list.getFirst();
+        CSharpLinkedListNode<String> nodeA = list.getFirst();
         list.addAfter(nodeA, "b");
 
         assertEquals("b", list.getLast().getValue());
-        assertEquals(2, list.size());
+        assertEquals(2, list.getCount());
     }
 
     @Test
     void addBefore_first() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("b");
-        LinkedListNode<String> nodeB = list.getFirst();
+        CSharpLinkedListNode<String> nodeB = list.getFirst();
         list.addBefore(nodeB, "a");
 
         assertEquals("a", list.getFirst().getValue());
-        assertEquals(2, list.size());
+        assertEquals(2, list.getCount());
 
         List<String> result = new ArrayList<>();
         for (String s : list) result.add(s);
@@ -246,39 +267,39 @@ class LinkedListTest {
 
     @Test
     void addBefore_middle() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("c");
-        LinkedListNode<String> nodeC = list.getLast();
+        CSharpLinkedListNode<String> nodeC = list.getLast();
         list.addBefore(nodeC, "b");
 
         List<String> result = new ArrayList<>();
         for (String s : list) result.add(s);
         assertEquals(List.of("a", "b", "c"), result);
-        assertEquals(3, list.size());
+        assertEquals(3, list.getCount());
     }
 
     // ---- Node navigation ----
 
     @Test
     void node_getNext_getPrevious() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         list.addLast("c");
 
-        LinkedListNode<String> first = list.getFirst();
+        CSharpLinkedListNode<String> first = list.getFirst();
         assertEquals("a", first.getValue());
         assertNull(first.getPrevious());
         assertNotNull(first.getNext());
         assertEquals("b", first.getNext().getValue());
 
-        LinkedListNode<String> middle = first.getNext();
+        CSharpLinkedListNode<String> middle = first.getNext();
         assertEquals("b", middle.getValue());
         assertEquals("a", middle.getPrevious().getValue());
         assertEquals("c", middle.getNext().getValue());
 
-        LinkedListNode<String> last = list.getLast();
+        CSharpLinkedListNode<String> last = list.getLast();
         assertEquals("c", last.getValue());
         assertNull(last.getNext());
         assertNotNull(last.getPrevious());
@@ -286,9 +307,9 @@ class LinkedListTest {
 
     @Test
     void node_setValue() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
-        LinkedListNode<String> node = list.getFirst();
+        CSharpLinkedListNode<String> node = list.getFirst();
         node.setValue("modified");
         assertEquals("modified", node.getValue());
         assertEquals("modified", list.getFirst().getValue());
@@ -296,9 +317,9 @@ class LinkedListTest {
 
     @Test
     void node_getList() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
-        LinkedListNode<String> node = list.getFirst();
+        CSharpLinkedListNode<String> node = list.getFirst();
         assertSame(list, node.getList());
     }
 
@@ -306,55 +327,132 @@ class LinkedListTest {
 
     @Test
     void addFirst_node() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("b");
-        LinkedListWithNodes<String> otherList = new LinkedListWithNodes<>();
-        LinkedListNode<String> nodeA = otherList.addLast("a");
+        CSharpLinkedList<String> otherList = new CSharpLinkedList<>();
+        CSharpLinkedListNode<String> nodeA = otherList.addLast("a");
 
         list.addFirst(nodeA);
-        assertEquals(2, list.size());
+        assertEquals(2, list.getCount());
         assertEquals("a", list.getFirst().getValue());
         // node should be removed from otherList
-        assertEquals(0, otherList.size());
+        assertEquals(0, otherList.getCount());
     }
 
     @Test
     void addLast_node() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
-        LinkedListWithNodes<String> otherList = new LinkedListWithNodes<>();
-        LinkedListNode<String> nodeB = otherList.addLast("b");
+        CSharpLinkedList<String> otherList = new CSharpLinkedList<>();
+        CSharpLinkedListNode<String> nodeB = otherList.addLast("b");
 
         list.addLast(nodeB);
-        assertEquals(2, list.size());
+        assertEquals(2, list.getCount());
         assertEquals("b", list.getLast().getValue());
-        assertEquals(0, otherList.size());
+        assertEquals(0, otherList.getCount());
     }
 
     // ---- clear ----
 
     @Test
     void clear() {
-        LinkedListWithNodes<String> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
         list.addLast("a");
         list.addLast("b");
         list.clear();
-        assertTrue(list.isEmpty());
-        assertEquals(0, list.size());
+        assertEquals(0, list.getCount());
         assertNull(list.getFirst());
         assertNull(list.getLast());
+    }
+
+    // ---- find / findLast ----
+
+    @Test
+    void find_existing() {
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        list.addLast("a");
+        list.addLast("b");
+        list.addLast("b");
+        CSharpLinkedListNode<String> found = list.find("b");
+        assertNotNull(found);
+        assertEquals("b", found.getValue());
+        // find returns first occurrence
+        assertEquals("a", found.getPrevious().getValue());
+    }
+
+    @Test
+    void find_nonExisting() {
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        list.addLast("a");
+        assertNull(list.find("z"));
+    }
+
+    @Test
+    void findLast_existing() {
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        list.addLast("b");
+        list.addLast("a");
+        list.addLast("b");
+        CSharpLinkedListNode<String> found = list.findLast("b");
+        assertNotNull(found);
+        assertEquals("b", found.getValue());
+        // findLast returns last occurrence
+        assertEquals("a", found.getPrevious().getValue());
+    }
+
+    // ---- copyTo ----
+
+    @Test
+    void copyTo() {
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        list.addLast("a");
+        list.addLast("b");
+        list.addLast("c");
+        String[] arr = new String[5];
+        list.copyTo(arr, 1);
+        assertNull(arr[0]);
+        assertEquals("a", arr[1]);
+        assertEquals("b", arr[2]);
+        assertEquals("c", arr[3]);
+        assertNull(arr[4]);
+    }
+
+    // ---- clone ----
+
+    @Test
+    void clone_createsCopy() {
+        CSharpLinkedList<String> list = new CSharpLinkedList<>();
+        list.addLast("a");
+        list.addLast("b");
+        CSharpLinkedList<String> cloned = list.clone();
+        assertEquals(2, cloned.getCount());
+        assertEquals("a", cloned.getFirst().getValue());
+        // Modifying clone should not affect original
+        cloned.remove("a");
+        assertEquals(2, list.getCount());
+    }
+
+    // ---- collection constructor ----
+
+    @Test
+    void collectionConstructor() {
+        Collection<String> c = List.of("a", "b", "c");
+        CSharpLinkedList<String> list = new CSharpLinkedList<>(c);
+        assertEquals(3, list.getCount());
+        assertEquals("a", list.getFirst().getValue());
+        assertEquals("c", list.getLast().getValue());
     }
 
     // ---- Generic with Integer ----
 
     @Test
     void integerLinkedList() {
-        LinkedListWithNodes<Integer> list = new LinkedListWithNodes<>();
+        CSharpLinkedList<Integer> list = new CSharpLinkedList<>();
         list.addLast(1);
         list.addLast(2);
         list.addLast(3);
         assertTrue(list.contains(2));
         assertFalse(list.contains(4));
-        assertEquals(3, list.size());
+        assertEquals(3, list.getCount());
     }
 }
