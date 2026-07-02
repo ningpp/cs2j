@@ -4,33 +4,30 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.Collections;
-import java.util.Iterator;
 import org.junit.jupiter.api.Test;
 
 class CSharpCollectionTest {
     @Test
-    void derivedCollectionCanExtendRawIterableBase() {
+    void derivedCollectionCanImplementCSharpCollection() {
         DerivedCollection collection = new DerivedCollection();
 
         assertEquals(0, collection.size());
         assertSame(collection, collection.getSyncRoot());
     }
 
-    static class RawIterableBase implements Iterable {
-        @Override
-        public Iterator iterator() {
-            return Collections.emptyIterator();
-        }
-    }
-
-    static class DerivedCollection extends RawIterableBase implements CSharpCollection {
+    static class DerivedCollection implements CSharpCollection {
         @Override
         public int size() {
             return 0;
         }
 
         @Override
-        public void copyTo(CSharpArray array, int index) {
+        public CSharpEnumerator iterator() {
+            return CSharpEnumerator.from(Collections.emptyList().iterator());
+        }
+
+        @Override
+        public void copyTo(Object[] array, int index) {
         }
 
         @Override

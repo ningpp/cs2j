@@ -65,4 +65,11 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         CSharpValueCollection(java.util.Collection<Object> values) { this.values = values; }
         @Override public int size() { return values.size(); }
         @Override public int getCount() { return values.size(); }
-        @Override public void copyTo
+        @Override public void copyTo(Object[] array, int index) {
+            int i = index; for (Object v : values) array[i++] = v;
+        }
+        @Override public boolean getIsSynchronized() { return false; }
+        @Override public Object getSyncRoot() { return syncRoot; }
+        @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(values.iterator()); }
+    }
+}

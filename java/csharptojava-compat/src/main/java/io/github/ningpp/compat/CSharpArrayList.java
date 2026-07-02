@@ -41,7 +41,9 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     public int getCapacity() { return -1; } // ArrayList doesn't expose capacity
     public void setCapacity(int value) { list.ensureCapacity(value); }
     public void addRange(Collection<?> c) { list.addAll(c); }
-    public int binarySearch(Object value) { return Collections.binarySearch(list, value); }
+    public int binarySearch(Object value) {
+        return Collections.binarySearch(list, value, (a, b) -> CSharpDefaultComparer.getDefault().compare(a, b));
+    }
     public int binarySearch(Object value, Comparator<?> comparer) { return Collections.binarySearch(list, value, (Comparator<Object>) comparer); }
     public CSharpArrayList getRange(int index, int count) {
         CSharpArrayList result = new CSharpArrayList(list.subList(index, index + count));

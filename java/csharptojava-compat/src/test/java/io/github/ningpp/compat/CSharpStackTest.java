@@ -252,7 +252,7 @@ class CSharpStackTest {
         s.push("A");
         s.push("B");
         s.push("C");
-        CSharpEnumerator<String> e = s.getEnumerator();
+        CSharpEnumerator e = s.getEnumerator();
         assertTrue(e.moveNext());
         assertEquals("C", e.getCurrent());
         assertTrue(e.moveNext());
