@@ -1,0 +1,75 @@
+[
+  {
+    "type": "System.Collections.Comparer",
+    "constants": [
+      {
+        "name": "Default",
+        "kind": "static readonly",
+        "type": "System.Collections.Comparer",
+        "value": "System.Collections.Comparer instance"
+      },
+      {
+        "name": "DefaultInvariant",
+        "kind": "static readonly",
+        "type": "System.Collections.Comparer",
+        "value": "System.Collections.Comparer instance"
+      }
+    ]
+  },
+  {
+    "type": "System.Collections.CaseInsensitiveComparer",
+    "constants": [
+      {
+        "name": "Default",
+        "kind": "static property",
+        "type": "System.Collections.CaseInsensitiveComparer",
+        "value": "System.Collections.CaseInsensitiveComparer instance"
+      },
+      {
+        "name": "DefaultInvariant",
+        "kind": "static property",
+        "type": "System.Collections.CaseInsensitiveComparer",
+        "value": "System.Collections.CaseInsensitiveComparer instance"
+      }
+    ]
+  },
+  {
+    "type": "System.Collections.StructuralComparisons",
+    "constants": [
+      {
+        "name": "StructuralComparer",
+        "kind": "static property",
+        "type": "System.Collections.IComparer",
+        "value": "System.Collections.StructuralComparer instance"
+      },
+      {
+        "name": "StructuralEqualityComparer",
+        "kind": "static property",
+        "type": "System.Collections.IEqualityComparer",
+        "value": "System.Collections.StructuralEqualityComparer instance"
+      }
+    ]
+  },
+  {
+    "type": "System.Collections.Generic.Comparer\u003Cstring\u003E",
+    "constants": [
+      {
+        "name": "Default",
+        "kind": "static property",
+        "type": "System.Collections.Generic.Comparer\u003Cstring\u003E",
+        "value": "System.Collections.Generic.GenericComparer\u003Cstring\u003E instance"
+      }
+    ]
+  },
+  {
+    "type": "System.Collections.Generic.EqualityComparer\u003Cstring\u003E",
+    "constants": [
+      {
+        "name": "Default",
+        "kind": "static property",
+        "type": "System.Collections.Generic.EqualityComparer\u003Cstring\u003E",
+        "value": "System.Collections.Generic.StringEqualityComparer instance"
+      }
+    ]
+  }
+]
