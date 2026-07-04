@@ -1009,7 +1009,7 @@ unsafe class Test {
     }
 
     [Fact]
-    public void FixedPointer_SameVarNameTwice_NoDuplicateDeclaration()
+    public void FixedPointer_SameVarNameTwice_BlockScopedDeclarations()
     {
         var result = Convert(@"
 unsafe class Test {
@@ -1019,12 +1019,14 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        // First occurrence should have "MemorySegment p = __base"
-        // Second occurrence should have assignment only: "p = __base" without "MemorySegment" prefix
+        // Each fixed block should emit its own "MemorySegment p = __base" declaration
+        // because each is wrapped in its own { } block scope, so no dedup rename occurs.
         var firstIdx = result.GeneratedCode.IndexOf("MemorySegment p = __base");
         Assert.True(firstIdx >= 0, $"First 'MemorySegment p = __base' not found in:\n{result.GeneratedCode}");
         var secondIdx = result.GeneratedCode.IndexOf("MemorySegment p = __base", firstIdx + 1);
-        Assert.True(secondIdx < 0, $"Duplicate 'MemorySegment p = __base' declaration found — second fixed block should use assignment only:\n{result.GeneratedCode}");
+        Assert.True(secondIdx >= 0, $"Second 'MemorySegment p = __base' not found — each fixed block should have its own block scope:\n{result.GeneratedCode}");
+        // There should NOT be any p_1 renamed variable
+        Assert.DoesNotContain("p_1", result.GeneratedCode);
     }
 
     private static ConversionResult Convert(string sourceCode)

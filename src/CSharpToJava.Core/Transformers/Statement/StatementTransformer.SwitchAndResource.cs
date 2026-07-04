@@ -1097,7 +1097,6 @@ public partial class StatementTransformer
             var varName = declarator.Identifier.Text;
             var info = FfmHelper.CreatePointerInfo(varName, elementTypeName);
             pointerInfos.Add(info);
-            var alreadyDeclared = context.IsPointerVarDeclared(varName);
 
             bool isNull = declarator.Initializer?.Value is LiteralExpressionSyntax lit && lit.Token.IsKind(SyntaxKind.NullKeyword);
             bool isString = false;
@@ -1116,13 +1115,12 @@ public partial class StatementTransformer
                     {
                         var arrayExpr = ExpressionTransformerFacade.Instance.Transform(elemAccess.Expression, context);
                         var indexExpr = ExpressionTransformerFacade.Instance.Transform(elemAccess.ArgumentList.Arguments[0].Expression, context);
-                        var decl = alreadyDeclared ? "" : "MemorySegment ";
                         // If index is 0, wrap the entire array
                         if (indexExpr.Trim() == "0")
                         {
                             var baseVar = context.GenerateSyntheticName("__base");
                             sb.AppendLine($"MemorySegment {baseVar} = MemorySegment.ofArray({arrayExpr});");
-                            sb.AppendLine($"{decl}{varName} = {baseVar};");
+                            sb.AppendLine($"MemorySegment {varName} = {baseVar};");
                             context.RegisterPointerBase(varName, baseVar);
                         }
                         else
@@ -1133,7 +1131,7 @@ public partial class StatementTransformer
                                 : $"(long)({indexExpr}) * {info.ElementSize}";
                             var baseVar = context.GenerateSyntheticName("__base");
                             sb.AppendLine($"MemorySegment {baseVar} = MemorySegment.ofArray({arrayExpr});");
-                            sb.AppendLine($"{decl}{varName} = {baseVar}.asSlice({offsetCalc});");
+                            sb.AppendLine($"MemorySegment {varName} = {baseVar}.asSlice({offsetCalc});");
                             context.RegisterPointerBase(varName, baseVar);
                         }
                     }
@@ -1141,8 +1139,7 @@ public partial class StatementTransformer
                     {
                         var operandExpr = ExpressionTransformerFacade.Instance.Transform(addrOf.Operand, context);
                         var arrayType = FfmHelper.GetScratchArrayType(info.CSharpElementTypeName);
-                        var decl = alreadyDeclared ? "" : "MemorySegment ";
-                        sb.AppendLine($"{decl}{varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
+                        sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
                     }
                 }
                 else
@@ -1151,16 +1148,14 @@ public partial class StatementTransformer
                     var initType = context.GetTypeInfo(initValue).Type;
                     isString = initType?.SpecialType == SpecialType.System_String;
                     var baseVar = context.GenerateSyntheticName("__base");
-                    sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, baseVar, alreadyDeclared));
+                    sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, baseVar));
                     context.RegisterPointerBase(varName, baseVar);
                 }
             }
             else
             {
-                sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, alreadyDeclared: alreadyDeclared));
+                sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull));
             }
-
-            context.MarkPointerVarDeclared(varName);
         }
 
         var imports = FfmHelper.GetRequiredImports(false);
@@ -1169,13 +1164,32 @@ public partial class StatementTransformer
 
         context.PushFixedScope(pointerInfos);
 
-        var body = stmt.Statement is BlockSyntax block
-            ? TransformBlock(block, context)
-            : Transform(stmt.Statement, context).ToString("");
+        // Build a structured JavaBlockStatement so the VariableNameDeduplicationRewriter
+        // can properly track scope boundaries.  The variable declarations (MemorySegment __baseN / p)
+        // go into the block's statement list, and the body statements are added as children.
+        var blockResult = new Java.JavaBlockStatement();
+        blockResult.Statements.Add(new Java.JavaRawStatement(sb.ToString().TrimEnd('\n', '\r')));
+
+        if (stmt.Statement is BlockSyntax innerBlock)
+        {
+            context.MethodState.PushScope();
+            var bodyStmts = TransformStatementsToIR(innerBlock.Statements, context);
+            context.MethodState.PopScope();
+            foreach (var s in bodyStmts)
+                blockResult.Statements.Add(s);
+        }
+        else
+        {
+            var singleStmt = Transform(stmt.Statement, context);
+            if (singleStmt is Java.JavaStatement javaStmt)
+                blockResult.Statements.Add(javaStmt);
+            else
+                blockResult.Statements.Add(new Java.JavaRawStatement(singleStmt.ToString("")));
+        }
 
         context.PopFixedScope();
 
-        return new JavaStatementNode(sb.ToString() + body);
+        return blockResult;
     }
 
     private JavaSyntaxNode TransformUnsafeStatement(UnsafeStatementSyntax stmt, ConversionContext context)

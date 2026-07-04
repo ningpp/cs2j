@@ -229,20 +229,19 @@ public static class FfmHelper
         return $"{segmentExpr}.asSlice((long)({offsetExpr}) * {info.ElementSize})";
     }
 
-    public static string GenerateMemorySegmentInit(string variableName, string initializerExpr, FixedPointerInfo info, bool isString, bool isNull, string? baseVarName = null, bool alreadyDeclared = false)
+    public static string GenerateMemorySegmentInit(string variableName, string initializerExpr, FixedPointerInfo info, bool isString, bool isNull, string? baseVarName = null)
     {
-        var decl = alreadyDeclared ? "" : "MemorySegment ";
         if (isNull)
-            return $"{decl}{variableName} = MemorySegment.NULL;";
+            return $"MemorySegment {variableName} = MemorySegment.NULL;";
         if (isString)
         {
             if (baseVarName != null)
-                return $"MemorySegment {baseVarName} = MemorySegment.ofArray({initializerExpr}.toCharArray());\n{decl}{variableName} = {baseVarName};";
-            return $"{decl}{variableName} = MemorySegment.ofArray({initializerExpr}.toCharArray());";
+                return $"MemorySegment {baseVarName} = MemorySegment.ofArray({initializerExpr}.toCharArray());\nMemorySegment {variableName} = {baseVarName};";
+            return $"MemorySegment {variableName} = MemorySegment.ofArray({initializerExpr}.toCharArray());";
         }
         if (baseVarName != null)
-            return $"MemorySegment {baseVarName} = MemorySegment.ofArray({initializerExpr});\n{decl}{variableName} = {baseVarName};";
-        return $"{decl}{variableName} = MemorySegment.ofArray({initializerExpr});";
+            return $"MemorySegment {baseVarName} = MemorySegment.ofArray({initializerExpr});\nMemorySegment {variableName} = {baseVarName};";
+        return $"MemorySegment {variableName} = MemorySegment.ofArray({initializerExpr});";
     }
 
     public static string[] GetRequiredImports(bool usesArena)

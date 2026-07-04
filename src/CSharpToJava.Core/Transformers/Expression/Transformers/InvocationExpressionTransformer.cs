@@ -1502,6 +1502,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var boxedReceiver = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
             var mappedMethod  = MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, originalMethodName);
             var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            // char.ConvertFromUtf32 returns string in C# but Character.toChars returns char[] in Java.
+            // Wrap with new String(...) to match the C# return type.
+            if (primTypeSyntax.Keyword.Text == "char" && originalMethodName == "ConvertFromUtf32")
+                return $"new String({boxedReceiver}.{mappedMethod}({primArgs}))";
             return $"{boxedReceiver}.{mappedMethod}({primArgs})";
         }
 
@@ -2705,6 +2709,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
                     else
                     {
+                        // char.ConvertFromUtf32 returns string in C# but Character.toChars returns char[].
+                        if (primitiveForAlias == "char" && originalMethodName == "ConvertFromUtf32")
+                        {
+                            var aliasArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                            return $"new String({ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias)}.{aliasMethod}({aliasArgs}))";
+                        }
                         methodName = aliasMethod;
                         receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias);
                     }
@@ -3032,6 +3042,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
                     else
                     {
+                        // char.ConvertFromUtf32 returns string in C# but Character.toChars returns char[].
+                        if (primKeywordForMethod == "char" && originalMethodName == "ConvertFromUtf32")
+                        {
+                            var wrappedArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                            return $"new String({ExpressionTransformerHelpers.BoxJavaPrimitiveType(primKeywordForMethod)}.{primMethodMapped}({wrappedArgs}))";
+                        }
                         methodName = primMethodMapped;
                         receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primKeywordForMethod);
                     }
