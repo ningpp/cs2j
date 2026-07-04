@@ -851,7 +851,7 @@ public class Program
                 return 1;
             }
 
-            // 分析项目
+            // Analyze project
             var csFiles = Directory.GetFiles(opts.Source, "*.cs", SearchOption.AllDirectories);
 
             var typeUsage = new Dictionary<string, HashSet<string>>();
@@ -868,7 +868,7 @@ public class Program
                     var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
                     var root = tree.GetRoot();
 
-                    // 收集类型使用
+                    // Collect type usage
                     var typeNames = root.DescendantNodes()
                         .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeSyntax>()
                         .Select(t => t.ToString())

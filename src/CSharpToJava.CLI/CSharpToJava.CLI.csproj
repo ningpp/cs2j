@@ -27,6 +27,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
+
+  <Target Name="RemoveNonEnglishSatelliteAssemblies" AfterTargets="Build">
+    <Exec Command="powershell -NoProfile -Command &quot;Get-ChildItem -Path '$(OutputPath)' -Directory -Recurse | Where-Object { $_.Name -match '^[a-z]{2}(-[A-Z]{2})?$' -and $_.Name -ne 'en' -and $_.Name -ne 'bin' -and $_.Name -ne 'obj' -and $_.Name -ne 'ref' } | Remove-Item -Recurse -Force&quot;" />
+  </Target>
 
 </Project>
