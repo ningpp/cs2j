@@ -4204,7 +4204,7 @@
             "csharp": "System.Uri",
             "java": "Uri",
             "imports": [
-                "io.github.ningpp.compat.Uri"
+                "dotnet.system.Uri"
             ]
         },
         {
@@ -4218,7 +4218,7 @@
             "csharp": "System.UriFormatException",
             "java": "UriFormatException",
             "imports": [
-                "io.github.ningpp.compat.UriFormatException"
+                "dotnet.system.UriFormatException"
             ]
         },
         {
@@ -4260,7 +4260,7 @@
             "csharp": "System.UriKind",
             "java": "UriKind",
             "imports": [
-                "io.github.ningpp.compat.UriKind"
+                "dotnet.system.UriKind"
             ]
         },
         {

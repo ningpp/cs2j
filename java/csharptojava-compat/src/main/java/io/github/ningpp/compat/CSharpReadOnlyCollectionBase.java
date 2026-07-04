@@ -33,9 +33,9 @@ public abstract class CSharpReadOnlyCollectionBase implements CSharpCollection {
     }
 
     @Override
-    public void copyTo(Object[] array, int index) {
+    public void copyTo(CSharpArray array, int index) {
         for (int i = 0; i < innerList.size(); i++) {
-            array[index + i] = innerList.get(i);
+            array.setValue(innerList.get(i), index + i);
         }
     }
 

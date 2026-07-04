@@ -97,7 +97,7 @@ public abstract class CSharpDictionaryBase implements CSharpIDictionary {
     }
 
     @Override
-    public void copyTo(Object[] array, int index) {
+    public void copyTo(CSharpArray array, int index) {
         innerHashtable.copyTo(array, index);
     }
 

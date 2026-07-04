@@ -4,7 +4,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 public interface CSharpEnumerator extends Iterator<Object> {
-    static CSharpEnumerator from(Iterator<Object> iterator) {
+    static CSharpEnumerator from(Iterator<?> iterator) {
         return new IteratorBackedCSharpEnumerator(iterator);
     }
 
@@ -16,11 +16,11 @@ public interface CSharpEnumerator extends Iterator<Object> {
     }
 
     final class IteratorBackedCSharpEnumerator implements CSharpEnumerator {
-        private final Iterator<Object> iterator;
+        private final Iterator<?> iterator;
         private Object current;
         private boolean hasCurrent;
 
-        IteratorBackedCSharpEnumerator(Iterator<Object> iterator) {
+        IteratorBackedCSharpEnumerator(Iterator<?> iterator) {
             this.iterator = iterator;
         }
 

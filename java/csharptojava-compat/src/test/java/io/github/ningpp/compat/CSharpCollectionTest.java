@@ -27,7 +27,7 @@ class CSharpCollectionTest {
         }
 
         @Override
-        public void copyTo(Object[] array, int index) {
+        public void copyTo(CSharpArray array, int index) {
         }
 
         @Override

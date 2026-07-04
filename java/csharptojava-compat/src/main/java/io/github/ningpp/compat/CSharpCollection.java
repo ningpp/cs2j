@@ -4,7 +4,11 @@ public interface CSharpCollection extends CSharpIterable {
     default int size() { return getCount(); }
     default int getCount() { return size(); }
 
-    void copyTo(Object[] array, int index);
+    void copyTo(CSharpArray array, int index);
+
+    default void copyTo(Object[] array, int index) {
+        copyTo(CSharpArray.of(array), index);
+    }
 
     boolean getIsSynchronized();
     Object getSyncRoot();

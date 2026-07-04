@@ -1,46 +1,30 @@
-# XML Error Analysis
+# XML Project Compilation Error Analysis
 
-## Iteration 1 — DateTimeKind→int 类型不匹配
+## Error Summary (66 total errors → 0 after fixes)
 
-- **Java 文件**: ReadContentAs.Tests/src/test/java/dotnet/xml/Tests/DateTimeAttributeTests.java
-- **行号**: 41
-- **错误信息**: 不兼容的类型: io.github.ningpp.compat.DateTimeKind无法转换为int
-- **代码片段**:
-  ```java
-  Assert.equal(new CSharpDateTime(CSharpDateTime.getNow().getYear(), CSharpDateTime.getNow().getMonth(), CSharpDateTime.getNow().getDay(), 0, 0, 0, DateTimeKind.Utc).toLocalTime(), (CSharpDateTime)(reader.readContentAs(CSharpDateTime.class, null)));
-  ```
-- **对应 C# 文件**: Tests/ReadContentAs/ReadAsDateTimeAttributeTests.cs
-- **根因分类**: Transformer
-- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs
-- **分析**: C# 的 `new DateTime(year, month, day, hour, minute, second, DateTimeKind.Utc)` 7参数构造函数在Java侧没有对应版本。CSharpDateTime只有6参数(无DateTimeKind)和8参数(含millisecond+DateTimeKind)构造函数。转换器直接透传参数，未做构造函数重载适配。
-- **状态**: ✅ Fixed — ObjectCreationTransformer 添加了7参数→8参数转换逻辑（插入millisecond=0）
+| Category | Count | Root Cause | Fix |
+|----------|-------|------------|-----|
+| Uri missing methods/constructors | ~34 | TypeMappings: System.Uri → io.github.ningpp.compat.Uri (stub) | Redirected to dotnet.system.Uri |
+| CSharpDictionary(SecureStringHasher) constructor | 6 | Old compat JAR didn't have CSharpDictionary(CSharpGenericEqualityComparer) | Rebuilt JAR with updated source |
+| CSharpDictionary(int, CSharpGenericEqualityComparer<Uri>) constructor | 2 | Same as above | Same |
+| CSharpDictionary.keySet() missing | 2 | CSharpDictionary didn't expose keySet() from wrapped map | Added keySet(), values(), entrySet() |
+| Iterator<Match> → Iterator<Object> incompatible | 4 | CSharpEnumerator.from(Iterator<Object>) too restrictive | Changed to Iterator<?> wildcard |
+| CSharpList(CSharpList<>) constructor | 2 | Old JAR had CSharpList not extending ArrayList | Rebuilt JAR with updated source |
+| Arrays.sort with CSharpGenericComparer | 2 | Old JAR had CSharpComparer not extending Comparator | Rebuilt JAR with updated source |
+| CSharpGenericComparer → Comparator cast | 2 | Same as above | Same |
+| XmlAttributeCollection abstract copyTo(Object[],int) | 2 | CSharpCollection.copyTo signature mismatch with generated code | Changed abstract method to copyTo(CSharpArray,int) with default bridge |
+| Set<Uri> → CSharpGenericIterable incompatible | 2 | CSharpDictionary.keySet() returns Set, not CSharpGenericIterable | Added CSharpGenericIterableSet wrapper class |
 
-## Iteration 1 — Decimal 类缺失
+## Iteration 1 — TypeMappings Uri + Compat Library Fixes
 
-- **Java 文件**: ReadContentAs.Tests/src/test/java/dotnet/xml/Tests/DecimalAttributeTests.java
-- **行号**: 18
-- **错误信息**: 找不到符号 - 类 Decimal, 位置: 程序包 dotnet.system
-- **代码片段**:
-  ```java
-  Assert.equal((Decimal)reader.readContentAs(typeof(Decimal), null), (Decimal)reader.readContentAsObj());
-  ```
-- **对应 C# 文件**: Tests/ReadContentAs/ReadAsDecimalAttributeTests.cs
-- **根因分类**: 语义丢失
-- **涉及组件**: src/CSharpToJava.Core/Context/ConversionContext.cs (QualifyMappedTypeIfCurrentTypeNameCollides)
-- **分析**: TypeMappings.json 已配置 System.Decimal→Decimal(io.github.ningpp.compat.Decimal)，但 QualifyMappedTypeIfCurrentTypeNameCollides 方法缺少 HasConfiguredTypeMapping 守卫，导致类型名碰撞时用命名空间兜底映射(dotnet.system)替代了显式映射。实际根因在 TypeMappingService.QualifyTypeReferenceIfNeeded 缺少 HasConfiguredTypeMapping 守卫。
-- **状态**: ✅ Fixed — TypeMappingService 和 ConversionContext 均添加了 HasConfiguredTypeMapping 守卫
+### Fixes Applied:
+1. **TypeMappings.json**: System.Uri → dotnet.system.Uri, System.UriFormatException → dotnet.system.UriFormatException, System.UriKind → dotnet.system.UriKind
+2. **CSharpEnumerator**: Changed `from(Iterator<Object>)` to `from(Iterator<?>)` for wildcard compatibility
+3. **CSharpCollection**: Changed abstract `copyTo(Object[],int)` to `copyTo(CSharpArray,int)` with default `copyTo(Object[],int)` bridge
+4. **CSharpDictionary**: Added `keySet()` returning `CSharpGenericIterableSet<K>`, `values()`, `entrySet()` delegate methods
+5. **CSharpGenericIterableSet**: New class extending AbstractSet and implementing CSharpGenericIterable
+6. **CSharpArrayList, CSharpCollectionBase, CSharpReadOnlyCollectionBase, CSharpHashtable, CSharpObjSortedList, CSharpDictionaryBase**: Updated `copyTo(Object[],int)` → `copyTo(CSharpArray,int)` implementations
+7. **CSharpList**: Renamed `ensureCapacity` → `ensureCapacityCSharp` to avoid clash with ArrayList.ensureCapacity
+8. **CSharpCollectionTest**: Updated test to use new `copyTo(CSharpArray,int)` signature
 
-## Iteration 1 — CSharpDateTimeOffset.addTicks 缺失
-
-- **Java 文件**: ReadContentAs.Tests/src/test/java/dotnet/xml/Tests/ExtendedDateTimeElementContentTests.java
-- **行号**: 32
-- **错误信息**: 找不到符号 - 方法 addTicks(long), 位置: 类 io.github.ningpp.compat.CSharpDateTimeOffset
-- **代码片段**:
-  ```java
-  Assert.equal(new CSharpDateTimeOffset(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc).addTicks(ticks), ...);
-  ```
-- **对应 C# 文件**: Tests/ReadContentAs/ReadAsExtendedDateTimeElementContentTests.cs
-- **根因分类**: 类型映射缺失
-- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpDateTimeOffset.java
-- **分析**: CSharpDateTimeOffset 缺少 addTicks(long) 方法，CSharpDateTime 已有此方法。需要在 compat 库中添加。
-- **状态**: ✅ Fixed — CSharpDateTimeOffset 添加了 addTicks(long) 方法和 DateTimeKind 构造函数
+### Result: BUILD SUCCESS ✅

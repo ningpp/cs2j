@@ -26,6 +26,16 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         this.comparer = null;
     }
 
+    public CSharpDictionary(CSharpGenericEqualityComparer<K> comparer) {
+        this.map = new LinkedHashMap<>();
+        this.comparer = comparer;
+    }
+
+    public CSharpDictionary(int capacity, CSharpGenericEqualityComparer<K> comparer) {
+        this.map = new LinkedHashMap<>(capacity);
+        this.comparer = comparer;
+    }
+
     // CSharpGenericIDictionary / CSharpICollection methods
 
     @Override
@@ -129,6 +139,18 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     // Dictionary-specific methods
+
+    public CSharpGenericIterableSet<K> keySet() {
+        return new CSharpGenericIterableSet<>(map.keySet());
+    }
+
+    public java.util.Collection<V> values() {
+        return map.values();
+    }
+
+    public java.util.Set<Map.Entry<K, V>> entrySet() {
+        return map.entrySet();
+    }
 
     public boolean tryAdd(K key, V value) {
         if (map.containsKey(key)) {

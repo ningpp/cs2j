@@ -3,61 +3,38 @@ package io.github.ningpp.compat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
-    private final ArrayList<T> list;
+public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>, Cloneable {
 
     public CSharpList() {
-        this.list = new ArrayList<>();
+        super();
     }
 
     public CSharpList(int capacity) {
-        this.list = new ArrayList<>(capacity);
+        super(capacity);
     }
 
     public CSharpList(Collection<? extends T> c) {
-        this.list = new ArrayList<>(c);
+        super(c);
     }
 
     // CSharpGenericIList / CSharpICollection methods
 
     @Override
-    public boolean add(T item) {
-        list.add(item);
-        return true;
-    }
-
-    @Override
-    public void clear() {
-        list.clear();
-    }
-
-    @Override
-    public boolean contains(Object o) {
-        return list.contains(o);
-    }
-
-    @Override
     public void copyTo(T[] array, int arrayIndex) {
-        for (int i = 0; i < list.size(); i++) {
-            array[arrayIndex + i] = list.get(i);
+        for (int i = 0; i < size(); i++) {
+            array[arrayIndex + i] = get(i);
         }
     }
 
     @Override
-    public boolean remove(Object o) {
-        return list.remove(o);
-    }
-
-    @Override
     public int getCount() {
-        return list.size();
+        return size();
     }
 
     @Override
@@ -66,39 +43,24 @@ public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
     }
 
     @Override
-    public int indexOf(Object o) {
-        return list.indexOf(o);
-    }
-
-    @Override
     public void insert(int index, T item) {
-        list.add(index, item);
+        add(index, item);
     }
 
     @Override
     public void removeAt(int index) {
-        list.remove(index);
-    }
-
-    @Override
-    public T get(int index) {
-        return list.get(index);
-    }
-
-    @Override
-    public T set(int index, T value) {
-        return list.set(index, value);
+        remove(index);
     }
 
     @Override
     public CSharpGenericEnumerator<T> iterator() {
-        return CSharpGenericEnumerator.from(list.iterator());
+        return CSharpGenericEnumerator.from(super.iterator());
     }
 
     // List-specific methods
 
     public void addRange(Collection<? extends T> c) {
-        list.addAll(c);
+        addAll(c);
     }
 
     public CSharpReadOnlyList<T> asReadOnly() {
@@ -123,7 +85,7 @@ public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
     }
 
     public int binarySearch(T item) {
-        return Collections.binarySearch(list, item, (a, b) -> {
+        return Collections.binarySearch(this, item, (a, b) -> {
             @SuppressWarnings("unchecked")
             Comparable<Object> ca = (Comparable<Object>) a;
             return ca.compareTo(b);
@@ -131,28 +93,28 @@ public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
     }
 
     public int binarySearch(T item, CSharpGenericComparer<T> comparer) {
-        return Collections.binarySearch(list, item, (a, b) -> comparer.compare(a, b));
+        return Collections.binarySearch(this, item, (a, b) -> comparer.compare(a, b));
     }
 
     public int binarySearch(int index, int count, T item, CSharpGenericComparer<T> comparer) {
-        List<T> subList = list.subList(index, index + count);
+        List<T> subList = subList(index, index + count);
         return Collections.binarySearch(subList, item, (a, b) -> comparer.compare(a, b)) + index;
     }
 
-    public int ensureCapacity(int minCapacity) {
-        list.ensureCapacity(minCapacity);
+    public int ensureCapacityCSharp(int minCapacity) {
+        super.ensureCapacity(minCapacity);
         return getCapacity();
     }
 
     public boolean exists(Predicate<? super T> match) {
-        for (T item : list) {
+        for (T item : this) {
             if (match.test(item)) return true;
         }
         return false;
     }
 
     public T find(Predicate<? super T> match) {
-        for (T item : list) {
+        for (T item : this) {
             if (match.test(item)) return item;
         }
         return null;
@@ -160,67 +122,67 @@ public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
 
     public CSharpList<T> findAll(Predicate<? super T> match) {
         CSharpList<T> result = new CSharpList<>();
-        for (T item : list) {
+        for (T item : this) {
             if (match.test(item)) result.add(item);
         }
         return result;
     }
 
     public int findIndex(Predicate<? super T> match) {
-        for (int i = 0; i < list.size(); i++) {
-            if (match.test(list.get(i))) return i;
+        for (int i = 0; i < size(); i++) {
+            if (match.test(get(i))) return i;
         }
         return -1;
     }
 
     public int findIndex(int startIndex, Predicate<? super T> match) {
-        for (int i = startIndex; i < list.size(); i++) {
-            if (match.test(list.get(i))) return i;
+        for (int i = startIndex; i < size(); i++) {
+            if (match.test(get(i))) return i;
         }
         return -1;
     }
 
     public int findIndex(int startIndex, int count, Predicate<? super T> match) {
         int end = startIndex + count;
-        for (int i = startIndex; i < end && i < list.size(); i++) {
-            if (match.test(list.get(i))) return i;
+        for (int i = startIndex; i < end && i < size(); i++) {
+            if (match.test(get(i))) return i;
         }
         return -1;
     }
 
     public T findLast(Predicate<? super T> match) {
-        for (int i = list.size() - 1; i >= 0; i--) {
-            if (match.test(list.get(i))) return list.get(i);
+        for (int i = size() - 1; i >= 0; i--) {
+            if (match.test(get(i))) return get(i);
         }
         return null;
     }
 
     public int findLastIndex(Predicate<? super T> match) {
-        for (int i = list.size() - 1; i >= 0; i--) {
-            if (match.test(list.get(i))) return i;
+        for (int i = size() - 1; i >= 0; i--) {
+            if (match.test(get(i))) return i;
         }
         return -1;
     }
 
     public void forEach(Consumer<? super T> action) {
-        list.forEach(action);
+        super.forEach(action);
     }
 
     public CSharpList<T> getRange(int index, int count) {
-        return new CSharpList<>(list.subList(index, index + count));
+        return new CSharpList<>(subList(index, index + count));
     }
 
     public int indexOf(Object o, int start) {
-        for (int i = start; i < list.size(); i++) {
-            if (Objects.equals(list.get(i), o)) return i;
+        for (int i = start; i < size(); i++) {
+            if (Objects.equals(get(i), o)) return i;
         }
         return -1;
     }
 
     public int indexOf(Object o, int start, int count) {
-        int end = Math.min(start + count, list.size());
+        int end = Math.min(start + count, size());
         for (int i = start; i < end; i++) {
-            if (Objects.equals(list.get(i), o)) return i;
+            if (Objects.equals(get(i), o)) return i;
         }
         return -1;
     }
@@ -228,17 +190,13 @@ public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
     public void insertRange(int index, Collection<? extends T> c) {
         int i = index;
         for (T item : c) {
-            list.add(i++, item);
+            add(i++, item);
         }
-    }
-
-    public int lastIndexOf(Object o) {
-        return list.lastIndexOf(o);
     }
 
     public int removeAllMatching(Predicate<? super T> match) {
         int removed = 0;
-        Iterator<T> it = list.iterator();
+        Iterator<T> it = iterator();
         while (it.hasNext()) {
             if (match.test(it.next())) {
                 it.remove();
@@ -249,46 +207,37 @@ public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
     }
 
     public void removeRange(int index, int count) {
-        list.subList(index, index + count).clear();
+        super.removeRange(index, index + count);
     }
 
     public void reverse() {
-        Collections.reverse(list);
+        Collections.reverse(this);
     }
 
     public void reverse(int index, int count) {
         for (int i = 0; i < count / 2; i++) {
             int a = index + i;
             int b = index + count - 1 - i;
-            T tmp = list.get(a);
-            list.set(a, list.get(b));
-            list.set(b, tmp);
+            T tmp = get(a);
+            set(a, get(b));
+            set(b, tmp);
         }
     }
 
     public void sort() {
-        list.sort(null);
+        super.sort(null);
     }
 
     public void sort(CSharpGenericComparer<T> comparer) {
-        list.sort((a, b) -> comparer.compare(a, b));
-    }
-
-    public Object[] toArray() {
-        return list.toArray();
-    }
-
-    @SuppressWarnings("unchecked")
-    public <E> E[] toArray(E[] a) {
-        return list.toArray(a);
+        super.sort((a, b) -> comparer.compare(a, b));
     }
 
     public void trimExcess() {
-        list.trimToSize();
+        super.trimToSize();
     }
 
     public boolean trueForAll(Predicate<? super T> match) {
-        for (T item : list) {
+        for (T item : this) {
             if (!match.test(item)) return false;
         }
         return true;
@@ -302,12 +251,6 @@ public class CSharpList<T> implements CSharpGenericIList<T>, Cloneable {
 
     @Override
     public CSharpList<T> clone() {
-        try {
-            @SuppressWarnings("unchecked")
-            CSharpList<T> c = (CSharpList<T>) super.clone();
-            return new CSharpList<>(list);
-        } catch (CloneNotSupportedException e) {
-            throw new InternalError();
-        }
+        return new CSharpList<>(this);
     }
 }
