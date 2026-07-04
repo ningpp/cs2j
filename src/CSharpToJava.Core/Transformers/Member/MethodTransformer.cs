@@ -70,6 +70,9 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = GetReturnType(methodDecl, context)
         };
 
+        context.ReturnsCSharpGenericIterable = javaMethod.ReturnType != null
+            && javaMethod.ReturnType.StartsWith("CSharpGenericIterable<");
+
         if (ShouldReturnObjectForRuntimeTypeParameterArray(methodInfo, context))
             javaMethod.ReturnType = "Object";
 
@@ -186,10 +189,19 @@ public class MethodTransformer : IMemberTransformer
                 var elemType = ExtractElementType(javaMethod.ReturnType);
                 elemType ??= ExtractCSharpEnumeratorElementType(methodInfo?.ReturnType, context);
                 bool isIteratorReturn = javaMethod.Name == "iterator";
+                var originalReturnType = javaMethod.ReturnType;
+                bool returnsCSharpGenericIterable = originalReturnType != null
+                    && originalReturnType.StartsWith("CSharpGenericIterable<");
+                context.ReturnsCSharpGenericIterable = returnsCSharpGenericIterable;
                 if (isIteratorReturn)
                 {
                     context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
                     javaMethod.ReturnType = $"CSharpEnumerator<{elemType ?? "Object"}>";
+                }
+                else if (returnsCSharpGenericIterable)
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    javaMethod.ReturnType = originalReturnType;
                 }
                 else
                 {
@@ -208,14 +220,23 @@ public class MethodTransformer : IMemberTransformer
                     if (inferred != null)
                     {
                         elemType = inferred;
-                        javaMethod.ReturnType = isIteratorReturn
-                            ? $"Iterator<{elemType}>"
-                            : $"List<{elemType}>";
+                        if (isIteratorReturn)
+                            javaMethod.ReturnType = $"Iterator<{elemType}>";
+                        else if (returnsCSharpGenericIterable)
+                            javaMethod.ReturnType = $"CSharpGenericIterable<{elemType}>";
+                        else
+                            javaMethod.ReturnType = $"List<{elemType}>";
                     }
                 }
 
                 var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
-                var returnStmt = isIteratorReturn ? "return CSharpEnumerator.from(_yieldResult.iterator());" : "return _yieldResult;";
+                string returnStmt;
+                if (isIteratorReturn)
+                    returnStmt = "return CSharpEnumerator.from(_yieldResult.iterator());";
+                else if (returnsCSharpGenericIterable)
+                    returnStmt = "return CSharpGenericIterable.from(_yieldResult);";
+                else
+                    returnStmt = "return _yieldResult;";
                 var baseSegPrefix = baseSegmentDeclarations.Count > 0
                     ? string.Join("\n        ", baseSegmentDeclarations) + "\n        "
                     : "";
@@ -1038,7 +1059,7 @@ public class MethodTransformer : IMemberTransformer
     private static string? ExtractElementType(string javaType)
     {
         var m = System.Text.RegularExpressions.Regex.Match(javaType,
-            @"^(?:Iterable|Iterator|CSharpEnumerator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
+            @"^(?:Iterable|Iterator|CSharpEnumerator|CSharpGenericIterable|List|ArrayList|Collection|IEnumerable)<(.+)>$");
         return m.Success ? m.Groups[1].Value : null;
     }
 

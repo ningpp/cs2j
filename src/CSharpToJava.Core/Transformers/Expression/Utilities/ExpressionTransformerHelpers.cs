@@ -1339,7 +1339,13 @@ public static class ExpressionTransformerHelpers
             context.AddImport("java.util.stream.Collectors");
             context.AddImport("java.util.ArrayList");
             var stream = BuildArrayStreamExpression(expr, arrayType, context, boxed: true);
-            return $"{stream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+            var collectExpr = $"{stream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+            if (context.ReturnsCSharpGenericIterable)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                return $"CSharpGenericIterable.from({collectExpr})";
+            }
+            return collectExpr;
         }
 
         context.AddImport("io.github.ningpp.compat.ArrayHelper");

@@ -220,7 +220,13 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                         terminal = ".collect(Collectors.toCollection(() -> new ArrayList<>()))";
                     }
 
-                    return $"{streamExpr}.{streamOp}({linqArg}){terminal}";
+                    var result = $"{streamExpr}.{streamOp}({linqArg}){terminal}";
+                    if (needsCollect && context.ReturnsCSharpGenericIterable)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        result = $"CSharpGenericIterable.from({result})";
+                    }
+                    return result;
                 }
 
                 var invokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);

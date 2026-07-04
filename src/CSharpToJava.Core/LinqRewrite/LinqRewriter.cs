@@ -588,14 +588,14 @@ namespace CSharpToJava.Core.LinqRewrite
                 return "object";
 
             if (type is INamedTypeSymbol named && named.IsGenericType
-                && named.TypeArguments.Any(IsAnonymousType))
+                && named.TypeArguments.Any(a => IsAnonymousType(a) || (a is ITypeParameterSymbol tp && !IsDeclaredTypeParameter(tp))))
             {
-                // Reconstruct with 'object' in place of anonymous type args.
+                // Reconstruct with 'object' in place of anonymous type args or leaked type parameters.
                 var baseName = named.OriginalDefinition.ToDisplayString();
                 var idx = baseName.IndexOf('<');
                 if (idx >= 0) baseName = baseName.Substring(0, idx);
                 var args = string.Join(", ", named.TypeArguments.Select(a =>
-                    IsAnonymousType(a) ? "object" : a.ToDisplayString()));
+                    (IsAnonymousType(a) || (a is ITypeParameterSymbol tp && !IsDeclaredTypeParameter(tp))) ? "object" : a.ToDisplayString()));
                 return $"{baseName}<{args}>";
             }
 

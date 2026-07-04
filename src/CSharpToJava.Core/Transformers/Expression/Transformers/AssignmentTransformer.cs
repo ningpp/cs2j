@@ -846,6 +846,11 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 rightStr = $"{rightStr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
+                if (lhsNamed.Name == "IEnumerable")
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    rightStr = $"CSharpGenericIterable.from({rightStr})";
+                }
             }
         }
 

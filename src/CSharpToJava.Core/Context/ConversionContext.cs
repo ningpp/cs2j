@@ -126,6 +126,7 @@ public class ConversionContext
     public bool IsInAsyncContext { get; set; }
     public bool IsInLambdaContext { get; set; }
     public bool IsInYieldMethod { get; set; }
+    public bool ReturnsCSharpGenericIterable { get; set; }
     /// <summary>
     /// True when the current member being transformed is static (static method,
     /// static field initializer, or static constructor). Used by the default-value
@@ -503,6 +504,7 @@ public class ConversionContext
     {
         _methodStack.Push(method);
         IsInAsyncContext = false;
+        ReturnsCSharpGenericIterable = false;
         var readOnlyParams = method?.Parameters
             .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnly(p))
             .Select(p => p.Name);

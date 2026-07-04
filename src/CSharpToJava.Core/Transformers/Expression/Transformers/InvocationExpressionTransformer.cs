@@ -3679,7 +3679,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList");
-                return $"{receiver}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                var collectExpr = $"{receiver}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                if (context.ReturnsCSharpGenericIterable)
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    return $"CSharpGenericIterable.from({collectExpr})";
+                }
+                return collectExpr;
             }
 
             // ToDictionary → collect(Collectors.toMap(keySelector, valueSelector))
@@ -3974,7 +3980,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    return $"{concatStream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    var collectExpr = $"{concatStream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    if (context.ReturnsCSharpGenericIterable)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        return $"CSharpGenericIterable.from({collectExpr})";
+                    }
+                    return collectExpr;
                 }
                 return concatStream;
             }

@@ -581,6 +581,7 @@ public class ArgumentTransformer
             bool argIsEnumerable = IsEnumerableOrLinqStreamType(argNamed);
             // Check: does the C# parameter itself or the Java target require Collection?
             bool javaTargetNeedsCollection = false;
+            bool targetIsIEnumerable = false;
 
             if (paramType is INamedTypeSymbol paramNamed2)
             {
@@ -613,6 +614,7 @@ public class ArgumentTransformer
                     && Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
                 {
                     javaTargetNeedsCollection = true;
+                    targetIsIEnumerable = true;
                 }
             }
 
@@ -627,9 +629,21 @@ public class ArgumentTransformer
                     {
                         return transformedExpr;
                     }
-                    return $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    if (targetIsIEnumerable)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        return $"CSharpGenericIterable.from({collectExpr})";
+                    }
+                    return collectExpr;
                 }
-                return $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                var spliteratorCollectExpr = $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                if (targetIsIEnumerable)
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    return $"CSharpGenericIterable.from({spliteratorCollectExpr})";
+                }
+                return spliteratorCollectExpr;
             }
         }
 
@@ -909,6 +923,12 @@ public class ArgumentTransformer
         if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
             return transformedExpr;
 
-        return $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+        var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+        if (argType.Name == "IEnumerable")
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.from({collectExpr})";
+        }
+        return collectExpr;
     }
 }
