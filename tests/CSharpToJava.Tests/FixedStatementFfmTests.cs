@@ -1008,6 +1008,25 @@ unsafe class Test {
         Assert.True(matchCount <= 1, $"i++ should appear at most once, but appeared {matchCount} times");
     }
 
+    [Fact]
+    public void FixedPointer_SameVarNameTwice_NoDuplicateDeclaration()
+    {
+        var result = Convert(@"
+unsafe class Test {
+    void M(string s) {
+        fixed (char* p = s) { }
+        fixed (char* p = s) { }
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        // First occurrence should have "MemorySegment p = __base"
+        // Second occurrence should have assignment only: "p = __base" without "MemorySegment" prefix
+        var firstIdx = result.GeneratedCode.IndexOf("MemorySegment p = __base");
+        Assert.True(firstIdx >= 0, $"First 'MemorySegment p = __base' not found in:\n{result.GeneratedCode}");
+        var secondIdx = result.GeneratedCode.IndexOf("MemorySegment p = __base", firstIdx + 1);
+        Assert.True(secondIdx < 0, $"Duplicate 'MemorySegment p = __base' declaration found — second fixed block should use assignment only:\n{result.GeneratedCode}");
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

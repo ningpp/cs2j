@@ -30,6 +30,7 @@ public class ConversionContext
     // e.g., after "fixed (char* p = arr)" generates "MemorySegment __base_p = MemorySegment.ofArray(arr); MemorySegment p = __base_p;",
     // this maps "p" → "__base_p" so that p.asSlice(-N) can use __base_p.asSlice(p.address() - __base_p.address() - N)
     private readonly Dictionary<string, string> _pointerBaseSegments = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _declaredPointerVars = new(StringComparer.Ordinal);
     public bool IsInFixedScope => _fixedScopeStack.Count > 0;
     public void PushFixedScope(List<FixedPointerInfo> pointers) => _fixedScopeStack.Push(pointers);
     public void PopFixedScope() => _fixedScopeStack.Pop();
@@ -90,6 +91,10 @@ public class ConversionContext
     {
         return _pointerBaseSegments.TryGetValue(pointerName, out baseSegmentName!);
     }
+
+    public bool IsPointerVarDeclared(string varName) => _declaredPointerVars.Contains(varName);
+
+    public void MarkPointerVarDeclared(string varName) => _declaredPointerVars.Add(varName);
 
     public ConversionOptions Options { get; }
     public SemanticModel? SemanticModel { get; set; }
@@ -511,6 +516,7 @@ public class ConversionContext
         _addressOfScratchPointerInfos.Clear();
         _pointerBacktrackVars.Clear();
         _pointerBaseSegments.Clear();
+        _declaredPointerVars.Clear();
         LocalTypeOverrides.Clear();
     }
 

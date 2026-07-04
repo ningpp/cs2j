@@ -1097,6 +1097,7 @@ public partial class StatementTransformer
             var varName = declarator.Identifier.Text;
             var info = FfmHelper.CreatePointerInfo(varName, elementTypeName);
             pointerInfos.Add(info);
+            var alreadyDeclared = context.IsPointerVarDeclared(varName);
 
             bool isNull = declarator.Initializer?.Value is LiteralExpressionSyntax lit && lit.Token.IsKind(SyntaxKind.NullKeyword);
             bool isString = false;
@@ -1115,12 +1116,13 @@ public partial class StatementTransformer
                     {
                         var arrayExpr = ExpressionTransformerFacade.Instance.Transform(elemAccess.Expression, context);
                         var indexExpr = ExpressionTransformerFacade.Instance.Transform(elemAccess.ArgumentList.Arguments[0].Expression, context);
+                        var decl = alreadyDeclared ? "" : "MemorySegment ";
                         // If index is 0, wrap the entire array
                         if (indexExpr.Trim() == "0")
                         {
                             var baseVar = context.GenerateSyntheticName("__base");
                             sb.AppendLine($"MemorySegment {baseVar} = MemorySegment.ofArray({arrayExpr});");
-                            sb.AppendLine($"MemorySegment {varName} = {baseVar};");
+                            sb.AppendLine($"{decl}{varName} = {baseVar};");
                             context.RegisterPointerBase(varName, baseVar);
                         }
                         else
@@ -1131,7 +1133,7 @@ public partial class StatementTransformer
                                 : $"(long)({indexExpr}) * {info.ElementSize}";
                             var baseVar = context.GenerateSyntheticName("__base");
                             sb.AppendLine($"MemorySegment {baseVar} = MemorySegment.ofArray({arrayExpr});");
-                            sb.AppendLine($"MemorySegment {varName} = {baseVar}.asSlice({offsetCalc});");
+                            sb.AppendLine($"{decl}{varName} = {baseVar}.asSlice({offsetCalc});");
                             context.RegisterPointerBase(varName, baseVar);
                         }
                     }
@@ -1139,7 +1141,8 @@ public partial class StatementTransformer
                     {
                         var operandExpr = ExpressionTransformerFacade.Instance.Transform(addrOf.Operand, context);
                         var arrayType = FfmHelper.GetScratchArrayType(info.CSharpElementTypeName);
-                        sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
+                        var decl = alreadyDeclared ? "" : "MemorySegment ";
+                        sb.AppendLine($"{decl}{varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
                     }
                 }
                 else
@@ -1148,14 +1151,16 @@ public partial class StatementTransformer
                     var initType = context.GetTypeInfo(initValue).Type;
                     isString = initType?.SpecialType == SpecialType.System_String;
                     var baseVar = context.GenerateSyntheticName("__base");
-                    sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, baseVar));
+                    sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, baseVar, alreadyDeclared));
                     context.RegisterPointerBase(varName, baseVar);
                 }
             }
             else
             {
-                sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull));
+                sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, alreadyDeclared: alreadyDeclared));
             }
+
+            context.MarkPointerVarDeclared(varName);
         }
 
         var imports = FfmHelper.GetRequiredImports(false);
