@@ -5,8 +5,8 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests that new List(dictionary.Keys) produces new ArrayList(dictionary.keySet())
-/// without an unnecessary (Iterable) cast that would break the ArrayList(Collection) constructor.
+/// Tests that new List(dictionary.Keys) produces new CSharpList(dictionary.keySet())
+/// without an unnecessary (Iterable) cast that would break the CSharpList(Collection) constructor.
 /// </summary>
 public class ListFromDictionaryKeysConstructorTests
 {
@@ -24,8 +24,8 @@ class Sample {
 }";
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        // Should produce new ArrayList<String>(dict.keySet()) not (Iterable<String>)(Iterable<?>)(dict.keySet())
-        Assert.Contains("new ArrayList<String>(dict.keySet())", result.GeneratedCode);
+        // Should produce new CSharpList<String>(dict.keySet()) not (Iterable<String>)(Iterable<?>)(dict.keySet())
+        Assert.Contains("new CSharpList<String>(dict.keySet())", result.GeneratedCode);
         Assert.DoesNotContain("Iterable<?>", result.GeneratedCode);
     }
 

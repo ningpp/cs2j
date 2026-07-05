@@ -198,8 +198,8 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             return expr;
 
         context.AddImport("java.util.stream.Collectors");
-        context.AddImport("java.util.ArrayList");
-        return $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
+        return $"{expr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
     }
 
     private static string AdaptZeroArrayToEmptyIterable(string expr, ConversionContext context)
@@ -220,8 +220,8 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             return "Collections.emptyList()";
         }
 
-        // Match already-converted empty ArrayList: new ArrayList<T>()
-        if (t.StartsWith("new ArrayList<", StringComparison.Ordinal)
+        // Match already-converted empty ArrayList/CSharpList: new ArrayList<T>() / new CSharpList<T>()
+        if ((t.StartsWith("new ArrayList<", StringComparison.Ordinal) || t.StartsWith("new CSharpList<", StringComparison.Ordinal))
             && t.EndsWith(">()", StringComparison.Ordinal))
         {
             context.AddImport("java.util.Collections");

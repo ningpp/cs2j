@@ -19,9 +19,9 @@ public class ArrayHelper {
      * mutable (supports add/remove/clear) and independent from the source array.
      */
     @SafeVarargs
-    public static <T> ArrayList<T> toList(T... items) {
-        if (items == null) return new ArrayList<>();
-        var list = new ArrayList<T>(items.length);
+    public static <T> CSharpList<T> toList(T... items) {
+        if (items == null) return new CSharpList<>();
+        var list = new CSharpList<T>(items.length);
         for (T item : items) list.add(item);
         return list;
     }
@@ -31,8 +31,11 @@ public class ArrayHelper {
      * Mirrors C# arrays exposed as IList<T>: indexed set writes through to the
      * array, while add/remove remain unsupported.
      */
-    public static <T> List<T> asListView(T[] items) {
-        return items == null ? null : Arrays.asList(items);
+    public static <T> CSharpList<T> asListView(T[] items) {
+        if (items == null) return null;
+        var list = new CSharpList<T>(items.length);
+        for (T item : items) list.add(item);
+        return list;
     }
 
     public static <T> T[] copyArray(T[] items) {

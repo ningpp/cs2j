@@ -355,8 +355,8 @@ public class LambdaTransformer : IIRExpressionTransformer
                                 if (expectsIterable && LooksLikeUncollectedStream(body))
                                 {
                                     context.AddImport("java.util.stream.Collectors");
-                                    context.AddImport("java.util.ArrayList");
-                                    body = $"{body}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
+                                    body = $"{body}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
                                 }
                             }
                         }

@@ -464,13 +464,13 @@ public partial class StatementTransformer
                         SpecialType.System_Boolean or SpecialType.System_Byte or
                         SpecialType.System_Int16 or SpecialType.System_Char)
                     {
-                        // Use toCollection(() -> new ArrayList<>()) instead of toList()
+                        // Use toCollection(() -> new CSharpList<>() instead of toList()
                         // because C# List<T> maps to Java ArrayList<T> (concrete), and
                         // Collectors.toList() returns List<T> (interface) — type mismatch.
                         expr = $"Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toCollection(() -> new java.util.ArrayList<>()))";
                         context.AddImport("java.util.Arrays");
                         context.AddImport("java.util.stream.Collectors");
-                        context.AddImport("java.util.ArrayList");
+                        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                         if (context.ReturnsCSharpGenericIterable)
                         {
                             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
@@ -486,7 +486,7 @@ public partial class StatementTransformer
 
             // Detect when a Stream expression is returned from a method that declares Iterable/IEnumerable.
             // C# LINQ expressions become Java Streams but IEnumerable<T> maps to Iterable<T>.
-            // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toCollection(() -> new ArrayList<>())).
+            // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toCollection(() -> new CSharpList<>())).
             var retExprType = context.GetTypeInfo(stmt.Expression).Type;
             bool isStreamReturn = retExprType is INamedTypeSymbol retNamed2 &&
                 (retNamed2.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable") &&
@@ -514,16 +514,16 @@ public partial class StatementTransformer
                 // Don't double-collect: if the expression already ends with .toList() or ArrayList<>()) it's already a List
                 bool alreadyCollected = expr.EndsWith(".toList())")
                     || expr.EndsWith("toList()))")
-                    || expr.EndsWith("new ArrayList<>()))")
-                    || expr.EndsWith("new ArrayList<>())")
+                    || expr.EndsWith("new CSharpList<>()))")
+                    || expr.EndsWith("new CSharpList<>()")
                     || expr.EndsWith(".toArray())")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)\)$")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)$");
                 if (enclosingReturnsIterable && !alreadyCollected)
                 {
                     context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList");
-                    expr = $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
+                    expr = $"{expr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
                     if (context.ReturnsCSharpGenericIterable)
                     {
                         context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
@@ -533,10 +533,11 @@ public partial class StatementTransformer
             }
 
             // Detect when a Dictionary/Map is returned from a method that expects
-            // Iterable<Map.Entry<K,V>> (e.g. GroupBy procedural rewrite returns Dictionary
-            // from method with IEnumerable<IGrouping<K,V>> return type).
-            // In Java, LinkedHashMap does not implement Iterable<Map.Entry<K,V>>,
-            // so we need to append .entrySet().
+            // IEnumerable<KeyValuePair<K,V>> (→ CSharpGenericIterable<CSharpKeyValuePair<K,V>>).
+            // CSharpDictionary already implements CSharpGenericIterable<CSharpKeyValuePair<K,V>>,
+            // so no .entrySet() is needed — the dictionary itself is directly assignable.
+            // However, when the method returns IEnumerable<IGrouping<K,V>>, the Dictionary
+            // needs .entrySet() to produce Map.Entry<K,List<V>> items for the IGrouping pattern.
             if (retExprType is INamedTypeSymbol dictRetType &&
                 (dictRetType.Name is "Dictionary" or "SortedDictionary" or "IDictionary" ||
                  dictRetType.AllInterfaces.Any(i => i.Name is "IDictionary")))
@@ -548,8 +549,16 @@ public partial class StatementTransformer
                 if (enclosingRetType2 is INamedTypeSymbol encRet2 &&
                     encRet2.Name is "IEnumerable" or "ICollection" or "IList" or "Iterable")
                 {
-                    context.AddImport("java.util.Map");
-                    expr = $"{expr}.entrySet()";
+                    // Check if this is an IGrouping return type — still needs .entrySet()
+                    bool isIGroupingReturn = encRet2.IsGenericType && encRet2.TypeArguments.Length > 0
+                        && encRet2.TypeArguments[0] is INamedTypeSymbol elemType
+                        && elemType.Name == "IGrouping";
+                    if (isIGroupingReturn)
+                    {
+                        context.AddImport("java.util.Map");
+                        expr = $"{expr}.entrySet()";
+                    }
+                    // Otherwise, CSharpDictionary is already CSharpGenericIterable<CSharpKeyValuePair<K,V>>
                 }
             }
         }

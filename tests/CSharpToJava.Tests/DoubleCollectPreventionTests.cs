@@ -58,7 +58,7 @@ class Test
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
         // The ordered collection should not have double collect
-        Assert.DoesNotContain(".collect(Collectors.toCollection(() -> new ArrayList<>())).collect(", code);
+        Assert.DoesNotContain(".collect(Collectors.toCollection(() -> new CSharpList<>())).collect(", code);
     }
 
     [Fact]

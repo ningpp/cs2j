@@ -1170,13 +1170,13 @@ public static class ExpressionTransformerHelpers
     public static bool IsJavaKeyword(string word) => Context.JavaNaming.IsJavaKeyword(word);
 
     /// <summary>
-    /// Strips ".collect(Collectors.toCollection(() -> new ArrayList<>()))" or similar from a stream expression.
+    /// Strips ".collect(Collectors.toCollection(() -> new CSharpList<>()))" or similar from a stream expression.
     /// </summary>
     public static string StripCollect(string target)
     {
         var patterns = new[]
         {
-            ".collect(Collectors.toCollection(() -> new ArrayList<>()))",
+            ".collect(Collectors.toCollection(() -> new CSharpList<>()))",
             ".collect(Collectors.toSet())",
             ".collect(Collectors.toCollection(LinkedList::new))",
             ".collect(Collectors.toCollection(HashSet::new))",
@@ -1207,7 +1207,7 @@ public static class ExpressionTransformerHelpers
     /// </summary>
     public static bool IsAlreadyCollectedCore(string t)
     {
-        return t.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))") ||
+        return t.Contains(".collect(Collectors.toCollection(() -> new CSharpList<>()))") ||
                t.Contains(".collect(Collectors.toSet())") ||
                t.Contains(".collect(Collectors.toCollection(LinkedList::new))") ||
                t.Contains(".collect(Collectors.toCollection(HashSet::new))") ||
@@ -1337,9 +1337,9 @@ public static class ExpressionTransformerHelpers
         if (IsPrimitiveSpecialTypeForArrayStream(arrayType.ElementType.SpecialType))
         {
             context.AddImport("java.util.stream.Collectors");
-            context.AddImport("java.util.ArrayList");
+            context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
             var stream = BuildArrayStreamExpression(expr, arrayType, context, boxed: true);
-            var collectExpr = $"{stream}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+            var collectExpr = $"{stream}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
             if (context.ReturnsCSharpGenericIterable)
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
@@ -1437,7 +1437,7 @@ public static class ExpressionTransformerHelpers
         }
 
         if (IsDictionaryType(receiverType))
-            return $"{receiverExpr}.entrySet().stream()";
+            return $"{receiverExpr}.stream()";
 
         // System.Collections.Generic.LinkedList<T> maps to custom runtime type in this project,
         // which does not expose java.util.Collection#stream(). Use StreamSupport for safety.

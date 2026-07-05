@@ -276,7 +276,7 @@ public class D4IrRewriterTests
 
         var newExpr = new JavaNewExpression
         {
-            Type = "ArrayList<AbstractMap.SimpleEntry<Integer, Integer>>",
+            Type = "CSharpList<AbstractMap.SimpleEntry<Integer, Integer>>",
         };
 
         var cu = WrapInClassWithStatement(new JavaVariableDeclarationStatement
@@ -286,7 +286,7 @@ public class D4IrRewriterTests
             Initializer = newExpr,
         });
         rewriter.VisitCompilationUnit(cu);
-        Assert.Equal("ArrayList<Map.Entry<Integer, Integer>>", newExpr.Type);
+        Assert.Equal("CSharpList<Map.Entry<Integer, Integer>>", newExpr.Type);
     }
 
     [Fact]
@@ -616,12 +616,12 @@ public class D4IrRewriterTests
 
         var newExpr = new JavaNewExpression
         {
-            Type = "ArrayList<String>",
+            Type = "CSharpList<String>",
         };
 
         rewriter.VisitNewExpression(newExpr);
 
-        Assert.Equal("ArrayList<String>", newExpr.Type);
+        Assert.Equal("CSharpList<String>", newExpr.Type);
         Assert.Equal(0, rewriter.RewriteCount);
     }
 
@@ -631,7 +631,7 @@ public class D4IrRewriterTests
         Assert.True(GenericArrayCreationRewriter.IsGenericArrayType("Map.Entry<K,V>[]"));
         Assert.True(GenericArrayCreationRewriter.IsGenericArrayType("SimpleEntry<A,B>[5]"));
         Assert.False(GenericArrayCreationRewriter.IsGenericArrayType("String[]"));
-        Assert.False(GenericArrayCreationRewriter.IsGenericArrayType("ArrayList<String>"));
+        Assert.False(GenericArrayCreationRewriter.IsGenericArrayType("CSharpList<String>"));
         Assert.False(GenericArrayCreationRewriter.IsGenericArrayType("int[10]"));
     }
 
@@ -1310,9 +1310,9 @@ public class D4IrRewriterTests
         var cu = BuildCompilationUnit(
             new JavaVariableDeclarationStatement
             {
-                Type = "ArrayList<String>",
+                Type = "CSharpList<String>",
                 Name = "list",
-                Initializer = new JavaNewExpression { Type = "ArrayList<String>" },
+                Initializer = new JavaNewExpression { Type = "CSharpList<String>" },
             },
             new JavaExpressionStatement
             {
@@ -1341,7 +1341,7 @@ public class D4IrRewriterTests
 
         // Should generate valid code
         var code = cu.ToString("");
-        Assert.Contains("ArrayList<String>", code);
+        Assert.Contains("CSharpList<String>", code);
         Assert.Contains("list.add", code);
     }
 

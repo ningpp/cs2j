@@ -216,8 +216,8 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     if (needsCollect)
                     {
                         context.AddImport("java.util.stream.Collectors");
-                        context.AddImport("java.util.ArrayList");
-                        terminal = ".collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
+                        terminal = ".collect(Collectors.toCollection(() -> new CSharpList<>()))";
                     }
 
                     var result = $"{streamExpr}.{streamOp}({linqArg}){terminal}";

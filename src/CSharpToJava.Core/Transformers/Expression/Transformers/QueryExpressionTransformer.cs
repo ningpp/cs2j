@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -162,13 +162,13 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     }
 
                     context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     context.AddImport("java.util.Collections");
                     var jiInSrcType = context.GetTypeInfo(joinInto.InExpression).Type;
                     sb.Append($"\n    .flatMap({capturedOuter} -> {{");
                     sb.Append($"\n        var {intoId} = {ExpressionTransformerHelpers.BuildStreamExpression(jiInSrc, jiInSrcType, context)}");
                     sb.Append($"\n            .filter({jiVar} -> Objects.equals({jiLeft}, {jiRight}))");
-                    sb.Append($"\n            .collect(Collectors.toCollection(() -> new ArrayList<>()));");
+                    sb.Append($"\n            .collect(Collectors.toCollection(() -> new CSharpList<>()));");
                     sb.Append($"\n        var _{intoId} = {intoId}.isEmpty() ? java.util.Collections.singletonList((Object)null) : {intoId};");
                     if (!string.IsNullOrEmpty(terminalMapExpr))
                         sb.Append($"\n        return _{intoId}.stream(){innerPipe}.map({innerLoopVar} -> {terminalMapExpr});");
@@ -191,9 +191,9 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     var selectExpr = facade.Transform(select.Expression, context);
                     if (selectExpr != rangeVar)
                         sb.Append($"\n    .map({rangeVar} -> {selectExpr})");
-                    sb.Append("\n    .collect(Collectors.toCollection(() -> new ArrayList<>()))");
+                    sb.Append("\n    .collect(Collectors.toCollection(() -> new CSharpList<>()))");
                     context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     break;
 
                 case GroupClauseSyntax group:
@@ -203,11 +203,11 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     // preceding .map() so both lambdas close over the correct original rangeVar
                     if (groupExpr != rangeVar)
                         sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {byExpr}," +
-                                  $" Collectors.mapping({rangeVar} -> {groupExpr}, Collectors.toCollection(() -> new ArrayList<>()))))");
+                                  $" Collectors.mapping({rangeVar} -> {groupExpr}, Collectors.toCollection(() -> new CSharpList<>()))");
                     else
                         sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {byExpr}))");
                     context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     break;
             }
         }
@@ -215,8 +215,8 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
         {
             // GroupJoin emitted terminal inline; add the outer collect
             context.AddImport("java.util.stream.Collectors");
-            context.AddImport("java.util.ArrayList");
-            sb.Append("\n    .collect(Collectors.toCollection(() -> new ArrayList<>()))");
+            context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
+            sb.Append("\n    .collect(Collectors.toCollection(() -> new CSharpList<>()))");
         }
 
         // Fix 5: handle 'into' continuation (not applicable after GroupJoin handling)
@@ -259,20 +259,20 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     var contSelectExpr = facade.Transform(contSelect.Expression, context);
                     if (contSelectExpr != rangeVar)
                         sb.Append($"\n    .map({rangeVar} -> {contSelectExpr})");
-                    sb.Append("\n    .collect(Collectors.toCollection(() -> new ArrayList<>()))");
+                    sb.Append("\n    .collect(Collectors.toCollection(() -> new CSharpList<>()))");
                     context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     break;
                 case GroupClauseSyntax contGroup:
                     var contGroupExpr = facade.Transform(contGroup.GroupExpression, context);
                     var contByExpr = facade.Transform(contGroup.ByExpression, context);
                     if (contGroupExpr != rangeVar)
                         sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {contByExpr}," +
-                                  $" Collectors.mapping({rangeVar} -> {contGroupExpr}, Collectors.toCollection(() -> new ArrayList<>()))))");
+                                  $" Collectors.mapping({rangeVar} -> {contGroupExpr}, Collectors.toCollection(() -> new CSharpList<>()))");
                     else
                         sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {contByExpr}))");
                     context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     break;
             }
         }

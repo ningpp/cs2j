@@ -26,8 +26,8 @@ class Sample
         });
 
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        // List<int> → ArrayList<Integer>; Dictionary → LinkedHashMap
-        Assert.Contains("LinkedHashMap<String, ArrayList<Integer>>", result.GeneratedCode);
+        // List<int> → CSharpList<Integer>; Dictionary → CSharpDictionary
+        Assert.Contains("CSharpDictionary<String, CSharpList<Integer>>", result.GeneratedCode);
     }
 
     [Fact]
@@ -95,8 +95,8 @@ class Sample
         });
 
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        // Field type must use Map.Entry interface, NOT AbstractMap.SimpleEntry
-        Assert.Contains("ArrayList<Map.Entry<Integer, Integer>>", result.GeneratedCode);
+        // Field type must use CSharpKeyValuePair
+        Assert.Contains("CSharpList<CSharpKeyValuePair<Integer, Integer>>", result.GeneratedCode);
         Assert.DoesNotContain("AbstractMap.SimpleEntry", result.GeneratedCode);
     }
 
@@ -122,11 +122,10 @@ class Sample
         });
 
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        // The new expression should use AbstractMap.SimpleEntry with explicit generic types
-        // and cast to Map.Entry for generic invariance compatibility.
-        // All type-reference positions (variable decl, collection generic arg) must use Map.Entry.
-        Assert.Contains("new AbstractMap.SimpleEntry<Integer, Integer>", result.GeneratedCode);
-        Assert.DoesNotContain("ArrayList<AbstractMap.SimpleEntry", result.GeneratedCode);
+        // The new expression should use CSharpKeyValuePair with explicit generic types.
+        // All type-reference positions (variable decl, collection generic arg) must use CSharpKeyValuePair.
+        Assert.Contains("new CSharpKeyValuePair<Integer, Integer>", result.GeneratedCode);
+        Assert.DoesNotContain("CSharpList<AbstractMap.SimpleEntry", result.GeneratedCode);
     }
 
     [Fact]

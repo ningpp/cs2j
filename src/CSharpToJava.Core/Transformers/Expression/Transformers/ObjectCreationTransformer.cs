@@ -247,10 +247,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         {
             if (HasCollectionConstraint(typeParameter))
             {
-                context.AddImport("java.util.ArrayList");
+                context.AddImport("io.github.ningpp.compat.CSharpList");
                 var elementType = GetCollectionElementType(typeParameter);
                 var javaElementType = elementType != null ? context.MapType(elementType) : "Object";
-                return $"({typeName}) new ArrayList<{javaElementType}>()";
+                return $"({typeName}) new CSharpList<{javaElementType}>()";
             }
 
             if (typeParameter.HasConstructorConstraint)
@@ -525,7 +525,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     context.AddImport("java.util.stream.StreamSupport");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    args = $"StreamSupport.stream({args}.spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    args = $"StreamSupport.stream({args}.spliterator(), false).collect(Collectors.toCollection(() -> new CSharpList<>()))";
                 }
             }
         }
@@ -921,7 +921,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     /// When the constructor symbol is unavailable, scan each argument for array types.
     /// Any array argument passed to a Java collection constructor must be wrapped:
     ///   • reference-type arrays  → ArrayHelper.toList(expr)
-    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toCollection(() -> new ArrayList<>()))
+    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toCollection(() -> new CSharpList<>()))
     /// Returns the updated comma-separated argument string.
     /// </summary>
     private static string CoerceArrayArgsForCollectionCtor(
@@ -1001,7 +1001,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         context.AddImport("java.util.stream.Collectors");
         context.AddImport("java.util.ArrayList");
-        return $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+        return $"{expr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
     }
 
     private static bool IsArrayAlreadyWrappedForCollectionArg(string expr)

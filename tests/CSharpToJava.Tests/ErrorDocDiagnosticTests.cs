@@ -428,7 +428,7 @@ class Sample {
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
         // Should create array directly, not use ArrayHelper.toList
-        Assert.DoesNotContain("ArrayHelper.toList(new ArrayList", code);
+        Assert.DoesNotContain("ArrayHelper.toList(new CSharpList", code);
     }
 
     // Error 24e: Array.spliterator() - arrays don't have instance spliterator

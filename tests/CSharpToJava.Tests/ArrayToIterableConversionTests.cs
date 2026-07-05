@@ -123,7 +123,7 @@ class Sample
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         Assert.True(
-            result.GeneratedCode.Contains("new ArrayList<Item>(ArrayHelper.toList(box.ItemsArray))", StringComparison.Ordinal),
+            result.GeneratedCode.Contains("new CSharpList<Item>(ArrayHelper.toList(box.ItemsArray))", StringComparison.Ordinal),
             result.GeneratedCode);
         Assert.DoesNotContain("box.getItemsArray()", result.GeneratedCode, StringComparison.Ordinal);
     }

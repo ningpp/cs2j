@@ -60,8 +60,8 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // List<T> source should keep concrete type (ArrayList) for indexed loop
-        Assert.Contains("ArrayList<Double>", code);
+        // List<T> source should keep concrete type (CSharpList) for indexed loop
+        Assert.Contains("CSharpList<Double>", code);
         // Should NOT downgrade to Iterable (indexed loop needs .size() and .get())
         Assert.DoesNotContain("Iterable<Double>", code);
     }

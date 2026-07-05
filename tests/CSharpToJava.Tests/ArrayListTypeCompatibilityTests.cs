@@ -6,12 +6,13 @@ namespace CSharpToJava.Tests;
 /// <summary>
 /// Tests for issue #3: incompatible types - java.util.List cannot be converted to java.util.ArrayList.
 ///
-/// Root cause: C# .ToList() returns the concrete List&lt;T&gt; class, which maps to Java ArrayList&lt;T&gt;.
-/// But the converter was generating .collect(Collectors.toList()) which returns java.util.List&lt;T&gt;
-/// (an interface), creating a type mismatch when assigned to an ArrayList&lt;T&gt; variable.
+/// Root cause: C# .ToList() returns the concrete List&lt;T&gt; class, which maps to Java CSharpList&lt;T&gt;.
 ///
-/// Fix: Use .collect(Collectors.toCollection(() -> new ArrayList<>())) instead of .collect(Collectors.toList())
-/// so that stream collect operations produce ArrayList&lt;T&gt;, matching the C# List&lt;T&gt; → ArrayList mapping.
+/// But the converter was generating .collect(Collectors.toList()) which returns java.util.List&lt;T&gt;
+/// (an interface), creating a type mismatch when assigned to an CSharpList&lt;T&gt; variable.
+///
+/// Fix: Use .collect(Collectors.toCollection(() -> new CSharpList<>())) instead of .collect(Collectors.toList())
+/// so that stream collect operations produce CSharpList&lt;T&gt;, matching the C# List&lt;T&gt; → CSharpList mapping.
 /// </summary>
 public class ArrayListTypeCompatibilityTests
 {
@@ -30,8 +31,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // C# List<T> maps to Java ArrayList<T> (concrete class)
-        Assert.Contains("new ArrayList<String>()", result.GeneratedCode, StringComparison.Ordinal);
+        // C# List<T> maps to Java CSharpList<T> (concrete class)
+        Assert.Contains("new CSharpList<String>()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -49,10 +50,10 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // new List<T>() → new ArrayList<T>()
-        Assert.Contains("new ArrayList<String>()", result.GeneratedCode, StringComparison.Ordinal);
-        // Return type: C# List<T> → Java ArrayList<T>
-        Assert.Contains("ArrayList<String> getList()", result.GeneratedCode, StringComparison.Ordinal);
+        // new List<T>() → new CSharpList<T>()
+        Assert.Contains("new CSharpList<String>()", result.GeneratedCode, StringComparison.Ordinal);
+        // Return type: C# List<T> → Java CSharpList<T>
+        Assert.Contains("CSharpList<String> getList()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -83,8 +84,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // C# List<T> → Java ArrayList<T> (concrete class)
-        Assert.Contains("ArrayList<String> _field", result.GeneratedCode, StringComparison.Ordinal);
+        // C# List<T> → Java CSharpList<T> (concrete class)
+        Assert.Contains("CSharpList<String> _field", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -102,8 +103,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // Instantiation uses ArrayList
-        Assert.Contains("new ArrayList<String>", result.GeneratedCode, StringComparison.Ordinal);
+        // Instantiation uses CSharpList
+        Assert.Contains("new CSharpList<String>", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -123,7 +124,7 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // ToList() should use Collectors.toCollection(() -> new ArrayList<>()) — produces ArrayList<T>,
+        // ToList() should use Collectors.toCollection(() -> new CSharpList<>()) — produces CSharpList<T>,
         // not Collectors.toList() which returns List<T> (interface) and causes type mismatch
         Assert.DoesNotContain("Collectors.toList()", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -145,10 +146,10 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // Both sides are ArrayList<String> — no wrapping needed
+        // Both sides are CSharpList<String> — no wrapping needed
         Assert.Contains("getItems()", result.GeneratedCode, StringComparison.Ordinal);
-        // Method return type is ArrayList<String>
-        Assert.Contains("ArrayList<String> getItems()", result.GeneratedCode, StringComparison.Ordinal);
+        // Method return type is CSharpList<String>
+        Assert.Contains("CSharpList<String> getItems()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

@@ -67,7 +67,7 @@ public class BundleRouter
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.DoesNotContain("new ArrayList<>()", code);
+        Assert.DoesNotContain("new CSharpList<>()", code);
         Assert.Contains("new Set<EdgeGeometry>()", code);
         Assert.Contains(".get(", code);
     }
@@ -104,8 +104,8 @@ public class Demo
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.DoesNotContain("new ArrayList<>()", code);
-        Assert.Contains("new ArrayList<String>()", code);
+        Assert.DoesNotContain("new CSharpList<>()", code);
+        Assert.Contains("new CSharpList<String>()", code);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public static class CollectionUtilities
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("(TC) new ArrayList<TS>()", code);
+        Assert.Contains("(TC) new CSharpList<TS>()", code);
     }
 
     [Fact]
@@ -155,8 +155,8 @@ public static class CollectionUtilities
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("(TC) new ArrayList<TS>()", code);
-        Assert.DoesNotContain("new ArrayList<>()", code);
+        Assert.Contains("(TC) new CSharpList<TS>()", code);
+        Assert.DoesNotContain("new CSharpList<>()", code);
     }
 
     [Fact]
@@ -181,8 +181,8 @@ public static class CollectionUtilities
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("(TC) new ArrayList<String>()", code);
-        Assert.DoesNotContain("new ArrayList<>()", code);
+        Assert.Contains("(TC) new CSharpList<String>()", code);
+        Assert.DoesNotContain("new CSharpList<>()", code);
     }
 
     [Fact]
@@ -209,8 +209,8 @@ public static class CollectionUtilities
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("(TC) new ArrayList<TS>()", code);
-        Assert.DoesNotContain("new ArrayList<>()", code);
+        Assert.Contains("(TC) new CSharpList<TS>()", code);
+        Assert.DoesNotContain("new CSharpList<>()", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

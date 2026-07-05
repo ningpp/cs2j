@@ -48,10 +48,14 @@ public partial class StatementTransformer
             javaType = "var";
         }
 
-        // When mapping C# IEnumerable<T>/ICollection<T> to Iterable<T> for a local variable,
-        // use 'var' so Java infers the concrete return type (e.g. List<T>) from the initializer.
-        // This prevents Collection<T> vs Iterable<T> compatibility issues (e.g. ArrayList.addAll).
-        if (javaType == "Iterable" || javaType.StartsWith("Iterable<"))
+        // When mapping C# IEnumerable<T>/ICollection<T>/IList<T> to CSharpGenericIterable<T>/CSharpICollection<T>/CSharpGenericIList<T>
+        // for a local variable, use 'var' so Java infers the concrete return type (e.g. CSharpList<T>) from the initializer.
+        // This prevents CSharpGenericIterable<T> vs CSharpICollection<T> compatibility issues.
+        if (javaType is "Iterable" or "CSharpGenericIterable" or "CSharpICollection" or "CSharpGenericIList"
+              or "CSharpReadOnlyCollection" or "CSharpReadOnlyList"
+            || javaType.StartsWith("Iterable<") || javaType.StartsWith("CSharpGenericIterable<")
+            || javaType.StartsWith("CSharpICollection<") || javaType.StartsWith("CSharpGenericIList<")
+            || javaType.StartsWith("CSharpReadOnlyCollection<") || javaType.StartsWith("CSharpReadOnlyList<"))
             javaType = "var";
 
         // If the C# declaration used 'var' (implicit type) and had NO initializer, Java cannot infer the type.
@@ -330,14 +334,14 @@ public partial class StatementTransformer
 
                 // Fix K3: When the C# declared type is IEnumerable<T>/ICollection<T>/IList<T> (→ Java Iterable<T>)
                 // but the initializer ends with .toArray(T[]::new), the assignment would fail because
-                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toCollection(() -> new ArrayList<>())).
+                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toCollection(() -> new CSharpList<>())).
                 if ((javaType.StartsWith("Iterable<") || javaType.StartsWith("List<") || javaType.StartsWith("Collection<"))
                     && System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$"))
                 {
                     initExpr = System.Text.RegularExpressions.Regex.Replace(
-                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toCollection(() -> new ArrayList<>()))");
+                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toCollection(() -> new CSharpList<>()))");
                     context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 }
 
                 // For locals mapped to Java "var" whose semantic type is IEnumerable/ICollection/IList,
@@ -349,7 +353,7 @@ public partial class StatementTransformer
                     var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
                         && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
-                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
+                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toCollection(() -> new CSharpList<>()))")
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
                         && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
                         && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
@@ -362,9 +366,9 @@ public partial class StatementTransformer
 
                     if (semanticTypeIsEnumerableLike && looksLikeStreamExpr)
                     {
-                        initExpr = $"{initExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                        initExpr = $"{initExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
                         context.AddImport("java.util.stream.Collectors");
-                        context.AddImport("java.util.ArrayList");
+                        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     }
 
                     // C# arrays implement IEnumerable<T>/ICollection<T>/IList<T> implicitly.
@@ -392,7 +396,7 @@ public partial class StatementTransformer
                 // Guard: never register array-typed variables (T[]) as streams — arrays are
                 // directly iterable in Java and must not be collected in for-each loops.
                 {
-                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
+                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toCollection(() -> new CSharpList<>()))")
                         // If it ends with .toArray(...), the stream was already terminated to an array —
                         // the variable is T[], not a stream, so do NOT register it as a stream variable.
                         && !initExpr.TrimEnd().EndsWith(".toArray()")

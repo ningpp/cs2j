@@ -21,8 +21,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("Iterable<String>", code);
-        Assert.Contains("Iterable<Integer>", code);
+        Assert.Contains("CSharpGenericIterable<String>", code);
+        Assert.Contains("CSharpGenericIterable<Integer>", code);
         Assert.DoesNotContain("IEnumerable", code);
     }
 
@@ -36,7 +36,7 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List<String>", code);
+        Assert.Contains("CSharpGenericIList<String>", code);
         Assert.DoesNotContain("IList", code);
     }
 
@@ -100,7 +100,7 @@ class Test {
         var code = result.GeneratedCode!;
         Assert.Contains("private int count", code);
         Assert.Contains("private String name", code);
-        Assert.Contains("private ArrayList<Integer> items", code);
+        Assert.Contains("private CSharpList<Integer> items", code);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("Map<String, ArrayList<Integer>>", code);
+        Assert.Contains("CSharpDictionary<String, CSharpList<Integer>>", code);
         Assert.DoesNotContain("Dictionary", code);
     }
 
@@ -141,7 +141,7 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("Comparator<String>", code);
+        Assert.Contains("CSharpGenericComparer<String>", code);
         Assert.DoesNotContain("IComparer", code);
     }
 
@@ -202,7 +202,7 @@ class Factory {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List<String> getNames", code);
+        Assert.Contains("CSharpGenericIList<String> getNames", code);
         Assert.Contains("Predicate<Integer> getPredicate", code);
         Assert.DoesNotContain("IList<", code);
         Assert.DoesNotContain("Func<", code);
@@ -223,7 +223,7 @@ class SegmentIntersector : IComparer<SegmentIntersector.SegEvent>, IComparer<Sca
         var code = result.GeneratedCode!;
 
         // Must NOT use "extends" for interfaces
-        Assert.DoesNotContain("extends Comparator", code);
+        Assert.DoesNotContain("extends CSharpGenericComparer", code);
         // Both interfaces extracted to helper methods (Java type erasure)
         Assert.Contains("asSegEventComparer", code);
         Assert.Contains("asScanSegmentComparer", code);
@@ -241,8 +241,8 @@ class SegmentIntersector : IComparer<SegmentIntersector.SegEvent> {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("class SegmentIntersector implements Comparator<SegmentIntersector.SegEvent>", code);
-        Assert.DoesNotContain("class SegmentIntersector implements Comparator<SegEvent>", code);
+        Assert.Contains("class SegmentIntersector implements CSharpGenericComparer<SegmentIntersector.SegEvent>", code);
+        Assert.DoesNotContain("class SegmentIntersector implements CSharpGenericComparer<SegEvent>", code);
     }
 
     [Fact]
@@ -255,8 +255,8 @@ class MyComparer : IComparer<string> {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("implements Comparator<String>", code);
-        Assert.DoesNotContain("extends Comparator", code);
+        Assert.Contains("implements CSharpGenericComparer<String>", code);
+        Assert.DoesNotContain("extends CSharpGenericComparer", code);
     }
 
     [Fact]
@@ -285,7 +285,7 @@ class Derived : Base, IComparer<Derived> {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
         Assert.Contains("extends Base", code);
-        Assert.Contains("implements Comparator<Derived>", code);
+        Assert.Contains("implements CSharpGenericComparer<Derived>", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

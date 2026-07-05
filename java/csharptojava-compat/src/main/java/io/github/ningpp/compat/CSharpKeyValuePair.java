@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.util.Map;
+import java.util.Set;
 
 public final class CSharpKeyValuePair<K, V> implements Map.Entry<K, V> {
     private final K key;
@@ -51,5 +52,14 @@ public final class CSharpKeyValuePair<K, V> implements Map.Entry<K, V> {
     public int hashCode() {
         return (key == null ? 0 : key.hashCode()) ^
                (value == null ? 0 : value.hashCode());
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <K, V> CSharpGenericIterable<CSharpKeyValuePair<K, V>> fromEntrySet(Set<Map.Entry<K, V>> entrySet) {
+        CSharpList<CSharpKeyValuePair<K, V>> list = new CSharpList<>(entrySet.size());
+        for (Map.Entry<K, V> e : entrySet) {
+            list.add(new CSharpKeyValuePair<>(e.getKey(), e.getValue()));
+        }
+        return list;
     }
 }

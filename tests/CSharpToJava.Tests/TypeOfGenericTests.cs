@@ -28,8 +28,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List<String>.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<String>.class", code);
         Assert.DoesNotContain("IList", code);
     }
 
@@ -43,8 +43,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List<Integer>.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<Integer>.class", code);
     }
 
     [Fact]
@@ -57,8 +57,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("LinkedHashMap.class", code);
-        Assert.DoesNotContain("LinkedHashMap<", code);
+        Assert.Contains("CSharpDictionary.class", code);
+        Assert.DoesNotContain("CSharpDictionary<", code);
     }
 
     [Fact]
@@ -75,10 +75,10 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
         Assert.Contains("String.class", code);
-        Assert.DoesNotContain("List<String>.class", code);
-        Assert.DoesNotContain("List<Integer>.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<String>.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<Integer>.class", code);
     }
 
     [Fact]
@@ -93,8 +93,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List<String>.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<String>.class", code);
     }
 
     [Fact]
@@ -119,8 +119,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List[].class", code);
-        Assert.DoesNotContain("List<String>[].class", code);
+        Assert.Contains("CSharpGenericIList[].class", code);
+        Assert.DoesNotContain("CSharpGenericIList<String>[].class", code);
     }
 
     [Fact]
@@ -138,11 +138,11 @@ class XmlILTypeHelper {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List<String>.class", code);
-        Assert.DoesNotContain("List<byte[]>.class", code);
-        Assert.DoesNotContain("List<Long>.class", code);
-        Assert.DoesNotContain("List<Integer>.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<String>.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<byte[]>.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<Long>.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<Integer>.class", code);
     }
 
     [Fact]
@@ -173,9 +173,9 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List<XPathItem>.class", code);
-        Assert.DoesNotContain("List<XPathNavigator>.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<XPathItem>.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<XPathNavigator>.class", code);
     }
 
     [Fact]

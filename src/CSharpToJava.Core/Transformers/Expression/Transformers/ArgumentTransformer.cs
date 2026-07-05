@@ -620,7 +620,7 @@ public class ArgumentTransformer
 
             if (argIsEnumerable && javaTargetNeedsCollection)
             {
-                context.AddImport("java.util.ArrayList");
+                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 context.AddImport("java.util.stream.StreamSupport");
                 context.AddImport("java.util.stream.Collectors");
                 if (Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
@@ -629,7 +629,7 @@ public class ArgumentTransformer
                     {
                         return transformedExpr;
                     }
-                    var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
                     if (targetIsIEnumerable)
                     {
                         context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
@@ -637,7 +637,7 @@ public class ArgumentTransformer
                     }
                     return collectExpr;
                 }
-                var spliteratorCollectExpr = $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                var spliteratorCollectExpr = $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(() -> new CSharpList<>()))";
                 if (targetIsIEnumerable)
                 {
                     context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
@@ -919,11 +919,11 @@ public class ArgumentTransformer
             return transformedExpr;
 
         context.AddImport("java.util.stream.Collectors");
-        context.AddImport("java.util.ArrayList");
+        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
         if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
             return transformedExpr;
 
-        var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+        var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
         if (argType.Name == "IEnumerable")
         {
             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");

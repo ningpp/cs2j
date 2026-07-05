@@ -323,7 +323,7 @@ class T {
         List<int> list = new List<int>();
     }
 }");
-        Assert.Contains("ArrayList<", result);
+        Assert.Contains("CSharpList<", result);
     }
 
     [Fact]

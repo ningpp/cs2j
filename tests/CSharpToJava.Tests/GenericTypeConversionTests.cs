@@ -17,8 +17,8 @@ class Test {
     void M() { Type t = typeof(IList<double>); }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List.class", result.GeneratedCode);
-        Assert.DoesNotContain("List<Double>.class", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList.class", result.GeneratedCode);
+        Assert.DoesNotContain("CSharpGenericIList<Double>.class", result.GeneratedCode);
     }
 
     [Fact]
@@ -30,8 +30,8 @@ class Test {
     void M() { Type t = typeof(IList<string>); }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List.class", result.GeneratedCode);
-        Assert.DoesNotContain("List<String>.class", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList.class", result.GeneratedCode);
+        Assert.DoesNotContain("CSharpGenericIList<String>.class", result.GeneratedCode);
     }
 
     [Fact]
@@ -44,8 +44,8 @@ class Test {
     void M() { Type t = typeof(IList<DateTime>); }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List.class", result.GeneratedCode);
-        Assert.DoesNotContain("List<", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList.class", result.GeneratedCode);
+        Assert.DoesNotContain("CSharpGenericIList<", result.GeneratedCode);
     }
 
     [Fact]
@@ -58,9 +58,9 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List[]>.class", code);
-        Assert.DoesNotContain("List<byte[]>.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList[]>.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<byte[]>.class", code);
     }
 
     [Fact]
@@ -73,8 +73,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List[]", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList[]", code);
     }
 
     [Fact]
@@ -87,8 +87,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List[]", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList[]", code);
     }
 
     [Fact]
@@ -101,8 +101,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("LinkedHashMap.class", code);
-        Assert.DoesNotContain("LinkedHashMap<", code);
+        Assert.Contains("CSharpDictionary.class", code);
+        Assert.DoesNotContain("CSharpDictionary<", code);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ class Test {
     void M() { Type t = typeof(IList<int>[]); }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List[].class", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList[].class", result.GeneratedCode);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ class Test {
     void M() { Type t = typeof(IList<string>[]); }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List[].class", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList[].class", result.GeneratedCode);
     }
 
     [Fact]
@@ -138,8 +138,8 @@ class Test {
     void M() { Type t = typeof(IList<IList<string>>); }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List.class", result.GeneratedCode);
-        Assert.DoesNotContain("List<", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList.class", result.GeneratedCode);
+        Assert.DoesNotContain("CSharpGenericIList<", result.GeneratedCode);
     }
 
     [Fact]
@@ -158,9 +158,9 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List.class", code);
-        Assert.DoesNotContain("List<", code);
-        Assert.DoesNotContain("List[]>.class", code);
+        Assert.Contains("CSharpGenericIList.class", code);
+        Assert.DoesNotContain("CSharpGenericIList<", code);
+        Assert.DoesNotContain("CSharpGenericIList[]>.class", code);
         Assert.DoesNotContain("IList", code);
     }
 
@@ -225,8 +225,8 @@ class Test {
     void M(object obj) { bool b = obj is IList<string>; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("instanceof List", result.GeneratedCode);
-        Assert.DoesNotContain("instanceof List<", result.GeneratedCode);
+        Assert.Contains("instanceof CSharpGenericIList", result.GeneratedCode);
+        Assert.DoesNotContain("instanceof CSharpGenericIList<", result.GeneratedCode);
     }
 
     [Fact]
@@ -239,9 +239,9 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("instanceof List", code);
-        Assert.DoesNotContain("instanceof List<", code);
-        Assert.DoesNotContain("instanceof List[]", code);
+        Assert.Contains("instanceof CSharpGenericIList", code);
+        Assert.DoesNotContain("instanceof CSharpGenericIList<", code);
+        Assert.DoesNotContain("instanceof CSharpGenericIList[]", code);
     }
 
     [Fact]
@@ -253,7 +253,7 @@ class Test {
     void M(object obj) { bool b = obj is IList<string>[]; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("instanceof List[]", result.GeneratedCode);
+        Assert.Contains("instanceof CSharpGenericIList[]", result.GeneratedCode);
     }
 
     [Fact]
@@ -265,7 +265,7 @@ class Test {
     void M(object obj) { bool b = obj is IList<IList<string>>[]; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("instanceof List[]", result.GeneratedCode);
+        Assert.Contains("instanceof CSharpGenericIList[]", result.GeneratedCode);
     }
 
     [Fact]
@@ -278,8 +278,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("instanceof LinkedHashMap", code);
-        Assert.DoesNotContain("instanceof LinkedHashMap<", code);
+        Assert.Contains("instanceof CSharpDictionary", code);
+        Assert.DoesNotContain("instanceof CSharpDictionary<", code);
     }
 
     [Fact]
@@ -316,8 +316,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("instanceof List", code);
-        Assert.DoesNotContain("instanceof List<", code);
+        Assert.Contains("instanceof CSharpGenericIList", code);
+        Assert.DoesNotContain("instanceof CSharpGenericIList<", code);
     }
 
     [Fact]
@@ -330,9 +330,9 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("instanceof List", code);
-        Assert.DoesNotContain("instanceof List<", code);
-        Assert.DoesNotContain("instanceof List[]", code);
+        Assert.Contains("instanceof CSharpGenericIList", code);
+        Assert.DoesNotContain("instanceof CSharpGenericIList<", code);
+        Assert.DoesNotContain("instanceof CSharpGenericIList[]", code);
     }
 
     [Fact]
@@ -344,7 +344,7 @@ class Test {
     void M(object obj) { var x = obj as IList<string>[]; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("instanceof List[]", result.GeneratedCode);
+        Assert.Contains("instanceof CSharpGenericIList[]", result.GeneratedCode);
     }
 
     // ─── cast with generic types ───
@@ -359,7 +359,7 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List<byte[]>", code);
+        Assert.Contains("CSharpGenericIList<byte[]>", code);
     }
 
     [Fact]
@@ -372,7 +372,7 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("List<String>[]", code);
+        Assert.Contains("CSharpGenericIList<String>[]", code);
     }
 
     // ─── Variable declarations with generic types ───
@@ -386,7 +386,7 @@ class Test {
     void M() { IList<byte[]> list = null; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<byte[]>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<byte[]>", result.GeneratedCode);
     }
 
     [Fact]
@@ -398,7 +398,7 @@ class Test {
     void M() { IList<double> list = null; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<Double>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<Double>", result.GeneratedCode);
     }
 
     [Fact]
@@ -410,7 +410,7 @@ class Test {
     void M() { IList<int> list = null; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<Integer>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<Integer>", result.GeneratedCode);
     }
 
     [Fact]
@@ -422,7 +422,7 @@ class Test {
     void M() { Dictionary<string, byte[]> dict = null; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("LinkedHashMap<String, byte[]>", result.GeneratedCode);
+        Assert.Contains("CSharpDictionary<String, byte[]>", result.GeneratedCode);
     }
 
     [Fact]
@@ -434,7 +434,7 @@ class Test {
     void M() { IList<IList<string>> list = null; }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<List<String>>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<CSharpGenericIList<String>>", result.GeneratedCode);
     }
 
     // ─── Method parameters with generic types ───
@@ -448,7 +448,7 @@ class Test {
     void M(IList<byte[]> list) {}
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<byte[]>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<byte[]>", result.GeneratedCode);
     }
 
     [Fact]
@@ -460,7 +460,7 @@ class Test {
     void M(IList<double> list) {}
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<Double>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<Double>", result.GeneratedCode);
     }
 
     // ─── Return types with generic types ───
@@ -474,7 +474,7 @@ class Test {
     IList<byte[]> GetList() => null;
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<byte[]>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<byte[]>", result.GeneratedCode);
     }
 
     [Fact]
@@ -486,7 +486,7 @@ class Test {
     IList<double> GetList() => null;
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<Double>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<Double>", result.GeneratedCode);
     }
 
     // ─── Field declarations with generic types ───
@@ -500,7 +500,7 @@ class Test {
     IList<byte[]> list;
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<byte[]>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<byte[]>", result.GeneratedCode);
     }
 
     [Fact]
@@ -512,7 +512,7 @@ class Test {
     IList<double> list;
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("List<Double>", result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList<Double>", result.GeneratedCode);
     }
 
     // ─── default() with generic types ───

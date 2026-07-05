@@ -185,7 +185,7 @@ public class MethodTransformer : IMemberTransformer
             if (isYieldMethod)
             {
                 context.IsInYieldMethod = true;
-                context.AddImport("java.util.ArrayList");
+                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 var elemType = ExtractElementType(javaMethod.ReturnType);
                 elemType ??= ExtractCSharpEnumeratorElementType(methodInfo?.ReturnType, context);
                 bool isIteratorReturn = javaMethod.Name == "iterator";
@@ -1327,12 +1327,12 @@ public class MethodTransformer : IMemberTransformer
         {
             // Don't double-collect
             bool alreadyCollected = exprBody.Contains(".collect(") || exprBody.EndsWith(".toList())")
-                || exprBody.EndsWith("new ArrayList<>()))");
+                || exprBody.EndsWith("new CSharpList<>()");
             if (!alreadyCollected)
             {
                 context.AddImport("java.util.stream.Collectors");
-                context.AddImport("java.util.ArrayList");
-                return $"{exprBody}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
+                return $"{exprBody}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
             }
         }
 

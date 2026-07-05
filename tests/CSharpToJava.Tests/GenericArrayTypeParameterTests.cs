@@ -227,8 +227,8 @@ class Demo<K, V> {
 
         Assert.Contains("private final Class<?> tClass;", code);
         Assert.Contains("public Box(Class<?> tClass)", code);
-        Assert.Contains("new Box<ArrayList<LinkedHashMap<K, V>>>(ArrayList.class).make(1)", code);
-        Assert.DoesNotContain("Class<ArrayList<Map<K, V>>>", code);
+        Assert.Contains("new Box<CSharpList<LinkedHashMap<K, V>>>(CSharpList.class).make(1)", code);
+        Assert.DoesNotContain("Class<CSharpList<Map<K, V>>>", code);
     }
 
     [Fact]

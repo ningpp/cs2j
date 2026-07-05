@@ -163,8 +163,8 @@ class Curve
         Assert.True(result.Success, "Conversion should succeed");
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
-        Assert.DoesNotContain("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>();", code);
+        Assert.Contains("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
+        Assert.DoesNotContain("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>();", code);
         Assert.Contains("intersections = _intersectionsRef.value;", code);
     }
 
@@ -196,8 +196,8 @@ class Curve
         Assert.True(result.Success, "Conversion should succeed");
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
-        Assert.DoesNotContain("ObjectHolder<ArrayList<String>> _intersectionsRef = new ObjectHolder<>();", code);
+        Assert.Contains("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
+        Assert.DoesNotContain("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>();", code);
         Assert.Contains("intersections = _intersectionsRef.value;", code);
     }
 

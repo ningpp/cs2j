@@ -147,7 +147,7 @@ class TestClass {
         int count = list.Count;
     }
 }");
-        Assert.Contains("new ArrayList<", result);
+        Assert.Contains("new CSharpList<", result);
         Assert.Contains(".add(42)", result);
     }
 
@@ -560,7 +560,7 @@ class T {
         var list = new List<string>();
     }
 }");
-        Assert.Contains("ArrayList<", result);
+        Assert.Contains("CSharpList<", result);
     }
 
     [Fact]

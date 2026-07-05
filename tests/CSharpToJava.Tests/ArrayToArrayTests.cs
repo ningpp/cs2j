@@ -25,8 +25,8 @@ class Graph
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import java.util.ArrayList;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("var delendi = new ArrayList();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.CSharpArrayList;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("var delendi = new CSharpArrayList();", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("delendi.add(edge);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet.system.Collections.ArrayList", result.GeneratedCode, StringComparison.Ordinal);
     }

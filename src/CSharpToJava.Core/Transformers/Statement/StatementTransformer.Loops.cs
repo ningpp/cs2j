@@ -224,21 +224,19 @@ public partial class StatementTransformer
             }
         }
 
-        // Detect: iterating over a Dictionary/Map → need .entrySet() in Java
+        // Detect: iterating over a Dictionary/Map
+        // CSharpDictionary already implements Iterable<CSharpKeyValuePair<K,V>>,
+        // so Java foreach works directly without .entrySet().
         if (exprTypeInfo is INamedTypeSymbol exprNamed &&
             (exprNamed.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
              "HashMap" or "TreeMap" or "LinkedHashMap" ||
              exprNamed.AllInterfaces.Any(i => i.Name is "IDictionary")))
         {
-            // Map iteration: use entrySet()
-            expression = $"{expression}.entrySet()";
-            // javaType likely contains "AbstractMap.SimpleEntry" or "KeyValuePair" — normalize to "Map.Entry"
+            // javaType should be CSharpKeyValuePair<K,V>
             if (javaType.Contains("SimpleEntry") || javaType.Contains("KeyValuePair") || javaType == "var")
             {
-                // Try to get the proper Map.Entry type from the dictionary's type arguments
                 if (exprNamed.IsGenericType && exprNamed.TypeArguments.Length >= 2)
                 {
-                    // Must use boxed types for Map.Entry generic args (primitives not allowed in generics)
                     static string BoxJavaType(string t) => t switch
                     {
                         "int" => "Integer", "long" => "Long", "double" => "Double",
@@ -247,13 +245,13 @@ public partial class StatementTransformer
                     };
                     var keyType = BoxJavaType(context.MapType(exprNamed.TypeArguments[0]));
                     var valType = BoxJavaType(context.MapType(exprNamed.TypeArguments[1]));
-                    javaType = $"Map.Entry<{keyType}, {valType}>";
-                    context.AddImport("java.util.Map");
+                    javaType = $"CSharpKeyValuePair<{keyType}, {valType}>";
+                    context.AddImport("io.github.ningpp.compat.CSharpKeyValuePair");
                 }
                 else
                 {
-                    javaType = "Map.Entry<?, ?>";
-                    context.AddImport("java.util.Map");
+                    javaType = "CSharpKeyValuePair<?, ?>";
+                    context.AddImport("io.github.ningpp.compat.CSharpKeyValuePair");
                 }
             }
         }
@@ -268,14 +266,14 @@ public partial class StatementTransformer
         }
 
         // Pre-process: StreamSupport.stream(...).toArray() used in foreach can't be iterated (Object[]).
-        // Convert to .collect(Collectors.toCollection(() -> new ArrayList<>())) so the list is Iterable<T> and foreach works.
+        // Convert to .collect(Collectors.toCollection(() -> new CSharpList<>())) so the list is Iterable<T> and foreach works.
         {
             var trimExpr = expression.TrimEnd();
             if (trimExpr.EndsWith(".toArray()") && trimExpr.Contains("StreamSupport.stream("))
             {
                 expression = trimExpr.Substring(0, trimExpr.Length - ".toArray()".Length)
-                                 + ".collect(Collectors.toCollection(() -> new ArrayList<>()))";
-                context.AddImport("java.util.ArrayList");
+                                 + ".collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
             }
         }
 
@@ -294,11 +292,11 @@ public partial class StatementTransformer
         // Collect to List to allow break/continue/return in the loop body.
         // Use EndsWith check to avoid double-collecting an already-collected stream:
         // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
-        // but we only skip if the OUTERMOST call is already .collect(Collectors.toCollection(() -> new ArrayList<>())).
+        // but we only skip if the OUTERMOST call is already .collect(Collectors.toCollection(() -> new CSharpList<>())).
         // Use ContainsStreamMethodAtTopLevel to avoid false positives where stream calls
         // appear only inside nested argument lists (e.g. method(x.stream().toArray(...))).
         bool isStream = !strippedTrailingStream
-            && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(() -> new ArrayList<>()))")
+            && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(() -> new CSharpList<>()))")
             && !EndsWithCollectCall(expression.TrimEnd())
             && !expression.TrimEnd().EndsWith(".toArray()")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
@@ -349,9 +347,9 @@ public partial class StatementTransformer
             // The LINQ rewriter may have already materialized the stream to a collection.
             if (ExpressionTransformerHelpers.StripCollect(expression) == expression)
             {
-                context.AddImport("java.util.ArrayList");
+                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 context.AddImport("java.util.stream.Collectors");
-                expression = $"{expression}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                expression = $"{expression}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
             }
         }
 
@@ -522,8 +520,8 @@ public partial class StatementTransformer
             if (needsCollect)
             {
                 context.AddImport("java.util.stream.Collectors");
-                context.AddImport("java.util.ArrayList");
-                srcExpr = $"{srcExpr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
+                srcExpr = $"{srcExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
             }
             if (i == froms.Count - 1)
             {
