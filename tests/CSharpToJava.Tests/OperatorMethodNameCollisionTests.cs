@@ -142,6 +142,33 @@ public struct Point
         Assert.Contains("public static Point Divide(Point p, double c)", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DivisionOperator_DoubleLeftPointRight_CallSiteUsesOperatorMethod()
+    {
+        var result = Convert(@"
+public struct Point
+{
+    public double X, Y;
+    public Point(double x, double y) { X = x; Y = y; }
+
+    public static Point operator /(double x, Point p)
+    {
+        return new Point(x / p.X, x / p.Y);
+    }
+
+    public static Point Abc(double padding, Point p)
+    {
+        return padding / p;
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        Assert.Contains("public static Point divide(double x, Point p)", code, StringComparison.Ordinal);
+        Assert.Contains("return divide(padding, p)", code, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Unary operator-(Point) → negate(Point) (static, 1 param) does NOT collide with
     /// instance method Negate() → negate() (0 params). Both survive with camelCase names.
