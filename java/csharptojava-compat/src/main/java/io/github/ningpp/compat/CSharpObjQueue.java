@@ -1,14 +1,16 @@
 package io.github.ningpp.compat;
 
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.NoSuchElementException;
+import java.util.stream.Stream;
 
 public class CSharpObjQueue implements CSharpIterable, Cloneable {
     private final LinkedList<Object> queue = new LinkedList<>();
     private final Object syncRoot = new Object();
 
     public CSharpObjQueue() {}
-    public CSharpObjQueue(java.util.Collection<?> c) { queue.addAll(c); }
+    public CSharpObjQueue(Collection<?> c) { queue.addAll(c); }
 
     public void enqueue(Object obj) { queue.addLast(obj); }
     public Object dequeue() {
@@ -29,6 +31,12 @@ public class CSharpObjQueue implements CSharpIterable, Cloneable {
     public Object[] toArray() { return queue.toArray(); }
     public Object getSyncRoot() { return syncRoot; }
     public boolean getIsSynchronized() { return false; }
+
+    public boolean add(Object obj) { queue.addLast(obj); return true; }
+    public Object poll() { return queue.isEmpty() ? null : queue.removeFirst(); }
+    public Stream<Object> stream() { return queue.stream(); }
+    public boolean isEmpty() { return queue.isEmpty(); }
+
     @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(queue.iterator()); }
     @Override public CSharpObjQueue clone() {
         return new CSharpObjQueue(queue);

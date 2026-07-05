@@ -127,6 +127,24 @@ public class CSharpSortedDict<K, V> implements CSharpGenericIDictionary<K, V>, C
         }
     }
 
+    // Map-like access methods
+
+    public java.util.Set<K> keySet() {
+        return map.keySet();
+    }
+
+    public java.util.Collection<V> values() {
+        return map.values();
+    }
+
+    public java.util.Set<Map.Entry<K, V>> entrySet() {
+        return map.entrySet();
+    }
+
+    public V getOrDefault(Object key, V defaultValue) {
+        return map.getOrDefault(key, defaultValue);
+    }
+
     @Override
     public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> iterator() {
         return CSharpGenericEnumerator.from(new Iterator<CSharpKeyValuePair<K, V>>() {

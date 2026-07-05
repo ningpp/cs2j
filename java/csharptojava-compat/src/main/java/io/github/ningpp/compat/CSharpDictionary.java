@@ -140,6 +140,10 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     // Dictionary-specific methods
 
+    public V getOrDefault(Object key, V defaultValue) {
+        return map.getOrDefault(key, defaultValue);
+    }
+
     public CSharpGenericIterableSet<K> keySet() {
         return new CSharpGenericIterableSet<>(map.keySet());
     }

@@ -1389,7 +1389,13 @@ public static class ExpressionTransformerHelpers
             return BuildArrayToCollectionExpression(expr, arrayType, context);
 
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
-        return $"ArrayHelper.asListView({expr})";
+        var viewExpr = $"ArrayHelper.asListView({expr})";
+        if (context.ReturnsCSharpGenericIterable)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.from({viewExpr})";
+        }
+        return viewExpr;
     }
 
     /// <summary>

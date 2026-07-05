@@ -359,7 +359,7 @@ public class ClassTransformer : ITypeTransformer
         RemoveCloneBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, mergedType.TypeSymbol);
-        AddCollectionInterfaceBridgeMethods(javaClass);
+        AddCollectionInterfaceBridgeMethods(javaClass, mergedType.TypeSymbol);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
         AddComparableBridgeMethods(javaClass);
@@ -565,7 +565,7 @@ public class ClassTransformer : ITypeTransformer
         RemoveCloneBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, classSymbol);
-        AddCollectionInterfaceBridgeMethods(javaClass);
+        AddCollectionInterfaceBridgeMethods(javaClass, classSymbol);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
         AddComparableBridgeMethods(javaClass);
@@ -1943,12 +1943,73 @@ public class ClassTransformer : ITypeTransformer
     /// Converts "implements Collection&lt;T&gt;" into "extends AbstractCollection&lt;T&gt;" when possible,
     /// and fixes key method signatures to Java-compatible forms.
     /// </summary>
-    private static void AddCollectionInterfaceBridgeMethods(JavaClassDeclaration javaClass)
+    private static void AddCollectionInterfaceBridgeMethods(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol)
     {
         var collectionType = javaClass.ImplementedTypes.FirstOrDefault(t => t == "Collection" || t.StartsWith("Collection<"));
         if (collectionType != null)
         {
             AddJavaCollectionBridgeMethods(javaClass, collectionType);
+        }
+
+        // CSharpGenericIterable<T> extends Collection<T>, so classes implementing it
+        // must satisfy Collection's boolean add(T) contract. Fix void add(T) → boolean add(T).
+        // Also check ancestors since subclasses inherit the Collection contract.
+        bool implementsOrInheritsCSharpGenericIterable = javaClass.ImplementedTypes.Any(t =>
+            t.StartsWith("CSharpGenericIterable<") || t == "CSharpGenericIterable");
+        if (!implementsOrInheritsCSharpGenericIterable && classSymbol != null)
+        {
+            implementsOrInheritsCSharpGenericIterable = TypeOrAncestorImplementsIEnumerableT(classSymbol);
+        }
+
+        if (implementsOrInheritsCSharpGenericIterable && collectionType == null)
+        {
+            var csharpIterableType = javaClass.ImplementedTypes.FirstOrDefault(t =>
+                t.StartsWith("CSharpGenericIterable<") || t == "CSharpGenericIterable");
+            string elemType = "Object";
+            if (csharpIterableType != null && csharpIterableType.StartsWith("CSharpGenericIterable<") && csharpIterableType.EndsWith(">"))
+                elemType = csharpIterableType.Substring(22, csharpIterableType.Length - 23);
+            else if (classSymbol != null)
+                elemType = ExtractIEnumerableElementType(classSymbol) ?? "Object";
+
+            // Only fix if not already handled by CSharpICollection or Collection logic
+            var existingCSharpCollType = javaClass.ImplementedTypes.FirstOrDefault(t => t.StartsWith("CSharpICollection<"));
+            if (existingCSharpCollType == null)
+            {
+                // Match add method: void add(X) where X matches elemType (suffix match for qualified names)
+                var addMethod = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "add" && m.Parameters.Count == 1 && m.ReturnType == "void"
+                    && TypeMatchesElement(m.Parameters[0].Type, elemType));
+                if (addMethod != null)
+                {
+                    addMethod.ReturnType = "boolean";
+                    var trimmedBody = (addMethod.Body ?? addMethod.StructuredBody?.ToBodyString() ?? "").TrimEnd();
+                    if (!EndsWithTerminalStatement(trimmedBody))
+                    {
+                        if (addMethod.StructuredBody != null)
+                        {
+                            addMethod.StructuredBody.Statements.Add(
+                                new JavaRawStatement("return true;"));
+                        }
+                        else
+                        {
+                            addMethod.Body = trimmedBody + "\nreturn true;";
+                        }
+                    }
+                }
+
+                // Collection uses Object parameter for contains/remove after erasure
+                var containsMethod = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "contains" && m.Parameters.Count == 1 && m.ReturnType == "boolean"
+                    && TypeMatchesElement(m.Parameters[0].Type, elemType));
+                if (containsMethod != null)
+                    containsMethod.Parameters[0].Type = "Object";
+
+                var removeMethod = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean"
+                    && TypeMatchesElement(m.Parameters[0].Type, elemType));
+                if (removeMethod != null)
+                    removeMethod.Parameters[0].Type = "Object";
+            }
         }
 
         // Also handle CSharpICollection<T> erasure conflicts:
@@ -1992,6 +2053,50 @@ public class ClassTransformer : ITypeTransformer
             if (removeMethod != null)
                 removeMethod.Parameters[0].Type = "Object";
         }
+    }
+
+    private static bool TypeOrAncestorImplementsIEnumerableT(INamedTypeSymbol type)
+    {
+        var current = type.BaseType;
+        while (current != null)
+        {
+            if (current.AllInterfaces.Any(i =>
+                i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>"))
+            {
+                return true;
+            }
+            current = current.BaseType;
+        }
+        return false;
+    }
+
+    private static string? ExtractIEnumerableElementType(INamedTypeSymbol type)
+    {
+        // Check the type itself and all ancestors for IEnumerable<T>
+        var current = type;
+        while (current != null)
+        {
+            var ienum = current.AllInterfaces.FirstOrDefault(i =>
+                i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>");
+            if (ienum != null && ienum.TypeArguments.Length == 1)
+            {
+                // Map the C# element type to Java type
+                // For now, return the type argument name as-is; the caller will use it for matching
+                return ienum.TypeArguments[0].Name;
+            }
+            current = current.BaseType;
+        }
+        return null;
+    }
+
+    private static bool TypeMatchesElement(string paramType, string elemType)
+    {
+        if (paramType == elemType)
+            return true;
+        // Suffix match: "Microsoft.Msagl.Core.Layout.Edge" matches "Edge"
+        if (paramType.EndsWith("." + elemType))
+            return true;
+        return false;
     }
 
     private static void AddJavaCollectionBridgeMethods(JavaClassDeclaration javaClass, string collectionType)

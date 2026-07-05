@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -62,8 +63,9 @@ public class CSharpQueue<T> implements CSharpGenericIterable<T>, Cloneable {
         return queue.toArray();
     }
 
+    @Override
     @SuppressWarnings("unchecked")
-    public T[] toArray(T[] a) {
+    public <E> E[] toArray(E[] a) {
         return queue.toArray(a);
     }
 
@@ -92,6 +94,44 @@ public class CSharpQueue<T> implements CSharpGenericIterable<T>, Cloneable {
 
     public int getCount() {
         return queue.size();
+    }
+
+    // Collection interface methods
+    public int size() {
+        return queue.size();
+    }
+
+    public boolean isEmpty() {
+        return queue.isEmpty();
+    }
+
+    public boolean add(T e) {
+        queue.addLast(e);
+        return true;
+    }
+
+    public boolean remove(Object o) {
+        return queue.remove(o);
+    }
+
+    public boolean containsAll(Collection<?> c) {
+        return queue.containsAll(c);
+    }
+
+    public boolean addAll(Collection<? extends T> c) {
+        return queue.addAll(c);
+    }
+
+    public boolean removeAll(Collection<?> c) {
+        return queue.removeAll(c);
+    }
+
+    public boolean retainAll(Collection<?> c) {
+        return queue.retainAll(c);
+    }
+
+    public T poll() {
+        return tryDequeue();
     }
 
     @Override

@@ -66,6 +66,7 @@ public class CSharpStack<T> implements CSharpICollection<T>, Cloneable {
         }
     }
 
+    @Override
     public Object[] toArray() {
         Object[] result = new Object[deque.size()];
         int i = 0;
@@ -77,16 +78,17 @@ public class CSharpStack<T> implements CSharpICollection<T>, Cloneable {
         return result;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
-    public T[] toArray(T[] a) {
+    public <E> E[] toArray(E[] a) {
         int size = deque.size();
-        T[] result = a.length >= size
+        E[] result = a.length >= size
             ? a
-            : (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);
+            : (E[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);
         int i = 0;
         java.util.Iterator<T> it = deque.descendingIterator();
         while (it.hasNext()) {
-            result[i++] = it.next();
+            result[i++] = (E) it.next();
         }
         if (result.length > size) {
             result[size] = null;

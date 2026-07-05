@@ -1,5 +1,8 @@
 package io.github.ningpp.compat;
 
+import java.util.*;
+import java.util.Map.Entry;
+
 public interface CSharpGenericIDictionary<K, V> extends CSharpICollection<CSharpKeyValuePair<K, V>> {
     void add(K key, V value);
     boolean containsKey(Object key);
@@ -12,4 +15,33 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpICollection<CSharp
     V tryGetValue(K key);
     boolean getIsReadOnly();
     int getCount();
+
+    default Set<K> keySet() {
+        Set<K> keys = new LinkedHashSet<>();
+        for (CSharpKeyValuePair<K, V> pair : this) {
+            keys.add(pair.getKey());
+        }
+        return keys;
+    }
+
+    default Collection<V> values() {
+        List<V> vals = new ArrayList<>();
+        for (CSharpKeyValuePair<K, V> pair : this) {
+            vals.add(pair.getValue());
+        }
+        return vals;
+    }
+
+    default Set<Entry<K, V>> entrySet() {
+        Set<Entry<K, V>> entries = new LinkedHashSet<>();
+        for (CSharpKeyValuePair<K, V> pair : this) {
+            entries.add(pair);
+        }
+        return entries;
+    }
+
+    default V getOrDefault(Object key, V defaultValue) {
+        V v = get(key);
+        return v != null || containsKey(key) ? v : defaultValue;
+    }
 }

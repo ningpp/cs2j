@@ -471,6 +471,11 @@ public partial class StatementTransformer
                         context.AddImport("java.util.Arrays");
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList");
+                        if (context.ReturnsCSharpGenericIterable)
+                        {
+                            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                            expr = $"CSharpGenericIterable.from({expr})";
+                        }
                     }
                     else
                     {
@@ -519,6 +524,11 @@ public partial class StatementTransformer
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
                     expr = $"{expr}.collect(Collectors.toCollection(() -> new ArrayList<>()))";
+                    if (context.ReturnsCSharpGenericIterable)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        expr = $"CSharpGenericIterable.from({expr})";
+                    }
                 }
             }
 

@@ -22,6 +22,11 @@ public class MapHelper {
         return value;
     }
 
+    public static <K, V> V putValue(CSharpGenericIDictionary<K, V> dict, K key, V value) {
+        dict.put(key, value);
+        return value;
+    }
+
     /**
      * Set an element at the given index and return the <em>inserted</em> value,
      * matching C# {@code list[index] = value} expression semantics.
