@@ -768,6 +768,42 @@ public class Sample
         Assert.DoesNotContain("dotnet.system.StringSplitOptions", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ProjectConversion_BoxedDoubleMaxValue_UsesJavaWrapperConstant()
+    {
+        var pipeline = new ProjectConversionPipeline(new ConversionOptions
+        {
+            TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
+        });
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Sample.cs",
+                Content = """
+public class Sample
+{
+    public double Test1() => double.MaxValue;
+    public double Test2() => Double.MaxValue;
+    public double Test3() => double.NaN;
+    public double Test4() => Double.NaN;
+}
+""",
+            }
+        });
+
+        Assert.NotEmpty(results);
+        var result = Assert.Single(results);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+
+        // double.MaxValue → Double.MAX_VALUE
+        Assert.Contains("Double.MAX_VALUE", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("double.MaxValue", result.GeneratedCode, StringComparison.Ordinal);
+        // Double.NaN → Double.NaN (not double.NaN)
+        Assert.DoesNotContain("double.NaN", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Double.NaN", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

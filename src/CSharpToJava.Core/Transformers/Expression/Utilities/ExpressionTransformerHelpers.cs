@@ -609,6 +609,35 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Checks if the type name is a Java primitive keyword (int, double, etc.).
+    /// Includes C# unsigned aliases that map to Java primitives (uint, ulong, ushort, bool).
+    /// </summary>
+    public static bool IsJavaPrimitiveType(string typeName)
+    {
+        return typeName switch
+        {
+            "int" or "long" or "double" or "float" or "short" or "byte"
+            or "char" or "boolean" or "uint" or "ulong" or "ushort"
+            or "bool" or "decimal" => true,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Returns the C# keyword form for a Java primitive type keyword.
+    /// Used with TryMapPrimitiveStaticFieldName which expects C# keyword forms.
+    /// For most types the input is already the keyword; this normalizes aliases.
+    /// </summary>
+    public static string UnboxJavaPrimitiveType(string javaType)
+    {
+        return javaType switch
+        {
+            "boolean" => "bool",
+            _ => javaType
+        };
+    }
+
+    /// <summary>
     /// Wraps an expression in &amp; 0xFF when the target is a C# byte (now Java int)
     /// to preserve C# byte's wrap-at-256 semantics.
     /// </summary>

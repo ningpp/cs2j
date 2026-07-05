@@ -748,6 +748,36 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Strip type arguments from type qualifiers — Java forbids Type<T>.member().
         target = ExpressionTransformerHelpers.StripTypeArguments(target);
 
+        // Fix: When the receiver resolved to a Java primitive keyword (double, int, float, etc.)
+        // but the member is a primitive static constant (MaxValue, NaN, etc.), the receiver must
+        // be the Java wrapper type (Double, Integer, Float, etc.) — Java primitives have no members.
+        // This happens when C# code uses the class-name form (Double.MaxValue) and
+        // TryTransformSimpleIdentifierReceiver or facade.Transform maps the receiver to the
+        // Java primitive keyword instead of the wrapper type.
+        // Skip when the expression is a C# boxed class name (UInt32, Double, etc.) — the
+        // _csharpBoxedClassNames path later handles these correctly with the C# keyword form,
+        // which is needed for unsigned types (UInt32.MaxValue → 4294967295L, not Integer.MAX_VALUE).
+        var boxedIdTextEarly = node.Expression switch
+        {
+            IdentifierNameSyntax idName => idName.Identifier.Text,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => name.Identifier.Text,
+            AliasQualifiedNameSyntax { Name: IdentifierNameSyntax aliasName } => aliasName.Identifier.Text,
+            _ => null
+        };
+        if (ExpressionTransformerHelpers.IsJavaPrimitiveType(target)
+            && TryMapPrimitiveStaticFieldName(ExpressionTransformerHelpers.UnboxJavaPrimitiveType(target), memberName, out var _primMapped)
+            && !(boxedIdTextEarly != null && _csharpBoxedClassNames.ContainsKey(boxedIdTextEarly)))
+        {
+            var boxedTarget = ExpressionTransformerHelpers.BoxJavaPrimitiveType(target);
+            var primKeyword = ExpressionTransformerHelpers.UnboxJavaPrimitiveType(target);
+            if (primKeyword == "decimal")
+                context.AddImport("io.github.ningpp.compat.Decimal");
+            if (_primMapped.StartsWith("(") || _primMapped.StartsWith("-")
+                || char.IsDigit(_primMapped[0]))
+                return _primMapped;
+            return $"{boxedTarget}.{_primMapped}";
+        }
+
         if (target == "String" && memberName == "Empty")
             return "\"\"";
 
