@@ -128,6 +128,56 @@ public class MyClass
     }
 
     [Fact]
+    public async Task ProjectAggregateWithSeed_ErrorStringSeedSpecialType_UsesStringSeedParameter()
+    {
+        var sourcePath = Path.Combine(Path.GetTempPath(), "LinearSystemSolver.cs");
+        var syntaxTree = CSharpSyntaxTree.ParseText("""
+using System;
+using System.Linq;
+
+namespace Microsoft.Msagl.Core.Layout.ProximityOverlapRemoval.ConjugateGradient
+{
+    public class LinearSystemSolver
+    {
+        public static void Test(double[] result1)
+        {
+            string res = result1.Aggregate("", (s, t) => string.Format("{0},\t{1}", s, t));
+        }
+    }
+}
+""", path: sourcePath);
+        var compilation = CSharpCompilation.Create(
+            "AutomaticGraphLayout",
+            new[] { syntaxTree },
+            references: Array.Empty<MetadataReference>(),
+            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = await syntaxTree.GetRootAsync();
+        var aggregateInvocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(inv => inv.Expression.ToString().Contains(".Aggregate", StringComparison.Ordinal));
+        var seedExpression = aggregateInvocation.ArgumentList.Arguments[0].Expression;
+        var seedType = semanticModel.GetTypeInfo(seedExpression);
+        Assert.IsAssignableFrom<IErrorTypeSymbol>(seedType.Type);
+        Assert.Equal(SpecialType.System_String, seedType.Type?.SpecialType);
+
+        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
+        var results = await pipeline.ConvertProjectAsync(
+            compilation,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sourcePath },
+            "AutomaticGraphLayout");
+
+        var result = Assert.Single(results, item => item.FileName == "LinearSystemSolver.java");
+        var java = result.GeneratedCode;
+
+        Assert.True(result.Success, java);
+        Assert.True(java.Contains("String test_ProceduralLinq", StringComparison.Ordinal), java);
+        Assert.True(java.Contains("String _seed", StringComparison.Ordinal), java);
+        Assert.DoesNotContain("? _seed", java, StringComparison.Ordinal);
+        Assert.DoesNotContain("Optional<Object> test_ProceduralLinq", java, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProjectAggregateWithSeed_MSTestConditionalAccessSeedKeepsStringHelperType()
     {
         var pipeline = new ProjectConversionPipeline(CreateProjectOptions());

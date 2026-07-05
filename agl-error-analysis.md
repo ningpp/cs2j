@@ -872,3 +872,24 @@ public static double getNoFixedPosition() {
 - **根因分类**: Transformer
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
 - **分析**: `Double.NaN` 在 Roslyn 中解析为 `System.Double.NaN` 静态字段；项目/struct 的块体 getter 路径先把静态 receiver 映射成 Java primitive `double`，随后静态字段 fallthrough 直接输出 `double.NaN`，没有复用已有 primitive static constant 的 boxed receiver 映射。
+
+## Iteration 43 - Aggregate seed wildcard parameter
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl202607-msagl\automaticgraphlayout\src\main\java\Microsoft\Msagl\Core\Layout\ProximityOverlapRemoval\ConjugateGradient\LinearSystemSolver.java`
+- **行号**: 136
+- **错误信息**: `/D:/agl202607-msagl/automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Layout/ProximityOverlapRemoval/ConjugateGradient/LinearSystemSolver.java:[136,113] 非法的类型开始`
+- **代码片段**:
+  ```java
+        String res = testConjugateGradientMethod2_ProceduralLinq1(result1, result1, "");
+        //Result should be 1 =(1,1,1,.....,1,1)
+        System.out.println(res);
+    }
+    static Optional<Object> testConjugateGradientMethod2_ProceduralLinq1(double[] _linqitems, double[] result1, ? _seed) {
+        if (_linqitems == null) {
+        throw new ArgumentNullException();
+        }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Layout\ProximityOverlapRemoval\ConjugateGradient\LinearSystemSolver.cs`
+- **根因分类**: Lowering
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.Rules.cs`
+- **分析**: 项目编译缺少部分 framework 引用时，Roslyn 会把 `Aggregate("", ...)` 的 seed 和返回值标为 `IErrorTypeSymbol`，但仍保留 `SpecialType.System_String`；LINQ lowering 将所有 error symbol 都当作不可用 fallback，导致 helper 方法返回类型和 `_seed` 参数从可恢复的 `string` 降级成 `?`/`Optional<Object>`。

@@ -1249,6 +1249,18 @@ namespace CSharpToJava.Core.LinqRewrite
 
         private ITypeSymbol ResolveAggregateWithSeedReturnType(InvocationExpressionSyntax node, ITypeSymbol semanticReturnType)
         {
+            var seed = node.ArgumentList.Arguments.Count > 0
+                ? node.ArgumentList.Arguments[0].Expression
+                : null;
+            if (seed != null)
+            {
+                var seedTypeInfo = semantic.GetTypeInfo(seed);
+                if (IsSpecificType(seedTypeInfo.ConvertedType))
+                    return seedTypeInfo.ConvertedType!;
+                if (IsSpecificType(seedTypeInfo.Type))
+                    return seedTypeInfo.Type!;
+            }
+
             if (!IsObjectFallbackType(semanticReturnType))
                 return semanticReturnType;
 
@@ -1266,18 +1278,6 @@ namespace CSharpToJava.Core.LinqRewrite
             var aggregateFuncReturnType = TryGetAggregateFunctionReturnType(aggregateFunc);
             if (IsSpecificType(aggregateFuncReturnType))
                 return aggregateFuncReturnType!;
-
-            var seed = node.ArgumentList.Arguments.Count > 0
-                ? node.ArgumentList.Arguments[0].Expression
-                : null;
-            if (seed != null)
-            {
-                var seedTypeInfo = semantic.GetTypeInfo(seed);
-                if (IsSpecificType(seedTypeInfo.ConvertedType))
-                    return seedTypeInfo.ConvertedType!;
-                if (IsSpecificType(seedTypeInfo.Type))
-                    return seedTypeInfo.Type!;
-            }
 
             return semanticReturnType;
         }
@@ -1353,15 +1353,39 @@ namespace CSharpToJava.Core.LinqRewrite
 
         private static bool IsObjectFallbackType(ITypeSymbol? type)
             => type == null
-                || type.TypeKind is TypeKind.Error or TypeKind.Unknown
+                || IsUnresolvedQuestionMarkType(type)
+                || type.TypeKind == TypeKind.Unknown
+                || (type.TypeKind == TypeKind.Error && type.SpecialType == SpecialType.None)
                 || type.SpecialType == SpecialType.System_Object
                 || type is ITypeParameterSymbol;
 
         private static bool IsSpecificType(ITypeSymbol? type)
             => type != null
-                && type.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
+                && !IsUnresolvedQuestionMarkType(type)
+                && type.TypeKind != TypeKind.Unknown
+                && (type.TypeKind != TypeKind.Error || type.SpecialType != SpecialType.None)
                 && type.SpecialType != SpecialType.System_Object
                 && type is not ITypeParameterSymbol;
+
+        private static bool IsUnresolvedQuestionMarkType(ITypeSymbol type)
+        {
+            if (type.ToDisplayString() == "?")
+                return true;
+
+            if (type is not INamedTypeSymbol namedType)
+                return false;
+
+            var originalDefinition = namedType.OriginalDefinition;
+            var isNullable = originalDefinition.SpecialType == SpecialType.System_Nullable_T
+                || originalDefinition.ToDisplayString() == "System.Nullable";
+            if (!isNullable)
+                return false;
+
+            return namedType.TypeArguments.Length == 0
+                || namedType.TypeArguments.Any(arg =>
+                    arg.TypeKind is TypeKind.Error or TypeKind.Unknown
+                    || arg.ToDisplayString() == "?");
+        }
 
         private StatementSyntax IfNullableIsNotNull(bool nullable, IdentifierNameSyntax currentValue, Func<ExpressionSyntax, StatementSyntax> p)
         {
