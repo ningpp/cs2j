@@ -893,3 +893,24 @@ public static double getNoFixedPosition() {
 - **根因分类**: Lowering
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\LinqRewrite\LinqRewriter.Rules.cs`
 - **分析**: 项目编译缺少部分 framework 引用时，Roslyn 会把 `Aggregate("", ...)` 的 seed 和返回值标为 `IErrorTypeSymbol`，但仍保留 `SpecialType.System_String`；LINQ lowering 将所有 error symbol 都当作不可用 fallback，导致 helper 方法返回类型和 `_seed` 参数从可恢复的 `string` 降级成 `?`/`Optional<Object>`。
+
+## Iteration 44 - Using alias in generic type syntax
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl202607-msagl\automaticgraphlayout\src\main\java\Microsoft\Msagl\Layout\LargeGraphLayout\LgPathRouter.java`
+- **行号**: 479
+- **错误信息**: `/D:/agl202607-msagl/automaticgraphlayout/src/main/java/Microsoft/Msagl/Layout/LargeGraphLayout/LgPathRouter.java:[479,37] 找不到符号`
+- **代码片段**:
+  ```java
+        }
+        }
+    }
+    public void addEdges(CSharpList<SymmetricSegment> toAdd) {
+        for (var e : toAdd) {
+        addVisGraphEdge(e.getA(), e.getB());
+        }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Layout\LargeGraphLayout\LgPathRouter.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`
+- **分析**: `LgPathRouter.cs` 使用 `using SymmetricSegment = Microsoft.Msagl.Core.DataStructures.SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>;`，但语义退化后 `MapTypeFromSyntaxString()` 没有解析 using alias，导致 `List<SymmetricSegment>` 被生成为 unresolved 的 `CSharpList<SymmetricSegment>`，而不是 `CSharpList<SymmetricTuple<Point>>`。
+- **修复验证**: 新增 `ProjectUsingAlias_AsGenericTypeSyntaxFallback_ResolvesAliasTarget` 红测覆盖语义退化时泛型参数、对象创建和返回类型中的 using alias；修复后 `dotnet build`、该聚焦测试和 `UsingAliasResolutionTests` 通过。重新转换 MSAGL 后，`LgPathRouter.addEdges` 生成为 `CSharpList<SymmetricTuple<Point>>`，保存日志的 Maven 编译已不再报告 `SymmetricSegment`/`LgPathRouter.java:[479]`。

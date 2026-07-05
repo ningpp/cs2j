@@ -1150,6 +1150,9 @@ public class TypeMappingService
         if (typeName.EndsWith("?") && typeName.Length > 1)
             return MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 1));
 
+        if (_resolveAlias(typeName) is ITypeSymbol aliasTarget)
+            return MapType(aliasTarget);
+
         // C# byte[] stays Java byte[] for API compatibility
         if (typeName == "byte[]") return "byte[]";
 

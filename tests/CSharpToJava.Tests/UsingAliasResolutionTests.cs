@@ -60,6 +60,69 @@ class Test
     }
 
     [Fact]
+    public async Task ProjectUsingAlias_AsGenericTypeSyntaxFallback_ResolvesAliasTarget()
+    {
+        var sourcePath = Path.Combine(Path.GetTempPath(), "Sample.cs");
+        var syntaxTree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
+using System.Collections.Generic;
+using SymmetricSegment = Microsoft.Msagl.Core.DataStructures.SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>;
+
+namespace Microsoft.Msagl.Core.Geometry
+{
+    public class Point
+    {
+    }
+}
+
+namespace Microsoft.Msagl.Core.DataStructures
+{
+    public class SymmetricTuple<T>
+    {
+        public SymmetricTuple(T a, T b)
+        {
+        }
+    }
+}
+
+namespace Microsoft.Msagl.Layout.LargeGraphLayout
+{
+    public class Sample
+    {
+        public void AddEdges(List<SymmetricSegment> toAdd)
+        {
+        }
+
+        public List<SymmetricSegment> EdgesOnOldTrajectories(Microsoft.Msagl.Core.Geometry.Point a, Microsoft.Msagl.Core.Geometry.Point b)
+        {
+            var segs = new List<SymmetricSegment>();
+            segs.Add(new SymmetricSegment(a, b));
+            return segs;
+        }
+    }
+}
+""", path: sourcePath);
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+            "AutomaticGraphLayout",
+            new[] { syntaxTree },
+            references: Array.Empty<Microsoft.CodeAnalysis.MetadataReference>(),
+            options: new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(
+            compilation,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sourcePath },
+            "AutomaticGraphLayout");
+
+        var result = Assert.Single(results, item => item.FileName == "Sample.java");
+        var java = result.GeneratedCode;
+
+        Assert.True(result.Success, java);
+        Assert.DoesNotContain("SymmetricSegment", java, StringComparison.Ordinal);
+        Assert.Contains("CSharpList<SymmetricTuple<Point>> toAdd", java, StringComparison.Ordinal);
+        Assert.Contains("new CSharpList<SymmetricTuple<Point>>", java, StringComparison.Ordinal);
+        Assert.Contains("new SymmetricTuple<Point>(a, b)", java, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UsingAlias_MappedFrameworkType_UsesConfiguredImport()
     {
         var result = Convert("""
