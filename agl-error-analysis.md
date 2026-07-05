@@ -853,3 +853,22 @@ public void expandingSearchTest_IncreasingOnly() {
 - **根因分类**: Transformer
 - **涉及组件**: MethodTransformer.cs, ClassTransformer.cs, InvocationExpressionTransformer.cs, CSharpGenericEnumerator.java, TypeMappings.json
 - **分析**: Three related issues fixed: (1) Yield-return GetEnumerator()→iterator() methods used CSharpEnumerator<T> (raw type with generic param), changed to CSharpGenericEnumerator<T>; (2) CSharpICollection<T> implementation classes had add/contains/remove erasure conflicts - void add(T) vs boolean add(T), contains(T) vs contains(Object), remove(T) vs remove(Object); (3) IList.RemoveAt mapped to "remove" instead of "removeAt" in TypeMappings.json, causing CSharpGenericIList.removeAt() not implemented errors. Also added remove() delegation to CSharpGenericEnumerator.IteratorBackedCSharpEnumerator.
+
+## Iteration 42 - Primitive static constant receiver
+- **状态**: ✅ Fixed
+- **Java 文件**: `D:\agl202607-msagl\automaticgraphlayout\src\main\java\Microsoft\Msagl\Core\Geometry\BorderInfo.java`
+- **行号**: 149
+- **错误信息**: `/D:/agl202607-msagl/automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/BorderInfo.java:[149,23] 需要class`
+- **代码片段**:
+  ```java
+     * Value gotten from or set to FixedPosition indicating that it's not set.
+     */
+public static double getNoFixedPosition() {
+        return double.NaN;
+    }
+        /**
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\OverlapRemoval\BorderInfo.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
+- **分析**: `Double.NaN` 在 Roslyn 中解析为 `System.Double.NaN` 静态字段；项目/struct 的块体 getter 路径先把静态 receiver 映射成 Java primitive `double`，随后静态字段 fallthrough 直接输出 `double.NaN`，没有复用已有 primitive static constant 的 boxed receiver 映射。

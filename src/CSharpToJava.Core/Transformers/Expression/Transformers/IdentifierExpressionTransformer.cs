@@ -118,6 +118,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (context.SemanticModel != null)
             {
                 var symbol = context.GetSymbolInfo(memberAccess).Symbol;
+                if (symbol is IFieldSymbol primitiveStaticField
+                    && TryMapPrimitiveStaticFieldAccess(primitiveStaticField, context, out var primitiveStaticFieldExpression))
+                {
+                    return primitiveStaticFieldExpression;
+                }
 
                 // Non-const field → JavaMemberAccessExpression
                 if (symbol is IFieldSymbol { IsConst: false })
@@ -740,6 +745,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             && staticTypeTarget == null
             && TryMapConfiguredSimpleStaticReceiver(node.Expression, context, out var configuredStaticReceiver))
         {
+            if (TryMapBoxedPrimitiveStaticFieldAccess(node.Expression, memberName, context, out var primitiveStaticFieldAccess))
+                return primitiveStaticFieldAccess;
+
             return $"{configuredStaticReceiver}.{ConversionContext.EscapeJavaKeyword(memberName)}";
         }
 
@@ -754,9 +762,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // This happens when C# code uses the class-name form (Double.MaxValue) and
         // TryTransformSimpleIdentifierReceiver or facade.Transform maps the receiver to the
         // Java primitive keyword instead of the wrapper type.
-        // Skip when the expression is a C# boxed class name (UInt32, Double, etc.) — the
-        // _csharpBoxedClassNames path later handles these correctly with the C# keyword form,
-        // which is needed for unsigned types (UInt32.MaxValue → 4294967295L, not Integer.MAX_VALUE).
+        // Skip only boxed class names whose constants need C#-specific literal handling.
+        // Regular primitive wrappers (Double, Single, Int32, etc.) can be fixed here.
         var boxedIdTextEarly = node.Expression switch
         {
             IdentifierNameSyntax idName => idName.Identifier.Text,
@@ -766,7 +773,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         };
         if (ExpressionTransformerHelpers.IsJavaPrimitiveType(target)
             && TryMapPrimitiveStaticFieldName(ExpressionTransformerHelpers.UnboxJavaPrimitiveType(target), memberName, out var _primMapped)
-            && !(boxedIdTextEarly != null && _csharpBoxedClassNames.ContainsKey(boxedIdTextEarly)))
+            && !RequiresBoxedClassPrimitiveConstantFallback(boxedIdTextEarly))
         {
             var boxedTarget = ExpressionTransformerHelpers.BoxJavaPrimitiveType(target);
             var primKeyword = ExpressionTransformerHelpers.UnboxJavaPrimitiveType(target);
@@ -1260,27 +1267,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // The PredefinedTypeSyntax path above handles keyword forms (e.g. 'double.MaxValue'),
         // but when code uses the class name form the receiver is an IdentifierNameSyntax.
         // Also handle qualified forms like System.UInt32.MaxValue and global::System.UInt32.MaxValue.
-        var boxedIdText = node.Expression switch
-        {
-            IdentifierNameSyntax idName => idName.Identifier.Text,
-            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => name.Identifier.Text,
-            AliasQualifiedNameSyntax { Name: IdentifierNameSyntax aliasName } => aliasName.Identifier.Text,
-            _ => null
-        };
-        if (boxedIdText != null
-            && _csharpBoxedClassNames.TryGetValue(boxedIdText, out var primInfo))
-        {
-            if (TryMapPrimitiveStaticFieldName(primInfo.keyword, memberName, out var mappedConst))
-            {
-                if (primInfo.keyword == "decimal")
-                    context.AddImport("io.github.ningpp.compat.Decimal");
-                // Some mappings return self-contained expressions like "(-Double.MAX_VALUE)".
-                if (mappedConst.StartsWith("(") || mappedConst.StartsWith("-")
-                    || char.IsDigit(mappedConst[0]))
-                    return mappedConst;
-                return $"{primInfo.javaWrapper}.{mappedConst}";
-            }
-        }
+        if (TryMapBoxedPrimitiveStaticFieldAccess(node.Expression, memberName, context, out var boxedPrimitiveStaticFieldAccess))
+            return boxedPrimitiveStaticFieldAccess;
 
         // C# static field/property mappings for non-primitive types.
         // Current TimeSpan mappings target the compat type, whose constants use Java naming.
@@ -2303,6 +2291,91 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         => TryMapPrimitiveStaticFieldName(primitiveKeyword, memberName, out var mappedMember)
             ? mappedMember
             : memberName;
+
+    private static bool TryMapPrimitiveStaticFieldAccess(
+        IFieldSymbol field,
+        ConversionContext context,
+        out JavaExpression expression)
+    {
+        expression = null!;
+
+        if (!field.IsStatic || field.ContainingType is not INamedTypeSymbol containingType)
+            return false;
+
+        if (!TryGetPrimitiveStaticFieldInfo(containingType, out var primitiveKeyword, out var javaWrapper))
+            return false;
+
+        if (!TryMapPrimitiveStaticFieldName(primitiveKeyword, field.Name, out var mappedMember))
+            return false;
+
+        if (primitiveKeyword == "decimal")
+            context.AddImport("io.github.ningpp.compat.Decimal");
+
+        var code = IsSelfContainedPrimitiveStaticMapping(mappedMember)
+            ? mappedMember
+            : $"{javaWrapper}.{mappedMember}";
+        expression = new JavaRawExpression(code, context.MapType(field.Type));
+        return true;
+    }
+
+    private static bool TryGetPrimitiveStaticFieldInfo(
+        INamedTypeSymbol containingType,
+        out string primitiveKeyword,
+        out string javaWrapper)
+    {
+        primitiveKeyword = string.Empty;
+        javaWrapper = string.Empty;
+
+        if (containingType.ContainingNamespace?.ToDisplayString() == "System"
+            && _csharpBoxedClassNames.TryGetValue(containingType.Name, out var info))
+        {
+            primitiveKeyword = info.keyword;
+            javaWrapper = info.javaWrapper;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool RequiresBoxedClassPrimitiveConstantFallback(string? boxedClassName)
+        => boxedClassName is "Byte" or "UInt16" or "UInt32" or "UInt64";
+
+    private static bool TryMapBoxedPrimitiveStaticFieldAccess(
+        ExpressionSyntax receiverExpression,
+        string memberName,
+        ConversionContext context,
+        out string mappedAccess)
+    {
+        mappedAccess = string.Empty;
+
+        var boxedIdText = receiverExpression switch
+        {
+            IdentifierNameSyntax idName => idName.Identifier.Text,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => name.Identifier.Text,
+            AliasQualifiedNameSyntax { Name: IdentifierNameSyntax aliasName } => aliasName.Identifier.Text,
+            _ => null
+        };
+
+        if (boxedIdText == null
+            || !_csharpBoxedClassNames.TryGetValue(boxedIdText, out var primitiveInfo)
+            || !TryMapPrimitiveStaticFieldName(primitiveInfo.keyword, memberName, out var mappedMember))
+        {
+            return false;
+        }
+
+        if (primitiveInfo.keyword == "decimal")
+            context.AddImport("io.github.ningpp.compat.Decimal");
+
+        mappedAccess = IsSelfContainedPrimitiveStaticMapping(mappedMember)
+            ? mappedMember
+            : $"{primitiveInfo.javaWrapper}.{mappedMember}";
+        return true;
+    }
+
+    private static bool IsSelfContainedPrimitiveStaticMapping(string mappedMember)
+        => mappedMember.StartsWith("(", StringComparison.Ordinal)
+            || mappedMember.StartsWith("-", StringComparison.Ordinal)
+            || char.IsDigit(mappedMember[0]);
 
     private static bool TryMapPrimitiveStaticFieldName(string primitiveKeyword, string memberName, out string mappedMember)
     {
