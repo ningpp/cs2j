@@ -203,9 +203,18 @@ public class PropertyTransformer : IMemberTransformer
                 {
                     context.IsInYieldMethod = true;
                     context.AddImport("io.github.ningpp.compat.CSharpList");
-                    context.AddImport("java.util.List");
                     var elemType = PropertyYieldExtractElementType(propType);
-                    getter.ReturnType = $"List<{elemType ?? "Object"}>";
+                    // Use CSharpGenericIterable<T> for IEnumerable<T> properties, List<T> otherwise
+                    if (propType.StartsWith("CSharpGenericIterable<") || propType.StartsWith("CSharpICollection<") || propType.StartsWith("CSharpGenericIList<"))
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        getter.ReturnType = $"CSharpGenericIterable<{elemType ?? "Object"}>";
+                    }
+                    else
+                    {
+                        context.AddImport("java.util.List");
+                        getter.ReturnType = $"List<{elemType ?? "Object"}>";
+                    }
                     var body = statementTransformer.TransformBlock(getAccessor.Body, context);
                     var listType = elemType != null ? $"CSharpList<{elemType}>" : "CSharpList<Object>";
                     getter.Body = $"{listType} _yieldResult = new {listType}();\n        {body}\n        return _yieldResult;";
@@ -354,7 +363,7 @@ public class PropertyTransformer : IMemberTransformer
     private static string? PropertyYieldExtractElementType(string javaType)
     {
         var m = System.Text.RegularExpressions.Regex.Match(javaType,
-            @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable)<(.+)>$");
+            @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable|CSharpGenericIterable|CSharpGenericEnumerator|CSharpICollection|CSharpGenericIList|CSharpList|CSharpEnumerator)<(.+)>$");
         return m.Success ? m.Groups[1].Value : null;
     }
 

@@ -133,16 +133,16 @@
         },
         {
             "csharp": "System.Collections.ICollection",
-            "java": "CSharpCollection",
+            "java": "CSharpICollection<?>",
             "imports": [
-                "io.github.ningpp.compat.CSharpCollection"
+                "io.github.ningpp.compat.CSharpICollection"
             ]
         },
         {
             "csharp": "System.Collections.IList",
-            "java": "CSharpIList",
+            "java": "CSharpGenericIList<?>",
             "imports": [
-                "io.github.ningpp.compat.CSharpIList"
+                "io.github.ningpp.compat.CSharpGenericIList"
             ]
         },
         {
@@ -210,16 +210,16 @@
         },
         {
             "csharp": "System.Collections.IEnumerable",
-            "java": "CSharpIterable",
+            "java": "CSharpGenericIterable<?>",
             "imports": [
-                "io.github.ningpp.compat.CSharpIterable"
+                "io.github.ningpp.compat.CSharpGenericIterable"
             ]
         },
         {
             "csharp": "System.Collections.IEnumerator",
-            "java": "CSharpEnumerator",
+            "java": "CSharpGenericEnumerator<?>",
             "imports": [
-                "io.github.ningpp.compat.CSharpEnumerator"
+                "io.github.ningpp.compat.CSharpGenericEnumerator"
             ]
         },
         {

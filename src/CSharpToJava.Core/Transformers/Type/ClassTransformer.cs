@@ -2061,6 +2061,20 @@ public class ClassTransformer : ITypeTransformer
             if (removeMethod != null)
                 removeMethod.Parameters[0].Type = "Object";
         }
+
+        // Handle CSharpGenericIList<T> erasure: indexOf(T) must become indexOf(Object)
+        var csharpIListType = javaClass.ImplementedTypes.FirstOrDefault(t => t.StartsWith("CSharpGenericIList<"));
+        if (csharpIListType != null)
+        {
+            string elemType = "Object";
+            if (csharpIListType.StartsWith("CSharpGenericIList<") && csharpIListType.EndsWith(">"))
+                elemType = csharpIListType.Substring(19, csharpIListType.Length - 20);
+
+            var indexOfMethod = javaClass.Methods.FirstOrDefault(m =>
+                m.Name == "indexOf" && m.Parameters.Count == 1 && m.ReturnType == "int" && m.Parameters[0].Type == elemType);
+            if (indexOfMethod != null)
+                indexOfMethod.Parameters[0].Type = "Object";
+        }
     }
 
     private static bool TypeOrAncestorImplementsIEnumerableT(INamedTypeSymbol type)

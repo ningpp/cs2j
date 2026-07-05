@@ -243,9 +243,7 @@ public class MethodTransformer : IMemberTransformer
                 var listType = elemType != null ? $"CSharpList<{elemType}>" : "CSharpList<Object>";
                 string returnStmt;
                 if (isIteratorReturn)
-                    returnStmt = elemType != null
-                        ? "return _yieldResult.iterator();"
-                        : "return CSharpEnumerator.from(_yieldResult.iterator());";
+                    returnStmt = "return _yieldResult.iterator();";
                 else
                     returnStmt = "return _yieldResult;";
                 var baseSegPrefix = baseSegmentDeclarations.Count > 0

@@ -453,6 +453,33 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             }
         }
 
+        // Array → CSharpGenericIterable/Collection cast: Java arrays don't implement
+        // Iterable<T>, so (CSharpGenericIterable<T>)(array) always fails.
+        // Use ArrayHelper.toList() for mutable CSharpList, or CSharpGenericIterable.fromCollection()
+        // for a view. C# casts like (IEnumerable<T>)array are valid because arrays
+        // implement IEnumerable<T> in C#, but not in Java.
+        if (context.SemanticModel != null)
+        {
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            if (sourceType is IArrayTypeSymbol)
+            {
+                if (targetType.StartsWith("CSharpGenericIterable<")
+                    || targetType.StartsWith("CSharpICollection<")
+                    || targetType.StartsWith("CSharpGenericIList<")
+                    || targetType.StartsWith("CSharpList<"))
+                {
+                    context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                    return $"ArrayHelper.toList({expression})";
+                }
+                if (targetType.StartsWith("Iterable<") || targetType.StartsWith("Collection<")
+                    || targetType.StartsWith("List<"))
+                {
+                    context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                    return $"ArrayHelper.toList({expression})";
+                }
+            }
+        }
+
         return $"({targetType})({expression})";
     }
 
