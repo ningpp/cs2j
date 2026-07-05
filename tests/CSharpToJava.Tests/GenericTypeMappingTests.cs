@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using Xunit;
@@ -37,7 +38,7 @@ class Test {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
         Assert.Contains("CSharpGenericIList<String>", code);
-        Assert.DoesNotContain("IList", code);
+        Assert.DoesNotMatch(new Regex(@"\bIList\b"), code);
     }
 
     [Fact]
@@ -128,7 +129,7 @@ class Test {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
         Assert.Contains("CSharpDictionary<String, CSharpList<Integer>>", code);
-        Assert.DoesNotContain("Dictionary", code);
+        Assert.DoesNotMatch(new Regex(@"\bDictionary\b"), code);
     }
 
     [Fact]
@@ -204,7 +205,7 @@ class Factory {
         var code = result.GeneratedCode!;
         Assert.Contains("CSharpGenericIList<String> getNames", code);
         Assert.Contains("Predicate<Integer> getPredicate", code);
-        Assert.DoesNotContain("IList<", code);
+        Assert.DoesNotMatch(new Regex(@"\bIList<"), code);
         Assert.DoesNotContain("Func<", code);
     }
 
