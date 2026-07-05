@@ -51,7 +51,7 @@ class MyEnumerator : IEnumerator<int>
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("implements CSharpEnumerator<Integer>", code);
+        Assert.Contains("implements CSharpGenericEnumerator<Integer>", code);
         Assert.Contains("public boolean moveNext()", code);
         Assert.Contains("public Integer getCurrent()", code);
         Assert.Contains("_iteratorHasNext", code);
@@ -121,7 +121,7 @@ class Walker
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("CSharpEnumerator.from(values.iterator())", code);
+        Assert.Contains("CSharpGenericEnumerator.from(values.iterator())", code);
         Assert.Contains("en.moveNext()", code);
         Assert.Contains("en.getCurrent()", code);
         Assert.DoesNotContain("en.next()", code);
@@ -147,8 +147,8 @@ class Walker
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("CSharpEnumerator<Integer> en;", code);
-        Assert.Contains("en = CSharpEnumerator.from(values.iterator())", code);
+        Assert.Contains("CSharpGenericEnumerator<Integer> en;", code);
+        Assert.Contains("en = CSharpGenericEnumerator.from(values.iterator())", code);
         Assert.Contains("en.moveNext()", code);
         Assert.Contains("en.getCurrent()", code);
         Assert.DoesNotContain("Iterator<Integer> en;", code);
@@ -200,7 +200,7 @@ class Walker
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("int first(CSharpEnumerator<Integer> en)", code);
+        Assert.Contains("int first(CSharpGenericEnumerator<Integer> en)", code);
         Assert.Contains("en.moveNext()", code);
         Assert.Contains("en.getCurrent()", code);
         Assert.DoesNotContain("Iterator<Integer> en", code);
@@ -231,8 +231,8 @@ class Walker
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("private CSharpEnumerator<Integer> en;", code);
-        Assert.Contains("public Walker(CSharpEnumerator<Integer> en)", code);
+        Assert.Contains("private CSharpGenericEnumerator<Integer> en;", code);
+        Assert.Contains("public Walker(CSharpGenericEnumerator<Integer> en)", code);
         Assert.Contains("this.en = en;", code);
         Assert.Contains("en.moveNext()", code);
         Assert.Contains("en.getCurrent()", code);
@@ -262,10 +262,11 @@ class Numbers : IEnumerable<int>
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("implements Iterable<Integer>", code);
-        Assert.Contains("public CSharpEnumerator<Integer> iterator()", code);
+        Assert.Contains("CSharpGenericIterable<Integer>", code);
+        Assert.Contains("Iterable<Integer>", code);
+        Assert.Contains("public CSharpGenericEnumerator<Integer> iterator()", code);
         Assert.Contains("ArrayList<Integer> _yieldResult", code);
-        Assert.Contains("return CSharpEnumerator.from(_yieldResult.iterator())", code);
+        Assert.Contains("return CSharpGenericEnumerator.from(_yieldResult.iterator())", code);
         Assert.DoesNotContain("Iterator<Object> iterator()", code);
     }
 
@@ -308,7 +309,7 @@ class Walker
         var code = r.GeneratedCode ?? "";
 
         Assert.Contains("class Succ implements Iterable<Integer>", code);
-        Assert.Contains("public CSharpEnumerator<Integer> iterator()", code);
+        Assert.Contains("public CSharpGenericEnumerator<Integer> iterator()", code);
         Assert.Contains("for (int v : new Succ())", code);
     }
 
@@ -334,7 +335,7 @@ class NoNamespaceManager : NamespaceManager
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("abstract class NamespaceManager implements Iterable", code);
+        Assert.Contains("abstract class NamespaceManager implements CSharpIterable", code);
         Assert.Contains("class NoNamespaceManager extends NamespaceManager", code);
         Assert.DoesNotContain("class NoNamespaceManager extends NamespaceManager implements Iterable<Object>", code);
     }

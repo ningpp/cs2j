@@ -839,3 +839,17 @@ public void expandingSearchTest_IncreasingOnly() {
 - **涉及组件**: `D:\code\cs2j\src\CSharpToJava.Core\Context\ConversionContext.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Context\TypeMappingService.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Type\ClassTransformer.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Utilities\ExpressionTransformerHelpers.cs`, `D:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs`
 - **分析**: C# 的 `internal System.SR` 按 assembly 隔离，`System.Private.Xml` 与 `System.Private.Uri` 可以各自拥有同名 helper；转换器把两者都生成成 Java 的 `dotnet.system.SR`，运行时 classpath 只能加载其中一个 jar 的 `SR.class`，导致 XML 代码链接到 URI 的 `SR` 时找不到 `getXml_InvalidRootData()`。
 - **修复验证**: 新增 `AssemblyLocalSystemSrTests` 红测覆盖 `System.SR`、`dotnet.system.SR` 以及 `SR.Format(...)` 静态 receiver；修复后聚焦测试、`dotnet build` 和全量 `dotnet test` 通过。重新转换并安装 `D:\csharpuri-java`、`D:\csharpxml-java` 后，`SystemPrivateUriSR.java`/`SystemPrivateXmlSR.java` 取代冲突的 `SR.java`，`XmlTextReaderImpl.java` 改为调用 `SystemPrivateXmlSR.getXml_InvalidRootData()`。随后重新转换 `E:\agl-master\GraphLayout\` 到 `D:\agl26` 并运行保存日志的 `mvn clean package -e`，旧的 `NoSuchMethodError: dotnet.system.SR.getXml_InvalidRootData()` 已消失；Maven 继续推进到 `InitialLayoutTests` 的 XML 数据错误并在 `SplineRouterTests` 阶段长时间未退出。
+## Iteration 41 - CSharpEnumerator generic type mismatch and CSharpICollection erasure conflicts
+- **状态**: ✅ Fixed (partial - 680 errors remain)
+- **Java 文件**: Multiple files across automaticgraphlayout module
+- **行号**: Various
+- **错误信息**: Multiple categories: CSharpEnumerator is not generic (776→688), CSharpICollection add/contains/remove erasure conflicts, RemoveAt mapped to remove instead of removeAt
+- **代码片段**: 
+  `java
+  // Before: CSharpEnumerator<T> iterator() { ... return CSharpEnumerator.from(...); }
+  // After: CSharpGenericEnumerator<T> iterator() { ... return CSharpGenericEnumerator.from(...); }
+  `
+- **对应 C# 文件**: Various
+- **根因分类**: Transformer
+- **涉及组件**: MethodTransformer.cs, ClassTransformer.cs, InvocationExpressionTransformer.cs, CSharpGenericEnumerator.java, TypeMappings.json
+- **分析**: Three related issues fixed: (1) Yield-return GetEnumerator()→iterator() methods used CSharpEnumerator<T> (raw type with generic param), changed to CSharpGenericEnumerator<T>; (2) CSharpICollection<T> implementation classes had add/contains/remove erasure conflicts - void add(T) vs boolean add(T), contains(T) vs contains(Object), remove(T) vs remove(Object); (3) IList.RemoveAt mapped to "remove" instead of "removeAt" in TypeMappings.json, causing CSharpGenericIList.removeAt() not implemented errors. Also added remove() delegation to CSharpGenericEnumerator.IteratorBackedCSharpEnumerator.

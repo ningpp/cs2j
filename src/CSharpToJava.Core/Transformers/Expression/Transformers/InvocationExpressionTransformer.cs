@@ -806,12 +806,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (originalMethodName == "GetEnumerator" && IsDictionaryLikeExpression(memberAccess.Expression, context))
         {
-            context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
-            return $"CSharpEnumerator.from({receiver}.entrySet().iterator())";
+            context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+            return $"CSharpGenericEnumerator.from({receiver}.entrySet().iterator())";
         }
 
         if (originalMethodName == "GetEnumerator" && IsExplicitEnumeratorGetEnumeratorInvocation(node, context))
         {
+            var enumMethod = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            bool isGenericEnumerator = IsGenericEnumeratorMethod(enumMethod);
+            if (isGenericEnumerator)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+                return $"CSharpGenericEnumerator.from({BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)})";
+            }
             context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
             return $"CSharpEnumerator.from({BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)})";
         }
@@ -7212,6 +7219,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         return type.AllInterfaces.Any(iface =>
             IsEnumerator(iface) || IsEnumerator(iface.OriginalDefinition));
+    }
+
+    private static bool IsGenericEnumeratorMethod(IMethodSymbol? method)
+    {
+        if (method == null)
+            return false;
+
+        // Direct return type is IEnumerator<T>
+        if (IsGenericIEnumerator(method.ReturnType))
+            return true;
+
+        // Return type implements IEnumerator<T> (e.g. HashSet<T>.Enumerator)
+        if (method.ReturnType is INamedTypeSymbol namedRet)
+            return namedRet.AllInterfaces.Any(IsGenericIEnumerator);
+
+        return false;
+    }
+
+    private static bool IsGenericIEnumerator(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+        return named.Name == "IEnumerator"
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+            && named.TypeArguments.Length == 1;
     }
 
     private static bool IsStaticNullSafeEqualsMethod(IMethodSymbol? methodSymbol)

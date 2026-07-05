@@ -1643,6 +1643,7 @@ public class ClassTransformer : ITypeTransformer
 
         string elementType = "Object";
         if (TryExtractGenericArgument(iteratorType, "Iterator", out var iteratorElementType)
+            || TryExtractGenericArgument(iteratorType, "CSharpGenericEnumerator", out iteratorElementType)
             || TryExtractGenericArgument(iteratorType, "CSharpEnumerator", out iteratorElementType))
             elementType = iteratorElementType;
 
@@ -1790,6 +1791,7 @@ public class ClassTransformer : ITypeTransformer
 
         string iterableType = "Iterable<Object>";
         if (TryExtractGenericArgument(iteratorMethod.ReturnType, "Iterator", out var elemType)
+            || TryExtractGenericArgument(iteratorMethod.ReturnType, "CSharpGenericEnumerator", out elemType)
             || TryExtractGenericArgument(iteratorMethod.ReturnType, "CSharpEnumerator", out elemType))
             iterableType = $"Iterable<{elemType}>";
 
@@ -1818,6 +1820,7 @@ public class ClassTransformer : ITypeTransformer
 
     private static bool IsIteratorLikeInterfaceType(string type)
         => type == "Iterator" || type.StartsWith("Iterator<", StringComparison.Ordinal)
+            || type == "CSharpGenericEnumerator" || type.StartsWith("CSharpGenericEnumerator<", StringComparison.Ordinal)
             || type == "CSharpEnumerator" || type.StartsWith("CSharpEnumerator<", StringComparison.Ordinal);
 
     private static void NormalizeEnumeratorCurrentReturnType(JavaClassDeclaration javaClass, string elementType)
@@ -1943,7 +1946,56 @@ public class ClassTransformer : ITypeTransformer
     private static void AddCollectionInterfaceBridgeMethods(JavaClassDeclaration javaClass)
     {
         var collectionType = javaClass.ImplementedTypes.FirstOrDefault(t => t == "Collection" || t.StartsWith("Collection<"));
-        if (collectionType == null) return;
+        if (collectionType != null)
+        {
+            AddJavaCollectionBridgeMethods(javaClass, collectionType);
+        }
+
+        // Also handle CSharpICollection<T> erasure conflicts:
+        // - void add(T) must become boolean add(T) to match CSharpICollection
+        // - boolean contains(T) must become boolean contains(Object) to match CSharpICollection
+        // - boolean remove(T) must become boolean remove(Object) to match CSharpICollection
+        var csharpCollectionType = javaClass.ImplementedTypes.FirstOrDefault(t => t.StartsWith("CSharpICollection<"));
+        if (csharpCollectionType != null)
+        {
+            string elemType = "Object";
+            if (csharpCollectionType.StartsWith("CSharpICollection<") && csharpCollectionType.EndsWith(">"))
+                elemType = csharpCollectionType.Substring(18, csharpCollectionType.Length - 19);
+
+            var addMethod = javaClass.Methods.FirstOrDefault(m =>
+                m.Name == "add" && m.Parameters.Count == 1 && m.Parameters[0].Type == elemType && m.ReturnType == "void");
+            if (addMethod != null)
+            {
+                addMethod.ReturnType = "boolean";
+                var trimmedBody = (addMethod.Body ?? addMethod.StructuredBody?.ToBodyString() ?? "").TrimEnd();
+                if (!EndsWithTerminalStatement(trimmedBody))
+                {
+                    if (addMethod.StructuredBody != null)
+                    {
+                        addMethod.StructuredBody.Statements.Add(
+                            new CSharpToJava.Core.Java.JavaRawStatement("return true;"));
+                    }
+                    else
+                    {
+                        addMethod.Body = trimmedBody + "\nreturn true;";
+                    }
+                }
+            }
+
+            var containsMethod = javaClass.Methods.FirstOrDefault(m =>
+                m.Name == "contains" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
+            if (containsMethod != null)
+                containsMethod.Parameters[0].Type = "Object";
+
+            var removeMethod = javaClass.Methods.FirstOrDefault(m =>
+                m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
+            if (removeMethod != null)
+                removeMethod.Parameters[0].Type = "Object";
+        }
+    }
+
+    private static void AddJavaCollectionBridgeMethods(JavaClassDeclaration javaClass, string collectionType)
+    {
 
         string elemType = "Object";
         if (collectionType.StartsWith("Collection<") && collectionType.EndsWith(">"))

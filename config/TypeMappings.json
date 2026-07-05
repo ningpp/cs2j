@@ -6329,12 +6329,12 @@
         {
             "type": "System.Collections.Generic.List`1",
             "method": "RemoveAt",
-            "javaMethod": "remove"
+            "javaMethod": "removeAt"
         },
         {
             "type": "System.Collections.Generic.IList`1",
             "method": "RemoveAt",
-            "javaMethod": "remove"
+            "javaMethod": "removeAt"
         },
         {
             "type": "System.Globalization.CultureInfo",
