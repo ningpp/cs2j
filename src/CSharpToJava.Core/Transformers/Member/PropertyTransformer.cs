@@ -202,12 +202,12 @@ public class PropertyTransformer : IMemberTransformer
                 if (isYieldGetter)
                 {
                     context.IsInYieldMethod = true;
-                    context.AddImport("java.util.ArrayList");
+                    context.AddImport("io.github.ningpp.compat.CSharpList");
                     context.AddImport("java.util.List");
                     var elemType = PropertyYieldExtractElementType(propType);
                     getter.ReturnType = $"List<{elemType ?? "Object"}>";
                     var body = statementTransformer.TransformBlock(getAccessor.Body, context);
-                    var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
+                    var listType = elemType != null ? $"CSharpList<{elemType}>" : "CSharpList<Object>";
                     getter.Body = $"{listType} _yieldResult = new {listType}();\n        {body}\n        return _yieldResult;";
                     context.IsInYieldMethod = false;
                 }

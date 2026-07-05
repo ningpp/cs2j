@@ -464,7 +464,7 @@ public partial class StatementTransformer
                         SpecialType.System_Boolean or SpecialType.System_Byte or
                         SpecialType.System_Int16 or SpecialType.System_Char)
                     {
-                        // Use toCollection(() -> new CSharpList<>() instead of toList()
+                        // Use CSharpList.toCSharpList() instead of toList()
                         // because C# List<T> maps to Java ArrayList<T> (concrete), and
                         // Collectors.toList() returns List<T> (interface) — type mismatch.
                         expr = $"Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toCollection(() -> new java.util.ArrayList<>()))";
@@ -486,7 +486,7 @@ public partial class StatementTransformer
 
             // Detect when a Stream expression is returned from a method that declares Iterable/IEnumerable.
             // C# LINQ expressions become Java Streams but IEnumerable<T> maps to Iterable<T>.
-            // Stream<T> does not implement Iterable<T>, so we need .collect(Collectors.toCollection(() -> new CSharpList<>())).
+            // Stream<T> does not implement Iterable<T>, so we need .collect(CSharpList.toCSharpList()).
             var retExprType = context.GetTypeInfo(stmt.Expression).Type;
             bool isStreamReturn = retExprType is INamedTypeSymbol retNamed2 &&
                 (retNamed2.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable") &&
@@ -514,8 +514,8 @@ public partial class StatementTransformer
                 // Don't double-collect: if the expression already ends with .toList() or ArrayList<>()) it's already a List
                 bool alreadyCollected = expr.EndsWith(".toList())")
                     || expr.EndsWith("toList()))")
-                    || expr.EndsWith("new CSharpList<>()))")
-                    || expr.EndsWith("new CSharpList<>()")
+                    || expr.EndsWith("CSharpList.toCSharpList()))")
+                    || expr.EndsWith("CSharpList.toCSharpList()")
                     || expr.EndsWith(".toArray())")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)\)$")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)$");
@@ -523,7 +523,7 @@ public partial class StatementTransformer
                 {
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                    expr = $"{expr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                    expr = $"{expr}.collect(CSharpList.toCSharpList())";
                     if (context.ReturnsCSharpGenericIterable)
                     {
                         context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");

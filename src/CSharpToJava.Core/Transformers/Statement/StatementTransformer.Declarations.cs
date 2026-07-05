@@ -334,12 +334,12 @@ public partial class StatementTransformer
 
                 // Fix K3: When the C# declared type is IEnumerable<T>/ICollection<T>/IList<T> (→ Java Iterable<T>)
                 // but the initializer ends with .toArray(T[]::new), the assignment would fail because
-                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(Collectors.toCollection(() -> new CSharpList<>())).
+                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(CSharpList.toCSharpList()).
                 if ((javaType.StartsWith("Iterable<") || javaType.StartsWith("List<") || javaType.StartsWith("Collection<"))
                     && System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$"))
                 {
                     initExpr = System.Text.RegularExpressions.Regex.Replace(
-                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(Collectors.toCollection(() -> new CSharpList<>()))");
+                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(CSharpList.toCSharpList())");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 }
@@ -353,7 +353,7 @@ public partial class StatementTransformer
                     var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
                         && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
-                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(Collectors.toCollection(() -> new CSharpList<>()))")
+                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(CSharpList.toCSharpList())")
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
                         && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
                         && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
@@ -366,7 +366,7 @@ public partial class StatementTransformer
 
                     if (semanticTypeIsEnumerableLike && looksLikeStreamExpr)
                     {
-                        initExpr = $"{initExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                        initExpr = $"{initExpr}.collect(CSharpList.toCSharpList())";
                         context.AddImport("java.util.stream.Collectors");
                         context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     }
@@ -396,7 +396,7 @@ public partial class StatementTransformer
                 // Guard: never register array-typed variables (T[]) as streams — arrays are
                 // directly iterable in Java and must not be collected in for-each loops.
                 {
-                    bool initLooksLikeStream = !initExpr.Contains(".collect(Collectors.toCollection(() -> new CSharpList<>()))")
+                    bool initLooksLikeStream = !initExpr.Contains(".collect(CSharpList.toCSharpList())")
                         // If it ends with .toArray(...), the stream was already terminated to an array —
                         // the variable is T[], not a stream, so do NOT register it as a stream variable.
                         && !initExpr.TrimEnd().EndsWith(".toArray()")

@@ -629,7 +629,7 @@ public class ArgumentTransformer
                     {
                         return transformedExpr;
                     }
-                    var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                    var collectExpr = $"{transformedExpr}.collect(CSharpList.toCSharpList())";
                     if (targetIsIEnumerable)
                     {
                         context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
@@ -637,7 +637,7 @@ public class ArgumentTransformer
                     }
                     return collectExpr;
                 }
-                var spliteratorCollectExpr = $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                var spliteratorCollectExpr = $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(CSharpList.toCSharpList())";
                 if (targetIsIEnumerable)
                 {
                     context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
@@ -923,7 +923,7 @@ public class ArgumentTransformer
         if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
             return transformedExpr;
 
-        var collectExpr = $"{transformedExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+        var collectExpr = $"{transformedExpr}.collect(CSharpList.toCSharpList())";
         if (argType.Name == "IEnumerable")
         {
             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");

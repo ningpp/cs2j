@@ -356,7 +356,7 @@ public class LambdaTransformer : IIRExpressionTransformer
                                 {
                                     context.AddImport("java.util.stream.Collectors");
                                     context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                                    body = $"{body}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                                    body = $"{body}.collect(CSharpList.toCSharpList())";
                                 }
                             }
                         }

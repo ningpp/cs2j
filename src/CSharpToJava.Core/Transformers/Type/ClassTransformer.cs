@@ -2009,6 +2009,14 @@ public class ClassTransformer : ITypeTransformer
                     && TypeMatchesElement(m.Parameters[0].Type, elemType));
                 if (removeMethod != null)
                     removeMethod.Parameters[0].Type = "Object";
+
+                // When C# Remove(T) returns a non-boolean type (e.g. RBNode<T>),
+                // it conflicts with Collection.remove(Object). Rename it.
+                var removeMethodNonBool = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType != "boolean"
+                    && TypeMatchesElement(m.Parameters[0].Type, elemType));
+                if (removeMethodNonBool != null)
+                    removeMethodNonBool.Name = "removeCSharp";
             }
         }
 

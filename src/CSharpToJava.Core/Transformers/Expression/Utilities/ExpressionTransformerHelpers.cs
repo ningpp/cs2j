@@ -1170,13 +1170,13 @@ public static class ExpressionTransformerHelpers
     public static bool IsJavaKeyword(string word) => Context.JavaNaming.IsJavaKeyword(word);
 
     /// <summary>
-    /// Strips ".collect(Collectors.toCollection(() -> new CSharpList<>()))" or similar from a stream expression.
+    /// Strips ".collect(CSharpList.toCSharpList())" or similar from a stream expression.
     /// </summary>
     public static string StripCollect(string target)
     {
         var patterns = new[]
         {
-            ".collect(Collectors.toCollection(() -> new CSharpList<>()))",
+            ".collect(CSharpList.toCSharpList())",
             ".collect(Collectors.toSet())",
             ".collect(Collectors.toCollection(LinkedList::new))",
             ".collect(Collectors.toCollection(HashSet::new))",
@@ -1207,7 +1207,7 @@ public static class ExpressionTransformerHelpers
     /// </summary>
     public static bool IsAlreadyCollectedCore(string t)
     {
-        return t.Contains(".collect(Collectors.toCollection(() -> new CSharpList<>()))") ||
+        return t.Contains(".collect(CSharpList.toCSharpList())") ||
                t.Contains(".collect(Collectors.toSet())") ||
                t.Contains(".collect(Collectors.toCollection(LinkedList::new))") ||
                t.Contains(".collect(Collectors.toCollection(HashSet::new))") ||
@@ -1339,7 +1339,7 @@ public static class ExpressionTransformerHelpers
             context.AddImport("java.util.stream.Collectors");
             context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
             var stream = BuildArrayStreamExpression(expr, arrayType, context, boxed: true);
-            var collectExpr = $"{stream}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+            var collectExpr = $"{stream}.collect(CSharpList.toCSharpList())";
             if (context.ReturnsCSharpGenericIterable)
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");

@@ -266,13 +266,13 @@ public partial class StatementTransformer
         }
 
         // Pre-process: StreamSupport.stream(...).toArray() used in foreach can't be iterated (Object[]).
-        // Convert to .collect(Collectors.toCollection(() -> new CSharpList<>())) so the list is Iterable<T> and foreach works.
+        // Convert to .collect(CSharpList.toCSharpList()) so the list is Iterable<T> and foreach works.
         {
             var trimExpr = expression.TrimEnd();
             if (trimExpr.EndsWith(".toArray()") && trimExpr.Contains("StreamSupport.stream("))
             {
                 expression = trimExpr.Substring(0, trimExpr.Length - ".toArray()".Length)
-                                 + ".collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                                 + ".collect(CSharpList.toCSharpList())";
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
             }
         }
@@ -292,11 +292,11 @@ public partial class StatementTransformer
         // Collect to List to allow break/continue/return in the loop body.
         // Use EndsWith check to avoid double-collecting an already-collected stream:
         // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
-        // but we only skip if the OUTERMOST call is already .collect(Collectors.toCollection(() -> new CSharpList<>())).
+        // but we only skip if the OUTERMOST call is already .collect(CSharpList.toCSharpList()).
         // Use ContainsStreamMethodAtTopLevel to avoid false positives where stream calls
         // appear only inside nested argument lists (e.g. method(x.stream().toArray(...))).
         bool isStream = !strippedTrailingStream
-            && !expression.TrimEnd().EndsWith(".collect(Collectors.toCollection(() -> new CSharpList<>()))")
+            && !expression.TrimEnd().EndsWith(".collect(CSharpList.toCSharpList())")
             && !EndsWithCollectCall(expression.TrimEnd())
             && !expression.TrimEnd().EndsWith(".toArray()")
             && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
@@ -349,7 +349,7 @@ public partial class StatementTransformer
             {
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 context.AddImport("java.util.stream.Collectors");
-                expression = $"{expression}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                expression = $"{expression}.collect(CSharpList.toCSharpList())";
             }
         }
 
@@ -521,7 +521,7 @@ public partial class StatementTransformer
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                srcExpr = $"{srcExpr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                srcExpr = $"{srcExpr}.collect(CSharpList.toCSharpList())";
             }
             if (i == froms.Count - 1)
             {

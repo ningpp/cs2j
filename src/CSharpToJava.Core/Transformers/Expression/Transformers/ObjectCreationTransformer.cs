@@ -525,7 +525,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     context.AddImport("java.util.stream.StreamSupport");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    args = $"StreamSupport.stream({args}.spliterator(), false).collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                    args = $"StreamSupport.stream({args}.spliterator(), false).collect(CSharpList.toCSharpList())";
                 }
             }
         }
@@ -921,7 +921,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     /// When the constructor symbol is unavailable, scan each argument for array types.
     /// Any array argument passed to a Java collection constructor must be wrapped:
     ///   • reference-type arrays  → ArrayHelper.toList(expr)
-    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(Collectors.toCollection(() -> new CSharpList<>()))
+    ///   • primitive arrays       → Arrays.stream(expr).boxed().collect(CSharpList.toCSharpList())
     /// Returns the updated comma-separated argument string.
     /// </summary>
     private static string CoerceArrayArgsForCollectionCtor(
@@ -1001,7 +1001,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         context.AddImport("java.util.stream.Collectors");
         context.AddImport("java.util.ArrayList");
-        return $"{expr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+        return $"{expr}.collect(CSharpList.toCSharpList())";
     }
 
     private static bool IsArrayAlreadyWrappedForCollectionArg(string expr)

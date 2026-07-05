@@ -843,7 +843,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 && IsLikelyStreamExpression(rightStr)
                 && !rightStr.Contains(".collect("))
             {
-                rightStr = $"{rightStr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                rightStr = $"{rightStr}.collect(CSharpList.toCSharpList())";
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 if (lhsNamed.Name == "IEnumerable")

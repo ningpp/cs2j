@@ -240,14 +240,12 @@ public class MethodTransformer : IMemberTransformer
                     }
                 }
 
-                var listType = elemType != null ? $"ArrayList<{elemType}>" : "ArrayList<Object>";
+                var listType = elemType != null ? $"CSharpList<{elemType}>" : "CSharpList<Object>";
                 string returnStmt;
                 if (isIteratorReturn)
                     returnStmt = elemType != null
-                        ? "return CSharpGenericEnumerator.from(_yieldResult.iterator());"
+                        ? "return _yieldResult.iterator();"
                         : "return CSharpEnumerator.from(_yieldResult.iterator());";
-                else if (returnsCSharpGenericIterable)
-                    returnStmt = "return CSharpGenericIterable.from(_yieldResult);";
                 else
                     returnStmt = "return _yieldResult;";
                 var baseSegPrefix = baseSegmentDeclarations.Count > 0
@@ -1327,12 +1325,12 @@ public class MethodTransformer : IMemberTransformer
         {
             // Don't double-collect
             bool alreadyCollected = exprBody.Contains(".collect(") || exprBody.EndsWith(".toList())")
-                || exprBody.EndsWith("new CSharpList<>()");
+                || exprBody.EndsWith("CSharpList.toCSharpList()");
             if (!alreadyCollected)
             {
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                return $"{exprBody}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+                return $"{exprBody}.collect(CSharpList.toCSharpList())";
             }
         }
 

@@ -199,7 +199,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
 
         context.AddImport("java.util.stream.Collectors");
         context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-        return $"{expr}.collect(Collectors.toCollection(() -> new CSharpList<>()))";
+        return $"{expr}.collect(CSharpList.toCSharpList())";
     }
 
     private static string AdaptZeroArrayToEmptyIterable(string expr, ConversionContext context)
