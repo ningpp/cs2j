@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using Xunit;
@@ -30,7 +31,7 @@ class Test {
         var code = result.GeneratedCode!;
         Assert.Contains("CSharpGenericIList.class", code);
         Assert.DoesNotContain("CSharpGenericIList<String>.class", code);
-        Assert.DoesNotContain("IList", code);
+        Assert.DoesNotMatch(new Regex(@"\bIList\b"), code);
     }
 
     [Fact]

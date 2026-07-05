@@ -51,11 +51,15 @@ public partial class StatementTransformer
         // When mapping C# IEnumerable<T>/ICollection<T>/IList<T> to CSharpGenericIterable<T>/CSharpICollection<T>/CSharpGenericIList<T>
         // for a local variable, use 'var' so Java infers the concrete return type (e.g. CSharpList<T>) from the initializer.
         // This prevents CSharpGenericIterable<T> vs CSharpICollection<T> compatibility issues.
-        if (javaType is "Iterable" or "CSharpGenericIterable" or "CSharpICollection" or "CSharpGenericIList"
-              or "CSharpReadOnlyCollection" or "CSharpReadOnlyList"
-            || javaType.StartsWith("Iterable<") || javaType.StartsWith("CSharpGenericIterable<")
-            || javaType.StartsWith("CSharpICollection<") || javaType.StartsWith("CSharpGenericIList<")
-            || javaType.StartsWith("CSharpReadOnlyCollection<") || javaType.StartsWith("CSharpReadOnlyList<"))
+        // Exception: when the initializer is a null literal, Java's var cannot infer the type, so keep the explicit type.
+        bool hasNullLiteralInitializer = stmt.Declaration.Variables.Any(v =>
+            v.Initializer?.Value.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.NullLiteralExpression) == true);
+        if (!hasNullLiteralInitializer
+            && (javaType is "Iterable" or "CSharpGenericIterable" or "CSharpICollection" or "CSharpGenericIList"
+                  or "CSharpReadOnlyCollection" or "CSharpReadOnlyList"
+                || javaType.StartsWith("Iterable<") || javaType.StartsWith("CSharpGenericIterable<")
+                || javaType.StartsWith("CSharpICollection<") || javaType.StartsWith("CSharpGenericIList<")
+                || javaType.StartsWith("CSharpReadOnlyCollection<") || javaType.StartsWith("CSharpReadOnlyList<")))
             javaType = "var";
 
         // If the C# declaration used 'var' (implicit type) and had NO initializer, Java cannot infer the type.
