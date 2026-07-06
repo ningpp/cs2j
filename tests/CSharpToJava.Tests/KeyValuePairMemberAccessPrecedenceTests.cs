@@ -4,11 +4,8 @@ using CSharpToJava.Core.Pipeline;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests that new KeyValuePair&lt;K,V&gt;(...).Key generates correct parenthesization
-/// so the cast binds to the constructor, not the member access:
-///   ((Map.Entry&lt;K,V&gt;) new AbstractMap.SimpleEntry&lt;K,V&gt;(...)).getKey()
-/// NOT:
-///   (Map.Entry&lt;K,V&gt;) new AbstractMap.SimpleEntry&lt;K,V&gt;(...).getKey()
+/// Tests that new KeyValuePair&lt;K,V&gt;(...).Key generates correct member access
+/// using CSharpKeyValuePair's getValue() method.
 /// </summary>
 public class KeyValuePairMemberAccessPrecedenceTests
 {
@@ -28,8 +25,8 @@ class Test
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
-        // Cast must be wrapped in parens so .getValue() binds to the cast result, not just the constructor
-        Assert.Contains("return (new AbstractMap.SimpleEntry<>(a, b)).getValue();", code);
+        // CSharpKeyValuePair has getValue() directly, no cast needed
+        Assert.Contains("new CSharpKeyValuePair(a, b).getValue()", code);
     }
 
     [Fact]
@@ -52,8 +49,10 @@ class Test
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
-        // Should have double-paren cast for correct precedence
-        Assert.Contains("((Map.Entry<Integer, Integer>)", code);
+        // CSharpKeyValuePair is used directly with explicit type args
+        Assert.Contains("new CSharpKeyValuePair<Integer, Integer>", code);
+        Assert.Contains(".getKey()", code);
+        Assert.Contains(".getValue()", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

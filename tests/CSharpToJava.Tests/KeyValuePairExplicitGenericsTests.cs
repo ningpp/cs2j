@@ -5,8 +5,7 @@ namespace CSharpToJava.Tests;
 
 /// <summary>
 /// Tests that new KeyValuePair with explicit generic types preserves them
-/// in the Java AbstractMap.SimpleEntry construction and casts to Map.Entry
-/// for generic invariance compatibility.
+/// in the Java CSharpKeyValuePair construction.
 /// </summary>
 public class KeyValuePairExplicitGenericsTests
 {
@@ -29,10 +28,8 @@ class Test
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
-        // Should have explicit generic args, not diamond inference
-        Assert.Contains("new AbstractMap.SimpleEntry<IRectangle<Integer>, String>", code);
-        // Should cast to Map.Entry for interface compatibility, with outer parens for precedence
-        Assert.Contains("((Map.Entry<IRectangle<Integer>, String>)", code);
+        // Should have explicit generic args preserved
+        Assert.Contains("new CSharpKeyValuePair<IRectangle<Integer>, String>", code);
     }
 
     [Fact]
@@ -51,8 +48,8 @@ class Test
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
-        // Should have explicit type args AND cast since they were explicit in C#
-        Assert.Contains("new AbstractMap.SimpleEntry<String, Integer>", code);
+        // Should have explicit type args
+        Assert.Contains("new CSharpKeyValuePair<String, Integer>", code);
     }
 
     private static ConversionResult Convert(string sourceCode)
