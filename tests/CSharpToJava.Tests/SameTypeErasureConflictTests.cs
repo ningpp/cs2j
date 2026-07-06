@@ -34,11 +34,11 @@ class Sample
         var code = result.GeneratedCode;
 
         // Both methods must appear
-        Assert.Contains("mkEdgeStmt(List<String> src, List<String> dst)", code);
-        Assert.Contains("mkEdgeStmt_erasure_2(List<String> src, List<List<String>> edges)", code);
+        Assert.Contains("mkEdgeStmt(CSharpGenericIList<String> src, CSharpGenericIList<String> dst)", code);
+        Assert.Contains("mkEdgeStmt_erasure_2(CSharpGenericIList<String> src, CSharpGenericIList<CSharpGenericIList<String>> edges)", code);
 
         // Nested generic correctly mapped
-        Assert.Contains("List<List<String>>", code);
+        Assert.Contains("CSharpGenericIList<CSharpGenericIList<String>>", code);
     }
 
     [Fact]
@@ -68,8 +68,8 @@ class Sample
 
         var code = result.GeneratedCode;
         // Both should have the same name (no conflict — different erased types)
-        Assert.Contains("void mkEdgeStmt(List<String> src, List<String> dst)", code);
-        Assert.Contains("void mkEdgeStmt(List<String> src, String name)", code);
+        Assert.Contains("void mkEdgeStmt(CSharpGenericIList<String> src, CSharpGenericIList<String> dst)", code);
+        Assert.Contains("void mkEdgeStmt(CSharpGenericIList<String> src, String name)", code);
         Assert.DoesNotContain("_erasure_", code);
     }
 
@@ -98,9 +98,9 @@ class Sample
         var code = result.GeneratedCode;
 
         // First keeps original name, second gets _erasure_2, third gets _erasure_3
-        Assert.Contains("void process(List<String> a)", code);
-        Assert.Contains("void process_erasure_2(List<Integer> a)", code);
-        Assert.Contains("void process_erasure_3(List<List<String>> a)", code);
+        Assert.Contains("void process(CSharpGenericIList<String> a)", code);
+        Assert.Contains("void process_erasure_2(CSharpGenericIList<Integer> a)", code);
+        Assert.Contains("void process_erasure_3(CSharpGenericIList<CSharpGenericIList<String>> a)", code);
     }
 
     [Fact]
@@ -175,13 +175,13 @@ class Box
 
         var code = result.GeneratedCode;
 
-        Assert.Contains("public static Box createFrom_Iterable_Rectangle(Iterable<Rectangle> rectangles)", code);
+        Assert.Contains("public static Box createFrom_CSharpGenericIterable_Rectangle(CSharpGenericIterable<Rectangle> rectangles)", code);
         Assert.Contains("Box __inst = new Box();", code);
         Assert.Contains("__inst.Count = 200;", code);
         Assert.Contains("for (Rectangle r : rectangles)", code);
         Assert.Contains("__inst.Count++;", code);
         Assert.Contains("return __inst;", code);
-        Assert.Contains("return Box.createFrom_Iterable_Rectangle(rectangles);", code);
+        Assert.Contains("return Box.createFrom_CSharpGenericIterable_Rectangle(rectangles);", code);
     }
 
     [Fact]
@@ -223,8 +223,8 @@ namespace Layout
 
         var code = result.GeneratedCode;
 
-        Assert.Contains("public static Box createFrom_Iterable_Rectangle(Iterable<Rectangle> rectangles)", code);
-        Assert.Contains("return Box.createFrom_Iterable_Rectangle(rectangles);", code);
-        Assert.DoesNotContain("createFrom_Iterable_Geometry", code);
+        Assert.Contains("public static Box createFrom_CSharpGenericIterable_Rectangle(CSharpGenericIterable<Rectangle> rectangles)", code);
+        Assert.Contains("return Box.createFrom_CSharpGenericIterable_Rectangle(rectangles);", code);
+        Assert.DoesNotContain("createFrom_CSharpGenericIterable_Geometry", code);
     }
 }
