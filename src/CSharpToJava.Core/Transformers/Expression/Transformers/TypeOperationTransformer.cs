@@ -807,7 +807,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 var javaSourceType = context.MapType(sourceType);
                 if (javaSourceType.StartsWith("Iterable<", StringComparison.Ordinal)
                     || javaSourceType.StartsWith("Collection<", StringComparison.Ordinal)
-                    || javaSourceType.StartsWith("List<", StringComparison.Ordinal))
+                    || javaSourceType.StartsWith("List<", StringComparison.Ordinal)
+                    || javaSourceType.StartsWith("CSharpGenericIterable", StringComparison.Ordinal)
+                    || javaSourceType.StartsWith("CSharpICollection", StringComparison.Ordinal)
+                    || javaSourceType.StartsWith("CSharpGenericIList", StringComparison.Ordinal)
+                    || javaSourceType.StartsWith("CSharpReadOnlyCollection", StringComparison.Ordinal)
+                    || javaSourceType.StartsWith("CSharpReadOnlyList", StringComparison.Ordinal))
                 {
                     return "null";
                 }
