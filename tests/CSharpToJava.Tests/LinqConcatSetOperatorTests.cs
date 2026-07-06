@@ -20,7 +20,7 @@ class Sample {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode;
 
-        Assert.Contains("Iterable<String> concatLists(List<String> strs1, List<String> strs2)", code, StringComparison.Ordinal);
+        Assert.Contains("CSharpGenericIterable<String> concatLists(CSharpGenericIList<String> strs1, CSharpGenericIList<String> strs2)", code, StringComparison.Ordinal);
 
         Assert.Contains("ProceduralLinq", code, StringComparison.Ordinal);
 
@@ -28,7 +28,7 @@ class Sample {
         Assert.DoesNotContain(".Concat(", code, StringComparison.Ordinal);
         Assert.DoesNotContain(".Select(", code, StringComparison.Ordinal);
 
-        Assert.Contains("Iterable<String> _second", code, StringComparison.Ordinal);
+        Assert.Contains("CSharpGenericIterable<String> _second", code, StringComparison.Ordinal);
 
         Assert.Matches(@"for\s*\(\s*String\s+\w+\s*:\s*_linqitems\s*\)", code);
         Assert.Matches(@"for\s*\(\s*String\s+\w+\s*:\s*_second\s*\)", code);
