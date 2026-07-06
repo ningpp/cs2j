@@ -6,8 +6,8 @@ using Xunit.Abstractions;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests that IList implementation's void Add() gets return true appended
-/// even when using structured body (IR) instead of raw Body string.
+/// Tests that IList implementation's Add method is properly converted
+/// when using structured body (IR) instead of raw Body string.
 /// </summary>
 public class ListAddReturnTrueTests
 {
@@ -50,10 +50,9 @@ class NodeCollection : IList<string> {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // add() must return boolean with a return true statement
-        Assert.Contains("boolean add(", code);
-        Assert.Contains("return true;", code);
-        Assert.DoesNotContain("void add(", code);
+        // With CSharpGenericIList compat class, void Add stays as void add
+        Assert.Contains("void add(String item)", code);
+        Assert.Contains("items.add(item)", code);
     }
 
     [Fact]
@@ -79,8 +78,9 @@ class NodeCollection : NodeMap, ICollection
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        Assert.DoesNotContain("implements Collection", code);
-        Assert.Contains("implements Iterable", code);
+        // Non-generic ICollection maps to CSharpICollection, not Java's Collection
+        Assert.DoesNotContain("implements Collection<", code);
+        Assert.Contains("CSharpICollection", code);
         Assert.Contains("int size()", code);
     }
 }
