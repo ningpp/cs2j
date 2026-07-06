@@ -5075,6 +5075,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             args = $"Integer.valueOf({args})";
         }
 
+        // C# Remove(T) returning non-boolean (e.g. RBTree.Remove returning RBNode<T>)
+        // was renamed to removeCSharp in ClassTransformer to avoid clash with
+        // Collection.remove(Object) returning boolean. Only apply when the containing
+        // type implements IEnumerable<T> (mapped to CSharpGenericIterable) — that is
+        // the condition under which ClassTransformer renames the method.
+        if (originalMethodName == "Remove"
+            && methodName == "remove"
+            && methodSymbol is { ReturnsVoid: false }
+            && methodSymbol.ReturnType.SpecialType != SpecialType.System_Boolean
+            && methodSymbol.ContainingType is INamedTypeSymbol containing
+            && containing.AllInterfaces.Any(iface =>
+                iface.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>"))
+        {
+            methodName = "removeCSharp";
+        }
+
         if (methodName == "toList" && string.IsNullOrEmpty(args))
         {
             context.AddImport("java.util.stream.StreamSupport");
