@@ -221,11 +221,8 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     }
 
                     var result = $"{streamExpr}.{streamOp}({linqArg}){terminal}";
-                    if (needsCollect && context.ReturnsCSharpGenericIterable)
-                    {
-                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                        result = $"CSharpGenericIterable.from({result})";
-                    }
+                    // Don't wrap in CSharpGenericIterable.from() here — keep concrete types
+                    // for local variables. Return statements handle wrapping separately.
                     return result;
                 }
 

@@ -8,10 +8,10 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     @Override
     CSharpGenericEnumerator<T> iterator();
 
-    static <T> CSharpGenericIterable<T> from(Iterable<T> iterable) {
+    static <T> CSharpGenericIterable<T> from(Iterable<? extends T> iterable) {
         if (iterable instanceof Collection) {
             @SuppressWarnings("unchecked")
-            Collection<T> coll = (Collection<T>) iterable;
+            Collection<? extends T> coll = (Collection<? extends T>) iterable;
             return fromCollection(coll);
         }
         return new CSharpGenericIterable<>() {
@@ -22,7 +22,8 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         };
     }
 
-    static <T> CSharpGenericIterable<T> fromCollection(Collection<T> collection) {
+    @SuppressWarnings("unchecked")
+    static <T> CSharpGenericIterable<T> fromCollection(Collection<? extends T> collection) {
         return new CSharpGenericIterable<>() {
             @Override
             public CSharpGenericEnumerator<T> iterator() {
@@ -33,10 +34,10 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
             @Override public boolean contains(Object o) { return collection.contains(o); }
             @Override public Object[] toArray() { return collection.toArray(); }
             @Override public <E> E[] toArray(E[] a) { return collection.toArray(a); }
-            @Override public boolean add(T e) { return collection.add(e); }
+            @Override public boolean add(T e) { throw new UnsupportedOperationException(); }
             @Override public boolean remove(Object o) { return collection.remove(o); }
             @Override public boolean containsAll(Collection<?> c) { return collection.containsAll(c); }
-            @Override public boolean addAll(Collection<? extends T> c) { return collection.addAll(c); }
+            @Override public boolean addAll(Collection<? extends T> c) { throw new UnsupportedOperationException(); }
             @Override public boolean removeAll(Collection<?> c) { return collection.removeAll(c); }
             @Override public boolean retainAll(Collection<?> c) { return collection.retainAll(c); }
             @Override public void clear() { collection.clear(); }

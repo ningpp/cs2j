@@ -3687,11 +3687,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.util.stream.Collectors");
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 var collectExpr = $"{receiver}.collect(CSharpList.toCSharpList())";
-                if (context.ReturnsCSharpGenericIterable)
-                {
-                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                    return $"CSharpGenericIterable.from({collectExpr})";
-                }
+                // Don't wrap in CSharpGenericIterable.from() here — keep the concrete CSharpList<T>
+                // type so local variables retain List capabilities (get(int), etc.).
+                // Return statements that need CSharpGenericIterable<T> are handled separately
+                // in StatementTransformer.ExpressionAndReturn.
                 return collectExpr;
             }
 
@@ -3988,11 +3987,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     var collectExpr = $"{concatStream}.collect(CSharpList.toCSharpList())";
-                    if (context.ReturnsCSharpGenericIterable)
-                    {
-                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                        return $"CSharpGenericIterable.from({collectExpr})";
-                    }
                     return collectExpr;
                 }
                 return concatStream;

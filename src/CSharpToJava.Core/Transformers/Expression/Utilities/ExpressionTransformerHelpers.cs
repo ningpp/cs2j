@@ -1369,11 +1369,6 @@ public static class ExpressionTransformerHelpers
             context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
             var stream = BuildArrayStreamExpression(expr, arrayType, context, boxed: true);
             var collectExpr = $"{stream}.collect(CSharpList.toCSharpList())";
-            if (context.ReturnsCSharpGenericIterable)
-            {
-                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                return $"CSharpGenericIterable.from({collectExpr})";
-            }
             return collectExpr;
         }
 
@@ -1419,11 +1414,6 @@ public static class ExpressionTransformerHelpers
 
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
         var viewExpr = $"ArrayHelper.asListView({expr})";
-        if (context.ReturnsCSharpGenericIterable)
-        {
-            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-            return $"CSharpGenericIterable.from({viewExpr})";
-        }
         return viewExpr;
     }
 
