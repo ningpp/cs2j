@@ -132,10 +132,13 @@ public class ControlFlowTransformer : IIRExpressionTransformer
 
             if (expectsIterable)
             {
+                var mappedConverted = converted != null ? context.MapType(converted) : null;
+                bool needsCSharpGenericIterable = mappedConverted != null
+                    && mappedConverted.StartsWith("CSharpGenericIterable", StringComparison.Ordinal);
                 trueExpr = CollectIfStreamLike(trueExpr, context);
                 falseExpr = CollectIfStreamLike(falseExpr, context);
-                trueExpr = AdaptZeroArrayToEmptyIterable(trueExpr, context);
-                falseExpr = AdaptZeroArrayToEmptyIterable(falseExpr, context);
+                trueExpr = AdaptZeroArrayToEmptyIterable(trueExpr, context, needsCSharpGenericIterable);
+                falseExpr = AdaptZeroArrayToEmptyIterable(falseExpr, context, needsCSharpGenericIterable);
             }
         }
 
@@ -202,29 +205,21 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         return $"{expr}.collect(CSharpList.toCSharpList())";
     }
 
-    private static string AdaptZeroArrayToEmptyIterable(string expr, ConversionContext context)
+    private static string AdaptZeroArrayToEmptyIterable(string expr, ConversionContext context, bool needsCSharpGenericIterable = false)
     {
         var t = expr.Trim();
-        if (t.Contains("Array.newInstance(", StringComparison.Ordinal)
-            && t.Contains(", 0)", StringComparison.Ordinal))
-        {
-            context.AddImport("java.util.Collections");
-            return "Collections.emptyList()";
-        }
+        bool isZeroArray = (t.Contains("Array.newInstance(", StringComparison.Ordinal) && t.Contains(", 0)", StringComparison.Ordinal))
+            || (t.Contains("new ", StringComparison.Ordinal) && t.Contains("[0]", StringComparison.Ordinal))
+            || ((t.StartsWith("new ArrayList<", StringComparison.Ordinal) || t.StartsWith("new CSharpList<", StringComparison.Ordinal)) && t.EndsWith(">()", StringComparison.Ordinal));
 
-        // Match original zero-length array: new T[0]
-        if (t.Contains("new ", StringComparison.Ordinal)
-            && t.Contains("[0]", StringComparison.Ordinal))
+        if (isZeroArray)
         {
             context.AddImport("java.util.Collections");
-            return "Collections.emptyList()";
-        }
-
-        // Match already-converted empty ArrayList/CSharpList: new ArrayList<T>() / new CSharpList<T>()
-        if ((t.StartsWith("new ArrayList<", StringComparison.Ordinal) || t.StartsWith("new CSharpList<", StringComparison.Ordinal))
-            && t.EndsWith(">()", StringComparison.Ordinal))
-        {
-            context.AddImport("java.util.Collections");
+            if (needsCSharpGenericIterable)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                return "CSharpGenericIterable.from(Collections.emptyList())";
+            }
             return "Collections.emptyList()";
         }
 
