@@ -91,4 +91,17 @@ public abstract class ConversionTestBase
         foreach (var marker in expectedMarkers)
             AssertJavaContains(result, marker);
     }
+
+    /// <summary>Asserts the generated Java contains at least one of the supplied markers.</summary>
+    protected static void AssertJavaContainsAny(ConversionResult result, params string[] markers)
+    {
+        foreach (var marker in markers)
+        {
+            if (result.GeneratedCode.Contains(marker, StringComparison.Ordinal))
+                return;
+        }
+        Assert.True(false,
+            "Expected generated Java to contain at least one of: " + string.Join(", ", markers) +
+            "\n--- Generated ---\n" + result.GeneratedCode);
+    }
 }
