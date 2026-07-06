@@ -551,9 +551,9 @@
         },
         {
             "csharp": "System.Collections.ObjectModel.KeyedCollection`2",
-            "java": "CSharpKeyedCollection",
+            "java": "KeyedCollection",
             "imports": [
-                "io.github.ningpp.compat.CSharpKeyedCollection"
+                "io.github.ningpp.compat.KeyedCollection"
             ]
         },
         {
