@@ -290,11 +290,13 @@ public partial class StatementTransformer : IStatementTransformer
 
             case WhileStatementSyntax whileStatement:
                 return IsTrueLiteral(whileStatement.Condition)
-                    && !ContainsReachableUnlabeledBreak(whileStatement.Statement);
+                    && !ContainsReachableUnlabeledBreak(whileStatement.Statement)
+                    && !ContainsGotoTargetingOutsideLoop(whileStatement.Statement);
 
             case ForStatementSyntax forStatement:
                 return forStatement.Condition == null
-                    && !ContainsReachableUnlabeledBreak(forStatement.Statement);
+                    && !ContainsReachableUnlabeledBreak(forStatement.Statement)
+                    && !ContainsGotoTargetingOutsideLoop(forStatement.Statement);
 
             case LabeledStatementSyntax labeled:
                 return IsUnconditionalJump(labeled.Statement);
@@ -376,6 +378,29 @@ public partial class StatementTransformer : IStatementTransformer
             default:
                 return false;
         }
+    }
+
+    private static bool ContainsGotoTargetingOutsideLoop(StatementSyntax loopBody)
+    {
+        var innerLabels = new HashSet<string>(StringComparer.Ordinal);
+        CollectLabelNames(loopBody, innerLabels);
+
+        foreach (var gotoStmt in loopBody.DescendantNodes().OfType<GotoStatementSyntax>())
+        {
+            if (gotoStmt.Kind() is SyntaxKind.GotoCaseStatement or SyntaxKind.GotoDefaultStatement)
+                continue;
+            var target = (gotoStmt.Expression as IdentifierNameSyntax)?.Identifier.Text;
+            if (target != null && !innerLabels.Contains(target))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static void CollectLabelNames(SyntaxNode node, HashSet<string> labels)
+    {
+        foreach (var labeled in node.DescendantNodes().OfType<LabeledStatementSyntax>())
+            labels.Add(labeled.Identifier.Text);
     }
 
     private static bool IsUsingDeclaration(LocalDeclarationStatementSyntax statement)
