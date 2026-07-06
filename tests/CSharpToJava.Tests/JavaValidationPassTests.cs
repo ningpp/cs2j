@@ -367,10 +367,12 @@ class Sample
             {
                 FilePath = "Sample.cs",
                 Content = @"
+using System;
 using System.Collections.Generic;
 
 class Sample
 {
+    Func<string, string> transform;
     void M()
     {
         var list = new List<string>();
@@ -382,7 +384,7 @@ class Sample
 
         var primaryResult = Assert.Single(results, r => r.FileName == "Sample.java");
         Assert.True(primaryResult.Success);
-        // Should detect java.base as a module dependency (java.util.ArrayList is in java.base)
+        // Should detect java.base as a module dependency (java.util.function.Function is in java.base)
         Assert.NotNull(primaryResult.JavaModuleDependencies);
         Assert.Contains("java.base", primaryResult.JavaModuleDependencies);
     }
