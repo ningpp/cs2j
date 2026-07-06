@@ -1775,7 +1775,8 @@ public class ClassTransformer : ITypeTransformer
             t == "Iterable"
             || t.StartsWith("Iterable<")
             || t == "CSharpCollection"
-            || t.StartsWith("CSharpCollection<"));
+            || t.StartsWith("CSharpCollection<")
+            || t.StartsWith("CSharpICollection"));
         if (alreadyIterable)
             return;
 
@@ -2250,7 +2251,8 @@ public class ClassTransformer : ITypeTransformer
             t == "Iterable"
             || t.StartsWith("Iterable<")
             || t == "CSharpCollection"
-            || t.StartsWith("CSharpCollection<"));
+            || t.StartsWith("CSharpCollection<")
+            || t.StartsWith("CSharpICollection"));
         if (!needsSizeBridge) return;
         if (javaClass.Methods.Any(m => m.Name == "size")) return; // already has size()
 

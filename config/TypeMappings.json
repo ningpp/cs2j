@@ -133,9 +133,9 @@
         },
         {
             "csharp": "System.Collections.ICollection",
-            "java": "CSharpCollection",
+            "java": "CSharpICollection<?>",
             "imports": [
-                "io.github.ningpp.compat.CSharpCollection"
+                "io.github.ningpp.compat.CSharpICollection"
             ]
         },
         {

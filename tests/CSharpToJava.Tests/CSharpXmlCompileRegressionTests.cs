@@ -153,9 +153,11 @@ public class CSharpXmlCompileRegressionTests
             """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import io.github.ningpp.compat.CSharpCollection;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("class Bag implements CSharpCollection", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("CSharpCollection collection = bag;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("class Bag implements CSharpICollection", result.GeneratedCode, StringComparison.Ordinal);
+        // Local variable with CSharpICollection<?> type is simplified to var
+        // (consistent with other collection interface types like CSharpGenericIterable<T>)
+        Assert.Contains("var collection = bag;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("collection.copyTo(array, 0);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("return collection.size();", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("public int size()", result.GeneratedCode, StringComparison.Ordinal);

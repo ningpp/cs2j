@@ -79,9 +79,9 @@ class NodeCollection : NodeMap, ICollection
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Non-generic ICollection maps to CSharpCollection, not Java's Collection
+        // Non-generic ICollection maps to CSharpICollection<?>, not Java's Collection
         Assert.DoesNotContain("implements Collection<", code);
-        Assert.Contains("CSharpCollection", code);
+        Assert.Contains("CSharpICollection", code);
         Assert.Contains("int size()", code);
     }
 }

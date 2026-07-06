@@ -11,6 +11,18 @@ public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
     int getCount();
     boolean getIsReadOnly();
 
+    // CSharpCollection-compatible methods (non-generic ICollection surface)
+    default void copyTo(CSharpArray array, int index) {
+        int i = 0;
+        for (T elem : this) {
+            array.setValue(elem, index + i);
+            i++;
+        }
+    }
+
+    default boolean getIsSynchronized() { return false; }
+    default Object getSyncRoot() { return this; }
+
     @Override
     default int size() {
         return getCount();
