@@ -47,9 +47,9 @@ public class MyClass
 
         Assert.True(result.Success, java);
         Assert.Contains("new String[]", java);
-        Assert.True(java.Contains("List<String> resolve_ProceduralLinq", StringComparison.Ordinal), java);
+        Assert.True(java.Contains("CSharpGenericIterable<String> resolve_ProceduralLinq", StringComparison.Ordinal), java);
         Assert.DoesNotContain("new Object[]", java, StringComparison.Ordinal);
-        Assert.DoesNotContain("List<Object> resolve_ProceduralLinq", java, StringComparison.Ordinal);
+        Assert.DoesNotContain("CSharpGenericIterable<Object> resolve_ProceduralLinq", java, StringComparison.Ordinal);
     }
 
     private static ConversionOptions CreateProjectOptions()
