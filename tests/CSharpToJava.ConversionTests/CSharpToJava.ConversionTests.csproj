@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CSharpToJava.Core\CSharpToJava.Core.csproj" />
+    <ProjectReference Include="..\..\src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" />
+    <ProjectReference Include="..\..\src\CSharpToJava.TypeMapping\CSharpToJava.TypeMapping.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copy the default type-mapping config so tests can run from any working directory -->
+    <Content Include="..\..\config\TypeMappings.json">
+      <Link>config\TypeMappings.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
