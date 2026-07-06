@@ -535,7 +535,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     {
         return mappedType == "Iterable" || mappedType.StartsWith("Iterable<")
             || mappedType == "Collection" || mappedType.StartsWith("Collection<")
-            || mappedType == "List" || mappedType.StartsWith("List<");
+            || mappedType == "List" || mappedType.StartsWith("List<")
+            || mappedType.StartsWith("CSharpGenericIterable")
+            || mappedType.StartsWith("CSharpICollection")
+            || mappedType.StartsWith("CSharpGenericIList")
+            || mappedType.StartsWith("CSharpCollection")
+            || mappedType.StartsWith("CSharpReadOnlyCollection")
+            || mappedType.StartsWith("CSharpReadOnlyList");
     }
 
     private static string WrapArrayAsIterable(string expr, IArrayTypeSymbol arrayType, ConversionContext context)
