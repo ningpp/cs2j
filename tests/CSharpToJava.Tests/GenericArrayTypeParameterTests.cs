@@ -227,7 +227,7 @@ class Demo<K, V> {
 
         Assert.Contains("private final Class<?> tClass;", code);
         Assert.Contains("public Box(Class<?> tClass)", code);
-        Assert.Contains("new Box<CSharpList<LinkedHashMap<K, V>>>(CSharpList.class).make(1)", code);
+        Assert.Contains("new Box<CSharpList<CSharpDictionary<K, V>>>(CSharpList.class).make(1)", code);
         Assert.DoesNotContain("Class<CSharpList<Map<K, V>>>", code);
     }
 
@@ -477,7 +477,7 @@ class Demo {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("public <T> Object copy(Iterable<T> items, Class<?> clazz)", code);
+        Assert.Contains("public <T> Object copy(CSharpGenericIterable<T> items, Class<?> clazz)", code);
         Assert.Contains("java.lang.reflect.Array.newInstance(clazz, size)", code);
         Assert.DoesNotContain("new Object[size]", code);
         Assert.DoesNotContain("T.class", code);
