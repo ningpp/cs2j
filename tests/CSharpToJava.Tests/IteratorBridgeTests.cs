@@ -176,7 +176,7 @@ class Walker
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("CSharpEnumerator en = null;", code);
+        Assert.Contains("CSharpGenericEnumerator<?> en = null;", code);
         Assert.DoesNotContain("var en = null;", code);
         Assert.Contains("en = CSharpEnumerator.from(values.iterator())", code);
         Assert.Contains("en.moveNext()", code);
@@ -265,8 +265,8 @@ class Numbers : IEnumerable<int>
         Assert.Contains("CSharpGenericIterable<Integer>", code);
         Assert.Contains("Iterable<Integer>", code);
         Assert.Contains("public CSharpGenericEnumerator<Integer> iterator()", code);
-        Assert.Contains("ArrayList<Integer> _yieldResult", code);
-        Assert.Contains("return CSharpGenericEnumerator.from(_yieldResult.iterator())", code);
+        Assert.Contains("CSharpList<Integer> _yieldResult", code);
+        Assert.Contains("return _yieldResult.iterator()", code);
         Assert.DoesNotContain("Iterator<Object> iterator()", code);
     }
 
@@ -335,7 +335,7 @@ class NoNamespaceManager : NamespaceManager
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("abstract class NamespaceManager implements CSharpIterable", code);
+        Assert.Contains("abstract class NamespaceManager implements CSharpGenericIterable<?>, Iterable<?>", code);
         Assert.Contains("class NoNamespaceManager extends NamespaceManager", code);
         Assert.DoesNotContain("class NoNamespaceManager extends NamespaceManager implements Iterable<Object>", code);
     }
