@@ -2002,13 +2002,17 @@ public class ClassTransformer : ITypeTransformer
                     m.Name == "contains" && m.Parameters.Count == 1 && m.ReturnType == "boolean"
                     && TypeMatchesElement(m.Parameters[0].Type, elemType));
                 if (containsMethod != null)
+                {
                     containsMethod.Parameters[0].Type = "Object";
+                }
 
                 var removeMethod = javaClass.Methods.FirstOrDefault(m =>
                     m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean"
                     && TypeMatchesElement(m.Parameters[0].Type, elemType));
                 if (removeMethod != null)
-                    removeMethod.Parameters[0].Type = "Object";
+                {
+                    EraseParameterTypeWithCast(removeMethod, elemType);
+                }
 
                 // When C# Remove(T) returns a non-boolean type (e.g. RBNode<T>),
                 // it conflicts with Collection.remove(Object). Rename it.
@@ -2059,10 +2063,11 @@ public class ClassTransformer : ITypeTransformer
             var removeMethod = javaClass.Methods.FirstOrDefault(m =>
                 m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
             if (removeMethod != null)
-                removeMethod.Parameters[0].Type = "Object";
+                EraseParameterTypeWithCast(removeMethod, elemType);
         }
 
         // Handle CSharpGenericIList<T> erasure: indexOf(T) must become indexOf(Object)
+        // Also apply CSharpICollection erasure since CSharpGenericIList extends CSharpICollection.
         var csharpIListType = javaClass.ImplementedTypes.FirstOrDefault(t => t.StartsWith("CSharpGenericIList<"));
         if (csharpIListType != null)
         {
@@ -2074,6 +2079,40 @@ public class ClassTransformer : ITypeTransformer
                 m.Name == "indexOf" && m.Parameters.Count == 1 && m.ReturnType == "int" && m.Parameters[0].Type == elemType);
             if (indexOfMethod != null)
                 indexOfMethod.Parameters[0].Type = "Object";
+
+            // CSharpGenericIList extends CSharpICollection, so apply same erasure
+            if (csharpCollectionType == null)
+            {
+                var addMethod = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "add" && m.Parameters.Count == 1 && m.Parameters[0].Type == elemType && m.ReturnType == "void");
+                if (addMethod != null)
+                {
+                    addMethod.ReturnType = "boolean";
+                    var trimmedBody = (addMethod.Body ?? addMethod.StructuredBody?.ToBodyString() ?? "").TrimEnd();
+                    if (!EndsWithTerminalStatement(trimmedBody))
+                    {
+                        if (addMethod.StructuredBody != null)
+                        {
+                            addMethod.StructuredBody.Statements.Add(
+                                new JavaRawStatement("return true;"));
+                        }
+                        else
+                        {
+                            addMethod.Body = trimmedBody + "\nreturn true;";
+                        }
+                    }
+                }
+
+                var containsMethod = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "contains" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
+                if (containsMethod != null)
+                    containsMethod.Parameters[0].Type = "Object";
+
+                var removeMethod = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
+                if (removeMethod != null)
+                    EraseParameterTypeWithCast(removeMethod, elemType);
+            }
         }
     }
 
@@ -2760,6 +2799,33 @@ public class ClassTransformer : ITypeTransformer
     {
         var lastLine = body.Split('\n').LastOrDefault()?.Trim();
         return lastLine != null && (lastLine.StartsWith("throw ") || lastLine.StartsWith("return "));
+    }
+
+    /// <summary>
+    /// When a method parameter type is erased from ElemType to Object (to match
+    /// Collection/CSharpICollection erasure), insert a cast at the beginning of
+    /// the method body so that the rest of the body can still use the original type.
+    /// </summary>
+    private static void EraseParameterTypeWithCast(JavaMethodDeclaration method, string originalType)
+    {
+        if (method.Parameters.Count == 0) return;
+        var param = method.Parameters[0];
+        var paramName = param.Name;
+        var erasedName = paramName + "__obj";
+
+        param.Type = "Object";
+        param.Name = erasedName;
+
+        var castLine = $"{originalType} {paramName} = ({originalType}){erasedName};";
+
+        if (method.StructuredBody != null)
+        {
+            method.StructuredBody.Statements.Insert(0, new JavaRawStatement(castLine));
+        }
+        else if (method.Body != null)
+        {
+            method.Body = castLine + "\n" + method.Body;
+        }
     }
 
     /// <summary>

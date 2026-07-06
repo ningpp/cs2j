@@ -196,6 +196,9 @@ public class PropertyTransformer : IMemberTransformer
             // 处理显式 getter 主体
             if (getAccessor?.Body != null)
             {
+                // Set ReturnsCSharpGenericIterable for the getter body processing
+                context.ReturnsCSharpGenericIterable = getter.ReturnType != null
+                    && getter.ReturnType.StartsWith("CSharpGenericIterable<");
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
                 // Detect yield-returning getter: convert to list accumulation pattern
                 bool isYieldGetter = getAccessor.Body.DescendantNodes().OfType<YieldStatementSyntax>().Any();

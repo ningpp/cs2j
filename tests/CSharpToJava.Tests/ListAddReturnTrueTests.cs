@@ -50,8 +50,9 @@ class NodeCollection : IList<string> {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // With CSharpGenericIList compat class, void Add stays as void add
-        Assert.Contains("void add(String item)", code);
+        // CSharpGenericIList extends CSharpICollection which has boolean add(T),
+        // so void Add(T) must be converted to boolean add(T) with "return true;" appended.
+        Assert.Contains("boolean add(String item)", code);
         Assert.Contains("items.add(item)", code);
     }
 

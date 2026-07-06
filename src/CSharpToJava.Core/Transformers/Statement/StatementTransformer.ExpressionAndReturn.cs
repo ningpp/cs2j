@@ -578,6 +578,32 @@ public partial class StatementTransformer
             returnTargetType,
             context);
 
+        // When the method returns CSharpGenericIterable<T> but the expression is
+        // a Java Collection/List/Set/Iterable (not already a CSharpGenericIterable),
+        // wrap it in CSharpGenericIterable.from() so the types are compatible.
+        // Skip IDictionary because CSharpDictionary already implements CSharpGenericIterable.
+        if (context.ReturnsCSharpGenericIterable && context.SemanticModel != null)
+        {
+            var retExprType = context.GetTypeInfo(stmt.Expression).Type;
+            bool isAlreadyCSharpGenericIterable = expr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal);
+            bool isIDictionary = retExprType is INamedTypeSymbol dictType
+                && (dictType.Name is "Dictionary" or "SortedDictionary" or "IDictionary"
+                    || dictType.AllInterfaces.Any(i => i.Name == "IDictionary"));
+            bool isJavaCollectionLike = !isAlreadyCSharpGenericIterable && !isIDictionary
+                && retExprType is INamedTypeSymbol collNamed
+                && collNamed.AllInterfaces.Any(i =>
+                    i.OriginalDefinition.ToDisplayString() is
+                    "System.Collections.Generic.IEnumerable<T>" or
+                    "System.Collections.Generic.ICollection<T>" or
+                    "System.Collections.Generic.IList<T>" or
+                    "System.Collections.Generic.ISet<T>");
+            if (isJavaCollectionLike)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                expr = $"CSharpGenericIterable.from({expr})";
+            }
+        }
+
         // Bug 3: drain any pre/post statements produced while transforming the return expression
         // (e.g., ref argument wrapping adds pre-statements for holder init and post-statements for write-back).
         if (context.HasPendingPreStatements || context.HasPendingPostStatements)
