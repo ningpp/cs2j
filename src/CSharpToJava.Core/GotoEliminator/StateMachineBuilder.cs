@@ -219,7 +219,7 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 foreach (var v in decl.Declaration.Variables)
                 {
                     var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
-                        SyntaxFactory.VariableDeclaration(synthesizedType,
+                        SyntaxFactory.VariableDeclaration(synthesizedType.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
                             SyntaxFactory.SingletonSeparatedList(
                                 SyntaxFactory.VariableDeclarator(v.Identifier)
                                     .WithInitializer(SyntaxFactory.EqualsValueClause(
