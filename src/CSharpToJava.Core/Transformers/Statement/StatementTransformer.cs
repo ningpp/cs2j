@@ -303,6 +303,7 @@ public partial class StatementTransformer : IStatementTransformer
 
             case BlockSyntax block:
                 return block.Statements.Count > 0
+                    && !ContainsUsingDeclaration(block)
                     && IsUnconditionalJump(block.Statements[^1]);
 
             case IfStatementSyntax ifStatement:
@@ -405,6 +406,16 @@ public partial class StatementTransformer : IStatementTransformer
 
     private static bool IsUsingDeclaration(LocalDeclarationStatementSyntax statement)
         => statement.UsingKeyword.IsKind(SyntaxKind.UsingKeyword);
+
+    private static bool ContainsUsingDeclaration(BlockSyntax block)
+    {
+        foreach (var stmt in block.Statements)
+        {
+            if (stmt is LocalDeclarationStatementSyntax localDecl && IsUsingDeclaration(localDecl))
+                return true;
+        }
+        return false;
+    }
 
     private static List<string> CollectConsecutiveUsingDeclarationResources(
         SyntaxList<StatementSyntax> statements,
