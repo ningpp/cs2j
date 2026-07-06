@@ -180,8 +180,8 @@ class Sample
         Assert.DoesNotContain("dotnet.system.Collections", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet.system.Linq.Expressions", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet.system.Reflection", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("IDictionary dictionary", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("IList list", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpIDictionary dictionary", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpGenericIList<?> list", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("Function<Sample, Object>", result.GeneratedCode, StringComparison.Ordinal);
     }
 
