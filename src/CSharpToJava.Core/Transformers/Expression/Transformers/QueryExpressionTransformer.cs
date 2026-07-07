@@ -205,7 +205,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                         sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {byExpr}," +
                                   $" Collectors.mapping({rangeVar} -> {groupExpr}, CSharpList.toCSharpList())");
                     else
-                        sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {byExpr}))");
+                        sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {byExpr}, CSharpList.toCSharpList()))");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     break;
@@ -270,7 +270,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                         sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {contByExpr}," +
                                   $" Collectors.mapping({rangeVar} -> {contGroupExpr}, CSharpList.toCSharpList())");
                     else
-                        sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {contByExpr}))");
+                        sb.Append($"\n    .collect(Collectors.groupingBy({rangeVar} -> {contByExpr}, CSharpList.toCSharpList()))");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                     break;

@@ -668,10 +668,11 @@ namespace CSharpToJava.Core.LinqRewrite
                 );
             }
 
-            // --- GroupBy (as terminal): collect into Dictionary<TKey, IList<TElement>> ---
-            // Use IList (not List) as the dict value type so that in Java the entrySet()
-            // generic types (Map.Entry<K, List<V>>) match the method return type exactly.
-            // Java generics are invariant: Map.Entry<K, ArrayList<V>> != Map.Entry<K, List<V>>.
+                // --- GroupBy (as terminal): collect into Dictionary<TKey, List<TElement>> ---
+            // Use List (not IList) as the dict value type so that in Java the dictionary maps to
+            // CSharpDictionary<K, CSharpList<V>> and its entrySet() yields Map.Entry<K, CSharpList<V>>,
+            // which exactly matches the IGrouping<K,V> mapping (Map.Entry<K, CSharpList<V>>).
+            // Java generics are invariant: Map.Entry<K, CSharpList<V>> != Map.Entry<K, List<V>>.
             if (aggregationMethod == GroupByMethod)
             {
                 var dictIdentifier = SyntaxFactory.IdentifierName("_dict");
@@ -683,7 +684,7 @@ namespace CSharpToJava.Core.LinqRewrite
                 var elementTypeName = GetItemType(sourceCollectionType).ToDisplayString();
                 return RewriteAsLoop(
                     returnType,
-                    new[] { CreateLocalVariableDeclaration("_dict", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.Dictionary<" + GetLambdaReturnType((AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments.First().Expression).ToDisplayString() + ", System.Collections.Generic.IList<" + elementTypeName + ">>"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)) },
+                    new[] { CreateLocalVariableDeclaration("_dict", SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("System.Collections.Generic.Dictionary<" + GetLambdaReturnType((AnonymousFunctionExpressionSyntax)node.ArgumentList.Arguments.First().Expression).ToDisplayString() + ", System.Collections.Generic.List<" + elementTypeName + ">>"), CreateArguments(Enumerable.Empty<ExpressionSyntax>()), null)) },
                     new[] { SyntaxFactory.ReturnStatement(dictIdentifier) },
                     collection,
                     chain,

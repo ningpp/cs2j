@@ -462,16 +462,22 @@ public class TypeMappingService
 
             var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext)));
 
-            // IGrouping<K, V> maps to Map.Entry<K, List<V>> because Collectors.groupingBy()
-            // groups element values into List<V>. Without this, the type arg V would not be
-            // wrapped and for-each variable types would be Map.Entry<K, V> instead of Map.Entry<K, List<V>>.
+            // IGrouping<K, V> maps to Map.Entry<K, CSharpList<V>>. Both GroupBy translation
+            // strategies must agree on this concrete value type:
+            //  - the desugar path builds Dictionary<K, List<V>> (→ CSharpDictionary<K, CSharpList<V>>)
+            //    and returns entrySet();
+            //  - the LINQ-query path uses Collectors.groupingBy(..., CSharpList.toCSharpList())
+            //    which yields Map<K, CSharpList<V>>.
+            // Using the concrete CSharpList<V> (not java.util.List<V> or CSharpGenericIList<V>)
+            // keeps the Map.Entry element type identical on both sides, avoiding Java's
+            // Map.Entry generic-invariance mismatch.
             if (fullQualifiedName == "System.Linq.IGrouping`2"
                 || configKey == "System.Linq.IGrouping`2")
             {
                 var keyArg = MapTypeForGeneric(namedType.TypeArguments[0], referenceContext);
                 var valueArg = MapTypeForGeneric(namedType.TypeArguments[1], referenceContext);
-                AddImport("java.util.List");
-                typeArgs = $"{keyArg}, List<{valueArg}>";
+                AddImport("io.github.ningpp.compat.CSharpList");
+                typeArgs = $"{keyArg}, CSharpList<{valueArg}>";
             }
 
             var tickIndex = baseType.IndexOf('`');

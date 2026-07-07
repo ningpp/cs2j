@@ -3900,7 +3900,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     {
                         // Map each grouped entry: collect normally then stream entrySet for result projection
                         context.AddImport("java.util.stream.Stream");
-                        return $"{receiver}.collect(Collectors.groupingBy({keyArg}))"
+                        return $"{receiver}.collect(Collectors.groupingBy({keyArg}, CSharpList.toCSharpList()))"
                              + $".entrySet().stream()"
                              + $".map(_e -> {{ var {kParam} = _e.getKey(); var {gParam} = _e.getValue(); return {resultBody}; }})"
                              + $".collect(CSharpList.toCSharpList())";
@@ -3912,8 +3912,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (node.ArgumentList.Arguments.Count == 1)
                 {
                     var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                    // entrySet().stream() makes the result chainable as Stream<Map.Entry<K,List<V>>>
-                    return $"{receiver}.collect(Collectors.groupingBy({keyArg})).entrySet().stream()";
+                    // entrySet().stream() makes the result chainable as Stream<Map.Entry<K,List<V>>>.
+                    // Downstream CSharpList.toCSharpList() makes the Map value type CSharpList<V>,
+                    // matching the IGrouping<K,V> → Map.Entry<K, CSharpList<V>> mapping.
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, CSharpList.toCSharpList())).entrySet().stream()";
                 }
             }
 

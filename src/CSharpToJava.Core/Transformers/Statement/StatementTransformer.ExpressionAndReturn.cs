@@ -557,7 +557,8 @@ public partial class StatementTransformer
                     if (isIGroupingReturn)
                     {
                         context.AddImport("java.util.Map");
-                        expr = $"{expr}.entrySet()";
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        expr = $"CSharpGenericIterable.from({expr}.entrySet())";
                     }
                     // Otherwise, CSharpDictionary is already CSharpGenericIterable<CSharpKeyValuePair<K,V>>
                 }
