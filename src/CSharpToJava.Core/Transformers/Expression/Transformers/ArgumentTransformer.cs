@@ -836,7 +836,7 @@ public class ArgumentTransformer
             mapped = context.TypeMappings.MapMethod(fqn, method.Name);
         }
         // Java Collection methods that take Collection<E> as parameter
-        return mapped is "addAll" or "removeAll" or "containsAll" or "retainAll";
+        return mapped is "addAll" or "removeAll" or "containsAll" or "retainAll" or "addRange";
     }
 
     private static bool IsEnumerableOrCollectionInterface(INamedTypeSymbol type)
