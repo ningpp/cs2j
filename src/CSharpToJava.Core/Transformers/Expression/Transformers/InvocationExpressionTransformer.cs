@@ -2413,13 +2413,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        // AddRange(IEnumerable<T>) → Java addAll(Collection<T>): when the argument
+        // AddRange(IEnumerable<T>) → Java addRange(Collection<T>): when the argument
         // is NOT a Collection<T>-compatible type (concrete class or interface), Java's
-        // addAll() won't accept it.  Use arg.forEach(receiver::add) instead.
-        // Keep addAll for: arrays, concrete Collection/List types, ICollection/IList interfaces.
+        // addRange() won't accept it.  Use arg.forEach(receiver::add) instead.
+        // Keep addRange for: arrays, concrete Collection/List types, ICollection/IList interfaces.
         // Use forEach for: IEnumerable-only interfaces (produce Stream in Java),
         // concrete classes implementing only Iterable (not Collection).
-        if (originalMethodName == "AddRange" && methodName == "addAll"
+        if (originalMethodName == "AddRange" && methodName is "addRange" or "addAll"
             && node.ArgumentList.Arguments.Count == 1
             && context.SemanticModel != null)
         {
@@ -5274,6 +5274,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         string methodName,
         ConversionContext context)
     {
+        // addRange(T[]) accepts arrays directly — no wrapping needed.
+        // Only wrap for addAll (which requires Collection<T>).
         if (originalMethodName != "AddRange"
             || methodName != "addAll"
             || node.ArgumentList.Arguments.Count - argStartIndex != 1

@@ -46,8 +46,8 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // CSharpList.addRange accepts any Iterable, including non-Collection sources
-        Assert.Contains("list.addRange(path)", code);
+        // IEnumerable-only sources use forEach since addRange requires Collection
+        Assert.Contains("path.forEach(list::add)", code);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // CSharpList.addRange accepts any Iterable, including LINQ results
-        Assert.Contains("target.addRange", code);
+        // LINQ results (IEnumerable-only) use forEach since addRange requires Collection
+        Assert.Contains(".forEach(target::add)", code);
     }
 }

@@ -225,6 +225,26 @@ class CSharpListTest {
         assertEquals("b", list.get(1));
     }
 
+    @Test
+    void addRange_appendsArray() {
+        CSharpList<String> list = new CSharpList<>();
+        list.add("a");
+        list.addRange(new String[]{"b", "c"});
+        assertEquals(3, list.getCount());
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
+    }
+
+    @Test
+    void addRange_appendsStringSplitResult() {
+        CSharpList<String> list = new CSharpList<>();
+        list.addRange("a b c".split(" "));
+        assertEquals(3, list.getCount());
+        assertEquals("a", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
+    }
+
     // ---- GetRange ----
 
     @Test
@@ -248,6 +268,19 @@ class CSharpListTest {
         list.add("a");
         list.add("d");
         list.insertRange(1, Arrays.asList("b", "c"));
+        assertEquals(4, list.getCount());
+        assertEquals("a", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
+        assertEquals("d", list.get(3));
+    }
+
+    @Test
+    void insertRange_insertsArrayAtPosition() {
+        CSharpList<String> list = new CSharpList<>();
+        list.add("a");
+        list.add("d");
+        list.insertRange(1, new String[]{"b", "c"});
         assertEquals(4, list.getCount());
         assertEquals("a", list.get(0));
         assertEquals("b", list.get(1));

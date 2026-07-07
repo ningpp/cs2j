@@ -69,6 +69,10 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         addAll(c);
     }
 
+    public void addRange(T[] arr) {
+        for (T item : arr) add(item);
+    }
+
     public CSharpReadOnlyList<T> asReadOnly() {
         return new CSharpReadOnlyList<T>() {
             private final CSharpList<T> source = CSharpList.this;
@@ -196,6 +200,13 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
     public void insertRange(int index, Collection<? extends T> c) {
         int i = index;
         for (T item : c) {
+            add(i++, item);
+        }
+    }
+
+    public void insertRange(int index, T[] arr) {
+        int i = index;
+        for (T item : arr) {
             add(i++, item);
         }
     }

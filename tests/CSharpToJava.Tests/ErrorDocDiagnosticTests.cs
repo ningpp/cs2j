@@ -683,8 +683,8 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // AddRange of a LINQ chain uses CSharpList.addRange which accepts any Iterable
-        Assert.Contains("neighb.addRange(", code);
+        // AddRange of a LINQ chain (IEnumerable-only) uses forEach since addRange requires Collection
+        Assert.Contains(".forEach(neighb::add)", code);
         // neighb should not have .collect() called on it
         Assert.DoesNotContain("neighb.collect(", code);
     }

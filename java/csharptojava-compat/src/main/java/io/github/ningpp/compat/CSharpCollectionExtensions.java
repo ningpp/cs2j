@@ -13,7 +13,20 @@ public final class CSharpCollectionExtensions {
         }
     }
 
+    public static <T> void addRange(CSharpICollection<T> collection, T[] items) {
+        for (T item : items) {
+            collection.add(item);
+        }
+    }
+
     public static <T> void insertRange(CSharpGenericIList<T> list, int index, Collection<? extends T> items) {
+        int i = index;
+        for (T item : items) {
+            list.insert(i++, item);
+        }
+    }
+
+    public static <T> void insertRange(CSharpGenericIList<T> list, int index, T[] items) {
         int i = index;
         for (T item : items) {
             list.insert(i++, item);

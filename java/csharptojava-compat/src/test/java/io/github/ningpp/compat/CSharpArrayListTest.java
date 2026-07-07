@@ -215,6 +215,27 @@ class CSharpArrayListTest {
         assertEquals("c", list.get(2));
     }
 
+    @Test
+    void addRange_appendsArray() {
+        CSharpArrayList list = new CSharpArrayList();
+        list.add("a");
+        list.addRange(new Object[]{"b", "c"});
+        assertEquals(3, list.getCount());
+        assertEquals("a", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
+    }
+
+    @Test
+    void addRange_appendsStringSplitResult() {
+        CSharpArrayList list = new CSharpArrayList();
+        list.addRange("a b c".split(" "));
+        assertEquals(3, list.getCount());
+        assertEquals("a", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
+    }
+
     // ---- GetRange ----
 
     @Test
