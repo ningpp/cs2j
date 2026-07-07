@@ -3,7 +3,7 @@ package io.github.ningpp.compat;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public interface CSharpEnumerator extends Iterator<Object> {
+public interface CSharpEnumerator extends CSharpGenericEnumerator<Object> {
     static CSharpEnumerator from(Iterator<?> iterator) {
         return new IteratorBackedCSharpEnumerator(iterator);
     }
