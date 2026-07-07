@@ -4505,7 +4505,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     var elemJavaType = context.MapType(methodSymbol.TypeArguments[0]);
                     if (!string.IsNullOrEmpty(elemJavaType))
-                        collectExpr = $"(Iterable<{elemJavaType}>) {collectExpr}";
+                    {
+                        // C# IEnumerable<T> maps to CSharpGenericIterable<T> (not java.lang.Iterable<T>),
+                        // so the cast target must be CSharpGenericIterable to be assignable to an
+                        // IEnumerable<T> parameter / return type. java.lang.Iterable<T> is NOT a
+                        // CSharpGenericIterable<T> and produces a compile error.
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        collectExpr = $"(CSharpGenericIterable<{elemJavaType}>) {collectExpr}";
+                    }
                 }
                 return collectExpr;
             }

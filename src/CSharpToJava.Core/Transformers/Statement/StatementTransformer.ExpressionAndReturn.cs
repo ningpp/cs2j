@@ -591,14 +591,19 @@ public partial class StatementTransformer
             bool isIDictionary = retExprType is INamedTypeSymbol dictType
                 && (dictType.Name is "Dictionary" or "SortedDictionary" or "IDictionary"
                     || dictType.AllInterfaces.Any(i => i.Name == "IDictionary"));
+            bool isEnumerableInterfaceType = retExprType is INamedTypeSymbol ifaceNamed
+                && ifaceNamed.Name is "IEnumerable" or "ICollection" or "IList"
+                    or "IReadOnlyCollection" or "IReadOnlyList"
+                && ifaceNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
             bool isJavaCollectionLike = !isAlreadyCSharpGenericIterable && !isIDictionary
-                && retExprType is INamedTypeSymbol collNamed
-                && collNamed.AllInterfaces.Any(i =>
-                    i.OriginalDefinition.ToDisplayString() is
-                    "System.Collections.Generic.IEnumerable<T>" or
-                    "System.Collections.Generic.ICollection<T>" or
-                    "System.Collections.Generic.IList<T>" or
-                    "System.Collections.Generic.ISet<T>");
+                && (isEnumerableInterfaceType
+                    || (retExprType is INamedTypeSymbol collNamed
+                        && collNamed.AllInterfaces.Any(i =>
+                            i.OriginalDefinition.ToDisplayString() is
+                            "System.Collections.Generic.IEnumerable<T>" or
+                            "System.Collections.Generic.ICollection<T>" or
+                            "System.Collections.Generic.IList<T>" or
+                            "System.Collections.Generic.ISet<T>")));
             if (isJavaCollectionLike)
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
