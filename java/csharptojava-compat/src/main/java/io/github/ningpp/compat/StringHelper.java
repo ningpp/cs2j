@@ -16,7 +16,7 @@ public class StringHelper {
         return builder.toString();
     }
 
-    public static String join(char separator, String[] values) {
+    public static String join(char separator, String... values) {
         return join(String.valueOf(separator), values);
     }
 
@@ -28,7 +28,7 @@ public class StringHelper {
         return join(String.valueOf(separator), values);
     }
 
-    public static String join(String separator, String[] values) {
+    public static String join(String separator, String... values) {
         return joinArray(separator, values);
     }
 

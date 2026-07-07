@@ -26,6 +26,14 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         this.comparer = null;
     }
 
+    public CSharpDictionary(CSharpDictionary<? extends K, ? extends V> other) {
+        this.map = new LinkedHashMap<>();
+        for (var entry : other.map.entrySet()) {
+            this.map.put(entry.getKey(), entry.getValue());
+        }
+        this.comparer = null;
+    }
+
     public CSharpDictionary(CSharpGenericEqualityComparer<K> comparer) {
         this.map = new LinkedHashMap<>();
         this.comparer = comparer;
