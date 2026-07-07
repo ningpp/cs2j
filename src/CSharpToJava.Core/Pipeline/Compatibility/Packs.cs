@@ -131,3 +131,35 @@ public class XunitPack : ICompatibilityPack
         return context.ReferencesAnyType("Xunit.Assert", "Xunit.FactAttribute");
     }
 }
+
+/// <summary>
+/// System.Xml Pack — System.Xml → dotnet.xml bridge.
+/// 提供 dotnet.xml 包（XmlReader/XmlWriter/XmlDocument 等）的 Maven 依赖。
+/// </summary>
+public class SystemXmlPack : ICompatibilityPack
+{
+    public string Id => "xml";
+    public string Description => "System.Xml → dotnet.xml bridge (io.github.ningpp:system-private-xml)";
+    public IReadOnlyList<string> MavenDependencies => ["io.github.ningpp:system-private-xml:0.0.1-SNAPSHOT"];
+
+    public bool IsApplicable(CompatibilityPackContext context)
+    {
+        return context.ReferencesType("dotnet.xml");
+    }
+}
+
+/// <summary>
+/// System.Uri Pack — System.Uri → dotnet.uri bridge.
+/// 提供 dotnet.uri 包（Uri 等）的 Maven 依赖。
+/// </summary>
+public class SystemUriPack : ICompatibilityPack
+{
+    public string Id => "uri";
+    public string Description => "System.Uri → dotnet.uri bridge (io.github.ningpp:system-private-uri)";
+    public IReadOnlyList<string> MavenDependencies => ["io.github.ningpp:system-private-uri:0.0.1-SNAPSHOT"];
+
+    public bool IsApplicable(CompatibilityPackContext context)
+    {
+        return context.ReferencesType("dotnet.uri");
+    }
+}

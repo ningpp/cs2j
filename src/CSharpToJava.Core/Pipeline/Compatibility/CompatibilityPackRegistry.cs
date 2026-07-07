@@ -22,6 +22,8 @@ public class CompatibilityPackRegistry
         registry.Register(new TracePack());
         registry.Register(new IoPack());
         registry.Register(new TestPack());
+        registry.Register(new SystemXmlPack());
+        registry.Register(new SystemUriPack());
         return registry;
     }
 

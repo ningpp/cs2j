@@ -229,6 +229,46 @@ public class PlanningTests
     }
 
     [Fact]
+    public void CompatibilityPackPlanner_Analyze_DetectsDotnetXmlImport_AddsSystemPrivateXmlDependency()
+    {
+        var requirements = CompatibilityPackPlanner.Analyze(
+        [
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "GeometryGraphReader.java",
+                GeneratedCode = "import dotnet.xml.XmlReader;\npublic class GeometryGraphReader {}",
+            }
+        ],
+        "io.github.ningpp.compat");
+
+        Assert.Contains("xml", requirements.RequiredPackIds);
+        var dependency = Assert.Single(requirements.ExternalDependencies, dependency =>
+            dependency.GroupId == "io.github.ningpp" && dependency.ArtifactId == "system-private-xml");
+        Assert.Equal("0.0.1-SNAPSHOT", dependency.Version);
+    }
+
+    [Fact]
+    public void CompatibilityPackPlanner_Analyze_DetectsDotnetUriImport_AddsSystemPrivateUriDependency()
+    {
+        var requirements = CompatibilityPackPlanner.Analyze(
+        [
+            new ConversionResult
+            {
+                Success = true,
+                FileName = "Sample.java",
+                GeneratedCode = "import dotnet.uri.Uri;\npublic class Sample {}",
+            }
+        ],
+        "io.github.ningpp.compat");
+
+        Assert.Contains("uri", requirements.RequiredPackIds);
+        var dependency = Assert.Single(requirements.ExternalDependencies, dependency =>
+            dependency.GroupId == "io.github.ningpp" && dependency.ArtifactId == "system-private-uri");
+        Assert.Equal("0.0.1-SNAPSHOT", dependency.Version);
+    }
+
+    [Fact]
     public void WorkspacePlanBuilder_MergeDependencies_DeduplicatesByGroupArtifactAndScope()
     {
         var merged = WorkspacePlanBuilder.MergeDependencies(
