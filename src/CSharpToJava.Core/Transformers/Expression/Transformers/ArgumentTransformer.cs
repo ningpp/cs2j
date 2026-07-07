@@ -647,6 +647,27 @@ public class ArgumentTransformer
             }
         }
 
+        // ── Case 3: Collection argument → IEnumerable parameter (CSharpGenericIterable) ──
+        // C# List<T>/HashSet<T> etc. implement IEnumerable<T> and can be passed directly,
+        // but in Java CSharpGenericIterable<T> is not implemented by List/Set/Collection.
+        // Wrap in CSharpGenericIterable.from() when the parameter is IEnumerable<T>.
+        // Skip IDictionary because CSharpDictionary already implements CSharpGenericIterable.
+        // Skip when the Java target method accepts Collection (e.g. CSharpList(Collection), addAll(Collection)).
+        if (paramType is INamedTypeSymbol paramNamed3
+            && paramNamed3.Name is "IEnumerable"
+            && paramNamed3.ContainingNamespace?.ToDisplayString().StartsWith("System") == true
+            && argType is INamedTypeSymbol argNamed3
+            && IsCollectionType(argType)
+            && !(argNamed3.Name is "Dictionary" or "SortedDictionary" or "IDictionary"
+                || argNamed3.AllInterfaces.Any(i => i.Name == "IDictionary"))
+            && !IsJavaMethodRequiringCollection(targetParam.ContainingSymbol as IMethodSymbol, context)
+            && !IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol)
+            && !transformedExpr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.from({transformedExpr})";
+        }
+
         // Generic variance bridge: C# allows IEnumerable<Derived> -> IEnumerable<Base>.
         // Java generics are invariant, so emit an explicit Iterable bridge cast when element
         // conversion is implicit (e.g., Set<IntPair> -> Iterable<IEdge>).

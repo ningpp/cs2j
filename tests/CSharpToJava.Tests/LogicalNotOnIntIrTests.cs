@@ -114,6 +114,67 @@ class Validate
         Assert.DoesNotContain("raiseInteractiveAssert(ex) == 0", java, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LogicalNot_OnBoolProperty_KeepsExclamation()
+    {
+        var result = Convert(@"
+class Node
+{
+    internal bool ChildrenHaveBeenPushed { get; set; }
+}
+
+class Test
+{
+    void M(Node node)
+    {
+        if (!node.ChildrenHaveBeenPushed)
+        {
+            return;
+        }
+    }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Contains("!node.getChildrenHaveBeenPushed()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getChildrenHaveBeenPushed() == 0", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProjectLogicalNot_OnBoolProperty_KeepsExclamation()
+    {
+        var pipeline = new ProjectConversionPipeline(new ConversionOptions
+        {
+            TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
+        });
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "Test.cs",
+                Content = @"
+class Node
+{
+    internal bool ChildrenHaveBeenPushed { get; set; }
+}
+
+class Test
+{
+    void M(Node node)
+    {
+        if (!node.ChildrenHaveBeenPushed)
+        {
+            return;
+        }
+    }
+}",
+            },
+        });
+
+        var result = Assert.Single(results, r => r.FileName == "Test.java");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Contains("!node.getChildrenHaveBeenPushed()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getChildrenHaveBeenPushed() == 0", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

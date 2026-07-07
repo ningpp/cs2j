@@ -511,11 +511,12 @@ public partial class StatementTransformer
                 }
                 bool enclosingReturnsIterable = enclosingRetType is INamedTypeSymbol mret &&
                     mret.Name is "IEnumerable" or "ICollection" or "IList";
-                // Don't double-collect: if the expression already ends with .toList() or ArrayList<>()) it's already a List
-                bool alreadyCollected = expr.EndsWith(".toList())")
+                // Don't double-collect: if the expression already contains .collect() or ends with .toArray()
+                // it's already materialized. Use Contains for .collect() since it may appear at any depth
+                // with varying closing parentheses (e.g., Concat produces Stream.concat(...).collect(CSharpList.toCSharpList())).
+                bool alreadyCollected = expr.Contains(".collect(CSharpList.toCSharpList())")
+                    || expr.EndsWith(".toList())")
                     || expr.EndsWith("toList()))")
-                    || expr.EndsWith("CSharpList.toCSharpList()))")
-                    || expr.EndsWith("CSharpList.toCSharpList()")
                     || expr.EndsWith(".toArray())")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)\)$")
                     || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)$");

@@ -6,9 +6,8 @@ using Xunit.Abstractions;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// When AddRange is called with an IEnumerable source that is NOT ICollection
-/// (e.g. a custom type implementing only IEnumerable&lt;T&gt;), the converter
-/// must use forEach(list::add) instead of addAll() which requires Collection.
+/// AddRange is mapped to CSharpList.addRange() which accepts any Iterable,
+/// so both ICollection and IEnumerable-only sources use addRange directly.
 /// </summary>
 public class AddRangeNonCollectionTests
 {
@@ -47,13 +46,12 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Should use forEach instead of addAll since Path is not Collection
-        Assert.Contains("forEach(list::add)", code);
-        Assert.DoesNotContain("addAll", code);
+        // CSharpList.addRange accepts any Iterable, including non-Collection sources
+        Assert.Contains("list.addRange(path)", code);
     }
 
     [Fact]
-    public void AddRange_WithList_UsesAddAll()
+    public void AddRange_WithList_UsesAddRange()
     {
         var r = Convert(@"
 using System.Collections.Generic;
@@ -68,12 +66,12 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // List implements ICollection, should keep addAll
-        Assert.Contains("addAll", code);
+        // CSharpList.addRange handles both Collection and non-Collection sources
+        Assert.Contains("list.addRange(other)", code);
     }
 
     [Fact]
-    public void AddRange_WithStringSplitArray_WrapsArrayForAddAll()
+    public void AddRange_WithStringSplitArray_UsesAddRangeDirectly()
     {
         var r = Convert(@"
 using System.Collections.Generic;
@@ -92,12 +90,12 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success, string.Join("\n", r.Diagnostics));
         var code = r.GeneratedCode ?? "";
-        Assert.Contains("holder.Values.addAll(ArrayHelper.toList(text.split(\" \")))", code);
-        Assert.DoesNotContain("holder.Values.addAll(text.split(\" \"))", code);
+        // CSharpList.addRange accepts arrays directly (via Iterable bridge)
+        Assert.Contains("holder.Values.addRange(text.split(\" \"))", code);
     }
 
     [Fact]
-    public void AddRange_WithIEnumerableInterface_UsesForEach()
+    public void AddRange_WithIEnumerableInterface_UsesAddRange()
     {
         var r = Convert(@"
 using System.Collections.Generic;
@@ -111,8 +109,7 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // IEnumerable LINQ chain → Stream in Java, not Collection → use forEach
-        Assert.Contains("forEach(target::add)", code);
-        Assert.DoesNotContain("addAll", code);
+        // CSharpList.addRange accepts any Iterable, including LINQ results
+        Assert.Contains("target.addRange", code);
     }
 }

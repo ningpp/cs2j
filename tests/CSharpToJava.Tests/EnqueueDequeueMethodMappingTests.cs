@@ -68,10 +68,10 @@ public class Demo
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode!;
 
-        // System.Collections.Generic.Queue<T>.Enqueue → add (per TypeMappings)
-        Assert.Contains(".add(", code);
-        // System.Collections.Generic.Queue<T>.Dequeue → remove (per TypeMappings)
-        Assert.Contains(".remove(", code);
+        // System.Collections.Generic.Queue<T>.Enqueue → enqueue (per TypeMappings)
+        Assert.Contains(".enqueue(", code);
+        // System.Collections.Generic.Queue<T>.Dequeue → dequeue (per TypeMappings)
+        Assert.Contains(".dequeue(", code);
     }
 
     [Fact]

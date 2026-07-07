@@ -223,6 +223,15 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             return "Collections.emptyList()";
         }
 
+        // When target is CSharpGenericIterable, also wrap Collections.emptyList()/Collections.<T>emptyList()
+        if (needsCSharpGenericIterable
+            && (t.StartsWith("Collections.emptyList()", StringComparison.Ordinal)
+                || t.StartsWith("Collections.<", StringComparison.Ordinal) && t.EndsWith("emptyList()", StringComparison.Ordinal)))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.from({t})";
+        }
+
         return expr;
     }
 

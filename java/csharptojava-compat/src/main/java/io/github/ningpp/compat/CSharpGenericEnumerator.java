@@ -4,8 +4,9 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 public interface CSharpGenericEnumerator<T> extends Iterator<T> {
-    static <T> CSharpGenericEnumerator<T> from(Iterator<T> iterator) {
-        return new IteratorBackedCSharpEnumerator<>(iterator);
+    @SuppressWarnings("unchecked")
+    static <T> CSharpGenericEnumerator<T> from(Iterator<? extends T> iterator) {
+        return new IteratorBackedCSharpEnumerator<T>((Iterator<T>) iterator);
     }
 
     boolean moveNext();

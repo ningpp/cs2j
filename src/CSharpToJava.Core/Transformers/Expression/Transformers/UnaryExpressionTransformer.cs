@@ -219,6 +219,24 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 return true;
         }
 
+        // GetSymbolInfo fallback: check property/field/local/parameter symbols
+        // when GetTypeInfo fails to resolve the type (e.g. cross-file scenarios
+        // where the declaring type is in a different syntax tree).
+        var exprSymbolInfo = context.GetSymbolInfo(expr);
+        if (exprSymbolInfo.Symbol != null)
+        {
+            var symbolType = exprSymbolInfo.Symbol switch
+            {
+                IPropertySymbol prop => prop.Type,
+                IFieldSymbol field => field.Type,
+                ILocalSymbol local => local.Type,
+                IParameterSymbol param => param.Type,
+                _ => null
+            };
+            if (symbolType?.SpecialType == SpecialType.System_Boolean)
+                return true;
+        }
+
         // Fallback for property/field member access: when the semantic model
         // can't resolve the type (e.g. compat library types like StringHelper),
         // use naming heuristic — C# properties starting with "Is" are typically bool.
