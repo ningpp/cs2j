@@ -1,6 +1,5 @@
-﻿using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp;
 using CSharpToJava.Core.Context;
-using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.TypeMapping.JavaModel;
 

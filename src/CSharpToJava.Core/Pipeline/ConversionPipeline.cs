@@ -95,6 +95,7 @@ public class ConversionPipeline
 
     public IReadOnlyList<Cs2jPassMetric> LastProjectPassMetrics { get; private set; } = Array.Empty<Cs2jPassMetric>();
     public LinqRewrite.LinqRewriteStatistics? LastLinqStatistics { get; private set; }
+    public GotoEliminator.GotoEliminatorStatistics? LastGotoStatistics { get; private set; }
 
     public ConversionPipeline()
     {

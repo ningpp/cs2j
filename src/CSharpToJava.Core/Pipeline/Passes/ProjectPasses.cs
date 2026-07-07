@@ -223,7 +223,7 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             return;
         }
 
-        RebuildProjectStateAfterLinqRewrite(state);
+        RebuildProjectStateAfterCompilationChange(state);
     }
 
     private static CSharpCompilation ReplaceChangedSyntaxTrees(
@@ -243,7 +243,7 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
         return newCompilation;
     }
 
-    private static void RebuildProjectStateAfterLinqRewrite(ProjectPassState state)
+    internal static void RebuildProjectStateAfterCompilationChange(ProjectPassState state)
     {
         var originalLibrary = state.Library;
         var primaryProject = state.Library.Projects.FirstOrDefault();
