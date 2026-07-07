@@ -273,7 +273,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     else
                     {
                         // Fallback: GetSymbolInfo can return null for some reference assemblies
-                        // (Roslyn model lookup throws). Detect an in-class event invocation by name:
+                        // (Roslyn model lookup throws), or the symbol resolves to the backing field
+                        // rather than the event itself. Detect an in-class event invocation by name:
                         // an event with this identifier exists on the enclosing type.
                         var eventName = bareIdent.Identifier.Text;
                         var enclosingEvent = context.CurrentEnclosingRoslynType?
@@ -331,6 +332,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var bareDelArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                     return $"{bareDelReceiver}.{bareJavaMethod}({bareDelArgs})";
                 }
+            }
+
+            // Last-resort event detection: if the bare identifier matches an event on the
+            // enclosing type, treat this as an event invocation (fireXxx) even when the
+            // semantic model doesn't resolve it as DelegateInvoke. This happens in project
+            // pipelines where the symbol resolves to the backing field or is null.
+            var lastResortEventName = bareIdent.Identifier.Text;
+            var lastResortEvent = context.CurrentEnclosingRoslynType?
+                .GetMembers(lastResortEventName)
+                .OfType<IEventSymbol>()
+                .FirstOrDefault();
+            if (lastResortEvent != null
+                && context.CurrentType?.Name != null
+                && SymbolEqualityComparer.Default.Equals(lastResortEvent.ContainingType, context.CurrentEnclosingRoslynType))
+            {
+                var fireMethodName = $"fire{char.ToUpperInvariant(lastResortEventName[0])}{lastResortEventName.Substring(1)}";
+                var lastResortEventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"{fireMethodName}({lastResortEventArgs})";
             }
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);

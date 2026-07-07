@@ -63,6 +63,28 @@ class Sample {
         Assert.DoesNotContain("_changed -= handler", result.GeneratedCode);
     }
 
+    [Fact]
+    public void EventInvocation_OldStyleNullCheck_ConvertsToFireCall()
+    {
+        // C# old-style pattern: if (Event != null) { Event(sender, args); }
+        // Should generate: if (!_eventListeners.isEmpty()) { fireEvent(sender, args); }
+        var source = @"
+using System;
+class MyArgs : EventArgs { }
+class Sample {
+    public event EventHandler<MyArgs> Changed;
+    void Raise() {
+        if (Changed != null) {
+            Changed(this, new MyArgs());
+        }
+    }
+}";
+        var result = Convert(source);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Contains("fireChanged", result.GeneratedCode);
+        Assert.DoesNotContain("changed(this,", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
