@@ -126,6 +126,45 @@ public class EventFieldTransformer : IEventFieldTransformer
         return result;
     }
 
+    /// <summary>
+    /// Map a C# delegate's invoke signature to the Java functional interface used for the
+    /// generated event listener list. Void delegates with N parameters map to Runnable /
+    /// Consumer / BiConsumer; non-void delegates map to Supplier / Function / BiFunction.
+    /// This keeps the add/remove method parameter type consistent with the fire invocation
+    /// (which passes every delegate parameter to the SAM method).
+    /// </summary>
+    private static string ResolveDelegateListenerType(IMethodSymbol invokeMethod, ConversionContext context)
+    {
+        var parameters = invokeMethod.Parameters;
+        if (invokeMethod.ReturnsVoid)
+        {
+            if (parameters.Length == 0)
+                return "Runnable";
+            if (parameters.Length == 1)
+                return $"Consumer<{context.MapType(parameters[0].Type)}>";
+            if (parameters.Length == 2)
+            {
+                context.AddImport("java.util.function.BiConsumer");
+                return $"BiConsumer<Object, {context.MapType(parameters[1].Type)}>";
+            }
+            // 3+ parameter void delegate — fall back to a generic single-arg consumer wrapper
+            // (rare; an exact @FunctionalInterface would be required for precise typing).
+            return "Consumer<Object>";
+        }
+
+        var returnType = context.MapType(invokeMethod.ReturnType);
+        if (parameters.Length == 0)
+            return $"Supplier<{returnType}>";
+        if (parameters.Length == 1)
+            return $"Function<{context.MapType(parameters[0].Type)}, {returnType}>";
+        if (parameters.Length == 2)
+        {
+            context.AddImport("java.util.function.BiFunction");
+            return $"BiFunction<{context.MapType(parameters[0].Type)}, {context.MapType(parameters[1].Type)}, {returnType}>";
+        }
+        return "Consumer<Object>";
+    }
+
     // Fix 4: compute fire method visibility from the event's declared C# modifiers
     private static JavaModifiers GetFireMethodVisibility(SyntaxTokenList originalModifiers)
     {
@@ -159,8 +198,12 @@ public class EventFieldTransformer : IEventFieldTransformer
             var origDef = namedType.OriginalDefinition;
             var origName = origDef.Name;
             var origNs = origDef.ContainingNamespace?.ToDisplayString();
+            // In some reference assemblies the converter resolves the BCL delegates
+            // EventHandler/Action with a global (empty) containing namespace rather than "System".
+            // Match by name so the special-case mapping still applies in that case.
+            bool isBclDelegate = origNs == "System" || origNs == "<global namespace>" || string.IsNullOrEmpty(origNs);
 
-            if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 0)
+            if (origName == "EventHandler" && isBclDelegate && namedType.TypeArguments.Length == 0)
             {
                 sig.ListenerType = "BiConsumer<Object, Object>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
@@ -170,7 +213,7 @@ public class EventFieldTransformer : IEventFieldTransformer
                 return sig;
             }
 
-            if (origName == "EventHandler" && origNs == "System" && namedType.TypeArguments.Length == 1)
+            if (origName == "EventHandler" && isBclDelegate && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
                 sig.ListenerType = $"BiConsumer<Object, {argType}>";
@@ -181,7 +224,7 @@ public class EventFieldTransformer : IEventFieldTransformer
                 return sig;
             }
 
-            if (origName == "Action" && origNs == "System" && namedType.TypeArguments.Length == 0)
+            if (origName == "Action" && isBclDelegate && namedType.TypeArguments.Length == 0)
             {
                 sig.ListenerType = "Runnable";
                 sig.InvokeCallArguments = "";
@@ -189,7 +232,7 @@ public class EventFieldTransformer : IEventFieldTransformer
                 return sig;
             }
 
-            if (origName == "Action" && origNs == "System" && namedType.TypeArguments.Length == 1)
+            if (origName == "Action" && isBclDelegate && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
                 sig.ListenerType = $"Consumer<{argType}>";
@@ -199,10 +242,15 @@ public class EventFieldTransformer : IEventFieldTransformer
                 return sig;
             }
 
-            sig.ListenerType = context.MapType(namedType);
+            // Derive the listener type from the delegate's actual invoke signature so that
+            // multi-parameter void delegates (e.g. EventHandler<T> → (sender, e)) map to the
+            // correct Java functional interface (BiConsumer), keeping add/remove/fire consistent.
+            // Previously the listener type came from MapType(namedType), which collapses a 2-parameter
+            // void delegate to Consumer<T> (single-arg) and breaks the fire call `accept(sender, args)`.
             var invokeMethod = namedType.DelegateInvokeMethod;
             if (invokeMethod != null)
             {
+                sig.ListenerType = ResolveDelegateListenerType(invokeMethod, context);
                 var pNames = new List<string>();
                 foreach (var p in invokeMethod.Parameters)
                 {
@@ -217,10 +265,14 @@ public class EventFieldTransformer : IEventFieldTransformer
             }
             else
             {
+                // No resolvable invoke signature: most C# events are (sender, args) 2-parameter
+                // void delegates, so default to BiConsumer to stay consistent with the fire body.
+                sig.ListenerType = "BiConsumer<Object, Object>";
+                context.AddImport("java.util.function.BiConsumer");
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter("Object", "args"));
                 sig.InvokeCallArguments = "sender, args";
-                sig.InvokeMethodName = Type.DelegateTransformer.InferSamMethodName(true, 2);
+                sig.InvokeMethodName = "accept";
             }
 
             return sig;

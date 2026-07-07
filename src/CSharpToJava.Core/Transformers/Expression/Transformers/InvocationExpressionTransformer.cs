@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -264,6 +265,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         if (currentTypeName != null && eventSym.ContainingType.Name == currentTypeName)
                         {
                             var eventName = bareIdent.Identifier.Text;
+                            var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+                            var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                            return $"{fireMethodName}({eventArgs})";
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: GetSymbolInfo can return null for some reference assemblies
+                        // (Roslyn model lookup throws). Detect an in-class event invocation by name:
+                        // an event with this identifier exists on the enclosing type.
+                        var eventName = bareIdent.Identifier.Text;
+                        var enclosingEvent = context.CurrentEnclosingRoslynType?
+                            .GetMembers(eventName)
+                            .OfType<IEventSymbol>()
+                            .FirstOrDefault();
+                        if (enclosingEvent != null
+                            && context.CurrentType?.Name != null
+                            && SymbolEqualityComparer.Default.Equals(enclosingEvent.ContainingType, context.CurrentEnclosingRoslynType))
+                        {
                             var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
                             var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                             return $"{fireMethodName}({eventArgs})";

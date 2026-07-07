@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Linq;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
@@ -125,6 +126,41 @@ public class AssignmentTransformer : IIRExpressionTransformer
         _ => "="
     };
 
+    /// <summary>
+    /// Ensures an event += / -= handler expression is a valid Java functional-interface value.
+    /// When the RHS is a bare method-group identifier (the semantic model failed to resolve it to
+    /// an IMethodSymbol, so IdentifierExpressionTransformer left it as a raw method name), derive an
+    /// explicit lambda from the referenced method's signature so the add/remove call stays compilable.
+    /// </summary>
+    private static string EnsureValidEventHandler(string handler, ExpressionSyntax rightNode, ConversionContext context)
+    {
+        if (rightNode is not IdentifierNameSyntax id) return handler;
+        // Already a lambda / method reference / delegate creation → leave untouched.
+        if (handler.Contains("->") || handler.Contains("::") || handler.Contains("(") || handler.Contains("new "))
+            return handler;
+
+        IMethodSymbol? method = context.GetSymbolInfo(rightNode).Symbol as IMethodSymbol;
+        if (method == null)
+        {
+            method = context.CurrentEnclosingRoslynType?
+                .GetMembers(id.Identifier.Text)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault();
+        }
+        if (method == null) return handler;
+
+        var javaName = ConversionContext.EscapeJavaKeyword(
+            char.ToLowerInvariant(method.Name[0]) + method.Name.Substring(1));
+        var paramNames = method.Parameters
+            .Select(p => ConversionContext.EscapeJavaKeyword(p.Name))
+            .ToArray();
+        var lambdaParams = string.Join(", ", paramNames);
+        var callArgs = string.Join(", ", paramNames);
+        var prefix = method.IsStatic ? method.ContainingType.Name + "." : "";
+        return $"({lambdaParams}) -> {prefix}{javaName}({callArgs})";
+    }
+
+
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {
         var facade = ExpressionTransformerFacade.Instance;
@@ -145,6 +181,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
             {
                 var receiver = facade.Transform(evtMa.Expression, context);
                 var handler = facade.Transform(rightNode, context);
+                // The RHS may be a method-group identifier (e.g. `ProgressChanged += NotifyProgressChanged`).
+                // IdentifierExpressionTransformer only rewrites it to a Java method reference / lambda when the
+                // semantic model resolves the symbol to an IMethodSymbol. In some reference assemblies that
+                // resolution returns null, leaving a bare (invalid Java) method name. Fall back to an explicit
+                // lambda derived from the method's signature so the add/remove call stays compilable.
+                handler = EnsureValidEventHandler(handler, rightNode, context);
                 string method = op == "+="
                     ? $"add{evt.Name}Listener"
                     : $"remove{evt.Name}Listener";
@@ -167,6 +209,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 {
                     handler = facade.Transform(rightNode, context);
                 }
+
+                handler = EnsureValidEventHandler(handler, rightNode, context);
 
                 var listMethod = op == "+=" ? "add" : "remove";
                 return $"{listenerField}.{listMethod}({handler})";

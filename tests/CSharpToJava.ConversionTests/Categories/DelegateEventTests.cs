@@ -81,4 +81,74 @@ public class DelegateEventTests : ConversionTestBase
         AssertNoCSharpResidue(result);
         AssertConversion(result, "Runnable a = () -> {");
     }
+
+    [Fact]
+    public void EventHandlerGenericEvent_UsesBiConsumerListenerType()
+    {
+        var result = Convert(
+            "using System;" +
+            "class C {" +
+            "  public event EventHandler<EventArgs> E;" +
+            "  public void Raise() { E?.Invoke(this, EventArgs.Empty); }" +
+            "}");
+        // EventHandler<T> is a 2-parameter void delegate (sender, e) → must map to BiConsumer,
+        // not to a single-arg Consumer (which would make the fire call `accept(sender, args)` fail).
+        AssertConversion(result,
+            "private java.util.concurrent.CopyOnWriteArrayList<BiConsumer<Object, Object>> _eListeners",
+            "public void addEListener(BiConsumer<Object, Object> handler) {",
+            "protected void fireE(Object sender, Object args) {");
+        AssertJavaDoesNotContain(result, "addEListener(Consumer<",
+            "EventHandler<T> (2-parameter void delegate) must map to BiConsumer, not Consumer");
+    }
+
+    [Fact]
+    public void EventHandlerWithCustomArgs_UsesBiConsumerListenerType()
+    {
+        var result = Convert(
+            "using System;" +
+            "class MyArgs : EventArgs { public int V; }" +
+            "class C {" +
+            "  public event EventHandler<MyArgs> E;" +
+            "  public void Raise() { E?.Invoke(this, new MyArgs()); }" +
+            "}");
+        // A custom event-args type keeps the 2-parameter (sender, args) shape → BiConsumer,
+        // and the add/remove parameter must match the fire body's 2-argument accept(...) call.
+        AssertConversion(result,
+            "private java.util.concurrent.CopyOnWriteArrayList<BiConsumer<Object, MyArgs>> _eListeners",
+            "public void addEListener(BiConsumer<Object, MyArgs> handler) {");
+        AssertJavaDoesNotContain(result, "addEListener(Consumer<",
+            "EventHandler<T> must map to BiConsumer even with a custom event-args type");
+    }
+
+    [Fact]
+    public void EventSubscribe_MethodGroup_BecomesLambda()
+    {
+        var result = Convert(
+            "using System;" +
+            "class MyArgs : EventArgs { public int V; }" +
+            "class C {" +
+            "  public event EventHandler<MyArgs> E;" +
+            "}" +
+            "class D {" +
+            "  private void Handler(object sender, MyArgs args) {}" +
+            "  public void M(C c) { c.E += Handler; }" +
+            "}");
+        // Subscribing a method group to an event must produce a valid Java functional-interface
+        // expression (lambda / method reference), never a bare method name which is invalid Java.
+        AssertConversion(result, "c.addEListener((sender, args) -> handler(sender, args));");
+    }
+
+    [Fact]
+    public void EventSubscribe_SameClassMethodGroup_BecomesLambda()
+    {
+        var result = Convert(
+            "using System;" +
+            "class MyArgs : EventArgs { public int V; }" +
+            "class C {" +
+            "  public event EventHandler<MyArgs> E;" +
+            "  private void Handler(object sender, MyArgs args) {}" +
+            "  public void M() { E += Handler; }" +
+            "}");
+        AssertConversion(result, "_eListeners.add((sender, args) -> handler(sender, args));");
+    }
 }
