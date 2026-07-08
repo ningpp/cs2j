@@ -48,4 +48,12 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Include SampleRefOutInSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleRefOutInSolution\**\*.*">
+      <Link>SampleRefOutInSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
