@@ -1054,6 +1054,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     /// </summary>
     internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol, ConversionContext context)
     {
+        // Nullable<T> (e.g. int?) defaults to null in C#, not a zero-initialized struct.
+        if (typeSymbol is INamedTypeSymbol { IsGenericType: true } nullableType
+            && nullableType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        {
+            return "null";
+        }
+
         if (typeSymbol is INamedTypeSymbol { IsTupleType: true } tupleType)
         {
             context.AddImport("io.vavr.Tuple");
