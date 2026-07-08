@@ -58,7 +58,7 @@ The cs2j converter transforms C# `ref`/`out` parameters into Java holder objects
 | 4 | `OutStruct_MethodAssignsAllFields` | `out Point a; a = new Point(1,2)` | `a.value = new Point(1,2)` |
 | 5 | `StructWithRefOutMethod_MethodSignature` | `struct S { void M(ref int x) }` | `void m(IntHolder x)` |
 | 6 | `StructWithRefOutMethod_CallSite` | `S.M(ref val)` | `IntHolder _valRef = new IntHolder(val); ...` |
-| 7 | `RefReadonlyStruct_EffectivelyReadOnly_NoHolder` | `ref ReadonlyPoint p` where only reads | direct pass (no holder) |
+| 7 | `RefStructEffectivelyReadOnly_NoHolder` | `ref Point p` in a method that only reads `p.X` (never writes) | direct pass, no ObjectHolder wrapping (IsRefParamEffectivelyReadOnly optimization) |
 | 8 | `StructAsOutArg_ReadBackFieldAccess` | `out Point p; use(p.X)` | `p = _pOutHolder.value; ... use(p.X)` |
 
 ### Category: GenericTypes (~8 tests)
@@ -84,7 +84,7 @@ The cs2j converter transforms C# `ref`/`out` parameters into Java holder objects
 | 4 | `OutForwarding_PassesHolderDirectly` | method takes `out int a`, passes to another `out int` method | passes holder directly |
 | 5 | `NestedOutInCondition` | `if (TryGet(out var x)) { Use(x); }` | Holder pre-statement + readback |
 | 6 | `MultipleOutInSingleCall` | `M(out int a, out int b, out int c)` | 3 IntHolders |
-| 7 | `RefReadOnlyParameter_NoWriteBack` | `ref readonly int a` | passes value directly (no holder) |
+| 7 | `InKeyword_RefReadonly_PassesByValue` | `in int a` (C# `in` = `ref readonly`) | `int a` (passes by value, no holder) |
 | 8 | `RefMemberAccess_WrapsInHolder` | `ref obj.Field` | `Holder h = new Holder(obj.field); ... obj.field = h.value` |
 | 9 | `RefElementAccess_WrapsInHolder` | `ref arr[i]` | `Holder h = new Holder(arr[i]); ... arr[i] = h.value` |
 | 10 | `OutVarInForeach_ReadBackWorks` | `foreach (var x in items) { M(out var y); Use(y); }` | y declared before use |
