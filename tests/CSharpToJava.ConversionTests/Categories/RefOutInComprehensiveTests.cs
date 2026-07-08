@@ -179,4 +179,70 @@ public class RefOutInComprehensiveTests : ConversionTestBase
         var result = Convert("struct Point { public int X; public int Y; } class C { public void M(out Point p) { p = new Point(); } public void Call() { M(out var q); var x = q.X; } }");
         AssertConversion(result, "ObjectHolder<Point> _qHolder1 = new ObjectHolder<>()", "m(_qHolder1)", "Point q = _qHolder1.value");
     }
+
+    // ── GenericTypes ──────────────────────────────────────────────────
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void RefGenericParameter_ConvertsToObjectHolder()
+    {
+        var result = Convert("class C { public void M<T>(ref T a) { } }");
+        AssertConversion(result, "ObjectHolder<T> a");
+    }
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void OutGenericParameter_ConvertsToObjectHolder()
+    {
+        var result = Convert("class C { public void M<T>(out T a) { a = default; } }");
+        AssertConversion(result, "ObjectHolder<T> a");
+    }
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void GenericMethod_RefStructConstraint()
+    {
+        var result = Convert("struct Point { public int X; } class C { public void M<T>(ref T a) where T : struct { } }");
+        AssertConversion(result, "ObjectHolder<T> a");
+    }
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void GenericClass_RefParameter()
+    {
+        var result = Convert("class C<T> { public void M(ref T a) { } }");
+        AssertConversion(result, "ObjectHolder<T> a");
+    }
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void GenericMethod_OutWithDefaultAssignment()
+    {
+        var result = Convert("class C { public void M<T>(out T a) where T : new() { a = new T(); } }");
+        AssertConversion(result, "ObjectHolder<T> a");
+    }
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void RefListOfGeneric_HolderType()
+    {
+        var result = Convert("using System.Collections.Generic; class C { public void M<T>(ref List<T> a) { } }");
+        AssertConversion(result, "ObjectHolder<CSharpList<T>> a");
+    }
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void OutGenericUsedInExpression()
+    {
+        var result = Convert("class C { public void Assign<T>(out T a) { a = default; } public void Test() { Assign(out var x); var s = x == null; } }");
+        AssertConversion(result, "ObjectHolder", ".value");
+    }
+
+    [Fact]
+    [Trait("Category", "GenericTypes")]
+    public void GenericStruct_RefParameter()
+    {
+        var result = Convert("struct S<T> { public T Item; } class C { public void M(ref S<int> a) { a = new S<int>(); } }");
+        AssertConversion(result, "ObjectHolder<S<Integer>> a");
+    }
 }
