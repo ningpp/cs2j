@@ -117,6 +117,13 @@ public class DefaultValueTests : ConversionTestBase
     }
 
     [Fact]
+    public void GenericUnconstrained_ClassLevel_EmitsCs2jDefault()
+    {
+        var result = Convert("class C<T> { public T V = default; }");
+        AssertConversion(result, "_cs2jDefault_T()");
+    }
+
+    [Fact]
     public void NestedGenericDefault_EmitsNull()
     {
         var result = Convert("using System.Collections.Generic; class C { public void M() { Dictionary<int, string> d = default; } }");
