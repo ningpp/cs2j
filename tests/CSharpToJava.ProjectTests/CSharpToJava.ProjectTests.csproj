@@ -40,4 +40,12 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Include SampleDefaultSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleDefaultSolution\**\*.*">
+      <Link>SampleDefaultSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
