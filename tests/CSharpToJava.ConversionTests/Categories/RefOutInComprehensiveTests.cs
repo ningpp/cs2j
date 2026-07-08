@@ -245,4 +245,110 @@ public class RefOutInComprehensiveTests : ConversionTestBase
         var result = Convert("struct S<T> { public T Item; } class C { public void M(ref S<int> a) { a = new S<int>(); } }");
         AssertConversion(result, "ObjectHolder<S<Integer>> a");
     }
+
+    // ── EdgeCases ──────────────────────────────────────────────────
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void OutDiscard_PassesScratchArray()
+    {
+        var result = Convert("class C { public void M(out int a) { a = 1; } public void Call() { M(out _); } }");
+        AssertConversion(result, "new Object[1]");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void OutDiscardIdentifier_PassesScratchArray()
+    {
+        var result = Convert("class C { public bool Try(out int v) { v = 1; return true; } public void Call() { Try(out _); } }");
+        AssertConversion(result, "new Object[1]");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void RefForwarding_PassesHolderDirectly()
+    {
+        var result = Convert("class C { public void Inner(ref int a) { a = 1; } public void Outer(ref int a) { Inner(ref a); } }");
+        AssertConversion(result, "inner(a)");
+        Assert.False(result.GeneratedCode.Contains("new IntHolder(a)"),
+            "Ref forwarding should pass the holder directly without re-wrapping");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void OutForwarding_PassesHolderDirectly()
+    {
+        var result = Convert("class C { public void Inner(out int a) { a = 1; } public void Outer(out int a) { Inner(out a); } }");
+        AssertConversion(result, "inner(a)");
+        Assert.False(result.GeneratedCode.Contains("new IntHolder(a)"),
+            "Out forwarding should pass the holder directly without re-wrapping");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void NestedOutInCondition()
+    {
+        var result = Convert("class C { public bool TryGet(out int val) { val = 1; return true; } public void Use(int x) { } public void Test() { if (TryGet(out var val)) { Use(val); } } }");
+        AssertConversion(result, "IntHolder", "tryGet(", "val = ", ".value");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void MultipleOutInSingleCall()
+    {
+        var result = Convert("class C { public void M(out int a, out int b, out int c) { a = 1; b = 2; c = 3; } }");
+        AssertConversion(result, "IntHolder a", "IntHolder b", "IntHolder c");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void InKeyword_RefReadonly_PassesByValue()
+    {
+        var result = Convert("class C { public void M(in int a) { var x = a; } }");
+        AssertConversion(result, "public void m(int a)");
+        Assert.False(result.GeneratedCode.Contains("IntHolder"),
+            "in int parameter should not generate IntHolder");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void RefMemberAccess_WrapsInHolder()
+    {
+        var result = Convert("class C { public int Value; public void Mutate(ref int a) { a = a + 1; } public void Test() { Mutate(ref Value); } }");
+        AssertConversion(result, "IntHolder", "Value = ", ".value");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void RefElementAccess_WrapsInHolder()
+    {
+        var result = Convert("class C { public void Mutate(ref int a) { a = a + 1; } public void Test() { int[] arr = new int[1]; Mutate(ref arr[0]); } }");
+        AssertConversion(result, "IntHolder", "arr[0] = ", ".value");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void OutVarInForeach_ReadBackWorks()
+    {
+        var result = Convert("using System.Collections.Generic; class C { public bool TryGet(out int y) { y = 1; return true; } public void Use(int x) { } public void Test(List<int> items) { foreach (var item in items) { TryGet(out var y); Use(y); } } }");
+        AssertConversion(result, "IntHolder", "tryGet(", "y = ", ".value");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void RefAfterOut_SameVariable_HolderSeeded()
+    {
+        var result = Convert("class C { public void Assign(out int a) { a = 1; } public void Mutate(ref int a) { a = a + 1; } public void Test() { int val; Assign(out val); Mutate(ref val); } }");
+        // The converter generates: the out-call creates an IntHolder, reads back into val,
+        // then the ref-call wraps val in a new IntHolder(val) seeded with the current value.
+        AssertConversion(result, "IntHolder", "mutate(", "val = ");
+    }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void OutVarTypeInference_ResolvesCorrectType()
+    {
+        var result = Convert("class C { public bool TryGet(out double x) { x = 1.5; return true; } public void Test() { TryGet(out var y); var z = y; } }");
+        AssertConversion(result, "DoubleHolder", "double y = ", ".value");
+    }
 }
