@@ -217,9 +217,9 @@
         },
         {
             "csharp": "System.Collections.IEnumerator",
-            "java": "CSharpGenericEnumerator<?>",
+            "java": "CSharpEnumerator",
             "imports": [
-                "io.github.ningpp.compat.CSharpGenericEnumerator"
+                "io.github.ningpp.compat.CSharpEnumerator"
             ]
         },
         {

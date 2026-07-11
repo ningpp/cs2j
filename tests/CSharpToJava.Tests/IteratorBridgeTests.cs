@@ -176,7 +176,7 @@ class Walker
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("CSharpGenericEnumerator<?> en = null;", code);
+        Assert.Contains("CSharpEnumerator en = null;", code);
         Assert.DoesNotContain("var en = null;", code);
         Assert.Contains("en = CSharpEnumerator.from(values.iterator())", code);
         Assert.Contains("en.moveNext()", code);
@@ -335,8 +335,126 @@ class NoNamespaceManager : NamespaceManager
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("abstract class NamespaceManager implements CSharpGenericIterable<?>, Iterable<?>", code);
+        Assert.Contains("abstract class NamespaceManager implements CSharpGenericIterable<?>, Iterable<Object>", code);
         Assert.Contains("class NoNamespaceManager extends NamespaceManager", code);
         Assert.DoesNotContain("class NoNamespaceManager extends NamespaceManager implements Iterable<Object>", code);
+    }
+
+    /// <summary>
+    /// Verifies that a C# class implementing non-generic IEnumerator with explicit interface implementations
+    /// converts to a Java class implementing CSharpEnumerator (not CSharpGenericEnumerator&lt;?&gt;).
+    /// This is the specific scenario from the bug report: EmptyEnumerator implementing IEnumerator
+    /// with explicit interface implementations for MoveNext(), Reset(), and Current.
+    /// </summary>
+    [Fact]
+    public void NonGenericIEnumeratorWithExplicitInterfaceImpl_MapsToCSharpEnumerator()
+    {
+        var r = Convert(@"
+using System;
+using System.Collections;
+
+namespace dotnet.xml
+{
+    internal sealed class EmptyEnumerator : IEnumerator
+    {
+        bool IEnumerator.MoveNext()
+        {
+            return false;
+        }
+
+        void IEnumerator.Reset()
+        {
+        }
+
+        object IEnumerator.Current
+        {
+            get
+            {
+                throw new InvalidOperationException(""SR.Xml_InvalidOperation"");
+            }
+        }
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        // Must implement CSharpEnumerator (non-generic), NOT CSharpGenericEnumerator<?>
+        Assert.Contains("implements CSharpEnumerator", code);
+        Assert.DoesNotContain("CSharpGenericEnumerator", code);
+
+        // Bridge methods must use valid Java types (not wildcard ?)
+        Assert.Contains("public Object next()", code);
+        Assert.DoesNotContain("public ? next()", code);
+
+        // Must have proper iterator bridge methods
+        Assert.Contains("public boolean hasNext()", code);
+        Assert.Contains("public boolean moveNext()", code);
+        Assert.Contains("public Object getCurrent()", code);
+        Assert.Contains("public void reset()", code);
+
+        // Must import CSharpEnumerator
+        Assert.Contains("import io.github.ningpp.compat.CSharpEnumerator;", code);
+    }
+
+    /// <summary>
+    /// Verifies that a C# class implementing non-simple IEnumerator (non-explicit interface impl)
+    /// also maps to CSharpEnumerator correctly.
+    /// </summary>
+    [Fact]
+    public void NonGenericIEnumeratorSimpleImpl_MapsToCSharpEnumerator()
+    {
+        var r = Convert(@"
+using System.Collections;
+
+class SimpleEmptyEnumerator : IEnumerator
+{
+    public bool MoveNext() { return false; }
+    public void Reset() { }
+    public object Current { get { return null; } }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        // Must implement CSharpEnumerator (non-generic)
+        Assert.Contains("implements CSharpEnumerator", code);
+        Assert.DoesNotContain("CSharpGenericEnumerator", code);
+
+        // Bridge methods must use valid Java types
+        Assert.DoesNotContain("public ? next()", code);
+        Assert.Contains("public Object next()", code);
+    }
+
+    /// <summary>
+    /// Verifies that non-generic IEnumerator field/variable types map to CSharpEnumerator.
+    /// </summary>
+    [Fact]
+    public void NonGenericIEnumeratorVariableType_MapsToCSharpEnumerator()
+    {
+        var r = Convert(@"
+using System.Collections;
+
+class Walker
+{
+    public int First(IEnumerable values)
+    {
+        IEnumerator en = values.GetEnumerator();
+        if (en.MoveNext())
+            return (int)en.Current;
+        return 0;
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        // Variable type must be CSharpEnumerator (non-generic)
+        Assert.Contains("CSharpEnumerator en =", code);
+        Assert.DoesNotContain("CSharpGenericEnumerator<?> en =", code);
+
+        // Must use moveNext() and getCurrent() (CSharpEnumerator pattern)
+        Assert.Contains("en.moveNext()", code);
+        Assert.Contains("en.getCurrent()", code);
     }
 }
