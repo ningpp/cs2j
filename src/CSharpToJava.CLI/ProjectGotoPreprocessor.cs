@@ -249,13 +249,23 @@ internal static class ProjectGotoPreprocessor
 
     private static string MapToIntermediate(ProjectGotoSourceLayout layout, string intermediateRoot)
     {
-        // When the source is a directory that is part of a larger solution (i.e., the
-        // common root of all projects is above the entry directory), return the
-        // intermediate root so that SolutionLoader can discover the .sln and load all
-        // projects (including transitive project references like MSAGL).
-        if (layout.ProjectFiles.Count > 0 && !string.Equals(layout.SourceRoot, layout.EntryPath, StringComparison.OrdinalIgnoreCase))
+        // When the source is a directory (e.g., a folder within a larger solution),
+        // return the intermediate root so that SolutionLoader can discover the .sln
+        // and load all projects (including transitive project references like MSAGL).
+        if (layout.ProjectFiles.Count > 0 && Directory.Exists(layout.EntryPath))
         {
             return intermediateRoot;
+        }
+
+        // When the source is a single project file (.csproj), map directly to the
+        // preprocessed project file. There is no .sln to discover at the intermediate
+        // root, so returning the root would make MSBuild and ProjectDiscovery fail to
+        // resolve the project (its .csproj lives in a subdirectory), silently falling
+        // back to single-module mode. Mapping to the project file lets MSBuild follow
+        // its ProjectReferences and produce a proper multi-module layout.
+        if (File.Exists(layout.EntryPath))
+        {
+            return Path.Combine(intermediateRoot, Path.GetRelativePath(layout.SourceRoot, layout.EntryPath));
         }
 
         if (string.Equals(layout.SourceRoot, layout.EntryPath, StringComparison.OrdinalIgnoreCase))
