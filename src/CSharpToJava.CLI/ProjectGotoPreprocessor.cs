@@ -67,6 +67,16 @@ internal static class ProjectGotoPreprocessor
         var sourceRoot = layout.SourceRoot;
         var destinationRoot = Path.GetFullPath(request.DestinationRoot);
 
+        // Copy project files (.csproj, .sln) to the intermediate directory so that
+        // SolutionLoader can discover the full project graph after preprocessing.
+        foreach (var projectFile in layout.ProjectFiles)
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, projectFile);
+            var destinationFile = Path.Combine(intermediateRoot, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
+            File.Copy(projectFile, destinationFile, overwrite: true);
+        }
+
         foreach (var sourceFile in EnumerateSourceFiles(sourceRoot, destinationRoot))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
@@ -159,42 +169,95 @@ internal static class ProjectGotoPreprocessor
     private static ProjectGotoSourceLayout ResolveSourceLayout(string sourcePath)
     {
         var fullSourcePath = Path.GetFullPath(sourcePath);
+
+        // Case 1: Source is a .sln file
+        if (File.Exists(fullSourcePath) && Path.GetExtension(fullSourcePath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
+        {
+            var graph = ProjectDiscovery.LoadProjectGraph(fullSourcePath);
+            var sourceRoot = GetCommonRoot(
+                graph.ProjectsInTopologicalOrder
+                    .Select(project => project.ProjectDirectory));
+            var projectFiles = graph.ProjectsInTopologicalOrder
+                .Select(p => p.ProjectFilePath)
+                .Append(fullSourcePath)
+                .ToList();
+            return new ProjectGotoSourceLayout(sourceRoot, fullSourcePath, projectFiles);
+        }
+
+        // Case 2: Source is a .csproj file
+        if (File.Exists(fullSourcePath) && Path.GetExtension(fullSourcePath).Equals(".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            var graph = ProjectDiscovery.LoadProjectGraph(fullSourcePath);
+            var sourceRoot = GetCommonRoot(
+                graph.ProjectsInTopologicalOrder
+                    .Select(project => project.ProjectDirectory));
+            var projectFiles = graph.ProjectsInTopologicalOrder
+                .Select(p => p.ProjectFilePath)
+                .ToList();
+            return new ProjectGotoSourceLayout(sourceRoot, fullSourcePath, projectFiles);
+        }
+
+        // Case 3: Source is a directory
         if (Directory.Exists(fullSourcePath))
         {
-            return new ProjectGotoSourceLayout(fullSourcePath, fullSourcePath);
-        }
-
-        if (!File.Exists(fullSourcePath))
-        {
-            throw new FileNotFoundException("Source path not found.", fullSourcePath);
-        }
-
-        var sourceRoot = Path.GetDirectoryName(fullSourcePath)
-            ?? throw new InvalidOperationException($"Cannot resolve source directory for {fullSourcePath}.");
-
-        var extension = Path.GetExtension(fullSourcePath);
-        if (extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".sln", StringComparison.OrdinalIgnoreCase))
-        {
-            try
+            // Try to find a project entry point (.sln or .csproj) in the directory
+            if (ProjectDiscovery.TryResolveProjectEntry(fullSourcePath, out var entryProjectPath))
             {
-                var graph = ProjectDiscovery.LoadProjectGraph(fullSourcePath);
-                sourceRoot = GetCommonRoot(
+                var graph = ProjectDiscovery.LoadProjectGraph(entryProjectPath);
+                var sourceRoot = GetCommonRoot(
                     graph.ProjectsInTopologicalOrder
-                        .Select(project => project.ProjectDirectory)
-                        .Append(sourceRoot));
+                        .Select(project => project.ProjectDirectory));
+
+                // Collect all project files and the solution file (if any)
+                var projectFiles = graph.ProjectsInTopologicalOrder
+                    .Select(p => p.ProjectFilePath)
+                    .ToList();
+
+                // Also include the .sln file if it was resolved
+                if (Path.GetExtension(entryProjectPath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
+                {
+                    projectFiles.Add(entryProjectPath);
+                }
+                else
+                {
+                    // Search for .sln files in the common root and the entry directory
+                    // so SolutionLoader can discover the full project graph from the
+                    // intermediate directory.
+                    var slnDirs = new[] { sourceRoot, fullSourcePath };
+                    foreach (var searchDir in slnDirs)
+                    {
+                        if (!Directory.Exists(searchDir)) continue;
+                        var slnInDir = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly)
+                            .FirstOrDefault();
+                        if (slnInDir != null)
+                        {
+                            projectFiles.Add(slnInDir);
+                            break;
+                        }
+                    }
+                }
+
+                return new ProjectGotoSourceLayout(sourceRoot, fullSourcePath, projectFiles);
             }
-            catch
-            {
-                sourceRoot = Path.GetDirectoryName(fullSourcePath) ?? sourceRoot;
-            }
+
+            // No project file found — fall back to directory-only mode
+            return new ProjectGotoSourceLayout(fullSourcePath, fullSourcePath, Array.Empty<string>());
         }
 
-        return new ProjectGotoSourceLayout(sourceRoot, fullSourcePath);
+        throw new FileNotFoundException("Source path not found.", fullSourcePath);
     }
 
     private static string MapToIntermediate(ProjectGotoSourceLayout layout, string intermediateRoot)
     {
+        // When the source is a directory that is part of a larger solution (i.e., the
+        // common root of all projects is above the entry directory), return the
+        // intermediate root so that SolutionLoader can discover the .sln and load all
+        // projects (including transitive project references like MSAGL).
+        if (layout.ProjectFiles.Count > 0 && !string.Equals(layout.SourceRoot, layout.EntryPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return intermediateRoot;
+        }
+
         if (string.Equals(layout.SourceRoot, layout.EntryPath, StringComparison.OrdinalIgnoreCase))
         {
             return intermediateRoot;
@@ -260,5 +323,5 @@ internal static class ProjectGotoPreprocessor
         return fullPath.StartsWith(fullAncestor + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
-    private sealed record ProjectGotoSourceLayout(string SourceRoot, string EntryPath);
+    private sealed record ProjectGotoSourceLayout(string SourceRoot, string EntryPath, IReadOnlyList<string> ProjectFiles);
 }
