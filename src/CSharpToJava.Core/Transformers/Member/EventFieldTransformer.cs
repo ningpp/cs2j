@@ -247,10 +247,22 @@ public class EventFieldTransformer : IEventFieldTransformer
             // correct Java functional interface (BiConsumer), keeping add/remove/fire consistent.
             // Previously the listener type came from MapType(namedType), which collapses a 2-parameter
             // void delegate to Consumer<T> (single-arg) and breaks the fire call `accept(sender, args)`.
+            //
+            // However, for custom (non-BCL) delegate types, we must use the mapped delegate type name
+            // as the listener type instead of a standard Java functional interface (BiConsumer).
+            // This is because DelegateHelper.combine/remove expect matching types, and the event
+            // backing field uses the custom delegate type (e.g., XmlNodeChangedEventHandler).
             var invokeMethod = namedType.DelegateInvokeMethod;
             if (invokeMethod != null)
             {
-                sig.ListenerType = ResolveDelegateListenerType(invokeMethod, context);
+                if (isBclDelegate)
+                {
+                    sig.ListenerType = ResolveDelegateListenerType(invokeMethod, context);
+                }
+                else
+                {
+                    sig.ListenerType = context.MapType(namedType);
+                }
                 var pNames = new List<string>();
                 foreach (var p in invokeMethod.Parameters)
                 {

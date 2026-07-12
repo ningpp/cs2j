@@ -36,3 +36,21 @@
 - **分析**: `IsGenericEnumeratorMethod` 检查 GetEnumerator 返回类型是否实现 `IEnumerator<T>`，如果实现则生成 `CSharpGenericEnumerator.from()`。但当包含方法的返回类型是 `IEnumerator`（非泛型）时，生成的 Java 返回类型是 `CSharpEnumerator`，而 `CSharpGenericEnumerator<T>` 不是 `CSharpEnumerator` 的子类型，导致类型不兼容。添加了 `IsContainingMethodNonGenericEnumerator` 检查来决定使用哪个工厂方法。
 
 **状态**: ✅ Fixed (commit 88a6dde4) — errors reduced from 167 to 163
+
+## Iteration 3 — System.Uri type mapping to io.github.ningpp.compat.Uri (missing methods)
+
+- **Java 文件**: XmlResolver.java:23-37, XmlConvert.java:918-933, XmlDownloadManager.java:25-57
+- **行号**: 多处 Uri 构造器和方法调用
+- **错误信息**: 找不到符号 / 无法将类 Uri 中的构造器应用到给定类型
+- **代码片段**:
+  ```java
+  if (baseUri == null || (!baseUri.getIsAbsoluteUri() && baseUri.getOriginalString().length() == 0)) {
+      Uri uri = new Uri(relativeUri, UriKind.RelativeOrAbsolute);
+  ```
+
+- **对应 C# 文件**: d:\csharpxml\System\Xml\XmlResolver.cs
+- **根因分类**: 类型映射缺失
+- **涉及组件**: config/TypeMappings.json (System.Uri → io.github.ningpp.compat.Uri)
+- **分析**: TypeMappings.json 将 `System.Uri` 映射到 `io.github.ningpp.compat.Uri`，但 compat 版本只有 `Uri(String)` 构造器和 `isWellFormedUriString` 静态方法，缺少 `getIsAbsoluteUri()`、`getOriginalString()`、`Uri(String, UriKind)` 构造器、`Uri(Uri, String)` 构造器。将映射改为 `dotnet.system.Uri`（来自 system-private-uri 项目），该类有完整实现。
+
+**状态**: ✅ Fixed (commit 2f244436) — errors reduced from 163 to 73
