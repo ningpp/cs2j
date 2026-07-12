@@ -54,3 +54,39 @@
 - **分析**: TypeMappings.json 将 `System.Uri` 映射到 `io.github.ningpp.compat.Uri`，但 compat 版本只有 `Uri(String)` 构造器和 `isWellFormedUriString` 静态方法，缺少 `getIsAbsoluteUri()`、`getOriginalString()`、`Uri(String, UriKind)` 构造器、`Uri(Uri, String)` 构造器。将映射改为 `dotnet.system.Uri`（来自 system-private-uri 项目），该类有完整实现。
 
 **状态**: ✅ Fixed (commit 2f244436) — errors reduced from 163 to 73
+
+## Iteration 4 — XmlNodeChangedEventHandler vs BiConsumer type incompatibility
+
+- **Java 文件**: XmlDocument.java:1013+, XmlElementListListener.java:23-48
+- **行号**: 多处 DelegateHelper.combine/remove 调用
+- **错误信息**: 不兼容的类型: XmlNodeChangedEventHandler无法转换为BiConsumer<Object, XmlNodeChangedEventArgs>
+- **代码片段**:
+  ```java
+  public void addNodeInsertingListener(BiConsumer<Object, XmlNodeChangedEventArgs> handler) {
+      _onNodeInsertingDelegate = DelegateHelper.combine(_onNodeInsertingDelegate, handler);
+  }
+  ```
+
+- **对应 C# 文件**: d:\csharpxml\System\Xml\Dom\XmlDocument.cs
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Member/EventFieldTransformer.cs
+- **分析**: EventFieldTransformer 的 `ResolveDelegateListenerType` 对所有2参数void委托统一使用 `BiConsumer<Object, T>` 作为监听器类型，但对于自定义委托类型（如 `XmlNodeChangedEventHandler`），应使用委托类型本身，因为 `DelegateHelper.combine/remove` 要求类型匹配。
+
+**状态**: ✅ Fixed (commit 323584b8) — errors reduced from 73 to 14
+
+## Iteration 5 — XmlAttributeCollection missing CSharpICollection abstract methods
+
+- **Java 文件**: XmlAttributeCollection.java:17
+- **行号**: implements 行
+- **错误信息**: 不是抽象的, 并且未覆盖CSharpICollection中的抽象方法getIsReadOnly()/remove()/copyTo()等
+- **代码片段**:
+  ```java
+  public final class XmlAttributeCollection extends XmlNamedNodeMap implements CSharpICollection<Object> {
+  ```
+
+- **对应 C# 文件**: d:\csharpxml\System\Xml\Dom\XmlAttributeCollection.cs
+- **根因分类**: 类型映射缺失
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpICollection.java
+- **分析**: `CSharpICollection<T>` 合并了非泛型 `ICollection` 和泛型 `ICollection<T>` 的接口，但 `add`、`remove`、`contains`、`clear`、`getIsReadOnly`、`copyTo` 等方法只有泛型版本才有。非泛型 `ICollection` 实现类（如 `XmlAttributeCollection`）不需要实现这些方法。将这些方法改为 default 实现（抛出 UnsupportedOperationException 或返回合理默认值）。
+
+**状态**: ✅ Fixed (commit 0c4063e4) — errors reduced from 14 to 0, BUILD SUCCESS
