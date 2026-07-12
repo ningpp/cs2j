@@ -3,13 +3,13 @@ package io.github.ningpp.compat;
 import java.util.*;
 
 public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
-    boolean add(T item);
-    void clear();
-    boolean contains(Object o);
-    void copyTo(T[] array, int arrayIndex);
-    boolean remove(Object o);
+    default boolean add(T item) { throw new UnsupportedOperationException(); }
+    default void clear() { throw new UnsupportedOperationException(); }
+    default boolean contains(Object o) { throw new UnsupportedOperationException(); }
+    default void copyTo(T[] array, int arrayIndex) { throw new UnsupportedOperationException(); }
+    default boolean remove(Object o) { throw new UnsupportedOperationException(); }
     int getCount();
-    boolean getIsReadOnly();
+    default boolean getIsReadOnly() { return false; }
 
     // CSharpCollection-compatible methods (non-generic ICollection surface)
     default void copyTo(CSharpArray array, int index) {
