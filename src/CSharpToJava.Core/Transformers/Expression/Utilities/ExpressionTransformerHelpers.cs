@@ -646,7 +646,21 @@ public static class ExpressionTransformerHelpers
 
     public static string ToRuntimeTypeForClassLiteral(string mappedType)
     {
-        return StripTypeArguments(mappedType);
+        var stripped = StripTypeArguments(mappedType);
+        // Java primitive class literals (int.class, double.class, etc.) create primitive arrays
+        // which cannot be cast to Object[]. For generic usage, we need the wrapper class.
+        return stripped switch
+        {
+            "int" => "Integer",
+            "long" => "Long",
+            "short" => "Short",
+            "byte" => "Byte",
+            "double" => "Double",
+            "float" => "Float",
+            "char" => "Character",
+            "boolean" => "Boolean",
+            _ => stripped
+        };
     }
 
     /// <summary>

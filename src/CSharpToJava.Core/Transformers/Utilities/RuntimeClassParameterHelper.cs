@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Utilities;
 
@@ -662,9 +663,7 @@ internal static class RuntimeClassParameterHelper
         }
 
         var javaType = context.MapType(runtimeType);
-        var genericStart = javaType.IndexOf('<');
-        if (genericStart > 0)
-            javaType = javaType[..genericStart];
+        javaType = ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(javaType);
 
         return $"{javaType}.class";
     }

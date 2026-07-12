@@ -170,7 +170,7 @@ class UseDemo {
         Assert.Contains("this.vClass = vClass;", code);
         Assert.Contains("java.lang.reflect.Array.newInstance(kClass, count)", code);
         Assert.Contains("java.lang.reflect.Array.newInstance(vClass, count)", code);
-        Assert.Contains("new Demo<String, Integer>(String.class, int.class).keys(2)", code);
+        Assert.Contains("new Demo<String, Integer>(String.class, Integer.class).keys(2)", code);
         Assert.DoesNotContain("K.class", code);
         Assert.DoesNotContain("V.class", code);
     }

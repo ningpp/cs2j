@@ -99,7 +99,7 @@ class Test {
     }
 
     [Fact]
-    public void TypeOf_PrimitiveType_ProducesPrimitiveClassLiteral()
+    public void TypeOf_PrimitiveType_ProducesWrapperClassLiteral()
     {
         var result = Convert(@"
 class Test {
@@ -107,7 +107,9 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("int.class", code);
+        // typeof(int) → Integer.class because Java's int.class creates primitive arrays
+        // that cannot be used as Object[] in generic contexts (e.g. new T[] via reflection)
+        Assert.Contains("Integer.class", code);
     }
 
     [Fact]

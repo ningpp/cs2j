@@ -166,14 +166,15 @@ class Test {
     }
 
     [Fact]
-    public void TypeOf_PrimitiveType_ProducesPrimitiveClass()
+    public void TypeOf_PrimitiveType_ProducesWrapperClass()
     {
         var result = Convert(@"
 class Test {
     void M() { Type t = typeof(int); }
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("int.class", result.GeneratedCode);
+        // typeof(int) → Integer.class because Java's int.class creates primitive arrays
+        Assert.Contains("Integer.class", result.GeneratedCode);
     }
 
     [Fact]
