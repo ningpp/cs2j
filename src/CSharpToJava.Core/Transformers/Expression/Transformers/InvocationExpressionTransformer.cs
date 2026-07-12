@@ -853,10 +853,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var enumMethod = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
             bool isGenericEnumerator = IsGenericEnumeratorMethod(enumMethod);
-            // When the containing method returns IEnumerator (non-generic), the generated
-            // Java return type is CSharpEnumerator. CSharpGenericEnumerator<T> is NOT a
-            // subtype of CSharpEnumerator, so we must use CSharpEnumerator.from() instead.
-            if (isGenericEnumerator && !IsContainingMethodNonGenericEnumerator(context))
+            // CSharpGenericEnumerator<T> is NOT a subtype of CSharpEnumerator in Java.
+            // When the result flows into a non-generic IEnumerator target (variable, field,
+            // parameter, or method return), we must use CSharpEnumerator.from() instead.
+            if (isGenericEnumerator && !NeedsCSharpEnumeratorFrom(node, context))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
                 return $"CSharpGenericEnumerator.from({BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)})";
@@ -7295,6 +7295,96 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
 
         // Check if the containing method returns IEnumerator (non-generic, System.Collections)
+        return named.Name == "IEnumerator"
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections"
+            && named.TypeArguments.Length == 0;
+    }
+
+    /// <summary>
+    /// Determines whether CSharpEnumerator.from() must be used instead of
+    /// CSharpGenericEnumerator.from() because the result flows into a non-generic
+    /// IEnumerator target (variable, field, parameter, or method return type).
+    /// </summary>
+    private static bool NeedsCSharpEnumeratorFrom(SyntaxNode node, ConversionContext context)
+    {
+        // Check 1: containing method returns non-generic IEnumerator
+        if (IsContainingMethodNonGenericEnumerator(context))
+            return true;
+
+        // Check 2: the result is assigned/passed to a non-generic IEnumerator target
+        var parent = node.Parent;
+        while (parent != null)
+        {
+            // Direct assignment: IEnumerator x = expr.GetEnumerator()
+            if (parent is LocalDeclarationStatementSyntax localDecl)
+            {
+                foreach (var varDecl in localDecl.Declaration.Variables)
+                {
+                    if (varDecl.Initializer?.Value == node || IsDescendantOf(varDecl.Initializer?.Value, node))
+                    {
+                        var type = context.SemanticModel.GetTypeInfo(localDecl.Declaration.Type).Type;
+                        if (IsNonGenericIEnumerator(type))
+                            return true;
+                    }
+                }
+                break;
+            }
+
+            // Assignment: x = expr.GetEnumerator()
+            if (parent is AssignmentExpressionSyntax assignment && assignment.Right == node)
+            {
+                var typeInfo = context.SemanticModel.GetTypeInfo(assignment.Left);
+                if (IsNonGenericIEnumerator(typeInfo.Type))
+                    return true;
+                break;
+            }
+
+            // Passed as argument to a non-generic IEnumerator parameter
+            if (parent is ArgumentSyntax argument)
+            {
+                var argList = argument.Parent as BaseArgumentListSyntax;
+                if (argList != null)
+                {
+                    var idx = argList.Arguments.IndexOf(argument);
+                    // Method invocation argument
+                    if (argList.Parent is InvocationExpressionSyntax invocation)
+                    {
+                        var methodSym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                        if (methodSym != null && idx >= 0 && idx < methodSym.Parameters.Length)
+                        {
+                            if (IsNonGenericIEnumerator(methodSym.Parameters[idx].Type))
+                                return true;
+                        }
+                    }
+                    // Constructor argument
+                    else if (argList.Parent is ObjectCreationExpressionSyntax)
+                    {
+                        var ctorSym = context.SemanticModel.GetSymbolInfo(argList.Parent).Symbol as IMethodSymbol;
+                        if (ctorSym != null && idx >= 0 && idx < ctorSym.Parameters.Length)
+                        {
+                            if (IsNonGenericIEnumerator(ctorSym.Parameters[idx].Type))
+                                return true;
+                        }
+                    }
+                }
+                break;
+            }
+
+            parent = parent.Parent;
+        }
+
+        return false;
+    }
+
+    private static bool IsDescendantOf(SyntaxNode? ancestor, SyntaxNode descendant)
+    {
+        if (ancestor == null) return false;
+        return descendant.Span.Start >= ancestor.Span.Start && descendant.Span.End <= ancestor.Span.End;
+    }
+
+    private static bool IsNonGenericIEnumerator(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named) return false;
         return named.Name == "IEnumerator"
             && named.ContainingNamespace?.ToDisplayString() == "System.Collections"
             && named.TypeArguments.Length == 0;

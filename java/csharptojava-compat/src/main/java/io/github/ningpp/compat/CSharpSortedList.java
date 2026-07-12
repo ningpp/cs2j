@@ -273,6 +273,15 @@ public class CSharpSortedList<K, V> implements CSharpGenericIDictionary<K, V>, C
         public CSharpGenericEnumerator<K> iterator() {
             return CSharpGenericEnumerator.from(dict.map.keySet().iterator());
         }
+
+        public K get(int index) {
+            int i = 0;
+            for (K key : dict.map.keySet()) {
+                if (i == index) return key;
+                i++;
+            }
+            throw new IndexOutOfBoundsException(index);
+        }
     }
 
     public static class ValueCollection<K, V> implements CSharpICollection<V> {
@@ -323,6 +332,15 @@ public class CSharpSortedList<K, V> implements CSharpGenericIDictionary<K, V>, C
         @Override
         public CSharpGenericEnumerator<V> iterator() {
             return CSharpGenericEnumerator.from(dict.map.values().iterator());
+        }
+
+        public V get(int index) {
+            int i = 0;
+            for (V value : dict.map.values()) {
+                if (i == index) return value;
+                i++;
+            }
+            throw new IndexOutOfBoundsException(index);
         }
     }
 }

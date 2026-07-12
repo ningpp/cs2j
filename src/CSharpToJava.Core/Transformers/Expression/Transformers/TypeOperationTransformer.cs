@@ -1167,7 +1167,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     if (context.TryGetRuntimeClassParameter(typeParam.Name, out var existingRuntimeClassParameter))
                     {
                         context.AddImport("io.github.ningpp.compat.DefaultValue");
-                        return $"DefaultValue.of({existingRuntimeClassParameter})";
+                        // Runtime class parameter from AddRuntimeClassParametersForTypeParameterArrays
+                        // is Class<?>, so DefaultValue.of(Class<?>) cannot infer T.
+                        // Use DefaultValue.ofClass(Class<?>) + cast to preserve type safety.
+                        return $"({typeParam.Name}) DefaultValue.ofClass({existingRuntimeClassParameter})";
                     }
 
                     var method = typeParam.DeclaringMethod;

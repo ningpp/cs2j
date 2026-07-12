@@ -34,6 +34,15 @@ public final class DefaultValue {
         return (T) getDefaultByClass(type);
     }
 
+    /**
+     * Accepts a wildcard {@code Class<?>} and returns the default value as {@code Object}.
+     * Used when the converter cannot preserve the {@code Class<T>} token.
+     */
+    public static Object ofClass(Class<?> type) {
+        if (type == null) return null;
+        return getDefaultByClass(type);
+    }
+
     private static Object getDefaultByClass(Class<?> type) {
         if (type == int.class)        return 0;
         if (type == long.class)       return 0L;

@@ -6207,6 +6207,16 @@
             "javaMethod": "values"
         },
         {
+            "type": "System.Collections.Generic.SortedList`2",
+            "method": "Values",
+            "javaMethod": "getValues"
+        },
+        {
+            "type": "System.Collections.Generic.SortedList`2",
+            "method": "Keys",
+            "javaMethod": "getKeys"
+        },
+        {
             "type": "System.Collections.Generic.List`1",
             "method": "Count",
             "javaMethod": "size"

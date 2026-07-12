@@ -507,4 +507,97 @@ class MyNamespaceManager : IEnumerable
         Assert.Contains("CSharpEnumerator.from(", code);
         Assert.DoesNotContain("CSharpGenericEnumerator.from(", code);
     }
+
+    /// <summary>
+    /// When a non-generic IEnumerator variable is assigned from a generic IEnumerable's
+    /// GetEnumerator(), the generated code must be type-compatible in Java.
+    /// CSharpGenericEnumerator&lt;T&gt; must be assignable to CSharpEnumerator.
+    /// This is the NetworkSimplex pattern: IEnumerator outEnum = graph.OutEdges(v).GetEnumerator();
+    /// </summary>
+    [Fact]
+    public void NonGenericIEnumeratorVar_AssignedFromGenericGetEnumerator_IsTypeCompatible()
+    {
+        var r = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+class Graph
+{
+    public IList<int> OutEdges(int v) { return null; }
+}
+
+class Walker
+{
+    Graph graph;
+    public void Run(int v)
+    {
+        IEnumerator outEnum = graph.OutEdges(v).GetEnumerator();
+        while (outEnum.MoveNext())
+        {
+            object x = outEnum.Current;
+        }
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        // Variable must be declared as CSharpEnumerator (non-generic)
+        Assert.Contains("CSharpEnumerator outEnum", code);
+        // When assigned to non-generic IEnumerator, must use CSharpEnumerator.from()
+        // so the types are compatible in Java
+        Assert.Contains("CSharpEnumerator.from(", code);
+        Assert.DoesNotContain("CSharpGenericEnumerator.from(", code);
+    }
+
+    /// <summary>
+    /// When GetEnumerator() result is passed as a constructor argument where the
+    /// parameter is non-generic IEnumerator, must use CSharpEnumerator.from().
+    /// This is the IncEdgeEnumerator pattern from NetworkSimplex.
+    /// </summary>
+    [Fact]
+    public void GenericGetEnumerator_AsCtorArgToNonGenericIEnumeratorParam_UsesCSharpEnumeratorFrom()
+    {
+        var r = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+class MyEnumerator : IEnumerator<int>
+{
+    IEnumerator outEdges;
+    IEnumerator inEdges;
+    public MyEnumerator(IEnumerator outEdges, IEnumerator inEdges)
+    {
+        this.outEdges = outEdges;
+        this.inEdges = inEdges;
+    }
+    public bool MoveNext() { return false; }
+    public int Current { get { return 0; } }
+    object IEnumerator.Current { get { return Current; } }
+    public void Reset() { }
+    public void Dispose() { }
+}
+
+class Graph
+{
+    public IList<int> OutEdges(int v) { return null; }
+    public IList<int> InEdges(int v) { return null; }
+}
+
+class Walker
+{
+    Graph graph;
+    public IEnumerator<int> Run(int v)
+    {
+        return new MyEnumerator(graph.OutEdges(v).GetEnumerator(), graph.InEdges(v).GetEnumerator());
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        // Constructor args are non-generic IEnumerator, so must use CSharpEnumerator.from()
+        Assert.Contains("CSharpEnumerator.from(", code);
+        Assert.DoesNotContain("CSharpGenericEnumerator.from(", code);
+    }
 }

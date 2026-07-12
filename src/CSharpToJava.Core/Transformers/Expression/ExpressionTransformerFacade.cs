@@ -117,7 +117,21 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 // Check property-to-method mapping (e.g., Count → size()) via semantic model
                 if (context.GetSymbolInfo(binding).Symbol is IPropertySymbol prop)
                 {
-                    var mapped = TryMapPropertyToMethod(prop, context);
+                    // Use the expression's static type for lookup (e.g., SortedList not IDictionary)
+                    // so that concrete-type mappings like SortedList.Values→getValues take
+                    // priority over interface mappings like IDictionary.Values→values.
+                    ITypeSymbol? exprType = null;
+                    ConditionalAccessExpressionSyntax? ownerCond2 = null;
+                    var ancestor2 = binding.Parent;
+                    while (ancestor2 != null)
+                    {
+                        if (ancestor2 is ConditionalAccessExpressionSyntax ca2)
+                        { ownerCond2 = ca2; break; }
+                        ancestor2 = ancestor2.Parent;
+                    }
+                    if (ownerCond2 != null)
+                        exprType = context.GetTypeInfo(ownerCond2.Expression).Type;
+                    var mapped = TryMapPropertyToMethod(prop, exprType, context);
                     if (mapped != null)
                     {
                         if (Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mapped))
@@ -257,11 +271,25 @@ public class ExpressionTransformerFacade : IExpressionTransformer
 
     /// <summary>
     /// Attempts to map a C# property symbol to a Java method name via TypeMappings.
-    /// Checks the property's containing type, then its FQN, then walks all implemented interfaces.
+    /// Checks the expression type first (for concrete-type overrides), then the property's
+    /// containing type, then its FQN, then walks all implemented interfaces.
     /// Returns null when no mapping is found.
     /// </summary>
-    private static string? TryMapPropertyToMethod(IPropertySymbol prop, ConversionContext context)
+    private static string? TryMapPropertyToMethod(IPropertySymbol prop, ITypeSymbol? exprType, ConversionContext context)
     {
+        // Check expression's static type first (e.g., SortedList before IDictionary)
+        if (exprType != null && !SymbolEqualityComparer.Default.Equals(exprType, prop.ContainingType))
+        {
+            var exprTypeName = exprType.ToDisplayString();
+            var exprMapped = context.TypeMappings.MapMethod(exprTypeName, prop.Name);
+            if (exprMapped == null)
+            {
+                var exprFqn = $"{exprType.ContainingNamespace}.{exprType.Name}";
+                exprMapped = context.TypeMappings.MapMethod(exprFqn, prop.Name);
+            }
+            if (exprMapped != null) return exprMapped;
+        }
+
         var typeName = prop.ContainingType.ToDisplayString();
         var mapped = context.TypeMappings.MapMethod(typeName, prop.Name);
         if (mapped == null)

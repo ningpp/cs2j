@@ -969,6 +969,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (prop.Name == "Keys") return $"{propertyTarget}.keySet()";
             }
 
+            // SortedList.Values/Keys must use getValues()/getKeys() (returning CSharpICollection)
+            // instead of values()/keySet() (returning Collection/Set from Map).
+            // Check the expression's actual type, not the property's declaring type.
+            var exprType = context.GetTypeInfo(node.Expression).Type;
+            if (exprType?.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                && exprType.Name == "SortedList")
+            {
+                if (prop.Name == "Values") return $"{propertyTarget}.getValues()";
+                if (prop.Name == "Keys") return $"{propertyTarget}.getKeys()";
+            }
+
             // KeyValuePair<K,V>.Key/.Value → Map.Entry<K,V>.getKey()/.getValue()
             if (propContainer?.Name == "KeyValuePair"
                 && propContainer?.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
