@@ -853,7 +853,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var enumMethod = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
             bool isGenericEnumerator = IsGenericEnumeratorMethod(enumMethod);
-            if (isGenericEnumerator)
+            // When the containing method returns IEnumerator (non-generic), the generated
+            // Java return type is CSharpEnumerator. CSharpGenericEnumerator<T> is NOT a
+            // subtype of CSharpEnumerator, so we must use CSharpEnumerator.from() instead.
+            if (isGenericEnumerator && !IsContainingMethodNonGenericEnumerator(context))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
                 return $"CSharpGenericEnumerator.from({BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)})";
@@ -7279,6 +7282,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         return type.AllInterfaces.Any(iface =>
             IsEnumerator(iface) || IsEnumerator(iface.OriginalDefinition));
+    }
+
+    private static bool IsContainingMethodNonGenericEnumerator(ConversionContext context)
+    {
+        var currentMethod = context.CurrentMethod;
+        if (currentMethod == null)
+            return false;
+
+        var returnType = currentMethod.ReturnType;
+        if (returnType is not INamedTypeSymbol named)
+            return false;
+
+        // Check if the containing method returns IEnumerator (non-generic, System.Collections)
+        return named.Name == "IEnumerator"
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections"
+            && named.TypeArguments.Length == 0;
     }
 
     private static bool IsGenericEnumeratorMethod(IMethodSymbol? method)
