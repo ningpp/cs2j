@@ -323,10 +323,42 @@ class CSharpListTest {
         list.add("b");
         list.add("c");
         list.add("d");
-        list.removeRange(1, 2);
+        list._removeRange(1, 2);
         assertEquals(2, list.getCount());
         assertEquals("a", list.get(0));
         assertEquals("d", list.get(1));
+    }
+
+    @Test
+    void subList_clear_doesNotThrowArrayIndexOutOfBounds() {
+        // Regression test: subList().clear() internally calls removeRange(fromIndex, toIndex)
+        // with Java semantics (from, to), but the old CSharpList.removeRange override
+        // interpreted them as C# semantics (index, count), causing ArrayIndexOutOfBoundsException.
+        CSharpList<String> list = new CSharpList<>();
+        list.add("a");
+        list.add("b");
+        list.add("c");
+        list.add("d");
+        list.add("e");
+        // Equivalent to C# RemoveRange(1, 3) → subList(1, 4).clear()
+        list.subList(1, 4).clear();
+        assertEquals(2, list.getCount());
+        assertEquals("a", list.get(0));
+        assertEquals("e", list.get(1));
+    }
+
+    @Test
+    void subList_clear_onSubListOffset() {
+        // Test with a sublist that has a non-zero offset, matching the AGL scenario
+        // where Block.transferConnectedVariables uses subList(lastKeepIndex+1, end).clear()
+        CSharpList<Integer> list = new CSharpList<>();
+        for (int i = 0; i < 10; i++) {
+            list.add(i);
+        }
+        // Remove elements from index 5 to end: subList(5, 10).clear()
+        list.subList(5, 10).clear();
+        assertEquals(5, list.getCount());
+        assertEquals(4, list.get(4));
     }
 
     // ---- ToArray ----

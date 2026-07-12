@@ -223,7 +223,10 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         return removed;
     }
 
-    public void removeRange(int index, int count) {
+    // C# List<T>.RemoveRange(index, count) - use _removeRange for C# semantics
+    // Note: do NOT override removeRange(int, int) with C# (index, count) semantics,
+    // because ArrayList.SubList.removeRange delegates here with Java (fromIndex, toIndex) semantics.
+    public void _removeRange(int index, int count) {
         super.removeRange(index, index + count);
     }
 

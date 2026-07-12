@@ -1796,7 +1796,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // Instance List<T>.RemoveRange(startIndex, count)
-        // C# RemoveRange(index, count) → Java subList(index, index + count).clear()
+        // C# RemoveRange(index, count) → Java _removeRange(index, count)
         if (originalMethodName == "RemoveRange"
             && node.ArgumentList.Arguments.Count == 2
             && methodSymbol is { IsExtensionMethod: false }
@@ -1804,9 +1804,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var startArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var countArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            // Wrap complex expressions in parentheses for the addition
-            var countStr = countArg.Contains(' ') ? $"({countArg})" : countArg;
-            return $"{receiver}.subList({startArg}, {startArg} + {countStr}).clear()";
+            return $"{receiver}._removeRange({startArg}, {countArg})";
         }
 
         // Instance List<T>.Reverse() mutates the list in-place.
