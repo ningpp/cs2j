@@ -335,7 +335,7 @@ class NoNamespaceManager : NamespaceManager
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        Assert.Contains("abstract class NamespaceManager implements CSharpGenericIterable<?>, Iterable<Object>", code);
+        Assert.Contains("abstract class NamespaceManager implements CSharpGenericIterable<Object>, Iterable<Object>", code);
         Assert.Contains("class NoNamespaceManager extends NamespaceManager", code);
         Assert.DoesNotContain("class NoNamespaceManager extends NamespaceManager implements Iterable<Object>", code);
     }
@@ -456,5 +456,25 @@ class Walker
         // Must use moveNext() and getCurrent() (CSharpEnumerator pattern)
         Assert.Contains("en.moveNext()", code);
         Assert.Contains("en.getCurrent()", code);
+    }
+
+    [Fact]
+    public void NonGenericIEnumerable_ImplementsClause_UsesObjectNotWildcard()
+    {
+        var r = Convert(@"
+using System.Collections;
+
+class MyCollection : IEnumerable
+{
+    public IEnumerator GetEnumerator() { return null; }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED");
+        Assert.True(r.Success);
+        var code = r.GeneratedCode ?? "";
+
+        // Must NOT use wildcard ? in implements clause — Java forbids it
+        Assert.DoesNotContain("CSharpGenericIterable<?>", code);
+        // Must use CSharpGenericIterable<Object> instead
+        Assert.Contains("CSharpGenericIterable<Object>", code);
     }
 }

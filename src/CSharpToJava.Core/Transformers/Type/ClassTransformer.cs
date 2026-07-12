@@ -56,7 +56,7 @@ public class ClassTransformer : ITypeTransformer
             // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
             if (baseType.ToDisplayString() != "System.MarshalByRefObject")
             {
-                javaClass.ExtendedType = context.MapTypeForDeclarationHeader(baseType);
+                javaClass.ExtendedType = WildcardToObjectTypeArg(context.MapTypeForDeclarationHeader(baseType));
             }
         }
 
@@ -176,7 +176,7 @@ public class ClassTransformer : ITypeTransformer
                     }
                     else
                     {
-                        javaClass.ImplementedTypes.Add(mappedIface);
+                        javaClass.ImplementedTypes.Add(WildcardToObjectTypeArg(mappedIface));
                     }
                 }
             }
@@ -199,7 +199,7 @@ public class ClassTransformer : ITypeTransformer
                         && resolvedType.SpecialType != SpecialType.System_Object
                         && javaClass.ExtendedType == null)
                     {
-                        javaClass.ExtendedType = context.MapTypeForDeclarationHeader(resolvedType);
+                        javaClass.ExtendedType = WildcardToObjectTypeArg(context.MapTypeForDeclarationHeader(resolvedType));
                     }
                     else if (resolvedType.TypeKind == TypeKind.Interface
                         || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
@@ -444,7 +444,7 @@ public class ClassTransformer : ITypeTransformer
 
                 if (resolvedType.TypeKind == TypeKind.Class)
                 {
-                    javaClass.ExtendedType = context.MapTypeForDeclarationHeader(resolvedType);
+                    javaClass.ExtendedType = WildcardToObjectTypeArg(context.MapTypeForDeclarationHeader(resolvedType));
                 }
                 else if (resolvedType.TypeKind == TypeKind.Interface
                     || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
@@ -501,7 +501,7 @@ public class ClassTransformer : ITypeTransformer
                     }
                     else
                     {
-                        javaClass.ImplementedTypes.Add(mappedIface);
+                        javaClass.ImplementedTypes.Add(WildcardToObjectTypeArg(mappedIface));
                     }
                 }
             }
@@ -2828,6 +2828,16 @@ public class ClassTransformer : ITypeTransformer
         {
             method.Body = castLine + "\n" + method.Body;
         }
+    }
+
+    /// <summary>
+    /// Replaces wildcard type arguments (e.g. <code>CSharpGenericIterable&lt;?&gt;</code>)
+    /// with <code>&lt;Object&gt;</code> for use in implements/extends clauses.
+    /// Java forbids wildcards in extends/implements clauses.
+    /// </summary>
+    private static string WildcardToObjectTypeArg(string typeName)
+    {
+        return typeName.Replace("<?>", "<Object>");
     }
 
     /// <summary>

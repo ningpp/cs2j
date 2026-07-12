@@ -38,7 +38,8 @@ public class InterfaceTransformer : ITypeTransformer
                 var typeInfo = context.GetTypeInfo(baseType.Type);
                 if (typeInfo.Type != null)
                 {
-                    javaInterface.ExtendedTypes.Add(context.MapType(typeInfo.Type));
+                    javaInterface.ExtendedTypes.Add(
+                        context.MapType(typeInfo.Type).Replace("<?>", "<Object>"));
                 }
             }
         }
