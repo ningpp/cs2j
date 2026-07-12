@@ -31,11 +31,72 @@ public class ArrayHelper {
      * Mirrors C# arrays exposed as IList<T>: indexed set writes through to the
      * array, while add/remove remain unsupported.
      */
-    public static <T> CSharpList<T> asListView(T[] items) {
+    public static <T> CSharpGenericIList<T> asListView(T[] items) {
         if (items == null) return null;
-        var list = new CSharpList<T>(items.length);
-        for (T item : items) list.add(item);
-        return list;
+        return new ArrayBackedListView<>(items);
+    }
+
+    /**
+     * A fixed-size list view backed by a Java array.
+     * Supports get(), set(), size(), and iteration; structural modifications
+     * (add/remove/clear) throw UnsupportedOperationException, matching the
+     * C# behavior of arrays exposed as IList&lt;T&gt;.
+     */
+    private static class ArrayBackedListView<T> extends java.util.AbstractList<T> implements CSharpGenericIList<T> {
+        private final T[] array;
+
+        ArrayBackedListView(T[] array) {
+            this.array = array;
+        }
+
+        @Override
+        public T get(int index) {
+            return array[index];
+        }
+
+        @Override
+        public T set(int index, T element) {
+            T old = array[index];
+            array[index] = element;
+            return old;
+        }
+
+        @Override
+        public int size() {
+            return array.length;
+        }
+
+        @Override
+        public CSharpGenericEnumerator<T> iterator() {
+            return CSharpGenericEnumerator.from(super.iterator());
+        }
+
+        @Override
+        public void copyTo(T[] dest, int destIndex) {
+            for (int i = 0; i < array.length; i++) {
+                dest[destIndex + i] = array[i];
+            }
+        }
+
+        @Override
+        public int getCount() {
+            return array.length;
+        }
+
+        @Override
+        public boolean getIsReadOnly() {
+            return false;
+        }
+
+        @Override
+        public void insert(int index, T item) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void removeAt(int index) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     public static <T> T[] copyArray(T[] items) {

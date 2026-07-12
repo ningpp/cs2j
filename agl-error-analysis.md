@@ -25,3 +25,4 @@
 - **根因分类**: 兼容库缺陷
 - **涉及组件**: CSharpList.java (removeRange override), InvocationExpressionTransformer.cs (RemoveRange→subList.clear)
 - **分析**: CSharpList.removeRange(int index, int count) 覆写了 ArrayList.removeRange(int fromIndex, int toIndex)，但将参数解释为 C# 语义(index, count)而非 Java 语义(fromIndex, toIndex)。当 subList().clear() 内部调用 removeRange(from, to) 时，CSharpList 的覆写错误地将 toIndex 当作 count，执行 super.removeRange(from, from+to)，导致数组越界。
+- **状态**: ✅ Fixed (commit 962f9eb0)
