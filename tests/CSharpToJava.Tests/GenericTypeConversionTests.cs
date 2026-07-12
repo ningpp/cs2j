@@ -543,6 +543,38 @@ class Test {
         Assert.Contains("null", result.GeneratedCode);
     }
 
+    // ─── as IList<T> with IEnumerable source ───
+
+    [Fact]
+    public void As_IList_FromIEnumerable_FallsBackToNewCSharpList()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Test {
+    IEnumerable<int> GetItems() => null;
+    void M() { var x = GetItems() as IList<int>; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        Assert.Contains("new CSharpList<>", code);
+        Assert.DoesNotContain(": null)", code);
+    }
+
+    [Fact]
+    public void As_IList_FromConcreteList_UsesInstanceofCast()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Test {
+    List<int> GetItems() => null;
+    void M() { var x = GetItems() as IList<int>; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        Assert.Contains("instanceof CSharpGenericIList", code);
+        Assert.DoesNotContain("new CSharpList<>", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

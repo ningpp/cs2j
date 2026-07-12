@@ -871,6 +871,23 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 }
             }
         }
+        // C# expr as IList<T> / expr as CSharpGenericIList<T>: when the source is IEnumerable-like
+        // (CSharpGenericIterable, etc.), instanceof CSharpGenericIList will be false, yielding null.
+        // In C#, as IList<T> on an IEnumerable<T> that isn't also an IList<T> returns null — but
+        // callers typically use the result as a collection anyway. Wrapping in new CSharpList<>(expr)
+        // preserves the elements and avoids NPEs in generated code.
+        if (context.SemanticModel != null
+            && (targetType.StartsWith("CSharpList<") || targetType.StartsWith("CSharpGenericIList<")))
+        {
+            var sourceType = context.GetTypeInfo(node.Left).Type;
+            bool isEnumerableLikeSource = IsEnumerableLikeSourceType(sourceType);
+            if (isEnumerableLikeSource)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpList");
+                return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : new CSharpList<>({expression}))";
+            }
+        }
+
         return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null)";
     }
 
