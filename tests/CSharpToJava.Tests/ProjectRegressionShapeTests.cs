@@ -186,7 +186,7 @@ class Sample
     }
 
     [Fact]
-    public void UriMapping_UsesCompatPackageInsteadOfPhantomDotnetSystem()
+    public void UriMapping_UsesDotnetSystemPackage()
     {
         var result = Convert("""
 using System;
@@ -201,10 +201,8 @@ class Sample
 """, useDefaultMappings: true);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.DoesNotContain("dotnet.system.Uri", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import dotnet.system.UriKind;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("Uri.isWellFormedUriString(value, UriKind.RelativeOrAbsolute)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Uri.isWellFormedUriString", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.UriKind;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
