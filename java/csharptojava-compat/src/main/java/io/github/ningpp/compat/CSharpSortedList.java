@@ -71,13 +71,13 @@ public class CSharpSortedList<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
-    public CSharpICollection<K> getKeys() {
-        return new KeyCollection<>(this);
+    public CSharpList<K> getKeys() {
+        return new CSharpList<>(map.keySet());
     }
 
     @Override
-    public CSharpICollection<V> getValues() {
-        return new ValueCollection<>(this);
+    public CSharpList<V> getValues() {
+        return new CSharpList<>(map.values());
     }
 
     @Override

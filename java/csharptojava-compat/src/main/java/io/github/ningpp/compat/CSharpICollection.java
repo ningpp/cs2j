@@ -9,9 +9,6 @@ public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
     default void copyTo(T[] array, int arrayIndex) { throw new UnsupportedOperationException(); }
     default boolean remove(Object o) { throw new UnsupportedOperationException(); }
     int getCount();
-
-    // SortedList.Values/Keys return IList in C# which supports indexed access.
-    default T get(int index) { throw new UnsupportedOperationException("indexed access not supported"); }
     default boolean getIsReadOnly() { return false; }
 
     // CSharpCollection-compatible methods (non-generic ICollection surface)
