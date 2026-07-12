@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NoWarn>CS8602;CS8604;CS0414;RS1024;RS1034</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
