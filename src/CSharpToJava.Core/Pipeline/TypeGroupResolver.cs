@@ -47,6 +47,10 @@ public static class TypeGroupResolver
             if (typeGroup.TypeSymbol.TypeKind == TypeKind.Delegate)
                 return ConvertDelegateTypeGroup(typeGroup, compilation, context, irRewriters);
 
+            // Handle types generated from C# top-level statements
+            if (typeGroup.IsTopLevelStatements)
+                return ConvertTopLevelTypeGroup(typeGroup, compilation, context, irRewriters);
+
             // Check if we have any syntax nodes
             if (typeGroup.SyntaxNodes.Count == 0)
             {
@@ -674,5 +678,113 @@ public static class TypeGroupResolver
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Converts a type generated from C# top-level statements.
+    /// In C# 9+, top-level statements create a synthesized Program class.
+    /// We convert the CompilationUnitSyntax directly to produce a Java class
+    /// with a main method containing the converted statements.
+    /// </summary>
+    public static ConversionResult? ConvertTopLevelTypeGroup(
+        PartialTypeGroup typeGroup,
+        CSharpCompilation compilation,
+        ConversionContext context,
+        IReadOnlyList<Java.JavaSyntaxRewriter>? irRewriters = null)
+    {
+        var compUnit = typeGroup.TopLevelCompilationUnit;
+        if (compUnit == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            // Get the semantic model for this syntax tree
+            var syntaxTree = compUnit.SyntaxTree;
+            if (!compilation.ContainsSyntaxTree(syntaxTree))
+            {
+                return new ConversionResult
+                {
+                    Success = false,
+                    FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                    SourceFilePath = syntaxTree.FilePath,
+                    Diagnostics = new List<Context.DiagnosticMessage>
+                    {
+                        new(Context.DiagnosticSeverity.Error,
+                            $"Top-level statements file is not part of the compilation: {syntaxTree.FilePath}",
+                            null)
+                    }
+                };
+            }
+
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            context.SemanticModel = semanticModel;
+
+            // Use the visitor to convert the compilation unit directly
+            var visitor = new CSharpToJavaVisitor(context);
+            var javaCompilation = visitor.VisitCompilationUnit(compUnit) as Java.JavaCompilationUnit;
+
+            if (javaCompilation == null)
+            {
+                return new ConversionResult
+                {
+                    Success = false,
+                    FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                    SourceFilePath = syntaxTree.FilePath,
+                    Diagnostics = new List<Context.DiagnosticMessage>
+                    {
+                        new(Context.DiagnosticSeverity.Error,
+                            $"Failed to convert top-level statements for type '{typeGroup.TypeSymbol.Name}'",
+                            null)
+                    }
+                };
+            }
+
+            // Filter out "MergedTypePlaceholder" types - these are synthesized by
+            // ClassTransformer.Transform when it encounters a TypeDeclarationSyntax that
+            // has already been processed via the PartialTypeMerger pipeline. Including
+            // them in the output would produce duplicate/placeholder classes.
+            javaCompilation.TypeDeclarations.RemoveAll(t =>
+                t is Java.JavaClassDeclaration cls && cls.Name == "MergedTypePlaceholder");
+
+            // IR-level post-processing
+            if (irRewriters != null)
+            {
+                foreach (var rewriter in irRewriters)
+                    rewriter.VisitCompilationUnit(javaCompilation);
+            }
+
+            // Get source file path for diagnostics
+            string? sourceFilePath = syntaxTree.FilePath;
+
+            return new ConversionResult
+            {
+                Success = true,
+                GeneratedCode = javaCompilation.ToString(""),
+                Compilation = javaCompilation,
+                Diagnostics = new List<Context.DiagnosticMessage>(),
+                FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                SourceFilePath = sourceFilePath,
+                Package = javaCompilation.Package
+            };
+        }
+        catch (Exception ex)
+        {
+            var sourceInfo = $"Source: {compUnit.SyntaxTree.FilePath}";
+
+            return new ConversionResult
+            {
+                Success = false,
+                FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                SourceFilePath = compUnit.SyntaxTree.FilePath,
+                Diagnostics = new List<Context.DiagnosticMessage>
+                {
+                    new(Context.DiagnosticSeverity.Error,
+                        $"Failed to convert top-level statements type '{typeGroup.TypeSymbol.Name}': {ex.Message}{sourceInfo}\n--- STACK TRACE ---\n{ex.StackTrace}\n--- INNER ---\n{(ex.InnerException != null ? $"{ex.InnerException.Message}\n{ex.InnerException.StackTrace}" : "none")}",
+                        null)
+                }
+            };
+        }
     }
 }

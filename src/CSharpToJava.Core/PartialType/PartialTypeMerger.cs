@@ -62,12 +62,13 @@ public class PartialTypeMerger
             {
                 // Create a new group for this type
                 var partialParts = CollectPartialParts(typeMember);
-                var syntaxNodes = CollectSyntaxNodes(partialParts);
+                var (syntaxNodes, topLevelUnit) = CollectSyntaxNodes(partialParts);
 
                 typeGroups[typeKey] = new PartialTypeGroup(
                     typeMember,
                     partialParts,
-                    syntaxNodes);
+                    syntaxNodes,
+                    topLevelUnit);
 
                 // Log if we found a partial type
                 if (partialParts.Count > 1)
@@ -114,12 +115,13 @@ public class PartialTypeMerger
             if (!typeGroups.ContainsKey(typeKey))
             {
                 var partialParts = CollectPartialParts(nestedType);
-                var syntaxNodes = CollectSyntaxNodes(partialParts);
+                var (syntaxNodes, topLevelUnit) = CollectSyntaxNodes(partialParts);
 
                 typeGroups[typeKey] = new PartialTypeGroup(
                     nestedType,
                     partialParts,
-                    syntaxNodes);
+                    syntaxNodes,
+                    topLevelUnit);
 
                 if (partialParts.Count > 1)
                 {
@@ -190,10 +192,14 @@ public class PartialTypeMerger
 
     /// <summary>
     /// Collects the syntax nodes for all partial parts.
+    /// Returns TypeDeclarationSyntax nodes for normal types, or null along with the
+    /// CompilationUnitSyntax for types generated from C# top-level statements.
     /// </summary>
-    private List<TypeDeclarationSyntax> CollectSyntaxNodes(List<INamedTypeSymbol> partialParts)
+    private (List<TypeDeclarationSyntax> typeDeclarations, CompilationUnitSyntax? topLevelUnit) CollectSyntaxNodes(
+        List<INamedTypeSymbol> partialParts)
     {
         var syntaxNodes = new List<TypeDeclarationSyntax>();
+        CompilationUnitSyntax? topLevelUnit = null;
 
         foreach (var part in partialParts)
         {
@@ -204,9 +210,19 @@ public class PartialTypeMerger
                 try
                 {
                     var syntax = syntaxRef.GetSyntax();
-                    if (syntax is TypeDeclarationSyntax typeSyntax && !syntaxNodes.Contains(typeSyntax))
+                    if (syntax is TypeDeclarationSyntax typeSyntax)
                     {
-                        syntaxNodes.Add(typeSyntax);
+                        if (!syntaxNodes.Contains(typeSyntax))
+                        {
+                            syntaxNodes.Add(typeSyntax);
+                        }
+                    }
+                    else if (syntax is CompilationUnitSyntax compUnit)
+                    {
+                        // C# top-level statements: the compiler synthesizes a type
+                        // from the statements in the file. The DeclaringSyntaxReference
+                        // returns the CompilationUnitSyntax rather than a TypeDeclarationSyntax.
+                        topLevelUnit = compUnit;
                     }
                 }
                 catch
@@ -216,7 +232,7 @@ public class PartialTypeMerger
             }
         }
 
-        return syntaxNodes;
+        return (syntaxNodes, topLevelUnit);
     }
 
     /// <summary>
