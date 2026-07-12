@@ -494,12 +494,15 @@ public class Program
             }
             deps.AddRange(GetExtraDependencies(opts));
 
-            var modulePlan = new JavaModulePlan
+                        var modulePlan = new JavaModulePlan
             {
                 ModuleName = moduleName,
                 IsTestOnly = isTest,
                 SourceSets = isTest ? new JavaSourceSets { TestSources = ["test"] } : new JavaSourceSets(),
-                Dependencies = WorkspacePlanBuilder.MergeDependencies(deps),
+                Dependencies = WorkspacePlanBuilder.FilterSelfDependencies(
+                    WorkspacePlanBuilder.MergeDependencies(deps),
+                    opts.MavenGroupId,
+                    moduleName),
                 RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
                 RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
             };
@@ -977,19 +980,23 @@ public class Program
             convertedResults,
             CompatibilityRuntime.JavaPackage);
 
+        var moduleName = new DirectoryInfo(opts.Destination).Name;
         var deps = new List<JavaDependency>();
         deps.AddRange(WorkspacePlanBuilder.DefaultDependenciesForModule(
             opts.MavenGroupId,
-            new DirectoryInfo(opts.Destination).Name));
+            moduleName));
         deps.AddRange(compatibilityRequirements.ExternalDependencies);
         deps.AddRange(GetExtraDependencies(opts));
 
         return new JavaModulePlan
         {
-            ModuleName = new DirectoryInfo(opts.Destination).Name,
+            ModuleName = moduleName,
             IsTestOnly = false,
             SourceSets = includeTests ? new JavaSourceSets { TestSources = ["test"] } : new JavaSourceSets(),
-            Dependencies = WorkspacePlanBuilder.MergeDependencies(deps),
+            Dependencies = WorkspacePlanBuilder.FilterSelfDependencies(
+                WorkspacePlanBuilder.MergeDependencies(deps),
+                opts.MavenGroupId,
+                moduleName),
             RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
             RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
         };
@@ -1689,7 +1696,10 @@ public class Program
             SourceSets = module.HasTestSources
                 ? new JavaSourceSets { TestSources = ["test"] }
                 : new JavaSourceSets(),
-            Dependencies = WorkspacePlanBuilder.MergeDependencies(deps),
+            Dependencies = WorkspacePlanBuilder.FilterSelfDependencies(
+                WorkspacePlanBuilder.MergeDependencies(deps),
+                groupId,
+                module.Name),
             RequiredCompatPacks = requiredCompatPacks ?? [],
             RequiredRuntimeBridges = requiredRuntimeBridges ?? [],
         };

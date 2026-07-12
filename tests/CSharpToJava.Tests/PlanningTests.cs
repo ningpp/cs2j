@@ -301,6 +301,48 @@ public class PlanningTests
     }
 
     [Fact]
+    public void WorkspacePlanBuilder_FilterSelfDependencies_RemovesSelfReferencingDependencies()
+    {
+        // Simulate the scenario in Iteration 1 of the System.Private.Xml conversion bug:
+        // The module named "system-private-xml" should NOT depend on io.github.ningpp:system-private-xml
+        var deps = new List<JavaDependency>
+        {
+            new() { GroupId = "io.vavr", ArtifactId = "vavr", Version = "0.10.4" },
+            new() { GroupId = "io.github.ningpp", ArtifactId = "csharptojava-compat", Version = "1.0-SNAPSHOT" },
+            new() { GroupId = "io.github.ningpp", ArtifactId = "system-private-xml", Version = "0.0.1-SNAPSHOT" },
+            new() { GroupId = "io.github.ningpp", ArtifactId = "system-private-uri", Version = "0.0.1-SNAPSHOT" },
+        };
+
+        var filtered = WorkspacePlanBuilder.FilterSelfDependencies(deps, "io.github.ningpp", "system-private-xml");
+
+        Assert.DoesNotContain(filtered, d =>
+            d.GroupId == "io.github.ningpp" && d.ArtifactId == "system-private-xml");
+        Assert.Contains(filtered, d => d.GroupId == "io.github.ningpp" && d.ArtifactId == "system-private-uri");
+        Assert.Contains(filtered, d => d.GroupId == "io.vavr" && d.ArtifactId == "vavr");
+        Assert.Contains(filtered, d => d.GroupId == "io.github.ningpp" && d.ArtifactId == "csharptojava-compat");
+        Assert.Equal(3, filtered.Count);
+    }
+
+    [Fact]
+    public void WorkspacePlanBuilder_FilterSelfDependencies_KeepsOtherGroupDependencies()
+    {
+        // External dependency with same artifactId but different groupId should be kept
+        var deps = new List<JavaDependency>
+        {
+            new() { GroupId = "io.github.ningpp", ArtifactId = "system-private-xml", Version = "0.0.1-SNAPSHOT" },
+            new() { GroupId = "com.other", ArtifactId = "system-private-xml", Version = "0.0.1-SNAPSHOT" },
+        };
+
+        var filtered = WorkspacePlanBuilder.FilterSelfDependencies(deps, "io.github.ningpp", "system-private-xml");
+
+        Assert.DoesNotContain(filtered, d =>
+            d.GroupId == "io.github.ningpp" && d.ArtifactId == "system-private-xml");
+        Assert.Contains(filtered, d =>
+            d.GroupId == "com.other" && d.ArtifactId == "system-private-xml");
+        Assert.Single(filtered);
+    }
+
+    [Fact]
     public void WorkspacePlanBuilder_MergeRuntimeBridges_DeduplicatesBridgeIdsAndDependencies()
     {
         var merged = WorkspacePlanBuilder.MergeRuntimeBridges(

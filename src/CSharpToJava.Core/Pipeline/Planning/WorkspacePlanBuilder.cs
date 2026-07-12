@@ -81,6 +81,16 @@ public sealed class WorkspacePlanBuilder
         && dependency.Scope == JavaDependencyScope.Compile;
 
     /// <summary>
+    /// 过滤自引用依赖。移除 groupId 与 artifactId 分别匹配当前模块的 groupId 与名称的依赖项，
+    /// 避免模块在生成的 POM 中声明对自身的依赖。
+    /// </summary>
+    public static IReadOnlyList<JavaDependency> FilterSelfDependencies(
+        IEnumerable<JavaDependency> dependencies, string groupId, string moduleName) =>
+        dependencies
+            .Where(dependency => !IsSelfDependency(dependency, groupId, moduleName))
+            .ToList();
+
+    /// <summary>
     /// 从 Maven 坐标字符串构建外部依赖。
     /// 约定格式为 groupId:artifactId:version。
     /// </summary>
