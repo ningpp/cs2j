@@ -56,6 +56,48 @@ public class TypeHelper {
         return TypeCode.Object;
     }
 
+    /**
+     * Mirrors C# Type.GetElementType() for array types.
+     * Java's Class.getComponentType() returns primitive classes (int.class, etc.)
+     * for primitive arrays, but C# GetElementType() returns the runtime type
+     * (typeof(int) == typeof(int) is true, and int[] elements compare to int/Integer).
+     * This method boxes primitive component types so that comparisons with
+     * Integer.class, Long.class, etc. work correctly.
+     */
+    public static Class<?> getElementType(Class<?> arrayType) {
+        if (arrayType == null || !arrayType.isArray()) {
+            return null;
+        }
+        Class<?> componentType = arrayType.getComponentType();
+        if (componentType == int.class) return Integer.class;
+        if (componentType == long.class) return Long.class;
+        if (componentType == short.class) return Short.class;
+        if (componentType == byte.class) return Byte.class;
+        if (componentType == float.class) return Float.class;
+        if (componentType == double.class) return Double.class;
+        if (componentType == boolean.class) return Boolean.class;
+        if (componentType == char.class) return Character.class;
+        return componentType;
+    }
+
+    /**
+     * Creates a new array instance mirroring C# new T[length].
+     * When the component type is a primitive wrapper (Integer.class, etc.),
+     * creates a primitive array (int[], etc.) to match C# semantics where
+     * new int[5] creates a primitive array, not Integer[].
+     */
+    public static Object newArrayInstance(Class<?> componentType, int length) {
+        if (componentType == Integer.class) return new int[length];
+        if (componentType == Long.class) return new long[length];
+        if (componentType == Short.class) return new short[length];
+        if (componentType == Byte.class) return new byte[length];
+        if (componentType == Float.class) return new float[length];
+        if (componentType == Double.class) return new double[length];
+        if (componentType == Boolean.class) return new boolean[length];
+        if (componentType == Character.class) return new char[length];
+        return java.lang.reflect.Array.newInstance(componentType, length);
+    }
+
     /** Mirrors C# Type.GetMethod(name, Type[]) — returns Method or null */
     public static java.lang.reflect.Method getMethod(Class<?> clazz, String name, Class<?>... parameterTypes) {
         try {

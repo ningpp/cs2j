@@ -224,7 +224,7 @@ public class CSharpXmlCompileRegressionTests
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("Object toArray", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("java.lang.reflect.Array.newInstance(clazz", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.newArrayInstance(clazz", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("java.lang.reflect.Array.set(result", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("(int[]) toArray(values, Integer.class)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("(String[]) toArray(values, String.class)", result.GeneratedCode, StringComparison.Ordinal);

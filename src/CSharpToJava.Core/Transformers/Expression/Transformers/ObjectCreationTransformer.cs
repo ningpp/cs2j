@@ -1315,9 +1315,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                         typeParameterForRuntimeClass.DeclaringMethod,
                         context.CurrentMethod?.OriginalDefinition))
                 {
-                    return $"java.lang.reflect.Array.newInstance({runtimeClassParameter}, {lengthExpr})";
+                    context.AddImport("io.github.ningpp.compat.TypeHelper");
+                    return $"TypeHelper.newArrayInstance({runtimeClassParameter}, {lengthExpr})";
                 }
-                return $"({elementType}[]) java.lang.reflect.Array.newInstance({runtimeClassParameter}, {lengthExpr})";
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"({elementType}[]) TypeHelper.newArrayInstance({runtimeClassParameter}, {lengthExpr})";
             }
 
             var runtimeType = string.IsNullOrEmpty(constrainedArrayElementType) ? "Object" : constrainedArrayElementType;

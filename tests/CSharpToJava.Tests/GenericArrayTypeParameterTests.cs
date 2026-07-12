@@ -33,7 +33,7 @@ class Demo {
         var code = result.GeneratedCode!;
 
         Assert.Contains("public <T> Object repeat(T value, int count, Class<?> clazz)", code);
-        Assert.Contains("java.lang.reflect.Array.newInstance(clazz, count)", code);
+        Assert.Contains("TypeHelper.newArrayInstance(clazz, count)", code);
         Assert.Contains("java.lang.reflect.Array.set(result", code);
         Assert.DoesNotContain("new Object[count]", code);
     }
@@ -168,8 +168,8 @@ class UseDemo {
         Assert.Contains("public Demo(Class<?> kClass, Class<?> vClass)", code);
         Assert.Contains("this.kClass = kClass;", code);
         Assert.Contains("this.vClass = vClass;", code);
-        Assert.Contains("java.lang.reflect.Array.newInstance(kClass, count)", code);
-        Assert.Contains("java.lang.reflect.Array.newInstance(vClass, count)", code);
+        Assert.Contains("TypeHelper.newArrayInstance(kClass, count)", code);
+        Assert.Contains("TypeHelper.newArrayInstance(vClass, count)", code);
         Assert.Contains("new Demo<String, Integer>(String.class, Integer.class).keys(2)", code);
         Assert.DoesNotContain("K.class", code);
         Assert.DoesNotContain("V.class", code);
@@ -347,9 +347,9 @@ class Demo {
         Assert.Contains("private T[] items;", code);
         Assert.Contains("public Stack(Class<?> tClass)", code);
         Assert.Contains("this.tClass = tClass;", code);
-        Assert.Contains("this.items = (T[]) java.lang.reflect.Array.newInstance(tClass, 8);", code);
+        Assert.Contains("this.items = (T[]) TypeHelper.newArrayInstance(tClass, 8);", code);
         Assert.Contains("new Stack<String>(String.class)", code);
-        Assert.DoesNotContain("private T[] items = (T[]) java.lang.reflect.Array.newInstance(tClass, 8);", code);
+        Assert.DoesNotContain("private T[] items = (T[]) TypeHelper.newArrayInstance(tClass, 8);", code);
         Assert.DoesNotContain("T.class", code);
     }
 
@@ -454,7 +454,7 @@ class Tree<T> {
 
         Assert.Contains("private final Class<?> tClass;", code);
         Assert.Contains("public Tree(Class<?> tClass)", code);
-        Assert.Contains("java.lang.reflect.Array.newInstance(tClass, size)", code);
+        Assert.Contains("TypeHelper.newArrayInstance(tClass, size)", code);
         Assert.DoesNotContain("new Object[size]", code);
         Assert.DoesNotContain("T.class", code);
     }
@@ -478,7 +478,7 @@ class Demo {
         var code = result.GeneratedCode!;
 
         Assert.Contains("public <T> Object copy(CSharpGenericIterable<T> items, Class<?> clazz)", code);
-        Assert.Contains("java.lang.reflect.Array.newInstance(clazz, size)", code);
+        Assert.Contains("TypeHelper.newArrayInstance(clazz, size)", code);
         Assert.DoesNotContain("new Object[size]", code);
         Assert.DoesNotContain("T.class", code);
     }
@@ -578,7 +578,7 @@ struct ArrayBuilder<T> {
         Assert.Contains("private final Class<?> tClass;", code);
         Assert.Contains("public ArrayBuilder(int capacity, Class<?> tClass)", code);
         // Array creation should use tClass
-        Assert.Contains("java.lang.reflect.Array.newInstance(tClass", code);
+        Assert.Contains("TypeHelper.newArrayInstance(tClass", code);
         // clone() should pass tClass to constructor
         Assert.Contains("new ArrayBuilder<>(this.tClass)", code);
         // Should NOT have "this.tClass = null;" (the old bug)
@@ -792,6 +792,26 @@ class Demo {
 
         // Should contain a fallback return after the while loop
         Assert.Contains("return null;", code);
+    }
+
+    [Fact]
+    public void GetElementType_OnPrimitiveArray_UsesTypeHelperBoxedComponentType()
+    {
+        // C# typeof(int[]).GetElementType() should convert to TypeHelper.getElementType(int[].class)
+        // which returns Integer.class (not int.class), so comparisons like itemTypeDst == Integer.class work.
+        var result = Convert("""
+class Demo {
+    public void Process(int[] values)
+    {
+        var elemType = values.GetType().GetElementType();
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("TypeHelper.getElementType", code);
+        Assert.DoesNotContain("getComponentType", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

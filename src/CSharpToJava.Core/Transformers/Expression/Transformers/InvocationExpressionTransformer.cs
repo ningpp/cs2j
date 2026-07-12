@@ -6097,7 +6097,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (!context.TryGetRuntimeClassParameter(typeParameter.Name, out var runtimeClassParameter))
             return false;
 
-        generator = $"size -> ({javaType}[]) java.lang.reflect.Array.newInstance({runtimeClassParameter}, size)";
+        context.AddImport("io.github.ningpp.compat.TypeHelper");
+        generator = $"size -> ({javaType}[]) TypeHelper.newArrayInstance({runtimeClassParameter}, size)";
         return true;
     }
 

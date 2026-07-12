@@ -7237,7 +7237,7 @@
         {
             "type": "System.Type",
             "method": "GetElementType",
-            "javaMethod": "getComponentType"
+            "javaMethod": "TypeHelper.getElementType"
         }
     ],
     "namespaceMappings": [
