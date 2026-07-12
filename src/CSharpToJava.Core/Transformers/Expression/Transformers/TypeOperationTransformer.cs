@@ -480,6 +480,22 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# cast from IEnumerable<T>/ICollection<T> to List<T>:
+        // In C# this is valid when the runtime object is a List<T>, but in Java
+        // CSharpGenericIterable is not a CSharpList, so a direct cast fails.
+        // Convert by constructing a new CSharpList from the iterable.
+        if (context.SemanticModel != null
+            && (targetType.StartsWith("CSharpList<") || targetType.StartsWith("CSharpGenericIList<")))
+        {
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            bool isEnumerableLikeSource = IsEnumerableLikeSourceType(sourceType);
+            if (isEnumerableLikeSource)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpList");
+                return $"new CSharpList<>({expression})";
+            }
+        }
+
         return $"({targetType})({expression})";
     }
 
@@ -542,6 +558,37 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             || mappedType.StartsWith("CSharpCollection")
             || mappedType.StartsWith("CSharpReadOnlyCollection")
             || mappedType.StartsWith("CSharpReadOnlyList");
+    }
+
+    private static bool IsEnumerableLikeSourceType(ITypeSymbol? sourceType)
+    {
+        if (sourceType is not INamedTypeSymbol named)
+            return false;
+
+        var defName = named.OriginalDefinition?.ToDisplayString();
+
+        // Source is already List<T> — a direct cast is fine
+        if (defName == "System.Collections.Generic.List<T>")
+            return false;
+
+        // Source is itself IEnumerable<T>, ICollection<T>, or IList<T>
+        if (defName is
+            "System.Collections.Generic.IEnumerable<T>"
+            or "System.Collections.Generic.ICollection<T>"
+            or "System.Collections.Generic.IList<T>"
+            or "System.Collections.IEnumerable"
+            or "System.Collections.ICollection"
+            or "System.Collections.IList")
+        {
+            return true;
+        }
+
+        // Source implements IEnumerable<T> (class or struct that implements the interface)
+        return named.AllInterfaces.Any(i =>
+            i.OriginalDefinition?.ToDisplayString() is
+                "System.Collections.Generic.IEnumerable<T>" or
+                "System.Collections.Generic.ICollection<T>" or
+                "System.Collections.Generic.IList<T>");
     }
 
     private static string WrapArrayAsIterable(string expr, IArrayTypeSymbol arrayType, ConversionContext context)

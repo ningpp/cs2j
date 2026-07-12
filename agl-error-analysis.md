@@ -26,3 +26,17 @@
 - **涉及组件**: CSharpList.java (removeRange override), InvocationExpressionTransformer.cs (RemoveRange→subList.clear)
 - **分析**: CSharpList.removeRange(int index, int count) 覆写了 ArrayList.removeRange(int fromIndex, int toIndex)，但将参数解释为 C# 语义(index, count)而非 Java 语义(fromIndex, toIndex)。当 subList().clear() 内部调用 removeRange(from, to) 时，CSharpList 的覆写错误地将 toIndex 当作 count，执行 super.removeRange(from, from+to)，导致数组越界。
 - **状态**: ✅ Fixed (commit 962f9eb0)
+
+## Iteration 3 — NullPointerException: LayerEdge.getTarget() on null le
+- **Java 文件**: d:/agl202607/automaticgraphlayout/src/main/java/Microsoft/Msagl/Layout/Layered/LayeredLayoutEngine.java (line 813)
+- **行号**: 813
+- **错误信息**: java.lang.NullPointerException: Cannot invoke "Microsoft.Msagl.Layout.Layered.LayerEdge.getTarget()" because "le" is null
+- **代码片段**:
+  ```java
+  for (LayerEdge le : e.getLayerEdges()) { extendedVertexLayering[le.getTarget()] = l--; }
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Layout\Layered\LayeredLayoutEngine.cs (line 980)
+- **根因分类**: 兼容库缺陷
+- **涉及组件**: ArrayHelper.java (asListView), PolyIntEdge.java (getLayerEdges/setLayerEdges)
+- **分析**: C# 中 `e.LayerEdges[pe++] = layerEdge` 修改的是 LayerEdge[] 数组本身。但 Java 转换代码 `e.getLayerEdges().set(pe++, layerEdge)` 中，`getLayerEdges()` 每次调用都创建新的 CSharpList 副本（通过旧的 ArrayHelper.asListView），set() 修改的是临时副本而非底层数组，导致数组元素仍为 null。修复 asListView 使其 write-through 后解决。
+- **状态**: ✅ Fixed (commit b6521312)
