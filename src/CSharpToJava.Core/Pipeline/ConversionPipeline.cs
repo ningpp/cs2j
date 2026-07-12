@@ -33,6 +33,11 @@ public class ConversionResult
     public IReadOnlyList<Cs2jPassMetric> PassMetrics { get; set; } = Array.Empty<Cs2jPassMetric>();
     public LinqRewrite.LinqRewriteStatistics? LinqStatistics { get; set; }
     public string? FileName { get; set; }
+    /// <summary>
+    /// The C# source file path that primarily defined this type (for diagnostic purposes).
+    /// Set when the conversion pipeline can determine which .cs file the type came from.
+    /// </summary>
+    public string? SourceFilePath { get; set; }
     /// <summary>Java package for this output file (used by Holder class generation).</summary>
     public string? Package { get; set; }
     /// <summary>

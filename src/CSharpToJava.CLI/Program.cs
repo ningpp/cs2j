@@ -316,11 +316,7 @@ public class Program
                 else
                 {
                     failureCount++;
-                    Console.Error.WriteLine($"Failed: {result.FileName}");
-                    foreach (var diag in result.Diagnostics)
-                    {
-                        Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
-                    }
+                    EmitFailureResult(result);
                 }
             }
 
@@ -469,11 +465,7 @@ public class Program
                 else
                 {
                     failureCount++;
-                    Console.Error.WriteLine($"Failed: {result.FileName}");
-                    foreach (var diag in result.Diagnostics)
-                    {
-                        Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
-                    }
+                    EmitFailureResult(result);
                 }
             }
 
@@ -634,11 +626,7 @@ public class Program
                     else
                     {
                         failureCount++;
-                        Console.Error.WriteLine($"Failed: {result.FileName}");
-                        foreach (var diag in result.Diagnostics)
-                        {
-                            Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
-                        }
+                        EmitFailureResult(result);
                     }
                 }
 
@@ -1722,6 +1710,27 @@ public class Program
         var line = lineSpan.StartLinePosition.Line + 1;
         var column = lineSpan.StartLinePosition.Character + 1;
         return $"{label}{diag.Message} ({lineSpan.Path}:{line}:{column})";
+    }
+
+    /// <summary>
+    /// Emits a structured failure report for a failed conversion result.
+    /// Includes the source file path (when available) to aid error location.
+    /// </summary>
+    private static void EmitFailureResult(ConversionResult result)
+    {
+        if (!string.IsNullOrEmpty(result.SourceFilePath)
+            && !string.Equals(result.SourceFilePath, result.FileName, StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine($"Failed: {result.FileName} (source: {result.SourceFilePath})");
+        }
+        else
+        {
+            Console.Error.WriteLine($"Failed: {result.FileName}");
+        }
+        foreach (var diag in result.Diagnostics)
+        {
+            Console.Error.WriteLine($"  [{diag.Severity}] {FormatDiagnostic(diag)}");
+        }
     }
 
     private static async Task<int> EliminateGoto(EliminateGotoOptions opts)

@@ -50,31 +50,138 @@ public static class TypeGroupResolver
             // Check if we have any syntax nodes
             if (typeGroup.SyntaxNodes.Count == 0)
             {
+                var declaringRefs = typeGroup.TypeSymbol.DeclaringSyntaxReferences;
+                var sourceLocations = new List<string>();
+                foreach (var loc in typeGroup.TypeSymbol.Locations)
+                {
+                    if (loc.IsInSource)
+                    {
+                        var path = loc.GetLineSpan().Path;
+                        if (!string.IsNullOrWhiteSpace(path) && !sourceLocations.Contains(path))
+                        {
+                            sourceLocations.Add(path);
+                        }
+                    }
+                }
+
+                var detail = $"Type '{typeGroup.TypeSymbol.Name}' has no syntax nodes. " +
+                    $"PartialParts={typeGroup.PartialParts.Count}, " +
+                    $"DeclaringSyntaxReferences={declaringRefs.Length}, " +
+                    $"IsPartial={typeGroup.IsPartial}, " +
+                    $"TypeKind={typeGroup.TypeSymbol.TypeKind}, " +
+                    $"ContainingNamespace='{typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "(global)"}'";
+                if (sourceLocations.Count > 0)
+                {
+                    detail += $", SourceFiles=[{string.Join(", ", sourceLocations)}]";
+                }
+                if (declaringRefs.Length > 0)
+                {
+                    var refTrees = new List<string>();
+                    foreach (var r in declaringRefs)
+                    {
+                        var fp = r.SyntaxTree?.FilePath ?? "<unknown>";
+                        if (!refTrees.Contains(fp))
+                        {
+                            refTrees.Add(fp);
+                        }
+                    }
+                    detail += $", RefSyntaxTrees=[{string.Join(", ", refTrees)}]";
+                }
+                bool containsAny = false;
+                if (declaringRefs.Length > 0)
+                {
+                    foreach (var t in compilation.SyntaxTrees)
+                    {
+                        foreach (var r in declaringRefs)
+                        {
+                            if (ReferenceEquals(r.SyntaxTree, t))
+                            {
+                                containsAny = true;
+                                break;
+                            }
+                        }
+                        if (containsAny) break;
+                    }
+                }
+                detail += $", CompilationContainsMyTree={containsAny}";
+                int totalTreeCount = 0;
+                foreach (var tmpT in compilation.SyntaxTrees)
+                    totalTreeCount++;
+                detail = detail + ", CompilationTreeCount=" + totalTreeCount;
+
+                Location? firstSourceLoc = null;
+                foreach (var loc in typeGroup.TypeSymbol.Locations)
+                {
+                    if (loc.IsInSource) { firstSourceLoc = loc; break; }
+                }
+
                 return new ConversionResult
                 {
                     Success = false,
                     FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                    SourceFilePath = sourceLocations.Count > 0 ? sourceLocations[0] : null,
                     Diagnostics = new List<Context.DiagnosticMessage>
                     {
-                        new(Context.DiagnosticSeverity.Error, $"Type '{typeGroup.TypeSymbol.Name}' has no syntax nodes", null)
+                        new(Context.DiagnosticSeverity.Error, detail, firstSourceLoc)
                     }
                 };
             }
 
             // Find a syntax tree that is actually part of this compilation (guard against SourceLink / PDB trees)
-            var validSyntaxTree = typeGroup.SyntaxNodes
-                .Select(n => n.SyntaxTree)
-                .FirstOrDefault(t => compilation.ContainsSyntaxTree(t));
+            SyntaxTree? validSyntaxTree = null;
+            foreach (var n in typeGroup.SyntaxNodes)
+            {
+                if (compilation.ContainsSyntaxTree(n.SyntaxTree))
+                {
+                    validSyntaxTree = n.SyntaxTree;
+                    break;
+                }
+            }
 
             if (validSyntaxTree == null)
             {
+                var sourceLocations = new List<string>();
+                foreach (var n in typeGroup.SyntaxNodes)
+                {
+                    var fp = n.SyntaxTree.FilePath;
+                    if (!string.IsNullOrWhiteSpace(fp) && !sourceLocations.Contains(fp))
+                    {
+                        sourceLocations.Add(fp);
+                    }
+                }
+
+                var compilationTrees = new List<string>();
+                int treeCount = 0;
+                foreach (var t in compilation.SyntaxTrees)
+                {
+                    if (!string.IsNullOrWhiteSpace(t.FilePath))
+                    {
+                        if (treeCount < 10)
+                        {
+                            compilationTrees.Add(t.FilePath);
+                        }
+                        treeCount++;
+                    }
+                }
+
+                var detail = "Type '" + typeGroup.TypeSymbol.Name + "': no syntax tree belongs to current compilation. " +
+                    "NodeCount=" + typeGroup.SyntaxNodes.Count + ", " +
+                    "NodeTrees=[" + string.Join(", ", sourceLocations) + "], " +
+                    "CompilationTreeCount=" + treeCount;
+                if (compilationTrees.Count > 0)
+                {
+                    detail += $", CompilationTrees=[{string.Join(", ", compilationTrees)}]";
+                }
+
                 return new ConversionResult
                 {
                     Success = false,
                     FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                    SourceFilePath = sourceLocations.Count > 0 ? sourceLocations[0] : null,
                     Diagnostics = new List<Context.DiagnosticMessage>
                     {
-                        new(Context.DiagnosticSeverity.Error, $"Type '{typeGroup.TypeSymbol.Name}': no syntax tree belongs to current compilation", null)
+                        new(Context.DiagnosticSeverity.Error, detail,
+                            typeGroup.SyntaxNodes.Count > 0 ? typeGroup.SyntaxNodes[0].GetLocation() : null)
                     }
                 };
             }
@@ -104,15 +211,29 @@ public static class TypeGroupResolver
                         break;
                     case TypeKind.Struct:
                         // Use the first valid syntax node directly; structs are rarely partial
-                        var structNode = typeGroup.SyntaxNodes
-                            .FirstOrDefault(n => compilation.ContainsSyntaxTree(n.SyntaxTree));
+                        TypeDeclarationSyntax? structNode = null;
+                        foreach (var n in typeGroup.SyntaxNodes)
+                        {
+                            if (compilation.ContainsSyntaxTree(n.SyntaxTree))
+                            {
+                                structNode = n;
+                                break;
+                            }
+                        }
                         javaType = structNode != null
                             ? new StructTransformer().Transform(structNode, context)
                             : null;
                         break;
                     case TypeKind.Interface:
-                        var ifaceNode = typeGroup.SyntaxNodes
-                            .FirstOrDefault(n => compilation.ContainsSyntaxTree(n.SyntaxTree));
+                        TypeDeclarationSyntax? ifaceNode = null;
+                        foreach (var n in typeGroup.SyntaxNodes)
+                        {
+                            if (compilation.ContainsSyntaxTree(n.SyntaxTree))
+                            {
+                                ifaceNode = n;
+                                break;
+                            }
+                        }
                         javaType = ifaceNode != null
                             ? new InterfaceTransformer().Transform(ifaceNode, context)
                             : null;
@@ -149,6 +270,18 @@ public static class TypeGroupResolver
                     var rawPkg = context.NamespaceToPackage(ns);
                     var pkg = string.IsNullOrEmpty(rawPkg) ? null : rawPkg;
 
+                    // Get source file path for diagnostics
+                    string? sourceFilePath = null;
+                    foreach (var loc in typeGroup.TypeSymbol.Locations)
+                    {
+                        if (loc.IsInSource)
+                        {
+                            sourceFilePath = loc.GetLineSpan().Path;
+                            if (!string.IsNullOrWhiteSpace(sourceFilePath))
+                                break;
+                        }
+                    }
+
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
 
@@ -159,7 +292,7 @@ public static class TypeGroupResolver
                     javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
 
                     // Imports collected during conversion (type-specific)
-                    foreach (var imp in context.ImportedTypes.OrderBy(x => x))
+                    foreach (var imp in context.ImportedTypes)
                     {
                         if (imp.EndsWith(".*", StringComparison.Ordinal))
                             javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
@@ -183,6 +316,7 @@ public static class TypeGroupResolver
                         Compilation = javaCompilation,
                         Diagnostics = new List<Context.DiagnosticMessage>(),
                         FileName = $"{javaType.Name}.java",
+                        SourceFilePath = sourceFilePath,
                         Package = pkg
                     };
                 }
@@ -196,13 +330,47 @@ public static class TypeGroupResolver
         }
         catch (Exception ex)
         {
+            var sourceLocations = new List<string>();
+            foreach (var loc in typeGroup.TypeSymbol.Locations)
+            {
+                if (loc.IsInSource)
+                {
+                    var span = loc.GetLineSpan();
+                    var entry = $"{span.Path}:{span.StartLinePosition.Line + 1}";
+                    if (!sourceLocations.Contains(entry))
+                    {
+                        sourceLocations.Add(entry);
+                        if (sourceLocations.Count >= 5) break;
+                    }
+                }
+            }
+
+            var sourceInfo = sourceLocations.Count > 0
+                ? $" Source: [{string.Join(", ", sourceLocations)}]"
+                : $" Namespace: '{typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "(global)"}'";
+
+            string? srcFilePath = null;
+            Location? firstLoc = null;
+            foreach (var loc in typeGroup.TypeSymbol.Locations)
+            {
+                if (loc.IsInSource)
+                {
+                    firstLoc = loc;
+                    srcFilePath = loc.GetLineSpan().Path;
+                    break;
+                }
+            }
+
             return new ConversionResult
             {
                 Success = false,
                 FileName = $"{typeGroup.TypeSymbol.Name}.java",
+                SourceFilePath = srcFilePath,
                 Diagnostics = new List<Context.DiagnosticMessage>
                 {
-                    new(Context.DiagnosticSeverity.Error, $"Failed to convert type '{typeGroup.TypeSymbol.Name}': {ex.Message}\n--- STACK TRACE ---\n{ex.StackTrace}\n--- INNER ---\n{(ex.InnerException != null ? $"{ex.InnerException.Message}\n{ex.InnerException.StackTrace}" : "none")}", null)
+                    new(Context.DiagnosticSeverity.Error,
+                        $"Failed to convert type '{typeGroup.TypeSymbol.Name}' ({typeGroup.TypeSymbol.TypeKind}): {ex.Message}{sourceInfo}\n--- STACK TRACE ---\n{ex.StackTrace}\n--- INNER ---\n{(ex.InnerException != null ? $"{ex.InnerException.Message}\n{ex.InnerException.StackTrace}" : "none")}",
+                        firstLoc)
                 }
             };
         }
@@ -213,19 +381,24 @@ public static class TypeGroupResolver
         ConversionContext context,
         CSharpCompilation compilation)
     {
-        var syntaxTrees = typeGroup.SyntaxNodes
-            .Select(n => n.SyntaxTree)
-            .Where(compilation.ContainsSyntaxTree)
-            .Distinct()
-            .ToList();
+        var syntaxTrees = new List<SyntaxTree>();
+        foreach (var n in typeGroup.SyntaxNodes)
+        {
+            if (compilation.ContainsSyntaxTree(n.SyntaxTree) && !syntaxTrees.Contains(n.SyntaxTree))
+            {
+                syntaxTrees.Add(n.SyntaxTree);
+            }
+        }
 
         if (syntaxTrees.Count == 0)
         {
-            syntaxTrees = typeGroup.TypeSymbol.DeclaringSyntaxReferences
-                .Select(r => r.SyntaxTree)
-                .Where(compilation.ContainsSyntaxTree)
-                .Distinct()
-                .ToList();
+            foreach (var r in typeGroup.TypeSymbol.DeclaringSyntaxReferences)
+            {
+                if (r.SyntaxTree != null && compilation.ContainsSyntaxTree(r.SyntaxTree) && !syntaxTrees.Contains(r.SyntaxTree))
+                {
+                    syntaxTrees.Add(r.SyntaxTree);
+                }
+            }
         }
 
         foreach (var tree in syntaxTrees)
@@ -336,12 +509,17 @@ public static class TypeGroupResolver
         IEnumerable<SourceFile> sourceFiles,
         ConversionContext context)
     {
-        return sourceFiles.Select(file => new ConversionResult
+        var results = new List<ConversionResult>();
+        foreach (var file in sourceFiles)
         {
-            Success = false,
-            FileName = file.FilePath,
-            Diagnostics = context.Diagnostics.Messages.ToList()
-        }).ToList();
+            results.Add(new ConversionResult
+            {
+                Success = false,
+                FileName = file.FilePath,
+                Diagnostics = context.Diagnostics.Messages.ToList()
+            });
+        }
+        return results;
     }
 
     /// <summary>
@@ -381,7 +559,7 @@ public static class TypeGroupResolver
                     javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
                     javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
 
-                    foreach (var imp in context.ImportedTypes.OrderBy(x => x))
+                    foreach (var imp in context.ImportedTypes)
                     {
                         if (imp.EndsWith(".*", StringComparison.Ordinal))
                             javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
@@ -459,7 +637,7 @@ public static class TypeGroupResolver
                     javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
                     javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
 
-                    foreach (var imp in context.ImportedTypes.OrderBy(x => x))
+                    foreach (var imp in context.ImportedTypes)
                     {
                         if (imp.EndsWith(".*", StringComparison.Ordinal))
                             javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
