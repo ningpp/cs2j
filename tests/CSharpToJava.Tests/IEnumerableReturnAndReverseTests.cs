@@ -77,6 +77,30 @@ class Sample {
     }
 
     [Fact]
+    public void Return_TernaryWithTypeParameterEmptyArray_AdaptsToEmptyIterable()
+    {
+        // Regression for AGL Drawing RTree.GetAllLeaves: when one branch of an
+        // IEnumerable<T>-returning ternary is `new T[0]` inside a generic type parameter,
+        // the converter emits `(T[]) TypeHelper.newArrayInstance(tClass, 0)`. That raw
+        // array is not assignable to Iterable<? extends T>, so it must be adapted to an
+        // empty CSharpGenericIterable instead.
+        var r = Convert(@"
+using System.Collections.Generic;
+class Sample<T> {
+    IEnumerable<T> GetA() { return null; }
+    T[] GetArray(int n) { return new T[n]; }
+    IEnumerable<T> M(bool cond) {
+        return cond ? GetA() : new T[0];
+    }
+}");
+        _out.WriteLine(r.GeneratedCode ?? "FAILED: " + string.Join("\n", r.Diagnostics));
+        Assert.True(r.Success, string.Join("\n", r.Diagnostics));
+        var code = r.GeneratedCode ?? "";
+        Assert.DoesNotContain("TypeHelper.newArrayInstance(tClass, 0)", code);
+        Assert.Contains("CSharpGenericIterable.from(Collections.emptyList())", code);
+    }
+
+    [Fact]
     public void GroupBy_OnArray_WithMethodGroupKeySelector_UsesCSharpListDownstreamCollector()
     {
         // A method-group key selector (not a lambda) is not desugared by the LINQ rewriter,

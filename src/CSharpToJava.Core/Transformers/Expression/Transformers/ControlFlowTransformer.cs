@@ -209,6 +209,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
     {
         var t = expr.Trim();
         bool isZeroArray = (t.Contains("Array.newInstance(", StringComparison.Ordinal) && t.Contains(", 0)", StringComparison.Ordinal))
+            || (t.Contains("TypeHelper.newArrayInstance(", StringComparison.Ordinal) && t.Contains(", 0)", StringComparison.Ordinal))
             || (t.Contains("new ", StringComparison.Ordinal) && t.Contains("[0]", StringComparison.Ordinal))
             || ((t.StartsWith("new ArrayList<", StringComparison.Ordinal) || t.StartsWith("new CSharpList<", StringComparison.Ordinal)) && t.EndsWith(">()", StringComparison.Ordinal));
 
