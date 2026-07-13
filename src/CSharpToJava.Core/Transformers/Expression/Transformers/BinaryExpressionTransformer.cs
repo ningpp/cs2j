@@ -1442,6 +1442,19 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 if (operandPrecedence <= parentPrecedence) return $"({transformedOperand})";
             }
         }
+
+        // Expressions emitted as "expr & 0xFF" (C# byte/ushort/uint casts and byte[] reads)
+        // have bitwise-& precedence. Wrap when the parent operator has higher precedence
+        // so the mask applies to the whole operand, not just part of it.
+        if (transformedOperand.Contains("& 0xFF") && !transformedOperand.TrimEnd().EndsWith(")"))
+        {
+            var parentPrecedence = GetOperatorPrecedenceFromToken(parentOp);
+            if (parentPrecedence > 7) // 7 is & precedence; higher number = higher precedence
+            {
+                return $"({transformedOperand})";
+            }
+        }
+
         return transformedOperand;
     }
 

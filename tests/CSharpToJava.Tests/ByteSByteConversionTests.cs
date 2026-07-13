@@ -95,6 +95,19 @@ class Test {
     }
 
     [Fact]
+    public void ByteArrayElementInBitwiseExpression_AddsMask()
+    {
+        var result = Convert(@"
+class Test {
+    int Detect(byte[] bytes) {
+        return bytes[0] << 8 | bytes[1];
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.Contains("& 0xFF", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ByteArrayWrite_StaysByteArray()
     {
         var result = Convert(@"

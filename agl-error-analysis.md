@@ -1,18 +1,34 @@
-# AGL Drawing Conversion Error Analysis
+# Dot2Graph 迭代错误分析
 
-## Iteration 1 — TypeParameterArrayInTernaryToIterable
-- **Java file**: `d:\draw260713\automaticgraphlayout\src\main\java\Microsoft\Msagl\Core\Geometry\RTree.java`
-- **行号**: 149
-- **错误信息**: `无法将接口 io.github.ningpp.compat.CSharpGenericIterable<T>中的方法 from应用到给定类型; 需要: java.lang.Iterable<? extends T>; 找到: _rootNode.getAllLeaves() : (T[]) TypeHelper.newArrayInstance(tClass, 0); 原因: 无法推断类型变量 T (参数不匹配; 条件表达式中的类型错误; T[]无法转换为java.lang.Iterable<? extends T>)`
+## 说明
+首次 `mvn clean package -e` 在 `msagltests` 模块测试阶段失败，无编译错误（`mvn -DskipTests` 可 BUILD SUCCESS）。因此将测试错误按相同流程处理。
+
+## Iteration 1 — XmlException: Data at the root level is invalid
+- **Java 文件**: `msagltests/src/test/java/Microsoft/Msagl/UnitTests/InitialLayoutTests.java`
+- **行号**: 205（调用栈最终位于 `GeometryGraphReader.createFromFile` line 166，由 `MsaglTestBase.loadGraph` line 176 调用）
+- **错误信息**: `dotnet.xml.XmlException: Data at the root level is invalid. Line 1, position 1.`
 - **代码片段**:
   ```java
-  public CSharpGenericIterable<T> getAllLeaves() {
-      return CSharpGenericIterable.from((_rootNode != null && getCount() > 0 ? _rootNode.getAllLeaves() : (T[]) TypeHelper.newArrayInstance(tClass, 0)));
+  var resolvedGraphFileName = resolveTestFilePath(geometryGraphFileName);
+  GeometryGraph graph = null;
+  settings.value = null;
+  if (StringHelper.endsWith(resolvedGraphFileName, ".geom", true)) {
+      graph = GeometryGraphReader.createFromFile(resolvedGraphFileName, settings);
+      setupPorts(graph);
   }
   ```
-- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\RTree\RTree.cs` (line 133)
-- **根因分类**: Transformer 逻辑缺陷
-- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs` (`AdaptZeroArrayToEmptyIterable`)
-- **分析**: C# `return cond ? IEnumerable<T> : new T[0]` 被外层 `CSharpGenericIterable.from(...)` 包装。ControlFlowTransformer 会尝试把零长数组分支替换成 `Collections.emptyList()`，但其零长数组检测只匹配 `Array.newInstance(...)`、`new T[0]` 或空 `ArrayList`/`CSharpList`，没有匹配 `(T[]) TypeHelper.newArrayInstance(tClass, 0)` 这一“泛型类型参数数组”形式，导致三元表达式的一个分支仍是 `T[]`，Java 无法把它当作 `Iterable<? extends T>` 推断。
-- **修复**: 在 `AdaptZeroArrayToEmptyIterable` 的零长数组检测中增加对 `TypeHelper.newArrayInstance(..., 0)` 的识别。
-- **状态**: ✅ Fixed (Iteration 1 Maven build: BUILD SUCCESS)
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs` / `E:\agl-master\GraphLayout\Test\MSAGLTests\MsaglTestBase.cs`
+- **根因分类**: Transformer（字节无符号语义丢失）
+- **涉及组件**:
+  - 转换器：`src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs`
+  - 依赖产物：`D:\cs-xml-20260712\system-private-xml\src\main\java\dotnet\xml\XmlTextReaderImpl.java`
+- **分析**:
+  1. `.geom` 资源文件以 UTF-8 BOM（`EF BB BF`）开头， followed by `<?xml ...>`。
+  2. `GeometryGraphReader.createFromFile` 把文件流交给转换后的 `dotnet.xml.XmlTextReaderImpl`。
+  3. `XmlTextReaderImpl.detectEncoding()` 中有 `int first2Bytes = _ps.bytes[0] << 8 | _ps.bytes[1];`；Java 的 `byte` 是有符号的，移位时符号扩展，导致无法匹配 `case 0xEFBB`，UTF-8 BOM 未被识别。
+  4. `eatPreamble()` 中有 `if (_ps.bytes[i] != preamble.get(i))`；`_ps.bytes[i]` 是有符号 byte（如 `-17`），而 `preamble.get(i)` 由 `MemoryExtensions.asSpan(byte[])` 转成了无符号 Integer（如 `239`），比较永远失败，BOM 未被吃掉。
+  5. 两个位置都源于同一生成缺陷：C# `byte`（无符号）映射到 Java `byte`（有符号）后，在参与 int 运算/比较时未做 `& 0xFF` 无符号扩展。
+  6. 当前转换器对 `(byte)expr` 强制转换会生成 `& 0xFF`，但对 `byte[]` 元素在表达式中直接使用时未自动加掩码，导致 csharpxml 的 XML 读取器在处理带 BOM 文件时出错。
+- **状态**: ✅ Fixed
+  - 修复 commit: ElementAccessTransformer 对 byte[] 读加 `& 0xFF`，BinaryExpressionTransformer 对 `& 0xFF` 子表达式补括号保持优先级；并跳过赋值/ref/out/++/-- 等 LHS 场景。
+  - 验证: `ByteArrayElementInBitwiseExpression_AddsMask` Red→Green；全量 dotnet test 2148 通过；重新转换并安装 `D:\csharpxml`→`D:\cs-xml-20260712` 后，`XmlTextReaderImpl` BOM 检测代码已生成 `& 0xFF`。

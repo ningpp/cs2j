@@ -221,7 +221,20 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                     indexType = context.SemanticModel?.Compilation.GetSpecialType(SpecialType.System_Int32);
             }
             idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
-            if (isArray) return $"{expr}[{idx}]";
+            if (isArray)
+            {
+                var access = $"{expr}[{idx}]";
+                // C# byte (unsigned) maps to Java byte (signed). When reading a byte[] element,
+                // mask to preserve unsigned semantics so downstream int arithmetic/comparisons match C#.
+                // Skip when the element access is the target of an assignment/ref/out/inc/dec.
+                if (!IsAssignmentTarget(node)
+                    && exprType is IArrayTypeSymbol arrayType
+                    && arrayType.ElementType.SpecialType == SpecialType.System_Byte)
+                {
+                    access = $"{access} & 0xFF";
+                }
+                return access;
+            }
             if (isString) return $"{expr}.charAt({idx})";
             if (IsJavaStringBuilder(exprType)) return $"{expr}.charAt({idx})";
             if (isMap) return $"{expr}.get({idx})";
@@ -258,6 +271,27 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
         return $"/* C# from-end index ^{operand} — requires array name to resolve */";
+    }
+
+    private static bool IsAssignmentTarget(ExpressionSyntax node)
+    {
+        var parent = node.Parent;
+        while (parent is ParenthesizedExpressionSyntax)
+            parent = parent.Parent;
+
+        if (parent is AssignmentExpressionSyntax assignment)
+            return assignment.Left == node;
+
+        if (parent is ArgumentSyntax argument)
+            return argument.RefOrOutKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword;
+
+        if (parent is PrefixUnaryExpressionSyntax prefix)
+            return prefix.Operand == node;
+
+        if (parent is PostfixUnaryExpressionSyntax postfix)
+            return postfix.Operand == node;
+
+        return false;
     }
 
     private static bool IsJavaStringBuilder(ITypeSymbol? type)
