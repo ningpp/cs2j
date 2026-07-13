@@ -40,11 +40,13 @@ public sealed class SolutionLoader : IDisposable
             if (Directory.Exists(sdkBase))
             {
                 var latestSdk = Directory.GetDirectories(sdkBase)
-                    .OrderByDescending(d => d)
+                    .Select(d => new { Path = d, Version = TryParseSdkVersion(Path.GetFileName(d)) })
+                    .Where(x => x.Version != null)
+                    .OrderByDescending(x => x.Version)
                     .FirstOrDefault();
                 if (latestSdk != null)
                 {
-                    var sdksDir = Path.Combine(latestSdk, "Sdks");
+                    var sdksDir = Path.Combine(latestSdk.Path, "Sdks");
                     if (Directory.Exists(sdksDir))
                         sdkPath = sdksDir;
                 }
@@ -56,6 +58,18 @@ public sealed class SolutionLoader : IDisposable
 
         _cachedMsbuildProperties = properties;
         return properties;
+    }
+
+    internal static Version? TryParseSdkVersion(string directoryName)
+    {
+        // SDK directory names look like "2.1.818" or "10.0.300".
+        // Extract the leading dotted numeric version.
+        var versionPart = new string(directoryName.TakeWhile(c => char.IsDigit(c) || c == '.').ToArray());
+        if (Version.TryParse(versionPart, out var version))
+        {
+            return version;
+        }
+        return null;
     }
 
     public static bool EnsureMSBuildRegistered()

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CSharpToJava.Core.GotoEliminator;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -116,6 +117,32 @@ internal static class ProjectGotoPreprocessor
                 diagnostics.Add(new GotoEliminatorDiagnostic(
                     GotoEliminatorSeverity.Error,
                     $"{relativePath}: goto/label syntax remains after preprocessing"));
+            }
+        }
+
+        // Restore NuGet packages in the intermediate directory so that
+        // MSBuildWorkspace can resolve package references when it opens the
+        // preprocessed project. Without a restore, MetadataReferences is empty
+        // and the semantic model is broken, which leads to incorrect code
+        // generation (e.g. property accesses emitted as field accesses).
+        var restoreTarget = ResolveRestoreTarget(intermediateRoot, layout);
+        if (restoreTarget != null)
+        {
+            if (request.Verbose)
+            {
+                Console.WriteLine($"Restoring packages: {restoreTarget}");
+            }
+            var restoreExitCode = RunDotNetRestore(restoreTarget);
+            if (request.Verbose)
+            {
+                Console.WriteLine($"Restore exit code: {restoreExitCode}");
+            }
+            if (restoreExitCode != 0)
+            {
+                diagnostics.Add(new GotoEliminatorDiagnostic(
+                    GotoEliminatorSeverity.Error,
+                    $"dotnet restore failed with exit code {restoreExitCode} for {restoreTarget}. " +
+                    "Package references may not be resolved, leading to incorrect code generation."));
             }
         }
 
@@ -276,6 +303,75 @@ internal static class ProjectGotoPreprocessor
         return Path.Combine(intermediateRoot, Path.GetRelativePath(layout.SourceRoot, layout.EntryPath));
     }
 
+    internal static string? ResolveRestoreTarget(string intermediateRoot, ProjectGotoSourceLayout layout)
+    {
+        // If the intermediate path maps to a specific .sln or .csproj file, restore that.
+        var preprocessedPath = MapToIntermediate(layout, intermediateRoot);
+        if (File.Exists(preprocessedPath) &&
+            (preprocessedPath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
+             preprocessedPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            return preprocessedPath;
+        }
+
+        // Otherwise the intermediate path is a directory: look for the entry solution/project there.
+        if (Directory.Exists(preprocessedPath))
+        {
+            var sln = Directory.GetFiles(preprocessedPath, "*.sln", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault();
+            if (sln != null) return sln;
+
+            var csproj = Directory.GetFiles(preprocessedPath, "*.csproj", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault();
+            if (csproj != null) return csproj;
+        }
+
+        return null;
+    }
+
+    private static int RunDotNetRestore(string targetPath)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"restore \"{targetPath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                Console.Error.WriteLine("Failed to start dotnet restore process.");
+                return -1;
+            }
+            // Read stdout/stderr asynchronously before WaitForExit to avoid deadlock
+            // when the internal pipe buffer fills and the process blocks on write.
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+            {
+                var output = outputTask.Result;
+                var error = errorTask.Result;
+                Console.Error.WriteLine($"dotnet restore exited with code {process.ExitCode} for {targetPath}");
+                if (!string.IsNullOrWhiteSpace(output))
+                    Console.Error.WriteLine($"stdout: {output}");
+                if (!string.IsNullOrWhiteSpace(error))
+                    Console.Error.WriteLine($"stderr: {error}");
+            }
+            return process.ExitCode;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"dotnet restore failed: {ex.Message}");
+            return -1;
+        }
+    }
+
     private static bool ContainsGotoOrLabel(string code)
     {
         var root = CSharpSyntaxTree.ParseText(code).GetRoot();
@@ -333,5 +429,5 @@ internal static class ProjectGotoPreprocessor
         return fullPath.StartsWith(fullAncestor + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
-    private sealed record ProjectGotoSourceLayout(string SourceRoot, string EntryPath, IReadOnlyList<string> ProjectFiles);
+    internal sealed record ProjectGotoSourceLayout(string SourceRoot, string EntryPath, IReadOnlyList<string> ProjectFiles);
 }
