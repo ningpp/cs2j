@@ -245,7 +245,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 bool inExplicitSetter = IsInExplicitSetterMethod(prop, context)
                     && propMa.Expression is ThisExpressionSyntax;
                 bool isReadOnlyViaThis = prop.SetMethod == null && propMa.Expression is ThisExpressionSyntax;
-                if (!inExplicitSetter && !isReadOnlyViaThis && node.Parent is not ExpressionStatementSyntax)
+                // An assignment inside a property setter/init arrow expression body
+                // (set => other.Prop = value;) is effectively a statement — the return value
+                // is discarded. Treat it like ExpressionStatementSyntax to avoid hoisting.
+                bool isInSetterArrowBody = node.Parent is ArrowExpressionClauseSyntax
+                    && node.Parent?.Parent is AccessorDeclarationSyntax ads
+                    && (ads.IsKind(SyntaxKind.SetAccessorDeclaration) || ads.IsKind(SyntaxKind.InitAccessorDeclaration));
+
+                if (!inExplicitSetter && !isReadOnlyViaThis && node.Parent is not ExpressionStatementSyntax && !isInSetterArrowBody)
                 {
                     // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
                     return HoistChainedPropertyAssignment(node, context);
@@ -516,7 +523,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // needed in those cases.
                 bool bareInExplicitSetter = IsInExplicitSetterMethod(bareIdentProp, context);
                 bool bareIsReadOnlyProp = bareIdentProp.SetMethod == null;
-                if (!bareInExplicitSetter && !bareIsReadOnlyProp && node.Parent is not ExpressionStatementSyntax)
+                bool bareIsInSetterArrowBody = node.Parent is ArrowExpressionClauseSyntax
+                    && node.Parent?.Parent is AccessorDeclarationSyntax bareAds
+                    && (bareAds.IsKind(SyntaxKind.SetAccessorDeclaration) || bareAds.IsKind(SyntaxKind.InitAccessorDeclaration));
+                if (!bareInExplicitSetter && !bareIsReadOnlyProp && node.Parent is not ExpressionStatementSyntax && !bareIsInSetterArrowBody)
                 {
                     // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
                     return HoistChainedPropertyAssignment(node, context);
