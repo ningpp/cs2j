@@ -245,14 +245,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 bool inExplicitSetter = IsInExplicitSetterMethod(prop, context)
                     && propMa.Expression is ThisExpressionSyntax;
                 bool isReadOnlyViaThis = prop.SetMethod == null && propMa.Expression is ThisExpressionSyntax;
-                // An assignment inside a property setter/init arrow expression body
-                // (set => other.Prop = value;) is effectively a statement — the return value
-                // is discarded. Treat it like ExpressionStatementSyntax to avoid hoisting.
-                bool isInSetterArrowBody = node.Parent is ArrowExpressionClauseSyntax
-                    && node.Parent?.Parent is AccessorDeclarationSyntax ads
-                    && (ads.IsKind(SyntaxKind.SetAccessorDeclaration) || ads.IsKind(SyntaxKind.InitAccessorDeclaration));
+                // An assignment inside an arrow expression body (property setter/init or method)
+                // is effectively a statement — the return value is discarded.
+                // Treat it like ExpressionStatementSyntax to avoid hoisting.
+                bool isInArrowBody = node.Parent is ArrowExpressionClauseSyntax;
 
-                if (!inExplicitSetter && !isReadOnlyViaThis && node.Parent is not ExpressionStatementSyntax && !isInSetterArrowBody)
+                if (!inExplicitSetter && !isReadOnlyViaThis && node.Parent is not ExpressionStatementSyntax && !isInArrowBody)
                 {
                     // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
                     return HoistChainedPropertyAssignment(node, context);
@@ -458,6 +456,24 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // Handle implicit element access: [key] = value (used in dictionary initializers
+        // outside object initializer context, e.g. dict[key] = value where key comes from
+        // an ImplicitElementAccessSyntax)
+        if (op == "=" && leftNode is ImplicitElementAccessSyntax iea)
+        {
+            var args = iea.ArgumentList.Arguments;
+            var right = facade.Transform(rightNode, context);
+            if (args.Count == 1)
+            {
+                var arg0 = facade.Transform(args[0].Expression, context);
+                right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, null, context);
+                return $"put({arg0}, {right})";
+            }
+            var transformedArgs = string.Join(", ", args.Select(a => facade.Transform(a.Expression, context)));
+            right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, null, context);
+            return $"set({transformedArgs}, {right})";
+        }
+
         static bool IsDictionaryLikeContainer(INamedTypeSymbol type)
         {
             var self = type.OriginalDefinition.ToDisplayString();
@@ -523,10 +539,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // needed in those cases.
                 bool bareInExplicitSetter = IsInExplicitSetterMethod(bareIdentProp, context);
                 bool bareIsReadOnlyProp = bareIdentProp.SetMethod == null;
-                bool bareIsInSetterArrowBody = node.Parent is ArrowExpressionClauseSyntax
-                    && node.Parent?.Parent is AccessorDeclarationSyntax bareAds
-                    && (bareAds.IsKind(SyntaxKind.SetAccessorDeclaration) || bareAds.IsKind(SyntaxKind.InitAccessorDeclaration));
-                if (!bareInExplicitSetter && !bareIsReadOnlyProp && node.Parent is not ExpressionStatementSyntax && !bareIsInSetterArrowBody)
+                // An assignment inside an arrow expression body is effectively a statement —
+                // the return value is discarded. Treat it like ExpressionStatementSyntax to avoid hoisting.
+                bool bareIsInArrowBody = node.Parent is ArrowExpressionClauseSyntax;
+                if (!bareInExplicitSetter && !bareIsReadOnlyProp && node.Parent is not ExpressionStatementSyntax && !bareIsInArrowBody)
                 {
                     // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
                     return HoistChainedPropertyAssignment(node, context);

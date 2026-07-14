@@ -47,7 +47,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             SyntaxKind.ArrayInitializerExpression => TransformArrayInitializer(
                 (InitializerExpressionSyntax)node,
                 context,
-                ResolveBareArrayInitializerElementType((InitializerExpressionSyntax)node, context)),
+                ResolveBareArrayInitializerElementType((InitializerExpressionSyntax)node, context),
+                isBareInitializer: true),
             SyntaxKind.StackAllocArrayCreationExpression => TransformStackAlloc((StackAllocArrayCreationExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Object creation kind {node.Kind()} not supported.")
         };
@@ -1122,7 +1123,23 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     // public fields → direct Java field assignment (e.g. _obj.Left = value)
                     // properties → setter method call (e.g. _obj.setLeft(value))
                     var memberSymbol = context.GetSymbolInfo(idName).Symbol;
-                    if (memberSymbol is IFieldSymbol fieldSym)
+
+                    // Handle collection initializer on a property/field: Prop = { item1, item2 }
+                    // C# calls .Add() for each item; Java needs explicit .add() calls on the getter.
+                    if (assignExpr.Right is InitializerExpressionSyntax collInit
+                        && collInit.Kind() == SyntaxKind.CollectionInitializerExpression)
+                    {
+                        var propName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
+                        var getterName = memberSymbol is IFieldSymbol
+                            ? propName
+                            : ConvertToGetter(propName);
+                        foreach (var initExpr in collInit.Expressions)
+                        {
+                            var item = facade.Transform(initExpr, context);
+                            pendingAssignments.Add($"{tmpVar}.{getterName}.add({item});");
+                        }
+                    }
+                    else if (memberSymbol is IFieldSymbol fieldSym)
                     {
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym.Type, context);
                         var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym.Name);
@@ -1155,6 +1172,30 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                         pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
                     }
                 }
+                else if (assignExpr.Left is ImplicitElementAccessSyntax implicitElemAccess)
+                {
+                    // Dictionary initializer with indexer syntax: { [key] = value }
+                    // Convert to: tmpVar.put(key, value)
+                    var args = implicitElemAccess.ArgumentList.Arguments;
+                    if (args.Count == 1)
+                    {
+                        var key = facade.Transform(args[0].Expression, context);
+                        ITypeSymbol? keyType = createdType is INamedTypeSymbol nt && nt.TypeArguments.Length >= 2
+                            ? nt.TypeArguments[0] : null;
+                        ITypeSymbol? valueType = createdType is INamedTypeSymbol nt2 && nt2.TypeArguments.Length >= 2
+                            ? nt2.TypeArguments[1] : null;
+                        key = ExpressionTransformerHelpers.AdaptExpressionToTargetType(args[0].Expression, key, keyType, context);
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, valueType, context);
+                        pendingAssignments.Add($"{tmpVar}.put({key}, {value});");
+                    }
+                    else
+                    {
+                        // Multi-argument indexer — fall back to generic set method
+                        var keyArgs = string.Join(", ", args.Select(a => facade.Transform(a.Expression, context)));
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, null, context);
+                        pendingAssignments.Add($"{tmpVar}.set({keyArgs}, {value});");
+                    }
+                }
                 else
                 {
                     var targetType = context.GetTypeInfo(assignExpr.Left).Type;
@@ -1181,6 +1222,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (propertyName.StartsWith("set", StringComparison.Ordinal)) return propertyName;
 
         return "set" + char.ToUpper(propertyName[0]) + propertyName.Substring(1);
+    }
+
+    private static string ConvertToGetter(string propertyName)
+    {
+        // Convert property name to getter name (X → getX, Name → getName)
+        if (string.IsNullOrEmpty(propertyName)) return "get";
+
+        // If already starts with "get", return as is
+        if (propertyName.StartsWith("get", StringComparison.Ordinal)) return propertyName;
+
+        return "get" + char.ToUpper(propertyName[0]) + propertyName.Substring(1);
     }
 
     private string TransformAnonymousObjectCreation(AnonymousObjectCreationExpressionSyntax node, ConversionContext context)
@@ -1581,7 +1633,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             && type.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
             && type.SpecialType != SpecialType.System_Object;
 
-    private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context, string? javaElementType = null)
+    private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context, string? javaElementType = null, bool isBareInitializer = false)
     {
         var facade = ExpressionTransformerFacade.Instance;
         var values = new List<string>();
@@ -1601,7 +1653,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             values.Add(transformed);
         }
 
-        return $" {{ {string.Join(", ", values)} }}";
+        var items = string.Join(", ", values);
+        // Bare array initializer (e.g., field = { item1, item2 }) must be wrapped with
+        // new Type[] in Java, since Java doesn't support bare initializer in assignments.
+        // When called from ArrayCreationExpression/ImplicitArrayCreationExpression, the caller
+        // already provides the "new Type[]" prefix, so we only add it for bare initializers.
+        if (isBareInitializer && !string.IsNullOrWhiteSpace(javaElementType))
+        {
+            return $"new {javaElementType}[] {{ {items} }}";
+        }
+        return $" {{ {items} }}";
     }
 
     private static string? ResolveBareArrayInitializerElementType(InitializerExpressionSyntax node, ConversionContext context)

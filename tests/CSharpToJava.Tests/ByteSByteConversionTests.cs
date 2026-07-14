@@ -134,7 +134,7 @@ class Test {
         var result = Convert("class Test { byte[] buf = { 1, 128, 255 }; }");
         Assert.True(result.Success, result.GeneratedCode);
 
-        Assert.Contains("byte[] buf =  { 1, (byte)128, (byte)255 }", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
+        Assert.Contains("byte[] buf = new byte[] { 1, (byte)128, (byte)255 }", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ class Test {
 }");
         Assert.True(result.Success, result.GeneratedCode);
 
-        Assert.Contains("byte[] buf =  { 1, (byte)128, (byte)255 };", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
+        Assert.Contains("byte[] buf = new byte[] { 1, (byte)128, (byte)255 };", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
     }
 
     [Fact]
