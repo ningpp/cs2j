@@ -239,11 +239,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
             {
                 // If this property assignment is used as a sub-expression (not a standalone statement),
                 // the setter call would return void in Java which is invalid as a value.
-                // Exception: explicit setter methods generate a direct field write (this.field = value)
-                // which IS a valid Java value expression, so no hoisting needed in that case.
+                // Exception: explicit setter methods and read-only properties (via this) generate a
+                // direct field write (this.field = value) which IS a valid Java value expression,
+                // so no hoisting needed in those cases.
                 bool inExplicitSetter = IsInExplicitSetterMethod(prop, context)
                     && propMa.Expression is ThisExpressionSyntax;
-                if (!inExplicitSetter && node.Parent is not ExpressionStatementSyntax)
+                bool isReadOnlyViaThis = prop.SetMethod == null && propMa.Expression is ThisExpressionSyntax;
+                if (!inExplicitSetter && !isReadOnlyViaThis && node.Parent is not ExpressionStatementSyntax)
                 {
                     // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
                     return HoistChainedPropertyAssignment(node, context);
@@ -316,9 +318,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, propType, context);
                 }
 
-                // Avoid recursion when an explicit SetX(...) method assigns to property X.
-                // In that case we need a direct backing-field write, not a setter call.
-                if (inExplicitSetter)
+                // Avoid recursion when an explicit SetX(...) method assigns to property X,
+                // or when the property is read-only (no setter) — in both cases we need
+                // a direct backing-field write, not a setter call.
+                if (inExplicitSetter || isReadOnlyViaThis)
                 {
                     string fieldName = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"this.{fieldName} = {right}";
@@ -508,10 +511,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
             {
                 // If this property assignment is used as a sub-expression (not a standalone statement),
                 // the setter call would return void in Java which is invalid as a value.
-                // Exception: explicit setter methods generate a direct field write (this.field = value)
-                // which IS a valid Java value expression, so no hoisting needed in that case.
+                // Exception: explicit setter methods and read-only properties generate a direct field
+                // write (this.field = value) which IS a valid Java value expression, so no hoisting
+                // needed in those cases.
                 bool bareInExplicitSetter = IsInExplicitSetterMethod(bareIdentProp, context);
-                if (!bareInExplicitSetter && node.Parent is not ExpressionStatementSyntax)
+                bool bareIsReadOnlyProp = bareIdentProp.SetMethod == null;
+                if (!bareInExplicitSetter && !bareIsReadOnlyProp && node.Parent is not ExpressionStatementSyntax)
                 {
                     // Hoist: emit setter as a pre-statement and return the temp variable holding the value.
                     return HoistChainedPropertyAssignment(node, context);
@@ -543,7 +548,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, propType, context);
                 }
 
-                if (bareInExplicitSetter)
+                if (bareInExplicitSetter || bareIdentProp.SetMethod == null)
                 {
                     string fieldName = char.ToLowerInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
                     return $"this.{fieldName} = {right}";

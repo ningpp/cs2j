@@ -24,6 +24,22 @@ public class PropertyTests : ConversionTestBase
     }
 
     [Fact]
+    public void ReadOnlyAutoProperty_AssignedInConstructor_UsesFieldAssignment()
+    {
+        var result = Convert("class C { public int X { get; } public C(int x) { X = x; } }");
+        AssertConversion(result, "this.x = x;");
+        AssertJavaDoesNotContain(result, "setX(", "Read-only property assignment in constructor must use field assignment, not setter call");
+    }
+
+    [Fact]
+    public void ReadOnlyAutoProperty_AssignedViaThisInConstructor_UsesFieldAssignment()
+    {
+        var result = Convert("class C { public int X { get; } public C(int x) { this.X = x; } }");
+        AssertConversion(result, "this.x = x;");
+        AssertJavaDoesNotContain(result, "setX(", "Read-only property assignment via this in constructor must use field assignment, not setter call");
+    }
+
+    [Fact]
     public void WriteOnlyProperty_ConvertsToSetterOnly()
     {
         var result = Convert("class C { public int X { set; } }");

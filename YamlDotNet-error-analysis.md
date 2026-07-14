@@ -14,3 +14,26 @@
 - **根因分类**: Transformer 逻辑缺陷
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs (L291-336)
 - **分析**: `TransformThrowExpression` 方法在确定 `Supplier<T>` 的类型参数 `T` 时，只处理了原始类型（int→Integer, long→Long 等），对于 String 等引用类型默认回退到 `Object`，导致 `Supplier<Object>.get()` 返回 Object 而非 String，在三元表达式中类型不兼容。C# 原始代码 `value ?? throw new InvalidOperationException(...)` 中 throw 表达式的上下文类型是 `string`，应生成 `Supplier<String>`。
+
+✅ Fixed (1556 → 1410 errors)
+
+## Iteration 2 — 只读属性构造函数赋值生成不存在 setter
+
+- **Java 文件**: YamlDotNet/Core/YamlException.java
+- **行号**: 62
+- **错误信息**: 找不到符号 - 方法 setStart(YamlDotNet.Core.Mark)
+- **代码片段**:
+  ```java
+  public YamlException(Mark start, Mark end, String message, RuntimeException innerException) {
+      super(message, innerException);
+      setStart(start);
+      setEnd(end);
+  }
+  ```
+
+- **对应 C# 文件**: YamlDotNet/Core/YamlException.cs
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs
+- **分析**: C# 只读属性 (`Mark Start { get; }`) 在构造函数中可以赋值 (`Start = start;`)，但 Java 没有等价特性。转换器 `AssignmentTransformer` 对所有属性赋值统一生成 `setXxx()` 调用，但只读属性不生成 setter 方法。修复：当属性没有 setter (`SetMethod == null`) 时，生成 `this.field = value` 直接字段赋值。影响 118 个 setter 缺失错误。
+
+✅ Fixed (1410 → 1260 errors)
