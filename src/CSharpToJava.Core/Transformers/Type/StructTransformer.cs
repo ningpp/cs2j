@@ -161,6 +161,10 @@ public class StructTransformer : ITypeTransformer
         // bridge method if body references .compareTo(), mirroring ClassTransformer behavior.
         AddComparableBridgeMethods(javaClass);
 
+        // Remove compareTo(Object) if compareTo(Typed) exists, to avoid bridge conflict
+        // with Java's auto-generated Comparable<T> bridge method.
+        ClassTransformer.RemoveCompareToBridgeConflicts(javaClass);
+
         // Fix 4: C# structs always have an implicit zero-arg constructor. Emit one for Java
         // when there are explicit parameterised constructors but no no-arg constructor.
         // Also: always emit an explicit default ctor when struct has struct-typed instance fields,

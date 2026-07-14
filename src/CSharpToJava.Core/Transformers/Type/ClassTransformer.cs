@@ -1875,7 +1875,7 @@ public class ClassTransformer : ITypeTransformer
     /// Java automatically generates a bridge compareTo(Object) → compareTo(T) for Comparable&lt;T&gt; classes,
     /// so an explicit compareTo(Object) causes a name conflict / duplicate method error.
     /// </summary>
-    private static void RemoveCompareToBridgeConflicts(JavaClassDeclaration javaClass)
+    internal static void RemoveCompareToBridgeConflicts(JavaClassDeclaration javaClass)
     {
         var compareToMethods = javaClass.Methods.Where(m => m.Name == "compareTo" && m.Parameters.Count == 1).ToList();
         if (compareToMethods.Count < 2) return;

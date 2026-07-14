@@ -148,4 +148,12 @@ public class StructTests : ConversionTestBase
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "public int get(int i) {");
     }
+
+    [Fact]
+    public void StructImplementingIComparable_RemovesCompareToObjectBridge()
+    {
+        var result = Convert("using System; struct Mark : IComparable<Mark>, IComparable { public int CompareTo(Mark other) { return 0; } public int CompareTo(object? obj) { return CompareTo((Mark)obj); } }");
+        AssertConversion(result, "Comparable<Mark>");
+        AssertJavaDoesNotContain(result, "compareTo(Object", "compareTo(Object) must be removed to avoid bridge conflict with Comparable<T>");
+    }
 }
