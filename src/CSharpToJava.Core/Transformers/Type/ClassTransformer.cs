@@ -835,6 +835,11 @@ public class ClassTransformer : ITypeTransformer
                     {
                         if (member is not IFieldSymbol field)
                             continue;
+                        // Skip compiler-generated backing fields for auto-properties
+                        // (e.g., <Value>k__BackingField) — they use invalid Java names
+                        // and the property getter/setter handles initialization.
+                        if (field.AssociatedSymbol is IPropertySymbol)
+                            continue;
                         if (!SymbolEqualityComparer.Default.Equals(field.Type, typeParam))
                             continue;
 
