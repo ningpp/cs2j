@@ -708,6 +708,13 @@ public class StructTransformer : ITypeTransformer
                 {
                     ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, javaMethod);
                 }
+                else if (method is JavaMemberCollection methodCollection)
+                {
+                    foreach (var m in methodCollection.Members.OfType<JavaMethodDeclaration>())
+                    {
+                        ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, m);
+                    }
+                }
                 break;
 
             case OperatorDeclarationSyntax opDecl:

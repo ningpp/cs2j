@@ -156,4 +156,12 @@ public class StructTests : ConversionTestBase
         AssertConversion(result, "Comparable<Mark>");
         AssertJavaDoesNotContain(result, "compareTo(Object", "compareTo(Object) must be removed to avoid bridge conflict with Comparable<T>");
     }
+
+    [Fact]
+    public void StructWithDefaultParameterMethods_GeneratesOverloads()
+    {
+        var result = Convert("struct S { public bool Check(char expected, int offset = 0) { return true; } }");
+        AssertConversion(result, "public boolean check(char expected, int offset)");
+        AssertJavaContains(result, "check(char expected)", "Method with default param should generate overload without the defaulted param");
+    }
 }

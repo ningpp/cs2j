@@ -72,3 +72,21 @@
 - **分析**: C# 12 collection expression `[...]` 的转换器无条件生成 `java.util.List.of(...)`，但 C# 中 `TagDirective[] x = [...]` 的目标类型是数组，应生成 `new TagDirective[] { ... }`。修复：检查 `ConvertedType` 是否为数组类型，如果是则生成数组初始化器。影响 14 个 List→数组不兼容错误（剩余 66 个是 List→集合类型不兼容，需后续处理）。
 
 ✅ Fixed (1298 → 1286, List→array errors 80→66)
+
+## Iteration 5 — Struct 中带默认参数的方法被完全丢弃
+
+- **Java 文件**: YamlDotNet/Core/CharacterAnalyzer.java
+- **行号**: N/A（方法缺失）
+- **错误信息**: 找不到符号 - 方法 check/isWhiteBreakOrZero/isBreak/... (274 个相关错误)
+- **代码片段**:
+  ```java
+  // CharacterAnalyzer 类只生成了 isHex 和 asHex 方法
+  // Check, IsBreak, IsWhiteBreakOrZero 等带默认参数的方法完全缺失
+  ```
+
+- **对应 C# 文件**: YamlDotNet/Core/CharacterAnalyzer.cs
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Type/StructTransformer.cs (L703-710)
+- **分析**: `StructTransformer` 处理方法转换时只检查 `JavaMethodDeclaration` 类型，但 `MethodTransformer.Transform` 对于带默认参数的方法会返回 `JavaMemberCollection`（包含原方法和重载）。`ClassTransformer` 正确处理了两种返回类型，但 `StructTransformer` 遗漏了 `JavaMemberCollection` 分支，导致所有带默认参数的方法在 struct 中被完全丢弃。修复：添加 `JavaMemberCollection` 处理分支。这修复了 `CharacterAnalyzer` 中 13 个方法缺失问题，消除了 742 个级联编译错误。
+
+✅ Fixed (1286 → 544, 742 errors eliminated)
