@@ -331,6 +331,8 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                 supplierType = "Byte";
             else if (contextType.SpecialType == SpecialType.System_Int16)
                 supplierType = "Short";
+            else if (!string.IsNullOrEmpty(javaType))
+                supplierType = javaType;
         }
         return $"((java.util.function.Supplier<{supplierType}>) () -> {{ throw {expr}; }}).get()";
     }
