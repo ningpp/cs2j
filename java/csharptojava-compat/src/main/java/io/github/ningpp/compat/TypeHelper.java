@@ -81,20 +81,15 @@ public class TypeHelper {
     }
 
     /**
-     * Creates a new array instance mirroring C# new T[length].
-     * When the component type is a primitive wrapper (Integer.class, etc.),
-     * creates a primitive array (int[], etc.) to match C# semantics where
-     * new int[5] creates a primitive array, not Integer[].
+     * Creates a new array instance mirroring C# new T[length] for generic type parameters.
+     * Always creates a boxed wrapper array (Integer[], not int[]) because the result is
+     * cast to T[] (erased to Object[]) at the call site. Primitive arrays (int[]) cannot
+     * be cast to Object[] and would throw ClassCastException at runtime.
+     *
+     * Non-generic primitive array creation (e.g. new int[5]) does NOT go through this
+     * method — the converter emits the Java primitive array directly.
      */
     public static Object newArrayInstance(Class<?> componentType, int length) {
-        if (componentType == Integer.class) return new int[length];
-        if (componentType == Long.class) return new long[length];
-        if (componentType == Short.class) return new short[length];
-        if (componentType == Byte.class) return new byte[length];
-        if (componentType == Float.class) return new float[length];
-        if (componentType == Double.class) return new double[length];
-        if (componentType == Boolean.class) return new boolean[length];
-        if (componentType == Character.class) return new char[length];
         return java.lang.reflect.Array.newInstance(componentType, length);
     }
 
