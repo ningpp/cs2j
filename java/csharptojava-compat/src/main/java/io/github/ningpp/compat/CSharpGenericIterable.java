@@ -9,6 +9,11 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     CSharpGenericEnumerator<T> iterator();
 
     static <T> CSharpGenericIterable<T> from(Iterable<? extends T> iterable) {
+        if (iterable instanceof CSharpGenericIterable) {
+            @SuppressWarnings("unchecked")
+            CSharpGenericIterable<T> result = (CSharpGenericIterable<T>) iterable;
+            return result;
+        }
         if (iterable instanceof Collection) {
             @SuppressWarnings("unchecked")
             Collection<? extends T> coll = (Collection<? extends T>) iterable;

@@ -64,8 +64,23 @@
   // ...
   drawGraph.createGeometryGraph();  // NPE: drawGraph is null
   ```
-- **对应 C# 文件**: `E:\agl-master\GraphLayout\tools\Dot2Graph\Parser.cs` / `E:\agl-master\GraphLayout\Test\MSAGLTests\SugiyamaLayoutTests.cs`
-- **根因分类**: 待分析
-- **涉及组件**: 待定位
-- **分析**: 待分析
-- **状态**: 🔄 In Progress
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\tools\Dot2Graph\Parser.cs` / `E:\agl-master\GraphLayout\tools\Dot2Graph\PosData.cs` / `E:\agl-master\GraphLayout\tools\Dot2Graph\AttributeValuePair.cs`
+- **根因分类**: Compat 库缺陷（运行时类型丢失）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpGenericIterable.java`
+- **分析**:
+  1. C# `PosData.ControlPoints` 属性在 `edgeCurve == null` 时直接返回 `controlPoints`（`List<Point>` 字段），运行时类型为 `List<Point>`。
+  2. `AttributeValuePair.CreatePosData()` 使用 `(ret.ControlPoints as List<P2>).Add(p)` 向列表添加点——`as` 转换成功是因为运行时类型确实是 `List<P2>`。
+  3. 转换器将 C# `IEnumerable<T>` 返回值包装为 `CSharpGenericIterable.from(controlPoints)`。`from()` 方法将 `CSharpList` 包装为匿名内部类，改变了运行时类型。
+  4. 生成代码中使用 `instanceof CSharpList` 判断是否可直接强转。由于 `from()` 返回的是匿名类而非 `CSharpList`，`instanceof CSharpList` 失败，走 `new CSharpList<>(...)` 复制路径。
+  5. `createPosData()` 添加的点去了临时副本，原始 `controlPoints` 列表仍为空。
+  6. 后续 `addNodeAttrs()` 的 `Pos` case 调用 `.get(0)` 访问空列表，抛出 `IndexOutOfBoundsException: Index 0 out of bounds for length 0`。
+  7. `Parser.parse()` 捕获 `RuntimeException` 并调用 `yyerror()`，返回 `null`，导致上层 NPE。
+- **修复**: 修改 `CSharpGenericIterable.from()` 方法，在输入已经是 `CSharpGenericIterable` 实例时直接返回原对象（passthrough），保留运行时类型，使 `instanceof CSharpList` 检查成功。
+- **状态**: ✅ Fixed
+  - 验证: `CSharpGenericIterableFrom_ReturnsOriginalWhenAlreadyCSharpGenericIterable` Red→Green；全量 dotnet test 2143 通过；`mvn clean package -e` BUILD SUCCESS，609 测试全部通过（387 skipped），b3.dot 成功解析。
+
+## 最终结果
+- `mvn clean package -e` 在 `d:\Dot2Graph260713` 上 BUILD SUCCESS
+- 测试总数: 609，通过: 609，失败: 0，错误: 0，跳过: 387
+- 所有 9 个模块编译成功
+- b3.dot 等 dot 文件成功解析
