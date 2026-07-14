@@ -85,26 +85,70 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("java.math.BigInteger");
                 return $"new BigInteger(\"{ulongValue}\")";
             }
+            numPart = StripLeadingZeros(numPart);
             return numPart + "L";
         }
         if (literal.EndsWith("u") || literal.EndsWith("U"))
         {
             string numPart = literal.TrimEnd('u', 'U');
             if (TryParseNumericValue(numPart, out ulong uintValue) && uintValue > (ulong)int.MaxValue)
+            {
+                numPart = StripLeadingZeros(numPart);
                 return numPart + "L";
-            return numPart;
+            }
+            return StripLeadingZeros(numPart);
         }
         if (literal.EndsWith("l") || literal.EndsWith("L"))
         {
-            return literal.TrimEnd('l', 'L') + "L";
+            return StripLeadingZeros(literal.TrimEnd('l', 'L')) + "L";
         }
 
         if (token.Value is ulong unsuffixedUlong && unsuffixedUlong > long.MaxValue)
         {
-            return $"Long.parseUnsignedLong(\"{literal.Replace("_", "")}\")";
+            return $"Long.parseUnsignedLong(\"{StripLeadingZeros(literal.Replace("_", ""))}\")";
+        }
+
+        // Strip leading zeros from decimal integer literals.
+        // C# allows leading zeros (e.g., 08 = 8), but Java interprets them as octal
+        // (08 = illegal octal digit). Preserve plain "0" as-is.
+        literal = StripLeadingZeros(literal);
+
+        // Unsuffixed integer literal that exceeds int range needs L suffix in Java.
+        // C# implicitly promotes to long, but Java requires explicit L.
+        if (token.Value is long unsuffixedLong && unsuffixedLong > int.MaxValue)
+        {
+            return literal + "L";
         }
 
         return literal;
+    }
+
+    /// <summary>
+    /// Strips leading zeros from a decimal integer literal string.
+    /// C# allows leading zeros (08 = 8), but Java interprets them as octal notation.
+    /// Preserves plain "0" as-is.
+    /// </summary>
+    private static string StripLeadingZeros(string literal)
+    {
+        if (literal.Length <= 1)
+            return literal;
+        // Don't strip from hex/binary literals or floating-point literals
+        if (literal.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            || literal.StartsWith("0b", StringComparison.OrdinalIgnoreCase)
+            || literal.Contains('.'))
+            return literal;
+        // Strip leading zeros, but keep at least one digit
+        int i = 0;
+        while (i < literal.Length - 1 && literal[i] == '0')
+            i++;
+        // Skip underscores when checking — they may appear between leading zeros
+        // (e.g., 0_08). We need to strip the 0s and their adjacent underscores.
+        // Simple approach: strip leading 0s and underscores, then re-add underscores
+        // only where they were between non-zero digits.
+        // Actually, the underscores were already removed if TargetJavaVersion < 7.
+        // For modern Java, just strip leading 0s, preserving underscores between significant digits.
+        var trimmed = literal.Substring(i);
+        return trimmed;
     }
 
     private string TransformStringLiteral(LiteralExpressionSyntax node, ConversionContext context)
