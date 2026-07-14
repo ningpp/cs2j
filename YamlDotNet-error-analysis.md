@@ -55,3 +55,20 @@
 - **分析**: C# struct `Mark` 同时实现 `IComparable<Mark>` 和 `IComparable`，生成两个 `compareTo` 方法。Java 中 `Comparable<Mark>` 会自动生成桥方法 `compareTo(Object)`，与显式的 `compareTo(Object)` 冲突。`ClassTransformer` 已有 `RemoveCompareToBridgeConflicts` 处理此问题，但 `StructTransformer` 未调用。修复：在 `StructTransformer` 中添加 `ClassTransformer.RemoveCompareToBridgeConflicts` 调用。影响 10 个名称冲突错误中的 compareTo 类。
 
 ✅ Fixed (compareTo 冲突已消除，1260 → 1298 因转换文件数变化，但实际 Mark 冲突已修复)
+
+## Iteration 4 — Collection expression 对数组类型生成 List.of 而非数组初始化
+
+- **Java 文件**: YamlDotNet/Core/Constants.java
+- **行号**: 40
+- **错误信息**: 不兼容的类型: List<E>与TagDirective[]一致
+- **代码片段**:
+  ```java
+  public static final TagDirective[] DefaultTagDirectives = java.util.List.of(new TagDirective("!", "!"), ...);
+  ```
+
+- **对应 C# 文件**: YamlDotNet/Core/Constants.cs
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs (L106-113)
+- **分析**: C# 12 collection expression `[...]` 的转换器无条件生成 `java.util.List.of(...)`，但 C# 中 `TagDirective[] x = [...]` 的目标类型是数组，应生成 `new TagDirective[] { ... }`。修复：检查 `ConvertedType` 是否为数组类型，如果是则生成数组初始化器。影响 14 个 List→数组不兼容错误（剩余 66 个是 List→集合类型不兼容，需后续处理）。
+
+✅ Fixed (1298 → 1286, List→array errors 80→66)

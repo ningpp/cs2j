@@ -273,4 +273,20 @@ public class ArrayTests : ConversionTestBase
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "toArray");
     }
+
+    [Fact]
+    public void CollectionExpressionToArrayField_GeneratesArrayInitializer()
+    {
+        var result = Convert("class C { public int[] Values = [1, 2, 3]; }");
+        AssertConversion(result, "new int[]{ 1, 2, 3 }");
+        AssertJavaDoesNotContain(result, "List.of", "Array-typed collection expression must generate array initializer, not List.of");
+    }
+
+    [Fact]
+    public void CollectionExpressionToStringArrayField_GeneratesArrayInitializer()
+    {
+        var result = Convert("class C { public string[] Names = [\"a\", \"b\"]; }");
+        AssertConversion(result, "new String[]{ \"a\", \"b\" }");
+        AssertJavaDoesNotContain(result, "List.of", "String[] collection expression must generate array initializer");
+    }
 }

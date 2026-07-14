@@ -109,6 +109,15 @@ public static class ExpressionTransformerRegistry
                 var coll = (CollectionExpressionSyntax)node;
                 var elements = string.Join(", ", coll.Elements.OfType<ExpressionElementSyntax>()
                     .Select(e => ExpressionTransformerFacade.Instance.Transform(e.Expression, ctx)));
+
+                // Check if the target type is an array; if so, generate array initializer.
+                var typeInfo = ctx.GetTypeInfo(node);
+                if (typeInfo.ConvertedType is IArrayTypeSymbol convArr)
+                {
+                    var elementType = ctx.MapType(convArr.ElementType);
+                    return $"new {elementType}[]{{ {elements} }}";
+                }
+
                 return $"java.util.List.of({elements})";
             }));
     }
