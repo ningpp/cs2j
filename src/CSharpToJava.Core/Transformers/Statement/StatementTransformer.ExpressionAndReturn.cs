@@ -306,6 +306,36 @@ public partial class StatementTransformer
             return new JavaStatementNode(sbTuple.ToString());
         }
 
+        // Fix 4b: Typed tuple deconstruction — (Type a, Type b) = value;
+        // ExpressionStatement > AssignmentExpression where LHS is TupleExpression with DeclarationExpression arguments
+        if (stmt.Expression is AssignmentExpressionSyntax typedTupleAssign
+            && typedTupleAssign.Left is TupleExpressionSyntax tupleExpr)
+        {
+            var declArgs = tupleExpr.Arguments
+                .Select(a => a.Expression)
+                .OfType<DeclarationExpressionSyntax>()
+                .Where(d => d.Designation is SingleVariableDesignationSyntax)
+                .ToList();
+            if (declArgs.Count == tupleExpr.Arguments.Count && declArgs.Count > 0)
+            {
+                var rhsExpr = exprTransformer.Transform(typedTupleAssign.Right, context);
+                var tempVar = "_t";
+                var sbTuple = new System.Text.StringBuilder();
+                sbTuple.AppendLine($"var {tempVar} = {rhsExpr};");
+                for (int i = 0; i < declArgs.Count; i++)
+                {
+                    var svd = (SingleVariableDesignationSyntax)declArgs[i].Designation;
+                    var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
+                    string getter = $"_{i + 1}";
+                    if (i < declArgs.Count - 1)
+                        sbTuple.AppendLine($"var {varName} = {tempVar}.{getter}();");
+                    else
+                        sbTuple.Append($"var {varName} = {tempVar}.{getter}();");
+                }
+                return new JavaStatementNode(sbTuple.ToString());
+            }
+        }
+
         var expr = exprTransformer.Transform(stmt.Expression, context);
 
         // Drain any pre-statements emitted by the expression transformer

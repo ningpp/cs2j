@@ -3947,7 +3947,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
                     // Element-selector overload
                     var elemArg = facade.Transform(arg1Expr, context);
-                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, CSharpList.toCSharpList()).entrySet().stream()";
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, CSharpList.toCSharpList()))).entrySet().stream()";
                 }
                 if (node.ArgumentList.Arguments.Count == 1)
                 {
@@ -4818,7 +4818,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                     var elemArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, CSharpList.toCSharpList())";
+                    return $"{receiver}.collect(Collectors.groupingBy({keyArg}, Collectors.mapping({elemArg}, CSharpList.toCSharpList())))";
                 }
                 if (node.ArgumentList.Arguments.Count >= 1)
                 {
