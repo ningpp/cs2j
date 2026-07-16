@@ -595,6 +595,28 @@ public partial class GotoEliminatorTests
     }
 
     [Fact]
+    public void Eliminate_GotoInsideConversionOperator_RemovesGotoAndLabels()
+    {
+        var src = """
+        public class C
+        {
+            public static explicit operator int(C c)
+            {
+                goto Done;
+                c = null!;
+            Done:
+                return 1;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        Assert.True(result.Changed);
+        AssertNoGotoOrLabel(result.OutputCode);
+    }
+
+    [Fact]
     public void Eliminate_LabelInsideIfBlock_RemovesNestedGotoAndPreservesBehavior()
     {
         var src = """

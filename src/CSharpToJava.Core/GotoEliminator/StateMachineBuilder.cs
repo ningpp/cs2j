@@ -308,6 +308,8 @@ internal sealed partial class StateMachineBuilder
         => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
     public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
         => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
+    public override SyntaxNode? VisitConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax node)
+        => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
     public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
     {
         var visited = node;
@@ -370,6 +372,7 @@ internal sealed partial class StateMachineBuilder
             {
                 ConstructorDeclarationSyntax => null,
                 OperatorDeclarationSyntax op => op.ReturnType,
+                ConversionOperatorDeclarationSyntax conv => conv.Type,
                 MethodDeclarationSyntax m => m.ReturnType,
                 _ => null,
             };
@@ -393,6 +396,7 @@ internal sealed partial class StateMachineBuilder
             {
                 ConstructorDeclarationSyntax => null,
                 OperatorDeclarationSyntax op => op.ReturnType,
+                ConversionOperatorDeclarationSyntax conv => conv.Type,
                 MethodDeclarationSyntax m => m.ReturnType,
                 _ => null,
             };

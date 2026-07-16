@@ -1,27 +1,17 @@
-# XML Error Analysis
+# cs-xml 转换错误分析日志
 
-## Iteration 1 — ClassCastException (primitive array component type mismatch)
-- **Java 文件**: system-private-xml/src/main/java/dotnet/xml/schema/XmlUntypedStringConverter.java
-- **行号**: 208 (getComponentType), 289 (Array.newInstance)
-- **错误信息**: Content cannot be converted to the type class [I. Line 1, position 27. / ClassCastException: Xml type 'List of xdt:untypedAtomic' does not support a conversion from Clr type 'java.lang.String' to Clr type '[I'.
+## Iteration 0 — goto-preprocessor-error
+- **阶段**: C# → Java 转换（goto 预处理）
+- **Java 文件**: N/A（转换未生成 Java 文件）
+- **出错信息**: `System\Xml\Xsl\XPathConvert.cs: goto/label syntax remains after preprocessing`
 - **代码片段**:
-  ```java
-  Class itemTypeDst = destinationType.getComponentType(); // line 208
-  Object arrDst = java.lang.reflect.Array.newInstance(clazz, stringArray.length); // line 289
+  ```csharp
+  #else
+      goto LDone;
+  }
+  #endif
   ```
-- **对应 C# 文件**: System/Xml/Schema/XmlUntypedStringConverter.cs
-- **根因分类**: 类型映射缺失 + Transformer 逻辑缺陷
-- **涉及组件**:
-  - config/TypeMappings.json (GetElementType → getComponentType mapping)
-  - CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs (new T[] → Array.newInstance)
-  - CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs (LINQ ToArray generator)
-  - java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java (missing getElementType/newArrayInstance)
-- **分析**: C# `typeof(int[]).GetElementType()` returns `typeof(int)`, but Java `int[].class.getComponentType()` returns `int.class` (primitive), while the converted code compares against `Integer.class` (wrapper). This causes the `if (itemTypeDst == s_int32Type)` comparison to fail, falling through to `throw createInvalidClrMappingException`. Additionally, `Array.newInstance(Integer.class, length)` creates `Integer[]` which cannot be cast to `int[]`.
-
-### Fix
-1. Added `TypeHelper.getElementType()` that boxes primitive component types (`int.class → Integer.class`)
-2. Added `TypeHelper.newArrayInstance()` that creates primitive arrays for wrapper class types
-3. Updated TypeMappings.json: `GetElementType → TypeHelper.getElementType`
-4. Updated ObjectCreationTransformer + InvocationExpressionTransformer: `Array.newInstance → TypeHelper.newArrayInstance`
-
-✅ Fixed
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Xsl\XPathConvert.cs` 等 4 个文件
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/GotoEliminator/StateMachineBuilder.cs`
+- **分析**: `StateMachineBuilder` 重写了 `VisitMethodDeclaration`、`VisitConstructorDeclaration`、`VisitOperatorDeclaration` 等，但缺少 `VisitConversionOperatorDeclaration`。`XPathConvert.cs` 中 `FloatingDecimal` 的 `explicit operator double` 等方法体含 goto/label，因此未被状态机改写，残留 goto 被 `ProjectGotoPreprocessor` 检测为 Error，导致转换失败。
