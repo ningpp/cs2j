@@ -659,6 +659,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return facade.Transform(memberAccess.Expression, context);
         }
 
+        // .NET Exception.GetInnerException() has no direct Java equivalent → ExceptionCompat helper.
+        // The semantic model is required so we only rewrite when the receiver is actually an Exception.
+        if (memberAccess.Name.Identifier.Text == "GetInnerException"
+            && node.ArgumentList.Arguments.Count == 0
+            && context.SemanticModel != null)
+        {
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType != null && IsOrInheritsFromException(receiverType))
+            {
+                context.AddImport("io.github.ningpp.compat.ExceptionCompat");
+                return $"ExceptionCompat.getInnerException({facade.Transform(memberAccess.Expression, context)})";
+            }
+        }
+
         // Count() with no args → size() (Collection) or count() (Iterable fallback)
         // Any() with no args → length>0 (array) or iterator().hasNext() (Iterable/Collection)
         if (node.ArgumentList.Arguments.Count == 0)
@@ -2399,6 +2413,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var fqn = $"{methodSymbol.ContainingType.ContainingNamespace}.{methodSymbol.ContainingType.Name}";
                 mapped = context.TypeMappings.MapMethod(fqn, originalMethodName, paramCount);
             }
+
+            // Also check interfaces implemented by the containing type. This handles
+            // implicit interface implementations such as IEquatable<T>.Equals → equalsTo.
+            if (mapped == null && methodSymbol.ContainingType is INamedTypeSymbol containingType)
+            {
+                foreach (var iface in containingType.AllInterfaces)
+                {
+                    var ifaceTypeName = iface.ConstructedFrom.ToDisplayString();
+                    mapped = context.TypeMappings.MapMethod(ifaceTypeName, originalMethodName, paramCount);
+                    if (mapped != null) break;
+
+                    var ifaceFqn = $"{iface.ContainingNamespace}.{iface.Name}";
+                    mapped = context.TypeMappings.MapMethod(ifaceFqn, originalMethodName, paramCount);
+                    if (mapped != null) break;
+                }
+            }
+
             if (mapped != null)
             {
                 // Task.Run<T>(Func<T>) is a generic method on non-generic Task class,
@@ -8280,6 +8311,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
 
         // Anything else (this, base, method calls, etc.) → not a type
+        return false;
+    }
+
+    private static bool IsOrInheritsFromException(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.Exception")
+                return true;
+        }
         return false;
     }
 }

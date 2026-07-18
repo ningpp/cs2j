@@ -336,7 +336,8 @@ public class TypeMappingRegistry
 
             // Guard: ensure the startsWith match is exact or a namespace prefix (dot),
             // not a false positive where "System.Action<string>" matches "System.Action" (non-generic).
-            // Generic type lookups with angle brackets should fall through to the backtick normalization below.
+            // Generic type lookups with angle brackets fall through to the backtick normalization below
+            // and, if still unresolved, to the final generic-definition fallback.
             if (typeName.StartsWith(key.TypeName)
                 && (typeName.Length == key.TypeName.Length || typeName[key.TypeName.Length] == '.'))
             {
@@ -383,6 +384,20 @@ public class TypeMappingRegistry
                         if (resolved != null) return resolved.JavaMethodName;
                     }
                 }
+            }
+        }
+
+        // Final fallback for constructed generic types whose definition is stored without
+        // a backtick suffix (e.g. "System.IEquatable<T>" → "System.IEquatable" for
+        // Equals → equalsTo). This runs after the arity-aware backtick loop so that
+        // mappings like "System.Action`1" take precedence over the non-generic "System.Action".
+        var genericBaseName = GetGenericTypeDefinitionName(typeName);
+        if (genericBaseName != null)
+        {
+            if (_methodMappings.TryGetValue((genericBaseName, methodName), out entries))
+            {
+                var resolved = ResolveMethodEntry(entries, paramCount);
+                if (resolved != null) return resolved.JavaMethodName;
             }
         }
 
@@ -603,6 +618,19 @@ public class TypeMappingRegistry
             return type.Substring(start + 1, end - start - 1);
         }
         return type;
+    }
+
+    /// <summary>
+    /// Returns the generic definition name for a constructed generic type name
+    /// (e.g. "System.IEquatable<T>" → "System.IEquatable"). Returns null when
+    /// the type name is not constructed generic.
+    /// </summary>
+    private static string? GetGenericTypeDefinitionName(string typeName)
+    {
+        var openAngle = typeName.IndexOf('<');
+        if (openAngle > 0)
+            return typeName.Substring(0, openAngle);
+        return null;
     }
 
     /// <summary>

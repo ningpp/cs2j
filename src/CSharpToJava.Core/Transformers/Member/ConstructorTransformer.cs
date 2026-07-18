@@ -140,7 +140,7 @@ public class ConstructorTransformer : IMemberTransformer
         // Issue 5: For 'protected internal', annotate the body so readers know the access intent.
         if (IsProtectedInternal(ctorDecl.Modifiers))
         {
-            var comment = "// C# 'protected internal' → Java 'protected' (package-private semantic is implicit via protected)";
+            var comment = "// C# 'protected internal' → Java 'public' (cross-package internal callers need access)";
             var commentStmt = new Java.JavaRawStatement(comment);
             if (javaCtor.StructuredBody == null)
             {
@@ -257,17 +257,6 @@ public class ConstructorTransformer : IMemberTransformer
     {
         JavaModifiers result = JavaModifiers.None;
 
-        // Issue 5: Detect 'protected internal' before folding individual modifiers.
-        // In Java the broadest equivalent is 'protected'; emit that with an informational comment.
-        bool hasProtected = modifiers.Any(m => m.IsKind(SyntaxKind.ProtectedKeyword));
-        bool hasInternal  = modifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword));
-        if (hasProtected && hasInternal)
-        {
-            // 'protected internal' → Java 'protected' (broader access, package-private is implicit)
-            // Other modifiers (private, static, …) are still processed below.
-            result |= JavaModifiers.Protected;
-        }
-
         foreach (var modifier in modifiers)
         {
             result |= modifier.Kind() switch
@@ -286,10 +275,10 @@ public class ConstructorTransformer : IMemberTransformer
             };
         }
 
-        // C# "protected internal" maps to Protected | Public via individual keyword rules.
-        // Java doesn't allow both; "protected" is the most restrictive useful choice.
+        // C# "protected internal" means protected OR internal. Since Java has no direct equivalent
+        // and internal maps to public, emit public so cross-package callers can access the member.
         if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
-            result &= ~JavaModifiers.Public;
+            result &= ~JavaModifiers.Protected;
 
         return result;
     }

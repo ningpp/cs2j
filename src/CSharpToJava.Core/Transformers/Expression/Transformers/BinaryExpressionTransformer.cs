@@ -448,6 +448,15 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Handle enum arithmetic operators (+, -, *, /, %).
+        // Java enums do not support arithmetic operators; must use ordinal() or getValue() on operands.
+        if (IsArithmeticOp(op) && context.SemanticModel != null)
+        {
+            var enumArithmeticResult = TryTransformEnumArithmeticOperation(node, op, context);
+            if (enumArithmeticResult != null)
+                return enumArithmeticResult;
+        }
+
         // Handle enum comparison operators (<, >, <=, >=).
         // Java enums do not support ordering operators; must compare ordinal() or getValue().
         if (IsComparisonOp(op) && context.SemanticModel != null)
@@ -827,6 +836,52 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 && !IsNestedBitwiseExpression(node.Right)
                 && !right.EndsWith(suffix, StringComparison.Ordinal)
                 && !IsBitwiseNotWithSuffix(right, suffix))
+                right = ApplyEnumAccessSuffix(right, suffix);
+        }
+
+        left = WrapOperandIfNeeded(node.Left, left, op, true);
+        right = WrapOperandIfNeeded(node.Right, right, op, false);
+
+        return $"{left} {op} {right}";
+    }
+
+    /// <summary>
+    /// Handles arithmetic operations (+, -, *, /, %) on non-Flags enum types.
+    /// Java enums do not support arithmetic operators, so must use getValue()/ordinal() on operands.
+    /// For Flags enums (mapped to int/long), no conversion is needed.
+    /// </summary>
+    private string? TryTransformEnumArithmeticOperation(BinaryExpressionSyntax node, string op, ConversionContext context)
+    {
+        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
+        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
+
+        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
+        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
+
+        if (!leftIsEnum && !rightIsEnum)
+            return null;
+
+        // Flags enums are mapped to int/long in Java, so arithmetic ops work natively
+        if (leftIsEnum && IsFlagsEnumType(leftType!, context))
+            return null;
+        if (rightIsEnum && IsFlagsEnumType(rightType!, context))
+            return null;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+        var right = facade.Transform(node.Right, context);
+
+        if (leftIsEnum)
+        {
+            var suffix = GetEnumAccessSuffix(leftType!, context);
+            if (suffix != null && !left.EndsWith(suffix, StringComparison.Ordinal))
+                left = ApplyEnumAccessSuffix(left, suffix);
+        }
+
+        if (rightIsEnum)
+        {
+            var suffix = GetEnumAccessSuffix(rightType!, context);
+            if (suffix != null && !right.EndsWith(suffix, StringComparison.Ordinal))
                 right = ApplyEnumAccessSuffix(right, suffix);
         }
 

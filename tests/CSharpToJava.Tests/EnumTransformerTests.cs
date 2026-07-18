@@ -1110,4 +1110,98 @@ public class Container
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("Container.InnerStatus.Full", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ExplicitValueEnum_Subtraction_UsesGetValue()
+    {
+        var result = Convert(@"
+public enum XPathNodeType
+{
+    Root = 0,
+    Text = 3,
+    Whitespace = 6
+}
+
+public class Sample
+{
+    public bool IsText(XPathNodeType type)
+    {
+        return (type - XPathNodeType.Text) <= (XPathNodeType.Whitespace - XPathNodeType.Text);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("type.getValue() - XPathNodeType.Text.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("XPathNodeType.Whitespace.getValue() - XPathNodeType.Text.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("type - XPathNodeType", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SimpleEnum_Subtraction_UsesOrdinal()
+    {
+        var result = Convert(@"
+public enum Direction { North, South, East, West }
+
+public class Sample
+{
+    public int Delta(Direction a, Direction b)
+    {
+        return a - b;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("a.ordinal() - b.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("a - b", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitValueEnum_Addition_UsesGetValue()
+    {
+        var result = Convert(@"
+public enum Status
+{
+    Open = 10,
+    Closed = 20
+}
+
+public class Sample
+{
+    public int Sum(Status a, Status b)
+    {
+        return a + b;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("a.getValue() + b.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FlagsEnum_Arithmetic_RemainsNativeIntOps()
+    {
+        var result = Convert(@"
+using System;
+
+[Flags]
+public enum Permissions
+{
+    Read = 1,
+    Write = 2,
+    Execute = 4
+}
+
+public class Sample
+{
+    public int Diff(Permissions a, Permissions b)
+    {
+        return a - b;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("a - b", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("a.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("b.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

@@ -952,6 +952,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"ExceptionCompat.{helperName}({target})";
             }
 
+            // Type.FullName has no direct Java equivalent (Class.getName() differs from .NET FullName).
+            // Route through TypeHelper so the generated code compiles and behaves correctly.
+            if (memberName == "FullName" && IsSystemType(prop.ContainingType))
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.getFullName({target})";
+            }
+
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.getCurrent()";
 

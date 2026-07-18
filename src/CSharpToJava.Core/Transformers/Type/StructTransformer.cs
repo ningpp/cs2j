@@ -68,12 +68,9 @@ public class StructTransformer : ITypeTransformer
                 if (typeInfo.Type?.TypeKind == TypeKind.Interface)
                 {
                     var iface = typeInfo.Type;
-                    // Skip IEquatable<T> — it doesn't exist in Java and should not appear in implements
                     // Skip MarshalByRefObject - it doesn't exist in Java
-                    if (iface.Name != "IEquatable"
-                        && iface.Name != "MarshalByRefObject"
-                        && iface.ToDisplayString() != "System.MarshalByRefObject"
-                        && iface.ToDisplayString() != "System.IEquatable`1")
+                    if (iface.Name != "MarshalByRefObject"
+                        && iface.ToDisplayString() != "System.MarshalByRefObject")
                     {
                         javaClass.ImplementedTypes.Add(context.MapType(iface));
                     }

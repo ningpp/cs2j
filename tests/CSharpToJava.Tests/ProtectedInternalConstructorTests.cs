@@ -17,7 +17,7 @@ public class ProtectedInternalConstructorTests
     }
 
     [Fact]
-    public void ProtectedInternalConstructor_GeneratesProtectedOnly()
+    public void ProtectedInternalConstructor_GeneratesPublic()
     {
         var result = Convert(@"
 public class Demo
@@ -27,8 +27,8 @@ public class Demo
 ");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("protected Demo(String version)", result.GeneratedCode);
-        Assert.DoesNotContain("public protected", result.GeneratedCode);
+        Assert.Contains("public Demo(String version)", result.GeneratedCode);
+        Assert.DoesNotContain("protected Demo(String version)", result.GeneratedCode);
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class Demo
     }
 
     [Fact]
-    public void ProtectedInternalConstructor_WithParameters_GeneratesProtectedOnly()
+    public void ProtectedInternalConstructor_WithParameters_GeneratesPublic()
     {
         var result = Convert(@"
 public class Foo
@@ -56,8 +56,8 @@ public class Foo
 ");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("protected Foo(int x, String y)", result.GeneratedCode);
-        Assert.DoesNotContain("public protected", result.GeneratedCode);
+        Assert.Contains("public Foo(int x, String y)", result.GeneratedCode);
+        Assert.DoesNotContain("protected Foo(int x, String y)", result.GeneratedCode);
     }
 
     [Fact]

@@ -109,11 +109,9 @@ public class ClassTransformer : ITypeTransformer
 
             if (isDirect)
             {
-                // Skip IEquatable<T> — it doesn't exist in Java and should not appear in implements
                 // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
                 // Skip ISerializable — Java doesn't have this interface
-                if (iface.Name != "IEquatable" && iface.ToDisplayString() != "System.IEquatable`1"
-                    && iface.ToDisplayString() != "System.MarshalByRefObject"
+                if (iface.ToDisplayString() != "System.MarshalByRefObject"
                     && iface.ToDisplayString() != "System.Runtime.Serialization.ISerializable")
                 {
                     var mappedIface = context.MapTypeForDeclarationHeader(iface);
@@ -435,10 +433,8 @@ public class ClassTransformer : ITypeTransformer
                 if (typeInfo.Type == null) continue;
 
                 var resolvedType = typeInfo.Type;
-                // Skip IEquatable<T> — it doesn't exist in Java and should not appear in implements
                 // Skip MarshalByRefObject - it doesn't exist in Java (use ToDisplayString for alias-safe comparison)
                 // Skip ISerializable — Java doesn't have this interface
-                if (resolvedType.Name == "IEquatable" || resolvedType.ToDisplayString() == "System.IEquatable`1") continue;
                 if (resolvedType.ToDisplayString() == "System.MarshalByRefObject") continue;
                 if (resolvedType.ToDisplayString() == "System.Runtime.Serialization.ISerializable") continue;
 

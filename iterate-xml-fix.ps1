@@ -50,20 +50,20 @@ function Invoke-Process {
     $argString = Format-Arguments -Arguments $Arguments
     Write-Host "Running: $Executable $argString"
 
-    # Use Start-Process so we can reliably capture the native exit code
-    # while merging both stdout and stderr into a single UTF-8 log file.
-    $errLog = "$LogFile.stderr"
+    # Stream output to console while also writing to log so progress is visible.
+    # Merge stderr into stdout to keep a single chronological UTF-8 log.
     try {
-        $proc = Start-Process -FilePath $Executable `
-            -ArgumentList $Arguments `
-            -RedirectStandardOutput $LogFile `
-            -RedirectStandardError $errLog `
-            -NoNewWindow -Wait -PassThru
-        if (Test-Path $errLog) {
-            Get-Content -Raw $errLog | Add-Content -Path $LogFile -Encoding utf8
-            Remove-Item $errLog -Force -ErrorAction SilentlyContinue
+        if (Test-Path $LogFile) {
+            Remove-Item $LogFile -Force -ErrorAction SilentlyContinue
         }
-        return $proc.ExitCode
+        $exitCode = & {
+            # Native commands (mvn.cmd, dotnet) may write warnings to stderr;
+            # don't let $ErrorActionPreference = Stop treat them as fatal.
+            $ErrorActionPreference = "Continue"
+            & $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile | Out-Null
+            $LASTEXITCODE
+        }
+        return $exitCode
     }
     catch {
         Write-Host "Failed to start ${Executable}: $_" -ForegroundColor Red

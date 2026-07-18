@@ -257,4 +257,105 @@
 - **根因分类**: 待分析
 - **涉及组件**: 待定位
 - **分析**: C# 中枚举相减得到底层整型；Java 枚举不支持 `-` 运算符。转换器未将 `XPathNodeType.Whitespace - XPathNodeType.Text` 改写为 `(int)XPathNodeType.Whitespace - (int)XPathNodeType.Text`。
-- **状态**: 🔄 In Progress
+- **修复**: 在 `BinaryExpressionTransformer` 中新增 `TryTransformEnumArithmeticOperation`，对非 `Flags` 枚举操作数自动追加 `getValue()`（显式值枚举）或 `ordinal()`（简单枚举）调用；保留 `Flags` 枚举的原始行为（已映射为 `int`/`long`）。新增红测试 `ExplicitValueEnum_Subtraction_UsesGetValue` 与 `SimpleEnum_Subtraction_UsesOrdinal` 验证。
+- **状态**: ✅ Fixed
+
+## Iteration 13 — MyDict 与 CSharpDictionary.get 名称冲突
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/MS/Internal/Xml/Cache/XPathNodeInfoAtom.java` 等
+- **出错信息**: `名称冲突: MyDict 中的 get(Type1) 和 CSharpDictionary 中的 get(java.lang.Object) 具有相同疑符`
+- **代码片段**:
+  ```java
+  public class MyDict extends CSharpDictionary<Type1, Type2> {
+      public Type2 get(Type1 key) { ... }
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Cache\XPathNodeInfoAtom.cs` 中的嵌套字典类
+- **根因分类**: Compat 库接口签名 / 泛型擦除
+- **涉及组件**: `java/csharptojava-compat/.../CSharpGenericIDictionary.java`、`CSharpDictionary.java`、`CSharpSortedDict.java`、`CSharpSortedList.java`
+- **分析**: `CSharpGenericIDictionary` 接口声明 `V get(Object key)`，子类 `MyDict` 转换后生成 `V get(Type1 key)`。由于 Java 泛型擦除，两个方法签名冲突，编译失败。
+- **修复**: 将 compat 库中 `CSharpGenericIDictionary`、`CSharpDictionary`、`CSharpSortedDict`、`CSharpSortedList` 的 `get(Object key)` 改为 `get(K key)`，并调整 `getOrDefault` 实现。新增单元测试 `MyDictIndexerTests.MyDict_ImplementsCSharpDictionary_GetUsesKeyType` 验证转换后生成 `get(Type1 key)` 且无冲突。
+- **状态**: ✅ Fixed
+
+## Iteration 14 — Exception.Source / InnerException 无 Java 对应
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/MS/Internal/Xml/Cache/CTestBase.java` 等
+- **出错信息**: `找不到符号: 方法 getSource()` / `找不到符号: 方法 getInnerException()`
+- **代码片段**:
+  ```java
+  String s = e.getSource();
+  Exception inner = e.getInnerException();
+  ```
+- **对应 C# 文件**: `d:\csharpxml\...` 中使用 `Exception.Source` 与 `Exception.InnerException` 的位置
+- **根因分类**: API 映射缺失 / Compat 库缺失
+- **涉及组件**: `java/csharptojava-compat/.../ExceptionCompat.java`、`src/CSharpToJava.Core/Transformers/Expression/Transformers/ExceptionApiRewriter.cs`、`IdentifierExpressionTransformer.cs`、`InvocationExpressionTransformer.cs`
+- **分析**: .NET `Exception` 的 `Source`/`InnerException` 属性以及 `GetInnerException()` 方法在 Java `RuntimeException` 中没有直接对应。转换器最初未重写这些成员，导致生成的 Java 代码调用不存在的方法。
+- **修复**: 新增 `ExceptionCompat` 辅助类，提供 `getSource(RuntimeException)` 与 `getInnerException(RuntimeException)` 静态方法。在 `IdentifierExpressionTransformer` 与 `InvocationExpressionTransformer` 中检测接收者为异常类型的 `Source`/`InnerException`/`GetInnerException()`，统一改写为 `ExceptionCompat` 调用。新增 `ExceptionCompatTests` 验证属性访问与方法调用均正确转换。
+- **状态**: ✅ Fixed
+
+## Iteration 15 — protected internal 方法跨包不可见
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/XPathNavigator.java` 等
+- **出错信息**: `setSourceObject(...) 在 XmlSchemaValidationException 中是 protected 访问控制`
+- **代码片段**:
+  ```java
+  ex.setSourceObject(this);
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\XPathNavigator.cs` 等处调用 `XmlSchemaValidationException.SetSourceObject`
+- **根因分类**: 访问修饰符映射
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`、`ConstructorTransformer.cs`
+- **分析**: C# `protected internal` 表示“同一程序集或派生类可访问”，而 Java 没有直接等价修饰符。转换器原先将其映射为 `protected`，导致跨包调用方无法访问。
+- **修复**: 在 `MethodTransformer` 与 `ConstructorTransformer` 的 `ConvertModifiers` 中，将同时包含 `Protected` 与 `Public`（即 `protected internal`）的结果规范化为 `public`。更新 `ProtectedInternalConstructorTests` 与新增 `ProtectedInternalMethodTests` 验证访问修饰符输出。
+- **状态**: ✅ Fixed
+
+## Iteration 16 — Type.FullName 无 Java 对应
+- **阶段**: Java 编译
+- **Java 文件**: 待定位
+- **出错信息**: `找不到符号: 方法 getFullName()`
+- **代码片段**:
+  ```java
+  String name = type.getFullName();
+  ```
+- **对应 C# 文件**: 使用 `Type.FullName` 的位置
+- **根因分类**: API 映射缺失
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`
+- **分析**: C# `Type.FullName` 被转换器默认映射为 `getFullName()`，但 Java `Class` 类只有 `getName()`，没有 `getFullName()`，语义也不完全一致。
+- **修复**: 在 `IdentifierExpressionTransformer` 中检测 `System.Type` 的 `FullName` 属性访问，生成 `TypeHelper.getFullName(type)` 调用并自动引入 `io.github.ningpp.compat.TypeHelper` import。更新相关单元测试。
+- **状态**: ✅ Fixed
+
+## Iteration 17 — IEquatable<T>.Equals 未映射为 equalsTo
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/MS/Internal/Xml/Cache/XPathNodeInfoAtom.java`
+- **出错信息**: `MS.Internal.Xml.Cache.XPathNodeInfoAtom不是抽象的, 并且未覆盖io.github.ningpp.compat.IEquatable中的抽象方法equalsTo(MS.Internal.Xml.Cache.XPathNodeInfoAtom)`
+- **代码片段**:
+  ```java
+  public class XPathNodeInfoAtom implements IEquatable<XPathNodeInfoAtom> {
+      public boolean Equals(XPathNodeInfoAtom other) { ... }
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Cache\XPathNodeInfoAtom.cs`
+- **根因分类**: 接口映射 / 方法映射
+- **涉及组件**: `config/TypeMappings.json`、`src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs`、`StructTransformer.cs`、`src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`、`src/CSharpToJava.TypeMapping/TypeMappingRegistry.cs`
+- **分析**: C# `IEquatable<T>` 没有 Java 对应；转换器原先在 `ClassTransformer`/`StructTransformer` 中过滤掉了该接口，导致生成的类虽然实现了 C# 接口逻辑，但 Java 端缺少 `implements`。同时 `IEquatable<T>.Equals(T)` 未映射为 compat 接口要求的 `equalsTo(T)`。
+- **修复**: 在 `config/TypeMappings.json` 中新增 `System.IEquatable<T>` → `io.github.ningpp.compat.IEquatable<T>` 映射。移除 `ClassTransformer` 与 `StructTransformer` 对 `IEquatable<T>` 的过滤，使其输出到 `implements` 列表。在 `InvocationExpressionTransformer` 中检测 `IEquatable<T>.Equals(T)` 调用并映射为 `equalsTo`；在 `TypeMappingRegistry` 中增加对构造泛型基类型（如 `System.IEquatable<T>`）的方法映射查找。新增 `IEquatableMappingTests` 与更新 `StructTransformerTests` 验证类/结构体实现接口并生成 `equalsTo` 方法。
+- **状态**: ✅ Fixed
+
+## Iteration 18 — 委托 Invoke 方法名映射错误
+- **阶段**: 单元测试 / Java 编译
+- **Java 文件**: N/A（单元测试先行发现）
+- **出错信息**: `Action<T>.Invoke` 被转换为 `run` 而非 `accept`
+- **代码片段**:
+  ```java
+  handler.run(42); // 应为 handler.accept(42)
+  ```
+- **对应 C# 文件**: 使用 `Action<T>.Invoke` 等委托调用的位置
+- **根因分类**: TypeMapping 方法查找
+- **涉及组件**: `src/CSharpToJava.TypeMapping/TypeMappingRegistry.cs`、`src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
+- **分析**: `TypeMappings.json` 中已配置 `System.Action`1.Invoke → accept`，但 `TypeMappingRegistry` 对构造泛型类型的方法查找未命中非反引号形式的映射（如 `System.Action`1` 与 `System.Action<T>`）。
+- **修复**: 在 `TypeMappingRegistry.MapMethod` 中增加对构造泛型基类型名称（去掉 arity 反引号）的兜底查找，并优先检查接口实现方法。更新 `DelegateInvokeMappingTests` 验证 `Action.Invoke → run`、`Action<T>.Invoke → accept`、`Func<T>.Invoke → apply`。
+- **状态**: ✅ Fixed
+
+## Tooling — iterate-xml-fix.ps1 实时日志与错误处理
+- **问题**: 原脚本使用 `Start-Process` 并将 stdout/stderr 重定向到日志文件，导致终端无实时输出，无法观察转换/构建进度；`LASTEXITCODE` 捕获不可靠；Maven 警告被 PowerShell 误判为错误。
+- **修复**: 重构 `Invoke-Process` 函数，使用 `& $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile` 实现控制台实时输出与日志文件同时写入；在子脚本块内设置 `$ErrorActionPreference = "Continue"` 忽略非致命 stderr 警告；直接返回 `$LASTEXITCODE`。日志路径统一放到 `$PSScriptRoot` 避免目标目录权限问题。
+- **状态**: ✅ Fixed

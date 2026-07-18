@@ -52,7 +52,7 @@ class Test
     }
 
     [Fact]
-    public void DelegateInvoke_WithReturnValue_MappedToApply()
+    public void DelegateInvoke_ActionWithoutArgs_MappedToRun()
     {
         var result = Convert(@"
 using System;

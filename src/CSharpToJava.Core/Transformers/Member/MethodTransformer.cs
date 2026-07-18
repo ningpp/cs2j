@@ -1286,9 +1286,10 @@ public class MethodTransformer : IMemberTransformer
             };
         }
 
-        // C# "protected internal" maps to Protected | Public — Java doesn't allow both; keep Protected.
+        // C# "protected internal" means protected OR internal. Since Java has no direct equivalent
+        // and internal maps to public, emit public so cross-package callers can access the member.
         if ((result & JavaModifiers.Protected) != 0 && (result & JavaModifiers.Public) != 0)
-            result &= ~JavaModifiers.Public;
+            result &= ~JavaModifiers.Protected;
 
         return result;
     }

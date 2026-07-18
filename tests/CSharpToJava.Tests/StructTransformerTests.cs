@@ -437,7 +437,7 @@ public struct Temperature
     // ── IEquatable<T> removal ───────────────────────────────────────────────────
 
     [Fact]
-    public void Struct_IEquatable_NotInImplementsList()
+    public void Struct_IEquatable_MapsEqualsToEqualsTo()
     {
         var result = Convert(@"
 using System;
@@ -450,10 +450,11 @@ public struct Point : IEquatable<Point>
 }");
 
         Assert.True(result.Success);
-        // IEquatable<T> doesn't exist in Java — should not appear in implements
-        Assert.DoesNotContain("IEquatable", result.GeneratedCode, StringComparison.Ordinal);
-        // But the Equals(Point) method should still be present as a regular method
-        Assert.Contains("boolean equals(Point other)", result.GeneratedCode, StringComparison.Ordinal);
+        // IEquatable<T> now maps to the compat interface and must be implemented
+        Assert.Contains("implements IEquatable<Point>", result.GeneratedCode, StringComparison.Ordinal);
+        // Equals(Point) implements IEquatable<Point>.equalsTo(Point)
+        Assert.Contains("boolean equalsTo(Point other)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("boolean equals(Point other)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ── Auto-generated equals/toString ──────────────────────────────────────────
