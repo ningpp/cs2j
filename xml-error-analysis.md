@@ -106,3 +106,22 @@
 - **分析**: C# 允许泛型类的静态字段使用类级类型参数 `T`（每个闭合构造类型拥有独立的静态字段实例）。Java 不允许在静态上下文中引用外层类的类型参数，因此 `public static final XmlQuerySequence<T> Empty` 及其初始化器 `new XmlQuerySequence<T>(tClass)` 均不合法。转换器为处理 `new T[]` 而引入的运行时 `Class<?>` 字段 `tClass` 是实例成员，在静态字段初始化器中无法访问。
 - **修复方向**: 将依赖类级类型参数的静态字段转换为泛型静态方法（例如 `public static <T> XmlQuerySequence<T> Empty(Class<?> tClass)`），并在调用点补充运行时类参数。
 - **状态**: 🔄 In Progress
+
+## Iteration 5 — HybridDictionary 未映射
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/Xsl/XsltOld/Compiler.java:[57,13]`
+- **出错信息**: `找不到符号`（`类 HybridDictionary`）
+- **代码片段** (`Compiler.java`):
+  ```java
+  private CSharpObjStack _stylesheets;
+      // Current import stack
+  private HybridDictionary _documentURIs = new HybridDictionary();
+      // import/include documents, who is here has its URI in this.documentURIs
+  private NavigatorInput _input;
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Xsl\XsltOld\Compiler.cs:76`
+- **根因分类**: TypeMapping 缺失
+- **涉及组件**: `config/TypeMappings.json`
+- **分析**: `System.Collections.Specialized.HybridDictionary` 没有类型映射，转换器保留了原始 C# 类型名，Java 端不存在 `HybridDictionary` 类，导致编译失败。
+- **修复**: 在 `config/TypeMappings.json` 中补充 `System.Collections.Specialized.HybridDictionary` → `CSharpHashtable` 映射，复用 compat 中已有的 `CSharpHashtable` 类型。
+- **状态**: ✅ Fixed

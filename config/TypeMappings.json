@@ -627,6 +627,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.Specialized.HybridDictionary",
+            "java": "CSharpHashtable",
+            "imports": [
+                "io.github.ningpp.compat.CSharpHashtable"
+            ]
+        },
+        {
             "csharp": "System.Collections.Stack",
             "java": "CSharpObjStack",
             "imports": [
