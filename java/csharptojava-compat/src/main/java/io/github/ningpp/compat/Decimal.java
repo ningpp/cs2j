@@ -66,6 +66,65 @@ public final class Decimal implements Comparable<Decimal> {
         return new Decimal(value);
     }
 
+    /// <summary>
+    /// Mimics C# Convert.ToDecimal(object):
+    ///   - null        → ZERO
+    ///   - bool        → ONE / ZERO
+    ///   - char        → Unicode code point as decimal
+    ///   - numeric     → implicit widening
+    ///   - String      → parse (null-safe: returns ZERO for null)
+    ///   - BigInteger/BigDecimal → via BigDecimal
+    /// </summary>
+    public static Decimal valueOf(Object value) {
+        if (value == null) {
+            // C#: Convert.ToDecimal(null) returns 0m
+            return ZERO;
+        }
+        if (value instanceof Decimal d) {
+            return d;
+        }
+        if (value instanceof Integer i) {
+            return new Decimal(i.intValue());
+        }
+        if (value instanceof Long l) {
+            return new Decimal(l.longValue());
+        }
+        if (value instanceof Double d) {
+            return new Decimal(d.doubleValue());
+        }
+        if (value instanceof Float f) {
+            return new Decimal(f.doubleValue());
+        }
+        if (value instanceof Short s) {
+            return new Decimal(s.intValue());
+        }
+        if (value instanceof Byte b) {
+            return new Decimal(b.intValue());
+        }
+        if (value instanceof Character c) {
+            // C#: Convert.ToDecimal(char) returns the Unicode code point as decimal
+            return new Decimal(c.charValue());
+        }
+        if (value instanceof Boolean b) {
+            // C#: Convert.ToDecimal(true) → 1m, Convert.ToDecimal(false) → 0m
+            return b.booleanValue() ? ONE : ZERO;
+        }
+        if (value instanceof BigInteger bi) {
+            return new Decimal(new BigDecimal(bi));
+        }
+        if (value instanceof BigDecimal bd) {
+            return new Decimal(bd);
+        }
+        if (value instanceof String str) {
+            if (str.isEmpty()) {
+                return ZERO;
+            }
+            return parse(str);
+        }
+        throw new IllegalArgumentException(
+            "Cannot convert " + value.getClass().getName() + " to Decimal.");
+    }
+
     public static Decimal parse(String value) {
         return parseCore(value, NumberStyles.Number);
     }
