@@ -16,7 +16,8 @@ param(
     [string]$DestDir = "d:\cs-xml-20260716",
     [string]$ExtraDeps = "io.github.ningpp:system-private-uri:0.0.1-SNAPSHOT",
     [string]$CompatInstallLog = "d:\code\cs2j\compat-install.log",
-    [string]$BuildLog = "d:\cs-xml-20260716\mvn-build.log"
+    [string]$BuildLog = "d:\cs-xml-20260716\mvn-build.log",
+    [string]$MavenRepoLocal = "D:\mvnrepo"
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,13 +27,28 @@ function Write-StepHeader {
     Write-Host "`n=== $Message ===" -ForegroundColor Cyan
 }
 
+function Test-Command {
+    param([string]$Name)
+    return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Format-Arguments {
+    param([string[]]$Arguments)
+    return ($Arguments | ForEach-Object {
+        if ($_ -match '[\s"'']') {
+            '"' + $_.Replace('\"', '\\\"') + '"'
+        } else { $_ }
+    }) -join ' '
+}
+
 function Invoke-Process {
     param(
         [string]$Executable,
         [string[]]$Arguments,
         [string]$LogFile
     )
-    Write-Host "Running: $Executable $Arguments"
+    $argString = Format-Arguments -Arguments $Arguments
+    Write-Host "Running: $Executable $argString"
 
     # Use Start-Process so we can reliably capture the native exit code
     # while merging both stdout and stderr into a single UTF-8 log file.
@@ -55,9 +71,33 @@ function Invoke-Process {
     }
 }
 
+# Ensure destination directory exists so pre-conversion logs can be written
+if (-not (Test-Path $DestDir)) {
+    New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
+}
+
+# Preflight checks
+Write-StepHeader "Preflight checks"
+if (-not (Test-Command "dotnet")) {
+    Write-Host "dotnet command not found in PATH." -ForegroundColor Red
+    exit 1
+}
+if (-not (Test-Command "mvn")) {
+    Write-Host "mvn command not found in PATH." -ForegroundColor Red
+    exit 1
+}
+Write-Host "dotnet and mvn are available." -ForegroundColor Green
+
+# Shared Maven options (use array elements so PowerShell never splits on ':'/ '=')
+$mvnRepoArgs = @()
+if (-not [string]::IsNullOrWhiteSpace($MavenRepoLocal)) {
+    $mvnRepoArgs = @("-Dmaven.repo.local=$MavenRepoLocal")
+    Write-Host "Using local Maven repository: $MavenRepoLocal" -ForegroundColor Gray
+}
+
 # Step 1: install compat library
 Write-StepHeader "Step 1: Install compat library"
-$compatArgs = @("-f", $CompatPom, "clean", "install", "-e")
+$compatArgs = @("-f", $CompatPom) + $mvnRepoArgs + @("clean", "install", "-e")
 $compatExit = Invoke-Process -Executable "mvn" -Arguments $compatArgs -LogFile $CompatInstallLog
 if ($compatExit -ne 0) {
     Write-Host "Compat library install FAILED (exit $compatExit). See $CompatInstallLog" -ForegroundColor Red
@@ -65,10 +105,30 @@ if ($compatExit -ne 0) {
 }
 Write-Host "Compat library installed successfully." -ForegroundColor Green
 
-# Step 2: C# -> Java conversion
-Write-StepHeader "Step 2: C# -> Java conversion"
+# Step 2: build the CLI once, then run the emitted DLL directly.
+# Using 'dotnet run' makes MSBuild spawn persistent node processes that keep
+# Start-Process -Wait from returning even after conversion is done.
+Write-StepHeader "Step 2a: Build C#->Java CLI"
+$cliProjectDir = Split-Path -Parent $CliProject
+$cliDll = Join-Path $cliProjectDir "bin\Release\net10.0\CSharpToJava.CLI.dll"
+$buildCliArgs = @("build", $CliProject, "-c", "Release", "-p:NodeReuse=false")
+$buildCliExit = Invoke-Process -Executable "dotnet" -Arguments $buildCliArgs -LogFile "$DestDir\cli-build.log"
+if ($buildCliExit -ne 0) {
+    Write-Host "CLI build FAILED (exit $buildCliExit). See $DestDir\cli-build.log" -ForegroundColor Red
+    exit 1
+}
+if (-not (Test-Path $cliDll)) {
+    # Fallback to Debug configuration if Release DLL is not present
+    $cliDll = Join-Path $cliProjectDir "bin\Debug\net10.0\CSharpToJava.CLI.dll"
+}
+if (-not (Test-Path $cliDll)) {
+    Write-Host "Could not find CLI DLL at $cliDll" -ForegroundColor Red
+    exit 1
+}
+
+Write-StepHeader "Step 2b: C# -> Java conversion"
 $convertArgs = @(
-    "run", "--project", $CliProject, "--",
+    $cliDll,
     "convert-project", "-s", $SourceDir, "-d", $DestDir,
     "--extra-deps", $ExtraDeps
 )
@@ -81,7 +141,7 @@ Write-Host "Conversion completed successfully." -ForegroundColor Green
 
 # Step 3: Maven build
 Write-StepHeader "Step 3: Maven build"
-$buildArgs = @("-f", "$DestDir\pom.xml", "clean", "package", "-e")
+$buildArgs = @("-f", "$DestDir\pom.xml") + $mvnRepoArgs + @("clean", "package", "-e")
 $buildExit = Invoke-Process -Executable "mvn" -Arguments $buildArgs -LogFile $BuildLog
 
 # Step 4: report

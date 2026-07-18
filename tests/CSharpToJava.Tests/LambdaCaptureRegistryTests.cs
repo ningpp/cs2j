@@ -264,7 +264,7 @@ class T {
     void SomeMethod(ref int i) { }
 }");
         // The ref call outside the lambda should use _index[0], not raw 'index'
-        Assert.DoesNotContain("new IntHolder(index)", result);
-        Assert.Contains("new IntHolder(_index[0])", result);
+        Assert.DoesNotContain("new io.github.ningpp.compat.IntHolder(index)", result);
+        Assert.Contains("new io.github.ningpp.compat.IntHolder(_index[0])", result);
     }
 }

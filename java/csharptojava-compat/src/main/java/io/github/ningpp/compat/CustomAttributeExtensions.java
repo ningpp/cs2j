@@ -5,6 +5,10 @@ public final class CustomAttributeExtensions {
     }
 
     public static Iterable<Object> getCustomAttributes(MemberInfo member) {
-        return member == null ? java.util.List.of() : member.getCustomAttributes(true);
+        if (member == null) {
+            return java.util.List.of();
+        }
+        Object[] attrs = member.getCustomAttributes(true);
+        return attrs == null ? java.util.List.of() : java.util.Arrays.asList(attrs);
     }
 }

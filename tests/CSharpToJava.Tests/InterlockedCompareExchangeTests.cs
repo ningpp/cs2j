@@ -42,7 +42,7 @@ class Sample
         Assert.True(result.Success, "Conversion should succeed");
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ObjectHolder<Object> _s_LockRef = new ObjectHolder<>(s_Lock);", code);
+        Assert.Contains("io.github.ningpp.compat.ObjectHolder<Object> _s_LockRef = new io.github.ningpp.compat.ObjectHolder<>(s_Lock);", code);
         Assert.Contains("InterlockedHelper.compareExchange(_s_LockRef, o, null);", code);
         Assert.Contains("s_Lock = _s_LockRef.value;", code);
         Assert.DoesNotContain("AtomicInteger.compareExchange", code);

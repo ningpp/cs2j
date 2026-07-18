@@ -216,8 +216,45 @@
   ```java
   [ERROR] /D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/serialization/ReflectionXmlSerializationReader.java:[435,43] 类型dotnet.xml.serialization.ReflectionXmlSerializationReader.ObjectHolder不带有参数
   ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Serialization\ReflectionXmlSerializationReader.cs:2110`（嵌套非泛型类 `internal class ObjectHolder { public object Object; }`）与多处 `out object`/`out string` 参数
+- **根因分类**: Transformer / 名称冲突
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/HolderTypeResolver.cs`、`src/CSharpToJava.Core/Lowering/LowerRefOut.cs`
+- **分析**: `ReflectionXmlSerializationReader` 内部定义了非泛型嵌套类 `ObjectHolder`。转换器为 `out` 参数生成的 compat `ObjectHolder<T>` 引用若使用简单名 `ObjectHolder<T>`，会与嵌套类冲突；即使使用全限定名 `io.github.ningpp.compat.ObjectHolder<T>`，配合 `import io.github.ningpp.compat.*;` 的通配导入，Java 仍会把简单名解析到嵌套类，导致泛型参数报错。`HolderTypeResolver` 已统一生成全限定 Holder 类型（参数类型与 `new` 表达式均使用 `io.github.ningpp.compat.ObjectHolder<...>`），从而避开嵌套类冲突。
+- **状态**: ✅ Fixed
+
+## Iteration 11 — ICustomAttributeProvider 未映射
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/serialization/XmlAttributes.java:[52,26]`
+- **出错信息**: `找不到符号  符号: 类 ICustomAttributeProvider`
+- **代码片段** (`XmlAttributes.java`):
+  ```java
+  public XmlAttributes(ICustomAttributeProvider provider) {
+      Object[] attrs = provider.getCustomAttributes(false);
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Serialization\XmlAttributes.cs:100`（`public XmlAttributes(ICustomAttributeProvider provider)`）
+- **根因分类**: TypeMapping 缺失 / Compat 库缺失
+- **涉及组件**: `config/TypeMappings.json`、`java/csharptojava-compat/.../ICustomAttributeProvider.java`
+- **分析**: C# `System.Reflection.ICustomAttributeProvider` 没有类型映射，也没有对应的 Java compat 类型。生成的 Java 代码保留 `ICustomAttributeProvider` 简单名但无 import，导致编译失败。该接口在 csharpxml 中主要被 `XmlAttributes`、`SoapAttributes`、`XmlReflectionImporter`、`SoapReflectionImporter` 用作参数类型，调用方法包括 `GetCustomAttributes(bool)` 与 `GetCustomAttributes(Type, bool)`。
+- **修复**:
+  1. 在 compat 库新增 `io.github.ningpp.compat.ICustomAttributeProvider` 接口，提供 `getCustomAttributes(boolean)`、`getCustomAttributes(Class<?>, boolean)`、`isDefined(Class<?>, boolean)` 默认实现。
+  2. 让 `MemberInfo` 继承 `ICustomAttributeProvider`；将 `MemberInfo.getCustomAttributes(boolean)` 返回类型从 `List<Object>` 改为 `Object[]`，以匹配生成代码中的 `Object[] attrs = provider.getCustomAttributes(false)`。
+  3. 更新 `CustomAttributeExtensions` 将 `Object[]` 转为 `List<Object>`/Iterable。
+  4. 在 `config/TypeMappings.json` 中新增 `System.Reflection.ICustomAttributeProvider` → `ICustomAttributeProvider` 映射。
+  5. 添加单元测试 `ICustomAttributeProviderMappingTests.ICustomAttributeProvider_Parameter_MappedToCompatType` 验证参数类型、import 和方法调用均被正确转换。
+- **状态**: ✅ Fixed
+
+## Iteration 12 — 枚举减法操作数类型错误
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/xpath/XPathNavigator.java:[1472,45]`
+- **出错信息**: `二元运算符 '-' 的操作数类型错误`
+- **代码片段** (`XPathNavigator.java`):
+  ```java
+  public static boolean isText(XPathNodeType type) {
+      return Integer.compareUnsigned(type - XPathNodeType.Text, (XPathNodeType.Whitespace - XPathNodeType.Text)) <= 0;
+  }
+  ```
 - **对应 C# 文件**: 待定位
 - **根因分类**: 待分析
 - **涉及组件**: 待定位
-- **分析**: 待补充
+- **分析**: C# 中枚举相减得到底层整型；Java 枚举不支持 `-` 运算符。转换器未将 `XPathNodeType.Whitespace - XPathNodeType.Text` 改写为 `(int)XPathNodeType.Whitespace - (int)XPathNodeType.Text`。
 - **状态**: 🔄 In Progress

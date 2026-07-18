@@ -31,8 +31,8 @@ public class C
         var result = ConvertProcedural(csharp);
         Assert.True(result.Success, result.GeneratedCode);
         Assert.Contains("ProceduralLinq", result.GeneratedCode);
-        Assert.Contains("DoubleHolder _tRef = new DoubleHolder();", result.GeneratedCode);
-        Assert.DoesNotContain("DoubleHolder _tRef = new DoubleHolder(t);", result.GeneratedCode);
+        Assert.Contains("io.github.ningpp.compat.DoubleHolder _tRef = new io.github.ningpp.compat.DoubleHolder();", result.GeneratedCode);
+        Assert.DoesNotContain("io.github.ningpp.compat.DoubleHolder _tRef = new io.github.ningpp.compat.DoubleHolder(t);", result.GeneratedCode);
     }
 
     [Fact]

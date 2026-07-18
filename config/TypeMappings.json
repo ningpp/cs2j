@@ -3462,6 +3462,13 @@
             ]
         },
         {
+            "csharp": "System.Reflection.ICustomAttributeProvider",
+            "java": "ICustomAttributeProvider",
+            "imports": [
+                "io.github.ningpp.compat.ICustomAttributeProvider"
+            ]
+        },
+        {
             "csharp": "System.Reflection.MethodBase",
             "java": "MemberInfo",
             "imports": [

@@ -1,9 +1,8 @@
 package io.github.ningpp.compat;
 
 import java.lang.reflect.Parameter;
-import java.util.List;
 
-public interface MemberInfo {
+public interface MemberInfo extends ICustomAttributeProvider {
     String getName();
 
     Class<?> getDeclaringType();
@@ -12,7 +11,8 @@ public interface MemberInfo {
         return new Parameter[0];
     }
 
-    default List<Object> getCustomAttributes(boolean inherit) {
-        return List.of();
+    @Override
+    default Object[] getCustomAttributes(boolean inherit) {
+        return new Object[0];
     }
 }

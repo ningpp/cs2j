@@ -78,11 +78,11 @@ public partial class StatementTransformer
                 else
                 {
                     // Custom dictionary (e.g. LowLevelDictionary): use tryGetValue(key, ObjectHolder)
-                    context.AddImport("io.github.ningpp.compat.ObjectHolder");
+                    const string ObjectHolderFqn = "io.github.ningpp.compat.ObjectHolder";
                     var holderName = $"_{varName}Holder";
-                    var holderType = javaType == "var" ? "var" : $"ObjectHolder<{javaType}>";
+                    var holderType = javaType == "var" ? "var" : $"{ObjectHolderFqn}<{javaType}>";
                     var sb = new System.Text.StringBuilder();
-                    sb.AppendLine($"{holderType} {holderName} = new ObjectHolder<>();");
+                    sb.AppendLine($"{holderType} {holderName} = new {ObjectHolderFqn}<>();");
                     sb.Append($"{tvTarget}.tryGetValue({tvKey}, {holderName});");
                     sb.Append($" {javaType} {varName} = {holderName}.value;");
                     return new JavaStatementNode(sb.ToString());
@@ -111,11 +111,11 @@ public partial class StatementTransformer
                 else
                 {
                     // Custom dictionary (e.g. LowLevelDictionary): use tryGetValue(key, ObjectHolder)
-                    context.AddImport("io.github.ningpp.compat.ObjectHolder");
+                    const string ObjectHolderFqn = "io.github.ningpp.compat.ObjectHolder";
                     var outJavaType = outTypeInfo.Type != null ? context.MapType(outTypeInfo.Type) : "Object";
                     var holderName = context.GenerateSyntheticName("_outHolder");
                     var sb = new System.Text.StringBuilder();
-                    sb.AppendLine($"ObjectHolder<{outJavaType}> {holderName} = new ObjectHolder<>();");
+                    sb.AppendLine($"{ObjectHolderFqn}<{outJavaType}> {holderName} = new {ObjectHolderFqn}<>();");
                     sb.Append($"{tvTarget}.tryGetValue({tvKey}, {holderName});");
                     sb.Append($" {tvOut2} = {holderName}.value;");
                     return new JavaStatementNode(sb.ToString());

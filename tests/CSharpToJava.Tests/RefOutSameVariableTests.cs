@@ -123,16 +123,16 @@ class Curve
         var code = result.GeneratedCode ?? "";
 
         // The OUT holders for par0, par1, x should use parameter-less constructors
-        Assert.Contains("new DoubleHolder();", code);
-        Assert.Contains("new ObjectHolder<>();", code);
+        Assert.Contains("new io.github.ningpp.compat.DoubleHolder();", code);
+        Assert.Contains("new io.github.ningpp.compat.ObjectHolder<>();", code);
 
         // The REF holders for par0 and par1 must be initialized with current values
         // e.g. new DoubleHolder(par0) not new DoubleHolder()
-        Assert.Contains("new DoubleHolder(par0)", code);
-        Assert.Contains("new DoubleHolder(par1)", code);
+        Assert.Contains("new io.github.ningpp.compat.DoubleHolder(par0)", code);
+        Assert.Contains("new io.github.ningpp.compat.DoubleHolder(par1)", code);
 
         // The REF holder for x must be new ObjectHolder<>(x) not new ObjectHolder<>()
-        Assert.Contains("new ObjectHolder<>(x)", code);
+        Assert.Contains("new io.github.ningpp.compat.ObjectHolder<>(x)", code);
     }
 
     /// <summary>
@@ -163,8 +163,8 @@ class Curve
         Assert.True(result.Success, "Conversion should succeed");
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
-        Assert.DoesNotContain("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>();", code);
+        Assert.Contains("io.github.ningpp.compat.ObjectHolder<CSharpList<String>> _intersectionsRef = new io.github.ningpp.compat.ObjectHolder<>(intersections);", code);
+        Assert.DoesNotContain("io.github.ningpp.compat.ObjectHolder<CSharpList<String>> _intersectionsRef = new io.github.ningpp.compat.ObjectHolder<>();", code);
         Assert.Contains("intersections = _intersectionsRef.value;", code);
     }
 
@@ -196,8 +196,8 @@ class Curve
         Assert.True(result.Success, "Conversion should succeed");
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>(intersections);", code);
-        Assert.DoesNotContain("ObjectHolder<CSharpList<String>> _intersectionsRef = new ObjectHolder<>();", code);
+        Assert.Contains("io.github.ningpp.compat.ObjectHolder<CSharpList<String>> _intersectionsRef = new io.github.ningpp.compat.ObjectHolder<>(intersections);", code);
+        Assert.DoesNotContain("io.github.ningpp.compat.ObjectHolder<CSharpList<String>> _intersectionsRef = new io.github.ningpp.compat.ObjectHolder<>();", code);
         Assert.Contains("intersections = _intersectionsRef.value;", code);
     }
 
@@ -228,7 +228,7 @@ class C
         Assert.True(result.Success, "Conversion should succeed");
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("DoubleHolder _valueRef = new DoubleHolder(value);", code);
-        Assert.DoesNotContain("DoubleHolder _valueRef = new DoubleHolder();", code);
+        Assert.Contains("io.github.ningpp.compat.DoubleHolder _valueRef = new io.github.ningpp.compat.DoubleHolder(value);", code);
+        Assert.DoesNotContain("io.github.ningpp.compat.DoubleHolder _valueRef = new io.github.ningpp.compat.DoubleHolder();", code);
     }
 }
