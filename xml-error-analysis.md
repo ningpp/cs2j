@@ -125,3 +125,43 @@
 - **分析**: `System.Collections.Specialized.HybridDictionary` 没有类型映射，转换器保留了原始 C# 类型名，Java 端不存在 `HybridDictionary` 类，导致编译失败。
 - **修复**: 在 `config/TypeMappings.json` 中补充 `System.Collections.Specialized.HybridDictionary` → `CSharpHashtable` 映射，复用 compat 中已有的 `CSharpHashtable` 类型。
 - **状态**: ✅ Fixed
+
+## Iteration 6 — MethodBase 未映射
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/extensions/ExtensionMethods.java:[58,49]` 等
+- **出错信息**: `找不到符号`（`类 MethodBase`）
+- **代码片段** (`ExtensionMethods.java`):
+  ```java
+  private static MethodBase filterMethodBases(MethodBase[] methodBases, Class[] parameterTypes, String methodName) {
+      if (methodBases == null || StringHelper.isNullOrEmpty(methodName)) {
+          return null;
+      }
+      var matchedMethods = filterMethodBases_ProceduralLinq1(methodBases, methodName, methodBases);
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Extensions\ExtensionMethods.cs:31`
+- **根因分类**: TypeMapping 缺失 / Compat 库接口不完整
+- **涉及组件**: `config/TypeMappings.json`、`java/csharptojava-compat/.../MemberInfo.java`
+- **分析**: `System.Reflection.MethodBase` 没有类型映射，转换器保留了原始 C# 类型名；同时 compat 的 `MemberInfo` 接口缺少 `getParameters()` 默认方法，即使映射为 `MemberInfo` 后，`_linqitem.getParameters()` 仍无法通过编译。
+- **状态**: ✅ Fixed
+
+## Iteration 7 — xunit abstractions 未映射
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/modulecore/src/test/java/OLEDB/Test/ModuleCore/XmlInlineDataDiscoverer.java:[22,49]` 等
+- **出错信息**: `找不到符号`（`类 IDataDiscoverer`、`程序包 csharp.xunit.Abstractions 不存在`）
+- **代码片段** (`XmlInlineDataDiscoverer.java`):
+  ```java
+  public class XmlInlineDataDiscoverer implements IDataDiscoverer {
+      private static Class toRuntimeType(csharp.xunit.Abstractions.ITypeInfo typeInfo) {
+          var reflectionTypeInfo = (typeInfo instanceof IReflectionTypeInfo ? (IReflectionTypeInfo)(typeInfo) : null);
+  ```
+- **对应 C# 文件**: `d:\csharpxml\Tests\Common\ModuleCore\XunitRunner.cs:16`
+- **根因分类**: TypeMapping 缺失 / Compat 库缺失
+- **涉及组件**: `config/TypeMappings.json`、`java/csharptojava-compat/...`
+- **分析**: 
+  - 初步分析：`Xunit.Abstractions` 与 `Xunit.Sdk` 中的类型没有类型映射与 Java 实现，转换器按命名空间映射生成 `csharp.xunit.Abstractions.*` 后无法解析。
+  - 补充根因：xunit 2.9.3 中 `IDataDiscoverer` 实际位于 `Xunit.Sdk` 命名空间（程序集 `xunit.core`），而非 `Xunit.Abstractions`。原 TypeMappings 仅配置了 `Xunit.Abstractions.IDataDiscoverer`，导致实际编译解析出的 `Xunit.Sdk.IDataDiscoverer` 无法命中映射，生成的 `implements IDataDiscoverer` 缺少对应 import。其余类型（`ITypeInfo`、`IMethodInfo`、`IAttributeInfo`、`DataAttribute` 等）命名空间正确。
+- **修复**:
+  - 在 `config/TypeMappings.json` 中新增 `Xunit.Sdk.IDataDiscoverer → IDataDiscoverer` 映射，import 指向 `csharp.xunit.Sdk.IDataDiscoverer`。
+  - 在 `java/csharptojava-compat` 中新增 `csharp.xunit.Sdk.IDataDiscoverer` 接口（复用 `csharp.xunit.Abstractions` 中的参数类型）。
+  - 新增红测试 `ResolvedXunitCoreInterface_Implemented_MappedType_AddsImport`，使用真实 `xunit.core.dll` 引用复现 `Xunit.Sdk.IDataDiscoverer` 解析后 import 缺失问题。
+- **状态**: ✅ Fixed

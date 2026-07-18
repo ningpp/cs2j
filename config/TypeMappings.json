@@ -3455,6 +3455,13 @@
             ]
         },
         {
+            "csharp": "System.Reflection.MethodBase",
+            "java": "MemberInfo",
+            "imports": [
+                "io.github.ningpp.compat.MemberInfo"
+            ]
+        },
+        {
             "csharp": "System.Reflection.TypeInfo",
             "java": "TypeInfo",
             "imports": [
@@ -4212,6 +4219,69 @@
             "java": "Assert",
             "imports": [
                 "csharp.xunit.Assert"
+            ]
+        },
+        {
+            "csharp": "Xunit.Abstractions.IDataDiscoverer",
+            "java": "IDataDiscoverer",
+            "imports": [
+                "csharp.xunit.Abstractions.IDataDiscoverer"
+            ]
+        },
+        {
+            "csharp": "Xunit.Sdk.IDataDiscoverer",
+            "java": "IDataDiscoverer",
+            "imports": [
+                "csharp.xunit.Sdk.IDataDiscoverer"
+            ]
+        },
+        {
+            "csharp": "Xunit.Abstractions.ITypeInfo",
+            "java": "ITypeInfo",
+            "imports": [
+                "csharp.xunit.Abstractions.ITypeInfo"
+            ]
+        },
+        {
+            "csharp": "Xunit.Abstractions.IReflectionTypeInfo",
+            "java": "IReflectionTypeInfo",
+            "imports": [
+                "csharp.xunit.Abstractions.IReflectionTypeInfo"
+            ]
+        },
+        {
+            "csharp": "Xunit.Abstractions.IAssemblyInfo",
+            "java": "IAssemblyInfo",
+            "imports": [
+                "csharp.xunit.Abstractions.IAssemblyInfo"
+            ]
+        },
+        {
+            "csharp": "Xunit.Abstractions.IMethodInfo",
+            "java": "IMethodInfo",
+            "imports": [
+                "csharp.xunit.Abstractions.IMethodInfo"
+            ]
+        },
+        {
+            "csharp": "Xunit.Abstractions.IReflectionMethodInfo",
+            "java": "IReflectionMethodInfo",
+            "imports": [
+                "csharp.xunit.Abstractions.IReflectionMethodInfo"
+            ]
+        },
+        {
+            "csharp": "Xunit.Abstractions.IAttributeInfo",
+            "java": "IAttributeInfo",
+            "imports": [
+                "csharp.xunit.Abstractions.IAttributeInfo"
+            ]
+        },
+        {
+            "csharp": "Xunit.Sdk.DataAttribute",
+            "java": "DataAttribute",
+            "imports": [
+                "csharp.xunit.Sdk.DataAttribute"
             ]
         },
         {
