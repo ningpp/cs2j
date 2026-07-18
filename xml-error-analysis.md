@@ -165,3 +165,20 @@
   - 在 `java/csharptojava-compat` 中新增 `csharp.xunit.Sdk.IDataDiscoverer` 接口（复用 `csharp.xunit.Abstractions` 中的参数类型）。
   - 新增红测试 `ResolvedXunitCoreInterface_Implemented_MappedType_AddsImport`，使用真实 `xunit.core.dll` 引用复现 `Xunit.Sdk.IDataDiscoverer` 解析后 import 缺失问题。
 - **状态**: ✅ Fixed
+
+## Iteration 8 — StringCollection 未映射
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/serialization/ImportContext.java:[73,12]`
+- **出错信息**: `找不到符号`（`类 StringCollection`）
+- **代码片段** (`ImportContext.java`):
+  ```java
+  public StringCollection getWarnings() {
+      return getCache().getWarnings();
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Serialization\ImportContext.cs:13`
+- **根因分类**: TypeMapping 缺失
+- **涉及组件**: `config/TypeMappings.json`
+- **分析**: C# 中 `System.Collections.Specialized.StringCollection` 没有类型映射。转换器按命名空间映射生成 `System.Collections.Specialized.StringCollection` 后，Java 端不存在该类型，导致编译失败。
+- **修复**: 在 `config/TypeMappings.json` 中新增 `System.Collections.Specialized.StringCollection` → `CSharpList<String>` 映射，并添加单元测试 `StringCollectionTypeMappingTests.StringCollection_FieldAndReturn_MappedToCSharpListOfString` 验证转换后不再出现 `StringCollection`，且生成正确 import。
+- **状态**: ✅ Fixed

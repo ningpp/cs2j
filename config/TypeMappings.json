@@ -634,6 +634,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.Specialized.StringCollection",
+            "java": "CSharpList<String>",
+            "imports": [
+                "io.github.ningpp.compat.CSharpList"
+            ]
+        },
+        {
             "csharp": "System.Collections.Stack",
             "java": "CSharpObjStack",
             "imports": [
