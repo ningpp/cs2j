@@ -2464,10 +2464,17 @@ public class ClassTransformer : ITypeTransformer
             {
                 case FieldDeclarationSyntax fieldDecl:
                     var fieldTransformer = new Transformers.Member.FieldTransformer();
-                    foreach (var javaField in fieldTransformer.TransformAll(fieldDecl, context))
+                    foreach (var fieldNode in fieldTransformer.TransformAll(fieldDecl, context))
                     {
-                        existingJavaClass.Fields.Add(javaField);
-                        StructTransformer.DrainFieldPreStatementsPublic(javaField, existingJavaClass, context);
+                        if (fieldNode is JavaFieldDeclaration javaField)
+                        {
+                            existingJavaClass.Fields.Add(javaField);
+                            StructTransformer.DrainFieldPreStatementsPublic(javaField, existingJavaClass, context);
+                        }
+                        else if (fieldNode is JavaMethodDeclaration syntheticMethod)
+                        {
+                            AddMethodIfNotDuplicate(existingJavaClass, syntheticMethod);
+                        }
                     }
                     break;
 
@@ -2540,14 +2547,21 @@ public class ClassTransformer : ITypeTransformer
         {
             case FieldDeclarationSyntax fieldDecl:
                 var fieldTransformer = new Transformers.Member.FieldTransformer();
-                foreach (var javaField in fieldTransformer.TransformAll(fieldDecl, context))
+                foreach (var fieldNode in fieldTransformer.TransformAll(fieldDecl, context))
                 {
-                    javaClass.Fields.Add(javaField);
+                    if (fieldNode is JavaFieldDeclaration javaField)
+                    {
+                        javaClass.Fields.Add(javaField);
 
-                    // Drain any pre-statements produced during field initializer transformation
-                    // (e.g. from object initializers like `new Foo { X = 1 }`).
-                    // For static fields, emit them as a static initializer block.
-                    StructTransformer.DrainFieldPreStatementsPublic(javaField, javaClass, context);
+                        // Drain any pre-statements produced during field initializer transformation
+                        // (e.g. from object initializers like `new Foo { X = 1 }`).
+                        // For static fields, emit them as a static initializer block.
+                        StructTransformer.DrainFieldPreStatementsPublic(javaField, javaClass, context);
+                    }
+                    else if (fieldNode is JavaMethodDeclaration syntheticMethod)
+                    {
+                        AddMethodIfNotDuplicate(javaClass, syntheticMethod);
+                    }
                 }
                 break;
 

@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Collections.Generic;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
@@ -1012,8 +1013,26 @@ public class MethodTransformer : IMemberTransformer
         if (currentMethod == null)
             return;
 
-        var neededTypeParameters = RuntimeClassParameterHelper.GetRequiredTypeParameters(context.CurrentMethod, context)
-            .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod));
+        IEnumerable<ITypeParameterSymbol> neededTypeParameters = RuntimeClassParameterHelper.GetRequiredTypeParameters(context.CurrentMethod, context);
+
+        // Static methods cannot access instance fields (such as the runtime Class<?> tokens
+        // added for class-level type parameters). If the body needs a class-level type
+        // parameter, promote it to a Class<?> parameter on the static method itself.
+        if (currentMethod.IsStatic)
+        {
+            var containingType = currentMethod.ContainingType?.OriginalDefinition;
+            neededTypeParameters = neededTypeParameters.Where(tp =>
+                SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod)
+                || (tp.DeclaringMethod == null
+                    && containingType != null
+                    && SymbolEqualityComparer.Default.Equals(tp.DeclaringType, containingType)));
+        }
+        else
+        {
+            neededTypeParameters = neededTypeParameters.Where(tp =>
+                SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod));
+        }
+
         foreach (var typeParameterName in neededTypeParameters.Select(tp => tp.Name))
         {
             var parameterName = AllocateRuntimeClassParameterName(typeParameterName, javaMethod);

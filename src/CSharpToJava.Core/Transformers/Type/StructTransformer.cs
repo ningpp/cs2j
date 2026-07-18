@@ -660,19 +660,26 @@ public class StructTransformer : ITypeTransformer
         {
             case FieldDeclarationSyntax fieldDecl:
                 var fieldTransformer = new Transformers.Member.FieldTransformer();
-                foreach (var javaField in fieldTransformer.TransformAll(fieldDecl, context))
+                foreach (var fieldNode in fieldTransformer.TransformAll(fieldDecl, context))
                 {
-                    // struct 字段默认是 public（但不加 final，因为 struct 的属性可能有 setter）
-                    if (javaField.Modifiers == JavaModifiers.None)
+                    if (fieldNode is JavaFieldDeclaration javaField)
                     {
-                        javaField.Modifiers = JavaModifiers.Public;
-                    }
-                    javaClass.Fields.Add(javaField);
+                        // struct 字段默认是 public（但不加 final，因为 struct 的属性可能有 setter）
+                        if (javaField.Modifiers == JavaModifiers.None)
+                        {
+                            javaField.Modifiers = JavaModifiers.Public;
+                        }
+                        javaClass.Fields.Add(javaField);
 
-                    // Drain any pre-statements produced during field initializer transformation
-                    // (e.g. from object initializers like `new Foo { X = 1 }`).
-                    // For static fields, emit them as a static initializer block.
-                    DrainFieldPreStatements(javaField, javaClass, context);
+                        // Drain any pre-statements produced during field initializer transformation
+                        // (e.g. from object initializers like `new Foo { X = 1 }`).
+                        // For static fields, emit them as a static initializer block.
+                        DrainFieldPreStatements(javaField, javaClass, context);
+                    }
+                    else if (fieldNode is JavaMethodDeclaration syntheticMethod)
+                    {
+                        javaClass.Methods.Add(syntheticMethod);
+                    }
                 }
                 break;
 

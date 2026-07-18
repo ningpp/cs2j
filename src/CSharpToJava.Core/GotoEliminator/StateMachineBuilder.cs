@@ -118,7 +118,7 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
         return blocks;
     }
 
-    /// <summary>递归展开含 label/goto 的裸 BlockSyntax；不含的裸块作为单语句保留。</summary>
+    /// <summary>递归展开含 label/goto 的裸 BlockSyntax 与 label 后的块；不含的裸块作为单语句保留。</summary>
     private static List<StatementSyntax> Flatten(IEnumerable<StatementSyntax> statements)
     {
         var result = new List<StatementSyntax>();
@@ -133,12 +133,48 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
             {
                 result.AddRange(Flatten(unsafeStatement.Block.Statements));
             }
+            else if (s is LabeledStatementSyntax labeled)
+            {
+                // 若 label 后面紧跟一个含 label/goto 的块，把块内语句提到当前层级，
+                // label 挂在第一条语句上，使内部 label/goto 能被基本块分割识别。
+                if (labeled.Statement is BlockSyntax labeledBlock && ContainsLabelOrGoto(labeledBlock))
+                {
+                    AddFlattenedLabeled(result, labeled, Flatten(labeledBlock.Statements));
+                }
+                else if (labeled.Statement is UnsafeStatementSyntax labeledUnsafe && ContainsLabelOrGoto(labeledUnsafe.Block))
+                {
+                    AddFlattenedLabeled(result, labeled, Flatten(labeledUnsafe.Block.Statements));
+                }
+                else if (labeled.Statement is LabeledStatementSyntax nestedLabel)
+                {
+                    // 展平嵌套标签链（如 __section: Restart: { ... }），使每层标签都能被识别。
+                    var flat = Flatten(SyntaxFactory.SingletonList<StatementSyntax>(nestedLabel));
+                    AddFlattenedLabeled(result, labeled, flat);
+                }
+                else
+                {
+                    result.Add(s);
+                }
+            }
             else
             {
                 result.Add(s);
             }
         }
         return result;
+    }
+
+    private static void AddFlattenedLabeled(List<StatementSyntax> result, LabeledStatementSyntax labeled, List<StatementSyntax> flat)
+    {
+        if (flat.Count == 0)
+        {
+            result.Add(labeled);
+            return;
+        }
+
+        result.Add(labeled.WithStatement(flat[0]));
+        for (int i = 1; i < flat.Count; i++)
+            result.Add(flat[i]);
     }
 
     private static bool ContainsLabelOrGoto(SyntaxNode node)
@@ -479,6 +515,17 @@ internal sealed partial class StateMachineBuilder
         public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
         public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
 
+        public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        {
+            var visited = (SwitchStatementSyntax)base.VisitSwitchStatement(node)!;
+            if (!ContainsLabelOrGoto(visited)) return visited;
+            // 将含 label/goto 的 switch 降级为 goto 分发的语句块，使原本嵌套在 switch
+            // 节中的标签进入外层作用域，可被基本块分割识别。自闭合性不是必要条件：
+            // switch 节中的 break 会被重写到退出标签，跨越 switch 边界的 goto 仍保留，
+            // 后续由外层状态机统一处理。
+            return LowerSwitchToBlock(visited);
+        }
+
         public override SyntaxNode? VisitBlock(BlockSyntax node)
         {
             var visited = (BlockSyntax)base.VisitBlock(node)!;
@@ -509,6 +556,105 @@ internal sealed partial class StateMachineBuilder
             catch (GotoEliminatorException)
             {
                 return visited;
+            }
+        }
+
+        /// <summary>把含 label/goto 的 switch 降为由 goto 分发的语句块，
+        /// 使原本嵌套在 switch 节中的 label 进入外层基本块，可被状态机处理。</summary>
+        private BlockSyntax LowerSwitchToBlock(SwitchStatementSyntax switchStatement)
+        {
+            var exitLabel = NextName("__cs2jSwitchExit");
+            var sectionLabels = new List<string>();
+            var dispatcherSections = new List<SwitchSectionSyntax>();
+            var sectionBodies = new List<StatementSyntax>();
+
+            foreach (var section in switchStatement.Sections)
+            {
+                var secLabel = NextName("__cs2jSwitchSection");
+                sectionLabels.Add(secLabel);
+                dispatcherSections.Add(SyntaxFactory.SwitchSection(
+                    section.Labels,
+                    SyntaxFactory.SingletonList<StatementSyntax>(
+                        SyntaxFactory.GotoStatement(SyntaxKind.GotoStatement, SyntaxFactory.IdentifierName(secLabel)))));
+
+                var breakRewriter = new BreakToExitRewriter(exitLabel);
+                var rewritten = section.Statements.Select(s => (StatementSyntax)breakRewriter.Visit(s)!).ToList();
+                var body = rewritten.Count == 1 ? rewritten[0] : SyntaxFactory.Block(rewritten);
+                sectionBodies.Add(SyntaxFactory.LabeledStatement(SyntaxFactory.Identifier(secLabel), body));
+            }
+
+            var stmts = new List<StatementSyntax>
+            {
+                SyntaxFactory.SwitchStatement(switchStatement.Expression, SyntaxFactory.List(dispatcherSections)),
+                SyntaxFactory.GotoStatement(SyntaxKind.GotoStatement, SyntaxFactory.IdentifierName(exitLabel)),
+            };
+            stmts.AddRange(sectionBodies);
+            stmts.Add(SyntaxFactory.LabeledStatement(SyntaxFactory.Identifier(exitLabel), SyntaxFactory.EmptyStatement()));
+
+            Changed = true;
+            return SyntaxFactory.Block(stmts).WithTriviaFrom(switchStatement);
+        }
+
+        private sealed class BreakToExitRewriter : CSharpSyntaxRewriter
+        {
+            private readonly string _exitLabel;
+            private int _depth;
+            internal BreakToExitRewriter(string exitLabel) => _exitLabel = exitLabel;
+
+            public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
+            public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
+            public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
+            public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
+
+            public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
+            {
+                _depth++;
+                var result = base.VisitForStatement(node);
+                _depth--;
+                return result;
+            }
+
+            public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+            {
+                _depth++;
+                var result = base.VisitForEachStatement(node);
+                _depth--;
+                return result;
+            }
+
+            public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
+            {
+                _depth++;
+                var result = base.VisitWhileStatement(node);
+                _depth--;
+                return result;
+            }
+
+            public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
+            {
+                _depth++;
+                var result = base.VisitDoStatement(node);
+                _depth--;
+                return result;
+            }
+
+            public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+            {
+                _depth++;
+                var result = base.VisitSwitchStatement(node);
+                _depth--;
+                return result;
+            }
+
+            public override SyntaxNode? VisitBreakStatement(BreakStatementSyntax node)
+            {
+                if (_depth == 0)
+                {
+                    return SyntaxFactory.GotoStatement(
+                        SyntaxKind.GotoStatement,
+                        SyntaxFactory.IdentifierName(_exitLabel)).WithTriviaFrom(node);
+                }
+                return base.VisitBreakStatement(node);
             }
         }
 

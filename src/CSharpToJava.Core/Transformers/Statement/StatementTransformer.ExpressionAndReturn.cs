@@ -23,31 +23,8 @@ public partial class StatementTransformer
         if (stmt.Expression is ConditionalAccessExpressionSyntax condAccess)
         {
             var objExpr = exprTransformer.Transform(condAccess.Expression, context);
-            string innerCall;
-            switch (condAccess.WhenNotNull)
-            {
-                case MemberBindingExpressionSyntax binding:
-                    innerCall = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(binding.Name.Identifier.Text)};";
-                    break;
-                case InvocationExpressionSyntax invocation when invocation.Expression is MemberBindingExpressionSyntax invokeBinding:
-                    var methodName = ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text);
-                    // Delegate .Invoke() → SAM method: Invoke is not a valid Java method
-                    // on functional interfaces. Map to run/accept/get/apply based on usage.
-                    if (methodName == "Invoke")
-                    {
-                        int paramCount = invocation.ArgumentList.Arguments.Count;
-                        methodName = Transformers.Type.DelegateTransformer.InferSamMethodName(
-                            returnsVoid: true, paramCount); // statement context is always void
-                    }
-                    var args = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => exprTransformer.Transform(a.Expression, context)));
-                    innerCall = $"{objExpr}.{methodName}({args});";
-                    break;
-                default:
-                    // General case: ?.a.b(...) — recursively substitute the member binding with objExpr
-                    innerCall = exprTransformer.TransformWhenNotNull(condAccess.WhenNotNull, objExpr, context) + ";";
-                    break;
-            }
-            return new JavaStatementNode($"if ({objExpr} != null) {{ {innerCall} }}");
+            var innerCall = TransformConditionalAccessStatement(condAccess, objExpr, context);
+            return new JavaStatementNode(innerCall);
         }
 
         // Special case: dict.TryGetValue(key, out var v) as a standalone statement.
@@ -366,6 +343,48 @@ public partial class StatementTransformer
         }
 
         return new JavaStatementNode(expr + ";");
+    }
+
+    /// <summary>
+    /// Transforms a C# conditional access expression used as a statement into a Java
+    /// <c>if (x != null) { ... }</c> chain. Nested conditional accesses become nested
+    /// <c>if</c> statements so that the generated code is a valid Java statement.
+    /// </summary>
+    private static string TransformConditionalAccessStatement(
+        ConditionalAccessExpressionSyntax condAccess,
+        string objExpr,
+        ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        string innerCall;
+        switch (condAccess.WhenNotNull)
+        {
+            case MemberBindingExpressionSyntax binding:
+                innerCall = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(binding.Name.Identifier.Text)};";
+                break;
+            case InvocationExpressionSyntax invocation when invocation.Expression is MemberBindingExpressionSyntax invokeBinding:
+                var methodName = ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text);
+                // Delegate .Invoke() → SAM method: Invoke is not a valid Java method
+                // on functional interfaces. Map to run/accept/get/apply based on usage.
+                if (methodName == "Invoke")
+                {
+                    int paramCount = invocation.ArgumentList.Arguments.Count;
+                    methodName = Transformers.Type.DelegateTransformer.InferSamMethodName(
+                        returnsVoid: true, paramCount); // statement context is always void
+                }
+                var args = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => exprTransformer.Transform(a.Expression, context)));
+                innerCall = $"{objExpr}.{methodName}({args});";
+                break;
+            case ConditionalAccessExpressionSyntax nestedCondAccess:
+                var nestedObjExpr = exprTransformer.TransformWhenNotNull(nestedCondAccess.Expression, objExpr, context);
+                innerCall = TransformConditionalAccessStatement(nestedCondAccess, nestedObjExpr, context);
+                break;
+            default:
+                // General case: ?.a.b(...) — recursively substitute the member binding with objExpr
+                innerCall = exprTransformer.TransformWhenNotNull(condAccess.WhenNotNull, objExpr, context) + ";";
+                break;
+        }
+        return $"if ({objExpr} != null) {{ {innerCall} }}";
     }
 
     private static bool IsBareReadExpression(string expr)

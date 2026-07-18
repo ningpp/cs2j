@@ -186,4 +186,31 @@ namespace Microsoft.Msagl.UnitTests.Constraints {
         Assert.Contains("import io.github.ningpp.compat.RegexOptions;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet.system.Text.RegularExpressions.RegexOptions", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ProjectCompareOptionsStaticMember_UsesCompatImportOnly()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "CompareOptionsUsage.cs",
+                Content = @"
+using System.Globalization;
+
+internal class CompareOptionsUsage {
+    private static CompareInfo s_compareInfo = CultureInfo.InvariantCulture.CompareInfo;
+    public static int FindOrdinal(string s1, string s2) {
+        return s_compareInfo.IndexOf(s1, s2, CompareOptions.Ordinal);
+    }
+}"
+            }
+        });
+
+        var result = Assert.Single(results, r => r.FileName == "CompareOptionsUsage.java");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("import io.github.ningpp.compat.CompareOptions;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Globalization.CompareOptions", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

@@ -23,15 +23,18 @@ public class FieldTransformer : IMemberTransformer
             throw new ArgumentException($"Expected FieldDeclarationSyntax, got {node.GetType()}");
         }
 
-        // Use TransformAll and return first result (for interface compatibility)
+        // Use TransformAll and return a collection (for interface compatibility)
         var all = TransformAll(fieldDecl, context).ToList();
-        return all.Count > 0 ? all[0] : throw new InvalidOperationException("Field declaration has no variables");
+        return new JavaMemberCollection(all);
     }
 
     /// <summary>
-    /// Transforms all variables in a field declaration (handles multi-variable declarations like: int x, y, z;)
+    /// Transforms all variables in a field declaration (handles multi-variable declarations like: int x, y, z;).
+    /// Yields both <see cref="JavaFieldDeclaration"/> nodes and, for static generic fields whose type
+    /// references the enclosing class's type parameters, <see cref="JavaMethodDeclaration"/> accessor
+    /// methods that replace the inexpressible Java static field.
     /// </summary>
-    public IEnumerable<JavaFieldDeclaration> TransformAll(FieldDeclarationSyntax fieldDecl, ConversionContext context)
+    public IEnumerable<JavaSyntaxNode> TransformAll(FieldDeclarationSyntax fieldDecl, ConversionContext context)
     {
         var typeInfo = context.GetTypeInfo(fieldDecl.Declaration.Type);
         var fieldTypeSymbol = typeInfo.Type;
@@ -98,8 +101,30 @@ public class FieldTransformer : IMemberTransformer
         // so we can warn when a subsequent initializer cross-references a prior variable.
         var declaredNames = new HashSet<string>();
 
+        // Static fields in generic classes whose type references the class's own type parameters
+        // cannot be expressed in Java (static members may not reference enclosing type parameters).
+        // Convert them to generic static methods that take the runtime Class<?> tokens.
+        bool convertStaticGenericFieldToMethod = ShouldConvertStaticFieldToGenericMethod(
+            fieldDecl, fieldTypeSymbol, context, out var referencedClassTypeParameters);
+
         foreach (var variable in fieldDecl.Declaration.Variables)
         {
+            if (convertStaticGenericFieldToMethod && variable.Initializer != null)
+            {
+                var syntheticMethod = BuildStaticGenericFieldAccessorMethod(
+                    variable,
+                    javaType,
+                    modifiers,
+                    referencedClassTypeParameters,
+                    sharedComment,
+                    context);
+                if (syntheticMethod != null)
+                {
+                    yield return syntheticMethod;
+                }
+                continue;
+            }
+
             var javaField = new JavaFieldDeclaration
             {
                 Type = javaType,
@@ -328,5 +353,129 @@ public class FieldTransformer : IMemberTransformer
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Determines whether a static field in a generic class must be converted to a
+    /// generic static method because its type references one of the enclosing class's
+    /// type parameters (Java forbids static members from referencing enclosing type params).
+    /// </summary>
+    private static bool ShouldConvertStaticFieldToGenericMethod(
+        FieldDeclarationSyntax fieldDecl,
+        ITypeSymbol? fieldTypeSymbol,
+        ConversionContext context,
+        out List<ITypeParameterSymbol> referencedClassTypeParameters)
+    {
+        referencedClassTypeParameters = new List<ITypeParameterSymbol>();
+
+        if (!fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            return false;
+
+        var enclosingType = context.CurrentEnclosingRoslynType;
+        if (enclosingType == null || enclosingType.TypeParameters.Length == 0)
+            return false;
+
+        referencedClassTypeParameters = CollectReferencedClassTypeParameters(
+            fieldTypeSymbol, enclosingType);
+        return referencedClassTypeParameters.Count > 0;
+    }
+
+    /// <summary>
+    /// Collects the enclosing class's type parameters that are referenced by the given type,
+    /// preserving the class's type parameter declaration order.
+    /// </summary>
+    private static List<ITypeParameterSymbol> CollectReferencedClassTypeParameters(
+        ITypeSymbol? typeSymbol,
+        INamedTypeSymbol enclosingType)
+    {
+        var referenced = new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+
+        Visit(typeSymbol);
+
+        return enclosingType.TypeParameters
+            .Where(tp => referenced.Contains(tp))
+            .ToList();
+
+        void Visit(ITypeSymbol? type)
+        {
+            if (type == null)
+                return;
+
+            if (type is ITypeParameterSymbol tp
+                && SymbolEqualityComparer.Default.Equals(tp.DeclaringType, enclosingType))
+            {
+                referenced.Add(tp);
+                return;
+            }
+
+            if (type is INamedTypeSymbol named)
+            {
+                foreach (var arg in named.TypeArguments)
+                    Visit(arg);
+            }
+            else if (type is IArrayTypeSymbol array)
+            {
+                Visit(array.ElementType);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Builds a generic static accessor method that replaces a static field whose type
+    /// references the enclosing class's type parameters.
+    /// </summary>
+    private static JavaMethodDeclaration? BuildStaticGenericFieldAccessorMethod(
+        VariableDeclaratorSyntax variable,
+        string fieldJavaType,
+        JavaModifiers fieldModifiers,
+        List<ITypeParameterSymbol> classTypeParameters,
+        string? leadingComment,
+        ConversionContext context)
+    {
+        if (variable.Initializer == null)
+            return null;
+
+        var previousStaticContext = context.IsInStaticMember;
+        context.IsInStaticMember = true;
+
+        try
+        {
+            var initializer = Transformers.Expression.ExpressionTransformerFacade.Instance
+                .Transform(variable.Initializer.Value, context);
+
+            // Drain any pre-statements produced by the initializer (e.g. object initializers)
+            // so they become part of the method body rather than a static initializer block.
+            var bodyBuilder = new System.Text.StringBuilder();
+            if (context.HasPendingPreStatements)
+            {
+                foreach (var preStmt in context.DrainPreStatements())
+                {
+                    bodyBuilder.AppendLine(preStmt.TrimEnd().TrimEnd(';') + ";");
+                }
+            }
+            bodyBuilder.Append("return ").Append(initializer).Append(';');
+
+            var method = new JavaMethodDeclaration
+            {
+                Modifiers = fieldModifiers & ~(JavaModifiers.Final | JavaModifiers.Volatile | JavaModifiers.Transient),
+                ReturnType = fieldJavaType,
+                Name = ConversionContext.EscapeJavaKeyword(variable.Identifier.Text),
+                Body = bodyBuilder.ToString(),
+                LeadingComment = leadingComment
+            };
+
+            foreach (var typeParameter in classTypeParameters)
+            {
+                method.TypeParameters.Add(new JavaTypeParameter(typeParameter.Name));
+                var paramName = Transformers.Type.ClassTransformer.RuntimeClassParameterName(typeParameter.Name);
+                method.Parameters.Add(new JavaParameter("Class<?>", paramName));
+            }
+
+            return method;
+        }
+        finally
+        {
+            context.IsInStaticMember = previousStaticContext;
+        }
     }
 }

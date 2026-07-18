@@ -160,6 +160,8 @@ public class SystemUriPack : ICompatibilityPack
 
     public bool IsApplicable(CompatibilityPackContext context)
     {
-        return context.ReferencesType("dotnet.uri");
+        // The TypeMapping for System.Uri emits imports under the dotnet.system package
+        // (e.g., dotnet.system.Uri), so detect that package rather than the legacy dotnet.uri.
+        return context.ReferencesType("dotnet.system.Uri");
     }
 }

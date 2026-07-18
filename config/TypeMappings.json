@@ -4018,6 +4018,20 @@
             ]
         },
         {
+            "csharp": "System.Globalization.CompareOptions",
+            "java": "CompareOptions",
+            "imports": [
+                "io.github.ningpp.compat.CompareOptions"
+            ]
+        },
+        {
+            "csharp": "CompareOptions",
+            "java": "CompareOptions",
+            "imports": [
+                "io.github.ningpp.compat.CompareOptions"
+            ]
+        },
+        {
             "csharp": "System.Globalization.CultureTypes",
             "java": "CultureTypes",
             "imports": [
@@ -7271,6 +7285,10 @@
         },
         {
             "csharp": "System.Threading",
+            "java": "io.github.ningpp.compat"
+        },
+        {
+            "csharp": "System.Reflection.Emit",
             "java": "io.github.ningpp.compat"
         }
     ]

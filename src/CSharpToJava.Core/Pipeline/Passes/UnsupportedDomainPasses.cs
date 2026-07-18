@@ -230,7 +230,7 @@ internal static class NativeInteropAnalyzer
         foreach (var attribute in root.DescendantNodes().OfType<AttributeSyntax>())
         {
             var attributeName = BoundaryAnalysisHelpers.NormalizeAttributeName(attribute.Name.ToString());
-            if (attributeName is "DllImport" or "LibraryImport" or "ComImport" or "MarshalAs" or "StructLayout" or "FieldOffset" or "UnmanagedCallersOnly" or "GeneratedComInterface")
+            if (attributeName is "DllImport" or "LibraryImport" or "ComImport" or "MarshalAs" or "UnmanagedCallersOnly" or "GeneratedComInterface")
             {
                 collector.Add(
                     code: "CS2J3201",

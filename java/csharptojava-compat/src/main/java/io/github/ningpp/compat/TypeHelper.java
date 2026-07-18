@@ -101,4 +101,28 @@ public class TypeHelper {
             return null;
         }
     }
+
+    /**
+     * Mirrors C# Type.FullName for java.lang.Class instances.
+     * Java has no direct equivalent: getCanonicalName() returns null for anonymous/local
+     * classes and uses dotted names for nested classes, while getName() uses '$' separators.
+     * C# FullName uses dotted names for nested types and "[]" suffixes for arrays.
+     */
+    public static String getFullName(Class<?> clazz) {
+        if (clazz == null) {
+            return null;
+        }
+        if (clazz.isArray()) {
+            return getFullName(clazz.getComponentType()) + "[]";
+        }
+        if (clazz.isPrimitive()) {
+            return clazz.getName();
+        }
+        String canonical = clazz.getCanonicalName();
+        if (canonical != null) {
+            return canonical;
+        }
+        // Fallback for anonymous/local classes: use getName() (contains '$' and digits).
+        return clazz.getName();
+    }
 }

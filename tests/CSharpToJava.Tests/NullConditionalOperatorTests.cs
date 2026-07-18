@@ -260,6 +260,37 @@ class TestClass
         Assert.DoesNotContain("getToString", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void NullConditional_ChainedInvocationAsStatement_GeneratesNestedIf()
+    {
+        var result = Convert("""
+using System;
+
+class TestClass
+{
+    public void M(Member member, object value, string name)
+    {
+        member?.Source?.Invoke(value);
+        member?.ChoiceSource?.Invoke(name);
+        member?.CheckSpecifiedSource?.Invoke(true);
+    }
+}
+
+class Member
+{
+    public Action<object> Source;
+    public Action<string> ChoiceSource;
+    public Action<bool> CheckSpecifiedSource;
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("if (member != null)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("? member.getSource().accept(value) : null", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("? member.getChoiceSource().accept(name) : null", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("? member.getCheckSpecifiedSource().accept(true) : null", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -1024,6 +1024,106 @@ public partial class GotoEliminatorTests
         Assert.False(second.Changed);
     }
 
+    [Fact]
+    public void Eliminate_GotoLabelInsideSwitchSection_RemovesGotoAndLabels()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+        {
+            int x = 2;
+            switch (x)
+            {
+                case 1:
+                    goto Label;
+                default:
+                    if (x == 2) goto Label;
+                    return 0;
+                Label:
+                    return 1;
+            }
+        }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        Assert.True(result.Changed);
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(1, CompileAndInvokeInt32(result.OutputCode, typeName: "C", methodName: "M"));
+    }
+
+    [Fact]
+    public void Eliminate_GotoFromInnerSwitchToOuterSwitchLabel_RemovesGotoAndLabels()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int y = 1;
+                switch (0)
+                {
+                    default:
+                    Restart:
+                        switch (y)
+                        {
+                            case 1:
+                                y = 2;
+                                goto Restart;
+                            default:
+                                return y;
+                        }
+                }
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        Assert.True(result.Changed);
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_GotoFromSwitchToOutsideLabelAndInnerSwitchLabel_RemovesGotoAndLabels()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int x = 0;
+                switch (x)
+                {
+                    case 0:
+                        goto ReadData;
+                    default:
+                    SwitchAgain:
+                        switch (x)
+                        {
+                            case 1:
+                                x = 2;
+                                goto SwitchAgain;
+                            default:
+                                return x;
+                        }
+                }
+            ReadData:
+                return 99;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        Assert.True(result.Changed);
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(99, CompileAndInvokeInt32(result.OutputCode));
+    }
+
     // ---- Task 10: CLI verb eliminate-goto ----
 
     [Fact]

@@ -247,6 +247,15 @@ public class ExpressionTransformerFacade : IExpressionTransformer
             case MemberAccessExpressionSyntax memberAccess:
                 var accessTarget = TransformWhenNotNull(memberAccess.Expression, objExpr, context);
                 var rawName = memberAccess.Name.Identifier.Text;
+
+                // C# Type.FullName → TypeHelper.getFullName(type) because java.lang.Class
+                // has no direct equivalent that matches C# semantics for arrays/primitives.
+                if (rawName == "FullName" && IsSystemTypeExpression(memberAccess.Expression, context))
+                {
+                    context.AddImport("io.github.ningpp.compat.TypeHelper");
+                    return $"TypeHelper.getFullName({accessTarget})";
+                }
+
                 // C# PascalCase methods → Java camelCase: when used as an invocation
                 // (parent is InvocationExpressionSyntax), lowercase the first letter.
                 if (memberAccess.Parent is InvocationExpressionSyntax && rawName.Length > 0)
@@ -358,5 +367,25 @@ public class ExpressionTransformerFacade : IExpressionTransformer
         };
 
         return ConversionContext.EscapeJavaKeyword(result);
+    }
+
+    /// <summary>
+    /// Returns true when the expression's type is System.Type (or a subtype such as TypeInfo),
+    /// which in Java is represented by java.lang.Class.
+    /// </summary>
+    private static bool IsSystemTypeExpression(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return false;
+
+        var typeInfo = context.GetTypeInfo(expression);
+        var type = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (type == null)
+            return false;
+
+        var display = type.ToDisplayString();
+        return display == "System.Type"
+            || display == "System.Reflection.TypeInfo"
+            || type.BaseType?.ToDisplayString() == "System.Type";
     }
 }

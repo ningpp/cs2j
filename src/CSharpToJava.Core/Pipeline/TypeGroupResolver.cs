@@ -289,11 +289,10 @@ public static class TypeGroupResolver
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
 
-                    // Standard JDK wildcard imports
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.function", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
+                    // Standard JDK wildcard imports; java.util.function types are imported
+                    // explicitly so that project types with the same simple name (e.g.
+                    // MS.Internal.Xml.XPath.Function) do not shadow java.util.function.Function.
+                    AddStandardJdkImports(javaCompilation);
 
                     // Imports collected during conversion (type-specific)
                     foreach (var imp in context.ImportedTypes)
@@ -526,6 +525,22 @@ public static class TypeGroupResolver
         return results;
     }
 
+    private static void AddStandardJdkImports(JavaCompilationUnit javaCompilation)
+    {
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util", isWildcard: true));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.Function"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.BiFunction"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.Consumer"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.BiConsumer"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.Predicate"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.BiPredicate"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.Supplier"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.UnaryOperator"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.function.BinaryOperator"));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
+        javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
+    }
+
     /// <summary>
     /// Converts an enum type group using EnumTransformer.
     /// </summary>
@@ -558,10 +573,7 @@ public static class TypeGroupResolver
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
 
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.function", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
+                    AddStandardJdkImports(javaCompilation);
 
                     foreach (var imp in context.ImportedTypes)
                     {
@@ -636,10 +648,7 @@ public static class TypeGroupResolver
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
 
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.function", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.util.stream", isWildcard: true));
-                    javaCompilation.Imports.Add(new Java.JavaImport("java.io", isWildcard: true));
+                    AddStandardJdkImports(javaCompilation);
 
                     foreach (var imp in context.ImportedTypes)
                     {

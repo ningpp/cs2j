@@ -257,7 +257,7 @@ public class PlanningTests
             {
                 Success = true,
                 FileName = "Sample.java",
-                GeneratedCode = "import dotnet.uri.Uri;\npublic class Sample {}",
+                GeneratedCode = "import dotnet.system.Uri;\npublic class Sample {}",
             }
         ],
         "io.github.ningpp.compat");
