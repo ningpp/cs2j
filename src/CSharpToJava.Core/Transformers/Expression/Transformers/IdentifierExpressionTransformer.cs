@@ -941,6 +941,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         if (context.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
+            // .NET exception members without direct Java equivalents → ExceptionCompat helpers
+            bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
+            if (!isLhsOfAssignment
+                && IsOrInheritsFromException(receiverType)
+                && prop.Name is "InnerException" or "Source")
+            {
+                context.AddImport("io.github.ningpp.compat.ExceptionCompat");
+                var helperName = prop.Name == "InnerException" ? "getInnerException" : "getSource";
+                return $"ExceptionCompat.{helperName}({target})";
+            }
+
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.getCurrent()";
 
@@ -1080,7 +1091,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{propertyTarget}.length()";
 
             // Fix 2: no mapping configured — generate getXxx() for read accesses
-            bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax assign && assign.Left == node;
             if (!isLhsOfAssignment)
             {
                 // GCHandle.IsAllocated → GCHandle.isAllocated(receiver)
@@ -1887,6 +1897,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         return mapped.Contains('.') ? mapped : $"{propertyTarget}.{mapped}()";
                     }
 
+                    if (memberName == "FullName" && IsSystemType(foundProp.ContainingType))
+                    {
+                        context.AddImport("io.github.ningpp.compat.TypeHelper");
+                        return $"TypeHelper.getFullName({propertyTarget})";
+                    }
+
                     if (memberName == "Position" && IsSystemIoStreamType(foundProp.ContainingType))
                         return $"{propertyTarget}.getPosition()";
                     if (memberName == "Length" && IsSystemIoStreamType(foundProp.ContainingType))
@@ -1930,7 +1946,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsSystemStringType(ITypeSymbol? type)
         => type?.SpecialType == SpecialType.System_String
-            || type?.ToDisplayString() is "string" or "System.String";
+        || type?.ToDisplayString() is "string" or "System.String";
+
+    private static bool IsSystemType(ITypeSymbol? type)
+    {
+        if (type == null) return false;
+        if (type.ToDisplayString() == "System.Type") return true;
+        for (var current = type.BaseType; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.Type") return true;
+        }
+        return false;
+    }
 
     private static bool IsSystemArrayReferenceType(ITypeSymbol? type)
         => type is not IArrayTypeSymbol
@@ -2558,5 +2585,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     {
         var display = type.ToDisplayString();
         return display.StartsWith("io.vavr.Tuple") && display.Contains("<");
+    }
+
+    /// <summary>
+    /// Returns true if the type is <see cref="System.Exception"/> or derives from it.
+    /// </summary>
+    private static bool IsOrInheritsFromException(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.Exception")
+                return true;
+        }
+        return false;
     }
 }
