@@ -355,6 +355,31 @@
 - **修复**: 在 `TypeMappingRegistry.MapMethod` 中增加对构造泛型基类型名称（去掉 arity 反引号）的兜底查找，并优先检查接口实现方法。更新 `DelegateInvokeMappingTests` 验证 `Action.Invoke → run`、`Action<T>.Invoke → accept`、`Func<T>.Invoke → apply`。
 - **状态**: ✅ Fixed
 
+## Iteration 19 — IEquatable<T> 与 object.Equals 方法名冲突
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/MS/Internal/Xml/Cache/XPathNodeInfoAtom.java:[195,16]`
+- **错误信息**: `名称冲突: MS.Internal.Xml.Cache.XPathNodeInfoAtom 中的 equalsTo(java.lang.Object) 和 io.github.ningpp.compat.IEquatable 中的 equalsTo(MS.Internal.Xml.Cache.XPathNodeInfoAtom) 具有相同疑符, 但两者均不覆盖对方`
+- **代码片段** (`XPathNodeInfoAtom.java`):
+  ```java
+  public boolean equalsTo(Object other) {
+      return equalsTo((other instanceof XPathNodeInfoAtom ? (XPathNodeInfoAtom)(other) : null));
+  }
+  public boolean equalsTo(XPathNodeInfoAtom other) {
+      ...
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Cache\XPathNodeInfoAtom.cs`
+  ```csharp
+  public override bool Equals(object other) => Equals(other as XPathNodeInfoAtom);
+  public bool Equals(XPathNodeInfoAtom other) { ... }
+  ```
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`、`src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
+- **分析**: 类同时实现 `IEquatable<T>` 并重写 `object.Equals(object)` 时，`MethodTransformer` 与 `InvocationExpressionTransformer` 只要发现类实现了 `IEquatable<T>`，就把所有名为 `Equals` 的方法/调用都映射为 `equalsTo`，导致 `Equals(object)` 被错误地改名为 `equalsTo(Object)`。Java 泛型擦除后 `equalsTo(Object)` 与 `IEquatable<T>.equalsTo(T)` 产生签名冲突。
+- **修复**: 在两个转换器的接口方法名映射逻辑中增加参数签名校验：仅当实际方法/调用的参数类型列表与接口方法完全一致时，才应用接口映射。`Equals(object)` 签名与 `IEquatable<T>.Equals(T)` 不匹配，因此保持 `equals(Object)`；`Equals(T)` 签名匹配，因此映射为 `equalsTo(T)`。
+- **红测试**: `IEquatableMappingTests.ClassImplementingIEquatable_WithEqualsObject_KeepsEqualsObject`
+- **状态**: ✅ Fixed
+
 ## Tooling — iterate-xml-fix.ps1 实时日志与错误处理
 - **问题**: 原脚本使用 `Start-Process` 并将 stdout/stderr 重定向到日志文件，导致终端无实时输出，无法观察转换/构建进度；`LASTEXITCODE` 捕获不可靠；Maven 警告被 PowerShell 误判为错误。
 - **修复**: 重构 `Invoke-Process` 函数，使用 `& $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile` 实现控制台实时输出与日志文件同时写入；在子脚本块内设置 `$ErrorActionPreference = "Continue"` 忽略非致命 stderr 警告；直接返回 `$LASTEXITCODE`。日志路径统一放到 `$PSScriptRoot` 避免目标目录权限问题。

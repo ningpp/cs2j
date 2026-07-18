@@ -55,6 +55,23 @@ public class Atom : IEquatable<Atom>
         Assert.DoesNotContain("a.equals(b)", result.GeneratedCode);
     }
 
+    [Fact]
+    public void ClassImplementingIEquatable_WithEqualsObject_KeepsEqualsObject()
+    {
+        var result = Convert(@"
+using System;
+public class Atom : IEquatable<Atom>
+{
+    public override bool Equals(object other) => Equals(other as Atom);
+    public bool Equals(Atom other) => true;
+}
+");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("public boolean equals(Object other)", result.GeneratedCode);
+        Assert.DoesNotContain("public boolean equalsTo(Object other)", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

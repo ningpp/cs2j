@@ -820,12 +820,16 @@ public class MethodTransformer : IMemberTransformer
                 return mappedName;
             }
 
-            // Also check all interfaces implemented by the containing type
+            // Also check all interfaces implemented by the containing type.
+            // Only apply an interface mapping when the method's parameter signature
+            // actually matches the interface member, so that an override of
+            // object.Equals(object) in a class that also implements IEquatable<T>
+            // is not incorrectly renamed to equalsTo.
             foreach (var iface in methodInfo.ContainingType.AllInterfaces)
             {
                 var ifaceType = iface.ConstructedFrom.ToDisplayString();
                 mappedName = context.TypeMappings.MapMethod(ifaceType, name);
-                if (!string.IsNullOrEmpty(mappedName))
+                if (!string.IsNullOrEmpty(mappedName) && MethodSignatureMatchesInterface(methodInfo, iface, name))
                     return mappedName;
             }
         }
@@ -842,6 +846,20 @@ public class MethodTransformer : IMemberTransformer
         var camelName = name.Length > 0 ? char.ToLower(name[0]) + name.Substring(1) : name;
         // Escape Java keywords (e.g. Assert → assert → assertValue)
         return ConversionContext.EscapeJavaKeyword(camelName);
+    }
+
+    private static bool MethodSignatureMatchesInterface(IMethodSymbol method, INamedTypeSymbol iface, string methodName)
+    {
+        var interfaceMethod = iface.GetMembers(methodName).OfType<IMethodSymbol>().FirstOrDefault();
+        if (interfaceMethod == null || method.Parameters.Length != interfaceMethod.Parameters.Length)
+            return false;
+
+        for (int i = 0; i < method.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(method.Parameters[i].Type, interfaceMethod.Parameters[i].Type))
+                return false;
+        }
+        return true;
     }
 
     private static bool IsEnumeratorMoveNextDeclaration(IMethodSymbol methodInfo)

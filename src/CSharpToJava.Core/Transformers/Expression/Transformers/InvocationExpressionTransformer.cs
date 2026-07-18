@@ -2416,10 +2416,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             // Also check interfaces implemented by the containing type. This handles
             // implicit interface implementations such as IEquatable<T>.Equals → equalsTo.
+            // Only apply the mapping when the invocation's resolved signature matches
+            // the interface member, so that calls to object.Equals(object) are not
+            // renamed to equalsTo.
             if (mapped == null && methodSymbol.ContainingType is INamedTypeSymbol containingType)
             {
                 foreach (var iface in containingType.AllInterfaces)
                 {
+                    if (!MethodSignatureMatchesInterface(methodSymbol, iface, originalMethodName))
+                        continue;
+
                     var ifaceTypeName = iface.ConstructedFrom.ToDisplayString();
                     mapped = context.TypeMappings.MapMethod(ifaceTypeName, originalMethodName, paramCount);
                     if (mapped != null) break;
@@ -8322,5 +8328,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return true;
         }
         return false;
+    }
+
+    private static bool MethodSignatureMatchesInterface(IMethodSymbol method, INamedTypeSymbol iface, string methodName)
+    {
+        var interfaceMethod = iface.GetMembers(methodName).OfType<IMethodSymbol>().FirstOrDefault();
+        if (interfaceMethod == null || method.Parameters.Length != interfaceMethod.Parameters.Length)
+            return false;
+
+        for (int i = 0; i < method.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(method.Parameters[i].Type, interfaceMethod.Parameters[i].Type))
+                return false;
+        }
+        return true;
     }
 }
