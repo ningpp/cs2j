@@ -140,7 +140,7 @@ class Sample {
     }
 
     [Fact]
-    public void XmlWriterCreate_WithStringWriter_WrapsArgumentAsPrintWriter()
+    public void XmlWriterCreate_WithStringWriter_WrapsArgumentAsCSharpTextWriter()
     {
         var result = Convert("""
 using System.IO;
@@ -159,7 +159,7 @@ class Sample {
         var code = result.GeneratedCode ?? "";
 
         Assert.Contains("StringWriter sw = new StringWriter()", code, StringComparison.Ordinal);
-        Assert.Contains("XmlWriter.create(new PrintWriter(sw))", code, StringComparison.Ordinal);
+        Assert.Contains("XmlWriter.create(new CSharpTextWriter(sw))", code, StringComparison.Ordinal);
         Assert.DoesNotContain("XmlWriter.create(sw)", code, StringComparison.Ordinal);
     }
 

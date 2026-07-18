@@ -182,3 +182,42 @@
 - **分析**: C# 中 `System.Collections.Specialized.StringCollection` 没有类型映射。转换器按命名空间映射生成 `System.Collections.Specialized.StringCollection` 后，Java 端不存在该类型，导致编译失败。
 - **修复**: 在 `config/TypeMappings.json` 中新增 `System.Collections.Specialized.StringCollection` → `CSharpList<String>` 映射，并添加单元测试 `StringCollectionTypeMappingTests.StringCollection_FieldAndReturn_MappedToCSharpListOfString` 验证转换后不再出现 `StringCollection`，且生成正确 import。
 - **状态**: ✅ Fixed
+
+## Iteration 9 — TextWriter/PrintWriter 无参构造器
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/modulecore/src/test/java/OLEDB/Test/ModuleCore/CLTMConsole.java:[23,22]`
+- **出错信息**: `对于PrintWriter(没有参数), 找不到合适的构造器`
+- **代码片段** (`CLTMConsole.java`):
+  ```java
+  public class CLTMConsole extends PrintWriter {
+      //Constructor
+  public CLTMConsole() {
+      }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\Tests\Common\ModuleCore\cltmconsole.cs:16-23`
+  ```csharp
+  public class CLTMConsole : TextWriter
+  {
+      public CLTMConsole()
+      {
+      }
+  ```
+- **根因分类**: TypeMapping / Compat 库缺失
+- **涉及组件**: `config/TypeMappings.json`、`java/csharptojava-compat/.../CSharpTextWriter.java`、`java/csharptojava-compat/.../StreamWriter.java`、`src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs`
+- **分析**: `System.IO.TextWriter` 在 `TypeMappings.json` 中被映射为 `java.io.PrintWriter`。C# 中 `CLTMConsole` 继承抽象类 `TextWriter` 并声明无参构造器；转换后 Java 代码 `extends PrintWriter` 且构造器为空，但 `PrintWriter` 没有无参构造器，导致编译失败。此外，`TextWriter.NewLine` 被转换为 `this.getNewLine()`，而 `PrintWriter` 也不存在该方法。
+- **修复**: 引入 compat 类 `CSharpTextWriter`（继承 `PrintWriter`、提供无参构造器及 `getNewLine`/`setNewLine`），将 `System.IO.TextWriter` 映射到 `CSharpTextWriter`；让 `StreamWriter` 继承 `CSharpTextWriter` 以保持多态赋值合法；修正 `StringWriter` 传向 `TextWriter` 参数时的 `new PrintWriter(...)` 包装为 `new CSharpTextWriter(...)`；添加 `TextWriterMappingTests.ClassExtendingTextWriter_WithParameterlessCtor_MapsToCSharpTextWriter` 红→绿测试。
+- **状态**: ✅ Fixed
+
+## Iteration 10 — ObjectHolder 内部类实例化参数错误
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/serialization/ReflectionXmlSerializationReader.java:[435,43]`
+- **出错信息**: `类型dotnet.xml.serialization.ReflectionXmlSerializationReader.ObjectHolder不带有参数`
+- **代码片段** (`ReflectionXmlSerializationReader.java`):
+  ```java
+  [ERROR] /D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/serialization/ReflectionXmlSerializationReader.java:[435,43] 类型dotnet.xml.serialization.ReflectionXmlSerializationReader.ObjectHolder不带有参数
+  ```
+- **对应 C# 文件**: 待定位
+- **根因分类**: 待分析
+- **涉及组件**: 待定位
+- **分析**: 待补充
+- **状态**: 🔄 In Progress

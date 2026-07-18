@@ -2797,9 +2797,9 @@
         },
         {
             "csharp": "System.IO.TextWriter",
-            "java": "PrintWriter",
+            "java": "CSharpTextWriter",
             "imports": [
-                "java.io.PrintWriter"
+                "io.github.ningpp.compat.CSharpTextWriter"
             ]
         },
         {

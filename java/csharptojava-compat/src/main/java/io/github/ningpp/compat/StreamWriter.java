@@ -4,14 +4,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 /** Replacement for System.IO.StreamWriter. */
-public class StreamWriter extends PrintWriter {
+public class StreamWriter extends CSharpTextWriter {
     private final StreamWrapper baseStream;
     private final Charset charset;
 

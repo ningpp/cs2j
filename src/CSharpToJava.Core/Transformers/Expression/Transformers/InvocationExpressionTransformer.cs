@@ -5354,10 +5354,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (receiverName is "XmlWriter" or "dotnet.xml.XmlWriter"
             && IsSystemIoStringWriter(argExpression, context)
-            && !IsAlreadyWrappedAs(args, "PrintWriter"))
+            && !IsAlreadyWrappedAs(args, "CSharpTextWriter"))
         {
-            context.AddImport("java.io.PrintWriter");
-            return $"new PrintWriter({args})";
+            context.AddImport("io.github.ningpp.compat.CSharpTextWriter");
+            return $"new CSharpTextWriter({args})";
         }
 
         return args;

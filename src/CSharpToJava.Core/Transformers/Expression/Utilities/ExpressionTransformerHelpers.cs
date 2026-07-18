@@ -147,11 +147,12 @@ public static class ExpressionTransformerHelpers
             return transformedExpression;
         }
 
-        // StringWriter passed to TextWriter/PrintWriter parameter: wrap in PrintWriter
+        // StringWriter passed to TextWriter parameter: wrap in CSharpTextWriter
         if (sourceType.ToDisplayString() == "System.IO.StringWriter"
             && targetType.ToDisplayString() == "System.IO.TextWriter")
         {
-            return $"new PrintWriter({transformedExpression})";
+            context.AddImport("io.github.ningpp.compat.CSharpTextWriter");
+            return $"new CSharpTextWriter({transformedExpression})";
         }
 
         if (sourceType.ToDisplayString() == "System.IO.StringReader"

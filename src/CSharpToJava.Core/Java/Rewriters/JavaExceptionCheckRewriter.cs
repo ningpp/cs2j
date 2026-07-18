@@ -229,6 +229,7 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
     private static readonly HashSet<string> AlwaysThrowsConstructors = new(StringComparer.Ordinal)
     {
         "PrintWriter",
+        "CSharpTextWriter",
         "FileInputStream",
         "FileOutputStream",
         "FileReader",
@@ -407,7 +408,7 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
         RegexOptions.Compiled);
 
     private static readonly Regex CheckedConstructorPattern = new(
-        @"new\s+(PrintWriter|FileInputStream|FileOutputStream|FileReader|FileWriter|RandomAccessFile|Scanner|Formatter)\s*\(",
+        @"new\s+(PrintWriter|CSharpTextWriter|FileInputStream|FileOutputStream|FileReader|FileWriter|RandomAccessFile|Scanner|Formatter)\s*\(",
         RegexOptions.Compiled);
 
     private static readonly Regex CheckedReflectionCallPattern = new(
