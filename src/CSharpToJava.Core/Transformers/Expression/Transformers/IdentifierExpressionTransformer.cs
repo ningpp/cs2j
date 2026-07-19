@@ -1164,10 +1164,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return resolved;
         }
 
-        // Only fires for instance access (target starts with lowercase).
+        // Only fires for instance access (target starts with lowercase or underscore).
         // Guard: if either staticTypeTarget or instanceReceiverTarget is set, this is
         // a resolved receiver (static type or instance property), not a raw instance access.
-        if (target.Length > 0 && char.IsLower(target[0]) && receiverType != null
+        if (target.Length > 0 && (char.IsLower(target[0]) || target[0] == '_') && receiverType != null
             && staticTypeTarget == null && instanceReceiverTarget == null)
         {
             var resolved = TryResolvePropertyByType(memberName, target, receiverType, context);
@@ -1376,9 +1376,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (memberName == "Length" && IsSystemArrayReferenceType(receiverType)) return CSharpArrayLength(target);
         if (memberName == "Length" && IsDeclaredAsSystemArray(node.Expression, context)) return CSharpArrayLength(target);
         // For types not matched above (e.g. ValueListBuilder, custom structs with a
-        // Length property), use getter pattern.  Only plain .length (field access) is
-        // correct for Java arrays — those are handled earlier via IsDeclaredAsConcreteArray.
-        if (memberName == "Length") return $"{target}.getLength()";
+        // Length property), use getter pattern when the receiver type is unknown.
+        // When the receiver type is known, TryResolvePropertyByType above already
+        // decided whether the member is a field or a property.
+        if (memberName == "Length" && (receiverType == null || receiverType.TypeKind == TypeKind.Error))
+            return $"{target}.getLength()";
         // Map.Entry Key/Value (from C# KeyValuePair<K,V>)
         // Only apply when receiver type is CONFIRMED to be KeyValuePair/IGrouping/Map.Entry.
         // Do NOT apply as a best-effort guess when receiverType is unknown (null) — many
