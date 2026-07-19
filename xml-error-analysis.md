@@ -538,3 +538,81 @@
 - **问题**: 原脚本使用 `Start-Process` 并将 stdout/stderr 重定向到日志文件，导致终端无实时输出，无法观察转换/构建进度；`LASTEXITCODE` 捕获不可靠；Maven 警告被 PowerShell 误判为错误。
 - **修复**: 重构 `Invoke-Process` 函数，使用 `& $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile` 实现控制台实时输出与日志文件同时写入；在子脚本块内设置 `$ErrorActionPreference = "Continue"` 忽略非致命 stderr 警告；直接返回 `$LASTEXITCODE`。日志路径统一放到 `$PSScriptRoot` 避免目标目录权限问题。
 - **状态**: ✅ Fixed
+
+## Iteration 25 — foreach over non-generic ICollection/CSharpCollection cannot cast to Iterable<T>
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/schema/XmlSchemaSet.java:[292,94]` 等
+- **出错信息**: `不兼容的类型: io.github.ningpp.compat.CSharpCollection无法转换为java.lang.Iterable<dotnet.xml.schema.XmlSchema>`
+- **代码片段 (C#)`:
+  ```csharp
+  foreach (XmlSchema schema in schemas.SortedSchemas.Values)
+  {
+      ...
+  }
+  ```
+- **代码片段 (生成 Java)`:
+  ```java
+  for (XmlSchema schema : (Iterable<XmlSchema>)(Iterable<?>)((Iterable<XmlSchema>) (schemas.getSortedSchemas().getValues()))) {
+      ...
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Schema\XmlSchemaSet.cs:434`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs`
+- **分析**: `TransformForEachStatement` 对非泛型 `IEnumerable`/`ICollection` 源生成直接单重强制类型转换 `(Iterable<T>)expr`。当 Java 端表达式静态类型为 `CSharpCollection`（已实现 `Iterable<Object>`）时，`Iterable<Object>` 与 `Iterable<T>` 既非子类型关系，javac 直接报不兼容类型错误。应改为先转 `Iterable<?>` 再转 `Iterable<T>` 的双层转换。
+- **修复方向**: 将非泛型集合分支的单重转换改为 `(Iterable<T>)(Iterable<?>)(expr)`，并在 downcast 分支跳过已存在的同类型双层转换。
+- **状态**: ✅ Fixed
+
+## Iteration 26 — CSharpCollection cannot be converted to CSharpICollection<?>
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/schema/XmlSchemaSet.java:[550,34]`
+- **出错信息**: `不兼容的类型: io.github.ningpp.compat.CSharpCollection无法转换为io.github.ningpp.compat.CSharpICollection<?>`
+- **代码片段 (C#)**:
+  ```csharp
+  public ICollection Schemas()
+  {
+      return _schemas.Values;
+  }
+  ```
+- **代码片段 (生成 Java)**:
+  ```java
+  public CSharpICollection<?> schemas() {
+      return _schemas.getValues();
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Schema\XmlSchemaSet.cs:803`
+- **根因分类**: TypeMapping / Compat
+- **涉及组件**: `java/csharptojava-compat/.../CSharpCollection.java`、`config/TypeMappings.json`
+- **分析**: `System.Collections.ICollection` 在 `TypeMappings.json` 中被映射为 `CSharpICollection<?>`。但 compat 库中的 `CSharpCollection`（非泛型 ICollection 的 Java 对应）仅继承 `CSharpIterable<Object>`，并未继承 `CSharpICollection<Object>`，因此 `CSharpCollection` 实例无法赋值给 `CSharpICollection<?>` 返回类型。C# 端的 `SortedList.Values` 返回非泛型 `ICollection`，转换后由 `CSharpObjSortedList.getValues()` 返回 `CSharpCollection`，与方法签名 `CSharpICollection<?>` 不兼容。
+- **修复方向**: 让 `CSharpCollection extends CSharpICollection<Object>`，使非泛型集合同时成为泛型集合 `Object` 特化的子类型，从而兼容当前 `CSharpICollection<?>` 映射。
+- **状态**: ✅ Fixed
+
+## Iteration 32 — IDictionaryEnumerator 目标类型下 GetEnumerator 返回类型不匹配
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/XmlDocument.java:[526,65]`
+- **出错信息**: `不兼容的类型: io.github.ningpp.compat.CSharpGenericEnumerator<io.github.ningpp.compat.CSharpKeyValuePair<dotnet.xml.XmlQualifiedName,dotnet.xml.schema.SchemaAttDef>>无法转换为io.github.ningpp.compat.CSharpDictEnumerator`
+- **代码片段 (C#)**:
+  ```csharp
+  IDictionaryEnumerator attrDefs = ed.AttDefs.GetEnumerator();
+  while (attrDefs.MoveNext())
+  {
+      SchemaAttDef attdef = (SchemaAttDef)attrDefs.Value;
+      ...
+  }
+  ```
+- **代码片段 (生成 Java)**:
+  ```java
+  CSharpDictEnumerator attrDefs = ed.getAttDefs().iterator();
+  while (attrDefs.moveNext()) {
+      SchemaAttDef attdef = (SchemaAttDef)(attrDefs.getValue());
+      ...
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Dom\XmlDocument.cs:600` 等
+- **根因分类**: Transformer / Compat 库
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`、`java/csharptojava-compat/.../CSharpDictEnumerator.java`、`java/csharptojava-compat/.../CSharpDictionary.java`
+- **分析**: 转换器在 `InvocationExpressionTransformer` 中对所有字典式 receiver 的 `GetEnumerator()` 统一生成 `.iterator()`，其静态返回类型为 `CSharpGenericEnumerator<CSharpKeyValuePair<K,V>>`。当 C# 目标类型为 `IDictionaryEnumerator`（映射为 `CSharpDictEnumerator`）时，`CSharpGenericEnumerator<CSharpKeyValuePair<K,V>>` 并非 `CSharpDictEnumerator` 的子类型，导致赋值失败。C# 中 `Dictionary<K,V>.Enumerator` 同时实现 `IEnumerator<KeyValuePair<K,V>>` 与 `IDictionaryEnumerator`，因此转换器需根据目标类型选择返回 `iterator()` 或一个兼容 `CSharpDictEnumerator` 的表达式。
+- **修复方向**:
+  1. 在 compat 库 `CSharpDictEnumerator` 中新增静态适配器 `from(CSharpGenericEnumerator<? extends CSharpKeyValuePair<?, ?>>)`，将泛型键值对枚举器包装为 `CSharpDictEnumerator`。
+  2. 在 `InvocationExpressionTransformer` 中，当检测到字典式 `GetEnumerator()` 且目标/转换类型为 `System.Collections.IDictionaryEnumerator` 时，生成 `CSharpDictEnumerator.from(receiver.iterator())` 而非直接使用 `receiver.iterator()`。
+- **状态**: 🔄 In Progress

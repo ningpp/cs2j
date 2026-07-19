@@ -43,8 +43,18 @@ public final class Interlocked {
         return location.incrementAndGet();
     }
 
+    /** Mirrors Interlocked.Increment(ref int) over generated ref holders. */
+    public static int increment(IntHolder location) {
+        return ++location.value;
+    }
+
     /** Mirrors Interlocked.Decrement(ref int) */
     public static int decrement(AtomicInteger location) {
         return location.decrementAndGet();
+    }
+
+    /** Mirrors Interlocked.Decrement(ref int) over generated ref holders. */
+    public static int decrement(IntHolder location) {
+        return --location.value;
     }
 }
