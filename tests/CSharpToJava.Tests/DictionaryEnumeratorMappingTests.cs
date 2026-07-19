@@ -88,10 +88,14 @@ public class SchemaHelper
         var result = Convert(@"
 using System.Collections;
 
-public class MyCollection : IEnumerable
+public class MyCollection : ICollection
 {
     public MyEnumerator GetEnumerator() => new MyEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    public int Count => 0;
+    public bool IsSynchronized => false;
+    public object SyncRoot => this;
+    public void CopyTo(Array array, int index) { }
 }
 
 public sealed class MyEnumerator : IEnumerator
@@ -113,6 +117,7 @@ public class TestDriver
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        System.Console.WriteLine(result.GeneratedCode);
         Assert.Contains("MyEnumerator", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("(MyEnumerator)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("CSharpEnumerator.from", result.GeneratedCode, StringComparison.Ordinal);
