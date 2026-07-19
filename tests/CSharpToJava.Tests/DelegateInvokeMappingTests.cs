@@ -161,6 +161,28 @@ class Test
         Assert.Contains(".accept(", result.GeneratedCode);
     }
 
+    [Fact]
+    public void InterfaceInvoke_MethodNamedInvoke_PreservedAsInvoke()
+    {
+        var result = Convert(@"
+interface IFunction {
+    object Invoke(object context, object[] args, object doc);
+}
+
+class Test {
+    IFunction function;
+    object M(object context, object[] args, object doc) {
+        return function.Invoke(context, args, doc);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        System.IO.File.WriteAllText(@"d:\code\cs2j\interface-invoke-test-output.java", result.GeneratedCode);
+        // Interface methods named Invoke must keep Java camelCase name invoke, not be rewritten to apply.
+        Assert.Contains(".invoke(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".apply(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

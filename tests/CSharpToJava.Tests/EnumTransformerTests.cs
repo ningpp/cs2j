@@ -693,6 +693,95 @@ public class Sample
         Assert.DoesNotContain("kind.getValue()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A const enum field initialized with an explicit integer cast must use
+    /// EnumType.fromValue(...) so that the static final field is type-compatible
+    /// in Java. A bare integer literal is not assignable to a Java enum type.
+    /// </summary>
+    [Fact]
+    public void ConstEnumField_CastFromInt_UsesFromValue()
+    {
+        var result = Convert(@"
+public enum XPathResultType
+{
+    Number = 0,
+    String = 1,
+    Boolean = 2,
+    NodeSet = 3,
+    Navigator = 1,
+    Any = 5,
+    Error = 6
+}
+
+public class Query
+{
+    public const XPathResultType XPathResultType_Navigator = (XPathResultType)4;
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("public static final XPathResultType XPathResultType_Navigator = XPathResultType.fromValue((int)(4))", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Flags enums are emitted as primitive int constants in Java. A const flags field
+    /// initialized with an explicit cast must stay a bare integer literal, not wrapped
+    /// with a non-existent int.fromValue(...) call.
+    /// </summary>
+    [Fact]
+    public void ConstFlagsEnumField_CastFromInt_StaysAsBareInt()
+    {
+        var result = Convert(@"
+using System;
+
+[Flags]
+public enum BindingFlags
+{
+    Public = 1,
+    NonPublic = 2,
+    Static = 4,
+    Instance = 8
+}
+
+public class Query
+{
+    public const BindingFlags BindingFlags = (BindingFlags)60;
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("public static final int BindingFlags = 60", result.GeneratedCode, StringComparison.Ordinal);
+        // The field initializer must not be wrapped with int.fromValue(...).
+        Assert.DoesNotContain("int.fromValue", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Non-flags enum used in a bitwise OR expression for a property return must have
+    /// the result wrapped with EnumType.fromValue(...) so the return type matches.
+    /// </summary>
+    [Fact]
+    public void NonFlagsEnum_BitwiseOrProperty_ReturnsFromValue()
+    {
+        var result = Convert(@"
+internal enum QueryProps
+{
+    None = 0x00,
+    Position = 0x01,
+    Count = 0x02,
+    Cached = 0x04,
+    Reverse = 0x08,
+    Merge = 0x10
+}
+
+public class ContextQuery
+{
+    public QueryProps Properties { get { return QueryProps.Merge | QueryProps.Cached | QueryProps.Position | QueryProps.Count; } }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        System.IO.File.WriteAllText(@"d:\code\cs2j\queryprops-test-output.java", result.GeneratedCode);
+        Assert.Contains("public QueryProps getProperties()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return QueryProps.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
@@ -1226,5 +1315,31 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("EnumHelper.format(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("Enum.format(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnumLocalVariable_InitializedWithIntLiteral_UsesFromValue()
+    {
+        // C# allows implicit conversion from the underlying integral type to an enum.
+        // Java enums require explicit fromValue() conversion for a bare integer literal.
+        var result = Convert(@"
+public enum XmlNodeOrder
+{
+    Before = 0,
+    After = 1,
+    Same = 2,
+    Unknown = 3
+}
+
+public class Sample
+{
+    public void M()
+    {
+        XmlNodeOrder order = 0;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("XmlNodeOrder order = XmlNodeOrder.fromValue(0)", result.GeneratedCode, StringComparison.Ordinal);
     }
 }

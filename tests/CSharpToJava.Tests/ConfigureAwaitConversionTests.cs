@@ -373,4 +373,39 @@ class TestClass
             @"(?s)throw\s+new\s+IllegalStateException\(""Unexpected state""\);\s*return\s+CompletableFuture\.completedFuture\(null\);",
             result.GeneratedCode);
     }
+
+    /// <summary>
+    /// An async Task method whose body ends in a switch statement that returns
+    /// from every section (including default) cannot fall through. Adding a
+    /// final return would generate unreachable code in Java.
+    /// </summary>
+    [Fact]
+    public void AsyncTask_ExhaustiveSwitch_DoesNotEmitUnreachableFinalReturn()
+    {
+        var result = Convert(@"
+using System.Threading.Tasks;
+class TestClass
+{
+    async Task ParseHowManyAsync(int token)
+    {
+        switch (token)
+        {
+            case 1:
+                return;
+            case 2:
+                return;
+            case 3:
+                return;
+            default:
+                return;
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // The switch already returns on all paths; no trailing return should be emitted.
+        Assert.DoesNotMatch(
+            @"(?s)switch\s*\(.*token.*\)\s*\{.*?\}\s*return\s+CompletableFuture\.completedFuture\(null\);",
+            result.GeneratedCode);
+    }
 }

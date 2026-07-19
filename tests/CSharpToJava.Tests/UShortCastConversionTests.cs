@@ -98,6 +98,25 @@ class Test {
         Assert.DoesNotContain("(short)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UShortCast_ObjectValue_UsesIntegerUnboxingMask()
+    {
+        var result = Convert(@"
+class Test {
+    int M(object value) {
+        return (ushort)value;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+
+        // (ushort)obj must unbox Object to Integer before applying the ushort mask;
+        // Object cannot be cast to int directly in Java.
+        Assert.Contains("(Integer)(value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("& 0xFFFF", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(int)(value)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

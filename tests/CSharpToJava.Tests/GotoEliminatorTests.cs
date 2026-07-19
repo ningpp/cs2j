@@ -327,6 +327,40 @@ public partial class GotoEliminatorTests
         Assert.False(foundNestedRedeclaration, "嵌套块中不应再保留 int x = 2 声明");
     }
 
+    [Fact]
+    public void Eliminate_SwitchCaseLocalReferencedViaGotoCase_HoistsVariable()
+    {
+        // switch 内某 case 声明的局部变量，在 goto case 跳转后的另一 case 中被引用。
+        // C# 允许跨 case 引用（变量作用域为整个 switch），但生成 Java 状态机后
+        // 不同 case 落入不同基本块，必须将该变量提升到 switch 外部作用域。
+        var src = """
+            class C {
+                void M(int x) {
+                    switch (x) {
+                        case 1:
+                            int parent = 1;
+                            goto case 2;
+                        case 2:
+                            System.Console.WriteLine(parent);
+                            break;
+                    }
+                }
+            }
+            """;
+
+        var result = new GotoEliminator().Eliminate(src);
+
+        Assert.True(result.Changed);
+        // 提升声明应出现在 while/switch 之前
+        Assert.Contains("int parent = default", result.OutputCode);
+        // case 内不应再保留 int parent = 1 的声明
+        Assert.DoesNotContain("int parent = 1", result.OutputCode);
+        // 但应保留赋值 parent = 1
+        Assert.Contains("parent = 1", result.OutputCode);
+        // 使用处应能解析 parent
+        Assert.Contains("Console.WriteLine(parent)", result.OutputCode);
+    }
+
     // ---- Task 6: State machine emission ----
 
     private static string BuildMethod(string body)
