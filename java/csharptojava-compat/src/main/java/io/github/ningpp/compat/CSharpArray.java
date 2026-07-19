@@ -60,6 +60,28 @@ public final class CSharpArray {
         return type.cast(array);
     }
 
+    /**
+     * C#-style "as" cast: returns the underlying array cast to the requested
+     * array type, or null if the underlying array is not an instance of it.
+     */
+    public <T> T tryAs(Class<T> type) {
+        return type.isInstance(array) ? type.cast(array) : null;
+    }
+
+    /**
+     * Static "as" cast helper: works for both CSharpArray wrappers and plain Java arrays.
+     * Returns the array cast to the requested array type, or null if it is not compatible.
+     */
+    public static <T> T tryAs(Object array, Class<T> type) {
+        if (array == null) {
+            return null;
+        }
+        if (array instanceof CSharpArray ca) {
+            return ca.tryAs(type);
+        }
+        return type.isInstance(array) ? type.cast(array) : null;
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof CSharpArray other && Objects.equals(array, other.array);

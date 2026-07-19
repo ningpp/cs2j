@@ -25,6 +25,10 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         this.offset = offset;
     }
 
+    public CSharpDateTimeOffset(long ticks, CSharpTimeSpan offset) {
+        this(new CSharpDateTime(ticks), offset);
+    }
+
     public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, int millisecond, CSharpTimeSpan offset) {
         this.dateTime = new CSharpDateTime(year, month, day, hour, minute, second, millisecond, DateTimeKind.Unspecified);
         validateOffset(this.dateTime, offset);
