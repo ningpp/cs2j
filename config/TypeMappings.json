@@ -317,7 +317,7 @@
             "csharp": "System.Guid",
             "java": "UUID",
             "imports": [
-                "java.util.UUID"
+                "io.github.ningpp.compat.UUID"
             ]
         },
         {
@@ -4681,6 +4681,11 @@
             "javaMethod": "hashCode"
         },
         {
+            "type": "System.Uri",
+            "method": "Equals",
+            "javaMethod": "equals"
+        },
+        {
             "type": "System.IEquatable",
             "method": "Equals",
             "javaMethod": "equalsTo"
@@ -5099,6 +5104,11 @@
             "type": "System.Enum",
             "method": "GetValues",
             "javaMethod": "EnumHelper.getValues"
+        },
+        {
+            "type": "System.Enum",
+            "method": "Format",
+            "javaMethod": "EnumHelper.format"
         },
         {
             "type": "System.Collections.Generic.List",

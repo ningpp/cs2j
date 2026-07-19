@@ -56,13 +56,13 @@ function Invoke-Process {
         if (Test-Path $LogFile) {
             Remove-Item $LogFile -Force -ErrorAction SilentlyContinue
         }
-        $exitCode = & {
-            # Native commands (mvn.cmd, dotnet) may write warnings to stderr;
-            # don't let $ErrorActionPreference = Stop treat them as fatal.
-            $ErrorActionPreference = "Continue"
-            & $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile | Out-Null
-            $LASTEXITCODE
-        }
+        # Native commands (mvn.cmd, dotnet) may write warnings to stderr;
+        # don't let $ErrorActionPreference = Stop treat them as fatal.
+        $ErrorActionPreference = "Continue"
+        # Out-Host keeps the console visible while preventing the pipeline
+        # output from becoming part of the function's return value.
+        & $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile | Out-Host
+        $exitCode = $LASTEXITCODE
         return $exitCode
     }
     catch {
@@ -130,7 +130,8 @@ Write-StepHeader "Step 2b: C# -> Java conversion"
 $convertArgs = @(
     $cliDll,
     "convert-project", "-s", $SourceDir, "-d", $DestDir,
-    "--extra-deps", $ExtraDeps
+    "--extra-deps", $ExtraDeps,
+    "--include-tests", "false"
 )
 $convertExit = Invoke-Process -Executable "dotnet" -Arguments $convertArgs -LogFile "$DestDir\convert.log"
 if ($convertExit -ne 0) {
