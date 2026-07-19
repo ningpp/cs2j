@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
+using CSharpToJava.Core.Transformers.Type;
 using CSharpToJava.Core.Transformers.Utilities;
 using System.Collections.Generic;
 using System.Linq;
@@ -275,10 +276,58 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (createdTypeSymbol?.TypeKind == TypeKind.Delegate
             && node.ArgumentList?.Arguments.Count == 1)
         {
-            return facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var arg = node.ArgumentList.Arguments[0].Expression;
+            var argType = context.GetTypeInfo(arg).Type as INamedTypeSymbol;
+
+            // If the argument is itself a delegate of a *different* type, C# allows
+            // constructing one delegate from another with a compatible signature.
+            // In Java the two delegate interfaces are unrelated, so wrap the source
+            // delegate in a lambda that invokes its SAM.
+            if (argType?.TypeKind == TypeKind.Delegate
+                && !SymbolEqualityComparer.Default.Equals(argType.OriginalDefinition, createdTypeSymbol.OriginalDefinition))
+            {
+                var argCode = facade.Transform(arg, context);
+                var adapter = TryBuildDelegateAdapterLambda(argType, argCode, context);
+                if (adapter != null)
+                    return adapter;
+            }
+
+            return facade.Transform(arg, context);
         }
 
             return TransformObjectCreationWithArgs(typeName, node.ArgumentList, node.Type as TypeSyntax, context, createdTypeSymbol as INamedTypeSymbol);
+    }
+
+    /// <summary>
+    /// Builds a Java lambda that adapts a source delegate to a target functional interface
+    /// by invoking the source delegate's SAM. Used when C# constructs one delegate from
+    /// another (e.g. <c>new Func&lt;T&gt;(customDelegate)</c>).
+    /// </summary>
+    private static string? TryBuildDelegateAdapterLambda(
+        INamedTypeSymbol argDelegateType,
+        string argCode,
+        ConversionContext context)
+    {
+        var invoke = argDelegateType.DelegateInvokeMethod;
+        if (invoke == null)
+            return null;
+
+        bool isVoid = invoke.ReturnsVoid || invoke.ReturnType?.SpecialType == SpecialType.System_Void;
+        var samMethod = DelegateTransformer.InferSamMethodName(isVoid, invoke.Parameters.Length);
+
+        return invoke.Parameters.Length switch
+        {
+            0 => $"() -> {argCode}.{samMethod}()",
+            1 => $"a -> {argCode}.{samMethod}(a)",
+            2 => $"(a, b) -> {argCode}.{samMethod}(a, b)",
+            _ => BuildMultiParamDelegateLambda(argCode, samMethod, invoke.Parameters.Length)
+        };
+    }
+
+    private static string BuildMultiParamDelegateLambda(string argCode, string samMethod, int paramCount)
+    {
+        var paramNames = Enumerable.Range(0, paramCount).Select(i => $"__p{i}").ToArray();
+        return $"({string.Join(", ", paramNames)}) -> {argCode}.{samMethod}({string.Join(", ", paramNames)})";
     }
 
     private static bool HasCollectionConstraint(ITypeParameterSymbol typeParameter)

@@ -380,6 +380,59 @@
 - **红测试**: `IEquatableMappingTests.ClassImplementingIEquatable_WithEqualsObject_KeepsEqualsObject`
 - **状态**: ✅ Fixed
 
+## Iteration 20 — custom delegate -> Func conversion
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/modulecore/src/test/java/OLEDB/Test/ModuleCore/XmlTestsAttribute.java:[30,16]`
+- **出错信息**: `不兼容的类型: OLEDB.Test.ModuleCore.XmlTestsAttribute.ModuleGenerator无法转换为java.util.function.Supplier<OLEDB.Test.ModuleCore.CTestModule>`
+- **代码片段** (`XmlTestsAttribute.java`):
+  ```java
+  public static Supplier<CTestModule> getGenerator(Class type, String methodName) {
+      ModuleGenerator moduleGenerator = (ModuleGenerator)(ReflectionHelper.createDelegate(ReflectionHelper.getMethodByName(type, methodName), ModuleGenerator.class));
+      return moduleGenerator;
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\Tests\Common\ModuleCore\XunitRunner.cs:88-92`
+  ```csharp
+  public static Func<CTestModule> GetGenerator(Type type, string methodName)
+  {
+      ModuleGenerator moduleGenerator = (ModuleGenerator)type.GetMethod(methodName).CreateDelegate(typeof(ModuleGenerator));
+      return new Func<CTestModule>(moduleGenerator);
+  }
+  ```
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs`
+- **分析**: C# 中 `new Func<TResult>(customDelegate)` 是从一个自定义委托构造标准委托。`ObjectCreationTransformer` 将单参数委托构造视为函数值赋值，直接返回被包装委托变量，导致 Java 中自定义委托接口无法赋值给 `Supplier<TResult>`。需要生成 lambda/方法引用包装，例如 `() -> moduleGenerator.get()`。
+- **修复**: 在 `ObjectCreationTransformer.TransformObjectCreation` 中，当源参数是不同类型委托时生成 lambda 适配器，例如 `() -> moduleGenerator.get()`。
+- **红测试**: `CreateDelegateMappingTests.NewFunc_FromCustomDelegate_GeneratesLambdaWrapper`
+- **状态**: ✅ Fixed
+
+
+## Iteration 21 — Method.getDeclaringType 未映射
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/modulecore/src/test/java/OLEDB/Test/ModuleCore/XmlTestsAttribute.java:[33,72]`
+- **出错信息**: `找不到符号  符号: 方法 getDeclaringType()  位置: 类型为java.lang.reflect.Method的变量 testMethod`
+- **代码片段** (`XmlTestsAttribute.java`):
+  ```java
+  public CSharpGenericIterable<Object[]> getData(Method testMethod) {
+      Supplier<CTestModule> moduleGenerator = getGenerator(testMethod.getDeclaringType(), _methodName);
+      return CSharpGenericIterable.from(XmlInlineDataDiscoverer.generateTestCases(moduleGenerator));
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\Tests\Common\ModuleCore\XunitRunner.cs:96-99`
+  ```csharp
+  public override IEnumerable<object[]> GetData(MethodInfo testMethod)
+  {
+      Func<CTestModule> moduleGenerator = GetGenerator(testMethod.DeclaringType, _methodName);
+      return XmlInlineDataDiscoverer.GenerateTestCases(moduleGenerator);
+  }
+  ```
+- **根因分类**: API 映射缺失
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`
+- **分析**: C# `System.Reflection.MethodInfo.DeclaringType` 被转换器按默认属性命名规则映射为 `getDeclaringType()`，但 Java `java.lang.reflect.Method` 对应方法为 `getDeclaringClass()`。需要针对 `MethodInfo`/`ConstructorInfo`/`FieldInfo` 的 `DeclaringType` 属性生成 `getDeclaringClass()`。
+- **修复**: 在 `IdentifierExpressionTransformer.TransformMemberAccess` 与 `TryResolvePropertyByType` 中检测 receiver 类型为 `System.Reflection.MethodInfo`、`ConstructorInfo` 或 `FieldInfo` 且访问 `DeclaringType` 时，直接生成 `getDeclaringClass()`。
+- **红测试**: `MethodInfoDeclaringTypeTests.MethodInfo_DeclaringType_MapsToGetDeclaringClass`
+- **状态**: ✅ Fixed
+
 ## Tooling — iterate-xml-fix.ps1 实时日志与错误处理
 - **问题**: 原脚本使用 `Start-Process` 并将 stdout/stderr 重定向到日志文件，导致终端无实时输出，无法观察转换/构建进度；`LASTEXITCODE` 捕获不可靠；Maven 警告被 PowerShell 误判为错误。
 - **修复**: 重构 `Invoke-Process` 函数，使用 `& $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile` 实现控制台实时输出与日志文件同时写入；在子脚本块内设置 `$ErrorActionPreference = "Continue"` 忽略非致命 stderr 警告；直接返回 `$LASTEXITCODE`。日志路径统一放到 `$PSScriptRoot` 避免目标目录权限问题。

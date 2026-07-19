@@ -966,6 +966,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"TypeHelper.getFullName({target})";
             }
 
+            // System.Reflection.MethodInfo/ConstructorInfo/FieldInfo are mapped to Java reflection
+            // types (Method/Constructor/Field), which expose the declaring class via getDeclaringClass().
+            // The default getter would emit getDeclaringType(), which does not exist on those types.
+            if (memberName == "DeclaringType" && IsJavaReflectMemberInfoType(receiverType))
+            {
+                return $"{target}.getDeclaringClass()";
+            }
+
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.getCurrent()";
 
@@ -1917,6 +1925,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         return $"TypeHelper.getFullName({propertyTarget})";
                     }
 
+                    // System.Reflection.MethodInfo/ConstructorInfo/FieldInfo are mapped to Java reflection
+                    // types (Method/Constructor/Field), which expose the declaring class via getDeclaringClass().
+                    if (memberName == "DeclaringType" && IsJavaReflectMemberInfoType(namedReceiver))
+                    {
+                        return $"{propertyTarget}.getDeclaringClass()";
+                    }
+
                     if (memberName == "Position" && IsSystemIoStreamType(foundProp.ContainingType))
                         return $"{propertyTarget}.getPosition()";
                     if (memberName == "Length" && IsSystemIoStreamType(foundProp.ContainingType))
@@ -1969,6 +1984,25 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         for (var current = type.BaseType; current != null; current = current.BaseType)
         {
             if (current.ToDisplayString() == "System.Type") return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the C# receiver type maps to a Java java.lang.reflect member type
+    /// (Method, Constructor, Field) whose declaring type is exposed as getDeclaringClass().
+    /// </summary>
+    private static bool IsJavaReflectMemberInfoType(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            var display = current.OriginalDefinition.ToDisplayString();
+            if (display is "System.Reflection.MethodInfo"
+                or "System.Reflection.ConstructorInfo"
+                or "System.Reflection.FieldInfo")
+            {
+                return true;
+            }
         }
         return false;
     }

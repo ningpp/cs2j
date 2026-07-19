@@ -540,6 +540,29 @@ public class Sample
         Assert.Contains("import io.github.ningpp.compat.ReflectionHelper", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void NewFunc_FromCustomDelegate_GeneratesLambdaWrapper()
+    {
+        var result = Convert(@"
+using System;
+
+public delegate CTestModule ModuleGenerator();
+
+public class CTestModule { }
+
+public class Sample
+{
+    public static Func<CTestModule> Test(ModuleGenerator gen)
+    {
+        return new Func<CTestModule>(gen);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("() -> gen.get()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("return gen;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
