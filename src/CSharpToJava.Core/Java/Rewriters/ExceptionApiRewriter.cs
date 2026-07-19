@@ -252,11 +252,19 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
 
     /// <summary>
     /// Gets the depth of an exception type in the hierarchy (higher = more specific).
-    /// Returns 0 for unknown types (treated as top-level).
+    /// Returns 1 for unknown types so that project-specific exceptions are sorted
+    /// before the general <c>RuntimeException</c> catch-all that <c>System.Exception</c>
+    /// maps to. Known Java roots (<c>RuntimeException</c>, <c>Exception</c>, <c>Throwable</c>)
+    /// are treated as the least specific types.
     /// </summary>
     private static int GetExceptionDepth(string exceptionType)
     {
-        int depth = 0;
+        if (exceptionType is "RuntimeException" or "Exception" or "Throwable")
+        {
+            return 0;
+        }
+
+        int depth = 1;
         var current = exceptionType;
         while (ExceptionHierarchy.TryGetValue(current, out var parent))
         {
