@@ -50,16 +50,33 @@ public class InterfaceTransformer : ITypeTransformer
 
         javaInterface.LeadingComment = context.GetDeclarationComments(interfaceDecl, interfaceSymbol).ToCombinedComment();
 
-        // 处理基接口
-        if (interfaceDecl.BaseList != null)
+        // 处理基接口：优先使用符号信息，避免 project-merge 后 syntax node 无法被 semantic model 解析。
+        var seenBaseInterfaces = new HashSet<string>();
+        if (interfaceSymbol != null)
+        {
+            foreach (var baseInterface in interfaceSymbol.Interfaces)
+            {
+                var mapped = context.MapType(baseInterface).Replace("<?>", "<Object>");
+                if (!string.IsNullOrEmpty(mapped) && seenBaseInterfaces.Add(mapped))
+                {
+                    javaInterface.ExtendedTypes.Add(mapped);
+                }
+            }
+        }
+
+        // Fallback: syntax-based resolution for single-file or non-symbol scenarios.
+        if (javaInterface.ExtendedTypes.Count == 0 && interfaceDecl.BaseList != null)
         {
             foreach (var baseType in interfaceDecl.BaseList.Types)
             {
                 var typeInfo = context.GetTypeInfo(baseType.Type);
                 if (typeInfo.Type != null)
                 {
-                    javaInterface.ExtendedTypes.Add(
-                        context.MapType(typeInfo.Type).Replace("<?>", "<Object>"));
+                    var mapped = context.MapType(typeInfo.Type).Replace("<?>", "<Object>");
+                    if (!string.IsNullOrEmpty(mapped) && seenBaseInterfaces.Add(mapped))
+                    {
+                        javaInterface.ExtendedTypes.Add(mapped);
+                    }
                 }
             }
         }

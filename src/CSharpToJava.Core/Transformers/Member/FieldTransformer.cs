@@ -207,10 +207,34 @@ public class FieldTransformer : IMemberTransformer
                 // For const fields, inline the compile-time constant value when available.
                 // This avoids non-constant expressions like enumMember.getValue() in Java
                 // static final field initializers, which break switch-case usage.
+                // However, preserve references to System primitive static constants
+                // (e.g. Int32.MaxValue, UInt32.MaxValue) so IdentifierExpressionTransformer
+                // can map them to Java wrapper constants like Integer.MAX_VALUE.
+                Optional<object> constVal = default;
+                bool hasConstantValue = false;
                 if ((modifiers & JavaModifiers.Final) != 0
                     && (modifiers & JavaModifiers.Static) != 0
-                    && context.SemanticModel != null
-                    && context.SemanticModel.GetConstantValue(variable.Initializer.Value) is { HasValue: true } constVal)
+                    && context.SemanticModel != null)
+                {
+                    var constantValue = context.SemanticModel.GetConstantValue(variable.Initializer.Value);
+                    if (constantValue.HasValue)
+                    {
+                        constVal = constantValue.Value;
+                        hasConstantValue = true;
+                    }
+                }
+
+                bool inlineConstLiteral = hasConstantValue;
+                if (inlineConstLiteral
+                    && context.SemanticModel!.GetSymbolInfo(variable.Initializer.Value).Symbol is IFieldSymbol { IsStatic: true } staticField
+                    && staticField.ContainingType is INamedTypeSymbol containingType
+                    && containingType.ContainingNamespace?.ToDisplayString() == "System"
+                    && containingType.SpecialType != SpecialType.None)
+                {
+                    inlineConstLiteral = false;
+                }
+
+                if (inlineConstLiteral)
                 {
                     javaField.Initializer = RenderConstantValue(constVal.Value);
                 }
@@ -505,7 +529,7 @@ public class FieldTransformer : IMemberTransformer
             return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t") + "\"";
 
         if (value is char c)
-            return "'" + (c == '\'' ? "\\'" : c.ToString()) + "'";
+            return EscapeJavaChar(c);
 
         if (value is float f)
             return f.ToString(System.Globalization.CultureInfo.InvariantCulture) + "f";
@@ -522,9 +546,36 @@ public class FieldTransformer : IMemberTransformer
         if (value is long l)
             return l.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
 
+        // Render unsigned integral constants as hexadecimal literals. C# uint/ulong values
+        // may exceed the signed range (e.g. 0xFF000000 = 4278190080), which is illegal as a
+        // decimal Java int/long literal. Hexadecimal literals encode the same bit pattern
+        // and are valid for any 32/64-bit value.
+        if (value is uint ui)
+            return $"0x{ui:X}";
+
         if (value is ulong ul)
-            return ul.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
+            return $"0x{ul:X}L";
 
         return value.ToString() ?? "null";
+    }
+
+    /// <summary>
+    /// Escapes a C# character value as a valid Java character literal.
+    /// </summary>
+    private static string EscapeJavaChar(char c)
+    {
+        return c switch
+        {
+            '\n' => "'\\n'",
+            '\r' => "'\\r'",
+            '\t' => "'\\t'",
+            '\0' => "'\\0'",
+            '\b' => "'\\b'",
+            '\f' => "'\\f'",
+            '\\' => "'\\\\'",
+            '\'' => "'\\''",
+            _ when c < 0x20 => $"'\\u{((int)c):X4}'",
+            _ => $"'{c}'"
+        };
     }
 }

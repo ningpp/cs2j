@@ -433,6 +433,107 @@
 - **红测试**: `MethodInfoDeclaringTypeTests.MethodInfo_DeclaringType_MapsToGetDeclaringClass`
 - **状态**: ✅ Fixed
 
+## Iteration 22 — const char/uint 字面量渲染错误
+- **阶段**: Java 编译
+- **Java 文件**:
+  - `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/Xsl/XsltOld/SequentialOutput.java:[45,43]`
+  - `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/schema/XsdDateTime.java:[59,37]`
+  - `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/schema/XsdDuration.java:[52,44]`
+- **出错信息**:
+  - `字符文字的行结尾不合法`
+  - `整数太大`
+- **代码片段** (`SequentialOutput.java`):
+  ```java
+  private static final char s_NewLine = '
+  ';
+  private static final char s_Return = '
+  ```
+- **代码片段** (`XsdDateTime.java`):
+  ```java
+  private static final int TypeMask = 4278190080;
+  ```
+- **代码片段** (`XsdDuration.java`):
+  ```java
+  private static final int NegativeBit = 2147483648;
+  ```
+- **对应 C# 文件**:
+  - `d:\csharpxml\System\Xml\Xsl\XsltOld\SequentialOutput.cs:22-23`
+  - `d:\csharpxml\System\Xml\Schema\XsdDateTime.cs:76`
+  - `d:\csharpxml\System\Xml\Schema\XsdDuration.cs:25`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs`
+- **分析**:
+  - C# `const char` 字段（如 `s_NewLine = '\n'`）在 `FieldTransformer.RenderConstantValue` 中通过 `c.ToString()` 直接输出字符，导致 Java 字符字面量包含未转义的换行/回车，触发 `字符文字的行结尾不合法`。
+  - C# `const uint` 字段当值超过 `int.MaxValue` 时（如 `0xFF000000`、`0x80000000`），`RenderConstantValue` 使用 `value.ToString()` 输出无符号十进制（`4278190080`、`2147483648`），而 Java 的 `int` 字面量不能超过 `2147483647`，触发 `整数太大`。
+- **修复**: 在 `FieldTransformer.RenderConstantValue` 中：
+  1. 对 `char` 值按 Java 字符字面量规则转义（`\n`、`\r`、`\t`、`\0`、`\\`、`\'` 及控制字符 `\uXXXX`）。
+  2. 对 `uint`/`ulong` 常量使用十六进制字面量输出（`0xFFFFFFFF`、`0xFFFFFFFFFFFFFFFFL`），保证任何 32/64 位位模式在 Java 中均合法。
+- **红测试**: `ConstFieldLiteralRenderingTests`
+- **状态**: ✅ Fixed
+
+## Iteration 23 — compat MethodInfo 缺少 getDeclaringClass()
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/modulecore/src/test/java/OLEDB/Test/ModuleCore/XmlInlineDataDiscoverer.java:[62,52]`
+- **出错信息**: `找不到符号  符号: 方法 getDeclaringClass()  位置: 类 io.github.ningpp.compat.MethodInfo`
+- **代码片段** (`XmlInlineDataDiscoverer.java`):
+  ```java
+  private static Class getDeclaringType(IMethodInfo methodInfo) {
+      var reflectionMethodInfo = (methodInfo instanceof IReflectionMethodInfo ? (IReflectionMethodInfo)(methodInfo) : null);
+      if (reflectionMethodInfo != null) {
+          return reflectionMethodInfo.getMethodInfo().getDeclaringClass();
+      }
+      return toRuntimeType(methodInfo.getType());
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpxml\Tests\Common\ModuleCore\XunitRunner.cs:56-63`
+  ```csharp
+  private static Type GetDeclaringType(IMethodInfo methodInfo)
+  {
+      var reflectionMethodInfo = methodInfo as IReflectionMethodInfo;
+      if (reflectionMethodInfo != null)
+          return reflectionMethodInfo.MethodInfo.DeclaringType;
+
+      return ToRuntimeType(methodInfo.Type);
+  }
+  ```
+- **根因分类**: Compat
+- **涉及组件**: `java/csharptojava-compat/.../MethodInfo.java`
+- **分析**:
+  - `IReflectionMethodInfo.getMethodInfo()` 返回的是 compat 库的 `io.github.ningpp.compat.MethodInfo`。
+  - 转换器将 C# `System.Reflection.MethodInfo.DeclaringType` 统一映射为 `getDeclaringClass()`（对应 Java `java.lang.reflect.Method` 的 API）。
+  - compat `MethodInfo` 只提供了 `getDeclaringType()`，未提供 `getDeclaringClass()`，导致生成代码编译失败。
+- **修复**: 在 compat `MethodInfo` 中新增 `getDeclaringClass()` 方法作为 `getDeclaringType()` 的别名，直接委托给底层 `java.lang.reflect.Method.getDeclaringClass()`。
+- **红测试**: `XunitAbstractionsCompatTest.reflectionMethodInfoExposesCompatMethodInfoWithDeclaringClass`
+- **状态**: ✅ Fixed
+
+## Iteration 24 — partial interface 合并后 System.Tuple`2 被错误包装为 Map.Entry<K, List<V>>
+- **阶段**: Java 编译
+- **Java 文件**: `/D:/cs-xml-20260716/system-private-xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java:[16615,19]`
+- **出错信息**: `dotnet.xml.XmlTextReaderImpl.DtdParserProxy不是抽象的, 并且未覆盖dotnet.xml.IDtdParserAdapter中的抽象方法pushEntityAsync(dotnet.xml.IDtdEntityInfo)`
+- **代码片段** (`IDtdParserAdapter.java`):
+  ```java
+  CompletableFuture<Map.Entry<Integer, List<Boolean>>> pushEntityAsync(IDtdEntityInfo entity);
+  ```
+- **代码片段** (`XmlTextReaderImpl.java` 中 `DtdParserProxy` 实现):
+  ```java
+  public CompletableFuture<Map.Entry<Integer, Boolean>> pushEntityAsync(IDtdEntityInfo entity) {
+      return _reader.dtdParserProxy_PushEntityAsync(entity);
+  }
+  ```
+- **对应 C# 文件**:
+  - `d:\csharpxml\System\Xml\Core\IDtdParserAdapterAsync.cs:22`：`Task<Tuple<int, bool>> PushEntityAsync(IDtdEntityInfo entity);`
+  - `d:\csharpxml\System\Xml\Core\XmlTextReaderImplHelpersAsync.cs:52-55`：相同签名的实现
+- **根因分类**: TypeMapping / Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Context/TypeMappingService.cs`
+- **分析**:
+  - C# `IDtdParserAdapter` 是跨两个文件的 `partial interface`：`IDtdParserAdapter.cs`（同步成员）和 `IDtdParserAdapterAsync.cs`（异步成员）。
+  - 项目级 partial merge 后，接口声明走语法路径 `MapTypeFromSyntaxString`；而 `DtdParserProxy` 实现走语义路径 `MapTypeInternal`。
+  - `MapTypeFromSyntaxString` 中只要映射目标为 `Map.Entry` 且有两个类型参数，就把第二个参数包装成 `List<V>`，该逻辑本只应针对 `System.Linq.IGrouping`2`（LINQ GroupBy 结果），但错误地也应用到了 `System.Tuple`2`。
+  - 结果接口声明返回 `Map.Entry<Integer, List<Boolean>>`，实现返回 `Map.Entry<Integer, Boolean>`，签名不匹配导致 Java 认为抽象方法未实现。
+- **修复**: 在 `TypeMappingService.MapTypeFromSyntaxString` 的 `Map.Entry` 包装逻辑中增加条件，仅当原始 C# 类型为 `System.Linq.IGrouping`2` 时才包装 `List<V>`；`System.Tuple`2` 保持 `Map.Entry<T1, T2>`。
+- **红测试**: `PartialInterfaceTupleMappingTests.PartialInterface_MergedAsyncTupleReturn_MapsToMapEntryWithoutListWrapping`
+- **状态**: ✅ Fixed
+
 ## Tooling — iterate-xml-fix.ps1 实时日志与错误处理
 - **问题**: 原脚本使用 `Start-Process` 并将 stdout/stderr 重定向到日志文件，导致终端无实时输出，无法观察转换/构建进度；`LASTEXITCODE` 捕获不可靠；Maven 警告被 PowerShell 误判为错误。
 - **修复**: 重构 `Invoke-Process` 函数，使用 `& $Executable @Arguments 2>&1 | Tee-Object -FilePath $LogFile` 实现控制台实时输出与日志文件同时写入；在子脚本块内设置 `$ErrorActionPreference = "Continue"` 忽略非致命 stderr 警告；直接返回 `$LASTEXITCODE`。日志路径统一放到 `$PSScriptRoot` 避免目标目录权限问题。

@@ -133,6 +133,32 @@ class C {
         Assert.DoesNotContain("new Object[]", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemTuple_Binary_MapsToMapEntryWithoutListWrapping()
+    {
+        var result = Convert(@"
+class C {
+    System.Tuple<int, bool> GetPair() => System.Tuple.Create(1, true);
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Map.Entry<Integer, Boolean>", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Map.Entry<Integer, List<Boolean>>", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemTuple_InterfaceReturn_MapsToMapEntryWithoutListWrapping()
+    {
+        var result = Convert(@"
+interface ITest {
+    System.Tuple<int, bool> GetPair();
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Map.Entry<Integer, Boolean>", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Map.Entry<Integer, List<Boolean>>", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string csharpCode)
     {
         var pipeline = new ConversionPipeline();

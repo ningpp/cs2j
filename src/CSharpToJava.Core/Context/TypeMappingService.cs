@@ -1203,8 +1203,12 @@ public class TypeMappingService
             }
             if (mappedBase == "Object") return "Object";
 
-            // IGrouping<K, V> → Map.Entry<K, List<V>> (mirrors semantic path at MapTypeInternal)
-            if (mappedBase == "Map.Entry" && mappedInnerArgs.Count == 2)
+            // IGrouping<K, V> → Map.Entry<K, List<V>> (mirrors semantic path at MapTypeInternal).
+            // Only apply the List<V> wrapping when the original C# type is actually
+            // System.Linq.IGrouping`2; System.Tuple`2 also maps to Map.Entry and must
+            // preserve the raw second type argument (e.g. Tuple<int, bool> → Map.Entry<Integer, Boolean>).
+            if (mappedBase == "Map.Entry" && mappedInnerArgs.Count == 2
+                && (configKey == "System.Linq.IGrouping`2" || baseTypeName == "System.Linq.IGrouping"))
             {
                 AddImport("java.util.List");
                 mappedArgsString = $"{mappedInnerArgs[0]}, List<{mappedInnerArgs[1]}>";

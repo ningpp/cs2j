@@ -26,6 +26,14 @@ public final class MethodInfo implements MemberInfo {
         return method.getDeclaringClass();
     }
 
+    /**
+     * Alias for {@link #getDeclaringType()} used by generated code that maps
+     * C# System.Reflection.MethodInfo.DeclaringType to Java reflection naming.
+     */
+    public Class<?> getDeclaringClass() {
+        return method.getDeclaringClass();
+    }
+
     public boolean getIsStatic() {
         return Modifier.isStatic(method.getModifiers());
     }
