@@ -196,4 +196,19 @@ public class EnumTests : ConversionTestBase
         var result = Convert("enum Color { Red, Green }");
         AssertConversion(result, "public static Color fromValueUnchecked(int v) {");
     }
+
+    [Fact]
+    public void ConstIntCastFromEnum_InlinesLiteralValue()
+    {
+        var result = Convert(@"
+enum Status { None = 0, Ok = 1 }
+class C {
+    public const int STATUS_OK = (int)Status.Ok;
+    public int M() { return STATUS_OK; }
+}");
+        AssertConversion(result,
+            "public static final int STATUS_OK = 1;",
+            "return STATUS_OK;");
+        AssertJavaDoesNotContain(result, ".getValue()", "const enum cast should not generate getValue() call");
+    }
 }

@@ -86,6 +86,13 @@ public class ClassTests : ConversionTestBase
     }
 
     [Fact]
+    public void PartialInterface_MergesIntoSingleInterface()
+    {
+        var result = Convert("partial interface I { void A(); } partial interface I { void B(); }");
+        AssertConversion(result, "public interface I {", "void a();", "void b();");
+    }
+
+    [Fact]
     public void ClassImplementingInterface_ConvertsToImplements()
     {
         var result = Convert("interface IAnimal { void Speak(); } class Dog : IAnimal { public void Speak() { } }");

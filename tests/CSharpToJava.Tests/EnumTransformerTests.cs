@@ -1204,4 +1204,27 @@ public class Sample
         Assert.DoesNotContain("a.getValue()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("b.ordinal()", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void EnumFormat_StaticCall_MapsToEnumHelper()
+    {
+        var result = Convert(@"
+public enum Status
+{
+    Open = 10,
+    Closed = 20
+}
+
+public class Sample
+{
+    public string ToString(Status s)
+    {
+        return Enum.Format(typeof(Status), s, ""G"");
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("EnumHelper.format(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enum.format(", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

@@ -81,4 +81,13 @@ public class ExceptionTests : ConversionTestBase
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "getMessage()", "C# Exception.Message must map to Java getMessage()");
     }
+
+    [Fact]
+    public void ExceptionStackTrace_ConvertsToCompatHelper()
+    {
+        var result = Convert("class C { public string M(System.Exception e) { return e.StackTrace; } }");
+        AssertConversion(result,
+            "import io.github.ningpp.compat.ExceptionCompat;",
+            "return ExceptionCompat.getStackTrace(e);");
+    }
 }

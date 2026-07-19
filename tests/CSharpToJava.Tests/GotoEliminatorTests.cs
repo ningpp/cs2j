@@ -227,6 +227,106 @@ public partial class GotoEliminatorTests
         });
     }
 
+    [Fact]
+    public void Hoist_SpanningLocals_WithDuplicateNames_DeduplicatesHoistedDeclarations()
+    {
+        // 当不同基本块中声明了同名局部变量（如 switch 降级后各 section 体中的 endPos），
+        // 提升阶段应对提升声明去重，避免生成 `int endPos = default(int); int endPos = default(int);`。
+        var asm = typeof(CSharpToJava.Core.GotoEliminator.GotoEliminatorOptions).Assembly;
+        var smbType = asm.GetType("CSharpToJava.Core.GotoEliminator.StateMachineBuilder")!;
+        var hoist = smbType.GetMethod("HoistSpanningLocals",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var src = """
+            class C {
+                void M() {
+                    int endPos = 1;
+                    goto done;
+                sec2:
+                    int endPos = 2;
+                    goto done;
+                done:
+                    Console.WriteLine(endPos);
+                }
+            }
+            """;
+        var root = Parse(src);
+        var methodBodyBlock = root.DescendantNodes().OfType<BlockSyntax>().First();
+        var blocks = (System.Collections.IList)smbType.GetMethod("SplitToBlocks",
+            BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, new object[] { methodBodyBlock.Statements })!;
+        var result = (System.Collections.IList)hoist.Invoke(null, new object[] { blocks })!;
+
+        var hoistedNames = result.Cast<StatementSyntax>()
+            .OfType<LocalDeclarationStatementSyntax>()
+            .SelectMany(d => d.Declaration.Variables)
+            .Select(v => v.Identifier.ValueText)
+            .ToList();
+        Assert.Single(hoistedNames, n => n == "endPos");
+        Assert.Equal(hoistedNames.Distinct().Count(), hoistedNames.Count);
+    }
+
+    [Fact]
+    public void Hoist_SpanningLocal_WithNestedDuplicate_ConvertsNestedToAssignment()
+    {
+        // 外层跨块局部已提升后，内层嵌套块中若再声明同名变量，
+        // 拍平到 Java 方法作用域会产生重复声明；应改为赋值或删除。
+        var asm = typeof(CSharpToJava.Core.GotoEliminator.GotoEliminatorOptions).Assembly;
+        var smbType = asm.GetType("CSharpToJava.Core.GotoEliminator.StateMachineBuilder")!;
+        var hoist = smbType.GetMethod("HoistSpanningLocals",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var src = """
+            class C {
+                void M() {
+                    int x = 1;
+                    goto done;
+                done:
+                    {
+                        int x = 2;
+                        Console.WriteLine(x);
+                    }
+                    Console.WriteLine(x);
+                }
+            }
+            """;
+        var root = Parse(src);
+        var methodBodyBlock = root.DescendantNodes().OfType<BlockSyntax>().First();
+        var blocks = (System.Collections.IList)smbType.GetMethod("SplitToBlocks",
+            BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, new object[] { methodBodyBlock.Statements })!;
+        var result = (System.Collections.IList)hoist.Invoke(null, new object[] { blocks })!;
+
+        var hoistedNames = result.Cast<StatementSyntax>()
+            .OfType<LocalDeclarationStatementSyntax>()
+            .SelectMany(d => d.Declaration.Variables)
+            .Select(v => v.Identifier.ValueText)
+            .ToList();
+        Assert.Single(hoistedNames, n => n == "x");
+
+        // 嵌套块中的 `int x = 2;` 应被改为 `x = 2;`
+        bool foundNestedAssignment = false;
+        bool foundNestedRedeclaration = false;
+        foreach (var block in blocks.Cast<BasicBlock>())
+        {
+            foreach (var stmt in block.Statements)
+            {
+                foreach (var nested in stmt.DescendantNodesAndSelf().OfType<LocalDeclarationStatementSyntax>())
+                {
+                    if (nested.Declaration.Variables.Any(v => v.Identifier.ValueText == "x"))
+                        foundNestedRedeclaration = true;
+                }
+                foreach (var assign in stmt.DescendantNodesAndSelf().OfType<ExpressionStatementSyntax>())
+                {
+                    if (assign.Expression is AssignmentExpressionSyntax aes
+                        && aes.Left is IdentifierNameSyntax id
+                        && id.Identifier.ValueText == "x")
+                        foundNestedAssignment = true;
+                }
+            }
+        }
+        Assert.True(foundNestedAssignment, "嵌套块中应出现 x = 2 赋值");
+        Assert.False(foundNestedRedeclaration, "嵌套块中不应再保留 int x = 2 声明");
+    }
+
     // ---- Task 6: State machine emission ----
 
     private static string BuildMethod(string body)
@@ -484,6 +584,46 @@ public partial class GotoEliminatorTests
 
         AssertNoGotoOrLabel(result.OutputCode);
         Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public void Eliminate_LoopSwitchAllCasesTerminate_NoUnreachableExitCheck()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int x = 0;
+            Start:
+                while (true)
+                {
+                    switch (x)
+                    {
+                        case 0:
+                            x = 1;
+                            continue;
+                        case 1:
+                            x = 2;
+                            continue;
+                        default:
+                            goto Done;
+                    }
+                }
+            Done:
+                return x;
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+        // The original switch cannot fall through (every section ends with continue/goto),
+        // so the generated code must not contain an unreachable if (__exit) check directly
+        // after a switch whose sections all terminate abruptly.
+        Assert.False(HasUnreachableExitCheckAfterSwitch(Parse(result.OutputCode)));
     }
 
     [Fact]
@@ -1196,5 +1336,68 @@ public partial class GotoEliminatorTests
             && d.Id != "CS0122" // 内部类型不可访问（SR 等，单文件隔离编译，非转换引入）
             ).ToList();
         Assert.Empty(errors);
+    }
+
+    /// <summary>
+    /// 检查生成的代码中是否存在“switch 后紧跟 if (__exit)”且该 switch 无法贯穿的模式。
+    /// 这种模式在 Java 中会被判定为不可达语句，因此必须避免。
+    /// </summary>
+    private static bool HasUnreachableExitCheckAfterSwitch(CompilationUnitSyntax root)
+    {
+        foreach (var block in root.DescendantNodes().OfType<BlockSyntax>())
+        {
+            for (int i = 0; i < block.Statements.Count - 1; i++)
+            {
+                if (block.Statements[i] is SwitchStatementSyntax sw
+                    && block.Statements[i + 1] is IfStatementSyntax iff
+                    && iff.Condition.ToString().Trim() == "__exit"
+                    && !CanSwitchFallThrough(sw))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool CanSwitchFallThrough(SwitchStatementSyntax sw)
+    {
+        foreach (var section in sw.Sections)
+            if (CanSwitchSectionFallThrough(section))
+                return true;
+        return false;
+    }
+
+    private static bool CanSwitchSectionFallThrough(SwitchSectionSyntax section)
+    {
+        if (section.Statements.Count == 0)
+            return true;
+        return CanStatementReachSwitchEnd(section.Statements.Last());
+    }
+
+    private static bool CanStatementReachSwitchEnd(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case BreakStatementSyntax:
+                // break 退出当前 switch，控制流到达 switch 之后。
+                return true;
+            case ContinueStatementSyntax:
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+                // 这些语句跳转到 switch 之外的其他位置，不会到达 switch 之后。
+                return false;
+            case BlockSyntax block:
+                return block.Statements.Count > 0 && CanStatementReachSwitchEnd(block.Statements.Last());
+            case SwitchStatementSyntax sw:
+                return CanSwitchFallThrough(sw);
+            case IfStatementSyntax iff:
+                if (iff.Else == null)
+                    return CanStatementReachSwitchEnd(iff.Statement);
+                return CanStatementReachSwitchEnd(iff.Statement) || CanStatementReachSwitchEnd(iff.Else.Statement);
+            default:
+                return true;
+        }
     }
 }

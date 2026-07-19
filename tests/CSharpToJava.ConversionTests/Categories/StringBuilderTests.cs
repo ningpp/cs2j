@@ -3,7 +3,7 @@ using Xunit;
 namespace CSharpToJava.ConversionTests.Categories;
 
 /// <summary>
-/// Verifies correct conversion of C# System.Text.StringBuilder usage to Java StringBuilder (with compat helpers).
+/// Verifies correct conversion of C# System.Text.StringBuilder usage to Java StringBuilder (via StringHelper compat methods).
 /// </summary>
 public class StringBuilderTests : ConversionTestBase
 {
@@ -17,10 +17,17 @@ public class StringBuilderTests : ConversionTestBase
     }
 
     [Fact]
-    public void StringBuilderAppendLine_ConvertsToAppendLine()
+    public void StringBuilderAppendLine_ConvertsToHelper()
     {
         var result = Convert("class C { public void M() { var sb = new System.Text.StringBuilder(); sb.AppendLine(\"b\"); } }");
-        AssertConversion(result, "sb.appendLine(\"b\");");
+        AssertConversion(result, "StringHelper.appendLine(sb, \"b\");");
+    }
+
+    [Fact]
+    public void StringBuilderAppendLineNoArgs_ConvertsToHelper()
+    {
+        var result = Convert("class C { public void M() { var sb = new System.Text.StringBuilder(); sb.AppendLine(); } }");
+        AssertConversion(result, "StringHelper.appendLine(sb);");
     }
 
     [Fact]
@@ -78,7 +85,7 @@ public class StringBuilderTests : ConversionTestBase
         var result = Convert("class C { public string M() { var sb = new System.Text.StringBuilder(); sb.Append(\"a\"); sb.AppendLine(\"b\"); sb.Insert(0, \"x\"); sb.Replace(\"a\", \"b\"); return sb.ToString(); } }");
         AssertConversion(result,
             "StringHelper.append(sb, \"a\");",
-            "sb.appendLine(\"b\");",
+            "StringHelper.appendLine(sb, \"b\");",
             "StringHelper.insert(sb, 0, \"x\");",
             "sb.replace(\"a\", \"b\");",
             "return sb.toString();");
