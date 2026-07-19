@@ -59,6 +59,38 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         Field
     }
 
+    /// <summary>
+    /// Computes the Java getter method name for a C# property.
+    /// When the class property conflicts with an explicit interface implementation
+    /// of the same property (same name, different return type), the class accessor is
+    /// renamed to avoid a Java overload clash, so callers must use the renamed name.
+    /// </summary>
+    private static string GetPropertyGetterName(IPropertySymbol propSymbol)
+    {
+        string baseName = "get" + char.ToUpperInvariant(propSymbol.Name[0]) + propSymbol.Name[1..];
+
+        // If this is the class property and the containing type has an explicit interface
+        // implementation of the same property with a different return type, the class
+        // accessor will be renamed to baseName + "$Class".
+        if (propSymbol.ExplicitInterfaceImplementations.Length == 0
+            && propSymbol.ContainingType is INamedTypeSymbol containingType)
+        {
+            foreach (var member in containingType.GetMembers())
+            {
+                if (member is IPropertySymbol otherProp
+                    && otherProp.ExplicitInterfaceImplementations.Length > 0
+                    && otherProp.ExplicitInterfaceImplementations.Any(e => e.Name == propSymbol.Name)
+                    && otherProp.Parameters.Length == propSymbol.Parameters.Length
+                    && !SymbolEqualityComparer.Default.Equals(otherProp.Type, propSymbol.Type))
+                {
+                    return baseName + "$Class";
+                }
+            }
+        }
+
+        return baseName;
+    }
+
     public string Transform(ExpressionSyntax node, ConversionContext context)
         => node.Kind() switch
         {
@@ -98,7 +130,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
                     if (!isLhsOfAssignment)
                     {
-                        var getter = "get" + char.ToUpperInvariant(identProp.Name[0]) + identProp.Name[1..];
+                        var getter = GetPropertyGetterName(identProp);
                         return new JavaMethodCallExpression { Target = null, MethodName = getter };
                     }
                 }
@@ -310,11 +342,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
             if (!isLhsOfAssignment)
             {
-                // C# IEnumerator.Current is a stable read after MoveNext().
-                if (identProp.Name == "Current" && IsEnumeratorLikeType(identProp.ContainingType))
-                    return "getCurrent()";
-
-                var getter = "get" + char.ToUpperInvariant(identProp.Name[0]) + identProp.Name[1..];
+                var getter = GetPropertyGetterName(identProp);
                 return $"{getter}()";
             }
             // LHS: return camelCase so AssignmentTransformer can build setXxx(rhs)
@@ -975,7 +1003,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
 
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
-                return $"{target}.getCurrent()";
+                return $"{target}.{GetPropertyGetterName(prop)}()";
 
             var propertyTarget = prop.IsStatic
                 ? MapStaticTypeReceiver(prop.ContainingType, context)
@@ -1136,15 +1164,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     var recordAccessor = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"{propertyTarget}.{recordAccessor}()";
                 }
-                // C# IEnumerator.Current is a stable read after MoveNext().
-                if (prop.Name == "Current"
-                    && (IsEnumeratorLikeType(prop.ContainingType)
-                        || IsEnumeratorLikeType(receiverType)
-                        || (receiverType != null
-                            && context.TypeMappings.MapType(receiverType.ToDisplayString()) is "Iterator" or "Iterator<T>")))
-                    return $"{propertyTarget}.getCurrent()";
-
-                var getter = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
+                var getter = GetPropertyGetterName(prop);
                 return $"{propertyTarget}.{getter}()";
             }
         }
@@ -1566,10 +1586,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         if (preferredSymbol is IPropertySymbol propertySymbol && !IsAssignmentLeftHandSide(receiver))
         {
-            if (propertySymbol.Name == "Current" && IsEnumeratorLikeType(propertySymbol.ContainingType))
-                transformedReceiver = "getCurrent()";
-            else
-                transformedReceiver = GetterCall(propertySymbol.Name);
+            transformedReceiver = $"{GetPropertyGetterName(propertySymbol)}()";
             return true;
         }
 
@@ -1939,13 +1956,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     if (memberName == "Length" && IsSystemIoStreamType(foundProp.ContainingType))
                         return $"{propertyTarget}.getLength()";
 
-                    if (memberName == "Current"
-                        && (IsEnumeratorLikeType(foundProp.ContainingType)
-                            || IsEnumeratorLikeType(namedReceiver)))
-                        return $"{propertyTarget}.getCurrent()";
-
                     // Default: generate getXxx() getter
-                    var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
+                    var getter = GetPropertyGetterName(foundProp);
                     return $"{propertyTarget}.{getter}()";
                 }
                 if (m is IFieldSymbol { IsStatic: false })

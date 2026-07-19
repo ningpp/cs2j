@@ -268,6 +268,23 @@ public static class ExpressionTransformerHelpers
         if (sourceSpecial == SpecialType.System_Char && targetSpecial == SpecialType.System_String)
             return $"String.valueOf({transformedExpression})";
 
+        // C# enum ← integral value: Java enum requires explicit fromValue() conversion.
+        // Flags enums are mapped to primitive int/long in Java and accept integral values directly.
+        if (targetType is INamedTypeSymbol targetEnumType && targetEnumType.TypeKind == TypeKind.Enum
+            && IsIntegralNumericType(sourceSpecial))
+        {
+            var javaEnumType = context.MapType(targetEnumType);
+            if (!string.IsNullOrWhiteSpace(javaEnumType)
+                && javaEnumType is not "int" and not "long" and not "short" and not "byte"
+                and not "Integer" and not "Long" and not "Short" and not "Byte")
+            {
+                var argExpr = sourceSpecial == SpecialType.System_Int32
+                    ? transformedExpression
+                    : $"(int)({transformedExpression})";
+                return $"{javaEnumType}.fromValue({argExpr})";
+            }
+        }
+
         if (!IsNumericOrCharType(sourceSpecial) || !IsNumericOrCharType(targetSpecial))
             return transformedExpression;
 
@@ -434,6 +451,18 @@ public static class ExpressionTransformerHelpers
             or SpecialType.System_Double
             or SpecialType.System_Decimal
             or SpecialType.System_Char;
+    }
+
+    private static bool IsIntegralNumericType(SpecialType specialType)
+    {
+        return specialType is SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64;
     }
 
     /// <summary>Returns true when <paramref name="type"/> is System.IO.Stream or a subclass.</summary>

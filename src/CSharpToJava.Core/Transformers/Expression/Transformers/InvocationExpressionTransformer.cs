@@ -874,6 +874,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var enumMethod = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
             bool isGenericEnumerator = IsGenericEnumeratorMethod(enumMethod);
+
+            // If GetEnumerator() returns a concrete custom enumerator type (e.g. XmlSchemaCollectionEnumerator)
+            // and the result flows into a target of that exact custom type, cast the iterator expression
+            // instead of wrapping it. Wrapping would erase the custom type and make the assignment invalid.
+            if (enumMethod?.ReturnType is INamedTypeSymbol customEnumType
+                && IsCSharpEnumeratorType(customEnumType)
+                && !IsInterfaceEnumeratorType(customEnumType))
+            {
+                var targetType = GetCustomEnumeratorTargetType(node, context);
+                if (SymbolEqualityComparer.Default.Equals(customEnumType, targetType))
+                {
+                    var javaType = context.MapType(customEnumType);
+                    return $"({javaType}) {BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)}";
+                }
+            }
+
             // CSharpGenericEnumerator<T> is NOT a subtype of CSharpEnumerator in Java.
             // When the result flows into a non-generic IEnumerator target (variable, field,
             // parameter, or method return), we must use CSharpEnumerator.from() instead.
@@ -884,6 +900,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
             return $"CSharpEnumerator.from({BuildIteratorExpressionForExplicitGetEnumerator(receiver, memberAccess.Expression, context)})";
+        }
+
+        // C# System.Array.GetValue(index) on a concrete array type: the receiver maps
+        // to a plain Java array, which has no getValue() method. Use array indexing.
+        // When the receiver is System.Array itself (CSharpArray in Java), keep getValue().
+        if (originalMethodName == "GetValue"
+            && node.ArgumentList.Arguments.Count == 1
+            && context.SemanticModel != null
+            && earlyMethodSymbol?.ContainingType.SpecialType == SpecialType.System_Array)
+        {
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType is IArrayTypeSymbol)
+            {
+                var indexArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"{receiver}[{indexArg}]";
+            }
         }
 
         // C# Type.GetMethod(name, ...) → Java Class.getDeclaredMethod / getMethod.
@@ -1404,11 +1436,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (context.SemanticModel != null)
         {
             var delegateSymInfo = context.GetSymbolInfo(node);
-            if (delegateSymInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
+            var memberSymbol = context.GetSymbolInfo(memberAccess).Symbol;
+            bool memberIsDelegate = memberSymbol switch
+            {
+                IFieldSymbol f => f.Type.TypeKind == TypeKind.Delegate,
+                IPropertySymbol p => p.Type.TypeKind == TypeKind.Delegate,
+                IEventSymbol => true,
+                ILocalSymbol l => l.Type.TypeKind == TypeKind.Delegate,
+                IParameterSymbol par => par.Type.TypeKind == TypeKind.Delegate,
+                _ => false
+            };
+
+            if (delegateSymInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke
+                && memberIsDelegate)
             {
                 // Check if this is actually an event invocation (e.g., this.ProgressChanged(sender, args))
                 // Events are a special case - they should use the fire method instead of delegate invocation
-                var memberSymbol = context.GetSymbolInfo(memberAccess).Symbol;
                 if (memberSymbol is IEventSymbol eventSym)
                 {
                     // For events within the same class, use the fire method
@@ -1821,12 +1864,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && node.ArgumentList.Arguments.Count == 1
             && methodSymbol is { IsExtensionMethod: false }
             && methodSymbol.ContainingType is INamedTypeSymbol compareToType
-            && IsPrimitiveNumericType(compareToType))
+            && IsPrimitiveNumericType(compareToType)
+            && compareToType.SpecialType != SpecialType.System_Decimal)
         {
             var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var wrapper = compareToType.SpecialType switch
             {
                 SpecialType.System_Int64 => "Long",
+                SpecialType.System_Double => "Double",
+                SpecialType.System_Single => "Float",
                 _ => "Integer"
             };
             return $"{wrapper}.compare({receiver}, {arg})";
@@ -2641,6 +2687,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "ToString"  => ResolveConvertToString(node, context, ref toStringFormatProviderStripped),
                 _ => (receiver, methodName)
             };
+
+            // Convert.ToInt32(char) → (int)char (Unicode code point), not Integer.parseInt(char).
+            // C# Convert.ToInt64(char), ToDouble(char), etc. likewise cast from char.
+            if (node.ArgumentList.Arguments.Count > 0)
+            {
+                var firstArgType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
+                if (firstArgType?.SpecialType == SpecialType.System_Char)
+                {
+                    var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                    var castTarget = originalMethodName switch
+                    {
+                        "ToInt64" => "long",
+                        "ToDouble" => "double",
+                        "ToSingle" => "float",
+                        "ToInt16" => "short",
+                        "ToByte" => "byte",
+                        "ToSByte" => "byte",
+                        _ => "int"
+                    };
+                    return $"({castTarget})({arg})";
+                }
+            }
         }
 
         // Java cannot reference a static type receiver with a simple name when the current
@@ -3150,8 +3218,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // use InferSamMethodName heuristic based on argument count and expression position.
         // .Invoke() is almost exclusively used for C# delegate invocations.
         // System.Reflection.MethodInfo.Invoke is NOT a delegate invocation — skip it.
+        // Ordinary interface methods named Invoke must also be preserved (e.g. IXsltContextFunction.Invoke).
         if (methodName == "Invoke" && methodName == originalMethodName
-            && !IsMethodInfoReceiver(memberAccess.Expression, context))
+            && !IsMethodInfoReceiver(memberAccess.Expression, context)
+            && (methodSymbol == null || methodSymbol.MethodKind == MethodKind.DelegateInvoke))
         {
             bool seemsVoid = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax;
             int paramCount = node.ArgumentList.Arguments.Count;
@@ -7584,6 +7654,76 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Returns true when the type is exactly the IEnumerator (non-generic) or
+    /// IEnumerator&lt;T&gt; interface, as opposed to a concrete custom enumerator
+    /// implementation such as XmlSchemaCollectionEnumerator.
+    /// </summary>
+    private static bool IsInterfaceEnumeratorType(ITypeSymbol? type)
+        => IsNonGenericIEnumerator(type) || IsGenericIEnumerator(type);
+
+    /// <summary>
+    /// Determines the target enumerator type for a GetEnumerator() invocation.
+    /// Returns the custom enumerator type when the result is assigned/passed/returned
+    /// as a concrete enumerator implementation (e.g. XmlSchemaCollectionEnumerator).
+    /// </summary>
+    private static ITypeSymbol? GetCustomEnumeratorTargetType(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        var convertedType = context.GetTypeInfo(node).ConvertedType;
+        if (convertedType != null)
+            return convertedType;
+
+        if (context.SemanticModel == null)
+            return null;
+
+        var parent = node.Parent;
+        while (parent != null)
+        {
+            if (parent is LocalDeclarationStatementSyntax localDecl)
+            {
+                foreach (var varDecl in localDecl.Declaration.Variables)
+                {
+                    if (varDecl.Initializer?.Value == node || IsDescendantOf(varDecl.Initializer?.Value, node))
+                    {
+                        return context.SemanticModel.GetTypeInfo(localDecl.Declaration.Type).Type;
+                    }
+                }
+                break;
+            }
+
+            if (parent is AssignmentExpressionSyntax assignment && assignment.Right == node)
+            {
+                return context.SemanticModel.GetTypeInfo(assignment.Left).Type;
+            }
+
+            if (parent is ArgumentSyntax argument)
+            {
+                var argList = argument.Parent as BaseArgumentListSyntax;
+                if (argList != null)
+                {
+                    var idx = argList.Arguments.IndexOf(argument);
+                    if (argList.Parent is InvocationExpressionSyntax invocation)
+                    {
+                        var methodSym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                        if (methodSym != null && idx >= 0 && idx < methodSym.Parameters.Length)
+                            return methodSym.Parameters[idx].Type;
+                    }
+                    else if (argList.Parent is ObjectCreationExpressionSyntax)
+                    {
+                        var ctorSym = context.SemanticModel.GetSymbolInfo(argList.Parent).Symbol as IMethodSymbol;
+                        if (ctorSym != null && idx >= 0 && idx < ctorSym.Parameters.Length)
+                            return ctorSym.Parameters[idx].Type;
+                    }
+                }
+                break;
+            }
+
+            parent = parent.Parent;
+        }
+
+        return null;
     }
 
     private static bool IsGenericEnumeratorMethod(IMethodSymbol? method)

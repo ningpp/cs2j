@@ -419,7 +419,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // than <, ==, etc. in Java, so without them "x & 0xFFFF < 10" would be parsed as
         // "x & (0xFFFF < 10)" which is a type error (int & boolean).
         if (targetSymbol?.SpecialType == SpecialType.System_UInt16)
+        {
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            // When casting from object, Java cannot cast Object directly to int.
+            // Unbox to Integer first; the runtime instanceof check (e.g. value instanceof Integer)
+            // guarantees the cast is safe.
+            if (sourceType?.SpecialType == SpecialType.System_Object)
+                return $"(((int)(((Integer)({expression})) & 0xFFFF)))";
             return $"(((int)({expression})) & 0xFFFF)";
+        }
 
         // C# (uint)expr → (int)((expr) & 0xFFFFFFFFL) (uint maps to Java int, cast becomes masking)
         // This preserves unsigned semantics: (uint)(x - '0') <= 9 works correctly
@@ -432,7 +440,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // in Java. The mask ensures only the lower 32 bits are set, so the (int) cast
         // produces the correct unsigned-to-signed mapping.
         if (targetSymbol?.SpecialType == SpecialType.System_UInt32)
+        {
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            // When casting from object, Java cannot use Object as a bitwise operand.
+            // Unbox to Integer first; the runtime instanceof check (e.g. value instanceof Integer)
+            // guarantees the cast is safe.
+            if (sourceType?.SpecialType == SpecialType.System_Object)
+                return $"(int)(((Integer)({expression})) & 0xFFFFFFFFL)";
             return $"(int)(({expression}) & 0xFFFFFFFFL)";
+        }
 
         // User-defined conversion operators (implicit/explicit operator)
         // e.g. (string)qilLiteral where QilLiteral defines "implicit operator string"
@@ -886,6 +902,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 context.AddImport("io.github.ningpp.compat.CSharpList");
                 return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : new CSharpList<>({expression}))";
             }
+        }
+
+        // C# System.Array as T[]: System.Array maps to the CSharpArray wrapper in Java.
+        // A direct "expr instanceof T[] ? (T[])expr : null" is invalid because CSharpArray
+        // is not a Java array. Use CSharpArray.tryAs(expr, T[].class) to unwrap and test safely.
+        // The static helper also accepts plain Java arrays, which matters when the source
+        // expression has already been lowered to a typed array (e.g. ArrayList.ToArray(typeof(T))).
+        if (context.SemanticModel != null
+            && targetType.EndsWith("[]", StringComparison.Ordinal)
+            && IsSystemArrayReferenceType(context.GetTypeInfo(node.Left).Type))
+        {
+            var classLiteral = ToRuntimeTypeForClassLiteral(targetType);
+            context.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"({expression} != null ? CSharpArray.tryAs({expression}, {classLiteral}.class) : null)";
         }
 
         return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null)";

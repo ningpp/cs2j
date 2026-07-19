@@ -842,7 +842,41 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         left = WrapOperandIfNeeded(node.Left, left, op, true);
         right = WrapOperandIfNeeded(node.Right, right, op, false);
 
-        return $"{left} {op} {right}";
+        var result = $"{left} {op} {right}";
+
+        // Only wrap the outermost bitwise expression with fromValue()/values()[]
+        // when the result is used in a context that expects an enum value.
+        // Nested bitwise expressions (e.g. a | b inside a | b | c) and expressions
+        // used in integer contexts (e.g. (flags & Value) != 0) must stay unwrapped
+        // to avoid invalid Java (enum compared to int) and double-wrapping.
+        if (ShouldWrapEnumBitwiseResult(node))
+        {
+            if (TryWrapEnumBitwiseResult(node, result, context, out var wrappedResult))
+                return wrappedResult;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns true when the bitwise expression is used in a context that expects
+    /// an enum value (return, assignment, argument, cast, etc.), rather than an
+    /// integer context (comparison, arithmetic, nested bitwise, etc.).
+    /// Parenthesized expression wrappers are skipped.
+    /// </summary>
+    private static bool ShouldWrapEnumBitwiseResult(BinaryExpressionSyntax node)
+    {
+        var parent = node.Parent;
+        while (parent is ParenthesizedExpressionSyntax)
+            parent = parent.Parent;
+
+        return parent is ReturnStatementSyntax
+            or ArrowExpressionClauseSyntax
+            or YieldStatementSyntax
+            or EqualsValueClauseSyntax
+            or AssignmentExpressionSyntax
+            or ArgumentSyntax
+            or CastExpressionSyntax;
     }
 
     /// <summary>
