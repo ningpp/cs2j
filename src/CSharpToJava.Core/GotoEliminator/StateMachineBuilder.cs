@@ -231,6 +231,48 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
         for (int i = 0; i < bbList.Count; i++)
         {
             var blockStmts = bbList[i].Statements;
+
+            // 新增：扫描嵌套局部声明。C# switch case 内声明的变量作用域覆盖整个 switch，
+            // 去糖成状态机后这些声明落在某个基本块的嵌套结构里，却可能被后续基本块引用。
+            // 先收集跨块引用的变量名，后续 RemoveConflictingNestedDeclarations 会将其改为赋值。
+            var nestedDecls = blockStmts.SelectMany(EnumerateNestedLocalDeclarations).ToList();
+            foreach (var decl in nestedDecls)
+            {
+                if (decl.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
+
+                bool isUsing = decl.UsingKeyword.IsKind(SyntaxKind.UsingKeyword);
+                bool isFixed = decl.Modifiers.Any(SyntaxKind.FixedKeyword)
+                               || decl.Modifiers.Any(SyntaxKind.UnsafeKeyword);
+                bool isRef = decl.Modifiers.Any(SyntaxKind.RefKeyword)
+                             || decl.Modifiers.Any(SyntaxKind.OutKeyword);
+
+                var names = decl.Declaration.Variables.Select(v => v.Identifier.ValueText).ToList();
+                bool spans = false;
+                for (int j = i + 1; j < bbList.Count; j++)
+                    if (bbList[j].Statements.Any(st => ReferencesAny(st, names))) { spans = true; break; }
+                if (!spans) continue;
+
+                if (isUsing) throw new GotoEliminatorException("spanning 'using' local not supported");
+                if (isFixed) throw new GotoEliminatorException("spanning 'fixed/unsafe' local not supported");
+                if (isRef) throw new GotoEliminatorException("spanning 'ref/out' local not supported");
+
+                var type = decl.Declaration.Type;
+                var synthesizedType = CleanSynthesizedType(type);
+                foreach (var v in decl.Declaration.Variables)
+                {
+                    if (hoistedNames.Add(v.Identifier.ValueText))
+                    {
+                        var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
+                            SyntaxFactory.VariableDeclaration(synthesizedType.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
+                                SyntaxFactory.SingletonSeparatedList(
+                                    SyntaxFactory.VariableDeclarator(v.Identifier)
+                                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                            SyntaxFactory.DefaultExpression(synthesizedType))))));
+                        hoisted.Add(defaultDecl);
+                    }
+                }
+            }
+
             // 从后向前迭代：提升某声明（尤其无 initializer 时）会令块内语句列表收缩；
             // 若从前向后迭代，会跳过紧随其后的下一条声明，进而漏提升跨块局部。
             for (int s = blockStmts.Count - 1; s >= 0; s--)
@@ -410,6 +452,15 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
         var set = new HashSet<string>(names);
         return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
             .Any(id => set.Contains(id.Identifier.ValueText));
+    }
+
+    /// <summary>
+    /// 枚举语句内部（非语句自身）的局部声明。不进入局部函数/lambda/匿名方法。
+    /// </summary>
+    private static IEnumerable<LocalDeclarationStatementSyntax> EnumerateNestedLocalDeclarations(StatementSyntax stmt)
+    {
+        return stmt.DescendantNodes(ShouldDescendIntoChildren)
+            .OfType<LocalDeclarationStatementSyntax>();
     }
 }
 

@@ -111,10 +111,19 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
                 targetSections.Add((state, section));
         }
 
+        // C# switch case 内声明的局部变量作用域覆盖整个 switch；去糖为状态机后，
+        // 这些变量可能声明在 state 0 的嵌套 switch 中，却被提取到独立 state 的
+        // 目标 case 体引用。先将跨 case 引用的变量提升到状态机外层。
+        var hoistedNames = CollectCrossSectionVariables(visited.Sections);
+        var hoistedDeclarations = CreateHoistedDeclarations(visited.Sections, hoistedNames);
+        var rewrittenSectionsMap = visited.Sections
+            .Select(section => (section, rewritten: RewriteHoistedDeclarations(section, hoistedNames)))
+            .ToDictionary(t => t.section, t => t.rewritten);
+
         var initialRewriter = new SwitchSectionRewriter(
             stateName, continueName, targetStateByCase, defaultState, _loopDepth);
         var initialSections = visited.Sections
-            .Select(section => section.WithStatements(RewriteStatements(section, initialRewriter)))
+            .Select(section => rewrittenSectionsMap[section].WithStatements(RewriteStatements(rewrittenSectionsMap[section], initialRewriter)))
             .ToList();
         var initialSwitch = visited.WithSections(SyntaxFactory.List(initialSections));
 
@@ -133,21 +142,21 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
         {
             var rewriter = new SwitchSectionRewriter(
                 stateName, continueName, targetStateByCase, defaultState, _loopDepth);
-            var rewrittenStatements = RewriteStatements(section, rewriter).ToList();
+            var rewrittenSection = rewrittenSectionsMap[section];
+            var rewrittenStatements = RewriteStatements(rewrittenSection, rewriter).ToList();
             rewrittenStatements.Add(SyntaxFactory.BreakStatement());
             usesOuterContinue |= rewriter.UsesOuterContinue;
             stateSections.Add(ScopedStateSection(state, rewrittenStatements));
         }
 
-        var declarations = new List<StatementSyntax>
-        {
-            SyntaxFactory.LocalDeclarationStatement(
-                SyntaxFactory.VariableDeclaration(
-                    SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.IntKeyword)),
-                    SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.VariableDeclarator(stateName)
-                            .WithInitializer(SyntaxFactory.EqualsValueClause(Number(0)))))),
-        };
+        var declarations = new List<StatementSyntax>();
+        declarations.AddRange(hoistedDeclarations);
+        declarations.Add(SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.IntKeyword)),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(stateName)
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(Number(0)))))));
         if (usesOuterContinue)
         {
             declarations.Add(SyntaxFactory.LocalDeclarationStatement(
@@ -319,6 +328,128 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
         return StatementMayCompleteNormally(ifStatement.Statement)
             || StatementMayCompleteNormally(ifStatement.Else.Statement);
     }
+
+    #region Switch-section local hoisting
+
+    /// <summary>
+    /// 收集 switch 各 section 顶层局部声明中，被其他 section 引用的变量名。
+    /// C# 中 switch case 内声明的变量作用域覆盖整个 switch，去糖后必须提升到状态机外层。
+    /// </summary>
+    private static HashSet<string> CollectCrossSectionVariables(SyntaxList<SwitchSectionSyntax> sections)
+    {
+        var result = new HashSet<string>();
+        var sectionTopLevelDecls = sections
+            .Select((section, index) => (index, decls: section.Statements.OfType<LocalDeclarationStatementSyntax>().ToList()))
+            .ToList();
+
+        foreach (var (i, decls) in sectionTopLevelDecls)
+        {
+            foreach (var decl in decls)
+            {
+                if (decl.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
+                foreach (var v in decl.Declaration.Variables)
+                {
+                    var name = v.Identifier.ValueText;
+                    for (int j = 0; j < sections.Count; j++)
+                    {
+                        if (j == i) continue;
+                        if (ReferencesAny(sections[j], name))
+                        {
+                            result.Add(name);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static List<LocalDeclarationStatementSyntax> CreateHoistedDeclarations(
+        SyntaxList<SwitchSectionSyntax> sections, HashSet<string> hoistedNames)
+    {
+        var result = new List<LocalDeclarationStatementSyntax>();
+        var added = new HashSet<string>();
+        foreach (var section in sections)
+        {
+            foreach (var decl in section.Statements.OfType<LocalDeclarationStatementSyntax>())
+            {
+                if (decl.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
+                var type = decl.Declaration.Type.WithoutTrivia();
+                foreach (var v in decl.Declaration.Variables)
+                {
+                    if (hoistedNames.Contains(v.Identifier.ValueText) && added.Add(v.Identifier.ValueText))
+                    {
+                        result.Add(SyntaxFactory.LocalDeclarationStatement(
+                            SyntaxFactory.VariableDeclaration(type.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
+                                SyntaxFactory.SingletonSeparatedList(
+                                    SyntaxFactory.VariableDeclarator(v.Identifier)
+                                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                            SyntaxFactory.DefaultExpression(type)))))));
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 将 section 中需要提升的变量声明改为赋值（或删除）。保持其他语句不变。
+    /// </summary>
+    private static SwitchSectionSyntax RewriteHoistedDeclarations(SwitchSectionSyntax section, HashSet<string> hoistedNames)
+    {
+        if (hoistedNames.Count == 0) return section;
+
+        var newStatements = new List<StatementSyntax>();
+        foreach (var stmt in section.Statements)
+        {
+            if (stmt is LocalDeclarationStatementSyntax decl)
+            {
+                var keptVariables = new List<VariableDeclaratorSyntax>();
+                var assignStmts = new List<StatementSyntax>();
+                foreach (var v in decl.Declaration.Variables)
+                {
+                    if (hoistedNames.Contains(v.Identifier.ValueText))
+                    {
+                        if (v.Initializer != null)
+                        {
+                            assignStmts.Add(SyntaxFactory.ExpressionStatement(
+                                SyntaxFactory.AssignmentExpression(
+                                    SyntaxKind.SimpleAssignmentExpression,
+                                    SyntaxFactory.IdentifierName(v.Identifier),
+                                    v.Initializer.Value)));
+                        }
+                    }
+                    else
+                    {
+                        keptVariables.Add(v);
+                    }
+                }
+
+                newStatements.AddRange(assignStmts);
+                if (keptVariables.Count > 0)
+                {
+                    newStatements.Add(decl.WithDeclaration(
+                        decl.Declaration.WithVariables(SyntaxFactory.SeparatedList(keptVariables))));
+                }
+            }
+            else
+            {
+                newStatements.Add(stmt);
+            }
+        }
+
+        return section.WithStatements(SyntaxFactory.List(newStatements));
+    }
+
+    private static bool ReferencesAny(SyntaxNode node, string name)
+    {
+        return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
+            .Any(id => id.Identifier.ValueText == name);
+    }
+
+    #endregion
 
     private sealed class SwitchSectionRewriter : CSharpSyntaxRewriter
     {
