@@ -49,6 +49,10 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         this.offset = offsetFromKind(dateTime.getKind());
     }
 
+    public static CSharpDateTimeOffset toCSharpDateTimeOffset(CSharpDateTime dateTime) {
+        return new CSharpDateTimeOffset(dateTime);
+    }
+
     private static CSharpTimeSpan offsetFromKind(DateTimeKind kind) {
         if (kind == DateTimeKind.Utc) {
             return CSharpTimeSpan.ZERO;

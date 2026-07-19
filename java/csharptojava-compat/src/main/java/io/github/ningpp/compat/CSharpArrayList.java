@@ -15,6 +15,13 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     public CSharpArrayList() { this.list = new ArrayList<>(); }
     public CSharpArrayList(int capacity) { this.list = new ArrayList<>(capacity); }
     public CSharpArrayList(Collection<?> c) { this.list = new ArrayList<>(c); }
+    public CSharpArrayList(CSharpCollection c) {
+        this.list = new ArrayList<>();
+        var en = c.iterator();
+        while (en.moveNext()) {
+            this.list.add(en.getCurrent());
+        }
+    }
 
     @Override public int add(Object value) { list.add(value); return list.size() - 1; }
     @Override public void clear() { list.clear(); }
@@ -42,6 +49,22 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     public void setCapacity(int value) { list.ensureCapacity(value); }
     public void addRange(Collection<?> c) { list.addAll(c); }
     public void addRange(Object[] arr) { for (Object item : arr) list.add(item); }
+    public void insertRange(int index, Collection<?> c) { list.addAll(index, c); }
+    public void insertRange(int index, Iterable<?> c) {
+        for (Object item : c) {
+            list.add(index++, item);
+        }
+    }
+    public void insertRange(int index, CSharpIList c) {
+        for (int i = 0; i < c.getCount(); i++) {
+            list.add(index + i, c.get(i));
+        }
+    }
+    public void insertRange(int index, Object[] arr) {
+        for (int i = 0; i < arr.length; i++) {
+            list.add(index + i, arr[i]);
+        }
+    }
     public int binarySearch(Object value) {
         return Collections.binarySearch(list, value, (a, b) -> CSharpDefaultComparer.getDefault().compare(a, b));
     }
@@ -63,6 +86,7 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     public void sort() { list.sort(null); }
     public void sort(Comparator<?> comparer) { list.sort((Comparator<Object>) comparer); }
     public Object[] toArray() { return list.toArray(); }
+    public <T> T[] toArray(T[] array) { return list.toArray(array); }
     public void trimToSize() { list.trimToSize(); }
     public static CSharpArrayList repeat(Object value, int count) {
         CSharpArrayList result = new CSharpArrayList(count);

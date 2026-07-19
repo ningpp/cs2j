@@ -27,6 +27,21 @@ public final class CSharpTimeZoneInfo {
         return new CSharpTimeSpan((long) offset.getTotalSeconds() * CSharpTimeSpan.TICKS_PER_SECOND);
     }
 
+    public static CSharpDateTime convertTime(CSharpDateTime dateTime, CSharpTimeZoneInfo destinationTimeZone) {
+        if (dateTime == null) throw new NullPointerException("dateTime");
+        if (destinationTimeZone == null) throw new NullPointerException("destinationTimeZone");
+        LocalDateTime ldt = dateTime.ticksToLdtPublic();
+        ZonedDateTime sourceZdt = ldt.atZone(ZoneId.systemDefault());
+        ZonedDateTime destZdt = sourceZdt.withZoneSameInstant(destinationTimeZone.zoneId);
+        return new CSharpDateTime(ldtToTicks(destZdt.toLocalDateTime()), dateTime.getKind());
+    }
+
+    private static long ldtToTicks(LocalDateTime ldt) {
+        long epochDay = ldt.toLocalDate().toEpochDay();
+        long nanoOfDay = ldt.toLocalTime().toNanoOfDay();
+        return epochDay * CSharpTimeSpan.TICKS_PER_DAY + nanoOfDay / 100 + 621355968000000000L;
+    }
+
     public ZoneId getZoneId() {
         return zoneId;
     }

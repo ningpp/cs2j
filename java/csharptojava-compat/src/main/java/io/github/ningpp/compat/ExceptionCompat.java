@@ -33,4 +33,26 @@ public final class ExceptionCompat {
     public static String getSource(RuntimeException e) {
         return null;
     }
+
+    /**
+     * Returns the stack trace of {@code e} as a {@link String}, mirroring .NET's
+     * {@code Exception.StackTrace} property.
+     *
+     * <p>Java's {@link Throwable#getStackTrace()} returns an array of
+     * {@link StackTraceElement}s; this helper formats them into a single string.</p>
+     */
+    public static String getStackTrace(RuntimeException e) {
+        if (e == null) {
+            return null;
+        }
+        StackTraceElement[] trace = e.getStackTrace();
+        if (trace == null || trace.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (StackTraceElement element : trace) {
+            sb.append("   at ").append(element.toString()).append(System.lineSeparator());
+        }
+        return sb.toString();
+    }
 }

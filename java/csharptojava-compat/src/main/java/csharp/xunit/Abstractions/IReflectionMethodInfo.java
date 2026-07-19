@@ -1,7 +1,7 @@
 package csharp.xunit.Abstractions;
 
-import java.lang.reflect.Method;
+import io.github.ningpp.compat.MethodInfo;
 
 public interface IReflectionMethodInfo extends IMethodInfo {
-    Method getMethodInfo();
+    MethodInfo getMethodInfo();
 }

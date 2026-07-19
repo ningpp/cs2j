@@ -19,6 +19,11 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
     private final long ticks;
     private final DateTimeKind kind;
 
+    public CSharpDateTime() {
+        this.ticks = 0L;
+        this.kind = DateTimeKind.Unspecified;
+    }
+
     public CSharpDateTime(long ticks) {
         if (ticks < 0 || ticks > 3155378975999999999L) {
             throw new IllegalArgumentException("Ticks must be between 0 and 3155378975999999999.");

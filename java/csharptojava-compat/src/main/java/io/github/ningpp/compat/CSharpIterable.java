@@ -1,6 +1,6 @@
 package io.github.ningpp.compat;
 
-public interface CSharpIterable extends Iterable<Object> {
+public interface CSharpIterable<T> extends Iterable<T> {
     @Override
-    CSharpEnumerator iterator();
+    CSharpGenericEnumerator<T> iterator();
 }

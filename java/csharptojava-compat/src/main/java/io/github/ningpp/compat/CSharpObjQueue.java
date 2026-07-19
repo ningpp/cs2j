@@ -5,7 +5,7 @@ import java.util.LinkedList;
 import java.util.NoSuchElementException;
 import java.util.stream.Stream;
 
-public class CSharpObjQueue implements CSharpIterable, Cloneable {
+public class CSharpObjQueue implements CSharpIterable<Object>, Cloneable {
     private final LinkedList<Object> queue = new LinkedList<>();
     private final Object syncRoot = new Object();
 

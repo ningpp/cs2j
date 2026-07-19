@@ -3,6 +3,12 @@ package io.github.ningpp.compat;
 public class CSharpCaseInsensitiveComparer implements CSharpComparer {
     private static final CSharpCaseInsensitiveComparer INSTANCE = new CSharpCaseInsensitiveComparer();
 
+    public CSharpCaseInsensitiveComparer() {
+    }
+
+    public CSharpCaseInsensitiveComparer(CultureInfo culture) {
+    }
+
     public static CSharpCaseInsensitiveComparer getDefault() { return INSTANCE; }
 
     @Override

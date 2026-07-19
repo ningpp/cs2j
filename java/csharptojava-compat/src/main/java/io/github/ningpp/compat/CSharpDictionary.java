@@ -78,7 +78,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
-    public V get(Object key) {
+    public V get(K key) {
         return map.get(key);
     }
 
@@ -148,7 +148,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     // Dictionary-specific methods
 
-    public V getOrDefault(Object key, V defaultValue) {
+    public V getOrDefault(K key, V defaultValue) {
         return map.getOrDefault(key, defaultValue);
     }
 

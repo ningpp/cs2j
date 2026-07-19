@@ -38,6 +38,10 @@ public enum UnicodeCategory {
     OtherSymbol,
     OtherNotAssigned;
 
+    public int getValue() {
+        return ordinal();
+    }
+
     public static UnicodeCategory of(int javaType) {
         return switch (javaType) {
             case java.lang.Character.UPPERCASE_LETTER -> UppercaseLetter;

@@ -19,4 +19,9 @@ public class AppDomain {
     public String getBaseDirectory() {
         return System.getProperty("user.dir");
     }
+
+    /** Mirrors C# AppDomain.CurrentDomain.GetAssemblies() */
+    public AssemblyCompat[] getAssemblies() {
+        return new AssemblyCompat[0];
+    }
 }

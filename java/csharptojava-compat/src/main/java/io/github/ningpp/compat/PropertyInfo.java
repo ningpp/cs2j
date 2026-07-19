@@ -132,6 +132,45 @@ public final class PropertyInfo implements MemberInfo {
         return setter != null;
     }
 
+    public Class<?> getPropertyType() {
+        if (getter != null) {
+            return getter.getReturnType();
+        }
+        if (setter != null && setter.getParameterCount() > 0) {
+            return setter.getParameterTypes()[0];
+        }
+        return null;
+    }
+
+    public void setValue(Object obj, Object value) {
+        if (setter == null) {
+            throw new UnsupportedOperationException("Property has no setter");
+        }
+        try {
+            setter.invoke(obj, value);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void setValue(Object obj, Object value, Object[] index) {
+        if (index == null || index.length == 0) {
+            setValue(obj, value);
+            return;
+        }
+        if (setter == null) {
+            throw new UnsupportedOperationException("Property has no setter");
+        }
+        try {
+            Object[] args = new Object[index.length + 1];
+            System.arraycopy(index, 0, args, 0, index.length);
+            args[index.length] = value;
+            setter.invoke(obj, args);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Returns all public properties (getter methods) of the given class.
      * A property is defined as a public method starting with "get" (non-void return)

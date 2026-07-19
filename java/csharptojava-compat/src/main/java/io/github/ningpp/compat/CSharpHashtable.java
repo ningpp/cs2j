@@ -11,6 +11,13 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     public CSharpHashtable() { this.map = new LinkedHashMap<>(); }
     public CSharpHashtable(int capacity) { this.map = new LinkedHashMap<>(capacity); }
     public CSharpHashtable(Map<?, ?> m) { this.map = new LinkedHashMap<>(m); }
+    public CSharpHashtable(CSharpEqualityComparer comparer) { this.map = new LinkedHashMap<>(); }
+    public CSharpHashtable(int capacity, CSharpEqualityComparer comparer) { this.map = new LinkedHashMap<>(capacity); }
+    public CSharpHashtable(int capacity, StringComparer comparer) { this.map = new LinkedHashMap<>(capacity); }
+
+    public static CSharpHashtable synchronizedValue(CSharpHashtable table) {
+        return new SynchronizedHashtable(table);
+    }
 
     @Override public void add(Object key, Object value) { map.put(key, value); }
     @Override public void clear() { map.clear(); }
@@ -70,5 +77,33 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         @Override public boolean getIsSynchronized() { return false; }
         @Override public Object getSyncRoot() { return syncRoot; }
         @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(values.iterator()); }
+    }
+
+    private static final class SynchronizedHashtable extends CSharpHashtable {
+        private final CSharpHashtable inner;
+        private final Object syncRoot;
+
+        SynchronizedHashtable(CSharpHashtable table) {
+            this.inner = table;
+            this.syncRoot = table.getSyncRoot();
+        }
+
+        @Override public void add(Object key, Object value) { synchronized (syncRoot) { inner.add(key, value); } }
+        @Override public void clear() { synchronized (syncRoot) { inner.clear(); } }
+        @Override public boolean contains(Object key) { synchronized (syncRoot) { return inner.contains(key); } }
+        @Override public boolean containsKey(Object key) { synchronized (syncRoot) { return inner.containsKey(key); } }
+        @Override public boolean containsValue(Object value) { synchronized (syncRoot) { return inner.containsValue(value); } }
+        @Override public void remove(Object key) { synchronized (syncRoot) { inner.remove(key); } }
+        @Override public Object get(Object key) { synchronized (syncRoot) { return inner.get(key); } }
+        @Override public Object put(Object key, Object value) { synchronized (syncRoot) { return inner.put(key, value); } }
+        @Override public int size() { synchronized (syncRoot) { return inner.size(); } }
+        @Override public int getCount() { synchronized (syncRoot) { return inner.getCount(); } }
+        @Override public void copyTo(CSharpArray array, int index) { synchronized (syncRoot) { inner.copyTo(array, index); } }
+        @Override public CSharpEnumerator iterator() { synchronized (syncRoot) { return inner.iterator(); } }
+        @Override public CSharpCollection getKeys() { synchronized (syncRoot) { return inner.getKeys(); } }
+        @Override public CSharpCollection getValues() { synchronized (syncRoot) { return inner.getValues(); } }
+        @Override public boolean getIsSynchronized() { return true; }
+        @Override public Object getSyncRoot() { return syncRoot; }
+        @Override public CSharpHashtable clone() { synchronized (syncRoot) { return inner.clone(); } }
     }
 }

@@ -38,6 +38,32 @@ public final class Decimal implements Comparable<Decimal> {
         this(value, true);
     }
 
+    /**
+     * Mirrors C# Decimal(int low, int mid, int high, bool isNegative, byte scale).
+     * Builds a 96-bit signed integer from the three 32-bit words, then applies
+     * the specified scale (number of decimal places).
+     */
+    public Decimal(int low, int mid, int high, boolean isNegative, int scale) {
+        this(buildFromParts(low, mid, high, isNegative, scale), true);
+    }
+
+    private static BigDecimal buildFromParts(int low, int mid, int high, boolean isNegative, int scale) {
+        if (scale < 0 || scale > MAX_SCALE) {
+            throw new IllegalArgumentException("scale must be between 0 and " + MAX_SCALE);
+        }
+        long unsignedLow = low & 0xFFFFFFFFL;
+        long unsignedMid = mid & 0xFFFFFFFFL;
+        long unsignedHigh = high & 0xFFFFFFFFL;
+        BigInteger mantissa = BigInteger.valueOf(unsignedHigh)
+            .shiftLeft(64)
+            .or(BigInteger.valueOf(unsignedMid).shiftLeft(32))
+            .or(BigInteger.valueOf(unsignedLow));
+        if (isNegative) {
+            mantissa = mantissa.negate();
+        }
+        return new BigDecimal(mantissa, scale);
+    }
+
     private Decimal(BigDecimal value, boolean validate) {
         if (value == null) {
             throw new NullPointerException("value");

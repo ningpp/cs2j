@@ -10,8 +10,12 @@ public abstract class CSharpCollectionBase implements CSharpIList {
         this.innerList = new ArrayList<>();
     }
 
-    protected ArrayList<Object> getInnerList() {
-        return innerList;
+    protected CSharpArrayList getInnerList() {
+        return new CSharpArrayList(innerList);
+    }
+
+    protected CSharpArrayList getList() {
+        return getInnerList();
     }
 
     @Override

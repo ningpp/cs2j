@@ -28,6 +28,18 @@ public final class CSharpArray {
         return Arrays.binarySearch(array, value, comparer);
     }
 
+    public static int binarySearch(CSharpArray array, Object value, Comparator<?> comparer) {
+        Objects.requireNonNull(array, "array");
+        Object wrapped = array.unwrap();
+        if (wrapped instanceof Object[]) {
+            if (comparer == null) {
+                return Arrays.binarySearch((Object[]) wrapped, value);
+            }
+            return Arrays.binarySearch((Object[]) wrapped, value, (Comparator<? super Object>) comparer);
+        }
+        throw new IllegalArgumentException("CSharpArray must wrap an object array for binarySearch");
+    }
+
     public int getLength() {
         return Array.getLength(array);
     }

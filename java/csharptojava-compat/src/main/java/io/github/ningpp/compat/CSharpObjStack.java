@@ -3,7 +3,7 @@ package io.github.ningpp.compat;
 import java.util.LinkedList;
 import java.util.NoSuchElementException;
 
-public class CSharpObjStack implements CSharpIterable, Cloneable {
+public class CSharpObjStack implements CSharpIterable<Object>, Cloneable {
     private final LinkedList<Object> stack;
     private final Object syncRoot = new Object();
 

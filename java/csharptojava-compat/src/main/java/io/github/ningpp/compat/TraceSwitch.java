@@ -15,4 +15,9 @@ public class TraceSwitch {
     public void setLevel(int value) { this.level = value; }
     public String getDisplayName() { return displayName; }
     public String getDescription() { return description; }
+
+    public boolean getTraceError() { return level >= 1; }
+    public boolean getTraceWarning() { return level >= 2; }
+    public boolean getTraceInfo() { return level >= 3; }
+    public boolean getTraceVerbose() { return level >= 4; }
 }

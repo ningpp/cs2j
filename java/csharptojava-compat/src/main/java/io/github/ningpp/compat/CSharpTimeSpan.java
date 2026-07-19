@@ -18,6 +18,10 @@ public final class CSharpTimeSpan implements Comparable<CSharpTimeSpan> {
 
     private final long ticks;
 
+    public CSharpTimeSpan() {
+        this.ticks = 0L;
+    }
+
     public CSharpTimeSpan(long ticks) {
         this.ticks = ticks;
     }
@@ -70,6 +74,12 @@ public final class CSharpTimeSpan implements Comparable<CSharpTimeSpan> {
 
     @Override
     public int compareTo(CSharpTimeSpan other) { return Long.compare(ticks, other.ticks); }
+
+    public static int compare(CSharpTimeSpan a, CSharpTimeSpan b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return -1;
+        return a.compareTo(b);
+    }
 
     @Override
     public boolean equals(Object obj) {

@@ -8,7 +8,7 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpICollection<CSharp
     boolean containsKey(Object key);
     boolean containsValue(Object value);
     boolean remove(Object key);
-    V get(Object key);
+    V get(K key);
     V put(K key, V value);
     CSharpICollection<K> getKeys();
     CSharpICollection<V> getValues();
@@ -40,7 +40,7 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpICollection<CSharp
         return entries;
     }
 
-    default V getOrDefault(Object key, V defaultValue) {
+    default V getOrDefault(K key, V defaultValue) {
         V v = get(key);
         return v != null || containsKey(key) ? v : defaultValue;
     }

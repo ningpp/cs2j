@@ -1,6 +1,6 @@
 package io.github.ningpp.compat;
 
-public interface CSharpCollection extends CSharpIterable {
+public interface CSharpCollection extends CSharpIterable<Object> {
     default int size() { return getCount(); }
     default int getCount() { return size(); }
 

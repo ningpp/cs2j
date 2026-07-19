@@ -74,12 +74,22 @@ public final class ReflectionHelper {
     }
 
     @SuppressWarnings("unchecked")
+    public static <T> T createDelegate(MethodInfo method, Class<T> delegateType) {
+        return createDelegate(method.getMethod(), delegateType);
+    }
+
+    @SuppressWarnings("unchecked")
     public static <T> T createDelegate(Method method, Object target, Class<T> delegateType) {
         InvocationHandler handler = (proxy, m, args) -> method.invoke(target, args);
         return (T) Proxy.newProxyInstance(
             delegateType.getClassLoader(),
             new Class<?>[] { delegateType },
             handler);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T createDelegate(MethodInfo method, Object target, Class<T> delegateType) {
+        return createDelegate(method.getMethod(), target, delegateType);
     }
 
     @SuppressWarnings("unchecked")

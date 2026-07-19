@@ -168,6 +168,22 @@ public class StringHelper {
             || comparison == StringComparison.InvariantCultureIgnoreCase
             || comparison == StringComparison.OrdinalIgnoreCase);
     }
+
+    /** Mirrors C# String.Compare(strA, indexA, strB, indexB, length, StringComparison) */
+    public static int compare(String strA, int indexA, String strB, int indexB, int length, StringComparison comparison) {
+        return compareOrdinal(strA, indexA, strB, indexB, length);
+    }
+
+    /** Mirrors C# String.Compare(strA, indexA, strB, indexB, length, bool ignoreCase) */
+    public static int compare(String strA, int indexA, String strB, int indexB, int length, boolean ignoreCase) {
+        if (strA == null || strB == null) {
+            if (strA == null && strB == null) return 0;
+            return strA == null ? -1 : 1;
+        }
+        String subA = strA.substring(indexA, Math.min(indexA + length, strA.length()));
+        String subB = strB.substring(indexB, Math.min(indexB + length, strB.length()));
+        return ignoreCase ? Integer.signum(subA.compareToIgnoreCase(subB)) : Integer.signum(subA.compareTo(subB));
+    }
     /** Mirrors C# String.CompareOrdinal(strA, strB) */
     public static int compareOrdinal(String strA, String strB) {
         if (strA == null && strB == null) return 0;
@@ -252,6 +268,33 @@ public class StringHelper {
     // ==================== StringBuilder helpers ====================
     public static String stringBuilderInitialValue(String value) {
         return value == null ? "" : value;
+    }
+
+    /** Mirrors C# StringBuilder.AppendLine() — appends the default line terminator. */
+    public static StringBuilder appendLine(StringBuilder builder) {
+        if (builder == null) throw new NullPointerException("builder");
+        builder.append(System.lineSeparator());
+        return builder;
+    }
+
+    /** Mirrors C# StringBuilder.AppendLine(string?) — appends the value (if non-null) and the default line terminator. */
+    public static StringBuilder appendLine(StringBuilder builder, String value) {
+        if (builder == null) throw new NullPointerException("builder");
+        if (value != null) {
+            builder.append(value);
+        }
+        builder.append(System.lineSeparator());
+        return builder;
+    }
+
+    /** Mirrors C# StringBuilder.AppendLine(object?) — appends the object's string representation and the default line terminator. */
+    public static StringBuilder appendLine(StringBuilder builder, Object value) {
+        if (builder == null) throw new NullPointerException("builder");
+        if (value != null) {
+            builder.append(value);
+        }
+        builder.append(System.lineSeparator());
+        return builder;
     }
 
     public static StringBuilder append(StringBuilder builder, String value) {

@@ -61,7 +61,7 @@ public class CSharpSortedList<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
-    public V get(Object key) {
+    public V get(K key) {
         return map.get(key);
     }
 

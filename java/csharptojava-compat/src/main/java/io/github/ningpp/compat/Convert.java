@@ -46,8 +46,46 @@ public class Convert {
         return Boolean.parseBoolean(value);
     }
 
+    /** Mirrors C# Convert.ToDecimal(Object, IFormatProvider) */
+    public static Decimal toDecimal(Object value, NumberFormatInfo info) {
+        return toDecimal(value);
+    }
+
+    /** Mirrors C# Convert.ToDecimal(Object) */
+    public static Decimal toDecimal(Object value) {
+        return Decimal.valueOf(value);
+    }
+
+    /** Mirrors C# Convert.ChangeType(Object, Type) */
+    public static Object changeType(Object value, Class<?> targetType) {
+        return changeType(value, targetType, null);
+    }
+
     /** Mirrors C# Convert.ChangeType(Object, Type, IFormatProvider) for common types */
-    public static Object changeType(String value, Class<?> targetType, IFormatProvider provider) {
+    public static Object changeType(Object value, Class<?> targetType, IFormatProvider provider) {
+        if (value == null) {
+            if (targetType == String.class) return null;
+            if (targetType.isPrimitive()) throw new IllegalArgumentException("Cannot convert null to primitive type");
+            return null;
+        }
+        if (targetType.isInstance(value)) {
+            return value;
+        }
+        if (value instanceof String) {
+            return changeType((String) value, targetType, provider);
+        }
+        if (targetType == String.class) return value.toString();
+        if ((targetType == java.lang.Integer.class || targetType == int.class) && value instanceof Number) return ((Number) value).intValue();
+        if ((targetType == Long.class || targetType == long.class) && value instanceof Number) return ((Number) value).longValue();
+        if ((targetType == Double.class || targetType == double.class) && value instanceof Number) return ((Number) value).doubleValue();
+        if ((targetType == Float.class || targetType == float.class) && value instanceof Number) return ((Number) value).floatValue();
+        if ((targetType == Short.class || targetType == short.class) && value instanceof Number) return ((Number) value).shortValue();
+        if ((targetType == Byte.class || targetType == byte.class) && value instanceof Number) return ((Number) value).byteValue();
+        if (targetType == java.math.BigDecimal.class && value instanceof Number) return java.math.BigDecimal.valueOf(((Number) value).doubleValue());
+        return value;
+    }
+
+    private static Object changeType(String value, Class<?> targetType, IFormatProvider provider) {
         if (value == null) {
             if (targetType == String.class) return null;
             if (targetType.isPrimitive()) throw new IllegalArgumentException("Cannot convert null to primitive type");

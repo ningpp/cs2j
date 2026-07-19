@@ -45,4 +45,34 @@ public class EnumHelper {
     public static Object[] getValues(Class<?> enumType) {
         return enumType.getEnumConstants();
     }
+
+    public static String format(Class<?> enumType, Object value, String format) {
+        if (enumType == null || value == null) {
+            throw new IllegalArgumentException("enumType and value must not be null");
+        }
+        if (!enumType.isEnum()) {
+            throw new IllegalArgumentException("Type must be an enum: " + enumType);
+        }
+        Enum<?> enumValue;
+        if (value instanceof Enum) {
+            enumValue = (Enum<?>) value;
+        } else if (value instanceof Number) {
+            int ordinal = ((Number) value).intValue();
+            Object[] constants = enumType.getEnumConstants();
+            if (ordinal < 0 || ordinal >= constants.length) {
+                throw new IllegalArgumentException("Invalid enum ordinal: " + ordinal);
+            }
+            enumValue = (Enum<?>) constants[ordinal];
+        } else {
+            enumValue = Enum.valueOf((Class<Enum>) enumType, value.toString());
+        }
+
+        String fmt = format == null ? "G" : format.toUpperCase();
+        return switch (fmt) {
+            case "D", "d" -> String.valueOf(enumValue.ordinal());
+            case "X", "x" -> String.format("%08X", enumValue.ordinal());
+            case "F", "f", "G", "g" -> enumValue.name();
+            default -> enumValue.name();
+        };
+    }
 }
