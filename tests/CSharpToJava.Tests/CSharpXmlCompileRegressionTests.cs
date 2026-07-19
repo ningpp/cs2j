@@ -299,6 +299,74 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("StringHelper.substring(builder.toString(), offset, count)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SortedListValues_ReturnedAsNonGenericICollection_WrapsWithAdapter()
+    {
+        var result = Convert("""
+            using System.Collections;
+            using System.Collections.Generic;
+
+            class Sample
+            {
+                ICollection GetValues(SortedList<string, int> list)
+                {
+                    return list.Values;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpICollection<?> getValues", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return CSharpICollection.from(list.getValues());", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NonGenericSortedListValues_ReturnedAsICollection_WrapsWithAdapter()
+    {
+        var result = Convert("""
+            using System.Collections;
+
+            class Sample
+            {
+                private SortedList _schemas = new SortedList();
+
+                ICollection GetSchemas()
+                {
+                    return _schemas.Values;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpICollection<?> getSchemas", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return CSharpICollection.from(_schemas.getValues());", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArrayList_ReturnedAsICollection_WrapsWithAdapter()
+    {
+        var result = Convert("""
+            using System.Collections;
+
+            class Sample
+            {
+                ICollection GetSchemas()
+                {
+                    ArrayList tnsSchemas = new ArrayList();
+                    tnsSchemas.Add(1);
+                    return tnsSchemas;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpICollection<?> getSchemas", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return CSharpICollection.from(tnsSchemas);", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

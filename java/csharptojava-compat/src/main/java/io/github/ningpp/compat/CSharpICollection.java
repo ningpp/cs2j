@@ -3,6 +3,47 @@ package io.github.ningpp.compat;
 import java.util.*;
 
 public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
+    /**
+     * Adapts a CSharpCollection (non-generic ICollection) or passes through an existing
+     * CSharpICollection as CSharpICollection<Object>. Used by the converter when the
+     * declared C# type is System.Collections.ICollection but the expression's Java static
+     * type is CSharpCollection, which is not assignable to CSharpICollection<?>.
+     */
+    static CSharpICollection<Object> from(Object collection) {
+        if (collection instanceof CSharpICollection) {
+            @SuppressWarnings("unchecked")
+            CSharpICollection<Object> result = (CSharpICollection<Object>) collection;
+            return result;
+        }
+        if (collection instanceof CSharpCollection) {
+            return fromCSharpCollection((CSharpCollection) collection);
+        }
+        throw new IllegalArgumentException("Unsupported collection type: " + (collection == null ? "null" : collection.getClass().getName()));
+    }
+
+    static CSharpICollection<Object> fromCSharpCollection(CSharpCollection collection) {
+        return new CSharpICollection<Object>() {
+            @Override public CSharpGenericEnumerator<Object> iterator() {
+                return collection.iterator();
+            }
+            @Override public int getCount() {
+                return collection.getCount();
+            }
+            @Override public void copyTo(Object[] array, int arrayIndex) {
+                collection.copyTo(array, arrayIndex);
+            }
+            @Override public void copyTo(CSharpArray array, int index) {
+                collection.copyTo(array, index);
+            }
+            @Override public boolean getIsSynchronized() {
+                return collection.getIsSynchronized();
+            }
+            @Override public Object getSyncRoot() {
+                return collection.getSyncRoot();
+            }
+        };
+    }
+
     default boolean add(T item) { throw new UnsupportedOperationException(); }
     default void clear() { throw new UnsupportedOperationException(); }
     default boolean contains(Object o) { throw new UnsupportedOperationException(); }

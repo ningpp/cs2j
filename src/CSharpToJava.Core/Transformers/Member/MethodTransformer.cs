@@ -308,6 +308,10 @@ public class MethodTransformer : IMemberTransformer
                 exprBody = WrapExpressionBodyForIterableReturn(exprBody, methodDecl.ExpressionBody.Expression,
                     methodDecl.ReturnType, context);
 
+                var returnTypeSymbol = context.GetTypeInfo(methodDecl.ReturnType).Type;
+                exprBody = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    methodDecl.ExpressionBody.Expression, exprBody, returnTypeSymbol, context);
+
                 bool hasPending = context.HasPendingPreStatements || context.HasPendingPostStatements
                     || baseSegmentDeclarations.Count > 0;
 

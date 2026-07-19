@@ -136,6 +136,59 @@ public static class ExpressionTransformerHelpers
         if (sourceType == null || targetType == null)
             return transformedExpression;
 
+        var sourceJavaType = context.MapType(sourceType);
+        var targetJavaType = context.MapType(targetType);
+
+        // C# non-generic ICollection source may map to CSharpCollection in Java,
+        // while the target ICollection maps to CSharpICollection<?>. CSharpCollection
+        // does not implement CSharpICollection, so bridge via CSharpICollection.from().
+        // This must run before the SymbolEqualityComparer short-circuit because the
+        // C# source/target types can be identical (both System.Collections.ICollection)
+        // while the emitted Java types differ.
+        if (!transformedExpression.StartsWith("CSharpICollection.from(", StringComparison.Ordinal))
+        {
+            bool sourceIsCSharpCollection = sourceJavaType == "CSharpCollection" || sourceJavaType.StartsWith("CSharpCollection<")
+                || sourceJavaType == "CSharpArrayList" || sourceJavaType == "CSharpIList";
+            // Property accessors named Values/Keys are emitted as getValues()/getKeys() and
+            // are backed by CSharpCollection in the compat layer (e.g. SortedList.Values,
+            // XmlSchemaObjectTable.Values). The symbol-based mapping often returns the
+            // declaring nested type name instead, so also detect the emitted method call.
+            var trimmedExpr = transformedExpression.Trim();
+            bool isGetValuesOrKeysCall = trimmedExpr.EndsWith(".getValues()", StringComparison.Ordinal)
+                || trimmedExpr.EndsWith(".getKeys()", StringComparison.Ordinal);
+            bool targetIsCSharpICollection = targetJavaType == "CSharpICollection"
+                || targetJavaType.StartsWith("CSharpICollection<")
+                || targetJavaType == "CSharpICollection<?>";
+            if ((sourceIsCSharpCollection || isGetValuesOrKeysCall) && targetIsCSharpICollection)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpICollection");
+                return $"CSharpICollection.from({transformedExpression})";
+            }
+        }
+
+        // C# non-generic IList maps to CSharpGenericIList<Object> in Java, but concrete
+        // generic lists (CSharpList<T>) and non-generic CSharpIList/CSharpArrayList are not
+        // assignable to that type due to Java generic invariance. Bridge via
+        // CSharpGenericIList.from() when the target is System.Collections.IList.
+        if (!transformedExpression.StartsWith("CSharpGenericIList.from(", StringComparison.Ordinal))
+        {
+            bool targetIsNonGenericIList = targetType.ToDisplayString() == "System.Collections.IList";
+            bool targetIsCSharpGenericIList = targetJavaType == "CSharpGenericIList"
+                || targetJavaType.StartsWith("CSharpGenericIList<", StringComparison.Ordinal);
+            bool sourceNeedsIListBridge = (sourceJavaType.StartsWith("CSharpList<", StringComparison.Ordinal)
+                    || sourceJavaType.StartsWith("CSharpGenericIList<", StringComparison.Ordinal)
+                    || sourceJavaType == "CSharpArrayList"
+                    || sourceJavaType == "CSharpIList"
+                    || sourceJavaType == "CSharpCollection")
+                && sourceJavaType != "CSharpGenericIList<Object>";
+
+            if (targetIsNonGenericIList && targetIsCSharpGenericIList && sourceNeedsIListBridge)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+                return $"CSharpGenericIList.from({transformedExpression})";
+            }
+        }
+
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
         {
             // When both are C# byte, source may originate from Java byte[] (signed byte)

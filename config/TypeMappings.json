@@ -140,7 +140,7 @@
         },
         {
             "csharp": "System.Collections.IList",
-            "java": "CSharpGenericIList<?>",
+            "java": "CSharpGenericIList<Object>",
             "imports": [
                 "io.github.ningpp.compat.CSharpGenericIList"
             ]
