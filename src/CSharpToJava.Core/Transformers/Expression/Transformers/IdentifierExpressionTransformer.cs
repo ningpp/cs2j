@@ -945,10 +945,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
             if (!isLhsOfAssignment
                 && IsOrInheritsFromException(receiverType)
-                && prop.Name is "InnerException" or "Source")
+                && prop.Name is "InnerException" or "Source" or "StackTrace")
             {
                 context.AddImport("io.github.ningpp.compat.ExceptionCompat");
-                var helperName = prop.Name == "InnerException" ? "getInnerException" : "getSource";
+                var helperName = prop.Name switch
+                {
+                    "InnerException" => "getInnerException",
+                    "Source" => "getSource",
+                    "StackTrace" => "getStackTrace",
+                    _ => throw new InvalidOperationException($"Unhandled exception property {prop.Name}")
+                };
                 return $"ExceptionCompat.{helperName}({target})";
             }
 

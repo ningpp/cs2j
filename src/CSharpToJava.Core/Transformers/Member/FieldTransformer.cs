@@ -203,7 +203,21 @@ public class FieldTransformer : IMemberTransformer
                 var previousStaticContext = context.IsInStaticMember;
                 if ((modifiers & JavaModifiers.Static) != 0)
                     context.IsInStaticMember = true;
-                javaField.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(variable.Initializer.Value, context);
+
+                // For const fields, inline the compile-time constant value when available.
+                // This avoids non-constant expressions like enumMember.getValue() in Java
+                // static final field initializers, which break switch-case usage.
+                if ((modifiers & JavaModifiers.Final) != 0
+                    && (modifiers & JavaModifiers.Static) != 0
+                    && context.SemanticModel != null
+                    && context.SemanticModel.GetConstantValue(variable.Initializer.Value) is { HasValue: true } constVal)
+                {
+                    javaField.Initializer = RenderConstantValue(constVal.Value);
+                }
+                else
+                {
+                    javaField.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(variable.Initializer.Value, context);
+                }
                 context.IsInStaticMember = previousStaticContext;
 
                 if (context.SemanticModel != null && fieldTypeSymbol != null && IsCollectionOrListInterface(fieldTypeSymbol))
@@ -477,5 +491,40 @@ public class FieldTransformer : IMemberTransformer
         {
             context.IsInStaticMember = previousStaticContext;
         }
+    }
+
+    private static string RenderConstantValue(object? value)
+    {
+        if (value == null)
+            return "null";
+
+        if (value is bool b)
+            return b ? "true" : "false";
+
+        if (value is string s)
+            return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t") + "\"";
+
+        if (value is char c)
+            return "'" + (c == '\'' ? "\\'" : c.ToString()) + "'";
+
+        if (value is float f)
+            return f.ToString(System.Globalization.CultureInfo.InvariantCulture) + "f";
+
+        if (value is double d)
+        {
+            var text = d.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return text.Contains('.') ? text : text + ".0";
+        }
+
+        if (value is decimal dec)
+            return $"Decimal.parse(\"{dec.ToString(System.Globalization.CultureInfo.InvariantCulture)}\")";
+
+        if (value is long l)
+            return l.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
+
+        if (value is ulong ul)
+            return ul.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
+
+        return value.ToString() ?? "null";
     }
 }

@@ -1213,9 +1213,13 @@ public class TypeMappingService
             return $"{mappedBase}<{mappedArgsString}>";
         }
 
-        var mapped = _typeMappings.MapType(typeName);
-        if (mapped != typeName)
+        // Only strip namespaces when the dotted name has an explicit configured
+        // mapping. For unmapped project types (e.g. nested type references like
+        // "Processor.OutputResult") preserve the qualifier so the generated Java
+        // remains valid.
+        if (_typeMappings.HasTypeMapping(typeName))
         {
+            var mapped = _typeMappings.MapType(typeName);
             AddImportsForType(typeName);
             return MapSimpleTypeName(mapped);
         }

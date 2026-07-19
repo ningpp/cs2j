@@ -229,19 +229,8 @@ public static class TypeGroupResolver
                             : null;
                         break;
                     case TypeKind.Interface:
-                        TypeDeclarationSyntax? ifaceNode = null;
-                        foreach (var n in typeGroup.SyntaxNodes)
-                        {
-                            if (compilation.ContainsSyntaxTree(n.SyntaxTree))
-                            {
-                                ifaceNode = n;
-                                break;
-                            }
-                        }
-                        javaType = ifaceNode != null
-                            ? new InterfaceTransformer().Transform(ifaceNode, context)
-                            : null;
-                        break;
+                    javaType = new InterfaceTransformer().TransformMerged(mergedDeclaration, context);
+                    break;
                     default:
                         return null;
                 }

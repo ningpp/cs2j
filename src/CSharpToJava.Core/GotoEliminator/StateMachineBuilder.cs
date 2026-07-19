@@ -60,6 +60,12 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 // 非 goto 的 break/continue（必在内层循环内）；作为块终结以便发射时不追加 fall-through。
                 blk.Exit = BlockExit.Break;
             }
+            else if (IsTerminatingStatement(s))
+            {
+                // Block/Switch 等复合语句若自身已终止（例如块末条语句是 return，或 switch 不会贯穿），
+                // 同样标记为块终结，避免生成不可达的 fall-through 转移。
+                blk.Exit = BlockExit.Break;
+            }
             else if (ContainsTopLevelGoto(s))
             {
                 // 条件跳转（if 包含 goto）：开新块以承载 fall-through 路径。
@@ -218,6 +224,7 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
     internal static List<StatementSyntax> HoistSpanningLocals(System.Collections.IList blocks)
     {
         var hoisted = new List<StatementSyntax>();
+        var hoistedNames = new HashSet<string>();
         var bbList = new List<BasicBlock>();
         foreach (var b in blocks) bbList.Add((BasicBlock)b);
 
@@ -254,13 +261,18 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 var synthesizedType = CleanSynthesizedType(type);
                 foreach (var v in decl.Declaration.Variables)
                 {
-                    var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
-                        SyntaxFactory.VariableDeclaration(synthesizedType.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
-                            SyntaxFactory.SingletonSeparatedList(
-                                SyntaxFactory.VariableDeclarator(v.Identifier)
-                                    .WithInitializer(SyntaxFactory.EqualsValueClause(
-                                        SyntaxFactory.DefaultExpression(synthesizedType))))));
-                    hoisted.Add(defaultDecl);
+                    // 去重：不同 case/分支中同名局部被拍平到同一作用域后会产生重复声明。
+                    // 由于原代码这些变量处于互斥作用域，复用同一提升变量是安全的。
+                    if (hoistedNames.Add(v.Identifier.ValueText))
+                    {
+                        var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
+                            SyntaxFactory.VariableDeclaration(synthesizedType.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
+                                SyntaxFactory.SingletonSeparatedList(
+                                    SyntaxFactory.VariableDeclarator(v.Identifier)
+                                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                            SyntaxFactory.DefaultExpression(synthesizedType))))));
+                        hoisted.Add(defaultDecl);
+                    }
                 }
 
                 // 原位置：前缀语句 + 赋值（替代声明） + 后缀语句
@@ -280,7 +292,117 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 bbList[i].Statements.AddRange(assignStmts);
             }
         }
+
+        // 第二步：扫描所有块（含嵌套控制结构体）中的局部声明。
+        // 若某声明的变量名已与已提升变量同名，在拍平到 Java 方法作用域后会产生重复声明；
+        // 将其改为赋值（有 initializer）或直接删除（无 initializer），复用已提升变量。
+        foreach (var bb in bbList)
+        {
+            for (int s = 0; s < bb.Statements.Count; s++)
+            {
+                bb.Statements[s] = RemoveConflictingNestedDeclarations(bb.Statements[s], hoistedNames);
+            }
+        }
+
         return hoisted;
+    }
+
+    /// <summary>
+    /// 递归处理嵌套语句：将名字与已提升变量冲突的局部声明改为赋值或删除。
+    /// const/using/fixed/ref 保持原样。
+    /// </summary>
+    private static StatementSyntax RemoveConflictingNestedDeclarations(StatementSyntax stmt, HashSet<string> hoistedNames)
+    {
+        switch (stmt)
+        {
+            case LocalDeclarationStatementSyntax localDecl:
+                return RewriteConflictingLocalDeclaration(localDecl, hoistedNames);
+            case BlockSyntax block:
+                return block.WithStatements(SyntaxFactory.List(block.Statements.Select(s => RemoveConflictingNestedDeclarations(s, hoistedNames))));
+            case IfStatementSyntax ifStmt:
+                return ifStmt
+                    .WithStatement(RemoveConflictingNestedDeclarations(ifStmt.Statement, hoistedNames))
+                    .WithElse(ifStmt.Else != null ? SyntaxFactory.ElseClause(RemoveConflictingNestedDeclarations(ifStmt.Else.Statement, hoistedNames)) : null);
+            case SwitchStatementSyntax switchStmt:
+                return switchStmt.WithSections(SyntaxFactory.List(switchStmt.Sections.Select(sec =>
+                    sec.WithStatements(SyntaxFactory.List(sec.Statements.Select(s => RemoveConflictingNestedDeclarations(s, hoistedNames)))))));
+            case ForStatementSyntax forStmt:
+                return forStmt.WithStatement(RemoveConflictingNestedDeclarations(forStmt.Statement, hoistedNames));
+            case ForEachStatementSyntax foreachStmt:
+                return foreachStmt.WithStatement(RemoveConflictingNestedDeclarations(foreachStmt.Statement, hoistedNames));
+            case WhileStatementSyntax whileStmt:
+                return whileStmt.WithStatement(RemoveConflictingNestedDeclarations(whileStmt.Statement, hoistedNames));
+            case DoStatementSyntax doStmt:
+                return doStmt.WithStatement(RemoveConflictingNestedDeclarations(doStmt.Statement, hoistedNames));
+            case TryStatementSyntax tryStmt:
+                var newCatches = tryStmt.Catches.Select(c =>
+                    c.WithBlock((BlockSyntax)RemoveConflictingNestedDeclarations(c.Block, hoistedNames))).ToList();
+                var newFinally = tryStmt.Finally != null
+                    ? tryStmt.Finally.WithBlock((BlockSyntax)RemoveConflictingNestedDeclarations(tryStmt.Finally.Block, hoistedNames))
+                    : null;
+                return tryStmt
+                    .WithBlock((BlockSyntax)RemoveConflictingNestedDeclarations(tryStmt.Block, hoistedNames))
+                    .WithCatches(SyntaxFactory.List(newCatches))
+                    .WithFinally(newFinally);
+            case LabeledStatementSyntax labeled:
+                return labeled.WithStatement(RemoveConflictingNestedDeclarations(labeled.Statement, hoistedNames));
+            case UnsafeStatementSyntax unsafeStmt:
+                return unsafeStmt.WithBlock((BlockSyntax)RemoveConflictingNestedDeclarations(unsafeStmt.Block, hoistedNames));
+            default:
+                return stmt;
+        }
+    }
+
+    private static StatementSyntax RewriteConflictingLocalDeclaration(LocalDeclarationStatementSyntax decl, HashSet<string> hoistedNames)
+    {
+        if (decl.Modifiers.Any(SyntaxKind.ConstKeyword))
+            return decl;
+
+        bool isUsing = decl.UsingKeyword.IsKind(SyntaxKind.UsingKeyword);
+        bool isFixed = decl.Modifiers.Any(SyntaxKind.FixedKeyword)
+                       || decl.Modifiers.Any(SyntaxKind.UnsafeKeyword);
+        bool isRef = decl.Modifiers.Any(SyntaxKind.RefKeyword)
+                     || decl.Modifiers.Any(SyntaxKind.OutKeyword);
+        if (isUsing || isFixed || isRef)
+            return decl;
+
+        var keptVariables = new List<VariableDeclaratorSyntax>();
+        var assignStmts = new List<StatementSyntax>();
+
+        foreach (var v in decl.Declaration.Variables)
+        {
+            if (hoistedNames.Contains(v.Identifier.ValueText))
+            {
+                if (v.Initializer != null)
+                {
+                    var assign = SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                            SyntaxFactory.IdentifierName(v.Identifier), v.Initializer.Value));
+                    assignStmts.Add(assign);
+                }
+            }
+            else
+            {
+                keptVariables.Add(v);
+            }
+        }
+
+        if (keptVariables.Count == 0)
+        {
+            if (assignStmts.Count == 1)
+                return assignStmts[0];
+            if (assignStmts.Count > 1)
+                return SyntaxFactory.Block(SyntaxFactory.List(assignStmts));
+            return SyntaxFactory.EmptyStatement();
+        }
+
+        var newDecl = decl.WithDeclaration(
+            decl.Declaration.WithVariables(SyntaxFactory.SeparatedList(keptVariables)));
+
+        if (assignStmts.Count == 0)
+            return newDecl;
+
+        return SyntaxFactory.Block(SyntaxFactory.List(assignStmts.Concat(new[] { newDecl })));
     }
 
     private static bool ReferencesAny(SyntaxNode node, IEnumerable<string> names)
@@ -583,11 +705,25 @@ internal sealed partial class StateMachineBuilder
                 sectionBodies.Add(SyntaxFactory.LabeledStatement(SyntaxFactory.Identifier(secLabel), body));
             }
 
+            // 原 switch 没有 default 时，不匹配任何 case 的值会贯穿到 switch 之后。
+            // 在降级的 dispatcher 中补一个 default: goto __exit，否则 dispatcher 可能落入 section body，
+            // 导致嵌套状态机出现 case 贯穿（CS0163）或语义错误。
+            bool hasDefault = switchStatement.Sections.Any(s => s.Labels.Any(l => l.IsKind(SyntaxKind.DefaultSwitchLabel)));
+            if (!hasDefault)
+            {
+                dispatcherSections.Add(SyntaxFactory.SwitchSection(
+                    SyntaxFactory.SingletonList<SwitchLabelSyntax>(SyntaxFactory.DefaultSwitchLabel()),
+                    SyntaxFactory.SingletonList<StatementSyntax>(
+                        SyntaxFactory.GotoStatement(SyntaxKind.GotoStatement, SyntaxFactory.IdentifierName(exitLabel)))));
+            }
+
             var stmts = new List<StatementSyntax>
             {
                 SyntaxFactory.SwitchStatement(switchStatement.Expression, SyntaxFactory.List(dispatcherSections)),
-                SyntaxFactory.GotoStatement(SyntaxKind.GotoStatement, SyntaxFactory.IdentifierName(exitLabel)),
             };
+
+            // dispatcher 现在覆盖所有值（显式 case + default），每个分支都以 goto 结束，
+            // 不会再落入后面的 section body，因此不需要再追加无条件 goto __exit。
             stmts.AddRange(sectionBodies);
             stmts.Add(SyntaxFactory.LabeledStatement(SyntaxFactory.Identifier(exitLabel), SyntaxFactory.EmptyStatement()));
 
@@ -1472,6 +1608,109 @@ internal sealed partial class StateMachineBuilder
         }
     }
 
+    /// <summary>判断 switch 是否存在至少一个可以贯穿到 switch 之后的 section。</summary>
+    private static bool CanSwitchFallThrough(SwitchStatementSyntax switchStmt)
+    {
+        foreach (var section in switchStmt.Sections)
+            if (CanSwitchSectionFallThrough(section))
+                return true;
+        return false;
+    }
+
+    /// <summary>判断单个 switch section 是否可以执行到 switch 之后。
+    /// 注意：section 末尾的 break 会退出 switch 并到达 switch 之后，因此视为可贯穿；
+    /// continue/return/throw/goto 则跳转到 switch 之外的其他位置，视为不可贯穿。</summary>
+    private static bool CanSwitchSectionFallThrough(SwitchSectionSyntax section)
+    {
+        if (section.Statements.Count == 0)
+            return true;
+        return CanStatementReachSwitchEnd(section.Statements.Last());
+    }
+
+    /// <summary>判断一条语句执行后是否能到达所在 switch 的末尾（即 switch 之后）。</summary>
+    private static bool CanStatementReachSwitchEnd(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case BreakStatementSyntax:
+                // break 退出当前 switch，控制流到达 switch 之后。
+                return true;
+            case ContinueStatementSyntax:
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+                // 这些语句跳转到 switch 之外的其他位置，不会到达 switch 之后。
+                return false;
+            case BlockSyntax block:
+                return block.Statements.Count > 0 && CanStatementReachSwitchEnd(block.Statements.Last());
+            case SwitchStatementSyntax sw:
+                return CanSwitchFallThrough(sw);
+            case IfStatementSyntax iff:
+                if (iff.Else == null)
+                    return CanStatementReachSwitchEnd(iff.Statement);
+                return CanStatementReachSwitchEnd(iff.Statement) || CanStatementReachSwitchEnd(iff.Else.Statement);
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>判断一条语句是否是终止性语句（控制流不会继续到下一条语句）。</summary>
+    private static bool IsTerminatingStatement(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case BreakStatementSyntax:
+            case ContinueStatementSyntax:
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+                return true;
+            case BlockSyntax block:
+                return block.Statements.Count > 0 && IsTerminatingStatement(block.Statements.Last());
+            case SwitchStatementSyntax sw:
+                return !CanSwitchFallThrough(sw);
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>判断一条语句执行后是否可能继续执行其后的兄弟语句。</summary>
+    private static bool CanStatementFallThrough(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case BlockSyntax block:
+                // Conservative: if any statement in the block cannot fall through, the block as a
+                // whole cannot fall through to its successor. This handles LowerSwitchToBlock output
+                // where the leading switch terminates and the trailing exit label is unreachable.
+                foreach (var stmt in block.Statements)
+                    if (!CanStatementFallThrough(stmt))
+                        return false;
+                return true;
+            case SwitchStatementSyntax sw:
+                return CanSwitchFallThrough(sw);
+            case IfStatementSyntax iff:
+                // An if without an else branch can always fall through (the missing else
+                // branch simply continues to the next statement). With an else, the if can
+                // fall through iff at least one branch can fall through.
+                if (iff.Else == null)
+                    return true;
+                return CanStatementFallThrough(iff.Statement) || CanStatementFallThrough(iff.Else.Statement);
+            case LabeledStatementSyntax labeled:
+                return CanStatementFallThrough(labeled.Statement);
+            case EmptyStatementSyntax:
+                return true;
+            case BreakStatementSyntax:
+            case ContinueStatementSyntax:
+            case ReturnStatementSyntax:
+            case ThrowStatementSyntax:
+            case GotoStatementSyntax:
+                return false;
+            default:
+                return true;
+        }
+    }
+
     /// <summary>在每层循环体末尾、循环后和嵌套 switch 后追加 if(__exit) break;。
     /// 循环体末尾的检查：StateAssignBreak 的 break 仅退出内层 switch，
     /// 不退出本层循环；若无此检查，do-while 的 while(cond) 在 __exit=true 后仍被求值，
@@ -1491,9 +1730,12 @@ internal sealed partial class StateMachineBuilder
         private static StatementSyntax WrapLoop(StatementSyntax loop)
             => SyntaxFactory.Block(loop, ExitCheck());
 
-        /// <summary>在循环体末尾追加 if(__exit) break;。若 body 已是 Block 则追加到其语句列表，否则包成 Block。</summary>
+        /// <summary>在循环体末尾追加 if(__exit) break;。若 body 已是 Block 则追加到其语句列表，否则包成 Block。
+        /// 若循环体不会贯穿到末尾（例如 switch 的所有 case 都终止），则不追加，避免生成不可达代码。</summary>
         private static StatementSyntax AppendExitCheckToBody(StatementSyntax body)
         {
+            if (!CanStatementFallThrough(body))
+                return body;
             if (body is BlockSyntax block)
                 return block.WithStatements(block.Statements.Add(ExitCheck()));
             return SyntaxFactory.Block(body, ExitCheck());
@@ -1531,6 +1773,11 @@ internal sealed partial class StateMachineBuilder
         public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
         {
             var visited = (SwitchStatementSyntax)base.VisitSwitchStatement(node)!;
+            // Only append an exit check after a switch if the switch can actually
+            // fall through. If every section ends with a terminating statement
+            // (continue/break/return/throw/goto) the exit check would be unreachable.
+            if (!CanSwitchFallThrough(visited))
+                return visited;
             return SyntaxFactory.Block(visited, ExitCheck());
         }
     }
@@ -1552,6 +1799,8 @@ internal sealed partial class StateMachineBuilder
 
         private StatementSyntax AppendExitCheckToBody(StatementSyntax body)
         {
+            if (!CanStatementFallThrough(body))
+                return body;
             if (body is BlockSyntax block)
                 return block.WithStatements(block.Statements.Add(ExitCheck()));
             return SyntaxFactory.Block(body, ExitCheck());
@@ -1588,6 +1837,11 @@ internal sealed partial class StateMachineBuilder
         public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
         {
             var visited = (SwitchStatementSyntax)base.VisitSwitchStatement(node)!;
+            // Only append an exit check after a switch if the switch can actually
+            // fall through. If every section ends with a terminating statement
+            // (continue/break/return/throw/goto) the exit check would be unreachable.
+            if (!CanSwitchFallThrough(visited))
+                return visited;
             return SyntaxFactory.Block(visited, ExitCheck());
         }
     }

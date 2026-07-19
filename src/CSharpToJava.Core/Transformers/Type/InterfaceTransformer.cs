@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Type;
@@ -21,13 +22,32 @@ public class InterfaceTransformer : ITypeTransformer
             throw new ArgumentException($"Expected InterfaceDeclarationSyntax, got {node.GetType()}");
         }
 
+        var interfaceSymbol = context.GetDeclaredSymbol(interfaceDecl) as INamedTypeSymbol;
+        return TransformCore(interfaceDecl, interfaceDecl.Identifier.Text, interfaceSymbol, context);
+    }
+
+    /// <summary>
+    /// 转换已合并的 partial 接口声明。
+    /// </summary>
+    public JavaTypeDeclaration TransformMerged(MergedTypeDeclaration mergedType, ConversionContext context)
+    {
+        if (mergedType.MergedSyntax is not InterfaceDeclarationSyntax interfaceDecl)
+        {
+            throw new ArgumentException($"Expected merged InterfaceDeclarationSyntax, got {mergedType.MergedSyntax.GetType()}");
+        }
+
+        var name = context.GetJavaTopLevelTypeName(mergedType.TypeSymbol);
+        return TransformCore(interfaceDecl, name, mergedType.TypeSymbol, context);
+    }
+
+    private JavaTypeDeclaration TransformCore(InterfaceDeclarationSyntax interfaceDecl, string name, INamedTypeSymbol? interfaceSymbol, ConversionContext context)
+    {
         var javaInterface = new JavaInterfaceDeclaration
         {
-            Name = interfaceDecl.Identifier.Text,
+            Name = name,
             Modifiers = ConvertModifiers(interfaceDecl.Modifiers)
         };
 
-        var interfaceSymbol = context.GetDeclaredSymbol(interfaceDecl);
         javaInterface.LeadingComment = context.GetDeclarationComments(interfaceDecl, interfaceSymbol).ToCombinedComment();
 
         // 处理基接口

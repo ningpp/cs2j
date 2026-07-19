@@ -1809,6 +1809,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return TransformInstanceCollectionToArray(receiver, instanceArrayType.ElementType, context);
         }
 
+        // Primitive CompareTo: C# int.CompareTo(int) → Java Integer.compare(int, int)
+        if (originalMethodName == "CompareTo"
+            && node.ArgumentList.Arguments.Count == 1
+            && methodSymbol is { IsExtensionMethod: false }
+            && methodSymbol.ContainingType is INamedTypeSymbol compareToType
+            && IsPrimitiveNumericType(compareToType))
+        {
+            var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var wrapper = compareToType.SpecialType switch
+            {
+                SpecialType.System_Int64 => "Long",
+                _ => "Integer"
+            };
+            return $"{wrapper}.compare({receiver}, {arg})";
+        }
+
         // Instance List<T>.RemoveRange(startIndex, count)
         // C# RemoveRange(index, count) → Java _removeRange(index, count)
         if (originalMethodName == "RemoveRange"
@@ -1837,8 +1853,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && methodSymbol is { IsExtensionMethod: false }
             && methodSymbol.ContainingType?.Name == "List")
         {
-            context.AddImport("java.util.Collections");
-            return $"Collections.sort({receiver})";
+            return $"{receiver}.sort()";
         }
 
         if (originalMethodName == "Sort"
@@ -3040,6 +3055,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var removeLen = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
             context.AddImport("io.github.ningpp.compat.StringHelper");
             return $"StringHelper.remove({receiver}, {removeStart}, {removeLen})";
+        }
+
+        // StringBuilder.AppendLine() → StringHelper.appendLine(sb)
+        // StringBuilder.AppendLine(value) → StringHelper.appendLine(sb, value)
+        if (originalMethodName == "AppendLine"
+            && (methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
+                || ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression,
+                    context,
+                    "StringBuilder",
+                    "System.Text.StringBuilder")))
+        {
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            if (node.ArgumentList.Arguments.Count == 0)
+            {
+                return $"StringHelper.appendLine({receiver})";
+            }
+
+            if (node.ArgumentList.Arguments.Count == 1)
+            {
+                var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"StringHelper.appendLine({receiver}, {valueArg})";
+            }
         }
 
         // C# DateTime.ToString(format) / DateTimeOffset.ToString(format).
@@ -6624,6 +6662,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return false;
+    }
+
+    private static bool IsPrimitiveNumericType(INamedTypeSymbol type)
+    {
+        return type.SpecialType switch
+        {
+            SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_Decimal => true,
+            _ => false
+        };
     }
 
     /// <summary>

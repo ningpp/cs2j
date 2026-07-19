@@ -40,12 +40,6 @@ public class PropertyTransformer : IMemberTransformer
         var propertySymbol = context.GetDeclaredSymbol(propDecl);
         var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
 
-        // Detect if this property hides a base class member (C# `new` keyword or implicit hiding).
-        // In C#, hiding is non-virtual: base-typed references call the base getter.
-        // In Java, all methods are virtual, so generating an override would cause incorrect
-        // dispatch. Skip generating getters/setters for hiding properties to preserve C# semantics.
-        var isHidingBaseMember = IsHidingBaseMember(propertySymbol);
-
         var isEncodingPreambleProperty =
             propertySymbol is IPropertySymbol
             {
@@ -72,6 +66,15 @@ public class PropertyTransformer : IMemberTransformer
                           && getAccessor?.ExpressionBody == null
                           && (setAccessor == null
                               || (setAccessor.Body == null && setAccessor.ExpressionBody == null));
+
+        // Detect if this property hides a base class member (C# `new` keyword or implicit hiding).
+        // In C#, hiding is non-virtual: base-typed references call the base getter.
+        // In Java, all methods are virtual, so generating an override would cause incorrect
+        // dispatch. Auto-property hiders are skipped to avoid backing-field conflicts.
+        // Explicit-property hiders (with accessor bodies) are still emitted because their
+        // bodies typically delegate to or cast the base member, and callers inside the same
+        // class rely on the derived return type (e.g. CTestModule.Attribute → TestModule).
+        var isHidingBaseMember = isAutoProperty && IsHidingBaseMember(propertySymbol);
 
         // 检查是否是只读属性（只有 getter）
         var isReadOnly = hasGetter && !hasSetter;
