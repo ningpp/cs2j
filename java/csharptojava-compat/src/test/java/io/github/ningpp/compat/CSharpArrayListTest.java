@@ -33,6 +33,24 @@ class CSharpArrayListTest {
         assertEquals("c", list.get(2));
     }
 
+    @Test
+    void csharpCollectionConstructor_copiesElements() {
+        CSharpCollection collection = new CSharpCollection() {
+            @Override public int size() { return 3; }
+            @Override public void copyTo(CSharpArray array, int index) { }
+            @Override public boolean getIsSynchronized() { return false; }
+            @Override public Object getSyncRoot() { return this; }
+            @Override public CSharpEnumerator iterator() {
+                return CSharpEnumerator.from(Arrays.asList("x", "y", "z").iterator());
+            }
+        };
+        CSharpArrayList list = new CSharpArrayList(collection);
+        assertEquals(3, list.getCount());
+        assertEquals("x", list.get(0));
+        assertEquals("y", list.get(1));
+        assertEquals("z", list.get(2));
+    }
+
     // ---- Add / get / set ----
 
     @Test

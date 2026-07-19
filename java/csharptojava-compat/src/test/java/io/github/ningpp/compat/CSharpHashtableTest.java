@@ -22,6 +22,14 @@ class CSharpHashtableTest {
         assertEquals(0, ht.getCount());
     }
 
+    @Test
+    void capacityAndStringComparerConstructor_createsEmpty() {
+        CSharpHashtable ht = new CSharpHashtable(16, StringComparer.getOrdinal());
+        assertEquals(0, ht.getCount());
+        ht.add("Key", "value");
+        assertTrue(ht.containsKey("Key"));
+    }
+
     // ---- Add / get / put ----
 
     @Test

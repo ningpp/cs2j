@@ -438,6 +438,33 @@ class StringHelperTest {
     }
 
     @Test
+    void stringBuilderAppendLineNoArgsAppendsNewLine() {
+        StringBuilder builder = new StringBuilder("a");
+
+        StringHelper.appendLine(builder);
+
+        assertEquals("a" + System.lineSeparator(), builder.toString());
+    }
+
+    @Test
+    void stringBuilderAppendLineWithStringAppendsValueAndNewLine() {
+        StringBuilder builder = new StringBuilder();
+
+        StringHelper.appendLine(builder, "hello");
+
+        assertEquals("hello" + System.lineSeparator(), builder.toString());
+    }
+
+    @Test
+    void stringBuilderAppendLineWithNullAppendsOnlyNewLine() {
+        StringBuilder builder = new StringBuilder("x");
+
+        StringHelper.appendLine(builder, (String) null);
+
+        assertEquals("x" + System.lineSeparator(), builder.toString());
+    }
+
+    @Test
     void substringWithStartAndCountUsesArgumentExceptionForInvalidRange() {
         assertEquals("bc", StringHelper.substring("abcd", 1, 2));
         assertThrows(IllegalArgumentException.class, () -> StringHelper.substring("abcd", -1, 1));

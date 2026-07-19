@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.Collections;
@@ -13,6 +14,13 @@ class CSharpCollectionTest {
 
         assertEquals(0, collection.size());
         assertSame(collection, collection.getSyncRoot());
+    }
+
+    @Test
+    void csharpCollectionIsIterable() {
+        DerivedCollection collection = new DerivedCollection();
+        Iterable<Object> iterable = collection;
+        assertNotNull(iterable);
     }
 
     static class DerivedCollection implements CSharpCollection {
