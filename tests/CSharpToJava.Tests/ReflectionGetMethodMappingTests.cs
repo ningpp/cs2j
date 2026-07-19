@@ -209,6 +209,23 @@ public class SvgGraphWriter
         Assert.DoesNotContain("SvgGraphWriter.class.getPackage().getPackage()", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Type_IsSubclassOf_MapsToIsAssignableFromWithSwappedArguments()
+    {
+        var result = Convert(@"
+public class Sample
+{
+    public static boolean Test(System.Type derivedType, System.Type baseType)
+    {
+        return baseType == derivedType || derivedType.IsSubclassOf(baseType);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("baseType.isAssignableFrom(derivedType)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("isSubclassOf", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

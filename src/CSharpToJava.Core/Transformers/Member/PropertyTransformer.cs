@@ -70,11 +70,10 @@ public class PropertyTransformer : IMemberTransformer
         // Detect if this property hides a base class member (C# `new` keyword or implicit hiding).
         // In C#, hiding is non-virtual: base-typed references call the base getter.
         // In Java, all methods are virtual, so generating an override would cause incorrect
-        // dispatch. Auto-property hiders are skipped to avoid backing-field conflicts.
-        // Explicit-property hiders (with accessor bodies) are still emitted because their
-        // bodies typically delegate to or cast the base member, and callers inside the same
-        // class rely on the derived return type (e.g. CTestModule.Attribute → TestModule).
-        var isHidingBaseMember = isAutoProperty && IsHidingBaseMember(propertySymbol);
+        // dispatch. Hiding properties with the same return type are skipped.
+        // Properties that return a more derived type are still emitted, because callers
+        // inside the derived class rely on the derived return type.
+        var isHidingBaseMember = IsHidingBaseMember(propertySymbol);
 
         // 检查是否是只读属性（只有 getter）
         var isReadOnly = hasGetter && !hasSetter;
@@ -188,6 +187,8 @@ public class PropertyTransformer : IMemberTransformer
 
                     getter.Body = MethodTransformer.WrapExpressionBodyForIterableReturn(
                         getter.Body, csExpr, propDecl.Type, context);
+                    getter.Body = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        csExpr, getter.Body, typeInfo.Type, context);
                     getter.Body = StructCloneHelper.CloneStructValueIfNeeded(
                         csExpr,
                         getter.Body,
@@ -425,6 +426,9 @@ public class PropertyTransformer : IMemberTransformer
     /// In C#, hiding is non-virtual: base-typed references call the base getter.
     /// In Java, all methods are virtual, so we must skip generating getters/setters for hiding
     /// properties to preserve C# dispatch semantics.
+    /// Properties that hide a base member but return a more derived type are still emitted,
+    /// because callers inside the derived class rely on the derived return type
+    /// (e.g. CTestModule.Attribute → TestModule).
     /// </summary>
     private static bool IsHidingBaseMember(ISymbol? propertySymbol)
     {
@@ -439,9 +443,13 @@ public class PropertyTransformer : IMemberTransformer
             {
                 // Only non-private members are hidden (private members are not visible to derived classes)
                 if (member.DeclaredAccessibility != Accessibility.Private
-                    && (member is IPropertySymbol or IMethodSymbol))
+                    && member is IPropertySymbol baseProp)
                 {
-                    return true;
+                    // Only treat as hiding when the return type is the same.
+                    // Properties that return a more derived type are still needed
+                    // so callers can access derived-type members.
+                    if (SymbolEqualityComparer.Default.Equals(prop.Type, baseProp.Type))
+                        return true;
                 }
             }
             baseType = baseType.BaseType;

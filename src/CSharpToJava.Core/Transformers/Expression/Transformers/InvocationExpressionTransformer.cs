@@ -859,7 +859,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (originalMethodName == "GetEnumerator" && IsDictionaryLikeExpression(memberAccess.Expression, context))
         {
-            // CSharpDictionary.iterator() returns CSharpGenericEnumerator<CSharpKeyValuePair<K,V>>
+            // CSharpDictionary.iterator() returns CSharpGenericEnumerator<CSharpKeyValuePair<K,V>>.
+            // When the C# target type is IDictionaryEnumerator (mapped to CSharpDictEnumerator),
+            // wrap the generic iterator so it is assignable to the non-generic dictionary enumerator.
+            if (IsIDictionaryEnumeratorTarget(node, context))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpDictEnumerator");
+                return $"CSharpDictEnumerator.from({receiver}.iterator())";
+            }
             return $"{receiver}.iterator()";
         }
 
@@ -2141,6 +2148,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var typeNameArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             return $"Class.forName({typeNameArg})";
+        }
+
+        // System.Type.IsSubclassOf(Type) → baseType.isAssignableFrom(derivedType)
+        // C#: derived.IsSubclassOf(base) is true only for strict subclasses.
+        // Java: base.isAssignableFrom(derived) is true for the same class or subclasses.
+        // When paired with an equality check (common C# idiom), the Java form is equivalent.
+        if (originalMethodName == "IsSubclassOf"
+            && node.ArgumentList.Arguments.Count == 1
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Type"
+                || IsReceiverOfType(memberAccess.Expression, "System.Type", context)))
+        {
+            var baseTypeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"{baseTypeArg}.isAssignableFrom({receiver})";
         }
 
         // System.Array.SetValue(value, index) maps to the CSharpArray wrapper when
@@ -7297,14 +7317,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (type == null)
             return false;
 
-        bool IsDictionaryType(INamedTypeSymbol t)
+        bool IsGenericDictionaryType(INamedTypeSymbol t)
             => t.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
                && t.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or "IReadOnlyDictionary";
 
-        if (IsDictionaryType(type))
+        bool IsNonGenericDictionaryType(INamedTypeSymbol t)
+            => t.ContainingNamespace?.ToDisplayString() == "System.Collections"
+               && t.Name is "Hashtable" or "SortedList" or "IDictionary";
+
+        if (IsGenericDictionaryType(type) || IsNonGenericDictionaryType(type))
             return true;
 
-        return type.AllInterfaces.Any(IsDictionaryType);
+        return type.AllInterfaces.Any(t => IsGenericDictionaryType(t) || IsNonGenericDictionaryType(t));
     }
 
     private static bool IsEnumeratorMoveNextInvocation(InvocationExpressionSyntax node, ConversionContext context)
@@ -7481,6 +7505,85 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return named.Name == "IEnumerator"
             && named.ContainingNamespace?.ToDisplayString() == "System.Collections"
             && named.TypeArguments.Length == 0;
+    }
+
+    private static bool IsIDictionaryEnumerator(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named) return false;
+        return named.Name == "IDictionaryEnumerator"
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections"
+            && named.TypeArguments.Length == 0;
+    }
+
+    /// <summary>
+    /// Determines whether a dictionary-like GetEnumerator() result flows into an
+    /// IDictionaryEnumerator target (variable, field, parameter, or method return).
+    /// </summary>
+    private static bool IsIDictionaryEnumeratorTarget(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        // The converted type reflects the target type after implicit conversions (e.g. assignment).
+        var convertedType = context.GetTypeInfo(node).ConvertedType;
+        if (IsIDictionaryEnumerator(convertedType))
+            return true;
+
+        // Fallback: traverse parents for cases where ConvertedType is not available.
+        var parent = node.Parent;
+        while (parent != null)
+        {
+            if (parent is LocalDeclarationStatementSyntax localDecl)
+            {
+                foreach (var varDecl in localDecl.Declaration.Variables)
+                {
+                    if (varDecl.Initializer?.Value == node || IsDescendantOf(varDecl.Initializer?.Value, node))
+                    {
+                        var type = context.SemanticModel.GetTypeInfo(localDecl.Declaration.Type).Type;
+                        if (IsIDictionaryEnumerator(type))
+                            return true;
+                    }
+                }
+                break;
+            }
+
+            if (parent is AssignmentExpressionSyntax assignment && assignment.Right == node)
+            {
+                var typeInfo = context.SemanticModel.GetTypeInfo(assignment.Left);
+                if (IsIDictionaryEnumerator(typeInfo.Type))
+                    return true;
+                break;
+            }
+
+            if (parent is ArgumentSyntax argument)
+            {
+                var argList = argument.Parent as BaseArgumentListSyntax;
+                if (argList != null)
+                {
+                    var idx = argList.Arguments.IndexOf(argument);
+                    if (argList.Parent is InvocationExpressionSyntax invocation)
+                    {
+                        var methodSym = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                        if (methodSym != null && idx >= 0 && idx < methodSym.Parameters.Length)
+                        {
+                            if (IsIDictionaryEnumerator(methodSym.Parameters[idx].Type))
+                                return true;
+                        }
+                    }
+                    else if (argList.Parent is ObjectCreationExpressionSyntax)
+                    {
+                        var ctorSym = context.SemanticModel.GetSymbolInfo(argList.Parent).Symbol as IMethodSymbol;
+                        if (ctorSym != null && idx >= 0 && idx < ctorSym.Parameters.Length)
+                        {
+                            if (IsIDictionaryEnumerator(ctorSym.Parameters[idx].Type))
+                                return true;
+                        }
+                    }
+                }
+                break;
+            }
+
+            parent = parent.Parent;
+        }
+
+        return false;
     }
 
     private static bool IsGenericEnumeratorMethod(IMethodSymbol? method)
