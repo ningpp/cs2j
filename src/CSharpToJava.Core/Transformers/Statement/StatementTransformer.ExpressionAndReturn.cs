@@ -258,6 +258,71 @@ public partial class StatementTransformer
             }
         }
 
+        // Debug.WriteLineIf / Trace.WriteLineIf / Debug.WriteIf / Trace.WriteIf
+        // Debug versions are [Conditional("DEBUG")]; Trace versions are [Conditional("TRACE")].
+        // Convert Trace versions to guarded System.out.println/print; strip Debug versions
+        // to match C# Release semantics. This must happen before the generic expression
+        // transformer, which would otherwise treat the boolean condition as a format string
+        // and emit String.format(boolean, String) — invalid Java.
+        if (stmt.Expression is InvocationExpressionSyntax writeIfInvoc &&
+            writeIfInvoc.Expression is MemberAccessExpressionSyntax writeIfMa &&
+            writeIfInvoc.ArgumentList.Arguments.Count >= 2 &&
+            writeIfMa.Name.Identifier.Text is "WriteLineIf" or "WriteIf")
+        {
+            bool isDebug = false;
+            bool isTrace = false;
+            if (context.SemanticModel != null &&
+                context.GetSymbolInfo(writeIfInvoc).Symbol is IMethodSymbol writeIfSym)
+            {
+                var typeName = writeIfSym.ContainingType.ToDisplayString();
+                isDebug = typeName == "System.Diagnostics.Debug";
+                isTrace = typeName == "System.Diagnostics.Trace";
+            }
+            if (!isDebug && !isTrace)
+            {
+                var receiver = writeIfMa.Expression.ToString();
+                isDebug = receiver is "Debug" or "System.Diagnostics.Debug";
+                isTrace = receiver is "Trace" or "System.Diagnostics.Trace";
+            }
+
+            if (isDebug || isTrace)
+            {
+                var condition = exprTransformer.Transform(writeIfInvoc.ArgumentList.Arguments[0].Expression, context);
+                var message = exprTransformer.Transform(writeIfInvoc.ArgumentList.Arguments[1].Expression, context);
+                string writeIfStmt;
+                if (isTrace)
+                {
+                    var printMethod = writeIfMa.Name.Identifier.Text == "WriteLineIf" ? "println" : "print";
+                    writeIfStmt = $"if ({condition}) System.out.{printMethod}({message});";
+                }
+                else
+                {
+                    writeIfStmt = writeIfMa.Name.Identifier.Text == "WriteLineIf"
+                        ? $"// Debug.WriteLineIf({condition}, {message});\n"
+                        : $"// Debug.WriteIf({condition}, {message});\n";
+                }
+
+                if (context.HasPendingPreStatements || context.HasPendingPostStatements)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    if (context.HasPendingPreStatements)
+                    {
+                        var preStmts = context.DrainPreStatements();
+                        sb.AppendLine(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
+                    }
+                    sb.Append(writeIfStmt);
+                    if (context.HasPendingPostStatements)
+                    {
+                        var postStmts = context.DrainPostStatements();
+                        sb.Append("\n" + string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
+                    }
+                    return new JavaStatementNode(sb.ToString());
+                }
+
+                return new JavaStatementNode(writeIfStmt);
+            }
+        }
+
         // Fix 4: Tuple deconstruction — var (first, second) = GetPair();
         // ExpressionStatement > AssignmentExpression where LHS is DeclarationExpression with ParenthesizedVariableDesignation
         if (stmt.Expression is AssignmentExpressionSyntax tupleAssign

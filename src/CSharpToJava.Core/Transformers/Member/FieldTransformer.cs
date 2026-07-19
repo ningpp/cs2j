@@ -237,6 +237,20 @@ public class FieldTransformer : IMemberTransformer
                 if (inlineConstLiteral)
                 {
                     javaField.Initializer = RenderConstantValue(constVal.Value);
+
+                    // C# const enum fields inline as the underlying integer value. For non-flags
+                    // enums the Java type is the enum class, which is not assignable from a bare
+                    // integer, so wrap the value with EnumType.fromValue(...). Flags enums are
+                    // emitted as primitive int/long constants and must stay as bare literals.
+                    if (fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumFieldType
+                        && !IsFlagsEnum(enumFieldType, context))
+                    {
+                        var javaEnumType = context.MapType(enumFieldType);
+                        var enumValueType = enumFieldType.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+                            ? "long"
+                            : "int";
+                        javaField.Initializer = $"{javaEnumType}.fromValue(({enumValueType})({javaField.Initializer}))";
+                    }
                 }
                 else
                 {
@@ -557,6 +571,18 @@ public class FieldTransformer : IMemberTransformer
             return $"0x{ul:X}L";
 
         return value.ToString() ?? "null";
+    }
+
+    /// <summary>
+    /// Returns true when the enum type is treated as a flags enum by the converter,
+    /// either because it was registered as such or because it carries [Flags].
+    /// </summary>
+    private static bool IsFlagsEnum(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        return context.IsFlagsEnum(enumType.Name)
+            || context.IsFlagsEnum(enumType.ToDisplayString())
+            || enumType.GetAttributes().Any(attribute =>
+                attribute.AttributeClass?.ToDisplayString() is "System.FlagsAttribute" or "System.Flags" or "FlagsAttribute" or "Flags");
     }
 
     /// <summary>

@@ -1217,6 +1217,9 @@ public class MethodTransformer : IMemberTransformer
                     || StatementCanCompleteNormally(ifStatement.Statement)
                     || StatementCanCompleteNormally(ifStatement.Else.Statement);
 
+            case SwitchStatementSyntax switchStatement:
+                return SwitchMayCompleteNormally(switchStatement);
+
             case WhileStatementSyntax whileStatement when IsTrueLiteral(whileStatement.Condition):
                 return ContainsReachableUnlabeledBreak(whileStatement.Statement);
 
@@ -1226,6 +1229,31 @@ public class MethodTransformer : IMemberTransformer
             default:
                 return true;
         }
+    }
+
+    private static bool SwitchMayCompleteNormally(SwitchStatementSyntax node)
+    {
+        var hasDefault = node.Sections
+            .SelectMany(s => s.Labels)
+            .Any(l => l is DefaultSwitchLabelSyntax);
+        if (!hasDefault)
+            return true;
+
+        return node.Sections.Any(SectionMayCompleteNormally);
+    }
+
+    private static bool SectionMayCompleteNormally(SwitchSectionSyntax section)
+        => StatementsMayCompleteNormally(section.Statements);
+
+    private static bool StatementsMayCompleteNormally(SyntaxList<StatementSyntax> statements)
+    {
+        foreach (var statement in statements)
+        {
+            if (!StatementCanCompleteNormally(statement))
+                return false;
+        }
+
+        return true;
     }
 
     private static bool IsTrueLiteral(ExpressionSyntax expression)
