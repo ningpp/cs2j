@@ -355,19 +355,23 @@ public partial class StatementTransformer
 
         // Iterating a raw (non-generic) IEnumerable with a typed loop variable: in Java, iterating
         // a raw Iterable yields Object, which can't be assigned to a typed variable (compile error).
-        // Cast the iterable to Iterable<ElementType> to make it compile (generates unchecked warning).
+        // Use a wildcard double-cast: (Iterable<T>)(Iterable<?>)(expr). A direct (Iterable<T>) cast
+        // fails when expr's static type already implements Iterable<Object> (e.g., CSharpCollection),
+        // because Iterable<Object> and Iterable<T> are unrelated parameterized types.
+        bool isNonGenericEnumerableCast = false;
         if (!isStream && javaType != "Object" && javaType != "var"
             && exprTypeInfo is INamedTypeSymbol rawEnum
             && !rawEnum.IsGenericType
             && rawEnum.Name is "IEnumerable" or "ICollection")
         {
-            expression = $"(Iterable<{javaType}>) ({expression})";
+            expression = $"(Iterable<{javaType}>)(Iterable<?>)({expression})";
+            isNonGenericEnumerableCast = true;
         }
 
         // Fix L: Downcast in foreach — C# allows implicitly downcasting the element type in foreach
         // (e.g., foreach (NetworkEdge e in IEnumerable<PolyIntEdge>)) but Java does not.
         // Detect via Roslyn's ForEachStatementInfo.ElementConversion.IsExplicit.
-        if (!isStream && javaType != "var" && javaType != "Object" && context.SemanticModel != null)
+        if (!isStream && !isNonGenericEnumerableCast && javaType != "var" && javaType != "Object" && context.SemanticModel != null)
         {
             try
             {
