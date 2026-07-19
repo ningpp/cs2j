@@ -887,13 +887,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
             var rhsTypeForClone = context.GetTypeInfo(rightNode).Type;
             rightStr = StructCloneHelper.CloneStructValueIfNeeded(rightNode, rightStr, rhsTypeForClone, context);
             var lhsType = context.GetTypeInfo(leftNode).Type;
-            if (op == "="
-                && lhsType is INamedTypeSymbol lhsEnum
-                && lhsEnum.TypeKind == TypeKind.Enum
-                && IsEnumBitwiseExpression(rightNode, context))
-            {
-                rightStr = WrapEnumBitwiseAssignmentValue(rightStr, lhsEnum, context);
-            }
+            // Note: enum bitwise results are already wrapped by BinaryExpressionTransformer
+            // when the expression is used in an assignment context, so no additional wrap here.
             rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsType, context);
 
             // byte[] element write: C# byte maps to Java int, but byte[] elements are Java byte.

@@ -1342,4 +1342,60 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         Assert.Contains("XmlNodeOrder order = XmlNodeOrder.fromValue(0)", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Bitwise AND between an int-to-enum cast (from a method call returning int)
+    /// and an enum-to-enum cast must convert both operands to integer values,
+    /// perform the AND, and convert back exactly once with fromValue().
+    /// </summary>
+    [Fact]
+    public void NonFlagsEnum_BitwiseAndBetweenMethodCallIntAndEnumCast_NoDoubleFromValue()
+    {
+        var result = Convert(@"
+internal enum AttributeProperties
+{
+    DEFAULT = 0,
+    URI = 1,
+    BOOLEAN = 2,
+    NAME = 4,
+}
+
+internal enum ElementProperties
+{
+    DEFAULT = 0,
+    BOOL_PARENT = 2,
+    URI_PARENT = 1,
+    NAME_PARENT = 4,
+}
+
+internal class Tree
+{
+    public int FindCaseInsensitiveString(string s) { return 0; }
+}
+
+internal class Writer
+{
+    private AttributeProperties _currentAttributeProperties;
+    private ElementProperties currentElementProperties;
+    private Tree attributePropertySearch;
+
+    public void M(string localName)
+    {
+        _currentAttributeProperties = (AttributeProperties)attributePropertySearch.FindCaseInsensitiveString(localName) &
+                                     (AttributeProperties)currentElementProperties;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        System.IO.File.WriteAllText(@"d:\code\cs2j\enum-bitwise-cast-test-output.java", result.GeneratedCode);
+
+        // Must convert the bitwise result back to the enum exactly once.
+        Assert.Contains("AttributeProperties.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+
+        // The enum->enum cast operand must contribute its integer value, not a nested enum instance.
+        Assert.Contains("currentElementProperties.getValue()", result.GeneratedCode, StringComparison.Ordinal);
+
+        // The result must not be wrapped with a nested fromValue/fromValue call chain.
+        Assert.DoesNotContain("AttributeProperties.fromValue(AttributeProperties.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

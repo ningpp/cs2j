@@ -813,13 +813,57 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             return null;
 
         var facade = ExpressionTransformerFacade.Instance;
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
+
+        // When an enum operand is a cast from an integral value or another enum
+        // (e.g. (MyEnum)intValue or (MyEnum)otherEnumValue), unwrap it to the
+        // underlying integer expression directly. Otherwise the cast transformer
+        // emits MyEnum.fromValue((int)(...)) and appending .getValue() produces
+        // redundant nested fromValue calls.
+        string left;
+        string right;
+        bool leftUnwrapped = false;
+        bool rightUnwrapped = false;
+
+        if (leftIsEnum)
+        {
+            var unwrappedLeft = TryUnwrapEnumCastOperand(node.Left, leftType!, context);
+            if (unwrappedLeft != null)
+            {
+                left = unwrappedLeft;
+                leftUnwrapped = true;
+            }
+            else
+            {
+                left = facade.Transform(node.Left, context);
+            }
+        }
+        else
+        {
+            left = facade.Transform(node.Left, context);
+        }
+
+        if (rightIsEnum)
+        {
+            var unwrappedRight = TryUnwrapEnumCastOperand(node.Right, rightType!, context);
+            if (unwrappedRight != null)
+            {
+                right = unwrappedRight;
+                rightUnwrapped = true;
+            }
+            else
+            {
+                right = facade.Transform(node.Right, context);
+            }
+        }
+        else
+        {
+            right = facade.Transform(node.Right, context);
+        }
 
         // Wrap enum operands with getValue() or ordinal() depending on enum kind.
         // Guard: if the transformed expression already ends with a value-access
         // suffix (from nested enum expression processing), don't append another.
-        if (leftIsEnum)
+        if (leftIsEnum && !leftUnwrapped)
         {
             var suffix = GetEnumAccessSuffix(leftType!, context);
             if (suffix != null
@@ -829,7 +873,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 left = ApplyEnumAccessSuffix(left, suffix);
         }
 
-        if (rightIsEnum)
+        if (rightIsEnum && !rightUnwrapped)
         {
             var suffix = GetEnumAccessSuffix(rightType!, context);
             if (suffix != null
@@ -974,6 +1018,51 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (inner.StartsWith("(", StringComparison.Ordinal) && inner.EndsWith(")", StringComparison.Ordinal))
             inner = inner[1..^1];
         return inner.Contains(suffix, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// When an enum operand of a bitwise expression is a cast from an integral value
+    /// or another enum (e.g. (MyEnum)intValue or (MyEnum)otherEnumValue), the cast
+    /// transformer emits MyEnum.fromValue((int)(...)). Appending .getValue() to that
+    /// produces redundant nested fromValue calls. Instead, unwrap the cast and return
+    /// the underlying integer expression directly.
+    /// </summary>
+    private static string? TryUnwrapEnumCastOperand(
+        ExpressionSyntax operand,
+        INamedTypeSymbol enumType,
+        ConversionContext context)
+    {
+        var stripped = operand;
+        while (stripped is ParenthesizedExpressionSyntax paren)
+            stripped = paren.Expression;
+
+        if (stripped is not CastExpressionSyntax castExpr)
+            return null;
+
+        var castTargetType = context.GetTypeInfo(castExpr.Type).Type as INamedTypeSymbol;
+        if (castTargetType?.TypeKind != TypeKind.Enum)
+            return null;
+
+        if (!SymbolEqualityComparer.Default.Equals(castTargetType, enumType))
+            return null;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var innerExpr = castExpr.Expression;
+        var innerTransformed = facade.Transform(innerExpr, context);
+        var innerType = context.GetTypeInfo(innerExpr).Type;
+
+        if (innerType?.TypeKind == TypeKind.Enum)
+        {
+            var suffix = GetEnumAccessSuffix((INamedTypeSymbol)innerType, context);
+            if (suffix != null)
+                innerTransformed = ApplyEnumAccessSuffix(innerTransformed, suffix);
+        }
+        else if (innerType?.SpecialType != SpecialType.System_Int32)
+        {
+            innerTransformed = $"(int)({innerTransformed})";
+        }
+
+        return innerTransformed;
     }
 
     /// <summary>
