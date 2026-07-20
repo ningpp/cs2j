@@ -132,10 +132,14 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
     {
         if (literal.Length <= 1)
             return literal;
-        // Don't strip from hex/binary literals or floating-point literals
+        // Don't strip from hex/binary literals, floating-point literals, or
+        // exponent-notation literals (e.g., 0e0). Stripping the mantissa zeros
+        // from 0e0 would produce the invalid literal "e0".
         if (literal.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             || literal.StartsWith("0b", StringComparison.OrdinalIgnoreCase)
-            || literal.Contains('.'))
+            || literal.Contains('.')
+            || literal.Contains('e')
+            || literal.Contains('E'))
             return literal;
         // Strip leading zeros, but keep at least one digit
         int i = 0;

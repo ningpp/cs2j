@@ -122,6 +122,25 @@ class Test
         Assert.Contains("= 0;", result.GeneratedCode);
     }
 
+    [Fact]
+    public void ExponentLiteral_ZeroExponent_PreservesMantissa()
+    {
+        var result = Convert(@"
+class Test
+{
+    bool M(double v)
+    {
+        return v == -0e0;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // The literal must stay as -0e0; stripping the mantissa zero gives -e0,
+        // which is not a valid Java literal.
+        Assert.Contains("-0e0", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("-e0", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
