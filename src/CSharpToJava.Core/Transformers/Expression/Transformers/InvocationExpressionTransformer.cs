@@ -628,6 +628,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Queue<T>.Dequeue→remove). Custom heap types (GenericBinaryHeapPriorityQueue, EventQueue,
         // etc.) go through normal camelCase so that call sites and declarations stay consistent.
 
+        // C# MethodInfo.GetBaseDefinition() → ReflectionHelper.getBaseDefinition(method).
+        // Java java.lang.reflect.Method has no getBaseDefinition method.
+        if (memberAccess.Name.Identifier.Text == "GetBaseDefinition"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsMethodInfoReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+            var baseDefReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"ReflectionHelper.getBaseDefinition({baseDefReceiver})";
+        }
+
         // ConfigureAwait(bool) is a C#-specific concern about synchronization context capture.
         // Java has no equivalent — strip the call and return just the receiver (the Task/CompletableFuture).
         // e.g. task.ConfigureAwait(false) → task

@@ -320,6 +320,49 @@ public class CSharpXmlCompileRegressionTests
     }
 
     [Fact]
+    public void ReflectionMethodInfo_GetBaseDefinitionAndIsPublic_BridgedToReflectionHelper()
+    {
+        var result = Convert("""
+            using System.Reflection;
+
+            class Sample
+            {
+                bool IsPublicBase(MethodInfo method)
+                {
+                    return method.GetBaseDefinition().IsPublic;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getBaseDefinition()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.isPublic(ReflectionHelper.getBaseDefinition(method))", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReflectionParameterInfo_IsOptional_BridgedToReflectionHelper()
+    {
+        var result = Convert("""
+            using System.Reflection;
+
+            class Sample
+            {
+                bool CheckOptional(ParameterInfo parameter)
+                {
+                    return parameter.IsOptional;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getIsOptional()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.isOptional(parameter)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SortedListValues_ReturnedAsNonGenericICollection_WrapsWithAdapter()
     {
         var result = Convert("""

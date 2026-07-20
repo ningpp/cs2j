@@ -4,6 +4,8 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -90,6 +92,66 @@ public final class ReflectionHelper {
     @SuppressWarnings("unchecked")
     public static <T> T createDelegate(MethodInfo method, Object target, Class<T> delegateType) {
         return createDelegate(method.getMethod(), target, delegateType);
+    }
+
+    /**
+     * Returns the base definition of a method, i.e. the declaration in the
+     * least-derived class/interface in the declaring type's hierarchy that
+     * declares a method with the same name and parameter types.
+     * <p>
+     * Bridges C# {@code MethodInfo.GetBaseDefinition()}, which returns the
+     * original virtual method declaration.
+     */
+    public static Method getBaseDefinition(Method method) {
+        if (method == null) {
+            return null;
+        }
+        Class<?> declaringClass = method.getDeclaringClass();
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        String name = method.getName();
+
+        Class<?> current = declaringClass;
+        Method best = method;
+        while (current != null) {
+            try {
+                Method candidate = current.getDeclaredMethod(name, parameterTypes);
+                best = candidate;
+            } catch (NoSuchMethodException e) {
+                // ignore
+            }
+            current = current.getSuperclass();
+        }
+
+        for (Class<?> iface : declaringClass.getInterfaces()) {
+            try {
+                Method candidate = iface.getMethod(name, parameterTypes);
+                best = candidate;
+            } catch (NoSuchMethodException e) {
+                // ignore
+            }
+        }
+
+        return best;
+    }
+
+    /**
+     * Returns whether the given method is public.
+     * <p>
+     * Bridges C# {@code MethodBase.IsPublic} for Java reflection.
+     */
+    public static boolean isPublic(Method method) {
+        return method != null && Modifier.isPublic(method.getModifiers());
+    }
+
+    /**
+     * Returns whether the given parameter is optional.
+     * <p>
+     * Java reflection has no notion of optional/default parameters, so this
+     * returns {@code false} for regular parameters. Varargs are considered
+     * optional to mirror C# params arrays semantics.
+     */
+    public static boolean isOptional(Parameter parameter) {
+        return parameter != null && parameter.isVarArgs();
     }
 
     @SuppressWarnings("unchecked")

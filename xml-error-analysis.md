@@ -81,3 +81,23 @@
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs`
 - **分析**: C# `StringBuilder(string, int, int, int)` 构造函数在 Java 中没有直接等价物；Java `StringBuilder` 没有 4 参数构造函数。转换器原本按普通构造函数处理，直接输出 4 个参数，导致编译失败。
 - **状态**: ✅ Fixed
+
+## Iteration 6 — cannot find symbol (MethodInfo.GetBaseDefinition / ParameterInfo.IsOptional)
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/Xsl/XsltOld/XsltCompileContext.java`
+- **行号**: 122
+- **错误信息**: `找不到符号 符号: 方法 getBaseDefinition() 位置: 类 java.lang.reflect.Method`
+- **代码片段**:
+  ```java
+  for (int i = 0; i < length; i++) {
+      if (StringHelper.compare(name, methods[i].getName(), false) == 0) {
+          if (!publicOnly || methods[i].getBaseDefinition().getIsPublic()) {
+              methods[free++] = methods[i];
+          }
+      }
+  }
+  ```
+- **对应 C# 文件**: `System/Xml/Xsl/XsltOld/XsltCompileContext.cs` (L119, L972)
+- **根因分类**: Transformer / 类型映射缺失
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`, `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`, `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ReflectionHelper.java`
+- **分析**: `System.Reflection.MethodInfo` 映射为 `java.lang.reflect.Method`，但 C# 的 `GetBaseDefinition()` 和 `IsPublic` 在 Java `Method` 上不存在；同样 `ParameterInfo.IsOptional` 在 `java.lang.reflect.Parameter` 上不存在。转换器对这几个反射成员没有特殊处理，直接按默认命名规则输出 `getBaseDefinition()` 和 `getIsPublic()`，导致编译失败。
+- **状态**: 🔄 In Progress

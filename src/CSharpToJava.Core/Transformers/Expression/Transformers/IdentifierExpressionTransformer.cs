@@ -1002,6 +1002,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{target}.getDeclaringClass()";
             }
 
+            // C# MethodBase.IsPublic → Java Modifier.isPublic(method.getModifiers()).
+            // MethodInfo is mapped to java.lang.reflect.Method, which has no IsPublic property.
+            if (memberName == "IsPublic" && IsJavaReflectMethodBaseType(receiverType))
+            {
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                return $"ReflectionHelper.isPublic({target})";
+            }
+
+            // C# ParameterInfo.IsOptional → ReflectionHelper.isOptional(parameter).
+            // ParameterInfo is mapped to java.lang.reflect.Parameter, which has no isOptional method.
+            if (memberName == "IsOptional" && IsJavaReflectParameterInfoType(receiverType))
+            {
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                return $"ReflectionHelper.isOptional({target})";
+            }
+
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.{GetPropertyGetterName(prop)}()";
 
@@ -2014,6 +2030,41 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (display is "System.Reflection.MethodInfo"
                 or "System.Reflection.ConstructorInfo"
                 or "System.Reflection.FieldInfo")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the C# receiver type is MethodInfo or MethodBase,
+    /// which maps to java.lang.reflect.Method and supports public-modifier checks.
+    /// </summary>
+    private static bool IsJavaReflectMethodBaseType(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            var display = current.OriginalDefinition.ToDisplayString();
+            if (display is "System.Reflection.MethodInfo"
+                or "System.Reflection.MethodBase")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the C# receiver type is ParameterInfo, which maps to
+    /// java.lang.reflect.Parameter and has no direct isOptional method.
+    /// </summary>
+    private static bool IsJavaReflectParameterInfoType(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            var display = current.OriginalDefinition.ToDisplayString();
+            if (display == "System.Reflection.ParameterInfo")
             {
                 return true;
             }
