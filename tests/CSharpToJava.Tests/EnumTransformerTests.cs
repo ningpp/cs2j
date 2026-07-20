@@ -1398,4 +1398,58 @@ internal class Writer
         // The result must not be wrapped with a nested fromValue/fromValue call chain.
         Assert.DoesNotContain("AttributeProperties.fromValue(AttributeProperties.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void SimpleEnum_PostIncrementInForLoop_UsesValuesArray()
+    {
+        // C# enums support ++/-- (underlying integer +1/-1), but Java enums do not.
+        // A for-loop increment like langTmp++ must be rewritten to use values()/ordinal().
+        var result = Convert(@"
+internal enum ScriptingLanguage
+{
+    JScript,
+    VisualBasic,
+    CSharp
+}
+
+internal class Compiler
+{
+    public void AddScript(ScriptingLanguage lang)
+    {
+        for (ScriptingLanguage langTmp = ScriptingLanguage.JScript; langTmp <= ScriptingLanguage.CSharp; langTmp++)
+        {
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        // Must not leave raw ++ on the enum variable
+        Assert.DoesNotContain("langTmp++", result.GeneratedCode, StringComparison.Ordinal);
+        // Should use values()[ordinal() + 1] for simple (non-explicit-value) enums
+        Assert.Contains("ScriptingLanguage.values()[langTmp.ordinal() + 1]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitValueEnum_PostIncrement_UsesFromValue()
+    {
+        var result = Convert(@"
+public enum Status
+{
+    Open = 10,
+    Closed = 20
+}
+
+public class Sample
+{
+    public Status Next(Status s)
+    {
+        s++;
+        return s;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.DoesNotContain("s++", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Status.fromValue(s.getValue() + 1)", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }

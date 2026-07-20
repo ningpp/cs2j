@@ -97,6 +97,9 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 bool isDecimalTarget = operandSyntax != null && context.SemanticModel != null
                     && ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operandSyntax).Type);
 
+                bool isEnumTarget = operandSyntax != null && context.SemanticModel != null
+                    && IsNonFlagsEnum(context.GetTypeInfo(operandSyntax).Type, context);
+
                 // For LogicalNotExpression (!), verify the operand is boolean.
                 // C# allows ! on int (0→true, non-zero→false) but Java requires
                 // boolean. Non-boolean operands must fall back to the raw string path
@@ -108,7 +111,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(Transform(node, context));
                 }
 
-                if (!isPropertyTarget && !isDecimalTarget && operandSyntax != null)
+                if (!isPropertyTarget && !isDecimalTarget && !isEnumTarget && operandSyntax != null)
                 {
                     var operandIR = ExpressionTransformerFacade.Instance.TransformToIR(operandSyntax, context);
                     return new JavaUnaryExpression
@@ -665,6 +668,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Enum ++/-- must be rewritten because Java enums do not support unary increment.
+        if (TryTransformEnumIncrement(node, node.Operand, op, isPostfix: true, context, out var enumRewrite))
+        {
+            return enumRewrite;
+        }
+
         // Statement context: rewrite property/indexer in place (no return value needed)
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
@@ -830,6 +839,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Enum ++/-- must be rewritten because Java enums do not support unary increment.
+        if (TryTransformEnumIncrement(node, node.Operand, op, isPostfix: false, context, out var enumRewrite))
+        {
+            return enumRewrite;
+        }
+
         // Statement context: rewrite property/indexer in place
         if (node.Parent is ExpressionStatementSyntax
             && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
@@ -926,6 +941,152 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         return node.Parent is ForStatementSyntax forStatement
             && (forStatement.Initializers.Any(expr => ReferenceEquals(expr, node))
                 || forStatement.Incrementors.Any(expr => ReferenceEquals(expr, node)));
+    }
+
+    /// <summary>
+    /// Rewrites enum ++/-- into a Java-compatible assignment. Java enums do not support
+    /// unary increment/decrement, so we advance to the next/previous enum instance.
+    /// For simple (auto-numbered) enums this uses values()[ordinal +/- 1]; for explicit-value
+    /// enums it uses fromValue(getValue() +/- 1) to stay aligned with BinaryExpressionTransformer.
+    /// </summary>
+    private static bool TryTransformEnumIncrement(
+        SyntaxNode unaryNode,
+        ExpressionSyntax operand,
+        string op,
+        bool isPostfix,
+        ConversionContext context,
+        out string rewritten)
+    {
+        rewritten = string.Empty;
+        if (context.SemanticModel == null)
+            return false;
+
+        if (op != "++" && op != "--")
+            return false;
+
+        var enumType = context.GetTypeInfo(operand).Type as INamedTypeSymbol;
+        if (enumType?.TypeKind != TypeKind.Enum || IsFlagsEnumType(enumType, context))
+            return false;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var operandExpr = facade.Transform(operand, context);
+        var javaEnumType = context.MapType(enumType);
+        var angleIndex = javaEnumType.IndexOf('<');
+        if (angleIndex > 0)
+            javaEnumType = javaEnumType[..angleIndex];
+
+        var suffix = GetEnumAccessSuffix(enumType, context);
+        var delta = op == "++" ? "+ 1" : "- 1";
+
+        string valueExpr;
+        if (suffix == ".ordinal()")
+        {
+            valueExpr = $"{javaEnumType}.values()[{operandExpr}{suffix} {delta}]";
+        }
+        else
+        {
+            valueExpr = $"{javaEnumType}.fromValue({operandExpr}{suffix} {delta})";
+        }
+
+        var assignmentExpr = $"{operandExpr} = {valueExpr}";
+
+        if (IsDiscardedValueContext(unaryNode))
+        {
+            rewritten = assignmentExpr;
+            return true;
+        }
+
+        // Expression context: preserve C# prefix/postfix semantics with hoisting.
+        if (isPostfix)
+        {
+            var tmp = context.GenerateSyntheticName("_enumPost");
+            context.AddPreStatement($"{javaEnumType} {tmp} = {operandExpr}");
+            context.AddPreStatementAllowDuplicate(assignmentExpr);
+            rewritten = tmp;
+        }
+        else
+        {
+            context.AddPreStatementAllowDuplicate(assignmentExpr);
+            rewritten = operandExpr;
+        }
+        return true;
+    }
+
+    private static bool IsNonFlagsEnum(ITypeSymbol? type, ConversionContext context)
+    {
+        if (type is not INamedTypeSymbol named || named.TypeKind != TypeKind.Enum)
+            return false;
+        return !IsFlagsEnumType(named, context);
+    }
+
+    private static bool IsFlagsEnumType(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        if (HasFlagsAttribute(enumType))
+            return true;
+
+        var displayName = enumType.ToDisplayString();
+        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
+            fullyQualifiedName = fullyQualifiedName["global::".Length..];
+
+        return context.IsFlagsEnum(displayName)
+            || context.IsFlagsEnum(fullyQualifiedName);
+    }
+
+    private static bool HasFlagsAttribute(INamedTypeSymbol enumType)
+    {
+        return enumType.GetAttributes().Any(attribute =>
+            attribute.AttributeClass?.ToDisplayString() is "System.FlagsAttribute" or "System.Flags" or "FlagsAttribute" or "Flags");
+    }
+
+    private static string GetEnumAccessSuffix(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        if (EnumHasExplicitValues(enumType))
+            return ".getValue()";
+
+        var enumName = enumType.ToDisplayString();
+        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
+            fullyQualifiedName = fullyQualifiedName["global::".Length..];
+
+        if (context.IsExplicitValueEnum(enumName) || context.IsExplicitValueEnum(fullyQualifiedName))
+            return ".getValue()";
+
+        return ".ordinal()";
+    }
+
+    /// <summary>
+    /// Checks if an enum type has explicit value initializers by inspecting its members.
+    /// Mirrors the logic in BinaryExpressionTransformer.
+    /// </summary>
+    private static bool EnumHasExplicitValues(INamedTypeSymbol enumType)
+    {
+        foreach (var member in enumType.GetMembers())
+        {
+            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
+                && field.Name != WellKnownMemberNames.InstanceConstructorName)
+            {
+                var ordinal = 0;
+                foreach (var checkMember in enumType.GetMembers())
+                {
+                    if (checkMember is IFieldSymbol { IsConst: true, HasConstantValue: true } checkField
+                        && checkField.Name != WellKnownMemberNames.InstanceConstructorName)
+                    {
+                        if (checkField.ConstantValue is int intVal && intVal != ordinal)
+                            return true;
+                        if (checkField.ConstantValue is long longVal && longVal != ordinal)
+                            return true;
+                        if (checkField.ConstantValue is uint uintVal && uintVal != ordinal)
+                            return true;
+                        if (checkField.ConstantValue is ulong ulongVal && ulongVal != (ulong)ordinal)
+                            return true;
+                        ordinal++;
+                    }
+                }
+                return false;
+            }
+        }
+        return false;
     }
 
     private static bool TryTransformDecimalIncrementAsAssignment(

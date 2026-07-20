@@ -50,3 +50,20 @@
 - **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Decimal.java`
 - **分析**: C# `new decimal(ulong)` 被映射为 `Decimal.createFrom_long(long)`，以保留无符号 64 位值（Java long 无法直接表示大于 Long.MAX_VALUE 的 ulong）。但 compat 库 `Decimal` 中未实现该静态工厂方法，导致生成的 Java 代码编译失败。
 - **状态**: ✅ Fixed
+
+## Iteration 4 — 一元运算符 '++' 操作数类型错误（枚举）
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/Xsl/XsltOld/Compiler.java`
+- **行号**: 589
+- **错误信息**: `一元运算符 '++' 的操作数类型dotnet.xml.Xsl.XsltOld.ScriptingLanguage错误`
+- **代码片段**:
+  ```java
+  public void addScript(String source, ScriptingLanguage lang, String ns, String fileName, int lineNumber) {
+      validateExtensionNamespace(ns);
+      for (ScriptingLanguage langTmp = ScriptingLanguage.JScript; langTmp.ordinal() <= ScriptingLanguage.CSharp.ordinal(); langTmp++) {
+      CSharpHashtable typeDecls = _typeDeclsByLang[langTmp.getValue()];
+  ```
+- **对应 C# 文件**: `System/Xml/Xsl/XsltOld/Compiler.cs` (L785)
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs`
+- **分析**: C# 枚举支持 `++`/`--`（底层整数值 ±1），但 Java 枚举不支持一元 `++`/`--`。`BinaryExpressionTransformer` 已将条件 `langTmp <= ScriptingLanguage.CSharp` 改写为 `.ordinal()` 比较，但 `UnaryExpressionTransformer` 对 `langTmp++` 未做枚举特化，直接输出 `langTmp++`，导致编译失败。
+- **状态**: 🔄 In Progress
