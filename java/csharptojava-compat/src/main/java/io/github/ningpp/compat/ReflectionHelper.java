@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -141,6 +142,20 @@ public final class ReflectionHelper {
      */
     public static boolean isPublic(Method method) {
         return method != null && Modifier.isPublic(method.getModifiers());
+    }
+
+    /**
+     * Returns whether the given MethodInfo wrapper represents a public method.
+     */
+    public static boolean isPublic(MethodInfo method) {
+        return method != null && isPublic(method.getMethod());
+    }
+
+    /**
+     * Returns whether the given constructor is public.
+     */
+    public static boolean isPublic(Constructor<?> ctor) {
+        return ctor != null && Modifier.isPublic(ctor.getModifiers());
     }
 
     /**

@@ -363,6 +363,29 @@ public class CSharpXmlCompileRegressionTests
     }
 
     [Fact]
+    public void SystemType_BaseType_And_IsGenericType_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                bool Check(Type type)
+                {
+                    return type.BaseType != null && type.IsGenericType;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getBaseType()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getIsGenericType()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getBaseType(type)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getIsGenericType(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SortedListValues_ReturnedAsNonGenericICollection_WrapsWithAdapter()
     {
         var result = Convert("""
@@ -428,6 +451,28 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("CSharpICollection<?> getSchemas", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("return CSharpICollection.from(tnsSchemas);", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReflectionHelper_IsPublic_AcceptsMethodInfoAndConstructor()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                bool Check(MethodInfo method, ConstructorInfo ctor)
+                {
+                    return method.IsPublic && ctor.IsPublic;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.isPublic(method)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.isPublic(ctor)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)
