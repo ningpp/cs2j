@@ -66,4 +66,4 @@
 - **根因分类**: Transformer
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs`
 - **分析**: C# 枚举支持 `++`/`--`（底层整数值 ±1），但 Java 枚举不支持一元 `++`/`--`。`BinaryExpressionTransformer` 已将条件 `langTmp <= ScriptingLanguage.CSharp` 改写为 `.ordinal()` 比较，但 `UnaryExpressionTransformer` 对 `langTmp++` 未做枚举特化，直接输出 `langTmp++`，导致编译失败。
-- **状态**: 🔄 In Progress
+- **状态**: ✅ Fixed
