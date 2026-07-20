@@ -30,6 +30,15 @@ public final class Decimal implements Comparable<Decimal> {
         this(BigDecimal.valueOf(value), true);
     }
 
+    /**
+     * Creates a Decimal from a long that represents an unsigned 64-bit value.
+     * C# ulong is mapped to Java long; values with the high bit set represent
+     * numbers greater than Long.MAX_VALUE.
+     */
+    public static Decimal createFrom_long(long value) {
+        return new Decimal(new BigDecimal(Long.toUnsignedString(value)), true);
+    }
+
     public Decimal(double value) {
         this(fromDouble(value), true);
     }
