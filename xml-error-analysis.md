@@ -15,4 +15,4 @@
 - **根因分类**: Transformer
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs` (L643-655)
 - **分析**: `TransformMemberInvocation` 把所有无参 `.GetResult()` 调用都改写成 `.join()`，未限定接收者类型。`StringConcat.GetResult()` 是普通取值方法，应生成 `.getResult()`，却被错写成 `.join()`。
-- **状态**: 🔄 In Progress
+- **状态**: ✅ Fixed
