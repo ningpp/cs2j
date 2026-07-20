@@ -650,8 +650,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 return $"{facade.Transform(awaitMa.Expression, context)}.join()";
             }
-            // Standalone GetResult on a Task/TaskAwaiter — map to join()
-            return $"{facade.Transform(memberAccess.Expression, context)}.join()";
+
+            // Standalone GetResult on a Task/TaskAwaiter — map to join().
+            // Guard with the semantic model so unrelated GetResult() methods
+            // (e.g. dotnet.xml.StringConcat.GetResult()) keep their normal name.
+            if (context.SemanticModel != null
+                && IsTaskOrTaskAwaiter(context.GetTypeInfo(memberAccess.Expression).Type))
+            {
+                return $"{facade.Transform(memberAccess.Expression, context)}.join()";
+            }
         }
         if (memberAccess.Name.Identifier.Text == "GetAwaiter"
             && node.ArgumentList.Arguments.Count == 0)
@@ -8628,6 +8635,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return true;
         }
         return false;
+    }
+
+    private static bool IsTaskOrTaskAwaiter(ITypeSymbol? type)
+    {
+        if (type == null)
+            return false;
+
+        var display = type.ToDisplayString();
+        return display.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+            || display.StartsWith("System.Runtime.CompilerServices.TaskAwaiter", StringComparison.Ordinal);
     }
 
     private static bool MethodSignatureMatchesInterface(IMethodSymbol method, INamedTypeSymbol iface, string methodName)
