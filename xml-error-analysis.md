@@ -49,4 +49,4 @@
 - **根因分类**: 类型映射缺失
 - **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Decimal.java`
 - **分析**: C# `new decimal(ulong)` 被映射为 `Decimal.createFrom_long(long)`，以保留无符号 64 位值（Java long 无法直接表示大于 Long.MAX_VALUE 的 ulong）。但 compat 库 `Decimal` 中未实现该静态工厂方法，导致生成的 Java 代码编译失败。
-- **状态**: 🔄 In Progress
+- **状态**: ✅ Fixed
