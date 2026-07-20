@@ -67,3 +67,17 @@
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs`
 - **分析**: C# 枚举支持 `++`/`--`（底层整数值 ±1），但 Java 枚举不支持一元 `++`/`--`。`BinaryExpressionTransformer` 已将条件 `langTmp <= ScriptingLanguage.CSharp` 改写为 `.ordinal()` 比较，但 `UnaryExpressionTransformer` 对 `langTmp++` 未做枚举特化，直接输出 `langTmp++`，导致编译失败。
 - **状态**: ✅ Fixed
+
+## Iteration 5 — no suitable constructor (StringBuilder 4-arg)
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/Xsl/XsltOld/RecordBuilder.java`
+- **行号**: 493
+- **错误信息**: `对于StringBuilder(java.lang.String,int,int,int), 找不到合适的构造器`
+- **代码片段**:
+  ```java
+  newComment = new StringBuilder(comment, begin, index, 2 * comment.length());
+  ```
+- **对应 C# 文件**: `System/Xml/Xsl/XsltOld/RecordBuilder.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs`
+- **分析**: C# `StringBuilder(string, int, int, int)` 构造函数在 Java 中没有直接等价物；Java `StringBuilder` 没有 4 参数构造函数。转换器原本按普通构造函数处理，直接输出 4 个参数，导致编译失败。
+- **状态**: ✅ Fixed

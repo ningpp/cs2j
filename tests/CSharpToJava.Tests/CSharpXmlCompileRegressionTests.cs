@@ -300,6 +300,26 @@ public class CSharpXmlCompileRegressionTests
     }
 
     [Fact]
+    public void StringBuilderFourArgCtor_RewritesToCapacityCtorAndAppendRange()
+    {
+        var result = Convert("""
+            using System.Text;
+
+            class Sample
+            {
+                StringBuilder Build(string comment, int begin, int index)
+                {
+                    return new StringBuilder(comment, begin, index, 2 * comment.Length);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.DoesNotContain("new StringBuilder(comment, begin, index", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("new StringBuilder(2 * comment.length()).append(comment, begin, (begin + index))", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SortedListValues_ReturnedAsNonGenericICollection_WrapsWithAdapter()
     {
         var result = Convert("""

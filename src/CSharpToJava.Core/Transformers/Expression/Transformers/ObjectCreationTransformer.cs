@@ -142,6 +142,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (bareTypeName.EndsWith("BufferedReader", StringComparison.Ordinal)) return true;
         if (IsErasedFactoryConstructor(node, context)) return true;
 
+        // C# StringBuilder(string, int, int, int) has no Java equivalent; must be rewritten.
+        if (bareTypeName is "StringBuilder" && node.ArgumentList?.Arguments.Count == 4)
+            return true;
+
         // Java collection types need argument coercion (Arrays.asList wrapping)
         if (IsJavaCollectionType(typeName)) return true;
 
@@ -477,6 +481,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             context.AddImport("io.github.ningpp.compat.StringHelper");
             var initialValue = ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
             return $"new StringBuilder(StringHelper.stringBuilderInitialValue({initialValue}))";
+        }
+
+        // C# StringBuilder(string value, int startIndex, int length, int capacity)
+        // has no Java equivalent. Rewrite to capacity constructor + append substring.
+        if (typeName == "StringBuilder"
+            && argumentList.Arguments.Count == 4
+            && ctorSymbol?.Parameters is [{ } p0, { } p1, { } p2, { } p3]
+            && p0.Type.SpecialType == SpecialType.System_String
+            && IsIntegralType(p1.Type)
+            && IsIntegralType(p2.Type)
+            && IsIntegralType(p3.Type))
+        {
+            var facade = ExpressionTransformerFacade.Instance;
+            var value = facade.Transform(argumentList.Arguments[0].Expression, context);
+            var startIndex = facade.Transform(argumentList.Arguments[1].Expression, context);
+            var length = facade.Transform(argumentList.Arguments[2].Expression, context);
+            var capacity = facade.Transform(argumentList.Arguments[3].Expression, context);
+            var endIndex = $"({startIndex} + {length})";
+            return $"new StringBuilder({capacity}).append({value}, {startIndex}, {endIndex})";
         }
 
         if (IsSystemThreadingValueTaskType(createdTypeSymbol) && argumentList.Arguments.Count == 1)
@@ -965,6 +988,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             || type.AllInterfaces.Any(i =>
                 i.OriginalDefinition.ToDisplayString() is "System.Collections.Generic.ICollection<T>"
                     or "System.Collections.Generic.IList<T>");
+    }
+
+    private static bool IsIntegralType(ITypeSymbol type)
+    {
+        return type.SpecialType is
+            SpecialType.System_Int32 or SpecialType.System_Int64 or
+            SpecialType.System_Int16 or SpecialType.System_Byte or
+            SpecialType.System_SByte or SpecialType.System_UInt32 or
+            SpecialType.System_UInt64 or SpecialType.System_UInt16 or
+            SpecialType.System_Char;
     }
 
     /// <summary>
