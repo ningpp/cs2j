@@ -305,6 +305,17 @@ public class StringHelper {
         return builder;
     }
 
+    /** Mirrors C# StringBuilder.Append(char, int) — appends a char repeatCount times. */
+    public static StringBuilder append(StringBuilder builder, char c, int repeatCount) {
+        if (builder == null) throw new NullPointerException("builder");
+        if (repeatCount > 0) {
+            for (int i = 0; i < repeatCount; i++) {
+                builder.append(c);
+            }
+        }
+        return builder;
+    }
+
     public static StringBuilder insert(StringBuilder builder, int offset, String value) {
         if (builder == null) throw new NullPointerException("builder");
         validateStringBuilderOffset(builder, offset);

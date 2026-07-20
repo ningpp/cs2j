@@ -639,6 +639,30 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"ReflectionHelper.getBaseDefinition({baseDefReceiver})";
         }
 
+        // C# Type.GetMethods(BindingFlags) → TypeHelper.getMethods(Class, int)
+        if (memberAccess.Name.Identifier.Text == "GetMethods"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getMethods({typeReceiver}, {flags})";
+        }
+
+        // C# Type.GetConstructor(BindingFlags, Binder, Type[], ParameterModifier[])
+        // → TypeHelper.getConstructor(Class, int, Class[])
+        if (memberAccess.Name.Identifier.Text == "GetConstructor"
+            && node.ArgumentList.Arguments.Count == 4
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var types = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getConstructor({typeReceiver}, {flags}, {types})";
+        }
+
         // ConfigureAwait(bool) is a C#-specific concern about synchronization context capture.
         // Java has no equivalent — strip the call and return just the receiver (the Task/CompletableFuture).
         // e.g. task.ConfigureAwait(false) → task
@@ -3133,6 +3157,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             context.AddImport("io.github.ningpp.compat.StringHelper");
             return $"StringHelper.append({receiver}, {valueArg})";
+        }
+
+        // C# StringBuilder.Append(char, int) → StringHelper.append(StringBuilder, char, int)
+        if (originalMethodName == "Append"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsStringBuilderReceiver(memberAccess.Expression, context))
+        {
+            var arg0 = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var arg1 = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            if (IsCharType(node.ArgumentList.Arguments[0].Expression, context)
+                && IsIntegralType(node.ArgumentList.Arguments[1].Expression, context))
+            {
+                context.AddImport("io.github.ningpp.compat.StringHelper");
+                return $"StringHelper.append({receiver}, {arg0}, {arg1})";
+            }
         }
 
         if (originalMethodName == "Insert"
@@ -6634,6 +6673,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return IsReceiverOfType(expr, "System.Reflection.MethodInfo", context);
     }
 
+    private static bool IsSystemTypeReceiver(ExpressionSyntax expr, ConversionContext context)
+    {
+        return IsReceiverOfType(expr, "System.Type", context);
+    }
+
     private static string ResolveDelegateTypeArg(TypeSyntax typeSyntax, ConversionContext context)
     {
         var typeInfo = context.GetTypeInfo(typeSyntax);
@@ -7806,6 +7850,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     private static bool IsSystemTextStringBuilder(ITypeSymbol? typeSymbol)
     {
         return typeSymbol?.ToDisplayString() == "System.Text.StringBuilder";
+    }
+
+    private static bool IsStringBuilderReceiver(ExpressionSyntax expr, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(expr).Type;
+        return type?.ToDisplayString() == "System.Text.StringBuilder";
+    }
+
+    private static bool IsCharType(ExpressionSyntax expr, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(expr).Type;
+        return type?.SpecialType == SpecialType.System_Char;
+    }
+
+    private static bool IsIntegralType(ExpressionSyntax expr, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(expr).Type;
+        return type is { SpecialType: SpecialType.System_Int32 or SpecialType.System_Int64 };
     }
 
     private static bool IsFrameworkCollectionToArray(IMethodSymbol methodSymbol)

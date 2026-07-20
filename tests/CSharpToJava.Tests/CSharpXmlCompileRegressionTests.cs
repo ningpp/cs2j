@@ -475,6 +475,27 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("ReflectionHelper.isPublic(ctor)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void StringBuilder_AppendCharRepeatCount_BridgedToStringHelper()
+    {
+        var result = Convert("""
+            using System.Text;
+
+            class Sample
+            {
+                StringBuilder Append(StringBuilder sb, char c, int count)
+                {
+                    return sb.Append(c, count);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.StringHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".append(c, count)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.append(sb, c, count)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
