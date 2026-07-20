@@ -496,6 +496,250 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("StringHelper.append(sb, c, count)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemType_FullName_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                string Read(Type type) => type.FullName;
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getFullName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getFullName(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetMethodWithTypes_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                MethodInfo Read(Type type, string name, Type[] types) => type.GetMethod(name, types);
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getMethod(name, types)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getMethod(type, name, types)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetMethodWithBindingFlags_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                MethodInfo Read(Type type, string name, BindingFlags flags) => type.GetMethod(name, flags);
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getMethod(name, flags)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getMethod(type, name, flags)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_MakeArrayType_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Type Read(Type type) => type.MakeArrayType();
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".makeArrayType()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.makeArrayType(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_IsGenericParameter_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                bool Read(Type type) => type.IsGenericParameter;
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getIsGenericParameter()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getIsGenericParameter(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetElementType_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Type Read(Type type) => type.GetElementType();
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getElementType()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getElementType(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetArrayRank_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                int Read(Type type) => type.GetArrayRank();
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getArrayRank()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getArrayRank(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetGenericArguments_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Type[] Read(Type type) => type.GetGenericArguments();
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getGenericArguments()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getGenericArguments(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetDefaultMembers_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                MemberInfo[] Read(Type type) => type.GetDefaultMembers();
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getDefaultMembers()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getDefaultMembers(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetProperty_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                PropertyInfo Read(Type type) => type.GetProperty("Value");
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getProperty(\"Value\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getProperty(type, \"Value\")", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetCustomAttributesWithType_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                object[] Read(Type type) => type.GetCustomAttributes(typeof(ObsoleteAttribute), false);
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("type.getCustomAttributes(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getCustomAttributes(type, ", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".class, false)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReflectionFieldInfo_FieldType_IsInitOnly_IsStatic_Bridged()
+    {
+        var result = Convert("""
+            using System.Reflection;
+
+            class Sample
+            {
+                bool Check(FieldInfo field)
+                {
+                    return field.FieldType != null && field.IsInitOnly && field.IsStatic;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.getFieldType(field)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.isInitOnly(field)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.isStatic(field)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReflectionMethodBase_IsStatic_Bridged()
+    {
+        var result = Convert("""
+            using System.Reflection;
+
+            class Sample
+            {
+                bool Check(MethodInfo method)
+                {
+                    return method.IsStatic;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("ReflectionHelper.isStatic(method)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -663,6 +663,86 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getConstructor({typeReceiver}, {flags}, {types})";
         }
 
+        // C# Type.MakeArrayType() → TypeHelper.makeArrayType(Class)
+        if (memberAccess.Name.Identifier.Text == "MakeArrayType"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.makeArrayType({typeReceiver})";
+        }
+
+        // C# Type.GetElementType() → TypeHelper.getElementType(Class)
+        if (memberAccess.Name.Identifier.Text == "GetElementType"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getElementType({typeReceiver})";
+        }
+
+        // C# Type.GetArrayRank() → TypeHelper.getArrayRank(Class)
+        if (memberAccess.Name.Identifier.Text == "GetArrayRank"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getArrayRank({typeReceiver})";
+        }
+
+        // C# Type.GetGenericArguments() → TypeHelper.getGenericArguments(Class)
+        if (memberAccess.Name.Identifier.Text == "GetGenericArguments"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getGenericArguments({typeReceiver})";
+        }
+
+        // C# Type.GetDefaultMembers() → TypeHelper.getDefaultMembers(Class)
+        if (memberAccess.Name.Identifier.Text == "GetDefaultMembers"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getDefaultMembers({typeReceiver})";
+        }
+
+        // C# Type.GetCustomAttributes(bool) → TypeHelper.getCustomAttributes(Class, bool)
+        if (memberAccess.Name.Identifier.Text == "GetCustomAttributes"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemTypeReceiver(memberAccess.Expression, context)
+            && context.GetSymbolInfo(node).Symbol is IMethodSymbol getCustomAttrsSym
+            && getCustomAttrsSym.Parameters.Length == 1
+            && getCustomAttrsSym.Parameters[0].Type.SpecialType == SpecialType.System_Boolean)
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var inheritArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getCustomAttributes({typeReceiver}, {inheritArg})";
+        }
+
+        // C# Type.GetCustomAttributes(Type, bool) → TypeHelper.getCustomAttributes(Class, Class, bool)
+        if (memberAccess.Name.Identifier.Text == "GetCustomAttributes"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsSystemTypeReceiver(memberAccess.Expression, context)
+            && context.GetSymbolInfo(node).Symbol is IMethodSymbol getCustomAttrsTypeSym
+            && getCustomAttrsTypeSym.Parameters.Length == 2
+            && getCustomAttrsTypeSym.Parameters[0].Type.ToDisplayString() == "System.Type"
+            && getCustomAttrsTypeSym.Parameters[1].Type.SpecialType == SpecialType.System_Boolean)
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var attributeTypeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var inheritArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getCustomAttributes({typeReceiver}, {attributeTypeArg}, {inheritArg})";
+        }
+
         // ConfigureAwait(bool) is a C#-specific concern about synchronization context capture.
         // Java has no equivalent — strip the call and return just the receiver (the Task/CompletableFuture).
         // e.g. task.ConfigureAwait(false) → task
@@ -1011,12 +1091,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
                 return $"TypeHelper.getMethod({receiver}, {methodNameArg}, {typesExpr})";
             }
+            else if (hasBindingFlags)
+            {
+                // C# Type.GetMethod(name, BindingFlags) → TypeHelper.getMethod(Class, String, int)
+                var flagsExpr = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.getMethod({receiver}, {methodNameArg}, {flagsExpr})";
+            }
             else
             {
                 // No parameter types — use ReflectionHelper to search by name.
                 context.AddImport("io.github.ningpp.compat.ReflectionHelper");
-                var helperMethod = hasBindingFlags ? "getDeclaredMethodByName" : "getMethodByName";
-                return $"ReflectionHelper.{helperMethod}({receiver}, {methodNameArg})";
+                return $"ReflectionHelper.getMethodByName({receiver}, {methodNameArg})";
             }
         }
 

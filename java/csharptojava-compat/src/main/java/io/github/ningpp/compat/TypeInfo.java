@@ -100,6 +100,18 @@ public final class TypeInfo {
         return result;
     }
 
+    public MethodInfo getDeclaredMethod(String name) {
+        if (name == null || type == null) {
+            return null;
+        }
+        for (java.lang.reflect.Method method : type.getDeclaredMethods()) {
+            if (method.getName().equals(name)) {
+                return new MethodInfo(method);
+            }
+        }
+        return null;
+    }
+
     public MemberInfo[] getDeclaredMembers() {
         java.lang.reflect.Field[] fields = type.getDeclaredFields();
         java.lang.reflect.Method[] methods = type.getDeclaredMethods();

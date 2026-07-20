@@ -159,6 +159,51 @@ public final class ReflectionHelper {
     }
 
     /**
+     * Returns the type of the given field.
+     * <p>
+     * Bridges C# {@code FieldInfo.FieldType} for Java reflection.
+     */
+    public static Class<?> getFieldType(Field field) {
+        return field == null ? null : field.getType();
+    }
+
+    /**
+     * Returns whether the given field is read-only (final in Java terms).
+     * <p>
+     * Bridges C# {@code FieldInfo.IsInitOnly} for Java reflection.
+     */
+    public static boolean isInitOnly(Field field) {
+        return field != null && Modifier.isFinal(field.getModifiers());
+    }
+
+    /**
+     * Returns whether the given field is static.
+     * <p>
+     * Bridges C# {@code FieldInfo.IsStatic} for Java reflection.
+     */
+    public static boolean isStatic(Field field) {
+        return field != null && Modifier.isStatic(field.getModifiers());
+    }
+
+    /**
+     * Returns whether the given method is static.
+     * <p>
+     * Bridges C# {@code MethodBase.IsStatic} for Java reflection.
+     */
+    public static boolean isStatic(Method method) {
+        return method != null && Modifier.isStatic(method.getModifiers());
+    }
+
+    /**
+     * Returns whether the given constructor is static.
+     * <p>
+     * Bridges C# {@code ConstructorInfo.IsStatic} for Java reflection.
+     */
+    public static boolean isStatic(Constructor<?> ctor) {
+        return ctor != null && Modifier.isStatic(ctor.getModifiers());
+    }
+
+    /**
      * Returns whether the given parameter is optional.
      * <p>
      * Java reflection has no notion of optional/default parameters, so this

@@ -23,8 +23,8 @@ public class EdgeLabelPlacement
 
         Assert.True(result.Success);
         Assert.Contains("getPossibleSides", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.getDeclaredMethodByName", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getMethod", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("GetPossibleSides", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("getDeclaredMethod(", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -87,7 +87,8 @@ public class MyCollection
 
         Assert.True(result.Success);
         Assert.Contains("iterator", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.getDeclaredMethodByName", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getMethod", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("GetEnumerator", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -109,7 +110,8 @@ public class Sample
 
         Assert.True(result.Success);
         Assert.Contains("hashCode", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.getDeclaredMethodByName", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getMethod", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("GetHashCode", result.GeneratedCode, StringComparison.Ordinal);
     }
 

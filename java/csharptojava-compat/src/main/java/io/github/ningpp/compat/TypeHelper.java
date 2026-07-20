@@ -1,128 +1,390 @@
 package io.github.ningpp.compat;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Helper for System.Type reflection methods that don't map directly to java.lang.Class.
+ * Bridges C# System.Type reflection idioms to java.lang.Class.
  */
-public class TypeHelper {
+public final class TypeHelper {
+    private TypeHelper() {
+    }
 
-    /** Mirrors C# Type.GetProperty(name) — returns PropertyInfo or null if not found */
-    public static PropertyInfo getProperty(Class<?> clazz, String propertyName) {
-        String getterName = "get" + propertyName;
-        String isGetterName = "is" + propertyName;
-        for (Method m : clazz.getMethods()) {
-            if (m.getParameterCount() == 0 &&
-                (m.getName().equals(getterName) || m.getName().equals(isGetterName))) {
-                return new PropertyInfo(m);
+    /**
+     * Mirrors C# Type.GetTypeCode() for common primitive/object mappings.
+     */
+    public static TypeCode getTypeCode(Class<?> type) {
+        if (type == null) {
+            return TypeCode.Empty;
+        }
+        if (type == boolean.class || type == Boolean.class) {
+            return TypeCode.Boolean;
+        }
+        if (type == char.class || type == Character.class) {
+            return TypeCode.Char;
+        }
+        if (type == byte.class || type == Byte.class) {
+            return TypeCode.Byte;
+        }
+        if (type == short.class || type == Short.class) {
+            return TypeCode.Int16;
+        }
+        if (type == int.class || type == Integer.class) {
+            return TypeCode.Int32;
+        }
+        if (type == long.class || type == Long.class) {
+            return TypeCode.Int64;
+        }
+        if (type == float.class || type == Float.class) {
+            return TypeCode.Single;
+        }
+        if (type == double.class || type == Double.class) {
+            return TypeCode.Double;
+        }
+        if (type == String.class) {
+            return TypeCode.String;
+        }
+        return TypeCode.Object;
+    }
+
+    public static Class<?> getBaseType(Class<?> type) {
+        return type == null ? null : type.getSuperclass();
+    }
+
+    public static Class<?> getDeclaringType(Class<?> type) {
+        return type == null ? null : type.getDeclaringClass();
+    }
+
+    public static boolean getIsGenericType(Class<?> type) {
+        return type != null && type.getTypeParameters().length > 0;
+    }
+
+    public static boolean getContainsGenericParameters(Class<?> type) {
+        return getIsGenericType(type);
+    }
+
+    public static java.lang.reflect.TypeVariable<?>[] getGenericArguments(Class<?> type) {
+        return type == null ? new java.lang.reflect.TypeVariable<?>[0] : type.getTypeParameters();
+    }
+
+    public static Class<?> getGenericTypeDefinition(Class<?> type) {
+        if (type == null) {
+            return null;
+        }
+        Class<?> raw = type;
+        while (raw.getEnclosingClass() != null && raw.getTypeParameters().length == 0) {
+            raw = raw.getEnclosingClass();
+        }
+        return raw;
+    }
+
+    public static boolean getIsAbstract(Class<?> type) {
+        return type != null && Modifier.isAbstract(type.getModifiers()) && !type.isInterface();
+    }
+
+    public static boolean getIsValueType(Class<?> type) {
+        return type != null && type.isPrimitive();
+    }
+
+    public static boolean getIsVisible(Class<?> type) {
+        return type != null && Modifier.isPublic(type.getModifiers());
+    }
+
+    public static boolean getIsNestedPublic(Class<?> type) {
+        return type != null && type.isMemberClass() && Modifier.isPublic(type.getModifiers());
+    }
+
+    public static boolean getIsClass(Class<?> type) {
+        return type != null && !type.isInterface() && !type.isPrimitive() && !type.isArray();
+    }
+
+    public static int getArrayRank(Class<?> type) {
+        if (type == null || !type.isArray()) {
+            return 0;
+        }
+        int rank = 0;
+        Class<?> current = type;
+        while (current.isArray()) {
+            rank++;
+            current = current.getComponentType();
+        }
+        return rank;
+    }
+
+    public static Method[] getMethods(Class<?> type, int bindingFlags) {
+        if (type == null) {
+            return new Method[0];
+        }
+        Method[] methods = type.getMethods();
+        return filterByBindingFlags(methods, bindingFlags, Method.class);
+    }
+
+    public static Constructor<?> getConstructor(Class<?> type, int bindingFlags, Class<?>... parameterTypes) {
+        if (type == null) {
+            return null;
+        }
+        for (Constructor<?> ctor : type.getDeclaredConstructors()) {
+            if (matchesParameterTypes(ctor.getParameterTypes(), parameterTypes)
+                    && matchesBindingFlags(ctor.getModifiers(), bindingFlags)) {
+                return ctor;
             }
         }
         return null;
     }
 
-    /** Mirrors C# Type.GetField(name) — returns Field or null */
-    public static Field getField(Class<?> clazz, String name) {
+    public static MemberInfo getMember(Class<?> type, String name) {
+        return getMember(type, name, 0);
+    }
+
+    public static MemberInfo getMember(Class<?> type, String name, int bindingFlags) {
+        if (type == null || name == null) {
+            return null;
+        }
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
+                return new MethodInfo(method);
+            }
+        }
+        for (Field field : type.getFields()) {
+            if (field.getName().equals(name) && matchesBindingFlags(field.getModifiers(), bindingFlags)) {
+                return new FieldInfo(field);
+            }
+        }
+        return null;
+    }
+
+    public static MemberInfo[] getMembers(Class<?> type, int bindingFlags) {
+        if (type == null) {
+            return new MemberInfo[0];
+        }
+        List<MemberInfo> members = new ArrayList<>();
+        for (Method method : type.getMethods()) {
+            if (matchesBindingFlags(method.getModifiers(), bindingFlags)) {
+                members.add(new MethodInfo(method));
+            }
+        }
+        for (Field field : type.getFields()) {
+            if (matchesBindingFlags(field.getModifiers(), bindingFlags)) {
+                members.add(new FieldInfo(field));
+            }
+        }
+        return members.toArray(new MemberInfo[0]);
+    }
+
+    public static Field getField(Class<?> type, String name) {
+        if (type == null || name == null) {
+            return null;
+        }
         try {
-            return clazz.getDeclaredField(name);
+            return type.getField(name);
         } catch (NoSuchFieldException e) {
             return null;
         }
     }
 
-    /** Mirrors C# Type.EmptyTypes */
-    public static Class<?>[] emptyTypes() {
-        return new Class<?>[0];
-    }
-
-    /** Mirrors C# Type.GetTypeCode(Type) for common Java runtime types. */
-    public static TypeCode getTypeCode(Class<?> type) {
-        if (type == null) return TypeCode.Empty;
-        if (type == boolean.class || type == Boolean.class) return TypeCode.Boolean;
-        if (type == char.class || type == Character.class) return TypeCode.Char;
-        if (type == byte.class || type == Byte.class || type == CSharpByte.class) return TypeCode.Byte;
-        if (type == short.class || type == Short.class) return TypeCode.Int16;
-        if (type == int.class || type == Integer.class) return TypeCode.Int32;
-        if (type == long.class || type == Long.class) return TypeCode.Int64;
-        if (type == float.class || type == Float.class) return TypeCode.Single;
-        if (type == double.class || type == Double.class) return TypeCode.Double;
-        if (type == String.class) return TypeCode.String;
-        if (type == Decimal.class) return TypeCode.Decimal;
-        if (type == CSharpDateTime.class) return TypeCode.DateTime;
-        if (type == CSharpSByte.class) return TypeCode.SByte;
-        if (type == CSharpUInt16.class) return TypeCode.UInt16;
-        if (type == CSharpUInt32.class) return TypeCode.UInt32;
-        if (type == CSharpUInt64.class) return TypeCode.UInt64;
-        return TypeCode.Object;
-    }
-
     /**
-     * Mirrors C# Type.GetElementType() for array types.
-     * Java's Class.getComponentType() returns primitive classes (int.class, etc.)
-     * for primitive arrays, but C# GetElementType() returns the runtime type
-     * (typeof(int) == typeof(int) is true, and int[] elements compare to int/Integer).
-     * This method boxes primitive component types so that comparisons with
-     * Integer.class, Long.class, etc. work correctly.
+     * Bridges C# Type.GetProperty(name) semantics.
+     * Looks up a Java bean property by its C#/Java property name (e.g. "Value" or "value").
      */
-    public static Class<?> getElementType(Class<?> arrayType) {
-        if (arrayType == null || !arrayType.isArray()) {
+    public static PropertyInfo getProperty(Class<?> type, String name) {
+        if (type == null || name == null || name.isEmpty()) {
             return null;
         }
-        Class<?> componentType = arrayType.getComponentType();
-        if (componentType == int.class) return Integer.class;
-        if (componentType == long.class) return Long.class;
-        if (componentType == short.class) return Short.class;
-        if (componentType == byte.class) return Byte.class;
-        if (componentType == float.class) return Float.class;
-        if (componentType == double.class) return Double.class;
-        if (componentType == boolean.class) return Boolean.class;
-        if (componentType == char.class) return Character.class;
-        return componentType;
+        String capitalized = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        String getterName = "get" + capitalized;
+        String isGetterName = "is" + capitalized;
+        String setterName = "set" + capitalized;
+
+        Method getter = null;
+        Method setter = null;
+        for (Method method : type.getMethods()) {
+            if (method.getParameterCount() != 0 || method.getReturnType() == void.class) {
+                continue;
+            }
+            String methodName = method.getName();
+            if (getter == null && (methodName.equals(getterName) || methodName.equals(isGetterName))) {
+                getter = method;
+            }
+            if (setter == null && methodName.equals(setterName) && method.getParameterCount() == 1) {
+                setter = method;
+            }
+            if (getter != null && setter != null) {
+                break;
+            }
+        }
+        if (getter == null && setter == null) {
+            return null;
+        }
+        return new PropertyInfo(getter, setter);
     }
 
-    /**
-     * Creates a new array instance mirroring C# new T[length] for generic type parameters.
-     * Always creates a boxed wrapper array (Integer[], not int[]) because the result is
-     * cast to T[] (erased to Object[]) at the call site. Primitive arrays (int[]) cannot
-     * be cast to Object[] and would throw ClassCastException at runtime.
-     *
-     * Non-generic primitive array creation (e.g. new int[5]) does NOT go through this
-     * method — the converter emits the Java primitive array directly.
-     */
-    public static Object newArrayInstance(Class<?> componentType, int length) {
-        return java.lang.reflect.Array.newInstance(componentType, length);
+    public static String getFullName(Class<?> type) {
+        return type == null ? null : type.getName();
     }
 
-    /** Mirrors C# Type.GetMethod(name, Type[]) — returns Method or null */
-    public static java.lang.reflect.Method getMethod(Class<?> clazz, String name, Class<?>... parameterTypes) {
+    public static Class<?> getElementType(Class<?> type) {
+        return type == null ? null : type.getComponentType();
+    }
+
+    public static boolean getIsGenericParameter(Class<?> type) {
+        return type != null && java.lang.reflect.TypeVariable.class.isInstance(type);
+    }
+
+    public static Class<?> makeArrayType(Class<?> elementType) {
+        if (elementType == null) {
+            return null;
+        }
+        return java.lang.reflect.Array.newInstance(elementType, 0).getClass();
+    }
+
+    public static Object newArrayInstance(Class<?> elementType, int length) {
+        if (elementType == null) {
+            return null;
+        }
+        return java.lang.reflect.Array.newInstance(elementType, length);
+    }
+
+    public static Method getMethod(Class<?> type, String name, Class<?>... parameterTypes) {
+        if (type == null || name == null) {
+            return null;
+        }
         try {
-            return clazz.getMethod(name, parameterTypes);
+            return type.getMethod(name, parameterTypes);
         } catch (NoSuchMethodException e) {
             return null;
         }
     }
 
     /**
-     * Mirrors C# Type.FullName for java.lang.Class instances.
-     * Java has no direct equivalent: getCanonicalName() returns null for anonymous/local
-     * classes and uses dotted names for nested classes, while getName() uses '$' separators.
-     * C# FullName uses dotted names for nested types and "[]" suffixes for arrays.
+     * Bridges C# {@code Type.GetMethod(name, BindingFlags)} semantics.
      */
-    public static String getFullName(Class<?> clazz) {
-        if (clazz == null) {
+    public static Method getMethod(Class<?> type, String name, int bindingFlags) {
+        if (type == null || name == null) {
             return null;
         }
-        if (clazz.isArray()) {
-            return getFullName(clazz.getComponentType()) + "[]";
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
+                return method;
+            }
         }
-        if (clazz.isPrimitive()) {
-            return clazz.getName();
+        for (Method method : type.getDeclaredMethods()) {
+            if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
+                return method;
+            }
         }
-        String canonical = clazz.getCanonicalName();
-        if (canonical != null) {
-            return canonical;
+        return null;
+    }
+
+    public static Object[] getCustomAttributes(Class<?> type, boolean inherit) {
+        if (type == null) {
+            return new Object[0];
         }
-        // Fallback for anonymous/local classes: use getName() (contains '$' and digits).
-        return clazz.getName();
+        return type.getAnnotations();
+    }
+
+    public static Object[] getCustomAttributes(Class<?> type, Class<?> attributeType, boolean inherit) {
+        if (type == null || attributeType == null) {
+            return new Object[0];
+        }
+        return type.getAnnotationsByType((Class) attributeType);
+    }
+
+    /**
+     * Mirrors C# Attribute.IsDefined(element, attributeType, inherit) for Class targets.
+     */
+    public static boolean isDefined(Class<?> type, Class<?> attributeType, boolean inherit) {
+        if (type == null || attributeType == null) {
+            return false;
+        }
+        return type.isAnnotationPresent((Class) attributeType);
+    }
+
+    public static MemberInfo[] getDefaultMembers(Class<?> type) {
+        if (type == null) {
+            return new MemberInfo[0];
+        }
+        List<MemberInfo> members = new ArrayList<>();
+        DefaultMemberAttribute attr = type.getAnnotation(DefaultMemberAttribute.class);
+        if (attr == null) {
+            return members.toArray(new MemberInfo[0]);
+        }
+        String name = attr.value();
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(name)) {
+                members.add(new MethodInfo(method));
+            }
+        }
+        for (Field field : type.getFields()) {
+            if (field.getName().equals(name)) {
+                members.add(new FieldInfo(field));
+            }
+        }
+        return members.toArray(new MemberInfo[0]);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T[] filterByBindingFlags(T[] members, int bindingFlags, Class<T> clazz) {
+        if (bindingFlags == 0) {
+            return members;
+        }
+        List<T> result = new ArrayList<>();
+        for (T member : members) {
+            int mods;
+            if (member instanceof Method m) {
+                mods = m.getModifiers();
+            } else if (member instanceof Field f) {
+                mods = f.getModifiers();
+            } else if (member instanceof Constructor<?> c) {
+                mods = c.getModifiers();
+            } else {
+                continue;
+            }
+            if (matchesBindingFlags(mods, bindingFlags)) {
+                result.add(member);
+            }
+        }
+        return result.toArray((T[]) Array.newInstance(clazz, 0));
+    }
+
+    private static boolean matchesBindingFlags(int modifiers, int bindingFlags) {
+        // C# BindingFlags: Public=0x10, NonPublic=0x20, Static=0x8, Instance=0x4
+        boolean wantPublic = (bindingFlags & 0x10) != 0;
+        boolean wantNonPublic = (bindingFlags & 0x20) != 0;
+        boolean wantStatic = (bindingFlags & 0x08) != 0;
+        boolean wantInstance = (bindingFlags & 0x04) != 0;
+
+        boolean isPublic = Modifier.isPublic(modifiers);
+        boolean isStatic = Modifier.isStatic(modifiers);
+
+        if (wantPublic && !isPublic) {
+            return false;
+        }
+        if (wantNonPublic && isPublic) {
+            return false;
+        }
+        if (wantStatic && !isStatic) {
+            return false;
+        }
+        if (wantInstance && isStatic) {
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean matchesParameterTypes(Class<?>[] actual, Class<?>... expected) {
+        if (actual.length != expected.length) {
+            return false;
+        }
+        for (int i = 0; i < actual.length; i++) {
+            if (!actual[i].equals(expected[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 }

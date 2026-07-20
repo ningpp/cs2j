@@ -83,6 +83,26 @@ public class AssemblyCompat {
         return new AssemblyCompat(AssemblyCompat.class.getClassLoader(), "executing");
     }
 
+    /** Mirrors C# Assembly.GetEntryAssembly() */
+    public static AssemblyCompat getEntryAssembly() {
+        return new AssemblyCompat(AssemblyCompat.class.getClassLoader(), "entry");
+    }
+
+    /** Mirrors C# Assembly.LoadFile(path) */
+    public static AssemblyCompat loadFile(String path) {
+        return loadFrom(path);
+    }
+
+    /** Mirrors C# Assembly.LoadWithPartialName(name) */
+    public static AssemblyCompat loadWithPartialName(String name) {
+        return new AssemblyCompat(AssemblyCompat.class.getClassLoader(), name);
+    }
+
+    /** Mirrors C# Assembly.IsDynamic */
+    public boolean getIsDynamic() {
+        return false;
+    }
+
     /** Creates an AssemblyCompat representing the assembly that declares the given class.
      *  Mirrors C# {@code typeof(T).Assembly} / {@code GetType().Assembly}. */
     public static AssemblyCompat fromClass(Class<?> clazz) {

@@ -1002,6 +1002,28 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{target}.getDeclaringClass()";
             }
 
+            // C# System.Type is mapped to java.lang.Class, but many C# Type properties/methods
+            // have no Java equivalent. Bridge them through TypeHelper.
+            if (IsSystemType(receiverType) && memberName is "BaseType" or "DeclaringType" or "IsGenericType"
+                or "ContainsGenericParameters" or "IsAbstract" or "IsValueType" or "IsVisible"
+                or "IsNestedPublic" or "IsClass" or "ArrayRank" or "IsGenericParameter")
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.get{memberName}({target})";
+            }
+
+            if (IsSystemType(receiverType) && memberName == "MakeArrayType")
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.makeArrayType({target})";
+            }
+
+            if (IsSystemType(receiverType) && memberName == "GenericArguments")
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.getGenericArguments({target})";
+            }
+
             // C# MethodBase.IsPublic → Java Modifier.isPublic(method.getModifiers()).
             // MethodInfo is mapped to java.lang.reflect.Method, which has no IsPublic property.
             if (memberName == "IsPublic" && IsJavaReflectMethodBaseType(receiverType))
@@ -1016,6 +1038,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.ReflectionHelper");
                 return $"ReflectionHelper.isOptional({target})";
+            }
+
+            // C# FieldInfo.FieldType / IsInitOnly / IsStatic on raw java.lang.reflect.Field.
+            if (IsJavaReflectFieldInfoType(receiverType) && memberName is "FieldType" or "IsInitOnly" or "IsStatic")
+            {
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                if (memberName == "FieldType") return $"ReflectionHelper.getFieldType({target})";
+                if (memberName == "IsInitOnly") return $"ReflectionHelper.isInitOnly({target})";
+                if (memberName == "IsStatic") return $"ReflectionHelper.isStatic({target})";
+            }
+
+            // C# MethodBase.IsStatic on raw java.lang.reflect.Method.
+            if (memberName == "IsStatic" && IsJavaReflectMethodBaseType(receiverType))
+            {
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                return $"ReflectionHelper.isStatic({target})";
             }
 
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
@@ -2065,6 +2103,23 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             var display = current.OriginalDefinition.ToDisplayString();
             if (display == "System.Reflection.ParameterInfo")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the C# receiver type is FieldInfo, which maps to
+    /// java.lang.reflect.Field and has no FieldType/IsInitOnly/IsStatic properties.
+    /// </summary>
+    private static bool IsJavaReflectFieldInfoType(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            var display = current.OriginalDefinition.ToDisplayString();
+            if (display == "System.Reflection.FieldInfo")
             {
                 return true;
             }
