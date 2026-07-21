@@ -1,8 +1,8 @@
 package csharp.xunit.Sdk;
 
 import io.github.ningpp.compat.CSharpGenericIterable;
-import java.lang.reflect.Method;
+import io.github.ningpp.compat.MethodInfo;
 
 public abstract class DataAttribute {
-    public abstract CSharpGenericIterable<Object[]> getData(Method testMethod);
+    public abstract CSharpGenericIterable<Object[]> getData(MethodInfo testMethod);
 }
