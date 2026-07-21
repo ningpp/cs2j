@@ -131,7 +131,7 @@ class Sample
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Decimal fromIntLiteral = Decimal.parse(\"1\");", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Decimal fromIntLiteral = Decimal.valueOf(1);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("Decimal fromIntVariable = Decimal.valueOf(i);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("Decimal fromLongVariable = Decimal.valueOf(l);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("Decimal fromDoubleCast = Decimal.valueOf(x);", result.GeneratedCode, StringComparison.Ordinal);
@@ -175,9 +175,9 @@ class Sample
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("Decimal sum = value.add(Decimal.valueOf(delta));", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Decimal product = Decimal.parse(\"2\").multiply(value);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Decimal product = Decimal.valueOf(2).multiply(value);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("sum.compareTo(product) >= 0", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("value.compareTo(Decimal.parse(\"1\")) == 0", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("value.compareTo(Decimal.valueOf(1)) == 0", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -200,9 +200,9 @@ class Sample
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("value = value.add(other);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("value = value.subtract(Decimal.parse(\"1\"));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("value = value.subtract(Decimal.valueOf(1));", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("value = value.multiply(Decimal.valueOf(count));", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("value = value.divide(Decimal.parse(\"2\"));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("value = value.divide(Decimal.valueOf(2));", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("value = value.remainder(other);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("value +=", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("value -=", result.GeneratedCode, StringComparison.Ordinal);

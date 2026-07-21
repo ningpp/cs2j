@@ -959,6 +959,25 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains(".multiply(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Decimal_AssignIntLiteral_WrappedInDecimalValueOf()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                void M(decimal d)
+                {
+                    d = 0;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Matches(@"d\s*=\s*Decimal\.valueOf\s*\(\s*0\s*\)", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

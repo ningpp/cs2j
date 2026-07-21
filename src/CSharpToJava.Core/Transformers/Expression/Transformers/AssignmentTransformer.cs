@@ -598,6 +598,26 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // Task 2: Wrap int/long/numeric assignments to Decimal variables/fields in Decimal.valueOf().
+        // Property assignments are handled by their dedicated branches above (which already adapt
+        // the RHS via AdaptExpressionToTargetType). This catches local/param/field assignments.
+        if (op == "=" && context.SemanticModel != null)
+        {
+            var leftTypeSymbol = context.GetTypeInfo(leftNode).Type;
+            var rightTypeSymbol = context.GetTypeInfo(rightNode).Type;
+            var leftSymbol = context.GetSymbolInfo(leftNode).Symbol;
+            if (ExpressionTransformerHelpers.IsDecimalType(leftTypeSymbol)
+                && !ExpressionTransformerHelpers.IsDecimalType(rightTypeSymbol)
+                && ExpressionTransformerHelpers.IsNumericOrCharType(rightTypeSymbol)
+                && leftSymbol is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            {
+                var rightExpr = facade.Transform(rightNode, context);
+                rightExpr = ExpressionTransformerHelpers.ToDecimalExpression(rightNode, rightExpr, rightTypeSymbol);
+                var leftExpr = facade.Transform(leftNode, context);
+                return $"{leftExpr} = {rightExpr}";
+            }
+        }
+
         // Fix 5: Compound assignment to a property via member access (e.g. a.Length *= 0.5).
         // Simple = already handled above; +=, -=, *=, /=, etc. need getter+setter expansion.
         // Guard: if the compound op resolves to a user-defined operator, let ExpandCompoundOperatorOverload below handle it.

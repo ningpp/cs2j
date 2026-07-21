@@ -396,6 +396,15 @@ public static class ExpressionTransformerHelpers
         if (IsDecimalType(sourceType))
             return transformedExpression;
 
+        // Integral literals (int, long, etc.) can use Decimal.valueOf() directly.
+        // This produces cleaner code than Decimal.parse("...") and is equally exact.
+        if (expression is LiteralExpressionSyntax integralLiteral
+            && integralLiteral.IsKind(SyntaxKind.NumericLiteralExpression)
+            && IsIntegralNumericType(sourceType?.SpecialType ?? SpecialType.None))
+        {
+            return $"Decimal.valueOf({transformedExpression})";
+        }
+
         if (TryRewriteNumericLiteral(expression, SpecialType.System_Decimal, out var rewrittenLiteral))
             return rewrittenLiteral;
 
@@ -453,7 +462,7 @@ public static class ExpressionTransformerHelpers
             or SpecialType.System_Char;
     }
 
-    private static bool IsIntegralNumericType(SpecialType specialType)
+    public static bool IsIntegralNumericType(SpecialType specialType)
     {
         return specialType is SpecialType.System_Byte
             or SpecialType.System_SByte
