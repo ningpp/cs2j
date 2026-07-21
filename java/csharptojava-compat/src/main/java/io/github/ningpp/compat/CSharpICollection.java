@@ -10,6 +10,9 @@ public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
      * type is CSharpCollection, which is not assignable to CSharpICollection<?>.
      */
     static CSharpICollection<Object> from(Object collection) {
+        if (collection == null) {
+            return null;
+        }
         if (collection instanceof CSharpICollection) {
             @SuppressWarnings("unchecked")
             CSharpICollection<Object> result = (CSharpICollection<Object>) collection;
@@ -18,7 +21,46 @@ public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
         if (collection instanceof CSharpCollection) {
             return fromCSharpCollection((CSharpCollection) collection);
         }
-        throw new IllegalArgumentException("Unsupported collection type: " + (collection == null ? "null" : collection.getClass().getName()));
+        if (collection instanceof java.util.Collection) {
+            return fromJavaCollection((java.util.Collection<?>) collection);
+        }
+        throw new IllegalArgumentException("Unsupported collection type: " + collection.getClass().getName());
+    }
+
+    @SuppressWarnings("unchecked")
+    static CSharpICollection<Object> fromJavaCollection(java.util.Collection<?> collection) {
+        java.util.Collection<Object> backing = (java.util.Collection<Object>) collection;
+        return new CSharpICollection<Object>() {
+            @Override
+            public CSharpGenericEnumerator<Object> iterator() {
+                return CSharpGenericEnumerator.from(collection.iterator());
+            }
+
+            @Override
+            public int getCount() {
+                return collection.size();
+            }
+
+            @Override
+            public boolean contains(Object o) {
+                return collection.contains(o);
+            }
+
+            @Override
+            public boolean add(Object item) {
+                return backing.add(item);
+            }
+
+            @Override
+            public boolean remove(Object o) {
+                return collection.remove(o);
+            }
+
+            @Override
+            public void clear() {
+                collection.clear();
+            }
+        };
     }
 
     static CSharpICollection<Object> fromCSharpCollection(CSharpCollection collection) {
