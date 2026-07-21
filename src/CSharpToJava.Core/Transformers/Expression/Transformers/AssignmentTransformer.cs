@@ -160,6 +160,31 @@ public class AssignmentTransformer : IIRExpressionTransformer
         return $"({lambdaParams}) -> {prefix}{javaName}({callArgs})";
     }
 
+    /// <summary>
+    /// Conservatively decides whether the RHS of a += / -= assignment looks like an event handler.
+    /// Used as a guard for the fallback "OnXxx" member-access event transform, so non-event OnXxx
+    /// properties/fields are not accidentally rewritten to listener calls.
+    /// </summary>
+    private static bool IsEventLikeHandlerAssignment(ExpressionSyntax rightNode, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(rightNode).Type;
+        if (type == null) return false;
+        if (type.TypeKind == TypeKind.Delegate) return true;
+
+        // When the semantic model only has a reference assembly, delegate types are sometimes
+        // reported as Error but still expose their display name (e.g. "XmlNodeEventHandler").
+        var typeName = type.ToDisplayString();
+        if (typeName.EndsWith("EventHandler", StringComparison.Ordinal)) return true;
+
+        for (var current = type.BaseType; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.MulticastDelegate")
+                return true;
+        }
+
+        return false;
+    }
+
 
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {
@@ -177,7 +202,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Fix 4: Detect event += / -= using semantic model → listener methods
         if ((op == "+=" || op == "-=") && leftNode is MemberAccessExpressionSyntax evtMa)
         {
-            if (context.GetSymbolInfo(leftNode).Symbol is IEventSymbol evt)
+            var symbol = context.GetSymbolInfo(leftNode).Symbol;
+            if (symbol is IEventSymbol evt)
             {
                 var receiver = facade.Transform(evtMa.Expression, context);
                 var handler = facade.Transform(rightNode, context);
@@ -190,6 +216,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 string method = op == "+="
                     ? $"add{evt.Name}Listener"
                     : $"remove{evt.Name}Listener";
+                return $"{receiver}.{method}({handler})";
+            }
+
+            // Fallback: event accessed through a field/property of another type. Roslyn may not resolve
+            // the member access as an IEventSymbol across reference assemblies, so detect the conventional
+            // "OnXxx" event name and emit addOnXxxListener / removeOnXxxListener.
+            if (evtMa.Name.Identifier.Text.StartsWith("On", StringComparison.Ordinal)
+                && IsEventLikeHandlerAssignment(rightNode, context))
+            {
+                var receiver = facade.Transform(evtMa.Expression, context);
+                var handler = EnsureValidEventHandler(facade.Transform(rightNode, context), rightNode, context);
+                string eventName = evtMa.Name.Identifier.Text;
+                string method = op == "+="
+                    ? $"add{eventName}Listener"
+                    : $"remove{eventName}Listener";
                 return $"{receiver}.{method}({handler})";
             }
         }

@@ -1063,6 +1063,29 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("e.getValue() != 0", result.GeneratedCode);
     }
 
+    [Fact]
+    public void EventField_PlusEquals_WrappedInAddListener()
+    {
+        var result = Convert("""
+            using System;
+            using System.Xml.Serialization;
+
+            class Sample
+            {
+                XmlSerializerEvents _events = new XmlSerializerEvents();
+
+                void M(XmlNodeEventHandler handler)
+                {
+                    _events.OnUnknownNode += handler;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("addOnUnknownNodeListener", result.GeneratedCode);
+        Assert.DoesNotContain(" + ", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
