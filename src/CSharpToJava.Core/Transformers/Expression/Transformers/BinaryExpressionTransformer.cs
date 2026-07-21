@@ -493,6 +493,38 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Handle enum vs numeric equality/inequality comparisons.
+        // Java enums cannot be compared to primitive values with ==/!=; compare .getValue() instead.
+        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        {
+            var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
+            var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
+            bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
+            bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
+            bool leftIsNumeric = ExpressionTransformerHelpers.IsNumericOrCharType(leftType);
+            bool rightIsNumeric = ExpressionTransformerHelpers.IsNumericOrCharType(rightType);
+
+            if ((leftIsEnum && rightIsNumeric) || (leftIsNumeric && rightIsEnum))
+            {
+                var enumType = leftIsEnum ? leftType : rightType;
+                var enumExpr = leftIsEnum ? node.Left : node.Right;
+
+                // Skip [Flags] enums mapped to primitive int/long constants (already numeric in Java).
+                // Skip enum expressions that are bitwise/arithmetic operations; those are already
+                // converted to numeric expressions by the enum bitwise/arithmetic transformers.
+                if (!IsFlagsEnumType(enumType!, context) && !IsEnumArithmeticOrBitwiseExpression(enumExpr))
+                {
+                    var leftExpr = facade.Transform(node.Left, context);
+                    var rightExpr = facade.Transform(node.Right, context);
+                    if (leftIsEnum) leftExpr = $"{leftExpr}.getValue()";
+                    if (rightIsEnum) rightExpr = $"{rightExpr}.getValue()";
+                    return op == "=="
+                        ? $"{leftExpr} == {rightExpr}"
+                        : $"{leftExpr} != {rightExpr}";
+                }
+            }
+        }
+
         // Handle bitwise operations (&, |, ^) on non-Flags enum types.
         // Java enums do not support bitwise operators; must use getValue() on operands.
         if (IsBitwiseOp(op) && context.SemanticModel != null)
@@ -662,6 +694,32 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     }
 
     private static bool IsBitwiseOp(string op) => op is "&" or "|" or "^";
+
+    /// <summary>
+    /// Returns true when the expression is (possibly parenthesized) enum arithmetic or bitwise
+    /// operation. These expressions are already converted to numeric Java expressions by the
+    /// dedicated enum transformers, so adding another .getValue() suffix would be invalid.
+    /// </summary>
+    private static bool IsEnumArithmeticOrBitwiseExpression(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax paren)
+            expression = paren.Expression;
+
+        if (expression is not BinaryExpressionSyntax binary)
+            return false;
+
+        return binary.Kind() is SyntaxKind.AddExpression
+            or SyntaxKind.SubtractExpression
+            or SyntaxKind.MultiplyExpression
+            or SyntaxKind.DivideExpression
+            or SyntaxKind.ModuloExpression
+            or SyntaxKind.BitwiseAndExpression
+            or SyntaxKind.BitwiseOrExpression
+            or SyntaxKind.ExclusiveOrExpression
+            or SyntaxKind.LeftShiftExpression
+            or SyntaxKind.RightShiftExpression
+            or SyntaxKind.UnsignedRightShiftExpression;
+    }
 
     private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
         => context.SemanticModel != null

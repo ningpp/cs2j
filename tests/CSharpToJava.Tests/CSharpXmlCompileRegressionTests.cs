@@ -1042,6 +1042,27 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("((Number)v1).intValue() & 0xFF", result.GeneratedCode);
     }
 
+    [Fact]
+    public void FlagsEnum_IntComparedToEnum_ComparesValues()
+    {
+        var result = Convert("""
+            using System;
+
+            enum MyEnum { A = 1, B = 2 }
+
+            class Sample
+            {
+                bool Check(MyEnum e)
+                {
+                    return e != 0;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("e.getValue() != 0", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
