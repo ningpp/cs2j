@@ -95,7 +95,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         => node.Kind() switch
         {
             SyntaxKind.IdentifierName => TransformIdentifier((IdentifierNameSyntax)node, context),
-            SyntaxKind.PredefinedType => TransformPredefinedType((PredefinedTypeSyntax)node),
+            SyntaxKind.PredefinedType => TransformPredefinedType((PredefinedTypeSyntax)node, context),
             SyntaxKind.GenericName => TransformGenericName((GenericNameSyntax)node, context),
             SyntaxKind.SimpleMemberAccessExpression => TransformMemberAccess((MemberAccessExpressionSyntax)node, context),
             SyntaxKind.PointerMemberAccessExpression => TransformPointerMemberAccess((MemberAccessExpressionSyntax)node, context),
@@ -487,14 +487,21 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     // Fix 3 & 4: Replaced duplicate local BoxedTypeName with TransformPredefinedType.
     // Uses boxed types in generic-argument positions; delegates to ExpressionTransformerHelpers
     // (the canonical BoxedTypeName source) to avoid divergence.
-    private string TransformPredefinedType(PredefinedTypeSyntax node)
+    private string TransformPredefinedType(PredefinedTypeSyntax node, ConversionContext context)
     {
+        var typeName = node.Keyword.Text;
+
+        if (typeName == "decimal")
+        {
+            context.AddImport("io.github.ningpp.compat.Decimal");
+            return "Decimal";
+        }
+
         // Fix 3: generic type arguments require boxed types (e.g., List<Integer> not List<int>)
         if (node.Parent is TypeArgumentListSyntax)
             return ExpressionTransformerHelpers.BoxedTypeName(node);
 
         // Non-generic context: use Java primitive / value types
-        var typeName = node.Keyword.Text;
         return typeName switch
         {
             "int" => "int",

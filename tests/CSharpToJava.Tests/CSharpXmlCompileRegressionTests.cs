@@ -1086,6 +1086,58 @@ public class CSharpXmlCompileRegressionTests
         Assert.DoesNotContain(" + ", result.GeneratedCode);
     }
 
+    [Fact]
+    public void DecimalStatic_FieldZero_MappedToDecimalWrapper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Decimal M() => decimal.Zero;
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Decimal.ZERO", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("decimal.ZERO", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("decimal.Zero", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DecimalStatic_Negate_MappedToDecimalWrapper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Decimal M(Decimal d) => decimal.Negate(d);
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Decimal.negate(d)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("decimal.negate", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DecimalStatic_Truncate_MappedToDecimalWrapper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Decimal M(Decimal d) => decimal.Truncate(d);
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Decimal.truncate(d)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("decimal.truncate", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
