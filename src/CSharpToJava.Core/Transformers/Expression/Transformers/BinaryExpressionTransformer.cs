@@ -502,6 +502,28 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 return enumBitwiseResult;
         }
 
+        // Handle boxed Object & numeric (e.g. unsigned byte comparison)
+        if (op == "&" && context.SemanticModel != null)
+        {
+            var leftType = context.GetTypeInfo(node.Left).Type;
+            var rightType = context.GetTypeInfo(node.Right).Type;
+            bool leftIsObject = leftType?.SpecialType == SpecialType.System_Object;
+            bool rightIsObject = rightType?.SpecialType == SpecialType.System_Object;
+            bool otherIsNumeric = ExpressionTransformerHelpers.IsNumericOrCharType(
+                leftIsObject ? rightType : leftType);
+
+            if ((leftIsObject || rightIsObject) && otherIsNumeric)
+            {
+                var leftExpr = facade.Transform(node.Left, context);
+                var rightExpr = facade.Transform(node.Right, context);
+                if (leftIsObject)
+                    leftExpr = $"((Number){leftExpr}).intValue()";
+                if (rightIsObject)
+                    rightExpr = $"((Number){rightExpr}).intValue()";
+                return $"({leftExpr} & {rightExpr})";
+            }
+        }
+
         // Standard operator - use Java's built-in operators
         var left = facade.Transform(node.Left, context);
 

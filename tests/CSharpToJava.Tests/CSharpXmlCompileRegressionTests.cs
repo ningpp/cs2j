@@ -1023,6 +1023,25 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("CSharpGenericIList.from(list)", result.GeneratedCode);
     }
 
+    [Fact]
+    public void Object_BitwiseAnd_Int_CastToNumber()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                int Compare(object v1, object v2)
+                {
+                    return ((v1 & 0xFF)).CompareTo((v2 & 0xFF));
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("((Number)v1).intValue() & 0xFF", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
