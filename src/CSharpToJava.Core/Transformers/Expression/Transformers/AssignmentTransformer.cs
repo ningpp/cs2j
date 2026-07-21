@@ -944,6 +944,28 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // Task 4: Wrap assignments to ICollection/ICollection<T> variables/fields/params
+        // when the RHS is not already a CSharpICollection/CSharpCollection compatible type.
+        if (op == "=" && context.SemanticModel != null)
+        {
+            var leftSymbol = context.GetSymbolInfo(leftNode).Symbol;
+            if (leftSymbol is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            {
+                var leftType = context.GetTypeInfo(leftNode).ConvertedType ?? context.GetTypeInfo(leftNode).Type;
+                var leftDisplay = leftType?.ToDisplayString();
+                if (leftDisplay == "System.Collections.ICollection"
+                    || (leftDisplay != null && leftDisplay.StartsWith("System.Collections.Generic.ICollection<")))
+                {
+                    var rightType = context.GetTypeInfo(rightNode).Type;
+                    if (rightType != null && !IsAssignableToCSharpICollection(rightType, context))
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpICollection");
+                        return $"{left} = CSharpICollection.from({rightStr})";
+                    }
+                }
+            }
+        }
+
         if (op == "="
             && TryGetStructArrayFillStatement(leftNode, rightNode, left, context, out var structArrayFillStatement))
         {
@@ -1606,6 +1628,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Check namespace - should be from System.Collections.Generic
         var ns = type.ContainingNamespace?.ToDisplayString() ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
         return ns != null && ns.StartsWith("System.Collections.Generic");
+    }
+
+    /// <summary>
+    /// Returns true when the mapped Java type for <paramref name="type"/> is already a
+    /// CSharpICollection or CSharpCollection compatible type, so no additional wrapping is needed.
+    /// </summary>
+    private static bool IsAssignableToCSharpICollection(ITypeSymbol type, ConversionContext context)
+    {
+        var javaType = context.MapType(type);
+        return javaType.Contains("CSharpICollection") || javaType.Contains("CSharpCollection");
     }
 
     /// <summary>

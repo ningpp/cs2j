@@ -978,6 +978,29 @@ public class CSharpXmlCompileRegressionTests
         Assert.Matches(@"d\s*=\s*Decimal\.valueOf\s*\(\s*0\s*\)", result.GeneratedCode);
     }
 
+    [Fact]
+    public void ICollection_Assignment_FromList_WrappedWithFrom()
+    {
+        var result = Convert("""
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            class Sample
+            {
+                ICollection c;
+
+                void M(List<int> list)
+                {
+                    c = list;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("CSharpICollection.from(list)", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
