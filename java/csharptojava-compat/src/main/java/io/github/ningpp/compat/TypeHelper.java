@@ -130,6 +130,10 @@ public final class TypeHelper {
         return result.toArray(new MethodInfo[0]);
     }
 
+    public static MethodInfo[] getMethods(Class<?> type) {
+        return getMethods(type, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
+    }
+
     public static FieldInfo[] getFields(Class<?> type, int bindingFlags) {
         if (type == null) {
             return new FieldInfo[0];
@@ -144,6 +148,10 @@ public final class TypeHelper {
         return result.toArray(new FieldInfo[0]);
     }
 
+    public static FieldInfo[] getFields(Class<?> type) {
+        return getFields(type, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
+    }
+
     public static ConstructorInfo[] getConstructors(Class<?> type, int bindingFlags) {
         if (type == null) {
             return new ConstructorInfo[0];
@@ -156,6 +164,10 @@ public final class TypeHelper {
             }
         }
         return result.toArray(new ConstructorInfo[0]);
+    }
+
+    public static ConstructorInfo[] getConstructors(Class<?> type) {
+        return getConstructors(type, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
     }
 
     public static ConstructorInfo getConstructorInfo(Class<?> type, int bindingFlags, Class<?>... parameterTypes) {
@@ -215,6 +227,32 @@ public final class TypeHelper {
         }
         for (Field field : type.getFields()) {
             if (matchesBindingFlags(field.getModifiers(), bindingFlags)) {
+                members.add(new FieldInfo(field));
+            }
+        }
+        return members.toArray(new MemberInfo[0]);
+    }
+
+    public static MemberInfo[] getMembers(Class<?> type) {
+        return getMembers(type, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
+    }
+
+    public static MemberInfo[] getMembers(Class<?> type, String name) {
+        return getMembers(type, name, 0);
+    }
+
+    public static MemberInfo[] getMembers(Class<?> type, String name, int bindingFlags) {
+        if (type == null || name == null) {
+            return new MemberInfo[0];
+        }
+        List<MemberInfo> members = new ArrayList<>();
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
+                members.add(new MethodInfo(method));
+            }
+        }
+        for (Field field : type.getFields()) {
+            if (field.getName().equals(name) && matchesBindingFlags(field.getModifiers(), bindingFlags)) {
                 members.add(new FieldInfo(field));
             }
         }

@@ -41,11 +41,11 @@ public final class ReflectionHelper {
      * finds by name only and allows invoking non-public members via
      * {@code MethodInfo.Invoke}.
      */
-    public static Method getDeclaredMethodByName(Class<?> clazz, String name) {
+    public static MethodInfo getDeclaredMethodByName(Class<?> clazz, String name) {
         for (Method m : clazz.getDeclaredMethods()) {
             if (m.getName().equals(name)) {
                 m.setAccessible(true);
-                return m;
+                return new MethodInfo(m);
             }
         }
         return null;
@@ -58,10 +58,10 @@ public final class ReflectionHelper {
      * Bridges C# {@code Type.GetMethod(name)} semantics when no parameter
      * types are specified.
      */
-    public static Method getMethodByName(Class<?> clazz, String name) {
+    public static MethodInfo getMethodByName(Class<?> clazz, String name) {
         for (Method m : clazz.getMethods()) {
             if (m.getName().equals(name)) {
-                return m;
+                return new MethodInfo(m);
             }
         }
         return null;

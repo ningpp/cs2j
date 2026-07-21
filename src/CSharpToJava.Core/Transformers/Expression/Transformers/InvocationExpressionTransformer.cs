@@ -650,6 +650,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getMethods({typeReceiver}, {flags})";
         }
 
+        // C# Type.GetMethods() → TypeHelper.getMethods(Class)
+        if (memberAccess.Name.Identifier.Text == "GetMethods"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getMethods({typeReceiver})";
+        }
+
         // C# Type.GetFields(BindingFlags) → TypeHelper.getFields(Class, int)
         if (memberAccess.Name.Identifier.Text == "GetFields"
             && node.ArgumentList.Arguments.Count == 1
@@ -661,6 +671,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getFields({typeReceiver}, {flags})";
         }
 
+        // C# Type.GetFields() → TypeHelper.getFields(Class)
+        if (memberAccess.Name.Identifier.Text == "GetFields"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getFields({typeReceiver})";
+        }
+
         // C# Type.GetConstructors(BindingFlags) → TypeHelper.getConstructors(Class, int)
         if (memberAccess.Name.Identifier.Text == "GetConstructors"
             && node.ArgumentList.Arguments.Count == 1
@@ -670,6 +690,50 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var typeReceiver = facade.Transform(memberAccess.Expression, context);
             return $"TypeHelper.getConstructors({typeReceiver}, {flags})";
+        }
+
+        // C# Type.GetConstructors() → TypeHelper.getConstructors(Class)
+        if (memberAccess.Name.Identifier.Text == "GetConstructors"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getConstructors({typeReceiver})";
+        }
+
+        // C# Type.GetMembers(BindingFlags) → TypeHelper.getMembers(Class, int)
+        if (memberAccess.Name.Identifier.Text == "GetMembers"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getMembers({typeReceiver}, {flags})";
+        }
+
+        // C# Type.GetMember(String) → TypeHelper.getMembers(Class, String)
+        if (memberAccess.Name.Identifier.Text == "GetMember"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var name = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getMembers({typeReceiver}, {name})";
+        }
+
+        // C# Type.GetMember(String, BindingFlags) → TypeHelper.getMembers(Class, String, int)
+        if (memberAccess.Name.Identifier.Text == "GetMember"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var name = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var flags = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getMembers({typeReceiver}, {name}, {flags})";
         }
 
         // C# Type.GetConstructor(BindingFlags, Binder, Type[], ParameterModifier[])

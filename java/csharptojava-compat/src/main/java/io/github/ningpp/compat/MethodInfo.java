@@ -51,6 +51,13 @@ public final class MethodInfo implements MemberInfo {
         return new ReturnParameter(method.getReturnType());
     }
 
+    /**
+     * Mirrors C# MethodInfo.ReturnType.
+     */
+    public Class<?> getReturnType() {
+        return method.getReturnType();
+    }
+
     public Parameter[] getParameters() {
         return method.getParameters();
     }
@@ -65,6 +72,17 @@ public final class MethodInfo implements MemberInfo {
 
     public Object invoke(Object target, java.util.List<?> args) {
         return invoke(target, args == null ? new Object[0] : args.toArray());
+    }
+
+    /**
+     * Bridges C# MethodInfo.MakeGenericMethod(Type[]).
+     * <p>
+     * Java reflection has no direct equivalent because generic type information
+     * is erased at runtime. The type arguments are accepted for API compatibility
+     * and the same MethodInfo is returned so that generated code can chain calls.
+     */
+    public MethodInfo makeGenericMethod(Class<?>... typeArguments) {
+        return this;
     }
 
     public static final class ReturnParameter {
