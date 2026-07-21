@@ -1,6 +1,5 @@
 package io.github.ningpp.compat;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,7 +8,7 @@ public final class RuntimeReflectionExtensions {
     private RuntimeReflectionExtensions() {
     }
 
-    public static Field getRuntimeField(Class<?> type, String name) {
+    public static FieldInfo getRuntimeField(Class<?> type, String name) {
         return TypeHelper.getField(type, name);
     }
 
@@ -17,8 +16,12 @@ public final class RuntimeReflectionExtensions {
         return List.of(PropertyInfo.getProperties(type));
     }
 
-    public static Iterable<Field> getRuntimeFields(Class<?> type) {
-        return List.of(type.getDeclaredFields());
+    public static Iterable<FieldInfo> getRuntimeFields(Class<?> type) {
+        List<FieldInfo> fields = new ArrayList<>();
+        for (java.lang.reflect.Field field : type.getDeclaredFields()) {
+            fields.add(new FieldInfo(field));
+        }
+        return fields;
     }
 
     public static Iterable<MethodInfo> getRuntimeMethods(Class<?> type) {

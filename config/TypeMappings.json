@@ -3510,16 +3510,16 @@
         },
         {
             "csharp": "System.Reflection.FieldInfo",
-            "java": "Field",
+            "java": "FieldInfo",
             "imports": [
-                "java.lang.reflect.Field"
+                "io.github.ningpp.compat.FieldInfo"
             ]
         },
         {
             "csharp": "System.Reflection.FieldInfo[]",
-            "java": "Field[]",
+            "java": "FieldInfo[]",
             "imports": [
-                "java.lang.reflect.Field"
+                "io.github.ningpp.compat.FieldInfo"
             ]
         },
         {
@@ -3552,16 +3552,30 @@
         },
         {
             "csharp": "System.Reflection.MethodInfo",
-            "java": "Method",
+            "java": "MethodInfo",
             "imports": [
-                "java.lang.reflect.Method"
+                "io.github.ningpp.compat.MethodInfo"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.MethodInfo[]",
+            "java": "MethodInfo[]",
+            "imports": [
+                "io.github.ningpp.compat.MethodInfo"
             ]
         },
         {
             "csharp": "System.Reflection.ConstructorInfo",
-            "java": "Constructor",
+            "java": "ConstructorInfo",
             "imports": [
-                "java.lang.reflect.Constructor"
+                "io.github.ningpp.compat.ConstructorInfo"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.ConstructorInfo[]",
+            "java": "ConstructorInfo[]",
+            "imports": [
+                "io.github.ningpp.compat.ConstructorInfo"
             ]
         },
         {
@@ -6198,7 +6212,7 @@
         {
             "type": "System.Reflection.FieldInfo",
             "method": "GetValue",
-            "javaMethod": "get"
+            "javaMethod": "getValue"
         },
         {
             "type": "System.Reflection.PropertyInfo",

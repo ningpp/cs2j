@@ -142,11 +142,11 @@ class Scanner
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import java.lang.reflect.Field;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Field f =", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.FieldInfo;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("FieldInfo f =", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("f == null ? Integer.MAX_VALUE", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("f.get(null)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Field.valueEquals", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("f.getValue(null)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("FieldInfo.valueEquals", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

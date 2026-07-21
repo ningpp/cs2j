@@ -116,22 +116,67 @@ public final class TypeHelper {
         return rank;
     }
 
-    public static Method[] getMethods(Class<?> type, int bindingFlags) {
+    public static MethodInfo[] getMethods(Class<?> type, int bindingFlags) {
         if (type == null) {
-            return new Method[0];
+            return new MethodInfo[0];
         }
         Method[] methods = type.getMethods();
-        return filterByBindingFlags(methods, bindingFlags, Method.class);
+        List<MethodInfo> result = new ArrayList<>();
+        for (Method method : methods) {
+            if (matchesBindingFlags(method.getModifiers(), bindingFlags)) {
+                result.add(new MethodInfo(method));
+            }
+        }
+        return result.toArray(new MethodInfo[0]);
     }
 
-    public static Constructor<?> getConstructor(Class<?> type, int bindingFlags, Class<?>... parameterTypes) {
+    public static FieldInfo[] getFields(Class<?> type, int bindingFlags) {
+        if (type == null) {
+            return new FieldInfo[0];
+        }
+        Field[] fields = type.getFields();
+        List<FieldInfo> result = new ArrayList<>();
+        for (Field field : fields) {
+            if (matchesBindingFlags(field.getModifiers(), bindingFlags)) {
+                result.add(new FieldInfo(field));
+            }
+        }
+        return result.toArray(new FieldInfo[0]);
+    }
+
+    public static ConstructorInfo[] getConstructors(Class<?> type, int bindingFlags) {
+        if (type == null) {
+            return new ConstructorInfo[0];
+        }
+        Constructor<?>[] ctors = type.getConstructors();
+        List<ConstructorInfo> result = new ArrayList<>();
+        for (Constructor<?> ctor : ctors) {
+            if (matchesBindingFlags(ctor.getModifiers(), bindingFlags)) {
+                result.add(new ConstructorInfo(ctor));
+            }
+        }
+        return result.toArray(new ConstructorInfo[0]);
+    }
+
+    public static ConstructorInfo getConstructorInfo(Class<?> type, int bindingFlags, Class<?>... parameterTypes) {
+        if (type == null) {
+            return null;
+        }
+        try {
+            return new ConstructorInfo(type.getConstructor(parameterTypes));
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+
+    public static ConstructorInfo getConstructor(Class<?> type, int bindingFlags, Class<?>... parameterTypes) {
         if (type == null) {
             return null;
         }
         for (Constructor<?> ctor : type.getDeclaredConstructors()) {
             if (matchesParameterTypes(ctor.getParameterTypes(), parameterTypes)
                     && matchesBindingFlags(ctor.getModifiers(), bindingFlags)) {
-                return ctor;
+                return new ConstructorInfo(ctor);
             }
         }
         return null;
@@ -176,12 +221,12 @@ public final class TypeHelper {
         return members.toArray(new MemberInfo[0]);
     }
 
-    public static Field getField(Class<?> type, String name) {
+    public static FieldInfo getField(Class<?> type, String name) {
         if (type == null || name == null) {
             return null;
         }
         try {
-            return type.getField(name);
+            return new FieldInfo(type.getField(name));
         } catch (NoSuchFieldException e) {
             return null;
         }
@@ -249,12 +294,12 @@ public final class TypeHelper {
         return java.lang.reflect.Array.newInstance(elementType, length);
     }
 
-    public static Method getMethod(Class<?> type, String name, Class<?>... parameterTypes) {
+    public static MethodInfo getMethod(Class<?> type, String name, Class<?>... parameterTypes) {
         if (type == null || name == null) {
             return null;
         }
         try {
-            return type.getMethod(name, parameterTypes);
+            return new MethodInfo(type.getMethod(name, parameterTypes));
         } catch (NoSuchMethodException e) {
             return null;
         }
@@ -263,18 +308,18 @@ public final class TypeHelper {
     /**
      * Bridges C# {@code Type.GetMethod(name, BindingFlags)} semantics.
      */
-    public static Method getMethod(Class<?> type, String name, int bindingFlags) {
+    public static MethodInfo getMethod(Class<?> type, String name, int bindingFlags) {
         if (type == null || name == null) {
             return null;
         }
         for (Method method : type.getMethods()) {
             if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
-                return method;
+                return new MethodInfo(method);
             }
         }
         for (Method method : type.getDeclaredMethods()) {
             if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
-                return method;
+                return new MethodInfo(method);
             }
         }
         return null;

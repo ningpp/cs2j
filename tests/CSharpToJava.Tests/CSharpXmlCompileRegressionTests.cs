@@ -335,10 +335,10 @@ public class CSharpXmlCompileRegressionTests
             """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.MethodInfo;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain(".getBaseDefinition()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.isPublic(ReflectionHelper.getBaseDefinition(method))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ReflectionHelper.getBaseDefinition(method).getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -470,9 +470,10 @@ public class CSharpXmlCompileRegressionTests
             """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.isPublic(method)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.isPublic(ctor)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.MethodInfo;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.ConstructorInfo;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("method.getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ctor.getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -715,10 +716,10 @@ public class CSharpXmlCompileRegressionTests
             """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.getFieldType(field)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.isInitOnly(field)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.isStatic(field)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.FieldInfo;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("field.getFieldType()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("field.getIsInitOnly()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("field.getIsStatic()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -737,7 +738,8 @@ public class CSharpXmlCompileRegressionTests
             """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("ReflectionHelper.isStatic(method)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.MethodInfo;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("method.getIsStatic()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

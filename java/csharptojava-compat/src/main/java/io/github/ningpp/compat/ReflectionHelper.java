@@ -103,6 +103,16 @@ public final class ReflectionHelper {
      * Bridges C# {@code MethodInfo.GetBaseDefinition()}, which returns the
      * original virtual method declaration.
      */
+    public static MethodInfo getBaseDefinition(MethodInfo method) {
+        if (method == null) {
+            return null;
+        }
+        return new MethodInfo(getBaseDefinition(method.getMethod()));
+    }
+
+    /**
+     * Returns the base definition of a raw Java method.
+     */
     public static Method getBaseDefinition(Method method) {
         if (method == null) {
             return null;

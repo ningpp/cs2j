@@ -5,16 +5,16 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests that C# MethodInfo.DeclaringType maps to Java Method.getDeclaringClass().
-/// The default property-name mapping produced getDeclaringType(), which does not
-/// exist on java.lang.reflect.Method.
-/// </summary>
-public class MethodInfoDeclaringTypeTests
-{
-    [Fact]
-    public void MethodInfo_DeclaringType_MapsToGetDeclaringClass()
+    /// Tests that C# MethodInfo.DeclaringType maps to the compat wrapper's
+    /// getDeclaringType() method. System.Reflection.MethodInfo is now mapped to
+    /// io.github.ningpp.compat.MethodInfo, which exposes getDeclaringType().
+    /// </summary>
+    public class MethodInfoDeclaringTypeTests
     {
-        var result = Convert(@"
+        [Fact]
+        public void MethodInfo_DeclaringType_MapsToGetDeclaringType()
+        {
+            var result = Convert(@"
 using System;
 using System.Reflection;
 
@@ -25,10 +25,10 @@ class Test {
 }
 ");
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("methodInfo.getDeclaringClass()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getDeclaringType()", result.GeneratedCode, StringComparison.Ordinal);
-    }
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            Assert.Contains("methodInfo.getDeclaringType()", result.GeneratedCode, StringComparison.Ordinal);
+            Assert.DoesNotContain(".getDeclaringClass()", result.GeneratedCode, StringComparison.Ordinal);
+        }
 
     private static ConversionResult Convert(string sourceCode)
     {

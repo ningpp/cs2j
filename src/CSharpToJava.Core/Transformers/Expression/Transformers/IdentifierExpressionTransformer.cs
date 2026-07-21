@@ -994,14 +994,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"TypeHelper.getFullName({target})";
             }
 
-            // System.Reflection.MethodInfo/ConstructorInfo/FieldInfo are mapped to Java reflection
-            // types (Method/Constructor/Field), which expose the declaring class via getDeclaringClass().
-            // The default getter would emit getDeclaringType(), which does not exist on those types.
-            if (memberName == "DeclaringType" && IsJavaReflectMemberInfoType(receiverType))
-            {
-                return $"{target}.getDeclaringClass()";
-            }
-
             // C# System.Type is mapped to java.lang.Class, but many C# Type properties/methods
             // have no Java equivalent. Bridge them through TypeHelper.
             if (IsSystemType(receiverType) && memberName is "BaseType" or "DeclaringType" or "IsGenericType"
@@ -1024,36 +1016,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"TypeHelper.getGenericArguments({target})";
             }
 
-            // C# MethodBase.IsPublic → Java Modifier.isPublic(method.getModifiers()).
-            // MethodInfo is mapped to java.lang.reflect.Method, which has no IsPublic property.
-            if (memberName == "IsPublic" && IsJavaReflectMethodBaseType(receiverType))
-            {
-                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
-                return $"ReflectionHelper.isPublic({target})";
-            }
-
             // C# ParameterInfo.IsOptional → ReflectionHelper.isOptional(parameter).
             // ParameterInfo is mapped to java.lang.reflect.Parameter, which has no isOptional method.
             if (memberName == "IsOptional" && IsJavaReflectParameterInfoType(receiverType))
             {
                 context.AddImport("io.github.ningpp.compat.ReflectionHelper");
                 return $"ReflectionHelper.isOptional({target})";
-            }
-
-            // C# FieldInfo.FieldType / IsInitOnly / IsStatic on raw java.lang.reflect.Field.
-            if (IsJavaReflectFieldInfoType(receiverType) && memberName is "FieldType" or "IsInitOnly" or "IsStatic")
-            {
-                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
-                if (memberName == "FieldType") return $"ReflectionHelper.getFieldType({target})";
-                if (memberName == "IsInitOnly") return $"ReflectionHelper.isInitOnly({target})";
-                if (memberName == "IsStatic") return $"ReflectionHelper.isStatic({target})";
-            }
-
-            // C# MethodBase.IsStatic on raw java.lang.reflect.Method.
-            if (memberName == "IsStatic" && IsJavaReflectMethodBaseType(receiverType))
-            {
-                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
-                return $"ReflectionHelper.isStatic({target})";
             }
 
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
@@ -1998,13 +1966,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         return $"TypeHelper.getFullName({propertyTarget})";
                     }
 
-                    // System.Reflection.MethodInfo/ConstructorInfo/FieldInfo are mapped to Java reflection
-                    // types (Method/Constructor/Field), which expose the declaring class via getDeclaringClass().
-                    if (memberName == "DeclaringType" && IsJavaReflectMemberInfoType(namedReceiver))
-                    {
-                        return $"{propertyTarget}.getDeclaringClass()";
-                    }
-
                     if (memberName == "Position" && IsSystemIoStreamType(foundProp.ContainingType))
                         return $"{propertyTarget}.getPosition()";
                     if (memberName == "Length" && IsSystemIoStreamType(foundProp.ContainingType))
@@ -2057,43 +2018,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
-    /// Returns true when the C# receiver type maps to a Java java.lang.reflect member type
-    /// (Method, Constructor, Field) whose declaring type is exposed as getDeclaringClass().
-    /// </summary>
-    private static bool IsJavaReflectMemberInfoType(ITypeSymbol? type)
-    {
-        for (var current = type; current != null; current = current.BaseType)
-        {
-            var display = current.OriginalDefinition.ToDisplayString();
-            if (display is "System.Reflection.MethodInfo"
-                or "System.Reflection.ConstructorInfo"
-                or "System.Reflection.FieldInfo")
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Returns true when the C# receiver type is MethodInfo or MethodBase,
-    /// which maps to java.lang.reflect.Method and supports public-modifier checks.
-    /// </summary>
-    private static bool IsJavaReflectMethodBaseType(ITypeSymbol? type)
-    {
-        for (var current = type; current != null; current = current.BaseType)
-        {
-            var display = current.OriginalDefinition.ToDisplayString();
-            if (display is "System.Reflection.MethodInfo"
-                or "System.Reflection.MethodBase")
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
     /// Returns true when the C# receiver type is ParameterInfo, which maps to
     /// java.lang.reflect.Parameter and has no direct isOptional method.
     /// </summary>
@@ -2103,23 +2027,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             var display = current.OriginalDefinition.ToDisplayString();
             if (display == "System.Reflection.ParameterInfo")
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Returns true when the C# receiver type is FieldInfo, which maps to
-    /// java.lang.reflect.Field and has no FieldType/IsInitOnly/IsStatic properties.
-    /// </summary>
-    private static bool IsJavaReflectFieldInfoType(ITypeSymbol? type)
-    {
-        for (var current = type; current != null; current = current.BaseType)
-        {
-            var display = current.OriginalDefinition.ToDisplayString();
-            if (display == "System.Reflection.FieldInfo")
             {
                 return true;
             }

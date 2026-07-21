@@ -650,8 +650,30 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getMethods({typeReceiver}, {flags})";
         }
 
+        // C# Type.GetFields(BindingFlags) → TypeHelper.getFields(Class, int)
+        if (memberAccess.Name.Identifier.Text == "GetFields"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getFields({typeReceiver}, {flags})";
+        }
+
+        // C# Type.GetConstructors(BindingFlags) → TypeHelper.getConstructors(Class, int)
+        if (memberAccess.Name.Identifier.Text == "GetConstructors"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getConstructors({typeReceiver}, {flags})";
+        }
+
         // C# Type.GetConstructor(BindingFlags, Binder, Type[], ParameterModifier[])
-        // → TypeHelper.getConstructor(Class, int, Class[])
+        // → TypeHelper.getConstructorInfo(Class, int, Class[])
         if (memberAccess.Name.Identifier.Text == "GetConstructor"
             && node.ArgumentList.Arguments.Count == 4
             && IsSystemTypeReceiver(memberAccess.Expression, context))
@@ -660,7 +682,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var types = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
             var typeReceiver = facade.Transform(memberAccess.Expression, context);
-            return $"TypeHelper.getConstructor({typeReceiver}, {flags}, {types})";
+            return $"TypeHelper.getConstructorInfo({typeReceiver}, {flags}, {types})";
         }
 
         // C# Type.MakeArrayType() → TypeHelper.makeArrayType(Class)
