@@ -1001,6 +1001,28 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("CSharpICollection.from(list)", result.GeneratedCode);
     }
 
+    [Fact]
+    public void IList_Assignment_FromCSharpList_WrappedWithFrom()
+    {
+        var result = Convert("""
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            class Sample
+            {
+                private IList _field;
+                void M(List<string> list)
+                {
+                    _field = list;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("CSharpGenericIList.from(list)", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

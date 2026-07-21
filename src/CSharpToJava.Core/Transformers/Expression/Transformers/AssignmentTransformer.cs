@@ -966,6 +966,26 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // Task 5: Wrap assignments to IList/IList<T> variables/fields/params
+        // when the RHS is not already a CSharpGenericIList/CSharpIList compatible type.
+        if (op == "=" && context.SemanticModel != null)
+        {
+            var leftType = context.GetTypeInfo(leftNode).ConvertedType ?? context.GetTypeInfo(leftNode).Type;
+            var leftDisplay = leftType?.ToDisplayString();
+            if (leftDisplay == "System.Collections.IList"
+                || (leftDisplay != null && leftDisplay.StartsWith("System.Collections.Generic.IList<")))
+            {
+                var rightType = context.GetTypeInfo(rightNode).Type;
+                if (rightType != null && !IsAssignableToCSharpGenericIList(rightType, context))
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+                    var leftExpr = facade.Transform(leftNode, context);
+                    var rightExpr = facade.Transform(rightNode, context);
+                    return $"{leftExpr} = CSharpGenericIList.from({rightExpr})";
+                }
+            }
+        }
+
         if (op == "="
             && TryGetStructArrayFillStatement(leftNode, rightNode, left, context, out var structArrayFillStatement))
         {
@@ -1638,6 +1658,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
     {
         var javaType = context.MapType(type);
         return javaType.Contains("CSharpICollection") || javaType.Contains("CSharpCollection");
+    }
+
+    /// <summary>
+    /// Returns true when the mapped Java type for <paramref name="type"/> is already a
+    /// CSharpGenericIList or CSharpIList compatible type, so no additional wrapping is needed.
+    /// </summary>
+    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol type, ConversionContext context)
+    {
+        var javaType = context.MapType(type);
+        return javaType.Contains("CSharpGenericIList") || javaType.Contains("CSharpIList");
     }
 
     /// <summary>
