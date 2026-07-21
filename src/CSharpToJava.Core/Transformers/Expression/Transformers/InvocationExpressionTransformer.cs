@@ -789,6 +789,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getGenericArguments({typeReceiver})";
         }
 
+        // C# Type.GetGenericTypeDefinition() → TypeHelper.getGenericTypeDefinition(Class)
+        if (memberAccess.Name.Identifier.Text == "GetGenericTypeDefinition"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getGenericTypeDefinition({typeReceiver})";
+        }
+
         // C# Type.GetDefaultMembers() → TypeHelper.getDefaultMembers(Class)
         if (memberAccess.Name.Identifier.Text == "GetDefaultMembers"
             && node.ArgumentList.Arguments.Count == 0

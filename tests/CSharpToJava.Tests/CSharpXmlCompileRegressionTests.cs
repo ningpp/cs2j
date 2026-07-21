@@ -893,6 +893,46 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("method.makeGenericMethod(types)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemType_GetGenericArguments_ReturnsClassArray()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Type[] Read(Type type)
+                {
+                    Type[] args = type.GetGenericArguments();
+                    return args;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Class[] args = TypeHelper.getGenericArguments(type);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("TypeVariable<?>[]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemType_GetGenericTypeDefinition_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Type Read(Type type) => type.GetGenericTypeDefinition();
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getGenericTypeDefinition()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getGenericTypeDefinition(type)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

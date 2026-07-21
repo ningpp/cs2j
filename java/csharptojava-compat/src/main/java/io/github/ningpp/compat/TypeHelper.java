@@ -68,19 +68,35 @@ public final class TypeHelper {
         return getIsGenericType(type);
     }
 
-    public static java.lang.reflect.TypeVariable<?>[] getGenericArguments(Class<?> type) {
-        return type == null ? new java.lang.reflect.TypeVariable<?>[0] : type.getTypeParameters();
+    public static Class<?>[] getGenericArguments(Class<?> type) {
+        if (type == null) {
+            return new Class<?>[0];
+        }
+        java.lang.reflect.TypeVariable<?>[] params = type.getTypeParameters();
+        Class<?>[] result = new Class<?>[params.length];
+        for (int i = 0; i < params.length; i++) {
+            result[i] = resolveClassBound(params[i]);
+        }
+        return result;
+    }
+
+    private static Class<?> resolveClassBound(java.lang.reflect.TypeVariable<?> tv) {
+        for (java.lang.reflect.Type bound : tv.getBounds()) {
+            if (bound instanceof Class<?>) {
+                return (Class<?>) bound;
+            }
+        }
+        return Object.class;
     }
 
     public static Class<?> getGenericTypeDefinition(Class<?> type) {
         if (type == null) {
             return null;
         }
-        Class<?> raw = type;
-        while (raw.getEnclosingClass() != null && raw.getTypeParameters().length == 0) {
-            raw = raw.getEnclosingClass();
+        if (type.isArray()) {
+            return getGenericTypeDefinition(type.getComponentType());
         }
-        return raw;
+        return type;
     }
 
     public static boolean getIsAbstract(Class<?> type) {
