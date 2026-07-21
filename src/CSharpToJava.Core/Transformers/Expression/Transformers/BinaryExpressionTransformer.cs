@@ -643,7 +643,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
         => context.SemanticModel != null
-            && context.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_Decimal;
+            && ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(expression).Type);
 
     private string? TryConvertToDecimalOperand(ExpressionSyntax expression, string transformedExpression, ConversionContext context)
     {

@@ -933,6 +933,32 @@ public class CSharpXmlCompileRegressionTests
         Assert.Contains("TypeHelper.getGenericTypeDefinition(type)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Decimal_MultiplyNullableDecimal_BridgedToMethodCall()
+    {
+        // Regression for csharpxml SchemaCollectionCompiler: property accessors returning
+        // Nullable<Decimal> were not bridged to .multiply(), leaving Java * operator.
+        var result = Convert("""
+            using System;
+
+            class Particle
+            {
+                public Decimal? MinOccurs { get; set; }
+            }
+
+            class Sample
+            {
+                Decimal? Calc(Particle p1, Particle p2)
+                {
+                    return p1.MinOccurs * p2.MinOccurs;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains(".multiply(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
