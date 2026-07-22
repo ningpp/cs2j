@@ -479,6 +479,21 @@ public class ArgumentTransformer
         if (context.SemanticModel == null)
             return transformedExpr;
 
+        // C# resolves null to a reference-type parameter when another overload has a value-type
+        // parameter at the same position (value types cannot accept null). After conversion to
+        // Java, the value type becomes a class, so null becomes applicable to both overloads and
+        // the call is ambiguous (or resolves to the wrong overload). Cast null to the resolved
+        // parameter's Java type to force the intended overload.
+        if (arg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression })
+        {
+            var javaTargetType = context.MapType(targetParam.Type);
+            if (!string.IsNullOrWhiteSpace(javaTargetType)
+                && HasValueTypeOverloadAtSamePosition(targetParam))
+            {
+                return $"({javaTargetType}) {transformedExpr}";
+            }
+        }
+
         // System.Buffer methods (BlockCopy, GetByte, SetByte, ByteLength) accept Array
         // parameters in C#, but the Java Buffer compat class operates on raw Java arrays.
         // Skip the CSharpArray.of() wrapping so the raw array is passed directly.
@@ -819,6 +834,57 @@ public class ArgumentTransformer
                 return true;
             }
         }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the containing method/constructor has another overload where the
+    /// parameter at the same position is a value type. In C# such overloads cannot accept a
+    /// null literal, so Roslyn resolves the call to the reference-type parameter overload.
+    /// After conversion to Java the value type becomes a class, so null applies to both and
+    /// the call becomes ambiguous (or resolves to the wrong overload).
+    /// </summary>
+    private static bool HasValueTypeOverloadAtSamePosition(IParameterSymbol targetParam)
+    {
+        var containingMethod = targetParam.ContainingSymbol as IMethodSymbol;
+        if (containingMethod == null) return false;
+        var containingType = containingMethod.ContainingType;
+        if (containingType == null) return false;
+
+        int ordinal = targetParam.Ordinal;
+        var parameters = containingMethod.Parameters;
+
+        IEnumerable<IMethodSymbol> overloads = containingMethod.MethodKind == MethodKind.Constructor
+            ? containingType.Constructors
+            : containingType.GetMembers(containingMethod.Name).OfType<IMethodSymbol>();
+
+        foreach (var overload in overloads)
+        {
+            if (SymbolEqualityComparer.Default.Equals(overload, containingMethod))
+                continue;
+            if (overload.Parameters.Length != parameters.Length)
+                continue;
+
+            bool allOthersMatch = true;
+            for (int i = 0; i < overload.Parameters.Length; i++)
+            {
+                if (i == ordinal) continue;
+                if (!SymbolEqualityComparer.Default.Equals(overload.Parameters[i].Type, parameters[i].Type))
+                {
+                    allOthersMatch = false;
+                    break;
+                }
+            }
+            if (!allOthersMatch)
+                continue;
+
+            var otherParam = overload.Parameters[ordinal];
+            if (SymbolEqualityComparer.Default.Equals(otherParam.Type, targetParam.Type))
+                continue;
+            if (otherParam.Type.IsValueType)
+                return true;
+        }
+
         return false;
     }
 

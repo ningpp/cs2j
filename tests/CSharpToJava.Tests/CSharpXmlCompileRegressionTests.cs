@@ -725,6 +725,36 @@ class Sample
     }
 
     [Fact]
+    public void NullArgument_OverloadWithStructParameter_GetsExplicitCast()
+    {
+        var result = Convert("""
+            public struct DeserializationEvents { }
+
+            public class Serializer
+            {
+                public object Deserialize(object reader)
+                {
+                    return Deserialize(reader, null);
+                }
+
+                public object Deserialize(object reader, DeserializationEvents events)
+                {
+                    return null;
+                }
+
+                public object Deserialize(object reader, string encodingStyle)
+                {
+                    return null;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("deserialize(reader, (String) null)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("deserialize(reader, null)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NameTableToArray_TypeOfElementAccessor_ChainsToArray()
     {
         var result = Convert("""
