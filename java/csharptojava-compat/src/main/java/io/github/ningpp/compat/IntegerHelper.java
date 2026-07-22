@@ -22,6 +22,7 @@ public final class IntegerHelper {
     public static final int OmitDuplicates = 1;
 
     // System.Globalization.DateTimeStyles
+    public static final int NoCurrentDateDefault = 8;
     public static final int RoundtripKind = 128;
 
     // System.StringSplitOptions

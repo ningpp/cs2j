@@ -360,6 +360,25 @@ class Sample
     }
 
     [Fact]
+    public void DateTimeStyles_NoCurrentDateDefault_MappedToIntegerHelper()
+    {
+        var result = Convert("""
+            using System.Globalization;
+
+            class Sample
+            {
+                void M()
+                {
+                    var style = DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite | DateTimeStyles.NoCurrentDateDefault | DateTimeStyles.RoundtripKind;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("IntegerHelper.NoCurrentDateDefault", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UIntMaxValue_AssignedToUIntVariable_GetsIntCast()
     {
         var result = Convert("""
