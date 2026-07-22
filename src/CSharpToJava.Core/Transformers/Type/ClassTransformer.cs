@@ -9,6 +9,7 @@ using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers.Member;
 using CSharpToJava.Core.Transformers.Utilities;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Type;
 
@@ -338,6 +339,7 @@ public class ClassTransformer : ITypeTransformer
             }
         }
 
+        UpgradeIteratorReturnTypeForGenericIterable(javaClass, mergedType.TypeSymbol, context);
         ResolveExplicitInterfacePropertyConflicts(javaClass);
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, mergedType.TypeSymbol, context);
@@ -357,6 +359,7 @@ public class ClassTransformer : ITypeTransformer
 
         RemoveCompareToBridgeConflicts(javaClass);
         RemoveCloneBridgeConflicts(javaClass);
+        RemoveConflictingNonGenericEnumeratorInterface(javaClass);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, mergedType.TypeSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass, mergedType.TypeSymbol);
@@ -555,6 +558,7 @@ public class ClassTransformer : ITypeTransformer
             ProcessMember(member, javaClass, context);
         }
 
+        UpgradeIteratorReturnTypeForGenericIterable(javaClass, classSymbol, context);
         ResolveExplicitInterfacePropertyConflicts(javaClass);
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, classSymbol, context);
@@ -1468,6 +1472,7 @@ public class ClassTransformer : ITypeTransformer
     /// </summary>
     internal static void ResolveExplicitInterfacePropertyConflicts(JavaClassDeclaration javaClass)
     {
+        string? genericEnumeratorElementType = TryGetGenericEnumeratorElementType(javaClass);
         var conflicts = new List<(JavaMethodDeclaration ClassPropertyAccessor, JavaMethodDeclaration ExplicitInterfaceAccessor)>();
         var methodsBySig = javaClass.Methods
             .GroupBy(m => (m.Name, ErasedParamSig(m.Parameters)))
@@ -1486,6 +1491,20 @@ public class ClassTransformer : ITypeTransformer
             {
                 if (classAccessor.ReturnType != explicitAccessor.ReturnType)
                 {
+                    // Special case: a class implementing IEnumerator<T> maps to CSharpGenericEnumerator<T>
+                    // and also implements CSharpEnumerator (non-generic). The typed Current accessor must
+                    // keep the standard getCurrent() name because it satisfies the generic interface;
+                    // Java covariant return types allow it to satisfy CSharpEnumerator as well, so the
+                    // object-returning explicit IEnumerator.Current accessor is redundant.
+                    if (genericEnumeratorElementType != null
+                        && group.Key.Name == "getCurrent"
+                        && classAccessor.ReturnType == genericEnumeratorElementType
+                        && explicitAccessor.ReturnType == "Object")
+                    {
+                        javaClass.Methods.Remove(explicitAccessor);
+                        continue;
+                    }
+
                     conflicts.Add((classAccessor, explicitAccessor));
                 }
             }
@@ -2036,6 +2055,167 @@ public class ClassTransformer : ITypeTransformer
         return false;
     }
 
+    private static string? TryGetGenericEnumeratorElementType(JavaClassDeclaration javaClass)
+    {
+        foreach (var type in javaClass.ImplementedTypes)
+        {
+            if (TryExtractGenericArgument(type, "CSharpGenericEnumerator", out var argument))
+                return argument;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A class that explicitly implements both IEnumerator&lt;T&gt; and IEnumerator cannot safely
+    /// implement both CSharpGenericEnumerator&lt;T&gt; and CSharpEnumerator in Java: the non-generic
+    /// interface extends CSharpGenericEnumerator&lt;Object&gt;, which would make the class implement
+    /// two different instantiations of the same generic interface. Drop the non-generic
+    /// CSharpEnumerator implementation and rely on the typed one.
+    /// </summary>
+    private static void RemoveConflictingNonGenericEnumeratorInterface(JavaClassDeclaration javaClass)
+    {
+        string? genericElementType = TryGetGenericEnumeratorElementType(javaClass);
+        if (genericElementType == null || genericElementType == "Object")
+            return;
+
+        javaClass.ImplementedTypes.Remove("CSharpEnumerator");
+    }
+
+    /// <summary>
+    /// Downgrades an iterator() method that returns CSharpGenericEnumerator&lt;T&gt; to the
+    /// non-generic CSharpEnumerator return type and wraps the returned expression with
+    /// CSharpEnumerator.from(...) so the value is compatible with the new return type.
+    /// </summary>
+    private static void DowngradeIteratorReturnToNonGeneric(JavaMethodDeclaration iteratorMethod)
+    {
+        iteratorMethod.ReturnType = "CSharpEnumerator";
+
+        string? body = iteratorMethod.Body;
+        if (iteratorMethod.StructuredBody != null)
+        {
+            body = iteratorMethod.StructuredBody.ToBodyString();
+            iteratorMethod.StructuredBody = null;
+        }
+
+        if (string.IsNullOrWhiteSpace(body))
+            return;
+
+        // Wrap the (single) return expression so CSharpGenericEnumerator<T> becomes CSharpEnumerator.
+        string wrapped = Regex.Replace(body, @"return\s+(.+?);", "return CSharpEnumerator.from($1);", RegexOptions.Singleline);
+        iteratorMethod.Body = wrapped;
+    }
+
+    /// <summary>
+    /// When a converted class implements a generic iterable interface (CSharpGenericIterable&lt;T&gt;,
+    /// CSharpIterable&lt;T&gt;, or CSharpICollection&lt;T&gt;), its <c>iterator()</c> method must return
+    /// <c>CSharpGenericEnumerator&lt;T&gt;</c> to satisfy the interface contract. This method upgrades
+    /// the return type of any <c>iterator()</c> method that currently returns the non-generic
+    /// <c>CSharpEnumerator</c> (or a mismatched generic enumerator) and upgrades nested enumerator
+    /// classes to implement the correctly typed generic enumerator interface.
+    /// </summary>
+    private static void UpgradeIteratorReturnTypeForGenericIterable(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol, ConversionContext context)
+    {
+        if (!TryGetIterableElementType(javaClass, out var elementType))
+            return;
+
+        string expectedReturnType = elementType == "Object"
+            ? "CSharpGenericEnumerator<Object>"
+            : $"CSharpGenericEnumerator<{elementType}>";
+
+        var iteratorMethod = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == "iterator" && m.Parameters.Count == 0);
+        if (iteratorMethod == null)
+            return;
+
+        if (iteratorMethod.ReturnType == expectedReturnType)
+            return;
+
+        iteratorMethod.ReturnType = expectedReturnType;
+
+        if (iteratorMethod.Body != null)
+        {
+            iteratorMethod.Body = iteratorMethod.Body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.from(");
+        }
+        else if (iteratorMethod.StructuredBody != null)
+        {
+            string body = iteratorMethod.StructuredBody.ToBodyString();
+            body = body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.from(");
+            iteratorMethod.Body = body;
+            iteratorMethod.StructuredBody = null;
+        }
+
+        context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+
+        foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
+        {
+            UpgradeNestedEnumeratorToGeneric(nested, elementType, context);
+        }
+    }
+
+    private static bool TryGetIterableElementType(JavaClassDeclaration javaClass, out string elementType)
+    {
+        foreach (var type in javaClass.ImplementedTypes)
+        {
+            if (TryExtractGenericArgument(type, "CSharpGenericIterable", out elementType)
+                || TryExtractGenericArgument(type, "CSharpIterable", out elementType)
+                || TryExtractGenericArgument(type, "CSharpICollection", out elementType))
+            {
+                return true;
+            }
+
+            if (type is "CSharpGenericIterable" or "CSharpIterable" or "CSharpICollection")
+            {
+                elementType = "Object";
+                return true;
+            }
+        }
+
+        elementType = "Object";
+        return false;
+    }
+
+    private static void UpgradeNestedEnumeratorToGeneric(JavaClassDeclaration nestedEnumerator, string elementType, ConversionContext context)
+    {
+        bool changed = false;
+        string expectedImplementedType = elementType == "Object"
+            ? "CSharpGenericEnumerator<Object>"
+            : $"CSharpGenericEnumerator<{elementType}>";
+
+        for (int i = 0; i < nestedEnumerator.ImplementedTypes.Count; i++)
+        {
+            var type = nestedEnumerator.ImplementedTypes[i];
+            if (type == "CSharpEnumerator"
+                || type.StartsWith("CSharpEnumerator<", StringComparison.Ordinal)
+                || type == "CSharpGenericEnumerator"
+                || type.StartsWith("CSharpGenericEnumerator<", StringComparison.Ordinal))
+            {
+                nestedEnumerator.ImplementedTypes[i] = expectedImplementedType;
+                changed = true;
+            }
+        }
+
+        if (!changed)
+            return;
+
+        context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+
+        string expectedCurrentReturnType = elementType == "Object" ? "Object" : elementType;
+        var getCurrent = nestedEnumerator.Methods.FirstOrDefault(m =>
+            m.Name == "getCurrent" && m.Parameters.Count == 0);
+        if (getCurrent != null)
+        {
+            getCurrent.ReturnType = expectedCurrentReturnType;
+        }
+
+        var next = nestedEnumerator.Methods.FirstOrDefault(m =>
+            m.Name == "next" && m.Parameters.Count == 0);
+        if (next != null)
+        {
+            next.ReturnType = expectedCurrentReturnType;
+        }
+    }
+
     /// <summary>
     /// If a class has both compareTo(SomeType) and compareTo(Object), remove the Object version.
     /// Java automatically generates a bridge compareTo(Object) → compareTo(T) for Comparable&lt;T&gt; classes,
@@ -2112,6 +2292,30 @@ public class ClassTransformer : ITypeTransformer
     /// </summary>
     private static void AddCollectionInterfaceBridgeMethods(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol)
     {
+        // A C# class that inherits CollectionBase (mapped to CSharpCollectionBase) already carries the
+        // non-generic IEnumerable/ICollection contract. If it also explicitly implements IEnumerable<T>,
+        // Java cannot represent both contracts: CSharpCollectionBase.iterator() returns CSharpEnumerator
+        // (CSharpGenericEnumerator<Object>) and add/remove have incompatible return types with
+        // CSharpGenericIterable<T> (which extends Collection<T>). Drop the CSharpGenericIterable<T>
+        // implementation and downgrade iterator() to CSharpEnumerator so the subclass remains compatible
+        // with its base while still exposing a usable enumerator.
+        if (ExtendsCSharpCollectionBase(javaClass, classSymbol))
+        {
+            var csharpGenericIterable = javaClass.ImplementedTypes.FirstOrDefault(t =>
+                t.StartsWith("CSharpGenericIterable<") || t == "CSharpGenericIterable");
+            if (csharpGenericIterable != null)
+            {
+                javaClass.ImplementedTypes.Remove(csharpGenericIterable);
+
+                var iteratorMethod = javaClass.Methods.FirstOrDefault(m =>
+                    m.Name == "iterator" && m.Parameters.Count == 0);
+                if (iteratorMethod != null && iteratorMethod.ReturnType.StartsWith("CSharpGenericEnumerator<"))
+                {
+                    DowngradeIteratorReturnToNonGeneric(iteratorMethod);
+                }
+            }
+        }
+
         var collectionType = javaClass.ImplementedTypes.FirstOrDefault(t => t == "Collection" || t.StartsWith("Collection<"));
         if (collectionType != null)
         {
@@ -2295,6 +2499,26 @@ public class ClassTransformer : ITypeTransformer
             }
             current = current.BaseType;
         }
+        return false;
+    }
+
+    private static bool ExtendsCSharpCollectionBase(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol)
+    {
+        if (javaClass.ExtendedType is "CSharpCollectionBase" or "CSharpReadOnlyCollectionBase")
+            return true;
+
+        if (classSymbol == null)
+            return false;
+
+        for (var current = classSymbol.BaseType;
+             current != null && current.SpecialType != SpecialType.System_Object;
+             current = current.BaseType)
+        {
+            var display = current.OriginalDefinition.ToDisplayString();
+            if (display is "System.Collections.CollectionBase" or "System.Collections.ReadOnlyCollectionBase")
+                return true;
+        }
+
         return false;
     }
 

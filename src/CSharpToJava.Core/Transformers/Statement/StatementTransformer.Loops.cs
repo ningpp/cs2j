@@ -237,12 +237,6 @@ public partial class StatementTransformer
             {
                 if (exprNamed.IsGenericType && exprNamed.TypeArguments.Length >= 2)
                 {
-                    static string BoxJavaType(string t) => t switch
-                    {
-                        "int" => "Integer", "long" => "Long", "double" => "Double",
-                        "float" => "Float", "boolean" => "Boolean", "short" => "Short",
-                        "byte" => "Byte", "char" => "Character", _ => t
-                    };
                     var keyType = BoxJavaType(context.MapType(exprNamed.TypeArguments[0]));
                     var valType = BoxJavaType(context.MapType(exprNamed.TypeArguments[1]));
                     javaType = $"CSharpKeyValuePair<{keyType}, {valType}>";
@@ -358,13 +352,15 @@ public partial class StatementTransformer
         // Use a wildcard double-cast: (Iterable<T>)(Iterable<?>)(expr). A direct (Iterable<T>) cast
         // fails when expr's static type already implements Iterable<Object> (e.g., CSharpCollection),
         // because Iterable<Object> and Iterable<T> are unrelated parameterized types.
+        // Java generics require boxed types, so primitive loop variables must be converted
+        // (e.g., Iterable<int> is invalid; use Iterable<Integer>).
         bool isNonGenericEnumerableCast = false;
         if (!isStream && javaType != "Object" && javaType != "var"
             && exprTypeInfo is INamedTypeSymbol rawEnum
-            && !rawEnum.IsGenericType
-            && rawEnum.Name is "IEnumerable" or "ICollection")
+            && IsNonGenericEnumerableOrCollection(rawEnum))
         {
-            expression = $"(Iterable<{javaType}>)(Iterable<?>)({expression})";
+            var iterTypeArg = BoxJavaType(javaType);
+            expression = $"(Iterable<{iterTypeArg}>)(Iterable<?>)({expression})";
             isNonGenericEnumerableCast = true;
         }
 
@@ -618,6 +614,20 @@ public partial class StatementTransformer
         return sourceExpr;
     }
 
+    private static string BoxJavaType(string t)
+        => t switch
+        {
+            "int" => "Integer",
+            "long" => "Long",
+            "double" => "Double",
+            "float" => "Float",
+            "boolean" => "Boolean",
+            "short" => "Short",
+            "byte" => "Byte",
+            "char" => "Character",
+            _ => t
+        };
+
     private JavaSyntaxNode TransformDoStatement(DoStatementSyntax stmt, ConversionContext context)
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
@@ -668,5 +678,22 @@ public partial class StatementTransformer
         var body = $"{{\n        {bodyBlock}{doBodyTail}\n    }}";
         var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
         return new JavaStatementNode($"{doPreamble}{loopPrefix}do {body} while ({condition});");
+    }
+
+    private static bool IsNonGenericEnumerableOrCollection(INamedTypeSymbol type)
+    {
+        // Generic collection interfaces (IEnumerable<T>, ICollection<T>, IList<T>) map to
+        // generic Java compat types (CSharpGenericIterable<T>, ...) and already provide
+        // the correct typed iterator.  Do not treat them as non-generic enumerable.
+        if (type.IsGenericType)
+            return false;
+
+        if (type.Name is "IEnumerable" or "ICollection")
+            return true;
+
+        return type.AllInterfaces.Any(i =>
+            !i.IsGenericType
+            && i.OriginalDefinition.ToDisplayString() is "System.Collections.IEnumerable"
+                or "System.Collections.ICollection");
     }
 }

@@ -479,10 +479,11 @@ class MyCollection : IEnumerable
     }
 
     /// <summary>
-    /// When a non-generic IEnumerator-returning method calls GetEnumerator() on a
-    /// collection whose GetEnumerator returns a type implementing IEnumerator&lt;T&gt;,
-    /// the converter must use CSharpEnumerator.from() (not CSharpGenericEnumerator.from())
-    /// because CSharpGenericEnumerator&lt;T&gt; is not a subtype of CSharpEnumerator.
+    /// When the converted class implements CSharpGenericIterable&lt;Object&gt;, the iterator()
+    /// method must return CSharpGenericEnumerator&lt;Object&gt;. Even if the original C#
+    /// GetEnumerator() returns non-generic IEnumerator, the generated body must use
+    /// CSharpGenericEnumerator.from() to match the interface return type.
+    /// (CSharpGenericEnumerator&lt;T&gt; now extends CSharpEnumerator via Task 29.)
     /// </summary>
     [Fact]
     public void NonGenericEnumeratorReturn_CallsGenericGetEnumerator_UsesCSharpEnumeratorFrom()
@@ -503,9 +504,9 @@ class MyNamespaceManager : IEnumerable
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        // Must use CSharpEnumerator.from() because the method returns IEnumerator (non-generic)
-        Assert.Contains("CSharpEnumerator.from(", code);
-        Assert.DoesNotContain("CSharpGenericEnumerator.from(", code);
+        // Must use CSharpGenericEnumerator.from() to match iterator() return type
+        Assert.Contains("CSharpGenericEnumerator.from(", code);
+        Assert.DoesNotContain("CSharpEnumerator.from(", code);
     }
 
     /// <summary>

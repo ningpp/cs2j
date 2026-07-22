@@ -269,47 +269,64 @@ public sealed class VariableNameDeduplicationRewriter : JavaSyntaxRewriter
             code = Regex.Replace(code, $@"\b{Regex.Escape(originalName)}\b", renamedName);
         }
 
-        // Then, scan for variable declarations and check for conflicts
-        var matches = RawVarDeclPattern.Matches(code);
-        foreach (Match match in matches)
+        // Nested C# blocks are emitted as raw "{ ... }" statements.  Without explicit
+        // scope boundaries, declarations in sibling blocks (e.g. two consecutive
+        // `{ var pts = ... }` blocks) are seen as duplicates and get renamed.
+        // Treat a raw statement whose entire code is a block as its own scope.
+        bool isBlockScope = code.TrimStart().StartsWith("{", StringComparison.Ordinal)
+            && code.TrimEnd().EndsWith("}", StringComparison.Ordinal);
+        if (isBlockScope)
+            PushScope();
+
+        try
         {
-            var typeName = match.Groups[1].Value.Trim();
-            var varName = match.Groups[2].Value;
-
-            // Skip non-declaration statements that superficially match "word name;"
-            // such as "return x;".
-            if (!IsRawDeclarationCandidate(typeName, varName))
-                continue;
-
-            // Skip if already renamed (has a suffix like _1, _2, etc.)
-            if (char.IsDigit(varName[^1]) && varName.Contains('_'))
-                continue;
-
-            // Skip non-identifier names (numeric literals, etc.)
-            if (!IsValidIdentifier(varName))
-                continue;
-
-            // Check if the variable name conflicts with an existing declaration
-            if (IsDeclaredInCurrentOrParentScope(varName))
+            // Then, scan for variable declarations and check for conflicts
+            var matches = RawVarDeclPattern.Matches(code);
+            foreach (Match match in matches)
             {
-                var newName = AllocateUniqueName(varName);
-                _renameMap[varName] = newName;
+                var typeName = match.Groups[1].Value.Trim();
+                var varName = match.Groups[2].Value;
 
-                // Rename the variable in the raw statement text (declaration and all references)
-                code = Regex.Replace(code, $@"\b{Regex.Escape(varName)}\b", newName);
-                _rewriteCount++;
-                DeclareVariable(newName);
+                // Skip non-declaration statements that superficially match "word name;"
+                // such as "return x;".
+                if (!IsRawDeclarationCandidate(typeName, varName))
+                    continue;
+
+                // Skip if already renamed (has a suffix like _1, _2, etc.)
+                if (char.IsDigit(varName[^1]) && varName.Contains('_'))
+                    continue;
+
+                // Skip non-identifier names (numeric literals, etc.)
+                if (!IsValidIdentifier(varName))
+                    continue;
+
+                // Check if the variable name conflicts with an existing declaration
+                if (IsDeclaredInCurrentOrParentScope(varName))
+                {
+                    var newName = AllocateUniqueName(varName);
+                    _renameMap[varName] = newName;
+
+                    // Rename the variable in the raw statement text (declaration and all references)
+                    code = Regex.Replace(code, $@"\b{Regex.Escape(varName)}\b", newName);
+                    _rewriteCount++;
+                    DeclareVariable(newName);
+                }
+                else
+                {
+                    DeclareVariable(varName);
+                }
             }
-            else
+
+            if (code != node.Code)
             {
-                DeclareVariable(varName);
+                node.Code = code;
             }
+            return node;
         }
-
-        if (code != node.Code)
+        finally
         {
-            node.Code = code;
+            if (isBlockScope)
+                PopScope();
         }
-        return node;
     }
 }
