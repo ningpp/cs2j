@@ -985,6 +985,34 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain("Character.isDigit(name, index)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PropertyWithExplicitBackingField_SetViaExplicitSetterMethod_WritesBackingField()
+    {
+        var result = Convert("""
+            class MemberInfo { }
+
+            class XmlChoiceIdentifierAttribute
+            {
+                private MemberInfo _memberInfo;
+
+                internal MemberInfo MemberInfo
+                {
+                    get { return _memberInfo; }
+                    set { _memberInfo = value; }
+                }
+
+                internal void SetMemberInfo(MemberInfo memberInfo)
+                {
+                    MemberInfo = memberInfo;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("this._memberInfo = memberInfo", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("this.memberInfo = memberInfo", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

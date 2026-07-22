@@ -453,7 +453,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // a direct backing-field write, not a setter call.
                 if (inExplicitSetter || isReadOnlyViaThis)
                 {
-                    string fieldName = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+                    string fieldName = TryGetBackingFieldName(prop)
+                        ?? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"this.{fieldName} = {right}";
                 }
 
@@ -701,7 +702,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
                 if (bareInExplicitSetter || bareIdentProp.SetMethod == null)
                 {
-                    string fieldName = char.ToLowerInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
+                    string fieldName = TryGetBackingFieldName(bareIdentProp)
+                        ?? char.ToLowerInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
                     return $"this.{fieldName} = {right}";
                 }
 
@@ -1438,6 +1440,59 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         foreach (var iface in namedType.AllInterfaces)
             yield return iface;
+    }
+
+    /// <summary>
+    /// Inspects a property's getter/setter syntax bodies to find the backing field name.
+    /// Matches simple patterns such as <c>get { return _field; }</c> and
+    /// <c>set { _field = value; }</c>. Returns <c>null</c> when no simple backing field
+    /// can be determined (e.g. auto-properties, expression-bodied members, or metadata-only symbols).
+    /// </summary>
+    private static string? TryGetBackingFieldName(IPropertySymbol prop)
+    {
+        if (prop.GetMethod != null)
+        {
+            foreach (var syntaxRef in prop.GetMethod.DeclaringSyntaxReferences)
+            {
+                if (syntaxRef.GetSyntax() is not AccessorDeclarationSyntax getter)
+                    continue;
+
+                if (getter.ExpressionBody?.Expression is IdentifierNameSyntax exprBodyIdent)
+                    return ConversionContext.EscapeJavaKeyword(exprBodyIdent.Identifier.Text);
+
+                if (getter.Body?.Statements.Count == 1
+                    && getter.Body.Statements[0] is ReturnStatementSyntax { Expression: IdentifierNameSyntax returnIdent })
+                {
+                    return ConversionContext.EscapeJavaKeyword(returnIdent.Identifier.Text);
+                }
+            }
+        }
+
+        if (prop.SetMethod != null)
+        {
+            foreach (var syntaxRef in prop.SetMethod.DeclaringSyntaxReferences)
+            {
+                if (syntaxRef.GetSyntax() is not AccessorDeclarationSyntax setter)
+                    continue;
+
+                if (setter.ExpressionBody?.Expression is AssignmentExpressionSyntax exprBodyAssign
+                    && exprBodyAssign.Left is IdentifierNameSyntax exprBodyLeft
+                    && exprBodyAssign.Right is IdentifierNameSyntax { Identifier.Text: "value" })
+                {
+                    return ConversionContext.EscapeJavaKeyword(exprBodyLeft.Identifier.Text);
+                }
+
+                if (setter.Body?.Statements.Count == 1
+                    && setter.Body.Statements[0] is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assign }
+                    && assign.Left is IdentifierNameSyntax assignLeft
+                    && assign.Right is IdentifierNameSyntax { Identifier.Text: "value" })
+                {
+                    return ConversionContext.EscapeJavaKeyword(assignLeft.Identifier.Text);
+                }
+            }
+        }
+
+        return null;
     }
 
     private static bool IsInExplicitSetterMethod(IPropertySymbol property, ConversionContext context)
