@@ -205,6 +205,31 @@ class CSharpArrayListTest {
         assertArrayEquals(new Object[]{"apple", "banana"}, arr);
     }
 
+    @Test
+    void toArray_withClassLiteral_createsTypedArray() {
+        CSharpArrayList list = new CSharpArrayList();
+        list.add("apple");
+        list.add("banana");
+        Object[] arr = list.toArray(String.class);
+        assertEquals(2, arr.length);
+        assertEquals("apple", arr[0]);
+        assertEquals("banana", arr[1]);
+        assertEquals(String.class, arr.getClass().getComponentType());
+    }
+
+    @Test
+    void toArray_withClassVariable_createsTypedArray() {
+        CSharpArrayList list = new CSharpArrayList();
+        list.add(1);
+        list.add(2);
+        Class<?> itemType = Integer.class;
+        Object[] arr = list.toArray(itemType);
+        assertEquals(2, arr.length);
+        assertEquals(1, arr[0]);
+        assertEquals(2, arr[1]);
+        assertEquals(Integer.class, arr.getClass().getComponentType());
+    }
+
     // ---- Clone ----
 
     @Test

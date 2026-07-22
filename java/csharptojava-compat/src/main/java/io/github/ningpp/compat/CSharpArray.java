@@ -61,6 +61,27 @@ public final class CSharpArray {
     }
 
     /**
+     * Converts this wrapper to a Java array of the requested component type.
+     * If the wrapped array is already of the requested type, it is returned
+     * directly; otherwise a new typed array is allocated and the elements are
+     * copied.
+     */
+    public <T> T[] toArray(Class<T> componentType) {
+        if (array.getClass().getComponentType() == componentType) {
+            @SuppressWarnings("unchecked")
+            T[] typed = (T[]) array;
+            return typed;
+        }
+        int length = getLength();
+        @SuppressWarnings("unchecked")
+        T[] result = (T[]) Array.newInstance(componentType, length);
+        for (int i = 0; i < length; i++) {
+            result[i] = componentType.cast(getValue(i));
+        }
+        return result;
+    }
+
+    /**
      * C#-style "as" cast: returns the underlying array cast to the requested
      * array type, or null if the underlying array is not an instance of it.
      */

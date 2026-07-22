@@ -87,6 +87,15 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     public void sort(Comparator<?> comparer) { list.sort((Comparator<Object>) comparer); }
     public Object[] toArray() { return list.toArray(); }
     public <T> T[] toArray(T[] array) { return list.toArray(array); }
+    public <T> T[] toArray(Class<T> type) {
+        int size = list.size();
+        @SuppressWarnings("unchecked")
+        T[] array = (T[]) java.lang.reflect.Array.newInstance(type, size);
+        for (int i = 0; i < size; i++) {
+            array[i] = type.cast(list.get(i));
+        }
+        return array;
+    }
     public void trimToSize() { list.trimToSize(); }
     public static CSharpArrayList repeat(Object value, int count) {
         CSharpArrayList result = new CSharpArrayList(count);
