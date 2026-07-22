@@ -1843,6 +1843,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Wrap with new String(...) to match the C# return type.
             if (primTypeSyntax.Keyword.Text == "char" && originalMethodName == "ConvertFromUtf32")
                 return $"new String({boxedReceiver}.{mappedMethod}({primArgs}))";
+            // char.IsDigit(string, int) → Character.isDigit(s.charAt(index))
+            if (primTypeSyntax.Keyword.Text == "char" && originalMethodName == "IsDigit"
+                && node.ArgumentList.Arguments.Count == 2)
+            {
+                var strArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var idxArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"Character.isDigit({strArg}.charAt({idxArg}))";
+            }
             return $"{boxedReceiver}.{mappedMethod}({primArgs})";
         }
 
@@ -1854,6 +1862,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var symbolInfo = context.GetSymbolInfo(node);
             methodSymbol = symbolInfo.Symbol as IMethodSymbol;
 
+            // Char.IsDigit(string, int) → Character.isDigit(s.charAt(index))
+            if (originalMethodName == "IsDigit"
+                && node.ArgumentList.Arguments.Count == 2
+                && methodSymbol is { IsStatic: true, ContainingType.SpecialType: SpecialType.System_Char })
+            {
+                var strArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var idxArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"Character.isDigit({strArg}.charAt({idxArg}))";
+            }
 
             // Fallback: when overload resolution fails but Roslyn found candidate(s)
             // (e.g. ToList/ToDictionary on IEnumerable<T> with incomplete assembly refs),
@@ -3128,6 +3145,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         {
                             var aliasArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                             return $"new String({ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias)}.{aliasMethod}({aliasArgs}))";
+                        }
+                        // Char.IsDigit(string, int) → Character.isDigit(s.charAt(index))
+                        if (primitiveForAlias == "char" && originalMethodName == "IsDigit"
+                            && node.ArgumentList.Arguments.Count == 2)
+                        {
+                            var strArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                            var idxArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                            return $"Character.isDigit({strArg}.charAt({idxArg}))";
                         }
                         methodName = aliasMethod;
                         receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primitiveForAlias);

@@ -866,6 +866,26 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain("public Object getCurrent()", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CharIsDigit_StringOverload_GeneratesCharAtInvocation()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                bool Check(string name, int index)
+                {
+                    return Char.IsDigit(name, index);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("Character.isDigit(name.charAt(index))", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Character.isDigit(name, index)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
