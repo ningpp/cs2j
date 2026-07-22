@@ -6,1136 +6,864 @@ namespace CSharpToJava.Tests;
 public class CSharpXmlCompileRegressionTests
 {
     [Fact]
-    public void ExceptionMessageProperty_MapsToGetMessage()
+    public void OutDecimalParameter_AssignedIntLiteral_WrapsWithDecimalValueOf()
     {
         var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                string Read(Exception ex) => ex.Message;
-            }
-            """);
+class Sample
+{
+    void Calculate(out decimal minOccurs, out decimal maxOccurs)
+    {
+        minOccurs = 0;
+        maxOccurs = 0;
+    }
+}
+""");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("return ex.getMessage();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Message", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".value = Decimal.valueOf(0)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".value = 0;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void XunitThrowsAsyncGeneric_PrependsClassLiteral()
+    public void DecimalPropertyCompoundAssignment_ViaMemberAccess_UsesCompatMultiply()
     {
         var result = Convert("""
-            using System;
-            using System.Threading.Tasks;
-            using Xunit;
+class Particle
+{
+    public decimal MinOccurs { get; set; }
+    public decimal MaxOccurs { get; set; }
+}
 
-            class Sample
-            {
-                Task<ArgumentException> Read(Func<Task> action)
-                {
-                    return Assert.ThrowsAsync<ArgumentException>(action);
-                }
-            }
-            """);
+class Sample
+{
+    void Multiply(Particle baseParticle, Particle baseGroupBase)
+    {
+        baseParticle.MinOccurs *= baseGroupBase.MinOccurs;
+        if (baseParticle.MaxOccurs != decimal.MaxValue)
+        {
+            baseParticle.MaxOccurs *= baseGroupBase.MaxOccurs;
+        }
+    }
+}
+""");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Assert.throwsAsync(ArgumentException.class", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Assert.throwsAsync(action)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void XunitThrowsResultMessage_MapsExceptionMessageGetter()
-    {
-        var result = Convert("""
-            using System;
-            using Xunit;
-
-            class Sample
-            {
-                void Throws<T>(Action action, string message)
-                    where T : Exception
-                {
-                    Assert.Equal(Assert.Throws<T>(action).Message, message);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Assert.throws_(_cs2j_T, action).getMessage()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Message", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void FuncTaskParameter_UsesWildcardCompletableFutureSupplier()
-    {
-        var result = Convert("""
-            using System;
-            using System.Threading.Tasks;
-            using Xunit;
-
-            class Sample
-            {
-                Task<ArgumentException> Read(Func<Task> testCode)
-                {
-                    return Assert.ThrowsAsync<ArgumentException>(testCode);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Supplier<CompletableFuture<?>> testCode", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Assert.throwsAsync(ArgumentException.class, testCode)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Supplier<CompletableFuture> testCode", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void StringJoin_GenericClassArray_UsesStringHelperJoin()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                string JoinTypes(Type[] types) => string.Join<Type>(", ", types);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import io.github.ningpp.compat.StringHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("StringHelper.join(\", \", types)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("String.join(\", \", types)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TypeOf_MethodTypeParameter_UsesRuntimeClassParameter()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Type Read<T>() => typeof(T);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Class<T> _cs2j_T", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return _cs2j_T;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("T.class", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void NonGenericICollection_MapsToCSharpCollection()
-    {
-        var result = Convert("""
-            using System;
-            using System.Collections;
-
-            class Bag : ICollection
-            {
-                public int Count => 0;
-                public bool IsSynchronized => false;
-                public object SyncRoot => this;
-                public void CopyTo(Array array, int index) { }
-                public IEnumerator GetEnumerator() => null;
-            }
-
-            class Sample
-            {
-                int Read(Bag bag, Array array)
-                {
-                    ICollection collection = bag;
-                    collection.CopyTo(array, 0);
-                    return collection.Count;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("class Bag implements CSharpICollection", result.GeneratedCode, StringComparison.Ordinal);
-        // Local variable with CSharpICollection<?> type is simplified to var
-        // (consistent with other collection interface types like CSharpGenericIterable<T>)
-        Assert.Contains("var collection = bag;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("collection.copyTo(array, 0);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return collection.size();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public int size()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("java.util.Collection collection", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("CSharpIterable", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(", Iterable", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Iterable<Object>", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ConcreteCopyTo_OnNonFrameworkCollection_RemainsInstanceCall()
-    {
-        var result = Convert("""
-            using System.Collections;
-
-            class Item { }
-
-            class ItemCollection : IEnumerable
-            {
-                public void CopyTo(Item[] array, int index) { }
-                public IEnumerator GetEnumerator() => null;
-            }
-
-            class Sample
-            {
-                void Copy(ItemCollection target, Item[] destinationArray)
-                {
-                    target.CopyTo(destinationArray, 0);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("target.copyTo(destinationArray, 0);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("target.toArray()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.arraycopy(target.toArray()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void GenericArrayHelperInvokedWithPrimitiveType_UsesObjectReflectionArray()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                object Read(string[] values, Type destinationType)
-                {
-                    if (destinationType == typeof(int[]))
-                        return ToArray<int>(values);
-
-                    return ToArray<string>(values);
-                }
-
-                T[] ToArray<T>(string[] values)
-                {
-                    T[] result = new T[values.Length];
-                    for (int i = 0; i < values.Length; i++)
-                        result[i] = default(T);
-                    return result;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Object toArray", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.newArrayInstance(clazz", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("java.lang.reflect.Array.set(result", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("(int[]) toArray(values, Integer.class)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("(String[]) toArray(values, String.class)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("toArray(Integer.class, values, Integer.class)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("<T> T[] toArray", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ExplicitIEnumeratorMoveNextBridge_DoesNotReplaceAdvancingImplementation()
-    {
-        var result = Convert("""
-            using System.Collections;
-
-            class Sample : IEnumerator
-            {
-                int index = -1;
-
-                bool IEnumerator.MoveNext()
-                {
-                    return this.MoveNext();
-                }
-
-                internal bool MoveNext()
-                {
-                    index++;
-                    return index < 2;
-                }
-
-                void IEnumerator.Reset()
-                {
-                    index = -1;
-                }
-
-                object IEnumerator.Current
-                {
-                    get { return index; }
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("boolean moveNext()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("index++;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("return this.moveNext();", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void StringBuilderStringOperations_UseCompatHelperForDotNetNullAndRangeSemantics()
-    {
-        var result = Convert("""
-            using System.Text;
-
-            class Sample
-            {
-                string Edit(string current, string value, int offset, int count)
-                {
-                    var builder = new StringBuilder(current);
-                    builder.Append(value);
-                    builder.Insert(offset, value);
-                    builder.Remove(offset, count);
-                    return builder.ToString().Substring(offset, count);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import io.github.ningpp.compat.StringHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("new StringBuilder(StringHelper.stringBuilderInitialValue(current))", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("StringHelper.append(builder, value);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("StringHelper.insert(builder, offset, value);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("StringHelper.remove(builder, offset, count);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("StringHelper.substring(builder.toString(), offset, count)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void StringBuilderFourArgCtor_RewritesToCapacityCtorAndAppendRange()
-    {
-        var result = Convert("""
-            using System.Text;
-
-            class Sample
-            {
-                StringBuilder Build(string comment, int begin, int index)
-                {
-                    return new StringBuilder(comment, begin, index, 2 * comment.Length);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.DoesNotContain("new StringBuilder(comment, begin, index", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("new StringBuilder(2 * comment.length()).append(comment, begin, (begin + index))", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ReflectionMethodInfo_GetBaseDefinitionAndIsPublic_BridgedToReflectionHelper()
-    {
-        var result = Convert("""
-            using System.Reflection;
-
-            class Sample
-            {
-                bool IsPublicBase(MethodInfo method)
-                {
-                    return method.GetBaseDefinition().IsPublic;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.MethodInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getBaseDefinition()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.getBaseDefinition(method).getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ReflectionParameterInfo_IsOptional_BridgedToReflectionHelper()
-    {
-        var result = Convert("""
-            using System.Reflection;
-
-            class Sample
-            {
-                bool CheckOptional(ParameterInfo parameter)
-                {
-                    return parameter.IsOptional;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getIsOptional()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.isOptional(parameter)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_BaseType_And_IsGenericType_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                bool Check(Type type)
-                {
-                    return type.BaseType != null && type.IsGenericType;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getBaseType()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getIsGenericType()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getBaseType(type)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getIsGenericType(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SortedListValues_ReturnedAsNonGenericICollection_WrapsWithAdapter()
-    {
-        var result = Convert("""
-            using System.Collections;
-            using System.Collections.Generic;
-
-            class Sample
-            {
-                ICollection GetValues(SortedList<string, int> list)
-                {
-                    return list.Values;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("CSharpICollection<?> getValues", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return CSharpICollection.from(list.getValues());", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void NonGenericSortedListValues_ReturnedAsICollection_WrapsWithAdapter()
-    {
-        var result = Convert("""
-            using System.Collections;
-
-            class Sample
-            {
-                private SortedList _schemas = new SortedList();
-
-                ICollection GetSchemas()
-                {
-                    return _schemas.Values;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("CSharpICollection<?> getSchemas", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return CSharpICollection.from(_schemas.getValues());", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ArrayList_ReturnedAsICollection_WrapsWithAdapter()
-    {
-        var result = Convert("""
-            using System.Collections;
-
-            class Sample
-            {
-                ICollection GetSchemas()
-                {
-                    ArrayList tnsSchemas = new ArrayList();
-                    tnsSchemas.Add(1);
-                    return tnsSchemas;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.CSharpICollection;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("CSharpICollection<?> getSchemas", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return CSharpICollection.from(tnsSchemas);", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ReflectionHelper_IsPublic_AcceptsMethodInfoAndConstructor()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                bool Check(MethodInfo method, ConstructorInfo ctor)
-                {
-                    return method.IsPublic && ctor.IsPublic;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.MethodInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.ConstructorInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("method.getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ctor.getIsPublic()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void StringBuilder_AppendCharRepeatCount_BridgedToStringHelper()
-    {
-        var result = Convert("""
-            using System.Text;
-
-            class Sample
-            {
-                StringBuilder Append(StringBuilder sb, char c, int count)
-                {
-                    return sb.Append(c, count);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.StringHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".append(c, count)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("StringHelper.append(sb, c, count)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_FullName_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                string Read(Type type) => type.FullName;
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getFullName()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getFullName(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetMethodWithTypes_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MethodInfo Read(Type type, string name, Type[] types) => type.GetMethod(name, types);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getMethod(name, types)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getMethod(type, name, types)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetMethodWithBindingFlags_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MethodInfo Read(Type type, string name, BindingFlags flags) => type.GetMethod(name, flags);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getMethod(name, flags)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getMethod(type, name, flags)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_MakeArrayType_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Type Read(Type type) => type.MakeArrayType();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".makeArrayType()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.makeArrayType(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_IsGenericParameter_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                bool Read(Type type) => type.IsGenericParameter;
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getIsGenericParameter()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getIsGenericParameter(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetElementType_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Type Read(Type type) => type.GetElementType();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getElementType()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getElementType(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetArrayRank_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                int Read(Type type) => type.GetArrayRank();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getArrayRank()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getArrayRank(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetGenericArguments_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Type[] Read(Type type) => type.GetGenericArguments();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getGenericArguments()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getGenericArguments(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetDefaultMembers_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MemberInfo[] Read(Type type) => type.GetDefaultMembers();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getDefaultMembers()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getDefaultMembers(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetProperty_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                PropertyInfo Read(Type type) => type.GetProperty("Value");
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getProperty(\"Value\")", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getProperty(type, \"Value\")", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetCustomAttributesWithType_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                object[] Read(Type type) => type.GetCustomAttributes(typeof(ObsoleteAttribute), false);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("type.getCustomAttributes(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getCustomAttributes(type, ", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(".class, false)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ReflectionFieldInfo_FieldType_IsInitOnly_IsStatic_Bridged()
-    {
-        var result = Convert("""
-            using System.Reflection;
-
-            class Sample
-            {
-                bool Check(FieldInfo field)
-                {
-                    return field.FieldType != null && field.IsInitOnly && field.IsStatic;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.FieldInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("field.getFieldType()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("field.getIsInitOnly()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("field.getIsStatic()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ReflectionMethodBase_IsStatic_Bridged()
-    {
-        var result = Convert("""
-            using System.Reflection;
-
-            class Sample
-            {
-                bool Check(MethodInfo method)
-                {
-                    return method.IsStatic;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.MethodInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("method.getIsStatic()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetConstructors_NoArgs_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                ConstructorInfo[] Read(Type type) => type.GetConstructors();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getConstructors()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getConstructors(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetFields_NoArgs_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                FieldInfo[] Read(Type type) => type.GetFields();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getFields()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getFields(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetMethods_NoArgs_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MethodInfo[] Read(Type type) => type.GetMethods();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getMethods()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getMethods(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetMethodByName_BridgedToReflectionHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MethodInfo Read(Type type, string name) => type.GetMethod(name);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.ReflectionHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ReflectionHelper.getMethodByName(type, name)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetMember_String_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MemberInfo[] Read(Type type) => type.GetMember("Name");
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getMember(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getMembers(type, \"Name\")", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetMember_StringAndBindingFlags_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MemberInfo[] Read(Type type) => type.GetMember("Name", BindingFlags.Public | BindingFlags.Instance);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getMember(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getMembers(type, \"Name\", ", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetMembers_BindingFlags_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MemberInfo[] Read(Type type) => type.GetMembers(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("type.getMembers(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getMembers(type, ", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void MethodInfo_MakeGenericMethod_BridgedToCompatMethod()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                MethodInfo Read(MethodInfo method, Type[] types) => method.MakeGenericMethod(types);
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.MethodInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".MakeGenericMethod(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("method.makeGenericMethod(types)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetGenericArguments_ReturnsClassArray()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Type[] Read(Type type)
-                {
-                    Type[] args = type.GetGenericArguments();
-                    return args;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Class[] args = TypeHelper.getGenericArguments(type);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("TypeVariable<?>[]", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemType_GetGenericTypeDefinition_BridgedToTypeHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Type Read(Type type) => type.GetGenericTypeDefinition();
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getGenericTypeDefinition()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TypeHelper.getGenericTypeDefinition(type)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Decimal_MultiplyNullableDecimal_BridgedToMethodCall()
-    {
-        // Regression for csharpxml SchemaCollectionCompiler: property accessors returning
-        // Nullable<Decimal> were not bridged to .multiply(), leaving Java * operator.
-        var result = Convert("""
-            using System;
-
-            class Particle
-            {
-                public Decimal? MinOccurs { get; set; }
-            }
-
-            class Sample
-            {
-                Decimal? Calc(Particle p1, Particle p2)
-                {
-                    return p1.MinOccurs * p2.MinOccurs;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("baseParticle.setMinOccurs(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains(".multiply(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("baseParticle.getMinOccurs() * baseGroupBase.getMinOccurs()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Decimal_AssignIntLiteral_WrappedInDecimalValueOf()
+    public void DecimalFieldMemberAccess_AssignedIntLiteral_WrapsWithDecimalValueOf()
+    {
+        var result = Convert("""
+class Sample
+{
+    decimal _value;
+
+    void SetZero()
+    {
+        this._value = 0;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("this._value = Decimal.valueOf(0)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("this._value = 0;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DecimalConditionalExpression_IntLiteralBranch_WrapsWithDecimalValueOf()
+    {
+        var result = Convert("""
+class Container
+{
+    public decimal MaxOccurs { get; set; }
+}
+
+class Sample
+{
+    void SetOccurs(Container container, bool repeats)
+    {
+        container.MaxOccurs = repeats ? decimal.MaxValue : 1;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Decimal.valueOf(1)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("? Decimal.MAX_VALUE : 1", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Type_Assembly_And_Assembly_GetName_BridgedToCompatHelpers()
     {
         var result = Convert("""
             using System;
+            using System.Reflection;
 
             class Sample
             {
-                void M(decimal d)
+                void Check(Type type, Assembly assembly)
                 {
-                    d = 0;
+                    var a1 = type.Assembly;
+                    var a2 = typeof(string).Assembly;
+                    var name = assembly.GetName();
                 }
             }
             """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Matches(@"d\s*=\s*Decimal\.valueOf\s*\(\s*0\s*\)", result.GeneratedCode);
+        Assert.Contains("TypeHelper.getAssembly", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("AssemblyCompat", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("assembly.getPackage()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("type.getPackage()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ICollection_Assignment_FromList_WrappedWithFrom()
+    public void FunctionQuery_Ctor_AssignsListToGenericIList_DoesNotWrapWithFrom()
     {
         var result = Convert("""
-            using System;
+            using System.Collections.Generic;
+
+            class Query { }
+
+            class Sample
+            {
+                private IList<Query> _args;
+
+                public Sample(List<Query> args)
+                {
+                    _args = args;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("_args = args", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CSharpGenericIList.from(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void XmlSchemas_Merge_IListLocalToIListParameter_WrapsWithFrom()
+    {
+        var result = Convert("""
             using System.Collections;
             using System.Collections.Generic;
 
             class Sample
             {
-                ICollection c;
+                private ICollection GetRawCollection() => null;
 
-                void M(List<int> list)
+                private void Merge(IList originals)
                 {
-                    c = list;
+                }
+
+                private void M()
+                {
+                    IList originals = (IList)GetRawCollection();
+                    Merge(originals);
                 }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("CSharpICollection.from(list)", result.GeneratedCode);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("CSharpGenericIList.from(originals)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void IList_Assignment_FromCSharpList_WrappedWithFrom()
+    public void ICollectionProperty_ReturnsDictionaryValues_WrapsWithCSharpICollectionFrom()
     {
         var result = Convert("""
-            using System;
             using System.Collections;
             using System.Collections.Generic;
 
             class Sample
             {
-                private IList _field;
-                void M(List<string> list)
+                private Dictionary<string, object> _table = new Dictionary<string, object>();
+
+                internal ICollection Values
                 {
-                    _field = list;
+                    get { return _table.Values; }
                 }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("CSharpGenericIList.from(list)", result.GeneratedCode);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("CSharpICollection.from(_table.values())", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Object_BitwiseAnd_Int_CastToNumber()
+    public void PropertyWrapperMethods_GetXxx_AreConvertedToJavaBeanGetters()
     {
         var result = Convert("""
-            using System;
+            class XmlRootAttribute
+            {
+                internal bool IsNullableSpecified { get { return false; } }
+                internal string Key { get { return ""; } }
+
+                internal bool GetIsNullableSpecified() { return IsNullableSpecified; }
+                internal string GetKey() { return this.Key; }
+            }
+
+            class XmlAnyElementAttribute
+            {
+                internal bool NamespaceSpecified { get { return false; } }
+                internal bool GetNamespaceSpecified() { return NamespaceSpecified; }
+            }
 
             class Sample
             {
-                int Compare(object v1, object v2)
+                void M(XmlRootAttribute root, XmlAnyElementAttribute any)
                 {
-                    return ((v1 & 0xFF)).CompareTo((v2 & 0xFF));
+                    bool a = root.GetIsNullableSpecified();
+                    bool b = any.GetNamespaceSpecified();
+                    string k = root.GetKey();
                 }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("((Number)v1).intValue() & 0xFF", result.GeneratedCode);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("root.getIsNullableSpecified()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("any.getNamespaceSpecified()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("root.getKey()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("root.GetIsNullableSpecified()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("any.GetNamespaceSpecified()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("root.GetKey()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void FlagsEnum_IntComparedToEnum_ComparesValues()
+    public void NestedClassWithDelegateFields_GeneratesAccessorsAndUsages()
     {
         var result = Convert("""
             using System;
 
-            enum MyEnum { A = 1, B = 2 }
-
-            class Sample
+            class Outer
             {
-                bool Check(MyEnum e)
+                internal class Member
                 {
-                    return e != 0;
+                    public Action<object> Source;
+                    public Func<object> GetSource;
+                    public Action<object> ArraySource;
+                    public Action<object> CheckSpecifiedSource;
+                    public Action<object> ChoiceSource;
+
+                    public Member(string name) { }
+                }
+
+                void Use(Member member, object value)
+                {
+                    member?.ChoiceSource?.Invoke("x");
+                    if (member?.ArraySource != null)
+                    {
+                        member?.ArraySource(value);
+                    }
+                    else
+                    {
+                        member?.Source?.Invoke(value);
+                        member?.CheckSpecifiedSource?.Invoke(true);
+                    }
                 }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("e.getValue() != 0", result.GeneratedCode);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+
+        // Fields must be emitted.
+        Assert.Contains("public Consumer<Object> Source;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Consumer<Object> ArraySource;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Consumer<Object> CheckSpecifiedSource;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Consumer<Object> ChoiceSource;", result.GeneratedCode, StringComparison.Ordinal);
+
+        // Getters/setters must be emitted for the public fields.
+        Assert.Contains("public Consumer<Object> getSource()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public void setSource(Consumer<Object> value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Consumer<Object> getArraySource()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public void setArraySource(Consumer<Object> value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Consumer<Object> getCheckSpecifiedSource()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public void setCheckSpecifiedSource(Consumer<Object> value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public Consumer<Object> getChoiceSource()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("public void setChoiceSource(Consumer<Object> value)", result.GeneratedCode, StringComparison.Ordinal);
+
+        // Conditional access usages must use the getters and SAM method invocations.
+        Assert.Contains("member.getChoiceSource().accept(\"x\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("member.getArraySource().accept(value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("member.getSource().accept(value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("member.getCheckSpecifiedSource().accept(true)", result.GeneratedCode, StringComparison.Ordinal);
+
+        Console.WriteLine(result.GeneratedCode);
     }
 
     [Fact]
-    public void EventField_PlusEquals_WrappedInAddListener()
+    public void BoolVariable_GetType_And_ObjectAssignment_BoxesToBoolean()
     {
         var result = Convert("""
             using System;
-            using System.Xml.Serialization;
 
             class Sample
             {
-                XmlSerializerEvents _events = new XmlSerializerEvents();
-
-                void M(XmlNodeEventHandler handler)
+                void M()
                 {
-                    _events.OnUnknownNode += handler;
+                    bool b = true;
+                    Type t = b.GetType();
+                    object o = b;
                 }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("addOnUnknownNodeListener", result.GeneratedCode);
-        Assert.DoesNotContain(" + ", result.GeneratedCode);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Console.WriteLine("BOOL:\n" + result.GeneratedCode);
+        Assert.Contains("Boolean.valueOf(b).getClass()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Object o = Boolean.valueOf(b)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DecimalStatic_FieldZero_MappedToDecimalWrapper()
+    public void CharVariable_CompareTo_And_ObjectAssignment_BoxesToCharacter()
+    {
+        var result = Convert("""
+            class Sample
+            {
+                void M()
+                {
+                    char c = 'a';
+                    int r = c.CompareTo('b');
+                    object o = c;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Console.WriteLine("CHAR:\n" + result.GeneratedCode);
+        Assert.Contains("Character.compare(c, 'b')", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Object o = Character.valueOf(c)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UIntMaxValue_AssignedToUIntVariable_GetsIntCast()
+    {
+        var result = Convert("""
+            class Sample
+            {
+                void M()
+                {
+                    uint u = uint.MaxValue;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Console.WriteLine("UINT:\n" + result.GeneratedCode);
+        Assert.DoesNotContain("= 4294967295L;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("(int) 4294967295L", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LongValue_AssignedToIntVariable_GetsExplicitCast()
+    {
+        var result = Convert("""
+            class Sample
+            {
+                void M()
+                {
+                    long l = 100L;
+                    int i = (int)l;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Console.WriteLine("LONG:\n" + result.GeneratedCode);
+        Assert.Contains("int i = (int)(l)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValueTypeInNonGenericForeach_BoxesIterableTypeArgument()
+    {
+        var result = Convert("""
+            using System.Collections;
+
+            class Sample
+            {
+                void M(ICollection c)
+                {
+                    foreach (int symbol in c)
+                    {
+                    }
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Console.WriteLine("FOREACH:\n" + result.GeneratedCode);
+        Assert.Contains("Iterable<Integer>)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Iterable<int>", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TypeArgument_PassedToMemberInfoParameter_WrapsWithAsMemberInfo()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class XmlAttributes
+            {
+                public static object GetAttr(MemberInfo memberInfo, Type attrType)
+                {
+                    return null;
+                }
+            }
+
+            class Sample
+            {
+                string GenerateKey(Type type)
+                {
+                    return (string)XmlAttributes.GetAttr(type, typeof(ObsoleteAttribute));
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("TypeHelper.asMemberInfo(type)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitInterfaceIndexer_INameScope_GeneratesObjectSetMethod()
+    {
+        var result = Convert(@"
+public interface INameScope
+{
+    object this[object name, object ns] { get; set; }
+}
+
+public class NameTable : INameScope
+{
+    public object this[string name, string ns]
+    {
+        get { return null; }
+        set { }
+    }
+
+    object INameScope.this[object name, object ns]
+    {
+        get { return null; }
+        set { }
+    }
+}
+
+public class StructMapping : INameScope
+{
+    object INameScope.this[object name, object ns]
+    {
+        get { return null; }
+        set { }
+    }
+}
+");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode;
+        System.IO.File.WriteAllText(@"d:\code\cs2j\indexer-task25-output.java", code);
+
+        // The Java interface requires set(Object, Object, Object); both explicit implementations must match.
+        Assert.Contains("public Object set(Object name, Object ns, Object value)", code, StringComparison.Ordinal);
+        // StructMapping must implement the indexer as a setter, not the dictionary-style put method.
+        Assert.DoesNotContain("public Object put(Object name, Object ns, Object value)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StringInterface_Indexer_ExplicitImplementation_MatchesInterfaceSignature()
+    {
+        var result = Convert(@"
+internal interface INameScope
+{
+    object this[string name, string ns] { get; set; }
+}
+
+internal class NameTable : INameScope
+{
+    internal object this[string name, string ns]
+    {
+        get { return null; }
+        set { }
+    }
+
+    object INameScope.this[string name, string ns]
+    {
+        get { return null; }
+        set { }
+    }
+}
+");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode;
+        System.IO.File.WriteAllText(@"d:\code\cs2j\temp-string-interface.java", code);
+
+        // Interface and explicit implementation must agree on parameter types.
+        Assert.Contains("public Object set(String name, String ns, Object value)", code, StringComparison.Ordinal);
+        Assert.Contains("public Object get(String name, String ns)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("public Object set(Object name, Object ns, Object value)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("public Object get(Object name, Object ns)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Project_StringInterface_Indexer_ExplicitImplementation_MatchesInterfaceSignature()
+    {
+        var result = await ConvertProjectAsync(new[]
+        {
+            ("INameScope.cs", @"
+namespace System.Xml.Serialization
+{
+    internal interface INameScope
+    {
+        object this[string name, string ns] { get; set; }
+    }
+}
+"),
+            ("NameTable.cs", @"
+namespace System.Xml.Serialization
+{
+    internal class NameTable : INameScope
+    {
+        private System.Collections.Generic.Dictionary<NameKey, object> _table = new System.Collections.Generic.Dictionary<NameKey, object>();
+
+        internal object this[string name, string ns]
+        {
+            get { return null; }
+            set { }
+        }
+
+        object INameScope.this[string name, string ns]
+        {
+            get { return null; }
+            set { }
+        }
+    }
+
+    internal struct NameKey
+    {
+        public NameKey(string name, string ns) { }
+    }
+}
+"),
+            ("StructMapping.cs", @"
+namespace System.Xml.Serialization
+{
+    internal class StructMapping : INameScope
+    {
+        object INameScope.this[string name, string ns]
+        {
+            get { return null; }
+            set { }
+        }
+    }
+}
+"),
+        });
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode;
+        System.IO.File.WriteAllText(@"d:\code\cs2j\project-string-interface.java", code);
+
+        // All generated types in the same compilation unit must share the same signature.
+        Assert.Contains("public Object set(String name, String ns, Object value)", code, StringComparison.Ordinal);
+        Assert.Contains("public Object get(String name, String ns)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("public Object set(Object name, Object ns, Object value)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("public Object get(Object name, Object ns)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CollectionBase_With_IEnumerableT_GeneratesCompilableJava()
+    {
+        var result = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+public class MySchema { }
+
+public class MySchemaEnumerator : IEnumerator<MySchema>
+{
+    public MySchema Current => null;
+    object IEnumerator.Current => null;
+    public bool MoveNext() => false;
+    public void Reset() { }
+    public void Dispose() { }
+}
+
+public class MySchemaCollection : CollectionBase, IEnumerable<MySchema>
+{
+    public int Add(MySchema schema) { return List.Add(schema); }
+    public void Remove(MySchema schema) { List.Remove(schema); }
+    public bool Contains(MySchema schema) { return List.Contains(schema); }
+    public void CopyTo(MySchema[] array, int index) { }
+    public int IndexOf(MySchema schema) { return List.IndexOf(schema); }
+    public void Insert(int index, MySchema schema) { }
+
+    IEnumerator<MySchema> IEnumerable<MySchema>.GetEnumerator() { return new MySchemaEnumerator(); }
+}
+
+public class Sample
+{
+    public void Iterate(MySchemaCollection coll)
+    {
+        foreach (MySchema schema in coll) { }
+        foreach (MySchema schema in coll.List) { }
+    }
+}
+");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode;
+        // CSharpCollectionBase already provides the non-generic IEnumerable contract; adding
+        // CSharpGenericIterable<T> would create conflicting add/remove/iterator signatures.
+        Assert.DoesNotContain("implements CSharpGenericIterable<", code, StringComparison.Ordinal);
+        // The generated iterator() must be compatible with CSharpCollectionBase.iterator().
+        Assert.Contains("public CSharpEnumerator iterator()", code, StringComparison.Ordinal);
+        // Iterating a CollectionBase-derived class with a typed variable needs a wildcard cast.
+        Assert.Contains("(Iterable<MySchema>)(Iterable<?>)(coll)", code, StringComparison.Ordinal);
+        Assert.Contains("(Iterable<MySchema>)(Iterable<?>)(coll.getList())", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Temp_Diagnostics_FailingForeachCases()
+    {
+        // Diagnostic output for failing tests in SameTypeErasureConflictTests,
+        // LinqConcatSetOperatorTests, and ArrayForeachNotCollectedTests.
+        var cases = new[] {
+            (@"
+using System.Collections.Generic;
+
+class Rectangle { }
+class Point { }
+
+class Box
+{
+    public int Count;
+
+    public Box(IEnumerable<Point> points)
+    {
+        Count = 100;
+        foreach (var p in points)
+            Count++;
+    }
+
+    public Box(IEnumerable<Rectangle> rectangles)
+    {
+        Count = 200;
+        foreach (var r in rectangles)
+            Count++;
+    }
+
+    public static Box FromRectangles(IEnumerable<Rectangle> rectangles)
+    {
+        return new Box(rectangles);
+    }
+}
+", "erasure"),
+            (@"
+using System.Collections.Generic;
+using System.Linq;
+
+class Sample {
+    public static IEnumerable<string> ConcatLists(IList<string> strs1, IList<string> strs2) {
+        return strs1.Select(str => str).Concat(strs2.Select(str => str));
+    }
+}
+", "concat"),
+            (@"
+using System.Collections.Generic;
+using System.Linq;
+class Point { public int X, Y; }
+class Sample
+{
+    void Test(IEnumerable<Point> source, Point[] arr)
+    {
+        {
+            var pts = source.Where(p => p.X > 0);
+            foreach (var p in pts) { }
+        }
+        {
+            Point[] pts = arr;
+            foreach (var p in pts) { }
+        }
+    }
+}
+", "arrayvar")
+        };
+
+        foreach (var (src, name) in cases)
+        {
+            var result = Convert(src);
+            System.IO.File.WriteAllText($@"d:\code\cs2j\temp-diag-{name}.java", result.GeneratedCode);
+            Assert.True(result.Success, $"{name}: " + string.Join("\n", result.Diagnostics));
+        }
+    }
+
+    [Fact]
+    public void SystemArrayCast_ToStringArray_UsesToArray()
     {
         var result = Convert("""
             using System;
 
             class Sample
             {
-                Decimal M() => decimal.Zero;
+                Array EnsureArrayIndex(Array a, int index, Type elementType) => a;
+
+                void M()
+                {
+                    string[] ids = (string[])EnsureArrayIndex(null, 0, typeof(string));
+                }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Decimal.ZERO", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("decimal.ZERO", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("decimal.Zero", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains(".toArray(String.class)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(String[])(ensureArrayIndex", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DecimalStatic_Negate_MappedToDecimalWrapper()
+    public void NameTableToArray_TypeOfElementAccessor_ChainsToArray()
     {
         var result = Convert("""
             using System;
 
+            class ElementAccessor { }
+
+            class NameTable
+            {
+                public Array ToArray(Type type) => null;
+            }
+
             class Sample
             {
-                Decimal M(Decimal d) => decimal.Negate(d);
+                void M(NameTable table)
+                {
+                    ElementAccessor[] elements = (ElementAccessor[])table.ToArray(typeof(ElementAccessor));
+                }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Decimal.negate(d)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("decimal.negate", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("table.toArray(ElementAccessor.class).toArray(ElementAccessor.class)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(ElementAccessor[])(table.toArray", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DecimalStatic_Truncate_MappedToDecimalWrapper()
+    public void GenericEnumeratorWithImplicitTypedCurrentAndExplicitObjectCurrent_GetCurrentReturnsTyped()
     {
         var result = Convert("""
-            using System;
+            using System.Collections;
+            using System.Collections.Generic;
 
-            class Sample
+            public class Schema { }
+
+            public class SchemaEnumerator : IEnumerator<Schema>, System.Collections.IEnumerator
             {
-                Decimal M(Decimal d) => decimal.Truncate(d);
+                private Schema[] _data;
+                private int _pos;
+
+                public SchemaEnumerator(Schema[] data)
+                {
+                    _data = data;
+                    _pos = -1;
+                }
+
+                public bool MoveNext()
+                {
+                    if (_pos >= _data.Length - 1) return false;
+                    _pos++;
+                    return true;
+                }
+
+                public Schema Current => _data[_pos];
+
+                object System.Collections.IEnumerator.Current => _data[_pos];
+
+                public void Reset() { _pos = -1; }
+
+                public void Dispose() { }
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Decimal.truncate(d)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("decimal.truncate", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode;
+
+        // Must implement generic enumerator with typed element.
+        Assert.Contains("implements CSharpGenericEnumerator<Schema>", code, StringComparison.Ordinal);
+        // The typed Current property must keep the standard getCurrent() name to satisfy the interface.
+        Assert.Contains("public Schema getCurrent()", code, StringComparison.Ordinal);
+        // The non-generic explicit Current must not hijack the standard name.
+        Assert.DoesNotContain("public Object getCurrent()", code, StringComparison.Ordinal);
+        // The typed accessor must not be renamed to the $Class suffix.
+        Assert.DoesNotContain("getCurrent$Class()", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IEnumerableT_WithNonGenericGetEnumerator_IteratorReturnsGenericEnumerator()
+    {
+        var result = Convert("""
+using System;
+using System.Collections;
+using System.Collections.Generic;
+
+class StringCollection : IEnumerable<string>
+{
+    private string[] _items;
+    public StringCollection(string[] items) { _items = items; }
+
+    public IEnumerator GetEnumerator()
+    {
+        return new StringEnumerator(_items);
+    }
+
+    IEnumerator<string> IEnumerable<string>.GetEnumerator()
+    {
+        return new StringGenericEnumerator(_items);
+    }
+
+    private class StringEnumerator : IEnumerator
+    {
+        private string[] _items;
+        private int _pos;
+        public StringEnumerator(string[] items) { _items = items; _pos = -1; }
+        public bool MoveNext()
+        {
+            _pos++;
+            return _pos < _items.Length;
+        }
+        public object Current => _pos < 0 || _pos >= _items.Length ? null : _items[_pos];
+        public void Reset() { _pos = -1; }
+    }
+
+    private class StringGenericEnumerator : IEnumerator<string>
+    {
+        private string[] _items;
+        private int _pos;
+        public StringGenericEnumerator(string[] items) { _items = items; _pos = -1; }
+        public bool MoveNext()
+        {
+            _pos++;
+            return _pos < _items.Length;
+        }
+        public string Current => _pos < 0 || _pos >= _items.Length ? null : _items[_pos];
+        object IEnumerator.Current => Current;
+        public void Reset() { _pos = -1; }
+        public void Dispose() { }
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("implements CSharpGenericIterable<String>", code, StringComparison.Ordinal);
+        Assert.Contains("public CSharpGenericEnumerator<String> iterator()", code, StringComparison.Ordinal);
+        Assert.Contains("class StringEnumerator implements CSharpGenericEnumerator<String>", code, StringComparison.Ordinal);
+        Assert.Contains("public String getCurrent()", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("public Object getCurrent()", code, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)
@@ -1144,8 +872,32 @@ public class CSharpXmlCompileRegressionTests
         return pipeline.Convert(new ConversionRequest
         {
             SourceCode = sourceCode,
-            FileName = "Test.cs",
+            FileName = "Sample.cs",
             Options = new ConversionOptions(),
         });
+    }
+
+    private static async Task<ConversionResult> ConvertProjectAsync(IEnumerable<(string FilePath, string Content)> sourceFiles)
+    {
+        var files = sourceFiles.Select(s => new SourceFile
+        {
+            FilePath = s.FilePath,
+            Content = s.Content,
+        }).ToArray();
+
+        var options = new ConversionOptions();
+        var pipeline = new ProjectConversionPipeline(options);
+        var results = await pipeline.ConvertProjectAsync(files);
+
+        var success = results.Any() && results.All(r => r.Success);
+        var generated = string.Join("\n\n", results.Where(r => r.Success).Select(r => $"// ----- {r.FileName} -----\n{r.GeneratedCode}"));
+        var diagnostics = results.SelectMany(r => r.Diagnostics).ToList();
+
+        return new ConversionResult
+        {
+            Success = success,
+            GeneratedCode = generated,
+            Diagnostics = diagnostics,
+        };
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -152,6 +153,21 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             {
                 trueExpr = AdaptIntegralLiteralToEnum(node.WhenTrue, trueExpr, conditionalType, context);
                 falseExpr = AdaptIntegralLiteralToEnum(node.WhenFalse, falseExpr, conditionalType, context);
+            }
+        }
+
+        // Java's conditional expression requires both branches to have compatible types.
+        // C# allows `condition ? decimalValue : 1` because 1 is implicitly convertible to decimal.
+        // Wrap the numeric branch with Decimal.valueOf(...) so both branches are Decimal-typed.
+        if (context.SemanticModel != null)
+        {
+            var conditionalType = context.GetTypeInfo(node).ConvertedType;
+            if (ExpressionTransformerHelpers.IsDecimalType(conditionalType))
+            {
+                trueExpr = ExpressionTransformerHelpers.ToDecimalExpression(
+                    node.WhenTrue, trueExpr, context.GetTypeInfo(node.WhenTrue).Type);
+                falseExpr = ExpressionTransformerHelpers.ToDecimalExpression(
+                    node.WhenFalse, falseExpr, context.GetTypeInfo(node.WhenFalse).Type);
             }
         }
 

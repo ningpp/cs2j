@@ -429,16 +429,29 @@ public partial class StatementTransformer
                 break;
             case InvocationExpressionSyntax invocation when invocation.Expression is MemberBindingExpressionSyntax invokeBinding:
                 var methodName = ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text);
+                var args = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => exprTransformer.Transform(a.Expression, context)));
+
+                // Delegate field invocation: member?.ArraySource(value) cannot be emitted as a
+                // method call on the field itself. Resolve the SAM method and invoke through the
+                // getter (generated for public fields) so the call compiles in Java.
+                if (context.SemanticModel != null
+                    && TryResolveDelegateFieldInvocation(invokeBinding, invocation, objExpr, context, out var delegateTarget, out var samMethodName))
+                {
+                    innerCall = $"{delegateTarget}.{samMethodName}({args});";
+                }
                 // Delegate .Invoke() → SAM method: Invoke is not a valid Java method
                 // on functional interfaces. Map to run/accept/get/apply based on usage.
-                if (methodName == "Invoke")
+                else if (methodName == "Invoke")
                 {
                     int paramCount = invocation.ArgumentList.Arguments.Count;
                     methodName = Transformers.Type.DelegateTransformer.InferSamMethodName(
                         returnsVoid: true, paramCount); // statement context is always void
+                    innerCall = $"{objExpr}.{methodName}({args});";
                 }
-                var args = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => exprTransformer.Transform(a.Expression, context)));
-                innerCall = $"{objExpr}.{methodName}({args});";
+                else
+                {
+                    innerCall = $"{objExpr}.{methodName}({args});";
+                }
                 break;
             case ConditionalAccessExpressionSyntax nestedCondAccess:
                 var nestedObjExpr = exprTransformer.TransformWhenNotNull(nestedCondAccess.Expression, objExpr, context);
@@ -450,6 +463,40 @@ public partial class StatementTransformer
                 break;
         }
         return $"if ({objExpr} != null) {{ {innerCall} }}";
+    }
+
+    /// <summary>
+    /// Detects when a conditional-access invocation such as <c>member?.ArraySource(value)</c>
+    /// refers to a delegate field. When true, returns the getter target (e.g. <c>member.getArraySource()</c>)
+    /// and the Java SAM method name (e.g. <c>accept</c>) to call on it.
+    /// </summary>
+    private static bool TryResolveDelegateFieldInvocation(
+        MemberBindingExpressionSyntax invokeBinding,
+        InvocationExpressionSyntax invocation,
+        string objExpr,
+        ConversionContext context,
+        out string delegateTarget,
+        out string samMethodName)
+    {
+        delegateTarget = string.Empty;
+        samMethodName = string.Empty;
+
+        if (context.GetSymbolInfo(invokeBinding).Symbol is not IFieldSymbol field
+            || field.Type?.TypeKind != TypeKind.Delegate
+            || field.Type is not INamedTypeSymbol delegateType
+            || delegateType.DelegateInvokeMethod is not IMethodSymbol invokeMethod)
+        {
+            return false;
+        }
+
+        var memberName = ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text);
+        var propertyName = memberName.Length > 0
+            ? char.ToUpperInvariant(memberName[0]) + memberName[1..]
+            : memberName;
+        delegateTarget = $"{objExpr}.get{propertyName}()";
+        samMethodName = context.TypeMappings.MapMethod(delegateType.ToDisplayString(), "Invoke")
+            ?? Transformers.Type.DelegateTransformer.InferSamMethodName(invokeMethod.ReturnsVoid, invokeMethod.Parameters.Length);
+        return true;
     }
 
     private static bool IsBareReadExpression(string expr)

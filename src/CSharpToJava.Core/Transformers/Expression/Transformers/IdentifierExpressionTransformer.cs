@@ -963,15 +963,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Auto-properties emitted as public fields in project pipeline: skip getter
         if (memberName == "AlgorithmData") return $"{target}.AlgorithmData";
 
-        // Special case: GetType().Assembly / typeof(T).Assembly → AssemblyCompat.fromClass(...)
-        // Without this, the generic TypeMappings rule converts .Assembly → .getPackage(),
-        // which returns java.lang.Package instead of AssemblyCompat, breaking any
-        // subsequent method calls like GetManifestResourceStream or GetName.
+        // Special case: Type.Assembly / MemberInfo.Assembly / Module.Assembly → TypeHelper.getAssembly(...)
+        // Without this, the generic TypeMappings rule converts Type.Assembly → getPackage(),
+        // which returns java.lang.Package instead of AssemblyCompat and breaks subsequent
+        // calls like GetManifestResourceStream or GetName.
         if (memberName is "Assembly" or "get_Assembly"
-            && (IsGetTypeInvocation(node.Expression) || node.Expression is TypeOfExpressionSyntax))
+            && (IsGetTypeInvocation(node.Expression)
+                || node.Expression is TypeOfExpressionSyntax
+                || IsSystemType(receiverType)
+                || IsJavaLangClassType(receiverType)
+                || IsSystemModuleType(receiverType)
+                || IsMemberInfoType(receiverType)))
         {
-            context.AddImport("io.github.ningpp.compat.AssemblyCompat");
-            return $"AssemblyCompat.fromClass({target})";
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            return $"TypeHelper.getAssembly({target})";
         }
 
         if (context.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
@@ -2020,6 +2025,37 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         for (var current = type.BaseType; current != null; current = current.BaseType)
         {
             if (current.ToDisplayString() == "System.Type") return true;
+        }
+        return false;
+    }
+
+    private static bool IsJavaLangClassType(ITypeSymbol? type)
+        => type?.ToDisplayString() == "java.lang.Class";
+
+    private static bool IsSystemModuleType(ITypeSymbol? type)
+        => type?.ToDisplayString() is "System.Reflection.Module" or "java.lang.Module";
+
+    private static bool IsMemberInfoType(ITypeSymbol? type)
+    {
+        if (type == null) return false;
+        var display = type.ToDisplayString();
+        if (display is "System.Reflection.MemberInfo"
+            or "System.Reflection.MethodInfo"
+            or "System.Reflection.MethodBase"
+            or "System.Reflection.FieldInfo"
+            or "System.Reflection.PropertyInfo"
+            or "System.Reflection.ConstructorInfo"
+            or "io.github.ningpp.compat.MemberInfo"
+            or "io.github.ningpp.compat.MethodInfo"
+            or "io.github.ningpp.compat.FieldInfo"
+            or "io.github.ningpp.compat.ConstructorInfo")
+        {
+            return true;
+        }
+        for (var current = type.BaseType; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.Reflection.MemberInfo")
+                return true;
         }
         return false;
     }

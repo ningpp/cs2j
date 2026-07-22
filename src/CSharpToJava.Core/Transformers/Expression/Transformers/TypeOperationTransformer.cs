@@ -337,10 +337,42 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         }
 
         if (context.SemanticModel != null
-            && targetSymbol is IArrayTypeSymbol
-            && node.Expression is not InvocationExpressionSyntax
+            && targetSymbol is IArrayTypeSymbol arrayCastTarget
             && IsSystemArrayReferenceType(context.GetTypeInfo(node.Expression).Type))
         {
+            var elementType = arrayCastTarget.ElementType;
+            var elementTypeName = context.MapType(elementType);
+            var elementClassLiteral = $"{ToRuntimeTypeForClassLiteral(elementTypeName)}.class";
+            context.AddImport("io.github.ningpp.compat.CSharpArray");
+
+            // C# (T[])receiver.ToArray(typeof(T)) where receiver.ToArray returns System.Array.
+            // In Java the helper returns CSharpArray, so a second .toArray(Class) converts it to T[].
+            // For System.Collections.ArrayList the helper is CSharpArrayList.toArray(Class<T>),
+            // which already returns T[]; the outer cast is redundant.
+            if (node.Expression is InvocationExpressionSyntax invocation
+                && invocation.Expression is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name.Identifier.Text == "ToArray"
+                && invocation.ArgumentList.Arguments.Count == 1
+                && invocation.ArgumentList.Arguments[0].Expression is TypeOfExpressionSyntax)
+            {
+                var receiverType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+                bool isArrayList = receiverType?.ToDisplayString() == "System.Collections.ArrayList";
+                if (isArrayList)
+                {
+                    return expression;
+                }
+
+                return $"{expression}.toArray({elementClassLiteral})";
+            }
+
+            // For other method invocations returning System.Array (e.g. EnsureArrayIndex),
+            // the Java helper returns CSharpArray. Use toArray(componentType.class) to
+            // produce a T[] that the surrounding code can consume.
+            if (node.Expression is InvocationExpressionSyntax)
+            {
+                return $"{expression}.toArray({elementClassLiteral})";
+            }
+
             return $"{expression}.as({ToRuntimeTypeForClassLiteral(targetType)}.class)";
         }
 
@@ -407,7 +439,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         // C# (byte)expr → & 0xFF (byte maps to Java int, cast becomes masking)
         if (targetSymbol?.SpecialType == SpecialType.System_Byte)
+        {
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            // When casting from object, Java cannot use Object as a bitwise operand.
+            // Unbox to int first; the runtime type check (e.g. value instanceof Byte)
+            // in the surrounding C# code guarantees the cast is safe.
+            if (sourceType?.SpecialType == SpecialType.System_Object)
+                return $"(((Number)({expression})).intValue() & 0xFF)";
             return $"({expression} & 0xFF)";
+        }
 
         // C# (ushort)expr → ((int)(expr) & 0xFFFF) (ushort maps to Java short, but & 0xFFFF
         // produces int which is the correct type for assignments and comparisons)

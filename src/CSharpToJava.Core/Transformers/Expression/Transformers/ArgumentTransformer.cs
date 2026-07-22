@@ -489,6 +489,36 @@ public class ArgumentTransformer
             return transformedExpr;
         }
 
+        // C# System.Type implements ICustomAttributeProvider, but the Java mapping for
+        // System.Type is java.lang.Class, which does not implement the compat
+        // ICustomAttributeProvider interface. Wrap Class arguments when the target
+        // parameter expects ICustomAttributeProvider.
+        if (targetParam.Type is INamedTypeSymbol capParamType
+            && capParamType.ToDisplayString() == "System.Reflection.ICustomAttributeProvider")
+        {
+            var capArgType = context.GetTypeInfo(arg.Expression).Type;
+            if (capArgType is INamedTypeSymbol capArgNamed && IsSystemTypeOrDerived(capArgNamed))
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.asCustomAttributeProvider({transformedExpr})";
+            }
+        }
+
+        // C# System.Type derives from System.Reflection.MemberInfo, but the Java mapping
+        // for System.Type is java.lang.Class, which does not implement the compat
+        // MemberInfo interface. Wrap Class arguments when the target parameter expects
+        // MemberInfo.
+        if (targetParam.Type is INamedTypeSymbol memberInfoParamType
+            && memberInfoParamType.ToDisplayString() == "System.Reflection.MemberInfo")
+        {
+            var memberInfoArgType = context.GetTypeInfo(arg.Expression).Type;
+            if (memberInfoArgType is INamedTypeSymbol memberInfoArgNamed && IsSystemTypeOrDerived(memberInfoArgNamed))
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.asMemberInfo({transformedExpr})";
+            }
+        }
+
         // When 'this' is passed as IComparer<T>, emit a typed method reference instead.
         // This handles erasure conflicts where the class implements multiple IComparer<T>
         // but Java only allows one Comparator<T>. Using this::compare with type context
@@ -720,6 +750,20 @@ public class ArgumentTransformer
             }
         }
 
+        // Non-generic IList parameter + non-generic IList argument: the argument's concrete
+        // Java type may be a CSharpList<T> with a wildcard or different element than Object
+        // (e.g. CSharpList<capture#1, ?>), which is not assignable to CSharpGenericIList<Object>.
+        // Bridge through CSharpGenericIList.from() to ensure compatibility.
+        if (paramType is INamedTypeSymbol pNamedIList
+            && pNamedIList.ToDisplayString() == "System.Collections.IList"
+            && argType is INamedTypeSymbol aNamedIList
+            && aNamedIList.ToDisplayString() == "System.Collections.IList"
+            && !transformedExpr.StartsWith("CSharpGenericIList.from(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+            return $"CSharpGenericIList.from({transformedExpr})";
+        }
+
         var result = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
             arg.Expression,
             transformedExpr,
@@ -874,6 +918,19 @@ public class ArgumentTransformer
                 return true;
             return named.AllInterfaces.Any(i =>
                 i.OriginalDefinition?.ToDisplayString() is "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection");
+        }
+        return false;
+    }
+
+    private static bool IsSystemTypeOrDerived(INamedTypeSymbol type)
+    {
+        var current = type;
+        while (current != null)
+        {
+            var display = current.ToDisplayString();
+            if (display == "System.Type" || display == "System.Reflection.TypeInfo")
+                return true;
+            current = current.BaseType;
         }
         return false;
     }

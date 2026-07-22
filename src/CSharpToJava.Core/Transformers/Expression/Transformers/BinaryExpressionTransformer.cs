@@ -507,17 +507,35 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             if ((leftIsEnum && rightIsNumeric) || (leftIsNumeric && rightIsEnum))
             {
                 var enumType = leftIsEnum ? leftType : rightType;
-                var enumExpr = leftIsEnum ? node.Left : node.Right;
 
                 // Skip [Flags] enums mapped to primitive int/long constants (already numeric in Java).
-                // Skip enum expressions that are bitwise/arithmetic operations; those are already
-                // converted to numeric expressions by the enum bitwise/arithmetic transformers.
-                if (!IsFlagsEnumType(enumType!, context) && !IsEnumArithmeticOrBitwiseExpression(enumExpr))
+                if (!IsFlagsEnumType(enumType!, context))
                 {
                     var leftExpr = facade.Transform(node.Left, context);
                     var rightExpr = facade.Transform(node.Right, context);
-                    if (leftIsEnum) leftExpr = $"{leftExpr}.getValue()";
-                    if (rightIsEnum) rightExpr = $"{rightExpr}.getValue()";
+                    if (leftIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Left)) leftExpr = $"{leftExpr}.getValue()";
+                    if (rightIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Right)) rightExpr = $"{rightExpr}.getValue()";
+                    return op == "=="
+                        ? $"{leftExpr} == {rightExpr}"
+                        : $"{leftExpr} != {rightExpr}";
+                }
+            }
+
+            // Handle enum == enum where one side is a bitwise/arithmetic enum expression.
+            // The bitwise/arithmetic transformer converts that side to a numeric expression,
+            // so the other (simple enum) side needs .getValue() for a valid Java comparison.
+            if (leftIsEnum && rightIsEnum)
+            {
+                var enumType = leftType!;
+                bool leftIsEnumOp = IsEnumArithmeticOrBitwiseExpression(node.Left);
+                bool rightIsEnumOp = IsEnumArithmeticOrBitwiseExpression(node.Right);
+
+                if (!IsFlagsEnumType(enumType, context) && (leftIsEnumOp || rightIsEnumOp))
+                {
+                    var leftExpr = facade.Transform(node.Left, context);
+                    var rightExpr = facade.Transform(node.Right, context);
+                    if (!leftIsEnumOp) leftExpr = $"{leftExpr}.getValue()";
+                    if (!rightIsEnumOp) rightExpr = $"{rightExpr}.getValue()";
                     return op == "=="
                         ? $"{leftExpr} == {rightExpr}"
                         : $"{leftExpr} != {rightExpr}";
@@ -534,8 +552,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 return enumBitwiseResult;
         }
 
-        // Handle boxed Object & numeric (e.g. unsigned byte comparison)
-        if (op == "&" && context.SemanticModel != null)
+        // Handle boxed Object & numeric (e.g. unsigned byte comparison or byte mask)
+        if (IsBitwiseOp(op) && context.SemanticModel != null)
         {
             var leftType = context.GetTypeInfo(node.Left).Type;
             var rightType = context.GetTypeInfo(node.Right).Type;
@@ -552,7 +570,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                     leftExpr = $"((Number){leftExpr}).intValue()";
                 if (rightIsObject)
                     rightExpr = $"((Number){rightExpr}).intValue()";
-                return $"({leftExpr} & {rightExpr})";
+                return $"({leftExpr} {op} {rightExpr})";
             }
         }
 

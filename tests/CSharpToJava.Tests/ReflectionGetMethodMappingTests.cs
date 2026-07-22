@@ -186,8 +186,8 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("import io.github.ningpp.compat.AssemblyCompat", code, StringComparison.Ordinal);
-        Assert.Contains("AssemblyCompat.fromClass(getClass())", code, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper", code, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getAssembly(getClass())", code, StringComparison.Ordinal);
         Assert.DoesNotContain("getClass().getPackage()", code, StringComparison.Ordinal);
     }
 
@@ -206,8 +206,8 @@ public class SvgGraphWriter
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("import io.github.ningpp.compat.AssemblyCompat", code, StringComparison.Ordinal);
-        Assert.Contains("AssemblyCompat.fromClass(SvgGraphWriter.class)", code, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper", code, StringComparison.Ordinal);
+        Assert.Contains("TypeHelper.getAssembly(SvgGraphWriter.class)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("SvgGraphWriter.class.getPackage().getPackage()", code, StringComparison.Ordinal);
     }
 

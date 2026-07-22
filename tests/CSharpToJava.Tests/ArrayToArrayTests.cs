@@ -49,9 +49,8 @@ class Program
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("return (int[][])(transitionTable.toArray(new int[0][]));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return transitionTable.toArray(new int[0][]);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("new int[][0]", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".toArray(int[].class)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

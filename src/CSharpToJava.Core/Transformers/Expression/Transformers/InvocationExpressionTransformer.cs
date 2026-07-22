@@ -2084,19 +2084,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // Primitive CompareTo: C# int.CompareTo(int) → Java Integer.compare(int, int)
+        // Also handles char/bool and unsigned types mapping to the correct Java wrapper.
         if (originalMethodName == "CompareTo"
             && node.ArgumentList.Arguments.Count == 1
             && methodSymbol is { IsExtensionMethod: false }
             && methodSymbol.ContainingType is INamedTypeSymbol compareToType
-            && IsPrimitiveNumericType(compareToType)
+            && IsPrimitiveTypeWithCompare(compareToType)
             && compareToType.SpecialType != SpecialType.System_Decimal)
         {
             var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var wrapper = compareToType.SpecialType switch
             {
-                SpecialType.System_Int64 => "Long",
+                SpecialType.System_Int64 or SpecialType.System_UInt64 => "Long",
                 SpecialType.System_Double => "Double",
                 SpecialType.System_Single => "Float",
+                SpecialType.System_Char => "Character",
+                SpecialType.System_Boolean => "Boolean",
                 _ => "Integer"
             };
             return $"{wrapper}.compare({receiver}, {arg})";
@@ -3501,6 +3504,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         }
                         methodName = primMethodMapped;
                         receiver = ExpressionTransformerHelpers.BoxJavaPrimitiveType(primKeywordForMethod);
+                        if (primKeywordForMethod == "decimal")
+                            context.AddImport("io.github.ningpp.compat.Decimal");
                     }
                 }
             }
@@ -5640,6 +5645,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (TryTransformTypeAssemblyManifestResourceStream(node, memberAccess, context, facade, out var manifestResourceCall))
             return manifestResourceCall;
 
+        // C# primitive.GetType() → Java wrapper.valueOf(primitive).getClass()
+        // Java primitives cannot be dereferenced, so box before calling getClass().
+        if (methodName == "getClass"
+            && node.ArgumentList.Arguments.Count == 0
+            && context.SemanticModel != null)
+        {
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+            var wrapper = GetJavaWrapperForPrimitiveSpecialType(receiverType?.SpecialType);
+            if (wrapper != null)
+            {
+                return $"{wrapper}.valueOf({receiver}).getClass()";
+            }
+        }
+
         return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{receiver}.{methodName}({args})", methodSymbol, context);
     }
 
@@ -7015,6 +7034,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             or SpecialType.System_Decimal => true,
             _ => false
         };
+    }
+
+    private static bool IsPrimitiveTypeWithCompare(INamedTypeSymbol type)
+    {
+        return IsPrimitiveNumericType(type)
+            || type.SpecialType is SpecialType.System_Char or SpecialType.System_Boolean;
     }
 
     /// <summary>
@@ -8418,6 +8443,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && camelCaseName == "get" + accessorSuffix
                 && methodSymbol.Parameters.Length == 0)
             {
+                // If the user method is just a trivial wrapper around the property getter
+                // (e.g. internal bool GetIsNullableSpecified() { return IsNullableSpecified; }),
+                // it will be eliminated as a self-forwarding duplicate of the auto-generated
+                // getter. Treat the call as the property getter and allow the normal camelCase
+                // name instead of preserving the PascalCase wrapper name.
+                if (IsSimplePropertyGetterWrapper(methodSymbol, property.Name))
+                    continue;
+
                 return !AccessorIsPrivate(property.GetMethod, methodSymbol);
             }
 
@@ -8440,6 +8473,45 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private static string ToPascalCase(string name)
         => string.IsNullOrEmpty(name) ? name : char.ToUpperInvariant(name[0]) + name[1..];
+
+    /// <summary>
+    /// Determines whether a method is a trivial forwarding wrapper for a property getter:
+    /// it has no parameters and its body is exactly <c>return PropertyName;</c> or
+    /// <c>return this.PropertyName;</c>.
+    /// </summary>
+    private static bool IsSimplePropertyGetterWrapper(IMethodSymbol methodSymbol, string propertyName)
+    {
+        if (methodSymbol.Parameters.Length != 0)
+            return false;
+
+        foreach (var syntaxRef in methodSymbol.DeclaringSyntaxReferences)
+        {
+            if (syntaxRef.GetSyntax() is not MethodDeclarationSyntax methodDecl)
+                continue;
+
+            ExpressionSyntax? returnedExpr = methodDecl.ExpressionBody?.Expression;
+            if (returnedExpr == null && methodDecl.Body != null)
+            {
+                var returnStatements = methodDecl.Body.Statements.OfType<ReturnStatementSyntax>().ToList();
+                if (returnStatements.Count != 1)
+                    continue;
+                returnedExpr = returnStatements[0].Expression;
+            }
+
+            if (returnedExpr == null)
+                continue;
+
+            if (returnedExpr is IdentifierNameSyntax id && id.Identifier.Text == propertyName)
+                return true;
+
+            if (returnedExpr is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Expression is ThisExpressionSyntax
+                && memberAccess.Name.Identifier.Text == propertyName)
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Transforms the method-name argument of a Type.GetMethod call, converting a
