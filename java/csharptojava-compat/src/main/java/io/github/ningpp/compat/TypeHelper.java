@@ -326,6 +326,30 @@ public final class TypeHelper {
         return type == null ? null : type.getName();
     }
 
+    /**
+     * Mirrors C# {@code Type.Assembly}, {@code MemberInfo.Assembly}, and
+     * {@code Module.Assembly} — returns the declaring assembly as an
+     * {@link AssemblyCompat} instead of {@link java.lang.Package}.
+     */
+    public static AssemblyCompat getAssembly(Class<?> type) {
+        return type == null ? null : AssemblyCompat.fromClass(type);
+    }
+
+    /**
+     * Mirrors C# {@code MemberInfo.Assembly} for the compat wrapper.
+     */
+    public static AssemblyCompat getAssembly(MemberInfo member) {
+        return member == null ? null : getAssembly(member.getDeclaringType());
+    }
+
+    /**
+     * Mirrors C# {@code Module.Assembly} for the Java {@link java.lang.Module}
+     * returned by {@link Class#getModule()}.
+     */
+    public static AssemblyCompat getAssembly(java.lang.Module module) {
+        return module == null ? null : AssemblyCompat.fromClassLoader(module.getClassLoader(), module.getName());
+    }
+
     public static Class<?> getElementType(Class<?> type) {
         return type == null ? null : type.getComponentType();
     }
@@ -401,6 +425,50 @@ public final class TypeHelper {
             return false;
         }
         return type.isAnnotationPresent((Class) attributeType);
+    }
+
+    /**
+     * Adapts a Java {@link Class} to the compat {@link ICustomAttributeProvider} interface.
+     * C# System.Type implements ICustomAttributeProvider, but java.lang.Class does not,
+     * so generated code that passes a Type where ICustomAttributeProvider is expected
+     * must be wrapped through this helper.
+     */
+    public static ICustomAttributeProvider asCustomAttributeProvider(Class<?> type) {
+        if (type == null) {
+            return null;
+        }
+        return new ICustomAttributeProvider() {
+            @Override
+            public Object[] getCustomAttributes(boolean inherit) {
+                return type.getAnnotations();
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
+                return type.getAnnotationsByType((Class) attributeType);
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public boolean isDefined(Class<?> attributeType, boolean inherit) {
+                return type.isAnnotationPresent((Class) attributeType);
+            }
+        };
+    }
+
+    /**
+     * Adapts a Java {@link Class} to the compat {@link MemberInfo} interface.
+     * C# System.Type derives from System.Reflection.MemberInfo, but the Java mapping
+     * for System.Type is java.lang.Class, which does not implement MemberInfo.
+     * Generated code that passes a Type where MemberInfo is expected must wrap the
+     * Class through this helper.
+     */
+    public static MemberInfo asMemberInfo(Class<?> type) {
+        if (type == null) {
+            return null;
+        }
+        return new TypeMemberInfo(type);
     }
 
     public static MemberInfo[] getDefaultMembers(Class<?> type) {

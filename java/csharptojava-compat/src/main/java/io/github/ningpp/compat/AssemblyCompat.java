@@ -109,6 +109,11 @@ public class AssemblyCompat {
         return new AssemblyCompat(clazz.getClassLoader(), clazz.getName());
     }
 
+    /** Creates an AssemblyCompat from a class loader and location/name. */
+    public static AssemblyCompat fromClassLoader(ClassLoader classLoader, String location) {
+        return new AssemblyCompat(classLoader, location);
+    }
+
     /** Mirrors C# Assembly.GetManifestResourceStream(name) — returns StreamWrapper
      *  so the result is directly assignable to the Java mapping of System.IO.Stream. */
     public StreamWrapper getManifestResourceStream(String name) {
