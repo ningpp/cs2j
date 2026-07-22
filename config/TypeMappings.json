@@ -7013,12 +7013,32 @@
         {
             "type": "System.Type",
             "method": "get_Assembly",
-            "javaMethod": "getPackage"
+            "javaMethod": "TypeHelper.getAssembly"
         },
         {
             "type": "System.Type",
             "method": "Assembly",
-            "javaMethod": "getPackage"
+            "javaMethod": "TypeHelper.getAssembly"
+        },
+        {
+            "type": "System.Reflection.MemberInfo",
+            "method": "get_Assembly",
+            "javaMethod": "TypeHelper.getAssembly"
+        },
+        {
+            "type": "System.Reflection.MemberInfo",
+            "method": "Assembly",
+            "javaMethod": "TypeHelper.getAssembly"
+        },
+        {
+            "type": "System.Reflection.Module",
+            "method": "get_Assembly",
+            "javaMethod": "TypeHelper.getAssembly"
+        },
+        {
+            "type": "System.Reflection.Module",
+            "method": "Assembly",
+            "javaMethod": "TypeHelper.getAssembly"
         },
         {
             "type": "System.Type",
