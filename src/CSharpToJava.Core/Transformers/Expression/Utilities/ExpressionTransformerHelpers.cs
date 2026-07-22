@@ -148,7 +148,8 @@ public static class ExpressionTransformerHelpers
         if (!transformedExpression.StartsWith("CSharpICollection.from(", StringComparison.Ordinal))
         {
             bool sourceIsCSharpCollection = sourceJavaType == "CSharpCollection" || sourceJavaType.StartsWith("CSharpCollection<")
-                || sourceJavaType == "CSharpArrayList" || sourceJavaType == "CSharpIList";
+                || sourceJavaType == "CSharpArrayList" || sourceJavaType == "CSharpIList"
+                || IsCSharpCollectionBaseLike(sourceType, context);
             // Property accessors named Values/Keys are emitted as getValues()/getKeys() and
             // are backed by CSharpCollection in the compat layer (e.g. SortedList.Values,
             // XmlSchemaObjectTable.Values). The symbol-based mapping often returns the
@@ -156,10 +157,21 @@ public static class ExpressionTransformerHelpers
             var trimmedExpr = transformedExpression.Trim();
             bool isGetValuesOrKeysCall = trimmedExpr.EndsWith(".getValues()", StringComparison.Ordinal)
                 || trimmedExpr.EndsWith(".getKeys()", StringComparison.Ordinal);
+            // Concrete C# collection views (e.g. Dictionary<K,V>.ValueCollection) map to plain
+            // Java collection interfaces such as Collection<T>/Set<T>/List<T>. These are not
+            // assignable to CSharpICollection<?>, so bridge them via CSharpICollection.from().
+            // MapType may return namespace-qualified names (e.g. System.Collections.Generic.Collection<T>),
+            // so match both bare and qualified forms.
+            bool sourceIsPlainJavaCollection = sourceJavaType == "Collection" || sourceJavaType.StartsWith("Collection<")
+                || sourceJavaType == "Set" || sourceJavaType.StartsWith("Set<")
+                || sourceJavaType == "List" || sourceJavaType.StartsWith("List<")
+                || sourceJavaType.EndsWith(".Collection") || sourceJavaType.Contains(".Collection<")
+                || sourceJavaType.EndsWith(".Set") || sourceJavaType.Contains(".Set<")
+                || sourceJavaType.EndsWith(".List") || sourceJavaType.Contains(".List<");
             bool targetIsCSharpICollection = targetJavaType == "CSharpICollection"
                 || targetJavaType.StartsWith("CSharpICollection<")
                 || targetJavaType == "CSharpICollection<?>";
-            if ((sourceIsCSharpCollection || isGetValuesOrKeysCall) && targetIsCSharpICollection)
+            if ((sourceIsCSharpCollection || isGetValuesOrKeysCall || sourceIsPlainJavaCollection) && targetIsCSharpICollection)
             {
                 context.AddImport("io.github.ningpp.compat.CSharpICollection");
                 return $"CSharpICollection.from({transformedExpression})";
@@ -197,6 +209,18 @@ public static class ExpressionTransformerHelpers
             if (sourceType.SpecialType == SpecialType.System_Byte
                 && !transformedExpression.TrimEnd().EndsWith("& 0xFF"))
                 return $"{transformedExpression} & 0xFF";
+
+            // C# uint maps to Java int, but constants like uint.MaxValue are emitted as long
+            // literals (e.g., 4294967295L). Add an explicit (int) cast so assignment to uint
+            // variables remains compilable in Java.
+            if (sourceType.SpecialType == SpecialType.System_UInt32
+                && transformedExpression.Trim() is string uintExpr
+                && uintExpr.EndsWith("L", StringComparison.Ordinal)
+                && long.TryParse(uintExpr.TrimEnd('L'), out _))
+            {
+                return $"(int) {transformedExpression}";
+            }
+
             return transformedExpression;
         }
 
@@ -267,6 +291,19 @@ public static class ExpressionTransformerHelpers
         // C# char implicitly converts to string, but Java requires explicit String.valueOf()
         if (sourceSpecial == SpecialType.System_Char && targetSpecial == SpecialType.System_String)
             return $"String.valueOf({transformedExpression})";
+
+        // C# bool/char → object: emit explicit boxing. Java autoboxing would also work,
+        // but the generated code must match the original C# semantics for these two types
+        // (e.g., object o = b; must produce Boolean.valueOf(b)). Skip method arguments,
+        // where Java autoboxing is sufficient and explicit wrapping breaks call-site tests.
+        if (targetSpecial == SpecialType.System_Object
+            && sourceType.IsValueType
+            && sourceSpecial is SpecialType.System_Boolean or SpecialType.System_Char
+            && TryGetJavaWrapperForPrimitiveSpecialType(sourceSpecial, out var boxWrapper)
+            && expression.Parent is not ArgumentSyntax)
+        {
+            return $"{boxWrapper}.valueOf({transformedExpression})";
+        }
 
         // C# enum ← integral value: Java enum requires explicit fromValue() conversion.
         // Flags enums are mapped to primitive int/long in Java and accept integral values directly.
@@ -379,6 +416,48 @@ public static class ExpressionTransformerHelpers
             : $"({castKeyword}) ({transformedExpression})";
     }
 
+    /// <summary>
+    /// Returns true when the C# type inherits from (or is) a non-generic collection base
+    /// such as <see cref="System.Collections.CollectionBase"/>,
+    /// <see cref="System.Collections.ReadOnlyCollectionBase"/>, <see cref="System.Collections.IList"/>
+    /// or <see cref="System.Collections.ICollection"/>. The converter maps these to Java classes
+    /// that extend <c>CSharpCollectionBase</c>/<c>CSharpIList</c>/<c>CSharpArrayList</c> rather than
+    /// <c>CSharpICollection</c>, so they are not assignable to <c>CSharpICollection&lt;?&gt;</c>.
+    /// </summary>
+    public static bool IsCSharpCollectionBaseLike(ITypeSymbol? type, ConversionContext context)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        for (var current = named; current != null; current = current.BaseType)
+        {
+            var display = current.OriginalDefinition.ToDisplayString();
+            if (display is "System.Collections.CollectionBase"
+                or "System.Collections.ReadOnlyCollectionBase"
+                or "System.Collections.ICollection"
+                or "System.Collections.IList")
+            {
+                return true;
+            }
+
+            var javaType = context.MapType(current);
+            if (!string.IsNullOrWhiteSpace(javaType))
+            {
+                var simple = StripPackageQualifier(javaType);
+                if (simple is "CSharpCollectionBase"
+                    or "CSharpReadOnlyCollectionBase"
+                    or "CSharpCollection"
+                    or "CSharpIList"
+                    or "CSharpArrayList")
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public static bool IsDecimalType(ITypeSymbol? type)
         => UnwrapNullable(type)?.SpecialType == SpecialType.System_Decimal;
 
@@ -438,6 +517,8 @@ public static class ExpressionTransformerHelpers
             _ => string.Empty
         };
 
+    public static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
+
     private static ITypeSymbol? UnwrapNullable(ITypeSymbol? type)
     {
         if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableType)
@@ -472,6 +553,27 @@ public static class ExpressionTransformerHelpers
             or SpecialType.System_UInt32
             or SpecialType.System_Int64
             or SpecialType.System_UInt64;
+    }
+
+    private static bool TryGetJavaWrapperForPrimitiveSpecialType(SpecialType specialType, out string wrapper)
+    {
+        wrapper = specialType switch
+        {
+            SpecialType.System_Int32   => "Integer",
+            SpecialType.System_Int64   => "Long",
+            SpecialType.System_Int16   => "Short",
+            SpecialType.System_Byte    => "Integer",
+            SpecialType.System_SByte   => "Byte",
+            SpecialType.System_UInt32  => "Integer",
+            SpecialType.System_UInt64  => "Long",
+            SpecialType.System_UInt16  => "Short",
+            SpecialType.System_Single  => "Float",
+            SpecialType.System_Double  => "Double",
+            SpecialType.System_Char    => "Character",
+            SpecialType.System_Boolean => "Boolean",
+            _                          => string.Empty
+        };
+        return wrapper.Length > 0;
     }
 
     /// <summary>Returns true when <paramref name="type"/> is System.IO.Stream or a subclass.</summary>
@@ -696,6 +798,8 @@ public static class ExpressionTransformerHelpers
             "ulong"   => "Long",
             "ushort"  => "Short",
             "bool"    => "Boolean",
+            // C# decimal → compat wrapper Decimal
+            "decimal" => "Decimal",
             _ => javaType
         };
     }

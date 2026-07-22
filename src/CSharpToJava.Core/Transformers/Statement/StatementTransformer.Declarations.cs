@@ -445,6 +445,41 @@ public partial class StatementTransformer
                     var initValueType = context.GetTypeInfo(v.Initializer.Value).Type;
                     initExpr = StructCloneHelper.CloneStructValueIfNeeded(v.Initializer.Value, initExpr, initValueType, context);
                 }
+
+                // Task 4: Wrap local variable declarations of ICollection/ICollection<T>
+                // when the initializer is not already a CSharpICollection/CSharpCollection compatible type.
+                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null)
+                {
+                    var localDisplay = localTargetType.ToDisplayString();
+                    if (localDisplay == "System.Collections.ICollection"
+                        || localDisplay.StartsWith("System.Collections.Generic.ICollection<"))
+                    {
+                        var initType = context.GetTypeInfo(v.Initializer.Value).Type;
+                        if (initType != null && !IsAssignableToCSharpICollection(initType, context))
+                        {
+                            context.AddImport("io.github.ningpp.compat.CSharpICollection");
+                            initExpr = $"CSharpICollection.from({initExpr})";
+                        }
+                    }
+                }
+
+                // Task 5: Wrap local variable declarations of IList/IList<T>
+                // when the initializer is not already a CSharpGenericIList/CSharpIList compatible type.
+                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null)
+                {
+                    var localDisplay = localTargetType.ToDisplayString();
+                    if (localDisplay == "System.Collections.IList"
+                        || localDisplay.StartsWith("System.Collections.Generic.IList<"))
+                    {
+                        var initType = context.GetTypeInfo(v.Initializer.Value).Type;
+                        if (initType != null && !IsAssignableToCSharpGenericIList(initType, localTargetType, context))
+                        {
+                            context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+                            initExpr = $"CSharpGenericIList.from({initExpr})";
+                        }
+                    }
+                }
+
                 initExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
                     v.Initializer.Value,
                     initExpr,
@@ -778,6 +813,77 @@ public partial class StatementTransformer
 
     private static bool IsUsableLocalOverrideType(ITypeSymbol? type)
         => type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) };
+
+    /// <summary>
+    /// Returns true when the mapped Java type for <paramref name="type"/> is already a
+    /// CSharpICollection compatible type, so no additional wrapping is needed.
+    /// Also returns true for user-defined C# classes that implement ICollection/ICollection&lt;T&gt;
+    /// directly, because the converter generates them as Java classes implementing CSharpICollection.
+    /// CollectionBase-derived and other non-generic collection bases are NOT compatible with
+    /// CSharpICollection&lt;?&gt; and must be bridged via <c>CSharpICollection.from()</c>.
+    /// </summary>
+    private static bool IsAssignableToCSharpICollection(ITypeSymbol type, ConversionContext context)
+    {
+        if (ExpressionTransformerHelpers.IsCSharpCollectionBaseLike(type, context))
+            return false;
+
+        if (type is INamedTypeSymbol named)
+        {
+            bool implementsICollection = named.AllInterfaces.Any(i =>
+                i.OriginalDefinition.ToDisplayString() == "System.Collections.ICollection"
+                || i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ICollection<T>")
+                || named.OriginalDefinition.ToDisplayString() == "System.Collections.ICollection"
+                || named.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ICollection<T>";
+
+            // User-defined collection types (outside System.Collections) that don't inherit from a
+            // non-generic collection base are emitted as Java classes implementing CSharpICollection,
+            // so they can be assigned directly.
+            if (implementsICollection)
+            {
+                var ns = named.ContainingNamespace?.ToDisplayString() ?? "";
+                if (!ns.StartsWith("System.Collections", StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        var javaType = context.MapType(type);
+        return javaType.Contains("CSharpICollection") || javaType == "CSharpCollection";
+    }
+
+    /// <summary>
+    /// Returns true when the mapped Java type for <paramref name="sourceType"/> is already a
+    /// CSharpGenericIList or CSharpIList compatible type, so no additional wrapping is needed.
+    /// When <paramref name="targetType"/> is provided, CSharpList&lt;T&gt; is considered compatible
+    /// only with an IList&lt;T&gt; target that has the same element type.
+    /// </summary>
+    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol sourceType, ConversionContext context)
+        => IsAssignableToCSharpGenericIList(sourceType, null, context);
+
+    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol sourceType, ITypeSymbol? targetType, ConversionContext context)
+    {
+        var javaType = context.MapType(sourceType);
+        if (javaType.Contains("CSharpGenericIList") || javaType.Contains("CSharpIList"))
+            return true;
+
+        // CSharpList<T> implements CSharpGenericIList<T>, so it is directly assignable
+        // to an IList<T> target with the same element type. It is NOT assignable to
+        // non-generic IList (CSharpGenericIList<Object>) or to IList<U> with a different U.
+        if (javaType.StartsWith("CSharpList<", StringComparison.Ordinal)
+            && sourceType is INamedTypeSymbol sourceNamed
+            && sourceNamed.IsGenericType
+            && sourceNamed.TypeArguments.Length == 1)
+        {
+            if (targetType is INamedTypeSymbol targetNamed
+                && targetNamed.IsGenericType
+                && targetNamed.TypeArguments.Length == 1)
+            {
+                return SymbolEqualityComparer.Default.Equals(sourceNamed.TypeArguments[0], targetNamed.TypeArguments[0]);
+            }
+            return false;
+        }
+
+        return false;
+    }
 
     private static bool TryInferStringTypeFromDegradedInitializer(
         ExpressionSyntax initializer,

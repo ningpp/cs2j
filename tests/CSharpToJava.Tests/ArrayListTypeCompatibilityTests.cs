@@ -152,6 +152,44 @@ class Sample
         Assert.Contains("CSharpList<String> getItems()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ArrayListToArray_WithTypeOfLiteral_ProducesTypedArrayArgument()
+    {
+        var result = Convert(@"
+using System;
+using System.Collections;
+
+class Sample
+{
+    object[] M(ArrayList list)
+    {
+        return list.ToArray(typeof(string));
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("toArray(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArrayListToArray_WithTypeVariable_ProducesClassArgument()
+    {
+        var result = Convert(@"
+using System;
+using System.Collections;
+
+class Sample
+{
+    object[] M(ArrayList list, Type itemType)
+    {
+        return list.ToArray(itemType);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("toArray(itemType)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

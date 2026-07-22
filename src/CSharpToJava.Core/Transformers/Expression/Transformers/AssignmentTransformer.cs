@@ -185,6 +185,75 @@ public class AssignmentTransformer : IIRExpressionTransformer
         return false;
     }
 
+    private static readonly HashSet<string> XmlDeserializationEventsNames = new(StringComparer.Ordinal)
+    {
+        "OnUnknownNode",
+        "OnUnknownAttribute",
+        "OnUnknownElement",
+        "OnUnreferencedObject",
+    };
+
+    private static bool IsXmlDeserializationEventsEventName(string name)
+        => XmlDeserializationEventsNames.Contains(name);
+
+    /// <summary>
+    /// Detects whether the receiver expression is of type XmlDeserializationEvents.
+    /// Uses the semantic model when available and falls back to the declared type name
+    /// in the syntax tree for incomplete compilations.
+    /// </summary>
+    private static bool IsXmlDeserializationEventsReceiver(ExpressionSyntax expression, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(expression).Type;
+        if (type != null)
+        {
+            var display = type.ToDisplayString();
+            if (display == "System.Xml.Serialization.XmlDeserializationEvents"
+                || display == "XmlDeserializationEvents")
+            {
+                return true;
+            }
+
+            if (type.Name == "XmlDeserializationEvents")
+                return true;
+        }
+
+        if (expression is not IdentifierNameSyntax ident)
+            return false;
+
+        var variableName = ident.Identifier.Text;
+        var enclosingType = expression.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (enclosingType == null)
+            return false;
+
+        foreach (var field in enclosingType.Members.OfType<FieldDeclarationSyntax>())
+        {
+            if (!field.Declaration.Variables.Any(v => v.Identifier.Text == variableName))
+                continue;
+
+            var declaredType = field.Declaration.Type.ToString().Trim();
+            if (declaredType == "XmlDeserializationEvents"
+                || declaredType.EndsWith(".XmlDeserializationEvents", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        foreach (var local in enclosingType.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
+        {
+            if (!local.Declaration.Variables.Any(v => v.Identifier.Text == variableName))
+                continue;
+
+            var declaredType = local.Declaration.Type.ToString().Trim();
+            if (declaredType == "XmlDeserializationEvents"
+                || declaredType.EndsWith(".XmlDeserializationEvents", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
     private string TransformAssignment(AssignmentExpressionSyntax node, string op, ConversionContext context)
     {
@@ -219,10 +288,25 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 return $"{receiver}.{method}({handler})";
             }
 
+            // XmlDeserializationEvents exposes public delegate *fields* (OnUnknownNode, etc.), not events.
+            // The converter generates them as Java getter/setter pairs, so +=/-= must use the setter with
+            // DelegateHelper.combine/remove instead of non-existent add/remove listener methods.
+            if (IsXmlDeserializationEventsReceiver(evtMa.Expression, context)
+                && IsXmlDeserializationEventsEventName(evtMa.Name.Identifier.Text))
+            {
+                var receiver = facade.Transform(evtMa.Expression, context);
+                var handler = EnsureValidEventHandler(facade.Transform(rightNode, context), rightNode, context);
+                string eventName = evtMa.Name.Identifier.Text;
+                string helperMethod = op == "+=" ? "combine" : "remove";
+                context.AddImport("io.github.ningpp.compat.DelegateHelper");
+                return $"{receiver}.set{eventName}(DelegateHelper.{helperMethod}({receiver}.get{eventName}(), {handler}))";
+            }
+
             // Fallback: event accessed through a field/property of another type. Roslyn may not resolve
             // the member access as an IEventSymbol across reference assemblies, so detect the conventional
-            // "OnXxx" event name and emit addOnXxxListener / removeOnXxxListener.
-            if (evtMa.Name.Identifier.Text.StartsWith("On", StringComparison.Ordinal)
+            // "OnXxx"/"onXxx" event name and emit addOnXxxListener / removeOnXxxListener.
+            if ((evtMa.Name.Identifier.Text.StartsWith("On", StringComparison.Ordinal)
+                 || evtMa.Name.Identifier.Text.StartsWith("on", StringComparison.Ordinal))
                 && IsEventLikeHandlerAssignment(rightNode, context))
             {
                 var receiver = facade.Transform(evtMa.Expression, context);
@@ -635,6 +719,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 && !context.IsReadOnlyRefStructParam(param.Name))
             {
                 var right = facade.Transform(rightNode, context);
+                right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, param.Type, context);
                 return $"{ConversionContext.EscapeJavaKeyword(param.Name)}.value = {right}";
             }
         }
@@ -683,10 +768,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // use the qualified method call instead of the raw operator.
                 string operatorExpr = TryResolveOperatorExpr(compoundProp.Type, baseOp, context)
                     ?? baseOp;
+                // Decimal compound assignments must use compat library methods instead of raw operators.
+                bool isDecimalCompound = ExpressionTransformerHelpers.IsDecimalType(compoundProp.Type)
+                    && ExpressionTransformerHelpers.IsArithmeticOp(baseOp);
                 // Simple receivers (local variable, field, "this") are safe to reference twice.
                 if (compoundMa.Expression is IdentifierNameSyntax or ThisExpressionSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
                 {
                     var receiver = facade.Transform(compoundMa.Expression, context);
+                    if (isDecimalCompound)
+                    {
+                        var leftDecimal = $"{receiver}.{getter}()";
+                        var rightDecimal = ExpressionTransformerHelpers.ToDecimalExpression(rightNode, rhs, context.GetTypeInfo(rightNode).Type);
+                        var operation = ExpressionTransformerHelpers.BuildDecimalBinaryOperation(leftDecimal, rightDecimal, baseOp);
+                        if (!string.IsNullOrEmpty(operation))
+                            return $"{receiver}.{setter}({operation})";
+                    }
                     if (operatorExpr != baseOp)
                         return $"{receiver}.{setter}({operatorExpr}({receiver}.{getter}(), {rhs}))";
                     return $"{receiver}.{setter}({receiver}.{getter}() {baseOp} {rhs})";
@@ -696,6 +792,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     var receiverExpr = facade.Transform(compoundMa.Expression, context);
                     var tmpReceiver = context.GenerateSyntheticName("_recv");
                     context.AddPreStatement($"var {tmpReceiver} = {receiverExpr};");
+                    if (isDecimalCompound)
+                    {
+                        var leftDecimal = $"{tmpReceiver}.{getter}()";
+                        var rightDecimal = ExpressionTransformerHelpers.ToDecimalExpression(rightNode, rhs, context.GetTypeInfo(rightNode).Type);
+                        var operation = ExpressionTransformerHelpers.BuildDecimalBinaryOperation(leftDecimal, rightDecimal, baseOp);
+                        if (!string.IsNullOrEmpty(operation))
+                            return $"{tmpReceiver}.{setter}({operation})";
+                    }
                     if (operatorExpr != baseOp)
                         return $"{tmpReceiver}.{setter}({operatorExpr}({tmpReceiver}.{getter}(), {rhs}))";
                     return $"{tmpReceiver}.{setter}({tmpReceiver}.{getter}() {baseOp} {rhs})";
@@ -715,6 +819,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 var setter = "set" + char.ToUpperInvariant(compoundIdentProp.Name[0]) + compoundIdentProp.Name[1..];
                 var rhs = facade.Transform(rightNode, context);
                 string baseOp = op[..^1];
+                if (ExpressionTransformerHelpers.IsDecimalType(compoundIdentProp.Type)
+                    && ExpressionTransformerHelpers.IsArithmeticOp(baseOp))
+                {
+                    var leftDecimal = $"{getter}()";
+                    var rightDecimal = ExpressionTransformerHelpers.ToDecimalExpression(rightNode, rhs, context.GetTypeInfo(rightNode).Type);
+                    var operation = ExpressionTransformerHelpers.BuildDecimalBinaryOperation(leftDecimal, rightDecimal, baseOp);
+                    if (!string.IsNullOrEmpty(operation))
+                        return $"{setter}({operation})";
+                }
                 return $"{setter}({getter}() {baseOp} {rhs})";
             }
         }
@@ -987,7 +1100,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         // Task 4: Wrap assignments to ICollection/ICollection<T> variables/fields/params
         // when the RHS is not already a CSharpICollection/CSharpCollection compatible type.
-        if (op == "=" && context.SemanticModel != null)
+        if (op == "=" && context.SemanticModel != null && !rightStr.StartsWith("CSharpICollection.from(", StringComparison.Ordinal))
         {
             var leftSymbol = context.GetSymbolInfo(leftNode).Symbol;
             if (leftSymbol is ILocalSymbol or IParameterSymbol or IFieldSymbol)
@@ -1017,7 +1130,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 || (leftDisplay != null && leftDisplay.StartsWith("System.Collections.Generic.IList<")))
             {
                 var rightType = context.GetTypeInfo(rightNode).Type;
-                if (rightType != null && !IsAssignableToCSharpGenericIList(rightType, context))
+                if (rightType != null && !IsAssignableToCSharpGenericIList(rightType, leftType, context))
                 {
                     context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
                     var leftExpr = facade.Transform(leftNode, context);
@@ -1693,22 +1806,73 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
     /// <summary>
     /// Returns true when the mapped Java type for <paramref name="type"/> is already a
-    /// CSharpICollection or CSharpCollection compatible type, so no additional wrapping is needed.
+    /// CSharpICollection compatible type, so no additional wrapping is needed.
+    /// Also returns true for user-defined C# classes that implement ICollection/ICollection&lt;T&gt;
+    /// directly, because the converter generates them as Java classes implementing CSharpICollection.
+    /// CollectionBase-derived and other non-generic collection bases are NOT compatible with
+    /// CSharpICollection&lt;?&gt; and must be bridged via <c>CSharpICollection.from()</c>.
     /// </summary>
     private static bool IsAssignableToCSharpICollection(ITypeSymbol type, ConversionContext context)
     {
+        if (ExpressionTransformerHelpers.IsCSharpCollectionBaseLike(type, context))
+            return false;
+
+        if (type is INamedTypeSymbol named)
+        {
+            bool implementsICollection = named.AllInterfaces.Any(i =>
+                i.OriginalDefinition.ToDisplayString() == "System.Collections.ICollection"
+                || i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ICollection<T>")
+                || named.OriginalDefinition.ToDisplayString() == "System.Collections.ICollection"
+                || named.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ICollection<T>";
+
+            // User-defined collection types (outside System.Collections) that don't inherit from a
+            // non-generic collection base are emitted as Java classes implementing CSharpICollection,
+            // so they can be assigned directly.
+            if (implementsICollection)
+            {
+                var ns = named.ContainingNamespace?.ToDisplayString() ?? "";
+                if (!ns.StartsWith("System.Collections", StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
         var javaType = context.MapType(type);
-        return javaType.Contains("CSharpICollection") || javaType.Contains("CSharpCollection");
+        return javaType.Contains("CSharpICollection") || javaType == "CSharpCollection";
     }
 
     /// <summary>
-    /// Returns true when the mapped Java type for <paramref name="type"/> is already a
+    /// Returns true when the mapped Java type for <paramref name="sourceType"/> is already a
     /// CSharpGenericIList or CSharpIList compatible type, so no additional wrapping is needed.
+    /// When <paramref name="targetType"/> is provided, CSharpList&lt;T&gt; is considered compatible
+    /// only with an IList&lt;T&gt; target that has the same element type.
     /// </summary>
-    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol type, ConversionContext context)
+    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol sourceType, ConversionContext context)
+        => IsAssignableToCSharpGenericIList(sourceType, null, context);
+
+    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol sourceType, ITypeSymbol? targetType, ConversionContext context)
     {
-        var javaType = context.MapType(type);
-        return javaType.Contains("CSharpGenericIList") || javaType.Contains("CSharpIList");
+        var javaType = context.MapType(sourceType);
+        if (javaType.Contains("CSharpGenericIList") || javaType.Contains("CSharpIList"))
+            return true;
+
+        // CSharpList<T> implements CSharpGenericIList<T>, so it is directly assignable
+        // to an IList<T> target with the same element type. It is NOT assignable to
+        // non-generic IList (CSharpGenericIList<Object>) or to IList<U> with a different U.
+        if (javaType.StartsWith("CSharpList<", StringComparison.Ordinal)
+            && sourceType is INamedTypeSymbol sourceNamed
+            && sourceNamed.IsGenericType
+            && sourceNamed.TypeArguments.Length == 1)
+        {
+            if (targetType is INamedTypeSymbol targetNamed
+                && targetNamed.IsGenericType
+                && targetNamed.TypeArguments.Length == 1)
+            {
+                return SymbolEqualityComparer.Default.Equals(sourceNamed.TypeArguments[0], targetNamed.TypeArguments[0]);
+            }
+            return false;
+        }
+
+        return false;
     }
 
     /// <summary>

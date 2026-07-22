@@ -310,6 +310,39 @@ public class FieldTransformer : IMemberTransformer
                 javaField.LeadingComment = ConvertedCommentSet.JoinComments(javaField.LeadingComment, "// Consider replacing with AtomicReference<T> for idiomatic Java concurrency.");
 
             yield return javaField;
+
+            // Public instance fields whose type is a delegate (Action/Func/etc.) are exposed
+            // through getters/setters. Conditional-access expressions on these fields are
+            // rewritten to call getXxx()/setXxx(), so the accessors must exist for the Java
+            // output to compile.
+            if ((modifiers & JavaModifiers.Public) != 0
+                && (modifiers & JavaModifiers.Static) == 0
+                && fieldTypeSymbol?.TypeKind == TypeKind.Delegate)
+            {
+                var escapedName = javaField.Name;
+                var propertyName = escapedName.Length > 0
+                    ? char.ToUpperInvariant(escapedName[0]) + escapedName[1..]
+                    : escapedName;
+                var getterName = "get" + propertyName;
+                var setterName = "set" + propertyName;
+
+                yield return new JavaMethodDeclaration
+                {
+                    Name = getterName,
+                    ReturnType = javaType,
+                    Modifiers = JavaModifiers.Public,
+                    Body = $"return {escapedName};"
+                };
+
+                yield return new JavaMethodDeclaration
+                {
+                    Name = setterName,
+                    ReturnType = "void",
+                    Modifiers = JavaModifiers.Public,
+                    Parameters = { new JavaParameter(javaType, "value") },
+                    Body = $"{escapedName} = value;"
+                };
+            }
         }
     }
 
