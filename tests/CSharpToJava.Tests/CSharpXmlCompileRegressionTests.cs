@@ -821,6 +821,36 @@ class Sample
     }
 
     [Fact]
+    public void NameTableToArray_TypeOfXmlSchemaObject_ChainsToArray()
+    {
+        var result = Convert("""
+            using System;
+
+            namespace System.Xml.Schema
+            {
+                public class XmlSchemaObject { }
+            }
+
+            class NameTable
+            {
+                public Array ToArray(Type type) => null;
+            }
+
+            class Sample
+            {
+                void M(NameTable table)
+                {
+                    System.Xml.Schema.XmlSchemaObject[] items = (System.Xml.Schema.XmlSchemaObject[])table.ToArray(typeof(System.Xml.Schema.XmlSchemaObject));
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("table.toArray(XmlSchemaObject.class).toArray(XmlSchemaObject.class)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(XmlSchemaObject[])(table.toArray", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GenericEnumeratorWithImplicitTypedCurrentAndExplicitObjectCurrent_GetCurrentReturnsTyped()
     {
         var result = Convert("""
