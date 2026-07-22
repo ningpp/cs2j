@@ -1013,6 +1013,27 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain("this.memberInfo = memberInfo", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Type_IsDefined_WithAttributeType_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                bool CheckFlags(Type type)
+                {
+                    return type.IsDefined(typeof(FlagsAttribute), false);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("TypeHelper.isDefined(type, FlagsAttribute.class, false)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("type.isDefined(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

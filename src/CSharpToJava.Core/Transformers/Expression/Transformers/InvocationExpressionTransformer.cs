@@ -839,6 +839,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getCustomAttributes({typeReceiver}, {attributeTypeArg}, {inheritArg})";
         }
 
+        // C# Type.IsDefined(Type, bool) → TypeHelper.isDefined(Class, Class, boolean)
+        if (memberAccess.Name.Identifier.Text == "IsDefined"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsSystemTypeReceiver(memberAccess.Expression, context)
+            && context.GetSymbolInfo(node).Symbol is IMethodSymbol isDefinedSym
+            && isDefinedSym.Parameters.Length == 2
+            && isDefinedSym.Parameters[0].Type.ToDisplayString() == "System.Type"
+            && isDefinedSym.Parameters[1].Type.SpecialType == SpecialType.System_Boolean)
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var attributeTypeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var inheritArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.isDefined({typeReceiver}, {attributeTypeArg}, {inheritArg})";
+        }
+
         // ConfigureAwait(bool) is a C#-specific concern about synchronization context capture.
         // Java has no equivalent — strip the call and return just the receiver (the Task/CompletableFuture).
         // e.g. task.ConfigureAwait(false) → task
