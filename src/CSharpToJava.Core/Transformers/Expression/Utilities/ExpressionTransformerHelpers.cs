@@ -130,6 +130,11 @@ public static class ExpressionTransformerHelpers
         if (sourceType == null || targetType == null)
             return transformedExpression;
 
+        // Remember whether the original source was Nullable<T> before unwrapping.
+        // default(Nullable<T>) is emitted as "null" and must not be re-boxed as
+        // Wrapper.valueOf(null) when assigned to object.
+        bool originalSourceIsNullable = sourceType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+
         sourceType = UnwrapNullable(sourceType);
         targetType = UnwrapNullable(targetType);
 
@@ -302,6 +307,11 @@ public static class ExpressionTransformerHelpers
             && TryGetJavaWrapperForPrimitiveSpecialType(sourceSpecial, out var boxWrapper)
             && expression.Parent is not ArgumentSyntax)
         {
+            // default(Nullable<T>) is translated to "null" by GetDefaultValueForType.
+            // Do not re-box it as Wrapper.valueOf(null), which is invalid Java.
+            if (originalSourceIsNullable && transformedExpression.Trim() == "null")
+                return transformedExpression;
+
             return $"{boxWrapper}.valueOf({transformedExpression})";
         }
 

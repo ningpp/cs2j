@@ -340,6 +340,26 @@ class Sample
     }
 
     [Fact]
+    public void NullableCharDefault_AssignedToObject_GeneratesNullNotCharacterValueOfNull()
+    {
+        var result = Convert("""
+            class Sample
+            {
+                void M()
+                {
+                    object value = null;
+                    value = default(System.Nullable<char>);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Console.WriteLine("NULLABLE_CHAR:\n" + result.GeneratedCode);
+        Assert.DoesNotContain("Character.valueOf(null)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("value = null", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UIntMaxValue_AssignedToUIntVariable_GetsIntCast()
     {
         var result = Convert("""
