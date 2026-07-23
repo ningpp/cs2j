@@ -133,8 +133,13 @@ internal static class CommentConversion
                 lines.Add($" * {exception}");
             lines.Add(" */");
 
-            var result = lines.Count > 2 ? string.Join("\n", lines) : null;
-            return EscapeUnicodeInComment(result);
+            if (lines.Count <= 2)
+                return null;
+
+            var body = string.Join("\n", lines.Take(lines.Count - 1));
+            body = EscapeBlockCommentTerminators(EscapeUnicodeInComment(body)!);
+            var result = body + "\n" + lines[^1];
+            return result;
         }
         catch
         {
@@ -308,5 +313,17 @@ internal static class CommentConversion
         // (like \u0041) and invalid ones (like \uxxxx) since Java tries to parse both.
         return System.Text.RegularExpressions.Regex.Replace(
             text, @"\\([uU])", @"\\$1");
+    }
+
+    /// <summary>
+    /// Escapes block-comment terminator sequences inside Javadoc body lines.
+    /// A literal "*/" in a doc comment (common in XPath expressions such as
+    /// <c>child::*/following::*</c>) would prematurely end the Java comment and
+    /// break compilation. Inserting a space keeps the comment valid while preserving
+    /// readability.
+    /// </summary>
+    private static string EscapeBlockCommentTerminators(string text)
+    {
+        return text.Replace("*/", "* /");
     }
 }
