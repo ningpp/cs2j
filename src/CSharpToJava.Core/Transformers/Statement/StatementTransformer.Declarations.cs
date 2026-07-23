@@ -547,14 +547,15 @@ public partial class StatementTransformer
         string? lambdaCaptureHolderCode = null;
         if (stmt.Declaration.Variables.Count == 1)
         {
-            var varName = ConversionContext.EscapeJavaKeyword(stmt.Declaration.Variables[0].Identifier.Text);
-            if (context.MethodState.HasPendingLambdaCaptureHolder(stmt.Declaration.Variables[0].Identifier.Text))
+            var varDeclarator = stmt.Declaration.Variables[0];
+            var varName = ConversionContext.EscapeJavaKeyword(varDeclarator.Identifier.Text);
+            if (context.MethodState.HasPendingLambdaCaptureHolder(varDeclarator.Identifier.Text))
             {
-                var origName = stmt.Declaration.Variables[0].Identifier.Text;
-                if (context.MethodState.TryGetPendingLambdaCaptureHolder(origName, out var capType, out var holderName))
+                var origName = varDeclarator.Identifier.Text;
+                if (context.MethodState.TryGetPendingLambdaCaptureHolder(origName, varDeclarator, out var capType, out var holderName))
                 {
                     lambdaCaptureHolderCode = ExpressionTransformerHelpers.BuildLambdaCaptureHolderDeclaration(capType, holderName, varName);
-                    context.MethodState.ActivateLambdaCaptureHolder(origName);
+                    context.MethodState.ActivateLambdaCaptureHolder(origName, varDeclarator);
                 }
             }
         }

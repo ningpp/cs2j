@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -109,7 +109,8 @@ public partial class StatementTransformer
     /// Pre-scans a method body block to identify local variables that are captured by lambdas
     /// and also externally reassigned. For such variables, registers a pending holder mapping
     /// so that a <c>Type[] _varName = { varName }</c> declaration is emitted right after
-    /// the variable declaration, and all subsequent references are replaced with <c>_varName[0]</c>.
+    /// the variable declaration (or right before the loop for for-loop iteration variables),
+    /// and all subsequent references are replaced with <c>_varName[0]</c>.
     /// <para>
     /// This handles the Java effectively-final constraint for the case where a variable is
     /// reassigned outside the lambda (the existing <c>GetMutatedCaptures</c> in LambdaTransformer
@@ -162,25 +163,12 @@ public partial class StatementTransformer
                     if (symbol is ILocalSymbol local && !seenSymbols.Contains(local))
                     {
                         // Confirm the declaration is outside the lambda span
-                        var declLocation = local.Locations.FirstOrDefault();
-                        if (declLocation != null && !lambda.Span.Contains(declLocation.SourceSpan))
-                        {
-                            // Skip variables declared in for-loop initializers — they are
-                            // not processed by TransformLocalDeclaration, so pending holders
-                            // can never be activated for them.
-                            // KNOWN LIMITATION: for-loop iteration variables (e.g. "i" in
-                            // "for (int i=0; ...; i++)") captured by lambdas are NOT handled
-                            // by either path — pre-scan excludes them here, and GetMutatedCaptures
-                            // only detects mutations INSIDE the lambda body. The increment "i++"
-                            // is external to the lambda but inside the for-statement, so it falls
-                            // through both checks. This produces Java code that violates the
-                            // effectively-final constraint for for-loop iteration variables.
-                            if (IsDeclaredInForInitializer(local))
-                                continue;
-
-                            seenSymbols.Add(local);
-                            capturedLocals.Add((local.Name, local));
-                        }
+                            var declLocation = local.Locations.FirstOrDefault();
+                            if (declLocation != null && !lambda.Span.Contains(declLocation.SourceSpan))
+                            {
+                                seenSymbols.Add(local);
+                                capturedLocals.Add((local.Name, local));
+                            }
                     }
                 }
             }
@@ -213,7 +201,9 @@ public partial class StatementTransformer
                 if (IsInsideAnyLambda(node, lambdaSpanSet))
                     continue;
 
-                // Detect reassignment: assignment target, prefix/postfix ++/--
+                // Detect reassignment: assignment target, prefix/postfix ++/--, and ref/out arguments.
+                // ref/out arguments mutate the captured variable (the callee writes back),
+                // so they must be treated as external reassignments for holder replacement.
                 IdentifierNameSyntax? targetId = node switch
                 {
                     AssignmentExpressionSyntax assign when assign.Left is IdentifierNameSyntax aid => aid,
@@ -223,6 +213,9 @@ public partial class StatementTransformer
                     PostfixUnaryExpressionSyntax post when
                         (post.IsKind(SyntaxKind.PostIncrementExpression) || post.IsKind(SyntaxKind.PostDecrementExpression)) &&
                         post.Operand is IdentifierNameSyntax ppid => ppid,
+                    ArgumentSyntax arg when
+                        (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) || arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)) &&
+                        arg.Expression is IdentifierNameSyntax aid => aid,
                     _ => null
                 };
 
@@ -242,23 +235,11 @@ public partial class StatementTransformer
             if (isExternallyReassigned)
             {
                 var javaType = context.MapType(localSymbol.Type);
-                context.MethodState.RegisterPendingLambdaCaptureHolder(varName, javaType);
+                var declaringSyntax = localSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+                if (declaringSyntax != null)
+                    context.MethodState.RegisterPendingLambdaCaptureHolder(varName, javaType, declaringSyntax);
             }
         }
     }
 
-    /// <summary>
-    /// Checks whether a local variable is declared inside a for-loop initializer.
-    /// For-loop variables are not processed by <c>TransformLocalDeclaration</c>,
-    /// so pending holders registered for them can never be activated. They should
-    /// be handled by <c>GetMutatedCaptures</c> instead.
-    /// </summary>
-    private static bool IsDeclaredInForInitializer(ILocalSymbol local)
-    {
-        var declRef = local.DeclaringSyntaxReferences.FirstOrDefault();
-        if (declRef == null) return false;
-        var declSyntax = declRef.GetSyntax();
-        // VariableDeclaratorSyntax → VariableDeclarationSyntax → ForStatementSyntax
-        return declSyntax.Parent?.Parent is ForStatementSyntax;
-    }
 }

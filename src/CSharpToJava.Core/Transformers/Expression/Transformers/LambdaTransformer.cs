@@ -467,13 +467,11 @@ public class LambdaTransformer : IIRExpressionTransformer
     /// Java requires captured variables to be effectively final; mutated ones must be wrapped in a
     /// single-element array holder to allow mutation via the array element.
     /// <para>
-    /// KNOWN LIMITATION: This method only detects mutations INSIDE the lambda body. External
-    /// reassignments (outside the lambda) are handled by <c>PreScanLambdaCaptures</c> in
-    /// StatementTransformer. However, for-loop iteration variables (e.g. <c>i</c> in
-    /// <c>for (int i=0; ...; i++)</c>) fall through both paths: pre-scan excludes them
-    /// (pending holders can never be activated for for-loop variables), and this method
-    /// does not detect <c>i++</c> as an internal mutation. This produces Java code that
-    /// violates the effectively-final constraint for for-loop iteration variables.
+    /// This method only detects mutations INSIDE the lambda body. External reassignments
+    /// (outside the lambda) are handled by <c>PreScanLambdaCaptures</c> in StatementTransformer,
+    /// including for-loop iteration variables (e.g. <c>i</c> in <c>for (int i=0; ...; i++)</c>).
+    /// The corresponding holder declaration for for-loop variables is emitted by
+    /// <see cref="StatementTransformer.TransformForStatement"/>.
     /// </para>
     /// </summary>
     private static IReadOnlyList<(string Name, string JavaType)> GetMutatedCaptures(

@@ -74,23 +74,55 @@ public partial class StatementTransformer
 
         // 初始值
         var initializers = "";
+        var holderPreStatements = new List<string>();
         if (stmt.Declaration != null)
         {
             var typeInfo = context.GetTypeInfo(stmt.Declaration.Type);
             var declaredType = typeInfo.Type;
             var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "var";
-            var vars = stmt.Declaration.Variables.Select(v => {
-                var initExpr = v.Initializer != null
+            var vars = new List<string>();
+
+            // Lambda capture holders for for-loop iteration variables.
+            // PreScanLambdaCaptures detects captured locals that are externally reassigned
+            // (including i++ in the for-loop incrementors) and registers pending holders.
+            // Normal local declarations get their holder emitted by TransformLocalDeclaration,
+            // but for-loop variables are declared in the for-statement itself. We emit the
+            // holder declaration as a statement before the loop (Java for-init cannot mix
+            // declarations of different types) and activate the mapping before transforming
+            // the condition, incrementors, and body.
+            foreach (var varDeclarator in stmt.Declaration.Variables)
+            {
+                var origName = varDeclarator.Identifier.Text;
+                var initExpr = varDeclarator.Initializer != null
                     ? ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                        v.Initializer.Value,
-                        exprTransformer.Transform(v.Initializer.Value, context),
+                        varDeclarator.Initializer.Value,
+                        exprTransformer.Transform(varDeclarator.Initializer.Value, context),
                         declaredType,
                         context)
                     : string.Empty;
-                var init = v.Initializer != null ? $" = {initExpr}" : "";
-                return $"{v.Identifier}{init}";
-            });
-            initializers = $"{javaType} {string.Join(", ", vars)}";
+                var init = varDeclarator.Initializer != null ? $" = {initExpr}" : "";
+
+                if (context.MethodState.HasPendingLambdaCaptureHolder(origName) &&
+                    context.MethodState.TryGetPendingLambdaCaptureHolder(origName, varDeclarator, out var capType, out var holderName))
+                {
+                    var holderInit = !string.IsNullOrEmpty(initExpr)
+                        ? initExpr
+                        : GetJavaDefaultForType(capType);
+                    var holderStatement = capType.Contains('<')
+                        ? $"{capType}[] {holderName} = ({capType}[]) new Object[] {{ {holderInit} }}"
+                        : $"{capType}[] {holderName} = new {capType}[] {{ {holderInit} }}";
+                    holderPreStatements.Add(holderStatement);
+                    context.MethodState.ActivateLambdaCaptureHolder(origName, varDeclarator);
+                }
+                else
+                {
+                    vars.Add($"{varDeclarator.Identifier}{init}");
+                }
+            }
+
+            initializers = vars.Count > 0
+                ? $"{javaType} {string.Join(", ", vars)}"
+                : "";
         }
         else if (stmt.Initializers.Any())
         {
@@ -114,6 +146,11 @@ public partial class StatementTransformer
         {
             var pre = context.DrainPreStatements();
             forPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+        }
+        if (holderPreStatements.Count > 0)
+        {
+            var holderBlock = string.Join("\n", holderPreStatements.Select(s => s.TrimEnd(';') + ";")) + "\n";
+            forPreamble = holderBlock + forPreamble;
         }
         if (context.HasPendingPostStatements)
         {
@@ -153,6 +190,28 @@ public partial class StatementTransformer
         var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
 
         return new JavaStatementNode($"{forPreamble}{loopPrefix}for ({initializers}; {condition}; {incrementors}) {body}");
+    }
+
+    /// <summary>
+    /// Returns a Java literal representing the default value for a captured for-loop
+    /// variable when the C# source omits an explicit initializer.
+    /// </summary>
+    private static string GetJavaDefaultForType(string javaType)
+    {
+        return javaType switch
+        {
+            "int" => "0",
+            "long" => "0L",
+            "short" => "(short)0",
+            "byte" => "(byte)0",
+            "boolean" => "false",
+            "char" => "'\\u0000'",
+            "float" => "0.0f",
+            "double" => "0.0",
+            "String" => "null",
+            "Object" => "null",
+            _ => "null"
+        };
     }
 
     private JavaSyntaxNode TransformForEachStatement(ForEachStatementSyntax stmt, ConversionContext context)

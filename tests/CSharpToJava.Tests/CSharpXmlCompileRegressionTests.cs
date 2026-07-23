@@ -1498,6 +1498,88 @@ class StringCollection : IEnumerable<string>
     }
 
     [Fact]
+    public void LambdaCapture_ExternallyReassignedViaRef_UsesArrayHolder()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                void Mutate(ref object value) { value = new object(); }
+
+                void M()
+                {
+                    object o = new object();
+                    Action<object> action = x => Console.WriteLine(o);
+                    Mutate(ref o);
+                    Console.WriteLine(o);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("Object[] _o = new Object[] { o }", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("_o[0]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LambdaCapture_ShadowedLocalExternallyReassignedViaRef_UsesArrayHolderForCorrectInstance()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                void Mutate(ref object value) { value = new object(); }
+
+                void M(bool condition)
+                {
+                    if (condition)
+                    {
+                        object o = null;
+                        Mutate(ref o);
+                    }
+
+                    object o = new object();
+                    Action<object> action = x => Console.WriteLine(o);
+                    Mutate(ref o);
+                    Console.WriteLine(o);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        // The outer 'o' must use a holder; the shadowed inner 'o' must not create a stray holder.
+        Assert.Contains("Object[] _o = new Object[] {", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("_o[0]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ForLoopIterator_CapturedByLambdaAndIncremented_UsesArrayHolder()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                string WritePrimitive(Func<object, string> getter, object state) => getter(state);
+
+                void M(string[] vals)
+                {
+                    for (int i = 0; i < vals.Length; i++)
+                    {
+                        var value = WritePrimitive((state) => ((string[])state)[i], vals);
+                    }
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("int[] _i = new int[] { 0 }", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("_i[0]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PrivateNewMethodHidingProtectedBase_PromotedToBaseAccessInJava()
     {
         var result = Convert("""

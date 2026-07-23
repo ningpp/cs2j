@@ -170,14 +170,12 @@ class T {
 
     /// <summary>
     /// For-loop variable captured by lambda — the increment (i++) is external to the lambda
-    /// but inside the for-statement, not the method body block directly. The pre-scan
-    /// correctly excludes for-initializer variables (since TransformLocalDeclaration is
-    /// not used for them), and GetMutatedCaptures also doesn't detect i++ as internal
-    /// mutation. This is a known limitation for for-loop iteration variables.
-    /// The test verifies no holder is created (pending holder would never be activated).
+    /// but inside the for-statement. TransformForStatement now detects the pending holder
+    /// registered by PreScanLambdaCaptures and emits the holder array as part of the
+    /// for-loop initializer, so the captured variable is effectively final in the lambda.
     /// </summary>
     [Fact]
-    public void ForLoopVariable_CapturedByLambda_NoHolder_KnownLimitation()
+    public void ForLoopVariable_CapturedByLambda_ProducesHolder()
     {
         var result = Convert(@"
 using System;
@@ -189,10 +187,8 @@ class T {
     }
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Known limitation: for-loop iteration variables are not handled by either path.
-        // Pre-scan excludes them (for initializer), GetMutatedCaptures doesn't see
-        // i++ as internal mutation. No holder is created.
-        Assert.DoesNotContain("int[] _i", result.GeneratedCode);
+        Assert.Contains("int[] _i", result.GeneratedCode);
+        Assert.Contains("_i[0]", result.GeneratedCode);
     }
 
     /// <summary>
