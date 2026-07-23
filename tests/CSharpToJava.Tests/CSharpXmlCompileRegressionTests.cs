@@ -1233,6 +1233,73 @@ class StringCollection : IEnumerable<string>
     }
 
     [Fact]
+    public void MissingMethodException_Thrown_MapsToUncheckedCompatClass()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                void Throw()
+                {
+                    throw new MissingMethodException("type::method");
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+
+        var code = result.GeneratedCode;
+        Assert.Contains("import io.github.ningpp.compat.MissingMethodException;", code, StringComparison.Ordinal);
+        Assert.Contains("new MissingMethodException(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("NoSuchMethodException", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("throws NoSuchMethodException", code, StringComparison.Ordinal);
+
+        using var temp = new TempDir();
+        var outDir = Path.Combine(temp.Path, "classes");
+        Directory.CreateDirectory(outDir);
+        var javaPath = Path.Combine(temp.Path, "Sample.java");
+        File.WriteAllText(javaPath, code);
+
+        var compatClasses = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "java", "csharptojava-compat", "target", "classes"));
+        var javac = RunProcess(FindRequiredExecutable("javac"), $"-cp \"{compatClasses}\" -d \"{outDir}\" \"{javaPath}\"");
+        Assert.True(javac.ExitCode == 0, javac.Output);
+    }
+
+    [Fact]
+    public void FileLoadException_Thrown_MapsToUncheckedCompatClass()
+    {
+        var result = Convert("""
+            using System.IO;
+
+            class Sample
+            {
+                void Throw()
+                {
+                    throw new FileLoadException("assembly load failed");
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+
+        var code = result.GeneratedCode;
+        Assert.Contains("import io.github.ningpp.compat.FileLoadException;", code, StringComparison.Ordinal);
+        Assert.Contains("new FileLoadException(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("throws FileLoadException", code, StringComparison.Ordinal);
+
+        using var temp = new TempDir();
+        var outDir = Path.Combine(temp.Path, "classes");
+        Directory.CreateDirectory(outDir);
+        var javaPath = Path.Combine(temp.Path, "Sample.java");
+        File.WriteAllText(javaPath, code);
+
+        var compatClasses = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "java", "csharptojava-compat", "target", "classes"));
+        var javac = RunProcess(FindRequiredExecutable("javac"), $"-cp \"{compatClasses}\" -d \"{outDir}\" \"{javaPath}\"");
+        Assert.True(javac.ExitCode == 0, javac.Output);
+    }
+
+    [Fact]
     public void EnumToObject_StaticCall_MapsToEnumHelper()
     {
         var result = Convert("""

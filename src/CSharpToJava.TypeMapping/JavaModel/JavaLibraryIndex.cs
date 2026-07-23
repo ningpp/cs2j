@@ -32,12 +32,18 @@ public sealed class JavaLibraryIndex
     /// </param>
     public JavaLibraryIndex(string rootDirectory)
     {
+        RootDirectory = rootDirectory;
         _loader = new JavaLibraryLoader(rootDirectory);
 
         // Discover module names up-front so we know which modules exist without loading them.
         _loadedModules = _loader.DiscoverModuleNames()
                                 .ToDictionary(n => n, _ => false, StringComparer.Ordinal);
     }
+
+    /// <summary>
+    /// Root directory passed to the constructor (e.g. <c>config/java/</c>).
+    /// </summary>
+    public string RootDirectory { get; }
 
     // -----------------------------------------------------------------------
     // Public query API

@@ -796,9 +796,9 @@
         },
         {
             "csharp": "System.MissingMethodException",
-            "java": "NoSuchMethodException",
+            "java": "MissingMethodException",
             "imports": [
-                "java.lang.NoSuchMethodException"
+                "io.github.ningpp.compat.MissingMethodException"
             ]
         },
         {

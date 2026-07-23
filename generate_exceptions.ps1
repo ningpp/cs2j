@@ -70,7 +70,6 @@ $standardJavaMap = @{
     "System.OperationCanceledException"  = "CancellationException"
     "System.TimeoutException"            = "TimeoutException"
     "System.TypeLoadException"           = "ClassNotFoundException"
-    "System.MissingMethodException"      = "NoSuchMethodException"
     "System.MissingFieldException"       = "NoSuchFieldException"
     "System.MemberAccessException"       = "IllegalAccessException"
 }

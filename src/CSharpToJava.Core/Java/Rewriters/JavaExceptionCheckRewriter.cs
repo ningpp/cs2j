@@ -261,6 +261,43 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
         return base.VisitNewExpression(node);
     }
 
+    public override JavaThrowStatement VisitThrowStatement(JavaThrowStatement node)
+    {
+        var thrownTypeName = InferThrownType(node.Expression);
+        if (!string.IsNullOrEmpty(thrownTypeName))
+        {
+            var canonicalName = ResolveCanonical(StripGenerics(thrownTypeName));
+            if (canonicalName is not null && !IsUnchecked(canonicalName))
+            {
+                var simpleName = canonicalName.Contains('.')
+                    ? canonicalName.Substring(canonicalName.LastIndexOf('.') + 1)
+                    : canonicalName;
+                _pendingExceptions.Add(simpleName);
+            }
+        }
+
+        return base.VisitThrowStatement(node);
+    }
+
+    private string? InferThrownType(JavaExpression expression)
+    {
+        if (expression is JavaNewExpression newExpr && !string.IsNullOrEmpty(newExpr.Type))
+            return StripGenerics(newExpr.Type);
+
+        if (expression is JavaIdentifierExpression identifier && !string.IsNullOrEmpty(identifier.Name))
+        {
+            if (_localTypes.TryGetValue(identifier.Name, out var localType))
+                return StripGenerics(localType);
+            if (_fieldTypes.TryGetValue(identifier.Name, out var fieldType))
+                return StripGenerics(fieldType);
+        }
+
+        if (expression is JavaCastExpression cast && !string.IsNullOrEmpty(cast.Type))
+            return StripGenerics(cast.Type);
+
+        return null;
+    }
+
     public override JavaMethodCallExpression VisitMethodCallExpression(JavaMethodCallExpression node)
     {
         if (_javaLibrary is not null && node.Target is not null)
