@@ -1363,6 +1363,60 @@ class StringCollection : IEnumerable<string>
         Assert.Contains("(Consumer<T>[]) new Object[]", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConditionalAccess_PropertyChain_GeneratesJavaBeanGetters()
+    {
+        var result = Convert("""
+            class TypeDesc
+            {
+                public string FullName { get; set; }
+            }
+
+            class TypeMapping
+            {
+                public TypeDesc TypeDesc { get; set; }
+            }
+
+            class Choice
+            {
+                public TypeMapping Mapping { get; set; }
+            }
+
+            class Sample
+            {
+                string GetName(Choice choice)
+                {
+                    return choice?.Mapping.TypeDesc.FullName;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("choice.getMapping().getTypeDesc().getFullName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".TypeDesc", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".FullName", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NullableBool_Value_GeneratesPrimitiveUnboxMethod()
+    {
+        var result = Convert("""
+            class Sample
+            {
+                void M(bool? b)
+                {
+                    if (b == null || b.Value)
+                    {
+                    }
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("b == null || b.booleanValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getValue()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

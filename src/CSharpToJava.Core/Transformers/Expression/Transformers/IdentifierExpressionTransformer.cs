@@ -1198,6 +1198,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     var recordAccessor = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"{propertyTarget}.{recordAccessor}()";
                 }
+
+                // C# Nullable<T>.Value → Java wrapper unbox method (Boolean.booleanValue(), etc.)
+                if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var nullableUnboxMethod))
+                    return $"{propertyTarget}.{nullableUnboxMethod}()";
+
                 var getter = GetPropertyGetterName(prop);
                 return $"{propertyTarget}.{getter}()";
             }

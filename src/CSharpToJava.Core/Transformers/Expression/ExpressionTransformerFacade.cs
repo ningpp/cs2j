@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -101,6 +102,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
             case MemberBindingExpressionSyntax binding:
             {
                 var memberName = binding.Name.Identifier.Text;
+                var prop = context.GetSymbolInfo(binding).Symbol as IPropertySymbol;
 
                 // Check method binding via semantic model (e.g., ?.ToString(), ?.GetHashCode())
                 if (context.GetSymbolInfo(binding).Symbol is IMethodSymbol method)
@@ -115,7 +117,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 }
 
                 // Check property-to-method mapping (e.g., Count → size()) via semantic model
-                if (context.GetSymbolInfo(binding).Symbol is IPropertySymbol prop)
+                if (prop != null)
                 {
                     // Use the expression's static type for lookup (e.g., SortedList not IDictionary)
                     // so that concrete-type mappings like SortedList.Values→getValues take
@@ -134,7 +136,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     var mapped = TryMapPropertyToMethod(prop, exprType, context);
                     if (mapped != null)
                     {
-                        if (Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mapped))
+                        if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mapped))
                             return $"{mapped}()";
                         if (mapped.Contains('.')) return mapped;
                         if (prop.ContainingType?.SpecialType == SpecialType.System_Array)
@@ -191,6 +193,13 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                         }
                     }
                 }
+                // C# Nullable<T>.Value → Java wrapper unbox method (Boolean.booleanValue(), etc.)
+                if (prop != null
+                    && ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var bindingUnboxMethod))
+                {
+                    return $"{objExpr}.{bindingUnboxMethod}()";
+                }
+
                 // No mapping found — generate a default getXxx() getter for property-like names.
                 // Names starting with uppercase are likely properties in C# that should be
                 // getters in Java.
@@ -254,6 +263,29 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 {
                     context.AddImport("io.github.ningpp.compat.TypeHelper");
                     return $"TypeHelper.getFullName({accessTarget})";
+                }
+
+                // Property access in a conditional-access chain must still be converted to
+                // Java bean getters (e.g. choice?.Mapping.TypeDesc.FullName).
+                if (context.GetSymbolInfo(memberAccess).Symbol is IPropertySymbol memberProp)
+                {
+                    if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(memberProp, context, out var memberUnboxMethod))
+                        return $"{accessTarget}.{memberUnboxMethod}()";
+
+                    var memberExprType = context.GetTypeInfo(memberAccess.Expression).Type;
+                    var memberMapped = TryMapPropertyToMethod(memberProp, memberExprType, context);
+                    if (memberMapped != null)
+                    {
+                        if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(memberMapped))
+                            return $"{memberMapped}()";
+                        if (memberMapped.Contains('.')) return memberMapped;
+                        if (memberProp.ContainingType?.SpecialType == SpecialType.System_Array)
+                            return $"{accessTarget}.{memberMapped}";
+                        return $"{accessTarget}.{memberMapped}()";
+                    }
+
+                    var memberGetter = "get" + char.ToUpperInvariant(rawName[0]) + rawName[1..];
+                    return $"{accessTarget}.{memberGetter}()";
                 }
 
                 // C# PascalCase methods → Java camelCase: when used as an invocation

@@ -816,6 +816,39 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// For C# Nullable&lt;T&gt;.Value, returns the Java wrapper unbox method name
+    /// (e.g. booleanValue, intValue) when T is a primitive value type.
+    /// </summary>
+    public static bool TryGetNullableValueUnboxMethod(IPropertySymbol prop, ConversionContext context, out string methodName)
+    {
+        methodName = string.Empty;
+        if (prop.ContainingType is not INamedTypeSymbol named
+            || named.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T
+            || named.TypeArguments.Length == 0)
+        {
+            return false;
+        }
+
+        var javaWrapper = context.MapType(named);
+        if (javaWrapper.StartsWith("Optional<", StringComparison.Ordinal))
+            return false;
+
+        methodName = javaWrapper switch
+        {
+            "Boolean" => "booleanValue",
+            "Integer" => "intValue",
+            "Long" => "longValue",
+            "Short" => "shortValue",
+            "Byte" => "byteValue",
+            "Character" => "charValue",
+            "Float" => "floatValue",
+            "Double" => "doubleValue",
+            _ => string.Empty
+        };
+        return methodName.Length > 0;
+    }
+
+    /// <summary>
     /// Checks if the type name is a Java primitive keyword (int, double, etc.).
     /// Includes C# unsigned aliases that map to Java primitives (uint, ulong, ushort, bool).
     /// </summary>
