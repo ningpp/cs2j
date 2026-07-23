@@ -1099,6 +1099,28 @@ class StringCollection : IEnumerable<string>
     }
 
     [Fact]
+    public void IConvertibleCast_ToInt64_GeneratesStaticCompatCall()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                long GetConstantValue(FieldInfo fieldInfo)
+                {
+                    return ((IConvertible)fieldInfo.GetValue(null)).ToInt64(null);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("IConvertible.toInt64(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("fieldInfo.getValue(null)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("((IConvertible)(fieldInfo.getValue(null))).toInt64(null)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ObsoleteAttribute_IsError_UsesCompatAnnotation()
     {
         var result = Convert("""

@@ -639,6 +639,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"ReflectionHelper.getBaseDefinition({baseDefReceiver})";
         }
 
+        // C# ((IConvertible)x).ToInt64(IFormatProvider) → IConvertible.toInt64(x, provider)
+        // C# ((IConvertible)x).ToInt64() → IConvertible.toInt64(x)
+        if (memberAccess.Name.Identifier.Text == "ToInt64"
+            && node.ArgumentList.Arguments.Count <= 1
+            && TryUnwrapIConvertibleCast(memberAccess.Expression, context, out var convertibleReceiver))
+        {
+            var receiverArg = facade.Transform(convertibleReceiver, context);
+            var providerArg = node.ArgumentList.Arguments.Count == 1
+                ? facade.Transform(node.ArgumentList.Arguments[0].Expression, context)
+                : "null";
+            context.AddImport("io.github.ningpp.compat.IConvertible");
+            return $"IConvertible.toInt64({receiverArg}, {providerArg})";
+        }
+
         // C# Type.GetMethods(BindingFlags) → TypeHelper.getMethods(Class, int)
         if (memberAccess.Name.Identifier.Text == "GetMethods"
             && node.ArgumentList.Arguments.Count == 1
@@ -6948,6 +6962,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     private static bool IsSystemTypeReceiver(ExpressionSyntax expr, ConversionContext context)
     {
         return IsReceiverOfType(expr, "System.Type", context);
+    }
+
+    /// <summary>
+    /// Unwraps a parenthesized cast to System.IConvertible and returns the underlying expression.
+    /// </summary>
+    private static bool TryUnwrapIConvertibleCast(ExpressionSyntax expr, ConversionContext context, out ExpressionSyntax? underlying)
+    {
+        underlying = null;
+        var current = expr;
+        while (current is ParenthesizedExpressionSyntax parenthesized)
+        {
+            current = parenthesized.Expression;
+        }
+
+        if (current is CastExpressionSyntax cast)
+        {
+            var castTypeName = cast.Type.ToString();
+            if (castTypeName is "IConvertible" or "System.IConvertible"
+                || IsReceiverOfType(cast, "System.IConvertible", context))
+            {
+                underlying = cast.Expression;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string ResolveDelegateTypeArg(TypeSyntax typeSyntax, ConversionContext context)
