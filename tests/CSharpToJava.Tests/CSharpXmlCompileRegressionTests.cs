@@ -1169,6 +1169,46 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain("new Object(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AssemblyName_GetPublicKeyToken_BridgedToCompatGetter()
+    {
+        var result = Convert("""
+            using System.Reflection;
+
+            class Sample
+            {
+                byte[] GetToken(AssemblyName name)
+                {
+                    return name.GetPublicKeyToken();
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("name.getPublicKeyToken()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("AssemblyCompat.AssemblyNameCompat name", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FileNotFoundException_TwoStringCtor_UsesCompatClass()
+    {
+        var result = Convert("""
+            using System.IO;
+
+            class Sample
+            {
+                void Throw(string fileName)
+                {
+                    throw new FileNotFoundException(null, fileName);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.FileNotFoundException;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("new FileNotFoundException(null, fileName)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

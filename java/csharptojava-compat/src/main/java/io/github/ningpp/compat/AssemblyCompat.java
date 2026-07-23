@@ -163,6 +163,11 @@ public class AssemblyCompat {
             this.cultureInfo = cultureInfo;
         }
 
+        /** Mirrors C# AssemblyName.GetPublicKeyToken() */
+        public byte[] getPublicKeyToken() {
+            return null;
+        }
+
         @Override
         public String toString() {
             return name;

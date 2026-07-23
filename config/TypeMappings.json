@@ -2679,7 +2679,7 @@
             "csharp": "System.IO.FileNotFoundException",
             "java": "FileNotFoundException",
             "imports": [
-                "java.io.FileNotFoundException"
+                "io.github.ningpp.compat.FileNotFoundException"
             ]
         },
         {
