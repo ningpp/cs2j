@@ -1475,6 +1475,28 @@ class StringCollection : IEnumerable<string>
     }
 
     [Fact]
+    public void BooleanLambdaCapture_Mutated_UsesPrimitiveArrayHolder()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                void M()
+                {
+                    bool isReferenced = true;
+                    Action<object> unrecognizedElementSource = x => isReferenced = false;
+                    Console.WriteLine(isReferenced);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("boolean[] _isReferenced = new boolean[] { isReferenced }", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(boolean[]) new Object[]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PrivateNewMethodHidingProtectedBase_PromotedToBaseAccessInJava()
     {
         var result = Convert("""

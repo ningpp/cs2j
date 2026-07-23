@@ -816,6 +816,43 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Builds a single-element array holder declaration for a lambda-captured variable
+    /// that is mutated inside the lambda body. Java lambdas require captured locals to be
+    /// effectively final, so mutable primitives/reference locals are wrapped in a one-element
+    /// array and accessed via <c>_name[0]</c>.
+    /// <para>
+    /// For Java primitive types (e.g. boolean) the declaration uses a real primitive array such as
+    /// <c>boolean[] _isReferenced = new boolean[] { isReferenced };</c>.
+    /// For generic types (including type parameters like <c>T</c> or <c>Consumer&lt;T&gt;</c>)
+    /// where Java forbids direct generic array creation, the declaration falls back to the
+    /// unchecked <c>(T[]) new Object[] { ... }</c> pattern.
+    /// </para>
+    /// </summary>
+    public static string BuildLambdaCaptureHolderDeclaration(string javaType, string holderName, string captureName)
+    {
+        bool isPrimitive = javaType switch
+        {
+            "int" or "long" or "double" or "float" or
+            "short" or "byte" or "char" or "boolean" => true,
+            _ => false
+        };
+
+        if (isPrimitive)
+        {
+            return $"{javaType}[] {holderName} = new {javaType}[] {{ {captureName} }};";
+        }
+
+        // Generic types cannot be instantiated as arrays directly; keep the unchecked cast.
+        if (javaType.Contains('<'))
+        {
+            return $"@SuppressWarnings(\"unchecked\") {javaType}[] {holderName} = ({javaType}[]) new Object[] {{ {captureName} }};";
+        }
+
+        // Non-generic reference types can use a normally-typed array.
+        return $"{javaType}[] {holderName} = new {javaType}[] {{ {captureName} }};";
+    }
+
+    /// <summary>
     /// For C# Nullable&lt;T&gt;.Value, returns the Java wrapper unbox method name
     /// (e.g. booleanValue, intValue) when T is a primitive value type.
     /// </summary>
