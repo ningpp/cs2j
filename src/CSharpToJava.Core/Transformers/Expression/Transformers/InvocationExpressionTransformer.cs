@@ -749,6 +749,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getConstructorInfo({typeReceiver}, {flags}, {types})";
         }
 
+        // C# Type.GetConstructor(BindingFlags, Type[]) → TypeHelper.getConstructor(Class, int, Class[])
+        if (memberAccess.Name.Identifier.Text == "GetConstructor"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var flags = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var types = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getConstructor({typeReceiver}, {flags}, {types})";
+        }
+
         // C# Type.MakeArrayType() → TypeHelper.makeArrayType(Class)
         if (memberAccess.Name.Identifier.Text == "MakeArrayType"
             && node.ArgumentList.Arguments.Count == 0

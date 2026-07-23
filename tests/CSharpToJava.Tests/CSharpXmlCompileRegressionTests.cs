@@ -1034,6 +1034,99 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain("type.isDefined(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TypeOfNullableUnboundGeneric_MapsToOptionalClassLiteral()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                bool IsNullable(Type type)
+                {
+                    return type.IsGenericType
+                        && type.GetGenericTypeDefinition() == typeof(Nullable<>).GetGenericTypeDefinition();
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Console.WriteLine("NULLABLE UNBOUND:\n" + result.GeneratedCode);
+        Assert.Contains("Optional.class", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("T.class", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TypeOfArraySegmentUnboundGeneric_MapsToCompatArraySegmentClassLiteral()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                bool IsArraySegment(Type type)
+                {
+                    return type.IsGenericType
+                        && type.GetGenericTypeDefinition() == typeof(ArraySegment<>).GetGenericTypeDefinition();
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("ArraySegment.class", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("T.class", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TypeGetConstructor_BindingFlagsAndParameterTypes_BridgedToTypeHelper()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                ConstructorInfo GetCtor(Type type)
+                {
+                    return type.GetConstructor(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic, Array.Empty<Type>());
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("TypeHelper.getConstructor(type, BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic, new Class[0])", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("type.getConstructor(BindingFlags", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ObsoleteAttribute_IsError_UsesCompatAnnotation()
+    {
+        var result = Convert("""
+            using System;
+            using System.Reflection;
+
+            class Sample
+            {
+                bool IsError(ConstructorInfo ctor)
+                {
+                    object[] attrs = ctor.GetCustomAttributes(typeof(ObsoleteAttribute), false);
+                    if (attrs != null && attrs.Length > 0)
+                    {
+                        ObsoleteAttribute obsolete = (ObsoleteAttribute)attrs[0];
+                        return obsolete.IsError;
+                    }
+                    return false;
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("ObsoleteAttribute.class", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ObsoleteAttribute obsolete", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("obsolete.getIsError()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Deprecated.class", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

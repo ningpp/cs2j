@@ -132,7 +132,28 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             var typeInfo = context.GetTypeInfo(typeOfExpr.Type);
             string typeName;
-            if (typeInfo.Type != null)
+            if (typeInfo.Type is INamedTypeSymbol namedType
+                && IsUnboundGenericType(namedType))
+            {
+                // Unbound generics such as typeof(Nullable<>) or typeof(ArraySegment<>)
+                // are represented as constructed types whose type arguments are the
+                // definition's own type parameters (or error types in some semantic
+                // models). They must map to the configured Java generic definition
+                // (e.g. Optional.class or ArraySegment.class), not to the unwrapped
+                // type parameter.
+                var ns = namedType.ContainingNamespace?.ToDisplayString() ?? "";
+                var configKey = (string.IsNullOrEmpty(ns) ? "" : ns + ".") + namedType.Name + "`" + namedType.TypeArguments.Length;
+                typeName = context.TypeMappings.MapType(configKey);
+                if (typeName != configKey)
+                {
+                    context.AddImportsForTypePublic(configKey);
+                }
+                else
+                {
+                    typeName = context.MapType(typeInfo.Type);
+                }
+            }
+            else if (typeInfo.Type != null)
                 typeName = context.MapType(typeInfo.Type);
             else
                 typeName = context.MapTypeFromSyntax(typeOfExpr.Type);
@@ -154,6 +175,25 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         // checked/unchecked/sizeof/complex patterns → raw fallback
         return new JavaRawExpression(Transform(node, context));
+    }
+
+    private static bool IsUnboundGenericType(INamedTypeSymbol namedType)
+    {
+        if (!namedType.IsGenericType || namedType.TypeArguments.Length == 0)
+            return false;
+
+        // Roslyn exposes this directly for open generic type-of expressions.
+        if (namedType.IsUnboundGenericType)
+            return true;
+
+        // Fallback: every type argument is either a type parameter declared by
+        // this type, or an error type produced when the semantic model cannot
+        // resolve the unbound generic parameter.
+        return namedType.TypeArguments.All(a =>
+            a is IErrorTypeSymbol
+            || (a is ITypeParameterSymbol tp
+                && tp.DeclaringType != null
+                && SymbolEqualityComparer.Default.Equals(tp.DeclaringType, namedType)));
     }
 
     private string TransformCast(CastExpressionSyntax node, ConversionContext context)
@@ -1101,7 +1141,28 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         }
 
         string typeName;
-        if (typeInfo.Type != null)
+        if (typeInfo.Type is INamedTypeSymbol namedType
+            && IsUnboundGenericType(namedType))
+        {
+            // Unbound generics such as typeof(Nullable<>) or typeof(ArraySegment<>)
+            // are represented as constructed types whose type arguments are the
+            // definition's own type parameters (or error types in some semantic
+            // models). They must map to the configured Java generic definition
+            // (e.g. Optional.class or ArraySegment.class), not to the unwrapped
+            // type parameter.
+            var ns = namedType.ContainingNamespace?.ToDisplayString() ?? "";
+            var configKey = (string.IsNullOrEmpty(ns) ? "" : ns + ".") + namedType.Name + "`" + namedType.TypeArguments.Length;
+            typeName = context.TypeMappings.MapType(configKey);
+            if (typeName != configKey)
+            {
+                context.AddImportsForTypePublic(configKey);
+            }
+            else
+            {
+                typeName = context.MapType(typeInfo.Type);
+            }
+        }
+        else if (typeInfo.Type != null)
         {
             typeName = context.MapType(typeInfo.Type);
         }
