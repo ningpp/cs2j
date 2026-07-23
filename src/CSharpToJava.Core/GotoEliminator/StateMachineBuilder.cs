@@ -1720,9 +1720,32 @@ internal sealed partial class StateMachineBuilder
                 return block.Statements.Count > 0 && IsTerminatingStatement(block.Statements.Last());
             case SwitchStatementSyntax sw:
                 return !CanSwitchFallThrough(sw);
+            case TryStatementSyntax tryStmt:
+                return !CanTryStatementFallThrough(tryStmt);
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// 判断 try 语句执行后是否可能继续执行其后的兄弟语句。
+    /// 含 finally 时由 finally 块决定；否则只要 try 块或任一 catch 块能贯穿，整个语句就能贯穿。
+    /// </summary>
+    private static bool CanTryStatementFallThrough(TryStatementSyntax tryStmt)
+    {
+        if (tryStmt.Finally != null)
+            return CanStatementFallThrough(tryStmt.Finally.Block);
+
+        if (CanStatementFallThrough(tryStmt.Block))
+            return true;
+
+        foreach (var catchClause in tryStmt.Catches)
+        {
+            if (CanStatementFallThrough(catchClause.Block))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>判断一条语句执行后是否可能继续执行其后的兄弟语句。</summary>
@@ -1749,6 +1772,8 @@ internal sealed partial class StateMachineBuilder
                 return CanStatementFallThrough(iff.Statement) || CanStatementFallThrough(iff.Else.Statement);
             case LabeledStatementSyntax labeled:
                 return CanStatementFallThrough(labeled.Statement);
+            case TryStatementSyntax tryStmt:
+                return CanTryStatementFallThrough(tryStmt);
             case EmptyStatementSyntax:
                 return true;
             case BreakStatementSyntax:

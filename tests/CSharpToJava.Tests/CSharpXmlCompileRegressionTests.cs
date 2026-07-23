@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 
@@ -1526,5 +1527,100 @@ class StringCollection : IEnumerable<string>
         // "attempting to assign weaker access privileges" and derived classes cannot see it.
         Assert.DoesNotContain("private RuntimeException createInvalidClrMappingException", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("createInvalidClrMappingException(sourceType, destinationType)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GotoInsideTryCatch_LabelAfterTry_DoesNotGenerateUnreachableJava()
+    {
+        var source = """
+            class Sample
+            {
+                public object ParseValue(string s)
+                {
+                    try
+                    {
+                        if (s == null) goto Error;
+                        return s;
+                    }
+                    catch (Exception)
+                    {
+                        throw;
+                    }
+                Error:
+                    throw new Exception("invalid");
+                }
+            }
+            """;
+
+        var eliminator = new CSharpToJava.Core.GotoEliminator.GotoEliminator();
+        var preprocessed = eliminator.Eliminate(source);
+        Assert.True(preprocessed.Diagnostics.All(d => d.Severity != CSharpToJava.Core.GotoEliminator.GotoEliminatorSeverity.Error),
+            string.Join("\n", preprocessed.Diagnostics.Select(d => d.Message)));
+        Assert.DoesNotContain("goto", preprocessed.OutputCode, StringComparison.Ordinal);
+
+        var result = await ConvertProjectAsync(new[] { ("Sample.cs", preprocessed.OutputCode) });
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+
+        using var temp = new TempDir();
+        var outDir = Path.Combine(temp.Path, "classes");
+        Directory.CreateDirectory(outDir);
+        var javaPath = Path.Combine(temp.Path, "Sample.java");
+        File.WriteAllText(javaPath, result.GeneratedCode);
+
+        var javac = RunProcess(FindRequiredExecutable("javac"), $"-d \"{outDir}\" \"{javaPath}\"");
+        Assert.True(javac.ExitCode == 0, javac.Output);
+    }
+
+    private static string FindRequiredExecutable(string name)
+    {
+        var path = Environment.GetEnvironmentVariable("PATH") ?? "";
+        var extensions = OperatingSystem.IsWindows()
+            ? new[] { ".exe", ".cmd", ".bat", "" }
+            : new[] { "" };
+
+        foreach (var dir in path.Split(Path.PathSeparator))
+        {
+            if (string.IsNullOrWhiteSpace(dir))
+                continue;
+
+            foreach (var ext in extensions)
+            {
+                var candidate = Path.Combine(dir.Trim(), name + ext);
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+        }
+
+        throw new FileNotFoundException($"{name} is required for this test.");
+    }
+
+    private static (int ExitCode, string Output) RunProcess(string fileName, string arguments)
+    {
+        var psi = new ProcessStartInfo(fileName, arguments)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException($"Could not start {fileName}.");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        return (process.ExitCode, stdout + stderr);
+    }
+
+    private sealed class TempDir : IDisposable
+    {
+        public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cs2j-" + Guid.NewGuid().ToString("N"));
+
+        public TempDir() => Directory.CreateDirectory(Path);
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+                Directory.Delete(Path, recursive: true);
+        }
     }
 }
