@@ -77,3 +77,4 @@ _out/
 .worktrees/
 .idea/
 *.DotSettings.user
+cs-xml-temp-*/
