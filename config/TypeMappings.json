@@ -3505,8 +3505,10 @@
         },
         {
             "csharp": "System.Reflection.AssemblyName",
-            "java": "Object",
-            "imports": []
+            "java": "AssemblyCompat.AssemblyNameCompat",
+            "imports": [
+                "io.github.ningpp.compat.AssemblyCompat"
+            ]
         },
         {
             "csharp": "System.Reflection.FieldInfo",

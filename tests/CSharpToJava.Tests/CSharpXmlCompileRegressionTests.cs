@@ -1127,6 +1127,48 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain("Deprecated.class", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AssemblyName_NameProperty_Getter_IsBridgedToCompatGetter()
+    {
+        var result = Convert("""
+            using System.Reflection;
+
+            class Sample
+            {
+                string GetTempName(AssemblyName parent, string ns)
+                {
+                    return parent.Name + ".XmlSerializers" + (ns == null || ns.Length == 0 ? "" : "." + ns.GetHashCode());
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("AssemblyCompat.AssemblyNameCompat parent", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("parent.getName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Object parent", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("parent.get_Name()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AssemblyName_Ctor_String_LoadedByCompat()
+    {
+        var result = Convert("""
+            using System.Reflection;
+
+            class Sample
+            {
+                void Load()
+                {
+                    var originalAssembly = Assembly.Load(new AssemblyName("MyAssembly, Version=1.0.0.0"));
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("AssemblyCompat.load(new AssemblyCompat.AssemblyNameCompat(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Object(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

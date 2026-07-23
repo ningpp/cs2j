@@ -19,6 +19,11 @@ public class AssemblyCompat {
         this.location = location;
     }
 
+    /** Mirrors C# Assembly.Load(AssemblyName) */
+    public static AssemblyCompat load(AssemblyNameCompat name) {
+        return new AssemblyCompat(AssemblyCompat.class.getClassLoader(), name.getName());
+    }
+
     /** Mirrors C# Assembly.LoadFrom(path) */
     public static AssemblyCompat loadFrom(String path) {
         try {
@@ -126,10 +131,36 @@ public class AssemblyCompat {
 
     /** Nested type for AssemblyName compat */
     public static class AssemblyNameCompat {
-        private final String name;
+        private String name;
+        private String codeBase;
+        private CultureInfo cultureInfo;
 
-        AssemblyNameCompat(String name) {
+        public AssemblyNameCompat(String name) {
             this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getCodeBase() {
+            return codeBase;
+        }
+
+        public void setCodeBase(String codeBase) {
+            this.codeBase = codeBase;
+        }
+
+        public CultureInfo getCultureInfo() {
+            return cultureInfo;
+        }
+
+        public void setCultureInfo(CultureInfo cultureInfo) {
+            this.cultureInfo = cultureInfo;
         }
 
         @Override
