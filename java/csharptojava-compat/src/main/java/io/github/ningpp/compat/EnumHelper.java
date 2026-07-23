@@ -46,6 +46,19 @@ public class EnumHelper {
         return enumType.getEnumConstants();
     }
 
+    @SuppressWarnings("unchecked")
+    public static Object toObject(Class<?> enumType, long value) {
+        if (enumType == null || !enumType.isEnum()) {
+            throw new IllegalArgumentException("Type must be an enum: " + enumType);
+        }
+        Object[] constants = enumType.getEnumConstants();
+        int ordinal = (int) value;
+        if (ordinal < 0 || ordinal >= constants.length) {
+            throw new IllegalArgumentException("Invalid enum ordinal: " + ordinal);
+        }
+        return constants[ordinal];
+    }
+
     public static String format(Class<?> enumType, Object value, String format) {
         if (enumType == null || value == null) {
             throw new IllegalArgumentException("enumType and value must not be null");

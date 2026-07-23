@@ -3017,6 +3017,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (context.SemanticModel != null)
             {
                 var receiverTypeSymbol = context.GetSymbolInfo(memberAccess.Expression).Symbol as INamedTypeSymbol;
+                var receiverTypeInfo = context.GetTypeInfo(memberAccess.Expression).Type;
                 if (receiverTypeSymbol != null)
                 {
                     var receiverTypeName = receiverTypeSymbol.ToDisplayString();
@@ -3093,13 +3094,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
                 if (receiverType != null)
                 {
-                    var receiverTypeName = receiverType.ToDisplayString();
+                    var receiverTypeName = receiverType.ToDisplayString(
+                        new SymbolDisplayFormat(
+                            typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+                            genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters));
                     var typeMapped = context.TypeMappings.MapMethod(receiverTypeName, originalMethodName);
-                    if (typeMapped == null)
+
+                    // Single-file / minimal compilations sometimes strip namespaces from
+                    // type symbols, leaving only the simple generic name (e.g.
+                    // "ConcurrentDictionary<,>").  Recover the configured mapping key by
+                    // the type's simple name and arity so instance-method mappings still
+                    // resolve.
+                    if (typeMapped == null && receiverType is INamedTypeSymbol namedReceiverType)
                     {
-                        var fqn = $"{receiverType.ContainingNamespace}.{receiverType.Name}";
-                        typeMapped = context.TypeMappings.MapMethod(fqn, originalMethodName);
+                        var arity = namedReceiverType.TypeArguments.Length > 0
+                            ? namedReceiverType.TypeArguments.Length
+                            : namedReceiverType.Arity;
+                        var configKey = context.TypeMappings.FindConfigKeyBySimpleName(namedReceiverType.Name, arity);
+                        if (configKey != null)
+                        {
+                            typeMapped = context.TypeMappings.MapMethod(configKey, originalMethodName);
+                        }
                     }
+
                     if (typeMapped != null)
                     {
                         ExpressionTransformerHelpers.AddImportForMappedHelperMethod(typeMapped, context);
@@ -3750,6 +3767,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || methodName.StartsWith("DrawingColor.", StringComparison.Ordinal)
             || methodName.StartsWith("PropertyInfo.", StringComparison.Ordinal)
             || methodName.StartsWith("CharUnicodeInfo.", StringComparison.Ordinal)
+            || methodName.StartsWith("ConcurrentHashMapHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("TypeHelper.", StringComparison.Ordinal)
             || methodName.StartsWith("TypeDescriptor.", StringComparison.Ordinal)
             || methodName.StartsWith("IntrospectionExtensions.", StringComparison.Ordinal))

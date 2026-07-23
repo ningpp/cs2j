@@ -1209,6 +1209,73 @@ class StringCollection : IEnumerable<string>
         Assert.Contains("new FileNotFoundException(null, fileName)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void EnumToObject_StaticCall_MapsToEnumHelper()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                enum Color { Red, Green, Blue }
+
+                object ConvertToEnum(Type enumType, long value)
+                {
+                    return Enum.ToObject(enumType, value);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("EnumHelper.toObject(enumType, value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.EnumHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enum.toObject(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConcurrentDictionaryTryAdd_InstanceCall_MapsToConcurrentHashMapHelper()
+    {
+        var result = Convert("""
+            using System.Collections.Concurrent;
+
+            class Sample
+            {
+                bool Add(ConcurrentDictionary<string, object> dict, string key, object value)
+                {
+                    return dict.TryAdd(key, value);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("ConcurrentHashMapHelper.tryAdd(dict, key, value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.ConcurrentHashMapHelper;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("dict.tryAdd(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NamedArguments_SkippedOptionalParameters_AreFilledWithDefaults()
+    {
+        var result = Convert("""
+            class Sample
+            {
+                private object WriteElement(object element, bool checkSpecified, bool checkForNull, bool readOnly, string defaultNamespace, int fixupIndex = -1, int elementIndex = -1, object fixup = null, object member = null)
+                {
+                    return null;
+                }
+
+                object Call(object element, object fixup, object member)
+                {
+                    return WriteElement(element, false, false, false, "", fixup: fixup, member: member);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("writeElement(element, false, false, false, \"\", -1, -1, fixup, member)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("writeElement(element, false, false, false, \"\", fixup, member)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

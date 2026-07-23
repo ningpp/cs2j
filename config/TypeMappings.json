@@ -5134,6 +5134,11 @@
             "javaMethod": "EnumHelper.format"
         },
         {
+            "type": "System.Enum",
+            "method": "ToObject",
+            "javaMethod": "EnumHelper.toObject"
+        },
+        {
             "type": "System.Collections.Generic.List",
             "method": "AddRange",
             "javaMethod": "addRange"
@@ -5272,6 +5277,11 @@
             "type": "System.Collections.Generic.Dictionary`2",
             "method": "TryAdd",
             "javaMethod": "tryAdd"
+        },
+        {
+            "type": "System.Collections.Concurrent.ConcurrentDictionary`2",
+            "method": "TryAdd",
+            "javaMethod": "ConcurrentHashMapHelper.tryAdd"
         },
         {
             "type": "System.Collections.Generic.Dictionary`2",

@@ -176,7 +176,63 @@ public class ArgumentTransformer
                 result[i] = positional[pi++];
         }
 
+        // Issue: named arguments may skip optional parameters whose defaults are not
+        // supplied positionally. Insert the declared default values so the generated
+        // Java call resolves to the full-signature overload.
+        for (int i = 0; i < result.Length; i++)
+        {
+            if (result[i] == null && parameters[i].IsOptional)
+            {
+                result[i] = CreateDefaultArgumentSyntax(parameters[i]);
+            }
+        }
+
         return result.Where(a => a != null).Cast<ArgumentSyntax>().ToList();
+    }
+
+    private static ArgumentSyntax CreateDefaultArgumentSyntax(IParameterSymbol parameter)
+    {
+        string defaultText;
+        if (!parameter.HasExplicitDefaultValue)
+        {
+            defaultText = "null";
+        }
+        else
+        {
+            var value = parameter.ExplicitDefaultValue;
+            if (value == null)
+            {
+                defaultText = "null";
+            }
+            else if (value is bool b)
+            {
+                defaultText = b ? "true" : "false";
+            }
+            else if (value is string s)
+            {
+                defaultText = SyntaxFactory.Literal(s).ToFullString();
+            }
+            else if (value is char c)
+            {
+                defaultText = SyntaxFactory.Literal(c).ToFullString();
+            }
+            else if (parameter.Type.TypeKind == TypeKind.Enum && parameter.Type is INamedTypeSymbol enumType)
+            {
+                var member = enumType.GetMembers()
+                    .OfType<IFieldSymbol>()
+                    .FirstOrDefault(f => f.HasConstantValue && Equals(f.ConstantValue, value));
+                defaultText = member != null
+                    ? $"{enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{member.Name}"
+                    : value.ToString()!;
+            }
+            else
+            {
+                defaultText = value.ToString()!;
+            }
+        }
+
+        var expr = SyntaxFactory.ParseExpression(defaultText);
+        return SyntaxFactory.Argument(expr);
     }
 
     /// <summary>

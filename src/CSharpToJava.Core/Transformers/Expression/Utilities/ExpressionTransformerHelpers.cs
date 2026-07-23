@@ -17,6 +17,7 @@ public static class ExpressionTransformerHelpers
     private static readonly HashSet<string> CompatibilityHelperTypeNames = new(StringComparer.Ordinal)
     {
         "CharUnicodeInfo",
+        "ConcurrentHashMapHelper",
         "DrawingColor",
         "Decimal",
         "Encoding",
