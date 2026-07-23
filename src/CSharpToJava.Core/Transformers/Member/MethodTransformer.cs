@@ -107,6 +107,24 @@ public class MethodTransformer : IMemberTransformer
         if (methodDecl.ExplicitInterfaceSpecifier != null && !javaMethod.Modifiers.HasFlag(JavaModifiers.Public))
             javaMethod.Modifiers |= JavaModifiers.Public;
 
+        // C# "new" member that hides a base-class method: Java treats same-signature methods as overrides,
+        // so we must not reduce the access level compared to the hidden base method. Otherwise Java reports
+        // "attempting to assign weaker access privileges" and derived classes can no longer see the member.
+        if (methodInfo != null && methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.NewKeyword)))
+        {
+            var hiddenBase = FindHiddenBaseMethod(methodInfo);
+            if (hiddenBase != null)
+            {
+                var requiredAccess = MapCSharpAccessibilityToJava(hiddenBase.DeclaredAccessibility);
+                var currentAccess = GetJavaAccessModifier(javaMethod.Modifiers);
+                if (IsWeakerAccess(currentAccess, requiredAccess))
+                {
+                    javaMethod.Modifiers = (javaMethod.Modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private))
+                        | requiredAccess;
+                }
+            }
+        }
+
         // 处理类型参数（泛型方法）
         foreach (var typeParam in methodDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
         {
@@ -1403,5 +1421,74 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return exprBody;
+    }
+
+    /// <summary>
+    /// Finds a non-private base-class method with the same name, parameter count and return type
+    /// that would be hidden by a C# "new" method. Returns null if no such member exists.
+    /// </summary>
+    private static IMethodSymbol? FindHiddenBaseMethod(IMethodSymbol method)
+    {
+        if (method.ContainingType?.BaseType == null) return null;
+
+        var baseType = method.ContainingType.BaseType;
+        while (baseType != null)
+        {
+            foreach (var baseMember in baseType.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (baseMember.Name != method.Name) continue;
+                if (baseMember.Parameters.Length != method.Parameters.Length) continue;
+                if (baseMember.DeclaredAccessibility == Accessibility.Private) continue;
+                if (!HaveSameParameterTypes(baseMember, method)) continue;
+                if (!SymbolEqualityComparer.Default.Equals(baseMember.ReturnType, method.ReturnType)) continue;
+
+                return baseMember;
+            }
+            baseType = baseType.BaseType;
+        }
+        return null;
+    }
+
+    private static bool HaveSameParameterTypes(IMethodSymbol a, IMethodSymbol b)
+    {
+        for (int i = 0; i < a.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(a.Parameters[i].Type, b.Parameters[i].Type))
+                return false;
+        }
+        return true;
+    }
+
+    private static JavaModifiers MapCSharpAccessibilityToJava(Accessibility accessibility)
+    {
+        return accessibility switch
+        {
+            Accessibility.Private => JavaModifiers.Private,
+            Accessibility.Protected => JavaModifiers.Protected,
+            Accessibility.ProtectedAndInternal => JavaModifiers.Protected,
+            _ => JavaModifiers.Public, // public, internal, protected internal
+        };
+    }
+
+    private static JavaModifiers GetJavaAccessModifier(JavaModifiers modifiers)
+    {
+        if ((modifiers & JavaModifiers.Public) != 0) return JavaModifiers.Public;
+        if ((modifiers & JavaModifiers.Protected) != 0) return JavaModifiers.Protected;
+        if ((modifiers & JavaModifiers.Private) != 0) return JavaModifiers.Private;
+        return JavaModifiers.None; // package-private
+    }
+
+    private static bool IsWeakerAccess(JavaModifiers current, JavaModifiers required)
+    {
+        // Java access levels ordered from weakest to strongest.
+        int Rank(JavaModifiers m) => m switch
+        {
+            JavaModifiers.Private => 0,
+            JavaModifiers.None => 1,
+            JavaModifiers.Protected => 2,
+            JavaModifiers.Public => 3,
+            _ => 1
+        };
+        return Rank(current) < Rank(required);
     }
 }

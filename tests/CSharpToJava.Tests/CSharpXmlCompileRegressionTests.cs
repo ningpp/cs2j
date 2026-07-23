@@ -1473,4 +1473,36 @@ class StringCollection : IEnumerable<string>
             Diagnostics = diagnostics,
         };
     }
+
+    [Fact]
+    public void PrivateNewMethodHidingProtectedBase_PromotedToBaseAccessInJava()
+    {
+        var result = Convert("""
+            using System;
+
+            class BaseConverter
+            {
+                protected Exception CreateInvalidClrMappingException(Type sourceType, Type destinationType) => null;
+            }
+
+            class ListConverter : BaseConverter
+            {
+                private new Exception CreateInvalidClrMappingException(Type sourceType, Type destinationType) => null;
+            }
+
+            class UntypedConverter : ListConverter
+            {
+                Exception Use(Type sourceType, Type destinationType)
+                {
+                    return CreateInvalidClrMappingException(sourceType, destinationType);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        // The hiding method must not be emitted as private; otherwise Java reports
+        // "attempting to assign weaker access privileges" and derived classes cannot see it.
+        Assert.DoesNotContain("private RuntimeException createInvalidClrMappingException", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("createInvalidClrMappingException(sourceType, destinationType)", result.GeneratedCode, StringComparison.Ordinal);
+    }
 }
