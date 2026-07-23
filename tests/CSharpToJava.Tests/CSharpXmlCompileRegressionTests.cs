@@ -1276,6 +1276,93 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain("writeElement(element, false, false, false, \"\", fixup, member)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ExpressionTree_FieldAssignmentLambda_GeneratesCompatExpressionCalls()
+    {
+        var result = Convert("""
+            using System;
+            using System.Linq.Expressions;
+            using System.Reflection;
+
+            class Sample
+            {
+                Action<object, object> BuildSetter(FieldInfo field)
+                {
+                    var objParam = Expression.Parameter(typeof(object));
+                    var valParam = Expression.Parameter(typeof(object));
+                    var fieldExpr = Expression.Field(objParam, field);
+                    var assignExpr = Expression.Assign(fieldExpr, valParam);
+                    return (Action<object, object>)Expression.Lambda(assignExpr, objParam, valParam).Compile();
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("Expression.parameter(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Expression.field(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Expression.assign(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Expression.lambda(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".compile()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExpressionTree_LambdaCompile_AssignedToGenericAction_UsesCompatUniversalConsumer()
+    {
+        var result = Convert("""
+            using System;
+            using System.Linq.Expressions;
+            using System.Reflection;
+
+            class Helper
+            {
+                public delegate void SetMemberValueDelegate(object o, object val);
+
+                public static SetMemberValueDelegate Build<TObj, TParam>(MemberInfo memberInfo)
+                {
+                    Action<TObj, TParam> setTypedDelegate = null;
+                    if (memberInfo is FieldInfo fieldInfo)
+                    {
+                        var objectParam = Expression.Parameter(typeof(TObj));
+                        var valueParam = Expression.Parameter(typeof(TParam));
+                        var fieldExpr = Expression.Field(objectParam, fieldInfo);
+                        var assignExpr = Expression.Assign(fieldExpr, valueParam);
+                        setTypedDelegate = Expression.Lambda<Action<TObj, TParam>>(assignExpr, objectParam, valueParam).Compile();
+                    }
+                    Action<TObj, TParam> local = setTypedDelegate;
+                    return (o, p) => local((TObj)o, (TParam)p);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("BiConsumer<TObj, TParam>", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Expression.lambda(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".compile()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(BiConsumer<TObj, TParam>)Expression.lambda", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericCapturedVariable_ExternallyReassigned_UsesUncheckedObjectArrayHolder()
+    {
+        var result = Convert("""
+            using System;
+
+            class Sample
+            {
+                Action<T> Build<T>()
+                {
+                    Action<T> action = null;
+                    action = x => { };
+                    return x => action(x);
+                }
+            }
+            """);
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("@SuppressWarnings(\"unchecked\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("(Consumer<T>[]) new Object[]", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

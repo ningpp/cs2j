@@ -553,7 +553,7 @@ public partial class StatementTransformer
                 var origName = stmt.Declaration.Variables[0].Identifier.Text;
                 if (context.MethodState.TryGetPendingLambdaCaptureHolder(origName, out var capType, out var holderName))
                 {
-                    lambdaCaptureHolderCode = $"{capType}[] {holderName} = {{ {varName} }};";
+                    lambdaCaptureHolderCode = $"@SuppressWarnings(\"unchecked\") {capType}[] {holderName} = ({capType}[]) new Object[] {{ {varName} }};";
                     context.MethodState.ActivateLambdaCaptureHolder(origName);
                 }
             }

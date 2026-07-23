@@ -3448,6 +3448,13 @@
             ]
         },
         {
+            "csharp": "System.Linq.Expressions.Expression",
+            "java": "Expression",
+            "imports": [
+                "io.github.ningpp.compat.Expression"
+            ]
+        },
+        {
             "csharp": "System.Linq.Expressions.LambdaExpression",
             "java": "LambdaExpression",
             "imports": [

@@ -144,7 +144,7 @@ public class LambdaTransformer : IIRExpressionTransformer
             // variables may never be activated, so GetMutatedCaptures must still handle them.
             if (context.MethodState.HasActiveLambdaCaptureHolder(capName))
                 continue;
-            context.AddPreStatement($"{capType}[] _{capName} = {{ {capName} }};");
+            context.AddPreStatement($"@SuppressWarnings(\"unchecked\") {capType}[] _{capName} = ({capType}[]) new Object[] {{ {capName} }};");
             // Register the holder as active so that IdentifierExpressionTransformer
             // replaces all subsequent references to capName with _capName[0] in the
             // enclosing scope (after the lambda). Without this, reads after the lambda
