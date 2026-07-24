@@ -109,6 +109,7 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
         var deps = BuildDependencySection(module.Dependencies);
         var testDeps = module.HasTestSources ? JUnitDependencies() : string.Empty;
         var surefirePlugin = module.HasTestSources ? SurefirePlugin() : string.Empty;
+        var testJarPlugin = module.ProduceTestJar ? TestJarPlugin() : string.Empty;
 
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <project xmlns=""http://maven.apache.org/POM/4.0.0""
@@ -137,6 +138,7 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
         <plugins>
             {CompilerPlugin(javaVer)}
 {surefirePlugin}
+{testJarPlugin}
         </plugins>
     </build>
 
@@ -160,7 +162,7 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
             sb.AppendLine($@"        <dependency>
             <groupId>{dep.GroupId}</groupId>
             <artifactId>{dep.ArtifactId}</artifactId>
-            <version>{(dep.IsInternal ? "${project.version}" : dep.Version)}</version>{ScopeTag(dep.Scope)}
+            <version>{(dep.IsInternal ? "${project.version}" : dep.Version)}</version>{ScopeTag(dep.Scope)}{TypeTag(dep.Type)}
         </dependency>");
         }
         return sb.ToString().TrimEnd('\r', '\n');
@@ -170,6 +172,11 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
         scope == JavaDependencyScope.Compile
             ? string.Empty
             : $"\n            <scope>{scope.ToString().ToLowerInvariant()}</scope>";
+
+    private static string TypeTag(string? type) =>
+        string.IsNullOrWhiteSpace(type)
+            ? string.Empty
+            : $"\n            <type>{type}</type>";
 
     // ── 固定片段 ────────────────────────────────────────────
 
@@ -197,6 +204,20 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
                     <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
                 </configuration>
+            </plugin>";
+
+    private static string TestJarPlugin() => @"
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>";
 
     private static string CompilerPlugin(int javaVer) => $@"<plugin>

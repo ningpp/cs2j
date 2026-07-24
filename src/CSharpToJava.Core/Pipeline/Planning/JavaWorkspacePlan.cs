@@ -36,6 +36,11 @@ public sealed class JavaModulePlan
     public IReadOnlyList<string> RequiredCompatPacks { get; init; } = [];
     public IReadOnlyList<JavaRuntimeBridgeRequirement> RequiredRuntimeBridges { get; init; } = [];
     public bool HasTestSources => SourceSets.TestSources.Count > 0;
+
+    /// <summary>
+    /// 是否为该模块额外打包 test-jar，以便其它模块在测试源码中复用其测试类。
+    /// </summary>
+    public bool ProduceTestJar { get; init; }
 }
 
 /// <summary>
@@ -67,6 +72,12 @@ public sealed class JavaDependency
     public required string ArtifactId { get; init; }
     public required string Version { get; init; }
     public JavaDependencyScope Scope { get; init; } = JavaDependencyScope.Compile;
+
+    /// <summary>
+    /// Maven 依赖类型，例如 <c>test-jar</c>。
+    /// 为空时使用默认的 jar 类型。
+    /// </summary>
+    public string? Type { get; init; }
 
     /// <summary>是否为工作区内部模块引用（使用 ${project.version}）。</summary>
     public bool IsInternal { get; init; }

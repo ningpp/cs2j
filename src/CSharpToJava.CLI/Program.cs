@@ -481,7 +481,12 @@ public class Program
                     string.Equals(p.FilePath, refPath, StringComparison.OrdinalIgnoreCase));
                 if (refProject != null)
                 {
-                    deps.Add(WorkspacePlanBuilder.InternalModuleRef(opts.MavenGroupId, MultiModulePlanner.NormalizeModuleName(refProject.Name)));
+                    var isRefTest = refProject.IsTestProject;
+                    deps.Add(WorkspacePlanBuilder.InternalModuleRef(
+                        opts.MavenGroupId,
+                        MultiModulePlanner.NormalizeModuleName(refProject.Name),
+                        isTest && isRefTest ? JavaDependencyScope.Test : JavaDependencyScope.Compile,
+                        isTest && isRefTest ? "test-jar" : null));
                 }
             }
             deps.AddRange(GetExtraDependencies(opts));
@@ -497,6 +502,7 @@ public class Program
                     moduleName),
                 RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
                 RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
+                ProduceTestJar = isTest,
             };
 
             modulePlans.Add(modulePlan);

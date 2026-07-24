@@ -132,7 +132,7 @@ public sealed class WorkspacePlanBuilder
 
         foreach (var dependency in dependencies)
         {
-            var key = $"{dependency.GroupId}|{dependency.ArtifactId}|{dependency.Scope}|{dependency.IsInternal}";
+            var key = $"{dependency.GroupId}|{dependency.ArtifactId}|{dependency.Scope}|{dependency.IsInternal}|{dependency.Type}";
             if (seen.Add(key))
             {
                 merged.Add(dependency);
@@ -177,13 +177,18 @@ public sealed class WorkspacePlanBuilder
     /// <summary>
     /// 从模块间依赖名称创建内部模块引用依赖。
     /// </summary>
-    public static JavaDependency InternalModuleRef(string groupId, string moduleName, JavaDependencyScope scope = JavaDependencyScope.Compile) =>
+    public static JavaDependency InternalModuleRef(
+        string groupId,
+        string moduleName,
+        JavaDependencyScope scope = JavaDependencyScope.Compile,
+        string? type = null) =>
         new()
         {
             GroupId = groupId,
             ArtifactId = moduleName,
             Version = "${project.version}",
             Scope = scope,
+            Type = type,
             IsInternal = true,
         };
 
