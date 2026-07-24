@@ -30,6 +30,11 @@ public static class DefaultParameterHelper
         var overloads = new List<JavaSyntaxNode>();
         int javaParamOffset = hasStrippedThisParam ? 1 : 0;
 
+        // Generic methods have runtime Class<T> parameters inserted at the front of the
+        // Java signature (e.g. "Class<T> _cs2j_T"). These synthetic parameters must be
+        // preserved in every overload and forwarded to the full method.
+        int leadingSyntheticCount = CountLeadingSyntheticClassParameters(fullMethod.Parameters);
+
         for (int cutAt = firstDefaultIdx; cutAt < allParams.Count; cutAt++)
         {
             var overload = new JavaMethodDeclaration
@@ -42,11 +47,13 @@ public static class DefaultParameterHelper
             foreach (var tp in fullMethod.TypeParameters)
                 overload.TypeParameters.Add(tp);
 
-            int javaCutAt = cutAt - javaParamOffset;
+            int javaCutAt = leadingSyntheticCount + cutAt - javaParamOffset;
             for (int j = 0; j < javaCutAt && j < fullMethod.Parameters.Count; j++)
                 overload.Parameters.Add(fullMethod.Parameters[j]);
 
             var callArgs = new List<string>();
+            for (int s = 0; s < leadingSyntheticCount; s++)
+                callArgs.Add(fullMethod.Parameters[s].Name);
             for (int i = 0; i < allParams.Count; i++)
             {
                 if (i < cutAt)
@@ -70,6 +77,18 @@ public static class DefaultParameterHelper
         return overloads;
     }
 
+    private static int CountLeadingSyntheticClassParameters(IList<JavaParameter> parameters)
+    {
+        int count = 0;
+        while (count < parameters.Count
+            && parameters[count].Name.StartsWith("_cs2j_", StringComparison.Ordinal)
+            && parameters[count].Type.StartsWith("Class<", StringComparison.Ordinal))
+        {
+            count++;
+        }
+        return count;
+    }
+
     /// <summary>
     /// Generates default-parameter overloads for a constructor.
     /// Returns overloads (full declaration excluded) or empty list.
@@ -89,6 +108,10 @@ public static class DefaultParameterHelper
 
         var overloads = new List<JavaSyntaxNode>();
 
+        // Generic classes may have runtime Class<T> parameters inserted at the front of
+        // constructors. Preserve and forward them just like for methods.
+        int leadingSyntheticCount = CountLeadingSyntheticClassParameters(fullCtor.Parameters);
+
         for (int cutAt = firstDefaultIdx; cutAt < allParams.Count; cutAt++)
         {
             var overload = new JavaConstructorDeclaration
@@ -98,10 +121,13 @@ public static class DefaultParameterHelper
                 LeadingComment = fullCtor.LeadingComment,
             };
 
-            for (int j = 0; j < cutAt && j < fullCtor.Parameters.Count; j++)
+            int javaCutAt = leadingSyntheticCount + cutAt;
+            for (int j = 0; j < javaCutAt && j < fullCtor.Parameters.Count; j++)
                 overload.Parameters.Add(fullCtor.Parameters[j]);
 
             var callArgs = new List<string>();
+            for (int s = 0; s < leadingSyntheticCount; s++)
+                callArgs.Add(fullCtor.Parameters[s].Name);
             for (int i = 0; i < allParams.Count; i++)
             {
                 if (i < cutAt)

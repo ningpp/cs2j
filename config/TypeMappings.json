@@ -3950,6 +3950,20 @@
             ]
         },
         {
+            "csharp": "System.Text.CodePages.CodePagesEncodingProvider",
+            "java": "CodePagesEncodingProvider",
+            "imports": [
+                "io.github.ningpp.compat.CodePagesEncodingProvider"
+            ]
+        },
+        {
+            "csharp": "System.Text.CodePagesEncodingProvider",
+            "java": "CodePagesEncodingProvider",
+            "imports": [
+                "io.github.ningpp.compat.CodePagesEncodingProvider"
+            ]
+        },
+        {
             "csharp": "System.BitConverter",
             "java": "ByteBuffer",
             "imports": [

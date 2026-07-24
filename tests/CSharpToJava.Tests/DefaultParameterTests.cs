@@ -125,4 +125,46 @@ public class Simple
         Assert.Contains("Simple(int a, int b)", result.GeneratedCode);
         Assert.DoesNotContain("this(", result.GeneratedCode);
     }
+
+    [Fact]
+    public void GenericMethod_DefaultParamAfterRequired_GeneratesOverloadWithClassParam()
+    {
+        var result = Convert(@"
+public static class Test
+{
+    public static void Run<T>(string xml, string testExpression, string startingNodePath = null)
+        where T : Exception
+    {
+        var _ = typeof(T);
+    }
+}
+");
+
+        Assert.True(result.Success);
+        Assert.Contains("void run(Class<T> _cs2j_T, String xml, String testExpression, String startingNodePath)", result.GeneratedCode);
+        Assert.Contains("void run(Class<T> _cs2j_T, String xml, String testExpression)", result.GeneratedCode);
+        Assert.Contains("run(_cs2j_T, xml, testExpression, null);", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void GenericMethod_MultipleDefaultParams_GeneratesOverloadWithClassParam()
+    {
+        var result = Convert(@"
+public static class Test
+{
+    public static void Execute<T>(int a, int b = 1, int c = 2)
+        where T : Exception
+    {
+        var _ = typeof(T);
+    }
+}
+");
+
+        Assert.True(result.Success);
+        Assert.Contains("void execute(Class<T> _cs2j_T, int a, int b, int c)", result.GeneratedCode);
+        Assert.Contains("void execute(Class<T> _cs2j_T, int a)", result.GeneratedCode);
+        Assert.Contains("void execute(Class<T> _cs2j_T, int a, int b)", result.GeneratedCode);
+        Assert.Contains("execute(_cs2j_T, a, 1, 2);", result.GeneratedCode);
+        Assert.Contains("execute(_cs2j_T, a, b, 2);", result.GeneratedCode);
+    }
 }
