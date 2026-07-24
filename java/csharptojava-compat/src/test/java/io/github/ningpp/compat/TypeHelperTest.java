@@ -31,4 +31,38 @@ class TypeHelperTest {
     @Deprecated
     private static class AnnotatedSample {
     }
+
+    @Test
+    void getElementType_returnsWrapperClassForPrimitiveArrays() {
+        assertEquals(Integer.class, TypeHelper.getElementType(int[].class));
+        assertEquals(Long.class, TypeHelper.getElementType(long[].class));
+        assertEquals(Boolean.class, TypeHelper.getElementType(boolean[].class));
+    }
+
+    @Test
+    void getElementType_leavesReferenceTypesUnchanged() {
+        assertEquals(String.class, TypeHelper.getElementType(String[].class));
+        assertEquals(Integer.class, TypeHelper.getElementType(Integer[].class));
+    }
+
+    @Test
+    void newArrayInstance_createsPrimitiveArrayFromWrapperClass() {
+        Object arr = TypeHelper.newArrayInstance(Integer.class, 3);
+        assertTrue(arr instanceof int[]);
+        assertEquals(3, ((int[]) arr).length);
+    }
+
+    @Test
+    void newArrayInstance_createsPrimitiveArrayFromPrimitiveClass() {
+        Object arr = TypeHelper.newArrayInstance(int.class, 2);
+        assertTrue(arr instanceof int[]);
+        assertEquals(2, ((int[]) arr).length);
+    }
+
+    @Test
+    void newArrayInstance_createsReferenceArrayWhenNoPrimitiveMapping() {
+        Object arr = TypeHelper.newArrayInstance(String.class, 1);
+        assertTrue(arr instanceof String[]);
+        assertEquals(1, ((String[]) arr).length);
+    }
 }

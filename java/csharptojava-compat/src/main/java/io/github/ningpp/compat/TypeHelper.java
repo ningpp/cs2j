@@ -351,7 +351,7 @@ public final class TypeHelper {
     }
 
     public static Class<?> getElementType(Class<?> type) {
-        return type == null ? null : type.getComponentType();
+        return type == null ? null : toWrapperType(type.getComponentType());
     }
 
     public static boolean getIsGenericParameter(Class<?> type) {
@@ -362,14 +362,54 @@ public final class TypeHelper {
         if (elementType == null) {
             return null;
         }
-        return java.lang.reflect.Array.newInstance(elementType, 0).getClass();
+        Class<?> primitiveType = toPrimitiveType(elementType);
+        return java.lang.reflect.Array.newInstance(primitiveType != null ? primitiveType : elementType, 0).getClass();
     }
 
     public static Object newArrayInstance(Class<?> elementType, int length) {
         if (elementType == null) {
             return null;
         }
-        return java.lang.reflect.Array.newInstance(elementType, length);
+        Class<?> primitiveType = toPrimitiveType(elementType);
+        return java.lang.reflect.Array.newInstance(primitiveType != null ? primitiveType : elementType, length);
+    }
+
+    /**
+     * Maps a Java primitive class to its boxed wrapper class.
+     * Non-primitive inputs are returned unchanged so that reflection-based
+     * type comparisons (e.g. C# typeof(int) represented as Integer.class)
+     * line up with primitive array component types.
+     */
+    private static Class<?> toWrapperType(Class<?> type) {
+        if (type == null || !type.isPrimitive()) {
+            return type;
+        }
+        if (type == int.class) return Integer.class;
+        if (type == long.class) return Long.class;
+        if (type == short.class) return Short.class;
+        if (type == byte.class) return Byte.class;
+        if (type == boolean.class) return Boolean.class;
+        if (type == char.class) return Character.class;
+        if (type == float.class) return Float.class;
+        if (type == double.class) return Double.class;
+        return type;
+    }
+
+    /**
+     * Maps a boxed wrapper class back to its Java primitive class.
+     * Returns null for non-wrapper inputs so callers can decide whether to
+     * preserve the original class.
+     */
+    private static Class<?> toPrimitiveType(Class<?> type) {
+        if (type == Integer.class) return int.class;
+        if (type == Long.class) return long.class;
+        if (type == Short.class) return short.class;
+        if (type == Byte.class) return byte.class;
+        if (type == Boolean.class) return boolean.class;
+        if (type == Character.class) return char.class;
+        if (type == Float.class) return float.class;
+        if (type == Double.class) return double.class;
+        return null;
     }
 
     public static MethodInfo getMethod(Class<?> type, String name, Class<?>... parameterTypes) {
