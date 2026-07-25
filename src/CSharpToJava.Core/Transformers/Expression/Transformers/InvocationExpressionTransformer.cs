@@ -5798,12 +5798,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (argType is IArrayTypeSymbol arrayType)
             return ObjectCreationTransformer.WrapArrayForCollectionArg(args, arrayType, context);
 
-        if (IsStringSplitArrayExpression(argExpression, context))
-        {
-            context.AddImport("io.github.ningpp.compat.ArrayHelper");
-            return $"ArrayHelper.toList({args})";
-        }
-
         return args;
     }
 
@@ -5815,25 +5809,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
             || trimmed.StartsWith("IntStream.range(", StringComparison.Ordinal);
-    }
-
-    private static bool IsStringSplitArrayExpression(ExpressionSyntax expression, ConversionContext context)
-    {
-        if (expression is not InvocationExpressionSyntax invocation
-            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess
-            || memberAccess.Name.Identifier.Text != "Split")
-        {
-            return false;
-        }
-
-        var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-        if (methodSymbol?.ContainingType.SpecialType == SpecialType.System_String)
-            return true;
-
-        var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
-        return receiverType == null
-            || receiverType.TypeKind is TypeKind.Error or TypeKind.Unknown
-            || receiverType.SpecialType == SpecialType.System_String;
     }
 
     private static string CoerceXmlFactoryReaderWriterArgument(

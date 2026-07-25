@@ -239,9 +239,11 @@ public partial class StatementTransformer
         // C# allows foreach (char c in str) because string implements IEnumerable<char>.
         // Java String does NOT implement Iterable<Character>, so we must use toCharArray().
         var exprTypeInfo = context.GetTypeInfo(stmt.Expression).Type;
+        var isStringCharArray = false;
         if (exprTypeInfo?.SpecialType == SpecialType.System_String)
         {
             expression = $"{expression}.toCharArray()";
+            isStringCharArray = true;
         }
 
         // LINQ type parameter names that leak through unresolved generics
@@ -414,7 +416,8 @@ public partial class StatementTransformer
         // Java generics require boxed types, so primitive loop variables must be converted
         // (e.g., Iterable<int> is invalid; use Iterable<Integer>).
         bool isNonGenericEnumerableCast = false;
-        if (!isStream && javaType != "Object" && javaType != "var"
+        if (!isStream && !isStringCharArray && exprTypeInfo is not IArrayTypeSymbol
+            && javaType != "Object" && javaType != "var"
             && exprTypeInfo is INamedTypeSymbol rawEnum
             && IsNonGenericEnumerableOrCollection(rawEnum))
         {
@@ -426,7 +429,11 @@ public partial class StatementTransformer
         // Fix L: Downcast in foreach — C# allows implicitly downcasting the element type in foreach
         // (e.g., foreach (NetworkEdge e in IEnumerable<PolyIntEdge>)) but Java does not.
         // Detect via Roslyn's ForEachStatementInfo.ElementConversion.IsExplicit.
-        if (!isStream && !isNonGenericEnumerableCast && javaType != "var" && javaType != "Object" && context.SemanticModel != null)
+        // Java arrays (including String.toCharArray()) are already valid foreach targets
+        // and cannot be cast to Iterable<T>; skip the wildcard downcast for them.
+        if (!isStream && !isNonGenericEnumerableCast && !isStringCharArray
+            && exprTypeInfo is not IArrayTypeSymbol
+            && javaType != "var" && javaType != "Object" && context.SemanticModel != null)
         {
             try
             {

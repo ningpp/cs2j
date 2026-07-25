@@ -187,6 +187,9 @@ public class ConversionPipeline
                     MetadataReference.CreateFromFile(typeof(System.Net.IPAddress).Assembly.Location),
                     MetadataReference.CreateFromFile(typeof(System.Text.RegularExpressions.Regex).Assembly.Location),
                     MetadataReference.CreateFromFile(typeof(System.Text.Json.JsonSerializer).Assembly.Location),
+                    // System.Xml.Serialization types (XmlSerializer, XmlAttributeAttribute, etc.)
+                    // are used by converted test projects and must resolve for semantic mapping.
+                    MetadataReference.CreateFromFile(typeof(System.Xml.Serialization.XmlSerializer).Assembly.Location),
                 }.Concat(GetFrameworkSupplementalReferences()).ToArray(),
                 options: new CSharpCompilationOptions(
                     OutputKind.DynamicallyLinkedLibrary,

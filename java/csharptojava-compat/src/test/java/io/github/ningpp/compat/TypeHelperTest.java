@@ -47,7 +47,7 @@ class TypeHelperTest {
 
     @Test
     void newArrayInstance_createsPrimitiveArrayFromWrapperClass() {
-        Object arr = TypeHelper.newArrayInstance(Integer.class, 3);
+        Object arr = TypeHelper.newArrayInstance(Integer.class, 3, true);
         assertTrue(arr instanceof int[]);
         assertEquals(3, ((int[]) arr).length);
     }

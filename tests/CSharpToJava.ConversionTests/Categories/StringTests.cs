@@ -258,6 +258,14 @@ public class StringTests : ConversionTestBase
     }
 
     [Fact]
+    public void StringForeach_UsesToCharArrayEnhancedFor()
+    {
+        var result = Convert("class C { public int M(string s) { int n = 0; foreach (var c in s) { if (c == 'x') n++; } return n; } }");
+        AssertConversion(result, "for (char c : s.toCharArray())");
+        AssertJavaDoesNotContain(result, "(Iterable<");
+    }
+
+    [Fact]
     public void StringIndexOfString_ConvertsToIndexOf()
     {
         var result = Convert("class C { public int M(string s) { return s.IndexOf(\"abc\"); } }");

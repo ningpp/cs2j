@@ -367,11 +367,15 @@ public final class TypeHelper {
     }
 
     public static Object newArrayInstance(Class<?> elementType, int length) {
+        return newArrayInstance(elementType, length, false);
+    }
+
+    public static Object newArrayInstance(Class<?> elementType, int length, boolean primitive) {
         if (elementType == null) {
             return null;
         }
-        Class<?> primitiveType = toPrimitiveType(elementType);
-        return java.lang.reflect.Array.newInstance(primitiveType != null ? primitiveType : elementType, length);
+        Class<?> componentType = primitive ? toPrimitiveType(elementType) : null;
+        return java.lang.reflect.Array.newInstance(componentType != null ? componentType : elementType, length);
     }
 
     /**

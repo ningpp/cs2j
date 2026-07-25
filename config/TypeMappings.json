@@ -2221,6 +2221,41 @@
             ]
         },
         {
+            "csharp": "System.Xml.Serialization.XmlSerializer",
+            "java": "XmlSerializer",
+            "imports": [
+                "io.github.ningpp.compat.XmlSerializer"
+            ]
+        },
+        {
+            "csharp": "System.Xml.Serialization.XmlAttributeAttribute",
+            "java": "XmlAttribute",
+            "imports": [
+                "io.github.ningpp.compat.xml.XmlAttribute"
+            ]
+        },
+        {
+            "csharp": "System.Xml.Serialization.XmlIgnoreAttribute",
+            "java": "XmlIgnore",
+            "imports": [
+                "io.github.ningpp.compat.xml.XmlIgnore"
+            ]
+        },
+        {
+            "csharp": "System.Xml.Serialization.XmlArrayAttribute",
+            "java": "XmlArray",
+            "imports": [
+                "io.github.ningpp.compat.xml.XmlArray"
+            ]
+        },
+        {
+            "csharp": "System.Xml.Serialization.XmlArrayItemAttribute",
+            "java": "XmlArrayItem",
+            "imports": [
+                "io.github.ningpp.compat.xml.XmlArrayItem"
+            ]
+        },
+        {
             "csharp": "System.Management.ManagementException",
             "java": "ManagementException",
             "imports": [
@@ -4340,6 +4375,13 @@
             "java": "DataAttribute",
             "imports": [
                 "csharp.xunit.Sdk.DataAttribute"
+            ]
+        },
+        {
+            "csharp": "Xunit.Sdk.XunitException",
+            "java": "XunitException",
+            "imports": [
+                "csharp.xunit.Sdk.XunitException"
             ]
         },
         {

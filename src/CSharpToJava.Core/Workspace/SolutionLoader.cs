@@ -274,7 +274,9 @@ public sealed class SolutionLoader : IDisposable
 
     /// <summary>
     /// Scans a .csproj file for &lt;None&gt; and &lt;Content&gt; items with
-    /// &lt;CopyToOutputDirectory&gt; set to a value other than "Never".
+    /// &lt;CopyToOutputDirectory&gt; set to a value other than "Never", and for
+    /// &lt;EmbeddedResource&gt; items (which are always copied using their logical
+    /// name when provided).
     /// </summary>
     internal static IReadOnlyList<ResourceItem> ScanProjectResources(string? projectFilePath)
     {
@@ -295,20 +297,26 @@ public sealed class SolutionLoader : IDisposable
             return [];
         }
 
-        foreach (var item in doc.Descendants().Where(e => e.Name.LocalName is "None" or "Content"))
+        foreach (var item in doc.Descendants().Where(e => e.Name.LocalName is "None" or "Content" or "EmbeddedResource"))
         {
             var include = (string?)item.Attribute("Include") ?? (string?)item.Attribute("Update");
             if (string.IsNullOrWhiteSpace(include))
                 continue;
 
-            var copyBehavior = item.Elements()
-                .FirstOrDefault(e => e.Name.LocalName == "CopyToOutputDirectory")?.Value;
-            if (string.IsNullOrWhiteSpace(copyBehavior)
-                || copyBehavior.Equals("Never", StringComparison.OrdinalIgnoreCase))
-                continue;
+            var isEmbeddedResource = item.Name.LocalName == "EmbeddedResource";
+            if (!isEmbeddedResource)
+            {
+                var copyBehavior = item.Elements()
+                    .FirstOrDefault(e => e.Name.LocalName == "CopyToOutputDirectory")?.Value;
+                if (string.IsNullOrWhiteSpace(copyBehavior)
+                    || copyBehavior.Equals("Never", StringComparison.OrdinalIgnoreCase))
+                    continue;
+            }
 
             var normalizedInclude = include.Replace('\\', Path.DirectorySeparatorChar)
                                            .Replace('/', Path.DirectorySeparatorChar);
+            var logicalNameTemplate = item.Elements()
+                .FirstOrDefault(e => e.Name.LocalName == "LogicalName")?.Value;
 
             if (normalizedInclude.Contains('*'))
             {
@@ -335,7 +343,7 @@ public sealed class SolutionLoader : IDisposable
                     resources.Add(new ResourceItem
                     {
                         SourcePath = matchedFile,
-                        RelativePath = relativePath,
+                        RelativePath = ExpandEmbeddedResourceLogicalName(logicalNameTemplate, matchedFile, projectDir, normalizedInclude) ?? relativePath,
                     });
                 }
             }
@@ -348,12 +356,67 @@ public sealed class SolutionLoader : IDisposable
                 resources.Add(new ResourceItem
                 {
                     SourcePath = fullPath,
-                    RelativePath = normalizedInclude,
+                    RelativePath = ExpandEmbeddedResourceLogicalName(logicalNameTemplate, fullPath, projectDir, normalizedInclude) ?? normalizedInclude,
                 });
             }
         }
 
         return resources;
+    }
+
+    /// <summary>
+    /// Expands the most common MSBuild item metadata tokens used in an
+    /// &lt;EmbeddedResource LogicalName=&quot;...&quot;/&gt; value. Returns null when no
+    /// logical name template was supplied.
+    /// </summary>
+    private static string? ExpandEmbeddedResourceLogicalName(string? logicalNameTemplate, string filePath, string projectDir, string identity)
+    {
+        if (string.IsNullOrWhiteSpace(logicalNameTemplate))
+            return null;
+
+        var fullPath = Path.GetFullPath(filePath);
+        var fileName = Path.GetFileName(fullPath);
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fullPath);
+        var extension = Path.GetExtension(fullPath);
+        var directory = Path.GetDirectoryName(fullPath) ?? string.Empty;
+        var rootDir = Path.GetPathRoot(fullPath) ?? string.Empty;
+        var relativePath = fullPath;
+        try
+        {
+            relativePath = Path.GetRelativePath(projectDir, fullPath);
+        }
+        catch
+        {
+            // Fall back to the full path if relative-path computation fails.
+        }
+        var relativeDir = Path.GetDirectoryName(relativePath);
+        relativeDir = string.IsNullOrEmpty(relativeDir) ? string.Empty : relativeDir + Path.DirectorySeparatorChar;
+
+        var recursiveDir = string.Empty;
+        var identityDir = Path.GetDirectoryName(identity) ?? string.Empty;
+        if (!string.IsNullOrEmpty(identityDir) && !identityDir.Contains('*'))
+        {
+            var relativeToIdentity = relativePath;
+            if (relativeToIdentity.StartsWith(identityDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                recursiveDir = Path.GetDirectoryName(relativeToIdentity[(identityDir.Length + 1)..]) ?? string.Empty;
+                if (!string.IsNullOrEmpty(recursiveDir))
+                    recursiveDir += Path.DirectorySeparatorChar;
+            }
+        }
+
+        var result = logicalNameTemplate;
+        result = result.Replace("%(Filename)", fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(Extension)", extension, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(RelativeDir)", relativeDir, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(RecursiveDir)", recursiveDir, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(Identity)", identity, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(FullPath)", fullPath, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(Directory)", directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(RootDir)", rootDir, StringComparison.OrdinalIgnoreCase);
+        result = result.Replace("%(FullPath)", fullPath, StringComparison.OrdinalIgnoreCase);
+
+        return result.Replace('\\', '/');
     }
 
     public void Dispose()

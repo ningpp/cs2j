@@ -129,6 +129,7 @@ public class PropertyTransformer : IMemberTransformer
 
         if (needsBackingField)
         {
+            ApplyXmlSerializationAnnotations(propDecl, field, context);
             results.Add(field);
         }
 
@@ -478,5 +479,61 @@ public class PropertyTransformer : IMemberTransformer
         return segment.Length > 0
             && (char.IsLetter(segment[0]) || segment[0] == '_' || segment[0] == '$')
             && segment.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
+    }
+
+    /// <summary>
+    /// Translates C# XML serialization attributes on a property into the equivalent
+    /// Java annotations on the generated backing field.
+    /// </summary>
+    private static void ApplyXmlSerializationAnnotations(PropertyDeclarationSyntax propDecl, JavaFieldDeclaration field, ConversionContext context)
+    {
+        foreach (var attrList in propDecl.AttributeLists)
+        {
+            foreach (var attr in attrList.Attributes)
+            {
+                var symbolInfo = context.GetSymbolInfo(attr);
+                var attrType = symbolInfo.Symbol is IMethodSymbol ctor
+                    ? ctor.ContainingType?.ToDisplayString()
+                    : symbolInfo.Symbol?.ContainingType?.ToDisplayString();
+
+                if (attrType is null)
+                    continue;
+
+                var args = attr.ArgumentList?.Arguments;
+                var firstArg = args is { Count: > 0 } ? args.Value[0].Expression.ToString() : null;
+
+                switch (attrType)
+                {
+                    case "System.Xml.Serialization.XmlAttributeAttribute":
+                        context.AddImport("io.github.ningpp.compat.xml.XmlAttribute");
+                        var xmlAttr = new JavaAnnotation("XmlAttribute");
+                        if (firstArg != null)
+                            xmlAttr.Values["name"] = firstArg;
+                        field.Annotations.Add(xmlAttr);
+                        break;
+
+                    case "System.Xml.Serialization.XmlIgnoreAttribute":
+                        context.AddImport("io.github.ningpp.compat.xml.XmlIgnore");
+                        field.Annotations.Add(new JavaAnnotation("XmlIgnore"));
+                        break;
+
+                    case "System.Xml.Serialization.XmlArrayAttribute":
+                        context.AddImport("io.github.ningpp.compat.xml.XmlArray");
+                        var xmlArray = new JavaAnnotation("XmlArray");
+                        if (firstArg != null)
+                            xmlArray.Values["elementName"] = firstArg;
+                        field.Annotations.Add(xmlArray);
+                        break;
+
+                    case "System.Xml.Serialization.XmlArrayItemAttribute":
+                        context.AddImport("io.github.ningpp.compat.xml.XmlArrayItem");
+                        var xmlArrayItem = new JavaAnnotation("XmlArrayItem");
+                        if (firstArg != null)
+                            xmlArrayItem.Values["elementName"] = firstArg;
+                        field.Annotations.Add(xmlArrayItem);
+                        break;
+                }
+            }
+        }
     }
 }

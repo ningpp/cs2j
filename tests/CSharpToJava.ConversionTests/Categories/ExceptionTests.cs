@@ -90,4 +90,13 @@ public class ExceptionTests : ConversionTestBase
             "import io.github.ningpp.compat.ExceptionCompat;",
             "return ExceptionCompat.getStackTrace(e);");
     }
+
+    [Fact]
+    public void XunitException_MappedToCompatClass()
+    {
+        var result = Convert("class C { public void M() { throw new Xunit.Sdk.XunitException(\"msg\"); } }");
+        AssertConversion(result,
+            "import csharp.xunit.Sdk.XunitException;",
+            "throw new XunitException(\"msg\");");
+    }
 }

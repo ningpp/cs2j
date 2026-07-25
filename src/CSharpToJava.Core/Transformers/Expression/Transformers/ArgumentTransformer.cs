@@ -676,6 +676,13 @@ public class ArgumentTransformer
         if (argType is IArrayTypeSymbol argArrayType && paramType is INamedTypeSymbol paramNamed
             && IsEnumerableOrCollectionInterface(paramNamed))
         {
+            // C# AddRange(IEnumerable<T>) maps to Java addRange(T[]) / addAll(Collection<T>).
+            // CSharpList.addRange accepts arrays directly, so avoid the unnecessary ArrayHelper.toList
+            // wrapping here. If the mapped Java method is addAll, CoerceAddRangeArrayArgument will
+            // wrap the array afterward when needed.
+            if (targetParam.ContainingSymbol is IMethodSymbol { Name: "AddRange" })
+                return transformedExpr;
+
             return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(transformedExpr, argArrayType, context);
         }
 
