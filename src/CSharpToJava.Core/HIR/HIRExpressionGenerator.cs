@@ -285,12 +285,14 @@ public class HIRExpressionGenerator
     private IrExpression GenerateArrayCreation(ArrayCreationExpressionSyntax node)
     {
         var elemType = _ctx.MapTypeFromSyntax(node.Type.ElementType);
+        var rankCount = node.Type.RankSpecifiers.Sum(rs => rs.Sizes.Count);
+        var brackets = string.Concat(Enumerable.Repeat("[]", rankCount));
         return new IrNewExpression
         {
-            TypeName = elemType + "[]",
+            TypeName = elemType + brackets,
             ArrayInitializer = node.Initializer?.ToString() ?? "{}",
             Symbol = GetSymbol(node),
-            JavaType = elemType + "[]",
+            JavaType = elemType + brackets,
         };
     }
 

@@ -48,8 +48,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             SyntaxKind.ArrayInitializerExpression => TransformArrayInitializer(
                 (InitializerExpressionSyntax)node,
                 context,
-                ResolveBareArrayInitializerElementType((InitializerExpressionSyntax)node, context),
-                isBareInitializer: true),
+                ResolveBareArrayInitializerElementType((InitializerExpressionSyntax)node, context, out var rankCount),
+                isBareInitializer: true,
+                rankCount: rankCount),
             SyntaxKind.StackAllocArrayCreationExpression => TransformStackAlloc((StackAllocArrayCreationExpressionSyntax)node, context),
             _ => throw new NotSupportedException($"Object creation kind {node.Kind()} not supported.")
         };
@@ -1715,7 +1716,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             && type.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
             && type.SpecialType != SpecialType.System_Object;
 
-    private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context, string? javaElementType = null, bool isBareInitializer = false)
+    private string TransformArrayInitializer(InitializerExpressionSyntax node, ConversionContext context, string? javaElementType = null, bool isBareInitializer = false, int rankCount = 1)
     {
         var facade = ExpressionTransformerFacade.Instance;
         var values = new List<string>();
@@ -1742,21 +1743,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // already provides the "new Type[]" prefix, so we only add it for bare initializers.
         if (isBareInitializer && !string.IsNullOrWhiteSpace(javaElementType))
         {
-            return $"new {javaElementType}[] {{ {items} }}";
+            var brackets = string.Concat(Enumerable.Repeat("[]", rankCount));
+            return $"new {javaElementType}{brackets} {{ {items} }}";
         }
         return $" {{ {items} }}";
     }
 
-    private static string? ResolveBareArrayInitializerElementType(InitializerExpressionSyntax node, ConversionContext context)
+    private static string? ResolveBareArrayInitializerElementType(InitializerExpressionSyntax node, ConversionContext context, out int rankCount)
     {
+        rankCount = 1;
         var typeInfo = context.GetTypeInfo(node);
         if (typeInfo.ConvertedType is IArrayTypeSymbol convertedArray)
         {
+            rankCount = convertedArray.Rank;
             return MapArrayInitializerElementType(convertedArray.ElementType, context);
         }
 
         if (typeInfo.Type is IArrayTypeSymbol arrayType)
         {
+            rankCount = arrayType.Rank;
             return MapArrayInitializerElementType(arrayType.ElementType, context);
         }
 
@@ -1772,12 +1777,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
             if (declaredType is IArrayTypeSymbol declaredArray)
             {
+                rankCount = declaredArray.Rank;
                 return MapArrayInitializerElementType(declaredArray.ElementType, context);
             }
 
             if (variable.Parent is VariableDeclarationSyntax declaration
                 && declaration.Type is ArrayTypeSyntax arraySyntax)
             {
+                rankCount = arraySyntax.RankSpecifiers.FirstOrDefault()?.Sizes.Count ?? 1;
                 return MapArrayInitializerElementType(arraySyntax.ElementType, context);
             }
         }
