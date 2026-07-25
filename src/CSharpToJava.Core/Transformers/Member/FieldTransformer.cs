@@ -584,7 +584,7 @@ public class FieldTransformer : IMemberTransformer
         if (value is double d)
         {
             var text = d.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            return text.Contains('.') ? text : text + ".0";
+            return text.Contains('.') || text.Contains('E') || text.Contains('e') ? text : text + ".0";
         }
 
         if (value is decimal dec)

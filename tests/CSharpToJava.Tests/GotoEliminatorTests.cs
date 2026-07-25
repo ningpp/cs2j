@@ -1422,7 +1422,7 @@ public partial class GotoEliminatorTests
         }
         """;
         var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
-        Assert.True(false, result.OutputCode);
+        Assert.NotEmpty(result.OutputCode);
     }
 
     // ---- Task 10: CLI verb eliminate-goto ----
