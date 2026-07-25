@@ -22,15 +22,26 @@ public class IndexerTransformer : IMemberTransformer
 
         var results = new List<JavaMethodDeclaration>();
 
-        var typeInfo = context.GetTypeInfo(indexerDecl.Type);
-        var returnType = typeInfo.Type != null
-            ? context.MapType(typeInfo.Type)
-            : "Object";
-
         // Detect explicit interface implementations (e.g. "object INameScope.this[...]").
         // These must emit standard get/set method names so the generated Java class
         // actually satisfies the corresponding interface.
         bool isExplicitInterfaceImplementation = indexerDecl.ExplicitInterfaceSpecifier != null;
+
+        // Resolve the indexer symbol early: for partial/merged declarations the syntax node's
+        // own semantic type info may be unavailable, so the symbol is the authoritative source
+        // for both the return type and parameter types.
+        var indexerSymbol = context.GetDeclaredSymbol(indexerDecl) as IPropertySymbol
+            ?? ResolveIndexerSymbolFromEnclosingType(indexerDecl, context.CurrentEnclosingRoslynType);
+        var effectiveIndexerSymbol = isExplicitInterfaceImplementation
+            ? (indexerSymbol?.ExplicitInterfaceImplementations.FirstOrDefault() ?? indexerSymbol)
+            : indexerSymbol;
+
+        var typeInfo = context.GetTypeInfo(indexerDecl.Type);
+        var returnType = typeInfo.Type != null
+            ? context.MapType(typeInfo.Type)
+            : effectiveIndexerSymbol?.Type != null
+                ? context.MapType(effectiveIndexerSymbol.Type)
+                : "Object";
 
         // Fix 1: use context-aware method name selection to avoid Map/List collisions.
         // The getter name is always "get" (same across List, Map, and default).
@@ -48,11 +59,6 @@ public class IndexerTransformer : IMemberTransformer
         // Resolve parameter types from the symbol when possible. For explicit interface
         // implementations this uses the interface member's parameter types so the generated
         // Java method signature matches the generated interface declaration exactly.
-        var indexerSymbol = context.GetDeclaredSymbol(indexerDecl) as IPropertySymbol
-            ?? ResolveIndexerSymbolFromEnclosingType(indexerDecl, context.CurrentEnclosingRoslynType);
-        var effectiveIndexerSymbol = isExplicitInterfaceImplementation
-            ? (indexerSymbol?.ExplicitInterfaceImplementations.FirstOrDefault() ?? indexerSymbol)
-            : indexerSymbol;
         var symbolParameters = effectiveIndexerSymbol?.Parameters;
         bool hasSymbolParameters = symbolParameters.HasValue;
 

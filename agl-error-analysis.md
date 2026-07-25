@@ -84,3 +84,42 @@
 - 测试总数: 609，通过: 609，失败: 0，错误: 0，跳过: 387
 - 所有 9 个模块编译成功
 - b3.dot 等 dot 文件成功解析
+
+---
+
+## MSAGL/GraphLayout 迭代错误分析
+
+## Iteration 1 — 双精度科学计数法常量生成非法字面量 `1E-06.0`
+- **Java 文件**: `automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/OverlapRemovalGlobalConfiguration.java`
+- **行号**: 68
+- **错误信息**: `/D:/agl-726/automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/OverlapRemovalGlobalConfiguration.java:[68,60] 需要';'`
+- **代码片段**:
+  ```java
+  public static final double ClusterDefaultFreeWeight = 1E-06.0;
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\OverlapRemoval\OverlapRemovalGlobalConfiguration.cs`
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs`（`RenderConstantValue` 方法）
+- **分析**: C# 常量 `public const double ClusterDefaultFreeWeight = 1e-6;` 的编译期值为 `double` 类型。`RenderConstantValue` 使用 `double.ToString(System.Globalization.CultureInfo.InvariantCulture)` 得到 `1E-06`，随后因为没有小数点而追加 `.0`，生成非法 Java 字面量 `1E-06.0`。同时影响 `EventComparisonEpsilon`、`LgPathRouter`、`OverlapRemovalFixedSegmentsMst`、`BundleBasesCalculator` 等同类科学计数法常量。
+- **状态**: ✅ Fixed
+  - 修复 commit: FieldTransformer.RenderConstantValue 对含 E/e 的科学计数法 double 字面量不再追加 `.0`。
+  - 验证: `DoubleConstScientificNotation_DoesNotAppendDecimalZero` / `DoubleConstWithDecimal_DoesNotAppendExtraDecimalZero` Red→Green；全量 dotnet test 通过；重新转换后该错误已消失。
+
+## Iteration 2 — 接口索引器返回类型丢失为 Object
+- **Java 文件**: `automaticgraphlayout/src/main/java/Microsoft/Msagl/Miscellaneous/LayoutEditing/IncrementalDragger.java`
+- **行号**: 184
+- **错误信息**: `/D:/agl-726/automaticgraphlayout/src/main/java/Microsoft/Msagl/Miscellaneous/LayoutEditing/IncrementalDragger.java:[184,54] 不兼容的类型: java.lang.Object无法转换为Microsoft.Msagl.Core.Geometry.Point`
+- **代码片段**:
+  ```java
+        var par = curve.getParameterAtLength(lenAtLabelAttachment);
+        var tang = curve.derivative(par);
+        var norm = Point.multiply(((lf.RightSide ? tang.rotate90Cw() : tang.rotate90Ccw())).normalize(), lf.NormalLength);
+        edge.getLabel().setCenter(Point.add(curve.get(par), norm));
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\Curves\ICurve.cs` / `E:\agl-master\GraphLayout\MSAGL\Miscellaneous\LayoutEditing\IncrementalDragger.cs`
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/IndexerTransformer.cs`
+- **分析**: C# 接口 `ICurve` 声明索引器 `Point this[double t] { get; }`。`IndexerTransformer` 在解析返回类型时仅使用 `context.GetTypeInfo(indexerDecl.Type)`；对于 partial/merged 后的接口语法节点，语义模型无法解析 `Point` 类型，回退为 `Object`，导致生成的 `ICurve.get(double)` 返回 `Object`。所有实现类虽可能生成正确的 `Point get(double)`，但接口方法签名错误，调用方 `curve.get(par)` 被当作 `Object`，无法传给需要 `Point` 的方法参数。
+- **状态**: ✅ Fixed
+  - 修复 commit: IndexerTransformer 优先解析 IPropertySymbol，在 `GetTypeInfo` 不可用时使用 `symbol.Type` 作为返回类型回退。
+  - 验证: `InterfaceIndexer_WithConcreteReturnType_GeneratesTypedGetter` Red→Green；全量 dotnet test 2333 通过；重新转换后 `IncrementalDragger.java:184` 错误已消失。
