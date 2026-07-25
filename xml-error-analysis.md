@@ -16,3 +16,29 @@
 - **验证**: 新增回归测试 `GenericArrayMethodInstantiatedWithPrimitive_CallSiteUsesPrimitiveClassLiteral`（28 个 GenericArrayTypeParameterTests 全部通过），重新生成 `XmlUntypedStringConverter.java` 后调用点变为 `int.class`。
 - **状态**: ✅ Fixed
 
+## Iteration 2 — ClassCastException: List of xdt:untypedAtomic does not support conversion from String to int
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/schema/XmlUntypedStringConverter.java`
+- **行号**: 263（修复前）；生成后 `TypeHelper.toWrapperType(clazz)` 出现在第 301 行
+- **错误信息**: `ClassCastException: Xml type 'List of xdt:untypedAtomic' does not support a conversion from Clr type 'java.lang.String' to Clr type 'int'`
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Schema\XmlUntypedStringConverter.cs`（`ToArray<T>` 的 `typeof(T) == s_int32Type` 比较）
+- **根因分类**: Transformer / TypeOperationTransformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`、`java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java`
+- **分析**: 上一迭代修复了调用点使用 `int.class` 创建原始数组，但 `typeof(T)` 在泛型方法内部仍被转换为运行期 `Class<?>` 参数 `clazz`。当 `T` 实例化为 `int` 时，`clazz` 为 `int.class`，而 C# 代码中的 `typeof(T) == s_int32Type` 期望与 `Integer.class` 比较，导致 `fromString` 内部类型分支失败。
+- **修复**: 在 `TypeOperationTransformer` 中将类型参数 `T` 的 `typeof(T)` 转换为 `TypeHelper.toWrapperType(clazz)`（或 `TypeHelper.toWrapperType(<runtimeClassParam>)`），并把 `TypeHelper.toWrapperType` 的访问级别从 `private` 提升到 `public`。
+- **验证**: 新增回归测试 `GenericArrayTypeParameterTests.TypeOfTypeParameterInGenericArrayMethod_WrapsPrimitiveClassLiteralForComparison`；`dotnet test` 2317 全部通过。
+- **状态**: ✅ Fixed
+- **Commit**: `3e1b66dc`
+
+## Iteration 3 — Infinite loop in `XmlTextReaderImpl.eatWhitespaces` during `SplitTextTests`
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/XmlTextReaderImpl.java`
+- **行号**: 7387（`private int eatWhitespaces(StringBuilder sb)`）
+- **错误信息**: 测试挂起/超时，`SplitTextTests` 出现非终止循环
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\XmlTextReaderImpl.cs`（`EatWhitespaces` 方法包含跨嵌套循环的 `goto`）
+- **根因分类**: GotoEliminator / StateMachineBuilder
+- **涉及组件**: `src/CSharpToJava.Core/GotoEliminator/StateMachineBuilder.cs`
+- **分析**: `EatWhitespaces` 被转换为嵌套状态机后，内层状态机 while 中的 `goto` 目标位于外层循环。旧逻辑仅把 `__state` 赋给外层状态并 `break`/`continue`，但 `break` 只能退出内层 `switch`，无法退出内层状态机 `while`，导致内层状态机反复执行，形成死循环。
+- **修复**: 在 `StateMachineBuilder` 中新增 `TryGetGeneratedStateMachineStateName` 识别 `__cs2jBlockStateN >= 0` 形式的状态机 while；在 `GotoTransitionRewriter` 和 `NestedBlockTransitionRewriter` 中用栈跟踪嵌套状态机。当 `goto` 发生在已生成的状态机 while 内部时，生成 `BreakThroughGeneratedStateMachine`：先把外层 `__state` 设为目标状态、设置 `__exit=true`、把内层状态变量设为 `-1`，然后 `continue`，使内层状态机退出并在外层继续目标状态。
+- **验证**: 新增回归测试 `GotoEliminatorTests.Eliminate_GotoFromInnerLoopToOuterLoopLabel_ExecutesReadData`；`dotnet test` 2317 全部通过；`mvn clean package -e` 全模块 SUCCESS。
+- **状态**: ✅ Fixed
+- **Commit**: `74d88fb7`
+
