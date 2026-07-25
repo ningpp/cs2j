@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using System.Runtime.Loader;
 using System.Reflection;
+using Xunit.Abstractions;
 
 namespace CSharpToJava.Tests;
 
@@ -1117,6 +1118,47 @@ public partial class GotoEliminatorTests
         Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
     }
 
+    [Fact]
+    public void Eliminate_GotoFromInnerLoopToOuterLoopLabel_ExecutesReadData()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int x = 0;
+                for (;;)
+                {
+                    for (;;)
+                    {
+                        switch (x)
+                        {
+                            case 0:
+                                x = 1;
+                                continue;
+                            case 1:
+                                if (x == 1)
+                                {
+                                    goto ReadData;
+                                }
+                                x = 3;
+                                continue;
+                            default:
+                                return x;
+                        }
+                    }
+                ReadData:
+                    x = 2;
+                }
+            }
+        }
+        """;
+
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+        AssertNoGotoOrLabel(result.OutputCode);
+        Assert.Equal(2, CompileAndInvokeInt32(result.OutputCode));
+    }
+
     // ---- Task 8: unsupported method fallback (spanning using/fixed/ref) ----
 
     [Fact]
@@ -1296,6 +1338,91 @@ public partial class GotoEliminatorTests
         Assert.True(result.Changed);
         AssertNoGotoOrLabel(result.OutputCode);
         Assert.Equal(99, CompileAndInvokeInt32(result.OutputCode));
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task Eliminate_GotoFromInnerSwitchToOuterLoopLabel_TerminatesAndPreservesValue()
+    {
+        // Reproduces XmlTextReaderImpl.EatWhitespaces: an inner switch inside an inner loop
+        // contains a goto that targets a label in the enclosing outer loop body.
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int i = 0;
+                for (;;)
+                {
+                    for (;;)
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                i = 1;
+                                continue;
+                            default:
+                                goto ReadData;
+                        }
+                    }
+
+                ReadData:
+                    if (i == 2)
+                    {
+                        return i;
+                    }
+                    i = 2;
+                }
+            }
+        }
+        """;
+
+        var result = await System.Threading.Tasks.Task.Run(() =>
+            new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src));
+
+        Assert.True(result.Changed);
+        AssertNoGotoOrLabel(result.OutputCode);
+
+        var invoke = System.Threading.Tasks.Task.Run(() => CompileAndInvokeInt32(result.OutputCode));
+        var completed = await System.Threading.Tasks.Task.WhenAny(invoke, System.Threading.Tasks.Task.Delay(5000));
+        Assert.Same(invoke, completed);
+        Assert.Equal(2, invoke.Result);
+    }
+
+    [Fact]
+    public void Dump_Repro()
+    {
+        var src = """
+        public static class C
+        {
+            public static int M()
+            {
+                int i = 0;
+                for (;;)
+                {
+                    for (;;)
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                i = 1;
+                                continue;
+                            default:
+                                goto ReadData;
+                        }
+                    }
+
+                ReadData:
+                    if (i == 2)
+                    {
+                        return i;
+                    }
+                    i = 2;
+                }
+            }
+        }
+        """;
+        var result = new CSharpToJava.Core.GotoEliminator.GotoEliminator().Eliminate(src);
+        Assert.True(false, result.OutputCode);
     }
 
     // ---- Task 10: CLI verb eliminate-goto ----
