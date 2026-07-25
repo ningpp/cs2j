@@ -89,7 +89,7 @@ internal static class RuntimeClassParameterHelper
         {
             var runtimeType = ResolveRuntimeTypeArgument(typeParameter, methodSymbol);
             if (runtimeType != null)
-                arguments.Add(ToClassArgument(runtimeType, context));
+                arguments.Add(ToClassArgument(runtimeType, context, preferPrimitiveClassLiteral: true));
         }
 
         if (arguments.Count > 0)
@@ -114,7 +114,7 @@ internal static class RuntimeClassParameterHelper
         {
             var runtimeType = ResolveRuntimeTypeArgument(typeParameter, typeSymbol);
             if (runtimeType != null)
-                arguments.Add(ToClassArgument(runtimeType, context));
+                arguments.Add(ToClassArgument(runtimeType, context, preferPrimitiveClassLiteral: false));
         }
 
         if (arguments.Count > 0)
@@ -312,7 +312,7 @@ internal static class RuntimeClassParameterHelper
 
             var runtimeType = ResolveRegisteredRuntimeTypeArgument(requirement, methodSymbol);
             if (runtimeType != null)
-                arguments.Add(ToClassArgument(runtimeType, context));
+                arguments.Add(ToClassArgument(runtimeType, context, preferPrimitiveClassLiteral: true));
         }
 
         return arguments;
@@ -333,7 +333,7 @@ internal static class RuntimeClassParameterHelper
         {
             var runtimeType = ResolveRegisteredRuntimeTypeArgument(requirement, typeSymbol);
             if (runtimeType != null)
-                arguments.Add(ToClassArgument(runtimeType, context));
+                arguments.Add(ToClassArgument(runtimeType, context, preferPrimitiveClassLiteral: false));
         }
 
         return arguments;
@@ -654,12 +654,27 @@ internal static class RuntimeClassParameterHelper
         return typeSymbol.TypeArguments[requirement.Ordinal];
     }
 
-    private static string ToClassArgument(ITypeSymbol runtimeType, ConversionContext context)
+    private static string ToClassArgument(
+        ITypeSymbol runtimeType,
+        ConversionContext context,
+        bool preferPrimitiveClassLiteral)
     {
         if (runtimeType is ITypeParameterSymbol typeParameter
             && context.TryGetRuntimeClassParameter(typeParameter.Name, out var runtimeClassParameter))
         {
             return runtimeClassParameter;
+        }
+
+        if (preferPrimitiveClassLiteral)
+        {
+            var mappedType = context.MapType(runtimeType);
+            if (ExpressionTransformerHelpers.IsJavaPrimitiveType(mappedType))
+            {
+                return $"{mappedType}.class";
+            }
+
+            var stripped = ExpressionTransformerHelpers.StripTypeArguments(mappedType);
+            return $"{stripped}.class";
         }
 
         var javaType = context.MapType(runtimeType);

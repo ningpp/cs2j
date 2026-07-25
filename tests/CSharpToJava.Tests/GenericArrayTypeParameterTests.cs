@@ -870,6 +870,33 @@ public class TypeHelperPrimitiveArrayTest {
         Assert.True(java.ExitCode == 0, java.Output);
     }
 
+    [Fact]
+    public void GenericArrayMethodInstantiatedWithPrimitive_CallSiteUsesPrimitiveClassLiteral()
+    {
+        // C# private generic ToArray<T>() called explicitly as ToArray<int>() must pass
+        // int.class so TypeHelper.newArrayInstance creates int[] that can be cast to (int[]).
+        var result = Convert("""
+class Demo {
+    public T[] ToArray<T>(string[] values)
+    {
+        return new T[values.Length];
+    }
+
+    public int[] Run()
+    {
+        return ToArray<int>(new[] { "1", "2" });
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("public <T> Object toArray(String[] values, Class<?> clazz)", code);
+        Assert.Contains("(int[]) toArray(new String[] { \"1\", \"2\" }, int.class)", code);
+        Assert.DoesNotContain("toArray(new String[] { \"1\", \"2\" }, Integer.class)", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
