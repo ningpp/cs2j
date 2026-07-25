@@ -384,7 +384,7 @@ public final class TypeHelper {
      * type comparisons (e.g. C# typeof(int) represented as Integer.class)
      * line up with primitive array component types.
      */
-    private static Class<?> toWrapperType(Class<?> type) {
+    public static Class<?> toWrapperType(Class<?> type) {
         if (type == null || !type.isPrimitive()) {
             return type;
         }

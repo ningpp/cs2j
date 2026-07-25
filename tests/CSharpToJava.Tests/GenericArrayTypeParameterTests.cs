@@ -897,6 +897,44 @@ class Demo {
         Assert.DoesNotContain("toArray(new String[] { \"1\", \"2\" }, Integer.class)", code);
     }
 
+    [Fact]
+    public void TypeOfTypeParameterInGenericArrayMethod_WrapsPrimitiveClassLiteralForComparison()
+    {
+        // C# typeof(T) inside a generic method represents the runtime Type, which for
+        // primitive T must be the wrapper class literal (Integer.class) so comparisons
+        // like destinationType == typeof(int) match. The array creation call site uses
+        // int.class, but inside the method typeof(T) must be TypeHelper.toWrapperType(clazz).
+        var result = Convert("""
+class Demo {
+    private static readonly Type s_int32Type = typeof(int);
+
+    public T[] ToArray<T>(string[] values)
+    {
+        T[] arr = new T[values.Length];
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (typeof(T) == s_int32Type)
+                arr[i] = (T)(object)int.Parse(values[i]);
+        }
+        return arr;
+    }
+
+    public int[] Run()
+    {
+        return ToArray<int>(new[] { "1", "2" });
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("public <T> Object toArray(String[] values, Class<?> clazz)", code);
+        Assert.Contains("TypeHelper.toWrapperType(clazz)", code);
+        Assert.DoesNotContain("typeof(T)", code);
+        Assert.DoesNotContain("T.class", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -1173,9 +1173,14 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         if (typeInfo.Type is ITypeParameterSymbol typeParam)
         {
+            // C# typeof(T) represents the runtime Type. In Java the runtime class
+            // parameter for a primitive T may be the primitive class literal (int.class)
+            // so that array creation produces int[], but typeof(T) comparisons expect
+            // the wrapper class literal (Integer.class). Normalize via TypeHelper.
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
             if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
-                return runtimeClassParam;
-            return ConversionContext.GetClassLiteral(typeParam, context);
+                return $"TypeHelper.toWrapperType({runtimeClassParam})";
+            return $"TypeHelper.toWrapperType({ConversionContext.GetClassLiteral(typeParam, context)})";
         }
         return $"{ToRuntimeTypeForClassLiteral(typeName)}.class";
     }
