@@ -205,6 +205,7 @@ public class EventFieldTransformer : IEventFieldTransformer
 
             if (origName == "EventHandler" && isBclDelegate && namedType.TypeArguments.Length == 0)
             {
+                context.AddImport("java.util.function.BiConsumer");
                 sig.ListenerType = "BiConsumer<Object, Object>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter("Object", "args"));
@@ -216,6 +217,7 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (origName == "EventHandler" && isBclDelegate && namedType.TypeArguments.Length == 1)
             {
                 var argType = context.MapType(namedType.TypeArguments[0]);
+                context.AddImport("java.util.function.BiConsumer");
                 sig.ListenerType = $"BiConsumer<Object, {argType}>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter(argType, "args"));
@@ -297,8 +299,11 @@ public class EventFieldTransformer : IEventFieldTransformer
             {
                 var argTypeSyntax = generic.TypeArgumentList.Arguments[0];
                 var argTypeInfo = context.GetTypeInfo(argTypeSyntax);
-                var argType = argTypeInfo.Type != null ? context.MapType(argTypeInfo.Type) : argTypeSyntax.ToString();
+                var argType = argTypeInfo.Type != null
+                    ? context.MapType(argTypeInfo.Type)
+                    : context.MapTypeFromSyntax(argTypeSyntax);
 
+                context.AddImport("java.util.function.BiConsumer");
                 sig.ListenerType = $"BiConsumer<Object, {argType}>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
                 sig.Parameters.Add(new JavaParameter(argType, "args"));
@@ -311,7 +316,9 @@ public class EventFieldTransformer : IEventFieldTransformer
             {
                 var argTypeSyntax = generic.TypeArgumentList.Arguments[0];
                 var argTypeInfo = context.GetTypeInfo(argTypeSyntax);
-                var argType = argTypeInfo.Type != null ? context.MapType(argTypeInfo.Type) : argTypeSyntax.ToString();
+                var argType = argTypeInfo.Type != null
+                    ? context.MapType(argTypeInfo.Type)
+                    : context.MapTypeFromSyntax(argTypeSyntax);
 
                 sig.ListenerType = $"Consumer<{argType}>";
                 sig.Parameters.Add(new JavaParameter(argType, "arg"));
@@ -321,7 +328,29 @@ public class EventFieldTransformer : IEventFieldTransformer
             }
         }
 
-        sig.ListenerType = typeSyntax is IdentifierNameSyntax ident ? ident.Identifier.Text : typeSyntax.ToString();
+        // Fix 7: handle non-generic EventHandler/Action when semantic model cannot resolve them
+        if (typeSyntax is IdentifierNameSyntax ident)
+        {
+            if (ident.Identifier.Text == "EventHandler")
+            {
+                context.AddImport("java.util.function.BiConsumer");
+                sig.ListenerType = "BiConsumer<Object, Object>";
+                sig.Parameters.Add(new JavaParameter("Object", "sender"));
+                sig.Parameters.Add(new JavaParameter("Object", "args"));
+                sig.InvokeCallArguments = "sender, args";
+                sig.InvokeMethodName = "accept";
+                return sig;
+            }
+            if (ident.Identifier.Text == "Action")
+            {
+                sig.ListenerType = "Runnable";
+                sig.InvokeCallArguments = "";
+                sig.InvokeMethodName = "run";
+                return sig;
+            }
+        }
+
+        sig.ListenerType = typeSyntax is IdentifierNameSyntax id ? id.Identifier.Text : typeSyntax.ToString();
         sig.Parameters.Add(new JavaParameter("Object", "sender"));
         sig.Parameters.Add(new JavaParameter("Object", "args"));
         sig.InvokeCallArguments = "sender, args";
