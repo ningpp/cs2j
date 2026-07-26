@@ -64,6 +64,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// When the class property conflicts with an explicit interface implementation
     /// of the same property (same name, different return type), the class accessor is
     /// renamed to avoid a Java overload clash, so callers must use the renamed name.
+    /// However, when the containing type implements IEnumerator&lt;T&gt; and the property
+    /// is the typed Current, ResolveExplicitInterfacePropertyConflicts will remove the
+    /// Object-returning explicit accessor instead, so no $Class suffix is needed.
     /// </summary>
     private static string GetPropertyGetterName(IPropertySymbol propSymbol)
     {
@@ -75,6 +78,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (propSymbol.ExplicitInterfaceImplementations.Length == 0
             && propSymbol.ContainingType is INamedTypeSymbol containingType)
         {
+            // Special case: IEnumerator<T>.Current conflict is resolved by
+            // ResolveExplicitInterfacePropertyConflicts removing the Object-returning
+            // explicit accessor, so the class accessor keeps the standard name.
+            if (propSymbol.Name == "Current" && IsEnumeratorLikeType(containingType))
+                return baseName;
+
             foreach (var member in containingType.GetMembers())
             {
                 if (member is IPropertySymbol otherProp

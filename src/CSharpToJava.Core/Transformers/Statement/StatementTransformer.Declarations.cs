@@ -458,7 +458,10 @@ public partial class StatementTransformer
                         if (initType != null && !IsAssignableToCSharpICollection(initType, context))
                         {
                             context.AddImport("io.github.ningpp.compat.CSharpICollection");
-                            initExpr = $"CSharpICollection.from({initExpr})";
+                            if (localDisplay.StartsWith("System.Collections.Generic.ICollection<"))
+                                initExpr = $"CSharpICollection.fromTyped({initExpr})";
+                            else
+                                initExpr = $"CSharpICollection.from({initExpr})";
                         }
                     }
                 }
@@ -475,7 +478,10 @@ public partial class StatementTransformer
                         if (initType != null && !IsAssignableToCSharpGenericIList(initType, localTargetType, context))
                         {
                             context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
-                            initExpr = $"CSharpGenericIList.from({initExpr})";
+                            if (localDisplay.StartsWith("System.Collections.Generic.IList<"))
+                                initExpr = $"CSharpGenericIList.fromTyped({initExpr})";
+                            else
+                                initExpr = $"CSharpGenericIList.from({initExpr})";
                         }
                     }
                 }
@@ -554,7 +560,23 @@ public partial class StatementTransformer
                 var origName = varDeclarator.Identifier.Text;
                 if (context.MethodState.TryGetPendingLambdaCaptureHolder(origName, varDeclarator, out var capType, out var holderName))
                 {
-                    lambdaCaptureHolderCode = ExpressionTransformerHelpers.BuildLambdaCaptureHolderDeclaration(capType, holderName, varName);
+                    // When the variable has no initializer (e.g. out parameter like "SparseMatrix Lw;"),
+                    // Java rejects reading the uninitialized variable in the capture array. Use the
+                    // type-appropriate default value (null for references, 0/false for primitives).
+                    string captureInit = varDeclarator.Initializer != null ? varName
+                        : capType switch
+                        {
+                            "int" => "0",
+                            "long" => "0L",
+                            "double" => "0.0",
+                            "float" => "0.0f",
+                            "boolean" => "false",
+                            "short" => "0",
+                            "byte" => "0",
+                            "char" => "'\\0'",
+                            _ => "null"
+                        };
+                    lambdaCaptureHolderCode = ExpressionTransformerHelpers.BuildLambdaCaptureHolderDeclaration(capType, holderName, captureInit);
                     context.MethodState.ActivateLambdaCaptureHolder(origName, varDeclarator);
                 }
             }
@@ -848,7 +870,7 @@ public partial class StatementTransformer
         }
 
         var javaType = context.MapType(type);
-        return javaType.Contains("CSharpICollection") || javaType == "CSharpCollection";
+        return javaType.Contains("CSharpICollection") || javaType.Contains("CSharpGenericIList") || javaType == "CSharpCollection";
     }
 
     /// <summary>
@@ -881,6 +903,31 @@ public partial class StatementTransformer
                 return SymbolEqualityComparer.Default.Equals(sourceNamed.TypeArguments[0], targetNamed.TypeArguments[0]);
             }
             return false;
+        }
+
+        // Any C# type that implements IList<T> will map to a Java type that implements
+        // CSharpGenericIList<T>, so it is directly assignable to an IList<T> target
+        // with the same element type.
+        if (sourceType is INamedTypeSymbol sourceNt)
+        {
+            foreach (var iface in sourceNt.AllInterfaces)
+            {
+                if (iface.IsGenericType
+                    && iface.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IList<T>"
+                    && targetType is INamedTypeSymbol targetNt
+                    && targetNt.IsGenericType
+                    && targetNt.TypeArguments.Length == 1
+                    && iface.TypeArguments.Length == 1)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(iface.TypeArguments[0], targetNt.TypeArguments[0]))
+                        return true;
+                }
+                if (iface.ToDisplayString() == "System.Collections.IList"
+                    && targetType?.ToDisplayString() == "System.Collections.IList")
+                {
+                    return true;
+                }
+            }
         }
 
         return false;

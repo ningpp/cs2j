@@ -63,6 +63,61 @@ public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
         };
     }
 
+    /**
+     * Typed version of {@link #from(Object)} that preserves the element type.
+     * Returns the same CSharpICollection if the input already implements it,
+     * otherwise wraps a Java Collection with the correct generic type.
+     * Used by the converter when the target C# type is ICollection&lt;T&gt;
+     * (not the non-generic ICollection).
+     */
+    @SuppressWarnings("unchecked")
+    static <T> CSharpICollection<T> fromTyped(Object collection) {
+        if (collection == null) {
+            return null;
+        }
+        if (collection instanceof CSharpICollection) {
+            return (CSharpICollection<T>) collection;
+        }
+        if (collection instanceof CSharpCollection) {
+            return (CSharpICollection<T>) fromCSharpCollection((CSharpCollection) collection);
+        }
+        if (collection instanceof java.util.Collection) {
+            java.util.Collection<T> backing = (java.util.Collection<T>) collection;
+            return new CSharpICollection<T>() {
+                @Override
+                public CSharpGenericEnumerator<T> iterator() {
+                    return CSharpGenericEnumerator.from(backing.iterator());
+                }
+
+                @Override
+                public int getCount() {
+                    return backing.size();
+                }
+
+                @Override
+                public boolean contains(Object o) {
+                    return backing.contains(o);
+                }
+
+                @Override
+                public boolean add(T item) {
+                    return backing.add(item);
+                }
+
+                @Override
+                public boolean remove(Object o) {
+                    return backing.remove(o);
+                }
+
+                @Override
+                public void clear() {
+                    backing.clear();
+                }
+            };
+        }
+        throw new IllegalArgumentException("Unsupported collection type: " + collection.getClass().getName());
+    }
+
     static CSharpICollection<Object> fromCSharpCollection(CSharpCollection collection) {
         return new CSharpICollection<Object>() {
             @Override public CSharpGenericEnumerator<Object> iterator() {

@@ -327,11 +327,17 @@ public class ArgumentTransformer
                 var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.SetActiveRefHolder(varName, holderName);
+                // If the variable has an active lambda capture holder, write back to the
+                // capture holder element instead of the raw variable name. This ensures
+                // the lambda sees the updated value after the out parameter is assigned.
+                string outWriteBackTarget = varName;
+                if (context.MethodState.TryGetActiveLambdaCaptureHolder(varName, out var outCaptureHolderName))
+                    outWriteBackTarget = $"{outCaptureHolderName}[0]";
                 // If the variable couldn't be resolved, it may not be declared in the
                 // current scope (e.g. LINQ-rewriter extracted method with captured outer var).
                 // Declare it locally with its resolved type so the generated Java compiles.
                 if (identResolved)
-                    context.AddPostStatement($"{varName} = {holderName}.value");
+                    context.AddPostStatement($"{outWriteBackTarget} = {holderName}.value");
                 else
                     context.AddPostStatement($"{javaType} {varName} = {holderName}.value");
                 return holderName;

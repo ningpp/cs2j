@@ -180,7 +180,13 @@ public static class ExpressionTransformerHelpers
             if ((sourceIsCSharpCollection || isGetValuesOrKeysCall || sourceIsPlainJavaCollection) && targetIsCSharpICollection)
             {
                 context.AddImport("io.github.ningpp.compat.CSharpICollection");
-                return $"CSharpICollection.from({transformedExpression})";
+                // Use fromTyped() for generic ICollection<T> targets to preserve element type;
+                // use from() for non-generic ICollection (maps to CSharpICollection<Object>).
+                var targetDisplayColl = targetType.ToDisplayString();
+                if (targetDisplayColl.StartsWith("System.Collections.Generic.ICollection<"))
+                    return $"CSharpICollection.fromTyped({transformedExpression})";
+                else
+                    return $"CSharpICollection.from({transformedExpression})";
             }
         }
 
@@ -203,7 +209,13 @@ public static class ExpressionTransformerHelpers
             if (targetIsNonGenericIList && targetIsCSharpGenericIList && sourceNeedsIListBridge)
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
-                return $"CSharpGenericIList.from({transformedExpression})";
+                // Use fromTyped() for generic IList<T> targets to preserve element type;
+                // use from() for non-generic IList (maps to CSharpGenericIList<Object>).
+                var targetDisplayIList = targetType.ToDisplayString();
+                if (targetDisplayIList.StartsWith("System.Collections.Generic.IList<"))
+                    return $"CSharpGenericIList.fromTyped({transformedExpression})";
+                else
+                    return $"CSharpGenericIList.from({transformedExpression})";
             }
         }
 

@@ -1498,10 +1498,19 @@ public class ClassTransformer : ITypeTransformer
                     // object-returning explicit IEnumerator.Current accessor is redundant.
                     if (genericEnumeratorElementType != null
                         && group.Key.Name == "getCurrent"
-                        && classAccessor.ReturnType == genericEnumeratorElementType
+                        && IsPrimitiveOrWrapperMatch(classAccessor.ReturnType, genericEnumeratorElementType)
                         && explicitAccessor.ReturnType == "Object")
                     {
                         javaClass.Methods.Remove(explicitAccessor);
+                        // If the class accessor returns a primitive but the interface expects
+                        // the wrapper type (e.g., int getCurrent() vs CSharpGenericEnumerator<Integer>),
+                        // widen the return type to the wrapper so Java covariant returns work.
+                        if (classAccessor.ReturnType != genericEnumeratorElementType
+                            && PrimitiveToWrapper.TryGetValue(classAccessor.ReturnType, out var wrapper)
+                            && wrapper == genericEnumeratorElementType)
+                        {
+                            classAccessor.ReturnType = genericEnumeratorElementType;
+                        }
                         continue;
                     }
 
@@ -2053,6 +2062,29 @@ public class ClassTransformer : ITypeTransformer
 
         argument = "";
         return false;
+    }
+
+    private static readonly Dictionary<string, string> PrimitiveToWrapper = new()
+    {
+        ["int"] = "Integer",
+        ["long"] = "Long",
+        ["double"] = "Double",
+        ["float"] = "Float",
+        ["short"] = "Short",
+        ["byte"] = "Byte",
+        ["char"] = "Character",
+        ["boolean"] = "Boolean",
+    };
+
+    /// <summary>
+    /// Returns true when returnType and elementType refer to the same logical type,
+    /// accounting for Java primitive ↔ wrapper equivalence (e.g. int ↔ Integer).
+    /// </summary>
+    private static bool IsPrimitiveOrWrapperMatch(string returnType, string elementType)
+    {
+        if (returnType == elementType)
+            return true;
+        return PrimitiveToWrapper.TryGetValue(returnType, out var wrapper) && wrapper == elementType;
     }
 
     private static string? TryGetGenericEnumeratorElementType(JavaClassDeclaration javaClass)

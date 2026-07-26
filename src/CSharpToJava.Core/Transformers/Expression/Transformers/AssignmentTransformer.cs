@@ -1116,7 +1116,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     if (rightType != null && !IsAssignableToCSharpICollection(rightType, context))
                     {
                         context.AddImport("io.github.ningpp.compat.CSharpICollection");
-                        return $"{left} = CSharpICollection.from({rightStr})";
+                        // Use fromTyped() for generic ICollection<T> to preserve element type;
+                        // use from() for non-generic ICollection (maps to CSharpICollection<Object>).
+                        if (leftDisplay != null && leftDisplay.StartsWith("System.Collections.Generic.ICollection<"))
+                            return $"{left} = CSharpICollection.fromTyped({rightStr})";
+                        else
+                            return $"{left} = CSharpICollection.from({rightStr})";
                     }
                 }
             }
@@ -1137,7 +1142,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
                     var leftExpr = facade.Transform(leftNode, context);
                     var rightExpr = facade.Transform(rightNode, context);
-                    return $"{leftExpr} = CSharpGenericIList.from({rightExpr})";
+                    // Use fromTyped() for generic IList<T> to preserve element type;
+                    // use from() for non-generic IList (maps to CSharpGenericIList<Object>).
+                    if (leftDisplay != null && leftDisplay.StartsWith("System.Collections.Generic.IList<"))
+                        return $"{leftExpr} = CSharpGenericIList.fromTyped({rightExpr})";
+                    else
+                        return $"{leftExpr} = CSharpGenericIList.from({rightExpr})";
                 }
             }
         }
@@ -1892,7 +1902,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
 
         var javaType = context.MapType(type);
-        return javaType.Contains("CSharpICollection") || javaType == "CSharpCollection";
+        return javaType.Contains("CSharpICollection") || javaType.Contains("CSharpGenericIList") || javaType == "CSharpCollection";
     }
 
     /// <summary>
@@ -1925,6 +1935,33 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 return SymbolEqualityComparer.Default.Equals(sourceNamed.TypeArguments[0], targetNamed.TypeArguments[0]);
             }
             return false;
+        }
+
+        // Any C# type that implements IList<T> will map to a Java type that implements
+        // CSharpGenericIList<T>, so it is directly assignable to an IList<T> target
+        // with the same element type. This handles custom collection classes like
+        // NodeCollection : IList<Node>, EdgeCollection : IList<Edge>, etc.
+        if (sourceType is INamedTypeSymbol sourceNt)
+        {
+            foreach (var iface in sourceNt.AllInterfaces)
+            {
+                if (iface.IsGenericType
+                    && iface.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IList<T>"
+                    && targetType is INamedTypeSymbol targetNt
+                    && targetNt.IsGenericType
+                    && targetNt.TypeArguments.Length == 1
+                    && iface.TypeArguments.Length == 1)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(iface.TypeArguments[0], targetNt.TypeArguments[0]))
+                        return true;
+                }
+                // Non-generic IList → CSharpGenericIList<Object> is always compatible
+                if (iface.ToDisplayString() == "System.Collections.IList"
+                    && targetType?.ToDisplayString() == "System.Collections.IList")
+                {
+                    return true;
+                }
+            }
         }
 
         return false;

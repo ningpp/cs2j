@@ -28,6 +28,26 @@ public interface CSharpGenericIList<T> extends CSharpICollection<T> {
         throw new IllegalArgumentException("Unsupported list type: " + list.getClass().getName());
     }
 
+    /**
+     * Typed version of {@link #from(Object)} that preserves the element type.
+     * Returns the same CSharpGenericIList if the input already implements it.
+     * Used by the converter when the target C# type is IList&lt;T&gt;
+     * (not the non-generic IList).
+     */
+    @SuppressWarnings("unchecked")
+    static <T> CSharpGenericIList<T> fromTyped(Object list) {
+        if (list == null) {
+            return null;
+        }
+        if (list instanceof CSharpGenericIList) {
+            return (CSharpGenericIList<T>) list;
+        }
+        if (list instanceof CSharpIList) {
+            return (CSharpGenericIList<T>) fromCSharpIList((CSharpIList) list);
+        }
+        throw new IllegalArgumentException("Unsupported list type: " + list.getClass().getName());
+    }
+
     static CSharpGenericIList<Object> fromCSharpIList(CSharpIList list) {
         return new CSharpGenericIList<Object>() {
             @Override
