@@ -19,19 +19,20 @@ V1 方案采用二元判定：struct 要么完全可转换（所有字段 readon
 | 完全不可变（readonly 字段 + 构造函数初始化） | 1 (Parallelogram) | ✅ 可转换 | ✅ 直接转换 |
 | 已 readonly 字段 | 3 (ConstraintDirectionPair, ConstraintListForVariable, QpscVar) | ✅ 跳过 | ✅ 跳过 |
 | 私有 setter（外部只读） | 2 (NeighborAndWeight, PointAndCrossings) | ❌ 不可转换 | ✅ 可转换 |
-| DTO 模式（get/set 属性，无 mutating 方法） | 3 (EdgeConstraints, Size, BorderInfo) | ❌ 不可转换 | ✅ 可转换 |
-| 公共字段（无属性包装） | 4 (Point, PixelPoint, OverlappedEdge, StackStruct) | ❌ 不可转换 | ✅ 可转换 |
-| 含 mutating 方法 | 4 (Rectangle, Size, CompassVector, Complex) | ❌ 不可转换 | ✅ 方法迁移转换 |
+| DTO 模式（get/set 属性，无 mutating 方法） | 1 (EdgeConstraints) | ❌ 不可转换 | ✅ 可转换 |
+| 公共字段（无属性包装） | 5 (Point, PixelPoint, OverlappedEdge, StackStruct, PortObstacle) | ❌ 不可转换 | ✅ 可转换 |
+| 含 mutating 方法 | 5 (Rectangle, Size, BorderInfo, CompassVector, Complex) | ❌ 不可转换 | ✅ 方法迁移转换 |
 | 混合 readonly/mutable | 1 (MatrixCell) | ❌ 不可转换 | ⚠️ 部分转换 |
 | 重度可变状态 | 1 (ViolationCache) | ❌ 不可转换 | ❌ 不可转换 |
 
 ### 0.2 V2 核心改进
 
-1. **多级转换策略**：不再二元判定，提供 5 种转换级别
-2. **模式识别**：自动识别 6 种常见 struct 模式
-3. **方法迁移**：将 mutating 方法转换为返回新实例的纯方法
+1. **多级转换策略**：不再二元判定，提供 8 种转换级别（L0-L7）
+2. **模式识别**：自动识别 8 种常见 struct 模式（A-H）
+3. **方法迁移**：将 mutating 方法转换为返回新实例的纯方法，支持嵌套方法链迁移
 4. **字段级分析**：对混合 readonly/mutable 的 struct 提供部分转换
 5. **属性驱动控制**：通过特性精确控制转换行为
+6. **属性 setter 迁移**：处理直接修改 backing field 的属性 setter
 
 ---
 
@@ -75,7 +76,7 @@ V1 方案采用二元判定：struct 要么完全可转换（所有字段 readon
 - [ ] CLI 动词 `make-readonly` 正常工作
 - [ ] `convert-project` 的 `--no-make-readonly` 选项正常工作
 - [ ] 所有单元测试通过
-- [ ] **V2 新增**：MSAGL 19 个 struct 中至少 15 个成功转换
+- [ ] **V2 新增**：MSAGL 19 个 struct 中至少 **14** 个成功转换（1 个 L7 不可转换 + 1 个 L6 部分转换 + 3 个可选 L3/L4 不强制）
 
 ---
 
@@ -742,6 +743,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 {
     private readonly Dictionary<StructDeclarationSyntax, AnalyzeResult> _analysisResults;
     private readonly ConstructorGenerator _ctorGenerator;
+    private readonly CSharpCompilation _compilation;
     
     public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
     {
@@ -817,13 +819,16 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var rewritten = node;
         if (result.MethodMigrations != null)
         {
+            // 获取 semantic model（从 compilation 而非 node）
+            var semanticModel = _compilation.GetSemanticModel(rewritten.SyntaxTree);
+            var structSymbol = (INamedTypeSymbol)semanticModel.GetDeclaredSymbol(rewritten)!;
+            
             foreach (var migration in result.MethodMigrations)
             {
-                var migrator = new MethodMigrator();
+                var migrator = new MethodMigrator(structSymbol, _compilation);
                 var migrationResult = migrator.MigrateMethod(
                     migration.Syntax, 
-                    (INamedTypeSymbol)result.DeclarationSyntax!.GetSemanticModel()
-                        .GetDeclaredSymbol(result.DeclarationSyntax)!,
+                    structSymbol,
                     rewritten);
                 // 替换方法
                 rewritten = rewritten.ReplaceNode(
@@ -1055,26 +1060,53 @@ V2 新增：若检测到 `ref this` 或 `out this` 传递，该 struct 的 L5 �
 
 与 V1 相同，泛型参数不影响转换判定。
 
-### 9.6 方法链调用（V2 新增）
+### 9.6 void mutating 方法调用点（V2 新增）
 
 ```csharp
-// 转换前
-var result = rect.Pad(5).Add(point).ScaleAroundCenter(2);
+// 转换前（void mutating 方法）
+var rect = new Rectangle();
+rect.Add(point);           // void 返回
+rect.Pad(5);               // void 返回
 
-// 转换后（L5 方法迁移）
-var result = rect.Pad(5).Add(point).ScaleAroundCenter(2);
-// 无需改动！因为每个方法都返回新实例
+// 转换后（L5 方法迁移 - void 改为返回新实例）
+var rect = new Rectangle();
+rect = rect.Add(point);    // 必须赋值
+rect = rect.Pad(5);        // 必须赋值
 ```
 
-### 9.7 out/ref 参数调用（V2 新增）
+### 9.7 返回 this 的方法调用点（V2 新增）
 
 ```csharp
-// 转换前
-if (rect.AddWithCheck(point)) { ... }
+// 转换前（返回 this 的 mutating 方法）
+var rect = new Rectangle();
+var padded = rect.Pad(5);  // Pad 返回 this
 
-// 转换后（L5 方法迁移返回元组）
-var (added, newRect) = rect.AddWithCheck(point);
-if (added) { ...; rect = newRect; }
+// 转换后（语义兼容 - 返回新实例）
+var rect = new Rectangle();
+var padded = rect.Pad(5);  // 保持不变，padded 是新实例
+```
+
+### 9.8 嵌套方法链迁移（V2 新增）
+
+```csharp
+// 转换前（Pad 内部调用 PadWidth/PadHeight）
+rect.Pad(5);  // 内部调用 PadWidth(5) 和 PadHeight(5)
+
+// 转换后（所有方法同步迁移）
+rect = rect.Pad(5);  // Pad、PadWidth、PadHeight 都返回新实例
+// 调用点只需更新最外层
+```
+
+### 9.9 属性 setter 迁移（V2 新增）
+
+```csharp
+// 转换前（属性 setter 修改 backing field）
+rect.Center = new Point(10, 20);  // setter 修改 left/right/top/bottom
+rect.LeftTop = new Point(0, 0);  // setter 修改 left 和 top
+
+// 转换后（改为 With 方法）
+rect = rect.WithCenter(new Point(10, 20));
+rect = rect.WithLeftTop(new Point(0, 0));
 ```
 
 ---
@@ -1105,8 +1137,9 @@ if (added) { ...; rect = newRect; }
 | 静态方法修改静态字段 | StaticMethodOnly_ConvertsSuccessfully | 不影响 | - |
 | this 以 ref/out 传递 | RefThisEscape_SkipsL5 | L5 被禁止 | - |
 | 调用链间接修改 | CallChainModifiesField_Skips | 递归检测成功 | - |
-| **方法链调用** | **MethodChain_PreservesSemantics** | **链式调用正确** | **L5** |
-| **void mutating 调用点** | **VoidCallSite_UpdatesCorrectly** | **s = s.Method()** | **L5** |
+| **void mutating 调用点** | **VoidCallSite_AssignsResult** | **s = s.Method()** | **L5** |
+| **嵌套方法链迁移** | **NestedMethodChain_MigratesAll** | **所有方法同步迁移** | **L5** |
+| **属性 setter 迁移** | **PropertySetter_ConvertsToWithMethod** | **WithXxx() 方法** | **L5** |
 | **构造函数生成** | **GeneratedConstructor_InitializesAll** | **所有字段初始化** | **L3/L4** |
 
 ### 10.2 MSAGL 集成测试
@@ -1117,7 +1150,7 @@ if (added) { ...; rect = newRect; }
 | Point 转换 | Msagl_Point_Converts | L4 转换成功 |
 | Rectangle 转换 | Msagl_Rectangle_Migrates | L5 转换成功，方法迁移 |
 | ViolationCache 跳过 | Msagl_ViolationCache_Skips | L7 不可转换 |
-| 全量 MSAGL 转换 | Msagl_All19Structs_Converts15 | 至少 15 个成功 |
+| 全量 MSAGL 转换 | Msagl_All19Structs_Converts14 | 至少 14 个成功（含 1 个 L6 部分转换） |
 
 ### 10.3 验证方法
 
@@ -1211,7 +1244,7 @@ var result = c.Add(5);";
 | 方面 | V1 | V2 |
 |------|----|----|
 | 转换判定 | 二元（可转换/不可转换） | 多级（L0-L7） |
-| 模式识别 | 无 | 6 种模式（A-H） |
+| 模式识别 | 无 | 8 种模式（A-H） |
 | mutating 方法 | 跳过不转换 | 方法迁移转换 |
 | DTO 模式 | 不可转换 | 构造函数初始化转换 |
 | 公共字段 | 不可转换 | 属性封装转换 |
@@ -1219,7 +1252,7 @@ var result = c.Add(5);";
 | 调用点更新 | 无 | 自动更新 |
 | 诊断详细程度 | 仅首个原因 | 逐条列出 + 模式信息 |
 | CLI 选项 | 基础 | 细粒度控制 |
-| 适用 struct 数量（MSAGL） | ~4/19 | ~15-17/19 |
+| 适用 struct 数量（MSAGL） | ~4/19 | ~14/19（含 1 个 L6 部分转换） |
 
 ---
 
@@ -1232,6 +1265,9 @@ var result = c.Add(5);";
 | 构造函数生成不完整 | 中 | 分析所有字段/属性，确保全覆盖 |
 | 性能开销（调用图分析） | 中 | 缓存 + 并行处理 |
 | 泛型约束冲突 | 低 | 转换后验证 `where T : struct` 约束 |
+| **公共字段转属性破坏二进制兼容** | **高** | **L4 默认仅对 `internal` 字段启用，public 字段需显式确认** |
+| **嵌套方法链遗漏迁移** | **中** | **递归分析方法调用图，确保链上所有方法同步迁移** |
+| **属性 setter 逻辑复杂** | **中** | **F2 模式需人工审查，复杂 setter 标记为不可迁移** |
 
 ---
 
