@@ -16,23 +16,22 @@ V1 方案采用二元判定：struct 要么完全可转换（所有字段 readon
 
 | 模式 | 数量 | V1 处理 | V2 改进 |
 |------|------|---------|---------|
-| 完全不可变（readonly 字段 + 构造函数初始化） | 1 (Parallelogram) | ✅ 可转换 | ✅ 直接转换 |
-| 已 readonly 字段 | 3 (ConstraintDirectionPair, ConstraintListForVariable, QpscVar) | ✅ 跳过 | ✅ 跳过 |
-| 私有 setter（外部只读） | 2 (NeighborAndWeight, PointAndCrossings) | ❌ 不可转换 | ✅ 可转换 |
-| DTO 模式（get/set 属性，无 mutating 方法） | 1 (EdgeConstraints) | ❌ 不可转换 | ✅ 可转换 |
-| 公共字段（无属性包装） | 5 (Point, PixelPoint, OverlappedEdge, StackStruct, PortObstacle) | ❌ 不可转换 | ✅ 可转换 |
-| 含 mutating 方法 | 5 (Rectangle, Size, BorderInfo, CompassVector, Complex) | ❌ 不可转换 | ✅ 方法迁移转换 |
-| 混合 readonly/mutable | 1 (MatrixCell) | ❌ 不可转换 | ⚠️ 部分转换 |
-| 重度可变状态 | 1 (ViolationCache) | ❌ 不可转换 | ❌ 不可转换 |
+| 完全不可变（readonly 字段 + 构造函数初始化） | 1 (Parallelogram) | ✅ 可转换 | ✅ 直接转换 (L1) |
+| 已 readonly 字段 | 3 (ConstraintDirectionPair, ConstraintListForVariable, QpscVar) | ✅ 跳过 | ✅ 跳过 (L0) |
+| 私有 setter（外部只读） | 2 (NeighborAndWeight, PointAndCrossings) | ❌ 不可转换 | ✅ 可转换 (L2) |
+| 数据容器（公共字段或 get/set 属性，无 mutating 方法） | 5 (EdgeConstraints, PixelPoint, OverlappedEdge, StackStruct, PortObstacle) | ❌ 不可转换 | ✅ 可转换 (L3) |
+| 含 mutating 方法（方法可迁移） | 5 (Rectangle, Size, BorderInfo, CompassVector, Complex) | ❌ 不可转换 | ✅ 方法迁移转换 (L5) |
+| 含 mutating 方法（方法不可迁移） | 1 (Point) | ❌ 不可转换 | ❌ 不可转换 (L7) |
+| 重度可变状态 | 2 (MatrixCell, ViolationCache) | ❌ 不可转换 | ❌ 不可转换 (L7) |
 
 ### 0.2 V2 核心改进
 
-1. **多级转换策略**：不再二元判定，提供 8 种转换级别（L0-L7）
-2. **模式识别**：自动识别 8 种常见 struct 模式（A-H）
+1. **多级转换策略**：不再二元判定，提供 7 种转换级别（L0-L5, L7）
+2. **模式识别**：自动识别 6 种常见 struct 模式（A-F）
 3. **方法迁移**：将 mutating 方法转换为返回新实例的纯方法，支持嵌套方法链迁移
-4. **字段级分析**：对混合 readonly/mutable 的 struct 提供部分转换
-5. **属性驱动控制**：通过特性精确控制转换行为
-6. **属性 setter 迁移**：处理直接修改 backing field 的属性 setter
+4. **属性驱动控制**：通过特性精确控制转换行为
+5. **属性 setter 迁移**：处理直接修改 backing field 的属性 setter
+6. **调用点安全更新**：根据返回类型选择最佳迁移策略（void→返回值、其他→out 参数）
 
 ---
 
@@ -76,7 +75,7 @@ V1 方案采用二元判定：struct 要么完全可转换（所有字段 readon
 - [ ] CLI 动词 `make-readonly` 正常工作
 - [ ] `convert-project` 的 `--no-make-readonly` 选项正常工作
 - [ ] 所有单元测试通过
-- [ ] **V2 新增**：MSAGL 19 个 struct 中至少 **14** 个成功转换（1 个 L7 不可转换 + 1 个 L6 部分转换 + 3 个可选 L3/L4 不强制）
+- [ ] **V2 新增**：MSAGL 19 个 struct 中至少 **13** 个成功转换（3 个 L7 不可转换：Point 因公共字段无法安全 readonly、MatrixCell/ViolationCache 因重度可变状态）
 
 ---
 
@@ -120,52 +119,47 @@ struct NeighborAndWeight {
 - **MSAGL 实例**：NeighborAndWeight, PointAndCrossings
 - **转换策略**：将 `private set` 移除，改为 `get` 仅在构造函数中初始化
 
-#### Pattern D: DTO 模式（Data Transfer Object）
+#### Pattern D: 数据容器（Data Container）
 ```
 struct EdgeConstraints {
     public Direction Direction { get; set; }
     public double Separation { get; set; }
 }
-```
-- **特征**：get/set 自动属性，无 mutating 方法，作为数据容器使用
-- **MSAGL 实例**：EdgeConstraints, Size, BorderInfo
-- **转换策略**：改为构造函数初始化 + get-only 属性
 
-#### Pattern E: 公共字段（Public Fields）
-```
-struct Point {
-    public double X;  // 公共字段，直接读写
-    public double Y;
+struct PixelPoint {
+    internal int X;  // 公共字段
+    internal int Y;
 }
 ```
-- **特征**：公共字段直接暴露，无属性包装
-- **MSAGL 实例**：Point, PixelPoint, OverlappedEdge, StackStruct
-- **转换策略**：改为 get-only 属性 + 构造函数初始化
+- **特征**：仅包含数据字段/属性（公共字段或 get/set 属性），无 mutating 方法，作为数据容器使用
+- **MSAGL 实例**：EdgeConstraints, PixelPoint, OverlappedEdge, StackStruct, PortObstacle
+- **转换策略**：
+  - 有 get/set 属性的 → 改为 get-only 属性 + 构造函数
+  - 有公共字段的 → 封装为 get-only 属性 + 构造函数
+  - 安全约束：`public` 字段转为属性会破坏二进制兼容性，默认仅对 `internal`/`private` 字段启用 L3
 
-#### Pattern F: 含 mutating 方法（Mutable Methods）
+#### Pattern E: 含 mutating 方法 - 可迁移（Mutable Methods - Migratable）
 ```
 struct Rectangle {
     public void Add(Point point) { left = point.X; ... }
     public void Pad(double padding) { Left -= padding; ... }
 }
 ```
-- **特征**：包含修改自身状态的方法
-- **MSAGL 实例**：Rectangle, Size, CompassVector, Complex
-- **转换策略**：方法迁移——将 mutating 方法改为返回新实例的纯方法
+- **特征**：包含修改自身状态的方法，但方法可迁移为返回新实例的纯方法
+- **MSAGL 实例**：Rectangle, Size, BorderInfo, CompassVector, Complex
+- **转换策略**：方法迁移——将 mutating 方法改为返回新实例的纯方法，调用点同步更新
 
-#### Pattern G: 混合模式（Mixed）
+#### Pattern F: 含 mutating 方法 - 不可迁移（Mutable Methods - Non-Migratable）
 ```
-struct MatrixCell {
-    internal double Value;        // 可变
-    internal readonly uint Column; // 只读
+struct Point {
+    public double x, y;
+    // 若存在 ref this 传递、虚方法重写、或委托引用，则方法不可迁移
 }
-```
-- **特征**：部分字段 readonly，部分可变
-- **MSAGL 实例**：MatrixCell
-- **转换策略**：部分转换——readonly 字段保持，可变字段标记警告
-
-#### Pattern H: 重度可变（Heavy Mutable）
-```
+struct MatrixCell {
+    internal double Value;        // 可变状态
+    internal readonly uint Column;
+    // 内部复杂逻辑，方法迁移不安全
+}
 struct ViolationCache {
     private Constraint[] constraints;
     private int numConstraints;
@@ -173,24 +167,28 @@ struct ViolationCache {
     internal bool FilterBlock(Block b) { ... }
 }
 ```
-- **特征**：大量可变状态，复杂 mutating 方法
-- **MSAGL 实例**：ViolationCache
+- **特征**：方法因以下原因不可迁移：
+  - `ref this` / `out this` 传递
+  - 虚方法重写或多态调用
+  - 委托引用
+  - 公共 API 签名无法更新
+  - 重度可变状态（数组、索引跟踪等）
+- **MSAGL 实例**：Point（如有 ref this）、MatrixCell、ViolationCache
 - **转换策略**：不可转换，输出警告
 
 ### 2.2 模式判定优先级
 
 ```
-1. 已经是 readonly struct → 跳过
-2. 是 ref struct → 跳过
-3. 是 partial struct → 跳过
-4. 标记 [DoNotMakeReadOnly] → 跳过
-5. 所有字段 readonly → Pattern A/B → 直接转换
-6. 所有属性 get-only 或 private set → Pattern C → 转换
-7. 无 mutating 方法，仅 get/set 属性 → Pattern D → 转换
-8. 无 mutating 方法，仅公共字段 → Pattern E → 转换
-9. 有 mutating 方法，方法可迁移 → Pattern F → 方法迁移转换
-10. 混合 readonly/mutable 字段 → Pattern G → 部分转换
-11. 重度可变状态 → Pattern H → 不可转换
+1. 已经是 readonly struct → 跳过 (L0)
+2. 是 ref struct → 跳过 (L0)
+3. 是 partial struct → 跳过 (L0)
+4. 标记 [DoNotMakeReadOnly] → 跳过 (L0)
+5. 所有字段 readonly → Pattern A/B → 直接转换 (L1)
+6. 所有属性 get-only 或 private set → Pattern C → 属性转换 (L2)
+7. 无 mutating 方法，仅数据字段/属性 → Pattern D → 数据容器转换 (L3)
+   - 注意：public 字段需显式启用（破坏二进制兼容性）
+8. 有 mutating 方法，方法可迁移 → Pattern E → 方法迁移转换 (L5)
+9. 有 mutating 方法，方法不可迁移 → Pattern F → 不可转换 (L7)
 ```
 
 ---
@@ -199,15 +197,18 @@ struct ViolationCache {
 
 | # | 决策 | 选项 | 选择 | 理由 |
 |---|------|------|------|------|
-| D1 | 字段修改分析深度 | (a) 语法级；(b) 语义级（单方法）；(c) 数据流分析 | **(c) 数据流分析** | 最全面，能检测间接字段修改 |
-| D2 | 接口方法分析 | (a) 纳入调用图；(b) 独立检测；(c) 跳过检测 | **(a) 纳入调用图** | 与数据流分析方案一致 |
+| D1 | 字段修改分析深度 | (a) 语法级；(b) 语义级（单方法）；(c) 数据流分析 | **(b) 语义级（单方法）** | 平衡精度与性能，跨方法数据流分析开销过大 |
+| D2 | 接口方法分析 | (a) 纳入调用图；(b) 独立检测；(c) 跳过检测 | **(b) 独立检测** | 接口方法若为 mutating，直接判定 Pattern F 不可迁移 |
 | D3 | partial struct 处理 | (a) 单文件独立分析；(b) 项目级合并分析；(c) 跳过 | **(c) 跳过** | 避免部分加 readonly 导致编译错误 |
 | D4 | 诊断详细程度 | (a) 逐条列出；(b) 仅首个原因；(c) 仅是否可转换 | **(a) 逐条列出** | V2 需要更详细的诊断以支持多种模式 |
 | D5 | 分析范围 | (a) 单文件；(b) 项目级编译后分析 | **(b) 项目级编译后分析** | 构建完整跨文件调用图 |
 | **D6** | **mutating 方法处理** | **(a) 跳过不转换；(b) 方法迁移；(c) 改为扩展方法** | **(b) 方法迁移** | 保持语义等价，调用点自动更新 |
-| **D7** | **DTO 模式处理** | **(a) 保持 get/set；(b) 改为构造函数初始化** | **(b) 改为构造函数初始化** | 真正的 readonly 语义 |
-| **D8** | **公共字段处理** | **(a) 保持公共字段；(b) 改为属性** | **(b) 改为属性** | readonly struct 不允许可变公共字段 |
-| **D9** | **混合模式处理** | **(a) 整体跳过；(b) 部分转换** | **(b) 部分转换** | 最大化 readonly 收益 |
+| **D7** | **数据容器处理** | **(a) 保持原样；(b) 改为构造函数初始化** | **(b) 改为构造函数初始化** | 真正的 readonly 语义 |
+| **D8** | **公共字段处理** | **(a) 保持公共字段；(b) 改为属性** | **(b) 改为属性（仅 internal/private）** | readonly struct 不允许可变公共字段；public 字段转属性破坏二进制兼容性 |
+| **D9** | **混合 readonly/mutable 处理** | **(a) 整体跳过；(b) 部分转换** | **(a) 整体跳过** | C# 不支持 partial readonly struct，含可变字段则不可转换 |
+| **D10** | **非 void/非 struct 返回值处理** | **(a) 返回元组；(b) out 参数；(c) 不可迁移** | **(b) out 参数** | 元组会改变方法签名且破坏调用点简洁性；out 参数保持调用点可读性 |
+| **D11** | **已有构造函数处理** | **(a) 始终生成新构造函数；(b) 检查已有签名避免重复** | **(b) 检查已有签名避免重复** | 避免 CS0111 编译错误（重复定义相同签名的构造函数） |
+| **D12** | **继承成员命名冲突** | **(a) 忽略；(b) 检测并标记不可转换** | **(b) 检测并标记不可转换** | 字段名 `GetType`/`Equals` 等与 object 方法冲突 |
 
 ---
 
@@ -217,14 +218,16 @@ struct ViolationCache {
 
 | 级别 | 名称 | 描述 | 适用模式 |
 |------|------|------|----------|
-| L0 | 跳过 | 无需转换（已 readonly/ref/partial） | - |
+| L0 | 跳过 | 无需转换（已 readonly/ref/partial/标记特性） | - |
 | L1 | 直接添加 | 添加 `readonly` 修饰符，无需其他改动 | A, B |
 | L2 | 属性转换 | 将 `private set` 改为 get-only | C |
-| L3 | DTO 转换 | 将 get/set 属性改为 get-only + 构造函数 | D |
-| L4 | 字段封装 | 将公共字段改为 get-only 属性 + 构造函数 | E |
-| L5 | 方法迁移 | 将 mutating 方法改为返回新实例的纯方法 | F |
-| L6 | 部分转换 | 仅转换 readonly 字段，标记可变字段 | G |
-| L7 | 不可转换 | 无法安全转换 | H |
+| L3 | 数据容器转换 | 将 get/set 属性/公共字段改为 get-only + 构造函数 | D |
+| L5 | 方法迁移 | 将 mutating 方法改为返回新实例的纯方法 | E |
+| L7 | 不可转换 | 无法安全转换 | F |
+
+**注意**：L4（字段封装）和 L6（部分转换）已移除：
+- L4 合并入 L3（数据容器转换统一处理）
+- L6 对 struct 无效——C# 不支持 `readonly struct` 包含可变字段
 
 ### 4.2 转换操作详解
 
@@ -256,10 +259,10 @@ readonly struct NeighborAndWeight {
 }
 ```
 
-#### L3: DTO 转换
+#### L3: 数据容器转换
 
 ```csharp
-// 转换前
+// 转换前（EdgeConstraints - 属性模式）
 struct EdgeConstraints {
     public Direction Direction { get; set; }
     public double Separation { get; set; }
@@ -276,10 +279,8 @@ readonly struct EdgeConstraints {
 }
 ```
 
-#### L4: 字段封装转换
-
 ```csharp
-// 转换前
+// 转换前（PixelPoint - 字段模式）
 struct PixelPoint {
     internal int X;
     internal int Y;
@@ -290,9 +291,14 @@ struct PixelPoint {
 readonly struct PixelPoint {
     internal int X { get; }
     internal int Y { get; }
+    // 已有构造函数保持不变
     internal PixelPoint(int x, int y) { X = x; Y = y; }
 }
 ```
+
+**实现要点**：
+- 检查是否已存在相同签名的构造函数，避免重复生成（CS0111）
+- 字段名与 `object` 继承成员冲突时（如 `GetType`、`Equals`、`GetHashCode`、`ToString`），标记为不可转换
 
 #### L5: 方法迁移转换（V2 核心新功能）
 
@@ -363,6 +369,8 @@ public Rectangle Add(Point point) {
 }
 ```
 
+**调用点更新**：`rect.Add(point)` → `rect = rect.Add(point)`
+
 #### 4.3.2 返回 this 的 mutating 方法
 
 ```csharp
@@ -382,7 +390,9 @@ public Rectangle Pad(double padding) {
 }
 ```
 
-#### 4.3.3 返回其他值的 mutating 方法
+**调用点更新**：无需更新（语义兼容，原调用 `rect.Pad(5)` 现在返回新实例）
+
+#### 4.3.3 返回其他值的 mutating 方法（使用 out 参数）
 
 ```csharp
 // 转换前
@@ -393,13 +403,29 @@ public bool AddWithCheck(Point point) {
 }
 
 // 转换后
-public (bool Result, Rectangle NewState) AddWithCheck(Point point) {
+public bool AddWithCheck(Point point, out Rectangle newStatus) {
     var result = this;
     bool wider;
     if (wider = (point.X < result.left)) result.left = point.X;
-    return (wider || higher, result);
+    newStatus = result;
+    return wider || higher;
 }
 ```
+
+**调用点更新**：
+
+```csharp
+// 转换前
+bool ok = rect.AddWithCheck(point);
+
+// 转换后
+bool ok = rect.AddWithCheck(point, out Rectangle newRect);
+rect = newRect;  // 需要更新原变量状态
+```
+
+**注意**：当调用点不使用返回值时（如 `rect.AddWithCheck(point);`），需要编译器分析调用上下文：
+- 若调用后 `rect` 不再被使用，可安全丢弃 `out` 参数
+- 若调用后 `rect` 被读取，必须赋值：`rect = newRect;`
 
 #### 4.3.4 不可迁移的方法判定
 
@@ -408,6 +434,9 @@ public (bool Result, Rectangle NewState) AddWithCheck(Point point) {
 - 方法被委托（delegate）引用
 - 方法被多态调用（virtual/override/interface）
 - 方法签名在公共 API 中且调用点无法更新
+- 方法包含 `stackalloc` 或指针操作
+- 方法包含 `unsafe` 代码块
+- 方法体超过 100 行且修改超过 3 个字段（人工审查标记）
 
 ---
 
@@ -535,14 +564,12 @@ internal sealed class PatternRecognizer
 
 internal enum StructPattern
 {
-    FullImmutable,      // Pattern A: 完全不可变
-    AlreadyReadonly,    // Pattern B: 已 readonly 字段
-    PrivateSetter,      // Pattern C: 私有 setter
-    Dto,                // Pattern D: DTO 模式
-    PublicFields,       // Pattern E: 公共字段
-    MutableMethods,     // Pattern F: 含 mutating 方法
-    Mixed,              // Pattern G: 混合模式
-    HeavyMutable,       // Pattern H: 重度可变
+    FullImmutable,          // Pattern A: 完全不可变
+    AlreadyReadonly,        // Pattern B: 已 readonly 字段
+    PrivateSetter,          // Pattern C: 私有 setter
+    DataContainer,          // Pattern D: 数据容器（公共字段或 get/set 属性，无 mutating 方法）
+    MutableMethods,         // Pattern E: 含 mutating 方法（可迁移）
+    MutableMethodsNonMigratable, // Pattern F: 含 mutating 方法（不可迁移）
 }
 
 internal sealed record PatternAnalysisResult(
@@ -554,13 +581,11 @@ internal sealed record PatternAnalysisResult(
 
 internal enum ConversionLevel
 {
-    Skip,           // L0: 跳过
+    Skip,           // L0: 跳过（已 readonly/ref/partial/标记特性）
     DirectAdd,      // L1: 直接添加 readonly
-    PropertyConvert,// L2: 属性转换
-    DtoConvert,     // L3: DTO 转换
-    FieldWrap,      // L4: 字段封装
-    MethodMigrate,  // L5: 方法迁移
-    PartialConvert, // L6: 部分转换
+    PropertyConvert,// L2: 属性转换（private set → get-only）
+    DataContainer,  // L3: 数据容器转换（字段/属性 → get-only + 构造函数）
+    MethodMigrate,  // L5: 方法迁移（mutating → 纯方法）
     NotConvertible, // L7: 不可转换
 }
 ```
@@ -570,19 +595,25 @@ internal enum ConversionLevel
 ```csharp
 internal sealed class MethodMigrator
 {
+    private readonly INamedTypeSymbol _structSymbol;
+    private readonly CSharpCompilation _compilation;
+    
+    public MethodMigrator(INamedTypeSymbol structSymbol, CSharpCompilation compilation)
+    {
+        _structSymbol = structSymbol;
+        _compilation = compilation;
+    }
+
     /// <summary>
     /// 将 mutating 方法转换为返回新实例的纯方法。
     /// 返回转换后的方法语法节点和调用点更新信息。
     /// </summary>
     public MethodMigrationResult MigrateMethod(
         MethodDeclarationSyntax method,
-        INamedTypeSymbol structSymbol,
         StructDeclarationSyntax structSyntax);
     
     /// <summary>分析方法是否可迁移</summary>
-    public bool CanMigrate(
-        IMethodSymbol methodSymbol,
-        INamedTypeSymbol structSymbol);
+    public bool CanMigrate(IMethodSymbol methodSymbol);
 }
 
 internal sealed record MethodMigrationResult(
@@ -594,7 +625,7 @@ internal enum MigrationType
 {
     VoidToStruct,       // void → struct 返回值
     ThisToStruct,       // 返回 this → 返回新副本
-    OtherReturnToTuple, // 其他返回值 → (原返回值, struct) 元组
+    OtherReturnToOut,   // 其他返回值 → 原返回值 + out 参数
 }
 
 internal sealed record CallSiteUpdate(
@@ -754,10 +785,8 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         {
             ConversionLevel.DirectAdd => ApplyDirectAdd(node),
             ConversionLevel.PropertyConvert => ApplyPropertyConvert(node),
-            ConversionLevel.DtoConvert => ApplyDtoConvert(node, result),
-            ConversionLevel.FieldWrap => ApplyFieldWrap(node, result),
+            ConversionLevel.DataContainer => ApplyDataContainerConvert(node, result),
             ConversionLevel.MethodMigrate => ApplyMethodMigrate(node, result),
-            ConversionLevel.PartialConvert => ApplyPartialConvert(node, result),
             _ => base.VisitStructDeclaration(node)
         };
     }
@@ -787,29 +816,25 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         return (StructDeclarationSyntax)rewriter.Visit(node);
     }
     
-    private StructDeclarationSyntax ApplyDtoConvert(StructDeclarationSyntax node, AnalyzeResult result)
+    private StructDeclarationSyntax ApplyDataContainerConvert(StructDeclarationSyntax node, AnalyzeResult result)
     {
-        // L3: 转换 get/set 为 get-only + 构造函数
+        // L3: 数据容器转换（统一处理属性模式和字段模式）
         var rewritten = node;
-        // 1. 转换属性
+        
+        // 1. 转换属性（get/set → get-only）
         rewritten = (StructDeclarationSyntax)new GetSetToGetOnlyRewriter().Visit(rewritten);
-        // 2. 添加构造函数
-        var ctor = _ctorGenerator.GenerateConstructor(node, result.Pattern);
-        rewritten = rewritten.AddMembers(ctor);
-        // 3. 添加 readonly
-        return ApplyDirectAdd(rewritten);
-    }
-    
-    private StructDeclarationSyntax ApplyFieldWrap(StructDeclarationSyntax node, AnalyzeResult result)
-    {
-        // L4: 封装字段为属性 + 构造函数
-        var rewritten = node;
-        // 1. 封装字段
+        
+        // 2. 封装字段（公共字段 → get-only 属性）
         rewritten = (StructDeclarationSyntax)new FieldToPropertyRewriter().Visit(rewritten);
-        // 2. 添加构造函数
-        var ctor = _ctorGenerator.GenerateConstructor(node, result.Pattern);
-        rewritten = rewritten.AddMembers(ctor);
-        // 3. 添加 readonly
+        
+        // 3. 添加构造函数（仅在不存在等效签名时）
+        var ctor = _ctorGenerator.GenerateConstructor(rewritten, result);
+        if (ctor != null && !HasExistingConstructor(rewritten, ctor))
+        {
+            rewritten = rewritten.AddMembers(ctor);
+        }
+        
+        // 4. 添加 readonly
         return ApplyDirectAdd(rewritten);
     }
     
@@ -819,16 +844,16 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var rewritten = node;
         if (result.MethodMigrations != null)
         {
-            // 获取 semantic model（从 compilation 而非 node）
-            var semanticModel = _compilation.GetSemanticModel(rewritten.SyntaxTree);
-            var structSymbol = (INamedTypeSymbol)semanticModel.GetDeclaredSymbol(rewritten)!;
+            // 关键修复：从原始 syntax tree 获取 semantic model，而非从 rewritten 节点
+            // 因为 rewritten 节点不在原 compilation 中，无法获取有效语义
+            var semanticModel = _compilation.GetSemanticModel(node.SyntaxTree);
+            var structSymbol = (INamedTypeSymbol)semanticModel.GetDeclaredSymbol(node)!;
             
+            var migrator = new MethodMigrator(structSymbol, _compilation);
             foreach (var migration in result.MethodMigrations)
             {
-                var migrator = new MethodMigrator(structSymbol, _compilation);
                 var migrationResult = migrator.MigrateMethod(
                     migration.Syntax, 
-                    structSymbol,
                     rewritten);
                 // 替换方法
                 rewritten = rewritten.ReplaceNode(
@@ -839,11 +864,102 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         return ApplyDirectAdd(rewritten);
     }
     
-    private StructDeclarationSyntax ApplyPartialConvert(StructDeclarationSyntax node, AnalyzeResult result)
+    private bool HasExistingConstructor(StructDeclarationSyntax node, ConstructorDeclarationSyntax newCtor)
     {
-        // L6: 部分转换
-        // 仅转换 readonly 字段，可变字段保持不变
-        return node; // 实现略
+        var newParameters = newCtor.ParameterList.Parameters;
+        return node.Members.OfType<ConstructorDeclarationSyntax>().Any(existing =>
+        {
+            var existingParams = existing.ParameterList.Parameters;
+            if (existingParams.Count != newParameters.Count) return false;
+            // 比较参数类型是否相同
+            for (int i = 0; i < existingParams.Count; i++)
+            {
+                if (existingParams[i].Type?.ToString() != newParameters[i]?.Type?.ToString())
+                    return false;
+            }
+            return true;
+        });
+    }
+}
+
+/// <summary>将 get/set 自动属性转换为 get-only 属性</summary>
+internal sealed class GetSetToGetOnlyRewriter : CSharpSyntaxRewriter
+{
+    public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+    {
+        // 移除 setter，保留 getter
+        if (node.AccessorList?.Accessors.Any(a => a.Kind() == SyntaxKind.SetAccessorDeclaration) == true)
+        {
+            var getter = node.AccessorList.Accessors.First(a => a.Kind() == SyntaxKind.GetAccessorDeclaration);
+            var newAccessorList = SyntaxFactory.AccessorList(SyntaxFactory.List(new[] { getter }));
+            return node.WithAccessorList(newAccessorList);
+        }
+        return base.VisitPropertyDeclaration(node);
+    }
+}
+
+/// <summary>将公共字段封装为 get-only 属性</summary>
+internal sealed class FieldToPropertyRewriter : CSharpSyntaxRewriter
+{
+    private static readonly HashSet<string> ObjectMemberNames = new()
+    {
+        "GetType", "Equals", "GetHashCode", "ToString"
+    };
+    
+    public override SyntaxNode? VisitFieldDeclaration(FieldDeclarationSyntax node)
+    {
+        var propertyDeclarations = new List<MemberDeclarationSyntax>();
+        foreach (var variable in node.Declaration.Variables)
+        {
+            var fieldName = variable.Identifier.Text;
+            
+            // 检查命名冲突
+            if (ObjectMemberNames.Contains(fieldName))
+            {
+                // 跳过此字段（调用方应标记为不可转换）
+                continue;
+            }
+            
+            // 生成属性：public int X { get; }
+            var property = SyntaxFactory.PropertyDeclaration(
+                node.Declaration.Type,
+                fieldName)
+                .AddModifiers(node.Modifiers.ToArray())
+                .AddAccessorListAccessors(
+                    SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                        .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)));
+            
+            propertyDeclarations.Add(property);
+        }
+        
+        if (propertyDeclarations.Count == node.Declaration.Variables.Count)
+        {
+            return SyntaxFactory.List<MemberDeclarationSyntax>(propertyDeclarations);
+        }
+        
+        return base.VisitFieldDeclaration(node);
+    }
+}
+
+/// <summary>将 private set 属性转换为 get-only（用于 L2）</summary>
+internal sealed class PrivateSetRewriter : CSharpSyntaxRewriter
+{
+    public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+    {
+        if (node.AccessorList == null) return base.VisitPropertyDeclaration(node);
+        
+        var hasPrivateSetter = node.AccessorList.Accessors.Any(a => 
+            a.Kind() == SyntaxKind.SetAccessorDeclaration &&
+            a.Modifiers.Any(m => m.Kind() == SyntaxKind.PrivateKeyword));
+            
+        if (hasPrivateSetter)
+        {
+            var getter = node.AccessorList.Accessors.First(a => a.Kind() == SyntaxKind.GetAccessorDeclaration);
+            var newAccessorList = SyntaxFactory.AccessorList(SyntaxFactory.List(new[] { getter }));
+            return node.WithAccessorList(newAccessorList);
+        }
+        
+        return base.VisitPropertyDeclaration(node);
     }
 }
 ```
@@ -871,6 +987,7 @@ public sealed record ReadOnlyStructMakerDiagnostic(
     string? FilePath = null,
     int? Line = null);
 
+/// <summary>转换统计信息，遵循 GotoEliminatorStatistics 模式。</summary>
 public sealed class ReadOnlyStructMakerStatistics
 {
     public int StructsScanned;
@@ -878,18 +995,22 @@ public sealed class ReadOnlyStructMakerStatistics
     public int StructsSkipped;
     public int StructsFailed;
     
-    // V2 新增统计
-    public int PatternA_FullImmutable;
-    public int PatternB_AlreadyReadonly;
-    public int PatternC_PrivateSetter;
-    public int PatternD_Dto;
-    public int PatternE_PublicFields;
-    public int PatternF_MutableMethods;
-    public int PatternG_Mixed;
-    public int PatternH_HeavyMutable;
+    // 按转换级别统计
+    public int Level0_Skipped;
+    public int Level1_DirectAdd;
+    public int Level2_PropertyConvert;
+    public int Level3_DataContainer;
+    public int Level5_MethodMigrate;
     
     public int MethodsMigrated;
     public int CallSitesUpdated;
+    
+    // 失败原因分类统计
+    public int Failed_RefThisEscape;
+    public int Failed_VirtualOrInterface;
+    public int Failed_DelegateReferenced;
+    public int Failed_ComplexMutableState;
+    public int Failed_NameConflict;
 }
 
 public sealed record ReadOnlyStructMakerResult(
@@ -1182,16 +1303,20 @@ struct Counter {
     public int Value;
     public void Increment() { Value++; }
     public Counter Add(int n) { Value += n; return this; }
-}
-var c = new Counter();
-c.Increment();
-var result = c.Add(5);";
-    
-    var result = Convert(input);
-    
+}";
+    var tree = CSharpSyntaxTree.ParseText(input);
+    var compilation = CSharpCompilation.Create("test")
+        .AddSyntaxTrees(tree)
+        .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+    var result = new ReadOnlyStructMaker().MakeReadOnly(
+        tree, compilation.GetSemanticModel(tree));
+
+    Assert.True(result.Changed);
     Assert.Contains("readonly struct", result.OutputCode);
-    Assert.Contains("c = c.Increment()", result.OutputCode);  // void 方法调用点更新
-    Assert.Contains("public Counter Increment()", result.OutputCode);  // 方法签名变更
+    // void 方法迁移：签名从 void 改为返回 struct 实例
+    Assert.Contains("public Counter Increment()", result.OutputCode);
+    // 返回 this 的方法迁移：签名保持，但方法体改为返回新实例
+    Assert.Contains("public Counter Add(", result.OutputCode);
 }
 ```
 
