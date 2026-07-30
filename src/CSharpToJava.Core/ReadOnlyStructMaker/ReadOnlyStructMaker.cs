@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Formatting;
 
 namespace CSharpToJava.Core.ReadOnlyStructMaker;
 
@@ -52,6 +53,13 @@ public sealed class ReadOnlyStructMaker
         var rewriter = new ReadOnlyStructRewriter(analysisResults, options);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
         var changed = newRoot.ToFullString() != root.ToFullString();
+
+        // Format only when changes were made (to fix spacing in generated nodes)
+        if (changed)
+        {
+            using var workspace = new AdhocWorkspace();
+            newRoot = (CompilationUnitSyntax)Formatter.Format(newRoot, workspace);
+        }
 
         if (changed)
         {

@@ -34,9 +34,10 @@ internal static class ConstructorGenerator
             : SyntaxKind.PublicKeyword;
 
         return SyntaxFactory.ConstructorDeclaration(structName)
-            .AddModifiers(SyntaxFactory.Token(accessMod))
+            .AddModifiers(SyntaxFactory.Token(accessMod).WithTrailingTrivia(SyntaxFactory.Space))
             .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)))
-            .WithBody(SyntaxFactory.Block(assignments));
+            .WithBody(SyntaxFactory.Block(assignments))
+            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, SyntaxFactory.Space, SyntaxFactory.Space, SyntaxFactory.Space, SyntaxFactory.Space);
     }
 
     private static string ToCamelCase(string name)

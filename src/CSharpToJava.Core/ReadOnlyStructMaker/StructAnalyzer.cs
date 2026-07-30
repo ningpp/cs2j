@@ -76,37 +76,48 @@ internal sealed class StructAnalyzer
                         p.SetMethod.DeclaredAccessibility != Accessibility.Private &&
                         !p.SetMethod.IsInitOnly).ToList();
 
-        // No mutating methods and no mutable properties
-        if (mutatingMethods.Count == 0 && mutableProperties.Count == 0)
+        // === Classification logic ===
+        // Key insight: mutable properties (public setters) are handled by L3 (data container),
+        // NOT by L5 (method migration). Only mutating METHODS trigger L5/L7.
+
+        if (mutatingMethods.Count == 0)
         {
-            // Pattern C: properties with private setters (check before fields — auto-props have no explicit fields)
-            if (properties.Any(p => p.SetMethod?.DeclaredAccessibility == Accessibility.Private))
+            // No mutating methods — eligible for L1/L2/L3
+
+            // Pattern C: properties with private setters only (no public setters)
+            if (mutableProperties.Count == 0 &&
+                properties.Any(p => p.SetMethod?.DeclaredAccessibility == Accessibility.Private))
                 return new(ConversionLevel.PropertyConvert, StructPattern.PrivateSetter, true,
                     "all setters are private", name);
 
-            // Pattern B: all fields already readonly (only meaningful when fields exist)
-            if (fields.Count > 0 && fields.All(f => f.IsReadOnly))
+            // Pattern B: all fields already readonly, no mutable properties
+            if (mutableProperties.Count == 0 && fields.Count > 0 && fields.All(f => f.IsReadOnly))
                 return new(ConversionLevel.DirectAdd, StructPattern.AlreadyReadonly, true,
                     "all fields already readonly", name);
 
-            // Pattern A: all fields only assigned in constructor
-            if (fields.Count > 0 && AllFieldsOnlyAssignedInCtor(fields, syntax))
+            // Pattern A: all fields only assigned in constructor, no mutable properties
+            if (mutableProperties.Count == 0 && fields.Count > 0 && AllFieldsOnlyAssignedInCtor(fields, syntax))
                 return new(ConversionLevel.DirectAdd, StructPattern.FullImmutable, true,
                     "all fields only assigned in constructor", name);
 
             // Empty struct or get-only properties only → direct add
-            if (fields.Count == 0 && properties.All(p => p.SetMethod == null))
+            if (mutableProperties.Count == 0 && fields.Count == 0 &&
+                properties.All(p => p.SetMethod == null))
                 return new(ConversionLevel.DirectAdd, StructPattern.FullImmutable, true,
                     "no mutable state", name);
 
-            // Data container (Pattern D)
+            // Pattern D: data container (has public setters or mutable non-public fields)
             if (_options.EnableDtoConversion)
                 return new(ConversionLevel.DataContainer, StructPattern.DataContainer, true,
                     "data container with public setters", name);
+
+            // DTO disabled and has mutable properties → not convertible
+            if (mutableProperties.Count > 0)
+                return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
+                    "data container (DTO conversion disabled)", name);
         }
 
-        // Has mutating methods
-        if (mutatingMethods.Count > 0 || mutableProperties.Count > 0)
+        // Has mutating methods → L5 or L7
         {
             if (!_options.EnableMethodMigration)
                 return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
@@ -133,9 +144,6 @@ internal sealed class StructAnalyzer
             return new(ConversionLevel.MethodMigrate, StructPattern.MutableMethods, true,
                 $"has {migrations.Count} migrating methods", name, migrations);
         }
-
-        return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
-            "unable to classify", name);
     }
 
     private bool HasOptOutAttribute(INamedTypeSymbol symbol)
@@ -191,7 +199,11 @@ internal sealed class StructAnalyzer
     {
         if (fields.Count == 0) return true;
 
-        // Find all assignments to fields outside constructors
+        // Must have at least one constructor that assigns fields
+        var ctors = syntax.Members.OfType<ConstructorDeclarationSyntax>().ToList();
+        if (ctors.Count == 0) return false;
+
+        // Verify no assignments to fields outside constructors
         var nonCtorMethods = syntax.Members.OfType<MethodDeclarationSyntax>().ToList();
         var propertySetters = syntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(p => p.AccessorList?.Accessors.Any(a => a.IsKind(SyntaxKind.SetAccessorDeclaration)) == true)

@@ -240,4 +240,68 @@ public partial class ReadOnlyStructMakerTests
         var second = RunMaker(first.OutputCode!);
         Assert.False(second.Changed);
     }
+
+    // === L3 Data Container Tests ===
+
+    [Fact]
+    public void DataContainer_GetSetProperties_ConvertsToGetOnly()
+    {
+        var src = """
+        struct EdgeConstraints {
+            public int Direction { get; set; }
+            public double Separation { get; set; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct EdgeConstraints", result.OutputCode);
+        Assert.DoesNotContain("set;", result.OutputCode);
+        Assert.Contains("public EdgeConstraints(", result.OutputCode);
+    }
+
+    [Fact]
+    public void DataContainer_InternalFields_ConvertsToProperties()
+    {
+        var src = """
+        struct Pixel {
+            internal int X;
+            internal int Y;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Pixel", result.OutputCode);
+        Assert.Contains("{ get; }", result.OutputCode);
+    }
+
+    [Fact]
+    public void DataContainer_ExistingCtor_NotDuplicated()
+    {
+        var src = """
+        struct S {
+            internal int A;
+            internal int B;
+            internal S(int a, int b) { A = a; B = b; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        // Should NOT generate a second constructor with same signature
+        var ctorCount = result.OutputCode!.Split("internal S(").Length - 1;
+        Assert.Equal(1, ctorCount);
+    }
+
+    [Fact]
+    public void DataContainer_DisabledByOption_NoChange()
+    {
+        var src = """
+        struct S {
+            public int X { get; set; }
+        }
+        """;
+        var opts = new ReadOnlyStructMakerOptions { EnableDtoConversion = false };
+        var result = RunMaker(src, opts);
+        Assert.False(result.Changed);
+    }
 }
