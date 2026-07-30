@@ -64,3 +64,17 @@
 - **根因分类**: ReadOnlyStructMaker 误判
 - **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/StructAnalyzer.cs`, `src/CSharpToJava.Core/ReadOnlyStructMaker/CallGraphBuilder.cs`
 - **分析**: TagInfo 和 Namespace 是 mutable struct，其 internal 字段被外部类通过数组元素访问方式赋值（如 _stack[_top].name = localName）。CheckNonMigratable 只检查 public 字段的外部赋值，遗漏了 internal 字段同样可被同一程序集/类外部修改的情况，导致误判为可迁移至 readonly struct。
+
+## Iteration 5-6 — ReadOnlyStructMaker comprehensive fix ✅ Fixed
+- **Java 文件**: 多个文件 (XmlTextWriter, XmlTextReaderImpl, LineInfo, XmlNamedNodeMap, XmlNodeReaderNavigator, XmlEventCache)
+- **错误信息**: 无法为 final 变量分配值 / 不兼容的类型 / 缺少返回值 / IndexOutOfBoundsException
+- **根因分类**: ReadOnlyStructMaker 多个缺陷
+- **涉及组件**: StructAnalyzer.cs, CallGraphBuilder.cs, CallSiteUpdater.cs, MethodMigrator.cs, ReadOnlyStructRewriter.cs, ProjectReadOnlyStructPreprocessor.cs
+- **分析**: 
+  1. 外部字段赋值检测只搜索当前文件，遗漏跨文件赋值
+  2. CallSiteUpdater 仅按方法名匹配，导致 List.Add 被错误转换
+  3. MethodMigrator 未重写隐式字段访问为 result.field
+  4. L5 方法迁移不应添加 readonly 关键字（Java 会将字段标记为 final）
+  5. L1 路径缺少非 private 字段的外部赋值检查
+  6. struct 内部隐式 this 方法调用未被更新
+  7. 跨文件调用点未被更新（需要第二遍处理）
