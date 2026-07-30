@@ -133,7 +133,9 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 .Where(f => !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
                 .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
                 .ToHashSet();
-            var migrator = new MethodMigrator(structName, fieldNames);
+            var migratedMethodNames = result.MethodMigrations
+                .Select(m => m.Method.Name).ToHashSet();
+            var migrator = new MethodMigrator(structName, fieldNames, migratedMethodNames);
             foreach (var migration in result.MethodMigrations)
             {
                 var migrated = migrator.Migrate(migration.Syntax);

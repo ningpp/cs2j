@@ -11,7 +11,7 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 /// - Return-this methods need no call-site update (semantically compatible).
 /// Only updates calls where the receiver type matches the migrated struct.
 /// </summary>
-internal sealed class CallSiteUpdater : CSharpSyntaxRewriter
+public sealed class CallSiteUpdater : CSharpSyntaxRewriter
 {
     private readonly Dictionary<string, string> _migratedMethodToStruct;
     private readonly SemanticModel _model;

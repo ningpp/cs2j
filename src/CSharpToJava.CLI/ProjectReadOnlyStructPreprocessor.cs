@@ -95,6 +95,7 @@ internal static class ProjectReadOnlyStructPreprocessor
                 allowUnsafe: true));
 
         // Process each .cs file
+        var globalMigratedMethods = new Dictionary<string, string>(); // methodName -> structName
         foreach (var sourceFile in sourceFiles)
         {
             var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
@@ -123,6 +124,16 @@ internal static class ProjectReadOnlyStructPreprocessor
                 diagnostics.Add(diagnostic with { FilePath = relativePath });
             }
 
+            // Collect migrated void method names for cross-file call site update
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                if (diagnostic.Level == ConversionLevel.MethodMigrate && diagnostic.StructName != null)
+                {
+                    // We'll detect method names from the output code in the second pass
+                    globalMigratedMethods[diagnostic.StructName] = diagnostic.StructName;
+                }
+            }
+
             if (!result.Changed)
             {
                 File.Copy(sourceFile, destinationFile, overwrite: true);
@@ -131,6 +142,12 @@ internal static class ProjectReadOnlyStructPreprocessor
             {
                 await File.WriteAllTextAsync(destinationFile, result.OutputCode!, new System.Text.UTF8Encoding(false));
             }
+        }
+
+        // Second pass: update call sites across all files for migrated methods
+        if (globalMigratedMethods.Count > 0 && request.MakerOptions.UpdateCallSites)
+        {
+            await UpdateCrossFileCallSites(intermediateRoot, sourceRoot, sourceFiles, globalMigratedMethods, request);
         }
 
         // Restore NuGet packages in the intermediate directory
@@ -431,6 +448,78 @@ internal static class ProjectReadOnlyStructPreprocessor
         }
 
         return fullPath.StartsWith(fullAncestor + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Second pass: updates call sites of migrated void→struct methods across all files.
+    /// </summary>
+    private static async Task UpdateCrossFileCallSites(
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles,
+        Dictionary<string, string> migratedStructs, ProjectReadOnlyPreprocessRequest request)
+    {
+        // Parse all output .cs files from the intermediate directory
+        var outputCsFiles = new List<string>();
+        foreach (var sourceFile in sourceFiles)
+        {
+            if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) continue;
+            var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
+            var outputFile = Path.Combine(intermediateRoot, relativePath);
+            if (File.Exists(outputFile))
+                outputCsFiles.Add(outputFile);
+        }
+
+        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in outputCsFiles)
+        {
+            var code = await File.ReadAllTextAsync(file);
+            var tree = CSharpSyntaxTree.ParseText(code, path: file);
+            outputTrees[file] = tree;
+        }
+
+        // Find migrated method names by scanning struct declarations
+        var migratedMethodToStruct = new Dictionary<string, string>();
+        foreach (var (_, tree) in outputTrees)
+        {
+            var root = tree.GetRoot();
+            foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
+            {
+                var structName = structDecl.Identifier.Text;
+                if (!migratedStructs.ContainsKey(structName)) continue;
+
+                // Find methods that return the struct type (migrated from void)
+                foreach (var method in structDecl.Members.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>())
+                {
+                    if (method.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax returnTypeId &&
+                        returnTypeId.Identifier.Text == structName)
+                    {
+                        migratedMethodToStruct[method.Identifier.Text] = structName;
+                    }
+                }
+            }
+        }
+
+        if (migratedMethodToStruct.Count == 0) return;
+
+        // Create compilation for semantic analysis
+        var references = GetBasicReferences();
+        var outputCompilation = CSharpCompilation.Create(
+            "callsite-update",
+            outputTrees.Values,
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+        // Apply CallSiteUpdater to each file
+        foreach (var (file, tree) in outputTrees)
+        {
+            var root = tree.GetRoot();
+            var model = outputCompilation.GetSemanticModel(tree);
+            var updater = new CallSiteUpdater(migratedMethodToStruct, model);
+            var newRoot = updater.Visit(root);
+            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            {
+                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+            }
+        }
     }
 
     internal sealed record SourceLayout(string SourceRoot, string EntryPath, IReadOnlyList<string> ProjectFiles);

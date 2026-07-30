@@ -8,11 +8,13 @@ internal sealed class MethodMigrator
 {
     private readonly string _structName;
     private readonly HashSet<string> _fieldNames;
+    private readonly HashSet<string> _migratedMethodNames;
 
-    public MethodMigrator(string structName, HashSet<string>? fieldNames = null)
+    public MethodMigrator(string structName, HashSet<string>? fieldNames = null, HashSet<string>? migratedMethodNames = null)
     {
         _structName = structName;
         _fieldNames = fieldNames ?? new HashSet<string>();
+        _migratedMethodNames = migratedMethodNames ?? new HashSet<string>();
     }
 
     public MethodDeclarationSyntax Migrate(MethodDeclarationSyntax method)
@@ -43,6 +45,12 @@ internal sealed class MethodMigrator
         if (_fieldNames.Count > 0)
         {
             newBody = (BlockSyntax)new ImplicitFieldToResultRewriter(_fieldNames).Visit(newBody)!;
+        }
+
+        // 3b. Replace bare calls to migrated methods with result = result.Method(args)
+        if (_migratedMethodNames.Count > 0)
+        {
+            newBody = (BlockSyntax)new ImplicitCallRewriter(_migratedMethodNames, method.Identifier.Text).Visit(newBody)!;
         }
 
         // 4. Replace `return this;` with `return result;`
@@ -157,6 +165,54 @@ internal sealed class MethodMigrator
             if (node.Expression == null)
                 return node.WithExpression(SyntaxFactory.IdentifierName("result"));
             return base.VisitReturnStatement(node);
+        }
+    }
+
+    /// <summary>
+    /// Rewrites bare calls to migrated methods (implicit this) to `result = result.Method(args)`.
+    /// E.g., `Add(value);` → `result = result.Add(value);`
+    /// </summary>
+    private sealed class ImplicitCallRewriter : CSharpSyntaxRewriter
+    {
+        private readonly HashSet<string> _migratedMethodNames;
+        private readonly string _currentMethodName;
+
+        public ImplicitCallRewriter(HashSet<string> migratedMethodNames, string currentMethodName)
+        {
+            _migratedMethodNames = migratedMethodNames;
+            _currentMethodName = currentMethodName;
+        }
+
+        public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+        {
+            // Match bare invocation: Method(args); (no explicit receiver)
+            if (node.Expression is InvocationExpressionSyntax invocation &&
+                invocation.Expression is IdentifierNameSyntax methodName)
+            {
+                var name = methodName.Identifier.Text;
+                // Don't rewrite recursive calls or non-migrated methods
+                if (name != _currentMethodName && _migratedMethodNames.Contains(name))
+                {
+                    // Transform: Method(args) → result = result.Method(args)
+                    var resultCall = SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName("result"),
+                            methodName.WithoutTrivia()),
+                        invocation.ArgumentList);
+
+                    var assignment = SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            SyntaxFactory.IdentifierName("result"),
+                            resultCall))
+                        .WithTriviaFrom(node);
+
+                    return assignment;
+                }
+            }
+
+            return base.VisitExpressionStatement(node);
         }
     }
 
