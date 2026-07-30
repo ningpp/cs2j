@@ -52,6 +52,28 @@ public sealed class ReadOnlyStructMaker
         // Rewrite eligible structs
         var rewriter = new ReadOnlyStructRewriter(analysisResults, options);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
+
+        // Update call sites for L5 migrated void methods
+        if (options.UpdateCallSites)
+        {
+            var migratedVoidMethods = new HashSet<string>();
+            foreach (var (_, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
+            {
+                if (result.MethodMigrations == null) continue;
+                foreach (var migration in result.MethodMigrations.Where(m => m.Type == MigrationType.VoidToStruct))
+                {
+                    migratedVoidMethods.Add(migration.Method.Name);
+                }
+            }
+
+            if (migratedVoidMethods.Count > 0)
+            {
+                var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods);
+                newRoot = (CompilationUnitSyntax)callSiteUpdater.Visit(newRoot)!;
+                stats.CallSitesUpdated = migratedVoidMethods.Count; // approximate
+            }
+        }
+
         var changed = newRoot.ToFullString() != root.ToFullString();
 
         // Format only when changes were made (to fix spacing in generated nodes)

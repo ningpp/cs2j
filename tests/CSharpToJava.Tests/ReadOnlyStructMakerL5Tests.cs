@@ -100,4 +100,65 @@ public class ReadOnlyStructMakerL5Tests
         Assert.Equal(1, result.Statistics.Level5_MethodMigrate);
         Assert.Equal(1, result.Statistics.StructsConverted);
     }
+
+    [Fact]
+    public void VoidCallSite_UpdatedToAssignment()
+    {
+        var src = """
+        struct Counter {
+            private int _value;
+            public void Increment() { _value++; }
+        }
+        class User {
+            void M() {
+                var c = new Counter();
+                c.Increment();
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.Increment()", result.OutputCode);
+    }
+
+    [Fact]
+    public void ArrayElementCallSite_UpdatedToAssignment()
+    {
+        var src = """
+        struct Size {
+            private double _w;
+            public void Pad(double p) { _w += p; }
+        }
+        class User {
+            void M(Size[] sizes) {
+                sizes[0].Pad(5);
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("sizes[0] = sizes[0].Pad(5)", result.OutputCode);
+    }
+
+    [Fact]
+    public void ReturnThisCallSite_NotUpdated()
+    {
+        var src = """
+        struct Acc {
+            private int _v;
+            public Acc Add(int n) { _v += n; return this; }
+        }
+        class User {
+            void M() {
+                var a = new Acc();
+                var b = a.Add(5);
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // return-this call sites should NOT be changed to assignment
+        Assert.Contains("var b = a.Add(5)", result.OutputCode);
+        Assert.DoesNotContain("a = a.Add(5)", result.OutputCode);
+    }
 }
