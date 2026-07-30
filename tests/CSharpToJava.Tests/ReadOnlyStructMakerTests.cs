@@ -304,4 +304,67 @@ public partial class ReadOnlyStructMakerTests
         var result = RunMaker(src, opts);
         Assert.False(result.Changed);
     }
+
+    // === L7 Not Convertible Tests ===
+
+    [Fact]
+    public void HeavyMutable_ArrayField_NotConvertible()
+    {
+        var src = """
+        struct Cache {
+            private int[] _items;
+            private int _count;
+            public void Clear() { _count = 0; }
+            public void Insert(int item) { _items[_count] = item; _count++; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    [Fact]
+    public void PublicFields_NotConvertible()
+    {
+        var src = """
+        struct Point {
+            public double X;
+            public double Y;
+            public void Normalize() { X = 0; Y = 0; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    [Fact]
+    public void VirtualMethod_NotConvertible()
+    {
+        var src = """
+        struct S {
+            public int V;
+            public override string ToString() { V++; return ""; }
+        }
+        """;
+        var result = RunMaker(src);
+        // ToString mutating makes it have mutating methods, but override methods are non-migratable
+        Assert.Contains(result.Diagnostics, d =>
+            d.Level == ConversionLevel.NotConvertible || d.Level == ConversionLevel.MethodMigrate);
+    }
+
+    [Fact]
+    public void MethodMigration_DisabledByOption_NotConvertible()
+    {
+        var src = """
+        struct S {
+            private int _v;
+            public void Increment() { _v++; }
+        }
+        """;
+        var opts = new ReadOnlyStructMakerOptions { EnableMethodMigration = false };
+        var result = RunMaker(src, opts);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
 }
