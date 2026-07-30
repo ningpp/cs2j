@@ -5,6 +5,19 @@ namespace CSharpToJava.Tests;
 public partial class ReadOnlyStructMakerTests
 {
     [Fact]
+    public void Options_Defaults()
+    {
+        var o = new ReadOnlyStructMakerOptions();
+        Assert.Equal("DoNotMakeReadOnly", o.OptOutAttributeName);
+        Assert.True(o.ReportSkipped);
+        Assert.False(o.Strict);
+        Assert.True(o.EnableMethodMigration);
+        Assert.True(o.EnableDtoConversion);
+        Assert.True(o.UpdateCallSites);
+        Assert.Null(o.AllowedLevels);
+    }
+
+    [Fact]
     public void Diagnostics_Record_RoundTrip()
     {
         var d = new ReadOnlyStructMakerDiagnostic(
