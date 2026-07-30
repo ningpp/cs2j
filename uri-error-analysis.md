@@ -26,3 +26,17 @@
   - 单元测试 `MultidimensionalArrayInitializerTests.RectangularStringArrayField_BareInitializer_EmitsCorrectJavaRanks` 红→绿通过。
   - 全量 `dotnet test` 2325 个测试全部通过。
   - 重新转换后 `mvn clean package -e` 返回 `BUILD SUCCESS`（日志见 `d:\code\cs2j\mvn-build-uri.out.log`）。
+
+## Iteration 2 — readonly struct 误标（final 字段不可赋值）
+- **Java 文件**: `d:\cs-uri-20260730\system-private-uri\src\main\java\dotnet\system\Uri.java`
+- **行号**: 1654
+- **错误信息**: `无法为 final 变量 End 分配值`
+- **代码片段**:
+  ```java
+  info.Offset.End = (((int)(_string.length())) & 0xFFFF);
+  ```
+- **对应 C# 文件**: `D:\csharpuri\src\System\Uri.cs` (line 135: `private struct Offset`)
+- **根因分类**: Transformer 逻辑缺陷（ReadOnlyStructMaker）
+- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/StructAnalyzer.cs`
+- **分析**: `Offset` 是一个无方法、无构造函数、拥有 public 字段的纯数据结构。其字段在外部方法中被频繁赋值（如 `info.Offset.End = ...`）。`StructAnalyzer.Analyze()` 在 `mutatingMethods.Count == 0` 分支中，未检查 public 字段是否被外部赋值，直接将其归类为 `DataContainer` 并添加 `readonly` 修饰符。`CheckNonMigratable`（含 `HasExternalPublicFieldAssignment` 检查）仅在 "has mutating methods" 分支调用，导致此场景遗漏。
+- **状态**: ✅ Fixed

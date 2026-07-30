@@ -110,8 +110,19 @@ internal sealed class StructAnalyzer
 
             // Pattern D: data container (has public setters or mutable non-public fields)
             if (_options.EnableDtoConversion)
+            {
+                // Guard: public fields assigned externally cannot be made readonly
+                if (fields.Any(f => f.DeclaredAccessibility == Accessibility.Public))
+                {
+                    var root = syntax.SyntaxTree.GetRoot();
+                    if (_callGraph.HasExternalPublicFieldAssignment(symbol, root))
+                        return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
+                            "public fields assigned externally", name);
+                }
+
                 return new(ConversionLevel.DataContainer, StructPattern.DataContainer, true,
                     "data container with public setters", name);
+            }
 
             // DTO disabled and has mutable properties → not convertible
             if (mutableProperties.Count > 0)

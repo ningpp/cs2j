@@ -305,6 +305,26 @@ public partial class ReadOnlyStructMakerTests
         Assert.False(result.Changed);
     }
 
+    [Fact]
+    public void PublicFields_NoMethods_ExternalAssignment_NotConvertible()
+    {
+        // Reproduces: struct Offset { public ushort End; ... } with external assignments
+        // like info.Offset.End = value; — should NOT be made readonly
+        var src = """
+        class Container {
+            public Offset Data;
+            void Update() { Data.End = 42; Data.Scheme = 1; }
+        }
+        struct Offset {
+            public ushort Scheme;
+            public ushort End;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
     // === L7 Not Convertible Tests ===
 
     [Fact]
