@@ -16,13 +16,13 @@ V1 方案采用二元判定：struct 要么完全可转换（所有字段 readon
 
 | 模式 | 数量 | V1 处理 | V2 改进 |
 |------|------|---------|---------|
-| 完全不可变（readonly 字段 + 构造函数初始化） | 1 (Parallelogram) | ✅ 可转换 | ✅ 直接转换 (L1) |
+| 完全不可变（所有字段仅构造函数赋值） | 1 (Parallelogram) | ✅ 可转换 | ✅ 直接转换 (L1) |
 | 已 readonly 字段 | 3 (ConstraintDirectionPair, ConstraintListForVariable, QpscVar) | ✅ 跳过 | ✅ 跳过 (L0) |
 | 私有 setter（外部只读） | 2 (NeighborAndWeight, PointAndCrossings) | ❌ 不可转换 | ✅ 可转换 (L2) |
-| 数据容器（公共字段或 get/set 属性，无 mutating 方法） | 5 (EdgeConstraints, PixelPoint, OverlappedEdge, StackStruct, PortObstacle) | ❌ 不可转换 | ✅ 可转换 (L3) |
-| 含 mutating 方法（方法可迁移） | 5 (Rectangle, Size, BorderInfo, CompassVector, Complex) | ❌ 不可转换 | ✅ 方法迁移转换 (L5) |
+| 数据容器（公共字段或 get/set 属性，无 mutating 方法） | 5 (EdgeConstraints, OverlappedEdge, StackStruct, PortObstacle, CompassVector) | ❌ 不可转换 | ✅ 可转换 (L3) |
+| 含 mutating 方法（方法可迁移） | 4 (Rectangle, Size, BorderInfo, Complex) | ❌ 不可转换 | ✅ 方法迁移转换 (L5) |
 | 含 mutating 方法（方法不可迁移） | 1 (Point) | ❌ 不可转换 | ❌ 不可转换 (L7) |
-| 重度可变状态 | 2 (MatrixCell, ViolationCache) | ❌ 不可转换 | ❌ 不可转换 (L7) |
+| 重度可变状态 / ref 字段修改 | 3 (MatrixCell, ViolationCache, PixelPoint) | ❌ 不可转换 | ❌ 不可转换 (L7) |
 
 ### 0.2 V2 核心改进
 
@@ -75,7 +75,7 @@ V1 方案采用二元判定：struct 要么完全可转换（所有字段 readon
 - [ ] CLI 动词 `make-readonly` 正常工作
 - [ ] `convert-project` 的 `--no-make-readonly` 选项正常工作
 - [ ] 所有单元测试通过
-- [ ] **V2 新增**：MSAGL 19 个 struct 中至少 **13** 个成功转换（3 个 L7 不可转换：Point 因公共字段无法安全 readonly、MatrixCell/ViolationCache 因重度可变状态）
+- [ ] **V2 新增**：MSAGL 19 个 struct 中至少 **15** 个成功转换（4 个 L7 不可转换：Point 因公共字段被全代码库直接赋值无法安全 readonly、MatrixCell/ViolationCache 因重度可变状态、PixelPoint 因字段通过 ref 参数被外部修改）
 
 ---
 
@@ -88,14 +88,14 @@ V1 方案采用二元判定：struct 要么完全可转换（所有字段 readon
 #### Pattern A: 完全不可变（Full Immutable）
 ```
 struct Parallelogram {
-    bool isSeg;           // 仅构造函数设置
-    Point corner;         // 仅构造函数设置
-    // ... 所有字段只在构造函数中赋值
+    bool isSeg;           // 仅构造函数设置（未标记 readonly）
+    Point corner;         // 仅构造函数设置（未标记 readonly）
+    // ... 所有字段只在构造函数中赋值，无 mutating 方法
 }
 ```
-- **特征**：所有字段在构造函数中初始化，无任何 mutating 方法
+- **特征**：所有字段仅在构造函数中初始化（但未标记 `readonly`），无任何 mutating 方法
 - **MSAGL 实例**：Parallelogram
-- **转换策略**：直接添加 `readonly` 修饰符
+- **转换策略**：直接添加 `readonly` 修饰符（字段自动满足 readonly struct 要求）
 
 #### Pattern B: 已 readonly 字段（Already Readonly）
 ```
@@ -126,34 +126,44 @@ struct EdgeConstraints {
     public double Separation { get; set; }
 }
 
-struct PixelPoint {
-    internal int X;  // 公共字段
-    internal int Y;
+struct CompassVector {
+    internal Direction Dir { get; set; }  // 公共 setter 属性，无 mutating 方法
+    public Point ToPoint() { ... }         // 只读实例方法
 }
 ```
-- **特征**：仅包含数据字段/属性（公共字段或 get/set 属性），无 mutating 方法，作为数据容器使用
-- **MSAGL 实例**：EdgeConstraints, PixelPoint, OverlappedEdge, StackStruct, PortObstacle
+- **特征**：仅包含数据字段/属性（公共字段或 get/set 属性），无 mutating 实例方法，作为数据容器使用
+- **MSAGL 实例**：EdgeConstraints, OverlappedEdge, StackStruct, PortObstacle, CompassVector
 - **转换策略**：
   - 有 get/set 属性的 → 改为 get-only 属性 + 构造函数
   - 有公共字段的 → 封装为 get-only 属性 + 构造函数
   - 安全约束：`public` 字段转为属性会破坏二进制兼容性，默认仅对 `internal`/`private` 字段启用 L3
+  - **对象初始化器约束**：若存在 `new S { Field = value }` 语法，需同步改为构造函数调用
+  - **ref 字段修改约束**：若字段通过 `ref S` 参数被外部修改（如 `s.X++`），则不可转换，归入 Pattern F
 
 #### Pattern E: 含 mutating 方法 - 可迁移（Mutable Methods - Migratable）
 ```
 struct Rectangle {
     public void Add(Point point) { left = point.X; ... }
-    public void Pad(double padding) { Left -= padding; ... }
+    public Rectangle Pad(double padding) { PadWidth(padding); PadHeight(padding); return this; }
+}
+struct Size {
+    public void Pad(double padding) { width += 2*padding; height += 2*padding; }
 }
 ```
-- **特征**：包含修改自身状态的方法，但方法可迁移为返回新实例的纯方法
-- **MSAGL 实例**：Rectangle, Size, BorderInfo, CompassVector, Complex
+- **特征**：包含修改自身状态的实例方法，但方法可迁移为返回新实例的纯方法
+- **MSAGL 实例**：Rectangle, Size, BorderInfo, Complex
 - **转换策略**：方法迁移——将 mutating 方法改为返回新实例的纯方法，调用点同步更新
+- **注意**：若 struct 同时含有带 setter 的公共属性（如 `Rectangle.Left { get; set; }`），需同步将属性 setter 迁移为 `WithXxx()` 方法并更新调用点
 
 #### Pattern F: 含 mutating 方法 - 不可迁移（Mutable Methods - Non-Migratable）
 ```
 struct Point {
-    public double x, y;
-    // 若存在 ref this 传递、虚方法重写、或委托引用，则方法不可迁移
+    public double X, Y;  // 公共字段，全代码库大量直接赋值（p.X = 5）
+    // 转为 readonly 后所有直接字段赋值将编译失败
+}
+struct PixelPoint {
+    internal int X, Y;
+    // 外部通过 ref 参数直接修改：UpdatePixelInside(ref PixelPoint p) { p.X++; }
 }
 struct MatrixCell {
     internal double Value;        // 可变状态
@@ -168,12 +178,14 @@ struct ViolationCache {
 }
 ```
 - **特征**：方法因以下原因不可迁移：
+  - 公共字段被外部代码直接赋值（如 `point.X = 5`），无法安全转为 readonly
+  - 字段通过 `ref S` / `out S` 参数被外部修改（如 `p.X++`）
   - `ref this` / `out this` 传递
   - 虚方法重写或多态调用
   - 委托引用
   - 公共 API 签名无法更新
   - 重度可变状态（数组、索引跟踪等）
-- **MSAGL 实例**：Point（如有 ref this）、MatrixCell、ViolationCache
+- **MSAGL 实例**：Point（公共字段被直接赋值）、PixelPoint（ref 字段修改）、MatrixCell、ViolationCache
 - **转换策略**：不可转换，输出警告
 
 ### 2.2 模式判定优先级
@@ -183,12 +195,16 @@ struct ViolationCache {
 2. 是 ref struct → 跳过 (L0)
 3. 是 partial struct → 跳过 (L0)
 4. 标记 [DoNotMakeReadOnly] → 跳过 (L0)
-5. 所有字段 readonly → Pattern A/B → 直接转换 (L1)
-6. 所有属性 get-only 或 private set → Pattern C → 属性转换 (L2)
-7. 无 mutating 方法，仅数据字段/属性 → Pattern D → 数据容器转换 (L3)
+5. 字段通过 ref/out 参数被外部修改 → Pattern F → 不可转换 (L7)
+6. 公共字段被外部代码直接赋值 → Pattern F → 不可转换 (L7)
+7. 所有字段 readonly 或仅构造函数赋值 → Pattern A/B → 直接转换 (L1)
+8. 所有属性 get-only 或 private set → Pattern C → 属性转换 (L2)
+9. 无 mutating 方法，仅数据字段/属性 → Pattern D → 数据容器转换 (L3)
    - 注意：public 字段需显式启用（破坏二进制兼容性）
-8. 有 mutating 方法，方法可迁移 → Pattern E → 方法迁移转换 (L5)
-9. 有 mutating 方法，方法不可迁移 → Pattern F → 不可转换 (L7)
+   - 注意：对象初始化器需同步替换为构造函数调用
+10. 有 mutating 方法，方法可迁移 → Pattern E → 方法迁移转换 (L5)
+11. 有 mutating 方法，方法不可迁移 → Pattern F → 不可转换 (L7)
+    - 重度可变状态（数组、索引跟踪等）
 ```
 
 ---
@@ -481,7 +497,7 @@ src/CSharpToJava.Core/ReadOnlyStructMaker/
 │                    Phase 2: 模式识别                                 │
 │  • PatternRecognizer 分析每个 struct 的模式                          │
 │  • 识别字段类型、属性类型、方法签名                                  │
-│  • 初步分类：A/B/C/D/E/F/G/H                                        │
+│  • 初步分类：A/B/C/D/E/F                                            │
 └───────────────────────────┬─────────────────────────────────────────┘
                             │
                             ▼
@@ -507,10 +523,8 @@ src/CSharpToJava.Core/ReadOnlyStructMaker/
 │  • ReadOnlyStructRewriter 根据转换级别执行不同重写                    │
 │  • L1: 添加 readonly 修饰符                                          │
 │  • L2: 移除 private set                                              │
-│  • L3: 生成构造函数，转换属性                                        │
-│  • L4: 封装字段为属性，生成构造函数                                   │
-│  • L5: MethodMigrator 转换 mutating 方法                             │
-│  • L6: 部分转换                                                      │
+│  • L3: 生成构造函数，转换属性/字段为 get-only                         │
+│  • L5: MethodMigrator 转换 mutating 方法 + 属性 setter 迁移          │
 └───────────────────────────┬─────────────────────────────────────────┘
                             │
                             ▼
@@ -703,12 +717,6 @@ public sealed class ReadOnlyStructMakerOptions
     /// <summary>是否启用 DTO 转换（L3 转换），默认 true</summary>
     public bool EnableDtoConversion { get; init; } = true;
     
-    /// <summary>是否启用字段封装（L4 转换），默认 true</summary>
-    public bool EnableFieldWrapping { get; init; } = true;
-    
-    /// <summary>是否启用部分转换（L6 转换），默认 false</summary>
-    public bool EnablePartialConversion { get; init; } = false;
-    
     /// <summary>方法迁移时是否更新调用点，默认 true</summary>
     public bool UpdateCallSites { get; init; } = true;
     
@@ -744,10 +752,10 @@ internal sealed record AnalyzeResult(
             "already readonly struct (skipped)", null, name, null);
     
     public static AnalyzeResult Skip(string name, string reason) => 
-        new(ConversionLevel.Skip, StructPattern.HeavyMutable, false, reason, null, name, null);
+        new(ConversionLevel.Skip, StructPattern.MutableMethodsNonMigratable, false, reason, null, name, null);
     
     public static AnalyzeResult Fail(string name, string reason, StructDeclarationSyntax syntax) => 
-        new(ConversionLevel.NotConvertible, StructPattern.HeavyMutable, false, reason, syntax, name, null);
+        new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false, reason, syntax, name, null);
     
     public static AnalyzeResult Success(string name, StructDeclarationSyntax syntax, 
         ConversionLevel level, StructPattern pattern) => 
@@ -1035,27 +1043,18 @@ public sealed record ReadOnlyStructMakerResult(
 
 **成功转换（L3 - DTO 转换）**：
 ```
-[Info] Struct 'EdgeConstraints' in Layout/EdgeConstraints.cs:16: converted to readonly struct (L3-DtoConvert, Pattern D-Dto)
-```
-
-**成功转换（L4 - 字段封装）**：
-```
-[Info] Struct 'PixelPoint' in OverlapRemovalFixedSegments/PixelPoint.cs:3: converted to readonly struct (L4-FieldWrap, Pattern E-PublicFields)
+[Info] Struct 'EdgeConstraints' in Layout/EdgeConstraints.cs:16: converted to readonly struct (L3-DataContainer, Pattern D-DataContainer)
 ```
 
 **成功转换（L5 - 方法迁移）**：
 ```
-[Info] Struct 'Rectangle' in Geometry/Rectangle.cs:15: converted to readonly struct (L5-MethodMigrate, Pattern F-MutableMethods, 12 methods migrated, 47 call sites updated)
-```
-
-**部分转换（L6）**：
-```
-[Warning] Struct 'Struct 'MatrixCell' in ProjectionSolver/QPSC.cs:101: partially converted (L6-PartialConvert, Pattern G-Mixed): field 'Value' remains mutable
+[Info] Struct 'Rectangle' in Geometry/Rectangle.cs:15: converted to readonly struct (L5-MethodMigrate, Pattern E-MutableMethods, 12 methods migrated, 47 call sites updated)
 ```
 
 **不可转换（L7）**：
 ```
-[Warning] Struct 'ViolationCache' in ProjectionSolver/ViolationCache.cs:33: not convertible (L7-NotConvertible, Pattern H-HeavyMutable): contains complex mutable state with array and index tracking
+[Warning] Struct 'ViolationCache' in ProjectionSolver/ViolationCache.cs:33: not convertible (L7-NotConvertible, Pattern F-NonMigratable): contains complex mutable state with array and index tracking
+[Warning] Struct 'PixelPoint' in OverlapRemovalFixedSegments/PixelPoint.cs:3: not convertible (L7-NotConvertible, Pattern F-NonMigratable): fields mutated through ref parameter (UpdatePixelInsideForXCase)
 ```
 
 **跳过**：
@@ -1099,16 +1098,10 @@ class MakeReadOnlyOptions
     [Option("no-dto-conversion", Default = false, HelpText = "Disable DTO conversion (L3)")]
     public bool NoDtoConversion { get; set; }
     
-    [Option("no-field-wrapping", Default = false, HelpText = "Disable field wrapping (L4)")]
-    public bool NoFieldWrapping { get; set; }
-    
-    [Option("enable-partial", Default = false, HelpText = "Enable partial conversion (L6)")]
-    public bool EnablePartial { get; set; }
-    
     [Option("no-update-call-sites", Default = false, HelpText = "Don't update call sites for migrated methods")]
     public bool NoUpdateCallSites { get; set; }
     
-    [Option("min-level", Default = "L1", HelpText = "Minimum conversion level to apply (L1-L6)")]
+    [Option("min-level", Default = "L1", HelpText = "Minimum conversion level to apply (L1-L5)")]
     public string MinLevel { get; set; } = "L1";
 }
 ```
@@ -1141,8 +1134,8 @@ public bool ReadOnlyNoMethodMigration { get; set; }
 │  Phase 1: ReadOnlyStructMaker（如果启用）                    │
 │  • 编译项目获取 CSharpCompilation                             │
 │  • 模式识别 + 调用图分析                                      │
-│  • 多级转换（L1-L6）                                          │
-│  • 方法迁移 + 调用点更新                                      │
+│  • 多级转换（L1-L5）                                          │
+│  • 方法迁移 + 属性 setter 迁移 + 调用点更新                  │
 │  • 输出到中间目录 .cs2j-readonly-src/                         │
 └─────────────────────┬───────────────────────────────────────┘
                       │
@@ -1230,6 +1223,84 @@ rect = rect.WithCenter(new Point(10, 20));
 rect = rect.WithLeftTop(new Point(0, 0));
 ```
 
+**带验证逻辑的 setter 处理**：
+
+```csharp
+// 转换前（BorderInfo.Weight setter 含验证）
+public double Weight {
+    get { return this.borderWeight; }
+    set {
+        if (value <= 0.0) throw new ArgumentOutOfRangeException(...);
+        this.borderWeight = value;
+    }
+}
+
+// 转换后（With 方法保留验证逻辑）
+public BorderInfo WithWeight(double value) {
+    if (value <= 0.0) throw new ArgumentOutOfRangeException(...);
+    var result = this;
+    result.borderWeight = value;
+    return result;
+}
+```
+
+**复合 setter 处理**（如 `Rectangle.Width` 同时修改 `left` 和 `right`）：
+
+```csharp
+// 转换前
+public double Width {
+    get { return right - left; }
+    set {
+        double hw = value / 2.0f;
+        double cx = (left + right) / 2.0f;
+        left = cx - hw;
+        right = cx + hw;
+    }
+}
+
+// 转换后
+public Rectangle WithWidth(double value) {
+    double hw = value / 2.0f;
+    double cx = (left + right) / 2.0f;
+    var result = this;
+    result.left = cx - hw;
+    result.right = cx + hw;
+    return result;
+}
+```
+
+### 9.10 数组元素/属性访问调用点（V2 新增）
+
+```csharp
+// 转换前（void mutating 方法作用于数组元素）
+nodeSizes[i].Pad(halfSep);  // Size.Pad 是 void 方法，直接修改数组元素
+
+// 转换后（必须赋值回数组元素）
+nodeSizes[i] = nodeSizes[i].Pad(halfSep);
+```
+
+**规则**：当 mutating 方法的调用目标是数组元素、属性返回值或 ref 参数时，转换后必须将返回值赋值回原位置：
+- 数组元素：`arr[i] = arr[i].Method(args)`
+- 属性：`obj.Prop = obj.Prop.Method(args)`（仅当属性有 setter）
+- 局部变量：`s = s.Method(args)`
+
+### 9.11 对象初始化器转换（V2 新增）
+
+```csharp
+// 转换前（OverlappedEdge 使用对象初始化器）
+internal static OverlappedEdge Create(int source, int target, double overlapFactor, 
+    double idealDistance, double weight) =>
+    new OverlappedEdge { source = source, target = target, 
+        overlapFactor = overlapFactor, idealDistance = idealDistance, weight = weight };
+
+// 转换后（改为构造函数调用）
+internal static OverlappedEdge Create(int source, int target, double overlapFactor,
+    double idealDistance, double weight) =>
+    new OverlappedEdge(source, target, overlapFactor, idealDistance, weight);
+```
+
+**规则**：当字段转为 get-only 属性后，对象初始化器 `{ Field = value }` 将无法编译。需检测并同步替换为构造函数调用。
+
 ---
 
 ## 10. 测试策略
@@ -1241,10 +1312,11 @@ rect = rect.WithLeftTop(new Point(0, 0));
 | 完全不可变 struct | FullImmutable_ConvertsDirectly | Changed=true | L1 |
 | 已 readonly 字段 | AlreadyReadonly_Skips | Changed=false, Info | L0 |
 | 私有 setter | PrivateSetter_Converts | Changed=true | L2 |
-| DTO 模式 | DtoStruct_Converts | Changed=true | L3 |
-| 公共字段 | PublicFields_Converts | Changed=true | L4 |
+| DTO 模式（属性） | DtoStruct_Converts | Changed=true | L3 |
+| DTO 模式（字段） | InternalFields_Converts | Changed=true | L3 |
+| 对象初始化器 | ObjectInitializer_ConvertsToCtor | Changed=true, 初始化器改为构造函数 | L3 |
+| ref 字段修改 | RefFieldMutation_Skips | Changed=false, Warning | L7 |
 | mutating 方法 | MutableMethod_Migrates | Changed=true, 方法签名变更 | L5 |
-| 混合模式 | MixedStruct_PartialConvert | Changed=true, Warning | L6 |
 | 重度可变 | HeavyMutable_Fails | Changed=false, Warning | L7 |
 | 已经是 readonly | AlreadyReadOnly_Skips | Changed=false, Info | L0 |
 | ref struct | RefStruct_Skips | Changed=false, Info | L0 |
@@ -1259,19 +1331,22 @@ rect = rect.WithLeftTop(new Point(0, 0));
 | this 以 ref/out 传递 | RefThisEscape_SkipsL5 | L5 被禁止 | - |
 | 调用链间接修改 | CallChainModifiesField_Skips | 递归检测成功 | - |
 | **void mutating 调用点** | **VoidCallSite_AssignsResult** | **s = s.Method()** | **L5** |
+| **数组元素调用点** | **ArrayElementCallSite_AssignsBack** | **arr[i] = arr[i].Method()** | **L5** |
 | **嵌套方法链迁移** | **NestedMethodChain_MigratesAll** | **所有方法同步迁移** | **L5** |
 | **属性 setter 迁移** | **PropertySetter_ConvertsToWithMethod** | **WithXxx() 方法** | **L5** |
-| **构造函数生成** | **GeneratedConstructor_InitializesAll** | **所有字段初始化** | **L3/L4** |
+| **带验证 setter 迁移** | **ValidatedSetter_PreservesValidation** | **WithXxx() 含验证** | **L5** |
+| **构造函数生成** | **GeneratedConstructor_InitializesAll** | **所有字段初始化** | **L3** |
 
 ### 10.2 MSAGL 集成测试
 
 | 测试场景 | 测试名称 | 预期结果 |
 |----------|----------|----------|
 | Parallelogram 转换 | Msagl_Parallelogram_Converts | L1 转换成功 |
-| Point 转换 | Msagl_Point_Converts | L4 转换成功 |
+| CompassVector 转换 | Msagl_CompassVector_Converts | L3 转换成功 |
 | Rectangle 转换 | Msagl_Rectangle_Migrates | L5 转换成功，方法迁移 |
+| PixelPoint 跳过 | Msagl_PixelPoint_Skips | L7 不可转换（ref 字段修改） |
 | ViolationCache 跳过 | Msagl_ViolationCache_Skips | L7 不可转换 |
-| 全量 MSAGL 转换 | Msagl_All19Structs_Converts14 | 至少 14 个成功（含 1 个 L6 部分转换） |
+| 全量 MSAGL 转换 | Msagl_All19Structs_Converts15 | 至少 15 个成功 |
 
 ### 10.3 验证方法
 
@@ -1367,17 +1442,18 @@ struct Counter {
 ## 13. 与 V1 的对比
 
 | 方面 | V1 | V2 |
-|------|----|----|
+|------|----|----|  
 | 转换判定 | 二元（可转换/不可转换） | 多级（L0-L7） |
-| 模式识别 | 无 | 8 种模式（A-H） |
+| 模式识别 | 无 | 6 种模式（A-F） |
 | mutating 方法 | 跳过不转换 | 方法迁移转换 |
 | DTO 模式 | 不可转换 | 构造函数初始化转换 |
-| 公共字段 | 不可转换 | 属性封装转换 |
+| 公共字段 | 不可转换 | 属性封装转换（仅 internal/private） |
 | 私有 setter | 不可转换 | 直接转换 |
-| 调用点更新 | 无 | 自动更新 |
+| 属性 setter | 不处理 | 迁移为 WithXxx() 方法 |
+| 调用点更新 | 无 | 自动更新（含数组元素/属性访问） |
 | 诊断详细程度 | 仅首个原因 | 逐条列出 + 模式信息 |
 | CLI 选项 | 基础 | 细粒度控制 |
-| 适用 struct 数量（MSAGL） | ~4/19 | ~14/19（含 1 个 L6 部分转换） |
+| 适用 struct 数量（MSAGL） | ~4/19 | ~15/19 |
 
 ---
 
@@ -1390,9 +1466,11 @@ struct Counter {
 | 构造函数生成不完整 | 中 | 分析所有字段/属性，确保全覆盖 |
 | 性能开销（调用图分析） | 中 | 缓存 + 并行处理 |
 | 泛型约束冲突 | 低 | 转换后验证 `where T : struct` 约束 |
-| **公共字段转属性破坏二进制兼容** | **高** | **L4 默认仅对 `internal` 字段启用，public 字段需显式确认** |
+| **公共字段转属性破坏二进制兼容** | **高** | **L3 默认仅对 `internal` 字段启用，public 字段需显式确认** |
 | **嵌套方法链遗漏迁移** | **中** | **递归分析方法调用图，确保链上所有方法同步迁移** |
-| **属性 setter 逻辑复杂** | **中** | **F2 模式需人工审查，复杂 setter 标记为不可迁移** |
+| **属性 setter 逻辑复杂** | **中** | **带验证/复合 setter 完整迁移逻辑到 WithXxx() 方法** |
+| **对象初始化器失效** | **中** | **检测 `new S { ... }` 语法，同步替换为构造函数调用** |
+| **ref 字段修改未被检测** | **高** | **分析所有 `ref S` 参数使用，检测字段是否被修改** |
 
 ---
 
@@ -1403,22 +1481,20 @@ struct Counter {
 - 实现 L0/L1/L2 转换
 - 基础诊断输出
 
-### Phase 2: DTO 和字段转换（L3-L4）
+### Phase 2: 数据容器转换（L3）
 - 实现 ConstructorGenerator
-- 实现 L3/L4 转换
-- 属性/字段重写器
+- 实现 L3 转换（属性/字段 → get-only + 构造函数）
+- 对象初始化器检测与替换
+- ref 字段修改检测（不可转换判定）
 
 ### Phase 3: 方法迁移（L5）
 - 实现 MethodMigrator
-- 实现 CallSiteUpdater
+- 实现 CallSiteUpdater（含数组元素/属性访问调用点）
+- 属性 setter 迁移为 WithXxx() 方法
 - L5 转换 + 调用点更新
 
-### Phase 4: 部分转换和优化（L6）
-- 实现 L6 部分转换
-- 性能优化
-- 增量处理
-
-### Phase 5: CLI 集成和测试
+### Phase 4: CLI 集成和测试
 - CLI 动词实现
 - convert-project 集成
 - MSAGL 集成测试
+- 性能优化（调用图缓存、并行处理）
