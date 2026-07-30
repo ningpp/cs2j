@@ -21,11 +21,13 @@ internal sealed class StructAnalyzer
 {
     private readonly ReadOnlyStructMakerOptions _options;
     private readonly SemanticModel _model;
+    private readonly CallGraphBuilder _callGraph;
 
     public StructAnalyzer(ReadOnlyStructMakerOptions options, SemanticModel model)
     {
         _options = options;
         _model = model;
+        _callGraph = new CallGraphBuilder(model);
     }
 
     public AnalyzeResult Analyze(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
@@ -268,6 +270,15 @@ internal sealed class StructAnalyzer
             .Where(m => m.MethodKind == MethodKind.Ordinary && !m.IsStatic);
         if (methods.Any(m => m.IsVirtual || m.IsOverride || m.IsAbstract))
             return "has virtual/override methods";
+
+        // Fields modified through ref/out parameter
+        var root = syntax.SyntaxTree.GetRoot();
+        if (_callGraph.IsModifiedThroughRef(symbol, root))
+            return "fields mutated through ref parameter";
+
+        // Public fields assigned externally
+        if (_callGraph.HasExternalPublicFieldAssignment(symbol, root))
+            return "public fields assigned externally";
 
         // Implements interface with mutating methods
         if (symbol.AllInterfaces.Any())

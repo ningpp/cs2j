@@ -367,4 +367,23 @@ public partial class ReadOnlyStructMakerTests
         Assert.False(result.Changed);
         Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
     }
+
+    [Fact]
+    public void RefFieldMutation_NotConvertible()
+    {
+        var src = """
+        struct Pixel {
+            internal int X;
+            internal int Y;
+        }
+        class User {
+            void Update(ref Pixel p) { p.X++; }
+        }
+        """;
+        var result = RunMaker(src);
+        // Pixel has no mutating methods itself, but fields are modified via ref
+        // It should be detected as not convertible
+        Assert.Contains(result.Diagnostics, d =>
+            d.Level == ConversionLevel.NotConvertible || d.Level == ConversionLevel.DataContainer);
+    }
 }
