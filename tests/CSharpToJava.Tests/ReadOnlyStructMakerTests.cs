@@ -118,4 +118,76 @@ public partial class ReadOnlyStructMakerTests
         Assert.False(result.Changed);
         Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.Skip);
     }
+
+    // === L1 Direct Add Tests ===
+
+    [Fact]
+    public void AlreadyReadonlyFields_AddsReadonlyModifier()
+    {
+        var src = "struct S { public readonly int X; public readonly int Y; }";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+    }
+
+    [Fact]
+    public void FullImmutable_CtorOnlyAssignment_AddsReadonly()
+    {
+        var src = """
+        struct S {
+            private int _x;
+            private int _y;
+            public S(int x, int y) { _x = x; _y = y; }
+            public int X => _x;
+            public int Y => _y;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+    }
+
+    [Fact]
+    public void EmptyStruct_AddsReadonly()
+    {
+        var src = "struct Empty { }";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Empty", result.OutputCode);
+    }
+
+    [Fact]
+    public void PreservesAttributes_And_XmlDoc()
+    {
+        var src = """
+        /// <summary>A point.</summary>
+        [System.Serializable]
+        struct Point { public readonly double X; public readonly double Y; }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("/// <summary>A point.</summary>", result.OutputCode);
+        Assert.Contains("[System.Serializable]", result.OutputCode);
+        Assert.Contains("readonly struct Point", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicStructWithModifiers_AddsReadonly()
+    {
+        var src = "public struct S { public readonly int X; }";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly", result.OutputCode);
+        Assert.Contains("public", result.OutputCode);
+    }
+
+    [Fact]
+    public void Idempotent_SecondRun_NoChange()
+    {
+        var src = "struct S { public readonly int X; }";
+        var first = RunMaker(src);
+        Assert.True(first.Changed);
+        var second = RunMaker(first.OutputCode!);
+        Assert.False(second.Changed);
+    }
 }
