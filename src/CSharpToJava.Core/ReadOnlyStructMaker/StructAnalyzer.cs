@@ -79,21 +79,25 @@ internal sealed class StructAnalyzer
         // No mutating methods and no mutable properties
         if (mutatingMethods.Count == 0 && mutableProperties.Count == 0)
         {
-            // Check if all fields are readonly
-            if (fields.All(f => f.IsReadOnly))
+            // Pattern C: properties with private setters (check before fields — auto-props have no explicit fields)
+            if (properties.Any(p => p.SetMethod?.DeclaredAccessibility == Accessibility.Private))
+                return new(ConversionLevel.PropertyConvert, StructPattern.PrivateSetter, true,
+                    "all setters are private", name);
+
+            // Pattern B: all fields already readonly (only meaningful when fields exist)
+            if (fields.Count > 0 && fields.All(f => f.IsReadOnly))
                 return new(ConversionLevel.DirectAdd, StructPattern.AlreadyReadonly, true,
                     "all fields already readonly", name);
 
-            // Check if all fields are only assigned in constructor (Pattern A)
-            if (AllFieldsOnlyAssignedInCtor(fields, syntax))
+            // Pattern A: all fields only assigned in constructor
+            if (fields.Count > 0 && AllFieldsOnlyAssignedInCtor(fields, syntax))
                 return new(ConversionLevel.DirectAdd, StructPattern.FullImmutable, true,
                     "all fields only assigned in constructor", name);
 
-            // All properties are get-only or private set (Pattern C)
-            if (properties.All(p => p.SetMethod == null ||
-                                    p.SetMethod.DeclaredAccessibility == Accessibility.Private))
-                return new(ConversionLevel.PropertyConvert, StructPattern.PrivateSetter, true,
-                    "all setters are private", name);
+            // Empty struct or get-only properties only → direct add
+            if (fields.Count == 0 && properties.All(p => p.SetMethod == null))
+                return new(ConversionLevel.DirectAdd, StructPattern.FullImmutable, true,
+                    "no mutable state", name);
 
             // Data container (Pattern D)
             if (_options.EnableDtoConversion)

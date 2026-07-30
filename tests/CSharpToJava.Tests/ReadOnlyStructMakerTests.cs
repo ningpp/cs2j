@@ -190,4 +190,54 @@ public partial class ReadOnlyStructMakerTests
         var second = RunMaker(first.OutputCode!);
         Assert.False(second.Changed);
     }
+
+    // === L2 Private Setter Tests ===
+
+    [Fact]
+    public void PrivateSetter_RemovesSet_AddsReadonly()
+    {
+        var src = """
+        struct S {
+            internal int X { get; private set; }
+            internal int Y { get; private set; }
+            internal S(int x, int y) { X = x; Y = y; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        Assert.DoesNotContain("private set", result.OutputCode);
+        Assert.Contains("{ get; }", result.OutputCode);
+    }
+
+    [Fact]
+    public void PrivateSetter_MixedWithGetOnly_Converts()
+    {
+        var src = """
+        struct S {
+            internal int A { get; private set; }
+            internal int B { get; }
+            internal S(int a, int b) { A = a; B = b; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        Assert.DoesNotContain("private set", result.OutputCode);
+    }
+
+    [Fact]
+    public void PrivateSetter_Idempotent()
+    {
+        var src = """
+        struct S {
+            internal int X { get; private set; }
+            internal S(int x) { X = x; }
+        }
+        """;
+        var first = RunMaker(src);
+        Assert.True(first.Changed);
+        var second = RunMaker(first.OutputCode!);
+        Assert.False(second.Changed);
+    }
 }
