@@ -1,0 +1,291 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace CSharpToJava.Core.ReadOnlyStructMaker;
+
+internal sealed record AnalyzeResult(
+    ConversionLevel Level,
+    StructPattern Pattern,
+    bool ShouldRewrite,
+    string Reason,
+    string? QualifiedName,
+    IReadOnlyList<MethodMigrationInfo>? MethodMigrations = null);
+
+internal sealed record MethodMigrationInfo(
+    IMethodSymbol Method,
+    MigrationType Type,
+    MethodDeclarationSyntax Syntax);
+
+internal sealed class StructAnalyzer
+{
+    private readonly ReadOnlyStructMakerOptions _options;
+    private readonly SemanticModel _model;
+
+    public StructAnalyzer(ReadOnlyStructMakerOptions options, SemanticModel model)
+    {
+        _options = options;
+        _model = model;
+    }
+
+    public AnalyzeResult Analyze(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
+    {
+        var name = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        // L0: already readonly
+        if (syntax.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
+            return new(ConversionLevel.Skip, StructPattern.AlreadyReadonly, false,
+                "already readonly struct (skipped)", name);
+
+        // L0: ref struct
+        if (syntax.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword)))
+            return new(ConversionLevel.Skip, StructPattern.AlreadyReadonly, false,
+                "ref struct (skipped)", name);
+
+        // L0: partial struct
+        if (syntax.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
+            return new(ConversionLevel.Skip, StructPattern.AlreadyReadonly, false,
+                "partial struct (skipped)", name);
+
+        // L0: opt-out attribute
+        if (HasOptOutAttribute(symbol))
+            return new(ConversionLevel.Skip, StructPattern.AlreadyReadonly, false,
+                $"[{_options.OptOutAttributeName}] attribute (skipped)", name);
+
+        // Gather members
+        var fields = symbol.GetMembers().OfType<IFieldSymbol>()
+            .Where(f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared).ToList();
+        var properties = symbol.GetMembers().OfType<IPropertySymbol>()
+            .Where(p => !p.IsStatic && !p.IsIndexer).ToList();
+        var methods = symbol.GetMembers().OfType<IMethodSymbol>()
+            .Where(m => m.MethodKind == MethodKind.Ordinary && !m.IsStatic).ToList();
+
+        // Detect mutating instance methods
+        var mutatingMethods = new List<IMethodSymbol>();
+        foreach (var method in methods)
+        {
+            var methodSyntax = method.DeclaringSyntaxReferences
+                .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
+            if (methodSyntax != null && IsMutating(methodSyntax))
+                mutatingMethods.Add(method);
+        }
+
+        // Detect public/internal setters that mutate
+        var mutableProperties = properties
+            .Where(p => p.SetMethod != null &&
+                        p.SetMethod.DeclaredAccessibility != Accessibility.Private &&
+                        !p.SetMethod.IsInitOnly).ToList();
+
+        // No mutating methods and no mutable properties
+        if (mutatingMethods.Count == 0 && mutableProperties.Count == 0)
+        {
+            // Check if all fields are readonly
+            if (fields.All(f => f.IsReadOnly))
+                return new(ConversionLevel.DirectAdd, StructPattern.AlreadyReadonly, true,
+                    "all fields already readonly", name);
+
+            // Check if all fields are only assigned in constructor (Pattern A)
+            if (AllFieldsOnlyAssignedInCtor(fields, syntax))
+                return new(ConversionLevel.DirectAdd, StructPattern.FullImmutable, true,
+                    "all fields only assigned in constructor", name);
+
+            // All properties are get-only or private set (Pattern C)
+            if (properties.All(p => p.SetMethod == null ||
+                                    p.SetMethod.DeclaredAccessibility == Accessibility.Private))
+                return new(ConversionLevel.PropertyConvert, StructPattern.PrivateSetter, true,
+                    "all setters are private", name);
+
+            // Data container (Pattern D)
+            if (_options.EnableDtoConversion)
+                return new(ConversionLevel.DataContainer, StructPattern.DataContainer, true,
+                    "data container with public setters", name);
+        }
+
+        // Has mutating methods
+        if (mutatingMethods.Count > 0 || mutableProperties.Count > 0)
+        {
+            if (!_options.EnableMethodMigration)
+                return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
+                    "has mutating methods (method migration disabled)", name);
+
+            // Check for non-migratable conditions
+            var nonMigratableReason = CheckNonMigratable(symbol, syntax, fields);
+            if (nonMigratableReason != null)
+                return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
+                    nonMigratableReason, name);
+
+            // Build method migration infos
+            var migrations = new List<MethodMigrationInfo>();
+            foreach (var method in mutatingMethods)
+            {
+                var methodSyntax = method.DeclaringSyntaxReferences
+                    .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                if (methodSyntax == null) continue;
+
+                var migrationType = ClassifyMigrationType(method, methodSyntax);
+                migrations.Add(new MethodMigrationInfo(method, migrationType, methodSyntax));
+            }
+
+            return new(ConversionLevel.MethodMigrate, StructPattern.MutableMethods, true,
+                $"has {migrations.Count} migrating methods", name, migrations);
+        }
+
+        return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
+            "unable to classify", name);
+    }
+
+    private bool HasOptOutAttribute(INamedTypeSymbol symbol)
+    {
+        return symbol.GetAttributes().Any(a =>
+            a.AttributeClass?.Name == _options.OptOutAttributeName ||
+            a.AttributeClass?.Name == _options.OptOutAttributeName + "Attribute");
+    }
+
+    private bool IsMutating(MethodDeclarationSyntax method)
+    {
+        // A method is mutating if it assigns to instance fields/properties
+        var hasAssignment = method.DescendantNodes().OfType<AssignmentExpressionSyntax>().Any(a =>
+        {
+            var targetSymbol = _model.GetSymbolInfo(a.Left).Symbol;
+            return targetSymbol is IFieldSymbol { IsStatic: false } or
+                   IPropertySymbol { IsStatic: false, SetMethod: not null };
+        });
+
+        var hasIncrementDecrement = method.DescendantNodes()
+            .OfType<PostfixUnaryExpressionSyntax>()
+            .Concat(method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                .Select(p => (PostfixUnaryExpressionSyntax?)null!)
+                .Where(_ => false)) // placeholder - handle both types below
+            .Any();
+
+        // Check prefix/postfix ++/-- on instance fields
+        var hasUnaryMutation = method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>().Any(u =>
+        {
+            var s = _model.GetSymbolInfo(u.Operand).Symbol;
+            return s is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
+        }) || method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>().Any(u =>
+        {
+            if (u.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
+                return false;
+            var s = _model.GetSymbolInfo(u.Operand).Symbol;
+            return s is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
+        });
+
+        // Compound assignment (+=, -=, etc.)
+        var hasCompoundAssignment = method.DescendantNodes().OfType<AssignmentExpressionSyntax>().Any(a =>
+        {
+            if (a.Kind() == SyntaxKind.SimpleAssignmentExpression) return false;
+            var targetSymbol = _model.GetSymbolInfo(a.Left).Symbol;
+            return targetSymbol is IFieldSymbol { IsStatic: false } or
+                   IPropertySymbol { IsStatic: false };
+        });
+
+        return hasAssignment || hasUnaryMutation || hasCompoundAssignment;
+    }
+
+    private static bool AllFieldsOnlyAssignedInCtor(IReadOnlyList<IFieldSymbol> fields, StructDeclarationSyntax syntax)
+    {
+        if (fields.Count == 0) return true;
+
+        // Find all assignments to fields outside constructors
+        var nonCtorMethods = syntax.Members.OfType<MethodDeclarationSyntax>().ToList();
+        var propertySetters = syntax.Members.OfType<PropertyDeclarationSyntax>()
+            .Where(p => p.AccessorList?.Accessors.Any(a => a.IsKind(SyntaxKind.SetAccessorDeclaration)) == true)
+            .ToList();
+
+        foreach (var method in nonCtorMethods)
+        {
+            var assignments = method.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                .Concat(method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                    .Select(u => (AssignmentExpressionSyntax?)null!)
+                    .Where(_ => false))
+                .ToList();
+
+            if (assignments.Any(a => IsFieldAccess(a.Left, fields)))
+                return false;
+
+            // Check ++/-- on fields
+            if (method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
+                .Any(u => IsFieldAccess(u.Operand, fields)))
+                return false;
+            if (method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                .Any(u => IsFieldAccess(u.Operand, fields)))
+                return false;
+        }
+
+        // Check property setters that assign to fields
+        foreach (var prop in propertySetters)
+        {
+            var setter = prop.AccessorList!.Accessors.First(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+            if (setter.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                .Any(a => IsFieldAccess(a.Left, fields)))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsFieldAccess(ExpressionSyntax expr, IReadOnlyList<IFieldSymbol> fields)
+    {
+        var name = expr switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+            _ => null
+        };
+        return name != null && fields.Any(f => f.Name == name);
+    }
+
+    private string? CheckNonMigratable(INamedTypeSymbol symbol, StructDeclarationSyntax syntax,
+        IReadOnlyList<IFieldSymbol> fields)
+    {
+        // Has array fields → heavy mutable state
+        if (fields.Any(f => f.Type is IArrayTypeSymbol))
+            return "contains array field (heavy mutable state)";
+
+        // Has public fields (externally assignable)
+        if (fields.Any(f => f.DeclaredAccessibility == Accessibility.Public))
+            return "has public fields (externally assignable)";
+
+        // Has virtual/override methods
+        var methods = symbol.GetMembers().OfType<IMethodSymbol>()
+            .Where(m => m.MethodKind == MethodKind.Ordinary && !m.IsStatic);
+        if (methods.Any(m => m.IsVirtual || m.IsOverride || m.IsAbstract))
+            return "has virtual/override methods";
+
+        // Implements interface with mutating methods
+        if (symbol.AllInterfaces.Any())
+        {
+            foreach (var iface in symbol.AllInterfaces)
+            {
+                foreach (var member in iface.GetMembers().OfType<IMethodSymbol>())
+                {
+                    var impl = symbol.FindImplementationForInterfaceMember(member);
+                    if (impl is IMethodSymbol implMethod)
+                    {
+                        var implSyntax = implMethod.DeclaringSyntaxReferences
+                            .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                        if (implSyntax != null && IsMutating(implSyntax))
+                            return "implements interface with mutating method";
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static MigrationType ClassifyMigrationType(IMethodSymbol method, MethodDeclarationSyntax syntax)
+    {
+        if (method.ReturnsVoid)
+            return MigrationType.VoidToStruct;
+
+        // Check if method returns 'this'
+        var returnsThis = syntax.DescendantNodes().OfType<ReturnStatementSyntax>()
+            .Any(r => r.Expression is ThisExpressionSyntax);
+        if (returnsThis)
+            return MigrationType.ThisToStruct;
+
+        return MigrationType.OtherReturnToOut;
+    }
+}

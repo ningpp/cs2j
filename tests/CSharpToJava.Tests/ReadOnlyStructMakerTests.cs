@@ -1,9 +1,22 @@
 using CSharpToJava.Core.ReadOnlyStructMaker;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace CSharpToJava.Tests;
 
 public partial class ReadOnlyStructMakerTests
 {
+    private static ReadOnlyStructMakerResult RunMaker(string source, ReadOnlyStructMakerOptions? options = null)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("test",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        return new Core.ReadOnlyStructMaker.ReadOnlyStructMaker()
+            .MakeReadOnly(tree, compilation.GetSemanticModel(tree), options);
+    }
+
     [Fact]
     public void Options_Defaults()
     {
@@ -61,5 +74,48 @@ public partial class ReadOnlyStructMakerTests
         Assert.Same(files, result.ChangedFiles);
         Assert.Same(diags, result.Diagnostics);
         Assert.Same(stats, result.Statistics);
+    }
+
+    // === L0 Skip Tests ===
+
+    [Fact]
+    public void AlreadyReadonlyStruct_IsSkipped()
+    {
+        var src = "readonly struct S { public readonly int X; }";
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.Skip);
+    }
+
+    [Fact]
+    public void RefStruct_IsSkipped()
+    {
+        var src = "ref struct S { public int X; }";
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.Skip);
+    }
+
+    [Fact]
+    public void PartialStruct_IsSkipped()
+    {
+        var src = "partial struct S { public int X; }";
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.Skip);
+    }
+
+    [Fact]
+    public void DoNotMakeReadOnlyAttribute_IsSkipped()
+    {
+        var src = """
+        [System.AttributeUsage(System.AttributeTargets.Struct)]
+        class DoNotMakeReadOnlyAttribute : System.Attribute { }
+        [DoNotMakeReadOnly]
+        struct S { public int X; }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.Skip);
     }
 }
