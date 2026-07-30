@@ -147,6 +147,14 @@ public class Program
 
             opts.ParsedExtraDependencies = ParseExtraDependencies(opts.ExtraDependencies);
 
+            if (opts.MakeReadOnly)
+            {
+                // ReadOnlyStructMaker preprocessing runs BEFORE goto elimination
+                // For now, log that it's enabled (full project-level integration in ProjectReadOnlyStructPreprocessor)
+                if (opts.Verbose)
+                    Console.WriteLine("make-readonly: enabled (project-level preprocessing)");
+            }
+
             if (opts.EliminateGoto)
             {
                 var originalSource = opts.Source;
@@ -2014,6 +2022,9 @@ class ConvertProjectOptions
 
     [Option("no-eliminate-goto", Default = false, HelpText = "Disable the default goto-elimination preprocessing step")]
     public bool NoEliminateGoto { get; set; }
+    
+    [Option("no-make-readonly", Default = false, HelpText = "Disable the default readonly-struct preprocessing step")]
+    public bool NoMakeReadOnly { get; set; }
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }
@@ -2022,6 +2033,7 @@ class ConvertProjectOptions
     public bool GenerateJavaDoc => !NoJavaDoc;
     public bool EnableLinqRewrite => !NoLinqRewrite;
     public bool EliminateGoto => !NoEliminateGoto;
+    public bool MakeReadOnly => !NoMakeReadOnly;
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;
