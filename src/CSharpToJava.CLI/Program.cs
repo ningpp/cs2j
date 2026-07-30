@@ -150,9 +150,37 @@ public class Program
             if (opts.MakeReadOnly)
             {
                 // ReadOnlyStructMaker preprocessing runs BEFORE goto elimination
-                // For now, log that it's enabled (full project-level integration in ProjectReadOnlyStructPreprocessor)
-                if (opts.Verbose)
-                    Console.WriteLine("make-readonly: enabled (project-level preprocessing)");
+                var readonlyResult = await ProjectReadOnlyStructPreprocessor.PreprocessAsync(new ProjectReadOnlyPreprocessRequest
+                {
+                    SourcePath = opts.Source,
+                    DestinationRoot = opts.Destination,
+                    Force = opts.Force,
+                    Verbose = opts.Verbose,
+                    MakerOptions = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions(),
+                });
+
+                Console.WriteLine(
+                    $"make-readonly: {readonlyResult.Statistics.StructsConverted} converted, " +
+                    $"{readonlyResult.Statistics.StructsSkipped} skipped, " +
+                    $"{readonlyResult.Statistics.StructsFailed} failed (scanned {readonlyResult.Statistics.StructsScanned})");
+
+                // Always show warnings/errors; info-level only in verbose mode
+                foreach (var diagnostic in readonlyResult.Diagnostics)
+                {
+                    if (diagnostic.Severity != CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructSeverity.Info || opts.Verbose)
+                    {
+                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.FilePath}: {diagnostic.StructName}: {diagnostic.Reason}");
+                    }
+                }
+
+                if (!readonlyResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = readonlyResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= readonlyResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= readonlyResult.SourceRoot;
             }
 
             if (opts.EliminateGoto)
