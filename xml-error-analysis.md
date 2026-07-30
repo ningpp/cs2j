@@ -42,3 +42,25 @@
 - **状态**: ✅ Fixed
 - **Commit**: `74d88fb7`
 
+
+## Iteration 4 — cannot assign value to final variable
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/XmlTextWriter.java`
+- **行号**: 274, 276, 278, 304, 306, 315, 804, 858, 925, 975, 983, 992, 998, 1031, 1049, 1179, 1185, 1188, 1278
+- **错误信息**: 无法为 final 变量 defaultNs/defaultNsState/mixed/prefix/name/declared/prevNsIndex/prefixCount/xmlLang/xmlSpace 分配值
+- **代码片段**:
+  ```java
+  // TagInfo class fields all declared final:
+  private static class TagInfo implements Cloneable {
+      public final String name;
+      public final String prefix;
+      public final String defaultNs;
+      ...
+  }
+  // But external code assigns them:
+  _stack[_top].defaultNs = _stack[_top - 1].defaultNs;
+  _stack[_top].name = localName;
+  ```
+- **对应 C# 文件**: `d:\csharpxml\System\Xml\Core\XmlTextWriter.cs`
+- **根因分类**: ReadOnlyStructMaker 误判
+- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/StructAnalyzer.cs`, `src/CSharpToJava.Core/ReadOnlyStructMaker/CallGraphBuilder.cs`
+- **分析**: TagInfo 和 Namespace 是 mutable struct，其 internal 字段被外部类通过数组元素访问方式赋值（如 _stack[_top].name = localName）。CheckNonMigratable 只检查 public 字段的外部赋值，遗漏了 internal 字段同样可被同一程序集/类外部修改的情况，导致误判为可迁移至 readonly struct。

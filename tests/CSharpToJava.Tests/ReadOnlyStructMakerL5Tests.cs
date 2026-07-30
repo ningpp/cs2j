@@ -221,4 +221,35 @@ public class ReadOnlyStructMakerL5Tests
         Assert.Contains("WithWeight(", result.OutputCode);
         Assert.Contains("ArgumentOutOfRangeException", result.OutputCode);
     }
+
+    [Fact]
+    public void InternalFields_ExternalAssignmentViaArray_NotConvertible()
+    {
+        // Reproduces: XmlTextWriter.TagInfo struct with internal fields assigned
+        // externally through array element access: _stack[_top].name = localName;
+        var src = """
+        class Writer {
+            private struct TagInfo {
+                internal string name;
+                internal string prefix;
+                internal int prefixCount;
+                internal void Init(int nsTop) {
+                    name = null;
+                    prefixCount = 0;
+                }
+            }
+            private TagInfo[] _stack = new TagInfo[10];
+            private int _top;
+            void WriteElement(string localName) {
+                _stack[_top].name = localName;
+                _stack[_top].prefix = null;
+                _stack[_top].prefixCount = 0;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        // Should NOT be made readonly because internal fields are assigned externally
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        Assert.DoesNotContain("readonly struct TagInfo", result.OutputCode);
+    }
 }
