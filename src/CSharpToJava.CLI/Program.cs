@@ -20,12 +20,13 @@ public class Program
 
     internal static async Task<int> MainImpl(string[] args)
     {
-        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions>(args)
+        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
                 (AnalyzeOptions opts) => AnalyzeProject(opts),
                 (EliminateGotoOptions opts) => EliminateGoto(opts),
+                (MakeReadOnlyOptions opts) => MakeReadonly(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -1828,6 +1829,46 @@ public class Program
             Console.Error.WriteLine($"[{d.Severity}] {d.MethodName}: {d.Message}");
         return result.Diagnostics.Any(d => d.Severity == GotoEliminatorSeverity.Warning) ? 1 : 0;
     }
+
+    private static async Task<int> MakeReadonly(MakeReadOnlyOptions opts)
+    {
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("make-readonly",
+                new[] { tree },
+                new[] { Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+            var maker = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMaker();
+            var makerOpts = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions
+            {
+                Strict = opts.Strict,
+                EnableMethodMigration = !opts.NoMethodMigration,
+                EnableDtoConversion = !opts.NoDtoConversion,
+                UpdateCallSites = !opts.NoUpdateCallSites,
+            };
+            var result = maker.MakeReadOnly(tree, compilation.GetSemanticModel(tree), makerOpts);
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode ?? sourceCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose) Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else Console.Write(result.OutputCode ?? sourceCode);
+
+            foreach (var d in result.Diagnostics)
+                Console.Error.WriteLine($"[{d.Severity}] {d.StructName}: {d.Reason}");
+            return result.Diagnostics.Any(d => d.Severity == CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructSeverity.Warning) && opts.Strict ? 1 : 0;
+        }
+
+        Console.Error.WriteLine("Error: provide -i <input.cs> [-o <output.cs>].");
+        return 1;
+    }
 }
 
 // 命令行选项
@@ -1846,6 +1887,25 @@ class EliminateGotoOptions
     public bool Verbose { get; set; }
     [Option("strict", Default = false, HelpText = "Treat unsupported-method diagnostics as fatal")]
     public bool Strict { get; set; }
+}
+
+[Verb("make-readonly", HelpText = "Convert eligible structs to readonly structs")]
+class MakeReadOnlyOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat unconvertible structs as fatal")]
+    public bool Strict { get; set; }
+    [Option("no-method-migration", Default = false, HelpText = "Disable method migration (L5)")]
+    public bool NoMethodMigration { get; set; }
+    [Option("no-dto-conversion", Default = false, HelpText = "Disable DTO conversion (L3)")]
+    public bool NoDtoConversion { get; set; }
+    [Option("no-update-call-sites", Default = false, HelpText = "Don't update call sites for migrated methods")]
+    public bool NoUpdateCallSites { get; set; }
 }
 
 // 命令行选项
