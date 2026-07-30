@@ -161,4 +161,23 @@ public class ReadOnlyStructMakerL5Tests
         Assert.Contains("var b = a.Add(5)", result.OutputCode);
         Assert.DoesNotContain("a = a.Add(5)", result.OutputCode);
     }
+
+    [Fact]
+    public void OtherReturnMethod_GetsOutParameter()
+    {
+        var src = """
+        struct Rect {
+            private double _left;
+            public bool AddWithCheck(double x) {
+                bool wider = x < _left;
+                if (wider) _left = x;
+                return wider;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("out Rect newStatus", result.OutputCode);
+        Assert.Contains("newStatus = result", result.OutputCode);
+    }
 }
