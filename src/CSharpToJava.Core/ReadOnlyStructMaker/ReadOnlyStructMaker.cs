@@ -56,19 +56,19 @@ public sealed class ReadOnlyStructMaker
         // Update call sites for L5 migrated void methods
         if (options.UpdateCallSites)
         {
-            var migratedVoidMethods = new HashSet<string>();
-            foreach (var (_, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
+            var migratedVoidMethods = new Dictionary<string, string>(); // methodName -> structName
+            foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
             {
                 if (result.MethodMigrations == null) continue;
                 foreach (var migration in result.MethodMigrations.Where(m => m.Type == MigrationType.VoidToStruct))
                 {
-                    migratedVoidMethods.Add(migration.Method.Name);
+                    migratedVoidMethods[migration.Method.Name] = structSyntax.Identifier.Text;
                 }
             }
 
             if (migratedVoidMethods.Count > 0)
             {
-                var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods);
+                var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods, semanticModel);
                 newRoot = (CompilationUnitSyntax)callSiteUpdater.Visit(newRoot)!;
                 stats.CallSitesUpdated = migratedVoidMethods.Count; // approximate
             }

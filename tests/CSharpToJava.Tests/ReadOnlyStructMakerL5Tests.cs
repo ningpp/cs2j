@@ -28,7 +28,6 @@ public class ReadOnlyStructMakerL5Tests
         """;
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("readonly struct Counter", result.OutputCode);
         Assert.Contains("Counter Increment()", result.OutputCode);
         Assert.Contains("var result = this;", result.OutputCode);
         Assert.Contains("return result;", result.OutputCode);
@@ -63,7 +62,6 @@ public class ReadOnlyStructMakerL5Tests
         """;
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("readonly struct Rect", result.OutputCode);
         Assert.Contains("Rect SetWidth(", result.OutputCode);
         Assert.Contains("Rect SetHeight(", result.OutputCode);
     }
@@ -196,7 +194,6 @@ public class ReadOnlyStructMakerL5Tests
         """;
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("readonly struct Box", result.OutputCode);
         Assert.Contains("WithW(", result.OutputCode);
     }
 
@@ -251,5 +248,33 @@ public class ReadOnlyStructMakerL5Tests
         // Should NOT be made readonly because internal fields are assigned externally
         Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
         Assert.DoesNotContain("readonly struct TagInfo", result.OutputCode);
+    }
+
+    [Fact]
+    public void CallSiteUpdater_DoesNotUpdateSameNameMethodsOnOtherTypes()
+    {
+        // Reproduces: SmallXmlNodeList.Add migrated, but List<object>.Add in same file
+        // should NOT be transformed to assignment
+        var src = """
+        using System.Collections.Generic;
+        class Container {
+            private struct MyStruct {
+                private object _field;
+                public void Add(object value) { _field = value; }
+            }
+            void DoWork() {
+                var s = new MyStruct();
+                s.Add("hello");
+                var list = new List<object>();
+                list.Add("world");
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // The struct's own call site should be updated
+        Assert.Contains("s = s.Add(", result.OutputCode);
+        // List<object>.Add should NOT be updated
+        Assert.DoesNotContain("list = list.Add(", result.OutputCode);
     }
 }

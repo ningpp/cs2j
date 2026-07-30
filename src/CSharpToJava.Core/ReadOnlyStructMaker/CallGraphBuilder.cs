@@ -49,6 +49,7 @@ internal sealed class CallGraphBuilder
     /// <summary>
     /// Check if non-private fields of the struct are assigned from outside the struct definition.
     /// This covers public, internal, protected, and protected-internal fields.
+    /// Searches both the current file and all other files in the compilation.
     /// </summary>
     public bool HasExternalPublicFieldAssignment(INamedTypeSymbol structSymbol, SyntaxNode root)
     {
@@ -60,12 +61,34 @@ internal sealed class CallGraphBuilder
 
         var structName = structSymbol.Name;
 
+        // Check within the current file
+        if (HasExternalAssignmentInTree(root, accessibleFields, structName, _model))
+            return true;
+
+        // Check across other files in the compilation
+        var compilation = _model.Compilation;
+        var currentTree = root.SyntaxTree;
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            if (tree == currentTree) continue;
+            var otherRoot = tree.GetRoot();
+            var otherModel = compilation.GetSemanticModel(tree);
+            if (HasExternalAssignmentInTree(otherRoot, accessibleFields, structName, otherModel))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasExternalAssignmentInTree(
+        SyntaxNode root, HashSet<string> accessibleFields, string structName, SemanticModel model)
+    {
         // Find assignments to fields of variables typed as this struct, outside the struct itself
         foreach (var assignment in root.DescendantNodes().OfType<AssignmentExpressionSyntax>())
         {
-            if (assignment.Left is not MemberAccessExpressionSyntax memberAccess) continue;
+            if (assignment.Left is not MemberAccessExpressionSyntax) continue;
 
-            var fieldSymbol = _model.GetSymbolInfo(assignment.Left).Symbol;
+            var fieldSymbol = model.GetSymbolInfo(assignment.Left).Symbol;
             if (fieldSymbol is not IFieldSymbol field) continue;
             if (!accessibleFields.Contains(field.Name)) continue;
             if (field.ContainingType?.Name != structName) continue;
@@ -77,14 +100,29 @@ internal sealed class CallGraphBuilder
         }
 
         // Also check ++/-- on accessible fields from outside
-        foreach (var unary in root.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
-            .Concat(root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
-                .Select(p => (PostfixUnaryExpressionSyntax?)null!).Where(_ => false)))
+        foreach (var unary in root.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>())
         {
             var operand = unary.Operand;
             if (operand is not MemberAccessExpressionSyntax) continue;
 
-            var fieldSymbol = _model.GetSymbolInfo(operand).Symbol;
+            var fieldSymbol = model.GetSymbolInfo(operand).Symbol;
+            if (fieldSymbol is not IFieldSymbol field) continue;
+            if (!accessibleFields.Contains(field.Name)) continue;
+            if (field.ContainingType?.Name != structName) continue;
+
+            var containingStruct = unary.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
+            if (containingStruct == null || containingStruct.Identifier.Text != structName)
+                return true;
+        }
+
+        foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+        {
+            if (unary.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
+                continue;
+            var operand = unary.Operand;
+            if (operand is not MemberAccessExpressionSyntax) continue;
+
+            var fieldSymbol = model.GetSymbolInfo(operand).Symbol;
             if (fieldSymbol is not IFieldSymbol field) continue;
             if (!accessibleFields.Contains(field.Name)) continue;
             if (field.ContainingType?.Name != structName) continue;

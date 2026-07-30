@@ -86,6 +86,16 @@ internal sealed class StructAnalyzer
         {
             // No mutating methods — eligible for L1/L2/L3
 
+            // Guard: non-private fields assigned externally cannot be made readonly
+            if (fields.Any(f => f.DeclaredAccessibility != Accessibility.Private &&
+                                f.DeclaredAccessibility != Accessibility.NotApplicable))
+            {
+                var root = syntax.SyntaxTree.GetRoot();
+                if (_callGraph.HasExternalPublicFieldAssignment(symbol, root))
+                    return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
+                        "public fields assigned externally", name);
+            }
+
             // Pattern C: properties with private setters only (no public setters)
             if (mutableProperties.Count == 0 &&
                 properties.Any(p => p.SetMethod?.DeclaredAccessibility == Accessibility.Private))

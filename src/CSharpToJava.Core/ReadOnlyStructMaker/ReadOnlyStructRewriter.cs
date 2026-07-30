@@ -129,7 +129,11 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         // 1. Migrate mutating methods
         if (result.MethodMigrations != null)
         {
-            var migrator = new MethodMigrator(structName);
+            var fieldNames = rewritten.Members.OfType<FieldDeclarationSyntax>()
+                .Where(f => !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
+                .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
+                .ToHashSet();
+            var migrator = new MethodMigrator(structName, fieldNames);
             foreach (var migration in result.MethodMigrations)
             {
                 var migrated = migrator.Migrate(migration.Syntax);
@@ -235,7 +239,10 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             rewritten = rewritten.AddMembers(withMethods.ToArray());
         }
 
-        return ApplyDirectAdd(rewritten);
+        // NOTE: Do NOT add 'readonly' keyword for L5 method migration.
+        // The Java converter would mark fields as final, but migrated methods
+        // need to modify the cloned copy's fields (result._field = ...).
+        return rewritten;
     }
 
     private sealed class ThisToResultRewriter : CSharpSyntaxRewriter

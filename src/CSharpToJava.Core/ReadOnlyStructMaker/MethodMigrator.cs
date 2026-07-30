@@ -7,8 +7,13 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 internal sealed class MethodMigrator
 {
     private readonly string _structName;
+    private readonly HashSet<string> _fieldNames;
 
-    public MethodMigrator(string structName) => _structName = structName;
+    public MethodMigrator(string structName, HashSet<string>? fieldNames = null)
+    {
+        _structName = structName;
+        _fieldNames = fieldNames ?? new HashSet<string>();
+    }
 
     public MethodDeclarationSyntax Migrate(MethodDeclarationSyntax method)
     {
@@ -34,17 +39,24 @@ internal sealed class MethodMigrator
         // 2. Replace `this` with `result` in body
         var newBody = (BlockSyntax)new ThisToResultRewriter().Visit(body)!;
 
-        // 3. Replace `return this;` with `return result;`
+        // 3. Replace implicit field accesses with result.field
+        if (_fieldNames.Count > 0)
+        {
+            newBody = (BlockSyntax)new ImplicitFieldToResultRewriter(_fieldNames).Visit(newBody)!;
+        }
+
+        // 4. Replace `return this;` with `return result;`
         newBody = (BlockSyntax)new ReturnThisRewriter().Visit(newBody)!;
 
-        // 4. Prepend result declaration
+        // 5. Prepend result declaration
         newBody = newBody.WithStatements(
             newBody.Statements.Insert(0, resultDecl));
 
-        // 5. Handle based on migration type
+        // 6. Handle based on migration type
         if (isVoid)
         {
-            // void → struct return: change return type, add `return result;`
+            // void → struct return: change return type, replace bare returns with return result, add final return
+            newBody = (BlockSyntax)new BareReturnRewriter().Visit(newBody)!;
             var returnType = (TypeSyntax)SyntaxFactory.IdentifierName(_structName);
             var returnStatement = SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result"))
                 .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed);
@@ -78,6 +90,73 @@ internal sealed class MethodMigrator
         {
             // Don't replace `this` in `var result = this;` context — handled separately
             return SyntaxFactory.IdentifierName("result").WithTriviaFrom(node);
+        }
+    }
+
+    /// <summary>
+    /// Rewrites implicit field accesses (e.g. `_field = value;`) to `result._field = value;`
+    /// and implicit field reads (e.g. `if (_field == null)`) to `result._field`.
+    /// Only rewrites identifiers that match known struct field names and are not local variables.
+    /// </summary>
+    private sealed class ImplicitFieldToResultRewriter : CSharpSyntaxRewriter
+    {
+        private readonly HashSet<string> _fieldNames;
+        private readonly HashSet<string> _localNames = new();
+
+        public ImplicitFieldToResultRewriter(HashSet<string> fieldNames)
+        {
+            _fieldNames = fieldNames;
+        }
+
+        public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
+        {
+            // Track local variable names to avoid rewriting them
+            foreach (var variable in node.Declaration.Variables)
+                _localNames.Add(variable.Identifier.Text);
+            return base.VisitLocalDeclarationStatement(node);
+        }
+
+        public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+        {
+            _localNames.Add(node.Identifier.Text);
+            return base.VisitForEachStatement(node);
+        }
+
+        public override SyntaxNode? VisitParameter(ParameterSyntax node)
+        {
+            _localNames.Add(node.Identifier.Text);
+            return base.VisitParameter(node);
+        }
+
+        public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+        {
+            var name = node.Identifier.Text;
+            if (_fieldNames.Contains(name) && !_localNames.Contains(name))
+            {
+                // Check it's not already qualified (e.g. result._field)
+                if (node.Parent is MemberAccessExpressionSyntax ma && ma.Name == node)
+                    return base.VisitIdentifierName(node); // already qualified
+
+                // Replace with result.fieldName
+                var resultAccess = SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.IdentifierName("result"),
+                    node.WithoutTrivia())
+                    .WithTriviaFrom(node);
+                return resultAccess;
+            }
+            return base.VisitIdentifierName(node);
+        }
+    }
+
+    /// <summary>Replaces bare `return;` with `return result;` in void→struct migrated methods.</summary>
+    private sealed class BareReturnRewriter : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+        {
+            if (node.Expression == null)
+                return node.WithExpression(SyntaxFactory.IdentifierName("result"));
+            return base.VisitReturnStatement(node);
         }
     }
 
