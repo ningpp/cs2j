@@ -180,4 +180,45 @@ public class ReadOnlyStructMakerL5Tests
         Assert.Contains("out Rect newStatus", result.OutputCode);
         Assert.Contains("newStatus = result", result.OutputCode);
     }
+
+    [Fact]
+    public void PropertySetter_MigratedToWithMethod()
+    {
+        var src = """
+        struct Box {
+            private double _w;
+            public double W {
+                get { return _w; }
+                set { _w = value; }
+            }
+            public void Pad(double p) { _w += p; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Box", result.OutputCode);
+        Assert.Contains("WithW(", result.OutputCode);
+    }
+
+    [Fact]
+    public void ValidatedSetter_PreservesValidation()
+    {
+        var src = """
+        struct Config {
+            private double _weight;
+            public double Weight {
+                get { return _weight; }
+                set {
+                    if (value <= 0) throw new System.ArgumentOutOfRangeException("value");
+                    _weight = value;
+                }
+            }
+            public void Reset() { _weight = 1.0; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("WithWeight(", result.OutputCode);
+        Assert.Contains("ArgumentOutOfRangeException", result.OutputCode);
+    }
 }

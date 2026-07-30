@@ -123,11 +123,13 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
     private StructDeclarationSyntax ApplyMethodMigrate(StructDeclarationSyntax node, AnalyzeResult result)
     {
-        // L5: migrate mutating methods (placeholder - full impl in Task 9)
         var rewritten = node;
+        var structName = node.Identifier.Text;
+
+        // 1. Migrate mutating methods
         if (result.MethodMigrations != null)
         {
-            var migrator = new MethodMigrator(node.Identifier.Text);
+            var migrator = new MethodMigrator(structName);
             foreach (var migration in result.MethodMigrations)
             {
                 var migrated = migrator.Migrate(migration.Syntax);
@@ -140,7 +142,106 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 }
             }
         }
+
+        // 2. Migrate public property setters to WithXxx() methods
+        var withMethods = new List<MemberDeclarationSyntax>();
+        var propertiesToConvert = rewritten.Members.OfType<PropertyDeclarationSyntax>()
+            .Where(p => p.AccessorList?.Accessors.Any(a =>
+                a.IsKind(SyntaxKind.SetAccessorDeclaration) &&
+                !a.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword))) == true)
+            .ToList();
+
+        foreach (var prop in propertiesToConvert)
+        {
+            var setter = prop.AccessorList!.Accessors.First(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+            var withMethodName = "With" + prop.Identifier.Text;
+
+            // Build WithXxx method body from setter body
+            MethodDeclarationSyntax withMethod;
+            if (setter.Body != null)
+            {
+                // Setter has a body — migrate it
+                var setterBody = (BlockSyntax)new ThisToResultRewriter().Visit(setter.Body)!;
+                // Replace `value` parameter references (already correct in setter body)
+                var resultDecl = SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                        .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator("result")
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                    SyntaxFactory.ThisExpression())))))
+                    .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+
+                // Replace field assignments on this with result
+                var newBody = setterBody.WithStatements(
+                    setterBody.Statements.Insert(0, resultDecl));
+                var returnStmt = SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result"))
+                    .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+                newBody = newBody.AddStatements(returnStmt);
+
+                var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier("value"))
+                    .WithType(prop.Type);
+
+                withMethod = SyntaxFactory.MethodDeclaration(
+                        SyntaxFactory.IdentifierName(structName), withMethodName)
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
+                    .AddParameterListParameters(param)
+                    .WithBody(newBody);
+            }
+            else
+            {
+                // Auto-property setter — simple assignment
+                var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier("value"))
+                    .WithType(prop.Type);
+
+                var body = SyntaxFactory.Block(
+                    SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                            .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.VariableDeclarator("result")
+                                    .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                        SyntaxFactory.ThisExpression()))))),
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            SyntaxFactory.IdentifierName(prop.Identifier.Text),
+                            SyntaxFactory.IdentifierName("value"))),
+                    SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result")));
+
+                // Replace field name with result.field
+                body = (BlockSyntax)new ThisToResultRewriter().Visit(body)!;
+
+                withMethod = SyntaxFactory.MethodDeclaration(
+                        SyntaxFactory.IdentifierName(structName), withMethodName)
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
+                    .AddParameterListParameters(param)
+                    .WithBody(body);
+            }
+
+            withMethods.Add(withMethod);
+
+            // Remove setter from property (make it get-only)
+            var getter = prop.AccessorList.Accessors.First(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+            var newProp = prop.WithAccessorList(
+                SyntaxFactory.AccessorList(SyntaxFactory.SingletonList(getter)));
+            rewritten = rewritten.ReplaceNode(
+                rewritten.Members.OfType<PropertyDeclarationSyntax>()
+                    .First(p => p.Identifier.Text == prop.Identifier.Text),
+                newProp);
+        }
+
+        // Add WithXxx methods
+        if (withMethods.Count > 0)
+        {
+            rewritten = rewritten.AddMembers(withMethods.ToArray());
+        }
+
         return ApplyDirectAdd(rewritten);
+    }
+
+    private sealed class ThisToResultRewriter : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitThisExpression(ThisExpressionSyntax node)
+            => SyntaxFactory.IdentifierName("result").WithTriviaFrom(node);
     }
 
     private static bool HasEquivalentCtor(StructDeclarationSyntax node, ConstructorDeclarationSyntax newCtor)
