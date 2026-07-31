@@ -220,16 +220,22 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var rewritten = node;
         var structName = node.Identifier.Text;
 
+        // Collect field names and property names for migration
+        var fieldNames = rewritten.Members.OfType<FieldDeclarationSyntax>()
+            .Where(f => !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
+            .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
+            .ToHashSet();
+        var propertyNames = rewritten.Members.OfType<PropertyDeclarationSyntax>()
+            .Where(p => !p.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            .Select(p => p.Identifier.Text)
+            .ToHashSet();
+
         // 1. Migrate mutating methods
         if (result.MethodMigrations != null)
         {
-            var fieldNames = rewritten.Members.OfType<FieldDeclarationSyntax>()
-                .Where(f => !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
-                .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
-                .ToHashSet();
             var migratedMethodNames = result.MethodMigrations
                 .Select(m => m.Method.Name).ToHashSet();
-            var migrator = new MethodMigrator(structName, fieldNames, migratedMethodNames);
+            var migrator = new MethodMigrator(structName, fieldNames, propertyNames, migratedMethodNames);
             foreach (var migration in result.MethodMigrations)
             {
                 var migrated = migrator.Migrate(migration.Syntax);
@@ -271,9 +277,16 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                                     SyntaxFactory.ThisExpression())))))
                     .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
 
-                // Replace field assignments on this with result
+                // Replace field/property assignments on this with result.field/result.property
                 var newBody = setterBody.WithStatements(
                     setterBody.Statements.Insert(0, resultDecl));
+
+                // Use ImplicitFieldToResultRewriter to replace implicit field/property accesses
+                if (fieldNames.Count > 0 || propertyNames.Count > 0)
+                {
+                    newBody = (BlockSyntax)new MethodMigrator.ImplicitFieldToResultRewriter(fieldNames, propertyNames).Visit(newBody)!;
+                }
+
                 var returnStmt = SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result"))
                     .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed);
                 newBody = newBody.AddStatements(returnStmt);
@@ -290,6 +303,9 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             else
             {
                 // Auto-property setter — simple assignment
+                // Note: For auto-properties, the setter body is empty (auto-generated).
+                // We generate result.Property = value, but the property setter is removed
+                // during migration. This is a known limitation for auto-properties.
                 var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier("value"))
                     .WithType(prop.Type);
 
@@ -303,12 +319,12 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                     SyntaxFactory.ExpressionStatement(
                         SyntaxFactory.AssignmentExpression(
                             SyntaxKind.SimpleAssignmentExpression,
-                            SyntaxFactory.IdentifierName(prop.Identifier.Text),
+                            SyntaxFactory.MemberAccessExpression(
+                                SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("result"),
+                                SyntaxFactory.IdentifierName(prop.Identifier.Text)),
                             SyntaxFactory.IdentifierName("value"))),
                     SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result")));
-
-                // Replace field name with result.field
-                body = (BlockSyntax)new ThisToResultRewriter().Visit(body)!;
 
                 withMethod = SyntaxFactory.MethodDeclaration(
                         SyntaxFactory.IdentifierName(structName), withMethodName)

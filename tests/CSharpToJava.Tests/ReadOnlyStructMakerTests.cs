@@ -498,4 +498,171 @@ public partial class ReadOnlyStructMakerTests
         var result = RunMaker(src);
         Assert.False(result.Changed);
     }
+
+    // === Interface Implementation Tests (Rectangle support) ===
+
+    [Fact]
+    public void ExplicitInterfaceImpl_WithMutatingMethod_IsMigrated()
+    {
+        // Reproduces: Rectangle.cs has explicit interface implementations like
+        //   bool IRectangle<Point>.Contains(IRectangle<Point> rect)
+        // AND mutating methods like Add(), PadWidth(), etc.
+        // Before the fix, the explicit interface impls triggered "has virtual/override methods".
+        var src = """
+        interface IShape {
+            bool Contains(double x, double y);
+        }
+        struct PointBag : IShape {
+            private double _x;
+            private double _y;
+            public PointBag(double x, double y) { _x = x; _y = y; }
+            public void Add(double dx, double dy) { _x += dx; _y += dy; }
+            bool IShape.Contains(double x, double y) {
+                return x >= 0 && x <= _x && y >= 0 && y <= _y;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        // The mutating method should be migrated
+        Assert.Contains("PointBag Add(", result.OutputCode);
+        Assert.Contains("var result = this;", result.OutputCode);
+    }
+
+    [Fact]
+    public void ImplicitInterfaceImpl_WithMutatingMethod_IsMigrated()
+    {
+        // Reproduces: Rectangle.cs has implicit interface implementations like
+        //   public IRectangle<Point> Unite(IRectangle<Point> rectangle)
+        var src = """
+        interface IShape {
+            IShape Combine(IShape other);
+        }
+        struct Canvas : IShape {
+            private double _width;
+            public Canvas(double w) { _width = w; }
+            public void Scale(double factor) { _width *= factor; }
+            public IShape Combine(IShape other) {
+                return new Canvas(_width * 2);
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        Assert.Contains("Canvas Scale(", result.OutputCode);
+    }
+
+    [Fact]
+    public void InterfaceImpl_OnlyPureOverrides_IsDirectConverted()
+    {
+        // A struct that ONLY implements interface methods (no mutating methods of its own)
+        // should be converted directly (L1) since there's nothing to migrate.
+        var src = """
+        interface IDescribable {
+            string Describe();
+        }
+        struct Info : IDescribable {
+            private readonly int _id;
+            public Info(int id) { _id = id; }
+            public string Describe() => $"Info({_id})";
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Info", result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    [Fact]
+    public void PropertyAccess_MigratedToResultProperty()
+    {
+        // Reproduces: Rectangle.cs methods mutate through properties (e.g. Left -= padding).
+        // Before the fix, the property accesses were not replaced with result.Property.
+        var src = """
+        struct Rect {
+            private double _left;
+            private double _right;
+            public Rect(double l, double r) { _left = l; _right = r; }
+            public double Left {
+                get { return _left; }
+                set { _left = value; }
+            }
+            public double Right {
+                get { return _right; }
+                set { _right = value; }
+            }
+            public void PadWidth(double padding) {
+                Left -= padding;
+                Right += padding;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
+        // The migrated method should access result.Left and result.Right, not bare Left/Right
+        Assert.Contains("result.Left", result.OutputCode);
+        Assert.Contains("result.Right", result.OutputCode);
+    }
+
+    [Fact]
+    public void RectangleLikeStruct_FullMigration()
+    {
+        // A simplified Rectangle-like struct that combines all the problematic features:
+        // - override ToString()
+        // - explicit interface implementations
+        // - mutating methods that access properties
+        var src = """
+        interface IRectangle {
+            double Area { get; }
+            bool Contains(double x, double y);
+        }
+        struct Rect : IRectangle {
+            private double _left;
+            private double _right;
+            private double _top;
+            private double _bottom;
+            public Rect(double l, double b, double r, double t) {
+                _left = l; _bottom = b; _right = r; _top = t;
+            }
+            public override string ToString() {
+                return $"({_left},{_bottom},{_right},{_top})";
+            }
+            public double Left {
+                get { return _left; }
+                set { _left = value; }
+            }
+            public double Right {
+                get { return _right; }
+                set { _right = value; }
+            }
+            public double Area {
+                get { return (_right - _left) * (_top - _bottom); }
+            }
+            double IRectangle.Area { get { return Area; } }
+            bool IRectangle.Contains(double x, double y) {
+                return x >= _left && x <= _right && y >= _bottom && y <= _top;
+            }
+            public void Pad(double p) {
+                Left -= p;
+                Right += p;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        // ToString override should be preserved
+        Assert.Contains("override string ToString()", result.OutputCode);
+        // The Pad method should be migrated with property accesses on result
+        Assert.Contains("result.Left", result.OutputCode);
+        Assert.Contains("result.Right", result.OutputCode);
+        // Explicit interface implementations should be preserved
+        Assert.Contains("bool IRectangle.Contains(", result.OutputCode);
+    }
 }

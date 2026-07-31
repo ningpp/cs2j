@@ -441,18 +441,40 @@ internal sealed class StructAnalyzer
 
     /// <summary>
     /// A method blocks migration only when it introduces genuine polymorphism
-    /// (virtual/abstract/override of a non-object member). Overrides of the
-    /// value-type root members (<see cref="object.ToString"/>,
-    /// <see cref="object.Equals(object)"/> and <see cref="object.GetHashCode"/>),
-    /// which a struct overrides through <see cref="System.ValueType"/>, are pure
-    /// read-only operations and are always safe for an immutable struct, so they
-    /// are excluded. Genuine virtual/abstract members break value-type semantics
-    /// (polymorphism, dynamic dispatch) and must stay non-migratable.
+    /// (virtual/abstract/override of a non-object member). The following are
+    /// excluded because they are safe for an immutable struct:
+    /// - Interface implementations (both explicit and implicit): structs are
+    ///   sealed, so interface dispatch does not introduce polymorphism.
+    /// - Overrides of System.Object / System.ValueType members (ToString/Equals/
+    ///   GetHashCode): pure read-only operations.
+    /// Genuine virtual/abstract members break value-type semantics (polymorphism,
+    /// dynamic dispatch) and must stay non-migratable.
     /// </summary>
     private static bool IsGenuinelyVirtualOrAbstract(IMethodSymbol method)
     {
         if (!method.IsVirtual && !method.IsOverride && !method.IsAbstract)
             return false;
+
+        // Explicit interface implementations are safe — they don't introduce
+        // polymorphism (structs are sealed) and are dispatched via the interface.
+        if (method.ExplicitInterfaceImplementations.Any())
+            return false;
+
+        // Implicit interface implementations are also safe — check if this method
+        // implements any interface member of the containing type.
+        var containingType = method.ContainingType;
+        if (containingType != null)
+        {
+            foreach (var iface in containingType.AllInterfaces)
+            {
+                foreach (var member in iface.GetMembers())
+                {
+                    var impl = containingType.FindImplementationForInterfaceMember(member);
+                    if (SymbolEqualityComparer.Default.Equals(impl, method))
+                        return false;
+                }
+            }
+        }
 
         // Overriding a System.Object / System.ValueType member (ToString/Equals/
         // GetHashCode) is safe — those overrides are pure read-only operations.

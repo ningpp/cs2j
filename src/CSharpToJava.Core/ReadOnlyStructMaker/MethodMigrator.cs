@@ -8,12 +8,15 @@ internal sealed class MethodMigrator
 {
     private readonly string _structName;
     private readonly HashSet<string> _fieldNames;
+    private readonly HashSet<string> _propertyNames;
     private readonly HashSet<string> _migratedMethodNames;
 
-    public MethodMigrator(string structName, HashSet<string>? fieldNames = null, HashSet<string>? migratedMethodNames = null)
+    public MethodMigrator(string structName, HashSet<string>? fieldNames = null,
+        HashSet<string>? propertyNames = null, HashSet<string>? migratedMethodNames = null)
     {
         _structName = structName;
         _fieldNames = fieldNames ?? new HashSet<string>();
+        _propertyNames = propertyNames ?? new HashSet<string>();
         _migratedMethodNames = migratedMethodNames ?? new HashSet<string>();
     }
 
@@ -41,10 +44,10 @@ internal sealed class MethodMigrator
         // 2. Replace `this` with `result` in body
         var newBody = (BlockSyntax)new ThisToResultRewriter().Visit(body)!;
 
-        // 3. Replace implicit field accesses with result.field
-        if (_fieldNames.Count > 0)
+        // 3. Replace implicit field/property accesses with result.field/result.property
+        if (_fieldNames.Count > 0 || _propertyNames.Count > 0)
         {
-            newBody = (BlockSyntax)new ImplicitFieldToResultRewriter(_fieldNames).Visit(newBody)!;
+            newBody = (BlockSyntax)new ImplicitFieldToResultRewriter(_fieldNames, _propertyNames).Visit(newBody)!;
         }
 
         // 3b. Replace bare calls to migrated methods with result = result.Method(args)
@@ -102,18 +105,21 @@ internal sealed class MethodMigrator
     }
 
     /// <summary>
-    /// Rewrites implicit field accesses (e.g. `_field = value;`) to `result._field = value;`
-    /// and implicit field reads (e.g. `if (_field == null)`) to `result._field`.
-    /// Only rewrites identifiers that match known struct field names and are not local variables.
+    /// Rewrites implicit field/property accesses (e.g. `_field = value;` or `Prop = value;`)
+    /// to `result._field = value;` / `result.Prop = value;` and implicit reads
+    /// (e.g. `if (_field == null)` or `var x = Prop`) to `result._field` / `result.Prop`.
+    /// Only rewrites identifiers that match known struct field/property names and are not local variables.
     /// </summary>
-    private sealed class ImplicitFieldToResultRewriter : CSharpSyntaxRewriter
+    internal sealed class ImplicitFieldToResultRewriter : CSharpSyntaxRewriter
     {
         private readonly HashSet<string> _fieldNames;
+        private readonly HashSet<string> _propertyNames;
         private readonly HashSet<string> _localNames = new();
 
-        public ImplicitFieldToResultRewriter(HashSet<string> fieldNames)
+        public ImplicitFieldToResultRewriter(HashSet<string> fieldNames, HashSet<string> propertyNames)
         {
             _fieldNames = fieldNames;
+            _propertyNames = propertyNames;
         }
 
         public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
@@ -139,13 +145,13 @@ internal sealed class MethodMigrator
         public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
         {
             var name = node.Identifier.Text;
-            if (_fieldNames.Contains(name) && !_localNames.Contains(name))
+            if ((_fieldNames.Contains(name) || _propertyNames.Contains(name)) && !_localNames.Contains(name))
             {
                 // Check it's not already qualified (e.g. result._field)
                 if (node.Parent is MemberAccessExpressionSyntax ma && ma.Name == node)
                     return base.VisitIdentifierName(node); // already qualified
 
-                // Replace with result.fieldName
+                // Replace with result.fieldName or result.propertyName
                 var resultAccess = SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
                     SyntaxFactory.IdentifierName("result"),
