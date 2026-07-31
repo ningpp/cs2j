@@ -377,6 +377,72 @@ public partial class ReadOnlyStructMakerTests
     }
 
     [Fact]
+    public void OverrideObjectMethod_WithMutatingMethod_IsMethodMigrated()
+    {
+        // Reproduces BorderInfo.cs: struct overrides object.ToString/Equals/GetHashCode
+        // (pure read-only overrides) AND has real mutating methods. Before the fix the
+        // pure object overrides wrongly triggered "has virtual/override methods" and
+        // blocked migration entirely. They must be ignored so the struct falls through
+        // to L5 method migration like any other mutable-method struct.
+        var src = """
+        struct S {
+            private int _v;
+            private bool _fixed;
+            public S(int v) { _v = v; _fixed = false; }
+            public void SetFixed() { _fixed = true; }
+            public void SetUnfixed() { _fixed = false; }
+            public override string ToString() => _fixed ? "fixed" : "unfixed";
+            public override bool Equals(object? o) => o is S other && other._v == _v;
+            public override int GetHashCode() => _v;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    [Fact]
+    public void OverrideObjectMethod_OnlyReadonlyOverrides_IsConverted()
+    {
+        // Struct that ONLY overrides object members (no mutating methods of its own).
+        // Overriding ToString/Equals/GetHashCode must never block conversion.
+        var src = """
+        struct S {
+            private readonly int _v;
+            public S(int v) { _v = v; }
+            public int V => _v;
+            public override string ToString() => _v.ToString();
+            public override bool Equals(object? o) => o is S other && other._v == _v;
+            public override int GetHashCode() => _v;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    [Fact]
+    public void GenuineVirtualMethod_StillNotConvertible()
+    {
+        // A struct that overrides a NON-object member (here via a base class) combined
+        // with mutating methods must STILL be rejected. This guards the fix against
+        // over-loosening: only object overrides are safe.
+        var src = """
+        abstract class Base { public abstract string Describe(); }
+        struct S : Base {
+            private int _v;
+            public S(int v) { _v = v; }
+            public void Increment() { _v++; }
+            public override string Describe() => _v.ToString();
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    [Fact]
     public void MethodMigration_DisabledByOption_NotConvertible()
     {
         var src = """

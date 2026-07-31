@@ -397,10 +397,15 @@ internal sealed class StructAnalyzer
         if (fields.Any(f => f.DeclaredAccessibility == Accessibility.Public))
             return "has public fields (externally assignable)";
 
-        // Has virtual/override methods
+        // Has virtual/override/abstract methods that are NOT merely overriding
+        // System.Object members (ToString/Equals/GetHashCode). Overriding object
+        // members is always safe for an immutable struct: those overrides are
+        // pure (read-only) by nature, and Java's final class will simply inherit
+        // the same overrides. Genuine virtual/abstract members break value-type
+        // semantics (polymorphism, dynamic dispatch) and must stay non-migratable.
         var methods = symbol.GetMembers().OfType<IMethodSymbol>()
             .Where(m => m.MethodKind == MethodKind.Ordinary && !m.IsStatic);
-        if (methods.Any(m => m.IsVirtual || m.IsOverride || m.IsAbstract))
+        if (methods.Any(m => IsGenuinelyVirtualOrAbstract(m)))
             return "has virtual/override methods";
 
         // Fields modified through ref/out parameter
@@ -432,6 +437,36 @@ internal sealed class StructAnalyzer
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// A method blocks migration only when it introduces genuine polymorphism
+    /// (virtual/abstract/override of a non-object member). Overrides of the
+    /// value-type root members (<see cref="object.ToString"/>,
+    /// <see cref="object.Equals(object)"/> and <see cref="object.GetHashCode"/>),
+    /// which a struct overrides through <see cref="System.ValueType"/>, are pure
+    /// read-only operations and are always safe for an immutable struct, so they
+    /// are excluded. Genuine virtual/abstract members break value-type semantics
+    /// (polymorphism, dynamic dispatch) and must stay non-migratable.
+    /// </summary>
+    private static bool IsGenuinelyVirtualOrAbstract(IMethodSymbol method)
+    {
+        if (!method.IsVirtual && !method.IsOverride && !method.IsAbstract)
+            return false;
+
+        // Overriding a System.Object / System.ValueType member (ToString/Equals/
+        // GetHashCode) is safe — those overrides are pure read-only operations.
+        // A struct overrides these via System.ValueType, so both special types
+        // must be accepted.
+        if (method.IsOverride)
+        {
+            var overriddenType = method.OverriddenMethod?.ContainingType?.SpecialType;
+            if (overriddenType == SpecialType.System_Object ||
+                overriddenType == SpecialType.System_ValueType)
+                return false;
+        }
+
+        return true;
     }
 
     private static MigrationType ClassifyMigrationType(IMethodSymbol method, MethodDeclarationSyntax syntax)
