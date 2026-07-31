@@ -406,4 +406,27 @@ public partial class ReadOnlyStructMakerTests
         Assert.Contains(result.Diagnostics, d =>
             d.Level == ConversionLevel.NotConvertible || d.Level == ConversionLevel.DataContainer);
     }
+
+    [Fact]
+    public void MultipleAssignmentsToSameFieldInCtor_NotConverted()
+    {
+        // Reproduces: Parallelogram struct where aRot is assigned twice in ctor:
+        //   this.aRot = new Point(...); aRot = aRot.Normalize();
+        // Java final fields cannot be assigned more than once.
+        var src = """
+        struct S {
+            private int _x;
+            private int _y;
+            public S(int x, int y) {
+                _x = x;
+                _y = y;
+                if (_x < 0) _x = -_x;
+            }
+            public int X => _x;
+            public int Y => _y;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+    }
 }

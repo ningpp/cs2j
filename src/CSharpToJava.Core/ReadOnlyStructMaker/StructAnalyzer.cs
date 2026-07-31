@@ -119,6 +119,12 @@ internal sealed class StructAnalyzer
                     "no mutable state", name);
 
             // Pattern D: data container (has public setters or mutable non-public fields)
+            // Guard: if any field is assigned multiple times in a constructor, the struct
+            // cannot be made readonly at all (Java final fields allow only one assignment).
+            if (HasMultipleFieldAssignmentsInCtor(fields, syntax))
+                return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
+                    "field assigned multiple times in constructor", name);
+
             if (_options.EnableDtoConversion)
             {
                 // Guard: public fields assigned externally cannot be made readonly
@@ -261,7 +267,93 @@ internal sealed class StructAnalyzer
                 return false;
         }
 
+        // Java final fields can only be assigned once per constructor path.
+        // If any field is assigned more than once in any constructor, the struct
+        // cannot be made readonly (would produce illegal Java code).
+        foreach (var ctor in ctors)
+        {
+            var assignedFieldNames = new HashSet<string>();
+            foreach (var assignment in ctor.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+            {
+                var name = assignment.Left switch
+                {
+                    IdentifierNameSyntax id => id.Identifier.Text,
+                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+                    _ => null
+                };
+                if (name == null) continue;
+                if (!fields.Any(f => f.Name == name)) continue;
+                if (!assignedFieldNames.Add(name))
+                    return false; // multiple assignments to same field
+            }
+
+            // Also count ++/-- as assignments
+            foreach (var unary in ctor.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
+                .Select(u => u.Operand)
+                .Concat(ctor.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                    .Select(u => u.Operand)))
+            {
+                var name = unary switch
+                {
+                    IdentifierNameSyntax id => id.Identifier.Text,
+                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+                    _ => null
+                };
+                if (name == null) continue;
+                if (!fields.Any(f => f.Name == name)) continue;
+                if (!assignedFieldNames.Add(name))
+                    return false;
+            }
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Returns true if any field is assigned more than once in any constructor.
+    /// Such structs cannot be made readonly because Java final fields allow only one assignment.
+    /// </summary>
+    private static bool HasMultipleFieldAssignmentsInCtor(IReadOnlyList<IFieldSymbol> fields, StructDeclarationSyntax syntax)
+    {
+        if (fields.Count == 0) return false;
+
+        var ctors = syntax.Members.OfType<ConstructorDeclarationSyntax>().ToList();
+        foreach (var ctor in ctors)
+        {
+            var assignedFieldNames = new HashSet<string>();
+            foreach (var assignment in ctor.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+            {
+                var name = assignment.Left switch
+                {
+                    IdentifierNameSyntax id => id.Identifier.Text,
+                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+                    _ => null
+                };
+                if (name == null) continue;
+                if (!fields.Any(f => f.Name == name)) continue;
+                if (!assignedFieldNames.Add(name))
+                    return true;
+            }
+
+            foreach (var operand in ctor.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
+                .Select(u => u.Operand)
+                .Concat(ctor.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                    .Select(u => u.Operand)))
+            {
+                var name = operand switch
+                {
+                    IdentifierNameSyntax id => id.Identifier.Text,
+                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+                    _ => null
+                };
+                if (name == null) continue;
+                if (!fields.Any(f => f.Name == name)) continue;
+                if (!assignedFieldNames.Add(name))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsFieldAccess(ExpressionSyntax expr, IReadOnlyList<IFieldSymbol> fields)
