@@ -184,41 +184,54 @@ internal sealed class StructAnalyzer
 
     private bool IsMutating(MethodDeclarationSyntax method)
     {
-        // A method is mutating if it assigns to instance fields/properties
+        // Get the containing type so we only detect mutations to THIS struct's fields,
+        // not to local variables' fields (e.g. localPoint.X += 1 is NOT mutating).
+        var methodSymbol = _model.GetDeclaredSymbol(method);
+        var containingType = methodSymbol?.ContainingType;
+        if (containingType == null) return false;
+
+        // A method is mutating if it assigns to instance fields/properties of the containing type
         var hasAssignment = method.DescendantNodes().OfType<AssignmentExpressionSyntax>().Any(a =>
         {
             var targetSymbol = _model.GetSymbolInfo(a.Left).Symbol;
-            return targetSymbol is IFieldSymbol { IsStatic: false } or
-                   IPropertySymbol { IsStatic: false, SetMethod: not null };
+            if (targetSymbol is IFieldSymbol { IsStatic: false } f)
+                return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
+            if (targetSymbol is IPropertySymbol { IsStatic: false, SetMethod: not null } p)
+                return SymbolEqualityComparer.Default.Equals(p.ContainingType, containingType);
+            return false;
         });
 
-        var hasIncrementDecrement = method.DescendantNodes()
-            .OfType<PostfixUnaryExpressionSyntax>()
-            .Concat(method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
-                .Select(p => (PostfixUnaryExpressionSyntax?)null!)
-                .Where(_ => false)) // placeholder - handle both types below
-            .Any();
-
-        // Check prefix/postfix ++/-- on instance fields
+        // Check prefix/postfix ++/-- on instance fields of the containing type
         var hasUnaryMutation = method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>().Any(u =>
         {
             var s = _model.GetSymbolInfo(u.Operand).Symbol;
-            return s is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
+            if (s is IFieldSymbol { IsStatic: false } f)
+                return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
+            if (s is IPropertySymbol { IsStatic: false } p)
+                return SymbolEqualityComparer.Default.Equals(p.ContainingType, containingType);
+            return false;
         }) || method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>().Any(u =>
         {
             if (u.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
                 return false;
             var s = _model.GetSymbolInfo(u.Operand).Symbol;
-            return s is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
+            if (s is IFieldSymbol { IsStatic: false } f)
+                return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
+            if (s is IPropertySymbol { IsStatic: false } p)
+                return SymbolEqualityComparer.Default.Equals(p.ContainingType, containingType);
+            return false;
         });
 
-        // Compound assignment (+=, -=, etc.)
+        // Compound assignment (+=, -=, etc.) to fields of the containing type
         var hasCompoundAssignment = method.DescendantNodes().OfType<AssignmentExpressionSyntax>().Any(a =>
         {
             if (a.Kind() == SyntaxKind.SimpleAssignmentExpression) return false;
             var targetSymbol = _model.GetSymbolInfo(a.Left).Symbol;
-            return targetSymbol is IFieldSymbol { IsStatic: false } or
-                   IPropertySymbol { IsStatic: false };
+            if (targetSymbol is IFieldSymbol { IsStatic: false } f)
+                return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
+            if (targetSymbol is IPropertySymbol { IsStatic: false } p)
+                return SymbolEqualityComparer.Default.Equals(p.ContainingType, containingType);
+            return false;
         });
 
         return hasAssignment || hasUnaryMutation || hasCompoundAssignment;

@@ -277,4 +277,35 @@ public class ReadOnlyStructMakerL5Tests
         // List<object>.Add should NOT be updated
         Assert.DoesNotContain("list = list.Add(", result.OutputCode);
     }
+
+    [Fact]
+    public void MethodModifyingLocalVariableField_NotConsideredMutating()
+    {
+        // Reproduces: CompassVector.ToPoint() modifies local Point p (p.X += 1)
+        // which should NOT be classified as mutating the struct.
+        var src = """
+        struct Point {
+            public double X;
+            public double Y;
+        }
+        struct Compass {
+            private int _dir;
+            public Compass(int dir) { _dir = dir; }
+            public Point ToPoint() {
+                var p = new Point();
+                if (_dir == 1) p.X += 1;
+                if (_dir == 2) p.Y += 1;
+                return p;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        // Compass should be converted to readonly (DirectAdd) since ToPoint()
+        // does NOT mutate the struct, only a local variable.
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Compass", result.OutputCode);
+        // Should NOT have method migration artifacts
+        Assert.DoesNotContain("out Compass", result.OutputCode);
+        Assert.DoesNotContain("newStatus", result.OutputCode);
+    }
 }

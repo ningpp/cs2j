@@ -223,6 +223,15 @@ public class StructTransformer : ITypeTransformer
         // runtime type information (e.g., types with new T[] array creation).
         ClassTransformer.AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, structSymbol as INamedTypeSymbol, context);
 
+        // Fix: For readonly structs (all instance fields final), Java requires each final field
+        // to be assigned exactly once per constructor path. Constructor chaining via this()
+        // causes double-assignment. Remove this() chains and ensure each constructor
+        // independently assigns all final fields.
+        if (isReadOnly)
+        {
+            FixReadonlyStructConstructorChaining(javaClass, structFieldNamesForCtor);
+        }
+
         return javaClass;
     }
 
@@ -917,6 +926,60 @@ public class StructTransformer : ITypeTransformer
             if (!string.IsNullOrWhiteSpace(javaField.Initializer))
                 sb.Append(javaField.Initializer);
             javaField.Initializer = sb.ToString().Trim();
+        }
+    }
+
+    /// <summary>
+    /// For readonly structs, Java final fields must be assigned exactly once per constructor path.
+    /// Constructor chaining via this() causes double-assignment. This method removes this() chains
+    /// and ensures each constructor independently assigns all final fields not already in its body.
+    /// </summary>
+    private static void FixReadonlyStructConstructorChaining(JavaClassDeclaration javaClass, HashSet<string> structFieldNames)
+    {
+        var instanceFields = javaClass.Fields
+            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0 && (f.Modifiers & JavaModifiers.Final) != 0)
+            .ToList();
+        if (instanceFields.Count == 0) return;
+
+        foreach (var ctor in javaClass.Constructors)
+        {
+            // Only fix constructors that chain via this(...)
+            if (ctor.Initializer == null || !ctor.Initializer.StartsWith("this("))
+                continue;
+
+            // Remove the this() chain
+            ctor.Initializer = null;
+
+            // Find which final fields are already assigned in the body
+            var body = ctor.Body ?? "";
+            var assignedFields = new HashSet<string>();
+            foreach (var field in instanceFields)
+            {
+                // Check for "this.fieldName =" or "fieldName =" patterns
+                if (body.Contains($"this.{field.Name} =") || body.Contains($"this.{field.Name}=") ||
+                    System.Text.RegularExpressions.Regex.IsMatch(body, $@"(?<!this\.)(?<!\w){System.Text.RegularExpressions.Regex.Escape(field.Name)}\s*="))
+                {
+                    assignedFields.Add(field.Name);
+                }
+            }
+
+            // Prepend default assignments for final fields not already assigned
+            var prependLines = new List<string>();
+            foreach (var field in instanceFields)
+            {
+                if (assignedFields.Contains(field.Name)) continue;
+                if (!string.IsNullOrWhiteSpace(field.Initializer)) continue;
+
+                if (structFieldNames.Contains(field.Name))
+                    prependLines.Add($"this.{field.Name} = new {field.Type}();");
+                else
+                    prependLines.Add($"this.{field.Name} = {GetJavaDefaultValue(field.Type)};");
+            }
+
+            if (prependLines.Count > 0)
+            {
+                ctor.Body = string.Join("\n", prependLines) + "\n" + body;
+            }
         }
     }
 }
