@@ -17,6 +17,15 @@
 
 ✅ Fixed
 
+## Iteration 3-5 — readonly struct 系列问题
+- IsMutating 误判局部变量属性赋值为结构体变更
+- readonly struct 构造函数链 this() 导致 final 字段双重赋值
+- final 字段同时有初始化器和构造函数赋值
+- 对象初始化器转换为 setter 调用但 readonly struct 无 setter
+- ConstructorGenerator 生成 source=source 而非 this.source=source
+
+✅ Fixed — BUILD SUCCESS
+
 ## Iteration 2 — 无法为 final 变量分配值
 - **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/Curves/Parallelogram.java
 - **行号**: 97-121, 191-197
