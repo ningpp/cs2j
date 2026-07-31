@@ -12,17 +12,20 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 /// - obj.Field-- → obj = obj.WithField(obj.Field - 1)
 /// - new S { F = v } → new S(f: v) (when constructor exists)
 ///
-/// Note: This rewriter uses syntactic checks only (no semantic model) because
-/// it runs after ReadOnlyStructRewriter has modified the syntax tree.
+/// Uses semantic model to verify that the receiver's type is actually one of the
+/// target structs, preventing incorrect conversion of classes with same-named fields.
 /// </summary>
 public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 {
     private readonly Dictionary<string, HashSet<string>> _structFields = new(); // structName -> fieldNames
     private readonly HashSet<string> _targetFieldNames = new(); // all field names across all target structs
+    private readonly SemanticModel? _semanticModel;
+    private readonly Dictionary<string, string> _variableTypes = new(); // variableName -> typeName
 
-    public AssignmentRewriter(Dictionary<string, HashSet<string>> structFields, SemanticModel _)
+    public AssignmentRewriter(Dictionary<string, HashSet<string>> structFields, SemanticModel? semanticModel)
     {
         _structFields = structFields;
+        _semanticModel = semanticModel;
         // Collect all field names for quick lookup
         foreach (var fields in structFields.Values)
         {
@@ -31,6 +34,58 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 _targetFieldNames.Add(field);
             }
         }
+    }
+
+    /// <summary>
+    /// Builds a map of variable names to their declared types from the original syntax tree.
+    /// This must be called BEFORE the tree is modified by other rewriters.
+    /// </summary>
+    public void BuildVariableTypeMap(SyntaxNode root)
+    {
+        _variableTypes.Clear();
+        foreach (var node in root.DescendantNodes())
+        {
+            // Handle local variable declarations: Type x = ...; or var x = ...;
+            if (node is LocalDeclarationStatementSyntax localDecl &&
+                localDecl.Declaration.Variables.Count == 1)
+            {
+                var variable = localDecl.Declaration.Variables[0];
+                var varTypeName = GetTypeName(localDecl.Declaration.Type);
+                if (!string.IsNullOrEmpty(varTypeName))
+                {
+                    _variableTypes[variable.Identifier.Text] = varTypeName;
+                }
+                else if (variable.Initializer?.Value != null)
+                {
+                    // For 'var' declarations, try to get the type from the initializer
+                    var initTypeName = GetTypeNameFromExpression(variable.Initializer.Value);
+                    if (!string.IsNullOrEmpty(initTypeName))
+                    {
+                        _variableTypes[variable.Identifier.Text] = initTypeName;
+                    }
+                }
+            }
+            // Handle field declarations: Type fieldName;
+            else if (node is FieldDeclarationSyntax fieldDecl &&
+                     fieldDecl.Declaration.Variables.Count == 1)
+            {
+                var variable = fieldDecl.Declaration.Variables[0];
+                var varTypeName = GetTypeName(fieldDecl.Declaration.Type);
+                if (!string.IsNullOrEmpty(varTypeName))
+                {
+                    _variableTypes[variable.Identifier.Text] = varTypeName;
+                }
+            }
+        }
+    }
+
+    private static string GetTypeNameFromExpression(ExpressionSyntax expr)
+    {
+        if (expr is ObjectCreationExpressionSyntax objCreate)
+        {
+            return GetTypeName(objCreate.Type);
+        }
+        return string.Empty;
     }
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
@@ -50,6 +105,10 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         // Syntactic check: receiver must be a simple identifier or element access
         // (to ensure we're modifying a variable, not a property return value)
         if (!IsModifiableLValue(memberAccess.Expression))
+            return base.VisitAssignmentExpression(node);
+
+        // Semantic check: verify the receiver's type is actually one of our target structs
+        if (!IsTargetStructType(memberAccess.Expression))
             return base.VisitAssignmentExpression(node);
 
         var withMethodName = "With" + fieldNameText;
@@ -160,6 +219,10 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (!IsModifiableLValue(memberAccess.Expression))
             return null;
 
+        // Semantic check: verify the receiver's type is actually one of our target structs
+        if (!IsTargetStructType(memberAccess.Expression))
+            return null;
+
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
 
@@ -241,7 +304,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     {
         return type switch
         {
-            IdentifierNameSyntax id => id.Identifier.Text,
+            IdentifierNameSyntax id => id.Identifier.Text == "var" ? string.Empty : id.Identifier.Text,
             QualifiedNameSyntax qn => qn.Right.Identifier.Text,
             GenericNameSyntax gn => gn.Identifier.Text,
             _ => string.Empty
@@ -252,5 +315,64 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     {
         if (string.IsNullOrEmpty(name)) return name;
         return char.ToLowerInvariant(name[0]) + name[1..];
+    }
+
+    /// <summary>
+    /// Checks if the expression's type is one of the target structs that should have
+    /// their field assignments converted to With* method calls.
+    /// This prevents incorrect conversion when a class has fields with the same names as a struct.
+    /// </summary>
+    private bool IsTargetStructType(ExpressionSyntax expression)
+    {
+        // Get the root identifier name from the expression
+        var identifierName = GetRootIdentifier(expression);
+        if (identifierName == null)
+            return false;
+
+        var varName = identifierName.Identifier.Text;
+
+        // First check the variable type map (built from the original syntax tree)
+        if (_variableTypes.TryGetValue(varName, out var typeName))
+        {
+            return _structFields.ContainsKey(typeName);
+        }
+
+        // Fall back to semantic model if available
+        if (_semanticModel != null)
+        {
+            try
+            {
+                var typeInfo = _semanticModel.GetTypeInfo(expression);
+                var type = typeInfo.Type;
+
+                if (type != null)
+                {
+                    return _structFields.ContainsKey(type.Name);
+                }
+            }
+            catch (ArgumentException)
+            {
+                // Node not in syntax tree - fall through to default
+            }
+        }
+
+        // Default: don't convert if we can't determine the type
+        return false;
+    }
+
+    /// <summary>
+    /// Gets the root identifier name from an expression chain.
+    /// For "info.MoreInfo.Path", returns the "info" identifier.
+    /// For "o.Path", returns the "o" identifier.
+    /// </summary>
+    private static IdentifierNameSyntax? GetRootIdentifier(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            IdentifierNameSyntax id => id,
+            MemberAccessExpressionSyntax ma => GetRootIdentifier(ma.Expression),
+            ElementAccessExpressionSyntax ea => GetRootIdentifier(ea.Expression),
+            _ => null
+        };
     }
 }

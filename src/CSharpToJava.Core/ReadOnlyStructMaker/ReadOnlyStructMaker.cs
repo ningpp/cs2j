@@ -92,6 +92,9 @@ public sealed class ReadOnlyStructMaker
             if (publicFieldStructs.Count > 0)
             {
                 var assignmentRewriter = new AssignmentRewriter(publicFieldStructs, semanticModel);
+                // Build variable type map from the ORIGINAL tree (before ReadOnlyStructRewriter modified it)
+                // This allows us to verify that field assignment receivers are actually target structs
+                assignmentRewriter.BuildVariableTypeMap(root);
                 newRoot = (CompilationUnitSyntax)assignmentRewriter.Visit(newRoot)!;
             }
         }

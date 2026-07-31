@@ -1,11 +1,19 @@
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Xunit.Abstractions;
 
 namespace CSharpToJava.Tests;
 
 public class ReadOnlyStructMakerL4Tests
 {
+    private readonly ITestOutputHelper _output;
+
+    public ReadOnlyStructMakerL4Tests(ITestOutputHelper output)
+    {
+        _output = output;
+    }
+
     private static ReadOnlyStructMakerResult RunMaker(string source, ReadOnlyStructMakerOptions? options = null)
     {
         var tree = CSharpSyntaxTree.ParseText(source);
@@ -383,6 +391,50 @@ class User {
         var result = RunMaker(src);
         Assert.True(result.Changed);
         Assert.Contains("s = s.WithFactor(s.Factor * 2.0)", result.OutputCode);
+    }
+
+    // === Bug Fix: Class with same field name as struct should NOT be converted ===
+
+    [Fact]
+    public void PublicFields_ClassWithSameFieldNameAsStruct_NotConverted()
+    {
+        // MoreInfo is a class (not struct), so its field assignments should NOT be converted to With* calls
+        // Offset is a struct with Path, Query, Fragment fields that gets L4 conversion
+        // Bug: AssignmentRewriter was converting info.MoreInfo.Path = value to info.MoreInfo.WithPath(value)
+        var src = @"
+struct Offset {
+    public int Path;
+    public int Query;
+    public int Fragment;
+    public Offset(int p, int q, int f) { Path = p; Query = q; Fragment = f; }
+}
+class MoreInfo {
+    public string Path;
+    public string Query;
+    public string Fragment;
+}
+class User {
+    void M() {
+        var o = new Offset(0, 0, 0);
+        o.Path = 1;  // This SHOULD be converted to o = o.WithPath(1) because Offset is a struct
+        var info = new MoreInfo();
+        info.Path = ""test"";  // This should NOT be converted because MoreInfo is a class
+        info.Query = ""q"";
+        info.Fragment = ""f"";
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Offset struct assignment should be converted to WithPath
+        Assert.Contains("o = o.WithPath(1)", result.OutputCode);
+        // MoreInfo is a class, so its field assignments should remain as simple assignments
+        Assert.DoesNotContain("info.WithPath(", result.OutputCode);
+        Assert.DoesNotContain("info.WithQuery(", result.OutputCode);
+        Assert.DoesNotContain("info.WithFragment(", result.OutputCode);
+        // Original field assignments should be preserved for the class
+        Assert.Contains("info.Path =", result.OutputCode);
+        Assert.Contains("info.Query =", result.OutputCode);
+        Assert.Contains("info.Fragment =", result.OutputCode);
     }
 
     [Fact]
