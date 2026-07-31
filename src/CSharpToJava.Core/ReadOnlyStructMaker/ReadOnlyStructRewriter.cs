@@ -123,7 +123,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// L4: Convert public fields to get-only properties and generate WithXxx methods.
+    /// L4: Convert public fields to private fields with public getter methods and WithXxx methods.
     /// The struct itself is NOT made readonly because external code may still assign fields.
     /// Call sites are updated separately by AssignmentRewriter.
     /// </summary>
@@ -143,16 +143,25 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             if (member is FieldDeclarationSyntax field &&
                 field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
             {
-                // Convert each public field to get-only property
+                // Convert public field to private field (keep field semantics, not property)
+                // This allows WithXxx methods to directly modify the field without
+                // going through a non-existent setter
                 foreach (var variable in field.Declaration.Variables)
                 {
-                    var prop = SyntaxFactory.PropertyDeclaration(field.Declaration.Type, variable.Identifier.Text)
+                    var privateField = field
+                        .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)))
+                        .WithLeadingTrivia(SyntaxFactory.Space)
+                        .WithTrailingTrivia(SyntaxFactory.Space);
+                    newMembers = newMembers.Add(privateField);
+
+                    // Generate public getter method: T getXxx() => Xxx;
+                    var getterMethod = SyntaxFactory.MethodDeclaration(field.Declaration.Type, "get" + variable.Identifier.Text)
                         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
-                        .WithAccessorList(SyntaxFactory.AccessorList(
-                            SyntaxFactory.SingletonList(
-                                SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                                    .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))));
-                    newMembers = newMembers.Add(prop);
+                        .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(
+                            SyntaxFactory.IdentifierName(variable.Identifier.Text)))
+                        .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+                        .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, SyntaxFactory.Whitespace("        "));
+                    newMembers = newMembers.Add(getterMethod);
 
                     // Generate WithXxx method
                     withMethods.Add(GenerateWithMethod(node.Identifier.Text, variable.Identifier.Text, field.Declaration.Type));

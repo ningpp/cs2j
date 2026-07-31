@@ -189,7 +189,9 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (node.Operand is not MemberAccessExpressionSyntax memberAccess)
             return base.VisitPrefixUnaryExpression(node);
 
-        return HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PreIncrementExpression);
+        var result = HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PreIncrementExpression);
+        // HandleUnaryMutation returns null when checks fail; fall back to base visit to avoid null nodes
+        return result ?? base.VisitPrefixUnaryExpression(node);
     }
 
     public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
@@ -200,7 +202,9 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (node.Operand is not MemberAccessExpressionSyntax memberAccess)
             return base.VisitPostfixUnaryExpression(node);
 
-        return HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PostIncrementExpression);
+        var result = HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PostIncrementExpression);
+        // HandleUnaryMutation returns null when checks fail; fall back to base visit to avoid null nodes
+        return result ?? base.VisitPostfixUnaryExpression(node);
     }
 
     private SyntaxNode? HandleUnaryMutation(MemberAccessExpressionSyntax memberAccess,
