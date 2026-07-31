@@ -26,7 +26,10 @@ internal static class ConstructorGenerator
             SyntaxFactory.ExpressionStatement(
                 SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
-                    SyntaxFactory.IdentifierName(m.Name),
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.ThisExpression(),
+                        SyntaxFactory.IdentifierName(m.Name)),
                     SyntaxFactory.IdentifierName(ToCamelCase(m.Name))))).ToList();
 
         var accessMod = members.All(m => !m.IsPublic)

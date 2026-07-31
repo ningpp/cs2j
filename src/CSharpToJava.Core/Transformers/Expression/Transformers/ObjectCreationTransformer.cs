@@ -1182,6 +1182,32 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             AppendRuntimeClassArguments(createdType, context, ref ctorArgs);
         }
 
+        // For readonly structs (all instance fields are readonly/final), object initializers
+        // must be converted to constructor calls since final fields can't be assigned after construction.
+        if (createdType != null && createdType.IsValueType &&
+            createdType.GetMembers().OfType<IFieldSymbol>()
+                .Where(f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared)
+                .All(f => f.IsReadOnly))
+        {
+            // Collect initializer values in field declaration order
+            var fields = createdType.GetMembers().OfType<IFieldSymbol>()
+                .Where(f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared)
+                .ToList();
+            var initializerValues = new Dictionary<string, string>();
+            foreach (var expr in initializer.Expressions)
+            {
+                if (expr is AssignmentExpressionSyntax assignExpr && assignExpr.Left is IdentifierNameSyntax idName)
+                {
+                    var value = facade.Transform(assignExpr.Right, context);
+                    initializerValues[idName.Identifier.Text] = value;
+                }
+            }
+            // Build constructor arguments in field order
+            var ctorArgList = fields.Select(f =>
+                initializerValues.TryGetValue(f.Name, out var v) ? v : GetDefaultValueForType(f.Type)).ToList();
+            return $"new {typeName}({string.Join(", ", ctorArgList)})";
+        }
+
         // Emit the object creation and setter calls as pre-statements, then return the temp var.
         // This avoids the double-brace anonymous-subclass anti-pattern which leaks memory,
         // prevents the type from being final, and breaks equals() checks.
@@ -1233,8 +1259,22 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                         var propertyType = memberSymbol is IPropertySymbol propertySymbol ? propertySymbol.Type : null;
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
                         var propertyName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
-                        var setterName = ConvertToSetter(propertyName);
-                        pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
+
+                        // If the property has no setter (get-only), use direct field assignment.
+                        // This happens for readonly structs where fields were converted to get-only properties.
+                        bool hasSetter = memberSymbol is IPropertySymbol ps && ps.SetMethod != null;
+                        if (hasSetter)
+                        {
+                            var setterName = ConvertToSetter(propertyName);
+                            pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
+                        }
+                        else
+                        {
+                            // Get-only property: assign to the backing field directly.
+                            // The field name is the camelCase version of the property name.
+                            var fieldName = char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1);
+                            pendingAssignments.Add($"{tmpVar}.{fieldName} = {value};");
+                        }
                     }
                 }
                 else if (assignExpr.Left is MemberAccessExpressionSyntax memberAccess)
@@ -1305,6 +1345,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (propertyName.StartsWith("set", StringComparison.Ordinal)) return propertyName;
 
         return "set" + char.ToUpper(propertyName[0]) + propertyName.Substring(1);
+    }
+
+    private static string GetDefaultValueForType(ITypeSymbol type)
+    {
+        return type.SpecialType switch
+        {
+            SpecialType.System_Boolean => "false",
+            SpecialType.System_Byte or SpecialType.System_SByte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or SpecialType.System_UInt64 => "0",
+            SpecialType.System_Single => "0.0f",
+            SpecialType.System_Double => "0.0d",
+            SpecialType.System_Decimal => "io.github.ningpp.compat.Decimal.ZERO",
+            SpecialType.System_Char => "'\\0'",
+            SpecialType.System_String => "null",
+            _ when type.IsValueType => $"new {type.Name}()",
+            _ => "null"
+        };
     }
 
     private static string ConvertToGetter(string propertyName)
