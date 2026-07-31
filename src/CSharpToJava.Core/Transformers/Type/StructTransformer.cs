@@ -113,6 +113,30 @@ public class StructTransformer : ITypeTransformer
                     field.Modifiers |= JavaModifiers.Final;
                 }
             }
+
+            // For final fields assigned in constructors, remove field initializers.
+            // In Java, a final field with an initializer cannot be assigned in a constructor.
+            var fieldsAssignedInCtors = new HashSet<string>();
+            foreach (var ctor in javaClass.Constructors)
+            {
+                var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
+                foreach (var field in javaClass.Fields)
+                {
+                    if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
+                    if (body.Contains($"this.{field.Name} =") || body.Contains($"this.{field.Name}=") ||
+                        System.Text.RegularExpressions.Regex.IsMatch(body, $@"(?<!this\.)(?<!\w){System.Text.RegularExpressions.Regex.Escape(field.Name)}\s*="))
+                    {
+                        fieldsAssignedInCtors.Add(field.Name);
+                    }
+                }
+            }
+            foreach (var field in javaClass.Fields)
+            {
+                if (fieldsAssignedInCtors.Contains(field.Name) && !string.IsNullOrWhiteSpace(field.Initializer))
+                {
+                    field.Initializer = null;
+                }
+            }
         }
 
         // For non-readonly structs, still apply final to individually-declared readonly fields.
@@ -951,7 +975,7 @@ public class StructTransformer : ITypeTransformer
             ctor.Initializer = null;
 
             // Find which final fields are already assigned in the body
-            var body = ctor.Body ?? "";
+            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
             var assignedFields = new HashSet<string>();
             foreach (var field in instanceFields)
             {
