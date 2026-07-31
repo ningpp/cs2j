@@ -23,7 +23,6 @@ class Sample
     }
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        System.IO.File.WriteAllText("d:\\code\\cs2j\\gen1.txt", result.GeneratedCode);
         Assert.Contains("ExceptionCompat.getInnerException(e)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain(".getCause()", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -37,7 +36,6 @@ class Sample
     String M(System.Exception e) => e.Source;
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        System.IO.File.WriteAllText("d:\\code\\cs2j\\gen2.txt", result.GeneratedCode);
         Assert.Contains("ExceptionCompat.getSource(e)", result.GeneratedCode, StringComparison.Ordinal);
     }
 

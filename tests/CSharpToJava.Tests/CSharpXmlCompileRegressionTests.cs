@@ -505,7 +505,6 @@ public class StructMapping : INameScope
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode;
-        System.IO.File.WriteAllText(@"d:\code\cs2j\indexer-task25-output.java", code);
 
         // The Java interface requires set(Object, Object, Object); both explicit implementations must match.
         Assert.Contains("public Object set(Object name, Object ns, Object value)", code, StringComparison.Ordinal);
@@ -540,7 +539,6 @@ internal class NameTable : INameScope
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
-        System.IO.File.WriteAllText(@"d:\code\cs2j\temp-string-interface.java", code);
 
         // Interface and explicit implementation must agree on parameter types.
         Assert.Contains("public Object set(String name, String ns, Object value)", code, StringComparison.Ordinal);
@@ -606,7 +604,6 @@ namespace System.Xml.Serialization
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
-        System.IO.File.WriteAllText(@"d:\code\cs2j\project-string-interface.java", code);
 
         // All generated types in the same compilation unit must share the same signature.
         Assert.Contains("public Object set(String name, String ns, Object value)", code, StringComparison.Ordinal);
@@ -737,7 +734,6 @@ class Sample
         foreach (var (src, name) in cases)
         {
             var result = Convert(src);
-            System.IO.File.WriteAllText($@"d:\code\cs2j\temp-diag-{name}.java", result.GeneratedCode);
             Assert.True(result.Success, $"{name}: " + string.Join("\n", result.Diagnostics));
         }
     }

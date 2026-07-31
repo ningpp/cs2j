@@ -777,7 +777,6 @@ public class ContextQuery
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        System.IO.File.WriteAllText(@"d:\code\cs2j\queryprops-test-output.java", result.GeneratedCode);
         Assert.Contains("public QueryProps getProperties()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("return QueryProps.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -1387,7 +1386,6 @@ internal class Writer
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        System.IO.File.WriteAllText(@"d:\code\cs2j\enum-bitwise-cast-test-output.java", result.GeneratedCode);
 
         // Must convert the bitwise result back to the enum exactly once.
         Assert.Contains("AttributeProperties.fromValue(", result.GeneratedCode, StringComparison.Ordinal);

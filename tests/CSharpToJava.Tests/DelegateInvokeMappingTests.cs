@@ -177,7 +177,6 @@ class Test {
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        System.IO.File.WriteAllText(@"d:\code\cs2j\interface-invoke-test-output.java", result.GeneratedCode);
         // Interface methods named Invoke must keep Java camelCase name invoke, not be rewritten to apply.
         Assert.Contains(".invoke(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain(".apply(", result.GeneratedCode, StringComparison.Ordinal);

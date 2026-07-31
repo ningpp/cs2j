@@ -129,7 +129,6 @@ public class Sample
         {
             var result = Convert(code);
             Assert.True(result.Success, $"Failed for {name}: {string.Join("\n", result.Diagnostics)}");
-            System.IO.File.AppendAllText(@"d:\code\cs2j\debug_output.txt", $"=== {name} ===\n{result.GeneratedCode}\n\n");
         }
     }
 

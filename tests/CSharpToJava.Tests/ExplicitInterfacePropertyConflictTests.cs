@@ -156,7 +156,6 @@ public class Container
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode;
-        System.IO.File.WriteAllText(@"d:\code\cs2j\enum-test-output.java", code);
 
         // Explicit interface accessor keeps standard name
         Assert.Contains("public Object getCurrent()", code, StringComparison.Ordinal);
