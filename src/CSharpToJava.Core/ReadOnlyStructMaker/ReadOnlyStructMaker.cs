@@ -74,6 +74,28 @@ public sealed class ReadOnlyStructMaker
             }
         }
 
+        // Update call sites for L4 public field assignments
+        if (options.EnablePublicFieldConversion)
+        {
+            var publicFieldStructs = new Dictionary<string, HashSet<string>>();
+
+            foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.PublicFieldToProperty))
+            {
+                var structName = structSyntax.Identifier.Text;
+                var publicFields = structSyntax.Members.OfType<FieldDeclarationSyntax>()
+                    .Where(f => f.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+                    .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
+                    .ToHashSet();
+                publicFieldStructs[structName] = publicFields;
+            }
+
+            if (publicFieldStructs.Count > 0)
+            {
+                var assignmentRewriter = new AssignmentRewriter(publicFieldStructs, semanticModel);
+                newRoot = (CompilationUnitSyntax)assignmentRewriter.Visit(newRoot)!;
+            }
+        }
+
         var changed = newRoot.ToFullString() != root.ToFullString();
 
         // Format only when changes were made (to fix spacing in generated nodes)
@@ -93,6 +115,16 @@ public sealed class ReadOnlyStructMaker
                     case ConversionLevel.DirectAdd: stats.Level1_DirectAdd++; break;
                     case ConversionLevel.PropertyConvert: stats.Level2_PropertyConvert++; break;
                     case ConversionLevel.DataContainer: stats.Level3_DataContainer++; break;
+                    case ConversionLevel.PublicFieldToProperty:
+                        stats.Level4_PublicFieldToProperty++;
+                        // Count public fields converted
+                        var publicFieldCount = syntax.Members.OfType<FieldDeclarationSyntax>()
+                            .SelectMany(f => f.Declaration.Variables)
+                            .Count(v => syntax.Members.OfType<FieldDeclarationSyntax>()
+                                .Any(f => f.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)) &&
+                                          f.Declaration.Variables.Contains(v)));
+                        stats.PublicFieldsConverted += publicFieldCount;
+                        break;
                     case ConversionLevel.MethodMigrate: stats.Level5_MethodMigrate++; break;
                 }
                 diagnostics.Add(new(ReadOnlyStructSeverity.Info, result.QualifiedName ?? "?",

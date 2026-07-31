@@ -8,18 +8,20 @@ public enum StructPattern
     AlreadyReadonly,             // B
     PrivateSetter,               // C
     DataContainer,               // D
-    MutableMethods,              // E
-    MutableMethodsNonMigratable, // F
+    PublicFields,                // E
+    MutableMethods,              // F
+    MutableMethodsNonMigratable, // G
 }
 
 public enum ConversionLevel
 {
-    Skip,            // L0
-    DirectAdd,       // L1
-    PropertyConvert, // L2
-    DataContainer,   // L3
-    MethodMigrate,   // L5
-    NotConvertible,  // L7
+    Skip,                // L0
+    DirectAdd,           // L1
+    PropertyConvert,     // L2
+    DataContainer,       // L3
+    PublicFieldToProperty, // L4
+    MethodMigrate,       // L5
+    NotConvertible,      // L7
 }
 
 public enum MigrationType
@@ -48,9 +50,11 @@ public sealed class ReadOnlyStructMakerStatistics
     public int Level1_DirectAdd;
     public int Level2_PropertyConvert;
     public int Level3_DataContainer;
+    public int Level4_PublicFieldToProperty;
     public int Level5_MethodMigrate;
     public int MethodsMigrated;
     public int CallSitesUpdated;
+    public int PublicFieldsConverted;
     public int Failed_RefThisEscape;
     public int Failed_VirtualOrInterface;
     public int Failed_DelegateReferenced;

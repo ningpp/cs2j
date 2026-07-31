@@ -26,6 +26,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             ConversionLevel.DirectAdd => ApplyDirectAdd(node),
             ConversionLevel.PropertyConvert => ApplyPropertyConvert(node),
             ConversionLevel.DataContainer => ApplyDataContainer(node),
+            ConversionLevel.PublicFieldToProperty => ApplyPublicFieldToProperty(node),
             ConversionLevel.MethodMigrate => ApplyMethodMigrate(node, result),
             _ => node
         };
@@ -119,6 +120,99 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         }
 
         return ApplyDirectAdd(rewritten);
+    }
+
+    /// <summary>
+    /// L4: Convert public fields to get-only properties and generate WithXxx methods.
+    /// The struct itself is NOT made readonly because external code may still assign fields.
+    /// Call sites are updated separately by AssignmentRewriter.
+    /// </summary>
+    private StructDeclarationSyntax ApplyPublicFieldToProperty(StructDeclarationSyntax node)
+    {
+        var publicFields = node.Members.OfType<FieldDeclarationSyntax>()
+            .Where(f => f.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+            .ToList();
+
+        if (publicFields.Count == 0) return node;
+
+        var newMembers = new SyntaxList<MemberDeclarationSyntax>();
+        var withMethods = new List<MethodDeclarationSyntax>();
+
+        foreach (var member in node.Members)
+        {
+            if (member is FieldDeclarationSyntax field &&
+                field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+            {
+                // Convert each public field to get-only property
+                foreach (var variable in field.Declaration.Variables)
+                {
+                    var prop = SyntaxFactory.PropertyDeclaration(field.Declaration.Type, variable.Identifier.Text)
+                        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
+                        .WithAccessorList(SyntaxFactory.AccessorList(
+                            SyntaxFactory.SingletonList(
+                                SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                                    .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))));
+                    newMembers = newMembers.Add(prop);
+
+                    // Generate WithXxx method
+                    withMethods.Add(GenerateWithMethod(node.Identifier.Text, variable.Identifier.Text, field.Declaration.Type));
+                }
+            }
+            else
+            {
+                newMembers = newMembers.Add(member);
+            }
+        }
+
+        var result = node.WithMembers(newMembers);
+
+        // Add WithXxx methods
+        foreach (var method in withMethods)
+        {
+            result = result.AddMembers(method);
+        }
+
+        // Note: Do NOT add 'readonly' keyword here - external call sites need to be updated first
+        // by AssignmentRewriter, and the struct may still have internal mutation.
+        return result;
+    }
+
+    private static MethodDeclarationSyntax GenerateWithMethod(string structName, string fieldName, TypeSyntax fieldType)
+    {
+        var withMethodName = "With" + fieldName;
+        var paramName = ToCamelCase(fieldName);
+
+        var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier(paramName)).WithType(fieldType);
+
+        // Generate: var result = this; result.Field = value; return result;
+        var body = SyntaxFactory.Block(
+            SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator("result")
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                SyntaxFactory.ThisExpression()))))),
+            SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("result"),
+                        SyntaxFactory.IdentifierName(fieldName)),
+                    SyntaxFactory.IdentifierName(paramName))),
+            SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result")));
+
+        return SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName(structName), withMethodName)
+            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
+            .AddParameterListParameters(param)
+            .WithBody(body)
+            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, SyntaxFactory.Whitespace("        "));
+    }
+
+    private static string ToCamelCase(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        return char.ToLowerInvariant(name[0]) + name[1..];
     }
 
     private StructDeclarationSyntax ApplyMethodMigrate(StructDeclarationSyntax node, AnalyzeResult result)

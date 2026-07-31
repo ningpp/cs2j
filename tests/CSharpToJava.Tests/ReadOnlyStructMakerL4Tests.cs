@@ -1,0 +1,406 @@
+using CSharpToJava.Core.ReadOnlyStructMaker;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
+namespace CSharpToJava.Tests;
+
+public class ReadOnlyStructMakerL4Tests
+{
+    private static ReadOnlyStructMakerResult RunMaker(string source, ReadOnlyStructMakerOptions? options = null)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("test",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        return new Core.ReadOnlyStructMaker.ReadOnlyStructMaker()
+            .MakeReadOnly(tree, compilation.GetSemanticModel(tree), options);
+    }
+
+    // === L4 Basic Conversion Tests ===
+
+    [Fact]
+    public void PublicFields_SimpleAssignment_Converted()
+    {
+        // Point.cs pattern: public fields assigned externally
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+        p.Y = 10;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("public double X { get; }", result.OutputCode);
+        Assert.Contains("public double Y { get; }", result.OutputCode);
+        Assert.Contains("WithX(", result.OutputCode);
+        Assert.Contains("WithY(", result.OutputCode);
+        Assert.Contains("p = p.WithX(5)", result.OutputCode);
+        Assert.Contains("p = p.WithY(10)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_ObjectInitializer_Converted()
+    {
+        // Need external assignment to trigger L4 conversion
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point { X = 5, Y = 10 };
+        p.X = 20;  // External assignment to trigger L4
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Object initializer should be converted to constructor arguments
+        Assert.Contains("new Point(x: 5, y: 10)", result.OutputCode);
+        Assert.DoesNotContain("{ X = 5, Y = 10 }", result.OutputCode);
+        // External assignment should be converted to WithX call
+        Assert.Contains("p = p.WithX(20)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_CompoundAssignment_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(0);
+        c.Value += 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value + 5)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_SubtractAssignment_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(10);
+        c.Value -= 3;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value - 3)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_Increment_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(0);
+        c.Value++;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value + 1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_Decrement_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(10);
+        c.Value--;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value - 1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_PreIncrement_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(0);
+        ++c.Value;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value + 1)", result.OutputCode);
+    }
+
+    // === L4 Option Tests ===
+
+    [Fact]
+    public void PublicFields_DisabledByOption_NotConvertible()
+    {
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var opts = new ReadOnlyStructMakerOptions { EnablePublicFieldConversion = false };
+        var result = RunMaker(src, opts);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    // === L4 Statistics Tests ===
+
+    [Fact]
+    public void PublicFields_StatisticsTracked()
+    {
+        // Need external assignment to trigger L4 (public fields assigned externally)
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Level4_PublicFieldToProperty);
+        Assert.Equal(1, result.Statistics.StructsConverted);
+        Assert.Equal(2, result.Statistics.PublicFieldsConverted);
+    }
+
+    [Fact]
+    public void PublicFields_LevelAssignedCorrectly()
+    {
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.PublicFieldToProperty);
+    }
+
+    // === L4 Pattern Detection Tests ===
+
+    [Fact]
+    public void PublicFields_WithMutatingMethod_NotL4()
+    {
+        // If struct has mutating methods, it should go to L5/L7 instead
+        var src = @"
+struct S {
+    public int X;
+    public void Increment() { X++; }
+}";
+        var result = RunMaker(src);
+        // Should NOT be L4 because it has mutating methods
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.PublicFieldToProperty);
+    }
+
+    [Fact]
+    public void PublicFields_NoExternalAssignment_L1()
+    {
+        // If public fields are only assigned internally (in constructor),
+        // it should be L1 DirectAdd
+        var src = @"
+struct Point {
+    public readonly double X;
+    public readonly double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Should be L1 (already readonly fields)
+        Assert.Contains(result.Diagnostics, d =>
+            d.Level == ConversionLevel.DirectAdd || d.Level == ConversionLevel.PublicFieldToProperty);
+    }
+
+    // === L4 Complex Scenarios ===
+
+    [Fact]
+    public void PublicFields_MultipleAssignments_AllConverted()
+    {
+        var src = @"
+struct Rect {
+    public double X;
+    public double Y;
+    public double Width;
+    public double Height;
+}
+class User {
+    void M() {
+        var r = new Rect();
+        r.X = 0;
+        r.Y = 0;
+        r.Width = 100;
+        r.Height = 200;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("r = r.WithX(0)", result.OutputCode);
+        Assert.Contains("r = r.WithY(0)", result.OutputCode);
+        Assert.Contains("r = r.WithWidth(100)", result.OutputCode);
+        Assert.Contains("r = r.WithHeight(200)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_MixedWithPublicFields_OnlyTargetStructConverted()
+    {
+        var src = @"
+struct Target {
+    public int Value;
+}
+struct Other {
+    public int Data;
+}
+class User {
+    void M() {
+        var t = new Target();
+        t.Value = 42;
+        var o = new Other();
+        o.Data = 100;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Target should be converted (external assignment)
+        Assert.Contains("t = t.WithValue(42)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_DiagnosticMessage_ContainsFieldName()
+    {
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Level == ConversionLevel.PublicFieldToProperty &&
+            d.StructName == "Point");
+    }
+
+    [Fact]
+    public void PublicFields_WithMethod_MethodPreserved()
+    {
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public double Distance => System.Math.Sqrt(X * X + Y * Y);
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 3;
+        p.Y = 4;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Original method should be preserved
+        Assert.Contains("Distance", result.OutputCode);
+        // WithX/WithY methods should be generated
+        Assert.Contains("WithX(", result.OutputCode);
+        Assert.Contains("WithY(", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_MultiplyAssignment_Converted()
+    {
+        var src = @"
+struct Scale {
+    public double Factor;
+    public Scale(double f) { Factor = f; }
+}
+class User {
+    void M() {
+        var s = new Scale(1.0);
+        s.Factor *= 2.0;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("s = s.WithFactor(s.Factor * 2.0)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_Idempotent()
+    {
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}";
+        var first = RunMaker(src);
+        Assert.True(first.Changed);
+
+        // Second run should produce same output
+        var second = RunMaker(first.OutputCode!);
+        // After first conversion, there are no more public fields to convert
+        // so second run should be idempotent (no changes)
+        Assert.False(second.Changed);
+    }
+}

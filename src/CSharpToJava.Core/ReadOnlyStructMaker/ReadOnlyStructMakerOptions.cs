@@ -17,6 +17,9 @@ public sealed class ReadOnlyStructMakerOptions
     /// <summary>是否启用 DTO 转换（L3 转换），默认 true</summary>
     public bool EnableDtoConversion { get; init; } = true;
 
+    /// <summary>是否启用公共字段转属性转换（L4 转换），默认 true</summary>
+    public bool EnablePublicFieldConversion { get; init; } = true;
+
     /// <summary>方法迁移时是否更新调用点，默认 true</summary>
     public bool UpdateCallSites { get; init; } = true;
 

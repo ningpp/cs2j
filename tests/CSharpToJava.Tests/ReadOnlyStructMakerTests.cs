@@ -306,10 +306,10 @@ public partial class ReadOnlyStructMakerTests
     }
 
     [Fact]
-    public void PublicFields_NoMethods_ExternalAssignment_NotConvertible()
+    public void PublicFields_NoMethods_ExternalAssignment_ConvertedToL4()
     {
         // Reproduces: struct Offset { public ushort End; ... } with external assignments
-        // like info.Offset.End = value; — should NOT be made readonly
+        // like info.Offset.End = value; — NOW converted to L4 (public fields → properties + WithXxx)
         var src = """
         class Container {
             public Offset Data;
@@ -321,8 +321,11 @@ public partial class ReadOnlyStructMakerTests
         }
         """;
         var result = RunMaker(src);
-        Assert.False(result.Changed);
-        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.PublicFieldToProperty);
+        // External assignments should be converted to WithXxx calls
+        Assert.Contains("Data = Data.WithEnd(42)", result.OutputCode);
+        Assert.Contains("Data = Data.WithScheme(1)", result.OutputCode);
     }
 
     // === L7 Not Convertible Tests ===

@@ -1887,6 +1887,7 @@ public class Program
                 Strict = opts.Strict,
                 EnableMethodMigration = !opts.NoMethodMigration,
                 EnableDtoConversion = !opts.NoDtoConversion,
+                EnablePublicFieldConversion = !opts.NoPublicFieldConversion,
                 UpdateCallSites = !opts.NoUpdateCallSites,
             };
             var result = maker.MakeReadOnly(tree, compilation.GetSemanticModel(tree), makerOpts);
@@ -1940,6 +1941,8 @@ class MakeReadOnlyOptions
     public bool NoMethodMigration { get; set; }
     [Option("no-dto-conversion", Default = false, HelpText = "Disable DTO conversion (L3)")]
     public bool NoDtoConversion { get; set; }
+    [Option("no-public-field-conversion", Default = false, HelpText = "Disable public field to property conversion (L4)")]
+    public bool NoPublicFieldConversion { get; set; }
     [Option("no-update-call-sites", Default = false, HelpText = "Don't update call sites for migrated methods")]
     public bool NoUpdateCallSites { get; set; }
 }
