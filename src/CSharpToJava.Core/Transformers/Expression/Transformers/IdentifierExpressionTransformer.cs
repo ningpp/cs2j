@@ -78,12 +78,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (propSymbol.ExplicitInterfaceImplementations.Length == 0
             && propSymbol.ContainingType is INamedTypeSymbol containingType)
         {
-            // Special case: IEnumerator<T>.Current conflict is resolved by
-            // ResolveExplicitInterfacePropertyConflicts removing the Object-returning
-            // explicit accessor, so the class accessor keeps the standard name.
-            if (propSymbol.Name == "Current" && IsEnumeratorLikeType(containingType))
-                return baseName;
-
             foreach (var member in containingType.GetMembers())
             {
                 if (member is IPropertySymbol otherProp
@@ -95,6 +89,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     return baseName + "$Class";
                 }
             }
+
+            // Special case: IEnumerator<T>.Current conflict is resolved by
+            // ResolveExplicitInterfacePropertyConflicts removing the Object-returning
+            // explicit accessor, so the class accessor keeps the standard name.
+            // Note: This check must come AFTER the conflict detection above because
+            // when the explicit accessor is NOT removed (e.g. for IEnumerator without
+            // generic T), the class accessor still needs the $Class suffix.
+            if (propSymbol.Name == "Current" && IsEnumeratorLikeType(containingType))
+                return baseName;
         }
 
         return baseName;
