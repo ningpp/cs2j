@@ -33,6 +33,12 @@ public class ConversionOptions
     public bool UseRecords { get; set; } = true;
 
     /// <summary>
+    /// 是否使用 Java Value Class (JEP 401) 转换 C# readonly struct
+    /// 需要 Java 27+ 并启用 --enable-preview
+    /// </summary>
+    public bool UseValueClass { get; set; } = false;
+
+    /// <summary>
     /// 是否使用 Optional 替代 nullable
     /// </summary>
     public bool UseOptionalForNullable { get; set; } = false;
@@ -97,4 +103,6 @@ public class ConversionOptions
 public enum JavaVersion
 {
     Java25 = 25,
+    Java27 = 27,
+    Java28 = 28,
 }

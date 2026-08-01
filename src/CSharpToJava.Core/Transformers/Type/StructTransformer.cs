@@ -30,7 +30,9 @@ public class StructTransformer : ITypeTransformer
         {
             Name = structDecl.Identifier.Text,
             Modifiers = ConvertModifiers(structDecl.Modifiers),
-            IsConvertedFromStruct = true
+            IsConvertedFromStruct = true,
+            // Mark as value class if UseValueClass option is enabled and struct is readonly
+            IsValueClass = context.Options.UseValueClass && isReadOnly
         };
         var structSymbol = context.GetDeclaredSymbol(structDecl);
         var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();

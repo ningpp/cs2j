@@ -35,7 +35,7 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
 
         var deps = BuildDependencySection(module.Dependencies);
         var testDeps = includeTests ? JUnitDependencies() : string.Empty;
-        var surefirePlugin = includeTests ? SurefirePlugin() : string.Empty;
+        var surefirePlugin = includeTests ? SurefirePlugin(javaVer) : string.Empty;
 
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <project xmlns=""http://maven.apache.org/POM/4.0.0""
@@ -108,7 +108,7 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
 
         var deps = BuildDependencySection(module.Dependencies);
         var testDeps = module.HasTestSources ? JUnitDependencies() : string.Empty;
-        var surefirePlugin = module.HasTestSources ? SurefirePlugin() : string.Empty;
+        var surefirePlugin = module.HasTestSources ? SurefirePlugin(javaVer) : string.Empty;
         var testJarPlugin = module.ProduceTestJar ? TestJarPlugin() : string.Empty;
 
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
@@ -194,17 +194,21 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
             <scope>test</scope>
         </dependency>";
 
-    private static string SurefirePlugin() => @"
+    private static string SurefirePlugin(int javaVer)
+    {
+        var previewArg = javaVer >= 27 ? " --enable-preview" : "";
+        return $@"
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.3.1</version>
                 <configuration>
-                    <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                    <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true{previewArg}</argLine>
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
                     <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
                 </configuration>
             </plugin>";
+    }
 
     private static string TestJarPlugin() => @"
             <plugin>
@@ -220,7 +224,11 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                 </executions>
             </plugin>";
 
-    private static string CompilerPlugin(int javaVer) => $@"<plugin>
+    private static string CompilerPlugin(int javaVer)
+    {
+        var previewArgs = javaVer >= 27 ? @"
+                        <arg>--enable-preview</arg>" : "";
+        return $@"<plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
@@ -230,10 +238,11 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                     <encoding>UTF-8</encoding>
                     <compilerArgs>
                         <arg>-Xmaxerrs</arg>
-                        <arg>1000000</arg>
+                        <arg>1000000</arg>{previewArgs}
                     </compilerArgs>
                 </configuration>
             </plugin>";
+    }
 
     // ── 工具方法 ────────────────────────────────────────────
 

@@ -54,6 +54,7 @@ public class Program
                 EnableLinqRewrite = opts.EnableLinqRewrite,
                 PreferStreamApi = opts.PreferStreamApi,
                 EnableParallelProjectPasses = opts.EnableParallelProjectPasses,
+                UseValueClass = opts.UseValueClass,
             };
 
             var pipeline = new ConversionPipeline();
@@ -230,6 +231,7 @@ public class Program
                 UseOptionalForNullable = opts.UseOptionalForNullable,
                 EnableLinqRewrite = opts.EnableLinqRewrite,
                 PreferStreamApi = opts.PreferStreamApi,
+                UseValueClass = opts.UseValueClass,
             };
 
             // Try MSBuild-based loading first for full semantic resolution.
@@ -1987,6 +1989,9 @@ class ConvertOptions
     [Option("no-parallel-project-passes", Default = false, HelpText = "Disable parallel execution for safe project-level tree-local passes")]
     public bool NoParallelProjectPasses { get; set; }
 
+    [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 27+)")]
+    public bool UseValueClass { get; set; }
+
     // 便捷属性
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;
@@ -2059,6 +2064,9 @@ class ConvertProjectOptions
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }
+
+    [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 27+)")]
+    public bool UseValueClass { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

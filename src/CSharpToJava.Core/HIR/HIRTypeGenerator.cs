@@ -102,6 +102,11 @@ public class HIRTypeGenerator
     {
         var cls = GenerateClass(node, ctx);
         cls!.IsConvertedFromStruct = true;
+        // Mark as value class if UseValueClass option is enabled and struct is readonly
+        if (ctx.Options.UseValueClass && node.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
+        {
+            cls.IsValueClass = true;
+        }
         return cls;
     }
 

@@ -31,6 +31,7 @@ public class IrClassDeclaration : IrTypeDeclaration
     public List<IrConstructorDeclaration> Constructors { get; } = new();
     public bool IsRecord { get; set; }
     public bool IsConvertedFromStruct { get; set; }
+    public bool IsValueClass { get; set; }
     public List<IrRecordComponent> RecordComponents { get; } = new();
 }
 

@@ -34,6 +34,8 @@ public class TypeDeclarationWriter
         CommentWriter.WriteLeading(w, cls.LeadingComment);
         foreach (var ann in cls.Annotations) w.WriteLine("@" + ann);
         WriteModifiers(cls.Modifiers, w);
+        if (cls.IsValueClass)
+            w.Write("value ");
         w.Write(cls.IsRecord ? "record " : "class ");
         w.Write(cls.Name);
         if (cls.IsRecord && cls.RecordComponents.Count > 0)

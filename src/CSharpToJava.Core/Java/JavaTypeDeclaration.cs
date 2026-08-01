@@ -95,6 +95,11 @@ public class JavaClassDeclaration : JavaTypeDeclaration
     /// </summary>
     public bool IsConvertedFromStruct { get; set; }
     /// <summary>
+    /// True when this class should be emitted as a Java value class (JEP 401).
+    /// Set when converting a C# readonly struct with --use-value-class option.
+    /// </summary>
+    public bool IsValueClass { get; set; }
+    /// <summary>
     /// Positional component list for Java records. Populated by RecordTransformer when IsRecord is true.
     /// </summary>
     public List<JavaRecordComponent> RecordComponents { get; } = new();
@@ -110,6 +115,10 @@ public class JavaClassDeclaration : JavaTypeDeclaration
         WriteAnnotations(sb);
         WriteModifiers(sb);
 
+        if (IsValueClass)
+        {
+            sb.Append("value ");
+        }
         if (IsRecord)
         {
             sb.Append("record ");
