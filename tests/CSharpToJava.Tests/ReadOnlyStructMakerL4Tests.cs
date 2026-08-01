@@ -396,6 +396,31 @@ class User {
         Assert.Contains("s = s.WithFactor(s.getFactor() * 2.0)", result.OutputCode);
     }
 
+    [Fact]
+    public void PublicFields_DivideAssignment_BinaryRightSide_Parenthesized()
+    {
+        // Reproduces the Disc.centre bug: c.X /= 2.0 * (mb - ma)
+        // must become c = c.WithX(c.getX() / (2.0 * (mb - ma)))  -- NOT c.getX() / 2.0 * (mb - ma)
+        var src = @"
+struct Point {
+    public double X;
+    public Point(double x) { X = x; }
+}
+class User {
+    void M(double ma, double mb) {
+        var c = new Point(0);
+        c.X /= 2.0 * (mb - ma);
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        var output = result.OutputCode!;
+        // The right-hand side binary expression must be parenthesized
+        Assert.Contains("c.getX() / (2.0 * (mb - ma))", output);
+        // Must NOT produce the unparenthesized form that changes semantics
+        Assert.DoesNotContain("c.getX() / 2.0 * (mb - ma)", output);
+    }
+
     // === Bug Fix: Class with same field name as struct should NOT be converted ===
 
     [Fact]
@@ -527,5 +552,62 @@ class User {
         Assert.Contains("p.getY()", output);
         // Should NOT have direct field reads (p.X in a non-assignment context)
         Assert.DoesNotContain("return p.X", output);
+    }
+
+    [Fact]
+    public void PublicFields_WithXxxBody_NotRewrittenByAssignmentRewriter()
+    {
+        // Reproduces the Point.withX StackOverflow bug:
+        // After L4 conversion, the WithXxx method body contains `result.X = x`.
+        // At project level, UpdateCrossFileFieldReads re-applies AssignmentRewriter
+        // to the OUTPUT files (which contain the WithXxx methods). The semantic model
+        // can now resolve `result`'s type as the struct type, so AssignmentRewriter
+        // incorrectly rewrites `result.X = x` to `result = result.WithX(x)`,
+        // creating infinite recursion.
+        //
+        // This test simulates that project-level flow.
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point(1, 2);
+        p.X = 5;
+    }
+}";
+        // Step 1: Run MakeReadOnly (single-file) to produce WithXxx methods
+        var firstResult = RunMaker(src);
+        Assert.True(firstResult.Changed);
+        var output = firstResult.OutputCode!;
+
+        // Sanity: WithX body should have `result.X = x` at this stage
+        Assert.Contains("result.X = x", output);
+
+        // Step 2: Simulate project-level UpdateCrossFileFieldReads:
+        // parse the output, build a new compilation, and re-apply AssignmentRewriter
+        var outputTree = CSharpSyntaxTree.ParseText(output);
+        var outputCompilation = CSharpCompilation.Create("field-read-update",
+            new[] { outputTree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var outputModel = outputCompilation.GetSemanticModel(outputTree);
+
+        var publicFieldStructs = new Dictionary<string, HashSet<string>>
+        {
+            ["Point"] = new HashSet<string> { "X", "Y" }
+        };
+        var rewriter = new AssignmentRewriter(publicFieldStructs, outputModel);
+        rewriter.BuildVariableTypeMap(outputTree.GetRoot());
+        var newRoot = rewriter.Visit(outputTree.GetRoot());
+        var finalOutput = newRoot!.ToFullString();
+
+        // The WithXxx body must NOT be rewritten to self-recursion
+        Assert.DoesNotContain("result = result.WithX(", finalOutput);
+        Assert.DoesNotContain("result=result.WithX(", finalOutput);
+        // The original body `result.X = x` must be preserved
+        Assert.Contains("result.X = x", finalOutput);
     }
 }

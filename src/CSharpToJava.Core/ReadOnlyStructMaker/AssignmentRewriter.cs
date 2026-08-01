@@ -110,6 +110,13 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (!_targetFieldNames.Contains(fieldNameText))
             return base.VisitAssignmentExpression(node);
 
+        // Don't convert if this is inside the struct itself (struct can access its own
+        // private fields, and rewriting WithXxx method bodies creates self-recursion).
+        // This mirrors the check in VisitMemberAccessExpression for reads.
+        var containingStruct = node.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
+        if (containingStruct != null && _structFields.ContainsKey(containingStruct.Identifier.Text))
+            return base.VisitAssignmentExpression(node);
+
         // Syntactic check: receiver must be a simple identifier or element access
         // (to ensure we're modifying a variable, not a property return value)
         if (!IsModifiableLValue(memberAccess.Expression))
@@ -137,43 +144,43 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 break;
             case SyntaxKind.AddAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.AddExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.AddExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.SubtractAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.SubtractExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.SubtractExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.MultiplyAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.MultiplyExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.MultiplyExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.DivideAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.DivideExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.DivideExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.ModuloAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.ModuloExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.ModuloExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.AndAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.BitwiseAndExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.BitwiseAndExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.ExclusiveOrAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.ExclusiveOrExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.ExclusiveOrExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.OrAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.BitwiseOrExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.BitwiseOrExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.LeftShiftAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.LeftShiftExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.LeftShiftExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             case SyntaxKind.RightShiftAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.RightShiftExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
+                    SyntaxKind.RightShiftExpression, getterAccess, ParenthesizeIfBinary((ExpressionSyntax)Visit(node.Right)!));
                 break;
             default:
                 return base.VisitAssignmentExpression(node);
@@ -348,6 +355,13 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (!_targetFieldNames.Contains(fieldNameText))
             return null;
 
+        // Don't convert if this is inside the struct itself (struct can access its own
+        // private fields, and rewriting WithXxx method bodies creates self-recursion).
+        // This mirrors the check in VisitMemberAccessExpression for reads.
+        var containingStruct = originalNode.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
+        if (containingStruct != null && _structFields.ContainsKey(containingStruct.Identifier.Text))
+            return null;
+
         // Syntactic check: receiver must be a simple identifier or element access
         if (!IsModifiableLValue(memberAccess.Expression))
             return null;
@@ -435,6 +449,19 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             MemberAccessExpressionSyntax ma => IsModifiableLValue(ma.Expression),
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Wraps a BinaryExpression in parentheses to preserve C# compound-assignment semantics.
+    /// For example, `c.X /= 2.0 * (mb - ma)` means `c.X = c.X / (2.0 * (mb - ma))`.
+    /// Without parenthesization, the generated `c.getX() / 2.0 * (mb - ma)` would parse
+    /// as `(c.getX() / 2.0) * (mb - ma)` — changing the semantics.
+    /// </summary>
+    private static ExpressionSyntax ParenthesizeIfBinary(ExpressionSyntax expr)
+    {
+        if (expr is BinaryExpressionSyntax)
+            return SyntaxFactory.ParenthesizedExpression(expr);
+        return expr;
     }
 
     private static string GetTypeName(TypeSyntax type)
