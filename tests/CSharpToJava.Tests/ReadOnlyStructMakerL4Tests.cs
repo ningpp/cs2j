@@ -95,7 +95,7 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.Value + 5)", result.OutputCode);
+        Assert.Contains("c = c.WithValue(c.getValue() + 5)", result.OutputCode);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.Value - 3)", result.OutputCode);
+        Assert.Contains("c = c.WithValue(c.getValue() - 3)", result.OutputCode);
     }
 
     [Fact]
@@ -133,7 +133,7 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.Value + 1)", result.OutputCode);
+        Assert.Contains("c = c.WithValue(c.getValue() + 1)", result.OutputCode);
     }
 
     [Fact]
@@ -152,7 +152,7 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.Value - 1)", result.OutputCode);
+        Assert.Contains("c = c.WithValue(c.getValue() - 1)", result.OutputCode);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.Value + 1)", result.OutputCode);
+        Assert.Contains("c = c.WithValue(c.getValue() + 1)", result.OutputCode);
     }
 
     // === L4 Option Tests ===
@@ -390,7 +390,7 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("s = s.WithFactor(s.Factor * 2.0)", result.OutputCode);
+        Assert.Contains("s = s.WithFactor(s.getFactor() * 2.0)", result.OutputCode);
     }
 
     // === Bug Fix: Class with same field name as struct should NOT be converted ===
@@ -496,5 +496,33 @@ class User {
         var tree = CSharpSyntaxTree.ParseText(output);
         var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void PublicFields_ReadAccess_ConvertedToGetter()
+    {
+        // Read accesses to converted fields must use getter methods
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    double M() {
+        var p = new Point(1, 2);
+        p.X = 5;
+        return p.X + p.Y;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        var output = result.OutputCode!;
+
+        // Read accesses should use getter methods
+        Assert.Contains("p.getX()", output);
+        Assert.Contains("p.getY()", output);
+        // Should NOT have direct field reads (p.X in a non-assignment context)
+        Assert.DoesNotContain("return p.X", output);
     }
 }

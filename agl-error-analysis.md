@@ -1,4 +1,4 @@
-# AGL Error Analysis
+﻿# AGL Error Analysis
 
 ## Iteration 1 — EventArgs/EventHandler 找不到符号
 
@@ -59,3 +59,19 @@
 - **根因分类**: Transformer (ReadOnlyStructMaker)
 - **涉及组件**: src/CSharpToJava.Core/ReadOnlyStructMaker/ReadOnlyStructRewriter.cs (ApplyPublicFieldToProperty)
 - **分析**: ApplyPublicFieldToProperty 将 public 字段转为 private 字段时，调用 .WithLeadingTrivia(Space) 和 .WithTrailingTrivia(Space) 剥离了所有 trivia（包括 #if/#else/#endif 预处理指令）。Point.cs 中 X/Y 字段位于 #if SHARPKIT/#else/#endif 块内，转换后 #endif 悬空，导致 Roslyn 解析失败，Point 类型未被转换输出。
+
+✅ Fixed
+
+
+## Iteration 8 — private access (X/Y in Point)
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/ApproximateComparer.java
+- **行号**: 212
+- **错误信息**: X 在 Microsoft.Msagl.Core.Geometry.Point 中是 private 访问控制
+- **代码片段**:
+  ```java
+  // point.X accessed directly but X is private
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\Geometry\ApproximateComparer.cs
+- **根因分类**: Transformer (ReadOnlyStructMaker)
+- **涉及组件**: src/CSharpToJava.Core/ReadOnlyStructMaker/AssignmentRewriter.cs
+- **分析**: L4 转换将 Point 的公共字段转为 private + getX()/getY() 方法，AssignmentRewriter 只重写了写入访问（obj.X = v → obj = obj.WithX(v)），未重写读取访问（obj.X → obj.getX()），导致其他文件中仍然直接访问 private 字段。

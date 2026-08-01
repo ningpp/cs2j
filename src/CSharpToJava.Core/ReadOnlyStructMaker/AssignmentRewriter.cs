@@ -114,52 +114,62 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
 
+        // For compound assignments, the read of obj.Field should use the getter method
+        var getterName = "get" + fieldNameText;
+        var getterAccess = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                receiver.WithoutTrivia(),
+                SyntaxFactory.IdentifierName(getterName)),
+            SyntaxFactory.ArgumentList());
+
         // Handle different assignment types
         ExpressionSyntax newValue;
         switch (node.Kind())
         {
             case SyntaxKind.SimpleAssignmentExpression:
-                newValue = node.Right;
+                // Visit the right side to convert any field reads within it
+                newValue = (ExpressionSyntax)Visit(node.Right)!;
                 break;
             case SyntaxKind.AddAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.AddExpression, memberAccess, node.Right);
+                    SyntaxKind.AddExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.SubtractAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.SubtractExpression, memberAccess, node.Right);
+                    SyntaxKind.SubtractExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.MultiplyAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.MultiplyExpression, memberAccess, node.Right);
+                    SyntaxKind.MultiplyExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.DivideAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.DivideExpression, memberAccess, node.Right);
+                    SyntaxKind.DivideExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.ModuloAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.ModuloExpression, memberAccess, node.Right);
+                    SyntaxKind.ModuloExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.AndAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.BitwiseAndExpression, memberAccess, node.Right);
+                    SyntaxKind.BitwiseAndExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.ExclusiveOrAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.ExclusiveOrExpression, memberAccess, node.Right);
+                    SyntaxKind.ExclusiveOrExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.OrAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.BitwiseOrExpression, memberAccess, node.Right);
+                    SyntaxKind.BitwiseOrExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.LeftShiftAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.LeftShiftExpression, memberAccess, node.Right);
+                    SyntaxKind.LeftShiftExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             case SyntaxKind.RightShiftAssignmentExpression:
                 newValue = SyntaxFactory.BinaryExpression(
-                    SyntaxKind.RightShiftExpression, memberAccess, node.Right);
+                    SyntaxKind.RightShiftExpression, getterAccess, (ExpressionSyntax)Visit(node.Right)!);
                 break;
             default:
                 return base.VisitAssignmentExpression(node);
@@ -207,6 +217,45 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         return result ?? base.VisitPostfixUnaryExpression(node);
     }
 
+    /// <summary>
+    /// Converts read accesses to converted struct fields: obj.Field → obj.getField().
+    /// Write accesses are handled by VisitAssignmentExpression/VisitPrefixUnaryExpression/VisitPostfixUnaryExpression
+    /// which return without calling base, so their children are not visited here.
+    /// </summary>
+    public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
+    {
+        // Only handle simple member access (obj.Field)
+        if (node.Name is not IdentifierNameSyntax fieldName)
+            return base.VisitMemberAccessExpression(node);
+
+        var fieldNameText = fieldName.Identifier.Text;
+
+        // Quick check: field name must be in our target fields
+        if (!_targetFieldNames.Contains(fieldNameText))
+            return base.VisitMemberAccessExpression(node);
+
+        // Semantic check: verify the receiver's type is actually one of our target structs
+        if (!IsTargetStructType(node.Expression))
+            return base.VisitMemberAccessExpression(node);
+
+        // Don't convert if this is inside the struct itself (struct can access its own private fields)
+        var containingStruct = node.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
+        if (containingStruct != null && _structFields.ContainsKey(containingStruct.Identifier.Text))
+            return base.VisitMemberAccessExpression(node);
+
+        // Convert obj.Field → obj.getField()
+        var getterName = "get" + fieldNameText;
+        var getterCall = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                (ExpressionSyntax)Visit(node.Expression)!,
+                SyntaxFactory.IdentifierName(getterName)),
+            SyntaxFactory.ArgumentList())
+            .WithTriviaFrom(node);
+
+        return getterCall;
+    }
+
     private SyntaxNode? HandleUnaryMutation(MemberAccessExpressionSyntax memberAccess,
         ExpressionSyntax originalNode, bool isIncrement)
     {
@@ -230,14 +279,22 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
 
-        // obj.Field++ → obj = obj.WithField(obj.Field + 1)
+        // obj.Field++ → obj = obj.WithField(obj.getField() + 1)
+        var getterName = "get" + fieldNameText;
+        var getterAccess = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                receiver.WithoutTrivia(),
+                SyntaxFactory.IdentifierName(getterName)),
+            SyntaxFactory.ArgumentList());
+
         var increment = SyntaxFactory.LiteralExpression(
             SyntaxKind.NumericLiteralExpression,
             SyntaxFactory.Literal(1));
 
         var newValue = SyntaxFactory.BinaryExpression(
             isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
-            memberAccess,
+            getterAccess,
             increment);
 
         var withCall = SyntaxFactory.InvocationExpression(
@@ -328,20 +385,18 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     /// </summary>
     private bool IsTargetStructType(ExpressionSyntax expression)
     {
-        // Get the root identifier name from the expression
-        var identifierName = GetRootIdentifier(expression);
-        if (identifierName == null)
-            return false;
-
-        var varName = identifierName.Identifier.Text;
-
-        // First check the variable type map (built from the original syntax tree)
-        if (_variableTypes.TryGetValue(varName, out var typeName))
+        // For simple identifiers, use the variable type map (fast path)
+        if (expression is IdentifierNameSyntax simpleId)
         {
-            return _structFields.ContainsKey(typeName);
+            var varName = simpleId.Identifier.Text;
+            if (_variableTypes.TryGetValue(varName, out var typeName))
+            {
+                return _structFields.ContainsKey(typeName);
+            }
         }
 
-        // Fall back to semantic model if available
+        // For complex expressions (member access chains like p1.aPlusCorner),
+        // use the semantic model to get the actual type of the receiver
         if (_semanticModel != null)
         {
             try
@@ -357,6 +412,17 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             catch (ArgumentException)
             {
                 // Node not in syntax tree - fall through to default
+            }
+        }
+
+        // Fallback: try root identifier for cases where semantic model is unavailable
+        var identifierName = GetRootIdentifier(expression);
+        if (identifierName != null)
+        {
+            var rootVarName = identifierName.Identifier.Text;
+            if (_variableTypes.TryGetValue(rootVarName, out var rootTypeName))
+            {
+                return _structFields.ContainsKey(rootTypeName);
             }
         }
 

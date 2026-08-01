@@ -150,6 +150,12 @@ internal static class ProjectReadOnlyStructPreprocessor
             await UpdateCrossFileCallSites(intermediateRoot, sourceRoot, sourceFiles, globalMigratedMethods, request);
         }
 
+        // Third pass: update cross-file read accesses for L4 public field conversions
+        if (request.MakerOptions.EnablePublicFieldConversion)
+        {
+            await UpdateCrossFileFieldReads(intermediateRoot, sourceRoot, sourceFiles, request);
+        }
+
         // Restore NuGet packages in the intermediate directory
         var restoreTarget = ResolveRestoreTarget(intermediateRoot, layout);
         if (restoreTarget != null)
@@ -515,6 +521,89 @@ internal static class ProjectReadOnlyStructPreprocessor
             var model = outputCompilation.GetSemanticModel(tree);
             var updater = new CallSiteUpdater(migratedMethodToStruct, model);
             var newRoot = updater.Visit(root);
+            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            {
+                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Cross-file pass: updates read accesses (obj.Field → obj.getField()) for L4-converted
+    /// struct fields in ALL files, not just the file containing the struct definition.
+    /// </summary>
+    private static async Task UpdateCrossFileFieldReads(
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles,
+        ProjectReadOnlyPreprocessRequest request)
+    {
+        // Parse all output .cs files from the intermediate directory
+        var outputCsFiles = new List<string>();
+        foreach (var sourceFile in sourceFiles)
+        {
+            if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) continue;
+            var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
+            var outputFile = Path.Combine(intermediateRoot, relativePath);
+            if (File.Exists(outputFile))
+                outputCsFiles.Add(outputFile);
+        }
+
+        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in outputCsFiles)
+        {
+            var code = await File.ReadAllTextAsync(file);
+            var tree = CSharpSyntaxTree.ParseText(code, path: file);
+            outputTrees[file] = tree;
+        }
+
+        // Find L4-converted structs: those with private fields + getXxx() getter methods
+        var publicFieldStructs = new Dictionary<string, HashSet<string>>();
+        foreach (var (_, tree) in outputTrees)
+        {
+            var root = tree.GetRoot();
+            foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
+            {
+                var structName = structDecl.Identifier.Text;
+                var privateFields = structDecl.Members
+                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax>()
+                    .Where(f => f.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.PrivateKeyword)))
+                    .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
+                    .ToHashSet();
+
+                if (privateFields.Count == 0) continue;
+
+                // Verify getter methods exist for these fields
+                var getterNames = structDecl.Members
+                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>()
+                    .Where(m => m.Identifier.Text.StartsWith("get") && m.ParameterList.Parameters.Count == 0)
+                    .Select(m => m.Identifier.Text[3..]) // strip "get" prefix
+                    .ToHashSet();
+
+                var convertedFields = privateFields.Where(f => getterNames.Contains(f)).ToHashSet();
+                if (convertedFields.Count > 0)
+                {
+                    publicFieldStructs[structName] = convertedFields;
+                }
+            }
+        }
+
+        if (publicFieldStructs.Count == 0) return;
+
+        // Create compilation for semantic analysis
+        var references = GetBasicReferences();
+        var outputCompilation = CSharpCompilation.Create(
+            "field-read-update",
+            outputTrees.Values,
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+        // Apply AssignmentRewriter to each file (handles both read and write accesses)
+        foreach (var (file, tree) in outputTrees)
+        {
+            var root = tree.GetRoot();
+            var model = outputCompilation.GetSemanticModel(tree);
+            var rewriter = new AssignmentRewriter(publicFieldStructs, model);
+            rewriter.BuildVariableTypeMap(root);
+            var newRoot = rewriter.Visit(root);
             if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
             {
                 await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
