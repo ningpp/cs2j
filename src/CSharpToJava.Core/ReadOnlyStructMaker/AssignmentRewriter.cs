@@ -236,7 +236,18 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 
         // Semantic check: verify the receiver's type is actually one of our target structs
         if (!IsTargetStructType(node.Expression))
-            return base.VisitMemberAccessExpression(node);
+        {
+            // Fallback: for simple identifiers, check enclosing method parameters syntactically
+            if (node.Expression is IdentifierNameSyntax receiverId
+                && IsParameterOfTargetStructType(receiverId.Identifier.Text, node))
+            {
+                // Proceed with conversion
+            }
+            else
+            {
+                return base.VisitMemberAccessExpression(node);
+            }
+        }
 
         // Don't convert if this is inside the struct itself (struct can access its own private fields)
         var containingStruct = node.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
@@ -254,6 +265,43 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             .WithTriviaFrom(node);
 
         return getterCall;
+    }
+
+    /// <summary>
+    /// Syntactic fallback: checks if a variable name is a parameter of a target struct type
+    /// by looking at the enclosing method's parameter list.
+    /// </summary>
+    private bool IsParameterOfTargetStructType(string varName, SyntaxNode node)
+    {
+        var enclosingMethod = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        if (enclosingMethod == null) return false;
+
+        foreach (var param in enclosingMethod.ParameterList.Parameters)
+        {
+            if (param.Identifier.Text == varName && param.Type != null)
+            {
+                var typeName = GetTypeName(param.Type);
+                if (!string.IsNullOrEmpty(typeName) && _structFields.ContainsKey(typeName))
+                    return true;
+            }
+        }
+
+        // Also check enclosing constructor
+        var enclosingCtor = node.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+        if (enclosingCtor != null)
+        {
+            foreach (var param in enclosingCtor.ParameterList.Parameters)
+            {
+                if (param.Identifier.Text == varName && param.Type != null)
+                {
+                    var typeName = GetTypeName(param.Type);
+                    if (!string.IsNullOrEmpty(typeName) && _structFields.ContainsKey(typeName))
+                        return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private SyntaxNode? HandleUnaryMutation(MemberAccessExpressionSyntax memberAccess,
