@@ -25,3 +25,5 @@ replay_pid*
 
 target/
 .idea/
+.cs2j-no-goto-src/
+.cs2j-readonly-src/
