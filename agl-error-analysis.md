@@ -1,4 +1,4 @@
-﻿# AGL Error Analysis
+# AGL Error Analysis
 
 ## Iteration 1 — EventArgs/EventHandler 找不到符号
 
@@ -88,3 +88,29 @@
 - **根因分类**: Transformer (property assignment)
 - **涉及组件**: C# → Java converter property assignment handling
 - **分析**: ReadOnlyStructMaker L5 移除了 Weight 属性的 setter（使 struct readonly），但 C# 源码中仍有 this.Weight = weight 赋值。C# → Java 转换器将属性赋值转为 setWeight() 调用，但 Java 类中只有 getWeight() 和 withWeight()，无 setWeight()。
+
+## Iteration 10 — incompatible types (Variable 无法转换为 double)
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/ProjectionSolver/Constraint.java
+- **行号**: 202, 204
+- **错误信息**: 不兼容的类型: Microsoft.Msagl.Core.ProjectionSolver.Variable无法转换为double (`Double.compare(this.getLeft(), other.getLeft())` 中 getLeft() 返回 Variable)
+- **代码片段**:
+  ```java
+  public int compareTo(Constraint other) {
+      ValidateArg.isNotNull(other, "other");
+      int cmp = Double.compare(this.getLeft(), other.getLeft());   // ERROR: getLeft() is Variable
+      if (0 == cmp) {
+      cmp = Double.compare(this.getRight(), other.getRight());     // ERROR: getRight() is Variable
+      }
+      if (0 == cmp) {
+      cmp = Double.compare(this.getGap(), other.getGap());         // OK: getGap() is double
+      }
+      return cmp;
+  }
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\ProjectionSolver\Constraint.cs (CompareTo, line 169-182)
+- **根因分类**: Transformer (InvocationExpressionTransformer primitive-detection fallback)
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs — `TryDetectPrimitiveByFieldDeclaration` (line 7345-7368)
+- **分析**: C# 源码 `this.Left.CompareTo(other.Left)` 中 `Left` 字段类型为 `Variable`（非原始类型）。转换器的 `.CompareTo` 处理有多级 fallback 把原始类型接收者转为静态包装器调用（如 `Double.compare`）。当语义模型无法解析接收者类型时，最后的语法 fallback `TryDetectPrimitiveByFieldDeclaration` 遍历**整个编译的所有语法树**，仅按字段名 "Left" 查找原始类型字段。它在 `RectangularClusterBoundary.cs:131 public double Left;` 命中，错误地认定 `Constraint.Left` 是 double，从而生成 `Double.compare(this.getLeft(), other.getLeft())`。该 fallback 未将搜索范围限定在当前调用所在类型内，导致跨类型误判。
+- **修复**: 在 InvocationExpressionTransformer 的原始类型检测 fallback 处，给语法 fallback `TryDetectPrimitiveByFieldDeclaration` 增加门控 `receiverSymbol == null`：仅当语义模型完全无法解析接收者类型时才执行按字段名的全局查找。若语义模型已将接收者解析为具体的非原始类型，则跳过该 fallback，直接走正常 `.compareTo()` 实例调用路径。Gap（double）仍由语义模型路径正确处理为 `Double.compare`，不受影响。
+
+✅ Fixed — Constraint.java:202/204 错误消失（mvn 重新编译后首个错误变为 RTree.java:114 count private）。

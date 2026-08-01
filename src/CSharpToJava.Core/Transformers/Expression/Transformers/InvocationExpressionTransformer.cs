@@ -3429,7 +3429,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // partial class trees where no semantic model can resolve the expression),
             // search the compilation's syntax trees for the field declaration to determine
             // if the receiver is a C# primitive type that maps to a Java primitive.
-            if (wrapperClass == null && memberAccess.Expression is MemberAccessExpressionSyntax receiverMemberAccess)
+            //
+            // Gate on receiverSymbol == null: only fall back to name-based field lookup when
+            // the semantic model could not resolve the receiver type at all. If it resolved
+            // the receiver to a concrete non-primitive type, we already know it is not a
+            // primitive, so searching other types' fields by name would be a cross-type
+            // false positive (e.g. `this.Left` where Left is a non-primitive Variable
+            // matching an unrelated `public double Left` field declared in another class).
+            if (wrapperClass == null && receiverSymbol == null
+                && memberAccess.Expression is MemberAccessExpressionSyntax receiverMemberAccess)
             {
                 var lastMemberName = receiverMemberAccess.Name.Identifier.Text;
                 wrapperClass = TryDetectPrimitiveByFieldDeclaration(lastMemberName, context);
