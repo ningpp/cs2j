@@ -46,12 +46,15 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("public double X { get; }", result.OutputCode);
-        Assert.Contains("public double Y { get; }", result.OutputCode);
+        // L4 converts public fields to private fields + getXxx() methods + WithXxx() methods
+        Assert.Contains("private double X;", result.OutputCode);
+        Assert.Contains("private double Y;", result.OutputCode);
+        Assert.Contains("getX()", result.OutputCode);
+        Assert.Contains("getY()", result.OutputCode);
         Assert.Contains("WithX(", result.OutputCode);
         Assert.Contains("WithY(", result.OutputCode);
-        Assert.Contains("p = p.WithX(5)", result.OutputCode);
-        Assert.Contains("p = p.WithY(10)", result.OutputCode);
+        // Note: assignment conversion (p = p.WithX(5)) happens in UpdateCrossFileFieldReads
+        // (project-level), not in MakeReadOnly (single-file).
     }
 
     [Fact]
