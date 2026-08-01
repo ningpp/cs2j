@@ -148,10 +148,14 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 // going through a non-existent setter
                 foreach (var variable in field.Declaration.Variables)
                 {
+                    // Preserve leading trivia (preprocessor directives, doc comments) from the
+                    // original first modifier token. Stripping trivia breaks #if/#endif balance.
+                    var originalFirstModifier = field.Modifiers.First();
                     var privateField = field
-                        .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)))
-                        .WithLeadingTrivia(SyntaxFactory.Space)
-                        .WithTrailingTrivia(SyntaxFactory.Space);
+                        .WithModifiers(SyntaxFactory.TokenList(
+                            SyntaxFactory.Token(SyntaxKind.PrivateKeyword)
+                                .WithLeadingTrivia(originalFirstModifier.LeadingTrivia)
+                                .WithTrailingTrivia(SyntaxFactory.Space)));
                     newMembers = newMembers.Add(privateField);
 
                     // Generate public getter method: T getXxx() => Xxx;

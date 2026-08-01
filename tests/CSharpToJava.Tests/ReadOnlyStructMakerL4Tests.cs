@@ -455,4 +455,46 @@ struct Point {
         // so second run should be idempotent (no changes)
         Assert.False(second.Changed);
     }
+
+    [Fact]
+    public void PublicFields_InsidePreprocessorDirectives_PreservesBalance()
+    {
+        // Reproduces the Point.cs bug: public fields inside #if/#else/#endif blocks
+        // The rewriter must not strip preprocessor directives from trivia
+        var src = @"
+struct Point {
+#if SHARPKIT
+    private double m_X;
+    public double X { get { return m_X; } set { m_X = value; } }
+#else
+    public double X;
+#endif
+#if SHARPKIT
+    private double m_Y;
+    public double Y { get { return m_Y; } set { m_Y = value; } }
+#else
+    public double Y;
+#endif
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point(1, 2);
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        var output = result.OutputCode!;
+
+        // Count preprocessor directives - they must be balanced
+        var ifCount = output.Split('\n').Count(l => l.TrimStart().StartsWith("#if "));
+        var endifCount = output.Split('\n').Count(l => l.TrimStart().StartsWith("#endif"));
+        Assert.Equal(ifCount, endifCount);
+
+        // The output must still be valid C# (parseable without errors)
+        var tree = CSharpSyntaxTree.ParseText(output);
+        var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.Empty(errors);
+    }
 }
