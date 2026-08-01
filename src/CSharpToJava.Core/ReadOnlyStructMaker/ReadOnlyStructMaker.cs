@@ -57,6 +57,7 @@ public sealed class ReadOnlyStructMaker
         if (options.UpdateCallSites)
         {
             var migratedVoidMethods = new Dictionary<string, string>(); // methodName -> structName
+            var structFieldNames = new Dictionary<string, List<string>>(); // structName -> field names
             foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
             {
                 if (result.MethodMigrations == null) continue;
@@ -64,11 +65,18 @@ public sealed class ReadOnlyStructMaker
                 {
                     migratedVoidMethods[migration.Method.Name] = structSyntax.Identifier.Text;
                 }
+
+                // Collect instance field names for this struct
+                var fields = structSyntax.Members.OfType<FieldDeclarationSyntax>()
+                    .Where(f => !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
+                    .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
+                    .ToList();
+                structFieldNames[structSyntax.Identifier.Text] = fields;
             }
 
             if (migratedVoidMethods.Count > 0)
             {
-                var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods, semanticModel);
+                var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods, semanticModel, structFieldNames);
                 newRoot = (CompilationUnitSyntax)callSiteUpdater.Visit(newRoot)!;
                 stats.CallSitesUpdated = migratedVoidMethods.Count; // approximate
             }

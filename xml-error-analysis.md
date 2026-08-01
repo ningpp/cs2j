@@ -78,3 +78,29 @@
   5. L1 路径缺少非 private 字段的外部赋值检查
   6. struct 内部隐式 this 方法调用未被更新
   7. 跨文件调用点未被更新（需要第二遍处理）
+
+## Iteration 7 — NullPointerException: XsdDateTime._dt is null (constructor bare call not updated)
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/schema/XsdDateTime.java`
+- **行号**: 382 (及所有使用 `_dt` 的位置)
+- **错误信息**: `java.lang.NullPointerException: Cannot invoke "io.github.ningpp.compat.CSharpDateTime.ticksToLdtPublic()" because "dateTime" is null`
+- **代码片段**:
+  ```java
+  private XsdDateTime initiateXsdDateTime(Parser parser) {
+      var result = this.clone();
+      result._dt = new CSharpDateTime(parser.year, parser.month, parser.day, parser.hour, parser.minute, parser.second);
+      // ...
+      return result.clone();
+  }
+  // Constructor calls it but discards return value:
+  public XsdDateTime(String text, int kinds) {
+      this();
+      Parser parser = new Parser();
+      if (!parser.parse(text, kinds)) { throw ...; }
+      initiateXsdDateTime(parser);  // <-- return value discarded! _dt stays null
+  }
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Schema\XsdDateTime.cs` (line 145, 150, 153)
+- **根因分类**: ReadOnlyStructMaker / CallSiteUpdater
+- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/CallSiteUpdater.cs`
+- **分析**: C# struct `XsdDateTime` 的 `void InitiateXsdDateTime(Parser)` 方法被 MethodMigrator 正确迁移为返回 struct 类型的方法，但 CallSiteUpdater 仅处理带显式接收者的调用 (`s.Method(args)`)，未处理构造函数中的裸调用 (`InitiateXsdDateTime(parser)`)，导致返回值被丢弃，`_dt` 字段永远为 null。
+- **状态**: ✅ Fixed

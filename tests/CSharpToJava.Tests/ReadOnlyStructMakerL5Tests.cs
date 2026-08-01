@@ -279,6 +279,38 @@ public class ReadOnlyStructMakerL5Tests
     }
 
     [Fact]
+    public void ConstructorBareCallToMigratedMethod_UpdatedToFieldAssignment()
+    {
+        // Reproduces: XsdDateTime struct where constructor calls InitiateXsdDateTime(parser)
+        // as a bare call (no receiver). The migrated method returns the struct, but
+        // the constructor discards the return value, leaving fields uninitialized.
+        var src = """
+        struct MyDate {
+            private object _dt;
+            private int _extra;
+            public MyDate(string text) : this() {
+                Init(text);
+            }
+            private void Init(string text) {
+                _dt = text;
+                _extra = 1;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // The migrated method should return MyDate
+        Assert.Contains("MyDate Init(", result.OutputCode);
+        // The constructor bare call should be updated to capture the result and assign fields
+        Assert.Contains("__tmp = this.Init(text)", result.OutputCode);
+        Assert.Contains("this._dt = __tmp._dt", result.OutputCode);
+        Assert.Contains("this._extra = __tmp._extra", result.OutputCode);
+        // Ensure no bare "Init(text);" without a receiver (check line doesn't start with just Init)
+        var lines = result.OutputCode.Split('\n');
+        Assert.DoesNotContain(lines, l => l.TrimStart().StartsWith("Init(text)"));
+    }
+
+    [Fact]
     public void MethodModifyingLocalVariableField_NotConsideredMutating()
     {
         // Reproduces: CompassVector.ToPoint() modifies local Point p (p.X += 1)

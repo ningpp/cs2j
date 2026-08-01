@@ -8,17 +8,21 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 /// Updates call sites of migrated void→struct methods:
 /// - `s.Method(args);` → `s = s.Method(args);`
 /// - `arr[i].Method(args);` → `arr[i] = arr[i].Method(args);`
+/// - Bare calls in constructors: `Method(args);` → `var __tmp = this.Method(args); this._f = __tmp._f; ...`
 /// - Return-this methods need no call-site update (semantically compatible).
 /// Only updates calls where the receiver type matches the migrated struct.
 /// </summary>
 public sealed class CallSiteUpdater : CSharpSyntaxRewriter
 {
     private readonly Dictionary<string, string> _migratedMethodToStruct;
+    private readonly Dictionary<string, List<string>> _structFieldNames;
     private readonly SemanticModel _model;
 
-    public CallSiteUpdater(Dictionary<string, string> migratedMethodToStruct, SemanticModel model)
+    public CallSiteUpdater(Dictionary<string, string> migratedMethodToStruct, SemanticModel model,
+        Dictionary<string, List<string>>? structFieldNames = null)
     {
         _migratedMethodToStruct = migratedMethodToStruct;
+        _structFieldNames = structFieldNames ?? new Dictionary<string, List<string>>();
         _model = model;
     }
 
@@ -45,7 +49,88 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
             }
         }
 
+        // Handle bare invocations (implicit this) inside the struct's own constructors/methods
+        if (node.Expression is InvocationExpressionSyntax bareInvocation &&
+            bareInvocation.Expression is IdentifierNameSyntax bareMethodName)
+        {
+            var name = bareMethodName.Identifier.Text;
+            if (_migratedMethodToStruct.TryGetValue(name, out var structName2))
+            {
+                var containingStruct = node.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
+                if (containingStruct != null && containingStruct.Identifier.Text == structName2)
+                {
+                    // We're inside the struct itself — replace bare call with field assignments
+                    var containingCtor = node.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+                    var containingMethod = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+
+                    // Only handle if inside a constructor or a non-migrated method
+                    if (containingCtor != null || (containingMethod != null &&
+                        !_migratedMethodToStruct.ContainsKey(containingMethod.Identifier.Text)))
+                    {
+                        return BuildBareCallReplacement(node, bareInvocation, structName2);
+                    }
+                }
+            }
+        }
+
         return base.VisitExpressionStatement(node);
+    }
+
+    /// <summary>
+    /// Replaces a bare call `Method(args);` inside a constructor with:
+    /// var __tmp = this.Method(args);
+    /// this._field1 = __tmp._field1;
+    /// this._field2 = __tmp._field2;
+    /// </summary>
+    private SyntaxNode BuildBareCallReplacement(
+        ExpressionStatementSyntax originalNode,
+        InvocationExpressionSyntax invocation,
+        string structName)
+    {
+        if (!_structFieldNames.TryGetValue(structName, out var fields) || fields.Count == 0)
+            return originalNode;
+
+        var statements = new List<StatementSyntax>();
+
+        // var __tmp = this.Method(args);
+        var thisCall = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.ThisExpression(),
+                ((IdentifierNameSyntax)invocation.Expression).WithoutTrivia()),
+            invocation.ArgumentList);
+
+        var tmpDecl = SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.IdentifierName("var"))
+            .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                SyntaxFactory.VariableDeclarator("__tmp")
+                    .WithInitializer(SyntaxFactory.EqualsValueClause(thisCall)))))
+            .WithLeadingTrivia(originalNode.GetLeadingTrivia())
+            .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+        statements.Add(tmpDecl);
+
+        // this._field = __tmp._field; for each field
+        foreach (var field in fields)
+        {
+            var assignment = SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.ThisExpression(),
+                        SyntaxFactory.IdentifierName(field)),
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("__tmp"),
+                        SyntaxFactory.IdentifierName(field))))
+                .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+            statements.Add(assignment);
+        }
+
+        // Return a block containing all statements (will be unwrapped by the visitor)
+        return SyntaxFactory.Block(statements)
+            .WithLeadingTrivia(originalNode.GetLeadingTrivia());
     }
 
     private bool IsReceiverOfStructType(ExpressionSyntax receiver, string structName)
