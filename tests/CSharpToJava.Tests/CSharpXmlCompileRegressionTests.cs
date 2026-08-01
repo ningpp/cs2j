@@ -1570,6 +1570,31 @@ class Sample {
         Assert.DoesNotContain("getCurrent$Class()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ObjectInitializer_UnresolvedProperty_DefaultsToSetterCall()
+    {
+        // Regression (AGL GeometryGraphReader): when an object initializer sets a property
+        // on a type from an unreferenced external assembly (e.g. System.Xml.XmlReaderSettings),
+        // the semantic model cannot resolve the member symbol. The converter must default to
+        // a setter call (setXxx) rather than a direct backing-field write, because Java compat
+        // classes have private fields with public setters.
+        var result = await ConvertProjectAsync(new[]
+        {
+            ("Sample.cs", @"
+class Sample {
+    void M() {
+        var settings = new ExternalConfig { Timeout = 42, Enabled = true };
+    }
+}"),
+        });
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("setTimeout(42)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("setEnabled(true)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".timeout = 42", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".enabled = true", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

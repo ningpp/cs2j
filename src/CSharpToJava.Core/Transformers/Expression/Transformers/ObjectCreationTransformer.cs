@@ -1268,12 +1268,20 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                             var setterName = ConvertToSetter(propertyName);
                             pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
                         }
-                        else
+                        else if (memberSymbol is IPropertySymbol)
                         {
                             // Get-only property: assign to the backing field directly.
                             // The field name is the camelCase version of the property name.
                             var fieldName = char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1);
                             pendingAssignments.Add($"{tmpVar}.{fieldName} = {value};");
+                        }
+                        else
+                        {
+                            // Symbol unresolved (likely from an unreferenced external assembly).
+                            // Default to setter call — C# BCL types typically use properties with
+                            // setters, and Java compat classes have private fields with public setters.
+                            var setterName = ConvertToSetter(propertyName);
+                            pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
                         }
                     }
                 }
