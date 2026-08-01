@@ -364,6 +364,85 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             rewritten = rewritten.AddMembers(withMethods.ToArray());
         }
 
+        // Replace internal property assignments with backing field assignments.
+        // After removing setters, `this.Prop = v` must become `this.backingField = v`.
+        var removedSetterProps = node.Members.OfType<PropertyDeclarationSyntax>()
+            .Where(p => p.AccessorList?.Accessors.Any(a => a.IsKind(SyntaxKind.SetAccessorDeclaration)) == true)
+            .Select(p => p.Identifier.Text)
+            .ToHashSet();
+        if (removedSetterProps.Count > 0)
+        {
+            var allFieldNames = rewritten.Members.OfType<FieldDeclarationSyntax>()
+                .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
+                .ToHashSet();
+            var propToField = new Dictionary<string, string>();
+            foreach (var propName in removedSetterProps)
+            {
+                // First: try to extract backing field from getter body (return this.field;)
+                var propDecl = node.Members.OfType<PropertyDeclarationSyntax>()
+                    .FirstOrDefault(p => p.Identifier.Text == propName);
+                var getter = propDecl?.AccessorList?.Accessors
+                    .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+                if (getter?.Body != null)
+                {
+                    var returnExpr = getter.Body.DescendantNodes()
+                        .OfType<ReturnStatementSyntax>()
+                        .Select(r => r.Expression)
+                        .FirstOrDefault();
+                    if (returnExpr is MemberAccessExpressionSyntax retMa
+                        && retMa.Expression is ThisExpressionSyntax
+                        && retMa.Name is IdentifierNameSyntax retField
+                        && allFieldNames.Contains(retField.Identifier.Text))
+                    {
+                        propToField[propName] = retField.Identifier.Text;
+                        continue;
+                    }
+                }
+                // Also check expression-bodied getter: get => this.field;
+                if (getter?.ExpressionBody != null)
+                {
+                    var expr = getter.ExpressionBody.Expression;
+                    if (expr is MemberAccessExpressionSyntax exprMa
+                        && exprMa.Expression is ThisExpressionSyntax
+                        && exprMa.Name is IdentifierNameSyntax exprField
+                        && allFieldNames.Contains(exprField.Identifier.Text))
+                    {
+                        propToField[propName] = exprField.Identifier.Text;
+                        continue;
+                    }
+                }
+
+                // Fallback: try common backing field patterns
+                var candidates = new[]
+                {
+                    char.ToLowerInvariant(propName[0]) + propName[1..],
+                    "_" + char.ToLowerInvariant(propName[0]) + propName[1..],
+                    "m_" + propName,
+                };
+                foreach (var candidate in candidates)
+                {
+                    if (allFieldNames.Contains(candidate))
+                    {
+                        propToField[propName] = candidate;
+                        break;
+                    }
+                }
+
+                // Final fallback for auto-properties: use camelCase convention
+                // (the Java converter generates a field with this name)
+                if (!propToField.ContainsKey(propName))
+                {
+                    propToField[propName] = char.ToLowerInvariant(propName[0]) + propName[1..];
+                }
+            }
+
+            if (propToField.Count > 0)
+            {
+                var fieldAssignRewriter = new PropertyToFieldAssignmentRewriter(propToField);
+                rewritten = (StructDeclarationSyntax)fieldAssignRewriter.Visit(rewritten)!;
+            }
+        }
+
         // NOTE: Do NOT add 'readonly' keyword for L5 method migration.
         // The Java converter would mark fields as final, but migrated methods
         // need to modify the cloned copy's fields (result._field = ...).
@@ -397,6 +476,39 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 !(a.IsKind(SyntaxKind.SetAccessorDeclaration) &&
                   a.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword))));
             return node.WithAccessors(SyntaxFactory.List(accessors));
+        }
+    }
+
+    /// <summary>
+    /// Replaces property assignments (this.Prop = v / result.Prop = v) with
+    /// backing field assignments (this.field = v / result.field = v) for properties
+    /// whose setters were removed during L5 migration.
+    /// </summary>
+    private sealed class PropertyToFieldAssignmentRewriter : CSharpSyntaxRewriter
+    {
+        private readonly Dictionary<string, string> _propToField;
+
+        public PropertyToFieldAssignmentRewriter(Dictionary<string, string> propToField)
+        {
+            _propToField = propToField;
+        }
+
+        public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
+        {
+            if (node.Left is MemberAccessExpressionSyntax ma
+                && ma.Name is IdentifierNameSyntax propName
+                && _propToField.TryGetValue(propName.Identifier.Text, out var fieldName))
+            {
+                // Convert this.Prop = v OR result.Prop = v to this.field = v / result.field = v
+                if (ma.Expression is ThisExpressionSyntax || ma.Expression is IdentifierNameSyntax { Identifier.Text: "result" })
+                {
+                    var newLeft = ma.WithName(
+                        SyntaxFactory.IdentifierName(fieldName).WithTriviaFrom(propName));
+                    return node.WithLeft(newLeft);
+                }
+            }
+
+            return base.VisitAssignmentExpression(node);
         }
     }
 }

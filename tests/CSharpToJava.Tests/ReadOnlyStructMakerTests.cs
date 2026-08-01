@@ -604,9 +604,10 @@ public partial class ReadOnlyStructMakerTests
         var result = RunMaker(src);
         Assert.True(result.Changed);
         Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
-        // The migrated method should access result.Left and result.Right, not bare Left/Right
-        Assert.Contains("result.Left", result.OutputCode);
-        Assert.Contains("result.Right", result.OutputCode);
+        // The migrated method should access result._left and result._right (backing fields)
+        // since property setters are removed during migration
+        Assert.Contains("result._left", result.OutputCode);
+        Assert.Contains("result._right", result.OutputCode);
     }
 
     [Fact]
@@ -659,9 +660,9 @@ public partial class ReadOnlyStructMakerTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
         // ToString override should be preserved
         Assert.Contains("override string ToString()", result.OutputCode);
-        // The Pad method should be migrated with property accesses on result
-        Assert.Contains("result.Left", result.OutputCode);
-        Assert.Contains("result.Right", result.OutputCode);
+        // The Pad method should be migrated with backing field accesses on result
+        Assert.Contains("result._left", result.OutputCode);
+        Assert.Contains("result._right", result.OutputCode);
         // Explicit interface implementations should be preserved
         Assert.Contains("bool IRectangle.Contains(", result.OutputCode);
     }
