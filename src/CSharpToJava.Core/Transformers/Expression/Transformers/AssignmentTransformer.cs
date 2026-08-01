@@ -1564,8 +1564,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         // Check the enclosing type's syntax node for the property declaration.
         // This uses the ACTUAL syntax being converted, not the semantic model's references.
+        // Only check the enclosing type when the property is declared in that same type;
+        // otherwise a same-named get-only property in the enclosing type (e.g. RTree.Count)
+        // could be confused with the target property (e.g. RectangleNode.Count), causing
+        // the converter to wrongly emit a direct backing-field write instead of a setter call.
         var enclosingType = context.CurrentEnclosingRoslynType;
-        if (enclosingType != null)
+        if (enclosingType != null
+            && SymbolEqualityComparer.Default.Equals(enclosingType, prop.ContainingType))
         {
             foreach (var syntaxRef in enclosingType.DeclaringSyntaxReferences)
             {

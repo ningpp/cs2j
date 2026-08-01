@@ -114,3 +114,29 @@
 - **修复**: 在 InvocationExpressionTransformer 的原始类型检测 fallback 处，给语法 fallback `TryDetectPrimitiveByFieldDeclaration` 增加门控 `receiverSymbol == null`：仅当语义模型完全无法解析接收者类型时才执行按字段名的全局查找。若语义模型已将接收者解析为具体的非原始类型，则跳过该 fallback，直接走正常 `.compareTo()` 实例调用路径。Gap（double）仍由语义模型路径正确处理为 `Double.compare`，不受影响。
 
 ✅ Fixed — Constraint.java:202/204 错误消失（mvn 重新编译后首个错误变为 RTree.java:114 count private）。
+
+## Iteration 11 — count 在 RectangleNode 中是 private 访问控制
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/RTree.java
+- **行号**: 114, 259
+- **错误信息**: count 在 Microsoft.Msagl.Core.Geometry.RectangleNode 中是 private 访问控制
+- **代码片段**:
+  ```java
+  static <T, P> void addNodeToTreeRecursive(RectangleNode<T, P> newNode, RectangleNode<T, P> existingNode) {
+      if (existingNode.getIsLeaf()) {
+          existingNode.setLeft(new RectangleNode<T, P>(existingNode.getUserData(), existingNode.getRectangle()));
+          existingNode.setRight(newNode);
+          existingNode.count = 2;          // ERROR: count is private
+          existingNode.setUserData(null);
+      } else {
+          existingNode.setCount(existingNode.getCount() + 1);   // OK: compound assignment uses setter
+          ...
+      }
+  }
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\Geometry\RTree\RTree.cs (line 88: `existingNode.Count = 2;`, line 270: `nodeForRebuild.Count = newNode.Count;`)
+- **根因分类**: Transformer (AssignmentTransformer PropertyHasSetterInSyntax enclosing-type confusion)
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs — `PropertyHasSetterInSyntax` (line 1559-1600)
+- **分析**: `RTree` 类自身有一个 get-only `Count` 属性（`public int Count { get { return _rootNode == null ? 0 : _rootNode.Count; } }`）。当转换器处理 `existingNode.Count = 2`（其中 `existingNode` 是 `RectangleNode<T,P>` 类型）时，`PropertyHasSetterInSyntax` 方法的第一个循环在**当前正在转换的 enclosing type**（即 `RTree`）的语法树中查找名为 `Count` 的属性。它找到了 `RTree.Count`（无 setter），错误地返回 `false`，导致转换器生成直接 backing-field 写入 `existingNode.count = 2` 而非 setter 调用 `existingNode.setCount(2)`。该方法未检查属性的实际声明类型（`prop.ContainingType`）是否与 enclosing type 一致，导致跨类型同名属性混淆。注意：复合赋值 `Count++` 走不同代码路径（不检查 `PropertyHasSetterInSyntax`），所以 `setCount(getCount() + 1)` 正确。
+- **修复**: 在 `PropertyHasSetterInSyntax` 的第一个循环增加条件 `SymbolEqualityComparer.Default.Equals(enclosingType, prop.ContainingType)`：仅当属性声明在当前 enclosing type 中时，才搜索 enclosing type 的语法树。否则直接走 `prop.DeclaringSyntaxReferences` fallback，该 fallback 会正确找到 `RectangleNode.Count` 的 `{ get; set; }` 声明并返回 `true`。
+
+✅ Fixed — RTree.java:114/259 错误消失（mvn 重新编译后首个错误变为 GraphForCycleRemoval.java:135 getCurrent$Class() 找不到符号）。

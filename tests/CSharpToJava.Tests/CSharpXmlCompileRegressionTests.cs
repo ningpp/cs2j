@@ -1503,6 +1503,44 @@ class StringCollection : IEnumerable<string>
         Assert.DoesNotContain(".getValue()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CrossClassPropertyWrite_ProjectMode_UsesSetterNotBackingField()
+    {
+        // Regression (AGL RectangleNode/RTree): a public auto-property write on an external
+        // generic class instance must become a setter call (setCount) in the project pipeline,
+        // not a direct backing-field write (n.count = ...). Mirrors RectangleNode<T,P>.Count
+        // being assigned from RTree.AddNodeToTreeRecursive.
+        // Key: RTree itself has a get-only Count property with the same name; the converter
+        // must not confuse it with RectangleNode.Count (which has a setter).
+        var result = await ConvertProjectAsync(new[]
+        {
+            ("RectangleNode.cs", @"
+public class RectangleNode<T, P> {
+    public int Count { get; set; }
+    public T UserData { get; set; }
+    RectangleNode<T, P> left;
+    public RectangleNode<T, P> Left { get { return left; } set { left = value; } }
+    public RectangleNode() {}
+    public RectangleNode(T data) { UserData = data; Count = 1; }
+}"),
+            ("RTree.cs", @"
+public class RTree {
+    RectangleNode<int, int> _rootNode;
+    public int Count { get { return _rootNode == null ? 0 : _rootNode.Count; } }
+    public static void M<T, P>(RectangleNode<T, P> n) {
+        n.Left = new RectangleNode<T, P>();
+        n.Count = 2;
+        n.UserData = default(T);
+    }
+}"),
+        });
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("n.setCount(2)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("n.count = 2", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("n.setUserData(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
