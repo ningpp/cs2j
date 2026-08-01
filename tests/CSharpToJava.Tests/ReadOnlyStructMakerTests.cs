@@ -356,6 +356,46 @@ public partial class ReadOnlyStructMakerTests
     }
 
     [Fact]
+    public void DataContainer_CustomGetterProperties_NotAddedToCtor()
+    {
+        // Reproduces the Color struct bug: struct has private fields + public properties
+        // with custom getters wrapping those fields (get { return field; }).
+        // The L3 conversion should NOT add custom-getter properties to the generated
+        // constructor, because:
+        // 1. They can't be assigned after setter removal (custom getter, not auto-property)
+        // 2. Camel-casing property name "A" → "a" collides with field "a" → duplicate params
+        var src = """
+        struct Color {
+            byte a;
+            public byte A {
+                get { return a; }
+                set { a = value; }
+            }
+            byte r;
+            public byte R {
+                get { return r; }
+                set { r = value; }
+            }
+            public Color(byte a, byte r) {
+                this.a = a;
+                this.r = r;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Color", result.OutputCode);
+        // Should NOT generate a constructor with duplicate parameter names
+        Assert.DoesNotContain("byte a, byte a", result.OutputCode);
+        Assert.DoesNotContain("byte r, byte r", result.OutputCode);
+        // Should NOT assign to get-only custom-getter properties (this.A = ...)
+        Assert.DoesNotContain("this.A =", result.OutputCode);
+        Assert.DoesNotContain("this.R =", result.OutputCode);
+        // Original constructor should be preserved
+        Assert.Contains("public Color(byte a, byte r)", result.OutputCode);
+    }
+
+    [Fact]
     public void PublicFields_NoMethods_ExternalAssignment_ConvertedToL4()
     {
         // Reproduces: struct Offset { public ushort End; ... } with external assignments

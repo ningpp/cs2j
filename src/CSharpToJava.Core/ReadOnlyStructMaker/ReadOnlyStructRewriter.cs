@@ -112,8 +112,18 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 var newProp = prop.WithAccessorList(
                     SyntaxFactory.AccessorList(SyntaxFactory.SingletonList(getter)));
                 newMembers = newMembers.Add(newProp);
-                membersForCtor.Add((prop.Identifier.Text, prop.Type,
-                    prop.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))));
+                // Only add to constructor members if the getter is an auto-property
+                // (no body, no expression body). Properties with custom getter bodies
+                // (e.g., get { return field; }) delegate to fields and cannot be assigned
+                // in a constructor after the setter is removed. Adding them would also
+                // cause duplicate parameter names when the property name camel-cases to
+                // the same identifier as the backing field (e.g., property "A" → param "a"
+                // colliding with field "a" → param "a").
+                if (getter.Body == null && getter.ExpressionBody == null)
+                {
+                    membersForCtor.Add((prop.Identifier.Text, prop.Type,
+                        prop.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))));
+                }
             }
             else if (member is FieldDeclarationSyntax field &&
                      !field.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)) &&
