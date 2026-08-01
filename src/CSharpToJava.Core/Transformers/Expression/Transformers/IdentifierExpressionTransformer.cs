@@ -78,6 +78,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (propSymbol.ExplicitInterfaceImplementations.Length == 0
             && propSymbol.ContainingType is INamedTypeSymbol containingType)
         {
+            // Special case: IEnumerator<T>.Current maps to getCurrent() on
+            // CSharpGenericEnumerator<T> in Java (no $Class suffix). This check must
+            // come BEFORE the conflict detection loop because the struct may have
+            // IEnumerator.Current (object-returning) as an explicit interface
+            // implementation, which would incorrectly trigger $Class renaming.
+            // Only applies to generic IEnumerator<T>, not non-generic IEnumerator.
+            if (propSymbol.Name == "Current" && ImplementsGenericIEnumerator(containingType))
+                return baseName;
+
             foreach (var member in containingType.GetMembers())
             {
                 if (member is IPropertySymbol otherProp
@@ -101,6 +110,21 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         return baseName;
+    }
+
+    /// <summary>
+    /// Returns true if the type implements System.Collections.Generic.IEnumerator&lt;T&gt;.
+    /// </summary>
+    private static bool ImplementsGenericIEnumerator(INamedTypeSymbol type)
+    {
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (iface.IsGenericType
+                && iface.Name == "IEnumerator"
+                && iface.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")
+                return true;
+        }
+        return false;
     }
 
     public string Transform(ExpressionSyntax node, ConversionContext context)

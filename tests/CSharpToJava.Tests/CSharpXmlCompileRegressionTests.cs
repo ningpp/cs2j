@@ -1541,6 +1541,35 @@ public class RTree {
         Assert.Contains("n.setUserData(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SortedDictionaryEnumerator_Current_UsesGetCurrentNotGetCurrentClass()
+    {
+        // Regression (AGL GraphForCycleRemoval): SortedDictionary<K,V>.Enumerator
+        // implements both IEnumerator<KeyValuePair<K,V>> and IEnumerator. The Current
+        // property conflict with IEnumerator.Current (object-returning) must NOT
+        // cause the converter to generate getCurrent$Class(); it should use getCurrent()
+        // because the Java type is CSharpGenericEnumerator<T> which only has getCurrent().
+        var result = await ConvertProjectAsync(new[]
+        {
+            ("Sample.cs", @"
+using System.Collections.Generic;
+
+class Sample {
+    SortedDictionary<int, string> _map = new SortedDictionary<int, string>();
+    void M() {
+        var enumerator = _map.GetEnumerator();
+        if (enumerator.MoveNext()) {
+            var val = enumerator.Current.Value;
+        }
+    }
+}"),
+        });
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("getCurrent()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getCurrent$Class()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

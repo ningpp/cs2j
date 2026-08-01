@@ -140,3 +140,21 @@
 - **修复**: 在 `PropertyHasSetterInSyntax` 的第一个循环增加条件 `SymbolEqualityComparer.Default.Equals(enclosingType, prop.ContainingType)`：仅当属性声明在当前 enclosing type 中时，才搜索 enclosing type 的语法树。否则直接走 `prop.DeclaringSyntaxReferences` fallback，该 fallback 会正确找到 `RectangleNode.Count` 的 `{ get; set; }` 声明并返回 `true`。
 
 ✅ Fixed — RTree.java:114/259 错误消失（mvn 重新编译后首个错误变为 GraphForCycleRemoval.java:135 getCurrent$Class() 找不到符号）。
+
+## Iteration 12 — getCurrent$Class() 找不到符号
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/GraphAlgorithms/GraphForCycleRemoval.java
+- **行号**: 135
+- **错误信息**: 找不到符号 — 方法 getCurrent$Class()，位置: CSharpGenericEnumerator<CSharpKeyValuePair<Integer, Set<Integer>>> 的变量 enumerator
+- **代码片段**:
+  ```java
+  var enumerator = this.deltaDegreeBucketsForSourcesInConstrainedSubgraph.iterator();
+  if (enumerator.moveNext()) {
+      var bucketSet = enumerator.getCurrent$Class().getValue();  // ERROR: getCurrent$Class() not found
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\GraphAlgorithms\CycleRemoval\GraphForCycleRemoval.cs (line 96-98: `enumerator.Current.Value`)
+- **根因分类**: Transformer (IdentifierExpressionTransformer GetPropertyGetterName $Class suffix)
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs — `GetPropertyGetterName` (line 70-104)
+- **分析**: `SortedDictionary<K,V>.Enumerator` 是一个 struct，同时实现 `IEnumerator<KeyValuePair<K,V>>` 和 `IEnumerator`。它的 `Current` 属性返回 `KeyValuePair<K,V>`，而 `IEnumerator.Current`（显式接口实现）返回 `object`。`GetPropertyGetterName` 方法中，冲突检测循环先于 `IsEnumeratorLikeType` 特殊判断执行，检测到 `IEnumerator.Current`（返回类型 `object` 与 `KeyValuePair<K,V>` 不同）后立即返回 `getCurrent$Class`。但在 Java 中，`SortedDictionary` 的枚举器被映射为 `CSharpGenericEnumerator<T>`，该类只有 `getCurrent()` 方法，没有 `getCurrent$Class()`。
+- **修复**: 在 `GetPropertyGetterName` 的冲突检测循环之前增加 `ImplementsGenericIEnumerator(containingType)` 检查：当属性名为 `Current` 且包含类型实现了 `IEnumerator<T>`（泛型）时，直接返回 `getCurrent()`（不加 `$Class` 后缀），因为 `CSharpGenericEnumerator<T>` 只有 `getCurrent()`。非泛型 `IEnumerator` 的 `$Class` 逻辑不受影响（仍走冲突检测循环）。
+
+✅ Fixed — GraphForCycleRemoval.java:135 和 Ordering.java:650 的 getCurrent$Class() 错误消失（mvn 重新编译后首个错误变为 GeometryGraphReader.java:134 ignoreComments 找不到符号）。
