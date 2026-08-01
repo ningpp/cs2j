@@ -374,10 +374,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // where the setter was removed by preprocessing (e.g. ReadOnlyStructMaker).
                 bool propHasNoSourceSetter = prop.SetMethod == null
                     || !PropertyHasSetterInSyntax(prop, context);
-                // For structs: if the property's containing type is the same as the enclosing type
-                // and it's a struct, use direct field access (structs can access their own fields).
-                bool isStructInternalAssignment = prop.ContainingType?.TypeKind == TypeKind.Struct
-                    && prop.Locations.Any(l => l.IsInSource);
+                // For structs: if the property's containing type is a struct and we're inside
+                // that same struct, use direct field access (structs can access their own fields).
+                // Check syntactically by comparing enclosing type name with property's containing type name.
+                bool isStructInternalAssignment = false;
+                if (prop.ContainingType?.TypeKind == TypeKind.Struct && prop.Locations.Any(l => l.IsInSource))
+                {
+                    var enclosingTypeDecl = (node.Parent ?? node).Ancestors()
+                        .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax>()
+                        .FirstOrDefault();
+                    if (enclosingTypeDecl != null
+                        && enclosingTypeDecl.Identifier.Text == prop.ContainingType.Name)
+                    {
+                        isStructInternalAssignment = true;
+                    }
+                }
                 bool isReadOnlyViaThis = (propHasNoSourceSetter || isStructInternalAssignment)
                     && propMa.Expression is ThisExpressionSyntax;
                 // An assignment inside an arrow expression body (property setter/init or method)
