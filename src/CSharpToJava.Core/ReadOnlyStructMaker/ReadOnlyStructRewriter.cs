@@ -39,6 +39,10 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         if (node.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
             return node;
 
+        // C# requires all instance fields of a readonly struct to be readonly (CS8340).
+        // Add the readonly modifier to every instance field that doesn't already have it.
+        node = MarkInstanceFieldsReadOnly(node);
+
         var readonlyToken = SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)
             .WithTrailingTrivia(SyntaxFactory.Space);
 
@@ -53,6 +57,34 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         readonlyToken = readonlyToken.WithLeadingTrivia(leadingTrivia);
         var newKeyword = node.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList());
         return node.WithKeyword(newKeyword).AddModifiers(readonlyToken);
+    }
+
+    /// <summary>
+    /// Adds the <c>readonly</c> modifier to every instance field (non-static, non-const)
+    /// that doesn't already have it. Required so the rewritten C# compiles after the
+    /// containing struct is marked <c>readonly</c> (CS8340).
+    /// </summary>
+    private static StructDeclarationSyntax MarkInstanceFieldsReadOnly(StructDeclarationSyntax node)
+    {
+        var readonlyFieldToken = SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)
+            .WithTrailingTrivia(SyntaxFactory.Space);
+
+        var newMembers = new SyntaxList<MemberDeclarationSyntax>();
+        foreach (var member in node.Members)
+        {
+            if (member is FieldDeclarationSyntax field
+                && !field.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword))
+                && !field.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword))
+                && !field.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            {
+                newMembers = newMembers.Add(field.AddModifiers(readonlyFieldToken));
+            }
+            else
+            {
+                newMembers = newMembers.Add(member);
+            }
+        }
+        return node.WithMembers(newMembers);
     }
 
     private static StructDeclarationSyntax ApplyPropertyConvert(StructDeclarationSyntax node)
@@ -434,6 +466,65 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 {
                     propToField[propName] = char.ToLowerInvariant(propName[0]) + propName[1..];
                 }
+            }
+
+            // For auto-properties (no explicit getter body), create explicit backing fields.
+            // Auto-properties have compiler-generated backing fields that aren't accessible
+            // by name, so PropertyToFieldAssignmentRewriter's converted assignments
+            // (result.fieldName = value) would fail with CS1061.
+            var autoPropsToCreate = new List<(string PropName, string FieldName, TypeSyntax Type)>();
+            foreach (var (propName, fieldName) in propToField)
+            {
+                if (allFieldNames.Contains(fieldName))
+                    continue;
+
+                var originalProp = node.Members.OfType<PropertyDeclarationSyntax>()
+                    .FirstOrDefault(p => p.Identifier.Text == propName);
+                var getter = originalProp?.AccessorList?.Accessors
+                    .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+
+                if (getter != null && getter.Body == null && getter.ExpressionBody == null)
+                {
+                    autoPropsToCreate.Add((propName, fieldName, originalProp!.Type));
+                }
+            }
+
+            if (autoPropsToCreate.Count > 0)
+            {
+                var newMembers = new SyntaxList<MemberDeclarationSyntax>();
+                foreach (var member in rewritten.Members)
+                {
+                    if (member is PropertyDeclarationSyntax prop &&
+                        autoPropsToCreate.Any(a => a.PropName == prop.Identifier.Text))
+                    {
+                        var info = autoPropsToCreate.First(a => a.PropName == prop.Identifier.Text);
+
+                        // Create: private TypeName fieldName;
+                        var backingField = SyntaxFactory.FieldDeclaration(
+                            SyntaxFactory.VariableDeclaration(info.Type)
+                                .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                                    SyntaxFactory.VariableDeclarator(info.FieldName))))
+                            .AddModifiers(
+                                SyntaxFactory.Token(SyntaxKind.PrivateKeyword)
+                                    .WithTrailingTrivia(SyntaxFactory.Space))
+                            .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+                        newMembers = newMembers.Add(backingField);
+
+                        // Update getter: get => fieldName;
+                        var newGetter = SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                            .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(
+                                SyntaxFactory.IdentifierName(info.FieldName)))
+                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+                        var newProp = prop.WithAccessorList(
+                            SyntaxFactory.AccessorList(SyntaxFactory.SingletonList(newGetter)));
+                        newMembers = newMembers.Add(newProp);
+                    }
+                    else
+                    {
+                        newMembers = newMembers.Add(member);
+                    }
+                }
+                rewritten = rewritten.WithMembers(newMembers);
             }
 
             if (propToField.Count > 0)

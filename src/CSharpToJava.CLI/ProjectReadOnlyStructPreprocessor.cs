@@ -589,6 +589,9 @@ internal static class ProjectReadOnlyStructPreprocessor
         // Also detect L5-migrated structs: those with WithXxx() methods for property setters.
         // L5 migration converts public property setters to WithXxx() methods and removes setters.
         // Object initializers and external assignments using those setters must be updated.
+        // L5 structs have public get-only properties (not private fields + getXxx() getters),
+        // so the AssignmentRewriter must use property access for reads, not getXxx().
+        var l5StructNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (_, tree) in outputTrees)
         {
             var root = tree.GetRoot();
@@ -606,10 +609,68 @@ internal static class ProjectReadOnlyStructPreprocessor
 
                 if (withMethodProps.Count > 0)
                 {
+                    // Only mark as L5 (property-access) if the struct does NOT have getXxx() getter methods.
+                    // L4 structs have both getXxx() and WithXxx() — they need read rewriting to getXxx().
+                    // L5 structs have only WithXxx() (properties are public get-only) — reads stay as property access.
+                    var hasGetterMethods = structDecl.Members
+                        .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>()
+                        .Any(m => m.Identifier.Text.StartsWith("get", StringComparison.Ordinal)
+                                  && m.ParameterList.Parameters.Count == 0);
+                    if (!hasGetterMethods)
+                    {
+                        l5StructNames.Add(structName);
+                    }
+
                     if (publicFieldStructs.TryGetValue(structName, out var existing))
                         existing.UnionWith(withMethodProps);
                     else
                         publicFieldStructs[structName] = withMethodProps;
+                }
+            }
+        }
+
+        // Also detect L3-converted structs (DataContainer): structs with get-only auto-properties
+        // and a constructor whose parameters match all property names. These structs need object
+        // initializers (new S { Prop = v }) converted to constructor calls (new S(prop: v)).
+        // Reads stay as property access (like L5) since there are no getXxx() methods.
+        foreach (var (_, tree) in outputTrees)
+        {
+            var root = tree.GetRoot();
+            foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
+            {
+                var structName = structDecl.Identifier.Text;
+                if (publicFieldStructs.ContainsKey(structName))
+                    continue;
+
+                // Find get-only auto-properties: { get; } with no setter, no body, no expression body
+                var getOnlyProps = structDecl.Members
+                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax>()
+                    .Where(p => p.AccessorList?.Accessors.Count == 1
+                                && p.AccessorList.Accessors[0].IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.GetAccessorDeclaration)
+                                && p.AccessorList.Accessors[0].Body == null
+                                && p.AccessorList.Accessors[0].ExpressionBody == null)
+                    .Select(p => p.Identifier.Text)
+                    .ToHashSet();
+
+                if (getOnlyProps.Count == 0)
+                    continue;
+
+                // Check if there's a constructor with parameters matching ALL property names
+                // (case-insensitive: property "Direction" matches parameter "direction")
+                var hasMatchingCtor = structDecl.Members
+                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax>()
+                    .Any(c =>
+                    {
+                        var paramNames = c.ParameterList.Parameters
+                            .Select(p => p.Identifier.Text)
+                            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                        return getOnlyProps.All(prop => paramNames.Contains(prop));
+                    });
+
+                if (hasMatchingCtor)
+                {
+                    publicFieldStructs[structName] = getOnlyProps;
+                    l5StructNames.Add(structName);
                 }
             }
         }
@@ -629,7 +690,7 @@ internal static class ProjectReadOnlyStructPreprocessor
         {
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
-            var rewriter = new AssignmentRewriter(publicFieldStructs, model);
+            var rewriter = new AssignmentRewriter(publicFieldStructs, model, l5StructNames);
             rewriter.BuildVariableTypeMap(root);
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && newRoot.ToFullString() != root.ToFullString())

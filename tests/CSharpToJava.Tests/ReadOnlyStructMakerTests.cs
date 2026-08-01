@@ -191,6 +191,56 @@ public partial class ReadOnlyStructMakerTests
         Assert.False(second.Changed);
     }
 
+    [Fact]
+    public void DirectAdd_NonReadonlyFields_OutputCompilesWithoutCS8340()
+    {
+        // Reproduces CS8340: when ApplyDirectAdd marks a struct as readonly,
+        // all instance fields must also be marked readonly.
+        var src = """
+        struct S {
+            private int _x;
+            private int _y;
+            public S(int x, int y) { _x = x; _y = y; }
+            public int X => _x;
+            public int Y => _y;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        Assert.Contains("private readonly int _x", result.OutputCode);
+        Assert.Contains("private readonly int _y", result.OutputCode);
+
+        // The rewritten C# must compile without CS8340 (readonly struct fields must be readonly)
+        var tree = CSharpSyntaxTree.ParseText(result.OutputCode!);
+        var compilation = CSharpCompilation.Create("test_cs8340",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void DirectAdd_InternalFields_MarkedReadonly()
+    {
+        // Reproduces PortObstacle / NetworkSimplex.StackStruct pattern:
+        // internal fields in a struct made readonly via DirectAdd.
+        var src = """
+        struct S {
+            internal int V;
+            internal S(int v) { V = v; }
+            public int Value => V;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        Assert.Contains("internal readonly int V", result.OutputCode);
+    }
+
     // === L2 Private Setter Tests ===
 
     [Fact]

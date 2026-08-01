@@ -21,11 +21,19 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     private readonly HashSet<string> _targetFieldNames = new(); // all field names across all target structs
     private readonly SemanticModel? _semanticModel;
     private readonly Dictionary<string, string> _variableTypes = new(); // variableName -> typeName
+    // L5 structs: properties are public get-only (not private fields with getXxx() getters).
+    // Reads from these structs should use property access (obj.Prop), not getXxx().
+    private readonly HashSet<string> _propertyAccessStructs = new();
 
-    public AssignmentRewriter(Dictionary<string, HashSet<string>> structFields, SemanticModel? semanticModel)
+    public AssignmentRewriter(
+        Dictionary<string, HashSet<string>> structFields,
+        SemanticModel? semanticModel,
+        IReadOnlySet<string>? propertyAccessStructs = null)
     {
         _structFields = structFields;
         _semanticModel = semanticModel;
+        if (propertyAccessStructs != null)
+            _propertyAccessStructs.UnionWith(propertyAccessStructs);
         // Collect all field names for quick lookup
         foreach (var fields in structFields.Values)
         {
@@ -108,20 +116,16 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             return base.VisitAssignmentExpression(node);
 
         // Semantic check: verify the receiver's type is actually one of our target structs
-        if (!IsTargetStructType(memberAccess.Expression))
+        var structName = TryGetTargetStructName(memberAccess.Expression);
+        if (structName == null)
             return base.VisitAssignmentExpression(node);
 
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
 
-        // For compound assignments, the read of obj.Field should use the getter method
-        var getterName = "get" + fieldNameText;
-        var getterAccess = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                receiver.WithoutTrivia(),
-                SyntaxFactory.IdentifierName(getterName)),
-            SyntaxFactory.ArgumentList());
+        // For compound assignments, the read of obj.Field should use the getter method.
+        // L5 structs use property access (obj.Prop); L4 structs use getXxx().
+        var getterAccess = CreateReadAccess(receiver, fieldNameText, structName);
 
         // Handle different assignment types
         ExpressionSyntax newValue;
@@ -235,18 +239,14 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             return base.VisitMemberAccessExpression(node);
 
         // Semantic check: verify the receiver's type is actually one of our target structs
-        if (!IsTargetStructType(node.Expression))
+        var structName = TryGetTargetStructName(node.Expression);
+        if (structName == null)
         {
             // Fallback: for simple identifiers, check enclosing method parameters syntactically
-            if (node.Expression is IdentifierNameSyntax receiverId
-                && IsParameterOfTargetStructType(receiverId.Identifier.Text, node))
-            {
-                // Proceed with conversion
-            }
-            else
-            {
+            if (node.Expression is IdentifierNameSyntax receiverId)
+                structName = TryGetParameterStructType(receiverId.Identifier.Text, node);
+            if (structName == null)
                 return base.VisitMemberAccessExpression(node);
-            }
         }
 
         // Don't convert if this is inside the struct itself (struct can access its own private fields)
@@ -254,7 +254,12 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (containingStruct != null && _structFields.ContainsKey(containingStruct.Identifier.Text))
             return base.VisitMemberAccessExpression(node);
 
-        // Convert obj.Field → obj.getField()
+        // L5 structs have public get-only properties — reads should stay as property access (obj.Prop),
+        // not be rewritten to getXxx() which doesn't exist.
+        if (_propertyAccessStructs.Contains(structName))
+            return base.VisitMemberAccessExpression(node);
+
+        // L4 structs: convert obj.Field → obj.getField()
         var getterName = "get" + fieldNameText;
         var getterCall = SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
@@ -269,20 +274,21 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// Syntactic fallback: checks if a variable name is a parameter of a target struct type
-    /// by looking at the enclosing method's parameter list.
+    /// by looking at the enclosing method's parameter list. Returns the struct name or null.
     /// </summary>
-    private bool IsParameterOfTargetStructType(string varName, SyntaxNode node)
+    private string? TryGetParameterStructType(string varName, SyntaxNode node)
     {
         var enclosingMethod = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-        if (enclosingMethod == null) return false;
-
-        foreach (var param in enclosingMethod.ParameterList.Parameters)
+        if (enclosingMethod != null)
         {
-            if (param.Identifier.Text == varName && param.Type != null)
+            foreach (var param in enclosingMethod.ParameterList.Parameters)
             {
-                var typeName = GetTypeName(param.Type);
-                if (!string.IsNullOrEmpty(typeName) && _structFields.ContainsKey(typeName))
-                    return true;
+                if (param.Identifier.Text == varName && param.Type != null)
+                {
+                    var typeName = GetTypeName(param.Type);
+                    if (!string.IsNullOrEmpty(typeName) && _structFields.ContainsKey(typeName))
+                        return typeName;
+                }
             }
         }
 
@@ -296,12 +302,38 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 {
                     var typeName = GetTypeName(param.Type);
                     if (!string.IsNullOrEmpty(typeName) && _structFields.ContainsKey(typeName))
-                        return true;
+                        return typeName;
                 }
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /// <summary>
+    /// Creates a read access expression for a struct field/property.
+    /// L4 structs: obj.getField() (private field with getter method).
+    /// L5 structs: obj.Field (public get-only property, no getter method).
+    /// </summary>
+    private ExpressionSyntax CreateReadAccess(ExpressionSyntax receiver, string fieldName, string structName)
+    {
+        if (_propertyAccessStructs.Contains(structName))
+        {
+            // L5: property access
+            return SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                receiver.WithoutTrivia(),
+                SyntaxFactory.IdentifierName(fieldName));
+        }
+
+        // L4: getter method call
+        var getterName = "get" + fieldName;
+        return SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                receiver.WithoutTrivia(),
+                SyntaxFactory.IdentifierName(getterName)),
+            SyntaxFactory.ArgumentList());
     }
 
     private SyntaxNode? HandleUnaryMutation(MemberAccessExpressionSyntax memberAccess,
@@ -321,20 +353,16 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             return null;
 
         // Semantic check: verify the receiver's type is actually one of our target structs
-        if (!IsTargetStructType(memberAccess.Expression))
+        var structName = TryGetTargetStructName(memberAccess.Expression);
+        if (structName == null)
             return null;
 
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
 
         // obj.Field++ → obj = obj.WithField(obj.getField() + 1)
-        var getterName = "get" + fieldNameText;
-        var getterAccess = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                receiver.WithoutTrivia(),
-                SyntaxFactory.IdentifierName(getterName)),
-            SyntaxFactory.ArgumentList());
+        // L5 structs use property access (obj.Prop); L4 structs use getXxx().
+        var getterAccess = CreateReadAccess(receiver, fieldNameText, structName);
 
         var increment = SyntaxFactory.LiteralExpression(
             SyntaxKind.NumericLiteralExpression,
@@ -427,11 +455,11 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// Checks if the expression's type is one of the target structs that should have
-    /// their field assignments converted to With* method calls.
+    /// Resolves the target struct name for an expression, or null if not a target struct.
+    /// Used to determine whether field/property assignments should be converted to With* calls.
     /// This prevents incorrect conversion when a class has fields with the same names as a struct.
     /// </summary>
-    private bool IsTargetStructType(ExpressionSyntax expression)
+    private string? TryGetTargetStructName(ExpressionSyntax expression)
     {
         // For simple identifiers, use the variable type map (fast path)
         if (expression is IdentifierNameSyntax simpleId)
@@ -439,7 +467,8 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             var varName = simpleId.Identifier.Text;
             if (_variableTypes.TryGetValue(varName, out var typeName))
             {
-                return _structFields.ContainsKey(typeName);
+                if (_structFields.ContainsKey(typeName))
+                    return typeName;
             }
         }
 
@@ -452,9 +481,9 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 var typeInfo = _semanticModel.GetTypeInfo(expression);
                 var type = typeInfo.Type;
 
-                if (type != null)
+                if (type != null && _structFields.ContainsKey(type.Name))
                 {
-                    return _structFields.ContainsKey(type.Name);
+                    return type.Name;
                 }
             }
             catch (ArgumentException)
@@ -470,12 +499,13 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             var rootVarName = identifierName.Identifier.Text;
             if (_variableTypes.TryGetValue(rootVarName, out var rootTypeName))
             {
-                return _structFields.ContainsKey(rootTypeName);
+                if (_structFields.ContainsKey(rootTypeName))
+                    return rootTypeName;
             }
         }
 
         // Default: don't convert if we can't determine the type
-        return false;
+        return null;
     }
 
     /// <summary>
