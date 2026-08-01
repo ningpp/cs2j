@@ -3346,35 +3346,68 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         //   intVar.ToString()       → String.valueOf(intVar)
         // Also applies to [Flags] enums, which are mapped to int in Java.
         //   flagsEnumVar.ToString() → String.valueOf(flagsEnumVar)  (not .toString() on int)
-        if (methodName == originalMethodName
-            && context.SemanticModel != null
-            && originalMethodName is "GetHashCode" or "CompareTo" or "ToString")
+        if (originalMethodName is "GetHashCode" or "CompareTo" or "ToString")
         {
-            var receiverSymbol = context.SemanticModel
-                .GetTypeInfo(memberAccess.Expression).Type;
-            var wrapperClass = GetJavaWrapperForPrimitiveSpecialType(receiverSymbol?.SpecialType);
+            string? wrapperClass = null;
+            ITypeSymbol? receiverSymbol = null;
 
-            // [Flags] enum → int in Java. Detect via Roslyn FlagsAttribute on the enum symbol.
-            if (wrapperClass == null
-                && receiverSymbol?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
-                && receiverSymbol is INamedTypeSymbol namedEnumType
-                && namedEnumType.GetAttributes().Any(a =>
-                    a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"))
+            // Try semantic model first (may be unavailable after ReadOnlyStructMaker rewrites)
+            if (context.SemanticModel != null)
             {
-                wrapperClass = GetFlagsEnumValueType(namedEnumType, context) == "long" ? "Long" : "Integer";
+                receiverSymbol = context.SemanticModel
+                    .GetTypeInfo(memberAccess.Expression).Type;
+                wrapperClass = GetJavaWrapperForPrimitiveSpecialType(receiverSymbol?.SpecialType);
+
+                // [Flags] enum → int in Java. Detect via Roslyn FlagsAttribute on the enum symbol.
+                if (wrapperClass == null
+                    && receiverSymbol?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
+                    && receiverSymbol is INamedTypeSymbol namedEnumType
+                    && namedEnumType.GetAttributes().Any(a =>
+                        a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"))
+                {
+                    wrapperClass = GetFlagsEnumValueType(namedEnumType, context) == "long" ? "Long" : "Integer";
+                }
+
+                // Fallback: flags enum registry covers cross-file scenarios where the enum
+                // declaration was seen in a different file in this project compilation.
+                if (wrapperClass == null
+                    && receiverSymbol?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
+                    && (context.IsFlagsEnum(receiverSymbol.Name)
+                        || context.IsFlagsEnum(receiverSymbol.ToDisplayString() ?? string.Empty)))
+                {
+                    wrapperClass = receiverSymbol is INamedTypeSymbol namedFlags
+                        && GetFlagsEnumValueType(namedFlags, context) == "long"
+                        ? "Long"
+                        : "Integer";
+                }
             }
 
-            // Fallback: flags enum registry covers cross-file scenarios where the enum
-            // declaration was seen in a different file in this project compilation.
-            if (wrapperClass == null
-                && receiverSymbol?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
-                && (context.IsFlagsEnum(receiverSymbol.Name)
-                    || context.IsFlagsEnum(receiverSymbol.ToDisplayString() ?? string.Empty)))
+            // Fallback: use Java type mapping to detect primitives when semantic model is unavailable
+            // or inconclusive (e.g., after ReadOnlyStructMaker rewrites the syntax tree)
+            if (wrapperClass == null)
             {
-                wrapperClass = receiverSymbol is INamedTypeSymbol namedFlags
-                    && GetFlagsEnumValueType(namedFlags, context) == "long"
-                    ? "Long"
-                    : "Integer";
+                var receiverTypeInfo = context.GetTypeInfo(memberAccess.Expression).Type;
+                if (receiverTypeInfo != null)
+                {
+                    receiverSymbol = receiverTypeInfo;
+                    var javaType = context.MapType(receiverTypeInfo);
+                    wrapperClass = javaType switch
+                    {
+                        "int" or "long" or "short" or "byte" or "float" or "double" => javaType switch
+                        {
+                            "int" => "Integer",
+                            "long" => "Long",
+                            "short" => "Short",
+                            "byte" => "Integer", // byte mapped to int in Java
+                            "float" => "Float",
+                            "double" => "Double",
+                            _ => null
+                        },
+                        "char" => "Character",
+                        "boolean" => "Boolean",
+                        _ => null
+                    };
+                }
             }
 
             if (wrapperClass != null)
