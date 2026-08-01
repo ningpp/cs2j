@@ -43,4 +43,34 @@ public class StringMethodBulkTests : ConversionTestBase
         var result = Convert("class C { public string M(string s) { return s.ToUpper().Substring(0); } }");
         AssertNoCSharpResidue(result);
     }
+
+    [Fact]
+    public void ToStringUShortStructField_ConvertsToValueOf()
+    {
+        var result = Convert(@"
+struct Offset { public ushort PortValue; }
+struct Info { public Offset Offset; }
+class C {
+    Info _info;
+    string M() { return _info.Offset.PortValue.ToString(); }
+}");
+        AssertConversion(result, "String.valueOf(");
+        AssertJavaDoesNotContain(result, ".toString()", "ushort struct field .ToString() must not produce .toString() on a Java primitive");
+    }
+
+    [Fact]
+    public void ToStringUShortNestedStructField_WithFormatProvider_ConvertsToValueOf()
+    {
+        // Mimics the Uri.cs pattern: nested struct in partial class with CultureInfo arg
+        var result = Convert(@"
+using System.Globalization;
+class Uri {
+    private class UriInfo { public Offset Offset; }
+    private struct Offset { public ushort PortValue; }
+    private UriInfo _info;
+    string GetPort() { return _info.Offset.PortValue.ToString(CultureInfo.InvariantCulture); }
+}");
+        AssertConversion(result, "String.valueOf(");
+        AssertJavaDoesNotContain(result, ".toString()", "ushort nested struct field .ToString(culture) must not produce .toString() on a Java primitive");
+    }
 }

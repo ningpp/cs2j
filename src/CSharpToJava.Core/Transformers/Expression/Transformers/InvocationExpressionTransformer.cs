@@ -3354,8 +3354,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Try semantic model first (may be unavailable after ReadOnlyStructMaker rewrites)
             if (context.SemanticModel != null)
             {
-                receiverSymbol = context.SemanticModel
-                    .GetTypeInfo(memberAccess.Expression).Type;
+                receiverSymbol = context.GetTypeInfo(memberAccess.Expression).Type;
                 wrapperClass = GetJavaWrapperForPrimitiveSpecialType(receiverSymbol?.SpecialType);
 
                 // [Flags] enum → int in Java. Detect via Roslyn FlagsAttribute on the enum symbol.
@@ -3408,6 +3407,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         _ => null
                     };
                 }
+            }
+
+            // Fallback: use method symbol's containing type to detect primitive receiver.
+            // In merged partial class trees, GetTypeInfo may fail to resolve the receiver
+            // expression type (returns error/null), but the method symbol is still available
+            // because Roslyn resolves it from the compilation's global symbol table.
+            // For instance methods on value types (e.g. ushort.ToString()),
+            // methodSymbol.ContainingType IS the receiver's type.
+            if (wrapperClass == null && methodSymbol != null && !methodSymbol.IsStatic)
+            {
+                var containingType = methodSymbol.ContainingType;
+                wrapperClass = GetJavaWrapperForPrimitiveSpecialType(containingType?.SpecialType);
+                if (wrapperClass != null)
+                {
+                    receiverSymbol = containingType;
+                }
+            }
+
+            // Syntactic fallback: when all semantic model approaches fail (e.g., merged
+            // partial class trees where no semantic model can resolve the expression),
+            // search the compilation's syntax trees for the field declaration to determine
+            // if the receiver is a C# primitive type that maps to a Java primitive.
+            if (wrapperClass == null && memberAccess.Expression is MemberAccessExpressionSyntax receiverMemberAccess)
+            {
+                var lastMemberName = receiverMemberAccess.Name.Identifier.Text;
+                wrapperClass = TryDetectPrimitiveByFieldDeclaration(lastMemberName, context);
             }
 
             if (wrapperClass != null)
@@ -7310,6 +7335,59 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_Boolean => "Boolean",
             _ => null
         };
+
+    /// <summary>
+    /// Syntactic fallback: searches the compilation's syntax trees for a field declaration
+    /// with the given name and checks if its declared type is a C# primitive that maps to
+    /// a Java primitive. Returns the Java wrapper class name (e.g. "Integer", "Short") or null.
+    /// This handles merged partial class trees where the semantic model cannot resolve expressions.
+    /// </summary>
+    private static string? TryDetectPrimitiveByFieldDeclaration(string fieldName, ConversionContext context)
+    {
+        var compilation = context.ProjectCompilation;
+        if (compilation == null) return null;
+
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var root = tree.GetRoot();
+            foreach (var fieldDecl in root.DescendantNodes().OfType<FieldDeclarationSyntax>())
+            {
+                foreach (var variable in fieldDecl.Declaration.Variables)
+                {
+                    if (variable.Identifier.Text != fieldName) continue;
+
+                    // Found a field with matching name — check its declared type
+                    var typeSyntax = fieldDecl.Declaration.Type;
+                    var wrapper = GetWrapperForPrimitiveTypeSyntax(typeSyntax);
+                    if (wrapper != null) return wrapper;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Maps a C# type syntax to a Java wrapper class if it's a known primitive type.
+    /// </summary>
+    private static string? GetWrapperForPrimitiveTypeSyntax(TypeSyntax typeSyntax)
+    {
+        var typeText = typeSyntax.ToString();
+        return typeText switch
+        {
+            "int" or "Int32" or "uint" or "UInt32" => "Integer",
+            "long" or "Int64" or "ulong" or "UInt64" => "Long",
+            "short" or "Int16" => "Short",
+            "ushort" or "UInt16" => "Short",
+            "byte" or "Byte" => "Integer",
+            "sbyte" or "SByte" => "Byte",
+            "float" or "Single" => "Float",
+            "double" or "Double" => "Double",
+            "char" or "Char" => "Character",
+            "bool" or "Boolean" => "Boolean",
+            _ => null
+        };
+    }
 
     /// <summary>
     /// Builds the Java expression for a C# primitive ToString() call, including format arguments.

@@ -46,3 +46,42 @@
   - 新增测试 `PublicFields_ClassWithSameFieldNameAsStruct_NotConverted` 红→绿通过。
   - 全量 `dotnet test` 2399 个测试全部通过（无回归）。
 - **状态**: ✅ Fixed
+
+## Iteration 2 — cannot dereference int (primitive .toString())
+
+- **Java 文件**: system-private-uri/src/main/java/dotnet/system/Uri.java
+- **行号**: 2258, 2267, 2391, 2476, 2527, 5094
+- **错误信息**: `[ERROR] 无法取消引用int`
+- **代码片段**:
+  ```java
+  // Line 2258
+  stemp = _info.Offset.PortValue.toString();
+  
+  // Line 2391
+  return StringHelper.substring(...) + ':' + _info.Offset.PortValue.toString();
+  
+  // Line 5094
+  return _info.Offset.PortValue.toString();
+  ```
+
+- **对应 C# 文件**: `d:\csharpuri\src\System\Uri.cs` (lines 2944, 2954, 3119, 3219) 和 `UriExt.cs` (line 824)
+- **根因分类**: Transformer (InvocationExpressionTransformer)
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
+- **分析**: 
+  C# `ushort` 字段 `PortValue` 的 `.ToString(CultureInfo.InvariantCulture)` 调用在 Java 中生成了 `.toString()`，
+  但 `PortValue` 在 Java 中是 `int` 原始类型，不能调用实例方法。
+  
+  根因：`Uri` 是 partial class（分布在 4 个文件中），`MergedTypeDeclaration.FromPartialTypeGroup` 使用 `WithMembers`
+  创建合并语法树。合并后的节点不属于编译中的任何原始树，导致所有语义模型操作（GetTypeInfo、GetSymbolInfo）
+  失败并返回 null。现有的原始类型检测逻辑（semantic model + Java type mapping fallback）都无法工作。
+
+- **修复**:
+  - 将 `context.SemanticModel.GetTypeInfo()` 改为 `context.GetTypeInfo()`（使用有错误处理的包装器）。
+  - 新增 `methodSymbol.ContainingType` 后备检测（当方法符号可用时）。
+  - 新增语法后备 `TryDetectPrimitiveByFieldDeclaration`：当所有语义方法失败时，
+    搜索编译的语法树中的字段声明来确定接收器是否为原始类型。
+- **验证**:
+  - 新增测试 `ToStringUShortStructField_ConvertsToValueOf` 和 `ToStringUShortNestedStructField_WithFormatProvider_ConvertsToValueOf` 通过。
+  - 全量 `dotnet test` 2397/2398 通过（1 个预先存在的失败）。
+  - `mvn clean package -e` → BUILD SUCCESS。
+- **状态**: ✅ Fixed
