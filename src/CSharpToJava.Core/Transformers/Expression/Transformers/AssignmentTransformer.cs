@@ -369,7 +369,17 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // so no hoisting needed in those cases.
                 bool inExplicitSetter = IsInExplicitSetterMethod(prop, context)
                     && propMa.Expression is ThisExpressionSyntax;
-                bool isReadOnlyViaThis = prop.SetMethod == null && propMa.Expression is ThisExpressionSyntax;
+                // A property is effectively read-only if it has no setter in the syntax tree.
+                // Check both the semantic model and the syntax declaration to handle cases
+                // where the setter was removed by preprocessing (e.g. ReadOnlyStructMaker).
+                bool propHasNoSourceSetter = prop.SetMethod == null
+                    || !PropertyHasSetterInSyntax(prop, context);
+                // For structs: if the property's containing type is the same as the enclosing type
+                // and it's a struct, use direct field access (structs can access their own fields).
+                bool isStructInternalAssignment = prop.ContainingType?.TypeKind == TypeKind.Struct
+                    && prop.Locations.Any(l => l.IsInSource);
+                bool isReadOnlyViaThis = (propHasNoSourceSetter || isStructInternalAssignment)
+                    && propMa.Expression is ThisExpressionSyntax;
                 // An assignment inside an arrow expression body (property setter/init or method)
                 // is effectively a statement — the return value is discarded.
                 // Treat it like ExpressionStatementSyntax to avoid hoisting.
@@ -456,6 +466,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     string fieldName = TryGetBackingFieldName(prop)
                         ?? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
                     return $"this.{fieldName} = {right}";
+                }
+
+                // If the property has no setter in source (e.g. removed by ReadOnlyStructMaker),
+                // use direct backing-field write on the receiver instead of a setter call.
+                // Only applies to source-declared properties, not metadata references.
+                if ((propHasNoSourceSetter || isStructInternalAssignment) && prop.Locations.Any(l => l.IsInSource))
+                {
+                    string fieldName = TryGetBackingFieldName(prop)
+                        ?? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+                    return $"{receiver}.{fieldName} = {right}";
                 }
 
                 string setter = "set" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
@@ -1518,6 +1538,54 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return false;
 
         return string.Equals(currentMethod.Name, "Set" + property.Name, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks the syntax tree to determine if a property actually has a setter accessor.
+    /// This handles cases where the semantic model's SetMethod is stale (e.g. after
+    /// ReadOnlyStructMaker removed the setter from the syntax but the symbol is cached).
+    /// </summary>
+    private static bool PropertyHasSetterInSyntax(IPropertySymbol prop, ConversionContext context)
+    {
+        // For metadata-only properties (from referenced assemblies), trust the semantic model
+        if (!prop.Locations.Any(l => l.IsInSource))
+            return prop.SetMethod != null;
+
+        // Check the enclosing type's syntax node for the property declaration.
+        // This uses the ACTUAL syntax being converted, not the semantic model's references.
+        var enclosingType = context.CurrentEnclosingRoslynType;
+        if (enclosingType != null)
+        {
+            foreach (var syntaxRef in enclosingType.DeclaringSyntaxReferences)
+            {
+                var typeSyntax = syntaxRef.GetSyntax();
+                foreach (var member in typeSyntax.ChildNodes())
+                {
+                    if (member is Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax propDecl
+                        && propDecl.Identifier.Text == prop.Name)
+                    {
+                        return propDecl.AccessorList?.Accessors
+                            .Any(a => a.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.SetAccessorDeclaration)
+                                   || a.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.InitAccessorDeclaration)) == true;
+                    }
+                }
+            }
+        }
+
+        // Fallback: check DeclaringSyntaxReferences
+        foreach (var syntaxRef in prop.DeclaringSyntaxReferences)
+        {
+            var syntax = syntaxRef.GetSyntax();
+            if (syntax is Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax propDecl)
+            {
+                return propDecl.AccessorList?.Accessors
+                    .Any(a => a.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.SetAccessorDeclaration)
+                           || a.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.InitAccessorDeclaration)) == true;
+            }
+        }
+
+        // Final fallback: trust the semantic model
+        return prop.SetMethod != null;
     }
 
     private static bool IsSystemIoStreamType(ITypeSymbol? type)

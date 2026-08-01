@@ -75,3 +75,16 @@
 - **根因分类**: Transformer (ReadOnlyStructMaker)
 - **涉及组件**: src/CSharpToJava.Core/ReadOnlyStructMaker/AssignmentRewriter.cs
 - **分析**: L4 转换将 Point 的公共字段转为 private + getX()/getY() 方法，AssignmentRewriter 只重写了写入访问（obj.X = v → obj = obj.WithX(v)），未重写读取访问（obj.X → obj.getX()），导致其他文件中仍然直接访问 private 字段。
+
+## Iteration 9 — cannot find symbol (setWeight)
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/BorderInfo.java
+- **行号**: 88
+- **错误信息**: 找不到符号 (cannot find symbol: method setWeight(double))
+- **代码片段**:
+  ```java
+  this.setWeight(weight);
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\Geometry\OverlapRemoval\BorderInfo.cs
+- **根因分类**: Transformer (property assignment)
+- **涉及组件**: C# → Java converter property assignment handling
+- **分析**: ReadOnlyStructMaker L5 移除了 Weight 属性的 setter（使 struct readonly），但 C# 源码中仍有 this.Weight = weight 赋值。C# → Java 转换器将属性赋值转为 setWeight() 调用，但 Java 类中只有 getWeight() 和 withWeight()，无 setWeight()。
