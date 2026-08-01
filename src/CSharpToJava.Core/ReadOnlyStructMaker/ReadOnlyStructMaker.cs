@@ -82,6 +82,42 @@ public sealed class ReadOnlyStructMaker
             }
         }
 
+        // Update call sites for L5 migrated property setters (WithXxx methods).
+        // L5 migration converts public property setters to WithXxx() methods and removes
+        // the setters. Object initializers and external assignments that used those setters
+        // must be updated to use constructor calls or WithXxx() calls.
+        if (options.UpdateCallSites)
+        {
+            var l5WithMethodStructs = new Dictionary<string, HashSet<string>>();
+
+            foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
+            {
+                var structName = structSyntax.Identifier.Text;
+                // Scan the REWRITTEN tree for WithXxx methods (property setter migrations)
+                var rewrittenStruct = newRoot.DescendantNodes().OfType<StructDeclarationSyntax>()
+                    .FirstOrDefault(s => s.Identifier.Text == structName);
+                if (rewrittenStruct == null) continue;
+
+                var withMethodProps = rewrittenStruct.Members.OfType<MethodDeclarationSyntax>()
+                    .Where(m => m.Identifier.Text.StartsWith("With", StringComparison.Ordinal)
+                                && m.ParameterList.Parameters.Count == 1
+                                && m.ReturnType is IdentifierNameSyntax rt
+                                && rt.Identifier.Text == structName)
+                    .Select(m => m.Identifier.Text.Substring(4))
+                    .ToHashSet();
+
+                if (withMethodProps.Count > 0)
+                    l5WithMethodStructs[structName] = withMethodProps;
+            }
+
+            if (l5WithMethodStructs.Count > 0)
+            {
+                var l5AssignmentRewriter = new AssignmentRewriter(l5WithMethodStructs, semanticModel);
+                l5AssignmentRewriter.BuildVariableTypeMap(root);
+                newRoot = (CompilationUnitSyntax)l5AssignmentRewriter.Visit(newRoot)!;
+            }
+        }
+
         // Update call sites for L4 public field assignments
         if (options.EnablePublicFieldConversion)
         {

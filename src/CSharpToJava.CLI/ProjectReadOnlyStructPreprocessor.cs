@@ -586,6 +586,34 @@ internal static class ProjectReadOnlyStructPreprocessor
             }
         }
 
+        // Also detect L5-migrated structs: those with WithXxx() methods for property setters.
+        // L5 migration converts public property setters to WithXxx() methods and removes setters.
+        // Object initializers and external assignments using those setters must be updated.
+        foreach (var (_, tree) in outputTrees)
+        {
+            var root = tree.GetRoot();
+            foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
+            {
+                var structName = structDecl.Identifier.Text;
+                var withMethodProps = structDecl.Members
+                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>()
+                    .Where(m => m.Identifier.Text.StartsWith("With", StringComparison.Ordinal)
+                                && m.ParameterList.Parameters.Count == 1
+                                && m.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax rt
+                                && rt.Identifier.Text == structName)
+                    .Select(m => m.Identifier.Text.Substring(4)) // strip "With" prefix
+                    .ToHashSet();
+
+                if (withMethodProps.Count > 0)
+                {
+                    if (publicFieldStructs.TryGetValue(structName, out var existing))
+                        existing.UnionWith(withMethodProps);
+                    else
+                        publicFieldStructs[structName] = withMethodProps;
+                }
+            }
+        }
+
         if (publicFieldStructs.Count == 0) return;
 
         // Create compilation for semantic analysis

@@ -158,3 +158,43 @@
 - **修复**: 在 `GetPropertyGetterName` 的冲突检测循环之前增加 `ImplementsGenericIEnumerator(containingType)` 检查：当属性名为 `Current` 且包含类型实现了 `IEnumerator<T>`（泛型）时，直接返回 `getCurrent()`（不加 `$Class` 后缀），因为 `CSharpGenericEnumerator<T>` 只有 `getCurrent()`。非泛型 `IEnumerator` 的 `$Class` 逻辑不受影响（仍走冲突检测循环）。
 
 ✅ Fixed — GraphForCycleRemoval.java:135 和 Ordering.java:650 的 getCurrent$Class() 错误消失（mvn 重新编译后首个错误变为 GeometryGraphReader.java:134 ignoreComments 找不到符号）。
+
+## Iteration 13 — ignoreComments 找不到符号
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/DebugHelpers/Persistence/GeometryGraphReader.java
+- **行号**: 134, 135
+- **错误信息**: 找不到符号 — 变量 ignoreComments / ignoreWhitespace，位置: dotnet.xml.XmlReaderSettings 的变量 _obj145
+- **代码片段**:
+  ```java
+  var _obj145 = new XmlReaderSettings();
+  _obj145.ignoreComments = false;  // ERROR: ignoreComments 找不到
+  _obj145.ignoreWhitespace = true; // ERROR: ignoreWhitespace 找不到
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs (line 65: `new XmlReaderSettings { IgnoreComments = false, IgnoreWhitespace = true }`)
+- **根因分类**: Transformer (ObjectCreationTransformer 未解析属性处理)
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs (line 1257-1278)
+- **分析**: `XmlReaderSettings` 属于未引用的 `System.Xml.ReaderWriter.dll`，语义模型无法解析 `IgnoreComments` 属性，导致 `memberSymbol` 为 null。转换器默认使用直接字段写入（`_obj145.ignoreComments = false`），但 Java 兼容类 `XmlReaderSettings` 的字段为私有，仅提供 `setIgnoreComments()` 方法。
+- **修复**: 在 ObjectCreationTransformer 的标识符初始化器处理中，当 `memberSymbol` 为 null（未解析）时，默认生成 setter 调用（`setIgnoreComments(false)`）而非直接字段写入。
+
+✅ Fixed — GeometryGraphReader.java:134/135 错误消失（mvn 重新编译后首个错误变为 GeometryGraphReader.java:734 setInnerMargin 找不到符号）。
+
+## Iteration 14 — setInnerMargin/setFixedPosition/setWeight 找不到符号
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/DebugHelpers/Persistence/GeometryGraphReader.java
+- **行号**: 734, 735, 736
+- **错误信息**: 找不到符号 — 方法 setInnerMargin(double) / setFixedPosition(double) / setWeight(double)，位置: Microsoft.Msagl.Core.Geometry.BorderInfo 的变量 _obj152
+- **代码片段**:
+  ```java
+  var _obj152 = new BorderInfo();
+  _obj152.setInnerMargin(getDoubleAttribute(GeometryToken.InnerMargin));     // ERROR
+  _obj152.setFixedPosition(getDoubleAttribute(GeometryToken.FixedPosition)); // ERROR
+  _obj152.setWeight(getDoubleAttribute(GeometryToken.Weight));               // ERROR
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\GeometryGraphReader.cs (line 814-825: `new BorderInfo { InnerMargin = ..., FixedPosition = ..., Weight = ... }`)
+- **根因分类**: Lowering (ReadOnlyStructMaker L5 migration 未更新 object initializer 调用点)
+- **涉及组件**:
+  - src/CSharpToJava.Core/ReadOnlyStructMaker/ReadOnlyStructRewriter.cs — `ApplyMethodMigrate` (line 265-365): converts property setters to `WithXxx()` methods and removes setters
+  - src/CSharpToJava.Core/ReadOnlyStructMaker/ReadOnlyStructMaker.cs — `MakeReadOnly`: only runs `AssignmentRewriter` for L4 structs, not L5
+  - src/CSharpToJava.CLI/ProjectReadOnlyStructPreprocessor.cs — `UpdateCrossFileCallSites`: only handles void→struct method migrations, not property setter→WithXxx conversions
+- **分析**: `BorderInfo` 是一个 C# struct，包含 mutating methods（`SetFixed`, `SetUnfixed`, `EnsureWeight`）和公共属性 setter（`InnerMargin`, `FixedPosition`, `Weight`）。L5 migration 将属性 setter 转换为 `WithXxx()` 方法并移除了 setter，但未更新跨文件的对象初始化器调用点。`GeometryGraphReader.cs` 中的 `new BorderInfo { InnerMargin = ..., ... }` 未被重写为构造函数调用，导致 Java 转换器生成 `setInnerMargin()` 调用，但 `BorderInfo.java` 只有 `withInnerMargin()` 方法。
+- **修复**: 在 `ReadOnlyStructMaker.MakeReadOnly` 和 `ProjectReadOnlyStructPreprocessor.UpdateCrossFileCallSites` 中，L5 migration 后检测带有 `WithXxx` 方法的 struct，并运行 `AssignmentRewriter` 将对象初始化器转换为构造函数调用。
+
+✅ Fixed — GeometryGraphReader.java:734/735/736 错误消失（mvn 重新编译后首个错误变为 Rectangle.java:138 double 无法转换为 Size）。

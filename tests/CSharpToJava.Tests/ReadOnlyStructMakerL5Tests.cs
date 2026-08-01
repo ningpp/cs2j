@@ -340,4 +340,44 @@ public class ReadOnlyStructMakerL5Tests
         Assert.DoesNotContain("out Compass", result.OutputCode);
         Assert.DoesNotContain("newStatus", result.OutputCode);
     }
+
+    [Fact]
+    public void L5Struct_PropertySetterMigration_ObjectInitializer_ConvertedToConstructor()
+    {
+        // Reproduces: BorderInfo struct with mutating methods (SetFixed) and public
+        // property setters (InnerMargin, FixedPosition, Weight). L5 migration converts
+        // setters to WithXxx methods and removes them. Object initializers assigning
+        // to those properties must be converted to constructor calls, otherwise the
+        // Java converter generates setXxx() calls that no longer exist.
+        var src = """
+        struct BorderInfo {
+            public double InnerMargin { get; set; }
+            public double FixedPosition { get; set; }
+            public double Weight { get; set; }
+            public void SetFixed(double position, double weight) {
+                FixedPosition = position;
+                Weight = weight;
+            }
+            public BorderInfo(double innerMargin, double fixedPosition, double weight) {
+                InnerMargin = innerMargin;
+                FixedPosition = fixedPosition;
+                Weight = weight;
+            }
+        }
+        class Reader {
+            BorderInfo Read() {
+                return new BorderInfo { InnerMargin = 1.0, FixedPosition = 2.0, Weight = 3.0 };
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Property setters should be migrated to WithXxx methods
+        Assert.Contains("WithInnerMargin(", result.OutputCode);
+        Assert.Contains("WithFixedPosition(", result.OutputCode);
+        Assert.Contains("WithWeight(", result.OutputCode);
+        // Object initializer should be converted to constructor call with named parameters
+        Assert.Contains("new BorderInfo(innerMargin: 1.0, fixedPosition: 2.0, weight: 3.0)", result.OutputCode);
+        Assert.DoesNotContain("{ InnerMargin = 1.0", result.OutputCode);
+    }
 }
