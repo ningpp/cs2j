@@ -90,25 +90,11 @@ internal sealed class StructAnalyzer
             if (fields.Any(f => f.DeclaredAccessibility == Accessibility.Public))
             {
                 var root = syntax.SyntaxTree.GetRoot();
-                var hasExternal = _callGraph.HasExternalPublicFieldAssignment(symbol, root);
-                if (hasExternal)
+                if (_callGraph.HasExternalPublicFieldAssignment(symbol, root))
                 {
                     if (_options.EnablePublicFieldConversion)
-                    {
-                        // Check if public fields have preprocessor directives that prevent safe conversion
-                        var publicFieldDecls = syntax.Members.OfType<FieldDeclarationSyntax>()
-                            .Where(f => f.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))).ToList();
-                        var allHavePreprocessor = publicFieldDecls.Count > 0 &&
-                            publicFieldDecls.All(FieldHasPreprocessorDirective);
-                        if (allHavePreprocessor)
-                        {
-                            return new(ConversionLevel.NotConvertible, StructPattern.PublicFields, false,
-                                "public fields with preprocessor directives assigned externally (cannot safely convert)", name);
-                        }
-
                         return new(ConversionLevel.PublicFieldToProperty, StructPattern.PublicFields, true,
                             "public fields assigned externally - converting to properties with WithXxx methods", name);
-                    }
                     return new(ConversionLevel.NotConvertible, StructPattern.PublicFields, false,
                         "public fields assigned externally (public field conversion disabled)", name);
                 }

@@ -187,13 +187,30 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         if (publicFields.Count == 0) return node;
 
         // 1b. Filter out fields that have preprocessor directives in their leading trivia
-        // These fields cannot be safely converted because the #endif is in the next member's
-        // leading trivia, and moving it would break the preprocessor directive balance.
+        // These fields cannot be safely converted to properties because the #endif directive
+        // is typically in the next member's leading trivia, and moving it would break the
+        // preprocessor directive balance.
         var convertibleFields = publicFields.Where(f => !FieldHasPreprocessorDirective(f.Field)).ToList();
         if (convertibleFields.Count == 0)
         {
-            // All public fields have preprocessor directives - add readonly modifier only
-            return ApplyDirectAdd(node);
+            // All public fields have preprocessor directives - keep fields as-is,
+            // add readonly modifier, and generate WithXxx methods for external write access.
+            var readonlyNode = ApplyDirectAdd(node);
+
+            // Build field types from ALL public fields (including preprocessor-guarded ones)
+            var allFieldTypes = publicFields.ToDictionary(
+                f => f.Variable.Identifier.Text,
+                f => f.Field.Declaration.Type);
+
+            // Generate WithXxx methods using existing constructor
+            var existingCtor = readonlyNode.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+            foreach (var fieldName in allFieldTypes.Keys)
+            {
+                var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allFieldTypes, existingCtor);
+                readonlyNode = readonlyNode.AddMembers(withMethod);
+            }
+
+            return readonlyNode;
         }
 
         // 2. Build field name -> type mapping (only for convertible fields)
