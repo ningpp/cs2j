@@ -168,6 +168,11 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     /// L4: Convert public fields to get-only properties and add readonly modifier.
     /// Generates WithXxx methods that use constructor to create new instances.
     /// Call sites are updated separately by AssignmentRewriter.
+    /// 
+    /// IMPORTANT: Fields with preprocessor directives (#if/#else) in their leading trivia
+    /// are NOT converted. This is because the #endif directive is typically in the next 
+    /// member's leading trivia, and moving it would break the preprocessor directive balance.
+    /// The C# compiler requires #if/#else/#endif blocks to be balanced within the same scope.
     /// </summary>
     private StructDeclarationSyntax ApplyPublicFieldToProperty(StructDeclarationSyntax node)
     {
@@ -181,8 +186,18 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var publicFields = allFields.Where(f => f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))).ToList();
         if (publicFields.Count == 0) return node;
 
-        // 2. Build field name -> type mapping
-        var fieldTypes = allFields.ToDictionary(
+        // 1b. Filter out fields that have preprocessor directives in their leading trivia
+        // These fields cannot be safely converted because the #endif is in the next member's
+        // leading trivia, and moving it would break the preprocessor directive balance.
+        var convertibleFields = publicFields.Where(f => !FieldHasPreprocessorDirective(f.Field)).ToList();
+        if (convertibleFields.Count == 0)
+        {
+            // All public fields have preprocessor directives - add readonly modifier only
+            return ApplyDirectAdd(node);
+        }
+
+        // 2. Build field name -> type mapping (only for convertible fields)
+        var fieldTypes = convertibleFields.ToDictionary(
             f => f.Variable.Identifier.Text,
             f => f.Field.Declaration.Type);
 
@@ -192,9 +207,17 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
         foreach (var member in node.Members)
         {
+            // Skip public fields that have preprocessor directives
             if (member is FieldDeclarationSyntax field &&
                 field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
             {
+                if (FieldHasPreprocessorDirective(field))
+                {
+                    // Keep the field as-is
+                    newMembers = newMembers.Add(member);
+                    continue;
+                }
+                
                 foreach (var variable in field.Declaration.Variables)
                 {
                     // public field -> get-only property
@@ -204,7 +227,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                             SyntaxFactory.SingletonList(
                                 SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
                                     .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))));
-                    // Preserve leading trivia (preprocessor directives, doc comments)
+                    // Preserve leading trivia (doc comments, etc.)
                     prop = prop.WithLeadingTrivia(field.GetLeadingTrivia());
                     newMembers = newMembers.Add(prop);
                     publicFieldNames.Add(variable.Identifier.Text);
@@ -702,4 +725,45 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             return base.VisitAssignmentExpression(node);
         }
     }
+
+    #region Preprocessor Directive Helpers
+
+    /// <summary>
+    /// Checks if the trivia list contains any preprocessor directives (#if, #else, #elif, #endif).
+    /// </summary>
+    private static bool HasPreprocessorDirective(SyntaxTriviaList trivia)
+    {
+        foreach (var t in trivia)
+        {
+            if (t.IsKind(SyntaxKind.IfDirectiveTrivia) ||
+                t.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
+                t.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
+                t.IsKind(SyntaxKind.EndIfDirectiveTrivia))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /// <summary>
+    /// Checks if the field declaration has preprocessor directives in its leading trivia.
+    /// This checks all descendant tokens for preprocessor directives.
+    /// </summary>
+    private static bool FieldHasPreprocessorDirective(FieldDeclarationSyntax field)
+    {
+        // Check all descendant tokens for preprocessor directives
+        foreach (var token in field.DescendantTokens())
+        {
+            if (token.HasLeadingTrivia)
+            {
+                if (HasPreprocessorDirective(token.LeadingTrivia))
+                    return true;
+            }
+        }
+        
+        return false;
+    }
+
+    #endregion
 }
