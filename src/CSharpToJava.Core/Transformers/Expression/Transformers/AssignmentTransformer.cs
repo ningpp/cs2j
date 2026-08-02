@@ -389,7 +389,8 @@ public class AssignmentTransformer : IIRExpressionTransformer
                         isStructInternalAssignment = true;
                     }
                 }
-                bool isReadOnlyViaThis = (propHasNoSourceSetter || isStructInternalAssignment)
+                bool isReadOnlyViaThis = (propHasNoSourceSetter
+                        || (isStructInternalAssignment && HasTrivialSetter(prop)))
                     && propMa.Expression is ThisExpressionSyntax;
                 // An assignment inside an arrow expression body (property setter/init or method)
                 // is effectively a statement — the return value is discarded.
@@ -482,7 +483,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // If the property has no setter in source (e.g. removed by ReadOnlyStructMaker),
                 // use direct backing-field write on the receiver instead of a setter call.
                 // Only applies to source-declared properties, not metadata references.
-                if ((propHasNoSourceSetter || isStructInternalAssignment) && prop.Locations.Any(l => l.IsInSource))
+                // For struct internal assignments: only use direct field access if the property
+                // has a trivial setter (auto-property or simple delegation). Properties with
+                // custom validation logic in their setters must still call the setter.
+                bool useDirectFieldAccess = propHasNoSourceSetter
+                    || (isStructInternalAssignment && HasTrivialSetter(prop));
+                if (useDirectFieldAccess && prop.Locations.Any(l => l.IsInSource))
                 {
                     string fieldName = TryGetBackingFieldName(prop)
                         ?? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
@@ -1501,10 +1507,23 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 if (getter.ExpressionBody?.Expression is IdentifierNameSyntax exprBodyIdent)
                     return ConversionContext.EscapeJavaKeyword(exprBodyIdent.Identifier.Text);
 
+                // Handle: get => this.fieldName;
+                if (getter.ExpressionBody?.Expression is MemberAccessExpressionSyntax
+                    { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax exprThisField })
+                    return ConversionContext.EscapeJavaKeyword(exprThisField.Identifier.Text);
+
                 if (getter.Body?.Statements.Count == 1
                     && getter.Body.Statements[0] is ReturnStatementSyntax { Expression: IdentifierNameSyntax returnIdent })
                 {
                     return ConversionContext.EscapeJavaKeyword(returnIdent.Identifier.Text);
+                }
+
+                // Handle: get { return this.fieldName; }
+                if (getter.Body?.Statements.Count == 1
+                    && getter.Body.Statements[0] is ReturnStatementSyntax
+                    { Expression: MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax returnThisField } })
+                {
+                    return ConversionContext.EscapeJavaKeyword(returnThisField.Identifier.Text);
                 }
             }
         }
@@ -1523,12 +1542,35 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     return ConversionContext.EscapeJavaKeyword(exprBodyLeft.Identifier.Text);
                 }
 
+                // Handle: set => this.fieldName = value;
+                if (setter.ExpressionBody?.Expression is AssignmentExpressionSyntax
+                    { Left: MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax exprThisAssign },
+                      Right: IdentifierNameSyntax { Identifier.Text: "value" } })
+                {
+                    return ConversionContext.EscapeJavaKeyword(exprThisAssign.Identifier.Text);
+                }
+
                 if (setter.Body?.Statements.Count == 1
                     && setter.Body.Statements[0] is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assign }
                     && assign.Left is IdentifierNameSyntax assignLeft
                     && assign.Right is IdentifierNameSyntax { Identifier.Text: "value" })
                 {
                     return ConversionContext.EscapeJavaKeyword(assignLeft.Identifier.Text);
+                }
+
+                // Handle multi-statement setter: find the last this.fieldName = value assignment
+                if (setter.Body != null)
+                {
+                    foreach (var stmt in setter.Body.Statements.Reverse())
+                    {
+                        if (stmt is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax multiAssign }
+                            && multiAssign.Left is MemberAccessExpressionSyntax
+                            { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax multiField }
+                            && multiAssign.Right is IdentifierNameSyntax { Identifier.Text: "value" })
+                        {
+                            return ConversionContext.EscapeJavaKeyword(multiField.Identifier.Text);
+                        }
+                    }
                 }
             }
         }
@@ -1549,6 +1591,50 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return false;
 
         return string.Equals(currentMethod.Name, "Set" + property.Name, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Returns true if the property's setter is trivial (auto-property or simple field delegation)
+    /// and can be safely replaced with a direct backing-field write without changing behavior.
+    /// Returns false if the setter has validation logic, conditions, or side effects.
+    /// </summary>
+    private static bool HasTrivialSetter(IPropertySymbol prop)
+    {
+        if (prop.SetMethod == null)
+            return true;
+
+        foreach (var syntaxRef in prop.SetMethod.DeclaringSyntaxReferences)
+        {
+            if (syntaxRef.GetSyntax() is not AccessorDeclarationSyntax setter)
+                continue;
+
+            // Auto-property: no body, no expression body
+            if (setter.Body == null && setter.ExpressionBody == null)
+                return true;
+
+            // Expression-bodied: set => field = value; (simple assignment only)
+            if (setter.ExpressionBody?.Expression is AssignmentExpressionSyntax)
+                return true;
+
+            // Block body: check for control flow or throw statements (indicates validation)
+            if (setter.Body != null)
+            {
+                bool hasControlFlow = setter.Body.DescendantNodes().Any(n =>
+                    n is IfStatementSyntax || n is ThrowStatementSyntax ||
+                    n is SwitchStatementSyntax || n is ForStatementSyntax ||
+                    n is WhileStatementSyntax || n is ForEachStatementSyntax);
+                if (hasControlFlow)
+                    return false;
+
+                // Single assignment statement is trivial
+                if (setter.Body.Statements.Count == 1
+                    && setter.Body.Statements[0] is ExpressionStatementSyntax
+                    { Expression: AssignmentExpressionSyntax })
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

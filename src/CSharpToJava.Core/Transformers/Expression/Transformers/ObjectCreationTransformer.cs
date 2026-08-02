@@ -1184,10 +1184,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         // For readonly structs (all instance fields are readonly/final), object initializers
         // must be converted to constructor calls since final fields can't be assigned after construction.
+        // Note: structs with only auto-properties (no explicit fields) are NOT readonly —
+        // their properties have setters and the initializer must use setter calls.
+        var explicitFields = createdType?.GetMembers().OfType<IFieldSymbol>()
+            .Where(f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared)
+            .ToList() ?? [];
         if (createdType != null && createdType.IsValueType &&
-            createdType.GetMembers().OfType<IFieldSymbol>()
-                .Where(f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared)
-                .All(f => f.IsReadOnly))
+            explicitFields.Count > 0 &&
+            explicitFields.All(f => f.IsReadOnly))
         {
             // Collect initializer values in field declaration order
             var fields = createdType.GetMembers().OfType<IFieldSymbol>()
