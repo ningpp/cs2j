@@ -165,52 +165,49 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// L4: Convert public fields to private fields with public getter methods and WithXxx methods.
-    /// The struct itself is NOT made readonly because external code may still assign fields.
+    /// L4: Convert public fields to get-only properties and add readonly modifier.
+    /// Generates WithXxx methods that use constructor to create new instances.
     /// Call sites are updated separately by AssignmentRewriter.
     /// </summary>
     private StructDeclarationSyntax ApplyPublicFieldToProperty(StructDeclarationSyntax node)
     {
-        var publicFields = node.Members.OfType<FieldDeclarationSyntax>()
-            .Where(f => f.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+        var structName = node.Identifier.Text;
+
+        // 1. Collect all fields (public and private)
+        var allFields = node.Members.OfType<FieldDeclarationSyntax>()
+            .SelectMany(f => f.Declaration.Variables.Select(v => (Field: f, Variable: v)))
             .ToList();
 
+        var publicFields = allFields.Where(f => f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))).ToList();
         if (publicFields.Count == 0) return node;
 
+        // 2. Build field name -> type mapping
+        var fieldTypes = allFields.ToDictionary(
+            f => f.Variable.Identifier.Text,
+            f => f.Field.Declaration.Type);
+
+        // 3. Convert members: public field -> get-only property
         var newMembers = new SyntaxList<MemberDeclarationSyntax>();
-        var withMethods = new List<MethodDeclarationSyntax>();
+        var publicFieldNames = new List<string>();
 
         foreach (var member in node.Members)
         {
             if (member is FieldDeclarationSyntax field &&
                 field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
             {
-                // Convert public field to private field (keep field semantics, not property)
-                // This allows WithXxx methods to directly modify the field without
-                // going through a non-existent setter
                 foreach (var variable in field.Declaration.Variables)
                 {
-                    // Preserve leading trivia (preprocessor directives, doc comments) from the
-                    // original first modifier token. Stripping trivia breaks #if/#endif balance.
-                    var originalFirstModifier = field.Modifiers.First();
-                    var privateField = field
-                        .WithModifiers(SyntaxFactory.TokenList(
-                            SyntaxFactory.Token(SyntaxKind.PrivateKeyword)
-                                .WithLeadingTrivia(originalFirstModifier.LeadingTrivia)
-                                .WithTrailingTrivia(SyntaxFactory.Space)));
-                    newMembers = newMembers.Add(privateField);
-
-                    // Generate public getter method: T getXxx() => Xxx;
-                    var getterMethod = SyntaxFactory.MethodDeclaration(field.Declaration.Type, "get" + variable.Identifier.Text)
+                    // public field -> get-only property
+                    var prop = SyntaxFactory.PropertyDeclaration(field.Declaration.Type, variable.Identifier.Text)
                         .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
-                        .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(
-                            SyntaxFactory.IdentifierName(variable.Identifier.Text)))
-                        .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-                        .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, SyntaxFactory.Whitespace("        "));
-                    newMembers = newMembers.Add(getterMethod);
-
-                    // Generate WithXxx method
-                    withMethods.Add(GenerateWithMethod(node.Identifier.Text, variable.Identifier.Text, field.Declaration.Type));
+                        .WithAccessorList(SyntaxFactory.AccessorList(
+                            SyntaxFactory.SingletonList(
+                                SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                                    .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))));
+                    // Preserve leading trivia (preprocessor directives, doc comments)
+                    prop = prop.WithLeadingTrivia(field.GetLeadingTrivia());
+                    newMembers = newMembers.Add(prop);
+                    publicFieldNames.Add(variable.Identifier.Text);
                 }
             }
             else
@@ -221,46 +218,139 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
         var result = node.WithMembers(newMembers);
 
-        // Add WithXxx methods
-        foreach (var method in withMethods)
+        // 4. Add readonly modifier
+        result = ApplyDirectAdd(result);
+
+        // 5. Ensure constructor exists
+        var ctor = result.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+        if (ctor == null)
         {
-            result = result.AddMembers(method);
+            var ctorMembers = publicFieldNames.Select(n => (n, fieldTypes[n], true)).ToList();
+            var newCtor = ConstructorGenerator.Generate(structName, ctorMembers);
+            if (newCtor != null)
+                result = result.AddMembers(newCtor);
         }
 
-        // Note: Do NOT add 'readonly' keyword here - external call sites need to be updated first
-        // by AssignmentRewriter, and the struct may still have internal mutation.
+        // 6. Generate WithXxx methods using constructor
+        ctor = result.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+        foreach (var fieldName in publicFieldNames)
+        {
+            var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, fieldTypes, ctor);
+            result = result.AddMembers(withMethod);
+        }
+
         return result;
     }
 
-    private static MethodDeclarationSyntax GenerateWithMethod(string structName, string fieldName, TypeSyntax fieldType)
+    /// <summary>
+    /// Extracts parameter name to field name mapping from constructor body.
+    /// Handles both "this.Field = param" and "Field = param" patterns.
+    /// For example, if constructor has: X = xCoordinate; Y = yCoordinate;
+    /// Returns: { "xCoordinate": "X", "yCoordinate": "Y" }
+    /// </summary>
+    private static Dictionary<string, string> ExtractConstructorParamToFieldMap(
+        ConstructorDeclarationSyntax? ctor)
+    {
+        var map = new Dictionary<string, string>();
+        if (ctor?.Body == null) return map;
+
+        foreach (var stmt in ctor.Body.Statements.OfType<ExpressionStatementSyntax>())
+        {
+            if (stmt.Expression is not AssignmentExpressionSyntax assign)
+                continue;
+            if (!assign.IsKind(SyntaxKind.SimpleAssignmentExpression))
+                continue;
+
+            // Extract field name from left side
+            string? fieldName = null;
+            
+            // Case 1: this.FieldName = param
+            if (assign.Left is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } leftMa &&
+                leftMa.Name is IdentifierNameSyntax leftFieldName)
+            {
+                fieldName = leftFieldName.Identifier.Text;
+            }
+            // Case 2: FieldName = param (implicit this)
+            else if (assign.Left is IdentifierNameSyntax leftId)
+            {
+                fieldName = leftId.Identifier.Text;
+            }
+
+            if (fieldName == null)
+                continue;
+
+            // Right side must be parameter name (identifier)
+            if (assign.Right is not IdentifierNameSyntax paramName)
+                continue;
+
+            map[paramName.Identifier.Text] = fieldName;
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// Generates a WithXxx method that uses the constructor to create a new instance.
+    /// Example: public Point WithX(double x) => new Point(xCoordinate: x, yCoordinate: this.Y);
+    /// </summary>
+    private static MethodDeclarationSyntax GenerateWithMethodUsingConstructor(
+        string structName,
+        string fieldName,
+        Dictionary<string, TypeSyntax> fieldTypes,
+        ConstructorDeclarationSyntax? ctor)
     {
         var withMethodName = "With" + fieldName;
         var paramName = ToCamelCase(fieldName);
 
-        var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier(paramName)).WithType(fieldType);
+        // Extract parameter -> field mapping from constructor
+        var paramToFieldMap = ExtractConstructorParamToFieldMap(ctor);
 
-        // Generate: var result = this; result.Field = value; return result;
-        var body = SyntaxFactory.Block(
-            SyntaxFactory.LocalDeclarationStatement(
-                SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
-                    .WithVariables(SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.VariableDeclarator("result")
-                            .WithInitializer(SyntaxFactory.EqualsValueClause(
-                                SyntaxFactory.ThisExpression()))))),
-            SyntaxFactory.ExpressionStatement(
-                SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.IdentifierName("result"),
-                        SyntaxFactory.IdentifierName(fieldName)),
-                    SyntaxFactory.IdentifierName(paramName))),
-            SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result")));
+        // Build reverse mapping: field -> parameter
+        var fieldToParamMap = paramToFieldMap.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
+
+        // If no mapping (constructor body is not simple assignments), use camelCase parameter names
+        if (fieldToParamMap.Count == 0)
+        {
+            foreach (var name in fieldTypes.Keys)
+                fieldToParamMap[name] = ToCamelCase(name);
+        }
+
+        // Build constructor arguments with named parameters
+        var arguments = new List<ArgumentSyntax>();
+        foreach (var name in fieldTypes.Keys)
+        {
+            ExpressionSyntax argValue;
+            if (name == fieldName)
+            {
+                // Use new value for the target field
+                argValue = SyntaxFactory.IdentifierName(paramName);
+            }
+            else
+            {
+                // Get original value from this
+                argValue = SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.ThisExpression(),
+                    SyntaxFactory.IdentifierName(name));
+            }
+
+            // Use named parameter matching constructor's parameter name
+            var paramNameForCtor = fieldToParamMap.GetValueOrDefault(name, ToCamelCase(name));
+            arguments.Add(SyntaxFactory.Argument(argValue)
+                .WithNameColon(SyntaxFactory.NameColon(SyntaxFactory.IdentifierName(paramNameForCtor))));
+        }
+
+        var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier(paramName))
+            .WithType(fieldTypes[fieldName]);
 
         return SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName(structName), withMethodName)
             .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
             .AddParameterListParameters(param)
-            .WithBody(body)
+            .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(
+                SyntaxFactory.ObjectCreationExpression(SyntaxFactory.IdentifierName(structName))
+                    .WithArgumentList(SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SeparatedList(arguments)))))
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
             .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, SyntaxFactory.Whitespace("        "));
     }
 

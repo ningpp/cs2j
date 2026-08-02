@@ -122,6 +122,7 @@ public sealed class ReadOnlyStructMaker
         if (options.EnablePublicFieldConversion)
         {
             var publicFieldStructs = new Dictionary<string, HashSet<string>>();
+            var propertyAccessStructs = new HashSet<string>(); // L4 structs use property access for reads
 
             foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.PublicFieldToProperty))
             {
@@ -131,11 +132,12 @@ public sealed class ReadOnlyStructMaker
                     .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
                     .ToHashSet();
                 publicFieldStructs[structName] = publicFields;
+                propertyAccessStructs.Add(structName); // L4 structs: reads use property access
             }
 
             if (publicFieldStructs.Count > 0)
             {
-                var assignmentRewriter = new AssignmentRewriter(publicFieldStructs, semanticModel);
+                var assignmentRewriter = new AssignmentRewriter(publicFieldStructs, semanticModel, propertyAccessStructs);
                 // Build variable type map from the ORIGINAL tree (before ReadOnlyStructRewriter modified it)
                 // This allows us to verify that field assignment receivers are actually target structs
                 assignmentRewriter.BuildVariableTypeMap(root);

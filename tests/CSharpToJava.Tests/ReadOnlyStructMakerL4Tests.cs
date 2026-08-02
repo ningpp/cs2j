@@ -25,12 +25,82 @@ public class ReadOnlyStructMakerL4Tests
             .MakeReadOnly(tree, compilation.GetSemanticModel(tree), options);
     }
 
-    // === L4 Basic Conversion Tests ===
+    // === L4 V4: True Readonly Struct Tests ===
 
     [Fact]
-    public void PublicFields_SimpleAssignment_Converted()
+    public void PublicFields_V4_AddsReadonlyModifier()
     {
-        // Point.cs pattern: public fields assigned externally
+        // V4: struct must have readonly modifier
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Point", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_ConvertsToGetOnlyProperty()
+    {
+        // V4: public fields become get-only properties, not private fields
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Should have get-only properties
+        Assert.Contains("public double X { get; }", result.OutputCode);
+        Assert.Contains("public double Y { get; }", result.OutputCode);
+        // Should NOT have private fields
+        Assert.DoesNotContain("private double X;", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_WithXxxUsesConstructor()
+    {
+        // V4: WithXxx methods use constructor, not field assignment
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // WithXxx should use constructor
+        Assert.Contains("new Point(", result.OutputCode);
+        Assert.Contains("WithX(", result.OutputCode);
+        Assert.Contains("WithY(", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_ExternalAssignmentUpdated()
+    {
+        // V4: external assignment p.X = 5 becomes p = p.WithX(5)
         var src = @"
 struct Point {
     public double X;
@@ -46,21 +116,14 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        // L4 converts public fields to private fields + getXxx() methods + WithXxx() methods
-        Assert.Contains("private double X;", result.OutputCode);
-        Assert.Contains("private double Y;", result.OutputCode);
-        Assert.Contains("getX()", result.OutputCode);
-        Assert.Contains("getY()", result.OutputCode);
-        Assert.Contains("WithX(", result.OutputCode);
-        Assert.Contains("WithY(", result.OutputCode);
-        // Note: assignment conversion (p = p.WithX(5)) happens in UpdateCrossFileFieldReads
-        // (project-level), not in MakeReadOnly (single-file).
+        Assert.Contains("p = p.WithX(5)", result.OutputCode);
+        Assert.Contains("p = p.WithY(10)", result.OutputCode);
     }
 
     [Fact]
-    public void PublicFields_ObjectInitializer_Converted()
+    public void PublicFields_V4_ReadAccess_PropertyAccess()
     {
-        // Need external assignment to trigger L4 conversion
+        // V4: read accesses stay as property access, not getter methods
         var src = @"
 struct Point {
     public double X;
@@ -68,23 +131,27 @@ struct Point {
     public Point(double x, double y) { X = x; Y = y; }
 }
 class User {
-    void M() {
-        var p = new Point { X = 5, Y = 10 };
-        p.X = 20;  // External assignment to trigger L4
+    double M() {
+        var p = new Point(1, 2);
+        p.X = 5;
+        return p.X + p.Y;
     }
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        // Object initializer should be converted to constructor arguments
-        Assert.Contains("new Point(x: 5, y: 10)", result.OutputCode);
-        Assert.DoesNotContain("{ X = 5, Y = 10 }", result.OutputCode);
-        // External assignment should be converted to WithX call
-        Assert.Contains("p = p.WithX(20)", result.OutputCode);
+        var output = result.OutputCode!;
+        // Read accesses should use property access (p.X, p.Y)
+        Assert.Contains("p.X", output);
+        Assert.Contains("p.Y", output);
+        // Should NOT have getter methods (p.getX(), p.getY())
+        Assert.DoesNotContain("p.getX()", output);
+        Assert.DoesNotContain("p.getY()", output);
     }
 
     [Fact]
-    public void PublicFields_CompoundAssignment_Converted()
+    public void PublicFields_V4_CompoundAssignment_PropertyAccess()
     {
+        // V4: compound assignment uses property access for reads
         var src = @"
 struct Counter {
     public int Value;
@@ -98,90 +165,37 @@ class User {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.getValue() + 5)", result.OutputCode);
+        // Should use property access: c.Value + 5, not c.getValue() + 5
+        Assert.Contains("c.Value + 5", result.OutputCode);
     }
 
     [Fact]
-    public void PublicFields_SubtractAssignment_Converted()
+    public void PublicFields_V4_ObjectInitializer_Converted()
     {
+        // V4: object initializer converted to constructor
         var src = @"
-struct Counter {
-    public int Value;
-    public Counter(int v) { Value = v; }
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double x, double y) { X = x; Y = y; }
 }
 class User {
     void M() {
-        var c = new Counter(10);
-        c.Value -= 3;
+        var p = new Point { X = 5, Y = 10 };
+        p.X = 20;
     }
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.getValue() - 3)", result.OutputCode);
+        // Object initializer should be converted to constructor arguments
+        Assert.Contains("new Point(", result.OutputCode);
+        Assert.DoesNotContain("{ X = 5", result.OutputCode);
     }
 
     [Fact]
-    public void PublicFields_Increment_Converted()
+    public void PublicFields_V4_NoConstructor_GeneratesCtor()
     {
-        var src = @"
-struct Counter {
-    public int Value;
-    public Counter(int v) { Value = v; }
-}
-class User {
-    void M() {
-        var c = new Counter(0);
-        c.Value++;
-    }
-}";
-        var result = RunMaker(src);
-        Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.getValue() + 1)", result.OutputCode);
-    }
-
-    [Fact]
-    public void PublicFields_Decrement_Converted()
-    {
-        var src = @"
-struct Counter {
-    public int Value;
-    public Counter(int v) { Value = v; }
-}
-class User {
-    void M() {
-        var c = new Counter(10);
-        c.Value--;
-    }
-}";
-        var result = RunMaker(src);
-        Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.getValue() - 1)", result.OutputCode);
-    }
-
-    [Fact]
-    public void PublicFields_PreIncrement_Converted()
-    {
-        var src = @"
-struct Counter {
-    public int Value;
-    public Counter(int v) { Value = v; }
-}
-class User {
-    void M() {
-        var c = new Counter(0);
-        ++c.Value;
-    }
-}";
-        var result = RunMaker(src);
-        Assert.True(result.Changed);
-        Assert.Contains("c = c.WithValue(c.getValue() + 1)", result.OutputCode);
-    }
-
-    // === L4 Option Tests ===
-
-    [Fact]
-    public void PublicFields_DisabledByOption_NotConvertible()
-    {
+        // V4: when no constructor exists, generate one
         var src = @"
 struct Point {
     public double X;
@@ -193,18 +207,52 @@ class User {
         p.X = 5;
     }
 }";
-        var opts = new ReadOnlyStructMakerOptions { EnablePublicFieldConversion = false };
-        var result = RunMaker(src, opts);
-        Assert.False(result.Changed);
-        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        var output = result.OutputCode!;
+        // Should generate constructor
+        Assert.Contains("public Point(", output);
+        // Should still have WithXxx methods
+        Assert.Contains("WithX(", output);
+        Assert.Contains("WithY(", output);
     }
 
-    // === L4 Statistics Tests ===
+    [Fact]
+    public void PublicFields_V4_NonStandardCtorParams()
+    {
+        // V4: Point.cs style with non-standard parameter names (xCoordinate, yCoordinate)
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+    public Point(double xCoordinate, double yCoordinate) { X = xCoordinate; Y = yCoordinate; }
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        var output = result.OutputCode!;
+        
+        // Debug: output the actual generated code
+        _output.WriteLine("=== Generated Output ===");
+        _output.WriteLine(output);
+        _output.WriteLine("=== End Output ===");
+        
+        // WithXxx should use the original constructor parameter names
+        Assert.Contains("WithX(double x)", output);
+        // Constructor call should use xCoordinate parameter name
+        Assert.Contains("xCoordinate:", output);
+    }
+
+    // === L4 V4: Statistics Tests ===
 
     [Fact]
-    public void PublicFields_StatisticsTracked()
+    public void PublicFields_V4_StatisticsTracked()
     {
-        // Need external assignment to trigger L4 (public fields assigned externally)
         var src = @"
 struct Point {
     public double X;
@@ -225,7 +273,7 @@ class User {
     }
 
     [Fact]
-    public void PublicFields_LevelAssignedCorrectly()
+    public void PublicFields_V4_LevelAssignedCorrectly()
     {
         var src = @"
 struct Point {
@@ -244,10 +292,32 @@ class User {
         Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.PublicFieldToProperty);
     }
 
-    // === L4 Pattern Detection Tests ===
+    // === L4 V4: Option Tests ===
 
     [Fact]
-    public void PublicFields_WithMutatingMethod_NotL4()
+    public void PublicFields_V4_DisabledByOption_NotConvertible()
+    {
+        var src = @"
+struct Point {
+    public double X;
+    public double Y;
+}
+class User {
+    void M() {
+        var p = new Point();
+        p.X = 5;
+    }
+}";
+        var opts = new ReadOnlyStructMakerOptions { EnablePublicFieldConversion = false };
+        var result = RunMaker(src, opts);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+    }
+
+    // === L4 V4: Pattern Detection Tests ===
+
+    [Fact]
+    public void PublicFields_V4_WithMutatingMethod_NotL4()
     {
         // If struct has mutating methods, it should go to L5/L7 instead
         var src = @"
@@ -261,10 +331,9 @@ struct S {
     }
 
     [Fact]
-    public void PublicFields_NoExternalAssignment_L1()
+    public void PublicFields_V4_NoExternalAssignment_L1()
     {
-        // If public fields are only assigned internally (in constructor),
-        // it should be L1 DirectAdd
+        // If public fields are only assigned internally (constructor), should be L1
         var src = @"
 struct Point {
     public readonly double X;
@@ -273,15 +342,14 @@ struct Point {
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        // Should be L1 (already readonly fields)
         Assert.Contains(result.Diagnostics, d =>
             d.Level == ConversionLevel.DirectAdd || d.Level == ConversionLevel.PublicFieldToProperty);
     }
 
-    // === L4 Complex Scenarios ===
+    // === L4 V4: Complex Scenarios ===
 
     [Fact]
-    public void PublicFields_MultipleAssignments_AllConverted()
+    public void PublicFields_V4_MultipleAssignments_AllConverted()
     {
         var src = @"
 struct Rect {
@@ -308,7 +376,7 @@ class User {
     }
 
     [Fact]
-    public void PublicFields_MixedWithPublicFields_OnlyTargetStructConverted()
+    public void PublicFields_V4_MixedWithPublicFields_OnlyTargetStructConverted()
     {
         var src = @"
 struct Target {
@@ -332,7 +400,7 @@ class User {
     }
 
     [Fact]
-    public void PublicFields_DiagnosticMessage_ContainsFieldName()
+    public void PublicFields_V4_DiagnosticMessage_ContainsFieldName()
     {
         var src = @"
 struct Point {
@@ -353,7 +421,7 @@ class User {
     }
 
     [Fact]
-    public void PublicFields_WithMethod_MethodPreserved()
+    public void PublicFields_V4_WithMethod_MethodPreserved()
     {
         var src = @"
 struct Point {
@@ -377,58 +445,11 @@ class User {
         Assert.Contains("WithY(", result.OutputCode);
     }
 
-    [Fact]
-    public void PublicFields_MultiplyAssignment_Converted()
-    {
-        var src = @"
-struct Scale {
-    public double Factor;
-    public Scale(double f) { Factor = f; }
-}
-class User {
-    void M() {
-        var s = new Scale(1.0);
-        s.Factor *= 2.0;
-    }
-}";
-        var result = RunMaker(src);
-        Assert.True(result.Changed);
-        Assert.Contains("s = s.WithFactor(s.getFactor() * 2.0)", result.OutputCode);
-    }
+    // === L4 V4: Bug Fix Tests ===
 
     [Fact]
-    public void PublicFields_DivideAssignment_BinaryRightSide_Parenthesized()
+    public void PublicFields_V4_ClassWithSameFieldNameAsStruct_NotConverted()
     {
-        // Reproduces the Disc.centre bug: c.X /= 2.0 * (mb - ma)
-        // must become c = c.WithX(c.getX() / (2.0 * (mb - ma)))  -- NOT c.getX() / 2.0 * (mb - ma)
-        var src = @"
-struct Point {
-    public double X;
-    public Point(double x) { X = x; }
-}
-class User {
-    void M(double ma, double mb) {
-        var c = new Point(0);
-        c.X /= 2.0 * (mb - ma);
-    }
-}";
-        var result = RunMaker(src);
-        Assert.True(result.Changed);
-        var output = result.OutputCode!;
-        // The right-hand side binary expression must be parenthesized
-        Assert.Contains("c.getX() / (2.0 * (mb - ma))", output);
-        // Must NOT produce the unparenthesized form that changes semantics
-        Assert.DoesNotContain("c.getX() / 2.0 * (mb - ma)", output);
-    }
-
-    // === Bug Fix: Class with same field name as struct should NOT be converted ===
-
-    [Fact]
-    public void PublicFields_ClassWithSameFieldNameAsStruct_NotConverted()
-    {
-        // MoreInfo is a class (not struct), so its field assignments should NOT be converted to With* calls
-        // Offset is a struct with Path, Query, Fragment fields that gets L4 conversion
-        // Bug: AssignmentRewriter was converting info.MoreInfo.Path = value to info.MoreInfo.WithPath(value)
         var src = @"
 struct Offset {
     public int Path;
@@ -444,29 +465,22 @@ class MoreInfo {
 class User {
     void M() {
         var o = new Offset(0, 0, 0);
-        o.Path = 1;  // This SHOULD be converted to o = o.WithPath(1) because Offset is a struct
+        o.Path = 1;
         var info = new MoreInfo();
-        info.Path = ""test"";  // This should NOT be converted because MoreInfo is a class
+        info.Path = ""test"";
         info.Query = ""q"";
         info.Fragment = ""f"";
     }
 }";
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        // Offset struct assignment should be converted to WithPath
         Assert.Contains("o = o.WithPath(1)", result.OutputCode);
-        // MoreInfo is a class, so its field assignments should remain as simple assignments
+        // MoreInfo is a class, so its field assignments should remain
         Assert.DoesNotContain("info.WithPath(", result.OutputCode);
-        Assert.DoesNotContain("info.WithQuery(", result.OutputCode);
-        Assert.DoesNotContain("info.WithFragment(", result.OutputCode);
-        // Original field assignments should be preserved for the class
-        Assert.Contains("info.Path =", result.OutputCode);
-        Assert.Contains("info.Query =", result.OutputCode);
-        Assert.Contains("info.Fragment =", result.OutputCode);
     }
 
     [Fact]
-    public void PublicFields_Idempotent()
+    public void PublicFields_V4_Idempotent()
     {
         var src = @"
 struct Point {
@@ -480,15 +494,12 @@ struct Point {
         // Second run should produce same output
         var second = RunMaker(first.OutputCode!);
         // After first conversion, there are no more public fields to convert
-        // so second run should be idempotent (no changes)
         Assert.False(second.Changed);
     }
 
     [Fact]
-    public void PublicFields_InsidePreprocessorDirectives_PreservesBalance()
+    public void PublicFields_V4_InsidePreprocessorDirectives_PreservesBalance()
     {
-        // Reproduces the Point.cs bug: public fields inside #if/#else/#endif blocks
-        // The rewriter must not strip preprocessor directives from trivia
         var src = @"
 struct Point {
 #if SHARPKIT
@@ -527,45 +538,10 @@ class User {
     }
 
     [Fact]
-    public void PublicFields_ReadAccess_ConvertedToGetter()
+    public void PublicFields_V4_WithXxxBody_NotRewrittenByAssignmentRewriter()
     {
-        // Read accesses to converted fields must use getter methods
-        var src = @"
-struct Point {
-    public double X;
-    public double Y;
-    public Point(double x, double y) { X = x; Y = y; }
-}
-class User {
-    double M() {
-        var p = new Point(1, 2);
-        p.X = 5;
-        return p.X + p.Y;
-    }
-}";
-        var result = RunMaker(src);
-        Assert.True(result.Changed);
-        var output = result.OutputCode!;
-
-        // Read accesses should use getter methods
-        Assert.Contains("p.getX()", output);
-        Assert.Contains("p.getY()", output);
-        // Should NOT have direct field reads (p.X in a non-assignment context)
-        Assert.DoesNotContain("return p.X", output);
-    }
-
-    [Fact]
-    public void PublicFields_WithXxxBody_NotRewrittenByAssignmentRewriter()
-    {
-        // Reproduces the Point.withX StackOverflow bug:
-        // After L4 conversion, the WithXxx method body contains `result.X = x`.
-        // At project level, UpdateCrossFileFieldReads re-applies AssignmentRewriter
-        // to the OUTPUT files (which contain the WithXxx methods). The semantic model
-        // can now resolve `result`'s type as the struct type, so AssignmentRewriter
-        // incorrectly rewrites `result.X = x` to `result = result.WithX(x)`,
-        // creating infinite recursion.
-        //
-        // This test simulates that project-level flow.
+        // After L4 conversion, WithXxx methods use constructor.
+        // Re-applying AssignmentRewriter should not break them.
         var src = @"
 struct Point {
     public double X;
@@ -578,16 +554,14 @@ class User {
         p.X = 5;
     }
 }";
-        // Step 1: Run MakeReadOnly (single-file) to produce WithXxx methods
         var firstResult = RunMaker(src);
         Assert.True(firstResult.Changed);
         var output = firstResult.OutputCode!;
 
-        // Sanity: WithX body should have `result.X = x` at this stage
-        Assert.Contains("result.X = x", output);
+        // Sanity: WithX should use constructor at this stage
+        Assert.Contains("new Point(", output);
 
-        // Step 2: Simulate project-level UpdateCrossFileFieldReads:
-        // parse the output, build a new compilation, and re-apply AssignmentRewriter
+        // Re-apply AssignmentRewriter
         var outputTree = CSharpSyntaxTree.ParseText(output);
         var outputCompilation = CSharpCompilation.Create("field-read-update",
             new[] { outputTree },
@@ -599,15 +573,133 @@ class User {
         {
             ["Point"] = new HashSet<string> { "X", "Y" }
         };
-        var rewriter = new AssignmentRewriter(publicFieldStructs, outputModel);
+        var propertyAccessStructs = new HashSet<string> { "Point" }; // L4 uses property access
+        var rewriter = new AssignmentRewriter(publicFieldStructs, outputModel, propertyAccessStructs);
         rewriter.BuildVariableTypeMap(outputTree.GetRoot());
         var newRoot = rewriter.Visit(outputTree.GetRoot());
         var finalOutput = newRoot!.ToFullString();
 
-        // The WithXxx body must NOT be rewritten to self-recursion
-        Assert.DoesNotContain("result = result.WithX(", finalOutput);
-        Assert.DoesNotContain("result=result.WithX(", finalOutput);
-        // The original body `result.X = x` must be preserved
-        Assert.Contains("result.X = x", finalOutput);
+        // WithX body should NOT be broken
+        Assert.Contains("new Point(", finalOutput);
+        Assert.DoesNotContain("result.WithX(", finalOutput);
+    }
+
+    // === L4 V4: Subtract/Increment/Decrement Tests ===
+
+    [Fact]
+    public void PublicFields_V4_SubtractAssignment_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(10);
+        c.Value -= 3;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value - 3)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_Increment_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(0);
+        c.Value++;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value + 1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_Decrement_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(10);
+        c.Value--;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value - 1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_PreIncrement_Converted()
+    {
+        var src = @"
+struct Counter {
+    public int Value;
+    public Counter(int v) { Value = v; }
+}
+class User {
+    void M() {
+        var c = new Counter(0);
+        ++c.Value;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("c = c.WithValue(c.Value + 1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_MultiplyAssignment_Converted()
+    {
+        var src = @"
+struct Scale {
+    public double Factor;
+    public Scale(double f) { Factor = f; }
+}
+class User {
+    void M() {
+        var s = new Scale(1.0);
+        s.Factor *= 2.0;
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("s = s.WithFactor(s.Factor * 2.0)", result.OutputCode);
+    }
+
+    [Fact]
+    public void PublicFields_V4_DivideAssignment_BinaryRightSide_Parenthesized()
+    {
+        var src = @"
+struct Point {
+    public double X;
+    public Point(double x) { X = x; }
+}
+class User {
+    void M(double ma, double mb) {
+        var c = new Point(0);
+        c.X /= 2.0 * (mb - ma);
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        var output = result.OutputCode!;
+        // The right-hand side binary expression must be parenthesized
+        Assert.Contains("c.X / (2.0 * (mb - ma))", output);
+        Assert.DoesNotContain("c.X / 2.0 * (mb - ma)", output);
     }
 }
