@@ -174,7 +174,7 @@ internal static class CommentConversion
             lines.Add($" * {tag}");
     }
 
-    private static string? ExtractRegularLeadingComments(SyntaxTriviaList triviaList)
+    public static string? ExtractRegularLeadingComments(SyntaxTriviaList triviaList)
     {
         var comments = triviaList
             .Where(IsRegularCommentTrivia)

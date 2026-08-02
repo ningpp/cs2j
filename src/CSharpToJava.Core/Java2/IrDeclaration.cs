@@ -10,6 +10,11 @@ public abstract class IrDeclaration : IrNode
 public class IrCompilationUnit : IrDeclaration
 {
     public string? Package { get; set; }
+    /// <summary>
+    /// 文件级头注释（如 C# 文件开头的 copyright / 文件级 &lt;summary&gt;），
+    /// 来自 CompilationUnitSyntax 的 leading trivia，输出在 package 之前。
+    /// </summary>
+    public string? FileHeaderComment { get; set; }
     public List<string> Imports { get; } = new();
     public List<IrTypeDeclaration> TypeDeclarations { get; } = new();
 }

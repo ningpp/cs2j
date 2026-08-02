@@ -8,6 +8,11 @@ namespace CSharpToJava.Core.Java;
 public class JavaCompilationUnit : JavaSyntaxNode
 {
     public string? Package { get; set; }
+    /// <summary>
+    /// 文件级头注释（如 C# 文件开头的 copyright / 文件级 &lt;summary&gt;），
+    /// 来自 CompilationUnitSyntax 的 leading trivia，输出在 package 之前。
+    /// </summary>
+    public string? FileHeaderComment { get; set; }
     public List<JavaImport> Imports { get; } = new();
     public List<JavaTypeDeclaration> TypeDeclarations { get; } = new();
 
@@ -19,6 +24,14 @@ public class JavaCompilationUnit : JavaSyntaxNode
     public override string ToString(string indentation)
     {
         var sb = new StringBuilder();
+
+        // File header comment (copyright / file-level summary from C# leading trivia),
+        // emitted before the package declaration.
+        JavaCommentEmitter.AppendLeadingComment(sb, indentation, FileHeaderComment);
+        if (!string.IsNullOrWhiteSpace(FileHeaderComment))
+        {
+            sb.AppendLine();
+        }
 
         if (!string.IsNullOrEmpty(Package))
         {

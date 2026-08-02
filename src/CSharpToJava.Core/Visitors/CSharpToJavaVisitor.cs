@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers;
@@ -29,6 +30,9 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     public override JavaSyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
     {
         var compilation = new JavaCompilationUnit();
+
+        // 提取文件级头注释（copyright / 文件级 <summary> 等），来自 compilation unit 的 leading trivia
+        compilation.FileHeaderComment = CommentConversion.ExtractRegularLeadingComments(node.GetLeadingTrivia());
 
         // 处理 using 语句
         ProcessUsings(node.Usings, compilation);

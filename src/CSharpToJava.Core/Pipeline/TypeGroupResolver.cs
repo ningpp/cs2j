@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.LinqRewrite;
@@ -197,8 +198,12 @@ public static class TypeGroupResolver
             context.CurrentEnclosingRoslynType = typeGroup.TypeSymbol;
             try
             {
-                context.SemanticModel = semanticModel;
-                AddImportsFromTypeUsings(typeGroup, context, compilation);
+            context.SemanticModel = semanticModel;
+            AddImportsFromTypeUsings(typeGroup, context, compilation);
+
+            // 文件级头注释（copyright / 文件级 <summary> 等），来自 compilation unit 的 leading trivia
+            var fileHeaderComment = CommentConversion.ExtractRegularLeadingComments(
+                validSyntaxTree.GetRoot().GetLeadingTrivia());
 
                 // Create merged declaration
                 var mergedDeclaration = MergedTypeDeclaration.FromPartialTypeGroup(typeGroup, semanticModel);
@@ -277,6 +282,7 @@ public static class TypeGroupResolver
 
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
+                    javaCompilation.FileHeaderComment = fileHeaderComment;
 
                     // Standard JDK wildcard imports; java.util.function types are imported
                     // explicitly so that project types with the same simple name (e.g.
@@ -549,6 +555,8 @@ public static class TypeGroupResolver
 
                 var nsName = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
                 context.EnterNamespace(nsName);
+                var fileHeaderComment = CommentConversion.ExtractRegularLeadingComments(
+                    syntax.SyntaxTree.GetRoot().GetLeadingTrivia());
                 try
                 {
                     context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
@@ -561,6 +569,7 @@ public static class TypeGroupResolver
 
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
+                    javaCompilation.FileHeaderComment = fileHeaderComment;
 
                     AddStandardJdkImports(javaCompilation);
 
@@ -622,6 +631,8 @@ public static class TypeGroupResolver
 
                 var delNsName = typeGroup.TypeSymbol.ContainingNamespace?.ToDisplayString() ?? "";
                 context.EnterNamespace(delNsName);
+                var fileHeaderComment = CommentConversion.ExtractRegularLeadingComments(
+                    syntax.SyntaxTree.GetRoot().GetLeadingTrivia());
                 try
                 {
                     context.SemanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
@@ -636,6 +647,7 @@ public static class TypeGroupResolver
 
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
+                    javaCompilation.FileHeaderComment = fileHeaderComment;
 
                     AddStandardJdkImports(javaCompilation);
 

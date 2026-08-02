@@ -10,6 +10,11 @@ public class JavaCodeGenerator
     {
         var w = new IndentedWriter();
 
+        // File header comment (copyright / file-level summary from C# leading trivia)
+        CommentWriter.WriteLeading(w, unit.FileHeaderComment);
+        if (!string.IsNullOrEmpty(unit.FileHeaderComment))
+            w.WriteLine("");
+
         // Package
         if (!string.IsNullOrEmpty(unit.Package))
         {

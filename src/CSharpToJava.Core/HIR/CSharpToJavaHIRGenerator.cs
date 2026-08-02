@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java2;
 
@@ -17,6 +18,7 @@ public class CSharpToJavaHIRGenerator : CSharpSyntaxVisitor<IrNode?>, IHIRGenera
     {
         _context = context;
         var unit = new IrCompilationUnit();
+        unit.FileHeaderComment = CommentConversion.ExtractRegularLeadingComments(root.GetLeadingTrivia());
         foreach (var usingDirective in root.Usings)
             _importResolver.ProcessUsing(usingDirective, unit, context);
         foreach (var member in root.Members)
