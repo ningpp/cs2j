@@ -32,9 +32,9 @@ internal static class ConstructorGenerator
                         SyntaxFactory.IdentifierName(m.Name)),
                     SyntaxFactory.IdentifierName(ToCamelCase(m.Name))))).ToList();
 
-        var accessMod = members.All(m => !m.IsPublic)
-            ? SyntaxKind.InternalKeyword
-            : SyntaxKind.PublicKeyword;
+        var accessMod = members.All(m => m.IsPublic)
+            ? SyntaxKind.PublicKeyword
+            : SyntaxKind.InternalKeyword;
 
         return SyntaxFactory.ConstructorDeclaration(structName)
             .AddModifiers(SyntaxFactory.Token(accessMod).WithTrailingTrivia(SyntaxFactory.Space))

@@ -125,7 +125,14 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         // Semantic check: verify the receiver's type is actually one of our target structs
         var structName = TryGetTargetStructName(memberAccess.Expression);
         if (structName == null)
-            return base.VisitAssignmentExpression(node);
+            return base.VisitAssignmentExpression(node); // Resolved to non-target type - don't rewrite
+        if (structName == string.Empty)
+        {
+            // Type unresolvable (e.g., generic base class field). Use field-name fallback.
+            structName = TryGetStructNameByFieldNameAny(fieldNameText);
+            if (structName == null)
+                return base.VisitAssignmentExpression(node);
+        }
 
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
@@ -247,12 +254,13 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 
         // Semantic check: verify the receiver's type is actually one of our target structs
         var structName = TryGetTargetStructName(node.Expression);
-        if (structName == null)
+        if (structName == null || structName == string.Empty)
         {
-            // Fallback: for simple identifiers, check enclosing method parameters syntactically
+            // For reads, don't use field-name fallback (too risky for static access like Direction.South)
+            // Only try syntactic parameter check for simple identifiers
             if (node.Expression is IdentifierNameSyntax receiverId)
                 structName = TryGetParameterStructType(receiverId.Identifier.Text, node);
-            if (structName == null)
+            if (structName == null || structName == string.Empty)
                 return base.VisitMemberAccessExpression(node);
         }
 
@@ -369,7 +377,14 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         // Semantic check: verify the receiver's type is actually one of our target structs
         var structName = TryGetTargetStructName(memberAccess.Expression);
         if (structName == null)
-            return null;
+            return null; // Resolved to non-target type - don't rewrite
+        if (structName == string.Empty)
+        {
+            // Type unresolvable. Use field-name fallback.
+            structName = TryGetStructNameByFieldNameAny(fieldNameText);
+            if (structName == null)
+                return null;
+        }
 
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
@@ -485,22 +500,11 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     /// Resolves the target struct name for an expression, or null if not a target struct.
     /// Used to determine whether field/property assignments should be converted to With* calls.
     /// This prevents incorrect conversion when a class has fields with the same names as a struct.
+    /// Returns: struct name if target, null if resolved to non-target, empty string if unresolvable.
     /// </summary>
     private string? TryGetTargetStructName(ExpressionSyntax expression)
     {
-        // For simple identifiers, use the variable type map (fast path)
-        if (expression is IdentifierNameSyntax simpleId)
-        {
-            var varName = simpleId.Identifier.Text;
-            if (_variableTypes.TryGetValue(varName, out var typeName))
-            {
-                if (_structFields.ContainsKey(typeName))
-                    return typeName;
-            }
-        }
-
-        // For complex expressions (member access chains like p1.aPlusCorner),
-        // use the semantic model to get the actual type of the receiver
+        // Use semantic model FIRST (handles using aliases like P2 -> Point correctly)
         if (_semanticModel != null)
         {
             try
@@ -508,18 +512,33 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 var typeInfo = _semanticModel.GetTypeInfo(expression);
                 var type = typeInfo.Type;
 
-                if (type != null && _structFields.ContainsKey(type.Name))
+                if (type != null && type.TypeKind != TypeKind.Error)
                 {
-                    return type.Name;
+                    if (_structFields.ContainsKey(type.Name))
+                        return type.Name;
+                    return null; // Resolved to non-target type
                 }
             }
             catch (ArgumentException)
             {
-                // Node not in syntax tree - fall through to default
+                // Node not in syntax tree - fall through
             }
         }
 
-        // Fallback: try root identifier for cases where semantic model is unavailable
+        // Fallback: variable type map (fast path, but doesn't resolve aliases)
+        if (expression is IdentifierNameSyntax simpleId)
+        {
+            var varName = simpleId.Identifier.Text;
+            if (_variableTypes.TryGetValue(varName, out var typeName))
+            {
+                if (_structFields.ContainsKey(typeName))
+                    return typeName;
+                // Don't return null here - the type map might have an alias.
+                // Fall through to unresolvable.
+            }
+        }
+
+        // Fallback: try root identifier
         var identifierName = GetRootIdentifier(expression);
         if (identifierName != null)
         {
@@ -531,8 +550,8 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             }
         }
 
-        // Default: don't convert if we can't determine the type
-        return null;
+        // Type truly unresolvable
+        return string.Empty;
     }
 
     /// <summary>
@@ -549,5 +568,36 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             ElementAccessExpressionSyntax ea => GetRootIdentifier(ea.Expression),
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Last-resort fallback for WRITE operations: finds a target struct containing the field name.
+    /// No length restriction (writes MUST be rewritten for readonly correctness).
+    /// Still requires the field to be unique to one target struct to minimize false positives.
+    /// </summary>
+    private string? TryGetStructNameByFieldNameAny(string fieldName)
+    {
+        string? match = null;
+        int matchCount = 0;
+        foreach (var (structName, fields) in _structFields)
+        {
+            if (fields.Contains(fieldName))
+            {
+                match = structName;
+                matchCount++;
+            }
+        }
+        return matchCount == 1 ? match : null;
+    }
+
+    /// <summary>
+    /// Conservative fallback: only applies to distinctive field names (length > 3).
+    /// Used for contexts where false positives are more dangerous.
+    /// </summary>
+    private string? TryGetStructNameByFieldName(string fieldName)
+    {
+        if (fieldName.Length <= 3)
+            return null;
+        return TryGetStructNameByFieldNameAny(fieldName);
     }
 }

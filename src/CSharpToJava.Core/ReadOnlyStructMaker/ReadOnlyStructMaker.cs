@@ -127,12 +127,15 @@ public sealed class ReadOnlyStructMaker
             foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.PublicFieldToProperty))
             {
                 var structName = structSyntax.Identifier.Text;
-                var publicFields = structSyntax.Members.OfType<FieldDeclarationSyntax>()
-                    .Where(f => f.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+                // Include ALL non-private fields (public + internal) for assignment rewriting
+                var nonPrivateFields = structSyntax.Members.OfType<FieldDeclarationSyntax>()
+                    .Where(f => !f.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)) &&
+                                !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) &&
+                                !f.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
                     .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
                     .ToHashSet();
-                publicFieldStructs[structName] = publicFields;
-                propertyAccessStructs.Add(structName); // L4 structs: reads use property access
+                publicFieldStructs[structName] = nonPrivateFields;
+                propertyAccessStructs.Add(structName); // L4 structs: reads use property/field access
             }
 
             if (publicFieldStructs.Count > 0)

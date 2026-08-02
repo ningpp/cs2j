@@ -186,6 +186,19 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var publicFields = allFields.Where(f => f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))).ToList();
         if (publicFields.Count == 0) return node;
 
+        // Collect ALL non-private fields (public + internal) for WithXxx generation
+        var nonPrivateFields = allFields.Where(f =>
+            !f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)) &&
+            !f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) &&
+            !f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword))).ToList();
+        var allNonPrivateFieldTypes = nonPrivateFields.ToDictionary(
+            f => f.Variable.Identifier.Text,
+            f => f.Field.Declaration.Type);
+        // Track which fields are internal (for access modifier on WithXxx methods)
+        var internalFieldNames = nonPrivateFields
+            .Where(f => f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword)))
+            .Select(f => f.Variable.Identifier.Text).ToHashSet();
+
         // 1b. Filter out fields that have preprocessor directives in their leading trivia
         // These fields cannot be safely converted to properties because the #endif directive
         // is typically in the next member's leading trivia, and moving it would break the
@@ -197,16 +210,28 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             // add readonly modifier, and generate WithXxx methods for external write access.
             var readonlyNode = ApplyDirectAdd(node);
 
-            // Build field types from ALL public fields (including preprocessor-guarded ones)
-            var allFieldTypes = publicFields.ToDictionary(
-                f => f.Variable.Identifier.Text,
-                f => f.Field.Declaration.Type);
-
-            // Generate WithXxx methods using existing constructor
-            var existingCtor = readonlyNode.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
-            foreach (var fieldName in allFieldTypes.Keys)
+            // Ensure a full constructor exists for all non-private fields
+            var allCtorMembersPreproc = allNonPrivateFieldTypes.Select(kvp =>
+                (kvp.Key, kvp.Value, !internalFieldNames.Contains(kvp.Key))).ToList();
+            var fullCtorPreproc = ConstructorGenerator.Generate(structName, allCtorMembersPreproc);
+            if (fullCtorPreproc != null)
             {
-                var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allFieldTypes, existingCtor);
+                var existingCtors = readonlyNode.Members.OfType<ConstructorDeclarationSyntax>().ToList();
+                foreach (var ec in existingCtors)
+                {
+                    if (ec.ParameterList.Parameters.Count < allNonPrivateFieldTypes.Count)
+                        readonlyNode = readonlyNode.RemoveNode(ec, SyntaxRemoveOptions.KeepNoTrivia)!;
+                }
+                if (!HasEquivalentCtor(readonlyNode, fullCtorPreproc))
+                    readonlyNode = readonlyNode.AddMembers(fullCtorPreproc);
+            }
+
+            // Generate WithXxx methods for ALL non-private fields using constructor
+            var existingCtor = readonlyNode.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+            foreach (var fieldName in allNonPrivateFieldTypes.Keys)
+            {
+                var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allNonPrivateFieldTypes, existingCtor,
+                    isInternal: internalFieldNames.Contains(fieldName));
                 readonlyNode = readonlyNode.AddMembers(withMethod);
             }
 
@@ -261,21 +286,35 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         // 4. Add readonly modifier
         result = ApplyDirectAdd(result);
 
-        // 5. Ensure constructor exists
-        var ctor = result.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
-        if (ctor == null)
+        // 5. Ensure a full constructor exists that assigns ALL non-private fields.
+        // Readonly structs require all fields to be definitely assigned in every constructor.
+        var allCtorMembers = allNonPrivateFieldTypes.Select(kvp =>
+            (kvp.Key, kvp.Value, !internalFieldNames.Contains(kvp.Key))).ToList();
+        var fullCtor = ConstructorGenerator.Generate(structName, allCtorMembers);
+        if (fullCtor != null)
         {
-            var ctorMembers = publicFieldNames.Select(n => (n, fieldTypes[n], true)).ToList();
-            var newCtor = ConstructorGenerator.Generate(structName, ctorMembers);
-            if (newCtor != null)
-                result = result.AddMembers(newCtor);
+            // Remove existing constructors that don't cover all fields (they cause CS0171)
+            var existingCtors = result.Members.OfType<ConstructorDeclarationSyntax>().ToList();
+            foreach (var existingCtor in existingCtors)
+            {
+                if (existingCtor.ParameterList.Parameters.Count < allNonPrivateFieldTypes.Count)
+                {
+                    result = result.RemoveNode(existingCtor, SyntaxRemoveOptions.KeepNoTrivia)!;
+                }
+            }
+
+            if (!HasEquivalentCtor(result, fullCtor))
+                result = result.AddMembers(fullCtor);
         }
 
         // 6. Generate WithXxx methods using constructor
-        ctor = result.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
-        foreach (var fieldName in publicFieldNames)
+        // Include ALL non-private fields (public + internal) so external assignments
+        // to internal fields are also rewritable via WithXxx.
+        var ctor = result.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+        foreach (var fieldName in allNonPrivateFieldTypes.Keys)
         {
-            var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, fieldTypes, ctor);
+            var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allNonPrivateFieldTypes, ctor,
+                isInternal: internalFieldNames.Contains(fieldName));
             result = result.AddMembers(withMethod);
         }
 
@@ -337,7 +376,8 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         string structName,
         string fieldName,
         Dictionary<string, TypeSyntax> fieldTypes,
-        ConstructorDeclarationSyntax? ctor)
+        ConstructorDeclarationSyntax? ctor,
+        bool isInternal = false)
     {
         var withMethodName = "With" + fieldName;
         var paramName = ToCamelCase(fieldName);
@@ -384,7 +424,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             .WithType(fieldTypes[fieldName]);
 
         return SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName(structName), withMethodName)
-            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
+            .AddModifiers(SyntaxFactory.Token(isInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
             .AddParameterListParameters(param)
             .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(
                 SyntaxFactory.ObjectCreationExpression(SyntaxFactory.IdentifierName(structName))
