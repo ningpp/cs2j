@@ -825,13 +825,19 @@ public class Program
         }
     }
 
-    private static IReadOnlySet<string>? GetPreservedDestinationDirectories(ConvertProjectOptions opts) =>
-        opts.UsingGotoPreprocessedSource
-            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ProjectGotoPreprocessor.IntermediateDirectoryName,
-            }
-            : null;
+    private static IReadOnlySet<string>? GetPreservedDestinationDirectories(ConvertProjectOptions opts)
+    {
+        var preserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (opts.UsingGotoPreprocessedSource)
+        {
+            preserved.Add(ProjectGotoPreprocessor.IntermediateDirectoryName);
+        }
+        if (opts.MakeReadOnly)
+        {
+            preserved.Add(ProjectReadOnlyStructPreprocessor.IntermediateDirectoryName);
+        }
+        return preserved.Count > 0 ? preserved : null;
+    }
 
     private static IReadOnlyList<string> GetReferencedProjectDirectories(DiscoveredProject project, ProjectGraph graph)
     {
