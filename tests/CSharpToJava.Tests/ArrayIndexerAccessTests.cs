@@ -58,7 +58,7 @@ class Test
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("items[((count) <= 0 ? 0 : random.nextInt(count))].add(1);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("items[random.next(count)].add(1);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("items[((count) .add", result.GeneratedCode, StringComparison.Ordinal);
     }
 

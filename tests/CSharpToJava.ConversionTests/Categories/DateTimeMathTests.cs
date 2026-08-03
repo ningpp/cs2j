@@ -63,7 +63,71 @@ public class DateTimeMathTests : ConversionTestBase
         AssertConversion(result,
             "import io.github.ningpp.compat.CSharpRandom;",
             "var r = new CSharpRandom();",
-            "return r.nextInt(0, Integer.MAX_VALUE);");
+            "return r.next();");
+    }
+
+    [Fact]
+    public void RandomNext_WithMaxValue_UsesNextMethod()
+    {
+        // random.Next(8) should map to random.next(8), NOT nextInt(8) or guarded expression
+        var result = Convert("class C { public int M(System.Random random) { return random.Next(8); } }");
+        AssertConversion(result,
+            "import io.github.ningpp.compat.CSharpRandom;",
+            "return random.next(8);");
+        AssertJavaDoesNotContain(result, "nextInt",
+            "Random.Next(maxValue) should use CSharpRandom.next(), not java.util.Random.nextInt()");
+        AssertJavaDoesNotContain(result, "<= 0",
+            "Constant positive maxValue should not generate edge-case guard");
+    }
+
+    [Fact]
+    public void RandomNext_WithMinMax_UsesNextMethod()
+    {
+        var result = Convert("class C { public int M(System.Random random) { return random.Next(1, 10); } }");
+        AssertConversion(result,
+            "return random.next(1, 10);");
+        AssertJavaDoesNotContain(result, "nextInt");
+    }
+
+    [Fact]
+    public void RandomNext_WithVariableMax_UsesNextMethod()
+    {
+        // Even with variable maxValue, should delegate to CSharpRandom.next() which handles edge cases
+        var result = Convert("class C { public int M(System.Random random, int max) { return random.Next(max); } }");
+        AssertConversion(result,
+            "return random.next(max);");
+        AssertJavaDoesNotContain(result, "nextInt");
+        AssertJavaDoesNotContain(result, "<= 0");
+    }
+
+    [Fact]
+    public void RandomNextDouble_ConvertsToNextDouble()
+    {
+        var result = Convert("class C { public double M(System.Random random) { return random.NextDouble(); } }");
+        AssertConversion(result, "return random.nextDouble();");
+    }
+
+    [Fact]
+    public void RandomNextBytes_ConvertsToNextBytes()
+    {
+        var result = Convert("class C { public void M(System.Random random) { byte[] buf = new byte[10]; random.NextBytes(buf); } }");
+        AssertConversion(result, "random.nextBytes(buf);");
+    }
+
+    [Fact]
+    public void RandomNextInt64_ConvertsToNextInt64()
+    {
+        var result = Convert("class C { public long M(System.Random random) { return random.NextInt64(); } }");
+        AssertConversion(result, "return random.nextInt64();");
+    }
+
+    [Fact]
+    public void RandomNewWithSeed_ConvertsConstructor()
+    {
+        var result = Convert("class C { public int M() { var r = new System.Random(42); return r.Next(100); } }");
+        AssertConversion(result,
+            "var r = new CSharpRandom(42);",
+            "return r.next(100);");
     }
 
     [Fact]
