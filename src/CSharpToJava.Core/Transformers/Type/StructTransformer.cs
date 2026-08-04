@@ -74,6 +74,15 @@ public class StructTransformer : ITypeTransformer
                     if (iface.Name != "MarshalByRefObject"
                         && iface.ToDisplayString() != "System.MarshalByRefObject")
                     {
+                        // Readonly-struct migration changes mutating interface members from
+                        // `void M(args)` to `StructName M(args)`. Java cannot implement an
+                        // interface method with a different return type, so drop conflicting
+                        // interface declarations instead of emitting an unimplementable class.
+                        if (isReadOnly && structSymbol is INamedTypeSymbol namedStructSymbol &&
+                            HasInterfaceReturnTypeConflict(iface, namedStructSymbol))
+                        {
+                            continue;
+                        }
                         javaClass.ImplementedTypes.Add(context.MapType(iface));
                     }
                 }
@@ -256,9 +265,240 @@ public class StructTransformer : ITypeTransformer
         if (isReadOnly)
         {
             FixReadonlyStructConstructorChaining(javaClass, structFieldNamesForCtor);
+            DropFinalFromRepeatedlyAssignedFields(javaClass);
         }
 
         return javaClass;
+    }
+    /// <summary>
+    /// True when an interface declares a method whose name and arity match a struct
+    /// instance method but whose return type differs — the case produced by readonly
+    /// struct migration (void Add(Point) → Rectangle Add(Point)). Java forbids
+    /// implementing such an interface, so the caller drops it.
+    /// </summary>
+    private static bool HasInterfaceReturnTypeConflict(ITypeSymbol iface, INamedTypeSymbol structSymbol)
+    {
+        foreach (var member in iface.GetMembers())
+        {
+            if (member is not IMethodSymbol ifaceMethod || ifaceMethod.MethodKind != MethodKind.Ordinary)
+                continue;
+            foreach (var candidate in structSymbol.GetMembers(ifaceMethod.Name).OfType<IMethodSymbol>())
+            {
+                if (candidate.MethodKind != MethodKind.Ordinary || candidate.IsStatic)
+                    continue;
+                if (candidate.Parameters.Length != ifaceMethod.Parameters.Length)
+                    continue;
+                // Covariant returns are legal in Java: a class method may return a
+                // subtype of the interface method's return type. Only a truly
+                // incompatible return type is a conflict.
+                if (!ReturnsCompatibleType(candidate.ReturnType, ifaceMethod.ReturnType))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when <paramref name="actual"/> equals <paramref name="declared"/> or is a
+    /// subtype (class derivation or interface implementation) of it.
+    /// </summary>
+    private static bool ReturnsCompatibleType(ITypeSymbol actual, ITypeSymbol declared)
+    {
+        if (SymbolEqualityComparer.Default.Equals(actual, declared))
+            return true;
+        if (actual is INamedTypeSymbol named)
+        {
+            if (named.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, declared)))
+                return true;
+            for (var baseType = named.BaseType; baseType != null; baseType = baseType.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(baseType, declared))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Splits a comma-separated argument list at top-level commas (parentheses,
+    /// brackets, braces, and string literals are respected).
+    /// </summary>
+    private static List<string> SplitTopLevelArgs(string args)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(args)) return result;
+        var depth = 0;
+        var current = new System.Text.StringBuilder();
+        var inString = false;
+        var inChar = false;
+        for (var i = 0; i < args.Length; i++)
+        {
+            var ch = args[i];
+            if (inString)
+            {
+                current.Append(ch);
+                if (ch == '"' && (i == 0 || args[i - 1] != '\\')) inString = false;
+                continue;
+            }
+            if (inChar)
+            {
+                current.Append(ch);
+                if (ch == '\'' && (i == 0 || args[i - 1] != '\\')) inChar = false;
+                continue;
+            }
+            switch (ch)
+            {
+                case '"': inString = true; current.Append(ch); break;
+                case '\'': inChar = true; current.Append(ch); break;
+                case '(': case '[': case '{': case '<': depth++; current.Append(ch); break;
+                case ')': case ']': case '}': case '>': depth--; current.Append(ch); break;
+                case ',' when depth == 0:
+                    result.Add(current.ToString().Trim());
+                    current.Clear();
+                    break;
+                default:
+                    current.Append(ch);
+                    break;
+            }
+        }
+        if (current.Length > 0)
+            result.Add(current.ToString().Trim());
+        return result;
+    }
+
+    /// <summary>
+    /// Java final fields allow a single assignment per constructor path. Whole-instance
+    /// reassignment expansions (`this = expr` → per-field copies, also emitted as
+    /// `__inst.f = ...` inside static factory conversions) can leave a field assigned
+    /// twice; drop final from such fields so the code compiles.
+    /// </summary>
+    private static void DropFinalFromRepeatedlyAssignedFields(JavaClassDeclaration javaClass)
+    {
+        var repeated = new HashSet<string>(StringComparer.Ordinal);
+
+        // Fields assigned inside ANY method body (e.g. `__inst.f = ...` in static
+        // factory conversions of `this = expr`) cannot stay final: Java finals are
+        // only assignable inside constructors.
+        foreach (var method in javaClass.Methods)
+        {
+            var mbody = method.Body ?? method.StructuredBody?.ToBodyString() ?? "";
+            foreach (var field in javaClass.Fields)
+            {
+                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
+                var escaped = System.Text.RegularExpressions.Regex.Escape(field.Name);
+                if (System.Text.RegularExpressions.Regex.IsMatch(mbody, $@"(?:this|__inst)\.{escaped}\s*="))
+                    repeated.Add(field.Name);
+            }
+        }
+
+        // Fields assigned more than once in a single constructor path also lose final.
+        // Assignments may be qualified (this.f = ...) or bare (f = ...) when no local
+        // shadows the field name.
+        foreach (var ctor in javaClass.Constructors)
+        {
+            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
+            foreach (var field in javaClass.Fields)
+            {
+                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
+                if (repeated.Contains(field.Name)) continue;
+                var escaped = System.Text.RegularExpressions.Regex.Escape(field.Name);
+                var qualified = $@"(?:this|__inst)\.{escaped}\s*=";
+                var qualifiedCount = System.Text.RegularExpressions.Regex.Matches(body, qualified).Count;
+                var bareCount = 0;
+                var hasShadowLocal = System.Text.RegularExpressions.Regex.IsMatch(body,
+                    $@"(?:var|[A-Za-z_][\w<>,\s\.\[\]]*?)\s+{escaped}\s*=");
+                if (!hasShadowLocal)
+                {
+                    bareCount = System.Text.RegularExpressions.Regex.Matches(body,
+                        $@"(?<![\w.]){escaped}\s*=").Count;
+                    // Chained assignments (a = b = v) double-count the tail field across
+                    // statements only when it truly appears as an assignment target.
+                }
+                if (qualifiedCount + bareCount > 1)
+                    repeated.Add(field.Name);
+            }
+        }
+        foreach (var field in javaClass.Fields)
+        {
+            if (repeated.Contains(field.Name))
+                field.Modifiers &= ~JavaModifiers.Final;
+        }
+    }
+
+    /// <summary>
+    /// Finds a constructor whose body ONLY assigns every instance field from its own
+    /// parameters (the readonly-struct maker's compose constructor, possibly with a
+    /// trailing __cs2jTag parameter) and builds a `new StructName(this.f1, ...)` copy
+    /// expression for clone(). Returns false when no such constructor exists.
+    /// </summary>
+    private static bool TryBuildComposeCtorCopy(JavaClassDeclaration javaClass,
+        List<JavaFieldDeclaration> instanceFields, HashSet<string> structFieldNames,
+        out string copyExpr)
+    {
+        copyExpr = "";
+        foreach (var ctor in javaClass.Constructors)
+        {
+            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
+            var paramNames = ctor.Parameters.Select(p => p.Name).ToList();
+            var nonTagParams = paramNames.Where(n => n != "__cs2jTag").ToList();
+            if (nonTagParams.Count != instanceFields.Count)
+                continue;
+
+            // Every instance field must be assigned from a parameter, and the body
+            // must contain no other statements.
+            var assignedFrom = new Dictionary<string, string>(StringComparer.Ordinal);
+            var ok = true;
+            foreach (var line in body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = line.Trim().TrimEnd(';');
+                if (trimmed.Length == 0 || trimmed == "{" || trimmed == "}") continue;
+                var match = System.Text.RegularExpressions.Regex.Match(trimmed,
+                    $@"^this\.(\w+)\s*=\s*(\w+)$");
+                if (!match.Success)
+                {
+                    ok = false;
+                    break;
+                }
+                var fieldName = match.Groups[1].Value;
+                var source = match.Groups[2].Value;
+                if (!instanceFields.Any(f => f.Name == fieldName) || !paramNames.Contains(source))
+                {
+                    ok = false;
+                    break;
+                }
+                assignedFrom[fieldName] = source;
+            }
+            if (!ok || assignedFrom.Count != instanceFields.Count)
+                continue;
+
+            // Build the argument list in the constructor's parameter order.
+            var args = new List<string>();
+            foreach (var param in ctor.Parameters)
+            {
+                if (param.Name == "__cs2jTag")
+                {
+                    args.Add("0");
+                    continue;
+                }
+                var field = assignedFrom.FirstOrDefault(kv => kv.Value == param.Name).Key;
+                if (field == null)
+                {
+                    ok = false;
+                    break;
+                }
+                args.Add(structFieldNames.Contains(field)
+                    ? $"this.{field}.clone()"
+                    : $"this.{field}");
+            }
+            if (!ok) continue;
+
+            var newTypeName = javaClass.TypeParameters.Count > 0
+                ? $"{javaClass.Name}<>"
+                : javaClass.Name;
+            copyExpr = $"new {newTypeName}({string.Join(", ", args)})";
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -271,6 +511,27 @@ public class StructTransformer : ITypeTransformer
         StructDeclarationSyntax structDecl, ConversionContext context,
         IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields)
     {
+        // For readonly structs, an existing clone() converted from C# Clone() may rely on
+        // a constructor with side effects (e.g. Rectangle(Point, Point) calling add()),
+        // which recurses through clone(). Replace it with a compose-constructor copy.
+        if (isReadOnly)
+        {
+            var instanceFieldsForReplace = javaClass.Fields
+                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+                .ToList();
+            var structFieldNamesForReplace = BuildStructFieldNames(structDecl, context);
+            if (javaClass.Methods.Any(m => m.Name == "clone") &&
+                TryBuildComposeCtorCopy(javaClass, instanceFieldsForReplace, structFieldNamesForReplace, out var replaceExpr))
+            {
+                foreach (var existing in javaClass.Methods.Where(m => m.Name == "clone").ToList())
+                {
+                    existing.StructuredBody = null; // Body must take precedence when rendered
+                    existing.Body = $"return {replaceExpr};";
+                }
+                return;
+            }
+        }
+
         // Skip if the C# struct already defined a Clone() method (mapped to clone()).
         if (javaClass.Methods.Any(m => m.Name == "clone"))
             return;
@@ -308,7 +569,14 @@ public class StructTransformer : ITypeTransformer
         else if (isReadOnly)
         {
             // readonly struct: all instance fields are final and cannot be assigned after construction.
-            if (TryBuildCtorCopy(javaClass, instanceFields, structFieldNames, out var ctorCopyExpr))
+            // Prefer a pure compose constructor (body only assigns every field from its
+            // parameters, e.g. the maker-generated tagged ctor): other constructors may
+            // carry side effects (migrated Add calls) that recurse through clone().
+            if (TryBuildComposeCtorCopy(javaClass, instanceFields, structFieldNames, out var composeExpr))
+            {
+                cloneBody = $"return {composeExpr};";
+            }
+            else if (TryBuildCtorCopy(javaClass, instanceFields, structFieldNames, out var ctorCopyExpr))
             {
                 cloneBody = $"return {ctorCopyExpr};";
             }
@@ -969,12 +1237,38 @@ public class StructTransformer : ITypeTransformer
 
         foreach (var ctor in javaClass.Constructors)
         {
-            // Only fix constructors that chain via this(...)
-            if (ctor.Initializer == null || !ctor.Initializer.StartsWith("this("))
-                continue;
-
-            // Remove the this() chain
-            ctor.Initializer = null;
+            // Constructors chaining via this(...) would double-assign final fields in
+            // Java. Inline the chained constructor's assignments (substituting its
+            // parameters with the chain arguments) to preserve the original semantics.
+            if (ctor.Initializer != null && ctor.Initializer.StartsWith("this("))
+            {
+                var innerArgs = ctor.Initializer.Substring("this(".Length, ctor.Initializer.Length - "this(".Length - 1);
+                var chainArgs = SplitTopLevelArgs(innerArgs);
+                var target = javaClass.Constructors.FirstOrDefault(c =>
+                    c != ctor && c.Parameters.Count == chainArgs.Count &&
+                    (c.Initializer == null || !c.Initializer.StartsWith("this(")));
+                ctor.Initializer = null;
+                if (target != null)
+                {
+                    var targetBody = target.Body ?? target.StructuredBody?.ToBodyString() ?? "";
+                    // Substitute the target's parameter names with the chain arguments.
+                    for (var pi = 0; pi < target.Parameters.Count && pi < chainArgs.Count; pi++)
+                    {
+                        var paramName = target.Parameters[pi].Name;
+                        var argExpr = chainArgs[pi];
+                        if (string.IsNullOrWhiteSpace(paramName)) continue;
+                        targetBody = System.Text.RegularExpressions.Regex.Replace(
+                            targetBody,
+                            $@"(?<![\w.]){System.Text.RegularExpressions.Regex.Escape(paramName)}(?![\w])",
+                            argExpr.Replace("$", "$$"));
+                    }
+                    var existingBody = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
+                    ctor.StructuredBody = null; // Body must take precedence when rendered
+                    ctor.Body = string.IsNullOrWhiteSpace(existingBody)
+                        ? targetBody
+                        : targetBody + "\n" + existingBody;
+                }
+            }
 
             // Find which final fields are already assigned in the body
             var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
@@ -1004,6 +1298,7 @@ public class StructTransformer : ITypeTransformer
 
             if (prependLines.Count > 0)
             {
+                ctor.StructuredBody = null; // Body must take precedence when rendered
                 ctor.Body = string.Join("\n", prependLines) + "\n" + body;
             }
         }

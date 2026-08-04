@@ -49,6 +49,20 @@ public class MethodTransformer : IMemberTransformer
             return partialMethod;
         }
 
+        // Explicit interface implementations generated as covariance bridges by the
+        // readonly-struct preprocessor (marked with cs2j-iface-bridge) are redundant
+        // in Java: the concrete STRUCT method already satisfies the widened interface
+        // method via Java's covariant returns, and emitting both would duplicate the
+        // erased signature. CLASS bridges (cs2j-class-bridge) must be kept: they are
+        // the only implementation when the interface type argument is boxed (e.g.
+        // IRectangle<Double>).
+        if (methodDecl.ExplicitInterfaceSpecifier != null &&
+            methodDecl.GetLeadingTrivia().Any(t => t.IsKind(SyntaxKind.SingleLineCommentTrivia) &&
+                t.ToString().Contains("cs2j-iface-bridge")))
+        {
+            return null!;
+        }
+
         // Skip methods with __suppress__ typed parameters (e.g. GetObjectData with SerializationInfo/StreamingContext)
         bool hasSuppressedParam = methodDecl.ParameterList?.Parameters.Any(p =>
         {

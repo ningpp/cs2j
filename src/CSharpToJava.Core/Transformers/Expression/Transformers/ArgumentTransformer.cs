@@ -324,15 +324,22 @@ public class ArgumentTransformer
                     }
                 }
                 var holderType = HolderTypeResolver.GetHolderType(javaType);
-                var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
-                context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
-                context.SetActiveRefHolder(varName, holderName);
                 // If the variable has an active lambda capture holder, write back to the
                 // capture holder element instead of the raw variable name. This ensures
                 // the lambda sees the updated value after the out parameter is assigned.
                 string outWriteBackTarget = varName;
                 if (context.MethodState.TryGetActiveLambdaCaptureHolder(varName, out var outCaptureHolderName))
                     outWriteBackTarget = $"{outCaptureHolderName}[0]";
+                // Seed the holder with the variable's current value: if the invocation is
+                // skipped by short-circuit evaluation (a && b && M(out x)), C# leaves the
+                // variable untouched — an empty holder would write back null/default.
+                // Skip seeding when the variable is unresolved (declared here) or is an
+                // out-style local that may still be unassigned (Java definite assignment).
+                var holderInit = (identResolved && IsLocalDefinitelyAssignedBeforeUse(ident, context))
+                    ? HolderTypeResolver.GetHolderInstantiationWithValue(holderType, outWriteBackTarget)
+                    : HolderTypeResolver.GetHolderInstantiation(holderType);
+                context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+                context.SetActiveRefHolder(varName, holderName);
                 // If the variable couldn't be resolved, it may not be declared in the
                 // current scope (e.g. LINQ-rewriter extracted method with captured outer var).
                 // Declare it locally with its resolved type so the generated Java compiles.
@@ -342,7 +349,6 @@ public class ArgumentTransformer
                     context.AddPostStatement($"{javaType} {varName} = {holderName}.value");
                 return holderName;
             }
-
             // out member.field or out arr[i] — wrap in a holder and write back after call
             if (arg.Expression is MemberAccessExpressionSyntax or ElementAccessExpressionSyntax)
             {
@@ -358,7 +364,9 @@ public class ArgumentTransformer
                 }
 
                 var holderType = HolderTypeResolver.GetHolderType(javaType);
-                var holderInit = HolderTypeResolver.GetHolderInstantiation(holderType);
+                // Seed the holder with the current value: under short-circuit evaluation
+                // the invocation may never run, and C# then leaves the target unmodified.
+                var holderInit = HolderTypeResolver.GetHolderInstantiationWithValue(holderType, exprText);
 
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.AddPostStatement($"{exprText} = {holderName}.value");
@@ -517,6 +525,71 @@ public class ArgumentTransformer
         catch (ArgumentException)
         {
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Strict definite-assignment check for OUT arguments: seeding the holder reads the
+    /// current value, which is only legal when the variable is definitely assigned at the
+    /// use site (C# does not require prior assignment for out locals). Fields, parameters,
+    /// and initialized declarations are always readable. Inconclusive analysis returns
+    /// false (no seeding) to keep the generated Java compilable.
+    /// </summary>
+    private static bool IsLocalDefinitelyAssignedBeforeUse(IdentifierNameSyntax ident, ConversionContext context)
+    {
+        var semanticModel = context.SemanticModel;
+        if (semanticModel == null)
+            return false;
+
+        if (context.GetSymbolInfo(ident).Symbol is not ILocalSymbol local)
+            return true; // field/property/parameter — always readable
+
+        var declarator = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+        if (declarator?.Initializer != null)
+            return true;
+
+        if (declarator?.Parent?.Parent is not StatementSyntax declarationStatement)
+            return false;
+
+        if (declarationStatement.Parent is not BlockSyntax declarationBlock)
+            return false;
+
+        var currentStatement = ident.FirstAncestorOrSelf<StatementSyntax>();
+        if (currentStatement == null)
+            return false;
+
+        if (declarationStatement == currentStatement)
+            return false;
+
+        // Boundary: the statement directly inside declarationBlock that contains the use
+        // (the use itself when in the same block, an enclosing loop/if otherwise).
+        Microsoft.CodeAnalysis.SyntaxNode? node = currentStatement;
+        while (node != null && node.Parent != declarationBlock)
+            node = node.Parent;
+        if (node is not StatementSyntax boundary)
+            return false;
+
+        var start = declarationBlock.Statements.IndexOf(declarationStatement);
+        var end = declarationBlock.Statements.IndexOf(boundary);
+        if (start < 0 || end <= start)
+            return false;
+
+        if (end == start + 1)
+            return false;
+
+        try
+        {
+            var analysis = semanticModel.AnalyzeDataFlow(
+                declarationBlock.Statements[start + 1],
+                declarationBlock.Statements[end - 1]);
+            if (analysis == null || !analysis.Succeeded)
+                return false;
+
+            return analysis.AlwaysAssigned.Any(symbol => SymbolEqualityComparer.Default.Equals(symbol, local));
+        }
+        catch (ArgumentException)
+        {
+            return false;
         }
     }
 

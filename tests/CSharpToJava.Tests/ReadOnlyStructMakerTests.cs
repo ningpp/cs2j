@@ -421,8 +421,10 @@ public partial class ReadOnlyStructMakerTests
     // === L7 Not Convertible Tests ===
 
     [Fact]
-    public void HeavyMutable_ArrayField_NotConvertible()
+    public void HeavyMutable_ArrayField_MethodMigrated()
     {
+        // Array fields are allowed: a readonly array field keeps the reference
+        // immutable while element mutation stays legal (same as Java final arrays).
         var src = """
         struct Cache {
             private int[] _items;
@@ -432,13 +434,18 @@ public partial class ReadOnlyStructMakerTests
         }
         """;
         var result = RunMaker(src);
-        Assert.False(result.Changed);
-        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Cache", result.OutputCode);
+        Assert.Contains("Cache Clear(", result.OutputCode);
+        Assert.Contains("Cache Insert(", result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
     }
 
     [Fact]
-    public void PublicFields_NotConvertible()
+    public void PublicFields_WithMutatingMethod_CombinedConversion()
     {
+        // Public fields + mutating methods: fields are converted to get-only
+        // properties with WithXxx methods (L4) and methods are migrated (L5).
         var src = """
         struct Point {
             public double X;
@@ -447,8 +454,13 @@ public partial class ReadOnlyStructMakerTests
         }
         """;
         var result = RunMaker(src);
-        Assert.False(result.Changed);
-        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Point", result.OutputCode);
+        Assert.Contains("Point Normalize(", result.OutputCode);
+        Assert.Contains("WithX(", result.OutputCode);
+        // Field assignments inside the migrated method become WithXxx calls
+        Assert.Contains("result.WithX(0)", result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
     }
 
     [Fact]
@@ -548,7 +560,7 @@ public partial class ReadOnlyStructMakerTests
     }
 
     [Fact]
-    public void RefFieldMutation_NotConvertible()
+    public void RefFieldMutation_ConvertedViaWithMethods()
     {
         var src = """
         struct Pixel {
@@ -560,18 +572,20 @@ public partial class ReadOnlyStructMakerTests
         }
         """;
         var result = RunMaker(src);
-        // Pixel has no mutating methods itself, but fields are modified via ref
-        // It should be detected as not convertible
-        Assert.Contains(result.Diagnostics, d =>
-            d.Level == ConversionLevel.NotConvertible || d.Level == ConversionLevel.DataContainer);
+        // Fields modified through ref parameters are handled by L4 conversion:
+        // the ref variable is simply reassigned via WithXxx.
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Pixel", result.OutputCode);
+        Assert.Contains("p = p.WithX(p.X + 1)", result.OutputCode);
     }
 
     [Fact]
-    public void MultipleAssignmentsToSameFieldInCtor_NotConverted()
+    public void MultipleAssignmentsToSameFieldInCtor_NormalizedWithShadowLocal()
     {
         // Reproduces: Parallelogram struct where aRot is assigned twice in ctor:
         //   this.aRot = new Point(...); aRot = aRot.Normalize();
-        // Java final fields cannot be assigned more than once.
+        // C# readonly fields allow repeated ctor assignments; the ConstructorNormalizer
+        // rewrites to single-assignment form (shadow locals) for Java final fields.
         var src = """
         struct S {
             private int _x;
@@ -586,7 +600,12 @@ public partial class ReadOnlyStructMakerTests
         }
         """;
         var result = RunMaker(src);
-        Assert.False(result.Changed);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        // Shadow local collects the repeated assignments...
+        Assert.Contains("default(int)", result.OutputCode);
+        // ...and the field is assigned exactly once at the end.
+        Assert.Contains("this._x = _x", result.OutputCode);
     }
 
     // === Interface Implementation Tests (Rectangle support) ===
@@ -694,10 +713,13 @@ public partial class ReadOnlyStructMakerTests
         var result = RunMaker(src);
         Assert.True(result.Changed);
         Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
-        // The migrated method should access result._left and result._right (backing fields)
-        // since property setters are removed during migration
-        Assert.Contains("result._left", result.OutputCode);
-        Assert.Contains("result._right", result.OutputCode);
+        // The migrated method should rewrite property writes into WithXxx chains
+        // (direct field writes are illegal in a readonly struct, CS0191).
+        Assert.Contains("result.WithLeft(result.Left - padding)", result.OutputCode);
+        Assert.Contains("result.WithRight(result.Right + padding)", result.OutputCode);
+        // Property setters are removed; WithLeft/WithRight provide the write path.
+        Assert.Contains("WithLeft(", result.OutputCode);
+        Assert.Contains("WithRight(", result.OutputCode);
     }
 
     [Fact]
@@ -750,9 +772,9 @@ public partial class ReadOnlyStructMakerTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
         // ToString override should be preserved
         Assert.Contains("override string ToString()", result.OutputCode);
-        // The Pad method should be migrated with backing field accesses on result
-        Assert.Contains("result._left", result.OutputCode);
-        Assert.Contains("result._right", result.OutputCode);
+        // The Pad method should be migrated with property writes rewritten to WithXxx chains
+        Assert.Contains("result.WithLeft(result.Left - p)", result.OutputCode);
+        Assert.Contains("result.WithRight(result.Right + p)", result.OutputCode);
         // Explicit interface implementations should be preserved
         Assert.Contains("bool IRectangle.Contains(", result.OutputCode);
     }

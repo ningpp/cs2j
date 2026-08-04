@@ -158,6 +158,9 @@ public class Program
                     Force = opts.Force,
                     Verbose = opts.Verbose,
                     MakerOptions = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions(),
+                    FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                    VerifyBuild = opts.VerifyBuild,
+                    VerifyTests = opts.VerifyTests,
                 });
 
                 Console.WriteLine(
@@ -193,6 +196,7 @@ public class Program
                     DestinationRoot = opts.Destination,
                     Force = opts.Force,
                     Verbose = opts.Verbose,
+                    FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
                 });
 
                 if (opts.Verbose)
@@ -1911,8 +1915,56 @@ public class Program
             return result.Diagnostics.Any(d => d.Severity == CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructSeverity.Warning) && opts.Strict ? 1 : 0;
         }
 
-        Console.Error.WriteLine("Error: provide -i <input.cs> [-o <output.cs>].");
-        return 1;
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectReadOnlyStructPreprocessor.PreprocessAsync(new ProjectReadOnlyPreprocessRequest
+        {
+            SourcePath = opts.Source,
+            DestinationRoot = opts.Destination,
+            Force = true,
+            Verbose = opts.Verbose,
+            MakerOptions = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions
+            {
+                Strict = opts.Strict,
+                EnableMethodMigration = !opts.NoMethodMigration,
+                EnableDtoConversion = !opts.NoDtoConversion,
+                EnablePublicFieldConversion = !opts.NoPublicFieldConversion,
+                UpdateCallSites = !opts.NoUpdateCallSites,
+            },
+            FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+            VerifyBuild = opts.VerifyBuild,
+            VerifyTests = opts.VerifyTests,
+        });
+
+        Console.WriteLine(
+            $"make-readonly: {preprocessResult.Statistics.StructsConverted} converted, " +
+            $"{preprocessResult.Statistics.StructsSkipped} skipped, " +
+            $"{preprocessResult.Statistics.StructsFailed} failed (scanned {preprocessResult.Statistics.StructsScanned})");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            if (diagnostic.Severity != CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructSeverity.Info || opts.Verbose)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.FilePath}: {diagnostic.StructName}: {diagnostic.Reason}");
+            }
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+
+        if (opts.Strict && preprocessResult.Diagnostics.Any(d => d.Severity == CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructSeverity.Warning))
+            return 1;
+        return preprocessResult.Success ? 0 : 1;
     }
 }
 
@@ -1941,6 +1993,10 @@ class MakeReadOnlyOptions
     public string? Input { get; set; }
     [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
     public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
     [Option('v', "verbose", Default = false)]
     public bool Verbose { get; set; }
     [Option("strict", Default = false, HelpText = "Treat unconvertible structs as fatal")]
@@ -1953,6 +2009,19 @@ class MakeReadOnlyOptions
     public bool NoPublicFieldConversion { get; set; }
     [Option("no-update-call-sites", Default = false, HelpText = "Don't update call sites for migrated methods")]
     public bool NoUpdateCallSites { get; set; }
+
+    [Option("no-filter-projects", Default = false, HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after readonly preprocessing")]
+    public bool NoVerifyBuild { get; set; }
+
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after readonly preprocessing")]
+    public bool NoVerifyTests { get; set; }
+
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+    public bool VerifyBuild => !NoVerifyBuild;
+    public bool VerifyTests => !NoVerifyTests;
 }
 
 // 命令行选项
@@ -2074,11 +2143,23 @@ class ConvertProjectOptions
     [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 27+)")]
     public bool UseValueClass { get; set; }
 
+    [Option("no-filter-projects", Default = false, HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after readonly preprocessing")]
+    public bool NoVerifyBuild { get; set; }
+
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after readonly preprocessing")]
+    public bool NoVerifyTests { get; set; }
+
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;
     public bool EnableLinqRewrite => !NoLinqRewrite;
     public bool EliminateGoto => !NoEliminateGoto;
     public bool MakeReadOnly => !NoMakeReadOnly;
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+    public bool VerifyBuild => !NoVerifyBuild;
+    public bool VerifyTests => !NoVerifyTests;
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;

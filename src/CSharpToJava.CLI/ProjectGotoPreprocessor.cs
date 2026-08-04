@@ -12,6 +12,13 @@ internal sealed class ProjectGotoPreprocessRequest
     public bool Force { get; init; } = true;
     public bool Verbose { get; init; }
     public bool Strict { get; init; }
+
+    /// <summary>
+    /// When true (default) the preprocessor first scans the project graph and only
+    /// copies/transforms projects the converter supports, rewriting the copied .sln so
+    /// unsupported (e.g. WPF/UWP/WinForms) projects are dropped.
+    /// </summary>
+    public bool FilterUnsupportedProjects { get; init; } = true;
 }
 
 internal sealed class ProjectGotoPreprocessResult
@@ -37,6 +44,8 @@ internal static class ProjectGotoPreprocessor
         "bin",
         "obj",
         "node_modules",
+        "packages",
+        "TestResults",
     };
 
     public static async Task<ProjectGotoPreprocessResult> PreprocessAsync(ProjectGotoPreprocessRequest request)
@@ -68,17 +77,45 @@ internal static class ProjectGotoPreprocessor
         var sourceRoot = layout.SourceRoot;
         var destinationRoot = Path.GetFullPath(request.DestinationRoot);
 
+        // Strategy: before transforming, scan the project graph to determine which
+        // projects the converter supports, then copy ONLY those projects (preserving the
+        // directory structure) and rewrite the copied .sln to drop the unsupported ones.
+        var projectGraph = TryLoadProjectGraph(layout, request.Verbose);
+        var exclusionInfo = request.FilterUnsupportedProjects
+            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose)
+            : new SupportedProjectFiltering.ExclusionInfo();
+
         // Copy project files (.csproj, .sln) to the intermediate directory so that
         // SolutionLoader can discover the full project graph after preprocessing.
         foreach (var projectFile in layout.ProjectFiles)
         {
+            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
+            {
+                continue;
+            }
+
             var relativePath = Path.GetRelativePath(sourceRoot, projectFile);
             var destinationFile = Path.Combine(intermediateRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
-            File.Copy(projectFile, destinationFile, overwrite: true);
+
+            if (exclusionInfo.HasExclusions &&
+                projectFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+            {
+                var solutionContent = await File.ReadAllTextAsync(projectFile);
+                var rewrittenSolution = SupportedProjectFiltering.RewriteSolutionContent(
+                    solutionContent,
+                    Path.GetDirectoryName(projectFile) ?? sourceRoot,
+                    exclusionInfo);
+                await File.WriteAllTextAsync(destinationFile, rewrittenSolution, new System.Text.UTF8Encoding(false));
+            }
+            else
+            {
+                File.Copy(projectFile, destinationFile, overwrite: true);
+            }
         }
 
-        foreach (var sourceFile in EnumerateSourceFiles(sourceRoot, intermediateRoot))
+        foreach (var sourceFile in EnumerateSourceFiles(sourceRoot, intermediateRoot)
+                     .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo)))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
             var destinationFile = Path.Combine(intermediateRoot, relativePath);
@@ -86,6 +123,14 @@ internal static class ProjectGotoPreprocessor
 
             if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             {
+                // The solution file was already copied (and rewritten to drop
+                // unsupported projects) in the project-file loop above; copying it
+                // again here would restore the unfiltered original.
+                if (sourceFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 File.Copy(sourceFile, destinationFile, overwrite: true);
                 continue;
             }
@@ -427,6 +472,31 @@ internal static class ProjectGotoPreprocessor
         }
 
         return fullPath.StartsWith(fullAncestor + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ProjectGraph? TryLoadProjectGraph(ProjectGotoSourceLayout layout, bool verbose)
+    {
+        if (layout.ProjectFiles.Count == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (ProjectDiscovery.TryResolveProjectEntry(layout.EntryPath, out var entryPath))
+            {
+                return ProjectDiscovery.LoadProjectGraph(entryPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (verbose)
+            {
+                Console.Error.WriteLine($"Warning: could not load the project graph for support filtering: {ex.Message}");
+            }
+        }
+
+        return null;
     }
 
     internal sealed record ProjectGotoSourceLayout(string SourceRoot, string EntryPath, IReadOnlyList<string> ProjectFiles);

@@ -24,16 +24,24 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     // L5 structs: properties are public get-only (not private fields with getXxx() getters).
     // Reads from these structs should use property access (obj.Prop), not getXxx().
     private readonly HashSet<string> _propertyAccessStructs = new();
+    // Structs that actually have WithXxx methods — only these may be targets of
+    // object-initializer-to-With-chain rewrites.
+    private readonly HashSet<string> _withChainStructs = new();
 
     public AssignmentRewriter(
         Dictionary<string, HashSet<string>> structFields,
         SemanticModel? semanticModel,
-        IReadOnlySet<string>? propertyAccessStructs = null)
+        IReadOnlySet<string>? propertyAccessStructs = null,
+        IReadOnlySet<string>? withChainStructs = null)
     {
         _structFields = structFields;
         _semanticModel = semanticModel;
         if (propertyAccessStructs != null)
             _propertyAccessStructs.UnionWith(propertyAccessStructs);
+        if (withChainStructs != null)
+            _withChainStructs.UnionWith(withChainStructs);
+        else
+            _withChainStructs.UnionWith(structFields.Keys); // legacy behavior: assume all have With methods
         // Collect all field names for quick lookup
         foreach (var fields in structFields.Values)
         {
@@ -110,13 +118,6 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (!_targetFieldNames.Contains(fieldNameText))
             return base.VisitAssignmentExpression(node);
 
-        // Don't convert if this is inside the struct itself (struct can access its own
-        // private fields, and rewriting WithXxx method bodies creates self-recursion).
-        // This mirrors the check in VisitMemberAccessExpression for reads.
-        var containingStruct = node.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
-        if (containingStruct != null && _structFields.ContainsKey(containingStruct.Identifier.Text))
-            return base.VisitAssignmentExpression(node);
-
         // Syntactic check: receiver must be a simple identifier or element access
         // (to ensure we're modifying a variable, not a property return value)
         if (!IsModifiableLValue(memberAccess.Expression))
@@ -133,6 +134,20 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             if (structName == null)
                 return base.VisitAssignmentExpression(node);
         }
+
+        // Don't convert inside non-static members of the struct itself (WithXxx method
+        // bodies and migrated methods manage their own writes). STATIC members take
+        // struct-typed parameters/locals and must be rewritten like external code.
+        if (InsideOwnInstanceMember(node, structName))
+            return base.VisitAssignmentExpression(node);
+
+        // A `this.X = ...` write inside a type that is NOT one of the target structs
+        // must never be rewritten (the member belongs to that class, not a struct).
+        // This guards against unresolvable receiver types falling back to field-name
+        // guessing (e.g. a class field sharing a struct field's name).
+        if (memberAccess.Expression is ThisExpressionSyntax &&
+            !InsideTargetType(node, structName))
+            return base.VisitAssignmentExpression(node);
 
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
@@ -363,13 +378,6 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (!_targetFieldNames.Contains(fieldNameText))
             return null;
 
-        // Don't convert if this is inside the struct itself (struct can access its own
-        // private fields, and rewriting WithXxx method bodies creates self-recursion).
-        // This mirrors the check in VisitMemberAccessExpression for reads.
-        var containingStruct = originalNode.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
-        if (containingStruct != null && _structFields.ContainsKey(containingStruct.Identifier.Text))
-            return null;
-
         // Syntactic check: receiver must be a simple identifier or element access
         if (!IsModifiableLValue(memberAccess.Expression))
             return null;
@@ -385,6 +393,15 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             if (structName == null)
                 return null;
         }
+
+        // Skip non-static members of the struct itself (see VisitAssignmentExpression).
+        if (InsideOwnInstanceMember(originalNode, structName))
+            return null;
+
+        // `this.X` inside a non-target type is never a struct field write.
+        if (memberAccess.Expression is ThisExpressionSyntax &&
+            !InsideTargetType(originalNode, structName))
+            return null;
 
         var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
@@ -428,14 +445,40 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             return base.VisitObjectCreationExpression(node);
 
         var fields = _structFields[typeName];
-        var hasPublicFieldInit = node.Initializer.Expressions
+        var initAssignments = node.Initializer.Expressions
             .OfType<AssignmentExpressionSyntax>()
-            .Any(a => a.Left is IdentifierNameSyntax id && fields.Contains(id.Identifier.Text));
-
-        if (!hasPublicFieldInit)
+            .Where(a => a.Left is IdentifierNameSyntax id && fields.Contains(id.Identifier.Text))
+            .ToList();
+        if (initAssignments.Count == 0)
             return base.VisitObjectCreationExpression(node);
 
-        // Extract field name to parameter name mapping
+        // Only rewrite initializers whose members ALL have a matching entry; partial
+        // initializers rely on default values and are handled by the default ctor + With chain.
+
+        // Prefer a With-method chain: new S { F = v } → new S().WithF(v)
+        // This is robust regardless of constructor parameter names (CS1739-safe) and
+        // keeps default values for members not mentioned in the initializer.
+        // Only for structs that actually have WithXxx methods.
+        if (_withChainStructs.Contains(typeName) && _propertyAccessStructs.Contains(typeName))
+        {
+            ExpressionSyntax expr = node.WithInitializer(null).WithArgumentList(
+                SyntaxFactory.ArgumentList());
+            foreach (var assignment in initAssignments)
+            {
+                var memberName = ((IdentifierNameSyntax)assignment.Left).Identifier.Text;
+                expr = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        expr,
+                        SyntaxFactory.IdentifierName("With" + memberName)),
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.Argument((ExpressionSyntax)Visit(assignment.Right)!))));
+            }
+            return expr.WithTriviaFrom(node);
+        }
+
+        // Legacy path (L4 getXxx structs): convert to named-argument constructor call.
         var arguments = new List<ArgumentSyntax>();
         foreach (var expr in node.Initializer.Expressions.OfType<AssignmentExpressionSyntax>())
         {
@@ -453,6 +496,38 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// True when the enclosing type declaration (class/struct) is the given target
+    /// struct. Used to protect `this.X` writes inside unrelated classes.
+    /// </summary>
+    private static bool InsideTargetType(SyntaxNode node, string structName)
+    {
+        var containingType = node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        return containingType != null && containingType.Identifier.Text == structName;
+    }
+
+    /// <summary>
+    /// True when the node sits inside a NON-STATIC member (method/property/constructor)
+    /// of the target struct itself. Writes there are managed by the struct's own
+    /// migration (WithXxx bodies, ctor backing-field rewrites). Static members operate
+    /// on struct-typed parameters/locals and behave like external code.
+    /// </summary>
+    private static bool InsideOwnInstanceMember(SyntaxNode node, string structName)
+    {
+        var containingType = node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (containingType == null || containingType.Identifier.Text != structName)
+            return false;
+
+        var member = node.Ancestors().OfType<MemberDeclarationSyntax>().FirstOrDefault();
+        return member switch
+        {
+            ConstructorDeclarationSyntax => true,
+            MethodDeclarationSyntax m => !m.Modifiers.Any(x => x.IsKind(SyntaxKind.StaticKeyword)),
+            PropertyDeclarationSyntax p => !p.Modifiers.Any(x => x.IsKind(SyntaxKind.StaticKeyword)),
+            _ => false
+        };
+    }
+
+    /// <summary>
     /// Checks if the expression is a modifiable l-value (simple variable or array element).
     /// </summary>
     private static bool IsModifiableLValue(ExpressionSyntax expression)
@@ -460,6 +535,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         return expression switch
         {
             IdentifierNameSyntax => true,
+            ThisExpressionSyntax => true,
             ElementAccessExpressionSyntax ea => IsModifiableLValue(ea.Expression),
             MemberAccessExpressionSyntax ma => IsModifiableLValue(ma.Expression),
             _ => false
@@ -547,6 +623,10 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             {
                 if (_structFields.ContainsKey(rootTypeName))
                     return rootTypeName;
+                // The root variable's type IS known and it is not a target struct
+                // (e.g. a class with same-named fields). Never fall back to
+                // field-name guessing in this case.
+                return null;
             }
         }
 

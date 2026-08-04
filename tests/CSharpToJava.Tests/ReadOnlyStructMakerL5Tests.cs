@@ -220,10 +220,13 @@ public class ReadOnlyStructMakerL5Tests
     }
 
     [Fact]
-    public void InternalFields_ExternalAssignmentViaArray_NotConvertible()
+    public void InternalFields_ExternalAssignmentViaArray_ConvertedViaWithMethods()
     {
         // Reproduces: XmlTextWriter.TagInfo struct with internal fields assigned
         // externally through array element access: _stack[_top].name = localName;
+        // Combined L4+L5 conversion: fields become get-only properties with WithXxx
+        // methods, mutating methods are migrated, and external assignments are
+        // rewritten to WithXxx calls.
         var src = """
         class Writer {
             private struct TagInfo {
@@ -245,9 +248,12 @@ public class ReadOnlyStructMakerL5Tests
         }
         """;
         var result = RunMaker(src);
-        // Should NOT be made readonly because internal fields are assigned externally
-        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
-        Assert.DoesNotContain("readonly struct TagInfo", result.OutputCode);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct TagInfo", result.OutputCode);
+        Assert.Contains("TagInfo Init(", result.OutputCode);
+        // External array-element assignments are rewritten via WithXxx
+        Assert.Contains("_stack[_top] = _stack[_top].Withname(localName)", result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
     }
 
     [Fact]
@@ -301,10 +307,11 @@ public class ReadOnlyStructMakerL5Tests
         Assert.True(result.Changed);
         // The migrated method should return MyDate
         Assert.Contains("MyDate Init(", result.OutputCode);
-        // The constructor bare call should be updated to capture the result and assign fields
-        Assert.Contains("__tmp = this.Init(text)", result.OutputCode);
-        Assert.Contains("this._dt = __tmp._dt", result.OutputCode);
-        Assert.Contains("this._extra = __tmp._extra", result.OutputCode);
+        // The constructor bare call is expanded into a temp + field-wise copy
+        // (Java cannot assign to `this`).
+        Assert.Contains("var __cs2jSelf = this.Init(text);", result.OutputCode);
+        Assert.Contains("this._dt = __cs2jSelf._dt;", result.OutputCode);
+        Assert.Contains("this._extra = __cs2jSelf._extra;", result.OutputCode);
         // Ensure no bare "Init(text);" without a receiver (check line doesn't start with just Init)
         var lines = result.OutputCode.Split('\n');
         Assert.DoesNotContain(lines, l => l.TrimStart().StartsWith("Init(text)"));
@@ -376,8 +383,9 @@ public class ReadOnlyStructMakerL5Tests
         Assert.Contains("WithInnerMargin(", result.OutputCode);
         Assert.Contains("WithFixedPosition(", result.OutputCode);
         Assert.Contains("WithWeight(", result.OutputCode);
-        // Object initializer should be converted to constructor call with named parameters
-        Assert.Contains("new BorderInfo(innerMargin: 1.0, fixedPosition: 2.0, weight: 3.0)", result.OutputCode);
+        // Object initializer should be converted to a WithXxx chain (robust regardless
+        // of constructor parameter names)
+        Assert.Contains("new BorderInfo().WithInnerMargin(1.0).WithFixedPosition(2.0).WithWeight(3.0)", result.OutputCode);
         Assert.DoesNotContain("{ InnerMargin = 1.0", result.OutputCode);
     }
 }

@@ -177,6 +177,8 @@ internal sealed class MethodMigrator
     /// <summary>
     /// Rewrites bare calls to migrated methods (implicit this) to `result = result.Method(args)`.
     /// E.g., `Add(value);` → `result = result.Add(value);`
+    /// Also handles `result.Method(args);` statements (originally `this.Method(args);`,
+    /// whose receiver was already rewritten to `result` by ThisToResultRewriter).
     /// </summary>
     private sealed class ImplicitCallRewriter : CSharpSyntaxRewriter
     {
@@ -192,19 +194,27 @@ internal sealed class MethodMigrator
         public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
         {
             // Match bare invocation: Method(args); (no explicit receiver)
-            if (node.Expression is InvocationExpressionSyntax invocation &&
-                invocation.Expression is IdentifierNameSyntax methodName)
+            // or result-receiver invocation: result.Method(args);
+            if (node.Expression is InvocationExpressionSyntax invocation)
             {
-                var name = methodName.Identifier.Text;
-                // Don't rewrite recursive calls or non-migrated methods
-                if (name != _currentMethodName && _migratedMethodNames.Contains(name))
+                string? name = invocation.Expression switch
+                {
+                    IdentifierNameSyntax id => id.Identifier.Text,
+                    MemberAccessExpressionSyntax
+                    {
+                        Expression: IdentifierNameSyntax { Identifier.Text: "result" }
+                    } ma => ma.Name.Identifier.Text,
+                    _ => null
+                };
+
+                if (name != null && name != _currentMethodName && _migratedMethodNames.Contains(name))
                 {
                     // Transform: Method(args) → result = result.Method(args)
                     var resultCall = SyntaxFactory.InvocationExpression(
                         SyntaxFactory.MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
                             SyntaxFactory.IdentifierName("result"),
-                            methodName.WithoutTrivia()),
+                            SyntaxFactory.IdentifierName(name)),
                         invocation.ArgumentList);
 
                     var assignment = SyntaxFactory.ExpressionStatement(

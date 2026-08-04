@@ -57,13 +57,39 @@ public sealed class ReadOnlyStructMaker
         if (options.UpdateCallSites)
         {
             var migratedVoidMethods = new Dictionary<string, string>(); // methodName -> structName
+            var outMigratedMethods = new Dictionary<string, string>(); // methodName -> structName (out param added)
             var structFieldNames = new Dictionary<string, List<string>>(); // structName -> field names
+            var migratedArities = new Dictionary<string, HashSet<int>>(); // "Struct.Method" -> migrated arities
+            var allMethodArities = new Dictionary<string, HashSet<int>>(); // "Struct.Method" -> all overload arities
+            var migratedSymbols = new List<IMethodSymbol>();
             foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
             {
                 if (result.MethodMigrations == null) continue;
+                var structName = structSyntax.Identifier.Text;
                 foreach (var migration in result.MethodMigrations.Where(m => m.Type == MigrationType.VoidToStruct))
                 {
-                    migratedVoidMethods[migration.Method.Name] = structSyntax.Identifier.Text;
+                    migratedVoidMethods[migration.Method.Name] = structName;
+                    migratedSymbols.Add(migration.Method);
+                    var key = structName + "." + migration.Method.Name;
+                    if (!migratedArities.TryGetValue(key, out var set))
+                        migratedArities[key] = set = new HashSet<int>();
+                    set.Add(migration.Method.Parameters.Length);
+                }
+                foreach (var migration in result.MethodMigrations.Where(m => m.Type == MigrationType.OtherReturnToOut))
+                {
+                    outMigratedMethods[migration.Method.Name] = structName;
+                    migratedSymbols.Add(migration.Method);
+                }
+
+                // Record arities of ALL instance overloads per method name so call-site
+                // rewriting can skip names that still have unmigrated overloads.
+                foreach (var method in structSyntax.Members.OfType<MethodDeclarationSyntax>())
+                {
+                    if (method.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
+                    var key = structName + "." + method.Identifier.Text;
+                    if (!allMethodArities.TryGetValue(key, out var aset))
+                        allMethodArities[key] = aset = new HashSet<int>();
+                    aset.Add(method.ParameterList.Parameters.Count);
                 }
 
                 // Collect instance field names for this struct
@@ -71,12 +97,13 @@ public sealed class ReadOnlyStructMaker
                     .Where(f => !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
                     .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
                     .ToList();
-                structFieldNames[structSyntax.Identifier.Text] = fields;
+                structFieldNames[structName] = fields;
             }
 
-            if (migratedVoidMethods.Count > 0)
+            if (migratedVoidMethods.Count > 0 || outMigratedMethods.Count > 0)
             {
-                var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods, semanticModel, structFieldNames);
+                var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods, semanticModel, structFieldNames, outMigratedMethods,
+                    migratedArities, allMethodArities, migratedSymbols);
                 newRoot = (CompilationUnitSyntax)callSiteUpdater.Visit(newRoot)!;
                 stats.CallSitesUpdated = migratedVoidMethods.Count; // approximate
             }
@@ -112,7 +139,12 @@ public sealed class ReadOnlyStructMaker
 
             if (l5WithMethodStructs.Count > 0)
             {
-                var l5AssignmentRewriter = new AssignmentRewriter(l5WithMethodStructs, semanticModel);
+                // L5 structs expose get-only properties: reads must stay property
+                // access, never getXxx() calls. They also have WithXxx methods for
+                // object-initializer rewriting.
+                var l5PropertyAccess = new HashSet<string>(l5WithMethodStructs.Keys, StringComparer.Ordinal);
+                var l5AssignmentRewriter = new AssignmentRewriter(l5WithMethodStructs, semanticModel,
+                    l5PropertyAccess, l5PropertyAccess);
                 l5AssignmentRewriter.BuildVariableTypeMap(root);
                 newRoot = (CompilationUnitSyntax)l5AssignmentRewriter.Visit(newRoot)!;
             }
@@ -140,13 +172,20 @@ public sealed class ReadOnlyStructMaker
 
             if (publicFieldStructs.Count > 0)
             {
-                var assignmentRewriter = new AssignmentRewriter(publicFieldStructs, semanticModel, propertyAccessStructs);
+                var assignmentRewriter = new AssignmentRewriter(publicFieldStructs, semanticModel, propertyAccessStructs,
+                    new HashSet<string>(publicFieldStructs.Keys, StringComparer.Ordinal));
                 // Build variable type map from the ORIGINAL tree (before ReadOnlyStructRewriter modified it)
                 // This allows us to verify that field assignment receivers are actually target structs
                 assignmentRewriter.BuildVariableTypeMap(root);
                 newRoot = (CompilationUnitSyntax)assignmentRewriter.Visit(newRoot)!;
             }
         }
+
+        // Normalize constructors of readonly structs so every field is assigned exactly
+        // once (Java final fields allow a single assignment per constructor path). Must
+        // run after CallSiteUpdater, whose bare-call expansion can introduce repeated
+        // field assignments inside constructors.
+        newRoot = ConstructorNormalizer.Normalize(newRoot);
 
         var changed = newRoot.ToFullString() != root.ToFullString();
 

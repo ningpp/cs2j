@@ -10,12 +10,25 @@ internal sealed record AnalyzeResult(
     bool ShouldRewrite,
     string Reason,
     string? QualifiedName,
-    IReadOnlyList<MethodMigrationInfo>? MethodMigrations = null);
+    IReadOnlyList<MethodMigrationInfo>? MethodMigrations = null,
+    IReadOnlyList<InterfaceMigrationInfo>? InterfaceMigrations = null,
+    bool HasNonPrivateFields = false,
+    bool NeedsWithMethods = false);
 
 internal sealed record MethodMigrationInfo(
     IMethodSymbol Method,
     MigrationType Type,
     MethodDeclarationSyntax Syntax);
+
+/// <summary>
+/// Records a mutating method that implicitly implements an interface member.
+/// After migration the signature changes, so an explicit interface implementation
+/// delegating to the migrated method must be generated to keep the contract.
+/// </summary>
+internal sealed record InterfaceMigrationInfo(
+    IMethodSymbol Method,
+    IMethodSymbol InterfaceMember,
+    MigrationType Type);
 
 internal sealed class StructAnalyzer
 {
@@ -31,6 +44,58 @@ internal sealed class StructAnalyzer
     }
 
     public AnalyzeResult Analyze(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
+    {
+        var result = AnalyzeCore(symbol, syntax);
+        // Structs whose fields are passed as ref/out arguments (e.g. mult(ref t, ref p0.aRot))
+        // need ctor-based WithXxx methods once readonly so the hoisted temps can be
+        // written back (CS0192 handling in the project preprocessor).
+        if (result.ShouldRewrite && result.Level != ConversionLevel.MethodMigrate &&
+            HasSelfRefFieldAccess(symbol, syntax))
+        {
+            result = result with { NeedsWithMethods = true };
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Detects invocations inside the struct declaration that pass one of the struct's
+    /// own fields as a ref/out argument (receiver resolves to this struct type, or `this`).
+    /// </summary>
+    private bool HasSelfRefFieldAccess(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
+    {
+        var fieldNames = symbol.GetMembers().OfType<IFieldSymbol>()
+            .Where(f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared)
+            .Select(f => f.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        if (fieldNames.Count == 0) return false;
+
+        foreach (var argument in syntax.DescendantNodes().OfType<ArgumentSyntax>())
+        {
+            if (!argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) &&
+                !argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                continue;
+            if (argument.Expression is not MemberAccessExpressionSyntax ma ||
+                ma.Name is not IdentifierNameSyntax fieldNameId)
+                continue;
+            if (!fieldNames.Contains(fieldNameId.Identifier.Text))
+                continue;
+            if (ma.Expression is ThisExpressionSyntax)
+                return true;
+            try
+            {
+                var type = _model.GetTypeInfo(ma.Expression).Type;
+                if (type != null &&
+                    SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, symbol.OriginalDefinition))
+                    return true;
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+        return false;
+    }
+
+    private AnalyzeResult AnalyzeCore(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
     {
         var name = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
@@ -64,12 +129,40 @@ internal sealed class StructAnalyzer
 
         // Detect mutating instance methods
         var mutatingMethods = new List<IMethodSymbol>();
+        var methodSyntaxMap = new Dictionary<IMethodSymbol, MethodDeclarationSyntax>(SymbolEqualityComparer.Default);
         foreach (var method in methods)
         {
             var methodSyntax = method.DeclaringSyntaxReferences
                 .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
-            if (methodSyntax != null && IsMutating(methodSyntax))
+            if (methodSyntax == null) continue;
+            methodSyntaxMap[method] = methodSyntax;
+            if (IsMutating(methodSyntax))
                 mutatingMethods.Add(method);
+        }
+
+        // Transitive detection: a void method that only delegates to mutating methods
+        // (e.g. Rectangle.Add(Rectangle) calling Add(Point) twice) is also mutating and
+        // must be migrated, otherwise its callers cannot capture the updated value.
+        // Return-this delegating methods (e.g. Rectangle.Pad calling PadWidth/PadHeight)
+        // qualify too: after migration the delegatees return new values, and leaving
+        // the delegator untouched silently discards those results.
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            var mutatingNames = mutatingMethods.Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
+            foreach (var method in methods)
+            {
+                if (mutatingMethods.Contains(method)) continue;
+                if (!methodSyntaxMap.TryGetValue(method, out var methodDecl)) continue;
+                if (!IsTransitiveMigrationCandidate(method, methodDecl))
+                    continue;
+                if (CallsMutatingMethod(methodDecl, mutatingNames, method))
+                {
+                    mutatingMethods.Add(method);
+                    changed = true;
+                }
+            }
         }
 
         // Detect public/internal setters that mutate
@@ -82,33 +175,31 @@ internal sealed class StructAnalyzer
         // Key insight: mutable properties (public setters) are handled by L3 (data container),
         // NOT by L5 (method migration). Only mutating METHODS trigger L5/L7.
 
+        // Fields accessible from outside (public/internal/protected). These are used
+        // both for L4 classification and to flag L5 structs that need field conversion.
+        var nonPrivateFields = fields
+            .Where(f => f.DeclaredAccessibility != Accessibility.Private &&
+                        f.DeclaredAccessibility != Accessibility.NotApplicable)
+            .ToList();
+
         if (mutatingMethods.Count == 0)
         {
             // No mutating methods — eligible for L1/L2/L3/L4
 
-            // Pattern E: public fields with external assignments → L4 PublicFieldToProperty
-            if (fields.Any(f => f.DeclaredAccessibility == Accessibility.Public))
+            // Pattern E: non-private fields (public/internal/protected) with external
+            // assignments → L4 PublicFieldToProperty. Fields become get-only properties
+            // and external writes are rewritten to WithXxx() calls.
+            if (nonPrivateFields.Count > 0)
             {
                 var root = syntax.SyntaxTree.GetRoot();
                 if (_callGraph.HasExternalPublicFieldAssignment(symbol, root))
                 {
                     if (_options.EnablePublicFieldConversion)
                         return new(ConversionLevel.PublicFieldToProperty, StructPattern.PublicFields, true,
-                            "public fields assigned externally - converting to properties with WithXxx methods", name);
+                            "non-private fields assigned externally - converting to properties with WithXxx methods", name);
                     return new(ConversionLevel.NotConvertible, StructPattern.PublicFields, false,
-                        "public fields assigned externally (public field conversion disabled)", name);
+                        "non-private fields assigned externally (public field conversion disabled)", name);
                 }
-            }
-
-            // Guard: non-private fields assigned externally cannot be made readonly (for other patterns)
-            if (fields.Any(f => f.DeclaredAccessibility != Accessibility.Private &&
-                                f.DeclaredAccessibility != Accessibility.NotApplicable &&
-                                f.DeclaredAccessibility != Accessibility.Public))
-            {
-                var root = syntax.SyntaxTree.GetRoot();
-                if (_callGraph.HasExternalPublicFieldAssignment(symbol, root))
-                    return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
-                        "non-private fields assigned externally", name);
             }
 
             // Pattern C: properties with private setters only (no public setters)
@@ -134,8 +225,9 @@ internal sealed class StructAnalyzer
                     "no mutable state", name);
 
             // Pattern D: data container (has public setters or mutable non-public fields)
-            // Guard: if any field is assigned multiple times in a constructor, the struct
-            // cannot be made readonly at all (Java final fields allow only one assignment).
+            // Guard: constructors with multiple assignments to the same field cannot be
+            // normalized for L3 (existing constructors are kept and would emit illegal
+            // Java final-field double assignments).
             if (HasMultipleFieldAssignmentsInCtor(fields, syntax))
                 return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
                     "field assigned multiple times in constructor", name);
@@ -176,9 +268,60 @@ internal sealed class StructAnalyzer
                 migrations.Add(new MethodMigrationInfo(method, migrationType, methodSyntax));
             }
 
+            // Detect implicit interface implementations among migrated methods. After
+            // migration their signatures change (void → struct return, or added out
+            // parameter), so explicit interface implementations must be generated to
+            // preserve the interface contract.
+            var interfaceMigrations = new List<InterfaceMigrationInfo>();
+            foreach (var migration in migrations)
+            {
+                if (migration.Type == MigrationType.ThisToStruct)
+                    continue; // signature unchanged — no explicit impl needed
+
+                foreach (var iface in symbol.AllInterfaces)
+                {
+                    foreach (var member in iface.GetMembers().OfType<IMethodSymbol>())
+                    {
+                        var impl = symbol.FindImplementationForInterfaceMember(member);
+                        if (SymbolEqualityComparer.Default.Equals(impl, migration.Method) &&
+                            migration.Method.ExplicitInterfaceImplementations.Length == 0)
+                        {
+                            interfaceMigrations.Add(new InterfaceMigrationInfo(
+                                migration.Method, member, migration.Type));
+                        }
+                    }
+                }
+            }
+
             return new(ConversionLevel.MethodMigrate, StructPattern.MutableMethods, true,
-                $"has {migrations.Count} migrating methods", name, migrations);
+                $"has {migrations.Count} migrating methods", name, migrations,
+                interfaceMigrations, nonPrivateFields.Count > 0);
         }
+    }
+
+    /// <summary>
+    /// True for methods eligible to join the migration set transitively: void
+    /// delegating methods and methods that return the containing struct via
+    /// <c>return this;</c>. Both would silently discard the migrated delegatees'
+    /// return values if left unmigrated. Methods with other return types are
+    /// excluded (their migration would change signatures via out-parameters).
+    /// </summary>
+    private static bool IsTransitiveMigrationCandidate(IMethodSymbol method, MethodDeclarationSyntax methodDecl)
+    {
+        if (methodDecl.ReturnType is PredefinedTypeSyntax pts &&
+            pts.Keyword.IsKind(SyntaxKind.VoidKeyword))
+            return true;
+
+        if (method.ReturnsVoid)
+            return false;
+
+        var returnsThis =
+            methodDecl.Body?.DescendantNodes().OfType<ReturnStatementSyntax>()
+                .Any(r => r.Expression is ThisExpressionSyntax) == true ||
+            methodDecl.ExpressionBody?.Expression is ThisExpressionSyntax;
+
+        return returnsThis &&
+               SymbolEqualityComparer.Default.Equals(method.ReturnType, method.ContainingType);
     }
 
     private bool HasOptOutAttribute(INamedTypeSymbol symbol)
@@ -186,6 +329,52 @@ internal sealed class StructAnalyzer
         return symbol.GetAttributes().Any(a =>
             a.AttributeClass?.Name == _options.OptOutAttributeName ||
             a.AttributeClass?.Name == _options.OptOutAttributeName + "Attribute");
+    }
+
+    /// <summary>
+    /// True when the method body contains a statement-level invocation of a known
+    /// mutating method via implicit this (<c>Add(x);</c>) or explicit this (<c>this.Add(x);</c>).
+    /// Truly recursive calls (resolving to the method itself) are ignored; calls to
+    /// same-name overloads are delegations and count as mutations.
+    /// </summary>
+    private bool CallsMutatingMethod(MethodDeclarationSyntax method,
+        HashSet<string> mutatingNames, IMethodSymbol ownMethod)
+    {
+        var ownName = ownMethod.Name;
+        var ownArity = method.ParameterList.Parameters.Count;
+        foreach (var statement in method.DescendantNodes().OfType<ExpressionStatementSyntax>())
+        {
+            if (statement.Expression is not InvocationExpressionSyntax invocation)
+                continue;
+            string? calledName = invocation.Expression switch
+            {
+                IdentifierNameSyntax id => id.Identifier.Text,
+                MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } ma => ma.Name.Identifier.Text,
+                _ => null
+            };
+            if (calledName == null || !mutatingNames.Contains(calledName))
+                continue;
+
+            // Same-name calls need overload disambiguation: semantic resolution tells
+            // whether the call targets this method (recursion) or another overload
+            // (delegation). Without a resolved symbol, fall back to arity comparison.
+            if (calledName == ownName)
+            {
+                var resolved = _model.GetSymbolInfo(invocation).Symbol;
+                if (resolved != null)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(resolved.OriginalDefinition, ownMethod.OriginalDefinition))
+                        continue; // true recursion
+                }
+                else if (invocation.ArgumentList.Arguments.Count == ownArity)
+                {
+                    continue; // unresolved, assume recursion when arities match
+                }
+            }
+
+            return true;
+        }
+        return false;
     }
 
     private bool IsMutating(MethodDeclarationSyntax method)
@@ -286,44 +475,10 @@ internal sealed class StructAnalyzer
                 return false;
         }
 
-        // Java final fields can only be assigned once per constructor path.
-        // If any field is assigned more than once in any constructor, the struct
-        // cannot be made readonly (would produce illegal Java code).
-        foreach (var ctor in ctors)
-        {
-            var assignedFieldNames = new HashSet<string>();
-            foreach (var assignment in ctor.DescendantNodes().OfType<AssignmentExpressionSyntax>())
-            {
-                var name = assignment.Left switch
-                {
-                    IdentifierNameSyntax id => id.Identifier.Text,
-                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
-                    _ => null
-                };
-                if (name == null) continue;
-                if (!fields.Any(f => f.Name == name)) continue;
-                if (!assignedFieldNames.Add(name))
-                    return false; // multiple assignments to same field
-            }
-
-            // Also count ++/-- as assignments
-            foreach (var unary in ctor.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
-                .Select(u => u.Operand)
-                .Concat(ctor.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
-                    .Select(u => u.Operand)))
-            {
-                var name = unary switch
-                {
-                    IdentifierNameSyntax id => id.Identifier.Text,
-                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
-                    _ => null
-                };
-                if (name == null) continue;
-                if (!fields.Any(f => f.Name == name)) continue;
-                if (!assignedFieldNames.Add(name))
-                    return false;
-            }
-        }
+        // Multiple assignments to the same field within a constructor are allowed:
+        // C# readonly fields may be assigned repeatedly inside constructors, and the
+        // ConstructorNormalizer rewrites such constructors to single-assignment form
+        // (shadow locals) so the generated Java final fields remain legal.
 
         return true;
     }
@@ -389,13 +544,12 @@ internal sealed class StructAnalyzer
     private string? CheckNonMigratable(INamedTypeSymbol symbol, StructDeclarationSyntax syntax,
         IReadOnlyList<IFieldSymbol> fields)
     {
-        // Has array fields → heavy mutable state
-        if (fields.Any(f => f.Type is IArrayTypeSymbol))
-            return "contains array field (heavy mutable state)";
-
-        // Has public fields (externally assignable)
-        if (fields.Any(f => f.DeclaredAccessibility == Accessibility.Public))
-            return "has public fields (externally assignable)";
+        // NOTE: array fields are allowed — a readonly array field keeps the reference
+        // immutable while element mutation remains legal (same as Java final arrays).
+        // NOTE: public/internal fields are allowed — they are converted to get-only
+        // properties with WithXxx methods during L5 rewriting.
+        // NOTE: interfaces with mutating methods are allowed — explicit interface
+        // implementations delegating to the migrated methods are generated.
 
         // Has virtual/override/abstract methods that are NOT merely overriding
         // System.Object members (ToString/Equals/GetHashCode). Overriding object
@@ -412,29 +566,6 @@ internal sealed class StructAnalyzer
         var root = syntax.SyntaxTree.GetRoot();
         if (_callGraph.IsModifiedThroughRef(symbol, root))
             return "fields mutated through ref parameter";
-
-        // Public fields assigned externally
-        if (_callGraph.HasExternalPublicFieldAssignment(symbol, root))
-            return "public fields assigned externally";
-
-        // Implements interface with mutating methods
-        if (symbol.AllInterfaces.Any())
-        {
-            foreach (var iface in symbol.AllInterfaces)
-            {
-                foreach (var member in iface.GetMembers().OfType<IMethodSymbol>())
-                {
-                    var impl = symbol.FindImplementationForInterfaceMember(member);
-                    if (impl is IMethodSymbol implMethod)
-                    {
-                        var implSyntax = implMethod.DeclaringSyntaxReferences
-                            .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
-                        if (implSyntax != null && IsMutating(implSyntax))
-                            return "implements interface with mutating method";
-                    }
-                }
-            }
-        }
 
         return null;
     }
