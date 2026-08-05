@@ -34,10 +34,10 @@ public final class XDocument {
         }
     }
 
-    public Iterable<XElement> descendants() {
+    public CSharpGenericIterable<XElement> descendants() {
         ArrayList<XElement> result = new ArrayList<>();
         collectDescendants(document.getDocumentElement(), result);
-        return result;
+        return CSharpGenericIterable.fromCollection(result);
     }
 
     private static void collectDescendants(Node node, ArrayList<XElement> result) {

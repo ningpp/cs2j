@@ -127,6 +127,7 @@ public static class ProjectCompilationBuilder
             "System.ComponentModel.TypeConverter.dll",
             "System.Linq.dll",
             "System.Linq.Expressions.dll",
+            "System.Xml.Linq.dll", // XDocument/XElement for LINQ-to-XML chains
             "System.Threading.dll",
             "System.Threading.Tasks.dll",
             "System.Threading.Tasks.Parallel.dll", // ParallelOptions, Parallel.ForEach, etc.

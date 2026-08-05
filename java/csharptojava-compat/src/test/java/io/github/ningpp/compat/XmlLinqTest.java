@@ -18,13 +18,14 @@ class XmlLinqTest {
                 StandardCharsets.UTF_8);
 
         XDocument document = XDocument.load(file.toString());
-        ArrayList<XElement> descendants = new ArrayList<>();
-        for (XElement element : document.descendants()) {
-            descendants.add(element);
+        CSharpGenericIterable<XElement> descendants = document.descendants();
+        ArrayList<XElement> collected = new ArrayList<>();
+        for (XElement element : descendants) {
+            collected.add(element);
         }
 
-        XElement node = descendants.stream()
-                .filter(element -> element.getName().LocalName.equals("Node"))
+        XElement node = collected.stream()
+                .filter(element -> element.getName().getLocalName().equals("Node"))
                 .findFirst()
                 .orElseThrow();
 

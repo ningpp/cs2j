@@ -215,3 +215,24 @@
 - **测试**: tests/CSharpToJava.Tests/FlagsEnumInterfacePropertyTests.cs（单文件 + 多文件"枚举声明在接口之后"两个用例，先红后绿）
 
 ✅ Fixed — IViewer.java:48 变为 `public int getModifierKeys();`，LayoutEditor.java:555/850/1205 错误消失（mvn 重新编译后首个错误变为 DgmlParser.java:36 Iterable<XElement> 无法转换为 CSharpGenericIterable<XElement>）。
+
+## Iteration 16 — DgmlParser XDocument/XName 兼容层 API 不匹配
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/DebugHelpers/Persistence/DgmlParser.java
+- **行号**: 36, 47, 68, 80
+- **错误信息**: Iterable<XElement> 无法转换为 CSharpGenericIterable<XElement>；找不到符号 — 方法 getLocalName()，位置: Microsoft.Msagl.Core.DataStructures.XName
+- **代码片段**:
+  `java
+  Iterable<XElement> enumerable = doc.Descendants().Where(...);   // ERROR: doc.Descendants() 返回 Iterable<XElement>
+  XName name = element.getName(); name.getLocalName();            // ERROR: XName 没有 getLocalName()
+  `
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\DebugHelpers\Persistence\DgmlParser.cs (doc.Descendants().Where(...) / e.Name.LocalName)
+- **根因分类**: 类型映射缺失 (compat LINQ-to-XML facade 与生成代码的 API 契约不匹配)
+- **涉及组件**:
+  - java/csharptojava-compat/src/main/java/io/github/ningpp/compat/XDocument.java — descendants() 返回类型应为 CSharpGenericIterable<XElement>（过程化 LINQ lowering 要求）
+  - java/csharptojava-compat/src/main/java/io/github/ningpp/compat/XName.java — 缺少 getLocalName() getter
+  - java/csharptojava-compat/pom.xml — 之前提交的 Java 27 + --enable-preview 目标导致 AGL 消费端（Java 25）报"类文件使用 Java SE 27 的预览功能"
+- **分析**: DgmlParser 的 C# 代码 doc.Descendants().Where(...) 被 lowering 成 CSharpGenericIterable 链式调用，但 compat 层 XDocument.descendants() 返回的是裸 Iterable；XName 只有公共字段 LocalName，而生成代码调用 getName().getLocalName()。此外 pom 的 Java 27 目标使安装的 jar 无法被 Java 25 的 AGL 项目消费。
+- **修复**: XDocument.descendants() 改为返回 CSharpGenericIterable.fromCollection(result)；XName 增加 public String getLocalName()（保留公共字段 LocalName）；compat pom 回退到 <java.version>25</java.version> 并移除 --enable-preview 编译参数；重新 mvn -DskipTests install 到 D:\mvnrepo。转换器侧 ProjectCompilationBuilder 增加 System.Xml.Linq.dll 元数据引用以便测试编译。
+- **测试**: tests/CSharpToJava.Tests/XmlLinqCompatibilityTests.cs（2 个用例，先红后绿：XDocumentDescendants_ReturnsGenericIterable 与项目模式 Pin ProjectMode_XmlLinqNameLocalName_AccessesCompatXNameField）
+
+✅ Fixed — 9 个模块全部编译通过，mvn 构建推进到 msagltests 测试阶段，仅剩 2 个运行时断言失败（见 Iteration 17）。

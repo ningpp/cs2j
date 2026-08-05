@@ -7,4 +7,8 @@ public final class XName {
     public XName(String localName) {
         this.LocalName = localName;
     }
+
+    public String getLocalName() {
+        return LocalName;
+    }
 }
