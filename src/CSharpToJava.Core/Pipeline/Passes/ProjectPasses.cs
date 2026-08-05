@@ -546,6 +546,15 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
         // Build effective IR rewriters: user-registered + built-in validation rewriters
         var effectiveRewriters = BuildEffectiveRewriters(state);
 
+        // Pre-register [Flags] enums from the whole compilation so that the name-based
+        // flags registry is populated before ANY type group is converted. Type-group
+        // conversion order follows Roslyn namespace traversal (not declaration or
+        // file order), so an interface converted before the enum type group itself
+        // would otherwise fall back to syntax-based type mapping with an empty
+        // registry and emit the Java class name instead of int (e.g.
+        // "ModifierKeys getModifierKeys()" instead of "int getModifierKeys()").
+        PreRegisterFlagsEnums(state);
+
         foreach (var typeGroup in state.TypeGroups)
         {
             var candidatePaths = CollectCandidatePaths(typeGroup);
@@ -570,6 +579,46 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
                 }
 
                 state.Results.Add(result);
+            }
+        }
+    }
+
+
+    /// <summary>
+    /// Scans the whole compilation for [Flags] enum declarations and registers them in the
+    /// name-based flags registry before any type group is converted. Syntax-based type
+    /// mapping (MapTypeFromSyntaxString) is used as a fallback when semantic lookups fail
+    /// on merged syntax trees, and it relies on this registry; without the pre-scan, an
+    /// interface converted before the enum type group would emit the Java class name
+    /// instead of the underlying int/long value type.
+    /// </summary>
+    private static void PreRegisterFlagsEnums(ProjectPassState state)
+    {
+        foreach (var tree in state.Compilation.SyntaxTrees)
+        {
+            var root = tree.GetRoot();
+            foreach (var enumDecl in root.DescendantNodes().OfType<EnumDeclarationSyntax>())
+            {
+                var symbol = state.Compilation.GetSemanticModel(tree).GetDeclaredSymbol(enumDecl);
+                if (symbol is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumSymbol)
+                    continue;
+                if (!enumSymbol.GetAttributes().Any(a => a.AttributeClass?.Name is "FlagsAttribute" or "Flags"))
+                    continue;
+
+                var valueType = enumSymbol.EnumUnderlyingType?.SpecialType switch
+                {
+                    SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
+                    _ => "int",
+                };
+
+                var names = new HashSet<string>(StringComparer.Ordinal) { enumSymbol.Name };
+                var display = enumSymbol.ToDisplayString();
+                if (!string.IsNullOrWhiteSpace(display)) names.Add(display);
+                var fqn = enumSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                if (fqn.StartsWith("global::", StringComparison.Ordinal)) fqn = fqn["global::".Length..];
+                if (!string.IsNullOrWhiteSpace(fqn)) names.Add(fqn);
+                foreach (var name in names)
+                    state.Context.RegisterFlagsEnum(name, valueType);
             }
         }
     }

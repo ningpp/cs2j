@@ -198,3 +198,20 @@
 - **修复**: 在 `ReadOnlyStructMaker.MakeReadOnly` 和 `ProjectReadOnlyStructPreprocessor.UpdateCrossFileCallSites` 中，L5 migration 后检测带有 `WithXxx` 方法的 struct，并运行 `AssignmentRewriter` 将对象初始化器转换为构造函数调用。
 
 ✅ Fixed — GeometryGraphReader.java:734/735/736 错误消失（mvn 重新编译后首个错误变为 Rectangle.java:138 double 无法转换为 Size）。
+
+## Iteration 15 — ModifierKeys 二元运算符 '&' 操作数类型错误
+- **Java 文件**: automaticgraphlayout-drawing/src/main/java/Microsoft/Msagl/Drawing/LayoutEditor.java
+- **行号**: 555, 850, 1205
+- **错误信息**: 二元运算符 '&' 的操作数类型错误（第一个类型: Microsoft.Msagl.Drawing.ModifierKeys，第二个类型: int）；1205 还有 ModifierKeys无法转换为int
+- **代码片段**:
+  ```java
+  boolean modifierKeyWasUsed = (viewer.getModifierKeys() & ModifierKeys.Control) == ModifierKeys.Control || ...
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\Drawing\LayoutEditing\LayoutEditor.cs (line 531: `viewer.ModifierKeys & ModifierKeys.Control`)；类型定义 E:\agl-master\GraphLayout\Drawing\ModifierKeys.cs ([Flags] enum)
+- **根因分类**: Lowering (flags 注册时序)
+- **涉及组件**: src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs（新增 PreRegisterFlagsEnums）
+- **分析**: `[Flags]` 枚举被转换为含 int 常量的常量类，属性/成员类型应映射为其底层 int。项目级转换中 `FromPartialTypeGroup` 会把成员节点重新挂到合成的 syntax tree（FilePath 为空），导致 `GetTypeInfo` 全部落到语法回退路径 `MapTypeFromSyntaxString`，它依赖按名称注册的 flags 注册表。类型组转换顺序由 Roslyn 命名空间遍历决定（非文件顺序），IViewer（接口）在 ModifierKeys（枚举）之前转换，注册表为空 → 属性类型映射为类名 `ModifierKeys` 而非 `int`，位运算 `&` 失败。
+- **修复**: 在 `ProjectTypeEmitPass.Execute` 的转换循环前增加 `PreRegisterFlagsEnums`，扫描整个 compilation 的源码枚举并预先注册 `[Flags]` 枚举（简单名 + 全限定名），使 flags 映射与类型组顺序无关。
+- **测试**: tests/CSharpToJava.Tests/FlagsEnumInterfacePropertyTests.cs（单文件 + 多文件"枚举声明在接口之后"两个用例，先红后绿）
+
+✅ Fixed — IViewer.java:48 变为 `public int getModifierKeys();`，LayoutEditor.java:555/850/1205 错误消失（mvn 重新编译后首个错误变为 DgmlParser.java:36 Iterable<XElement> 无法转换为 CSharpGenericIterable<XElement>）。
