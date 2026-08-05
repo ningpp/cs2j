@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -1235,18 +1235,38 @@ public class StructTransformer : ITypeTransformer
             .ToList();
         if (instanceFields.Count == 0) return;
 
+        // A no-argument this() chain only re-runs the default field initialization,
+        // which Java performs implicitly anyway. Drop it first so that a constructor
+        // whose target chains this() still qualifies as an inlining target. Otherwise
+        // e.g. BorderInfo(double) : this(double, double, double) with a target that
+        // itself chains this() would lose its parameter assignments entirely.
         foreach (var ctor in javaClass.Constructors)
         {
-            // Constructors chaining via this(...) would double-assign final fields in
-            // Java. Inline the chained constructor's assignments (substituting its
-            // parameters with the chain arguments) to preserve the original semantics.
-            if (ctor.Initializer != null && ctor.Initializer.StartsWith("this("))
+            if (ctor.Initializer != null && ctor.Initializer.Trim() == "this()")
             {
+                ctor.Initializer = null;
+            }
+        }
+
+        // Inline this(...) chains to a fixpoint so transitive chains (A -> B -> C)
+        // resolve deepest-first regardless of declaration order.
+        for (int pass = 0; pass < javaClass.Constructors.Count; pass++)
+        {
+            bool inlinedAny = false;
+            foreach (var ctor in javaClass.Constructors)
+            {
+                // Constructors chaining via this(...) would double-assign final fields in
+                // Java. Inline the chained constructor's assignments (substituting its
+                // parameters with the chain arguments) to preserve the original semantics.
+                if (ctor.Initializer == null || !ctor.Initializer.StartsWith("this("))
+                {
+                    continue;
+                }
+
                 var innerArgs = ctor.Initializer.Substring("this(".Length, ctor.Initializer.Length - "this(".Length - 1);
                 var chainArgs = SplitTopLevelArgs(innerArgs);
                 var target = javaClass.Constructors.FirstOrDefault(c =>
-                    c != ctor && c.Parameters.Count == chainArgs.Count &&
-                    (c.Initializer == null || !c.Initializer.StartsWith("this(")));
+                    c != ctor && c.Parameters.Count == chainArgs.Count && c.Initializer == null);
                 ctor.Initializer = null;
                 if (target != null)
                 {
@@ -1267,9 +1287,14 @@ public class StructTransformer : ITypeTransformer
                     ctor.Body = string.IsNullOrWhiteSpace(existingBody)
                         ? targetBody
                         : targetBody + "\n" + existingBody;
+                    inlinedAny = true;
                 }
             }
+            if (!inlinedAny) break;
+        }
 
+        foreach (var ctor in javaClass.Constructors)
+        {
             // Find which final fields are already assigned in the body
             var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
             var assignedFields = new HashSet<string>();

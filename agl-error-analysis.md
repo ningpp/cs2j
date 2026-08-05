@@ -236,3 +236,26 @@
 - **测试**: tests/CSharpToJava.Tests/XmlLinqCompatibilityTests.cs（2 个用例，先红后绿：XDocumentDescendants_ReturnsGenericIterable 与项目模式 Pin ProjectMode_XmlLinqNameLocalName_AccessesCompatXNameField）
 
 ✅ Fixed — 9 个模块全部编译通过，mvn 构建推进到 msagltests 测试阶段，仅剩 2 个运行时断言失败（见 Iteration 17）。
+
+## Iteration 17 — BorderInfo(double) 构造器链 this(...) 参数丢失
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/BorderInfo.java
+- **行号**: 81-84（1 参构造器）
+- **错误信息**: 运行时断言失败（非编译错误）— msagltests 的 OverlapRemovalTests.test_Cluster_Nest_Margins / test_Cluster_Sibling_Margins 报 "Expected Cluster positions failed"，集群尺寸比预期小恰好等于各边 BorderInfo margin 之和
+- **代码片段**:
+  `java
+  public BorderInfo(double innerMargin) {
+      this.innerMargin = 0.0d;      // BUG: 参数被丢弃
+      this.fixedPosition = 0.0d;
+      this.borderWeight = 0.0d;
+  }
+  `
+  期望: 	his(innerMargin, getNoFixedPosition(), getDefaultFreeWeight()) 的效果
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\Geometry\OverlapRemoval\BorderInfo.cs (public BorderInfo(double innerMargin) : this(innerMargin, NoFixedPosition, DefaultFreeWeight) { })
+- **根因分类**: Transformer (StructTransformer 只读结构体构造器链内联)
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Type/StructTransformer.cs — FixReadonlyStructConstructorChaining (line 1231+)
+- **分析**: 只读结构体的 1 参构造器 : this(innerMargin, NoFixedPosition, DefaultFreeWeight) 需要内联到 3 参目标构造器；但目标构造器自身带有 : this()（无参链），被目标搜索条件 (c.Initializer == null || !c.Initializer.StartsWith("this(")) 排除，导致找不到目标 → 构造器体只剩"全部字段赋默认值"的兜底初始化，margin 参数被静默丢弃。文件式测试用 3 参 BorderInfo 构造器所以不受影响；只有这两个内联测试用 1 参 
+ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X 节点解整体偏离。
+- **修复**: FixReadonlyStructConstructorChaining 分两步：① 先清除所有无参 	his() 链（Java 字段天然默认初始化，无参链无副作用）；② 对带参 	his(...) 链做不动点迭代内联（目标要求 Initializer==null，支持 A→B→C 传递链），保留原有"未赋值 final 字段补默认值"兜底。修复后字段恢复 final（只读语义），1 参构造器正确内联 	his.innerMargin = innerMargin; this.fixedPosition = getNoFixedPosition(); this.borderWeight = getDefaultFreeWeight();。
+- **测试**: tests/CSharpToJava.Tests/StructCtorChainingTests.cs（先红后绿：断言 1 参构造器块内含三个链式赋值）
+
+✅ Fixed — 重新转换 + mvn clean package -e：BUILD SUCCESS（OverlapRemovalTests 30/30 通过，msagltests 609 测试 0 失败）。
