@@ -111,6 +111,16 @@ internal static class ProjectReadOnlyStructPreprocessor
             }
         }
 
+        // MSBuild auto-imports Directory.Build.props / Directory.Build.targets and
+        // Directory.Packages.props (Central Package Management) from the project
+        // directory and every ancestor directory, and NuGet walks up for nuget.config.
+        // These files typically live above the source root (e.g. at the repository
+        // root) and are not part of layout.ProjectFiles nor the .cs source
+        // enumeration, so they must be copied explicitly. Otherwise restore fails
+        // with NU1015 ("PackageReference ... no version specified") for projects
+        // that rely on central package versioning.
+        CopyAncestorMsBuildDirectoryFiles(sourceRoot, intermediateRoot, request.Verbose);
+
         // Collect all .cs files and parse them into syntax trees for compilation.
         // Files that belong to excluded (unsupported) projects are not copied/transformed.
         var sourceFiles = EnumerateSourceFiles(sourceRoot, intermediateRoot)
@@ -352,6 +362,110 @@ internal static class ProjectReadOnlyStructPreprocessor
                 }
 
                 pending.Push(Path.GetFullPath(subDirectory));
+            }
+        }
+    }
+
+    /// <summary>
+    /// MSBuild/NuGet directory-level files that are auto-imported from the project
+    /// directory and all of its ancestor directories.
+    /// </summary>
+    private static readonly string[] MsBuildDirectoryFileNames =
+    {
+        "Directory.Build.props",
+        "Directory.Build.targets",
+        "Directory.Packages.props",
+        "nuget.config",
+    };
+
+    /// <summary>
+    /// Locates the nearest ancestor copy of each MSBuild directory-level file
+    /// (<c>Directory.Build.props</c>, <c>Directory.Build.targets</c>,
+    /// <c>Directory.Packages.props</c>, <c>nuget.config</c>) by walking up from
+    /// <paramref name="sourceRoot"/>, and copies it to
+    /// <paramref name="intermediateRoot"/>. MSBuild/NuGet use a "nearest wins"
+    /// lookup, so copying the closest ancestor reproduces the original resolution
+    /// for the intermediate project.
+    /// </summary>
+    private static void CopyAncestorMsBuildDirectoryFiles(string sourceRoot, string intermediateRoot, bool verbose)
+    {
+        foreach (var fileName in MsBuildDirectoryFileNames)
+        {
+            var current = Path.GetFullPath(sourceRoot);
+            string? found = null;
+            while (!string.IsNullOrEmpty(current))
+            {
+                var candidate = Path.Combine(current, fileName);
+                if (File.Exists(candidate))
+                {
+                    found = candidate;
+                    break;
+                }
+
+                var parent = Path.GetDirectoryName(current);
+                if (parent == null || string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                current = parent;
+            }
+
+            if (found == null)
+            {
+                continue;
+            }
+
+            var destination = Path.Combine(intermediateRoot, fileName);
+            File.Copy(found, destination, overwrite: true);
+            if (verbose)
+            {
+                Console.WriteLine($"[make-readonly] Copied MSBuild directory file: {found} -> {destination}");
+            }
+
+            // The copied file may reference sibling files via
+            // $(MSBuildThisFileDirectory) (e.g. Directory.Build.props pointing at a
+            // strong-name key). Those siblings resolve relative to the copied file's
+            // NEW location, so copy them alongside it.
+            CopyMsBuildThisFileDirectoryReferences(found, intermediateRoot, verbose);
+        }
+    }
+
+    /// <summary>
+    /// Copies files referenced through <c>$(MSBuildThisFileDirectory)</c> inside a
+    /// copied MSBuild directory file, so the references keep resolving after the
+    /// file is relocated to the intermediate root.
+    /// </summary>
+    private static void CopyMsBuildThisFileDirectoryReferences(string sourceFile, string intermediateRoot, bool verbose)
+    {
+        string content;
+        try
+        {
+            content = File.ReadAllText(sourceFile);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+
+        var sourceDirectory = Path.GetDirectoryName(sourceFile)!;
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                     content,
+                     @"\$\(MSBuildThisFileDirectory\)\s*\\?([^""<>|?*\r\n]+)"))
+        {
+            var relativeReference = match.Groups[1].Value.Trim().TrimEnd('\\', '/');
+            if (relativeReference.Length == 0) continue;
+
+            var referencedPath = Path.GetFullPath(Path.Combine(sourceDirectory, relativeReference));
+            if (!File.Exists(referencedPath)) continue;
+
+            var destinationPath = Path.Combine(intermediateRoot, Path.GetFileName(referencedPath));
+            if (File.Exists(destinationPath)) continue;
+
+            File.Copy(referencedPath, destinationPath, overwrite: false);
+            if (verbose)
+            {
+                Console.WriteLine($"[make-readonly] Copied MSBuild sibling reference: {referencedPath} -> {destinationPath}");
             }
         }
     }
@@ -1399,6 +1513,17 @@ internal static class ProjectReadOnlyStructPreprocessor
             }
         }
 
+        // Signing can also be enabled centrally through Directory.Build.props copied
+        // to the intermediate root (e.g. a repository-wide strong-name policy).
+        foreach (var fileName in MsBuildDirectoryFileNames)
+        {
+            var propsFile = Path.Combine(intermediateRoot, fileName);
+            if (File.Exists(propsFile) && SignAssemblyRegex.IsMatch(File.ReadAllText(propsFile)))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -1425,11 +1550,14 @@ internal static class ProjectReadOnlyStructPreprocessor
             var tree = CSharpSyntaxTree.ParseText(code, path: outputFile);
 
             // Collect line spans of ACTIVE struct declarations (already handled by the maker).
+            // Use the line of the `struct` KEYWORD, not the declaration start: when the
+            // struct carries attributes on preceding lines the node starts at the
+            // attribute, while the regex below matches the keyword line.
             var activeLines = new HashSet<int>();
             foreach (var structDecl in tree.GetRoot().DescendantNodes()
                          .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
-                activeLines.Add(tree.GetLineSpan(structDecl.Span).StartLinePosition.Line);
+                activeLines.Add(tree.GetLineSpan(structDecl.Keyword.Span).StartLinePosition.Line);
             }
 
             var changed = false;

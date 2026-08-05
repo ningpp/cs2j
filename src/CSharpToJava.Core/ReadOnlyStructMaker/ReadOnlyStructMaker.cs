@@ -7,6 +7,25 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 
 public sealed class ReadOnlyStructMaker
 {
+    /// <summary>
+    /// Cache of boxing-reachability results keyed by compilation. Project-level
+    /// preprocessing calls <see cref="MakeReadOnly"/> once per syntax tree against
+    /// the same compilation, so the cross-file analysis runs only once per run.
+    /// </summary>
+    private readonly Dictionary<Compilation, HashSet<INamedTypeSymbol>> _boxingReachableCache =
+        new(ReferenceEqualityComparer.Instance);
+
+    private HashSet<INamedTypeSymbol> GetBoxingReachableStructs(Compilation compilation)
+    {
+        if (!_boxingReachableCache.TryGetValue(compilation, out var cached))
+        {
+            cached = BoxingReachabilityAnalyzer.ComputeBoxingReachableStructs(compilation);
+            _boxingReachableCache[compilation] = cached;
+        }
+
+        return cached;
+    }
+
     /// <summary>单文件入口（用于测试）：分析单个文件中的 struct。</summary>
     public ReadOnlyStructMakerResult MakeReadOnly(
         SyntaxTree tree,
@@ -21,7 +40,7 @@ public sealed class ReadOnlyStructMaker
         var structs = root.DescendantNodes().OfType<StructDeclarationSyntax>().ToList();
         stats.StructsScanned = structs.Count;
 
-        var analyzer = new StructAnalyzer(options, semanticModel);
+        var analyzer = new StructAnalyzer(options, semanticModel, GetBoxingReachableStructs(semanticModel.Compilation));
         var analysisResults = new Dictionary<StructDeclarationSyntax, AnalyzeResult>();
 
         foreach (var structSyntax in structs)

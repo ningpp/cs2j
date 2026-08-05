@@ -35,12 +35,18 @@ internal sealed class StructAnalyzer
     private readonly ReadOnlyStructMakerOptions _options;
     private readonly SemanticModel _model;
     private readonly CallGraphBuilder _callGraph;
+    private readonly IReadOnlySet<INamedTypeSymbol> _boxingReachableStructs;
 
-    public StructAnalyzer(ReadOnlyStructMakerOptions options, SemanticModel model)
+    public StructAnalyzer(
+        ReadOnlyStructMakerOptions options,
+        SemanticModel model,
+        IReadOnlySet<INamedTypeSymbol>? boxingReachableStructs = null)
     {
         _options = options;
         _model = model;
         _callGraph = new CallGraphBuilder(model);
+        _boxingReachableStructs = boxingReachableStructs
+            ?? new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
     }
 
     public AnalyzeResult Analyze(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
@@ -181,6 +187,38 @@ internal sealed class StructAnalyzer
             .Where(f => f.DeclaredAccessibility != Accessibility.Private &&
                         f.DeclaredAccessibility != Accessibility.NotApplicable)
             .ToList();
+
+        // === Reflection-safety skip ===
+        // Applies only to structs without migrating methods: those are classified as
+        // L1-L4, where L3 (DTO) removes public setters and L4 removes public field
+        // write access. If such a struct's state is reachable from an object-like
+        // context (boxed directly, or nested inside a boxed object graph),
+        // reflection-based consumers (serializers, mappers, source-generated
+        // descriptors) may write its members at runtime; removing the write targets
+        // breaks them, so the struct keeps its original mutable shape. Types
+        // explicitly annotated for serialization/mapping are likewise skipped.
+        // Structs with mutating methods follow the L5 method-migration path, whose
+        // mutation is encapsulated in methods rather than reflectively-writable
+        // members, so they are not subject to this skip.
+        if (mutatingMethods.Count == 0)
+        {
+            var hasMutableState = mutableProperties.Count > 0 ||
+                                  fields.Any(f => !f.IsReadOnly);
+            if (hasMutableState)
+            {
+                if (_boxingReachableStructs.Contains(symbol.OriginalDefinition))
+                {
+                    return new(ConversionLevel.Skip, StructPattern.DataContainer, false,
+                        "mutable state reachable through boxing (reflection mutation risk)", name);
+                }
+
+                if (HasSerializationAttribute(symbol))
+                {
+                    return new(ConversionLevel.Skip, StructPattern.DataContainer, false,
+                        "serialization/mapping attribute present (reflection mutation risk)", name);
+                }
+            }
+        }
 
         if (mutatingMethods.Count == 0)
         {
@@ -329,6 +367,38 @@ internal sealed class StructAnalyzer
         return symbol.GetAttributes().Any(a =>
             a.AttributeClass?.Name == _options.OptOutAttributeName ||
             a.AttributeClass?.Name == _options.OptOutAttributeName + "Attribute");
+    }
+
+    /// <summary>
+    /// True when the type carries an attribute that marks it for reflective
+    /// serialization/mapping processing. Such types have their members written by
+    /// serializers at runtime, so converting them to readonly breaks deserialization.
+    /// Covers [Serializable], [DataContract], XML/JSON serializers, and custom
+    /// serializer-marker attributes such as YamlDotNet's [YamlSerializable].
+    /// </summary>
+    private static bool HasSerializationAttribute(INamedTypeSymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            var name = attribute.AttributeClass?.Name;
+            if (name == null) continue;
+
+            if (name.Contains("Serializ", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            switch (name)
+            {
+                case "DataContractAttribute":
+                case "XmlTypeAttribute":
+                case "XmlRootAttribute":
+                case "JsonObjectAttribute":
+                case "JsonClassAttribute":
+                case "ProtoContractAttribute":
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
