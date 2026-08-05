@@ -1,4 +1,4 @@
-# AGL Error Analysis
+﻿# AGL Error Analysis
 
 ## Iteration 1 — EventArgs/EventHandler 找不到符号
 
@@ -259,3 +259,21 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **测试**: tests/CSharpToJava.Tests/StructCtorChainingTests.cs（先红后绿：断言 1 参构造器块内含三个链式赋值）
 
 ✅ Fixed — 重新转换 + mvn clean package -e：BUILD SUCCESS（OverlapRemovalTests 30/30 通过，msagltests 609 测试 0 失败）。
+
+## Iteration 1 — 转换管道验证失败（dotnet test Assertion Failed） — ✅ Fixed
+- **阶段**: Step 1 转换命令（make-readonly 预处理 VerifyTests 阶段），尚未生成 Java 文件
+- **错误信息**: `dotnet test failed with exit code 1 after readonly transformation.` 测试主机进程崩溃：`Process terminated. Assertion Failed` at `FlipSwitcher.PolylinesIntersect` (FlipSwitcher.cs:265 `Debug.Assert(left0 != 0 && left1 != 0)`)
+- **复现命令**: `dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project -s E:\agl-master\GraphLayout\ -d d:\cs-agl-260806 --extra-deps io.github.ningpp:system-private-xml:0.0.1-SNAPSHOT`
+- **代码片段**:
+  ```csharp
+  // MSAGL/Routing/Spline/Bundling/FlipSwitcher.cs:265 (原始源码与只读转换副本完全相同)
+  Debug.Assert(left0 != 0 && left1 != 0);
+  return left0 == left1 ? 1 : 2;
+  ```
+- **对应 C# 文件**: `MSAGL/Routing/Spline/Bundling/FlipSwitcher.cs:265`
+- **根因分类**: Transformer（验证步骤逻辑缺陷）
+- **涉及组件**: `src/CSharpToJava.CLI/ProjectReadOnlyStructPreprocessor.cs`（`VerifyBuildAndTestsAsync` / `RunDotNetCommandAsync`）
+- **分析**: 验证测试以 Debug 配置（默认）运行 `dotnet test`，而 C# 源码自身存在 flaky `Debug.Assert`（路由后台线程偶发触发，与只读转换无关——已用 git clone 原始源码全量跑测试复现同样崩溃；单测单独运行及 Release 配置全量运行均通过），导致测试主机崩溃、验证失败、整个转换中止。
+
+
+> **状态**: ✅ Fixed (2026-08-06) — VerifyBuildAndTestsAsync 现在以 -c Release 运行验证构建/测试，Debug.Assert 被编译掉，flaky 断言不再阻断转换。验证: 全量单测 2421 通过；mvn clean package -e BUILD SUCCESS。

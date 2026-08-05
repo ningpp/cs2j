@@ -1,4 +1,4 @@
-using CSharpToJava.Core.ReadOnlyStructMaker;
+﻿using CSharpToJava.Core.ReadOnlyStructMaker;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -665,8 +665,8 @@ internal static class ProjectReadOnlyStructPreprocessor
             return;
         }
 
-        Console.WriteLine($"[make-readonly] Verifying build: dotnet build \"{restoreTarget}\"");
-        var buildExit = await RunDotNetCommandAsync("build", restoreTarget, request.Verbose);
+        Console.WriteLine($"[make-readonly] Verifying build: dotnet build \"{restoreTarget}\" -c Release");
+        var buildExit = await RunDotNetCommandAsync("build", restoreTarget, request.Verbose, "Release");
         if (buildExit != 0)
         {
             diagnostics.Add(new ReadOnlyStructMakerDiagnostic(
@@ -679,8 +679,8 @@ internal static class ProjectReadOnlyStructPreprocessor
 
         if (request.VerifyTests && HasSupportedTestProjects(projectGraph, exclusionInfo))
         {
-            Console.WriteLine($"[make-readonly] Verifying tests: dotnet test \"{restoreTarget}\"");
-            var testExit = await RunDotNetCommandAsync("test", restoreTarget, request.Verbose);
+            Console.WriteLine($"[make-readonly] Verifying tests: dotnet test \"{restoreTarget}\" -c Release");
+            var testExit = await RunDotNetCommandAsync("test", restoreTarget, request.Verbose, "Release");
             if (testExit != 0)
             {
                 diagnostics.Add(new ReadOnlyStructMakerDiagnostic(
@@ -705,14 +705,14 @@ internal static class ProjectReadOnlyStructPreprocessor
             !exclusionInfo.ExcludedProjectPaths.Contains(Path.GetFullPath(project.ProjectFilePath)));
     }
 
-    private static async Task<int> RunDotNetCommandAsync(string verb, string targetPath, bool verbose)
+    private static async Task<int> RunDotNetCommandAsync(string verb, string targetPath, bool verbose, string? configuration = null)
     {
         try
         {
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"{verb} \"{targetPath}\" --nologo",
+                Arguments = $"{verb} \"{targetPath}\" --nologo" + (configuration is null ? "" : $" -c {configuration}"),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
