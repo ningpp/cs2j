@@ -97,12 +97,62 @@ public sealed class TsMemberWriter
 
         sb.Append($"): {_exprWriter.MapType(method.ReturnType)}");
 
+        AppendMethodBody(sb, method, ind, indentLevel);
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 属性 getter 访问器发射（Task 16）：`get X(): T { ... }`。可见性 public 省略
+    /// （TS 类成员默认），private/protected/static 保留；方法体复用 EmitMethod 三路发射。
+    /// </summary>
+    public string EmitPropertyAccessorGetter(JavaMethodDeclaration getter, string propertyName, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+
+        if ((getter.Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+        else if ((getter.Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
+        if ((getter.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
+
+        sb.Append($"get {TsNaming.SafeIdentifier(propertyName)}(): {_exprWriter.MapType(getter.ReturnType)}");
+        AppendMethodBody(sb, getter, ind, indentLevel);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 属性 setter 访问器发射（Task 16）：`private set X(value: T) { ... }`。
+    /// </summary>
+    public string EmitPropertyAccessorSetter(JavaMethodDeclaration setter, string propertyName, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+
+        if ((setter.Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+        else if ((setter.Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
+        if ((setter.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
+
+        sb.Append($"set {TsNaming.SafeIdentifier(propertyName)}(");
+        var parms = setter.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_exprWriter.MapType(p.Type)}");
+        sb.Append(string.Join(", ", parms));
+        // TS setter 不允许返回类型注解（tsc TS1095），只输出参数列表
+        sb.Append(')');
+        AppendMethodBody(sb, setter, ind, indentLevel);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 方法体发射（结构化体 > 表达式体 > Body 字符串），EmitMethod 与访问器发射共用。
+    /// </summary>
+    private void AppendMethodBody(StringBuilder sb, JavaMethodDeclaration method, string ind, int indentLevel)
+    {
         if ((method.Modifiers & JavaModifiers.Abstract) != 0
             || (method.Body == null && method.StructuredBody == null))
         {
             sb.Append(';');
+            return;
         }
-        else if (method.StructuredBody != null)
+        if (method.StructuredBody != null)
         {
             // 结构化方法体优先于 Body 字符串（JavaMethodDeclaration 契约）：
             // 逐语句交给 TsStatementWriter 发射，避免丢失 body
@@ -112,8 +162,9 @@ public sealed class TsMemberWriter
                 sb.AppendLine(_stmtWriter.Emit(stmt, indentLevel + 2));
             }
             sb.Append(ind).Append(_indent).Append('}');
+            return;
         }
-        else if (method.IsBodyExpression)
+        if (method.IsBodyExpression)
         {
             // 表达式体成员（方法/属性 getter/索引器/运算符）：类成员体不支持 => 语法
             // （TS1144），转块体。对齐 JavaMemberDeclaration 语义：非 void 加 return，
@@ -124,20 +175,16 @@ public sealed class TsMemberWriter
             if (!isVoid) sb.Append("return ");
             sb.AppendLine($"{method.Body};");
             sb.Append(ind).Append('}');
+            return;
         }
-        else
+        sb.AppendLine(" {");
+        // body 已是字符串，按行缩进
+        var bodyLines = method.Body!.Split('\n');
+        foreach (var line in bodyLines)
         {
-            sb.AppendLine(" {");
-            // body 已是字符串，按行缩进
-            var bodyLines = method.Body!.Split('\n');
-            foreach (var line in bodyLines)
-            {
-                sb.Append(ind).Append(_indent).AppendLine(line);
-            }
-            sb.Append(ind).Append('}');
+            sb.Append(ind).Append(_indent).AppendLine(line);
         }
-
-        return sb.ToString();
+        sb.Append(ind).Append('}');
     }
 
     public string EmitConstructor(JavaConstructorDeclaration ctor, string? extendedType, int indentLevel)

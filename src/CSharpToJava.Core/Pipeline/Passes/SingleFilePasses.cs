@@ -379,11 +379,12 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             rewriter.VisitCompilationUnit(javaCompilation);
         }
 
-        // 3. 运行 TS 专属 rewriter（M3 实现，M1 暂空）
-        RunTsRewriters(javaCompilation, state.Context);
+        // 3. 运行 TS 专属 rewriter（M1 暂空；Task 16 起装配属性重组，在用户 rewriter 之后、
+        //    发射之前运行，Roles 侧表注入发射器）
+        var accessorRoles = RunTsRewriters(javaCompilation, state.Context);
 
         // 4. TS 发射
-        var emitter = new TypeScript.TypeScriptEmitter();
+        var emitter = new TypeScript.TypeScriptEmitter(accessorRoles);
         var code = emitter.Emit(javaCompilation, state.Context);
 
         state.GeneratedCode = code;
@@ -391,10 +392,18 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         state.EmitSucceeded = true;
     }
 
-    private static void RunTsRewriters(Java.JavaCompilationUnit compilation, ConversionContext context)
+    /// <summary>
+    /// 运行 TS 专属 IR rewriter（Java 路径不进入本 pass）。Task 16：属性访问器重组
+    /// （类自动属性 getX/setX → TS 字段/访问器 + 调用点改写）；返回角色侧表供
+    /// TypeScriptEmitter 发射访问器使用。M3 在此追加其余 rewriter。
+    /// </summary>
+    private static IReadOnlyDictionary<Java.JavaMethodDeclaration, TypeScript.Rewriters.TsAccessorRole>? RunTsRewriters(
+        Java.JavaCompilationUnit compilation, ConversionContext context)
     {
-        // M1: 暂无 TS rewriter；M3 在此装配
         // TsOverloadDisambiguationRewriter, TsGenericErasureRewriter,
-        // TsInterfaceProbeRewriter, TsEqualityRewriter
+        // TsInterfaceProbeRewriter, TsEqualityRewriter (M3)
+        var propertyRewriter = new TypeScript.Rewriters.TsPropertyReconstructionRewriter();
+        propertyRewriter.VisitCompilationUnit(compilation);
+        return propertyRewriter.Roles;
     }
 }

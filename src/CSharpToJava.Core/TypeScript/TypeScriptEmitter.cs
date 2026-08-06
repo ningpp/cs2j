@@ -1,6 +1,7 @@
 using System.Text;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.TypeScript.Rewriters;
 
 namespace CSharpToJava.Core.TypeScript;
 
@@ -11,6 +12,13 @@ namespace CSharpToJava.Core.TypeScript;
 public sealed class TypeScriptEmitter
 {
     public const string FileExtension = ".ts";
+
+    private readonly IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? _accessorRoles;
+
+    public TypeScriptEmitter(IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? accessorRoles = null)
+    {
+        _accessorRoles = accessorRoles;
+    }
 
     public string Emit(JavaCompilationUnit unit, ConversionContext context)
     {
@@ -49,7 +57,7 @@ public sealed class TypeScriptEmitter
         var exprWriter = new TsExpressionWriter(mappings, imports);
         var stmtWriter = new TsStatementWriter(exprWriter);
         var memberWriter = new TsMemberWriter(stmtWriter, exprWriter);
-        var typeWriter = new TsTypeWriter(memberWriter);
+        var typeWriter = new TsTypeWriter(memberWriter, accessorRoles: _accessorRoles);
         return typeWriter.Emit(type, 0);
     }
 }

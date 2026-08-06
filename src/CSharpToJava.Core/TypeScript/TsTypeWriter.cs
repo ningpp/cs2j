@@ -1,5 +1,6 @@
 using System.Text;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.TypeScript.Rewriters;
 
 namespace CSharpToJava.Core.TypeScript;
 
@@ -9,11 +10,14 @@ namespace CSharpToJava.Core.TypeScript;
 public sealed class TsTypeWriter
 {
     private readonly TsMemberWriter _memberWriter;
+    private readonly IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? _accessorRoles;
     private readonly string _indent;
 
-    public TsTypeWriter(TsMemberWriter memberWriter, string indent = "    ")
+    public TsTypeWriter(TsMemberWriter memberWriter, string indent = "    ",
+        IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? accessorRoles = null)
     {
         _memberWriter = memberWriter;
+        _accessorRoles = accessorRoles;
         _indent = indent;
     }
 
@@ -97,11 +101,47 @@ public sealed class TsTypeWriter
             sb.AppendLine();
         }
 
-        // 方法
-        for (int i = 0; i < cls.Methods.Count; i++)
+        // 方法（属性访问器重组：Task 16 roles 侧表——自动属性字段简化、只读/受限 setter/
+        // 表达式体 → 访问器、只写 → 方法 + 诊断注释；未标记方法维持原发射）
+        var methodBlocks = new List<string>();
+        foreach (var method in cls.Methods)
         {
-            sb.AppendLine(_memberWriter.EmitMethod(cls.Methods[i], indentLevel + 1));
-            if (i < cls.Methods.Count - 1) sb.AppendLine();
+            if (_accessorRoles != null && _accessorRoles.TryGetValue(method, out var role))
+            {
+                var propName = method.Name.Substring(3);
+                switch (role)
+                {
+                    case TsAccessorRole.Getter:
+                        methodBlocks.Add(_memberWriter.EmitPropertyAccessorGetter(method, propName, indentLevel + 1));
+                        continue;
+                    case TsAccessorRole.GetterSetter when method.Name.StartsWith("get"):
+                        // getter + setter 访问器对：setter 随后续循环跳过（不重复发射）
+                        var setter = cls.Methods.FirstOrDefault(m => m != method && m.Name == "set" + propName);
+                        var pairBlock = _memberWriter.EmitPropertyAccessorGetter(method, propName, indentLevel + 1);
+                        if (setter != null)
+                        {
+                            pairBlock += Environment.NewLine + Environment.NewLine
+                                       + _memberWriter.EmitPropertyAccessorSetter(setter, propName, indentLevel + 1);
+                        }
+                        methodBlocks.Add(pairBlock);
+                        continue;
+                    case TsAccessorRole.GetterSetter:
+                        continue;
+                    case TsAccessorRole.WriteOnly:
+                        // 只写属性无 TS 对应形态：诊断注释 + 维持 setter 方法发射
+                        methodBlocks.Add($"{ind}{_indent}/* cs2j: write-only property {propName}: no TS counterpart; kept as setter method */");
+                        methodBlocks.Add(_memberWriter.EmitMethod(method, indentLevel + 1));
+                        continue;
+                    case TsAccessorRole.Field:
+                        // 字段简化：访问器方法已由 rewriter 从 IR 移除，防御性跳过
+                        continue;
+                }
+            }
+            methodBlocks.Add(_memberWriter.EmitMethod(method, indentLevel + 1));
+        }
+        if (methodBlocks.Count > 0)
+        {
+            sb.AppendLine(string.Join(Environment.NewLine + Environment.NewLine, methodBlocks));
         }
 
         // 静态初始化块 -> static { } （ES2022）；实际属性是 Statements（List<string>，非 Body）
