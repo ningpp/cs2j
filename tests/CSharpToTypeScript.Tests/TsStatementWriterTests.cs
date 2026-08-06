@@ -114,14 +114,8 @@ public class TsStatementWriterTests
         tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
         var catchBody = new JavaBlockStatement();
         catchBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
-        var finallyBody = new JavaBlockStatement();
-        finallyBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("c")));
 
-        var tryCatch = new JavaTryCatchStatement
-        {
-            TryBody = tryBody,
-            FinallyBody = finallyBody,
-        };
+        var tryCatch = new JavaTryCatchStatement { TryBody = tryBody };
         tryCatch.CatchClauses.Add(new JavaCatchClause
         {
             ExceptionType = "IOException",
@@ -130,15 +124,75 @@ public class TsStatementWriterTests
         });
 
         var result = EmitStmt(tryCatch);
-        Assert.Contains("try", result);
         Assert.Contains("} catch (e) {", result);
-        Assert.Contains("if (!(e instanceof IOException)) throw e;", result);
-        Assert.Contains("finally", result);
-        Assert.DoesNotContain("}\n}", result);
+        Assert.Contains("if (e instanceof IOException) {", result);
+        Assert.Contains("} else {", result);
+        Assert.Contains("throw e;", result);
     }
 
     [Fact]
-    public void TryCatch_Bare_Catch_For_Exception_Type()
+    public void TryCatch_Multiple_Typed_Clauses_Guard_Chain()
+    {
+        var tryBody = new JavaBlockStatement();
+        tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
+        var body1 = new JavaBlockStatement();
+        body1.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
+        var body2 = new JavaBlockStatement();
+        body2.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("c")));
+
+        var tryCatch = new JavaTryCatchStatement { TryBody = tryBody };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IOException",
+            VariableName = "e",
+            Body = body1,
+        });
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IllegalStateException",
+            VariableName = "e",
+            Body = body2,
+        });
+
+        var result = EmitStmt(tryCatch);
+        Assert.Contains("if (e instanceof IOException) {", result);
+        Assert.Contains("} else if (e instanceof IllegalStateException) {", result);
+        Assert.Contains("} else {", result);
+        Assert.Contains("throw e;", result);
+    }
+
+    [Fact]
+    public void TryCatch_Typed_Then_Bare_Clause()
+    {
+        var tryBody = new JavaBlockStatement();
+        tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
+        var body1 = new JavaBlockStatement();
+        body1.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
+        var body2 = new JavaBlockStatement();
+        body2.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("c")));
+
+        var tryCatch = new JavaTryCatchStatement { TryBody = tryBody };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IOException",
+            VariableName = "e",
+            Body = body1,
+        });
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "Exception",
+            VariableName = "e",
+            Body = body2,
+        });
+
+        var result = EmitStmt(tryCatch);
+        Assert.Contains("if (e instanceof IOException) {", result);
+        Assert.Contains("} else {", result);
+        Assert.DoesNotContain("throw e;", result);
+    }
+
+    [Fact]
+    public void TryCatch_Bare_Only_Emits_Body()
     {
         var tryBody = new JavaBlockStatement();
         tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
@@ -155,7 +209,35 @@ public class TsStatementWriterTests
 
         var result = EmitStmt(tryCatch);
         Assert.Contains("} catch (e) {", result);
+        Assert.Contains("b;", result);
         Assert.DoesNotContain("instanceof", result);
+    }
+
+    [Fact]
+    public void TryCatch_With_Finally()
+    {
+        var tryBody = new JavaBlockStatement();
+        tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
+        var catchBody = new JavaBlockStatement();
+        catchBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
+        var finallyBody = new JavaBlockStatement();
+        finallyBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("c")));
+
+        var tryCatch = new JavaTryCatchStatement
+        {
+            TryBody = tryBody,
+            FinallyBody = finallyBody,
+        };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IOException",
+            VariableName = "e",
+            Body = catchBody,
+        });
+
+        var result = EmitStmt(tryCatch);
+        Assert.Contains("finally {", result);
+        Assert.Contains("c;", result);
     }
 
     [Fact]
@@ -217,5 +299,20 @@ public class TsStatementWriterTests
         };
         var result = EmitStmt(forStmt);
         Assert.Contains("cs2j: multi-variable", result);
+    }
+
+    [Fact]
+    public void For_Initializer_String_Literal_Not_Rewritten()
+    {
+        var forStmt = new JavaForStatement
+        {
+            Initializer = "String s = \"100L\"",
+            Condition = new JavaIdentifierExpression("cond"),
+            Increment = "i++",
+            Body = new JavaBlockStatement(),
+        };
+        var result = EmitStmt(forStmt);
+        Assert.DoesNotContain("100n", result);
+        Assert.Contains("100L", result);
     }
 }

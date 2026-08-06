@@ -133,15 +133,19 @@ public sealed class TsStatementWriter
         var tsType = _exprWriter.MapType(javaType);
 
         // 泛型/数组类型，或映射未命中（返回值 == 原类型且非已知 TS 简单类型）
-        // → 保留可读形式 + 显式诊断，避免静默产出非法 TS
+        // → 保留可读形式 + 显式诊断，避免静默产出非法 TS；for 头内 init 段不加 ;
         if (javaType.IndexOfAny(new[] { '<', '>', '[', ']' }) >= 0
             || (tsType == javaType && !KnownSimpleTypes.Contains(javaType)))
         {
-            return $"let {TsNaming.SafeIdentifier(name)}: {javaType} = {init}; /* cs2j: unmapped for-initializer type */";
+            return $"let {TsNaming.SafeIdentifier(name)}: {javaType} = {init} /* cs2j: unmapped for-initializer type */";
         }
 
-        // long 字面量：100L -> 100n、0xFFL -> 0xFFn、1_000L -> 1_000n
-        init = LongLiteralPattern.Replace(init, "$1n");
+        // long 字面量：100L -> 100n、0xFFL -> 0xFFn、1_000L -> 1_000n。
+        // 初始化器含 " 时跳过（保守处理，防字符串内容如 "100L" 被篡改）
+        if (init.IndexOf('"') < 0)
+        {
+            init = LongLiteralPattern.Replace(init, "$1n");
+        }
         return $"let {TsNaming.SafeIdentifier(name)}: {tsType} = {init}";
     }
 
@@ -196,25 +200,77 @@ public sealed class TsStatementWriter
 
     private string EmitTryCatch(JavaTryCatchStatement tryCatch, int indentLevel)
     {
-        // 实际属性名：TryBody/FinallyBody（非 TryBlock/FinallyBlock）
+        // 实际属性名：TryBody/FinallyBody（非 TryBlock/FinallyBlock）。
+        // JS/TS 文法每个 try 只允许一个 catch 子句，多 catch 转守卫链：
+        // if/else-if instanceof 过滤，链尾补 throw 重抛保持 C# 语义；
+        // 绑定变量统一用首子句名（C# 多 catch 不同变量名场景 M1 简化，记录）。
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder();
         // try 体经 EmitBlock 自闭合（以 } 结尾），catch 行直接接在其后，不再输出前导 }
         sb.Append($"{ind}try ");
         sb.Append(Emit(tryCatch.TryBody, indentLevel));
 
-        foreach (var clause in tryCatch.CatchClauses)
+        if (tryCatch.CatchClauses.Count > 0)
         {
-            // catch 按类型过滤 -> instanceof 链（TS catch 无类型参数，只能捕获单一变量）
-            var exVar = string.IsNullOrEmpty(clause.VariableName) ? "e" : TsNaming.SafeIdentifier(clause.VariableName);
+            var exVar = string.IsNullOrEmpty(tryCatch.CatchClauses[0].VariableName)
+                ? "e"
+                : TsNaming.SafeIdentifier(tryCatch.CatchClauses[0].VariableName);
             sb.AppendLine($" catch ({exVar}) {{");
-            if (!string.IsNullOrEmpty(clause.ExceptionType) && clause.ExceptionType != "Exception" && clause.ExceptionType != "Throwable")
+
+            var isFirst = true;
+            var closedWithBare = false;
+            foreach (var clause in tryCatch.CatchClauses)
             {
-                sb.AppendLine($"{ind}{_indent}if (!({exVar} instanceof {clause.ExceptionType})) throw {exVar};");
+                var isBare = string.IsNullOrEmpty(clause.ExceptionType)
+                    || clause.ExceptionType == "Exception"
+                    || clause.ExceptionType == "Throwable";
+
+                if (isBare)
+                {
+                    if (isFirst)
+                    {
+                        // 唯一裸 catch 场景：catch 区域直接发射 body 内容，无 instanceof 守卫
+                        foreach (var s in clause.Body.Statements)
+                        {
+                            sb.AppendLine(Emit(s, indentLevel + 1));
+                        }
+                    }
+                    else
+                    {
+                        // 链尾 else 分支直接接 body 内容
+                        sb.AppendLine($" else {{");
+                        foreach (var s in clause.Body.Statements)
+                        {
+                            sb.AppendLine(Emit(s, indentLevel + 2));
+                        }
+                        sb.AppendLine($"{ind}{_indent}}}");
+                    }
+                    closedWithBare = true;
+                    break;
+                }
+
+                // 守卫链块：if/else-if 行自带花括号，body 语句直接落在块内（贴合单 catch 输出形状）
+                var head = isFirst
+                    ? $"{ind}{_indent}if ({exVar} instanceof {clause.ExceptionType}) {{"
+                    : $" else if ({exVar} instanceof {clause.ExceptionType}) {{";
+                sb.AppendLine(head);
+                foreach (var s in clause.Body.Statements)
+                {
+                    sb.AppendLine(Emit(s, indentLevel + 2));
+                }
+                sb.Append($"{ind}{_indent}}}");
+                isFirst = false;
             }
-            // 块体经 EmitBlock 自闭合；catch 区域以同行 } 收口，避免 "}\n}" 双右括号
-            sb.Append(Emit(clause.Body, indentLevel + 1));
-            sb.Append("}");
+
+            if (!closedWithBare)
+            {
+                // 全部为 typed 子句：不匹配任何 catch 则重抛，保持 C# 语义
+                sb.AppendLine($" else {{");
+                sb.AppendLine($"{ind}{_indent}{_indent}throw {exVar};");
+                sb.AppendLine($"{ind}{_indent}}}");
+            }
+
+            sb.Append(ind).Append('}');
         }
 
         if (tryCatch.FinallyBody != null)
