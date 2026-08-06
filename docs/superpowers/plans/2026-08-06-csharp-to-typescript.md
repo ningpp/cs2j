@@ -213,7 +213,7 @@ public enum TargetLanguage
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --filter "FullyQualifiedName~TargetLanguageOptionTests"`
 Expected: PASS（2 个测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/Context/ConversionOptions.cs tests/CSharpToJava.Tests/TargetLanguageOptionTests.cs
@@ -531,7 +531,7 @@ public abstract class TsConversionTestBase
 Run: `dotnet build tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
 Expected: BUILD SUCCESS（即使 TS 发射器尚未实现，测试项目应能编译，因为只依赖现有 Core 项目）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add tests/CSharpToTypeScript.Tests/ CSharpToJavaConverter.slnx
@@ -691,7 +691,7 @@ public static class TsNaming
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsNamingSafetyTests"`
 Expected: PASS（6 个测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsNaming.cs tests/CSharpToTypeScript.Tests/TsNamingSafetyTests.cs
@@ -1021,8 +1021,11 @@ public sealed class TsMemberMappingTable
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsMemberMappingTableTests"`
 Expected: PASS（10 个测试）。
+实测：`--filter "FullyQualifiedName~TsEmitterIntegrationTests"` 全绿——计划 10 个集成测试 + 10 个
+`Direct_*` + 1 个新增 L3 tsc 用例（`Pipeline_Output_Compiles_With_Tsc`），共 21/21 通过。
+分叉前后红→绿清单见本 Task 末尾注记。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsMemberMappingTable.cs tests/CSharpToTypeScript.Tests/TsMemberMappingTableTests.cs
@@ -1243,7 +1246,7 @@ public sealed record TsImportEntry(string ModulePath, IReadOnlyList<string> Name
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsImportCollectorTests"`
 Expected: PASS（6 个测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsImportCollector.cs tests/CSharpToTypeScript.Tests/TsImportCollectorTests.cs
@@ -1637,7 +1640,7 @@ public sealed class TsExpressionWriter
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsExpressionWriterTests"`
 Expected: PASS（12 个测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsExpressionWriter.cs tests/CSharpToTypeScript.Tests/TsExpressionWriterTests.cs
@@ -2024,7 +2027,7 @@ public sealed class TsStatementWriter
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsStatementWriterTests"`
 Expected: PASS（9 个测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsStatementWriter.cs tests/CSharpToTypeScript.Tests/TsStatementWriterTests.cs
@@ -3297,18 +3300,22 @@ git commit -m "feat(ts): add TypeScriptEmitter entry point"
 >      `DoNothing(): void` 修订为 `sum(): number`/`doNothing(): void`（PascalCase 还原属命名管线后续任务）。
 >    - `Console.WriteLine`：IR 中为 `JavaRawStatement("System.out.println(\"hello\");")`，非结构化调用节点，
 >      `console.log` 映射（TsExpressionWriter 已实现、Task 9 单测已覆盖结构化节点）无法生效；
->      绿断言按当前实际输出（`System.out.println("hello")`）修订并注明。
+>      Task 11 引入 `TsRawStatementNormalizer` 最小归一化（println → console.log）后，
+>      `Direct_Console_WriteLine_Maps_To_ConsoleLog` 按 `console.log("hello")` 断言（与测试名名副其实）。
 >    - `foreach`：IR 中为 `JavaRawStatement("for (int item : arr) {...}")`（前端未产出
->      `JavaForEachStatement`），`for (const item of arr)` 需 IR 结构化/TS rewriter 后生效；
->      绿断言按当前实际输出（`for (int item : arr)`）修订并注明。
->    ⚠️ 对 Task 11 的提示：上述 Console/foreach 两条计划集成测试断言（`console.log("hello")`、
->    `for (const item of arr)`）在 M1 的 SingleFileTsEmitPass（仅跑用户注册 rewriter、无 TS rewriter）
->    下预计仍无法转绿；Task 11 Step 3 "Expected: PASS（10 个测试）" 需配套 IR 归一/TS rewriter，
->    或同步修订这两条断言（届时以直接发射/管线实测为准）。
+>      `JavaForEachStatement`）；Task 11 最小归一化（增强 for 头 → `for (const item of arr)`）后
+>      `Direct_ForEach_Emits_ForOf` 按 for-of 断言（并加 `sum(arr: number[]): number`）。
+>    ⚠️ 对 Task 11 的提示（Task 11 同步更正，2026-08-07）：提示所述两条集成测试断言
+>    （`console.log("hello")`、`for (const item of arr)`）由 Task 11 以最小 raw 归一化路线兑现——
+>    `TsRawStatementNormalizer` 在发射前做 println→console.log、增强 for 头→for-of 文本归一化
+>    （不做 IR 结构化，属 M2+ 范围），两条断言按计划原样保持并转绿；`Direct_*` 对应断言同步修订。
+>    归一化细节与理由见 Task 11 注记 ②。
 > ④ 红态与全量统计：`TsEmitterIntegrationTests` 共 20 个——计划 10 个集成测试 9 红 1 绿
 >    （`If_Statement_Emits_Correctly` 断言语言中性，Java/TS 输出均满足；其余 9 个红因均为
 >    GeneratedCode 仍是 Java）+ 新增 10 个直接发射绿测试全绿。TS 测试项目总计 114
 >    （105 通过 / 9 失败，失败即上述 9 个集成测试；Task 9 的 94 个测试不受影响）。
+>    （Task 11 同步更正：分叉后 `TsEmitterIntegrationTests` 共 21 个（10 计划 + 10 Direct + 1 新增 L3）
+>    全绿，TS 项目总计 133 通过 / 0 失败；红→绿清单与断言修订详见 Task 11 注记。）
 ---
 
 ## Task 11: SingleFileTsEmitPass + 管线分叉
@@ -3317,7 +3324,7 @@ git commit -m "feat(ts): add TypeScriptEmitter entry point"
 - Modify: `src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs`
 - Modify: `src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs`
 
-- [ ] **Step 1: 实现 SingleFileTsEmitPass**
+- [x] **Step 1: 实现 SingleFileTsEmitPass**
 
 在 `src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs` 末尾追加：
 
@@ -3385,7 +3392,7 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
 using CSharpToJava.Core.TypeScript;
 ```
 
-- [ ] **Step 2: 修改 ConversionPipeline.CreateSingleFilePasses 按目标分叉**
+- [x] **Step 2: 修改 ConversionPipeline.CreateSingleFilePasses 按目标分叉**
 
 `ConversionPipeline` **没有 `_options` 字段**（与 ProjectConversionPipeline 不同，已核对），因此需将 `CreateSingleFilePasses`（当前位于 `ConversionPipeline.cs` 约第 403 行的无参实例方法）改为接受选项参数：
 
@@ -3427,23 +3434,67 @@ Cs2jPassExecutor.Execute(passState, context, CreateSingleFilePasses(request.Opti
 
 注：Java 路径的 `SingleFileJavaEmitPass` 还会运行内置兼容/结构 rewriter（`RunBuiltInRewriters`/`RunStructureRewriters`，见 `SingleFilePasses.cs` 约第 298 行起）。M1 的 TS pass 有意只跑用户注册 rewriter（其中多数为 Java 专属）；若后续发现目标无关的内置 rewriter（如变量名去重）对 TS 产物必要，再逐项加入 `SingleFileTsEmitPass`，避免一次性引入 Java 专属变换。
 
-- [ ] **Step 3: 运行测试验证通过**
+- [x] **Step 3: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsEmitterIntegrationTests"`
 Expected: PASS（10 个测试）。
+实测：`--filter "FullyQualifiedName~TsEmitterIntegrationTests"` 全绿——计划 10 个集成测试 + 10 个
+`Direct_*` + 1 个新增 L3 tsc 用例（`Pipeline_Output_Compiles_With_Tsc`），共 21/21 通过。
+分叉前后红→绿清单见本 Task 末尾注记。
 
-- [ ] **Step 4: 运行 Java 零回归测试**
+- [x] **Step 4: 运行 Java 零回归测试**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
 Expected: 全部 PASS（Java 路径未受影响）。
+实测：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` → 2423 通过 / 0 失败（零回归）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs
 git commit -m "feat(ts): fork pipeline at Codegen layer with SingleFileTsEmitPass"
 ```
+实测：实际提交 `4edeb1f8`（message 含 raw 归一化说明，见注记）。
 
+> **Task 11 实现注记（2026-08-07，以实测为准）**
+> 
+> ① 分叉前后红→绿清单（`TsEmitterIntegrationTests`）：
+>    - 分叉前（Task 10 末）：计划 10 个集成测试 9 红 1 绿（红因 GeneratedCode 仍是 Java；
+>      `If_Statement_Emits_Correctly` 断言语言中性故绿）+ 10 个 `Direct_*` 全绿。
+>    - 分叉后（本 Task）：10 个集成测试全绿。其中 5 个属"分叉即转绿"（`Empty_Class`、
+>      `Int_Field`、`Long_Literal`、`String_Field`、`Bool_Field`——断言为 TS 专属文本，
+>      Java 输出不含）；`Class_With_Field_And_Method_Converts`/`Void_Method_Gets_Void_Return`
+>      经 camelCase 断言修订转绿（`Sum(): number`→`sum(): number`、`DoNothing(): void`→
+>      `doNothing(): void`，IR 实证）；`If_Statement_Emits_Correctly` 补 TS 专属金丝雀
+>      `check(x: number): number`；`ForEach_Emits_ForOf`/`Console_WriteLine_Maps_To_ConsoleLog`
+>      依赖本 Task 引入的 `TsRawStatementNormalizer` 最小归一化转绿（计划断言原样保持：
+>      `for (const item of arr)`、`console.log("hello")`）。
+>    - `Direct_*` 同步修订 3 个弱断言使其名副其实：`Direct_If_Statement_Emits_Correctly` 补
+>      `check(x: number): number`；`Direct_ForEach_Emits_ForOf` 由 `for (int item : arr)` 改为
+>      `for (const item of arr)`（另加 `sum(arr: number[]): number`）；
+>      `Direct_Console_WriteLine_Maps_To_ConsoleLog` 由 `System.out.println("hello")` 改为
+>      `console.log("hello")`。
+> ② 计划外必需项（本 Task 引入，理由）：
+>    - `TsRawStatementNormalizer`（新增 `src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs`，
+>      组件级测试 14 个）：前端对 `Console.WriteLine`/`foreach` 产出 `JavaRawStatement` 整段直通
+>      （非结构化节点），分叉后原样输出为非法 TS 且计划断言不满足。M1 不做 IR 结构化与表达式层
+>      重写（M2+ 范围），采用最小文本归一化：`System.out.println(`→`console.log(`、
+>      `System.err.println(`→`console.error(`；增强 for 头 `for (Type var : expr)`→
+>      `for (const var of expr)`（按 for 头内第一个 ` : ` 切分，Type 丢弃、expr 与 body 保留；
+>      仅当 `for (` 开头、头内含 ` : ` 且左侧末 token 为标识符时改写，普通 for/三元误命中直通）。
+>      接线在 `TsStatementWriter` 的 `JavaRawStatement` 分支，`Emit`/`EmitType` 两路径行为一致。
+>    - `MapType` 数组后缀修复（I1）：`TsMemberMappingTable.TryMapType` 兜底返回原值前，若键以
+>      `[]` 结尾递归映射元素类型并回拼 `[]`（`int[]`→`number[]`、`String[]`→`string[]`、
+>      `int[][]`→`number[][]`；元素未命中维持原行为）。内置/配置查找顺序不变，映射表新增 4 测试。
+> ③ 断言修订清单：集成 2 处（`sum()`/`doNothing()`）、Direct 3 处（见 ①）。
+>    `Sum(): number`/`DoNothing(): void` 属 IR 实证修订（IR 方法名为 Java camelCase；
+>    PascalCase 还原属命名管线后续任务），非发射器缺陷。
+> ④ 测试统计：TS 项目 133 通过 / 0 失败（集成 21 = 计划 10 + Direct 10 + 新增 L3 tsc 用例 1、
+>    normalizer 14、映射表 18 = 既有 14 + 新增 4，其余为 Task 9 及更早存量）；
+>    Java `CSharpToJava.Tests` 2423/2423 零回归；`CSharpToJava.ConversionTests` 1125 中有 37 个
+>    存量失败，与父提交 d6a0cedb 基线失败名单逐项一致（非本提交引入，只报告不修）。
+> ⑤ 提交：4edeb1f8（message 追加 "and raw-statement normalization"，见 Step 5）。
+> 
 ---
 
 ## Task 12: CLI 新增 --target 选项
@@ -4033,7 +4084,7 @@ private string FormatTypeParameters(IReadOnlyList<JavaTypeParameter> typeParams)
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsGenericEmissionTests"`
 Expected: PASS（5 个测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs tests/CSharpToTypeScript.Tests/TsGenericEmissionTests.cs
@@ -4179,7 +4230,7 @@ foreach (var method in pureMethods)
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsInterfaceEmissionTests"`
 Expected: PASS（4 个测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs tests/CSharpToTypeScript.Tests/TsInterfaceEmissionTests.cs
@@ -4290,7 +4341,7 @@ private set X(value: number) { this.x = value; }
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsPropertyEmissionTests"`
 Expected: PASS（4 个测试）+ TsPropertyReconstructionTests 全绿。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/Rewriters/TsPropertyReconstructionRewriter.cs src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs tests/CSharpToTypeScript.Tests/TsPropertyEmissionTests.cs tests/CSharpToTypeScript.Tests/TsPropertyReconstructionTests.cs
