@@ -34,6 +34,11 @@
       <Link>config\typescript\MemberMappings.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Copy the Java type-mapping config so the (not-yet-forked) pipeline can run and emit Java (Task 10 red tests) -->
+    <Content Include="..\..\config\TypeMappings.json">
+      <Link>config\TypeMappings.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

@@ -20,6 +20,8 @@ public abstract class TsConversionTestBase
             FileName = "Sample.cs",
             Options = new ConversionOptions
             {
+                // 管线未分叉（Task 11 才分叉）前仍走 Java 路径，需要 Java 类型映射配置才能成功发射。
+                TypeMappingConfigPath = File.Exists(Path.Combine(basePath, "config", "TypeMappings.json")) ? Path.Combine(basePath, "config", "TypeMappings.json") : null,
                 TargetLanguage = TargetLanguage.TypeScript,
                 TypeScriptMappingConfigPath = File.Exists(typeMappingPath) ? typeMappingPath : null,
                 TypeScriptMemberMappingPath = File.Exists(memberMappingPath) ? memberMappingPath : null,

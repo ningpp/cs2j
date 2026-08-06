@@ -224,6 +224,7 @@ public class ConversionPipeline
             if (passState.EmitSucceeded)
             {
                 var result = CreateSuccessResult(passState.GeneratedCode, context, request.FileName, passMetrics);
+                result.Compilation = passState.JavaCompilation;   // 保留 IR，供 TS 发射器直接发射（Task 10 绿测试）与后置 pass 使用
                 result.LinqStatistics = passState.LinqStatistics;
                 return result;
             }

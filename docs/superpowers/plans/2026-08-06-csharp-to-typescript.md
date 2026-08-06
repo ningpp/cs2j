@@ -3028,7 +3028,7 @@ git commit -m "feat(ts): add TsMemberWriter and TsTypeWriter for class/interface
 **Files:**
 - Create: `src/CSharpToJava.Core/TypeScript/TypeScriptEmitter.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsEmitterIntegrationTests.cs`：
 
@@ -3201,12 +3201,13 @@ class Sample
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsEmitterIntegrationTests"`
 Expected: FAIL（管线未分叉，仍输出 Java）。
+实测：9 失败 + 1 通过（`If_Statement_Emits_Correctly` 的断言 `if (x > 0)`/`} else {` 对 Java 输出同样成立，属语言中性断言，Task 11 分叉后自然转绿）；9 个失败原因均为 GeneratedCode 仍是 Java（`public class Foo` 而非 `export class Foo`）。另见注记 ①：管线缺 Java 类型映射配置时会先失败于配置错误，测试基建已补齐。
 
-- [ ] **Step 3: 实现 TypeScriptEmitter**
+- [x] **Step 3: 实现 TypeScriptEmitter**
 
 ```csharp
 using System.Text;
@@ -3266,18 +3267,48 @@ public sealed class TypeScriptEmitter
 }
 ```
 
-- [ ] **Step 4: 运行测试验证仍失败（管线未分叉）**
+- [x] **Step 4: 运行测试验证仍失败（管线未分叉）**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsEmitterIntegrationTests"`
 Expected: 仍 FAIL（管线未分叉，SingleFileJavaEmitPass 仍输出 Java）。
+实测：发射器实现后与 Step 2 一致（9 失败 + 1 通过），失败断言均为 TS 专属子串缺失（如 `export class Foo`、`value: number = 42`、`console.log("hello")` 等）。
 
-- [ ] **Step 5: 提交（发射器就绪，待管线分叉）**
+- [x] **Step 5: 提交（发射器就绪，待管线分叉）**
 
 ```bash
-git add src/CSharpToJava.Core/TypeScript/TypeScriptEmitter.cs tests/CSharpToTypeScript.Tests/TsEmitterIntegrationTests.cs
+git add src/CSharpToJava.Core/TypeScript/TypeScriptEmitter.cs tests/CSharpToTypeScript.Tests/TsEmitterIntegrationTests.cs tests/CSharpToTypeScript.Tests/TsConversionTestBase.cs tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs docs/superpowers/plans/2026-08-06-csharp-to-typescript.md
 git commit -m "feat(ts): add TypeScriptEmitter entry point"
 ```
 
+> **Task 10 实现注记（2026-08-06，以实测为准）**
+> ① 测试基建（Task 10 范围内补齐）：`CSharpToTypeScript.Tests.csproj` 增加 `config\TypeMappings.json`
+>    （Java 类型映射配置）复制，对齐 Java 测试项目；`TsConversionTestBase.Convert` 增加
+>    `TypeMappingConfigPath` 指向该配置。原因：未分叉前 `ConversionPipeline.Convert` 无条件构造
+>    `TypeMappingRegistry(TypeMappingConfigPath)`，缺配置会先以 "Configuration error: Type mapping
+>    configuration file not found" 失败，无法到达计划预期的"仍输出 Java"红态。
+> ② `ConversionPipeline.Convert` 增加一行 `result.Compilation = passState.JavaCompilation;`：
+>    `ConversionResult.Compilation` 属性文档声明"发射后保留"，但单文件路径从未接线（任务背景所述
+>    ConversionPipeline.cs:218 实为 passState 的 Roslyn Compilation）。本行是直接发射绿测试的前提，
+>    亦供 Task 11 使用；Java 全量 2423 个测试零回归。
+> ③ 直接发射绿测试（新增 10 个，`Direct_*`，全绿）：用 `Convert(source)` 的 `result.Compilation` +
+>    `new ConversionContext(options, new TypeMappingRegistry())` 调 `TypeScriptEmitter.Emit`，
+>    覆盖计划全部 10 个场景。其中 4 个场景按 IR 实证修订断言（发射器忠实于 IR，非发射器 bug）：
+>    - 方法名：IR 为 Java camelCase（`sum()`/`doNothing()`/`greet()`），计划断言 `Sum(): number`、
+>      `DoNothing(): void` 修订为 `sum(): number`/`doNothing(): void`（PascalCase 还原属命名管线后续任务）。
+>    - `Console.WriteLine`：IR 中为 `JavaRawStatement("System.out.println(\"hello\");")`，非结构化调用节点，
+>      `console.log` 映射（TsExpressionWriter 已实现、Task 9 单测已覆盖结构化节点）无法生效；
+>      绿断言按当前实际输出（`System.out.println("hello")`）修订并注明。
+>    - `foreach`：IR 中为 `JavaRawStatement("for (int item : arr) {...}")`（前端未产出
+>      `JavaForEachStatement`），`for (const item of arr)` 需 IR 结构化/TS rewriter 后生效；
+>      绿断言按当前实际输出（`for (int item : arr)`）修订并注明。
+>    ⚠️ 对 Task 11 的提示：上述 Console/foreach 两条计划集成测试断言（`console.log("hello")`、
+>    `for (const item of arr)`）在 M1 的 SingleFileTsEmitPass（仅跑用户注册 rewriter、无 TS rewriter）
+>    下预计仍无法转绿；Task 11 Step 3 "Expected: PASS（10 个测试）" 需配套 IR 归一/TS rewriter，
+>    或同步修订这两条断言（届时以直接发射/管线实测为准）。
+> ④ 红态与全量统计：`TsEmitterIntegrationTests` 共 20 个——计划 10 个集成测试 9 红 1 绿
+>    （`If_Statement_Emits_Correctly` 断言语言中性，Java/TS 输出均满足；其余 9 个红因均为
+>    GeneratedCode 仍是 Java）+ 新增 10 个直接发射绿测试全绿。TS 测试项目总计 114
+>    （105 通过 / 9 失败，失败即上述 9 个集成测试；Task 9 的 94 个测试不受影响）。
 ---
 
 ## Task 11: SingleFileTsEmitPass + 管线分叉
