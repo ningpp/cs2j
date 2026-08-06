@@ -219,7 +219,7 @@ public class ConversionPipeline
                 Library = library,
             };
 
-            Cs2jPassExecutor.Execute(passState, context, CreateSingleFilePasses(), passMetrics);
+            Cs2jPassExecutor.Execute(passState, context, CreateSingleFilePasses(request.Options), passMetrics);
 
             if (passState.EmitSucceeded)
             {
@@ -401,8 +401,24 @@ public class ConversionPipeline
         return files;
     }
 
-    private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses()
+    private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses(ConversionOptions options)
     {
+        // Codegen 层分叉：TS 路径用 SingleFileTsEmitPass 替换 SingleFileJavaEmitPass
+        //（仅跑用户注册 rewriter，Java 专属内置 rewriter 不进入 TS 管线）。
+        if (options.TargetLanguage == Context.TargetLanguage.TypeScript)
+        {
+            return new ICs2jPass<SingleFilePassState>[]
+            {
+                new SingleFileLinqDesugarPass(),
+                new SingleFileCompilationCheckPass(),
+                new SingleFileUnsupportedDomainCheckPass(),
+                new SingleFilePlatformBoundaryCheckPass(),
+                new SingleFileNativeInteropCheckPass(),
+                new SingleFileContextNormalizationPass(),
+                new SingleFileTsEmitPass(_irRewriters),
+            };
+        }
+
         return new ICs2jPass<SingleFilePassState>[]
         {
             new SingleFileLinqDesugarPass(),

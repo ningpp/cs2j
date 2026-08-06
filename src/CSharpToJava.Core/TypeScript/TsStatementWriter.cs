@@ -46,7 +46,7 @@ public sealed class TsStatementWriter
             JavaBreakStatement => $"{ind}break;",
             JavaContinueStatement => $"{ind}continue;",
             JavaSwitchStatement sw => EmitSwitch(sw, indentLevel),
-            JavaRawStatement raw => $"{ind}{raw.Code}",
+            JavaRawStatement raw => $"{ind}{TsRawStatementNormalizer.Normalize(raw.Code)}",
             _ => $"{ind}/* cs2j: unsupported statement {stmt.GetType().Name} */",
         };
     }

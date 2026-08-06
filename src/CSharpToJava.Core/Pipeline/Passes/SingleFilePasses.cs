@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java.Rewriters;
 using CSharpToJava.Core.LinqRewrite;
+using CSharpToJava.Core.TypeScript;
 using CSharpToJava.Core.Visitors;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -335,5 +336,65 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
         new JavaVariableReferenceValidationRewriter(diagnostics).VisitCompilationUnit(compilation);
         new JavaStaticContextValidationRewriter(diagnostics).VisitCompilationUnit(compilation);
         new JavaTypeParameterValidationRewriter(diagnostics).VisitCompilationUnit(compilation);
+    }
+}
+/// <summary>
+/// TS 目标发射 pass（Task 11）：复用 CSharpToJavaVisitor 生成 Java IR，仅跑用户注册的
+/// 目标无关 rewriter，然后由 TypeScriptEmitter 二次映射发射 .ts（Codegen 层分叉）。
+/// Java 专属内置 rewriter（RunBuiltInRewriters/RunStructureRewriters）不进入本 pass。
+/// </summary>
+public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
+{
+    private readonly IReadOnlyList<Java.JavaSyntaxRewriter> _irRewriters;
+
+    public SingleFileTsEmitPass(IReadOnlyList<Java.JavaSyntaxRewriter> irRewriters)
+    {
+        _irRewriters = irRewriters;
+    }
+
+    public string Name => nameof(SingleFileTsEmitPass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Emit;
+
+    public void Execute(SingleFilePassState state)
+    {
+        if (state.BlockEmit)
+        {
+            state.EmitSucceeded = false;
+            state.GeneratedCode = string.Empty;
+            return;
+        }
+
+        // 1. 生成 Java IR（与 Java 路径一致）
+        var visitor = new CSharpToJavaVisitor(state.Context);
+        var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());
+        if (compilationUnit is not Java.JavaCompilationUnit javaCompilation)
+        {
+            state.EmitSucceeded = false;
+            return;
+        }
+
+        // 2. 运行用户注册的 IR rewriter（目标无关）
+        foreach (var rewriter in _irRewriters)
+        {
+            rewriter.VisitCompilationUnit(javaCompilation);
+        }
+
+        // 3. 运行 TS 专属 rewriter（M3 实现，M1 暂空）
+        RunTsRewriters(javaCompilation, state.Context);
+
+        // 4. TS 发射
+        var emitter = new TypeScript.TypeScriptEmitter();
+        var code = emitter.Emit(javaCompilation, state.Context);
+
+        state.GeneratedCode = code;
+        state.JavaCompilation = javaCompilation;
+        state.EmitSucceeded = true;
+    }
+
+    private static void RunTsRewriters(Java.JavaCompilationUnit compilation, ConversionContext context)
+    {
+        // M1: 暂无 TS rewriter；M3 在此装配
+        // TsOverloadDisambiguationRewriter, TsGenericErasureRewriter,
+        // TsInterfaceProbeRewriter, TsEqualityRewriter
     }
 }

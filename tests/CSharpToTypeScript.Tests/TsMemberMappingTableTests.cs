@@ -125,4 +125,38 @@ public class TsMemberMappingTableTests
         Assert.Equal("CsString.split", tsMethod);
         Assert.Contains("@csharptotypescript/compat", imports);
     }
+    [Fact]
+    public void TryMapType_Int_Array_To_Number_Array()
+    {
+        // I1：int[] 未收录内置表，兜底前按元素类型递归映射并回拼 []
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapType("int[]", out var tsType, out _));
+        Assert.Equal("number[]", tsType);
+    }
+
+    [Fact]
+    public void TryMapType_String_Array_To_String_Array()
+    {
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapType("String[]", out var tsType, out _));
+        Assert.Equal("string[]", tsType);
+    }
+
+    [Fact]
+    public void TryMapType_Jagged_Int_Array_To_Number_Array()
+    {
+        // int[][] → 元素 int[] → 元素 int → number，回拼两次 []
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapType("int[][]", out var tsType, out _));
+        Assert.Equal("number[][]", tsType);
+    }
+
+    [Fact]
+    public void TryMapType_Unmapped_Element_Array_Returns_False_And_Original()
+    {
+        // 元素未命中时维持原行为：返回原值 + false
+        var table = new TsMemberMappingTable(null, null);
+        Assert.False(table.TryMapType("MyApp.Foo[]", out var tsType, out _));
+        Assert.Equal("MyApp.Foo[]", tsType);
+    }
 }

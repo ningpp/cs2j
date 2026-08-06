@@ -6,6 +6,14 @@ using CSharpToJava.TypeMapping;
 
 namespace CSharpToTypeScript.Tests;
 
+/// <summary>
+/// 计划 10 个集成测试（Task 11 分叉后全绿）+ 10 个直接发射绿测试 + 1 个 L3 tsc 编译用例。
+/// 断言修订说明（Task 11，以 IR 实证为准）：
+/// - 方法名：IR 为 Java camelCase（sum/doNothing），PascalCase 还原属命名管线后续任务；
+/// - Console.WriteLine/foreach：IR 为 JavaRawStatement 直通（System.out.println/for (int item : arr)），
+///   Task 11 引入 TsRawStatementNormalizer 最小归一化后按 console.log/for-of 断言；
+/// - int[]：IR 类型为 Java 风味数组，MapType 数组后缀递归修复（I1）后按 number[] 断言。
+/// </summary>
 public class TsEmitterIntegrationTests : TsConversionTestBase
 {
     [Fact]
@@ -38,7 +46,8 @@ class Point
         Assert.Contains("export class Point", result.GeneratedCode);
         Assert.Contains("x: number = 0", result.GeneratedCode);
         Assert.Contains("y: number = 0", result.GeneratedCode);
-        Assert.Contains("Sum(): number", result.GeneratedCode);
+        // IR 方法名为 Java camelCase（sum），PascalCase 还原属命名管线后续任务（Task 10 注记 ③）
+        Assert.Contains("sum(): number", result.GeneratedCode);
     }
 
     [Fact]
@@ -103,7 +112,8 @@ class Sample
 }
 """);
         Assert.True(result.Success);
-        Assert.Contains("DoNothing(): void", result.GeneratedCode);
+        // IR 方法名为 Java camelCase（doNothing），PascalCase 还原属命名管线后续任务（Task 10 注记 ③）
+        Assert.Contains("doNothing(): void", result.GeneratedCode);
     }
 
     [Fact]
@@ -128,6 +138,9 @@ class Sample
         Assert.True(result.Success);
         Assert.Contains("if (x > 0)", result.GeneratedCode);
         Assert.Contains("} else {", result.GeneratedCode);
+        // TS 专属金丝雀断言（Task 11 建议）：Java 输出不含 "check(x: number): number"，
+        // 使本测试成为真正的管线分叉金丝雀（参数名 x、类型 number 均为 TS 形态）。
+        Assert.Contains("check(x: number): number", result.GeneratedCode);
     }
 
     [Fact]
@@ -147,7 +160,10 @@ class Sample
     }
 }
 """);
-        Assert.True(result.Success);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // I1：int[] 经 MapType 数组后缀递归映射为 number[]（Java 输出为 int[]，不满足）
+        Assert.Contains("sum(arr: number[]): number", result.GeneratedCode);
+        // 前端 foreach 为 JavaRawStatement 直通，Task 11 最小归一化后按 for-of 断言
         Assert.Contains("for (const item of arr)", result.GeneratedCode);
     }
 
@@ -163,12 +179,39 @@ class Sample
     }
 }
 """);
-        Assert.True(result.Success);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // 前端 Console.WriteLine 为 JavaRawStatement("System.out.println(...)") 直通，
+        // Task 11 最小归一化（println → console.log）后按 TS 输出断言
         Assert.Contains("console.log(\"hello\")", result.GeneratedCode);
     }
 
-    // ─── 直接发射绿测试（Task 10）：管线未分叉（Task 11 才分叉），利用 Convert 保留的
-    // JavaCompilationUnit IR 直接调用 TypeScriptEmitter.Emit，证明发射器端到端正确。
+    [Fact]
+    public void Pipeline_Output_Compiles_With_Tsc()
+    {
+        // L3（Task 11 新增）：Console/ForEach/数组参数混合场景的管线输出经真实 tsc 编译
+        // （strict/ES2022；tsconfig 未指定 lib，默认含 DOM，console 可用）。
+        var result = Convert("""
+class Sample
+{
+    int Sum(int[] arr)
+    {
+        int total = 0;
+        foreach (var item in arr)
+        {
+            total = total + item;
+        }
+        Console.WriteLine("total: " + total);
+        return total;
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        AssertCompiles(result.GeneratedCode);
+    }
+
+    // ─── 直接发射测试（Task 10 起）：利用 Convert 保留的 JavaCompilationUnit IR 直接调用
+    // TypeScriptEmitter.Emit。Task 11 分叉后与管线发射共用 TsStatementWriter（含 raw 归一化），
+    // 断言按归一化后的真实输出同步。
     private string EmitTs(string csharpSource)
     {
         var result = Convert(csharpSource);
@@ -304,6 +347,8 @@ class Sample
 """);
         Assert.Contains("if (x > 0)", code);
         Assert.Contains("} else {", code);
+        // TS 专属金丝雀断言（Task 11 建议）：if/else 本身语言中性，方法签名证明输出确为 TS。
+        Assert.Contains("check(x: number): number", code);
     }
 
     [Fact]
@@ -323,9 +368,10 @@ class Sample
     }
 }
 """);
-        // IR 形态：foreach 当前为 JavaRawStatement（"for (int item : arr) {...}"），
-        // 非 JavaForEachStatement；for-of 发射需 IR 结构化/rewriter（Task 9 单测已覆盖结构化节点映射）。
-        Assert.Contains("for (int item : arr)", code);
+        // 前端 foreach 为 JavaRawStatement 直通；Task 11 最小归一化（增强 for 头 → for-of）后
+        // 与测试名名副其实。I1 修复后数组参数类型亦为 number[]。
+        Assert.Contains("sum(arr: number[]): number", code);
+        Assert.Contains("for (const item of arr)", code);
     }
 
     [Fact]
@@ -340,8 +386,8 @@ class Sample
     }
 }
 """);
-        // IR 形态：Console.WriteLine 当前为 JavaRawStatement（"System.out.println(...)"），
-        // console.log 映射在 IR 携带结构化调用节点后生效（Task 9 单测已覆盖）。
-        Assert.Contains("System.out.println(\"hello\")", code);
+        // 前端 Console.WriteLine 为 JavaRawStatement 直通；Task 11 最小归一化（println → console.log）
+        // 后与测试名名副其实。
+        Assert.Contains("console.log(\"hello\")", code);
     }
 }

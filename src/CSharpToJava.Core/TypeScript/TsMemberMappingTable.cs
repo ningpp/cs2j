@@ -105,6 +105,16 @@ public sealed class TsMemberMappingTable
             imports = entry.Imports;
             return true;
         }
+        // ③ 数组后缀递归映射（int[] → number[]、String[] → string[]、int[][] → number[][]）：
+        //    内置/配置表均不收录数组键，兜底返回原值前先映射元素类型并回拼 []；
+        //    元素未命中时维持原行为（返回原值 + false），不破坏 ①② 查找顺序。
+        if (csharpOrJavaType.EndsWith("[]", StringComparison.Ordinal)
+            && TryMapType(csharpOrJavaType[..^2], out var elementTs, out var elementImports))
+        {
+            tsType = elementTs + "[]";
+            imports = elementImports;
+            return true;
+        }
         tsType = csharpOrJavaType;
         imports = System.Array.Empty<string>();
         return false;
