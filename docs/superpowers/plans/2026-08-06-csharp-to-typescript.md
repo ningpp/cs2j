@@ -4753,7 +4753,7 @@ git commit -m "feat(ts): reconstruct C# properties as TS accessors"
 >      `iface.setY(v)` → `iface.Y = v`，与 Task 15 readonly 属性合并一致（接口有实现类
 >      同单元亦可解析）。
 >    - I3（super 目标）：`base.X`/`base.X = v` → `this.X`/`this.X = v`（结构化 + raw 两路；
->      raw 路回滚已累积 `"super."`/`"this."` 文本），TS 无 super 属性访问（TS2855）。
+>      raw 路回滚已累积 `"super."`/`"this."` 文本）。TS2855 仅限基类字段；基类成员为重建访问器时保留 `super.Y`（见注记⑪ R2）。
 >    - I4（抽象属性 + 派生覆盖）：抽象访问器 → `abstract get X(): number;`/
 >      `abstract set X(value: number);`（`TsMemberWriter` 两处访问器发射补 `abstract ` 前缀），
 >      派生 override 自动对禁字段简化保持访问器对；abstract get-only + override get-only、
@@ -4770,6 +4770,57 @@ git commit -m "feat(ts): reconstruct C# properties as TS accessors"
 >      显式体访问器）。
 >    - 提交：`fix(ts): harden property reconstruction call-site rewriting`，hash 见 git log
 >      （4 文件：TsPropertyReconstructionRewriter.cs / TsMemberWriter.cs /
+> ⑪ 二轮复审修复（2026-08-07，C2/R1+R6/R2/I7/I8 + Minor，红→绿）：
+>    - 红→绿清单（证据）：新增 `TsPropertyReconstructionReview2Tests.cs` 15 个回归测试，
+>      初跑 12 红 3 绿（旧实现绿：`Chained_Dot_Target_Structured_Is_Rewritten`、
+>      `Deep_Chain_With_Unregistered_Leaf_Is_Not_Rewritten`、
+>      `Chained_Dot_Target_Two_Level_Is_Rewritten`——单段/结构化链旧代码已覆盖）；
+>      修复后 15/15 绿；全量 TS 235/235（220 + 新增 15，完整转换用例内嵌 L3 tsc），
+>      Java 2423/2423 零回归（rewriter 仅装配于 TS 分支，Java 路径不进入）。
+>    - C2（Critical 链式 dot-target 漏改）：raw 路径 `TryResolveRawDotTarget` 逐段解析
+>      （`ExtractRawChainSegments`）：`b.a.getX()` 按段 b→B、a→B.a 字段(A)、getX→A 已注册
+>      访问器才改写；`arr[0].getX()` 支持数组元素类型；`o.getA().getX()` 支持方法返回类型
+>      链；任何一段不可解析 → 保守保留方法调用。结构化路径 `ResolveMemberTypeInContext`
+>      查字段 → AccessorMap → 基类链回退；字段简化改名后同步刷新上下文表
+>      （CreateClassContext 在 AnalyzeClass 字段改名之前构建 → 改名时更新表）。
+>      回归测试 5 个（TwoLevel/Deep/ArrayIR/Structured + 未注册末端保守），另
+>      `Inherited_Field_Target_Is_Rewritten`（继承字段目标，Minor 顺手修）全过。
+>    - R1 + I6（virtual/override 形态冲突，同源合并修）：继承参与的属性统一禁用字段简化
+>      ——`isTrivialAutoPair` 除排除 Override 外，经 `CollectInheritedPropertyNames`
+>      （override 属性名集合）排除 virtual 基类属性；基类 virtual + 派生 override 均发射
+>      访问器对（TS2611 消除）；抽象访问器维持 `abstract get/set`（I4 用例保持绿）。
+>    - R2（super 按基类成员形态改写）：上一轮"super 一律改 this."导致基类访问器场景
+>      `override int Y { get { return base.Y + _z; } }` 变成 `this.Y` 无限递归（tsc 静默
+>      过）。实测 TS 中 `super.Y` 对基类访问器合法且语义正确（TS2855 仅限基类字段）。
+>      修复：`TryResolveBaseAccessor`（基类链递归，不含当前类）判定基类成员形态——
+>      重建后的访问器 → 保留 `super.Y`（raw 路 `keepSuper` 不截断已累积 "super." 文本；
+>      结构化路保留 `IsSuper=true`）；基类简化字段 → `this.Y`。配合 R1（继承属性全是
+>      访问器），`base.Y` 场景自然保留 `super.Y`。回归测试 2 个（raw/结构化）tsc 过。
+>    - I7（for 循环 init 局部变量误限定）：`CollectForInitDeclarations` 解析 for-init
+>      声明（含多声明 `int i = 0, j = 1`）并入排除集；raw 文本 `for(` 头经
+>      `IndexOfTopLevelSemicolon` 定位 init 段收集变量。回归测试 2 个（结构化 Initializer
+>      + raw for 头 + 多声明），`for (let i: number = 0; ...)` 不补 this.，tsc 过。
+>    - I8（raw lambda 参数误限定）：raw 文本扫描识别 `ident =>`/`(a, b) =>` 形态（支持
+>      `->`/`=>`，跳过字符串/注释）并入排除集；结构化 `JavaLambdaExpression.Parameters`
+>      经 `_shadowStack` 收集。回归测试 3 个（raw 单参/双参 + 结构化）。注：完整转换
+>      管线 lambda 直通缺口（`->`→`=>` 属 M2+、`System.Func` 未映射）为既有缺口，
+>      I8 L3 tsc 受阻，以 IR 级断言 + 探针产物（`x -> x * 2` 不被限定）为证据。
+>    - Minor：TS2415 派生/基类同名私有后备字段冲突（virtual+override 各自生成字段）→
+>      `RenameConflictingBackingField` 派生字段加 `_` 后缀并同步访问器体文本与上下文表
+>      （额外偏离，见下）；Roles 注释与实现同步；注记⑩ I3 表述修订（TS2855 仅限基类
+>      字段，基类访问器支持 super 属性访问）。
+>    - L3 探针（9 场景独立 tsc --noEmit --strict，exit=0）：chain（b.a.X）、array
+>      （arr[0].X）、virtual（virtual+override 访问器对 + super.Y 读写）、forinit、
+>      p1、i4（抽象 + override）、i2c1（接口读写 + dot 保守）、i5（结构化显式体）、
+>      superfield（基类简化字段 → this.Z）。上轮场景复验无倒退；structprop 探针属性
+>      部分正确（访问器对 + p.X 调用点），tsc 受阻于既有 struct 降级缺口（Java
+>      `Point copy = new Point();` 直通），与本任务产物无关。
+>    - 偏离清单（本轮）：继承参与属性统一禁字段简化（R1）使"virtual 基类 + 无 override"
+>      的自动属性也发射访问器对而非字段（避免与派生形态冲突，形态一致性优先）；
+>      TS2415 派生后备字段改名 `_` 后缀为访问器体文本层面的同步改造（未改共享 IR）。
+>    - 提交：`fix(ts): resolve chained property targets and inheritance-aware reconstruction`，
+>      hash 见 git log（3 文件：TsPropertyReconstructionRewriter.cs /
+>      TsPropertyReconstructionReview2Tests.cs / 本计划文档）。
 >      TsPropertyReconstructionReviewTests.cs / 本计划文档）。
 ---
 

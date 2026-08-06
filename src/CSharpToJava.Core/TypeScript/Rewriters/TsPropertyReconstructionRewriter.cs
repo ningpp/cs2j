@@ -76,8 +76,16 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     private readonly Stack<MethodContext> _methodStack = new();
     /// <summary>正在遍历访问器方法体（触发裸字段限定，P1/I5）。</summary>
     private bool _qualifyingAccessorBody;
+    /// <summary>结构化 lambda 参数遮蔽栈（I8：lambda 参数与字段同名不得限定）。</summary>
+    private readonly Stack<HashSet<string>> _shadowStack = new();
+    /// <summary>本单元内被 override 的属性名集合（R1：继承参与的属性统一禁字段简化）。</summary>
+    private readonly HashSet<string> _inheritedPropertyNames = new(StringComparer.Ordinal);
 
-    private sealed record AccessorInfo(string PropertyName, bool IsStatic, string OwnerClassName);
+    /// <summary>
+    /// 访问器注册信息：属性名/静态性/声明类型/角色（super 形态判定 R2）/属性类型（链式解析 C2）。
+    /// </summary>
+    private sealed record AccessorInfo(
+        string PropertyName, bool IsStatic, string OwnerClassName, TsAccessorRole Role, string? Type);
 
     private sealed class ClassContext
     {
@@ -106,9 +114,37 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         // 保证基类在派生类之后声明时，派生类内的裸调用也能解析到基类属性。
         foreach (var type in node.TypeDeclarations)
         {
+            CollectInheritedPropertyNames(type);
+        }
+        foreach (var type in node.TypeDeclarations)
+        {
             AnalyzeTypesRecursive(type);
         }
         return base.VisitCompilationUnit(node);
+    }
+
+    /// <summary>
+    /// 收集本单元内全部 override 访问器的属性名（R1：基类 virtual 属性在 IR 中无 virtual
+    /// 标记——PropertyTransformer 映射为 None——只能经派生 override 反向推断"继承参与"）。
+    /// </summary>
+    private void CollectInheritedPropertyNames(JavaTypeDeclaration type)
+    {
+        switch (type)
+        {
+            case JavaClassDeclaration cls:
+                foreach (var method in cls.Methods)
+                {
+                    if ((method.Modifiers & JavaModifiers.Override) != 0 && IsAutoAccessorCandidate(method))
+                    {
+                        _inheritedPropertyNames.Add(method.Name.Substring(3));
+                    }
+                }
+                foreach (var nested in cls.NestedTypes) CollectInheritedPropertyNames(nested);
+                break;
+            case JavaInterfaceDeclaration iface:
+                foreach (var nested in iface.NestedTypes) CollectInheritedPropertyNames(nested);
+                break;
+        }
     }
 
     private void AnalyzeTypesRecursive(JavaTypeDeclaration type)
@@ -278,6 +314,27 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
 
     public override JavaExpression VisitExpression(JavaExpression node)
     {
+        if (node is JavaLambdaExpression lambda)
+        {
+            // I8：结构化 lambda 参数遮蔽字段——body 内同名标识符不得限定
+            _shadowStack.Push(new HashSet<string>(lambda.Parameters, StringComparer.Ordinal));
+            try
+            {
+                if (lambda.ExpressionBody != null)
+                {
+                    lambda.ExpressionBody = VisitExpression(lambda.ExpressionBody);
+                }
+                if (lambda.BlockBody != null)
+                {
+                    lambda.BlockBody = VisitBlockStatement(lambda.BlockBody);
+                }
+                return lambda;
+            }
+            finally
+            {
+                _shadowStack.Pop();
+            }
+        }
         if (node is JavaMethodCallExpression call)
         {
             call = base.VisitMethodCallExpression(call);
@@ -355,6 +412,8 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                     CollectStructuredLocalsFromStatement(doWhile.Body, variables);
                     break;
                 case JavaForStatement forStatement:
+                    // I7：for-init 声明变量（含多声明）并入局部变量集，遮蔽字段不得限定
+                    CollectForInitDeclarations(forStatement.Initializer, variables);
                     CollectStructuredLocalsFromStatement(forStatement.Body, variables);
                     break;
                 case JavaTryCatchStatement tryCatch:
@@ -428,6 +487,175 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
     }
 
+    // ─── for-init 声明解析（I7） ───────────────────────────────────────
+
+    /// <summary>
+    /// 提取 for-init 文本（"int i = 0, j = 1"）中的声明变量名，并入变量表
+    /// （类型未知用 "var" 占位：链式类型解析查不到该类型时保守不改写）。
+    /// </summary>
+    private static void CollectForInitDeclarations(string? initializer, Dictionary<string, string> variables)
+    {
+        if (string.IsNullOrEmpty(initializer)) return;
+        var declaredType = false;
+        foreach (var segment in SplitTopLevelByComma(initializer))
+        {
+            // 多声明延续段（"int i = 0, j = 1" 的 j）无类型前缀：前一声明带类型时视为声明
+            var name = TryParseDeclarationName(segment, out var hasType);
+            if (name != null && (hasType || declaredType)) variables[name] = "var";
+            declaredType |= hasType;
+        }
+    }
+
+    /// <summary>按顶层逗号分段（跳过括号/尖括号/字符串）。</summary>
+    private static IEnumerable<string> SplitTopLevelByComma(string text)
+    {
+        var depth = 0;
+        var start = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(text, i) - 1;
+                continue;
+            }
+            switch (ch)
+            {
+                case '(':
+                case '[':
+                case '{':
+                case '<':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                case '>':
+                    if (depth > 0) depth--;
+                    break;
+                case ',' when depth == 0:
+                    yield return text[start..i];
+                    start = i + 1;
+                    break;
+            }
+        }
+        yield return text[start..];
+    }
+
+    /// <summary>
+    /// 解析声明段文本提取变量名："int i = 0" → (i, true)；"j"（多声明延续）→ (j, false)；
+    /// 支持限定类型名/泛型/数组类型。hasType 表示段首为类型声明（延续段是否收集由调用方
+    /// 依据前序声明判定，避免把 for (j = 1; ...) 的赋值形态误当声明）。
+    /// </summary>
+    private static string? TryParseDeclarationName(string segment, out bool hasType)
+    {
+        hasType = false;
+        var text = segment.Trim();
+        if (text.Length == 0) return null;
+        var i = 0;
+        var first = ReadIdentifier(text, ref i);
+        if (first == null) return null;
+        SkipWhitespace(text, ref i);
+        while (i < text.Length && (text[i] == '.' || text[i] == '<' || text[i] == '['))
+        {
+            if (text[i] == '.')
+            {
+                i++;
+                ReadIdentifier(text, ref i);
+            }
+            else if (text[i] == '<')
+            {
+                i = SkipBalancedForward(text, i, '<', '>');
+            }
+            else
+            {
+                i = SkipBalancedForward(text, i, '[', ']');
+            }
+            SkipWhitespace(text, ref i);
+        }
+        var name = ReadIdentifier(text, ref i);
+        if (name != null)
+        {
+            hasType = true;   // 段首为类型，第二标识符是变量名
+            return name;
+        }
+        return first;         // 无类型：变量名（延续声明或赋值段，由调用方判定）
+    }
+
+    /// <summary>跳过空白后读取标识符；无标识符返回 null。</summary>
+    private static string? ReadIdentifier(string text, ref int i)
+    {
+        SkipWhitespace(text, ref i);
+        if (i >= text.Length || !IsIdentifierStart(text[i])) return null;
+        var start = i;
+        i++;
+        while (i < text.Length && IsIdentifierChar(text[i])) i++;
+        return text[start..i];
+    }
+
+    private static void SkipWhitespace(string text, ref int i)
+    {
+        while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
+    }
+
+    /// <summary>从 open 位置起跳过平衡的 open…close 区域，返回 close 后一位置。</summary>
+    private static int SkipBalancedForward(string text, int i, char open, char close)
+    {
+        var depth = 0;
+        for (; i < text.Length; i++)
+        {
+            if (text[i] == '"' || text[i] == '\'')
+            {
+                i = SkipQuotedLiteral(text, i) - 1;
+                continue;
+            }
+            if (text[i] == open) depth++;
+            else if (text[i] == close)
+            {
+                depth--;
+                if (depth == 0) return i + 1;
+            }
+        }
+        return text.Length;
+    }
+
+    /// <summary>返回文本中第一个顶层分号下标；无则返回 -1。</summary>
+    private static int IndexOfTopLevelSemicolon(string text)
+    {
+        var depth = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(text, i) - 1;
+                continue;
+            }
+            switch (ch)
+            {
+                case '(':
+                case '[':
+                case '{':
+                case '<':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                case '>':
+                    if (depth > 0) depth--;
+                    break;
+                case ';' when depth == 0:
+                    return i;
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>i 处是否为 lambda 箭头（-> 或 =>）。</summary>
+    private static bool IsLambdaArrow(string text, int i)
+        => (text[i] == '-' && text[i + 1] == '>') || (text[i] == '=' && text[i + 1] == '>');
+
     // ─── 识别与标记 ───────────────────────────────────────────────────
 
     /// <summary>
@@ -467,13 +695,13 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 if (setter == null)
                 {
                     _roles[getter] = TsAccessorRole.Getter;
-                    RegisterAccessorNames(getter, context, registerSetter: false);
+                    RegisterAccessorNames(getter, context, registerSetter: false, TsAccessorRole.Getter);
                 }
                 else
                 {
                     _roles[getter] = TsAccessorRole.GetterSetter;
                     _roles[setter] = TsAccessorRole.GetterSetter;
-                    RegisterAccessorNames(getter, context, registerSetter: true);
+                    RegisterAccessorNames(getter, context, registerSetter: true, TsAccessorRole.GetterSetter);
                 }
                 continue;
             }
@@ -481,15 +709,17 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             if (setter == null)
             {
                 // 只读属性（自动或表达式体）→ getter 访问器
+                RenameConflictingBackingField(cls, context, propName, getter, null);
                 _roles[getter] = TsAccessorRole.Getter;
-                RegisterAccessorNames(getter, context, registerSetter: false);
+                RegisterAccessorNames(getter, context, registerSetter: false, TsAccessorRole.Getter);
                 continue;
             }
 
             var isRestrictedSetter = (setter.Modifiers & (JavaModifiers.Private | JavaModifiers.Protected)) != 0;
             var isTrivialAutoPair = !getter.IsBodyExpression && getter.StructuredBody == null && getter.Body != null
                                  && !setter.IsBodyExpression && setter.StructuredBody == null && setter.Body != null
-                                 && (getter.Modifiers & JavaModifiers.Override) == 0;   // I4：override 保持访问器对
+                                 && (getter.Modifiers & JavaModifiers.Override) == 0   // I4：override 保持访问器对
+                                 && !_inheritedPropertyNames.Contains(propName);   // R1：继承参与的属性统一禁字段简化
 
             if (isTrivialAutoPair && !isRestrictedSetter && !cls.IsConvertedFromStruct)
             {
@@ -501,19 +731,32 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                     backingField.Name = propName;
                     backingField.Modifiers = (backingField.Modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private))
                                            | (getter.Modifiers & (JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
+                    // C2：字段改名后同步刷新上下文字段表（链式解析按新名字查）
+                    var camelName = ToCamelCase(propName);
+                    if ((getter.Modifiers & JavaModifiers.Static) != 0)
+                    {
+                        context.StaticFieldTypes.Remove(camelName);
+                        context.StaticFieldTypes[propName] = backingField.Type;
+                    }
+                    else
+                    {
+                        context.InstanceFieldTypes.Remove(camelName);
+                        context.InstanceFieldTypes[propName] = backingField.Type;
+                    }
                     _roles[getter] = TsAccessorRole.Field;
                     _roles[setter] = TsAccessorRole.Field;
                     cls.Methods.Remove(getter);
                     cls.Methods.Remove(setter);
-                    RegisterAccessorNames(getter, context, registerSetter: true);
+                    RegisterAccessorNames(getter, context, registerSetter: true, TsAccessorRole.Field);
                     continue;
                 }
             }
 
             // getter + setter（受限可见性或表达式体/无后备字段/override）→ 访问器对
+            RenameConflictingBackingField(cls, context, propName, getter, setter);
             _roles[getter] = TsAccessorRole.GetterSetter;
             _roles[setter] = TsAccessorRole.GetterSetter;
-            RegisterAccessorNames(getter, context, registerSetter: true);
+            RegisterAccessorNames(getter, context, registerSetter: true, TsAccessorRole.GetterSetter);
         }
     }
 
@@ -530,7 +773,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             var setter = group.FirstOrDefault(m => m.Name.StartsWith("set"));
             if (getter == null) continue;   // 只写接口属性：setter 保持方法形态，不注册
             var isStatic = (getter.Modifiers & JavaModifiers.Static) != 0;
-            var info = new AccessorInfo(group.Key, isStatic, iface.Name);
+            var info = new AccessorInfo(group.Key, isStatic, iface.Name, setter != null ? TsAccessorRole.GetterSetter : TsAccessorRole.Getter, getter.ReturnType);
             context.AccessorMap["get" + group.Key] = info;
             if (setter != null)
             {
@@ -543,16 +786,102 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     /// 将访问器方法名登记到调用点改写集合：getter 名（Field/Getter/GetterSetter/抽象）与
     /// setter 名（Field/GetterSetter）会改写为成员访问/赋值；WriteOnly 不登记（方法保留）。
     /// </summary>
-    private void RegisterAccessorNames(JavaMethodDeclaration accessor, ClassContext context, bool registerSetter)
+    private void RegisterAccessorNames(JavaMethodDeclaration accessor, ClassContext context, bool registerSetter, TsAccessorRole role)
     {
         var propName = accessor.Name.Substring(3);
         var isStatic = (accessor.Modifiers & JavaModifiers.Static) != 0;
-        var info = new AccessorInfo(propName, isStatic, context.ClassName);
+        var info = new AccessorInfo(propName, isStatic, context.ClassName, role, accessor.ReturnType);
         context.AccessorMap["get" + propName] = info;
         if (registerSetter)
         {
             context.AccessorMap["set" + propName] = info;
         }
+    }
+
+    /// <summary>
+    /// 派生访问器后备字段与基类同名字段冲突（TS2415：派生/基类同名 private 字段为硬错误，
+    /// virtual + override 自动属性各自生成独立后备字段时必触发）：派生侧字段改名（camelCase
+    /// 加 "_" 后缀，保持 C# 独立存储语义），同步访问器体文本与上下文字段表。
+    /// </summary>
+    private void RenameConflictingBackingField(JavaClassDeclaration cls, ClassContext context,
+        string propName, JavaMethodDeclaration getter, JavaMethodDeclaration? setter)
+    {
+        var camel = ToCamelCase(propName);
+        var backingField = cls.Fields.FirstOrDefault(f => f.Name == camel);
+        if (backingField == null) return;
+        if (!HasFieldInBaseChain(context, camel)) return;
+        var newName = camel + "_";
+        backingField.Name = newName;
+        if (getter.Body != null) getter.Body = ReplaceIdentifier(getter.Body, camel, newName);
+        if (setter?.Body != null) setter.Body = ReplaceIdentifier(setter.Body, camel, newName);
+        if ((backingField.Modifiers & JavaModifiers.Static) != 0)
+        {
+            context.StaticFieldTypes.Remove(camel);
+            context.StaticFieldTypes[newName] = backingField.Type;
+        }
+        else
+        {
+            context.InstanceFieldTypes.Remove(camel);
+            context.InstanceFieldTypes[newName] = backingField.Type;
+        }
+    }
+
+    /// <summary>基类链（不含当前类）是否存在同名字段。</summary>
+    private bool HasFieldInBaseChain(ClassContext context, string fieldName)
+    {
+        foreach (var baseName in context.BaseTypeNames)
+        {
+            if (_typeContextsByName.TryGetValue(baseName, out var baseCtx))
+            {
+                if (baseCtx.InstanceFieldTypes.ContainsKey(fieldName)
+                    || baseCtx.StaticFieldTypes.ContainsKey(fieldName))
+                {
+                    return true;
+                }
+                if (HasFieldInBaseChain(baseCtx, fieldName)) return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>文本中标识符边界的名字替换（跳过字符串/注释；点号后成员名同样命中）。</summary>
+    private static string ReplaceIdentifier(string text, string oldName, string newName)
+    {
+        var sb = new StringBuilder(text.Length);
+        var i = 0;
+        while (i < text.Length)
+        {
+            var ch = text[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(text, i);
+                sb.Append(text, start, i - start);
+                continue;
+            }
+            if (ch == '/' && i + 1 < text.Length && (text[i + 1] == '/' || text[i + 1] == '*'))
+            {
+                var start = i;
+                i = SkipComment(text, i);
+                sb.Append(text, start, i - start);
+                continue;
+            }
+            if (IsIdentifierStart(ch) && AtIdentifierBoundaryBefore(text, i))
+            {
+                var nameEnd = i + 1;
+                while (nameEnd < text.Length && IsIdentifierChar(text[nameEnd])) nameEnd++;
+                var name = text[i..nameEnd];
+                if (name == oldName)
+                {
+                    sb.Append(newName);
+                    i = nameEnd;
+                    continue;
+                }
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
     }
 
     /// <summary>
@@ -576,6 +905,32 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             {
                 return true;
             }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 在基类链（不含当前类型）中解析访问器（R2：super 目标按基类成员形态改写）。
+    /// </summary>
+    private bool TryResolveBaseAccessor(string methodName, out AccessorInfo info)
+    {
+        info = null!;
+        if (_classStack.Count == 0) return false;
+        foreach (var baseName in _classStack.Peek().BaseTypeNames)
+        {
+            if (TryResolveAccessorInContext(baseName, methodName, out info!)) return true;
+        }
+        return false;
+    }
+
+    private bool TryResolveAccessorInContext(string typeName, string methodName, out AccessorInfo info)
+    {
+        info = null!;
+        if (!_typeContextsByName.TryGetValue(typeName, out var ctx)) return false;
+        if (ctx.AccessorMap.TryGetValue(methodName, out info!)) return true;
+        foreach (var baseName in ctx.BaseTypeNames)
+        {
+            if (TryResolveAccessorInContext(baseName, methodName, out info!)) return true;
         }
         return false;
     }
@@ -625,9 +980,8 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 {
                     return null;
                 }
-                return ctx.InstanceFieldTypes.TryGetValue(access.MemberName, out var fieldType)
-                    ? fieldType
-                    : ctx.StaticFieldTypes.TryGetValue(access.MemberName, out fieldType) ? fieldType : null;
+                // C2：成员访问按段解析——字段 → 属性访问器（getter）→ 基类链成员（InheritedField）
+                return ResolveMemberTypeInContext(ctx, access.MemberName);
             }
             case JavaArrayAccessExpression arrayAccess:
             {
@@ -641,6 +995,26 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// 在类型上下文中解析成员类型（C2 链式段解析 + InheritedField）：本类字段 → 本类属性
+    /// 访问器（getter 注册名）→ 基类链递归（基类字段/属性对派生类可见）。
+    /// </summary>
+    private string? ResolveMemberTypeInContext(ClassContext ctx, string memberName)
+    {
+        if (ctx.InstanceFieldTypes.TryGetValue(memberName, out var fieldType)) return fieldType;
+        if (ctx.StaticFieldTypes.TryGetValue(memberName, out fieldType)) return fieldType;
+        if (ctx.AccessorMap.TryGetValue("get" + memberName, out var accessor)) return accessor.Type;
+        foreach (var baseName in ctx.BaseTypeNames)
+        {
+            if (_typeContextsByName.TryGetValue(baseName, out var baseCtx))
+            {
+                var baseType = ResolveMemberTypeInContext(baseCtx, memberName);
+                if (baseType != null) return baseType;
+            }
+        }
+        return null;
     }
 
     /// <summary>
@@ -683,8 +1057,20 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             {
                 if (targetThis.IsSuper)
                 {
-                    // super → this（TS 无 super 属性访问 TS2855；静态属性经声明类名访问）
-                    replacementTarget = info.IsStatic ? CreateBareTarget(info) : new JavaThisExpression { IsSuper = false };
+                    // R2：基类成员是重建后的访问器 → 保留 super（TS 允许 super 访问基类访问器）；
+                    // 基类成员是简化字段 → this（TS2855 仅限基类字段）；基类不在本单元 → 保守保留 super
+                    if (info.IsStatic)
+                    {
+                        replacementTarget = CreateBareTarget(info);
+                    }
+                    else if (TryResolveBaseAccessor(call.MethodName, out var baseInfo) && baseInfo.Role == TsAccessorRole.Field)
+                    {
+                        replacementTarget = new JavaThisExpression { IsSuper = false };
+                    }
+                    else
+                    {
+                        replacementTarget = targetThis;
+                    }
                 }
                 else if (info.IsStatic)
                 {
@@ -791,14 +1177,14 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                     var isGetter = name.StartsWith("get");
                     if (isGetter && argText.Trim().Length == 0)
                     {
-                        sb.Append(BuildPropertyAccess(text, i, info, null, sb, pendingTargetStart, pendingTargetName));
+                        sb.Append(BuildPropertyAccess(text, i, name, info, null, sb, pendingTargetStart, pendingTargetName));
                         i = close + 1;
                         continue;
                     }
                     if (name.StartsWith("set") && IsSingleTopLevelArg(argText))
                     {
                         var rewrittenArg = RewriteAccessorCalls(argText.Trim());
-                        sb.Append(BuildPropertyAccess(text, i, info, rewrittenArg, sb, pendingTargetStart, pendingTargetName));
+                        sb.Append(BuildPropertyAccess(text, i, name, info, rewrittenArg, sb, pendingTargetStart, pendingTargetName));
                         i = close + 1;
                         continue;
                     }
@@ -817,23 +1203,114 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     }
 
     /// <summary>
-    /// 解析 raw 文本中 dot-target 调用的目标标识符类型并查访问器注册（C1 保守策略）：
-    /// 目标为单个标识符，且其类型（方法参数/局部变量/当前类字段/类型名）可解析到本单元
-    /// 已知类型且该类型注册了该方法名时才改写；否则保持方法调用。
+    /// 解析 raw 文本中 dot-target 调用链并查访问器注册（C2 链式逐段解析）：
+    /// "o.m.i.getX()" / "arr[0].getX()" / "b.getA().getX()" 逐段解析（参数/局部变量/
+    /// 字段/属性访问器/数组元素/类型名），任何一段不可解析或末端类型未注册该访问器名
+    /// → 保守保持方法调用（C1 策略延续）。
     /// </summary>
     private bool TryResolveRawDotTarget(string text, int nameStart, string methodName, out AccessorInfo info)
     {
         info = null!;
         if (nameStart == 0 || text[nameStart - 1] != '.') return false;
-        var targetEnd = nameStart - 1;
-        var targetStart = targetEnd;
-        while (targetStart > 0 && IsIdentifierChar(text[targetStart - 1])) targetStart--;
-        if (targetStart == targetEnd || !IsIdentifierStart(text[targetStart])) return false;
-        var targetName = text[targetStart..targetEnd];
-        var typeName = ResolveIdentifierType(targetName);
-        if (typeName == null) return false;
-        if (!_typeContextsByName.TryGetValue(typeName, out var typeContext)) return false;
+        var segments = ExtractRawChainSegments(text, nameStart - 1);
+        if (segments == null || segments.Count == 0) return false;
+        string? currentType = null;
+        foreach (var segment in segments)
+        {
+            currentType = ResolveRawSegment(segment, currentType);
+            if (currentType == null) return false;
+        }
+        if (!_typeContextsByName.TryGetValue(currentType, out var typeContext)) return false;
         return typeContext.AccessorMap.TryGetValue(methodName, out info);
+    }
+
+    private sealed record RawChainSegment(string? Name, bool IsArray, bool IsCall);
+
+    /// <summary>
+    /// 从方法名前的点号回扫提取链段（正向顺序）：标识符段（b/a）、数组访问段（arr[0]）、
+    /// 方法调用段（b.getA() 的属性 getter 链）。任何形态不可识别 → null（保守不改写）。
+    /// </summary>
+    private static List<RawChainSegment>? ExtractRawChainSegments(string text, int beforeName)
+    {
+        var reversed = new List<RawChainSegment>();
+        var pos = beforeName;   // 指向方法名前的 '.'
+        while (pos >= 0 && text[pos] == '.')
+        {
+            pos--;
+            if (pos < 0) return null;
+            if (text[pos] == ')')
+            {
+                // 调用段 getA()：反向找匹配 '('
+                var open = FindMatchingOpenBackward(text, pos, '(', ')');
+                if (open < 0) return null;
+                var start = open;
+                while (start > 0 && IsIdentifierChar(text[start - 1])) start--;
+                if (start == open) return null;
+                reversed.Add(new RawChainSegment(text[start..open], false, true));
+                pos = start - 1;
+            }
+            else if (text[pos] == ']')
+            {
+                // 数组访问段 [expr]：反向找匹配 '['
+                var openBracket = FindMatchingOpenBackward(text, pos, '[', ']');
+                if (openBracket < 0) return null;
+                reversed.Add(new RawChainSegment(null, true, false));
+                pos = openBracket - 1;
+                if (pos < 0 || !IsIdentifierChar(text[pos])) return null;
+                var end = pos + 1;
+                while (pos >= 0 && IsIdentifierChar(text[pos])) pos--;
+                reversed.Add(new RawChainSegment(text[(pos + 1)..end], false, false));
+            }
+            else if (IsIdentifierChar(text[pos]))
+            {
+                var end = pos + 1;
+                while (pos >= 0 && IsIdentifierChar(text[pos])) pos--;
+                reversed.Add(new RawChainSegment(text[(pos + 1)..end], false, false));
+            }
+            else
+            {
+                return null;
+            }
+        }
+        reversed.Reverse();
+        return reversed;
+    }
+
+    /// <summary>
+    /// 解析单段类型：首段（currentType == null）为标识符（参数/局部变量/字段/类型名/
+    /// this；super 链为既有缺口，保守 null）；后续段为成员（字段/属性访问器/基类成员）
+    /// 或数组元素。解析失败 → null（调用点保持方法形态）。
+    /// </summary>
+    private string? ResolveRawSegment(RawChainSegment segment, string? currentType)
+    {
+        if (segment.IsArray)
+        {
+            if (currentType == null) return null;
+            return currentType.EndsWith("[]", StringComparison.Ordinal) ? currentType[..^2].Trim() : null;
+        }
+        if (currentType == null)
+        {
+            var name = segment.Name!;
+            if (name == "this")
+            {
+                return _classStack.Count > 0 ? _classStack.Peek().ClassName : null;
+            }
+            if (name == "super")
+            {
+                // super 链（super.A.getX()）既有缺口：基类成员逐级解析未实现，保守不改写
+                return null;
+            }
+            return ResolveIdentifierType(name);
+        }
+        if (segment.IsCall)
+        {
+            // 调用段 getA()：目标类型上下文注册的属性 getter → 属性类型
+            if (!_typeContextsByName.TryGetValue(currentType, out var ctx)) return null;
+            if (!ctx.AccessorMap.TryGetValue(segment.Name!, out var accInfo)) return null;
+            return accInfo.Type;
+        }
+        if (!_typeContextsByName.TryGetValue(currentType, out var typeContext)) return null;
+        return ResolveMemberTypeInContext(typeContext, segment.Name!);
     }
 
     /// <summary>
@@ -842,7 +1319,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     /// 已累积的 "super." 后补 this.（TS 无 super 属性访问 TS2855），this 访问静态属性
     /// 回滚后补类名；裸调用补 this./类名.。
     /// </summary>
-    private string BuildPropertyAccess(string text, int nameStart, AccessorInfo info, string? rewrittenArg,
+    private string BuildPropertyAccess(string text, int nameStart, string methodName, AccessorInfo info, string? rewrittenArg,
         StringBuilder output, int pendingTargetStart, string pendingTargetName)
     {
         var precededByDot = nameStart > 0 && text[nameStart - 1] == '.';
@@ -852,12 +1329,21 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             var targetName = RawTargetIdentifier(text, nameStart);
             if (targetName == "super" || (targetName == "this" && info.IsStatic))
             {
-                // 回滚已累积的 "super."/"this." 目标文本，改补 this./类名. 前缀（I3）
-                if (pendingTargetStart >= 0 && pendingTargetName == targetName)
+                // R2：super 目标按基类成员形态改写——基类成员是重建后的访问器 → 保留
+                // super（TS 允许基类访问器 super 访问；无递归）；基类成员是简化字段 →
+                // this（TS2855 仅限基类字段）；基类不在本单元 → 保守保留 super（显式
+                // 报错优于静默递归）。this 目标访问静态属性 → 回滚补类名。
+                var keepSuper = targetName == "super" && !info.IsStatic
+                    && (!TryResolveBaseAccessor(methodName, out var baseInfo) || baseInfo.Role != TsAccessorRole.Field);
+                if (!keepSuper)
                 {
-                    output.Length = pendingTargetStart;
+                    // 回滚已累积的 "super."/"this." 目标文本，改补 this./类名. 前缀
+                    if (pendingTargetStart >= 0 && pendingTargetName == targetName)
+                    {
+                        output.Length = pendingTargetStart;
+                    }
+                    sb.Append(info.IsStatic && info.OwnerClassName.Length > 0 ? info.OwnerClassName + "." : "this.");
                 }
-                sb.Append(info.IsStatic && info.OwnerClassName.Length > 0 ? info.OwnerClassName + "." : "this.");
             }
             sb.Append(info.PropertyName);
             if (rewrittenArg != null) sb.Append(" = ").Append(rewrittenArg);
@@ -892,7 +1378,14 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         if (string.IsNullOrEmpty(text) || _classStack.Count == 0) return text;
 
         var context = _classStack.Peek();
-        var excluded = _methodStack.Count > 0 ? _methodStack.Peek().NonFieldNames : null;
+        var excluded = _methodStack.Count > 0
+            ? new HashSet<string>(_methodStack.Peek().NonFieldNames, StringComparer.Ordinal)
+            : null;
+        if (_shadowStack.Count > 0 && _shadowStack.Peek().Count > 0)
+        {
+            excluded ??= new HashSet<string>(StringComparer.Ordinal);
+            excluded.UnionWith(_shadowStack.Peek());   // I8：结构化 lambda 参数
+        }
         var sb = new StringBuilder(text.Length);
         var i = 0;
         while (i < text.Length)
@@ -912,13 +1405,61 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 sb.Append(text, start, i - start);
                 continue;
             }
+            if (ch == '(' && excluded != null)
+            {
+                // I8：括号形态 lambda 参数 (a, b) -> / =>
+                var close = FindMatchingParen(text, i);
+                if (close >= 0)
+                {
+                    var after = close + 1;
+                    SkipWhitespace(text, ref after);
+                    if (after + 1 < text.Length && IsLambdaArrow(text, after))
+                    {
+                        foreach (var segment in SplitTopLevelByComma(text[(i + 1)..close]))
+                        {
+                            var pname = TryParseDeclarationName(segment, out _);
+                            if (pname != null) excluded.Add(pname);
+                        }
+                    }
+                }
+            }
             if (IsIdentifierStart(ch) && AtIdentifierBoundaryBefore(text, i))
             {
                 var nameEnd = i + 1;
                 while (nameEnd < text.Length && IsIdentifierChar(text[nameEnd])) nameEnd++;
                 var name = text[i..nameEnd];
                 var precededByDot = i > 0 && text[i - 1] == '.';
-                var followedByParen = nameEnd < text.Length && text[nameEnd] == '(';
+                var afterName = nameEnd;
+                SkipWhitespace(text, ref afterName);
+                var followedByParen = afterName < text.Length && text[afterName] == '(';
+                if (!precededByDot)
+                {
+                    if (name == "for" && followedByParen)
+                    {
+                        // I7：raw 经典 for 头声明段变量（for (int i = 0, j = 1; ...)）
+                        if (excluded != null)
+                        {
+                            var close = FindMatchingParen(text, afterName);
+                            if (close >= 0)
+                            {
+                                var header = text[(afterName + 1)..close];
+                                var semi = IndexOfTopLevelSemicolon(header);
+                                var init = semi < 0 ? header : header[..semi];
+                                var names = new Dictionary<string, string>(StringComparer.Ordinal);
+                                CollectForInitDeclarations(init, names);
+                                excluded.UnionWith(names.Keys);
+                            }
+                        }
+                    }
+                    if (!followedByParen && excluded != null)
+                    {
+                        // I8：raw 单参数 lambda 形态 ident -> / ident =>
+                        if (afterName + 1 < text.Length && IsLambdaArrow(text, afterName))
+                        {
+                            excluded.Add(name);
+                        }
+                    }
+                }
                 if (!precededByDot && !followedByParen)
                 {
                     if (excluded == null || !excluded.Contains(name))
@@ -952,6 +1493,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         if (_classStack.Count == 0) return null;
         var context = _classStack.Peek();
         if (_methodStack.Count > 0 && _methodStack.Peek().NonFieldNames.Contains(name)) return null;
+        if (_shadowStack.Count > 0 && _shadowStack.Peek().Contains(name)) return null;   // I8：lambda 参数遮蔽
         if (context.InstanceFieldTypes.ContainsKey(name))
         {
             return new JavaMemberAccessExpression { Target = new JavaThisExpression(), MemberName = name };
@@ -1044,6 +1586,47 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 depth--;
                 if (depth == 0) return i;
             }
+        }
+        return -1;
+    }
+
+    /// <summary>从 closeIndex（')' 或 ']'）反向找匹配的 '(' / '['，返回下标；无匹配返回 -1。</summary>
+    private static int FindMatchingOpenBackward(string text, int closeIndex, char open, char close)
+    {
+        var depth = 0;
+        for (var i = closeIndex; i >= 0; i--)
+        {
+            var ch = text[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteralBackward(text, i);
+                if (i < 0) return -1;
+                continue;
+            }
+            if (ch == close) depth++;
+            else if (ch == open)
+            {
+                depth--;
+                if (depth == 0) return i;
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>从闭引号 end 反向找开引号下标（跳过转义），无匹配返回 -1。</summary>
+    private static int SkipQuotedLiteralBackward(string text, int end)
+    {
+        var quote = text[end];
+        var i = end - 1;
+        while (i >= 0)
+        {
+            if (text[i] == '\\')
+            {
+                i -= 2;
+                continue;
+            }
+            if (text[i] == quote) return i;
+            i--;
         }
         return -1;
     }
