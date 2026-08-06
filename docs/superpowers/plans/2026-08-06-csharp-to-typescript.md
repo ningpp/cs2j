@@ -4117,8 +4117,9 @@ git commit -m "test(ts): add M1 control flow, literal, and primitive type mappin
 - Modify: `src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs`（泛型约束映射）
 - Modify: `src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs`（泛型方法）
 - Create: `tests/CSharpToTypeScript.Tests/TsGenericEmissionTests.cs`
+- Modify: `src/CSharpToJava.Core/TypeScript/TsMemberMappingTable.cs`（约束 bound 内置映射：Comparable/AutoCloseable → object）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```csharp
 namespace CSharpToTypeScript.Tests;
@@ -4200,43 +4201,45 @@ class Pair<K, V>
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsGenericEmissionTests"`
-Expected: FAIL（泛型类型参数未发射）。
+Actual: FAIL 2/5（方法泛型发射形态 + camelCase 断言差异，详见注记 ①）。
 
-- [ ] **Step 3: 验证 IR 是否携带类型参数并修正约束发射**
+- [x] **Step 3: 验证 IR 是否携带类型参数并修正约束发射**
 
 `JavaTypeDeclaration.TypeParameters` 已存在（`JavaTypeParameter` 定义在 `JavaTypeDeclaration.cs` 约第 351-368 行，已核对）：属性为 `Name` 与 `Bounds`（`List<string>`，**没有 `Constraint` 属性**）。`JavaTypeParameter.ToString()` 输出 Java 风味 `T extends A & B`，而 **TS 泛型约束只允许单一类型且不支持交叉类型**，因此不能直接用 `tp.ToString()`。
 
 在 `TsTypeWriter` 中添加类型参数格式化辅助方法：
 
 ```csharp
-private string FormatTypeParameters(IReadOnlyList<JavaTypeParameter> typeParams)
+public static string FormatTypeParameters(IReadOnlyList<JavaTypeParameter> typeParams, Func<string, string> mapBound)
 {
     if (typeParams.Count == 0) return "";
+
     var parts = typeParams.Select(tp =>
     {
         if (tp.Bounds.Count == 0) return TsNaming.SafeIdentifier(tp.Name);
+
         // TS 约束仅支持单一类型：取首个 bound；多 bound（Java "A & B"）
         // 丢弃其余并加诊断注释（spec §1.4.3：约束仅部分表达）
         var extra = tp.Bounds.Count > 1
             ? " /* cs2j: dropped bounds: " + string.Join(" & ", tp.Bounds.Skip(1)) + " */"
             : "";
-        return $"{TsNaming.SafeIdentifier(tp.Name)} extends {tp.Bounds[0]}{extra}";
+        return $"{TsNaming.SafeIdentifier(tp.Name)} extends {mapBound(tp.Bounds[0])}{extra}";
     });
     return $"<{string.Join(", ", parts)}>";
 }
 ```
 
-将 `EmitClass`/`EmitInterface`/方法发射中的类型参数输出改为调用 `FormatTypeParameters(...)`（替换 Task 9 中的 `tp.ToString()` 拼接）。
+将 `EmitClass`/`EmitInterface`/`TsMemberWriter.EmitMethod`/接口成员循环中的类型参数输出改为调用 `FormatTypeParameters(...)`（替换 Task 9 中的 `tp.ToString()` 拼接）。实现差异（见注记 ④）：静态化 + 注入 bound 映射函数；方法类型参数必须位于方法名**之后**（`name<T>(...)`，Task 9 原 `<T>name(...)` 为非法 TS）；首个 bound 经 Java→TS 类型表映射（如 Comparable → object）。
 
 注：`new()` 约束在 IR 中无直接表示（Java 无对应），其降级（工厂参数）在 M3 TsGenericErasureRewriter 处理（spec §2.6.2）。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsGenericEmissionTests"`
-Expected: PASS（5 个测试）。
+Actual: PASS（7 个测试：计划 5 + 组件补测 2，全部附 L3 tsc）。
 
 - [x] **Step 5: 提交**
 
@@ -4245,6 +4248,49 @@ git add src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs tests/CSharpToTypeScrip
 git commit -m "feat(ts): emit generic type parameters with constraints"
 ```
 
+**注记（2026-08-07 Task 14 实施，实测为准）：**
+> ① 红→绿清单（证据）：
+>    - 初跑红 2/5：`Generic_Method_Emits_Type_Parameter`、`Generic_Method_With_Constraint_Emits_Extends`
+>      ——实际产物 `<T>identity(x: T): T` / `<T extends Comparable>max(a: T, b: T): T`：类型参数位于
+>      方法名**之前**（非法 TS 语法）且方法名为 Java camelCase；
+>    - 初跑绿 3/5：`Generic_Class_Emits_Type_Parameter`（`export class Container<T>`）、
+>      `Generic_Class_With_Constraint_Emits_Extends`（`Container<T extends Comparable>`，单 bound 形态
+>      Task 9 已能发射）、`Multiple_Type_Parameters_Emit_All`（`Pair<K, V>`）；
+>    - 修复后 7/7 绿（含组件补测 2，见 ⑤）；全量 TS 183/183、Java 2423/2423 零回归。
+> ② camelCase 断言修订（既有约定，Task 10/11/13 实证；计划原断言按大写方法名书写，与实测冲突
+>    以实测为准并同步本计划）：
+>    - `Identity<T>(x: T): T` → `identity<T>(x: T): T`；
+>    - `Max<T extends ` → `max<T extends object>(a: T, b: T): T`；
+>    - 约束断言从"只验证 extends 结构"增强为锁定映射后 bound（`Container<T extends object>`），
+>      将 bound 映射决策固化为回归。
+> ③ 约束 bound 映射决策（L3 tsc 实证：bound 未映射时 tsc 报 "Cannot find name 'Comparable'"；
+>    spec §1.4.3 约束仅部分表达，以"产物合法 TS"为准则）：
+>    - 首个 bound 经 Java→TS 类型表（MapType）映射后发射——与字段/参数/返回类型映射一致；
+>    - 内置表新增 `Comparable → object`、`AutoCloseable → object`（C# IComparable/IDisposable 的
+>      Java 风味名；TS 无对应内建接口，降级为最宽松对象类型）；
+>    - 多 bound（Java "A & B" 交叉约束）TS 不支持：取首个，其余以
+>      `/* cs2j: dropped bounds: ... */` 诊断注释丢弃
+>      （`where T : IComparable, IDisposable` → `Multi<T extends object /* cs2j: dropped bounds: AutoCloseable */>`）。
+> ④ 实现偏离（与 Step 3 草稿的差异）：
+>    - `FormatTypeParameters` 为 `public static` 并注入 `Func<string,string> mapBound`（TsTypeWriter
+>      依赖 TsMemberWriter，实例方法无法被 TsMemberWriter 复用；类/接口/方法/接口成员四处共用）；
+>    - 方法类型参数位置修正（`<T>name(` → `name<T>(`）属 Task 14 范畴（方法发射的 `tp.ToString()`
+>      拼接替换，产物须为合法 TS）；
+>    - 接口成员泛型方法（EmitInterface 成员循环）原完全丢失类型参数，一并接入
+>      （`interface IRepo<T> { T Find<T>(T id); }` → `find<T>(id: T): T;`）。
+> ⑤ 组件级补测（TsGenericEmissionTests 追加 2 个，与计划 5 个一并全绿）：
+>    - `Multiple_Bounds_Drop_Extra_With_Diagnostic_Comment`：全管线多 bound 丢弃 + 注释 + L3 tsc；
+>    - `Type_Parameter_Name_Is_Safe_Identifier`：IR 直构 `JavaTypeParameter("default")` →
+>      `Foo<default$>` + L3 tsc；
+>    - 计划 5 个测试全部附加 `AssertCompiles`（L3：含约束/多类型参数产物经真实 tsc 编译，
+>      strict:true 全过；另以 CLI 探针 Utils/Pair/Multi/IRepo 五类场景独立 tsc exit 0）。
+> ⑥ 测试统计：TS 项目 183/183（176 + 新增 7）；Java 项目 2423/2423 零回归。
+> ⑦ 复审遗留登记（非阻塞，归后续任务）：
+>    - 泛型 bound 实例（`where T : IComparable<T>` → IR `Comparable<T>`）未命中类型表映射，
+>      tsc 会报 "Cannot find name 'Comparable'"——随 M2/M3 泛型擦除/命名管线补映射；
+>    - 约束 bound 语义保真（`object` 排除 number/string/boolean 字面量约束场景）属 M3 泛型擦除范畴。
+> ⑧ 提交：d88b5a8f（`feat(ts): emit generic type parameters with constraints`；4 文件：
+>    TsTypeWriter.cs / TsMemberWriter.cs / TsMemberMappingTable.cs / TsGenericEmissionTests.cs）。
 ---
 
 ## Task 15: 接口与 implements 发射
