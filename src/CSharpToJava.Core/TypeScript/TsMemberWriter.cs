@@ -84,16 +84,9 @@ public sealed class TsMemberWriter
         if ((method.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
         if ((method.Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
 
-        // 类型参数
-        if (method.TypeParameters.Count > 0)
-        {
-            sb.Append('<');
-            sb.Append(string.Join(", ", method.TypeParameters.Select(tp => tp.ToString())));
-            sb.Append('>');
-        }
 
         var name = TsNaming.SafeIdentifier(method.Name);
-        sb.Append($"{name}(");
+        sb.Append($"{name}{TsTypeWriter.FormatTypeParameters(method.TypeParameters, MapType)}(");
 
         // 参数/返回值类型需经 Java→TS 映射
         var parms = method.Parameters.Select(p =>

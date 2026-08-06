@@ -72,6 +72,9 @@ public sealed class TsMemberMappingTable
         { "Object", "any" }, { "java.lang.Object", "any" },
         { "Integer", "number" }, { "Long", "bigint" }, { "Boolean", "boolean" },
         { "Double", "number" }, { "Float", "number" }, { "Character", "string" },
+        // 泛型约束 bound（Task 14）：C# IComparable/IDisposable 在 IR 中为 Java 风味名，
+        // TS 无对应内建类型，约束降级为最宽松对象类型 object（spec §1.4.3 约束仅部分表达）
+        { "Comparable", "object" }, { "AutoCloseable", "object" },
     };
 
     // 内置属性/字段映射

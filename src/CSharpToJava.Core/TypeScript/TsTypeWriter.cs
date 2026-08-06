@@ -45,13 +45,8 @@ public sealed class TsTypeWriter
         sb.Append("class ");
         sb.Append(TsNaming.SafeClassName(cls.Name));
 
-        // 类型参数
-        if (cls.TypeParameters.Count > 0)
-        {
-            sb.Append('<');
-            sb.Append(string.Join(", ", cls.TypeParameters.Select(tp => tp.ToString())));
-            sb.Append('>');
-        }
+        // 类型参数（TS 约束仅支持单一类型，多 bound 降级见 FormatTypeParameters）
+        sb.Append(FormatTypeParameters(cls.TypeParameters, _memberWriter.MapType));
 
         // 基类
         if (!string.IsNullOrEmpty(cls.ExtendedType))
@@ -144,13 +139,8 @@ public sealed class TsTypeWriter
         sb.Append("export interface ");
         sb.Append(TsNaming.SafeClassName(iface.Name));
 
-        // 类型参数
-        if (iface.TypeParameters.Count > 0)
-        {
-            sb.Append('<');
-            sb.Append(string.Join(", ", iface.TypeParameters.Select(tp => tp.ToString())));
-            sb.Append('>');
-        }
+        // 类型参数（TS 约束仅支持单一类型，多 bound 降级见 FormatTypeParameters）
+        sb.Append(FormatTypeParameters(iface.TypeParameters, _memberWriter.MapType));
 
         // 继承的接口（实际属性名：ExtendedTypes，非 ImplementedTypes）
         if (iface.ExtendedTypes.Count > 0)
@@ -165,7 +155,7 @@ public sealed class TsTypeWriter
         {
             var parms = string.Join(", ", method.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_memberWriter.MapType(p.Type)}"));
             sb.Append(ind).Append(_indent)
-              .AppendLine($"{TsNaming.SafeIdentifier(method.Name)}({parms}): {_memberWriter.MapType(method.ReturnType)};");
+              .AppendLine($"{TsNaming.SafeIdentifier(method.Name)}{FormatTypeParameters(method.TypeParameters, _memberWriter.MapType)}({parms}): {_memberWriter.MapType(method.ReturnType)};");
         }
 
         sb.Append(ind).Append('}');
@@ -186,5 +176,32 @@ public sealed class TsTypeWriter
         }
         sb.Append(ind).Append('}');
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 泛型类型参数格式化（spec §1.4.3：约束仅部分表达）。
+    /// TS 约束只允许单一类型：无 bound → 裸名；单 bound → `T extends B`；
+    /// 多 bound（Java "A & B" 交叉约束）丢弃其余并加诊断注释；
+    /// 名称过 TsNaming.SafeIdentifier；首个 bound 经 Java→TS 类型表映射
+    /// （IR 为 Java 风味名，如 Comparable → object，保证产物为合法 TS）。
+    /// 静态化 + 注入 bound 映射函数，以便 TsMemberWriter.EmitMethod 复用
+    /// （TsTypeWriter 依赖 TsMemberWriter，实例方法反向调用不可行）。
+    /// </summary>
+    public static string FormatTypeParameters(IReadOnlyList<JavaTypeParameter> typeParams, Func<string, string> mapBound)
+    {
+        if (typeParams.Count == 0) return "";
+
+        var parts = typeParams.Select(tp =>
+        {
+            if (tp.Bounds.Count == 0) return TsNaming.SafeIdentifier(tp.Name);
+
+            // TS 约束仅支持单一类型：取首个 bound；多 bound（Java "A & B"）
+            // 丢弃其余并加诊断注释（spec §1.4.3：约束仅部分表达）
+            var extra = tp.Bounds.Count > 1
+                ? " /* cs2j: dropped bounds: " + string.Join(" & ", tp.Bounds.Skip(1)) + " */"
+                : "";
+            return $"{TsNaming.SafeIdentifier(tp.Name)} extends {mapBound(tp.Bounds[0])}{extra}";
+        });
+        return $"<{string.Join(", ", parts)}>";
     }
 }
