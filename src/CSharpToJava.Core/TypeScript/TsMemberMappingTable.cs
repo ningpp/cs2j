@@ -6,11 +6,12 @@ namespace CSharpToJava.Core.TypeScript;
 
 /// <summary>
 /// Java→TypeScript 二次映射表。
-/// 解析顺序（发射期，spec §3.1.2）：
-/// ① 内置表（代码，覆盖最高频项：size→length、add→push 等）
-/// ② MemberMappings.json（配置，可扩展）
-/// ③ TypeMappings.json 的 csharp→typescript 直查（用于类型注解）
-/// ④ 未命中 -> 调用方输出 /* cs2j: unmapped */ 诊断注释
+/// 查找顺序（发射期，spec §3.1.2，三者一致）：
+/// ① 内置表优先（代码，覆盖最高频项：size→length、add→push 等；键为 Java 风味名）
+/// ② 配置表兜底（MemberMappings.json / TypeMappings.json；键为 C# 全名）
+/// ③ 未命中 -> 返回原值 + false，调用方输出 /* cs2j: unmapped */ 诊断注释
+/// 说明：M1 发射期（IR 为 Java 风味名）暂不消费配置表；M4 Task 36 注入 Roslyn
+/// 语义模型后用 C# 全名 + arity 感知分解消费配置。
 /// </summary>
 public sealed class TsMemberMappingTable
 {
@@ -18,11 +19,18 @@ public sealed class TsMemberMappingTable
     private readonly Dictionary<(string Type, string Method), (string TsMethod, List<string> Imports)> _methodMappings = new();
     private readonly Dictionary<(string Type, string Member), string> _memberMappings = new();
 
+    // 与 TypeMappingRegistry 一致的 JSON 反序列化选项（属性名大小写不敏感）。
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
     // 内置成员映射（最高频项，spec §3.1.2 ①）
     // IR 中已是 Java 风味，这里覆盖 Java 化 API 调用。
-    // 注意：只收录“方法名→方法名”可直接替换的项；需要参数感知/语句级改写的
-    // （如 remove(int) 返回值语义、equalsIgnoreCase 两侧调用、Clear → length = 0）
-    // 不放进本表，由发射器特殊分支或 M3 rewriter 处理。
+    // 注意：本表只收录“方法名→方法名”可直接替换的项（逐字拼接后为合法 TS 成员访问）。
+    // 整调用级替换（equals→===、isEmpty→length === 0、System.out.println 等）由
+    // 发射器/rewriter 特殊分支处理（M3 TsEqualityRewriter、M4 Task 36），不放进本表，
+    // 否则按方法名替换会产出非法 TS（如 a.===(b)）。
     private static readonly Dictionary<(string Type, string Method), string> BuiltinMethodMappings = new()
     {
         { ("java.util.List", "size"), "length" },
@@ -30,8 +38,6 @@ public sealed class TsMemberMappingTable
         { ("java.lang.String", "length"), "length" },
         { ("java.util.List", "add"), "push" },
         { ("java.util.ArrayList", "add"), "push" },
-        { ("java.util.List", "isEmpty"), "length === 0" },
-        { ("java.util.Collection", "isEmpty"), "length === 0" },
         { ("java.util.List", "contains"), "includes" },
         { ("java.util.List", "indexOf"), "indexOf" },
         { ("java.lang.String", "toUpperCase"), "toUpperCase" },
@@ -45,7 +51,6 @@ public sealed class TsMemberMappingTable
         { ("java.lang.String", "contains"), "includes" },
         { ("java.lang.String", "indexOf"), "indexOf" },
         { ("java.lang.String", "charAt"), "charAt" },
-        { ("java.lang.String", "equals"), "===" },
         { ("java.lang.Math", "sqrt"), "Math.sqrt" },
         { ("java.lang.Math", "abs"), "Math.abs" },
         { ("java.lang.Math", "max"), "Math.max" },
@@ -86,18 +91,18 @@ public sealed class TsMemberMappingTable
 
     public bool TryMapType(string csharpOrJavaType, out string tsType, out IReadOnlyList<string> imports)
     {
-        // ① 配置文件（C# 全名，如 System.Int32）
-        if (_typeMappings.TryGetValue(csharpOrJavaType, out var entry))
-        {
-            tsType = entry.TsType;
-            imports = entry.Imports;
-            return true;
-        }
-        // ② 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
+        // ① 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
         if (BuiltinJavaTypeMappings.TryGetValue(csharpOrJavaType, out var javaMapped))
         {
             tsType = javaMapped;
             imports = System.Array.Empty<string>();
+            return true;
+        }
+        // ② 配置文件（C# 全名，如 System.Int32）
+        if (_typeMappings.TryGetValue(csharpOrJavaType, out var entry))
+        {
+            tsType = entry.TsType;
+            imports = entry.Imports;
             return true;
         }
         tsType = csharpOrJavaType;
@@ -145,56 +150,82 @@ public sealed class TsMemberMappingTable
 
     private void LoadTypeMappings(string? path)
     {
+        // 文件缺失保持静默（null 或不存在 = 纯内置表模式）。
         if (path == null || !File.Exists(path)) return;
-        var json = File.ReadAllText(path);
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("typeMappings", out var arr)) return;
-        foreach (var item in arr.EnumerateArray())
+        try
         {
-            var csharp = item.GetProperty("csharp").GetString()!;
-            var ts = item.GetProperty("typescript").GetString()!;
-            var imports = new List<string>();
-            if (item.TryGetProperty("imports", out var impArr))
+            var json = File.ReadAllText(path);
+            var file = JsonSerializer.Deserialize<TypeMappingFile>(json, JsonOptions);
+            if (file?.TypeMappings == null) return;
+            foreach (var item in file.TypeMappings)
             {
-                foreach (var imp in impArr.EnumerateArray())
+                if (item.Csharp == null || item.Typescript == null)
                 {
-                    imports.Add(imp.GetString()!);
+                    throw new InvalidOperationException($"Invalid TypeScript mapping config: {path}");
                 }
+                _typeMappings[item.Csharp] = (item.Typescript, item.Imports ?? new List<string>());
             }
-            _typeMappings[csharp] = (ts, imports);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Invalid TypeScript mapping config: {path}", ex);
         }
     }
 
     private void LoadMemberMappings(string? path)
     {
+        // 文件缺失保持静默（null 或不存在 = 纯内置表模式）。
         if (path == null || !File.Exists(path)) return;
-        var json = File.ReadAllText(path);
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("methodMappings", out var arr)) return;
-        foreach (var item in arr.EnumerateArray())
+        try
         {
-            var type = item.GetProperty("type").GetString()!;
-            var method = item.GetProperty("method").GetString()!;
-            var tsMethod = item.GetProperty("tsMethod").GetString()!;
-            var signature = item.TryGetProperty("signature", out var sig) ? sig.GetString() ?? "" : "";
-
-            var imports = new List<string>();
-            if (item.TryGetProperty("imports", out var impArr))
+            var json = File.ReadAllText(path);
+            var file = JsonSerializer.Deserialize<MemberMappingFile>(json, JsonOptions);
+            if (file?.MethodMappings == null) return;
+            foreach (var item in file.MethodMappings)
             {
-                foreach (var imp in impArr.EnumerateArray())
+                if (item.Type == null || item.Method == null || item.TsMethod == null)
                 {
-                    imports.Add(imp.GetString()!);
+                    throw new InvalidOperationException($"Invalid TypeScript mapping config: {path}");
+                }
+                if (item.Signature == "property")
+                {
+                    _memberMappings[(item.Type, item.Method)] = item.TsMethod;
+                }
+                else
+                {
+                    _methodMappings[(item.Type, item.Method)] = (item.TsMethod, item.Imports ?? new List<string>());
                 }
             }
-
-            if (signature == "property")
-            {
-                _memberMappings[(type, method)] = tsMethod;
-            }
-            else
-            {
-                _methodMappings[(type, method)] = (tsMethod, imports);
-            }
         }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Invalid TypeScript mapping config: {path}", ex);
+        }
+    }
+
+    private sealed class TypeMappingFile
+    {
+        public List<TypeMappingItem>? TypeMappings { get; set; }
+    }
+
+    private sealed class TypeMappingItem
+    {
+        public string? Csharp { get; set; }
+        public string? Typescript { get; set; }
+        public List<string>? Imports { get; set; }
+    }
+
+    private sealed class MemberMappingFile
+    {
+        public List<MemberMappingItem>? MethodMappings { get; set; }
+    }
+
+    private sealed class MemberMappingItem
+    {
+        public string? Type { get; set; }
+        public string? Method { get; set; }
+        public string? TsMethod { get; set; }
+        public string? Signature { get; set; }
+        public List<string>? Imports { get; set; }
     }
 }

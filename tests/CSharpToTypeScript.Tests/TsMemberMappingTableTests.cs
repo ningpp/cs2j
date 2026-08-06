@@ -92,4 +92,37 @@ public class TsMemberMappingTableTests
         Assert.True(table.TryMapType("boolean", out var t3, out _));
         Assert.Equal("boolean", t3);
     }
+
+    [Fact]
+    public void TryMapMember_Builtin_List_Size_Maps_To_Length()
+    {
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapMember("java.util.List", "size", out var tsMember));
+        Assert.Equal("length", tsMember);
+    }
+
+    [Fact]
+    public void TryMapMethod_Unmapped_Returns_False_And_Original()
+    {
+        var table = new TsMemberMappingTable(null, null);
+        Assert.False(table.TryMapMethod("Some.Type", "Foo", out var tsMethod, out _));
+        Assert.Equal("Foo", tsMethod);
+    }
+
+    [Fact]
+    public void TryMapType_Unmapped_Returns_False_And_Original()
+    {
+        var table = new TsMemberMappingTable(null, null);
+        Assert.False(table.TryMapType("System.UnknownType", out var tsType, out _));
+        Assert.Equal("System.UnknownType", tsType);
+    }
+
+    [Fact]
+    public void TryMapMethod_Config_Static_Imports_Passed_Through()
+    {
+        var table = new TsMemberMappingTable(ConfigPath("TypeMappings.json"), ConfigPath("MemberMappings.json"));
+        Assert.True(table.TryMapMethod("System.String", "Split", out var tsMethod, out var imports));
+        Assert.Equal("CsString.split", tsMethod);
+        Assert.Contains("@csharptotypescript/compat", imports);
+    }
 }
