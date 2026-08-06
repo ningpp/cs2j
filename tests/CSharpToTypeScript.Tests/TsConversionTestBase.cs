@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 
@@ -40,18 +39,28 @@ public abstract class TsConversionTestBase
     }
 
     /// <summary>
-    /// L3: 会话级共享临时工程（spec §5.2：预生成 package.json + tsconfig.json，
-    /// typescript 仅安装一次），写入待验证 .ts 后调用 tsc --noEmit。无 Node 时跳过。
+    /// L3: 每次校验在共享根目录下的唯一 run_&lt;GUID&gt; 子目录中写入 package.json、
+    /// tsconfig.json、探针 .ts 与 additionalFiles，调用共享 typescript 安装执行 tsc --noEmit，
+    /// finally 中递归删除该子目录（共享根目录仅保留 typescript 安装，不参与编译）。
+    /// 无 Node 时直接返回：xunit v2 普通 [Fact] 无法动态跳过，抛 SkipException 会使测试
+    /// FAIL 而非 SKIP，因此空转通过，避免无 Node 机器上 L3 测试误红。
     /// </summary>
     protected void AssertCompiles(string tsCode, params string[] additionalFiles)
     {
         var nodePath = FindNodeExecutable();
         if (nodePath == null)
         {
-            throw new SkipException("Node.js not available — L3 tsc check skipped.");
+            // xunit v2 普通 [Fact] 无法动态跳过：抛 SkipException 会使测试 FAIL 而非 SKIP。
+            // 无 Node 时 L3 校验空转通过，避免误红。
+            return;
         }
 
-        var workDir = TsCompileFixture.GetWorkDir(nodePath);   // 懒初始化：首次调用时 npm install typescript
+        var sharedRoot = TsCompileFixture.GetSharedRoot(nodePath);   // 懒初始化：首次调用时 npm install typescript
+        var workDir = Path.Combine(sharedRoot, "run_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(Path.Combine(workDir, "package.json"), "{\"type\":\"module\"}");
+        File.WriteAllText(Path.Combine(workDir, "tsconfig.json"),
+            "{\"compilerOptions\":{\"strict\":true,\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"noEmit\":true,\"useDefineForClassFields\":false},\"include\":[\"*.ts\"]}");
         var probePath = Path.Combine(workDir, "probe_" + Guid.NewGuid().ToString("N") + ".ts");
         File.WriteAllText(probePath, tsCode);
         for (int i = 0; i < additionalFiles.Length; i += 2)
@@ -61,46 +70,68 @@ public abstract class TsConversionTestBase
 
         try
         {
+            var tscPath = Path.Combine(sharedRoot, "node_modules", "typescript", "bin", "tsc");
+            var tsconfigPath = Path.Combine(workDir, "tsconfig.json");
             var psi = new ProcessStartInfo
             {
                 FileName = nodePath,
-                Arguments = $"node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+                Arguments = $"\"{tscPath}\" --noEmit -p \"{tsconfigPath}\"",
                 WorkingDirectory = workDir,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
-            var proc = Process.Start(psi)!;
-            var stdout = proc.StandardOutput.ReadToEnd();   // 先读完输出再等待，避免管道缓冲区满导致死锁
-            var stderr = proc.StandardError.ReadToEnd();
-            proc.WaitForExit(60000);
-            Assert.True(proc.ExitCode == 0,
-                $"tsc failed (exit {proc.ExitCode}):\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n--- code ---\n{tsCode}");
+            var (exitCode, stdout, stderr) = RunProcess(psi, 60000, "tsc");
+            Assert.True(exitCode == 0,
+                $"tsc failed (exit {exitCode}):\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n--- code ---\n{tsCode}");
         }
         finally
         {
-            try { File.Delete(probePath); } catch { }
+            // 安全删除：仅删除共享根目录下以 run_ 前缀命名的子目录，避免误删共享安装
+            var fullWorkDir = Path.GetFullPath(workDir);
+            var fullSharedRoot = Path.GetFullPath(sharedRoot);
+            if (fullWorkDir.StartsWith(fullSharedRoot, StringComparison.OrdinalIgnoreCase)
+                && Path.GetFileName(fullWorkDir).StartsWith("run_", StringComparison.Ordinal))
+            {
+                try { Directory.Delete(fullWorkDir, recursive: true); } catch { }
+            }
         }
     }
 
     /// <summary>
-    /// 会话级共享 tsc 工程（避免每个测试重复 npm install，spec §5.2）。
+    /// 启动进程并等待退出；超时则终止整个进程树并以包含已捕获输出的清晰消息断言失败。
+    /// </summary>
+    private static (int ExitCode, string Stdout, string Stderr) RunProcess(ProcessStartInfo psi, int timeoutMs, string description)
+    {
+        using var proc = Process.Start(psi)!;
+        var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+        var stderrTask = proc.StandardError.ReadToEndAsync();
+        if (!proc.WaitForExit(timeoutMs))
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { }
+            proc.WaitForExit();   // 确保进程退出、管道关闭后 ExitCode 可读
+            Assert.Fail($"{description} timed out after {timeoutMs}ms:\n--- stdout ---\n{stdoutTask.Result}\n--- stderr ---\n{stderrTask.Result}");
+        }
+        proc.WaitForExit();
+        return (proc.ExitCode, stdoutTask.Result, stderrTask.Result);
+    }
+
+    /// <summary>
+    /// 会话级共享 typescript 安装（spec §5.2：typescript 仅安装一次；共享根目录不参与编译）。
     /// </summary>
     private static class TsCompileFixture
     {
         private static readonly object Lock = new();
-        private static string? _workDir;
+        private static string? _sharedRoot;
 
-        public static string GetWorkDir(string nodePath)
+        public static string GetSharedRoot(string nodePath)
         {
             lock (Lock)
             {
-                if (_workDir != null) return _workDir;
+                if (_sharedRoot != null) return _sharedRoot;
                 var dir = Path.Combine(Path.GetTempPath(), "cs2j_ts_compile_shared");
                 Directory.CreateDirectory(dir);
                 File.WriteAllText(Path.Combine(dir, "package.json"), "{\"type\":\"module\"}");
-                File.WriteAllText(Path.Combine(dir, "tsconfig.json"),
-                    "{\"compilerOptions\":{\"strict\":true,\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"noEmit\":true,\"useDefineForClassFields\":false},\"include\":[\"*.ts\"]}");
                 if (!Directory.Exists(Path.Combine(dir, "node_modules", "typescript")))
                 {
                     var npmCmd = OperatingSystem.IsWindows()
@@ -115,14 +146,12 @@ public abstract class TsConversionTestBase
                         RedirectStandardError = true,
                         UseShellExecute = false,
                     };
-                    var install = Process.Start(installPsi)!;
-                    install.StandardOutput.ReadToEnd();
-                    install.StandardError.ReadToEnd();
-                    install.WaitForExit(120000);
-                    Assert.True(install.ExitCode == 0, $"npm install typescript failed (exit {install.ExitCode})");
+                    var (exitCode, stdout, stderr) = RunProcess(installPsi, 120000, "npm install typescript");
+                    Assert.True(exitCode == 0,
+                        $"npm install typescript failed (exit {exitCode}):\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}");
                 }
-                _workDir = dir;
-                return _workDir;
+                _sharedRoot = dir;
+                return _sharedRoot;
             }
         }
     }

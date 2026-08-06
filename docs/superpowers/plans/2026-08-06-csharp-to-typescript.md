@@ -510,7 +510,7 @@ public abstract class TsConversionTestBase
 }
 ```
 
-注：`SkipException` 由 `xunit.SkippableFact` 包提供（已加入 csproj）；在普通 `[Fact]` 中抛出 `SkipException` 即被标记为 Skipped，无需改用 `[SkippableFact]`。共享工程目录 `cs2j_ts_compile_shared` 跨测试会话保留（typescript 只安装一次）；如需干净环境可手工删除。
+注：实测确认在普通 `[Fact]` 中抛 `SkipException` 会使测试 FAIL 而非 SKIP（xunit v2 普通 `[Fact]` 无法动态跳过），因此 `AssertCompiles` 在无 Node 时直接返回（空转通过），避免无 Node 机器上 L3 测试误红；`SkipException` 仅配合 `[SkippableFact]` 特性使用。共享根目录 `cs2j_ts_compile_shared` 仅保留 typescript 安装（node_modules）；每次校验在唯一 `run_<GUID>` 子目录中进行并在 `finally` 中递归删除。
 
 - [ ] **Step 3: 注册到 slnx**
 
