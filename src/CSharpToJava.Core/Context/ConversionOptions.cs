@@ -95,6 +95,24 @@ public class ConversionOptions
     /// converting subclass projects in a different module.
     /// </summary>
     internal DefaultFactoryMethodStore DefaultFactoryMethods { get; } = new();
+
+    /// <summary>
+    /// 转换目标语言。默认 Java（向后兼容）。
+    /// 设为 TypeScript 时，管线在 Codegen 层分叉到 TypeScriptEmitter。
+    /// </summary>
+    public TargetLanguage TargetLanguage { get; set; } = TargetLanguage.Java;
+
+    /// <summary>
+    /// TypeScript 类型映射配置路径（默认 config/typescript/TypeMappings.json）。
+    /// 仅当 TargetLanguage == TypeScript 时使用。
+    /// </summary>
+    public string? TypeScriptMappingConfigPath { get; set; }
+
+    /// <summary>
+    /// TypeScript 成员调用映射配置路径（默认 config/typescript/MemberMappings.json）。
+    /// 仅当 TargetLanguage == TypeScript 时使用。
+    /// </summary>
+    public string? TypeScriptMemberMappingPath { get; set; }
 }
 
 /// <summary>
@@ -105,4 +123,13 @@ public enum JavaVersion
     Java25 = 25,
     Java27 = 27,
     Java28 = 28,
+}
+
+/// <summary>
+/// 转换目标语言枚举
+/// </summary>
+public enum TargetLanguage
+{
+    Java,
+    TypeScript,
 }
