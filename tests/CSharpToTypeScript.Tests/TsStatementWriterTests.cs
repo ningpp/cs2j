@@ -106,4 +106,116 @@ public class TsStatementWriterTests
     {
         Assert.Contains("continue;", EmitStmt(new JavaContinueStatement()));
     }
+
+    [Fact]
+    public void TryCatch_Emits_Catch_Clauses()
+    {
+        var tryBody = new JavaBlockStatement();
+        tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
+        var catchBody = new JavaBlockStatement();
+        catchBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
+        var finallyBody = new JavaBlockStatement();
+        finallyBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("c")));
+
+        var tryCatch = new JavaTryCatchStatement
+        {
+            TryBody = tryBody,
+            FinallyBody = finallyBody,
+        };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IOException",
+            VariableName = "e",
+            Body = catchBody,
+        });
+
+        var result = EmitStmt(tryCatch);
+        Assert.Contains("try", result);
+        Assert.Contains("} catch (e) {", result);
+        Assert.Contains("if (!(e instanceof IOException)) throw e;", result);
+        Assert.Contains("finally", result);
+        Assert.DoesNotContain("}\n}", result);
+    }
+
+    [Fact]
+    public void TryCatch_Bare_Catch_For_Exception_Type()
+    {
+        var tryBody = new JavaBlockStatement();
+        tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
+        var catchBody = new JavaBlockStatement();
+        catchBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
+
+        var tryCatch = new JavaTryCatchStatement { TryBody = tryBody };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "Exception",
+            VariableName = "e",
+            Body = catchBody,
+        });
+
+        var result = EmitStmt(tryCatch);
+        Assert.Contains("} catch (e) {", result);
+        Assert.DoesNotContain("instanceof", result);
+    }
+
+    [Fact]
+    public void Switch_Emits_Case_Labels_With_Colons()
+    {
+        var sw = new JavaSwitchStatement
+        {
+            Expression = new JavaIdentifierExpression("x"),
+        };
+        var section = new JavaSwitchSection();
+        section.Labels.Add("case 1:");
+        section.Labels.Add("default:");
+        section.Statements.Add(new JavaBreakStatement());
+        sw.Sections.Add(section);
+
+        var result = EmitStmt(sw);
+        Assert.Contains("switch (x) {", result);
+        Assert.Contains("case 1:", result);
+        Assert.Contains("default:", result);
+    }
+
+    [Fact]
+    public void For_Initializer_Long_Literal_Becomes_Bigint()
+    {
+        var forStmt = new JavaForStatement
+        {
+            Initializer = "long i = 100L",
+            Condition = new JavaIdentifierExpression("cond"),
+            Increment = "i++",
+            Body = new JavaBlockStatement(),
+        };
+        var result = EmitStmt(forStmt);
+        Assert.Contains("let i: bigint = 100n", result);
+    }
+
+    [Fact]
+    public void For_Initializer_Unmapped_Type_Emits_Diagnostic()
+    {
+        var forStmt = new JavaForStatement
+        {
+            Initializer = "Map<String, Integer> m = new HashMap<>()",
+            Condition = new JavaIdentifierExpression("cond"),
+            Increment = "i++",
+            Body = new JavaBlockStatement(),
+        };
+        var result = EmitStmt(forStmt);
+        Assert.Contains("cs2j: unmapped for-initializer type", result);
+    }
+
+    [Fact]
+    public void For_Initializer_Multi_Variable_Emits_Diagnostic()
+    {
+        var forStmt = new JavaForStatement
+        {
+            Initializer = "int i = 0, j = 1",
+            Condition = new JavaIdentifierExpression("cond"),
+            Increment = "i++",
+            Body = new JavaBlockStatement(),
+        };
+        var result = EmitStmt(forStmt);
+        Assert.Contains("cs2j: multi-variable", result);
+    }
 }

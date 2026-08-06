@@ -1915,23 +1915,22 @@ public sealed class TsStatementWriter
         // 实际属性名：TryBody/FinallyBody（非 TryBlock/FinallyBlock）
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder();
-        sb.AppendLine($"{ind}try ");
-        sb.AppendLine(Emit(tryCatch.TryBody, indentLevel));
+        // try 体经 EmitBlock 自闭合（以 } 结尾），catch 行直接接在其后，不再输出前导 }
+        sb.Append($"{ind}try ");
+        sb.Append(Emit(tryCatch.TryBody, indentLevel));
 
         foreach (var clause in tryCatch.CatchClauses)
         {
             // catch 按类型过滤 -> instanceof 链（TS catch 无类型参数，只能捕获单一变量）
             var exVar = string.IsNullOrEmpty(clause.VariableName) ? "e" : TsNaming.SafeIdentifier(clause.VariableName);
+            sb.AppendLine($" catch ({exVar}) {{");
             if (!string.IsNullOrEmpty(clause.ExceptionType) && clause.ExceptionType != "Exception" && clause.ExceptionType != "Throwable")
             {
-                sb.AppendLine($"{ind}}} catch ({exVar}) {{");
                 sb.AppendLine($"{ind}{_indent}if (!({exVar} instanceof {clause.ExceptionType})) throw {exVar};");
             }
-            else
-            {
-                sb.AppendLine($"{ind}}} catch ({exVar}) {{");
-            }
+            // 块体经 EmitBlock 自闭合；catch 区域以同行 } 收口，避免 "}\n}" 双右括号
             sb.Append(Emit(clause.Body, indentLevel + 1));
+            sb.Append("}");
         }
 
         if (tryCatch.FinallyBody != null)

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using CSharpToJava.Core.Java;
 
 namespace CSharpToJava.Core.TypeScript;
@@ -8,6 +9,13 @@ namespace CSharpToJava.Core.TypeScript;
 /// </summary>
 public sealed class TsStatementWriter
 {
+    private static readonly Regex LongLiteralPattern = new(@"(0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*)[lL]");
+
+    private static readonly HashSet<string> KnownSimpleTypes = new(StringComparer.Ordinal)
+    {
+        "number", "string", "boolean", "bigint", "any", "unknown", "void", "never", "object", "symbol", "undefined", "null",
+    };
+
     private readonly TsExpressionWriter _exprWriter;
     private readonly string _indent;
 
@@ -104,14 +112,67 @@ public sealed class TsStatementWriter
 
     /// <summary>
     /// "int i = 0" / "final int i = 0" -> "let i: number = 0"；不匹配则原样保留。
+    /// 无法映射的类型（泛型/数组/未知类型）与多变量初始化器输出显式诊断注释，避免静默产出非法 TS。
     /// </summary>
     private string ConvertForInitializer(string javaInit)
     {
-        var m = System.Text.RegularExpressions.Regex.Match(
-            javaInit.Trim(), @"^(?:final\s+)?(\w[\w.<>\[\], ]*?)\s+(\w+)\s*=\s*(.+)$");
+        var trimmed = javaInit.Trim();
+        var m = Regex.Match(trimmed, @"^(?:final\s+)?(\w[\w.<>\[\], ]*?)\s+(\w+)\s*=\s*(.+)$");
         if (!m.Success) return javaInit;
-        var tsType = _exprWriter.MapType(m.Groups[1].Value.Trim());
-        return $"let {TsNaming.SafeIdentifier(m.Groups[2].Value)}: {tsType} = {m.Groups[3].Value}";
+
+        var init = m.Groups[3].Value;
+
+        // 多变量（如 "int i = 0, j = 1"）无法用单个 let 表达 → 原样保留 + 显式诊断
+        if (HasTopLevelComma(init))
+        {
+            return $"{trimmed} /* cs2j: multi-variable for-initializer */";
+        }
+
+        var javaType = m.Groups[1].Value.Trim();
+        var name = m.Groups[2].Value;
+        var tsType = _exprWriter.MapType(javaType);
+
+        // 泛型/数组类型，或映射未命中（返回值 == 原类型且非已知 TS 简单类型）
+        // → 保留可读形式 + 显式诊断，避免静默产出非法 TS
+        if (javaType.IndexOfAny(new[] { '<', '>', '[', ']' }) >= 0
+            || (tsType == javaType && !KnownSimpleTypes.Contains(javaType)))
+        {
+            return $"let {TsNaming.SafeIdentifier(name)}: {javaType} = {init}; /* cs2j: unmapped for-initializer type */";
+        }
+
+        // long 字面量：100L -> 100n、0xFFL -> 0xFFn、1_000L -> 1_000n
+        init = LongLiteralPattern.Replace(init, "$1n");
+        return $"let {TsNaming.SafeIdentifier(name)}: {tsType} = {init}";
+    }
+
+    /// <summary>
+    /// 判断初始化器字符串中是否存在括号/尖括号外层的顶层逗号（多变量声明特征）。
+    /// </summary>
+    private static bool HasTopLevelComma(string s)
+    {
+        var depth = 0;
+        foreach (var c in s)
+        {
+            switch (c)
+            {
+                case '(':
+                case '[':
+                case '{':
+                case '<':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                case '>':
+                    depth--;
+                    break;
+                case ',':
+                    if (depth == 0) return true;
+                    break;
+            }
+        }
+        return false;
     }
 
     private string EmitWhile(JavaWhileStatement whileStmt, int indentLevel)
@@ -138,23 +199,22 @@ public sealed class TsStatementWriter
         // 实际属性名：TryBody/FinallyBody（非 TryBlock/FinallyBlock）
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder();
-        sb.AppendLine($"{ind}try ");
-        sb.AppendLine(Emit(tryCatch.TryBody, indentLevel));
+        // try 体经 EmitBlock 自闭合（以 } 结尾），catch 行直接接在其后，不再输出前导 }
+        sb.Append($"{ind}try ");
+        sb.Append(Emit(tryCatch.TryBody, indentLevel));
 
         foreach (var clause in tryCatch.CatchClauses)
         {
             // catch 按类型过滤 -> instanceof 链（TS catch 无类型参数，只能捕获单一变量）
             var exVar = string.IsNullOrEmpty(clause.VariableName) ? "e" : TsNaming.SafeIdentifier(clause.VariableName);
+            sb.AppendLine($" catch ({exVar}) {{");
             if (!string.IsNullOrEmpty(clause.ExceptionType) && clause.ExceptionType != "Exception" && clause.ExceptionType != "Throwable")
             {
-                sb.AppendLine($"{ind}}} catch ({exVar}) {{");
                 sb.AppendLine($"{ind}{_indent}if (!({exVar} instanceof {clause.ExceptionType})) throw {exVar};");
             }
-            else
-            {
-                sb.AppendLine($"{ind}}} catch ({exVar}) {{");
-            }
+            // 块体经 EmitBlock 自闭合；catch 区域以同行 } 收口，避免 "}\n}" 双右括号
             sb.Append(Emit(clause.Body, indentLevel + 1));
+            sb.Append("}");
         }
 
         if (tryCatch.FinallyBody != null)
