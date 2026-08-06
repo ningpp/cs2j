@@ -2,6 +2,7 @@
 
 **日期**: 2026-08-06
 **状态**: 已完成全部 6 部分，待用户整体验收
+**修订**: 2026-08-06 评审修订——修正 TS 接口可实现、int? 映射、default(string)、索引器命名、局部函数、static 块、catch 接口、tick 定义、配置格式对齐等错误；补充字段默认零值、bigint 除法、useDefineForClassFields、typeof(具体类型)、重载消歧的语义模型依赖等遗漏（详见各节**加粗**修订注记）
 **范围**: 在现有 CSharpToJavaConverter 基础上新增 TypeScript 目标后端，支持将 C# 项目转换为可编译、可运行的完整 TypeScript 工程（npm workspace）。
 
 ---
@@ -58,7 +59,7 @@
 | `bool` | `boolean` | 直接对应 |
 | `string` | `string` | 都不可变。差异：① C# `==` 是值比较，TS 对字符串 `===` 也是值比较（一致）；② `string.Format`、`Split` 重载、`PadLeft` 等需兼容库 `CsString`；③ C# `null` 字符串与空串语义需保留 |
 | `object` | `any`（默认） | 保持可编译性优先；`Equals`/`GetHashCode` 走兼容库 `CsObject` |
-| 可空值类型 `int?` | `number \| undefined` | 原生表达；`.HasValue`/`.Value` → 兼容辅助或内联展开 |
+| 可空值类型 `int?` | `number \| null` | 原生表达；统一用 `null`（不用 `undefined`，见 §1.4.7）；`.HasValue`/`.Value` → 兼容辅助或内联展开 |
 | `DateTime/TimeSpan/Guid` | 无原生等价 | 兼容库类（JS `Date` 语义与 `DateTime` 差异过大，不直接使用） |
 
 #### 1.4.3 面向对象构造差异【A/S 级】
@@ -66,16 +67,16 @@
 | C# 特性 | TypeScript 现状 | 影响等级 | 处理策略 |
 |---|---|---|---|
 | 类/单继承/接口 | 同构（`class/extends/implements`） | B | 机械翻译 |
-| **方法重载** | TS 仅有编译期重载签名 + **单一运行时实现**；JS 无真重载 | **S** | C# 多实现重载无法 1:1 表达。策略：按参数数量/类型**名称改写**（如 `Parse(string)`→`Parse$1`、`Parse(string, int)`→`Parse$2`）并生成统一分发入口，或按签名差异直接改名；调用点由转换器同步改写（转换器掌握全部调用点，可行） |
+| **方法重载** | TS 仅有编译期重载签名 + **单一运行时实现**；JS 无真重载 | **S** | C# 多实现重载无法 1:1 表达。策略：保留首个重载原名，其余按参数类型追加**类型后缀改写**（如 `Parse(string, int)`→`Parse_string_number`，规则详见 §2.6.1）；调用点由转换器同步改写（转换器掌握全部调用点，可行） |
 | **命名参数** | JS/TS 无命名实参 | A | 发射期将命名实参**重排为位置实参**（转换器掌握形参顺序，纯语法重排） |
 | 默认参数 | 支持（`= value`） | B | 直接翻译；注意 C# 默认值必须是编译期常量，TS 同理 |
 | `params T[]` | rest 参数 `...args: T[]` | B | 直接翻译 |
 | 属性 `get/set` | 原生 getter/setter | B | 直接翻译；C# 属性访问在两端都是方法调用语义，一致 |
-| 索引器 | 无 | A | `get_Item`/`set_Item` 方法（与 Java 目标一致） |
+| 索引器 | 无 | A | `get_Item`/`set_Item` 方法（TS 专属命名；注意 Java 目标的 IndexerTransformer 实际生成 `get`/`set`/`put` 方法名，TS 发射期需二次改名，`get`/`set` 易与 TS 访问器语法混淆） |
 | 运算符重载 | 无 | A | 静态方法 `op_Add` 等；调用点 `a + b`（运算符被重载时）改写为 `A.op_Add(a, b)` |
 | 事件 | 无对应物 | A | 兼容库 `CsEvent<T>`（add/remove/invoke） |
 | 委托 | 无对应物，函数即一等公民 | B | **函数类型**直接表达（TS 优势点） |
-| 静态构造器 | 无 `static { }` 之外的静态构造器 | A | C# 静态构造器 → 静态字段初始化器合并，或兼容库延迟初始化辅助（静态构造器时序语义记入已知限制） |
+| 静态构造器 | JS 有静态初始化块 `static { }`（ES2022） | A | C# 静态构造器 → `static { }` 直译；但触发时序不同（C# 首次访问前按需触发且 beforefieldinit 语义，JS 类求值时立即执行），时序差异记入已知限制 |
 | 嵌套类型 | 类内可定义类（TS 支持但少见） | B | 直接翻译；访问修饰语义差异（C# 嵌套 private vs TS）记入限制 |
 | 密封类 `sealed` | 无 | B | 仅注释标记 `/* sealed */` |
 | 抽象类/成员 | 支持（`abstract`） | B | 直接翻译 |
@@ -90,14 +91,14 @@
 | C# 特性 | TypeScript 现状 | 处理策略 |
 |---|---|---|
 | `if/while/do/for/foreach` | 同构 | `foreach` → `for...of`（集合需可迭代：数组原生、兼容集合类实现 `Iterable`） |
-| `switch` 语句/表达式 | `switch` 语句同构；switch 表达式无 | switch 表达式降级为 if 链或立即调用辅助 |
+| `switch` 语句/表达式 | `switch` 语句同构；switch 表达式无 | switch 表达式降级为 if 链或立即调用辅助；带 `when` 守卫/模式的 case 降级为 if 链（两端普通 case 标签都要求常量，同构） |
 | 模式匹配（`is` 类型模式、属性模式、`switch` 模式） | 无 | 类型模式→`instanceof` + 类型守卫变量；复杂模式降级为 if 链（复用 Java 目标 lowering 思路） |
 | `try/catch/finally` | 同构 | 差异：C# catch 可按异常类型过滤（`when`）→ TS 在 catch 体内 `instanceof` 判断 + 重新抛出 |
 | 异常层次 | 丰富层次（`ArgumentException` 等） | 兼容库提供 C# 异常类层次（继承 `Error`）；`throw` 语义一致 |
 | `yield return` | generator `function*` | **原生翻译**（TS 优势点）；`IEnumerable<T>` → `IterableIterator<T>` |
 | `goto` | 有 label 但语义受限 | 复用 GotoEliminator 预处理（目标无关） |
 | `using` 语句 | 有 `using`（ES2025 显式资源管理）但语义要求 `Symbol.dispose` | 保守策略：`try/finally` + `dispose()` 约定（与 Java 目标一致） |
-| 局部函数 | 无（闭包近似） | 转局部箭头函数；注意捕获语义与递归 |
+| 局部函数 | JS 原生支持嵌套函数声明 | 直译为局部函数声明（递归自引用天然可用）；仅在需要 this 绑定的场景退化为箭头函数 |
 | `checked/unchecked` | 无 | 忽略并诊断 |
 
 #### 1.4.5 异步与并发【A 级】
@@ -107,6 +108,7 @@
 | `Task/Task<T>`、`async/await` | `Promise<T>`、原生 `async/await` | **原生翻译**（TS 优势点）；语义差异：C# Task 可冷启动/多次 await 语义、`Task.Run` 无对应（单线程模型）→ `Task.Run` 诊断或降级同步调用；`Task.WhenAll`→`Promise.all` |
 | `ValueTask` | `Promise<T>` | 同上 |
 | `lock`/`Monitor` | 无（单线程） | 移除并诊断（单线程模型下无意义） |
+| `ConfigureAwait(false)` | 无对应（JS 无 SynchronizationContext） | 移除调用（与 Java 目标处理思路一致，见现有 ConfigureAwaitConversionTests） |
 | `Thread`/`Interlocked` | 无直接对应 | 不支持，诊断 |
 
 #### 1.4.6 集合与 LINQ【A 级】
@@ -130,12 +132,18 @@
 | **整数字面量** | `0xFF`、`1_000` | TS 同支持（十六进制、数字分隔符），直接翻译 |
 | **枚举** | TS `enum` 数值语义接近；`[Flags]` 无对应 | 普通 enum 直接翻译；flags enum → 数值常量对象 + 位运算辅助 |
 | **命名空间** | TS 的 `namespace` 已不推荐，模块化用 ESM | 命名空间 → 目录结构 + ESM import/export（第 3 部分详述） |
+| **null 条件/合并赋值** | `?.`、`??`、`??=` 全部原生支持 | 直译（TS 优势点） |
+| **元组 `(int, string)`** | TS 元组类型 `[number, string]` | 直译；`ValueTuple` 具名元素降级为位置访问 + 注释 |
+| **多维数组 `int[,]`** | 无原生 | 锯齿数组 `int[][]` → `number[][]` 直译；矩形数组 → 兼容库 `CsRectArray<T>` 或扁平化辅助 + 诊断 |
+| **`dynamic`** | `any` | 直译为 `any` + 诊断 |
+| **`nameof`** | 无 | 发射期求值为字符串字面量（转换器掌握符号名） |
+| **record `with` 表达式** | 无 | `CsRecord` 基类提供 `with(overrides)` 克隆方法；复杂场景诊断 |
 
 #### 1.4.8 差异分析结论
 
 1. **可直接机械翻译的（B 级）**：类/接口/继承/属性/委托（函数类型）/async/foreach/基本控制流——构成 M1-M2 的主体，转换风险低。
 2. **需要发射期映射/轻量改写的（A 级）**：数值语义（整数除法、窄化掩码）、命名参数重排、索引器、运算符、集合成员——复用 Java 目标已验证的策略 + TS 特化的映射表。
-3. **需要专门设计的（S 级）**：方法重载的名称改写与调用点同步、泛型擦除（`typeof(T)`/`new T()`/`default(T)`）、接口运行时检查（`is IInterface`）、相等语义、值类型语义——这四项是本设计的核心难点，第 3 部分逐一给出方案。
+3. **需要专门设计的（S 级）**：方法重载的名称改写与调用点同步、泛型擦除（`typeof(T)`/`new T()`/`default(T)`）、接口运行时检查（`is IInterface`）、相等语义、值类型语义——这五项是本设计的核心难点，第 3 部分逐一给出方案。
 4. **明确不支持的**：`unsafe`/指针、`ref return`、线程原语、真反射——统一走"诊断 + 降级桩"策略，保证转换始终产出可编译、可诊断的产物。
 
 ---
@@ -212,7 +220,7 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 
 | Pass | TS 目标处置 | 说明 |
 |---|---|---|
-| `linqPass`（LinqDesugar） | **M1-M3 复用；M4 分叉** | 初期接受去糖中间形态再发射；M4 引入 TS 策略（数组方法链） |
+| `linqPass`（`ProjectLinqDesugarPass`） | **M1-M3 复用；M4 分叉** | 初期接受去糖中间形态再发射；M4 引入 TS 策略（数组方法链） |
 | `ProjectCompilationCheckPass` | 复用 | 目标无关 |
 | `ProjectUnsupportedDomainCheckPass` | 复用 | 领域检查目标无关 |
 | `ProjectPlatformBoundaryCheckPass` | 复用 | |
@@ -237,7 +245,7 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 |---|---|---|
 | `JavaCompilationUnit` | 单个 `.ts` 文件 | 头部生成 ESM imports（§3.3）；`Package` → 目录路径 |
 | `JavaClassDeclaration` | `export class X` | `abstract` 直译；`sealed` → 注释标记；基类 `extends`、接口 `implements`；接口基类同时生成运行时探针注册（§2.6.3） |
-| `JavaInterfaceDeclaration` | `export interface X` | 默认接口成员 → TS 接口方法带实现（TS 支持）；同时生成伴随探针函数 `is$IXxx(v)`（§2.6.3） |
+| `JavaInterfaceDeclaration` | `export interface X` | **TS 接口不能包含实现**，默认接口成员（DIM）需降级：① 默认实现拷贝到每个实现类（首选，忠实但重复）；② 简单场景发射伴随命名空间辅助函数；无法判定时诊断。同时生成伴随探针函数 `is$IXxx(v)`（§2.6.3） |
 | `JavaEnumDeclaration` | `export enum X` | `[Flags]` → `const` 对象 + 位运算辅助（§3.2） |
 | `JavaRecordComponent` | 构造器参数 + 字段 | 走 `CsRecord` 基类路径（§4） |
 | `JavaTypeParameter` | `<T extends X>` | 约束映射；`new()` 约束触发诊断 + 工厂参数降级 |
@@ -247,10 +255,10 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 
 | IR 节点 | TS 输出 | 细节 |
 |---|---|---|
-| `JavaFieldDeclaration` | `public/protected/private x: T = init` | 可见性修饰符直译；`readonly`/`const` 映射；`static` 直译 |
+| `JavaFieldDeclaration` | `public/protected/private x: T = init` | 可见性修饰符直译；`readonly`/`const` 映射；`static` 直译。**无显式初始化器的字段必须按 C# 默认零值补初始化表达式**（`= 0`/`= false`/`= null`/`= 0n` 等）——C# 字段有默认零值语义，且 tsc `strictPropertyInitialization` 下未初始化字段直接报错 |
 | `JavaMethodDeclaration` | `m(p: T): R { }` | 重载名改写已在 rewriter 完成（§2.6.1）；`params` → rest；默认参数直译 |
 | `JavaConstructorDeclaration` | `constructor()` | 基类构造调用 `super()` 一致 |
-| `JavaStaticInitializerBlock` | 静态字段初始化序列 | C# 静态构造器语义（§1.4.3）：合并入静态字段声明顺序，复杂场景诊断 |
+| `JavaStaticInitializerBlock` | `static { ... }` 块 | JS 静态初始化块直译（ES2022，tsconfig target 需 ≥ ES2022）；触发时序差异记入已知限制（§1.4.3） |
 | `JavaParameter` | `p: T` / `...p: T[]` / 可选 `p?: T` | `out/ref` 参数 → `Ref<T>` 包装类型 |
 
 **语句**
@@ -262,7 +270,7 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 | `JavaForEachStatement` | `for (const x of c)` | 集合必须可迭代；兼容集合类实现 `Iterable` |
 | `JavaForStatement`/`While`/`DoWhile` | 直译 | do-while 同构 |
 | `JavaIfStatement` | 直译 | |
-| `JavaSwitchStatement`/`JavaSwitchSection` | `switch/case` + 显式 `break` | fallthrough 语义两端一致；case 值表达式受 TS 限制（需常量），非恒定 case 降级为 if 链 |
+| `JavaSwitchStatement`/`JavaSwitchSection` | `switch/case` + 显式 `break` | fallthrough 语义两端一致；带 `when` 守卫/模式的 case 在上游 lowering 或本层降级为 if 链 |
 | `JavaTryCatchStatement`/`JavaCatchClause` | `try/catch/finally` | catch 按类型过滤 → `catch (e) { if (e instanceof X) {...} else throw e; }` |
 | `JavaThrowStatement`/`Return`/`Break`/`Continue` | 直译 | |
 | `JavaRawStatement` | 原样输出 | 兼容已有 lowering 产出的原生片段 |
@@ -272,7 +280,7 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 | IR 节点 | TS 输出 | 细节 |
 |---|---|---|
 | `JavaLiteralExpression` | 直译 + 特化 | `long` 字面量 `L`→`n`；`char` → 单字符字符串；字符串转义差异处理（`\u` 一致；逐字字符串 `@""` 在上游已展开） |
-| `JavaBinaryExpression` | 直译 + 语义补偿 | **整数除法**：两操作数均为整型时 `/` → `Math.trunc(a / b)`；`%` 语义差异（C# 结果符号随被除数，JS 同——一致）；字符串 `+` 拼接一致；相等比较按 §2.6.4 处理 |
+| `JavaBinaryExpression` | 直译 + 语义补偿 | **整数除法**：两操作数均为 number 整型时 `/` → `Math.trunc(a / b)`；**bigint 除法在 JS 中天然截断，无需且不可包 `Math.trunc`（`Math.*` 不接受 bigint，运行时会抛 TypeError）**；`%` 语义差异（C# 结果符号随被除数，JS 同——一致）；字符串 `+` 拼接一致；相等比较按 §2.6.4 处理 |
 | `JavaUnaryExpression` | 直译 | |
 | `JavaConditionalExpression` | `c ? a : b` | 直译 |
 | `JavaCastExpression` | `e as T` / `Number(e)` 等 | 引用类型 → `as`（配合运行时诊断可选）；数值窄化 → 掩码/截断辅助（沿用 Java 目标策略）；`is`-as-null 模式由上游 lowering 处理 |
@@ -295,8 +303,8 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 **方案**：项目级 rewriter，在发射前完成：
 1. **检测**：同一类型内按名称分组方法；单一实现无需处理。
 2. **改写规则**：保留第一个重载原名（按参数数量升序稳定排序），其余追加类型缩写后缀：`Parse(s: string)` 保留 `Parse`，`Parse(s: string, style: number)` → `Parse_string_number`。后缀由参数类型的 TS 映射名生成，保证唯一且可读。
-3. **调用点同步**：rewriter 遍历全部 `JavaMethodCallExpression`，按实参数量与静态类型选择目标重载名并改写。转换器掌握全部调用点（单项目内），跨项目调用在 M5 通过 workspace 依赖项目的全量转换保证一致。
-4. **构造器重载**：C# 允许多构造器，TS 仅一个 `constructor`。方案：主构造器保留，其余转静态工厂 `Create$N(...)`，`new` 调用点同步改写。
+3. **调用点同步**：rewriter 遍历全部 `JavaMethodCallExpression`，按实参数量与静态类型选择目标重载名并改写。**注意：IR（JavaSyntaxNode 树）本身不携带类型信息**，按静态类型消歧需要 Roslyn 语义模型——由 `ProjectTypeEmitPass` 在装配 rewriter 时注入 `Compilation`/`SemanticModel` 查询能力（rewriter 持有语义回调，而非仅做语法遍历）。转换器掌握全部调用点（单项目内），跨项目调用在 M5 通过 workspace 依赖项目的全量转换保证一致。
+4. **构造器重载**：C# 允许多构造器，TS 仅一个 `constructor`。方案：主构造器保留，其余转静态工厂 `Create$N(...)`（`N` 按参数列表序号编号，与方法重载的类型后缀规则刻意区分——构造器无名称，类型后缀易产生超长难读名），`new` 调用点同步改写。
 5. **诊断**：无法静态判定目标重载的调用（如经 `object` 传递的委托调用）→ 诊断 + 保留首个重载并警告。
 
 #### 2.6.2 泛型擦除应对（TsGenericErasureRewriter）
@@ -307,9 +315,10 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 
 | C# 构造 | TS 降级方案 |
 |---|---|
-| `default(T)` | 已知具体类型 → 类型特定默认值（`0/""/false/null`）；泛型上下文 → 兼容库 `csDefault<T>(typeInfo?)` + 诊断（返回 `undefined as unknown as T`，行为差异记入限制） |
+| `default(T)` | 已知具体类型 → 类型特定默认值：数值 `0`/`0n`、布尔 `false`、**引用类型（含 string，C# `default(string)` 为 `null` 而非 `""`）与可空类型一律 `null`**；泛型上下文 → 兼容库 `csDefault<T>(typeInfo?)` + 诊断（返回 `null as T`，与 §1.4.7 统一 null 约定一致，行为差异记入限制） |
 | `new T()` | **工厂参数注入**：为含 `new T()` 的泛型方法/类追加可选工厂参数 `factory?: () => T`；调用点若可静态解析具体类型则直接传入 `() => new X()`；无法解析 → 诊断 |
-| `typeof(T)` | 降级为兼容库 `TypeToken<T>` 显式传递模式；无法解析 → 诊断 + `any` 桩 |
+| `typeof(T)`（T 为类型参数） | 降级为兼容库 `TypeToken<T>` 显式传递模式；无法解析 → 诊断 + `any` 桩 |
+| `typeof(SomeClass)`（具体类型） | class 在 TS 中是运行时值，直译为类引用 `SomeClass`；`typeof(X).Name` → `X.name`；接口类型参数 → 诊断（运行时不存在） |
 | `is T`（T 为类型参数） | 同上，依赖 `TypeToken`；否则诊断 |
 | `where T : new()` | 移除约束 + 上述工厂参数机制联动 |
 | `where T : struct/class` | 移除约束 + 注释说明 |
@@ -320,8 +329,8 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 
 **方案：结构化探针（structural probe）**：
 1. 每个接口 `IFoo` 生成伴随探针函数：`export function is$IFoo(v: unknown): boolean`，实现为**必需方法成员存在性检查**（`typeof (v as IFoo).method === "function"`）。方法集合取自接口声明（含继承链合并）。
-2. `x is IFoo` → `is$IFoo(x)`；`x as IFoo` → `(is$IFoo(x) ? x as IFoo : null)`；`catch (IFoo e)` 同构处理。
-3. 类声明发射时同时生成可选的**标记载入**（`CsRuntime.markImplements(obj, "IFoo")`）作为探针的快路径：探针先查标记，未命中再走结构检查。这解决了"鸭子类型误判"问题（结构巧合的类型不会误匹配已标记对象；未标记对象回退结构检查）。
+2. `x is IFoo` → `is$IFoo(x)`；`x as IFoo` → `(is$IFoo(x) ? x as IFoo : null)`。（注：C# 的 catch 类型必须派生自 `System.Exception`，不存在"捕获接口类型"的场景，无需处理。）
+3. 实现类的**构造器中注入标记载入**（`CsRuntime.markImplements(this, "IFoo")`——标记是实例级的，不能挂在类声明上）作为探针的快路径：探针先查标记，未命中再走结构检查。这解决了"鸭子类型误判"问题（结构巧合的类型不会误匹配已标记对象；未标记对象回退结构检查）。
 4. **纯属性接口**（无可调用成员）：结构探针无法区分 → 仅依赖标记，未标记场景发诊断。
 5. 探针是保守近似：C# 显式接口实现（`void IFoo.M()`）转普通成员后探针行为可能偏宽，记入已知限制。
 
@@ -342,8 +351,8 @@ tests/CSharpToTypeScript.Tests/         # 转换单元测试
 public interface ITargetEmitter
 {
     string Emit(JavaCompilationUnit unit, ConversionContext context);
-    string FileExtension { get; }            // ".java" / ".ts"
-    string EmitProjectPlan(...);             // Maven / npm
+    string FileExtension { get; }                          // ".java" / ".ts"
+    IProjectPlan CreateProjectPlan(...);                   // JavaModulePlan / NpmProjectPlan（多文件输出，返回计划对象而非字符串）
 }
 ```
 
@@ -357,7 +366,7 @@ public interface ITargetEmitter
 
 #### 3.1.1 配置格式
 
-与现有 `config/TypeMappings.json` 结构对齐，拆分为两个文件（降低单文件体积）：
+现有 `config/TypeMappings.json` 的实际结构为三个键：`typeMappings`（字段 `csharp`/`java`/`imports`/`converter`）、`methodMappings`（字段 `type`/`method`/`javaMethod`/`signature`）、`namespaceMappings`（见 `TypeMappingRegistry.cs` 的反序列化模型）。TS 配置**沿用同一套字段命名惯例**（`type`/`method`/`tsMethod`/`signature`），仅把目标键换成 `typescript`，拆分为两个文件（降低单文件体积）：
 
 **`config/typescript/TypeMappings.json`**（类型映射）：
 
@@ -375,18 +384,20 @@ public interface ITargetEmitter
 }
 ```
 
-**`config/typescript/MemberMappings.json`**（成员调用映射）：
+**`config/typescript/MemberMappings.json`**（成员调用映射，字段命名对齐现有 `methodMappings`）：
 
 ```json
 {
-  "memberMappings": [
-    { "owner": "System.String", "csharp": "Length", "typescript": "length", "kind": "property" },
-    { "owner": "System.String", "csharp": "ToUpper", "typescript": "toUpperCase", "kind": "method" },
-    { "owner": "System.String", "csharp": "Format", "typescript": "CsString.format", "kind": "static", "imports": ["@csharptotypescript/compat"] },
-    { "owner": "System.Collections.Generic.List`1", "csharp": "Add", "typescript": "push", "kind": "method" }
+  "methodMappings": [
+    { "type": "System.String", "method": "ToUpper", "tsMethod": "toUpperCase", "signature": "" },
+    { "type": "System.String", "method": "Format", "tsMethod": "CsString.format", "signature": "static",
+      "imports": ["@csharptotypescript/compat"] },
+    { "type": "System.Collections.Generic.List`1", "method": "Add", "tsMethod": "push", "signature": "" }
   ]
 }
 ```
+
+（属性类成员如 `Length`→`length`、`Count`→`length` 由 `TsMemberMappingTable` 内置表覆盖，不占用配置；配置主要承载方法级映射与 compat 静态调用。）
 
 #### 3.1.2 解析顺序（发射期）
 
@@ -583,6 +594,8 @@ export abstract class CsRecord {
     Equals(other: unknown): boolean;       // 逐字段值相等（子类发射字段列表）
     GetHashCode(): number;
     ToString(): string;
+    // record `with` 表达式（§1.4.7）：发射器生成子类覆盖实现，拷贝全部字段后应用 overrides
+    // protected abstract WithOverrides(overrides: Record<string, unknown>): this;
 }
 ```
 
@@ -601,7 +614,7 @@ export class CsRuntime {
 
 #### 4.3.4 `CsDateTime` / `CsTimeSpan`
 
-- 内部以 ticks（微秒精度整数，bigint）存储，不依赖 JS `Date`（避免时区/精度陷阱）。
+- 内部以 ticks（C# tick = 100 纳秒，bigint 存储）表示，不依赖 JS `Date`（避免时区/精度陷阱）。
 - 核心 API：`Now`、`UtcNow`、`Year/Month/Day/Hour/...`、`Add/AddDays/...`、`Subtract`（返回 `CsTimeSpan`）、`CompareTo`、`ToString(format?)`、运算符降级方法 `op_Addition/op_Subtraction`。
 - 与 C# 行为对齐项：`DateTime.MinValue/MaxValue`、闰年规则、`DayOfWeek` 枚举。
 - 时区：第一里程碑按 **UTC 语义**处理（`DateTimeKind` 简化），本地时区换算记入限制。
@@ -710,7 +723,7 @@ public abstract class TsConversionTestBase
 
 | 测试类 | 核心用例示例 |
 |---|---|
-| `TsBasicClassEmissionTests` | 空类 → `export class X {}`；字段/方法/构造器；修饰符（public/private/static/abstract） |
+| `TsBasicClassEmissionTests` | 空类 → `export class X {}`；字段/方法/构造器；修饰符（public/private/static/abstract）；**无初始化器字段补默认零值**（`= 0`/`= false`/`= null`） |
 | `TsPrimitiveTypeMappingTests` | `int`→`number`；`long`→`bigint`（含字面量 `100L`→`100n`）；`char`→单字符 string；`int?`→`number \| null` |
 | `TsLiteralEmissionTests` | 字符串转义；`null`；布尔；十六进制/数字分隔符直译 |
 | `TsControlFlowEmissionTests` | if/while/for/do-while/switch；foreach→`for...of`；`var`→`let` |
@@ -721,7 +734,7 @@ public abstract class TsConversionTestBase
 | 测试类 | 核心用例示例 |
 |---|---|
 | `TsGenericEmissionTests` | 泛型类/方法；`where T : X`→`extends X`；多约束 |
-| `TsInterfaceEmissionTests` | 接口声明；implements；默认接口方法；**伴随探针函数生成验证** |
+| `TsInterfaceEmissionTests` | 接口声明；implements；默认接口成员降级（拷贝到实现类/伴随辅助函数）；**伴随探针函数生成验证** |
 | `TsPropertyEmissionTests` | 自动属性；只读属性→getter；`private set` |
 | `TsEnumEmissionTests` | 普通 enum；显式值；`[Flags]`→const 对象形态 |
 | `TsExceptionEmissionTests` | try/catch/finally；按类型 catch→instanceof 链；throw 兼容库异常 |
@@ -797,7 +810,9 @@ public abstract class TsConversionTestBase
 ```
 output/
 ├── package.json          # workspaces 根（"workspaces": ["modules/*"]）
-├── tsconfig.base.json    # strict: true, target ES2022, module NodeNext, declaration
+├── tsconfig.base.json    # strict: true, target ES2022, module NodeNext, declaration,
+                          # useDefineForClassFields: false（关键：默认 true 时派生类字段声明
+                          # 会以 define 语义覆写基类构造器赋值的属性，破坏 C# 初始化语义）
 ├── modules/<project>/
 │   ├── package.json      # 依赖 @csharptotypescript/compat + 项目引用
 │   ├── tsconfig.json     # extends base
@@ -812,11 +827,11 @@ output/
 
 - `convert` / `convert-project` 新增 `--target java|typescript`（默认 `java`，完全向后兼容）；单文件模式 `-o` 默认后缀随目标变为 `.ts`。
 - `ConversionOptions` 新增字段：`TargetLanguage`（枚举）、TS 映射配置路径默认指向 `config/typescript/`。
-- TS 目标转换完成后自动验证链（对标 Java 的 mvn 强制验证约束）：
+- TS 目标转换完成后自动验证链（现有 CLI 无构建后自动验证先例，`--no-verify-build` 目前仅用于 make-readonly 的 `dotnet build` 验证；本链为 TS 目标新增能力，命名沿用该风格）：
   1. `npm install`（workspace 根）
-  2. `npx tsc --noEmit -p <每个模块>`（可用 `--no-verify-build` 关闭，与现有选项命名风格对齐）
-  3. 测试包：`npx vitest run`（可用 `--no-verify-tests` 关闭）
-- 验证失败即中止并输出诊断（沿用现有双端构建验证强制约束的思路）。
+  2. `npx tsc --noEmit -p <每个模块>`（可用 `--no-verify-build` 关闭）
+  3. 测试包：`npx vitest run`（新增 `--no-verify-tests` 关闭）
+- 验证失败即中止并输出诊断。
 - 不修改 C# 源码的约束不变；所有修复通过改进转换器实现。
 
 ### 6.3 交付里程碑（含验收绑定）
@@ -856,6 +871,10 @@ output/
 8. **显式接口实现**：探针可能偏宽。
 9. **循环模块引用**：不做环检测，问题暴露于运行时。
 10. **Task 冷启动/`Task.Run`**：单线程模型下无对应，降级为同步或诊断。
+11. **事件封装降级**：C# event 外部仅可 `+=`/`-=`，转换为 `CsEvent` 公共字段后外部也可 `Invoke`，封装性丢失。
+12. **默认接口成员**：默认实现拷贝到各实现类，后续修改源接口默认实现需重新转换所有实现类。
+13. **矩形多维数组**：`int[,]` 走兼容库 `CsRectArray` 或诊断，API 形态与 C# 索引语法不一致。
+14. **类字段 define 语义**：已通过 `useDefineForClassFields: false` 规避（§6.1）；若下游工程自行覆盖该选项，派生类字段可能覆写基类构造器赋值。
 
 ### 6.6 演进路线（本设计不实现）
 
