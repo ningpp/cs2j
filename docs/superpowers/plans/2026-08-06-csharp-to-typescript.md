@@ -4094,7 +4094,7 @@ git commit -m "test(ts): add M1 control flow, literal, and primitive type mappin
 >      未覆盖形态维持 Task 11 现状直通）。
 >    - char 字面量归一化放在 raw 归一化流水最后（println → for 头 → char）：for 头 paren
 >      匹配与 println 实参跳过逻辑先按单引号区域处理，char 转换不与前两阶段相互干扰。
-> ⑥ 提交：见最终报告（Task 13 提交 hash）。
+> ⑥ 提交：7e496da7（message 追加说明见注记 ①-⑤，含发射器修复与断言修订）。
 
 ---
 
