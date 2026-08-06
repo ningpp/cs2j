@@ -1,0 +1,28 @@
+{
+    "methodMappings": [
+        { "type": "System.String", "method": "ToUpper", "tsMethod": "toUpperCase", "signature": "" },
+        { "type": "System.String", "method": "ToLower", "tsMethod": "toLowerCase", "signature": "" },
+        { "type": "System.String", "method": "Length", "tsMethod": "length", "signature": "property" },
+        { "type": "System.String", "method": "Split", "tsMethod": "CsString.split", "signature": "static", "imports": ["@csharptotypescript/compat"] },
+        { "type": "System.String", "method": "Format", "tsMethod": "CsString.format", "signature": "static", "imports": ["@csharptotypescript/compat"] },
+        { "type": "System.String", "method": "IsNullOrEmpty", "tsMethod": "CsString.isNullOrEmpty", "signature": "static", "imports": ["@csharptotypescript/compat"] },
+        { "type": "System.String", "method": "IsNullOrWhiteSpace", "tsMethod": "CsString.isNullOrWhiteSpace", "signature": "static", "imports": ["@csharptotypescript/compat"] },
+        { "type": "System.String", "method": "PadLeft", "tsMethod": "CsString.padLeft", "signature": "static", "imports": ["@csharptotypescript/compat"] },
+        { "type": "System.String", "method": "PadRight", "tsMethod": "CsString.padRight", "signature": "static", "imports": ["@csharptotypescript/compat"] },
+        { "type": "System.String", "method": "Join", "tsMethod": "CsString.join", "signature": "static", "imports": ["@csharptotypescript/compat"] },
+        { "type": "System.Collections.Generic.List`1", "method": "Add", "tsMethod": "push", "signature": "" },
+        { "type": "System.Collections.Generic.List`1", "method": "Count", "tsMethod": "length", "signature": "property" },
+        { "type": "System.Console", "method": "WriteLine", "tsMethod": "console.log", "signature": "static" },
+        { "type": "System.Console", "method": "Write", "tsMethod": "process.stdout.write", "signature": "static" },
+        { "type": "System.Math", "method": "Sqrt", "tsMethod": "Math.sqrt", "signature": "static" },
+        { "type": "System.Math", "method": "Abs", "tsMethod": "Math.abs", "signature": "static" },
+        { "type": "System.Math", "method": "Max", "tsMethod": "Math.max", "signature": "static" },
+        { "type": "System.Math", "method": "Min", "tsMethod": "Math.min", "signature": "static" },
+        { "type": "System.Math", "method": "Floor", "tsMethod": "Math.floor", "signature": "static" },
+        { "type": "System.Math", "method": "Ceiling", "tsMethod": "Math.ceil", "signature": "static" },
+        { "type": "System.Math", "method": "Round", "tsMethod": "Math.round", "signature": "static" },
+        { "type": "System.Convert", "method": "ToInt32", "tsMethod": "Math.trunc", "signature": "static" },
+        { "type": "System.Convert", "method": "ToInt64", "tsMethod": "BigInt", "signature": "static" },
+        { "type": "System.Convert", "method": "ToString", "tsMethod": "String", "signature": "static" }
+    ]
+}
