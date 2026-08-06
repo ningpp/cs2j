@@ -20,12 +20,22 @@ public sealed class TypeScriptEmitter
         _accessorRoles = accessorRoles;
     }
 
-    public string Emit(JavaCompilationUnit unit, ConversionContext context)
+    public string Emit(JavaCompilationUnit unit, ConversionContext context, IReadOnlySet<string>? compatSymbols = null)
     {
         var mappingPath = context.Options.TypeScriptMappingConfigPath;
         var memberPath = context.Options.TypeScriptMemberMappingPath;
         var mappings = new TsMemberMappingTable(mappingPath, memberPath);
         var imports = new TsImportCollector(unit.Package);
+
+        // Task 18：rewriter 改写出的 compat 符号（CsString 等）在此登记导入
+        //（rewriter 先于发射器运行且无共享实例，符号经 RunTsRewriters → pass 传入）
+        if (compatSymbols != null)
+        {
+            foreach (var symbol in compatSymbols)
+            {
+                imports.AddNamedImport(symbol, "@csharptotypescript/compat");
+            }
+        }
 
         var sb = new StringBuilder();
 

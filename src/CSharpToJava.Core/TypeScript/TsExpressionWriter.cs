@@ -91,6 +91,15 @@ public sealed class TsExpressionWriter
 
     private string EmitBinary(JavaBinaryExpression binary)
     {
+        // Task 18：字符串拼接链（含 C# 插值降级的 + 链）→ 模板字符串。仅当链首或
+        // 第二段为字符串字面量时整链才是字符串拼接（首个 + 即拼接，C# 与 JS 规则一致），
+        // 重建语义等价；x + y + "a"（首个 + 可能为数值相加）与纯表达式链（$"{n}{m}"
+        // 降级的 n + m）无类型信息，保守保持 + 拼接（JS 求值本身与 C# 一致）。
+        if (binary.Operator == "+" && TryEmitTemplateString(binary, out var template))
+        {
+            return template;
+        }
+
         var left = ToInlineString(binary.Left);
         var right = ToInlineString(binary.Right);
 
@@ -132,6 +141,78 @@ public sealed class TsExpressionWriter
         if (v.StartsWith("0b", StringComparison.OrdinalIgnoreCase)) return true;
         if (v.Contains('.') || v.Contains('e') || v.Contains('E')) return false;
         return v.Length > 0 && v.All(char.IsDigit);
+    }
+
+    /// <summary>
+    /// 左结合 + 链 → 模板字符串。条件：至少一段字符串字面量 + 至少一段表达式
+    /// （任一段为字符串字面量即整链为字符串拼接，C# 与 JS 语义一致）。
+    /// </summary>
+    private bool TryEmitTemplateString(JavaBinaryExpression binary, out string result)
+    {
+        result = "";
+        var parts = new List<JavaExpression>();
+        var current = (JavaExpression)binary;
+        while (current is JavaBinaryExpression b && b.Operator == "+")
+        {
+            parts.Add(b.Right);
+            current = b.Left;
+        }
+        parts.Add(current);
+        parts.Reverse();
+
+        // 仅链首或第二段为字符串字面量时才整链重建（首个 + 已确定为字符串拼接）；
+        // x + y + "a" 形态首个 + 可能为数值相加（C#/JS 均如此），不重建
+        var firstIsLiteral = parts.Count > 0 && parts[0] is JavaLiteralExpression l0 && IsStringLiteral(l0);
+        var secondIsLiteral = parts.Count > 1 && parts[1] is JavaLiteralExpression l1 && IsStringLiteral(l1);
+        if (!firstIsLiteral && !secondIsLiteral) return false;
+        var anyExpression = false;
+        foreach (var part in parts)
+        {
+            if (!(part is JavaLiteralExpression lit && IsStringLiteral(lit))) anyExpression = true;
+        }
+        if (!anyExpression) return false;
+
+        var sb = new StringBuilder();
+        sb.Append('`');
+        foreach (var part in parts)
+        {
+            if (part is JavaLiteralExpression lit && IsStringLiteral(lit))
+            {
+                AppendTemplateText(sb, lit.Value[1..^1]);
+            }
+            else
+            {
+                sb.Append("${").Append(ToInlineString(part)).Append('}');
+            }
+        }
+        sb.Append('`');
+        result = sb.ToString();
+        return true;
+    }
+
+    private static bool IsStringLiteral(JavaLiteralExpression lit)
+    {
+        return lit.Value.Length >= 2 && lit.Value[0] == '"' && lit.Value[^1] == '"';
+    }
+
+    /// <summary>模板文本段转义：反引号与 ${ 需转义；既有转义序列（\、\" 等）语义不变。</summary>
+    private static void AppendTemplateText(StringBuilder sb, string inner)
+    {
+        for (var i = 0; i < inner.Length; i++)
+        {
+            var ch = inner[i];
+            if (ch == '`')
+            {
+                sb.Append("\\`");
+                continue;
+            }
+            if (ch == '$' && i + 1 < inner.Length && inner[i + 1] == '{')
+            {
+                sb.Append("\\$");
+                continue;
+            }
+            sb.Append(ch);
+        }
     }
 
     private string EmitUnary(JavaUnaryExpression unary)
@@ -192,6 +273,34 @@ public sealed class TsExpressionWriter
             return methodName == "println"
                 ? $"console.log({specialArgs})"
                 : $"process.stdout.write({specialArgs})";
+        }
+
+        // Task 18：String.valueOf(x) → String(x)（对象插值包装的结构化形态）；
+        // String.format(...) → CsString.format(...)（格式串逆翻译 + compat 导入）。
+        if (call.Target is JavaIdentifierExpression stringTarget && stringTarget.Name == "String")
+        {
+            if (call.MethodName == "valueOf" && call.Arguments.Count == 1)
+            {
+                return $"String({ToInlineString(call.Arguments[0])})";
+            }
+            if (call.MethodName == "format")
+            {
+                _imports.AddNamedImport("CsString", "@csharptotypescript/compat");
+                if (call.Arguments.Count == 0)
+                {
+                    return "CsString.format()";
+                }
+                var formatArg = ToInlineString(call.Arguments[0]);
+                if (call.Arguments[0] is JavaLiteralExpression formatLit && IsStringLiteral(formatLit))
+                {
+                    formatArg = "\"" + JavaToCSharpFormatTranslator.Translate(
+                        formatLit.Value[1..^1], out _, out _) + "\"";
+                }
+                var restArgs = string.Join(", ", call.Arguments.Skip(1).Select(ToInlineString));
+                return string.IsNullOrEmpty(restArgs)
+                    ? $"CsString.format({formatArg})"
+                    : $"CsString.format({formatArg}, {restArgs})";
+            }
         }
 
         var args = string.Join(", ", call.Arguments.Select(ToInlineString));

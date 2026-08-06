@@ -381,11 +381,11 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
 
         // 3. 运行 TS 专属 rewriter（M1 暂空；Task 16 起装配属性重组，在用户 rewriter 之后、
         //    发射之前运行，Roles 侧表注入发射器）
-        var accessorRoles = RunTsRewriters(javaCompilation, state.Context);
+        var (accessorRoles, compatSymbols) = RunTsRewriters(javaCompilation, state.Context);
 
         // 4. TS 发射
         var emitter = new TypeScript.TypeScriptEmitter(accessorRoles);
-        var code = emitter.Emit(javaCompilation, state.Context);
+        var code = emitter.Emit(javaCompilation, state.Context, compatSymbols);
 
         state.GeneratedCode = code;
         state.JavaCompilation = javaCompilation;
@@ -395,9 +395,12 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
     /// <summary>
     /// 运行 TS 专属 IR rewriter（Java 路径不进入本 pass）。Task 16：属性访问器重组
     /// （类自动属性 getX/setX → TS 字段/访问器 + 调用点改写）；返回角色侧表供
-    /// TypeScriptEmitter 发射访问器使用。M3 在此追加其余 rewriter。
+    /// TypeScriptEmitter 发射访问器使用，以及 rewriter 登记的 compat 符号
+    /// （Task 18：CsString 等，发射器据此生成 @csharptotypescript/compat 导入）。
+    /// M3 在此追加其余 rewriter。
     /// </summary>
-    private static IReadOnlyDictionary<Java.JavaMethodDeclaration, TypeScript.Rewriters.TsAccessorRole>? RunTsRewriters(
+    private static (IReadOnlyDictionary<Java.JavaMethodDeclaration, TypeScript.Rewriters.TsAccessorRole>? Roles,
+        IReadOnlySet<string> CompatSymbols) RunTsRewriters(
         Java.JavaCompilationUnit compilation, ConversionContext context)
     {
         // TsOverloadDisambiguationRewriter, TsGenericErasureRewriter,
@@ -407,6 +410,10 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // Task 17：枚举转换调用点（getValue/fromValue/ordinal）改写 + Enum.Parse/ToString 诊断
         var enumRewriter = new TypeScript.Rewriters.TsEnumCallRewriter(context);
         enumRewriter.VisitCompilationUnit(compilation);
-        return propertyRewriter.Roles;
+        // Task 18：字符串调用改写（String.format/StringHelper.formatCs/String.valueOf/
+        // StringBuilder 链 → CsString.format/String(...)/模板字符串）
+        var stringRewriter = new TypeScript.Rewriters.TsStringCallRewriter(context);
+        stringRewriter.VisitCompilationUnit(compilation);
+        return (propertyRewriter.Roles, stringRewriter.CompatSymbols);
     }
 }

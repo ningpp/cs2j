@@ -4953,20 +4953,42 @@ Actual: PASS（13/13，含 L3 tsc）；全量 TS 271/271（258 + 新增 13），
 
 **Files:**
 - Modify: `src/CSharpToJava.Core/TypeScript/TsExpressionWriter.cs`
-- Modify: `config/typescript/MemberMappings.json`
+- Modify: `src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs`（`RunTsRewriters` 返回 `CompatSymbols`）
+- Modify: `src/CSharpToJava.Core/TypeScript/TypeScriptEmitter.cs`（compat 导入登记）
+- Modify: `tests/CSharpToTypeScript.Tests/TsConversionTestBase.cs`（compat 测试桩）
+- Create: `src/CSharpToJava.Core/TypeScript/JavaToCSharpFormatTranslator.cs`
+- Create: `src/CSharpToJava.Core/TypeScript/Rewriters/TsStringCallRewriter.cs`
 - Create: `tests/CSharpToTypeScript.Tests/TsStringInterpolationTests.cs`
 
-- [ ] **Step 1: 核对 IR 中插值形态**
+- [x] **Step 1: 核对 IR 中插值形态**
 
 C# 插值字符串在 HIR 后的实际形态（字符串拼接 `+` / Java `String.format(...)` / Raw 表达式）需先转换样本确认，再决定发射策略。
 
-- [ ] **Step 2: 实现**
+实测（探针 Java 目标，运行时验证）：
+- 简单插值 `$"count={n}"` → `"count=" + n`（字符串拼接 `+` 链，字面量段保序）。
+- 带格式符 `$"{d:F2}"` → `String.format("%.2f", d)`（共享管线 ConvertCSharpFormatToJava 已把 C# 格式符转为 Java 指令）。
+- `string.Format("{0} {1}", ...)` → `String.format("%1$s %2$s", ...)`（位置参数 `%N$` 形态）。
+- 对象插值 `$"{o}"` → `String.valueOf(o)`。
+- 4+ 段插值 / 内联 builder → `new StringBuilder().append(...).toString()` 链。
+- 非字面量格式串（变量作格式串）→ `StringHelper.formatCs(...)`（C# 侧运行时转换 `{N}` 占位符）。
 
-1. 简单插值（无格式符）→ 模板字符串 `` `${x}` ``（spec §1.4.7）。
-2. 带格式符（`{0:F2}`）或 `string.Format` 调用 → `CsString.format(...)`（MemberMappings 已配 `Format` 映射；若 IR 中已是 Java `String.format`，在内置表补 `("java.lang.String","format") → "CsString.format"`，imports 加 compat）。
-3. 测试：`TsStringInterpolationTests`（spec §5.3 M2 组）。
+- [x] **Step 2: 实现**
 
-- [ ] **Step 3: 运行测试 + 提交**
+1. 简单插值（无格式符）→ 模板字符串 `` `${x}` ``（spec §1.4.7）：raw 与结构化 `+` 链统一按"链首或第二段为字符串字面量"重建模板（首个 `+` 即字符串拼接，C#/JS 规则一致）；`x + y + "a"`（首个 `+` 可能为数值相加）与纯表达式链保守保持 `+` 拼接。
+2. 带格式符 / `string.Format` → `CsString.format(...)`（spec §4.3.6 契约）：新增 `JavaToCSharpFormatTranslator` 将 Java 指令逆映射回 C# `{N}`/`{N:spec}` 格式，覆盖 `%s/%N$s`→`{N}`、`%04d`→`{N:D4}`、`%,.2f`→`{N:N2}`、`%.2f`→`{N:F2}`、`%e/%g/%x`、对齐 `%4d`→`{N,4}`、`%%`→`%`、`{`/`}`→`{{`/`}}`；未识别指令原样保留 + 诊断。新增 `TsStringCallRewriter`（发射前装配，`RunTsRewriters` 返回 `CompatSymbols` 供发射器注册 compat 导入）：raw/结构化 `String.format(...)`→`CsString.format(...)`、`StringHelper.formatCs(...)`→`CsString.format(...)`、`String.valueOf(x)`→`String(x)`、builder 链→模板/拼接、文本级 `"a" + expr` 链→模板字符串。
+3. 测试：`TsStringInterpolationTests` 28 个（spec §5.3 M2 组；含 L3 tsc 编译用例）。
+
+- [x] **Step 3: 运行测试 + 提交**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsStringInterpolationTests"`
+Actual: PASS（28/28，含 L3 tsc）；全量 TS 299/299（271 + 新增 28），Java 2423/2423 零回归。
+
+**注记（2026-08-06 Task 18 实施，实测为准）：**
+> ① 关键形态与实现路径（证据）：raw `Console.WriteLine` 中 `String.format("%.2f", d)` → `CsString.format("{0:F2}", d)`；结构化 `String.valueOf(o)` → `String(o)`；4+ 段 builder 链（`new StringBuilder().append(...).toString()`）→ 模板字符串；非字面量格式串 `StringHelper.formatCs` → `CsString.format`（契约一致）。翻译器映射与共享管线 ConvertCSharpFormatToJava 产出的指令子集互逆（D/F/E/X/N/G/P），未知格式符占位注释 `"%s /* TODO: format specifier Q */"` 丢弃 + 诊断。
+> ② 模板规则：仅"链首或第二段为字符串字面量"时整链重建模板（首个 `+` 即字符串拼接，C# 与 JS 规则一致）；`x + y + "a"` 与纯表达式链（`$"{n}{m}"` 降级的 `n + m`）无类型信息，保守保持 `+` 拼接（JS 求值本身与 C# 一致）。
+> ③ 已登记限制（未修）：（1）`%` 歧义——C# `{0:P2}`（×100 + %）与 `{0:F2}` + 字面 `%` 在共享管线同形（`%.Nf%%`），无法区分，按 Java 侧语义发射（`{N:F2}%`）+ 诊断；（2）花括号保真（共享管线级 bug）：`{{{0}}}` → Java `{{%1$s}}` 渲染 `{{x}}`，翻译器发 `{{{{{0}}}}}`（渲染同为 `{{x}}`）；（3）`$"{n}"` 裸返回（number vs string 语义）与相邻原始类型 `$"{n}{m}"` → `n + m` 数值相加（C# 字符串拼接 vs JS 数值相加）；（4）`String.valueOf` 的 null 语义未逐点验证（Java `"null"` vs JS `String(null)` 同为 `"null"`，形态一致）。
+> ④ 偏离清单：`config/typescript/MemberMappings.json` 未改（`System.String.Format` 映射已在既有表中；实际形态由 rewriter 覆盖 Java `String.format`）；compat 桩为测试基座最小实现（`index.d.ts` 声明 `CsString.format`），完整兼容库归 M4。
+> ⑤ 提交：`feat(ts): emit interpolated strings and String.Format via CsString.format`，hash 见 git log（7 文件：JavaToCSharpFormatTranslator.cs / TsStringCallRewriter.cs / TsStringInterpolationTests.cs 新增；TsExpressionWriter.cs / SingleFilePasses.cs / TypeScriptEmitter.cs / TsConversionTestBase.cs 修改；本计划文档）。
 
 ---
 

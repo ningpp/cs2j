@@ -68,7 +68,14 @@ public abstract class TsConversionTestBase
         File.WriteAllText(probePath, tsCode);
         for (int i = 0; i < additionalFiles.Length; i += 2)
         {
-            File.WriteAllText(Path.Combine(workDir, additionalFiles[i]), additionalFiles[i + 1]);
+            // 附加文件可能是 node_modules/... 子路径（Task 18 compat 桩），先建父目录
+            var additionalPath = Path.Combine(workDir, additionalFiles[i]);
+            var parent = Path.GetDirectoryName(additionalPath);
+            if (!string.IsNullOrEmpty(parent))
+            {
+                Directory.CreateDirectory(parent);
+            }
+            File.WriteAllText(additionalPath, additionalFiles[i + 1]);
         }
 
         try
@@ -100,6 +107,28 @@ public abstract class TsConversionTestBase
             }
         }
     }
+
+    /// <summary>
+    /// L3 变体：@csharptotypescript/compat 尚不存在（M4 Task 28 脚手架），用最小
+    /// d.ts 桩使导入可解析（Task 18 起 CsString.format 用例需要；语义测试在 M4 以
+    /// vitest 对齐 spec §5.6，桩仅满足 tsc 编译）。
+    /// </summary>
+    protected void AssertCompilesWithCompat(string tsCode)
+    {
+        AssertCompiles(tsCode,
+            @"node_modules/@csharptotypescript/compat/package.json", CompatPackageJson,
+            @"node_modules/@csharptotypescript/compat/index.d.ts", CompatIndexDts,
+            @"node_modules/@csharptotypescript/compat/index.js", CompatIndexJs);
+    }
+
+    private const string CompatPackageJson =
+        """{"name":"@csharptotypescript/compat","version":"0.0.0","types":"index.d.ts","exports":{".":{"types":"./index.d.ts","default":"./index.js"}}}""";
+
+    private const string CompatIndexDts =
+        """export declare namespace CsString { function format(fmt: string, ...args: unknown[]): string; }""";
+
+    private const string CompatIndexJs =
+        """export const CsString = { format(fmt, ...args) { return fmt; } };""";
 
     /// <summary>
     /// 启动进程并等待退出；超时则终止整个进程树并以包含已捕获输出的清晰消息断言失败。
