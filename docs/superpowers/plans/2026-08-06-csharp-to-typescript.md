@@ -1021,9 +1021,6 @@ public sealed class TsMemberMappingTable
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsMemberMappingTableTests"`
 Expected: PASS（10 个测试）。
-实测：`--filter "FullyQualifiedName~TsEmitterIntegrationTests"` 全绿——计划 10 个集成测试 + 10 个
-`Direct_*` + 1 个新增 L3 tsc 用例（`Pipeline_Output_Compiles_With_Tsc`），共 21/21 通过。
-分叉前后红→绿清单见本 Task 末尾注记。
 
 - [x] **Step 5: 提交**
 
@@ -3457,7 +3454,7 @@ git commit -m "feat(ts): fork pipeline at Codegen layer with SingleFileTsEmitPas
 实测：实际提交 `4edeb1f8`（message 含 raw 归一化说明，见注记）。
 
 > **Task 11 实现注记（2026-08-07，以实测为准）**
-> 
+>
 > ① 分叉前后红→绿清单（`TsEmitterIntegrationTests`）：
 >    - 分叉前（Task 10 末）：计划 10 个集成测试 9 红 1 绿（红因 GeneratedCode 仍是 Java；
 >      `If_Statement_Emits_Correctly` 断言语言中性故绿）+ 10 个 `Direct_*` 全绿。
@@ -3494,7 +3491,31 @@ git commit -m "feat(ts): fork pipeline at Codegen layer with SingleFileTsEmitPas
 >    Java `CSharpToJava.Tests` 2423/2423 零回归；`CSharpToJava.ConversionTests` 1125 中有 37 个
 >    存量失败，与父提交 d6a0cedb 基线失败名单逐项一致（非本提交引入，只报告不修）。
 > ⑤ 提交：4edeb1f8（message 追加 "and raw-statement normalization"，见 Step 5）。
-> 
+> ⑥ 复审修复（2026-08-07，规格审查发现 3 个 Important 归一化器 bug + 3 个 Minor 卫生项，均先写失败测试再修）：
+>    - Bug 1 三元误改写（普通 for 头）：`for (int i = flag ? a : b; i < n; i++)` 被误改写为
+>      `for (const a of b)...`（非法 TS）。根因：守卫只查"左侧末 token 为标识符"，三元 `? a : b`
+>      中 `a :` 亦满足。修复：`TryRewriteForHead` 增加顶层 ";" 守卫（增强 for 头不含分号；
+>      跳过字符串/字符字面量判定，`"a;b".split(";")` 类实参不受影响），普通 for（含任意三元
+>      及标识符操作数）一律直通。回归：`Classic_For_With_Ternary_Identifier_Operands_Passes_Through`
+>      （组件）+ `Classic_For_With_Ternary_Is_Not_Rewritten`（e2e，先红后绿；raw 经典 for 的
+>      Java 形态初始值保留，let 化属 M1 控制流后续任务，非本修复范围）。
+>    - Bug 2 println 整串 Replace 改写字符串字面量：`Console.WriteLine("System.out.println(x)")`
+>      输出 `console.log("console.log(x)")`（实参语义被破坏）。修复：`NormalizePrintln` 改为扫描式
+>      替换——跳过字符串/字符字面量区域（复用 `SkipQuotedLiteral`），且仅在标识符边界命中
+>      `System.out.println(`/`System.err.println(`。回归：
+>      `Println_Argument_Containing_Println_Text_Is_Preserved`（组件）+ e2e（先红后绿）。
+>    - Bug 3 嵌套 foreach 只归一化最外层头：内层 `for (int item : row)` 原样保留（非法 TS）。
+>      修复：`NormalizeEnhancedForHeads` 扫描同一 raw 文本内所有 `for (` 头逐个改写（含嵌套
+>      body 内层头），body 原样保留。回归：`Nested_Enhanced_Fors_Are_All_Normalized`（组件）
+>      + `Nested_ForEach_Emits_ForOf_For_All_Levels`（e2e，L3 tsc 编译通过）。
+>    - Minor 卫生：Task 5 Step 4 下误粘贴的 Task 11 Step 3 实测文本已删除（根因：注记插入时
+>      `String.Replace` 全量替换锚点 `Expected: PASS（10 个测试）。`，Task 5 首处被误命中），
+>      还原 Task 5 原样；清理 2 处 `> ` 行尾空白（git show --check 报警项）；本次改动文件末尾
+>      均补换行。
+>    统计更新：TS 项目 139 通过 / 0 失败（133 存量 + 3 组件回归 + 3 e2e）；
+>    Java `CSharpToJava.Tests` 2423/2423 零回归（修复后全量复跑）。
+>    提交：d3dbd2e8（fix(ts): harden raw statement normalization guards）。
+>
 ---
 
 ## Task 12: CLI 新增 --target 选项
