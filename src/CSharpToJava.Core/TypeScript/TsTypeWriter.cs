@@ -1,0 +1,171 @@
+using System.Text;
+using CSharpToJava.Core.Java;
+
+namespace CSharpToJava.Core.TypeScript;
+
+/// <summary>
+/// 类型声明发射器：class/interface/enum 发射为 TS（spec §2.5 类型声明部分）。
+/// </summary>
+public sealed class TsTypeWriter
+{
+    private readonly TsMemberWriter _memberWriter;
+    private readonly string _indent;
+
+    public TsTypeWriter(TsMemberWriter memberWriter, string indent = "    ")
+    {
+        _memberWriter = memberWriter;
+        _indent = indent;
+    }
+
+    public string Emit(JavaTypeDeclaration type, int indentLevel = 0)
+    {
+        return type switch
+        {
+            JavaClassDeclaration cls => EmitClass(cls, indentLevel),
+            JavaInterfaceDeclaration iface => EmitInterface(iface, indentLevel),
+            JavaEnumDeclaration en => EmitEnum(en, indentLevel),
+            _ => $"/* cs2j: unsupported type {type.GetType().Name} */",
+        };
+    }
+
+    private string EmitClass(JavaClassDeclaration cls, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+
+        // export
+        sb.Append("export ");
+
+        // abstract
+        if ((cls.Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
+
+        // sealed -> 注释标记（spec §2.5）
+        if ((cls.Modifiers & JavaModifiers.Sealed) != 0) sb.Append("/* sealed */ ");
+
+        sb.Append("class ");
+        sb.Append(TsNaming.SafeClassName(cls.Name));
+
+        // 类型参数
+        if (cls.TypeParameters.Count > 0)
+        {
+            sb.Append('<');
+            sb.Append(string.Join(", ", cls.TypeParameters.Select(tp => tp.ToString())));
+            sb.Append('>');
+        }
+
+        // 基类
+        if (!string.IsNullOrEmpty(cls.ExtendedType))
+        {
+            sb.Append($" extends {cls.ExtendedType}");
+        }
+
+        // 接口
+        if (cls.ImplementedTypes.Count > 0)
+        {
+            sb.Append($" implements {string.Join(", ", cls.ImplementedTypes)}");
+        }
+
+        sb.AppendLine(" {");
+
+        // 字段
+        foreach (var field in cls.Fields)
+        {
+            sb.AppendLine(_memberWriter.EmitField(field, indentLevel + 1));
+        }
+
+        if (cls.Fields.Count > 0 && (cls.Constructors.Count > 0 || cls.Methods.Count > 0))
+        {
+            sb.AppendLine();
+        }
+
+        // 构造器
+        foreach (var ctor in cls.Constructors)
+        {
+            sb.AppendLine(_memberWriter.EmitConstructor(ctor, indentLevel + 1));
+            sb.AppendLine();
+        }
+
+        // 方法
+        for (int i = 0; i < cls.Methods.Count; i++)
+        {
+            sb.AppendLine(_memberWriter.EmitMethod(cls.Methods[i], indentLevel + 1));
+            if (i < cls.Methods.Count - 1) sb.AppendLine();
+        }
+
+        // 静态初始化块 -> static { } （ES2022）；实际属性是 Statements（List<string>，非 Body）
+        foreach (var staticInit in cls.StaticInitializers)
+        {
+            sb.Append(ind).Append(_indent).AppendLine("static {");
+            foreach (var stmtLine in staticInit.Statements)
+            {
+                if (!string.IsNullOrWhiteSpace(stmtLine))
+                {
+                    sb.Append(ind).Append(_indent).Append(_indent).AppendLine(stmtLine.Trim());
+                }
+            }
+            sb.Append(ind).Append(_indent).AppendLine("}");
+        }
+
+        // 嵌套类型
+        foreach (var nested in cls.NestedTypes)
+        {
+            sb.AppendLine();
+            sb.AppendLine(Emit(nested, indentLevel + 1));
+        }
+
+        sb.Append(ind).Append('}');
+        return sb.ToString();
+    }
+
+    private string EmitInterface(JavaInterfaceDeclaration iface, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+
+        sb.Append("export interface ");
+        sb.Append(TsNaming.SafeClassName(iface.Name));
+
+        // 类型参数
+        if (iface.TypeParameters.Count > 0)
+        {
+            sb.Append('<');
+            sb.Append(string.Join(", ", iface.TypeParameters.Select(tp => tp.ToString())));
+            sb.Append('>');
+        }
+
+        // 继承的接口（实际属性名：ExtendedTypes，非 ImplementedTypes）
+        if (iface.ExtendedTypes.Count > 0)
+        {
+            sb.Append($" extends {string.Join(", ", iface.ExtendedTypes)}");
+        }
+
+        sb.AppendLine(" {");
+
+        // 成员（接口无修饰符，无 body）
+        foreach (var method in iface.Methods)
+        {
+            var parms = string.Join(", ", method.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {p.Type}"));
+            sb.Append(ind).Append(_indent)
+              .AppendLine($"{TsNaming.SafeIdentifier(method.Name)}({parms}): {method.ReturnType};");
+        }
+
+        sb.Append(ind).Append('}');
+        return sb.ToString();
+    }
+
+    private string EmitEnum(JavaEnumDeclaration en, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+
+        // 普通 enum 直译（[Flags] 在 M2 Task 17 处理）；实际属性名：Values（非 Members）
+        sb.AppendLine($"export enum {TsNaming.SafeClassName(en.Name)} {{");
+        for (int i = 0; i < en.Values.Count; i++)
+        {
+            var comma = i < en.Values.Count - 1 ? "," : "";
+            sb.Append(ind).Append(_indent).AppendLine($"{en.Values[i]}{comma}");
+        }
+        sb.Append(ind).Append('}');
+        return sb.ToString();
+    }
+}
