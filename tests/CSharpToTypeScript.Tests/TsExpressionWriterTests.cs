@@ -26,6 +26,20 @@ public class TsExpressionWriterTests
     }
 
     [Fact]
+    public void Literal_Long_Hex_Emits_Bigint_Suffix()
+    {
+        // 十六进制 long 字面量同样按 L 后缀转换
+        Assert.Equal("0xFFn", EmitExpr(new JavaLiteralExpression("0xFFL")));
+    }
+
+    [Fact]
+    public void Literal_Long_With_Underscores_Emits_Bigint_Suffix()
+    {
+        // 下划线分隔的 long 字面量（StopwatchApiRewriter 等真实产出路径）
+        Assert.Equal("1_000_000n", EmitExpr(new JavaLiteralExpression("1_000_000L")));
+    }
+
+    [Fact]
     public void Literal_Char_Emits_As_String()
     {
         // IR 中 char 字面量 'a'，TS 用 "a"
@@ -56,6 +70,32 @@ public class TsExpressionWriterTests
         };
         var result = EmitExpr(expr);
         Assert.Equal("Math.trunc(7 / 2)", result);
+    }
+
+    [Fact]
+    public void BinaryExpression_Hex_Integer_Division_Wrapped()
+    {
+        // 十六进制整数字面量同样包装 Math.trunc
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression("0xFF"),
+            Operator = "/",
+            Right = new JavaLiteralExpression("2"),
+        };
+        Assert.Equal("Math.trunc(0xFF / 2)", EmitExpr(expr));
+    }
+
+    [Fact]
+    public void BinaryExpression_Underscore_Integer_Division_Wrapped()
+    {
+        // 下划线分隔的整数字面量同样包装 Math.trunc
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression("1_000"),
+            Operator = "/",
+            Right = new JavaLiteralExpression("2"),
+        };
+        Assert.Equal("Math.trunc(1_000 / 2)", EmitExpr(expr));
     }
 
     [Fact]
@@ -117,9 +157,38 @@ public class TsExpressionWriterTests
     }
 
     [Fact]
+    public void System_Err_Println_Maps_To_Console_Error()
+    {
+        // System.err.println(...) -> console.error(...)
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaMemberAccessExpression
+            {
+                Target = new JavaIdentifierExpression("System"),
+                MemberName = "err",
+            },
+            MethodName = "println",
+            Arguments = { new JavaLiteralExpression("\"x\"") },
+        };
+        Assert.Equal("console.error(\"x\")", EmitExpr(call));
+    }
+
+    [Fact]
     public void ThisExpression_Emits_As_This()
     {
         Assert.Equal("this", EmitExpr(new JavaThisExpression()));
+    }
+
+    [Fact]
+    public void MemberAccess_Reserved_Word_Member_Passthrough()
+    {
+        // 点号后的属性名无需保留字转义：foo.type 合法 TS（声明处仍需 SafeIdentifier）
+        var access = new JavaMemberAccessExpression
+        {
+            Target = new JavaIdentifierExpression("foo"),
+            MemberName = "type",
+        };
+        Assert.Equal("foo.type", EmitExpr(access));
     }
 
     [Fact]

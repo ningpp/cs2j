@@ -66,8 +66,10 @@ public sealed class TsExpressionWriter
     {
         var v = lit.Value;
 
-        // long 字面量：100L -> 100n
-        if (v.EndsWith("L") && long.TryParse(v[..^1], out _))
+        // long 字面量：100L -> 100n、0xFFL -> 0xFFn、1_000_000L -> 1_000_000n。
+        // IR 中 long 字面量统一 L 后缀，直接按后缀判定，无需 TryParse
+        //（TryParse 不识别十六进制/下划线分隔形式，会漏判而输出无效 TS 语法）。
+        if (v.EndsWith("L"))
         {
             return v[..^1] + "n";
         }
@@ -115,11 +117,17 @@ public sealed class TsExpressionWriter
 
     private static bool IsIntegerLiteralOperand(JavaExpression expr)
     {
-        // 仅整数字面量（可解析为 long 且无 L 后缀）。bigint 字面量（L 后缀）
-        // 不可包 Math.trunc：JS bigint 除法天然截断，且 Math.* 不接受 bigint（运行时 TypeError）。
-        return expr is JavaLiteralExpression lit
-            && long.TryParse(lit.Value, out _)
-            && !lit.Value.EndsWith("L");
+        // 纯文本判定（IR 字面量为文本、无类型信息；TryParse 不识别 0xFF/1_000 会漏判）：
+        // 剥离下划线后——0x/0X 前缀 -> 整数字面量；含 . / e / E -> 浮点（不包装）；
+        // L 后缀 -> bigint（不包装：JS bigint 除法天然截断，且 Math.trunc 不接受
+        // bigint，运行时 TypeError）；其余纯数字 -> 整数字面量。
+        // 混合 bigint/number 操作数（如 7L / 2）的混算转换留给 M2 Task 19 数值语义 rewriter。
+        if (expr is not JavaLiteralExpression lit) return false;
+        var v = lit.Value.Replace("_", "");
+        if (v.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) return true;
+        if (v.Contains('.') || v.Contains('e') || v.Contains('E')) return false;
+        if (v.EndsWith("L")) return false;
+        return v.Length > 0 && v.All(char.IsDigit);
     }
 
     private string EmitUnary(JavaUnaryExpression unary)
@@ -131,7 +139,9 @@ public sealed class TsExpressionWriter
 
     private string EmitCast(JavaCastExpression cast)
     {
-        // 引用类型 -> as；数值窄化 -> Number() 等（M2 细化）
+        // 引用类型 -> as；数值窄化 -> Number() 等（M2 细化）。
+        // 占位说明：int->long 提升（BigInt(...)）与窄化截断（Math.trunc）由
+        // M2 Task 19 数值语义 rewriter 处理，当前 `as bigint`/`Number()` 仅为占位。
         var tsType = MapType(cast.Type);   // 实际属性名是 Type（非 TargetType）
         if (tsType == "number" || tsType == "Number")
         {
@@ -151,17 +161,30 @@ public sealed class TsExpressionWriter
         var target = call.Target != null ? ToInlineString(call.Target) + "." : "";
 
         // 尝试方法映射
-        // 简化：根据 target 类型查映射。M1 用方法名直译 + 内置 System.out.println 等特殊处理
+        // 简化：根据 target 类型查映射。M1 用方法名直译 + 内置 System.out/err 等特殊处理
         var methodName = call.MethodName;
 
-        // System.out.println -> console.log（特殊：target 是 System.out）
+        // System.out/err 特殊处理：println/print/printf 三类（target 是 System.out 或 System.err）
         if (call.Target is JavaMemberAccessExpression ma
             && ma.Target is JavaIdentifierExpression sysId
             && sysId.Name == "System"
-            && ma.MemberName == "out"
-            && (methodName == "println" || methodName == "print"))
+            && (ma.MemberName == "out" || ma.MemberName == "err")
+            && (methodName == "println" || methodName == "print" || methodName == "printf"))
         {
             var specialArgs = string.Join(", ", call.Arguments.Select(ToInlineString));
+
+            // printf 无直接对应，降级为 console.log，M4 可配置细化
+            if (methodName == "printf")
+            {
+                return $"console.log({specialArgs})";
+            }
+
+            // err 统一 console.error；out 保持 console.log / process.stdout.write
+            if (ma.MemberName == "err")
+            {
+                return $"console.error({specialArgs})";
+            }
+
             return methodName == "println"
                 ? $"console.log({specialArgs})"
                 : $"process.stdout.write({specialArgs})";
@@ -186,8 +209,9 @@ public sealed class TsExpressionWriter
                 _ => $"{target}.{access.MemberName}",
             };
         }
-        var member = TsNaming.SafeIdentifier(access.MemberName);
-        return $"{target}.{member}";
+        // 成员名直接透传：TS 点号后的属性名不需要保留字转义（foo.type 合法）。
+        // 声明处的属性/字段名仍须 SafeIdentifier（Task 9 语句/成员发射器处理）。
+        return $"{target}.{access.MemberName}";
     }
 
     private string EmitLambda(JavaLambdaExpression lambda)
