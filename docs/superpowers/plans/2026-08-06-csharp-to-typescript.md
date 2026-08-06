@@ -3523,7 +3523,7 @@ git commit -m "feat(ts): fork pipeline at Codegen layer with SingleFileTsEmitPas
 **Files:**
 - Modify: `src/CSharpToJava.CLI/Program.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsCliTargetOptionTests.cs`：
 
@@ -3552,13 +3552,15 @@ public class TsCliTargetOptionTests
 ```
 
 注：`ConvertOptions` 是 internal class（已核对：Program.cs 中无可见性修饰符），需在 `CSharpToJava.CLI.csproj` 加 `InternalsVisibleTo`（具体做法见 Step 5 的 csproj ItemGroup，不要在 Program.cs 加 assembly 特性，避免两种方式重复）。
+实测：`tests/CSharpToTypeScript.Tests/TsCliTargetOptionTests.cs` 已创建（与计划逐字一致，UTF-8 无 BOM）。
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsCliTargetOptionTests"`
 Expected: FAIL（`Target` 属性不存在）。
+实测：红形态为编译错误 `CS0122: "ConvertOptions" 不可访问，因为它具有一定的保护级别`（internal 且 IVT 缺失）；`Target` 属性不存在的错误被可访问性错误遮蔽（编译器不再解析成员），与预期红因同源。
 
-- [ ] **Step 3: 在 ConvertOptions 和 ConvertProjectOptions 添加 --target**
+- [x] **Step 3: 在 ConvertOptions 和 ConvertProjectOptions 添加 --target**
 
 在 `src/CSharpToJava.CLI/Program.cs` 的 `ConvertOptions` 类（第 2029 行）添加：
 
@@ -3568,15 +3570,16 @@ public string Target { get; set; } = "java";
 ```
 
 在 `ConvertProjectOptions` 类（第 2081 行）同样添加。
+实测：`-t` 短选项复核无误——convert 已占用 i/o/m/j/v（其余均为仅长选项），convert-project 已占用 s/d/m/f/j/v（其余均为仅长选项），`-t` 空闲；两个选项类均已在类首添加 `[Option('t', "target", Default = "java", ...)]`（实际行号随前序 Task 编辑漂移，约 L2031/L2083）。
 
-- [ ] **Step 4: 在 ConvertFile/ConvertProject 方法中传递 TargetLanguage**
+- [x] **Step 4: 在 ConvertFile/ConvertProject 方法中传递 TargetLanguage**
 
-在 `ConvertFile` 方法（约第 34 行，其 `ConversionOptions` 初始化在约第 47-52 行）添加：
+在 `ConvertFile` 方法（约第 34 行，其 `ConversionOptions` 初始化在约第 55-63 行）添加：
 
 ```csharp
 TargetLanguage = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
-    ? Context.TargetLanguage.TypeScript
-    : Context.TargetLanguage.Java,
+    ? TargetLanguage.TypeScript
+    : TargetLanguage.Java,
 ```
 
 并在 TypeScript 目标时设置默认映射路径：
@@ -3590,7 +3593,7 @@ TypeScriptMemberMappingPath = opts.Target.Equals("typescript", StringComparison.
     : null,
 ```
 
-在文件末尾添加辅助方法：
+在 `ResolveJavaMetadataPath` 之后（辅助方法聚集区）添加辅助方法：
 
 ```csharp
 private static string? ResolveTypeScriptTypeMappingPath()
@@ -3608,9 +3611,10 @@ private static string? ResolveTypeScriptMemberMappingPath()
 }
 ```
 
-对 `ConvertProject` 方法做同样修改（其 `ConversionOptions` 初始化在约第 229-234 行）。另注意：`-t` 短选项在两个 Verb 的选项类中均未被占用（已核对：convert 使用 i/o/m/j/v，convert-project 使用 s/m/j 等），可安全使用。
+对 `ConvertProject` 方法做同样修改（其 `ConversionOptions` 初始化在约第 238-246 行）。另注意：`-t` 短选项在两个 Verb 的选项类中均未被占用（已核对：convert 使用 i/o/m/j/v，convert-project 使用 s/m/j 等），可安全使用。
+实测：代码按计划写入两处 `ConversionOptions` 初始化；计划片段中 `Context.TargetLanguage.TypeScript/Java` 编译失败（CS0103：`Context` 名称不在作用域，`using CSharpToJava.Core.Context;` 只导入类型不导入命名空间名），已改用同文件已导入的 `TargetLanguage.TypeScript/Java`（本段代码块已同步修订，见注记①）。`-m/--mapping` 在 TS 目标下按计划写法复用为 TS TypeMappings 路径（`opts.MappingConfig ?? ResolveTypeScriptTypeMappingPath()`），Java 目标语义不变。
 
-- [ ] **Step 5: 在 CLI csproj 中复制 TS 配置**
+- [x] **Step 5: 在 CLI csproj 中复制 TS 配置**
 
 在 `src/CSharpToJava.CLI/CSharpToJava.CLI.csproj` 添加：
 
@@ -3635,12 +3639,15 @@ private static string? ResolveTypeScriptMemberMappingPath()
 </ItemGroup>
 ```
 
-- [ ] **Step 6: 运行测试验证通过**
+实测：csproj 已有存量 `AssemblyAttribute` 式 IVT（`CSharpToJava.Tests`），本次按计划新增 `<InternalsVisibleTo Include="CSharpToTypeScript.Tests" />` ItemGroup，两种写法并存、存量行未动；两个 TS 配置 Content 已加入（构建产物 `config/typescript/TypeMappings.json`、`MemberMappings.json` 均复制成功）。
+
+- [x] **Step 6: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsCliTargetOptionTests"`
 Expected: PASS（2 个测试）。
+实测：`--filter "FullyQualifiedName~TsCliTargetOptionTests"` → 通过 2 / 失败 0 / 跳过 0。
 
-- [ ] **Step 7: 手动端到端验证**
+- [x] **Step 7: 手动端到端验证**
 
 Run:
 ```bash
@@ -3648,13 +3655,48 @@ dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
 dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert -i tests/SampleProject/Sample.cs -t typescript
 ```
 Expected: 输出包含 `export class Sample` 的 TypeScript 代码。
+实测（`tests/SampleProject/Sample.cs`：两个 const long 字段的简单类，无 TS 转换失败构造）：
+```text
+$ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert -i tests/SampleProject/Sample.cs -t typescript
+export class Sample {
+    private static readonly MaxIPv4Value: bigint = (long) (4294967295L);
+    private static readonly MaxIPv4Value2: bigint = (long) (4294967295L);
+}
+```
+对照 `-t java`（与未指定 `-t` 一致）：
+```text
+package SampleProject;
 
-- [ ] **Step 8: 提交**
+public class Sample {
+    private static final long MaxIPv4Value = (long) (4294967295L);
+    private static final long MaxIPv4Value2 = (long) (4294967295L);
+}
+```
+
+- [x] **Step 8: 提交**
 
 ```bash
 git add src/CSharpToJava.CLI/Program.cs src/CSharpToJava.CLI/CSharpToJava.CLI.csproj tests/CSharpToTypeScript.Tests/TsCliTargetOptionTests.cs
 git commit -m "feat(ts): add --target CLI option for TypeScript conversion"
 ```
+实测：提交 `5073614a`（见注记⑥）；本地 `dev-2.x` 未推送。
+
+> **Task 12 实现注记（2026-08-07，以实测为准）**
+>
+> ① 红→绿：Step 2 实测红因 `CS0122`（internal `ConvertOptions` 对测试程序集不可见），加 IVT 后同一编译错误消失；计划片段 `Context.TargetLanguage.*` 在 CLI 项目中编译失败（`CS0103`：`using CSharpToJava.Core.Context;` 只导入类型、不导入 `Context` 命名空间名），已改为同文件已导入的 `TargetLanguage.TypeScript/Java`（不新增 using，计划代码块已同步修订）。
+>
+> ② e2e 实测摘录（见 Step 7）：`-t typescript` 输出含 `export class Sample`（TS 分叉生效，含 `bigint` 字段）；`-t java` 输出 `package SampleProject; public class Sample { ... }`，与未指定 `-t` 一致。输入 `tests/SampleProject/Sample.cs` 为两个 const long 字段的简单类，无 TS 转换失败构造。
+>
+> ③ 测试统计：TS 项目 139 → 141（新增 2 个 CLI 选项测试）/ 0 失败；Java `CSharpToJava.Tests` 2423/2423 零回归。
+>
+> ④ 已登记 gap（Task 38/M5 范围，本任务未改）：`ConvertProject` 产物路径把输出文件名硬编码为 `.java` 扩展名（`src/CSharpToJava.CLI/Program.cs` 约 L791-801 两处：`EndsWith(".java")` 与 `Path.ChangeExtension(..., ".java")`），`convert-project -t typescript` 的产物扩展名仍为 .java；Task 12 只做 Options 传递，工程级 TS 产物/扩展名逻辑留待 Task 38 按 spec §2.4 分叉处理。
+>
+> ⑤ 偏离/选择记录：
+>    - `Context.TargetLanguage.*` → `TargetLanguage.*`（编译错误驱动，见 ①）。
+>    - 两个 Resolve 辅助方法置于 `ResolveJavaMetadataPath` 之后（辅助方法聚集区），而非字面"文件末尾"（文件末尾为选项类，放辅助区更一致）。
+>    - IVT 采用计划指定的 `<InternalsVisibleTo Include="..." />` ItemGroup；存量 `AssemblyAttribute` 式（`CSharpToJava.Tests`）未动，两种机制并存且均生效。
+>    - `-m/--mapping` 在 TS 目标下按计划复用为 TS TypeMappings 路径；Java 目标语义不变。
+> ⑥ 提交：`5073614a`（`feat(ts): add --target CLI option for TypeScript conversion`）；docs 注记另提交。
 
 ---
 
