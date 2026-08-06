@@ -11,13 +11,16 @@ public sealed class TsTypeWriter
 {
     private readonly TsMemberWriter _memberWriter;
     private readonly IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? _accessorRoles;
+    private readonly IReadOnlySet<string> _flagsEnumNames;
     private readonly string _indent;
 
     public TsTypeWriter(TsMemberWriter memberWriter, string indent = "    ",
-        IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? accessorRoles = null)
+        IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? accessorRoles = null,
+        IReadOnlySet<string>? flagsEnumNames = null)
     {
         _memberWriter = memberWriter;
         _accessorRoles = accessorRoles;
+        _flagsEnumNames = flagsEnumNames ?? new HashSet<string>(StringComparer.Ordinal);
         _indent = indent;
     }
 
@@ -34,6 +37,11 @@ public sealed class TsTypeWriter
 
     private string EmitClass(JavaClassDeclaration cls, int indentLevel)
     {
+        // [Flags] 枚举（Task 17）：共享管线已转为静态 int 常量类 → const 对象 + 联合类型
+        if (_flagsEnumNames.Contains(cls.Name))
+        {
+            return EmitFlagsConst(cls, indentLevel);
+        }
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
 
@@ -239,14 +247,86 @@ public sealed class TsTypeWriter
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
 
-        // 普通 enum 直译（[Flags] 在 M2 Task 17 处理）；实际属性名：Values（非 Members）
+        // 普通 enum 直译（Task 17）：IR Values 携带 "Name(value)" 形态（共享管线构造参数
+        // 形式，显式值保留）；_UNMAPPED 哨兵剔除（TS 数字枚举可持有任意数值，无需哨兵）；
+        // 枚举体（value 字段/构造器/getValue/fromValue 方法）为 Java 专属产物，不发射。
         sb.AppendLine($"export enum {TsNaming.SafeClassName(en.Name)} {{");
-        for (int i = 0; i < en.Values.Count; i++)
+        var members = new List<(string Name, string? Value)>();
+        foreach (var entry in en.Values)
         {
-            var comma = i < en.Values.Count - 1 ? "," : "";
-            sb.Append(ind).Append(_indent).AppendLine($"{en.Values[i]}{comma}");
+            if (TryParseEnumMember(entry, out var memberName, out var value))
+            {
+                members.Add((memberName, value));
+            }
+        }
+        for (var i = 0; i < members.Count; i++)
+        {
+            var comma = i < members.Count - 1 ? "," : "";
+            var safeName = TsNaming.SafeIdentifier(members[i].Name);
+            if (members[i].Value == null)
+            {
+                sb.Append(ind).Append(_indent).AppendLine($"{safeName}{comma}");
+            }
+            else
+            {
+                sb.Append(ind).Append(_indent).AppendLine($"{safeName} = {members[i].Value}{comma}");
+            }
         }
         sb.Append(ind).Append('}');
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 解析 IR 枚举成员条目："Red(10)" → (Red, 10)；"Red"（测试/旧形态）→ (Red, null)；
+    /// _UNMAPPED 哨兵 → false。值后缀 L/l（long 底层类型）剥除（TS 数字枚举不支持
+    /// bigint 成员，超出 2^53 的 long 枚举值属已知限制，见计划 Task 17 注记）。
+    /// </summary>
+    private static bool TryParseEnumMember(string entry, out string memberName, out string? value)
+    {
+        memberName = string.Empty;
+        value = null;
+        if (string.IsNullOrEmpty(entry)) return false;
+        var open = entry.IndexOf('(');
+        if (open < 0)
+        {
+            memberName = entry.Trim();
+            return memberName.Length > 0;
+        }
+        if (!entry.EndsWith(")", StringComparison.Ordinal)) return false;
+        memberName = entry[..open].Trim();
+        if (memberName == "_UNMAPPED") return false;
+        value = entry[(open + 1)..^1].Trim();
+        if (value.Length == 0) return false;
+        if (value.EndsWith("L", StringComparison.Ordinal) || value.EndsWith("l", StringComparison.Ordinal))
+        {
+            value = value[..^1];
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// [Flags] 枚举发射（Task 17，spec §3.2）：const 对象 + 联合类型；字段初值直用
+    /// （共享管线 FormatEnumMemberValue 产物）；辅助方法（and/or/complement/has/
+    /// fromValue）为共享管线死代码（调用点已内联为位运算），不发射。
+    /// </summary>
+    private string EmitFlagsConst(JavaClassDeclaration cls, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var name = TsNaming.SafeClassName(cls.Name);
+        var sb = new StringBuilder(ind);
+        sb.AppendLine($"export const {name} = {{");
+        var emitted = 0;
+        var fields = cls.Fields.Where(f => !string.IsNullOrEmpty(f.Initializer)).ToList();
+        foreach (var field in fields)
+        {
+            var comma = emitted < fields.Count - 1 ? "," : "";
+            sb.Append(ind).Append(_indent)
+              .AppendLine($"{TsNaming.SafeIdentifier(field.Name)}: {field.Initializer}{comma}");
+            emitted++;
+        }
+        sb.Append(ind).AppendLine("} as const;");
+        sb.AppendLine();
+        sb.Append(ind).AppendLine($"export type {name} = (typeof {name})[keyof typeof {name}];");
         return sb.ToString();
     }
 

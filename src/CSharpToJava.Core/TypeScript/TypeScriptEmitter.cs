@@ -29,11 +29,18 @@ public sealed class TypeScriptEmitter
 
         var sb = new StringBuilder();
 
+        // Task 17：收集 [Flags] 枚举名（共享管线已转为静态 int 常量类，按 TypeMapper 登记识别）
+        var flagsEnumNames = unit.TypeDeclarations
+            .OfType<Java.JavaClassDeclaration>()
+            .Where(cls => context.IsFlagsEnum(cls.Name))
+            .Select(cls => cls.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
         // 发射类型声明，收集 imports
         var typeBodies = new StringBuilder();
         foreach (var type in unit.TypeDeclarations)
         {
-            typeBodies.AppendLine(EmitType(type, mappings, imports));
+            typeBodies.AppendLine(EmitType(type, mappings, imports, flagsEnumNames));
             typeBodies.AppendLine();
         }
 
@@ -52,12 +59,13 @@ public sealed class TypeScriptEmitter
     /// <summary>
     /// 发射单个类型声明（供测试直接调用）。
     /// </summary>
-    public string EmitType(JavaTypeDeclaration type, TsMemberMappingTable mappings, TsImportCollector imports)
+    public string EmitType(JavaTypeDeclaration type, TsMemberMappingTable mappings, TsImportCollector imports,
+        IReadOnlySet<string>? flagsEnumNames = null)
     {
         var exprWriter = new TsExpressionWriter(mappings, imports);
         var stmtWriter = new TsStatementWriter(exprWriter);
         var memberWriter = new TsMemberWriter(stmtWriter, exprWriter);
-        var typeWriter = new TsTypeWriter(memberWriter, accessorRoles: _accessorRoles);
+        var typeWriter = new TsTypeWriter(memberWriter, accessorRoles: _accessorRoles, flagsEnumNames: flagsEnumNames);
         return typeWriter.Emit(type, 0);
     }
 }

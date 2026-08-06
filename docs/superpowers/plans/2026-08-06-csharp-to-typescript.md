@@ -4911,16 +4911,22 @@ git commit -m "feat(ts): reconstruct C# properties as TS accessors"
 ## Task 17: 枚举（显式值与 [Flags]）
 
 **Files:**
-- Modify: `src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs`
+- Modify: `src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs` / `TypeScriptEmitter.cs` / `Pipeline/Passes/SingleFilePasses.cs`
+- Create: `src/CSharpToJava.Core/TypeScript/Rewriters/TsEnumCallRewriter.cs`
 - Create: `tests/CSharpToTypeScript.Tests/TsEnumEmissionTests.cs`
 
-- [ ] **Step 1: 核对 IR 中枚举形态**
+- [x] **Step 1: 核对 IR 中枚举形态**
 
-先转换样本确认：`JavaEnumDeclaration.Values` 是否携带显式数值（C# `enum E { A = 1 }`）。Java 枚举无数值，若 IR 丢失显式值，需在 HIR 层保留（通过 `JavaEnumDeclaration.Annotations` 或新增 TS 侧可读取的旁路信息）——优先不改共享 IR，若信息确实丢失且无法旁路，再最小侵入扩展 `JavaEnumDeclaration`（加可选字段，Java 发射忽略）并同步 spec。
+先转换样本确认：`JavaEnumDeclaration.Values` 带载显式数值（C# `enum E { A = 1 }`）。Java 枚举无数值，若 IR 丢失显式值，需在 HIR 层保留——优先不改共享 IR。
 
-- [ ] **Step 2: 实现发射**
+实测（探针 Java 目标，运行时验证）：
+- 普通枚举→ `JavaEnumDeclaration`，`Values` 为 `"Name(value)"` 形态（显式值保留；无显式值时为 `A(0)/B(1)/...`），末尾附 `_UNMAPPED(0)/(-1)` 哨兵；枚举体含 `value`/私有字段 + `E(int v)` 构造器 + `getValue()/fromValue()/fromValueUnchecked()` 方法（Java 专属产物）。
+- `[Flags]` 枚举→ **共享管线已转为普通类**（`JavaClassDeclaration` + `public static final int` 常量字段 + `and/or/complement/has/fromValue/fromValueUnchecked` 静态辅助），类型引用已擦除为 `int`；辨识方式：`ConversionContext.TypeMapper.IsFlagsEnum(name)`。
+- 调用点形态（全部在共享管线内完成）：`(int)e` → `e.getValue()`；`(E)i` → `E.fromValue((int)(i))`；隐式枚举位运算 → `e.ordinal() & f.ordinal()`；`HasFlag` 已内联为 `((s & f) != 0)`；`Enum.Parse` → `(Color)(EnumHelper.parse(Color.class, s))`；`Enum.GetName` → `Enum.getName(Color.class, c)`。
 
-1. 普通枚举：直译 `export enum X { A = 1, ... }`（显式值可用时）。
+- [x] **Step 2: 实现发射**
+
+1. 普通枚举：直译 `export enum X { A = 1, ... }`（解析 `Values` 中 `Name(value)` 形态，`_UNMAPPED` 哨兵剔除；枚举体不发射；long 值后缀 `L/l` 剥除）。
 2. `[Flags]` 枚举（spec §3.2）：发射为 const 对象 + 联合类型：
 
 ```typescript
@@ -4928,15 +4934,20 @@ export const Style = { None: 0, Bold: 1, Italic: 2 } as const;
 export type Style = (typeof Style)[keyof typeof Style];
 ```
 
-   `HasFlag` 调用 → `(v & flag) === flag`（M3/M4 兼容库 `CsEnum.hasFlag` 可选）。
-3. 测试：`TsEnumEmissionTests`（显式值断言、flags 形态断言、`Enum.Parse` 等复杂 API → 诊断 + 兼容库桩）。
+   辅助方法（and/or/complement/has/fromValue）为共享管线死代码（调用点已内联为位运算），不发射；`HasFlag` 已在共享管线内联为 `(flags & flag) != 0`（非 spec 的 `=== flag` 形式，语义等价，偏离见注记）。
+3. 新增 `TsEnumCallRewriter`（发射前装配）：`x.getValue()`/`x.ordinal()` → `x`（数字枚举即 number，仅目标类型可解析且为枚举时改写，C1 保守）；`E.fromValue(v)`/`fromValueUnchecked(v)` → `(v) as E`（剥除 `(int)/(long)` 包装；TS 数字枚举可持有任意数值，对齐 C# 未定义值语义）；`Enum.Parse/EnumHelper.*/Enum.getName` → 诊断 + 兼容库桩（M4）；枚举 `.toString()` 语义差异（TS 返回数字字符串）→ 诊断。结构化与 raw 两路均覆盖。
+4. 测试：`TsEnumEmissionTests` 13 个（显式/隐式/负值枚举发射、成员使用、cast 调用点、位运算调用点、this 字段 cast、flags 形态、flags 使用 + HasFlag、Enum.Parse 诊断、ToString 诊断、IR 级结构化 getValue/fromValue）。
 
-- [ ] **Step 3: 运行测试 + 提交**
+- [x] **Step 3: 运行测试 + 提交**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsEnumEmissionTests"`
-Expected: PASS。
+Actual: PASS（13/13，含 L3 tsc）；全量 TS 271/271（258 + 新增 13），Java 2423/2423 零回归。
 
----
+**注记（2026-08-07 Task 17 实施，实测为准）：**
+> ① 红→绿清单（证据）：新增 13 测试，初跑 12 红 1 绿（绿：`Enum_Parse_Emits_Diagnostic`——开发中第一版断言太宽，`"Enum"` 命中既有诊断，改紧为 `"Enum.Parse"` 后红）；第一轮实现后 12/13，剩余 1 红为 flags L3（既有裸字段限定缺口 TS2663，测试改用 `this.s` 后绿）；翻译过程中发现 raw 改写略除 `.getValue()` 时保留了前置 `.`（`c2.`）——回退 sb 末尾一个字符后绿。
+> ② 已登记限制（未修）：（1）raw `(int)` 强转在 fromValue 实参以外仍为既有缺口（如 `(Style)3` 字段初始化器→ `(int)(3)`，与三审登记的 raw int 缺口一致）；（2）`(Color)(EnumHelper.parse(...))` 外层 raw 强转未剥（EnumHelper 诊断已发，产物不参与 L3）；（3）long 底层枚举值 > 2^53 精度不保证（TS 数字枚举无 bigint 成员）；（4）枚举 `.toString()`/`GetHashCode` 语义差异诊断，M4 兼容库 `CsEnum.getName` 桩。
+> ③ 偏离清单：flags 辅助方法不发射（死代码）；`HasFlag` 内联形为 `!= 0` 而非 spec 文字的 `=== flag`（语义等价，共享管线形态）；`Enum_Declaration_Emits_Members`（既有）的裸 `Values` 条目仍支持（无括号形态直发名称）。
+> ④ 提交：`feat(ts): emit enums with explicit values and flags as const objects`，hash 见 git log（6 文件：TsEnumCallRewriter.cs 新增 / TsTypeWriter.cs / TypeScriptEmitter.cs / SingleFilePasses.cs / TsEnumEmissionTests.cs / 本计划文档）。
 
 ## Task 18: 字符串插值与 String.Format
 

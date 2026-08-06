@@ -404,6 +404,9 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // TsInterfaceProbeRewriter, TsEqualityRewriter (M3)
         var propertyRewriter = new TypeScript.Rewriters.TsPropertyReconstructionRewriter();
         propertyRewriter.VisitCompilationUnit(compilation);
+        // Task 17：枚举转换调用点（getValue/fromValue/ordinal）改写 + Enum.Parse/ToString 诊断
+        var enumRewriter = new TypeScript.Rewriters.TsEnumCallRewriter(context);
+        enumRewriter.VisitCompilationUnit(compilation);
         return propertyRewriter.Roles;
     }
 }
