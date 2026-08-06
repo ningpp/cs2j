@@ -135,7 +135,7 @@ M1 骨架 ──► M2 核心特性 ──► M3 语义降级 ──┬──►
 **Files:**
 - Modify: `src/CSharpToJava.Core/Context/ConversionOptions.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`（见 Task 3）暂不可用，先直接在现有测试项目加临时测试验证字段存在。
 
@@ -545,7 +545,7 @@ git commit -m "feat(ts): scaffold CSharpToTypeScript.Tests project with base cla
 **Files:**
 - Create: `src/CSharpToJava.Core/TypeScript/TsNaming.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsNamingSafetyTests.cs`：
 
@@ -705,7 +705,7 @@ git commit -m "feat(ts): add TsNaming for identifier safety and overload suffixe
 **Files:**
 - Create: `src/CSharpToJava.Core/TypeScript/TsMemberMappingTable.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsMemberMappingTableTests.cs`：
 
@@ -1036,7 +1036,7 @@ git commit -m "feat(ts): add TsMemberMappingTable with builtin + JSON config map
 **Files:**
 - Create: `src/CSharpToJava.Core/TypeScript/TsImportCollector.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsImportCollectorTests.cs`：
 
@@ -1257,7 +1257,7 @@ git commit -m "feat(ts): add TsImportCollector for ESM import generation"
 **Files:**
 - Create: `src/CSharpToJava.Core/TypeScript/TsExpressionWriter.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsExpressionWriterTests.cs`：
 
@@ -1651,7 +1651,7 @@ git commit -m "feat(ts): add TsExpressionWriter with literal/binary/method-call 
 **Files:**
 - Create: `src/CSharpToJava.Core/TypeScript/TsStatementWriter.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsStatementWriterTests.cs`：
 
@@ -2039,7 +2039,7 @@ git commit -m "feat(ts): add TsStatementWriter for control flow emission"
 - Create: `src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs`
 - Create: `src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/CSharpToTypeScript.Tests/TsBasicClassEmissionTests.cs`：
 
@@ -4312,7 +4312,7 @@ git commit -m "feat(ts): emit generic type parameters with constraints"
 - Modify: `src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs`
 - Create: `tests/CSharpToTypeScript.Tests/TsInterfaceEmissionTests.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```csharp
 namespace CSharpToTypeScript.Tests;
@@ -4363,8 +4363,9 @@ interface IPoint
 """);
         Assert.True(result.Success);
         Assert.Contains("export interface IPoint", result.GeneratedCode);
-        // 接口属性发射为 X: number;
-        Assert.Contains("X: number;", result.GeneratedCode);
+        // 接口属性发射为 readonly X: number;（仅 getter → 只读属性；Y 独立断言避免子串冗余）
+        Assert.Contains("readonly X: number;", result.GeneratedCode);
+        Assert.Contains("readonly Y: number;", result.GeneratedCode);
     }
 
     [Fact]
@@ -4500,8 +4501,10 @@ git commit -m "feat(ts): emit interfaces with properties and extends"
 >      `object` → 丢弃实参 → `implements Object`；用户接口 `IRepo&lt;Integer&gt;` → 实参逐段
 >      映射 → `implements IRepo&lt;number&gt;`（同文件接口，tsc strict 通过）；
 >    - `implements Object`/`extends Object` 对类/接口成员无额外约束（Object 全局接口成员均
->      由原型链满足），产物合法；嵌套泛型实参（`IBase&lt;Pair&lt;int, int&gt;&gt;`）逐段映射
->      不递归，维持原样并登记后续命名管线任务（Task 14 注记 ⑨ 同源）。
+>      由原型链满足），产物合法；嵌套泛型实参（`IBase&lt;Pair&lt;Integer, Integer&gt;&gt;`）
+>      逐段映射不递归，产物**非法 TS（tsc TS2304）**——回拼后追加
+>      `/* cs2j: unmapped nested generic args */` 诊断注释（双审 Important ① 最小修复），
+>      完整修复（深度递归映射 + import 收集）随命名管线任务登记（Task 14 注记 ⑨ 同源）。
 > ⑤ 补测（TsInterfaceEmissionTests 追加 5 个，与计划 4 个一并全绿，全部附 L3 tsc）：
 >    - `Interface_Property_With_Getter_And_Setter_Emits_Non_Readonly`：get+set → `X: number;`
 >      （无 readonly 前缀）；
@@ -4520,8 +4523,28 @@ git commit -m "feat(ts): emit interfaces with properties and extends"
 >    - 计划 Step 1 `Bar()` → 实际 `bar()`（camelCase 修订，见 ②）；
 >    - Step 4 预期 4 个测试 → 实际 9 个（补测 5 个，见 ⑤）；
 >    - 其余按计划实施；类 `extends`（`ExtendedType`）仍原样发射（Task 9 现状，非本任务范畴）。
-> ⑧ 提交：hash 见 git log（`feat(ts): emit interfaces with properties and extends`；2 文件：
->    TsTypeWriter.cs / TsInterfaceEmissionTests.cs）。
+> ⑧ 提交：hash 见 git log（`feat(ts): emit interfaces with properties and extends`；3 文件：
+>    TsTypeWriter.cs / TsInterfaceEmissionTests.cs / 本计划文档）。
+> ⑨ 双审修复（2026-08-07，Important ① + Minor ③④⑤）：
+>    - **嵌套泛型 heritage 诊断注释（Important）**：`IBase<Pair<Integer, Integer>>` 按逗号切分
+>      无法完整映射，产物非法 TS（tsc TS2304）且原先无任何标记——`MapHeritageType` 回拼后
+>      追加 ` /* cs2j: unmapped nested generic args */` 诊断注释（与 dropped bounds/ctor 重载
+>      惯例一致）；单层实参全部命中（`IBase<string>`/`IRepo<int>`）不加注释；完整修复
+>      （深度递归映射 + import 收集）随命名管线任务登记；
+>    - **弱断言修复（Minor）**：`Interface_With_Properties_Emits_Properties` 的 `X: number;`
+>      子串断言与 `readonly X: number;` 冗余 → 改为独立断言 `readonly Y: number;`；
+>    - **边界回归补测（Minor，3 个）**：`Accessor_Like_User_Methods_Are_Not_Merged`
+>      （`GetURL()`/`get()`→`get$()`（get 为 TS 保留字转义）/`GetItem(int)` 全保持方法形态 +
+>      L3 tsc）、`Parameterized_Auto_Generated_Accessor_Is_Not_Merged`（组件级：带参自动生成
+>      getter `getItem(index)` 不合并，IsAccessor 增 getter 参数守卫）、
+>      `Interface_Extends_Nested_Generic_Args_Emits_Diagnostic_Comment`（组件级：注释追加 +
+>      L3 探针（Integer 别名/Pair/IBase 声明后发射文本原样编译，注释形态为合法 TS））；
+>    - 既有两个单层泛型测试补 `DoesNotContain("cs2j: unmapped nested generic args")`；
+>    - 文档同步：Step 1 勾选、Step 1 代码块属性断言同步 `readonly Y: number;`、注记 ④ 措辞
+>      修订（非法 TS TS2304）、注记 ⑧ 文件数 2→3（含计划文档）、测试文件末尾补换行；
+>    - 统计：TS 196/196（193 + 新增 3，L3 tsc 全过）；Java 2423/2423 零回归；
+>    - 提交：本修复提交（`fix(ts): add diagnostic for unmapped nested generic heritage args`；
+>      hash 见 git log）。
 ---
 
 ## Task 16: 属性 get/set 发射
@@ -4530,7 +4553,7 @@ git commit -m "feat(ts): emit interfaces with properties and extends"
 - Modify: `src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs`
 - Create: `tests/CSharpToTypeScript.Tests/TsPropertyEmissionTests.cs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```csharp
 namespace CSharpToTypeScript.Tests;
