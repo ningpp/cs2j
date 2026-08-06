@@ -42,10 +42,10 @@ public sealed class TsMemberMappingTable
 
 public static class TsNaming
 {
-    public string SafeIdentifier(string name);          // TS 保留字处理
-    string SafeClassName(string name);
-    string OverloadSuffix(IReadOnlyList<string> paramTsTypes);
-    string FactoryName(int ordinal);                    // 构造器重载 -> Create$N
+    public static string SafeIdentifier(string name);          // TS 保留字处理
+    public static string SafeClassName(string name);
+    public static string OverloadSuffix(IReadOnlyList<string> paramTsTypes);
+    public static string FactoryName(int ordinal);                    // 构造器重载 -> Create$N
 }
 
 namespace CSharpToJava.Core.TypeScript.Rewriters;
@@ -55,6 +55,12 @@ public sealed class TsGenericErasureRewriter : Java.JavaSyntaxRewriter { ... }
 public sealed class TsInterfaceProbeRewriter : Java.JavaSyntaxRewriter { ... }
 public sealed class TsEqualityRewriter : Java.JavaSyntaxRewriter { ... }
 ```
+
+> **IR 属性名契约（已对照 `src/CSharpToJava.Core/Java/` 实际代码核对，实现时以此为准）：**
+> - 表达式：`JavaCastExpression.Type`、`JavaAssignmentExpression.Target/Operator/Value`、`JavaParenthesizedExpression.InnerExpression`、`JavaInstanceOfExpression.Type`、`JavaRawExpression.Code`、`JavaThisExpression.IsSuper`；`JavaLambdaExpression.Parameters` 为 `List<string>`（纯参数名），方法体在 `ExpressionBody`（表达式）/`BlockBody`（块）二选一。
+> - 语句：`JavaVariableDeclarationStatement.Type/Name/Initializer`、`JavaIfStatement.ThenBody/ElseBody`、`JavaForStatement.Initializer/Increment`（均为**字符串**）`/Condition/Body`、`JavaTryCatchStatement.TryBody/CatchClauses/FinallyBody`、`JavaSwitchSection.Labels`（**已含冒号**，如 `"case 1:"`）、`JavaRawStatement.Code`。
+> - 类型/成员：`JavaInterfaceDeclaration.ExtendedTypes`、`JavaEnumDeclaration.Values`、`JavaConstructorDeclaration.Initializer`（`"super(...)"`/`"this(...)"` 字符串）、`JavaStaticInitializerBlock.Statements`（`List<string>`）；`JavaMethodDeclaration`/`JavaConstructorDeclaration` 的 `StructuredBody`（`JavaMethodBody`，结构化语句列表）**优先于** `Body` 字符串，发射器必须两者都处理；`JavaTypeParameter.Name/Bounds`（`List<string>`，无 `Constraint` 属性）。
+> - **IR 中的类型/成员名均为 Java 风味**（如 `int`/`String`/`List<String>`/`toUpperCase`），TS 发射前需经 Java→TS 映射（`TsMemberMappingTable` 内置 Java 类型表，见 Task 5）。
 
 ---
 
@@ -77,6 +83,8 @@ public sealed class TsEqualityRewriter : Java.JavaSyntaxRewriter { ... }
 | `src/CSharpToJava.Core/TypeScript/Rewriters/TsGenericErasureRewriter.cs` | S 级：typeof(T)/new T()/default(T) 降级 |
 | `src/CSharpToJava.Core/TypeScript/Rewriters/TsInterfaceProbeRewriter.cs` | S 级：接口 instanceof → 运行时探针 |
 | `src/CSharpToJava.Core/TypeScript/Rewriters/TsEqualityRewriter.cs` | S 级：Equals 覆写类的相等调用点改写 |
+| `src/CSharpToJava.Core/TypeScript/Rewriters/TsPropertyReconstructionRewriter.cs` | M2：属性访问器重组（getX/setX → TS getter/setter + 调用点改写，Task 16） |
+| `src/CSharpToJava.Core/TypeScript/Rewriters/TsNumericSemanticsRewriter.cs` | M2：类型感知的整数除法/窄化/bigint 混算（Task 19） |
 | `config/typescript/TypeMappings.json` | C#/Java → TS 类型映射配置 |
 | `config/typescript/MemberMappings.json` | 成员调用映射配置 |
 | `typescript/csharptotypescript-compat/package.json` | 兼容库 npm 包定义 |
@@ -109,13 +117,12 @@ public sealed class TsEqualityRewriter : Java.JavaSyntaxRewriter { ... }
 ## 里程碑依赖
 
 ```
-M1 骨架 ──► M2 核心特性 ──► M3 语义降级 ──► M5 项目级
-                ▲                  │
-                └──────────────────┘
-                    M4 兼容库（依赖 M1 发射骨架）
+M1 骨架 ──► M2 核心特性 ──► M3 语义降级 ──┬──► M5 项目级
+   │                                      │
+   └────────► M4 兼容库 ────────────────────┘
 ```
 
-每个里程碑独立可交付、独立验收。M1→M2→M3 顺序执行；M4 可与 M3 并行（仅依赖 M1）；M5 依赖 M1-M4。
+每个里程碑独立可交付、独立验收。M1→M2→M3 顺序执行；M4 仅依赖 M1 发射骨架，可与 M2/M3 并行；M5 依赖 M1-M4（与 spec §6.3 一致：M3 依赖 M2 的接口发射，M5 依赖前四者）。
 
 ---
 
@@ -278,7 +285,6 @@ git commit -m "feat(ts): add TargetLanguage option to ConversionOptions"
         { "type": "System.String", "method": "Join", "tsMethod": "CsString.join", "signature": "static", "imports": ["@csharptotypescript/compat"] },
         { "type": "System.Collections.Generic.List`1", "method": "Add", "tsMethod": "push", "signature": "" },
         { "type": "System.Collections.Generic.List`1", "method": "Count", "tsMethod": "length", "signature": "property" },
-        { "type": "System.Collections.Generic.List`1", "method": "Clear", "tsMethod": "length = 0", "signature": "" },
         { "type": "System.Console", "method": "WriteLine", "tsMethod": "console.log", "signature": "static" },
         { "type": "System.Console", "method": "Write", "tsMethod": "process.stdout.write", "signature": "static" },
         { "type": "System.Math", "method": "Sqrt", "tsMethod": "Math.sqrt", "signature": "static" },
@@ -301,6 +307,8 @@ git commit -m "feat(ts): add TargetLanguage option to ConversionOptions"
 git add config/typescript/TypeMappings.json config/typescript/MemberMappings.json
 git commit -m "feat(ts): add TypeScript type and member mapping configs"
 ```
+
+> **配置约束说明**：`methodMappings` 只能表达“方法名→方法名/静态调用”的替换，**不能**收录需要表达式/语句级改写的映射（如 `List.Clear()` → `x.length = 0` 是赋值语句，`Remove` 返回值语义差异等）。此类场景一律从配置中排除，由发射器特殊分支或后续里程碑的 rewriter 处理（`List.Clear` 在 M2 由 `TsExpressionWriter` 语句级特殊分支处理，见 Task 19）。
 
 ---
 
@@ -328,6 +336,7 @@ git commit -m "feat(ts): add TypeScript type and member mapping configs"
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="xunit.SkippableFact" Version="1.5.23" />
   </ItemGroup>
 
   <ItemGroup>
@@ -399,62 +408,90 @@ public abstract class TsConversionTestBase
     }
 
     /// <summary>
-    /// L3: 写临时工程 + npx tsc --noEmit。无 Node 环境时跳过。
+    /// L3: 会话级共享临时工程（spec §5.2：预生成 package.json + tsconfig.json，
+    /// typescript 仅安装一次），写入待验证 .ts 后调用 tsc --noEmit。无 Node 时跳过。
     /// </summary>
     protected void AssertCompiles(string tsCode, params string[] additionalFiles)
     {
         var nodePath = FindNodeExecutable();
         if (nodePath == null)
         {
-            Skip.If(true, "Node.js not available — L3 tsc check skipped.");
-            return;
+            throw new SkipException("Node.js not available — L3 tsc check skipped.");
         }
 
-        var tmpDir = Path.Combine(Path.GetTempPath(), "cs2j_ts_compile_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tmpDir);
+        var workDir = TsCompileFixture.GetWorkDir(nodePath);   // 懒初始化：首次调用时 npm install typescript
+        var probePath = Path.Combine(workDir, "probe_" + Guid.NewGuid().ToString("N") + ".ts");
+        File.WriteAllText(probePath, tsCode);
+        for (int i = 0; i < additionalFiles.Length; i += 2)
+        {
+            File.WriteAllText(Path.Combine(workDir, additionalFiles[i]), additionalFiles[i + 1]);
+        }
+
         try
         {
-            File.WriteAllText(Path.Combine(tmpDir, "package.json"), "{\"type\":\"module\"}");
-            File.WriteAllText(Path.Combine(tmpDir, "tsconfig.json"),
-                "{\"compilerOptions\":{\"strict\":true,\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"noEmit\":true,\"useDefineForClassFields\":false}}");
-            File.WriteAllText(Path.Combine(tmpDir, "Sample.ts"), tsCode);
-            for (int i = 0; i < additionalFiles.Length; i += 2)
-            {
-                File.WriteAllText(Path.Combine(tmpDir, additionalFiles[i]), additionalFiles[i + 1]);
-            }
-
             var psi = new ProcessStartInfo
             {
                 FileName = nodePath,
-                Arguments = "node_modules/typescript/bin/tsc --noEmit",
-                WorkingDirectory = tmpDir,
+                Arguments = $"node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+                WorkingDirectory = workDir,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
-            // 先安装 typescript
-            var installPsi = new ProcessStartInfo
-            {
-                FileName = nodePath.Contains("node.exe") ? Path.Combine(Path.GetDirectoryName(nodePath)!, "npm.cmd") : "npm",
-                Arguments = "install typescript --no-save",
-                WorkingDirectory = tmpDir,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            };
-            var install = Process.Start(installPsi);
-            install!.WaitForExit(60000);
-
-            var proc = Process.Start(psi);
-            proc!.WaitForExit(30000);
-            var stdout = proc.StandardOutput.ReadToEnd();
+            var proc = Process.Start(psi)!;
+            var stdout = proc.StandardOutput.ReadToEnd();   // 先读完输出再等待，避免管道缓冲区满导致死锁
             var stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit(60000);
             Assert.True(proc.ExitCode == 0,
                 $"tsc failed (exit {proc.ExitCode}):\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n--- code ---\n{tsCode}");
         }
         finally
         {
-            try { Directory.Delete(tmpDir, true); } catch { }
+            try { File.Delete(probePath); } catch { }
+        }
+    }
+
+    /// <summary>
+    /// 会话级共享 tsc 工程（避免每个测试重复 npm install，spec §5.2）。
+    /// </summary>
+    private static class TsCompileFixture
+    {
+        private static readonly object Lock = new();
+        private static string? _workDir;
+
+        public static string GetWorkDir(string nodePath)
+        {
+            lock (Lock)
+            {
+                if (_workDir != null) return _workDir;
+                var dir = Path.Combine(Path.GetTempPath(), "cs2j_ts_compile_shared");
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "package.json"), "{\"type\":\"module\"}");
+                File.WriteAllText(Path.Combine(dir, "tsconfig.json"),
+                    "{\"compilerOptions\":{\"strict\":true,\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"noEmit\":true,\"useDefineForClassFields\":false},\"include\":[\"*.ts\"]}");
+                if (!Directory.Exists(Path.Combine(dir, "node_modules", "typescript")))
+                {
+                    var npmCmd = OperatingSystem.IsWindows()
+                        ? Path.Combine(Path.GetDirectoryName(nodePath)!, "npm.cmd")
+                        : "npm";
+                    var installPsi = new ProcessStartInfo
+                    {
+                        FileName = npmCmd,
+                        Arguments = "install typescript --no-save",
+                        WorkingDirectory = dir,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                    };
+                    var install = Process.Start(installPsi)!;
+                    install.StandardOutput.ReadToEnd();
+                    install.StandardError.ReadToEnd();
+                    install.WaitForExit(120000);
+                    Assert.True(install.ExitCode == 0, $"npm install typescript failed (exit {install.ExitCode})");
+                }
+                _workDir = dir;
+                return _workDir;
+            }
         }
     }
 
@@ -473,20 +510,20 @@ public abstract class TsConversionTestBase
 }
 ```
 
-注：测试基类使用 `Xunit.SkippableFact` 风格的 `Skip.If`，需添加 `xunit.SkippableFact` 包。为简化 M1，先改用条件 `Skip.NotNode` 标记——在 csproj 额外加：
-
-```xml
-<PackageReference Include="xunit.SkippableFact" Version="1.5.23" />
-```
-
-并在基类 using 加 `using Xunit;`（已含）。将 `AssertCompiles` 标记为可跳过：将 `Skip.If(true, ...)` 改用 `throw new SkipException(...)`（SkippableFact 包提供）。
+注：`SkipException` 由 `xunit.SkippableFact` 包提供（已加入 csproj）；在普通 `[Fact]` 中抛出 `SkipException` 即被标记为 Skipped，无需改用 `[SkippableFact]`。共享工程目录 `cs2j_ts_compile_shared` 跨测试会话保留（typescript 只安装一次）；如需干净环境可手工删除。
 
 - [ ] **Step 3: 注册到 slnx**
 
-读取 `CSharpToJavaConverter.slnx`，在 `<Project>` 列表中添加：
+读取 `CSharpToJavaConverter.slnx`（现有条目均带 `Id`/`Type` 属性，且需在 `/tests/` Folder 内加 `ProjectRef`），在 `<Solution>` 下添加：
 
 ```xml
-<Project Path="tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj" />
+<Project Path="tests\CSharpToTypeScript.Tests\CSharpToTypeScript.Tests.csproj" Id="c4d5e6f7-a8b9-4c0d-9e1f-2a3b4c5d6e7f" Type="Microsoft.VisualStudio.Project" />
+```
+
+并在现有 `<Folder ... Name="/tests/" ...>` 内追加：
+
+```xml
+<ProjectRef Id="c4d5e6f7-a8b9-4c0d-9e1f-2a3b4c5d6e7f" />
 ```
 
 - [ ] **Step 4: 验证构建**
@@ -746,6 +783,27 @@ public class TsMemberMappingTableTests
         Assert.True(table.TryMapMethod("java.util.List", "size", out var tsMethod, out _));
         Assert.Equal("length", tsMethod);
     }
+
+    [Fact]
+    public void TryMapType_Java_Flavor_String_To_string()
+    {
+        // IR 中的类型是 Java 风味，内置 Java→TS 类型表覆盖
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapType("String", out var tsType, out _));
+        Assert.Equal("string", tsType);
+    }
+
+    [Fact]
+    public void TryMapType_Java_Flavor_Primitives()
+    {
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapType("int", out var t1, out _));
+        Assert.Equal("number", t1);
+        Assert.True(table.TryMapType("long", out var t2, out _));
+        Assert.Equal("bigint", t2);
+        Assert.True(table.TryMapType("boolean", out var t3, out _));
+        Assert.Equal("boolean", t3);
+    }
 }
 ```
 
@@ -778,7 +836,10 @@ public sealed class TsMemberMappingTable
     private readonly Dictionary<(string Type, string Member), string> _memberMappings = new();
 
     // 内置成员映射（最高频项，spec §3.1.2 ①）
-    // IR 中已是 Java 风味，这里覆盖 Java 化 API 调用
+    // IR 中已是 Java 风味，这里覆盖 Java 化 API 调用。
+    // 注意：只收录“方法名→方法名”可直接替换的项；需要参数感知/语句级改写的
+    // （如 remove(int) 返回值语义、equalsIgnoreCase 两侧调用、Clear → length = 0）
+    // 不放进本表，由发射器特殊分支或 M3 rewriter 处理。
     private static readonly Dictionary<(string Type, string Method), string> BuiltinMethodMappings = new()
     {
         { ("java.util.List", "size"), "length" },
@@ -786,12 +847,10 @@ public sealed class TsMemberMappingTable
         { ("java.lang.String", "length"), "length" },
         { ("java.util.List", "add"), "push" },
         { ("java.util.ArrayList", "add"), "push" },
-        { ("java.util.List", "get"), "at" },  // 注意：JS at() 索引，与 Java get(i) 一致
         { ("java.util.List", "isEmpty"), "length === 0" },
         { ("java.util.Collection", "isEmpty"), "length === 0" },
         { ("java.util.List", "contains"), "includes" },
         { ("java.util.List", "indexOf"), "indexOf" },
-        { ("java.util.List", "remove"), "splice" },
         { ("java.lang.String", "toUpperCase"), "toUpperCase" },
         { ("java.lang.String", "toLowerCase"), "toLowerCase" },
         { ("java.lang.String", "trim"), "trim" },
@@ -804,9 +863,6 @@ public sealed class TsMemberMappingTable
         { ("java.lang.String", "indexOf"), "indexOf" },
         { ("java.lang.String", "charAt"), "charAt" },
         { ("java.lang.String", "equals"), "===" },
-        { ("java.lang.String", "equalsIgnoreCase"), "toLowerCase() === .toLowerCase()" },
-        { ("java.lang.System", "out.println"), "console.log" },
-        { ("java.lang.System", "out.print"), "process.stdout.write" },
         { ("java.lang.Math", "sqrt"), "Math.sqrt" },
         { ("java.lang.Math", "abs"), "Math.abs" },
         { ("java.lang.Math", "max"), "Math.max" },
@@ -815,6 +871,19 @@ public sealed class TsMemberMappingTable
         { ("java.lang.Math", "ceil"), "Math.ceil" },
         { ("java.lang.Math", "round"), "Math.round" },
         { ("java.lang.Math", "pow"), "Math.pow" },
+    };
+
+    // 内置 Java 风味类型 → TS 类型映射（IR 中字段/参数/返回值类型均为 Java 名，
+    // 发射器必须先经此表转换；spec 公共契约“IR 为 Java 风味”）
+    private static readonly Dictionary<string, string> BuiltinJavaTypeMappings = new()
+    {
+        { "int", "number" }, { "long", "bigint" }, { "short", "number" },
+        { "byte", "number" }, { "char", "string" }, { "float", "number" },
+        { "double", "number" }, { "boolean", "boolean" }, { "void", "void" },
+        { "String", "string" }, { "java.lang.String", "string" },
+        { "Object", "any" }, { "java.lang.Object", "any" },
+        { "Integer", "number" }, { "Long", "bigint" }, { "Boolean", "boolean" },
+        { "Double", "number" }, { "Float", "number" }, { "Character", "string" },
     };
 
     // 内置属性/字段映射
@@ -834,10 +903,18 @@ public sealed class TsMemberMappingTable
 
     public bool TryMapType(string csharpOrJavaType, out string tsType, out IReadOnlyList<string> imports)
     {
+        // ① 配置文件（C# 全名，如 System.Int32）
         if (_typeMappings.TryGetValue(csharpOrJavaType, out var entry))
         {
             tsType = entry.TsType;
             imports = entry.Imports;
+            return true;
+        }
+        // ② 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
+        if (BuiltinJavaTypeMappings.TryGetValue(csharpOrJavaType, out var javaMapped))
+        {
+            tsType = javaMapped;
+            imports = System.Array.Empty<string>();
             return true;
         }
         tsType = csharpOrJavaType;
@@ -943,7 +1020,7 @@ public sealed class TsMemberMappingTable
 - [ ] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsMemberMappingTableTests"`
-Expected: PASS（8 个测试）。
+Expected: PASS（10 个测试）。
 
 - [ ] **Step 5: 提交**
 
@@ -1084,8 +1161,8 @@ public sealed class TsImportCollector
     /// </summary>
     public void AddRelativeImport(string typeName, string targetNamespace)
     {
-        var modulePath = ComputeRelativePath(targetNamespace);
-        AddNamedImport(typeName, modulePath);
+        var prefix = ComputeRelativePath(targetNamespace);   // 形如 "./"、"./Models/"、"../X/"
+        AddNamedImport(typeName, $"{prefix}{typeName}.js");
     }
 
     /// <summary>
@@ -1112,8 +1189,8 @@ public sealed class TsImportCollector
             var remaining = targetParts.Skip(common).ToArray();
             if (remaining.Length == 0)
             {
-                // 同命名空间：./Type.js
-                return "";  // 调用方负责追加类型名
+                // 同命名空间：./Type.js（调用方拼接类型名）
+                return "./";
             }
             return "./" + string.Join("/", remaining) + "/";
         }
@@ -1159,33 +1236,6 @@ public sealed class TsImportCollector
 }
 
 public sealed record TsImportEntry(string ModulePath, IReadOnlyList<string> NamedImports);
-```
-
-注：`AddRelativeImport` 中 `ComputeRelativePath` 返回的前缀需与类型名拼接。修正实现——将 `AddRelativeImport` 改为：
-
-```csharp
-public void AddRelativeImport(string typeName, string targetNamespace)
-{
-    var prefix = ComputeRelativePath(targetNamespace);
-    // prefix 形如 "./Models/" 或 "./" 或 "../"
-    // 同命名空间时 ComputeRelativePath 返回 ""，需补 "./"
-    var modulePath = prefix == "" ? $"./{typeName}.js" : $"{prefix}{typeName}.js";
-    AddNamedImport(typeName, modulePath);
-}
-```
-
-并在 `ComputeRelativePath` 的 `common == currentParts.Length` 且 `remaining.Length == 0` 分支返回 `"./"` 而非 `""`：
-
-```csharp
-if (common == currentParts.Length)
-{
-    var remaining = targetParts.Skip(common).ToArray();
-    if (remaining.Length == 0)
-    {
-        return "./";  // 同命名空间
-    }
-    return "./" + string.Join("/", remaining) + "/";
-}
 ```
 
 - [ ] **Step 4: 运行测试验证通过**
@@ -1259,17 +1309,44 @@ public class TsExpressionWriterTests
     }
 
     [Fact]
-    public void BinaryExpression_IntegerDivision_Wraps_MathTrunc()
+    public void BinaryExpression_IntegerLiteralDivision_Wraps_MathTrunc()
     {
-        // 两 number 操作数的 / -> Math.trunc(a / b)
+        // 两个整数字面量操作数的 / -> Math.trunc(7 / 2)
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression("7"),
+            Operator = "/",
+            Right = new JavaLiteralExpression("2"),
+        };
+        var result = EmitExpr(expr);
+        Assert.Equal("Math.trunc(7 / 2)", result);
+    }
+
+    [Fact]
+    public void BinaryExpression_IdentifierDivision_Not_Wrapped_In_M1()
+    {
+        // 标识符操作数无类型信息（IR 不携带类型），M1 不包 Math.trunc，
+        // 避免误伤 double 除法；类型感知处理在 M2 数值语义 rewriter（Task 19）
         var expr = new JavaBinaryExpression
         {
             Left = new JavaIdentifierExpression("a"),
             Operator = "/",
             Right = new JavaIdentifierExpression("b"),
         };
-        var result = EmitExpr(expr);
-        Assert.Equal("Math.trunc(a / b)", result);
+        Assert.Equal("a / b", EmitExpr(expr));
+    }
+
+    [Fact]
+    public void BinaryExpression_BigintLiteralDivision_Not_Wrapped()
+    {
+        // bigint 除法 JS 天然截断，且 Math.trunc 不接受 bigint（spec §2.5）
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression("100L"),
+            Operator = "/",
+            Right = new JavaLiteralExpression("3L"),
+        };
+        Assert.Equal("100n / 3n", EmitExpr(expr));
     }
 
     [Fact]
@@ -1312,14 +1389,16 @@ public class TsExpressionWriterTests
     [Fact]
     public void LambdaExpression_Emits_As_Arrow_Function()
     {
-        var lambda = new JavaLambdaExpression
-        {
-            Parameters = { new JavaParameter("number", "x") },
-            Body = "return x + 1;",
-        };
+        // JavaLambdaExpression.Parameters 为 List<string>（纯参数名），
+        // 块体在 BlockBody（JavaBlockStatement）
+        var lambda = new JavaLambdaExpression();
+        lambda.Parameters.Add("x");
+        var block = new JavaBlockStatement();
+        block.Statements.Add(new JavaReturnStatement { Expression = new JavaLiteralExpression("42") });
+        lambda.BlockBody = block;
         var result = EmitExpr(lambda);
-        Assert.Contains("(x: number) =>", result);
-        Assert.Contains("return x + 1;", result);
+        Assert.Contains("(x) =>", result);
+        Assert.Contains("return 42;", result);
     }
 }
 ```
@@ -1358,7 +1437,7 @@ public sealed class TsExpressionWriter
         {
             JavaLiteralExpression lit => EmitLiteral(lit),
             JavaIdentifierExpression id => TsNaming.SafeIdentifier(id.Name),
-            JavaThisExpression => "this",
+            JavaThisExpression thisExpr => thisExpr.IsSuper ? "super" : "this",
             JavaBinaryExpression binary => EmitBinary(binary),
             JavaUnaryExpression unary => EmitUnary(unary),
             JavaConditionalExpression cond => $"{ToInlineString(cond.Condition)} ? {ToInlineString(cond.WhenTrue)} : {ToInlineString(cond.WhenFalse)}",
@@ -1368,12 +1447,32 @@ public sealed class TsExpressionWriter
             JavaMemberAccessExpression access => EmitMemberAccess(access),
             JavaLambdaExpression lambda => EmitLambda(lambda),
             JavaArrayAccessExpression arr => $"{ToInlineString(arr.Target)}[{ToInlineString(arr.Index)}]",
-            JavaAssignmentExpression assign => $"{ToInlineString(assign.Left)} {assign.Operator} {ToInlineString(assign.Right)}",
-            JavaParenthesizedExpression paren => $"({ToInlineString(paren.Expression)})",
+            JavaAssignmentExpression assign => $"{ToInlineString(assign.Target)} {assign.Operator} {ToInlineString(assign.Value)}",
+            JavaParenthesizedExpression paren => $"({ToInlineString(paren.InnerExpression)})",
             JavaInstanceOfExpression inst => EmitInstanceOf(inst),
-            JavaRawExpression raw => raw.Expression,
+            JavaRawExpression raw => raw.Code,
             _ => expr.ToInlineString(),
         };
+    }
+
+    /// <summary>
+    /// Java 风味类型名 → TS 类型（供语句/成员发射器复用，如变量声明、字段）。
+    /// </summary>
+    public string MapType(string javaOrCsharpType)
+    {
+        return _mappings.TryMapType(javaOrCsharpType, out var ts, out var imports)
+            ? WithImports(ts, imports)
+            : javaOrCsharpType;
+    }
+
+    private string WithImports(string tsType, IReadOnlyList<string> imports)
+    {
+        foreach (var imp in imports)
+        {
+            // compat 包符号导入；模块名即 imp，符号名即 tsType
+            _imports.AddNamedImport(tsType.Split('<')[0], imp);
+        }
+        return tsType;
     }
 
     private string EmitLiteral(JavaLiteralExpression lit)
@@ -1386,10 +1485,15 @@ public sealed class TsExpressionWriter
             return v[..^1] + "n";
         }
 
-        // char 字面量：'a' -> "a"
-        if (v.StartsWith("'") && v.EndsWith("'") && v.Length == 3)
+        // char 字面量：'a' -> "a"；泛化支持转义字符（'\n' -> "\n"）。
+        // 边界：内含双引号（如 '\"'）的转义在 M2 字符处理任务中细化。
+        if (v.Length >= 3 && v.StartsWith("'") && v.EndsWith("'"))
         {
-            return "\"" + v[1] + "\"";
+            var inner = v[1..^1];
+            if (!inner.Contains('"'))
+            {
+                return "\"" + inner + "\"";
+            }
         }
 
         return v;
@@ -1400,14 +1504,18 @@ public sealed class TsExpressionWriter
         var left = ToInlineString(binary.Left);
         var right = ToInlineString(binary.Right);
 
-        // 整数除法补偿：number 操作数的 / -> Math.trunc(a / b)
-        // 简化判定：操作符为 / 且左右均为标识符或字面量（非 bigint）
-        if (binary.Operator == "/" && IsIntegerOperand(binary.Left) && IsIntegerOperand(binary.Right))
+        // 整数除法补偿（spec §2.5：两操作数均为 number 整型时才包 Math.trunc）。
+        // IR 不携带类型信息：M1 仅对“两个整数字面量”这一确定场景包装；
+        // 标识符/表达式操作数的类型感知判定由 M2 Task 19 的数值语义 rewriter
+        //（持有 Roslyn 语义模型回调，模式同 §2.6.1 重载消歧）处理。
+        if (binary.Operator == "/"
+            && IsIntegerLiteralOperand(binary.Left)
+            && IsIntegerLiteralOperand(binary.Right))
         {
             return $"Math.trunc({left} / {right})";
         }
 
-        // 相等比较：原始类型 === / !==
+        // 相等比较：原始类型 === / !==（record/struct 场景由 M3 TsEqualityRewriter 预处理）
         var op = binary.Operator switch
         {
             "==" => "===",
@@ -1418,11 +1526,13 @@ public sealed class TsExpressionWriter
         return $"{left} {op} {right}";
     }
 
-    private static bool IsIntegerOperand(JavaExpression expr)
+    private static bool IsIntegerLiteralOperand(JavaExpression expr)
     {
-        // 简化：标识符或数字字面量视为可能的 number 操作数
-        // 真正的类型感知在 M3 TsEqualityRewriter 中处理
-        return expr is JavaIdentifierExpression or JavaLiteralExpression;
+        // 仅整数字面量（可解析为 long 且无 L 后缀）。bigint 字面量（L 后缀）
+        // 不可包 Math.trunc：JS bigint 除法天然截断，且 Math.* 不接受 bigint（运行时 TypeError）。
+        return expr is JavaLiteralExpression lit
+            && long.TryParse(lit.Value, out _)
+            && !lit.Value.EndsWith("L");
     }
 
     private string EmitUnary(JavaUnaryExpression unary)
@@ -1435,7 +1545,7 @@ public sealed class TsExpressionWriter
     private string EmitCast(JavaCastExpression cast)
     {
         // 引用类型 -> as；数值窄化 -> Number() 等（M2 细化）
-        var tsType = cast.TargetType;
+        var tsType = MapType(cast.Type);   // 实际属性名是 Type（非 TargetType）
         if (tsType == "number" || tsType == "Number")
         {
             return $"Number({ToInlineString(cast.Expression)})";
@@ -1464,10 +1574,10 @@ public sealed class TsExpressionWriter
             && ma.MemberName == "out"
             && (methodName == "println" || methodName == "print"))
         {
-            var args = string.Join(", ", call.Arguments.Select(ToInlineString));
+            var specialArgs = string.Join(", ", call.Arguments.Select(ToInlineString));
             return methodName == "println"
-                ? $"console.log({args})"
-                : $"process.stdout.write({args})";
+                ? $"console.log({specialArgs})"
+                : $"process.stdout.write({specialArgs})";
         }
 
         var args = string.Join(", ", call.Arguments.Select(ToInlineString));
@@ -1495,28 +1605,37 @@ public sealed class TsExpressionWriter
 
     private string EmitLambda(JavaLambdaExpression lambda)
     {
-        var parms = string.Join(", ", lambda.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {p.Type}"));
-        if (lambda.IsExpressionLambda)
+        // JavaLambdaExpression.Parameters 是 List<string>（纯参数名，无类型）；
+        // 参数类型注解在 M2/M3 委托转换时由语义模型补充。
+        var parms = string.Join(", ", lambda.Parameters.Select(TsNaming.SafeIdentifier));
+        if (lambda.ExpressionBody != null)
         {
-            return $"({parms}) => {lambda.Body}";
+            return $"({parms}) => {ToInlineString(lambda.ExpressionBody)}";
         }
-        return $"({parms}) => {{ {lambda.Body} }}";
+        if (lambda.BlockBody != null)
+        {
+            // 块体交给语句发射器（构造时注入；此处简化为 IR 自带 Java 文本，
+            // 完整版在 TypeScriptEmitter 组装时用 TsStatementWriter 渲染 BlockBody）
+            return $"({parms}) => {lambda.BlockBody.ToString("")}";
+        }
+        return $"({parms}) => {{}}";
     }
 
     private string EmitInstanceOf(JavaInstanceOfExpression inst)
     {
         // class 直译 instanceof；interface 由 TsInterfaceProbeRewriter 预处理（M3）
-        return $"{ToInlineString(inst.Expression)} instanceof {inst.TypeName}";
+        // 实际属性名是 Type（非 TypeName）；Java 16 模式变量（PatternVariable）在 M3 模式匹配任务处理
+        return $"{ToInlineString(inst.Expression)} instanceof {inst.Type}";
     }
 }
 ```
 
-注：`JavaLambdaExpression` 的属性名需对照实际 IR。读取 `src/CSharpToJava.Core/Java/JavaExpression.cs` 第 197-248 行确认属性名（`Parameters`/`Body`/`IsExpressionLambda`），若不一致则按实际 IR 调整。
+注：以上属性名已对照 `src/CSharpToJava.Core/Java/JavaExpression.cs` 实际定义核对（见文首“IR 属性名契约”）。
 
 - [ ] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsExpressionWriterTests"`
-Expected: PASS（10 个测试）。
+Expected: PASS（12 个测试）。
 
 - [ ] **Step 5: 提交**
 
@@ -1554,7 +1673,7 @@ public class TsStatementWriterTests
     public void BlockStatement_Emits_Braces()
     {
         var block = new JavaBlockStatement();
-        block.Statements.Add(new JavaReturnStatement(new JavaLiteralExpression("1")));
+        block.Statements.Add(new JavaReturnStatement { Expression = new JavaLiteralExpression("1") });
         var result = EmitStmt(block);
         Assert.Contains("{", result);
         Assert.Contains("return 1;", result);
@@ -1564,10 +1683,11 @@ public class TsStatementWriterTests
     [Fact]
     public void VariableDeclaration_Emits_Let()
     {
+        // 实际属性名：Type/Name（非 VariableType/VariableName）
         var decl = new JavaVariableDeclarationStatement
         {
-            VariableType = "number",
-            VariableName = "x",
+            Type = "number",
+            Name = "x",
             Initializer = new JavaLiteralExpression("42"),
         };
         var result = EmitStmt(decl);
@@ -1577,18 +1697,19 @@ public class TsStatementWriterTests
     [Fact]
     public void ReturnStatement_Emits_Return()
     {
-        var ret = new JavaReturnStatement(new JavaIdentifierExpression("x"));
+        var ret = new JavaReturnStatement { Expression = new JavaIdentifierExpression("x") };
         Assert.Contains("return x;", EmitStmt(ret));
     }
 
     [Fact]
     public void IfStatement_Emits_If_Else()
     {
+        // 实际属性名：ThenBody/ElseBody（非 ThenStatement/ElseStatement）
         var ifStmt = new JavaIfStatement
         {
             Condition = new JavaIdentifierExpression("flag"),
-            ThenStatement = new JavaBlockStatement(),
-            ElseStatement = new JavaBlockStatement(),
+            ThenBody = new JavaBlockStatement(),
+            ElseBody = new JavaBlockStatement(),
         };
         var result = EmitStmt(ifStmt);
         Assert.Contains("if (flag) {", result);
@@ -1714,8 +1835,10 @@ public sealed class TsStatementWriter
 
     private string EmitVarDecl(JavaVariableDeclarationStatement decl, string ind)
     {
+        // 实际属性名：Type/Name；类型需经 Java→TS 映射（IR 为 Java 风味）
+        var tsType = _exprWriter.MapType(decl.Type);
         var init = decl.Initializer != null ? $" = {_exprWriter.ToInlineString(decl.Initializer)}" : "";
-        return $"{ind}let {TsNaming.SafeIdentifier(decl.VariableName)}: {decl.VariableType}{init};";
+        return $"{ind}let {TsNaming.SafeIdentifier(decl.Name)}: {tsType}{init};";
     }
 
     private string EmitIf(JavaIfStatement ifStmt, int indentLevel)
@@ -1723,11 +1846,11 @@ public sealed class TsStatementWriter
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder();
         sb.Append($"{ind}if ({_exprWriter.ToInlineString(ifStmt.Condition)}) ");
-        sb.Append(Emit(ifStmt.ThenStatement, indentLevel));
-        if (ifStmt.ElseStatement != null)
+        sb.Append(Emit(ifStmt.ThenBody, indentLevel));
+        if (ifStmt.ElseBody != null)
         {
             sb.Append($" else ");
-            sb.Append(Emit(ifStmt.ElseStatement, indentLevel));
+            sb.Append(Emit(ifStmt.ElseBody, indentLevel));
         }
         return sb.ToString();
     }
@@ -1744,13 +1867,28 @@ public sealed class TsStatementWriter
     private string EmitFor(JavaForStatement forStmt, int indentLevel)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);
-        var init = forStmt.Initializer != null ? _exprWriter.ToInlineString(forStmt.Initializer) : "";
+        // JavaForStatement.Initializer/Increment 均为字符串（非表达式节点）。
+        // Initializer 形如 "int i = 0"（Java 风味），转换为 "let i: number = 0"；
+        // 无法匹配时原样输出 + 诊断注释（M2 细化）。
+        var init = forStmt.Initializer != null ? ConvertForInitializer(forStmt.Initializer) : "";
         var cond = forStmt.Condition != null ? _exprWriter.ToInlineString(forStmt.Condition) : "";
-        var upd = forStmt.Update != null ? _exprWriter.ToInlineString(forStmt.Update) : "";
+        var upd = forStmt.Increment ?? "";
         var sb = new StringBuilder();
         sb.Append($"{ind}for ({init}; {cond}; {upd}) ");
         sb.Append(Emit(forStmt.Body, indentLevel));
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// "int i = 0" / "final int i = 0" -> "let i: number = 0"；不匹配则原样保留。
+    /// </summary>
+    private string ConvertForInitializer(string javaInit)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(
+            javaInit.Trim(), @"^(?:final\s+)?(\w[\w.<>\[\], ]*?)\s+(\w+)\s*=\s*(.+)$");
+        if (!m.Success) return javaInit;
+        var tsType = _exprWriter.MapType(m.Groups[1].Value.Trim());
+        return $"let {TsNaming.SafeIdentifier(m.Groups[2].Value)}: {tsType} = {m.Groups[3].Value}";
     }
 
     private string EmitWhile(JavaWhileStatement whileStmt, int indentLevel)
@@ -1774,32 +1912,33 @@ public sealed class TsStatementWriter
 
     private string EmitTryCatch(JavaTryCatchStatement tryCatch, int indentLevel)
     {
+        // 实际属性名：TryBody/FinallyBody（非 TryBlock/FinallyBlock）
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder();
         sb.AppendLine($"{ind}try ");
-        sb.AppendLine(Emit(tryCatch.TryBlock, indentLevel));
+        sb.AppendLine(Emit(tryCatch.TryBody, indentLevel));
 
         foreach (var clause in tryCatch.CatchClauses)
         {
-            // catch 按类型过滤 -> instanceof 链
+            // catch 按类型过滤 -> instanceof 链（TS catch 无类型参数，只能捕获单一变量）
             var exVar = string.IsNullOrEmpty(clause.VariableName) ? "e" : TsNaming.SafeIdentifier(clause.VariableName);
             if (!string.IsNullOrEmpty(clause.ExceptionType) && clause.ExceptionType != "Exception" && clause.ExceptionType != "Throwable")
             {
-                sb.AppendLine($"{ind}} catch ({exVar}) {{");
+                sb.AppendLine($"{ind}}} catch ({exVar}) {{");
                 sb.AppendLine($"{ind}{_indent}if (!({exVar} instanceof {clause.ExceptionType})) throw {exVar};");
             }
             else
             {
-                sb.AppendLine($"{ind}} catch ({exVar}) {{");
+                sb.AppendLine($"{ind}}} catch ({exVar}) {{");
             }
             sb.Append(Emit(clause.Body, indentLevel + 1));
         }
 
-        if (tryCatch.FinallyBlock != null)
+        if (tryCatch.FinallyBody != null)
         {
             sb.AppendLine();
             sb.Append($"{ind}finally ");
-            sb.Append(Emit(tryCatch.FinallyBlock, indentLevel));
+            sb.Append(Emit(tryCatch.FinallyBody, indentLevel));
         }
         return sb.ToString();
     }
@@ -1813,7 +1952,8 @@ public sealed class TsStatementWriter
         {
             foreach (var label in section.Labels)
             {
-                sb.AppendLine($"{ind}{_indent}{label}:");
+                // JavaSwitchSection.Labels 已含冒号（如 "case 1:"/"default:"），不可重复追加
+                sb.AppendLine($"{ind}{_indent}{label}");
             }
             foreach (var s in section.Statements)
             {
@@ -1826,7 +1966,7 @@ public sealed class TsStatementWriter
 }
 ```
 
-注：需对照 `JavaStatement.cs` 实际属性名调整（如 `JavaForEachStatement.Collection` vs `Iterable`、`JavaForStatement` 的字段名等）。实现前先 Read 该文件确认。
+注：以上属性名已对照 `src/CSharpToJava.Core/Java/JavaStatement.cs` 实际定义核对（见文首“IR 属性名契约”）。`JavaCatchClause.ExceptionType` 在 IR 中为 Java 风味名（如 `IllegalArgumentException`），到兼容库异常名的映射在 M2 Task 21 处理。
 
 - [ ] **Step 4: 运行测试验证通过**
 
@@ -2013,10 +2153,11 @@ public class TsBasicClassEmissionTests
     [Fact]
     public void Enum_Emits_Export_Enum()
     {
+        // 实际属性名：Values（非 Members）
         var en = new JavaEnumDeclaration { Name = "Color", Modifiers = JavaModifiers.Public };
-        en.Members.Add("Red");
-        en.Members.Add("Green");
-        en.Members.Add("Blue");
+        en.Values.Add("Red");
+        en.Values.Add("Green");
+        en.Values.Add("Blue");
         var result = EmitType(en);
         Assert.Contains("export enum Color {", result);
         Assert.Contains("Red,", result);
@@ -2045,11 +2186,13 @@ namespace CSharpToJava.Core.TypeScript;
 public sealed class TsMemberWriter
 {
     private readonly TsStatementWriter _stmtWriter;
+    private readonly TsExpressionWriter _exprWriter;   // 用于 Java→TS 类型映射
     private readonly string _indent;
 
-    public TsMemberWriter(TsStatementWriter stmtWriter, string indent = "    ")
+    public TsMemberWriter(TsStatementWriter stmtWriter, TsExpressionWriter exprWriter, string indent = "    ")
     {
         _stmtWriter = stmtWriter;
+        _exprWriter = exprWriter;
         _indent = indent;
     }
 
@@ -2065,8 +2208,10 @@ public sealed class TsMemberWriter
         if ((field.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
         if ((field.Modifiers & JavaModifiers.Final) != 0) sb.Append("readonly ");
 
+        // IR 字段类型为 Java 风味（int/String/...），先经映射转 TS
+        var tsType = _exprWriter.MapType(field.Type);
         var name = TsNaming.SafeIdentifier(field.Name);
-        sb.Append($"{name}: {field.Type}");
+        sb.Append($"{name}: {tsType}");
 
         // 初始化器：有则用，无则补默认零值（spec §2.5：tsc strictPropertyInitialization 要求）
         if (!string.IsNullOrEmpty(field.Initializer))
@@ -2075,7 +2220,7 @@ public sealed class TsMemberWriter
         }
         else
         {
-            sb.Append($" = {DefaultValueForType(field.Type)}");
+            sb.Append($" = {DefaultValueForType(tsType)}");
         }
 
         sb.Append(';');
@@ -2104,19 +2249,31 @@ public sealed class TsMemberWriter
         var name = TsNaming.SafeIdentifier(method.Name);
         sb.Append($"{name}(");
 
-        // 参数
+        // 参数/返回值类型需经 Java→TS 映射
         var parms = method.Parameters.Select(p =>
         {
             var pName = TsNaming.SafeIdentifier(p.Name);
-            return $"{pName}: {p.Type}";
+            return $"{pName}: {_exprWriter.MapType(p.Type)}";
         });
         sb.Append(string.Join(", ", parms));
 
-        sb.Append($"): {method.ReturnType}");
+        sb.Append($"): {_exprWriter.MapType(method.ReturnType)}");
 
-        if ((method.Modifiers & JavaModifiers.Abstract) != 0 || method.Body == null)
+        if ((method.Modifiers & JavaModifiers.Abstract) != 0
+            || (method.Body == null && method.StructuredBody == null))
         {
             sb.Append(';');
+        }
+        else if (method.StructuredBody != null)
+        {
+            // 结构化方法体优先于 Body 字符串（JavaMethodDeclaration 契约）：
+            // 逐语句交给 TsStatementWriter 发射，避免丢失 body
+            sb.AppendLine(" {");
+            foreach (var stmt in method.StructuredBody.Statements)
+            {
+                sb.AppendLine(_stmtWriter.Emit(stmt, indentLevel + 2));
+            }
+            sb.Append(ind).Append(_indent).Append('}');
         }
         else if (method.IsBodyExpression)
         {
@@ -2126,7 +2283,7 @@ public sealed class TsMemberWriter
         {
             sb.AppendLine(" {");
             // body 已是字符串，按行缩进
-            var bodyLines = method.Body.Split('\n');
+            var bodyLines = method.Body!.Split('\n');
             foreach (var line in bodyLines)
             {
                 sb.Append(ind).Append(_indent).AppendLine(line);
@@ -2142,22 +2299,37 @@ public sealed class TsMemberWriter
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
 
-        if ((ctor.Modifiers & JavaModifiers.Public) != 0) sb.Append("public ");
-        else if ((ctor.Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
-        else if ((ctor.Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
-
+        // TS 构造器不支持可见性修饰符以外的前缀；可见性仅用于诊断参考，不发射
         sb.Append("constructor(");
-        var parms = ctor.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {p.Type}");
+        var parms = ctor.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_exprWriter.MapType(p.Type)}");
         sb.Append(string.Join(", ", parms));
         sb.Append(')');
 
-        if (!string.IsNullOrEmpty(ctor.BaseConstructorCall))
+        sb.AppendLine(" {");
+
+        // 基类构造调用：IR 中为 Java 风味字符串（实际属性名 Initializer，非 BaseConstructorCall），
+        // 如 "super(a, b)"。TS 要求 super() 必须是构造体第一条语句；
+        // "this(...)" 重载委托无 TS 对应 → 诊断注释（重载构造器在 M3 转工厂）。
+        if (!string.IsNullOrEmpty(ctor.Initializer))
         {
-            sb.Append($" : {ctor.BaseConstructorCall}");
+            if (ctor.Initializer.StartsWith("super("))
+            {
+                sb.Append(ind).Append(_indent).AppendLine($"{ctor.Initializer};");
+            }
+            else
+            {
+                sb.Append(ind).Append(_indent).AppendLine($"/* cs2j: unsupported ctor delegation: {ctor.Initializer} */");
+            }
         }
 
-        sb.AppendLine(" {");
-        if (!string.IsNullOrEmpty(ctor.Body))
+        if (ctor.StructuredBody != null)
+        {
+            foreach (var stmt in ctor.StructuredBody.Statements)
+            {
+                sb.AppendLine(_stmtWriter.Emit(stmt, indentLevel + 1));
+            }
+        }
+        else if (!string.IsNullOrEmpty(ctor.Body))
         {
             var bodyLines = ctor.Body.Split('\n');
             foreach (var line in bodyLines)
@@ -2295,12 +2467,18 @@ public sealed class TsTypeWriter
             if (i < cls.Methods.Count - 1) sb.AppendLine();
         }
 
-        // 静态初始化块 -> static { } （ES2022）
+        // 静态初始化块 -> static { } （ES2022）；实际属性是 Statements（List<string>，非 Body）
         foreach (var staticInit in cls.StaticInitializers)
         {
             sb.Append(ind).Append(_indent).AppendLine("static {");
-            sb.AppendLine(staticInit.Body);
-            sb.Append(ind).Append(_indent).Append('}');
+            foreach (var stmtLine in staticInit.Statements)
+            {
+                if (!string.IsNullOrWhiteSpace(stmtLine))
+                {
+                    sb.Append(ind).Append(_indent).Append(_indent).AppendLine(stmtLine.Trim());
+                }
+            }
+            sb.Append(ind).Append(_indent).AppendLine("}");
         }
 
         // 嵌套类型
@@ -2330,10 +2508,10 @@ public sealed class TsTypeWriter
             sb.Append('>');
         }
 
-        // 继承的接口
-        if (iface.ImplementedTypes.Count > 0)
+        // 继承的接口（实际属性名：ExtendedTypes，非 ImplementedTypes）
+        if (iface.ExtendedTypes.Count > 0)
         {
-            sb.Append($" extends {string.Join(", ", iface.ImplementedTypes)}");
+            sb.Append($" extends {string.Join(", ", iface.ExtendedTypes)}");
         }
 
         sb.AppendLine(" {");
@@ -2355,12 +2533,12 @@ public sealed class TsTypeWriter
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
 
-        // 普通 enum 直译（[Flags] 在 M2 处理）
+        // 普通 enum 直译（[Flags] 在 M2 Task 17 处理）；实际属性名：Values（非 Members）
         sb.AppendLine($"export enum {TsNaming.SafeClassName(en.Name)} {{");
-        for (int i = 0; i < en.Members.Count; i++)
+        for (int i = 0; i < en.Values.Count; i++)
         {
-            var comma = i < en.Members.Count - 1 ? "," : "";
-            sb.Append(ind).Append(_indent).AppendLine($"{en.Members[i]}{comma}");
+            var comma = i < en.Values.Count - 1 ? "," : "";
+            sb.Append(ind).Append(_indent).AppendLine($"{en.Values[i]}{comma}");
         }
         sb.Append(ind).Append('}');
         return sb.ToString();
@@ -2368,7 +2546,7 @@ public sealed class TsTypeWriter
 }
 ```
 
-注：需对照 `JavaTypeDeclaration.cs` 实际属性名（如 `JavaEnumDeclaration.Members`、`JavaInterfaceDeclaration.ImplementedTypes` 等）。实现前先 Read 该文件确认。
+注：类型/成员属性名已对照 `src/CSharpToJava.Core/Java/JavaTypeDeclaration.cs`、`JavaMemberDeclaration.cs` 实际定义核对（见文首“IR 属性名契约”：`ExtendedTypes`/`Values`/`Initializer`/`StructuredBody`/`Statements`）。
 
 - [ ] **Step 5: 运行测试验证通过**
 
@@ -2620,7 +2798,7 @@ public sealed class TypeScriptEmitter
     {
         var exprWriter = new TsExpressionWriter(mappings, imports);
         var stmtWriter = new TsStatementWriter(exprWriter);
-        var memberWriter = new TsMemberWriter(stmtWriter);
+        var memberWriter = new TsMemberWriter(stmtWriter, exprWriter);
         var typeWriter = new TsTypeWriter(memberWriter);
         return typeWriter.Emit(type, 0);
     }
@@ -2717,12 +2895,12 @@ using CSharpToJava.Core.TypeScript;
 
 - [ ] **Step 2: 修改 ConversionPipeline.CreateSingleFilePasses 按目标分叉**
 
-在 `src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs` 第 402 行 `CreateSingleFilePasses` 方法改为：
+`ConversionPipeline` **没有 `_options` 字段**（与 ProjectConversionPipeline 不同，已核对），因此需将 `CreateSingleFilePasses`（当前位于 `ConversionPipeline.cs` 约第 403 行的无参实例方法）改为接受选项参数：
 
 ```csharp
-private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses()
+private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses(ConversionOptions options)
 {
-    if (_options.TargetLanguage == Context.TargetLanguage.TypeScript)
+    if (options.TargetLanguage == Context.TargetLanguage.TypeScript)
     {
         return new ICs2jPass<SingleFilePassState>[]
         {
@@ -2749,19 +2927,13 @@ private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses()
 }
 ```
 
-注：`CreateSingleFilePasses` 当前是无参实例方法，但 `_options` 是 `ConversionPipeline` 的字段吗？查看 ConversionPipeline 类——它没有 `_options` 字段（与 ProjectConversionPipeline 不同）。需要调整：`ConversionPipeline.Convert` 方法内已构造 `context`，可改为将 `request.Options.TargetLanguage` 传入 `CreateSingleFilePasses`。
-
-修正——将方法签名改为：
-
-```csharp
-private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses(ConversionOptions options)
-```
-
-调用处（第 222 行）改为：
+调用处（`Convert` 方法内，约第 222 行）同步改为：
 
 ```csharp
 Cs2jPassExecutor.Execute(passState, context, CreateSingleFilePasses(request.Options), passMetrics);
 ```
+
+注：Java 路径的 `SingleFileJavaEmitPass` 还会运行内置兼容/结构 rewriter（`RunBuiltInRewriters`/`RunStructureRewriters`，见 `SingleFilePasses.cs` 约第 298 行起）。M1 的 TS pass 有意只跑用户注册 rewriter（其中多数为 Java 专属）；若后续发现目标无关的内置 rewriter（如变量名去重）对 TS 产物必要，再逐项加入 `SingleFileTsEmitPass`，避免一次性引入 Java 专属变换。
 
 - [ ] **Step 3: 运行测试验证通过**
 
@@ -2815,11 +2987,7 @@ public class TsCliTargetOptionTests
 }
 ```
 
-注：`ConvertOptions` 是 internal class，需在 `CSharpToJava.CLI.csproj` 加 `InternalsVisibleTo` 或将测试移到 CLI 项目内。简化：在 `Program.cs` 顶部加：
-
-```csharp
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("CSharpToTypeScript.Tests")]
-```
+注：`ConvertOptions` 是 internal class（已核对：Program.cs 中无可见性修饰符），需在 `CSharpToJava.CLI.csproj` 加 `InternalsVisibleTo`（具体做法见 Step 5 的 csproj ItemGroup，不要在 Program.cs 加 assembly 特性，避免两种方式重复）。
 
 - [ ] **Step 2: 运行测试验证失败**
 
@@ -2839,7 +3007,7 @@ public string Target { get; set; } = "java";
 
 - [ ] **Step 4: 在 ConvertFile/ConvertProject 方法中传递 TargetLanguage**
 
-在 `ConvertFile` 方法（第 46 行）的 `ConversionOptions` 初始化处添加：
+在 `ConvertFile` 方法（约第 34 行，其 `ConversionOptions` 初始化在约第 47-52 行）添加：
 
 ```csharp
 TargetLanguage = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
@@ -2876,7 +3044,7 @@ private static string? ResolveTypeScriptMemberMappingPath()
 }
 ```
 
-对 `ConvertProject` 方法做同样修改。
+对 `ConvertProject` 方法做同样修改（其 `ConversionOptions` 初始化在约第 229-234 行）。另注意：`-t` 短选项在两个 Verb 的选项类中均未被占用（已核对：convert 使用 i/o/m/j/v，convert-project 使用 s/m/j 等），可安全使用。
 
 - [ ] **Step 5: 在 CLI csproj 中复制 TS 配置**
 
@@ -3283,7 +3451,8 @@ class Container<T> where T : IComparable
 }
 """);
         Assert.True(result.Success);
-        Assert.Contains("Container<T extends IComparable>", result.GeneratedCode);
+        // C# IComparable 在 IR 中映射为 Java 风味约束名（如 Comparable），断言只验证 extends 结构
+        Assert.Contains("Container<T extends ", result.GeneratedCode);
     }
 
     [Fact]
@@ -3315,7 +3484,7 @@ class Utils
 }
 """);
         Assert.True(result.Success);
-        Assert.Contains("Max<T extends IComparable>", result.GeneratedCode);
+        Assert.Contains("Max<T extends ", result.GeneratedCode);
     }
 
     [Fact]
@@ -3339,11 +3508,9 @@ class Pair<K, V>
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsGenericEmissionTests"`
 Expected: FAIL（泛型类型参数未发射）。
 
-- [ ] **Step 3: 验证 IR 是否携带类型参数**
+- [ ] **Step 3: 验证 IR 是否携带类型参数并修正约束发射**
 
-查看 `JavaTypeDeclaration.cs` 的 `TypeParameters` 属性与 `JavaTypeParameter.ToString()`。IR 已有该信息（基类 `WriteTypeParameters` 方法存在）。
-
-确认 `TsTypeWriter.EmitClass` 已有类型参数发射代码（Task 9 中已实现 `if (cls.TypeParameters.Count > 0)`）。若已实现但约束未发射，需修改 `JavaTypeParameter` 的 TS 表示。
+`JavaTypeDeclaration.TypeParameters` 已存在（`JavaTypeParameter` 定义在 `JavaTypeDeclaration.cs` 约第 351-368 行，已核对）：属性为 `Name` 与 `Bounds`（`List<string>`，**没有 `Constraint` 属性**）。`JavaTypeParameter.ToString()` 输出 Java 风味 `T extends A & B`，而 **TS 泛型约束只允许单一类型且不支持交叉类型**，因此不能直接用 `tp.ToString()`。
 
 在 `TsTypeWriter` 中添加类型参数格式化辅助方法：
 
@@ -3353,20 +3520,21 @@ private string FormatTypeParameters(IReadOnlyList<JavaTypeParameter> typeParams)
     if (typeParams.Count == 0) return "";
     var parts = typeParams.Select(tp =>
     {
-        // where T : X -> T extends X
-        if (!string.IsNullOrEmpty(tp.Constraint))
-        {
-            return $"{tp.Name} extends {tp.Constraint}";
-        }
-        return tp.Name;
+        if (tp.Bounds.Count == 0) return TsNaming.SafeIdentifier(tp.Name);
+        // TS 约束仅支持单一类型：取首个 bound；多 bound（Java "A & B"）
+        // 丢弃其余并加诊断注释（spec §1.4.3：约束仅部分表达）
+        var extra = tp.Bounds.Count > 1
+            ? " /* cs2j: dropped bounds: " + string.Join(" & ", tp.Bounds.Skip(1)) + " */"
+            : "";
+        return $"{TsNaming.SafeIdentifier(tp.Name)} extends {tp.Bounds[0]}{extra}";
     });
     return $"<{string.Join(", ", parts)}>";
 }
 ```
 
-将 `EmitClass`/`EmitInterface` 中的类型参数发射改为调用 `FormatTypeParameters(cls.TypeParameters)`。
+将 `EmitClass`/`EmitInterface`/方法发射中的类型参数输出改为调用 `FormatTypeParameters(...)`（替换 Task 9 中的 `tp.ToString()` 拼接）。
 
-注：需确认 `JavaTypeParameter` 的属性名（`Name`/`Constraint`）。Read `JavaTypeDeclaration.cs` 第 351-372 行确认。
+注：`new()` 约束在 IR 中无直接表示（Java 无对应），其降级（工厂参数）在 M3 TsGenericErasureRewriter 处理（spec §2.6.2）。
 
 - [ ] **Step 4: 运行测试验证通过**
 
@@ -3469,38 +3637,50 @@ Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj
 
 - [ ] **Step 3: 修复接口属性发射**
 
-在 `TsTypeWriter.EmitInterface` 中，IR 的接口属性可能以 `JavaMethodDeclaration`（getter）形式存在。需检测 `IsAutoGenerated` 或属性模式。
+已核对 IR 实际形态：接口属性由 `PropertyTransformer` 转为 `getX()`/`setX(value)` 方法（`"get" + PascalCase`，**不是 `get_X`**），且标记 `IsAutoGenerated = true`（接口上下文中无后备字段）。`JavaInterfaceDeclaration` 定义在 `JavaTypeDeclaration.cs` 约第 217 行（`ExtendedTypes`/`Methods`/`Fields`/`NestedTypes`）。
 
-读取 `JavaInterfaceDeclaration` 实际结构（`JavaTypeDeclaration.cs` 第 217 行），确认接口属性在 IR 中的表示。若属性以方法形式存储（`get_X`），需在发射时识别并转为属性语法。
-
-简化处理：接口中的 `get_X()` / `set_X()` 方法对发射为 `X: type;` 属性。在 `EmitInterface` 中添加属性检测逻辑：
+在 `EmitInterface` 中将自动生成的访问器方法合并发射为 TS 属性声明：
 
 ```csharp
-// 检测 get_X/set_X 方法对，合并为属性
+// 检测 getX/setX 自动生成方法对，合并为属性（名称取 get/set 后 PascalCase 原名）
+static bool IsAccessor(JavaMethodDeclaration m, out string propName)
+{
+    propName = "";
+    if (!m.IsAutoGenerated || m.Name.Length <= 3) return false;
+    if (m.Name.StartsWith("get") || m.Name.StartsWith("set"))
+    {
+        propName = m.Name.Substring(3);   // 保持 PascalCase 原名
+        return propName.Length > 0 && char.IsUpper(propName[0]);
+    }
+    return false;
+}
+
 var propertyGroups = iface.Methods
-    .Where(m => m.Name.StartsWith("get_") || m.Name.StartsWith("set_"))
-    .GroupBy(m => m.Name.Substring(4))
+    .Where(m => IsAccessor(m, out _))
+    .GroupBy(m => m.Name.Substring(3))
     .ToList();
 
-var pureMethods = iface.Methods
-    .Where(m => !m.Name.StartsWith("get_") && !m.Name.StartsWith("set_"))
-    .ToList();
+var pureMethods = iface.Methods.Where(m => !IsAccessor(m, out _)).ToList();
 
 foreach (var grp in propertyGroups)
 {
-    var getter = grp.FirstOrDefault(m => m.Name.StartsWith("get_"));
+    var getter = grp.FirstOrDefault(m => m.Name.StartsWith("get"));
     if (getter != null)
     {
+        // 只读属性（无 setter）可加 readonly 前缀
+        var readOnly = grp.All(m => !m.Name.StartsWith("set"));
         sb.Append(ind).Append(_indent)
-          .AppendLine($"{TsNaming.SafeIdentifier(grp.Key)}: {getter.ReturnType};");
+          .AppendLine($"{(readOnly ? "readonly " : "")}{TsNaming.SafeIdentifier(grp.Key)}: {_exprWriter.MapType(getter.ReturnType)};");
     }
 }
 
 foreach (var method in pureMethods)
 {
-    // 原有方法发射
+    // 原有方法发射（参数/返回值类型同样经 MapType）
 }
 ```
+
+注：上述代码需 `TsTypeWriter` 能访问表达式发射器的 `MapType`——将 `TsTypeWriter` 构造函数改为同时接收 `TsExpressionWriter`（或经由 `TsMemberWriter` 暴露），并同步更新 Task 10 `EmitType` 的组装代码。只写属性（仅 setter）无 TS 对应形态 → 保留 setter 方法发射 + 诊断注释；接口默认实现方法（`JavaModifiers.Default`）的降级按 spec §2.5（拷贝到实现类/伴随辅助/诊断）在 M3 处理。
 
 - [ ] **Step 4: 运行测试验证通过**
 
@@ -3592,6 +3772,282 @@ class Container
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsPropertyEmissionTests"`
 
-注：IR 中属性可能已被 `LowerProperty` lowering pass 转为 `getX()`/`setX()` 方法。需检查 IR 实际形态。
+注（已核对 IR 实际形态）：C# 属性在 HIR 阶段已被 `PropertyTransformer`（`src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs`）转为：私有后备字段（camelCase）+ `getX()`/`setX(value)` 方法（`"get" + PascalCase`，非 `get_X`），自动生成的访问器方法标记 `IsAutoGenerated = true`。表达式体属性（无后备字段）仅生成 getter。因此 TS 侧需“重组”而非直接发射。
 
-- [ ] **Step 3: 识别并发射
+- [ ] **Step 3: 识别并发射属性访问器**
+
+新增 `src/CSharpToJava.Core/TypeScript/Rewriters/TsPropertyReconstructionRewriter.cs`（在 `SingleFileTsEmitPass.RunTsRewriters` 中装配）：
+
+1. **识别**：逐类扫描 `Methods` 中 `IsAutoGenerated == true` 且名称符合 `get{Name}`/`set{Name}` 模式的方法，按 `Name`（去前缀后的属性名）配对；同时定位对应的私有后备字段（camelCase 名）。
+2. **标记**：在配对的方法上打标记（可新增 `CSharpToJava.Core.TypeScript` 内部的侧表 `Dictionary<JavaMethodDeclaration, TsAccessorRole>`，不改共享 IR 类），记录属性名/可见性/是否只读。
+3. **调用点同步改写**：遍历全部 `JavaMethodCallExpression`：`target.getX()` → `JavaMemberAccessExpression(target, X)`；`target.setX(v)` → `JavaAssignmentExpression(Target=MemberAccess(target,X), Value=v)`（赋值表达式在 TS 中可内联）。无目标类型信息时按方法名模式匹配（get/set + 首字母大写），误配风险用 L3 tsc 回归兜底。
+4. **发射**：`TsTypeWriter.EmitClass` 对打了标记的方法发射为 TS 访问器：
+
+```typescript
+get X(): number { return this.x; }
+private set X(value: number) { this.x = value; }
+```
+
+   getter/setter 方法体仍走 Task 9 的 StructuredBody/Body 发射路径；后备字段保留为私有字段。表达式体属性的 getter 体即原表达式（`return this.count * 2;`）。
+5. **不重组的场景**（非自动生成、无法配对）→ 维持方法发射 + 诊断注释。
+
+在 `tests/CSharpToTypeScript.Tests/TsPropertyReconstructionTests.cs` 中为 rewriter 补充单测（get/set 配对、调用点改写、只读属性不生成 setter）。
+
+- [ ] **Step 4: 运行测试验证通过**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsPropertyEmissionTests"`
+Expected: PASS（4 个测试）+ TsPropertyReconstructionTests 全绿。
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add src/CSharpToJava.Core/TypeScript/Rewriters/TsPropertyReconstructionRewriter.cs src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs tests/CSharpToTypeScript.Tests/TsPropertyEmissionTests.cs tests/CSharpToTypeScript.Tests/TsPropertyReconstructionTests.cs
+git commit -m "feat(ts): reconstruct C# properties as TS accessors"
+```
+
+---
+
+## Task 17: 枚举（显式值与 [Flags]）
+
+**Files:**
+- Modify: `src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs`
+- Create: `tests/CSharpToTypeScript.Tests/TsEnumEmissionTests.cs`
+
+- [ ] **Step 1: 核对 IR 中枚举形态**
+
+先转换样本确认：`JavaEnumDeclaration.Values` 是否携带显式数值（C# `enum E { A = 1 }`）。Java 枚举无数值，若 IR 丢失显式值，需在 HIR 层保留（通过 `JavaEnumDeclaration.Annotations` 或新增 TS 侧可读取的旁路信息）——优先不改共享 IR，若信息确实丢失且无法旁路，再最小侵入扩展 `JavaEnumDeclaration`（加可选字段，Java 发射忽略）并同步 spec。
+
+- [ ] **Step 2: 实现发射**
+
+1. 普通枚举：直译 `export enum X { A = 1, ... }`（显式值可用时）。
+2. `[Flags]` 枚举（spec §3.2）：发射为 const 对象 + 联合类型：
+
+```typescript
+export const Style = { None: 0, Bold: 1, Italic: 2 } as const;
+export type Style = (typeof Style)[keyof typeof Style];
+```
+
+   `HasFlag` 调用 → `(v & flag) === flag`（M3/M4 兼容库 `CsEnum.hasFlag` 可选）。
+3. 测试：`TsEnumEmissionTests`（显式值断言、flags 形态断言、`Enum.Parse` 等复杂 API → 诊断 + 兼容库桩）。
+
+- [ ] **Step 3: 运行测试 + 提交**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsEnumEmissionTests"`
+Expected: PASS。
+
+---
+
+## Task 18: 字符串插值与 String.Format
+
+**Files:**
+- Modify: `src/CSharpToJava.Core/TypeScript/TsExpressionWriter.cs`
+- Modify: `config/typescript/MemberMappings.json`
+- Create: `tests/CSharpToTypeScript.Tests/TsStringInterpolationTests.cs`
+
+- [ ] **Step 1: 核对 IR 中插值形态**
+
+C# 插值字符串在 HIR 后的实际形态（字符串拼接 `+` / Java `String.format(...)` / Raw 表达式）需先转换样本确认，再决定发射策略。
+
+- [ ] **Step 2: 实现**
+
+1. 简单插值（无格式符）→ 模板字符串 `` `${x}` ``（spec §1.4.7）。
+2. 带格式符（`{0:F2}`）或 `string.Format` 调用 → `CsString.format(...)`（MemberMappings 已配 `Format` 映射；若 IR 中已是 Java `String.format`，在内置表补 `("java.lang.String","format") → "CsString.format"`，imports 加 compat）。
+3. 测试：`TsStringInterpolationTests`（spec §5.3 M2 组）。
+
+- [ ] **Step 3: 运行测试 + 提交**
+
+---
+
+## Task 19: 数值语义（类型感知的整数除法/窄化/混算）
+
+**Files:**
+- Create: `src/CSharpToJava.Core/TypeScript/Rewriters/TsNumericSemanticsRewriter.cs`
+- Modify: `src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs`（`RunTsRewriters` 装配）
+- Create: `tests/CSharpToTypeScript.Tests/TsNumericSemanticsTests.cs`
+
+- [ ] **Step 1: 设计**
+
+IR 不携带类型信息（同 §2.6.1 重载消歧的困境），类型感知必须由 rewriter 持有 Roslyn 语义模型回调：`SingleFileTsEmitPass` 装配时注入 `state.Context.SemanticModel`。
+
+- [ ] **Step 2: 实现**
+
+1. **整数除法**：两操作数经语义模型判定均为 C# 整型（非 long/ulong）时，将 `JavaBinaryExpression("/")` 替换为 `JavaRawExpression($"Math.trunc({l} / {r})")`；long/ulong（bigint）不包（JS bigint 除法天然截断，spec §2.5 修订注记）。补齐 Task 7 M1 阶段仅字面量包装的缺口。
+2. **窄化转换**：`(byte)e`/`(sbyte)e` 等 → 掩码/截断辅助（沿用 Java 目标的 `& 0xFF` 策略，见 spec §1.4.2）。
+3. **bigint/number 混算**：语义模型发现两侧类型不一致时插入显式 `BigInt(...)`/`Number(...)` 转换；无法判定时诊断。
+4. `List.Clear()` 语句级特殊分支（Task 2 排除项）：调用点 `x.Clear()`（接收者为数组映射类型）→ `x.length = 0` 语句改写。
+5. 测试：`TsNumericSemanticsTests`（spec §5.3：整数除法包 Math.trunc、窄化掩码、混算转换；另加“double 除法不被误包”反向用例）。
+
+- [ ] **Step 3: 运行测试 + Java 零回归 + 提交**
+
+---
+
+## Task 20: 可空值类型与 null 统一
+
+**Files:**
+- Modify: `src/CSharpToJava.Core/TypeScript/TsExpressionWriter.cs` / `TsMemberMappingTable.cs`
+- Create: `tests/CSharpToTypeScript.Tests/TsNullableHandlingTests.cs`
+
+- [ ] **Step 1: 核对 IR 中可空形态**
+
+C# `int?` 在 Java 目标映射为装箱 `Integer`/`Optional`（视 `UseOptionalForNullable`）。TS 目标统一 `number | null`（spec §1.4.7），需先转换样本确认 IR 实际形态。
+
+- [ ] **Step 2: 实现**
+
+1. 类型映射：装箱类型 `Integer/Long/Boolean/...` → `number | null`/`bigint | null`/...（内置 Java 类型表扩展，注意与 Task 5 非可空映射的区分：发射器按上下文选择）。
+2. `.HasValue` → `!== null`；`.Value` → 直接取值（必要时 `!` 断言或运行时检查 + 抛 `InvalidOperationException` 兼容类）。
+3. `??`/`??=` 直译；产物中不出现 `undefined`（断言用例，spec §5.3）。
+4. 测试：`TsNullableHandlingTests`。
+
+- [ ] **Step 3: 运行测试 + 提交**
+
+---
+
+## Task 21: 异常发射与兼容异常类映射
+
+**Files:**
+- Modify: `src/CSharpToJava.Core/TypeScript/TsStatementWriter.cs`（catch 类型名映射）
+- Modify: `src/CSharpToJava.Core/TypeScript/TsMemberMappingTable.cs`（Java 异常名 → 兼容库异常名内置表）
+- Create: `tests/CSharpToTypeScript.Tests/TsExceptionEmissionTests.cs`
+
+- [ ] **Step 1: 实现**
+
+1. catch/throw 中的 Java 风味异常名（如 `IllegalArgumentException`/`IllegalStateException`）映射到兼容库名（`ArgumentException`/`InvalidOperationException`，spec §4.3.9）；未映射异常 → `CsException` + 诊断。
+2. `new IllegalArgumentException("msg")` → `new ArgumentException("msg")`，imports 自动加 compat（`WithImports` 机制）。
+3. catch 按类型过滤的 instanceof 链已在 Task 8 实现；本任务验证其与兼容异常类配合（异常类是 class，`instanceof` 可用，spec §4.3.9）。
+4. 测试：`TsExceptionEmissionTests`（spec §5.3 M2 组）。
+
+- [ ] **Step 2: 运行测试 + 提交**
+
+---
+
+## Task 22: M2 验收（L3 冒烟编译 + 零回归）
+
+**Files:**
+- Create: `tests/CSharpToTypeScript.Tests/TsSmokeCompileTests.cs`
+
+- [ ] **Step 1: 实现冒烟编译测试**
+
+将 M1+M2 全部特性样本（类/字段/泛型/接口/属性/枚举/异常/插值/数值/可空）合并为一个多文件工程，调用基类 `AssertCompiles`（共享 fixture）整体 `tsc --noEmit`（spec §5.5）。无 Node 环境时自动 Skipped。
+
+- [ ] **Step 2: 全量验收**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
+Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`（Java 零回归）
+Expected: 全绿（L3 在有 Node 环境时通过）。
+
+- [ ] **Step 3: 提交**
+
+---
+
+# 里程碑 M3：语义降级（S 级 rewriter + 特性降级）
+
+**验收标准：** §5.4 全部 rewriter 测试全绿 + §5.3 M3 组全绿 + L3；Java 零回归。
+
+> M3 任务以大纲形式给出（每个任务仍遵循“写失败测试→实现→验证→提交”循环）；开工前逐个展开为细粒度步骤，展开时需先核对相关 IR 形态（参照 M1/M2 任务中的核对惯例）。
+
+## Task 23: TsOverloadDisambiguationRewriter（方法重载改写，spec §2.6.1）
+
+- **Files:** `Rewriters/TsOverloadDisambiguationRewriter.cs`、`TsOverloadRewriterTests.cs`
+- **要点：** 同名重载分组；首个保留原名，其余追加 `TsNaming.OverloadSuffix` 类型后缀；调用点按实参数量 + 语义模型静态类型消歧（装配时注入 `SemanticModel` 回调）；构造器重载 → `Create$N` 静态工厂 + `new` 调用点同步；无法静态判定 → 诊断 + 保留首重载。
+- **验证：** §5.4 `TsOverloadRewriterTests` 全部用例 + L3。
+
+## Task 24: TsGenericErasureRewriter（泛型擦除降级，spec §2.6.2）
+
+- **Files:** `Rewriters/TsGenericErasureRewriter.cs`、`TsGenericErasureRewriterTests.cs`
+- **要点：** `default(T)` 类型特定零值/`csDefault`；`new T()` 工厂参数注入；`typeof(T)` → TypeToken；`typeof(SomeClass)` 直译类引用（`.Name`→`.name`）；`where T : new()/struct/class` 约束移除联动。
+
+## Task 25: TsInterfaceProbeRewriter（接口运行时检查，spec §2.6.3）
+
+- **Files:** `Rewriters/TsInterfaceProbeRewriter.cs`、`TsInterfaceProbeRewriterTests.cs`
+- **要点：** 每接口生成 `is$IXxx` 探针函数（必需方法存在性检查 + 继承链合并）；`is/as` 调用点改写；实现类构造器注入 `CsRuntime.markImplements` 标记（依赖 M4 兼容库，M3 可先用占位实现）；纯属性接口诊断。
+
+## Task 26: TsEqualityRewriter（相等语义，spec §2.6.4）
+
+- **Files:** `Rewriters/TsEqualityRewriter.cs`、`TsEqualityRewriterTests.cs`
+- **要点：** record/struct 与覆写 Equals 的类的 `==`/`.Equals()` 调用点 → `CsObject.equals`；原始类型/字符串 `==` → `===`；`ReferenceEquals` → `===`；`GetHashCode` → `hashCode()`。
+
+## Task 27: 委托/事件/ref-out/索引器/运算符/模式匹配/yield/async/扩展方法/record 发射
+
+按 spec §5.3 M3 测试类逐项实现，每项一个子任务（测试类名即验收项）：
+
+| 子任务 | 测试类 | 关键策略（spec 章节） |
+|---|---|---|
+| 委托→函数类型 | `TsDelegateToFunctionTypeTests` | `Func<T,R>` → `(x: T) => R`（§3.1.3） |
+| 事件 | `TsEventEmissionTests` | `CsEvent<T>`，`+=`→`Add`（§4.3.7） |
+| ref/out 参数 | `TsRefOutParamTests` | `Ref<T>` 包装 + `refOf`（§4.3.1）；注意 IR 中 Java 目标已用 Holder 包装（`JavaVariableDeclarationStatement.HolderInfo`），TS 侧需映射 Holder→`Ref<T>` |
+| 索引器 | `TsIndexerTests` | `get_Item/set_Item`（§1.4.3；注意 Java 目标 IndexerTransformer 实际生成 get/set/put，发射期二次改名） |
+| 运算符重载 | `TsOperatorOverloadTests` | `op_Add` 静态方法 + 调用点改写（§3.2） |
+| 模式匹配 | `TsPatternMatchingTests` | 类型模式→instanceof+守卫；复杂模式→if 链（§1.4.4） |
+| yield→generator | `TsYieldToGeneratorTests` | `function*` + `IterableIterator<T>`（§1.4.4） |
+| async/await | `TsAsyncAwaitTests` | `Promise<T>` 直译；`Task.WhenAll`→`Promise.all`；`Task.Run` 诊断（§1.4.5） |
+| 扩展方法 | `TsExtensionMethodTests` | 静态宿主调用（§1.4.3） |
+| record | `TsRecordEmissionTests` | class + `CsRecord` 基类（§4.3.2）；注意 IR 中 `JavaClassDeclaration.IsRecord`/`RecordComponents` |
+
+- **验证：** 每子任务完成后运行对应测试类 + L3；M3 收尾时全量 TS 测试 + Java 零回归。
+
+---
+
+# 里程碑 M4：兼容运行时库（csharptotypescript-compat）+ BCL 映射
+
+**验收标准：** §5.6 vitest 全绿；含 BCL 调用样本转换后过 L3。
+
+> M4 与 M2/M3 可并行（仅依赖 M1）。任务按 spec §4.3 组件拆分，每组件一个任务（实现 + vitest 语义测试）：
+
+## Task 28: 兼容库脚手架
+
+- **Files:** `typescript/csharptotypescript-compat/`（package.json name `@csharptotypescript/compat`、ESM、strict tsconfig、vitest.config.ts、src/index.ts）
+- **验证：** `npm install` + `npx tsc --noEmit` + `npx vitest run` 在空骨架上通过。
+
+## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
+
+| Task | 组件 | 关键验收（spec 章节） |
+|---|---|---|
+| 29 | `core/`：Ref、CsObject、CsRecord、CsRuntime、TypeToken、csDefault、cloneStruct | 逐字段值相等/哈希稳定（§4.3.1/4.3.2/4.3.3） |
+| 30 | `time/`：CsDateTime、CsTimeSpan | ticks=100ns bigint；闰年/MinValue/MaxValue（§4.3.4） |
+| 31 | `text/`：CsString、CsStringBuilder | `format` 格式符、split 重载对齐（§4.3.6） |
+| 32 | `collections/`：CsDictionary、CsSet | 对象键 Equals/HashCode；重复 Add 抛异常；插入序（§4.3.5） |
+| 33 | `events/`：CsEvent | 多播顺序/不去重/空事件安全（§4.3.7） |
+| 34 | `exceptions/`：CsException 层次 | spec §4.3.9 全部类 |
+| 35 | `primitives/`：CsDecimal、CsChar、CsGuid | `0.1+0.2===0.3`（定点）；char 算术辅助（§4.3.10） |
+
+## Task 36: MemberMappings 生效与 LINQ 目标分叉
+
+- **要点：** 发射器实际消费 MemberMappings.json 的静态调用映射（`CsString.*` 等，imports 自动收集）；LINQ 策略按目标分叉（spec §2.4：M4 起 TS 用数组方法链/`Enumerable` 惰性链，§4.3.8）；`Enumerable` generator 实现 + `Enumerable.test.ts` 惰性验证。
+- **验证：** 含 BCL 调用的样本转换后过 L3；`dotnet test` TS 全量 + Java 零回归。
+
+---
+
+# 里程碑 M5：项目级输出（npm workspace + CLI 验证链）
+
+**验收标准：** 单测语料项目级转换 → `npm install` + `tsc` + `vitest` 全通过；`DualTargetParityTests` 全绿。
+
+## Task 37: NpmProjectPlan（spec §6.1）
+
+- **Files:** `src/CSharpToJava.Core/TypeScript/NpmProjectPlan.cs`
+- **要点：** 项目 → npm 包目录；解决方案 → workspaces（`"workspace:*"` 依赖）；tsconfig.base.json（strict/ES2022/NodeNext/`useDefineForClassFields: false`）；每类型一文件目录布局；产物指纹按目标区分（`OutputIncrementalWriteSession`）；资源拷贝。
+
+## Task 38: ProjectConversionPipeline TS 分叉
+
+- **Files:** `src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs`
+- **要点：** 按 spec §2.4 逐 pass 处置：`ProjectTypeEmitPass` → TS emit pass（注入 Compilation/SemanticModel 供重载/数值 rewriter 消歧）；`ProjectCompatibilityEmitPass`/`ProjectCrossPackageImportEmitPass` → TS 变体；`ProjectJavaModuleDependencyPass` → `NpmDependencyPass`；NativeInterop 检查降级为警告。
+
+## Task 39: 测试项目 → vitest 工程
+
+- **要点：** `IsTestProject` 检测；xUnit/MSTest 特性映射（`[Fact]`→`it`、`[Theory]+InlineData`→`it.each`、Assert 映射，spec §6.1）。
+
+## Task 40: CLI 自动验证链（spec §6.2）
+
+- **要点：** TS 目标转换完成后：`npm install` → `npx tsc --noEmit -p <模块>`（`--no-verify-build` 关闭）→ 测试包 `npx vitest run`（`--no-verify-tests` 关闭）；失败即中止并输出诊断。
+
+## Task 41: DualTargetParityTests + M5 验收（spec §5.7）
+
+- **要点：** 同一批 C# 语料分别以 Java/TS 目标转换，断言两者均成功且关键结构特征（类型数/方法数/诊断数）对齐；项目级端到端验证链全通过。
+
+---
+
+## 收尾检查清单（M5 完成后）
+
+- [ ] 全部 TS 测试项目绿 + Java 全量测试零回归
+- [ ] L3/L4（tsc/vitest）在 CI 中启用（Node LTS 锁定，spec §5.8）
+- [ ] 已知限制清单（spec §6.5）随产物诊断告知用户
+- [ ] `analyze --target typescript` 等后续项归档至 spec §6.6（本计划不实现）
