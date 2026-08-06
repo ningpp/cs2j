@@ -1,20 +1,30 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.TypeScript;
 
 /// <summary>
-/// 最小 raw 语句归一化（M1，Task 11 引入，计划外必需项）。
-/// 前端对 Console.WriteLine/foreach 等不产出结构化节点，IR 中为 JavaRawStatement
-/// 整段直通（如 "System.out.println(""hello"");"、"for (int item : arr) {...}"）。
-/// 分叉后 TS 输出要合法且计划断言可转绿，发射前做最小文本归一化：
+/// 最小 raw 语句归一化（M1，Task 11 引入，计划外必需项；Task 13 扩展）。
+/// 前端对 Console.WriteLine/foreach/经典 for/return 字面量等不产出结构化节点，IR 中为
+/// JavaRawStatement 整段直通（如 "System.out.println(""hello"");"、"for (int item : arr) {...}"、
+/// "for (int i = 0; i < n; i = i + 1) {...}"、"return 'A';"）。分叉后 TS 输出要合法且计划
+/// 断言可转绿，发射前做最小文本归一化：
 /// ① System.out.println → console.log、System.err.println → console.error（保留实参与分号）；
-/// ② Java 增强 for 头 "for (Type var : expr)" → "for (const var of expr)"（Type 丢弃、
-///    const 推断；expr 与 body 原样保留）。不匹配时原样直通。
+/// ② Java 增强 for 头 "for (Type var : expr)" → "for (const var of expr)"（Type 丢弃、const
+///    推断；expr 与 body 原样保留）；经典 for 头声明段 "for (TYPE var = init; ...)" →
+///    "for (let var: MappedType = init; ...)"（MappedType 走 TsMemberMappingTable，经
+///    mapType 回调注入；仅当声明段匹配简单 "TYPE identifier = expr" 形态时改写，多声明/
+///    无初始化/泛型数组类型/映射未命中/for (;;) 直通）。两条规则按头内是否含顶层 ";" 区分
+///    （经典 for 含 ";"，增强 for 不含）。
+/// ③ char 字面量 'x' → 双引号字符串 "x"（与 char→string 映射语义一致；含转义处理
+///    '\n'→"\n"、'\''→"'"；内含双引号的 '\"' 保持单引号直通，M2 字符处理任务细化）。
+/// 不匹配时原样直通。
 /// Task 11 复审修复（2026-08-07）：
 /// - 改写/替换均跳过字符串/字符字面量区域且只在标识符边界命中（实参含 "System.out.println("
 ///   文本的字符串字面量不被改写）；
 /// - 增强 for 头增加顶层 ";" 守卫（普通 for 含任意三元，含标识符操作数，一律直通）；
 /// - 同一 raw 文本内所有增强 for 头均归一化（嵌套 foreach 内外层都改写，body 原样保留）。
+/// Task 13（2026-08-07）：经典 for 头声明段 let 化 + char 字面量归一化（见 ②③）。
 /// 表达式层重写、IR 结构化、S 级 rewriter 均属 M2+，本类不做。
 /// </summary>
 public static class TsRawStatementNormalizer
@@ -23,6 +33,15 @@ public static class TsRawStatementNormalizer
     private const string ErrPrintln = "System.err.println(";
 
     public static string Normalize(string code)
+    {
+        return Normalize(code, null);
+    }
+
+    /// <summary>
+    /// 归一化 raw 语句文本；mapType 为 Java→TS 类型映射器（TsExpressionWriter.MapType），
+    /// 供经典 for 头声明段 let 化使用；为 null 时经典 for 仅保留增强 for 行为（直通）。
+    /// </summary>
+    public static string Normalize(string code, Func<string, string>? mapType)
     {
         if (string.IsNullOrEmpty(code))
         {
@@ -34,8 +53,12 @@ public static class TsRawStatementNormalizer
         // 仅在标识符边界命中；WriteLineIf 产生的 "if (cond) System.out.println(x);" 同样命中。
         var normalized = NormalizePrintln(code);
 
-        // ② Java 增强 for 头归一化（同一文本内所有头，含嵌套；不匹配则直通）。
-        return NormalizeEnhancedForHeads(normalized);
+        // ② Java for 头归一化（同一文本内所有头，含嵌套；增强 for → for-of，经典 for 声明段
+        // let 化；不匹配则直通）。
+        var withFors = NormalizeForHeads(normalized, mapType);
+
+        // ③ char 字面量 → 双引号字符串（raw 语句中 return 'A'; 等直通文本的归一化）。
+        return NormalizeCharLiterals(withFors);
     }
 
     /// <summary>
@@ -76,11 +99,12 @@ public static class TsRawStatementNormalizer
     }
 
     /// <summary>
-    /// "for (Type var : expr) ..." → "for (const var of expr) ..."。
+    /// "for (Type var : expr) ..." → "for (const var of expr) ..."；
+    /// "for (Type var = init; cond; inc) ..." → "for (let var: TsType = init; cond; inc) ..."。
     /// 扫描同一文本内所有 "for (" 头（含嵌套 foreach 的 body 内层头），逐个改写；
     /// 其余文本原样保留。
     /// </summary>
-    private static string NormalizeEnhancedForHeads(string code)
+    private static string NormalizeForHeads(string code, Func<string, string>? mapType)
     {
         var sb = new StringBuilder(code.Length);
         var i = 0;
@@ -98,11 +122,21 @@ public static class TsRawStatementNormalizer
             if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith("for (", StringComparison.Ordinal))
             {
                 var close = FindMatchingParen(code, i + 4);
-                if (close >= 0 && TryRewriteForHead(code, i, close, out var head))
+                if (close >= 0)
                 {
-                    sb.Append(head);
-                    i = close + 1;
-                    continue;
+                    // 头内是否含顶层 ";" 区分增强 for 与经典 for（③ 规则见类注释）
+                    if (TryRewriteForHead(code, i, close, out var forOfHead))
+                    {
+                        sb.Append(forOfHead);
+                        i = close + 1;
+                        continue;
+                    }
+                    if (TryRewriteClassicForHead(code, i, close, mapType, out var classicHead))
+                    {
+                        sb.Append(classicHead);
+                        i = close + 1;
+                        continue;
+                    }
                 }
             }
 
@@ -114,8 +148,7 @@ public static class TsRawStatementNormalizer
 
     /// <summary>
     /// 尝试把 [openIndex, closeIndex] 范围内的 for 头改写为 for-of 头；不匹配返回 false。
-    /// 头内 " : " 之前的部分必须形如 "Type var"（末 token 为标识符），且头内无顶层 ";"
-    /// （增强 for 头不含分号；普通 for 含任意三元均直通）。
+    /// 头内 " : " 之前的部分必须形如 "Type var"（末 token 为标识符），且头内无顶层 ";"。
     /// </summary>
     private static bool TryRewriteForHead(string code, int openIndex, int closeIndex, out string head)
     {
@@ -147,6 +180,123 @@ public static class TsRawStatementNormalizer
     }
 
     /// <summary>
+    /// 尝试把 [openIndex, closeIndex] 范围内的经典 for 头声明段 let 化：
+    /// "for (TYPE var = init; ...)" → "for (let var: TsType = init; ...)"。
+    /// 仅当声明段匹配简单 "TYPE identifier = expr" 形态且类型经 mapType 映射命中时改写；
+    /// 多声明（init 顶层逗号）、无初始化、泛型/数组类型、映射未命中、for (;;) 一律直通。
+    /// </summary>
+    private static bool TryRewriteClassicForHead(string code, int openIndex, int closeIndex, Func<string, string>? mapType, out string head)
+    {
+        head = string.Empty;
+        if (mapType == null)
+        {
+            return false;
+        }
+
+        var header = code.Substring(openIndex + 5, closeIndex - openIndex - 5);
+        var semicolons = FindTopLevelSemicolons(header);
+        if (semicolons.Count < 2)
+        {
+            // 增强 for（无顶层 ";"）或 for (;;)（三段均为空）不应进入声明段改写
+            return false;
+        }
+
+        var initPart = header.Substring(0, semicolons[0]).Trim();
+        var condPart = header.Substring(semicolons[0] + 1, semicolons[1] - semicolons[0] - 1).Trim();
+        var incPart = header.Substring(semicolons[1] + 1).Trim();
+
+        var m = Regex.Match(initPart, @"^(?:final\s+)?(\w[\w.<>\[\], ]*?)\s+(\w+)\s*=\s*(.+)$");
+        if (!m.Success)
+        {
+            return false;   // 无初始化等不匹配形态直通
+        }
+
+        var init = m.Groups[3].Value;
+
+        // 多变量（如 "int i = 0, j = 1"）无法用单个 let 表达 → 直通
+        if (HasTopLevelComma(init))
+        {
+            return false;
+        }
+
+        var javaType = m.Groups[1].Value.Trim();
+        var name = m.Groups[2].Value;
+
+        // 泛型/数组类型无法用简单类型注解表达 → 直通（M2 泛型任务细化）
+        if (javaType.IndexOfAny(new[] { '<', '>', '[', ']' }) >= 0)
+        {
+            return false;
+        }
+
+        // IR 类型恒为 Java 风味，映射命中必改变文本；未命中（返回原值）→ 直通
+        var tsType = mapType(javaType);
+        if (tsType == javaType)
+        {
+            return false;
+        }
+
+        head = $"for (let {TsNaming.SafeIdentifier(name)}: {tsType} = {init}; {condPart}; {incPart})";
+        return true;
+    }
+
+    /// <summary>
+    /// 将 raw 语句文本中的 char 字面量 'x' 归一化为双引号字符串 "x"。
+    /// 跳过双引号字符串区域；仅当单引号内容为单字符或转义序列时改写（转义 '\'' 去转义为
+    /// "'"，其余转义原样保留——"\n"/"\t"/"\\" 等在双引号字符串中均合法）；
+    /// 内含双引号的 '\"' 保持单引号直通（M2 字符处理任务细化）。
+    /// </summary>
+    private static string NormalizeCharLiterals(string code)
+    {
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+
+            if (ch == '\'')
+            {
+                var close = FindClosingQuote(code, i);
+                if (close >= 0 && TryRewriteCharLiteral(code, i, close, out var rewritten))
+                {
+                    sb.Append(rewritten);
+                    i = close + 1;
+                    continue;
+                }
+            }
+
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 尝试把 [openIndex, closeIndex] 范围内的单引号字面量改写为双引号字符串；不匹配返回 false。
+    /// </summary>
+    private static bool TryRewriteCharLiteral(string code, int openIndex, int closeIndex, out string rewritten)
+    {
+        rewritten = string.Empty;
+        var inner = code.Substring(openIndex + 1, closeIndex - openIndex - 1);
+        if (inner.Length == 0 || inner.Contains('"'))
+        {
+            return false;
+        }
+        if (inner.Length > 1 && inner[0] != '\\')
+        {
+            return false;   // 多字符非转义内容：非 char 字面量形态，直通
+        }
+        rewritten = "\"" + inner.Replace("\\'", "'") + "\"";
+        return true;
+    }
+
+    /// <summary>
     /// 判断 for 头内是否存在字符串/字符字面量之外的顶层 ";"。
     /// </summary>
     private static bool ContainsTopLevelSemicolon(string header)
@@ -162,6 +312,79 @@ public static class TsRawStatementNormalizer
             if (ch == ';')
             {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 收集 for 头内字符串/字符字面量之外的顶层 ";" 下标。
+    /// 注意：只按括号/花括号计深度，尖括号不算——条件里的比较符（i &lt; n）会误吞后续 ";"。
+    /// </summary>
+    private static List<int> FindTopLevelSemicolons(string header)
+    {
+        var result = new List<int>();
+        var depth = 0;
+        for (var i = 0; i < header.Length; i++)
+        {
+            var ch = header[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(header, i) - 1;
+                continue;
+            }
+
+            switch (ch)
+            {
+                case '(':
+                case '[':
+                case '{':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                    depth--;
+                    break;
+                default:
+                    if (ch == ';' && depth == 0)
+                    {
+                        result.Add(i);
+                    }
+                    break;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 判断初始化器字符串中是否存在括号/尖括号外层的顶层逗号（多变量声明特征）。
+    /// </summary>
+    private static bool HasTopLevelComma(string s)
+    {
+        var depth = 0;
+        foreach (var c in s)
+        {
+            switch (c)
+            {
+                case '(':
+                case '[':
+                case '{':
+                case '<':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                case '>':
+                    depth--;
+                    break;
+                default:
+                    if (c == ',' && depth == 0)
+                    {
+                        return true;
+                    }
+                    break;
             }
         }
         return false;
@@ -220,6 +443,28 @@ public static class TsRawStatementNormalizer
             i++;
         }
         return code.Length;
+    }
+
+    /// <summary>
+    /// 自 openIndex 起的 "'" 找匹配的闭合 "'"（含反斜杠转义），返回下标；未闭合返回 -1。
+    /// </summary>
+    private static int FindClosingQuote(string code, int openIndex)
+    {
+        var i = openIndex + 1;
+        while (i < code.Length)
+        {
+            if (code[i] == '\\' && i + 1 < code.Length)
+            {
+                i += 2;
+                continue;
+            }
+            if (code[i] == '\'')
+            {
+                return i;
+            }
+            i++;
+        }
+        return -1;
     }
 
     /// <summary>

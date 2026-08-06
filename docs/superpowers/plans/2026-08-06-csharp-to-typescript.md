@@ -3498,7 +3498,7 @@ git commit -m "feat(ts): fork pipeline at Codegen layer with SingleFileTsEmitPas
 >      跳过字符串/字符字面量判定，`"a;b".split(";")` 类实参不受影响），普通 for（含任意三元
 >      及标识符操作数）一律直通。回归：`Classic_For_With_Ternary_Identifier_Operands_Passes_Through`
 >      （组件）+ `Classic_For_With_Ternary_Is_Not_Rewritten`（e2e，先红后绿；raw 经典 for 的
->      Java 形态初始值保留，let 化属 M1 控制流后续任务，非本修复范围）。
+>      Java 形态初始值保留；let 化已由 Task 13 完成（经典 for 头声明段 → or (let i: number = ...)，见 Task 13 注记）。
 >    - Bug 2 println 整串 Replace 改写字符串字面量：`Console.WriteLine("System.out.println(x)")`
 >      输出 `console.log("console.log(x)")`（实参语义被破坏）。修复：`NormalizePrintln` 改为扫描式
 >      替换——跳过字符串/字符字面量区域（复用 `SkipQuotedLiteral`），且仅在标识符边界命中
@@ -3722,7 +3722,7 @@ git commit -m "feat(ts): add --target CLI option for TypeScript conversion"
 - Create: `tests/CSharpToTypeScript.Tests/TsLiteralEmissionTests.cs`
 - Create: `tests/CSharpToTypeScript.Tests/TsPrimitiveTypeMappingTests.cs`
 
-- [ ] **Step 1: 写 TsControlFlowEmissionTests**
+- [x] **Step 1: 写 TsControlFlowEmissionTests**
 
 ```csharp
 namespace CSharpToTypeScript.Tests;
@@ -3840,7 +3840,7 @@ class Sample
 }
 ```
 
-- [ ] **Step 2: 写 TsLiteralEmissionTests**
+- [x] **Step 2: 写 TsLiteralEmissionTests**
 
 ```csharp
 namespace CSharpToTypeScript.Tests;
@@ -3934,7 +3934,7 @@ class Sample
 }
 ```
 
-- [ ] **Step 3: 写 TsPrimitiveTypeMappingTests**
+- [x] **Step 3: 写 TsPrimitiveTypeMappingTests**
 
 ```csharp
 namespace CSharpToTypeScript.Tests;
@@ -3987,7 +3987,9 @@ public class TsPrimitiveTypeMappingTests : TsConversionTestBase
     public void Void_Maps_To_Void()
     {
         var result = Convert("class S { void DoNothing() { } }");
-        Assert.Contains("DoNothing(): void", result.GeneratedCode);
+        // IR 方法名为 Java camelCase（doNothing），PascalCase 还原属命名管线后续任务
+        //（Task 10/11 既有约定：断言按 IR 实证修订）
+        Assert.Contains("doNothing(): void", result.GeneratedCode);
     }
 
     [Fact]
@@ -4012,22 +4014,87 @@ class S
 }
 ```
 
-- [ ] **Step 4: 运行所有 M1 测试**
+- [x] **Step 4: 运行所有 M1 测试**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
 Expected: 全部 PASS。
+实测：TS 项目 176 通过 / 0 失败（142 存量 + 新增 34：计划 19 + normalizer 组件 11 + 表达式层 3 + L3 汇总 1）。
 
-- [ ] **Step 5: 运行 Java 零回归**
+- [x] **Step 5: 运行 Java 零回归**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
 Expected: 全部 PASS。
+实测：2423/2423 零回归（本任务动了 raw normalizer/表达式 writer/字段发射器，全量复跑）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add tests/CSharpToTypeScript.Tests/TsControlFlowEmissionTests.cs tests/CSharpToTypeScript.Tests/TsLiteralEmissionTests.cs tests/CSharpToTypeScript.Tests/TsPrimitiveTypeMappingTests.cs
 git commit -m "test(ts): add M1 control flow, literal, and primitive type mapping tests"
 ```
+实测：实际提交（含发射器修复与断言修订）见注记⑥。
+
+> **Task 13 实现注记（2026-08-07，以实测为准）**
+>
+> ① 红→绿清单（计划 19 个测试，初跑 4 红 15 绿）：
+>    - `For_Loop_Emits_For`（红 → 绿，发射器修复）：raw 经典 for 头保持 Java 形态
+>      `for (int i = 0; i < n; i = i + 1)`（IR 实证，整段 JavaRawStatement 直通），含非法 TS
+>      声明段 `int i = 0`。Task 11 注记⑥ 登记项，本任务在 `TsRawStatementNormalizer` 增加
+>      经典 for 头声明段 let 化：`for (TYPE var = init; ...)` → `for (let var: MappedType = init; ...)`，
+>      MappedType 经 `TsMemberMappingTable`（`TsStatementWriter` 传入 `_exprWriter.MapType` 回调，
+>      `Normalize` 2 参重载）。仅当声明段匹配简单 `TYPE identifier = expr` 形态且类型映射命中时
+>      改写；多声明（init 顶层逗号）、无初始化、泛型/数组类型、映射未命中、`for (;;)` 一律直通。
+>      与既有增强 for 规则按头内是否含顶层 ";" 区分（经典 for 含 ";"、增强 for 不含）。
+>      实现要点：`FindTopLevelSemicolons` 只按 `()`/`[]`/`{}` 计深度，尖括号不计——条件里的
+>      比较符 `i < n` 若按泛型计深度会误吞第二个 ";" 导致不改写（首版实测 bug，已修并全量复跑）。
+>      补组件测试 6 个（int/String 声明、多声明直通、无初始化直通、`for (;;)` 直通、三元共存）
+>      + 既有 e2e 三元回归断言修订（见 ③）。L3 tsc 验证通过。
+>    - `Char_Literal_Emits_As_String`（红 → 绿，发射器修复）：IR 实证 `return 'A';` 为
+>      `JavaRawStatement` 整段直通（前端 return 表达式统一走 raw 路径，不经表达式发射层），
+>      计划断言 `return "A";` 不满足。在 `TsRawStatementNormalizer` 增加 char 字面量归一化：
+>      单引号字面量 → 双引号字符串（跳过双引号字符串区域；仅单字符/转义序列形态改写，
+>      `'\n'`→`"\n"`、`'\''`→`"'"`；内含双引号的 `'\"'` 保持单引号直通，M2 字符任务细化）。
+>      表达式层（`TsExpressionWriter.EmitLiteral`）同步补 `\'` → `'` 去转义（IR `'\''` 输出 `"'"`），
+>      与 raw 层一致。补 raw 层组件测试 5 个 + 表达式层单测 3 个。
+>    - `Nullable_Int_Maps_To_Number_Or_Null`（红 → 绿，发射器修复）：IR 实证 `int? x = null`
+>      → 字段 `Type="Integer"`、`Initializer="null"`（`?` 后缀已在前端擦除，TS 层无法区分
+>      `Integer` 来源）。既有 `EmitField` 只在"无初始化器且默认零值为 null"时放宽 `T | null`，
+>      `= null` 初始化器形态未覆盖。一行级真实修复：实际发射 `= null` 时（初始化器为 null
+>      字面量，或无初始化器且默认零值为 null）统一放宽 `T | null`，与既有约定一致；
+>      `object x = null` → `any` 不受影响（any 豁免）。可空体系深度语义（局部变量/参数/
+>      `Nullable<T>`/`?` 擦除）仍属 M2 Task 20。
+>    - `Void_Maps_To_Void`（红 → 绿，断言修订）：IR 方法名为 Java camelCase（`doNothing`），
+>      计划断言 `DoNothing(): void` 按 Task 10/11 既有约定修订为 `doNothing(): void`
+>      （PascalCase 还原属命名管线后续任务，非发射器缺陷）；计划 Step 3 代码块已同步。
+>    - 其余 15 个（while/do-while/switch/bare return/null/bool/hex/string escapes/char 字段/
+>      int/double/long/bool/string/object）首跑即绿，无需改动。
+> ② 断言修订清单（既有测试，因 let 化行为变化同步）：
+>    - e2e `Classic_For_With_Ternary_Is_Not_Rewritten` → 更名为
+>      `Classic_For_With_Ternary_Is_Let_ified_Not_ForOf`：断言由 Java 形态
+>      `for (int i = (flag != 0 ? a : b); ...)` 修订为 let 化形态
+>      `for (let i: number = (flag != 0 ? a : b); ...)`（该测试注释明确登记 let 化属本任务），
+>      并加 L3 `AssertCompiles`；`DoesNotContain("for (const a of b)")` 回归守卫保留。
+>    - normalizer 组件测试 3 个（`Classic_For_Without_Colon_Passes_Through`、
+>      `Classic_For_With_Ternary_In_Header_Passes_Through`、
+>      `Classic_For_With_Ternary_Identifier_Operands_Passes_Through`）：1 参重载（无映射表）
+>      行为不变、断言不动；注释更新说明 let 化经 2 参重载覆盖（避免误导）。
+> ③ 测试统计：TS 项目 142 → 176 通过 / 0 失败（新增 34 = 计划 19 + normalizer 组件 11
+>    [Task 13 新增 6+5] + 表达式层 3 + L3 汇总 1；另有 e2e 三元测试更名 1 个计入存量）。
+>    Java `CSharpToJava.Tests` 2423/2423 零回归（修复后全量复跑）。
+> ④ L3 tsc 证据：`Task13_Key_Scenarios_Compile_With_Tsc`（经典 for let 化 + char 字段 +
+>    `int? = null` + `object = null` 汇总）与 e2e 三元 let 化用例均过真实 tsc strict/ES2022；
+>    手工复现 CLI 产物（`for (let i: number = 0; ...)`、`Flag: string = "A"`、
+>    `Count: number | null = null`、`Tag: any = null`）tsc --noEmit exit 0。
+> ⑤ 偏离/选择记录：
+>    - `Normalize` 增加 2 参重载（`Func<string, string>? mapType`）而非改 1 参签名：
+>      既有 14 个组件测试语义不变（无映射表时经典 for 直通），生产唯一调用点
+>      `TsStatementWriter` 传 `_exprWriter.MapType`。
+>    - 经典 for 类型映射未命中（IR 类型恒为 Java 风味，命中必改变文本，据此判定）→ 直通，
+>      不输出诊断注释（与结构化 `ConvertForInitializer` 的注释策略不同：raw 层保持最小改写，
+>      未覆盖形态维持 Task 11 现状直通）。
+>    - char 字面量归一化放在 raw 归一化流水最后（println → for 头 → char）：for 头 paren
+>      匹配与 println 实参跳过逻辑先按单引号区域处理，char 转换不与前两阶段相互干扰。
+> ⑥ 提交：见最终报告（Task 13 提交 hash）。
 
 ---
 

@@ -231,4 +231,26 @@ public class TsExpressionWriterTests
         Assert.Contains("(x) =>", result);
         Assert.Contains("return 42;", result);
     }
+
+    [Fact]
+    public void Literal_Char_Newline_Escape_Emits_Double_Quoted()
+    {
+        // IR 中 '\n' 表示换行字符；双引号字符串中 "\n" 为等价合法转义（Task 13）
+        Assert.Equal("\"\\n\"", EmitExpr(new JavaLiteralExpression("'\\n'")));
+    }
+
+    [Fact]
+    public void Literal_Char_Single_Quote_Escape_Emits_Unescaped()
+    {
+        // IR 中 '\'' 表示单引号字符；双引号字符串中直接写 ' 即可（Task 13：
+        // 计划要求 '\'' → "'"，与 char → string 语义一致）
+        Assert.Equal("\"'\"", EmitExpr(new JavaLiteralExpression("'\\''")));
+    }
+
+    [Fact]
+    public void Literal_Char_Double_Quote_Passes_Through()
+    {
+        // 内含双引号的 '\"' 保持单引号直通（单引号字符串中 '\"' 合法；M2 字符处理任务细化）
+        Assert.Equal("'\\\"'", EmitExpr(new JavaLiteralExpression("'\\\"'")));
+    }
 }

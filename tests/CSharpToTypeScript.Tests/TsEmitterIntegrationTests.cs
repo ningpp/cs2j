@@ -392,11 +392,11 @@ class Sample
     }
 
     [Fact]
-    public void Classic_For_With_Ternary_Is_Not_Rewritten()
+    public void Classic_For_With_Ternary_Is_Let_ified_Not_ForOf()
     {
-        // 端到端复现（Task 11 复审 Bug 1）：普通 for 头内三元操作数为标识符（flag != 0 ? a : b）
-        // 时不得被误改写为 for-of；整条 for 原样直通（raw 经典 for 的 Java 形态保留，
-        // 初始值 let 化属 M1 控制流/raw-for 后续任务，非本修复范围）。
+        // 端到端复现（Task 11 复审 Bug 1 回归 + Task 13 let 化）：普通 for 头内三元操作数为
+        // 标识符（flag != 0 ? a : b）时不得被误改写为 for-of；声明段按 Task 13 let 化
+        // （for (let i: number = (flag != 0 ? a : b); ...)），三元初始化器原样保留。
         var result = Convert("""
 class Sample
 {
@@ -412,8 +412,9 @@ class Sample
 }
 """);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("for (int i = (flag != 0 ? a : b); i < 10; i = i + 1)", result.GeneratedCode);
+        Assert.Contains("for (let i: number = (flag != 0 ? a : b); i < 10; i = i + 1)", result.GeneratedCode);
         Assert.DoesNotContain("for (const a of b)", result.GeneratedCode);
+        AssertCompiles(result.GeneratedCode);
     }
 
     [Fact]

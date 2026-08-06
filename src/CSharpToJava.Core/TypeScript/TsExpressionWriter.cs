@@ -81,7 +81,8 @@ public sealed class TsExpressionWriter
             var inner = v[1..^1];
             if (!inner.Contains('"'))
             {
-                return "\"" + inner + "\"";
+                // 转义去转义：IR 中 '\'' 表示单引号字符，双引号字符串中直接写 ' 即可
+                return "\"" + inner.Replace("\\'", "'") + "\"";
             }
         }
 

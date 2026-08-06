@@ -42,11 +42,15 @@ public sealed class TsMemberWriter
         var hasInitializer = !string.IsNullOrEmpty(field.Initializer);
 
         // 无初始化器补默认零值（spec §2.5：tsc strictPropertyInitialization 要求）。
-        // strictNullChecks 下 null 不可赋给非空类型（TS2322）：零值恰为 null 时
-        // 类型放宽为 `T | null`（仅当实际发射 `= null` 时放宽，避免无谓可空扩散）。
+        // strictNullChecks 下 null 不可赋给非空类型（TS2322）：实际发射 `= null` 时
+        // 类型放宽为 `T | null`（含无初始化器默认零值为 null、以及初始化器为 null
+        // 字面量两种形态；Task 13 扩展后者使 `int? x = null` → `number | null` 成立，
+        // 与既有约定一致；可空体系深度语义属 M2 Task 20）。
+        var emitsNull = hasInitializer
+            ? string.Equals(field.Initializer, "null", StringComparison.Ordinal)
+            : DefaultValueForType(tsType) == "null";
         var emittedType = tsType;
-        if (!hasInitializer
-            && DefaultValueForType(tsType) == "null"
+        if (emitsNull
             && !tsType.Contains("| null") && !tsType.Contains("null |")
             && tsType is not ("null" or "any" or "undefined" or "void"))
         {
