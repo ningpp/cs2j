@@ -2044,12 +2044,13 @@ git commit -m "feat(ts): add TsStatementWriter for control flow emission"
 创建 `tests/CSharpToTypeScript.Tests/TsBasicClassEmissionTests.cs`：
 
 ```csharp
+using System.Text;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.TypeScript;
 
 namespace CSharpToTypeScript.Tests;
 
-public class TsBasicClassEmissionTests
+public class TsBasicClassEmissionTests : TsConversionTestBase
 {
     private static string EmitType(JavaTypeDeclaration type)
     {
@@ -2057,6 +2058,18 @@ public class TsBasicClassEmissionTests
         var imports = new TsImportCollector();
         var emitter = new TypeScriptEmitter();
         return emitter.EmitType(type, table, imports);
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        int count = 0;
+        int idx = 0;
+        while ((idx = haystack.IndexOf(needle, idx, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            idx += needle.Length;
+        }
+        return count;
     }
 
     [Fact]
@@ -2079,7 +2092,8 @@ public class TsBasicClassEmissionTests
             Name = "X",
         });
         var result = EmitType(cls);
-        Assert.Contains("public X: number;", result);
+        // 无初始化器时补默认零值（= 0），见 Field_Without_Initializer_Adds_Default_Zero
+        Assert.Contains("public X: number", result);
     }
 
     [Fact]
@@ -2113,8 +2127,10 @@ public class TsBasicClassEmissionTests
     }
 
     [Fact]
-    public void String_Field_Default_Null()
+    public void String_Field_Default_Null_Widens_To_Nullable()
     {
+        // 零值 null 在 strictNullChecks 下不可赋给 string（TS2322）：
+        // 无初始化器且默认零值为 null 时，字段类型放宽为 string | null
         var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
         cls.Fields.Add(new JavaFieldDeclaration
         {
@@ -2123,7 +2139,7 @@ public class TsBasicClassEmissionTests
             Name = "Name",
         });
         var result = EmitType(cls);
-        Assert.Contains("public Name: string = null;", result);
+        Assert.Contains("public Name: string | null = null;", result);
     }
 
     [Fact]
@@ -2215,6 +2231,285 @@ public class TsBasicClassEmissionTests
         Assert.Contains("Green,", result);
         Assert.Contains("Blue", result);
     }
+
+    [Fact]
+    public void Multiple_Constructors_Only_First_Emits_Constructor_Keyword()
+    {
+        // TS 只允许一个 constructor（TS2392）：第二起以诊断注释占位，不发射非法语法
+        var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Foo",
+            Body = "this.X = 0;",
+        });
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Foo",
+            Parameters = { new JavaParameter("int", "x") },
+            Body = "this.X = x;",
+        });
+        var result = EmitType(cls);
+        Assert.Contains("constructor() {", result);
+        Assert.Contains("// TODO(TS): 第 2 个构造器(x: number) 参数无法直译，需工厂/参数对象占位", result);
+        Assert.Equal(1, CountOccurrences(result, "constructor("));
+    }
+
+    [Fact]
+    public void Multiple_Constructors_With_This_Delegation_Emits_Comment_Only()
+    {
+        var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Foo",
+            Body = "this.X = 0;",
+        });
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Foo",
+            Initializer = "this(0)",
+            Body = "this.Y = 0;",
+        });
+        var result = EmitType(cls);
+        Assert.Contains("// TODO(TS): 委托构造 this(0) 无法直译，仅注释说明", result);
+        Assert.Equal(1, CountOccurrences(result, "constructor("));
+    }
+
+    [Fact]
+    public void Derived_Class_Constructor_Emits_Super_Without_Args()
+    {
+        // 派生类构造器必须发射 super()（TS2377/TS17009）：无 base 实参时补 super();
+        var cls = new JavaClassDeclaration { Name = "Derived", Modifiers = JavaModifiers.Public, ExtendedType = "Base" };
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Derived",
+            Body = "this.X = 0;",
+        });
+        var result = EmitType(cls);
+        Assert.Contains("super();", result);
+        Assert.Contains("export class Derived extends Base {", result);
+    }
+
+    [Fact]
+    public void Derived_Class_Constructor_Emits_Super_With_Args()
+    {
+        var cls = new JavaClassDeclaration { Name = "Derived", Modifiers = JavaModifiers.Public, ExtendedType = "Base" };
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Derived",
+            Initializer = "super(1, \"a\")",
+            Body = "this.X = 0;",
+        });
+        var result = EmitType(cls);
+        Assert.Contains("super(1, \"a\");", result);
+    }
+
+    [Fact]
+    public void Expression_Body_Method_Emits_Return_Block()
+    {
+        // 类成员体不支持 => 语法（TS1144）：表达式体方法转 { return expr; }
+        var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
+        cls.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "number",
+            Name = "Double",
+            Body = "this.X * 2",
+            IsBodyExpression = true,
+        });
+        var result = EmitType(cls);
+        Assert.Contains("public Double(): number {", result);
+        Assert.Contains("return this.X * 2;", result);
+        Assert.DoesNotContain("=>", result);
+    }
+
+    [Fact]
+    public void Expression_Body_Void_Method_Emits_Statement_Block()
+    {
+        // void 表达式体：{ expr; } 不带 return（对齐 JavaMemberDeclaration 语义）
+        var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
+        cls.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "void",
+            Name = "Log",
+            Body = "this.X = 0",
+            IsBodyExpression = true,
+        });
+        var result = EmitType(cls);
+        Assert.Contains("public Log(): void {", result);
+        Assert.Contains("this.X = 0;", result);
+        Assert.DoesNotContain("=>", result);
+        Assert.DoesNotContain("return this.X = 0;", result);
+    }
+
+    [Fact]
+    public void Nested_Type_Is_Emitted_At_Top_Level_After_Outer()
+    {
+        // 类体内不允许嵌套类型声明（TS1068）：嵌套类型提升到外层类之后、文件顶层
+        var cls = new JavaClassDeclaration { Name = "Outer", Modifiers = JavaModifiers.Public };
+        cls.NestedTypes.Add(new JavaClassDeclaration { Name = "Inner", Modifiers = JavaModifiers.Public });
+        var result = EmitType(cls);
+        var outerIdx = result.IndexOf("export class Outer", StringComparison.Ordinal);
+        var outerCloseIdx = result.IndexOf("}", StringComparison.Ordinal);
+        var innerIdx = result.IndexOf("export class Inner", StringComparison.Ordinal);
+        Assert.True(outerIdx >= 0 && innerIdx > outerCloseIdx && outerCloseIdx > outerIdx, result);
+    }
+
+    [Fact]
+    public void Long_Field_Initializers_Produce_Valid_Bigint_Literals()
+    {
+        // RenderConstantValue 产出 100L/0xFF00L/1_000_000L（Java 风味），必须转合法 TS bigint 字面量
+        var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
+        cls.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "long", Name = "Ticks", Initializer = "100L" });
+        cls.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "long", Name = "HexMask", Initializer = "0xFF00L" });
+        cls.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "long", Name = "Separated", Initializer = "1_000_000L" });
+        var result = EmitType(cls);
+        Assert.Contains("public Ticks: bigint = 100n;", result);
+        Assert.Contains("public HexMask: bigint = 0xFF00n;", result);
+        Assert.Contains("public Separated: bigint = 1_000_000n;", result);
+    }
+
+    [Fact]
+    public void Float_Field_Initializer_Strips_F_Suffix()
+    {
+        var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
+        cls.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "float", Name = "Ratio", Initializer = "1.5f" });
+        var result = EmitType(cls);
+        Assert.Contains("public Ratio: number = 1.5;", result);
+    }
+
+    [Fact]
+    public void Interface_Method_Uses_Mapped_Types()
+    {
+        // 接口成员参数/返回类型必须走 Java→TS 映射（与类成员一致，I3）
+        var iface = new JavaInterfaceDeclaration { Name = "ICounter", Modifiers = JavaModifiers.Public };
+        iface.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "long",
+            Name = "Increment",
+            Parameters = { new JavaParameter("long", "step") },
+        });
+        var result = EmitType(iface);
+        Assert.Contains("Increment(step: bigint): bigint;", result);
+    }
+
+    [Fact]
+    public void Private_Constructor_Emits_Private()
+    {
+        // TS 支持 private/protected constructor：可见性直译
+        var cls = new JavaClassDeclaration { Name = "Singleton", Modifiers = JavaModifiers.Public };
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Private,
+            ClassName = "Singleton",
+        });
+        var result = EmitType(cls);
+        Assert.Contains("private constructor() {", result);
+    }
+
+    [Fact]
+    public void Protected_Constructor_Emits_Protected()
+    {
+        var cls = new JavaClassDeclaration { Name = "AbstractBase", Modifiers = JavaModifiers.Public | JavaModifiers.Abstract };
+        cls.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Protected,
+            ClassName = "AbstractBase",
+        });
+        var result = EmitType(cls);
+        Assert.Contains("protected constructor() {", result);
+    }
+
+    [Fact]
+    public void All_Fixed_Features_Compile_With_Tsc()
+    {
+        // L3：汇总本轮审查修复的全部特性产物，走共享 tsc 工程 strict 编译（spec §5.2/§5.5）
+        var sb = new StringBuilder();
+        sb.AppendLine(EmitType(new JavaClassDeclaration { Name = "Base", Modifiers = JavaModifiers.Public }));
+
+        var derived = new JavaClassDeclaration { Name = "Derived", Modifiers = JavaModifiers.Public, ExtendedType = "Base" };
+        derived.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "boolean", Name = "Ready" });
+        derived.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Derived",
+            Body = "this.Ready = true;",
+        });
+        sb.AppendLine(EmitType(derived));
+
+        var multi = new JavaClassDeclaration { Name = "Multi", Modifiers = JavaModifiers.Public };
+        multi.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "int", Name = "X" });
+        multi.Constructors.Add(new JavaConstructorDeclaration { Modifiers = JavaModifiers.Public, ClassName = "Multi" });
+        multi.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ClassName = "Multi",
+            Parameters = { new JavaParameter("int", "x") },
+            Body = "this.X = x;",
+        });
+        sb.AppendLine(EmitType(multi));
+
+        var exprBody = new JavaClassDeclaration { Name = "ExprBody", Modifiers = JavaModifiers.Public };
+        exprBody.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "int", Name = "X", Initializer = "1" });
+        exprBody.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "number",
+            Name = "Double",
+            Body = "this.X * 2",
+            IsBodyExpression = true,
+        });
+        exprBody.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "void",
+            Name = "Reset",
+            Body = "this.X = 0",
+            IsBodyExpression = true,
+        });
+        sb.AppendLine(EmitType(exprBody));
+
+        var outer = new JavaClassDeclaration { Name = "Outer", Modifiers = JavaModifiers.Public };
+        outer.NestedTypes.Add(new JavaClassDeclaration { Name = "Inner", Modifiers = JavaModifiers.Public });
+        sb.AppendLine(EmitType(outer));
+
+        var nullable = new JavaClassDeclaration { Name = "Nullable", Modifiers = JavaModifiers.Public };
+        nullable.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "string", Name = "Name" });
+        sb.AppendLine(EmitType(nullable));
+
+        var longs = new JavaClassDeclaration { Name = "Longs", Modifiers = JavaModifiers.Public };
+        longs.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "long", Name = "Ticks", Initializer = "100L" });
+        longs.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "long", Name = "Mask", Initializer = "0xFFL" });
+        longs.Fields.Add(new JavaFieldDeclaration { Modifiers = JavaModifiers.Public, Type = "long", Name = "Big", Initializer = "1_000L" });
+        sb.AppendLine(EmitType(longs));
+
+        var iface = new JavaInterfaceDeclaration { Name = "ICounter", Modifiers = JavaModifiers.Public };
+        iface.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "long",
+            Name = "Increment",
+            Parameters = { new JavaParameter("long", "step") },
+        });
+        sb.AppendLine(EmitType(iface));
+
+        var priv = new JavaClassDeclaration { Name = "Priv", Modifiers = JavaModifiers.Public };
+        priv.Constructors.Add(new JavaConstructorDeclaration { Modifiers = JavaModifiers.Private, ClassName = "Priv" });
+        sb.AppendLine(EmitType(priv));
+
+        var prot = new JavaClassDeclaration { Name = "Prot", Modifiers = JavaModifiers.Public };
+        prot.Constructors.Add(new JavaConstructorDeclaration { Modifiers = JavaModifiers.Protected, ClassName = "Prot" });
+        sb.AppendLine(EmitType(prot));
+
+        AssertCompiles(sb.ToString());
+    }
 }
 ```
 
@@ -2247,6 +2542,11 @@ public sealed class TsMemberWriter
         _indent = indent;
     }
 
+    /// <summary>
+    /// Java→TS 类型映射转发（类/接口成员发射共用，保持映射一致）。
+    /// </summary>
+    public string MapType(string javaOrCsharpType) => _exprWriter.MapType(javaOrCsharpType);
+
     public string EmitField(JavaFieldDeclaration field, int indentLevel)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);
@@ -2262,12 +2562,26 @@ public sealed class TsMemberWriter
         // IR 字段类型为 Java 风味（int/String/...），先经映射转 TS
         var tsType = _exprWriter.MapType(field.Type);
         var name = TsNaming.SafeIdentifier(field.Name);
-        sb.Append($"{name}: {tsType}");
+        var hasInitializer = !string.IsNullOrEmpty(field.Initializer);
 
-        // 初始化器：有则用，无则补默认零值（spec §2.5：tsc strictPropertyInitialization 要求）
-        if (!string.IsNullOrEmpty(field.Initializer))
+        // 无初始化器补默认零值（spec §2.5：tsc strictPropertyInitialization 要求）。
+        // strictNullChecks 下 null 不可赋给非空类型（TS2322）：零值恰为 null 时
+        // 类型放宽为 `T | null`（仅当实际发射 `= null` 时放宽，避免无谓可空扩散）。
+        var emittedType = tsType;
+        if (!hasInitializer
+            && DefaultValueForType(tsType) == "null"
+            && !tsType.Contains("| null") && !tsType.Contains("null |")
+            && tsType is not ("null" or "any" or "undefined" or "void"))
         {
-            sb.Append($" = {field.Initializer}");
+            emittedType = $"{tsType} | null";
+        }
+        sb.Append($"{name}: {emittedType}");
+
+        if (hasInitializer)
+        {
+            // 初始化器为 Java 风味字面量（FieldTransformer.RenderConstantValue 产出
+            // 100L/1.5f/0xFFL 等），需归一化为合法 TS 字面量再发射
+            sb.Append($" = {NormalizeLiteral(field.Initializer)}");
         }
         else
         {
@@ -2328,7 +2642,15 @@ public sealed class TsMemberWriter
         }
         else if (method.IsBodyExpression)
         {
-            sb.Append($" => {method.Body};");
+            // 表达式体成员（方法/属性 getter/索引器/运算符）：类成员体不支持 => 语法
+            // （TS1144），转块体。对齐 JavaMemberDeclaration 语义：非 void 加 return，
+            // void 表达式即语句（无 return）。
+            var isVoid = _exprWriter.MapType(method.ReturnType) == "void";
+            sb.AppendLine(" {");
+            sb.Append(ind).Append(_indent);
+            if (!isVoid) sb.Append("return ");
+            sb.AppendLine($"{method.Body};");
+            sb.Append(ind).Append('}');
         }
         else
         {
@@ -2345,12 +2667,15 @@ public sealed class TsMemberWriter
         return sb.ToString();
     }
 
-    public string EmitConstructor(JavaConstructorDeclaration ctor, int indentLevel)
+    public string EmitConstructor(JavaConstructorDeclaration ctor, string? extendedType, int indentLevel)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
 
-        // TS 构造器不支持可见性修饰符以外的前缀；可见性仅用于诊断参考，不发射
+        // TS 支持 private/protected constructor（I4）；public 为默认可省略
+        if ((ctor.Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+        else if ((ctor.Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
+
         sb.Append("constructor(");
         var parms = ctor.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_exprWriter.MapType(p.Type)}");
         sb.Append(string.Join(", ", parms));
@@ -2359,7 +2684,8 @@ public sealed class TsMemberWriter
         sb.AppendLine(" {");
 
         // 基类构造调用：IR 中为 Java 风味字符串（实际属性名 Initializer，非 BaseConstructorCall），
-        // 如 "super(a, b)"。TS 要求 super() 必须是构造体第一条语句；
+        // 如 "super(a, b)"。TS 要求派生类构造器必须显式调用 super()（TS2377/TS17009）：
+        // 类有 ExtendedType 时无条件发射 super(...)（有实参原样，无实参 super();）。
         // "this(...)" 重载委托无 TS 对应 → 诊断注释（重载构造器在 M3 转工厂）。
         if (!string.IsNullOrEmpty(ctor.Initializer))
         {
@@ -2369,8 +2695,17 @@ public sealed class TsMemberWriter
             }
             else
             {
+                // this(...) 委托：先满足基类 super() 要求，再注释说明委托无法直译
+                if (!string.IsNullOrEmpty(extendedType))
+                {
+                    sb.Append(ind).Append(_indent).AppendLine("super();");
+                }
                 sb.Append(ind).Append(_indent).AppendLine($"/* cs2j: unsupported ctor delegation: {ctor.Initializer} */");
             }
+        }
+        else if (!string.IsNullOrEmpty(extendedType))
+        {
+            sb.Append(ind).Append(_indent).AppendLine("super();");
         }
 
         if (ctor.StructuredBody != null)
@@ -2417,6 +2752,60 @@ public sealed class TsMemberWriter
             "undefined" => "undefined",
             _ => "null",  // 引用类型默认 null
         };
+    }
+
+    /// <summary>
+    /// 将 Java 风味字面量归一化为合法 TS 字面量（I2，等价于 TsExpressionWriter.EmitLiteral 的
+    /// 字符串版）：long/ulong 后缀 L → bigint 后缀 n（100L→100n、0xFFL→0xFFn、1_000L→1_000n）；
+    /// float/double 后缀 f/d → 去掉（1.5f→1.5）；char 字面量 'a' → "a"。
+    /// 仅当整个字符串为字面量形态时才转换，避免误伤表达式/标识符。
+    /// </summary>
+    private static string NormalizeLiteral(string literal)
+    {
+        if (literal.Length >= 3 && literal[0] == '\'' && literal[^1] == '\'' && !literal[1..^1].Contains('"'))
+        {
+            return "\"" + literal[1..^1] + "\"";
+        }
+
+        if (literal.EndsWith("L", StringComparison.Ordinal) && IsNumericLiteralBody(literal[..^1]))
+        {
+            return literal[..^1] + "n";
+        }
+
+        if (literal.EndsWith("f", StringComparison.OrdinalIgnoreCase) && IsNumericLiteralBody(literal[..^1]))
+        {
+            return literal[..^1];
+        }
+
+        return literal;
+    }
+
+    private static bool IsNumericLiteralBody(string body)
+    {
+        if (body.Length == 0) return false;
+
+        // 十六进制（C# uint/ulong 常量渲染为 0x... / 0x...L），可含下划线
+        if (body.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            return body.Length > 2 && body[2..].All(c => Uri.IsHexDigit(c) || c == '_');
+        }
+
+        // 十进制整数/浮点，可含下划线、小数点、指数（100、1_000、1.5、1e5、-100）
+        var start = body[0] is '+' or '-' ? 1 : 0;
+        var anyDigit = false;
+        var anyFraction = false;
+        var anyExponent = false;
+        for (var i = start; i < body.Length; i++)
+        {
+            var c = body[i];
+            if (char.IsAsciiDigit(c)) { anyDigit = true; continue; }
+            if (c == '_') continue;
+            if (c == '.' && !anyFraction && !anyExponent) { anyFraction = true; continue; }
+            if ((c == 'e' || c == 'E') && anyDigit && !anyExponent) { anyExponent = true; continue; }
+            if ((c == '+' || c == '-') && anyExponent && i > start) { continue; }
+            return false;
+        }
+        return anyDigit;
     }
 }
 ```
@@ -2504,10 +2893,26 @@ public sealed class TsTypeWriter
             sb.AppendLine();
         }
 
-        // 构造器
-        foreach (var ctor in cls.Constructors)
+        // 构造器：TS 只允许一个 constructor（TS2392）。第一个发射为 constructor(...)，
+        // 第二个起降级为诊断注释（M3 重载转工厂/参数对象占位），不发射非法语法。
+        for (int i = 0; i < cls.Constructors.Count; i++)
         {
-            sb.AppendLine(_memberWriter.EmitConstructor(ctor, indentLevel + 1));
+            if (i == 0)
+            {
+                sb.AppendLine(_memberWriter.EmitConstructor(cls.Constructors[i], cls.ExtendedType, indentLevel + 1));
+            }
+            else
+            {
+                var ctor = cls.Constructors[i];
+                var parms = string.Join(", ", ctor.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_memberWriter.MapType(p.Type)}"));
+                sb.Append(ind).Append(_indent)
+                  .AppendLine($"// TODO(TS): 第 {i + 1} 个构造器({parms}) 参数无法直译，需工厂/参数对象占位");
+                if (!string.IsNullOrEmpty(ctor.Initializer) && ctor.Initializer.StartsWith("this("))
+                {
+                    sb.Append(ind).Append(_indent)
+                      .AppendLine($"// TODO(TS): 委托构造 {ctor.Initializer} 无法直译，仅注释说明");
+                }
+            }
             sb.AppendLine();
         }
 
@@ -2532,14 +2937,17 @@ public sealed class TsTypeWriter
             sb.Append(ind).Append(_indent).AppendLine("}");
         }
 
-        // 嵌套类型
+        sb.Append(ind).Append('}');
+
+        // 嵌套类型提升到外层类之后、文件顶层发射（TS1068：类体内不允许嵌套类型声明；
+        // spec 顶层顺序：主类型 → 其嵌套类型；多个顶层类型各自后跟其嵌套类型）
         foreach (var nested in cls.NestedTypes)
         {
             sb.AppendLine();
-            sb.AppendLine(Emit(nested, indentLevel + 1));
+            sb.AppendLine();
+            sb.Append(Emit(nested, indentLevel));
         }
 
-        sb.Append(ind).Append('}');
         return sb.ToString();
     }
 
@@ -2567,12 +2975,12 @@ public sealed class TsTypeWriter
 
         sb.AppendLine(" {");
 
-        // 成员（接口无修饰符，无 body）
+        // 成员（接口无修饰符，无 body；参数/返回类型经 Java→TS 映射，与类成员一致）
         foreach (var method in iface.Methods)
         {
-            var parms = string.Join(", ", method.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {p.Type}"));
+            var parms = string.Join(", ", method.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_memberWriter.MapType(p.Type)}"));
             sb.Append(ind).Append(_indent)
-              .AppendLine($"{TsNaming.SafeIdentifier(method.Name)}({parms}): {method.ReturnType};");
+              .AppendLine($"{TsNaming.SafeIdentifier(method.Name)}({parms}): {_memberWriter.MapType(method.ReturnType)};");
         }
 
         sb.Append(ind).Append('}');
@@ -2599,10 +3007,12 @@ public sealed class TsTypeWriter
 
 注：类型/成员属性名已对照 `src/CSharpToJava.Core/Java/JavaTypeDeclaration.cs`、`JavaMemberDeclaration.cs` 实际定义核对（见文首“IR 属性名契约”：`ExtendedTypes`/`Values`/`Initializer`/`StructuredBody`/`Statements`）。
 
+注：**2026-08-06 复审修订（审查结论优先于原计划，tsc 7.0.2 实证）**：C1 多构造器仅首个发射 `constructor(...)`，第二起以诊断注释占位（TS2392）；C2 派生类构造器无条件发射 `super(...)`（有实参原样、无实参 `super();`，TS2377/TS17009）；C3 表达式体方法/属性 getter 输出 `{ return expr; }`、void 输出 `{ expr; }`（TS1144）；C4 嵌套类型提升到外层类之后、文件顶层发射（TS1068）；I1 无初始化器且零值为 null 的字段类型放宽为 `T | null`（TS2322）；I2 字段常量初始化器经字面量归一化（`L`→`n`、去 `f`/`d` 后缀、char→string，TS1351）；I3 接口成员参数/返回类型走 `MapType`；I4 构造器 `private`/`protected` 可见性直译。测试增至 24 个（含 L3 tsc 编译回归）。
+
 - [ ] **Step 5: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsBasicClassEmissionTests"`
-Expected: PASS（11 个测试）。
+Expected: PASS（24 个测试）。
 
 - [ ] **Step 6: 提交**
 

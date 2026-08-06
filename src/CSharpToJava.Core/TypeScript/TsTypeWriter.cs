@@ -78,10 +78,26 @@ public sealed class TsTypeWriter
             sb.AppendLine();
         }
 
-        // 构造器
-        foreach (var ctor in cls.Constructors)
+        // 构造器：TS 只允许一个 constructor（TS2392）。第一个发射为 constructor(...)，
+        // 第二个起降级为诊断注释（M3 重载转工厂/参数对象占位），不发射非法语法。
+        for (int i = 0; i < cls.Constructors.Count; i++)
         {
-            sb.AppendLine(_memberWriter.EmitConstructor(ctor, indentLevel + 1));
+            if (i == 0)
+            {
+                sb.AppendLine(_memberWriter.EmitConstructor(cls.Constructors[i], cls.ExtendedType, indentLevel + 1));
+            }
+            else
+            {
+                var ctor = cls.Constructors[i];
+                var parms = string.Join(", ", ctor.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_memberWriter.MapType(p.Type)}"));
+                sb.Append(ind).Append(_indent)
+                  .AppendLine($"// TODO(TS): 第 {i + 1} 个构造器({parms}) 参数无法直译，需工厂/参数对象占位");
+                if (!string.IsNullOrEmpty(ctor.Initializer) && ctor.Initializer.StartsWith("this("))
+                {
+                    sb.Append(ind).Append(_indent)
+                      .AppendLine($"// TODO(TS): 委托构造 {ctor.Initializer} 无法直译，仅注释说明");
+                }
+            }
             sb.AppendLine();
         }
 
@@ -106,14 +122,17 @@ public sealed class TsTypeWriter
             sb.Append(ind).Append(_indent).AppendLine("}");
         }
 
-        // 嵌套类型
+        sb.Append(ind).Append('}');
+
+        // 嵌套类型提升到外层类之后、文件顶层发射（TS1068：类体内不允许嵌套类型声明；
+        // spec 顶层顺序：主类型 → 其嵌套类型；多个顶层类型各自后跟其嵌套类型）
         foreach (var nested in cls.NestedTypes)
         {
             sb.AppendLine();
-            sb.AppendLine(Emit(nested, indentLevel + 1));
+            sb.AppendLine();
+            sb.Append(Emit(nested, indentLevel));
         }
 
-        sb.Append(ind).Append('}');
         return sb.ToString();
     }
 
@@ -141,12 +160,12 @@ public sealed class TsTypeWriter
 
         sb.AppendLine(" {");
 
-        // 成员（接口无修饰符，无 body）
+        // 成员（接口无修饰符，无 body；参数/返回类型经 Java→TS 映射，与类成员一致）
         foreach (var method in iface.Methods)
         {
-            var parms = string.Join(", ", method.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {p.Type}"));
+            var parms = string.Join(", ", method.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_memberWriter.MapType(p.Type)}"));
             sb.Append(ind).Append(_indent)
-              .AppendLine($"{TsNaming.SafeIdentifier(method.Name)}({parms}): {method.ReturnType};");
+              .AppendLine($"{TsNaming.SafeIdentifier(method.Name)}({parms}): {_memberWriter.MapType(method.ReturnType)};");
         }
 
         sb.Append(ind).Append('}');

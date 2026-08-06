@@ -19,6 +19,11 @@ public sealed class TsMemberWriter
         _indent = indent;
     }
 
+    /// <summary>
+    /// Java→TS 类型映射转发（类/接口成员发射共用，保持映射一致）。
+    /// </summary>
+    public string MapType(string javaOrCsharpType) => _exprWriter.MapType(javaOrCsharpType);
+
     public string EmitField(JavaFieldDeclaration field, int indentLevel)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);
@@ -34,12 +39,26 @@ public sealed class TsMemberWriter
         // IR 字段类型为 Java 风味（int/String/...），先经映射转 TS
         var tsType = _exprWriter.MapType(field.Type);
         var name = TsNaming.SafeIdentifier(field.Name);
-        sb.Append($"{name}: {tsType}");
+        var hasInitializer = !string.IsNullOrEmpty(field.Initializer);
 
-        // 初始化器：有则用，无则补默认零值（spec §2.5：tsc strictPropertyInitialization 要求）
-        if (!string.IsNullOrEmpty(field.Initializer))
+        // 无初始化器补默认零值（spec §2.5：tsc strictPropertyInitialization 要求）。
+        // strictNullChecks 下 null 不可赋给非空类型（TS2322）：零值恰为 null 时
+        // 类型放宽为 `T | null`（仅当实际发射 `= null` 时放宽，避免无谓可空扩散）。
+        var emittedType = tsType;
+        if (!hasInitializer
+            && DefaultValueForType(tsType) == "null"
+            && !tsType.Contains("| null") && !tsType.Contains("null |")
+            && tsType is not ("null" or "any" or "undefined" or "void"))
         {
-            sb.Append($" = {field.Initializer}");
+            emittedType = $"{tsType} | null";
+        }
+        sb.Append($"{name}: {emittedType}");
+
+        if (hasInitializer)
+        {
+            // 初始化器为 Java 风味字面量（FieldTransformer.RenderConstantValue 产出
+            // 100L/1.5f/0xFFL 等），需归一化为合法 TS 字面量再发射
+            sb.Append($" = {NormalizeLiteral(field.Initializer)}");
         }
         else
         {
@@ -100,7 +119,15 @@ public sealed class TsMemberWriter
         }
         else if (method.IsBodyExpression)
         {
-            sb.Append($" => {method.Body};");
+            // 表达式体成员（方法/属性 getter/索引器/运算符）：类成员体不支持 => 语法
+            // （TS1144），转块体。对齐 JavaMemberDeclaration 语义：非 void 加 return，
+            // void 表达式即语句（无 return）。
+            var isVoid = _exprWriter.MapType(method.ReturnType) == "void";
+            sb.AppendLine(" {");
+            sb.Append(ind).Append(_indent);
+            if (!isVoid) sb.Append("return ");
+            sb.AppendLine($"{method.Body};");
+            sb.Append(ind).Append('}');
         }
         else
         {
@@ -117,12 +144,15 @@ public sealed class TsMemberWriter
         return sb.ToString();
     }
 
-    public string EmitConstructor(JavaConstructorDeclaration ctor, int indentLevel)
+    public string EmitConstructor(JavaConstructorDeclaration ctor, string? extendedType, int indentLevel)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
 
-        // TS 构造器不支持可见性修饰符以外的前缀；可见性仅用于诊断参考，不发射
+        // TS 支持 private/protected constructor（I4）；public 为默认可省略
+        if ((ctor.Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
+        else if ((ctor.Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
+
         sb.Append("constructor(");
         var parms = ctor.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_exprWriter.MapType(p.Type)}");
         sb.Append(string.Join(", ", parms));
@@ -131,7 +161,8 @@ public sealed class TsMemberWriter
         sb.AppendLine(" {");
 
         // 基类构造调用：IR 中为 Java 风味字符串（实际属性名 Initializer，非 BaseConstructorCall），
-        // 如 "super(a, b)"。TS 要求 super() 必须是构造体第一条语句；
+        // 如 "super(a, b)"。TS 要求派生类构造器必须显式调用 super()（TS2377/TS17009）：
+        // 类有 ExtendedType 时无条件发射 super(...)（有实参原样，无实参 super();）。
         // "this(...)" 重载委托无 TS 对应 → 诊断注释（重载构造器在 M3 转工厂）。
         if (!string.IsNullOrEmpty(ctor.Initializer))
         {
@@ -141,8 +172,17 @@ public sealed class TsMemberWriter
             }
             else
             {
+                // this(...) 委托：先满足基类 super() 要求，再注释说明委托无法直译
+                if (!string.IsNullOrEmpty(extendedType))
+                {
+                    sb.Append(ind).Append(_indent).AppendLine("super();");
+                }
                 sb.Append(ind).Append(_indent).AppendLine($"/* cs2j: unsupported ctor delegation: {ctor.Initializer} */");
             }
+        }
+        else if (!string.IsNullOrEmpty(extendedType))
+        {
+            sb.Append(ind).Append(_indent).AppendLine("super();");
         }
 
         if (ctor.StructuredBody != null)
@@ -189,5 +229,59 @@ public sealed class TsMemberWriter
             "undefined" => "undefined",
             _ => "null",  // 引用类型默认 null
         };
+    }
+
+    /// <summary>
+    /// 将 Java 风味字面量归一化为合法 TS 字面量（I2，等价于 TsExpressionWriter.EmitLiteral 的
+    /// 字符串版）：long/ulong 后缀 L → bigint 后缀 n（100L→100n、0xFFL→0xFFn、1_000L→1_000n）；
+    /// float/double 后缀 f/d → 去掉（1.5f→1.5）；char 字面量 'a' → "a"。
+    /// 仅当整个字符串为字面量形态时才转换，避免误伤表达式/标识符。
+    /// </summary>
+    private static string NormalizeLiteral(string literal)
+    {
+        if (literal.Length >= 3 && literal[0] == '\'' && literal[^1] == '\'' && !literal[1..^1].Contains('"'))
+        {
+            return "\"" + literal[1..^1] + "\"";
+        }
+
+        if (literal.EndsWith("L", StringComparison.Ordinal) && IsNumericLiteralBody(literal[..^1]))
+        {
+            return literal[..^1] + "n";
+        }
+
+        if (literal.EndsWith("f", StringComparison.OrdinalIgnoreCase) && IsNumericLiteralBody(literal[..^1]))
+        {
+            return literal[..^1];
+        }
+
+        return literal;
+    }
+
+    private static bool IsNumericLiteralBody(string body)
+    {
+        if (body.Length == 0) return false;
+
+        // 十六进制（C# uint/ulong 常量渲染为 0x... / 0x...L），可含下划线
+        if (body.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            return body.Length > 2 && body[2..].All(c => Uri.IsHexDigit(c) || c == '_');
+        }
+
+        // 十进制整数/浮点，可含下划线、小数点、指数（100、1_000、1.5、1e5、-100）
+        var start = body[0] is '+' or '-' ? 1 : 0;
+        var anyDigit = false;
+        var anyFraction = false;
+        var anyExponent = false;
+        for (var i = start; i < body.Length; i++)
+        {
+            var c = body[i];
+            if (char.IsAsciiDigit(c)) { anyDigit = true; continue; }
+            if (c == '_') continue;
+            if (c == '.' && !anyFraction && !anyExponent) { anyFraction = true; continue; }
+            if ((c == 'e' || c == 'E') && anyDigit && !anyExponent) { anyExponent = true; continue; }
+            if ((c == '+' || c == '-') && anyExponent && i > start) { continue; }
+            return false;
+        }
+        return anyDigit;
     }
 }
