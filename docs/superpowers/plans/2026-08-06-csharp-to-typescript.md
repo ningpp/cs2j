@@ -3498,7 +3498,7 @@ git commit -m "feat(ts): fork pipeline at Codegen layer with SingleFileTsEmitPas
 >      跳过字符串/字符字面量判定，`"a;b".split(";")` 类实参不受影响），普通 for（含任意三元
 >      及标识符操作数）一律直通。回归：`Classic_For_With_Ternary_Identifier_Operands_Passes_Through`
 >      （组件）+ `Classic_For_With_Ternary_Is_Not_Rewritten`（e2e，先红后绿；raw 经典 for 的
->      Java 形态初始值保留；let 化已由 Task 13 完成（经典 for 头声明段 → or (let i: number = ...)，见 Task 13 注记）。
+>      Java 形态初始值保留；let 化已由 Task 13 完成（经典 for 头声明段 → for (let i: number = ...)，见 Task 13 注记）。
 >    - Bug 2 println 整串 Replace 改写字符串字面量：`Console.WriteLine("System.out.println(x)")`
 >      输出 `console.log("console.log(x)")`（实参语义被破坏）。修复：`NormalizePrintln` 改为扫描式
 >      替换——跳过字符串/字符字面量区域（复用 `SkipQuotedLiteral`），且仅在标识符边界命中
@@ -4095,7 +4095,16 @@ git commit -m "test(ts): add M1 control flow, literal, and primitive type mappin
 >    - char 字面量归一化放在 raw 归一化流水最后（println → for 头 → char）：for 头 paren
 >      匹配与 println 实参跳过逻辑先按单引号区域处理，char 转换不与前两阶段相互干扰。
 > ⑥ 提交：7e496da7（message 追加说明见注记 ①-⑤，含发射器修复与断言修订）。
-
+> ⑦ 复审遗留登记（质量审查非阻塞项，归 M2 处理）：
+>    - I-1：经典 for let 化未对 init 字面量做类型适配——`for (long i = 0L; ...)` 产 `let i: bigint = 0L`
+>      （TS1351）、`for (float i = 1.5f; ...)` 产 `number = 1.5f`（TS1351）、`for (int? i = null; ...)`
+>      产 `number = null`（TS2322）。建议随 Task 19（数值语义）或字面量归一化扩展处理（init 复用
+>      NormalizeLiteral 类归一化）。
+>    - I-2：`HasTopLevelComma` 不跳过字符串字面量——`for (String s = "a,b"; ...)` 被误判为多声明而直通
+>      （保留 Java 风味，非法 TS；保守直通无破坏）。建议随 I-1 一并补齐引号跳过。
+>    - M-2/M-3/M-4（Minor）：多声明直通头内 char 仍被改写（无新增破坏）；char 归一化会改写注释文本
+>      （前端剥离注释，影响低）；字段初始化器 `'\''` 输出 `"\'"` 与 raw/表达式层 `"'"` 文本不一致
+>      （同值合法）。
 ---
 
 # 里程碑 M2：核心特性（泛型/接口/属性/枚举/异常/字符串插值/数值语义/可空）
