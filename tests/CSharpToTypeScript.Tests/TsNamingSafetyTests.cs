@@ -26,6 +26,26 @@ public class TsNamingSafetyTests
     }
 
     [Fact]
+    public void SafeIdentifier_StrictModeReservedWords_Suffixed()
+    {
+        Assert.Equal("interface$", TsNaming.SafeIdentifier("interface"));
+        Assert.Equal("implements$", TsNaming.SafeIdentifier("implements"));
+        Assert.Equal("package$", TsNaming.SafeIdentifier("package"));
+        Assert.Equal("bigint$", TsNaming.SafeIdentifier("bigint"));
+    }
+
+    [Fact]
+    public void SafeIdentifier_At_Only_Returns_Underscore()
+    {
+        Assert.Equal("_", TsNaming.SafeIdentifier("@"));
+    }
+
+    [Fact]
+    public void SafeClassName_Reserved_Word_Suffixed()
+    {
+        Assert.Equal("bigint$", TsNaming.SafeClassName("bigint"));
+    }
+    [Fact]
     public void OverloadSuffix_Joins_Param_Types()
     {
         var suffix = TsNaming.OverloadSuffix(new[] { "string", "number" });

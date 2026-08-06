@@ -15,12 +15,12 @@ public static class TsNaming
     {
         "break", "case", "catch", "class", "const", "continue", "debugger",
         "default", "delete", "do", "else", "enum", "export", "extends",
-        "false", "finally", "for", "function", "if", "import", "in",
-        "instanceof", "let", "new", "null", "return", "super", "switch",
+        "false", "finally", "for", "function", "if", "implements", "import", "in",
+        "instanceof", "interface", "let", "new", "null", "return", "super", "switch",
         "this", "throw", "true", "try", "typeof", "var", "void", "while",
-        "with", "yield", "any", "as", "async", "await", "boolean",
+        "with", "yield", "any", "as", "async", "await", "bigint", "boolean",
         "constructor", "declare", "get", "infer", "is", "keyof", "module",
-        "namespace", "never", "number", "object", "of", "private",
+        "namespace", "never", "number", "object", "of", "package", "private",
         "protected", "public", "readonly", "require", "satisfies", "set",
         "static", "string", "symbol", "type", "undefined", "unknown",
     };
@@ -34,10 +34,13 @@ public static class TsNaming
         if (string.IsNullOrEmpty(name)) return "_";
 
         // 去除 C# @ 转义前缀
-        if (name.StartsWith("@"))
+        if (name.StartsWith("@", StringComparison.Ordinal))
         {
             name = name[1..];
         }
+
+        // 剥离 @ 后为空（如输入 "@"）-> 下划线占位
+        if (name.Length == 0) return "_";
 
         // TS 保留字冲突 -> 追加 $
         if (TsReservedWords.Contains(name))
@@ -59,6 +62,8 @@ public static class TsNaming
     /// <summary>
     /// 生成重载方法后缀。规则：_type1_type2（TS 映射类型名小写连接）。
     /// 示例：["string", "number"] -> "_string_number"
+    /// 前置条件：调用方必须传入已小写、已消毒的简单 TS 类型名（如 "string"/"number"）；
+    /// 复杂类型（数组/泛型/联合）由调用方（Task 23 重载 rewriter）先行消毒。
     /// </summary>
     public static string OverloadSuffix(IReadOnlyList<string> paramTsTypes)
     {
