@@ -6,8 +6,9 @@ namespace CSharpToTypeScript.Tests;
 /// <summary>
 /// Task 16 三审回归测试（R-1：基类链递归解析；R-2：用户方法返回类型参与链式解析）：
 /// 先写失败测试（红），修复后全绿；完整转换用例含 L3 tsc。
-/// 实测注记：HIR 对继承的裸属性读/写（return X; / X = 5;）不降级为 getX()/setX()
-/// （同声明类才降级），故"裸调用"以 IR 级 getX() 调用回归覆盖（见各测试注释）。
+/// 实测注记：HIR 对继承的裸属性读/写（return X; / X = 5;）同样降级为 getX()/setX()
+/// （2026-08-07 四审探针实证：Java 目标产物 `return getX();`/`setX(5);`），故"裸调用"
+/// 以 IR 级 getX() 调用回归覆盖与真实管线一致（见各测试注释）。
 /// </summary>
 public class TsPropertyReconstructionReview3Tests : TsConversionTestBase
 {
@@ -83,8 +84,7 @@ public class TsPropertyReconstructionReview3Tests : TsConversionTestBase
     public void Bare_Call_Through_Grandparent_Base_Is_Rewritten()
     {
         // 裸调用 getX() 在 C（C → B → A）：旧实现只查直接基类 B → 残留 getX()（TS2304）。
-        // 完整管线中继承的裸属性读（return X;）在 HIR 不降级为 getX()（既有缺口，见类注释），
-        // 故以 IR 级 raw 体回归本修复点。
+        // HIR 对继承裸属性读同样降级为 getX()（四审探针实证），IR 级 raw 体与真实管线一致。
         var clsA = ClassWith("A", fields: [BackingField("X")], methods: [AutoGetter("X"), AutoSetter("X")]);
         var clsB = ClassWith("B", extends: "A");
         var clsC = ClassWith("C", extends: "B");

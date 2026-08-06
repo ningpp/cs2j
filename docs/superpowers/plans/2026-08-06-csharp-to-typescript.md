@@ -4822,9 +4822,11 @@ git commit -m "feat(ts): reconstruct C# properties as TS accessors"
 >      hash 见 git log（3 文件：TsPropertyReconstructionRewriter.cs /
 > ⑫ 三审修复（2026-08-07，R-1/R-2 + R-3/4/5/M1/M2 登记，红→绿）：
 >    - 红→绿清单（证据）：新增 `TsPropertyReconstructionReview3Tests.cs` 12 个回归测试，
->      初跑 9 红 2 绿（绿：`Base_Call_Through_Grandparent_Base_Keeps_Super_Accessor`——
+>      初跑 9 红 3 绿（绿：`Base_Call_Through_Grandparent_Base_Keeps_Super_Accessor`——
 >      C 自身 override 注册命中，非递归路径；`Method_Return_Chain_Unresolvable_Leaf_Is_Conservative`
->      ——保守守卫用例）；其中 2 个测试按 IR 实测重写（见"实测修订"），修复后 12/12 绿；
+>      ——保守守卫用例；`Static_Property_Inherited_Access_Emits_Declaring_Class_Guard`
+>      ——声明类归一守卫，父提交即绿，注记漏计，见注记⑬ 四审修正）；其中 2 个测试按 IR
+>      实测重写（见"实测修订"），修复后 12/12 绿；
 >      全量 TS 247/247（235 + 新增 12，完整转换用例内嵌 L3 tsc），Java 2423/2423 零回归。
 >    - R-1（必修，基类链递归）：`TryResolveAccessor` 基类循环只查直接基类一层，递归版
 >      `TryResolveAccessorInContext` 仅 R2 super 形态判定使用 → 爷孙链
@@ -4844,11 +4846,11 @@ git commit -m "feat(ts): reconstruct C# properties as TS accessors"
 >      （均 tsc 过）、不可解析末端保守守卫、结构化 `d.getB().a.getX()` 链（IR 级）。
 >    - R-5 随 R-2 落地：结构化链方法调用段原无 `JavaMethodCallExpression` 分支（真实管线
 >      走 raw，潜在缺口）——R-2 的结构化分支已覆盖，不再为缺口。
->    - 实测修订（以 IR 为准）：R-1 声称"裸调用 `return X;` → `return getX();` TS2304"——
->      实测 HIR 对**继承**的裸属性读/写（`return X;`/`X = 5;`）不降级为 getX()/setX()
->      （仅同声明类裸访问降级），raw 文本保留 `X` 裸标识符（tsc TS2663 类错误）。属
->      既有 transformer 缺口（C#→Java 共享路径，改之影响 Java 2423 测试，超本任务范围），
->      登记；R-1"裸调用"以 IR 级 raw `return getX();` 回归覆盖（红→绿）。
+>    - 实测修订（以 IR 为准，2026-08-07 四审探针实证修正）：R-1 声称"裸调用 `return X;`
+>      → `return getX();` TS2304"——HIR 对**继承**的裸属性读/写同样降级为 getX()/setX()
+>      （探针 Java 目标：`class C:B:A` 中 `return X;`/`X = 5;` 产物为 `return getX();`/
+>      `setX(5);`），非"保留 `X` 裸标识符"；R-1"裸调用"以 IR 级 raw `return getX();`
+>      回归覆盖与真实管线一致（红→绿）。
 >    - R-3/4（Minor 登记，不修）：多段数组下标 `arr[0][1].X` 保守保留（TS2339）；泛型
 >      字段链 `Box<T>.item.X` 不可解析保守保留。均属链式解析保守边界，维持方法调用。
 >    - M1（规格 Minor 登记）：`_inheritedPropertyNames` 扁平集合过度保守——无继承关系
@@ -4864,6 +4866,46 @@ git commit -m "feat(ts): reconstruct C# properties as TS accessors"
 >      TsPropertyReconstructionReview3Tests.cs / 本计划文档）。
 >      TsPropertyReconstructionReview2Tests.cs / 本计划文档）。
 >      TsPropertyReconstructionReviewTests.cs / 本计划文档）。
+---
+
+> ⑬ 四审修复（2026-08-07，C1 循环继承栈溢出 + R-6 重载键控 + R-7 数组返回链，红→绿）：
+>    - 红→绿清单（证据）：新增 `TsPropertyReconstructionReview4Tests.cs` 11 个回归测试，
+>      初跑 4 个循环继承用例触发 `TryResolveAccessorInContext`/`ResolveMemberTypeInContext`
+>      自递归 → StackOverflow 进程崩溃（红）；非循环 7 用例 5 红 2 绿（红：raw 0 参/1 参
+>      消歧漏改写与误改写方向、同参个数歧义误改写、数组返回链漏改写、完整管线 Contains
+>      失败；绿：结构化 1 参用例恰因"后声明覆盖"方向一致而绿、不可解析末端天然保守）；
+>      修复后 11/11 绿；全量 TS 258/258（247 + 新增 11，完整转换用例内嵌 L3 tsc），
+>      Java 2423/2423 零回归。
+>    - C1（Critical，IR 级循环继承 → 栈溢出崩溃）：`TryResolveAccessorInContext`、
+>      `ResolveMemberTypeInContext`、`HasFieldInBaseChain` 三条基类链递归均无环保护，
+>      self-extends（`class A : A`）或互相 extends（`A:B`/`B:A`）输入时无限递归。C# 语法
+>      不可达（编译器拒绝循环继承），纯 IR 防御缺口。修复：三处递归加 `HashSet<string>`
+>      visited 参数（`finally` 移除，菱形继承不受影响），遇环即中止 → 保守不改写。
+>      回归 4 个（自环裸调用、互环裸调用、互环成员段、互环末端访问器查注册），均不得
+>      崩溃且保留方法调用。
+>    - R-6（Important，同名重载方法返回类型字典覆盖）：`RecordMethodReturnTypes` 键仅
+>      方法名 → `GetB()`/`GetB(int)` 后声明者覆盖先声明者，解析结果取决于声明顺序
+>      （漏改写 + 潜在误改写，C1 类）。修复：键改为"方法名 + 参数个数"
+>      （`MethodReturnKey`）；raw 调用段 `ExtractRawChainSegments` 新增实参个数提取
+>      （`CountTopLevelArgs` 顶层逗号计数），结构化分支用 `Arguments.Count`；同名同参
+>      数个数的重载（仅参数类型不同）静态无法判定 → 移除键 → 调用点保守不改写
+>      （宁可不改不可误改）。回归 4 个（raw 0 参/1 参消歧、结构化 1 参消歧、同参个数
+>      歧义保守、完整管线双调用点 Contains 断言——L3 不启用，重载发射缺口 TS2393 已
+>      登记 M3 Task 23 处理）。
+>    - R-7（Minor，方法返回数组 + 下标链漏改）：`ExtractRawChainSegments` 数组段要求
+>      `[` 前为标识符字符，`getA()[0]` 的 `)` 导致返回 null → 保守保留 `getX()`（TS2339）。
+>      修复：`]` 段反向解析后若前字符为 `)` 则先解析调用段（复用 `)` 分支逻辑）。
+>      回归 3 个（0 参数组链、带参数组链、数组元素类型不可解析保守）。
+>    - 三审登记偏差修正（Volta 三审复核 + 本注记实证，Minor）：注记⑫ "初跑 9 红 2 绿"
+>      实测为 9 红 3 绿（`Static_Property_Inherited_Access_Emits_Declaring_Class_Guard`
+>      父提交即绿，漏计）；注记⑫ "实测修订"声称"HIR 对继承裸属性读不降级"与实测不符——
+>      探针（Java 目标）`return X;`（X 在爷孙基类）实测降级为 `return getX();` 并被正确
+>      改写为 `this.X`，本注记按实证修订，Review3 测试类注释同步修正。
+>    - 提交：`fix(ts): guard circular inheritance and key method return types by arity`，
+>      hash 见 git log（4 文件：TsPropertyReconstructionRewriter.cs /
+>      TsPropertyReconstructionReview4Tests.cs / TsPropertyReconstructionReview3Tests.cs（注释修正） /
+>      本计划文档）。
+
 ---
 
 ## Task 17: 枚举（显式值与 [Flags]）

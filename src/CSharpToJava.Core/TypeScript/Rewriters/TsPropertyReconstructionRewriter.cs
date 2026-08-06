@@ -96,7 +96,8 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         public required Dictionary<string, string> StaticFieldTypes { get; init; }
         /// <summary>本类型注册的访问器方法名集合（this./裸调用按当前类型 + 基类链解析）。</summary>
         public Dictionary<string, AccessorInfo> AccessorMap { get; } = new(StringComparer.Ordinal);
-        /// <summary>本类型方法名 → 返回类型（R-2：链式调用段解析用户方法返回类型）。</summary>
+        /// <summary>本类型方法签名键（方法名 + 参数个数）→ 返回类型（R-2：链式调用段解析用户
+        /// 方法返回类型；R-6：同名重载按参数个数消诧，同名同参个数的歧义重载不登记）。</summary>
         public Dictionary<string, string> MethodReturnTypes { get; } = new(StringComparer.Ordinal);
     }
 
@@ -186,17 +187,28 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         return names;
     }
 
-    /// <summary>登记方法名 → 返回类型（R-2；void/空返回不登记，链式解析无意义）。</summary>
+    /// <summary>登记方法签名键 → 返回类型（R-2；void/空返回不登记，链式解析无意义）。
+    /// R-6：同名同参数个数的多个重载（仅参数类型不同）静态无法判定 → 移除键，调用点保守不改写
+    /// （宁可不改不可误改）；同键同返回类型保留。</summary>
     private static void RecordMethodReturnTypes(ClassContext context, IEnumerable<JavaMethodDeclaration> methods)
     {
         foreach (var method in methods)
         {
-            if (!string.IsNullOrEmpty(method.ReturnType) && method.ReturnType != "void")
+            if (string.IsNullOrEmpty(method.ReturnType) || method.ReturnType == "void") continue;
+            var key = MethodReturnKey(method.Name, method.Parameters.Count);
+            if (!context.MethodReturnTypes.TryAdd(key, method.ReturnType))
             {
-                context.MethodReturnTypes[method.Name] = method.ReturnType;
+                if (context.MethodReturnTypes[key] != method.ReturnType)
+                {
+                    context.MethodReturnTypes.Remove(key);
+                }
             }
         }
     }
+
+    /// <summary>方法返回类型键 = 方法名 + 参数个数（R-6：同名重载不同返回类型不得互相覆盖）。</summary>
+    private static string MethodReturnKey(string methodName, int argCount)
+        => methodName + "(" + argCount + ")";
 
     private static ClassContext CreateClassContext(
         string name, List<string> baseTypes, List<JavaFieldDeclaration> fields)
@@ -853,22 +865,31 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
     }
 
-    /// <summary>基类链（不含当前类）是否存在同名字段。</summary>
-    private bool HasFieldInBaseChain(ClassContext context, string fieldName)
+    /// <summary>基类链（不含当前类）是否存在同名字段（visited 防循环继承环，C1）。</summary>
+    private bool HasFieldInBaseChain(ClassContext context, string fieldName, HashSet<string>? visited = null)
     {
-        foreach (var baseName in context.BaseTypeNames)
+        visited ??= new HashSet<string>(StringComparer.Ordinal);
+        if (!visited.Add(context.ClassName)) return false;
+        try
         {
-            if (_typeContextsByName.TryGetValue(baseName, out var baseCtx))
+            foreach (var baseName in context.BaseTypeNames)
             {
-                if (baseCtx.InstanceFieldTypes.ContainsKey(fieldName)
-                    || baseCtx.StaticFieldTypes.ContainsKey(fieldName))
+                if (_typeContextsByName.TryGetValue(baseName, out var baseCtx))
                 {
-                    return true;
+                    if (baseCtx.InstanceFieldTypes.ContainsKey(fieldName)
+                        || baseCtx.StaticFieldTypes.ContainsKey(fieldName))
+                    {
+                        return true;
+                    }
+                    if (HasFieldInBaseChain(baseCtx, fieldName, visited)) return true;
                 }
-                if (HasFieldInBaseChain(baseCtx, fieldName)) return true;
             }
+            return false;
         }
-        return false;
+        finally
+        {
+            visited.Remove(context.ClassName);
+        }
     }
 
     /// <summary>文本中标识符边界的名字替换（跳过字符串/注释；点号后成员名同样命中）。</summary>
@@ -946,16 +967,27 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         return false;
     }
 
-    private bool TryResolveAccessorInContext(string typeName, string methodName, out AccessorInfo info)
+    private bool TryResolveAccessorInContext(string typeName, string methodName, out AccessorInfo info,
+        HashSet<string>? visited = null)
     {
         info = null!;
-        if (!_typeContextsByName.TryGetValue(typeName, out var ctx)) return false;
-        if (ctx.AccessorMap.TryGetValue(methodName, out info!)) return true;
-        foreach (var baseName in ctx.BaseTypeNames)
+        // C1：IR 级循环继承（self-extends/互相 extends）→ 访问集合防栈溢出，解析中止于环
+        visited ??= new HashSet<string>(StringComparer.Ordinal);
+        if (!visited.Add(typeName)) return false;
+        try
         {
-            if (TryResolveAccessorInContext(baseName, methodName, out info!)) return true;
+            if (!_typeContextsByName.TryGetValue(typeName, out var ctx)) return false;
+            if (ctx.AccessorMap.TryGetValue(methodName, out info!)) return true;
+            foreach (var baseName in ctx.BaseTypeNames)
+            {
+                if (TryResolveAccessorInContext(baseName, methodName, out info!, visited)) return true;
+            }
+            return false;
         }
-        return false;
+        finally
+        {
+            visited.Remove(typeName);
+        }
     }
 
     private static bool IsAutoAccessorCandidate(JavaMethodDeclaration m)
@@ -1014,7 +1046,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 var callTargetType = ResolveExpressionType(call.Target);
                 if (callTargetType == null || !_typeContextsByName.TryGetValue(callTargetType, out var callCtx)) return null;
                 if (callCtx.AccessorMap.TryGetValue(call.MethodName, out var accInfo)) return accInfo.Type;
-                return callCtx.MethodReturnTypes.TryGetValue(call.MethodName, out var retType) ? retType : null;
+                return callCtx.MethodReturnTypes.TryGetValue(MethodReturnKey(call.MethodName, call.Arguments.Count), out var retType) ? retType : null;
             }
             case JavaArrayAccessExpression arrayAccess:
             {
@@ -1034,20 +1066,30 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     /// 在类型上下文中解析成员类型（C2 链式段解析 + InheritedField）：本类字段 → 本类属性
     /// 访问器（getter 注册名）→ 基类链递归（基类字段/属性对派生类可见）。
     /// </summary>
-    private string? ResolveMemberTypeInContext(ClassContext ctx, string memberName)
+    private string? ResolveMemberTypeInContext(ClassContext ctx, string memberName, HashSet<string>? visited = null)
     {
-        if (ctx.InstanceFieldTypes.TryGetValue(memberName, out var fieldType)) return fieldType;
-        if (ctx.StaticFieldTypes.TryGetValue(memberName, out fieldType)) return fieldType;
-        if (ctx.AccessorMap.TryGetValue("get" + memberName, out var accessor)) return accessor.Type;
-        foreach (var baseName in ctx.BaseTypeNames)
+        // C1：循环继承环 → 访问集合防栈溢出
+        visited ??= new HashSet<string>(StringComparer.Ordinal);
+        if (!visited.Add(ctx.ClassName)) return null;
+        try
         {
-            if (_typeContextsByName.TryGetValue(baseName, out var baseCtx))
+            if (ctx.InstanceFieldTypes.TryGetValue(memberName, out var fieldType)) return fieldType;
+            if (ctx.StaticFieldTypes.TryGetValue(memberName, out fieldType)) return fieldType;
+            if (ctx.AccessorMap.TryGetValue("get" + memberName, out var accessor)) return accessor.Type;
+            foreach (var baseName in ctx.BaseTypeNames)
             {
-                var baseType = ResolveMemberTypeInContext(baseCtx, memberName);
-                if (baseType != null) return baseType;
+                if (_typeContextsByName.TryGetValue(baseName, out var baseCtx))
+                {
+                    var baseType = ResolveMemberTypeInContext(baseCtx, memberName, visited);
+                    if (baseType != null) return baseType;
+                }
             }
+            return null;
         }
-        return null;
+        finally
+        {
+            visited.Remove(ctx.ClassName);
+        }
     }
 
     /// <summary>
@@ -1256,7 +1298,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         return TryResolveAccessorInContext(currentType, methodName, out info);
     }
 
-    private sealed record RawChainSegment(string? Name, bool IsArray, bool IsCall);
+    private sealed record RawChainSegment(string? Name, bool IsArray, bool IsCall, int ArgCount = 0);
 
     /// <summary>
     /// 从方法名前的点号回扫提取链段（正向顺序）：标识符段（b/a）、数组访问段（arr[0]）、
@@ -1278,7 +1320,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 var start = open;
                 while (start > 0 && IsIdentifierChar(text[start - 1])) start--;
                 if (start == open) return null;
-                reversed.Add(new RawChainSegment(text[start..open], false, true));
+                reversed.Add(new RawChainSegment(text[start..open], false, true, CountTopLevelArgs(text[(open + 1)..pos])));
                 pos = start - 1;
             }
             else if (text[pos] == ']')
@@ -1288,10 +1330,28 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 if (openBracket < 0) return null;
                 reversed.Add(new RawChainSegment(null, true, false));
                 pos = openBracket - 1;
-                if (pos < 0 || !IsIdentifierChar(text[pos])) return null;
-                var end = pos + 1;
-                while (pos >= 0 && IsIdentifierChar(text[pos])) pos--;
-                reversed.Add(new RawChainSegment(text[(pos + 1)..end], false, false));
+                if (pos < 0) return null;
+                if (text[pos] == ')')
+                {
+                    // R-7：下标作用于调用结果（getA()[0]）：'[' 前是 ')' → 先解析调用段
+                    var open = FindMatchingOpenBackward(text, pos, '(', ')');
+                    if (open < 0) return null;
+                    var start = open;
+                    while (start > 0 && IsIdentifierChar(text[start - 1])) start--;
+                    if (start == open) return null;
+                    reversed.Add(new RawChainSegment(text[start..open], false, true, CountTopLevelArgs(text[(open + 1)..pos])));
+                    pos = start - 1;
+                }
+                else if (IsIdentifierChar(text[pos]))
+                {
+                    var end = pos + 1;
+                    while (pos >= 0 && IsIdentifierChar(text[pos])) pos--;
+                    reversed.Add(new RawChainSegment(text[(pos + 1)..end], false, false));
+                }
+                else
+                {
+                    return null;
+                }
             }
             else if (IsIdentifierChar(text[pos]))
             {
@@ -1339,7 +1399,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             // 调用段 getA()/getB()：属性 getter（AccessorMap）优先，其次用户方法返回类型（R-2）
             if (!_typeContextsByName.TryGetValue(currentType, out var ctx)) return null;
             if (ctx.AccessorMap.TryGetValue(segment.Name!, out var accInfo)) return accInfo.Type;
-            return ctx.MethodReturnTypes.TryGetValue(segment.Name!, out var retType) ? retType : null;
+            return ctx.MethodReturnTypes.TryGetValue(MethodReturnKey(segment.Name!, segment.ArgCount), out var retType) ? retType : null;
         }
         if (!_typeContextsByName.TryGetValue(currentType, out var typeContext)) return null;
         return ResolveMemberTypeInContext(typeContext, segment.Name!);
@@ -1665,7 +1725,13 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
 
     /// <summary>实参文本是否为单个顶层实参（无顶层逗号）。</summary>
     private static bool IsSingleTopLevelArg(string argText)
+        => CountTopLevelArgs(argText) == 1;
+
+    /// <summary>实参文本的顶层实参个数（空白 → 0；其余为顶层逗号分隔计数 + 1；R-6 调用段键控）。</summary>
+    private static int CountTopLevelArgs(string argText)
     {
+        if (string.IsNullOrWhiteSpace(argText)) return 0;
+        var count = 1;
         var depth = 0;
         for (var i = 0; i < argText.Length; i++)
         {
@@ -1690,10 +1756,10 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                     depth--;
                     break;
                 default:
-                    if (ch == ',' && depth == 0) return false;
+                    if (ch == ',' && depth == 0) count++;
                     break;
             }
         }
-        return true;
+        return count;
     }
 }
