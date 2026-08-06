@@ -3528,6 +3528,7 @@ git commit -m "feat(ts): fork pipeline at Codegen layer with SingleFileTsEmitPas
 创建 `tests/CSharpToTypeScript.Tests/TsCliTargetOptionTests.cs`：
 
 ```csharp
+using CommandLine;
 using CSharpToJava.CLI;
 
 namespace CSharpToTypeScript.Tests;
@@ -3544,9 +3545,19 @@ public class TsCliTargetOptionTests
     [Fact]
     public void ConvertOptions_Accepts_TypeScript_Target()
     {
-        // CommandLineParser 解析 --target typescript
+        // 直接属性赋值验证（真实命令行解析见 ConvertOptions_Parses_Dash_T_Typescript）
         var opts = new ConvertOptions { Target = "typescript" };
         Assert.Equal("typescript", opts.Target);
+    }
+
+    [Fact]
+    public void ConvertOptions_Parses_Dash_T_Typescript()
+    {
+        // CommandLineParser 真实解析 -t/--target typescript
+        // ConvertOptions.Input 为 Required，需连同 -i 一起解析
+        var result = Parser.Default.ParseArguments<ConvertOptions>(new[] { "-i", "sample.cs", "-t", "typescript" });
+        Assert.Equal(ParserResultType.Parsed, result.Tag);
+        Assert.Equal("typescript", ((Parsed<ConvertOptions>)result).Value.Target);
     }
 }
 ```
@@ -3570,7 +3581,7 @@ public string Target { get; set; } = "java";
 ```
 
 在 `ConvertProjectOptions` 类（第 2081 行）同样添加。
-实测：`-t` 短选项复核无误——convert 已占用 i/o/m/j/v（其余均为仅长选项），convert-project 已占用 s/d/m/f/j/v（其余均为仅长选项），`-t` 空闲；两个选项类均已在类首添加 `[Option('t', "target", Default = "java", ...)]`（实际行号随前序 Task 编辑漂移，约 L2031/L2083）。
+实测：`-t` 短选项复核无误——convert 已占用 i/o/m/j/v（其余均为仅长选项），convert-project 已占用 s/d/m/f/j/v（其余均为仅长选项），`-t` 空闲；两个选项类均已在类首添加 `[Option('t', "target", Default = "java", ...)]`（实际行号随前序 Task 编辑漂移，约 L2072/L2127）。
 
 - [x] **Step 4: 在 ConvertFile/ConvertProject 方法中传递 TargetLanguage**
 
@@ -3645,7 +3656,7 @@ private static string? ResolveTypeScriptMemberMappingPath()
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsCliTargetOptionTests"`
 Expected: PASS（2 个测试）。
-实测：`--filter "FullyQualifiedName~TsCliTargetOptionTests"` → 通过 2 / 失败 0 / 跳过 0。
+实测：`--filter "FullyQualifiedName~TsCliTargetOptionTests"` → 通过 3 / 失败 0 / 跳过 0（含复审新增 `ConvertOptions_Parses_Dash_T_Typescript` 真实解析用例，见注记⑤/⑦）。
 
 - [x] **Step 7: 手动端到端验证**
 
@@ -3655,7 +3666,7 @@ dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
 dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert -i tests/SampleProject/Sample.cs -t typescript
 ```
 Expected: 输出包含 `export class Sample` 的 TypeScript 代码。
-实测（`tests/SampleProject/Sample.cs`：两个 const long 字段的简单类，无 TS 转换失败构造）：
+实测（`tests/SampleProject/Sample.cs`：两个 const long 字段的简单类，无编译阻断构造；但产物存在已知限制，见注记⑦）：
 ```text
 $ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert -i tests/SampleProject/Sample.cs -t typescript
 export class Sample {
@@ -3685,18 +3696,22 @@ git commit -m "feat(ts): add --target CLI option for TypeScript conversion"
 >
 > ① 红→绿：Step 2 实测红因 `CS0122`（internal `ConvertOptions` 对测试程序集不可见），加 IVT 后同一编译错误消失；计划片段 `Context.TargetLanguage.*` 在 CLI 项目中编译失败（`CS0103`：`using CSharpToJava.Core.Context;` 只导入类型、不导入 `Context` 命名空间名），已改为同文件已导入的 `TargetLanguage.TypeScript/Java`（不新增 using，计划代码块已同步修订）。
 >
-> ② e2e 实测摘录（见 Step 7）：`-t typescript` 输出含 `export class Sample`（TS 分叉生效，含 `bigint` 字段）；`-t java` 输出 `package SampleProject; public class Sample { ... }`，与未指定 `-t` 一致。输入 `tests/SampleProject/Sample.cs` 为两个 const long 字段的简单类，无 TS 转换失败构造。
+> ② e2e 实测摘录（见 Step 7）：`-t typescript` 输出含 `export class Sample`（TS 分叉生效，含 `bigint` 字段）；`-t java` 输出 `package SampleProject; public class Sample { ... }`，与未指定 `-t` 一致。输入 `tests/SampleProject/Sample.cs` 为两个 const long 字段的简单类，无编译阻断构造；但产物存在已知限制（cast 泄漏，见注记⑦），不暗示产物合法。
 >
-> ③ 测试统计：TS 项目 139 → 141（新增 2 个 CLI 选项测试）/ 0 失败；Java `CSharpToJava.Tests` 2423/2423 零回归。
+> ③ 测试统计：TS 项目 139 → 142（新增 3 个 CLI 选项测试，复审补真实解析用例）/ 0 失败；Java `CSharpToJava.Tests` 2423/2423 零回归。
 >
-> ④ 已登记 gap（Task 38/M5 范围，本任务未改）：`ConvertProject` 产物路径把输出文件名硬编码为 `.java` 扩展名（`src/CSharpToJava.CLI/Program.cs` 约 L791-801 两处：`EndsWith(".java")` 与 `Path.ChangeExtension(..., ".java")`），`convert-project -t typescript` 的产物扩展名仍为 .java；Task 12 只做 Options 传递，工程级 TS 产物/扩展名逻辑留待 Task 38 按 spec §2.4 分叉处理。
+> ④ 已登记 gap（Task 38/M5 范围，本任务未改）：`convert-project -t typescript` 的工程级 TS 分叉整体未生效——`ProjectConversionPipeline` 不消费 `TargetLanguage`（`src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs` 中零引用，已实证），产物内容仍为 Java；且输出文件名硬编码为 `.java` 扩展名（`src/CSharpToJava.CLI/Program.cs` L791 `EndsWith(".java")`、L793 与 L801 两处 `Path.ChangeExtension(..., ".java")`，共三处）。Task 12 只做 Options 传递，工程级 TS 产物/扩展名逻辑留待 Task 38 按 spec §2.4 分叉处理。
 >
 > ⑤ 偏离/选择记录：
 >    - `Context.TargetLanguage.*` → `TargetLanguage.*`（编译错误驱动，见 ①）。
 >    - 两个 Resolve 辅助方法置于 `ResolveJavaMetadataPath` 之后（辅助方法聚集区），而非字面"文件末尾"（文件末尾为选项类，放辅助区更一致）。
 >    - IVT 采用计划指定的 `<InternalsVisibleTo Include="..." />` ItemGroup；存量 `AssemblyAttribute` 式（`CSharpToJava.Tests`）未动，两种机制并存且均生效。
 >    - `-m/--mapping` 在 TS 目标下按计划复用为 TS TypeMappings 路径；Java 目标语义不变。
-> ⑥ 提交：`5073614a`（`feat(ts): add --target CLI option for TypeScript conversion`）；docs 注记另提交。
+>    - 复审（M-1）：新增 `ConvertOptions_Parses_Dash_T_Typescript` 真实解析用例（`Parser.Default.ParseArguments<ConvertOptions>` + `-i`/`-t` 全量 args）；实测 `ConvertOptions.Input` 为 `Required = true`，仅传 `-t` 得到 `NotParsed`，用例须带 `-i`。CommandLineParser 经 CLI 项目 PackageReference 传递可用，TS 测试 csproj 无需显式引用。
+>    - 复审（M-5）：测试文件补末尾换行；原属性自证测试上的误导性注释已移至真实解析用例。
+> ⑥ 提交：`5073614a`（`feat(ts): add --target CLI option for TypeScript conversion`）；docs 注记另提交（`efc5b3d6`）。复审修复：`docs(ts): register Task 12 cast leak limitation and add parser test`（hash 见最终报告）。
+>
+> ⑦ 已知限制（复审阻塞项补登）：`-t typescript` 单文件转换下，`tests/SampleProject/Sample.cs` 的 const long 字段初始化器泄漏 Java 风味 `(long) (4294967295L)`（`uint.MaxValue` 经 Java 侧 `AdaptExpressionToTargetType`（`FieldTransformer.cs` 约 L301）渲染为 cast 前缀；`TsMemberWriter.NormalizeLiteral`（`TsMemberWriter.cs` L240）只归一化纯字面量形态，带 cast 前缀的字符串原样透传），产物非法 TS——tsc strict 实测两行均报 `TS1351: An identifier or keyword cannot immediately follow a numeric literal.`。归属：M2 Task 19（数值语义/窄化/bigint 混算）承接，`Sample.cs` 用例纳入 M2 验收。
 
 ---
 
