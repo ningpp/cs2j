@@ -4820,6 +4820,48 @@ git commit -m "feat(ts): reconstruct C# properties as TS accessors"
 >      TS2415 派生后备字段改名 `_` 后缀为访问器体文本层面的同步改造（未改共享 IR）。
 >    - 提交：`fix(ts): resolve chained property targets and inheritance-aware reconstruction`，
 >      hash 见 git log（3 文件：TsPropertyReconstructionRewriter.cs /
+> ⑫ 三审修复（2026-08-07，R-1/R-2 + R-3/4/5/M1/M2 登记，红→绿）：
+>    - 红→绿清单（证据）：新增 `TsPropertyReconstructionReview3Tests.cs` 12 个回归测试，
+>      初跑 9 红 2 绿（绿：`Base_Call_Through_Grandparent_Base_Keeps_Super_Accessor`——
+>      C 自身 override 注册命中，非递归路径；`Method_Return_Chain_Unresolvable_Leaf_Is_Conservative`
+>      ——保守守卫用例）；其中 2 个测试按 IR 实测重写（见"实测修订"），修复后 12/12 绿；
+>      全量 TS 247/247（235 + 新增 12，完整转换用例内嵌 L3 tsc），Java 2423/2423 零回归。
+>    - R-1（必修，基类链递归）：`TryResolveAccessor` 基类循环只查直接基类一层，递归版
+>      `TryResolveAccessorInContext` 仅 R2 super 形态判定使用 → 爷孙链
+>      `class A{X} class B:A {} class C:B` 中 this/base 调用残留 getX()/setX()（TS2339）。
+>      修复：基类循环改调 `TryResolveAccessorInContext`（递归，三处落地——裸/this/super
+>      调用 `TryResolveAccessor`、raw dot-target 末端查注册、结构化 dot-target
+>      `TryRewriteCall`）；类上下文 BaseTypeNames 并入 `ImplementedTypes`
+>      （`BaseTypeNamesFor`，接口属性经中间基类解析）。回归：this/base 爷孙链（tsc 过）、
+>      `C.Stat` 派生类名静态访问（IR 级 raw `C.getStat()` → `C.Stat`）、接口继承链
+>      `IMid : IShape` + 类链 `Mid→Base` + 爷孙链 `Leaf→Mid→Base` 三调用点（tsc 过）。
+>    - R-2（建议本轮，方法返回类型链）：`ResolveRawSegment` 调用段只查 AccessorMap（属性
+>      getter），用户方法 `d.GetB().A.X`（GetB 返回 B）链断在 getB() → 保守保留方法调用
+>      （TS2339）。修复：`ClassContext.MethodReturnTypes`（类 + 接口方法名 → 返回类型，
+>      void/空返回不登记），raw 调用段与结构化 `ResolveExpressionType` 新
+>      `JavaMethodCallExpression` 分支均先查 AccessorMap 再查 MethodReturnTypes；方法返回
+>      类型不可解析 → 保守保留。回归：`d.getB().a.X` 类返回链、`d.getI().X` 接口返回链
+>      （均 tsc 过）、不可解析末端保守守卫、结构化 `d.getB().a.getX()` 链（IR 级）。
+>    - R-5 随 R-2 落地：结构化链方法调用段原无 `JavaMethodCallExpression` 分支（真实管线
+>      走 raw，潜在缺口）——R-2 的结构化分支已覆盖，不再为缺口。
+>    - 实测修订（以 IR 为准）：R-1 声称"裸调用 `return X;` → `return getX();` TS2304"——
+>      实测 HIR 对**继承**的裸属性读/写（`return X;`/`X = 5;`）不降级为 getX()/setX()
+>      （仅同声明类裸访问降级），raw 文本保留 `X` 裸标识符（tsc TS2663 类错误）。属
+>      既有 transformer 缺口（C#→Java 共享路径，改之影响 Java 2423 测试，超本任务范围），
+>      登记；R-1"裸调用"以 IR 级 raw `return getX();` 回归覆盖（红→绿）。
+>    - R-3/4（Minor 登记，不修）：多段数组下标 `arr[0][1].X` 保守保留（TS2339）；泛型
+>      字段链 `Box<T>.item.X` 不可解析保守保留。均属链式解析保守边界，维持方法调用。
+>    - M1（规格 Minor 登记）：`_inheritedPropertyNames` 扁平集合过度保守——无继承关系
+>      的同名属性也禁字段简化（IR 重复字段输入下可致 TS2300），后续限定到实际继承链或
+>      修后备字段去重，本轮不修。M2：注记⑪ 偏离清单补登"无继承关系同名属性也走访问器
+>      对"触发面（见注记⑪ R1 偏离 + 本注记 M1）。
+>    - L3 探针（13 场景独立 tsc --noEmit --strict，exit=0）：新增 r2_chain（d.getB().a.X）、
+>      r2_iface2（d.getI().X）、r1_iface2（接口/类/爷孙三链）、r1_static（A.Stat 守卫）；
+>      上轮 9 场景（chain/array/virtual/forinit/p1/i4/i2c1/i5/superfield）复验无倒退；
+>      lambda/structprop 既有缺口产物不变（`x -> x * 2` 不被限定、`Point copy = ...` 直通）。
+>    - 提交：`fix(ts): resolve property accessors through base chains and method returns`，
+>      hash 见 git log（3 文件：TsPropertyReconstructionRewriter.cs /
+>      TsPropertyReconstructionReview3Tests.cs / 本计划文档）。
 >      TsPropertyReconstructionReview2Tests.cs / 本计划文档）。
 >      TsPropertyReconstructionReviewTests.cs / 本计划文档）。
 ---

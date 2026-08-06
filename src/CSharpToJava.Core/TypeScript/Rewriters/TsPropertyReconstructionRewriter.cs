@@ -96,6 +96,8 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         public required Dictionary<string, string> StaticFieldTypes { get; init; }
         /// <summary>本类型注册的访问器方法名集合（this./裸调用按当前类型 + 基类链解析）。</summary>
         public Dictionary<string, AccessorInfo> AccessorMap { get; } = new(StringComparer.Ordinal);
+        /// <summary>本类型方法名 → 返回类型（R-2：链式调用段解析用户方法返回类型）。</summary>
+        public Dictionary<string, string> MethodReturnTypes { get; } = new(StringComparer.Ordinal);
     }
 
     private sealed class MethodContext
@@ -152,9 +154,10 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         switch (type)
         {
             case JavaClassDeclaration cls:
-                var context = CreateClassContext(cls.Name, SingleOrEmpty(cls.ExtendedType), cls.Fields);
+                var context = CreateClassContext(cls.Name, BaseTypeNamesFor(cls), cls.Fields);
                 _classContexts[cls] = context;
                 _typeContextsByName[cls.Name] = context;
+                RecordMethodReturnTypes(context, cls.Methods);
                 AnalyzeClass(cls, context);
                 foreach (var nested in cls.NestedTypes) AnalyzeTypesRecursive(nested);
                 break;
@@ -162,6 +165,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 var ifaceContext = CreateClassContext(iface.Name, iface.ExtendedTypes, iface.Fields);
                 _interfaceContexts[iface] = ifaceContext;
                 _typeContextsByName[iface.Name] = ifaceContext;
+                RecordMethodReturnTypes(ifaceContext, iface.Methods);
                 AnalyzeInterface(iface, ifaceContext);
                 foreach (var nested in iface.NestedTypes) AnalyzeTypesRecursive(nested);
                 break;
@@ -170,6 +174,29 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
 
     private static List<string> SingleOrEmpty(string? value)
         => value == null ? new List<string>() : new List<string> { value };
+
+    /// <summary>类上下文基类型名 = 基类 + 实现接口（R-1：接口属性经中间基类解析）。</summary>
+    private static List<string> BaseTypeNamesFor(JavaClassDeclaration cls)
+    {
+        var names = SingleOrEmpty(cls.ExtendedType);
+        foreach (var implemented in cls.ImplementedTypes)
+        {
+            if (!names.Contains(implemented, StringComparer.Ordinal)) names.Add(implemented);
+        }
+        return names;
+    }
+
+    /// <summary>登记方法名 → 返回类型（R-2；void/空返回不登记，链式解析无意义）。</summary>
+    private static void RecordMethodReturnTypes(ClassContext context, IEnumerable<JavaMethodDeclaration> methods)
+    {
+        foreach (var method in methods)
+        {
+            if (!string.IsNullOrEmpty(method.ReturnType) && method.ReturnType != "void")
+            {
+                context.MethodReturnTypes[method.Name] = method.ReturnType;
+            }
+        }
+    }
 
     private static ClassContext CreateClassContext(
         string name, List<string> baseTypes, List<JavaFieldDeclaration> fields)
@@ -195,7 +222,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         // 复用分析阶段建立的上下文（含 AccessorMap 与字段集合；防御性兜底新建）
         if (!_classContexts.TryGetValue(node, out var context))
         {
-            context = CreateClassContext(node.Name, SingleOrEmpty(node.ExtendedType), node.Fields);
+            context = CreateClassContext(node.Name, BaseTypeNamesFor(node), node.Fields);
         }
         _classStack.Push(context);
         try
@@ -900,11 +927,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
         foreach (var baseName in context.BaseTypeNames)
         {
-            if (_typeContextsByName.TryGetValue(baseName, out var baseContext)
-                && baseContext.AccessorMap.TryGetValue(methodName, out info!))
-            {
-                return true;
-            }
+            if (TryResolveAccessorInContext(baseName, methodName, out info!)) return true;
         }
         return false;
     }
@@ -982,6 +1005,16 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 }
                 // C2：成员访问按段解析——字段 → 属性访问器（getter）→ 基类链成员（InheritedField）
                 return ResolveMemberTypeInContext(ctx, access.MemberName);
+            }
+            case JavaMethodCallExpression call:
+            {
+                // R-2：结构化链方法调用段（d.getB()）——属性 getter 优先，其次用户方法返回类型；
+                // 裸调用（Target == null）无类型信息，保守 null
+                if (call.Target == null) return null;
+                var callTargetType = ResolveExpressionType(call.Target);
+                if (callTargetType == null || !_typeContextsByName.TryGetValue(callTargetType, out var callCtx)) return null;
+                if (callCtx.AccessorMap.TryGetValue(call.MethodName, out var accInfo)) return accInfo.Type;
+                return callCtx.MethodReturnTypes.TryGetValue(call.MethodName, out var retType) ? retType : null;
             }
             case JavaArrayAccessExpression arrayAccess:
             {
@@ -1081,11 +1114,10 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
         else
         {
-            // dot-target：仅当目标类型可解析且该类型上下文注册了该访问器名时才改写
+            // dot-target：仅当目标类型可解析且该类型（含基类链）注册了该访问器名时才改写
             var typeName = ResolveExpressionType(call.Target);
             if (typeName == null) return false;
-            if (!_typeContextsByName.TryGetValue(typeName, out var typeContext)) return false;
-            if (!typeContext.AccessorMap.TryGetValue(call.MethodName, out info)) return false;
+            if (!TryResolveAccessorInContext(typeName, call.MethodName, out info)) return false;
             replacementTarget = call.Target;
         }
 
@@ -1220,8 +1252,8 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             currentType = ResolveRawSegment(segment, currentType);
             if (currentType == null) return false;
         }
-        if (!_typeContextsByName.TryGetValue(currentType, out var typeContext)) return false;
-        return typeContext.AccessorMap.TryGetValue(methodName, out info);
+        // 末端访问器查注册：当前类型 → 基类链递归（R-1：静态属性经派生类名访问等）
+        return TryResolveAccessorInContext(currentType, methodName, out info);
     }
 
     private sealed record RawChainSegment(string? Name, bool IsArray, bool IsCall);
@@ -1304,10 +1336,10 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
         if (segment.IsCall)
         {
-            // 调用段 getA()：目标类型上下文注册的属性 getter → 属性类型
+            // 调用段 getA()/getB()：属性 getter（AccessorMap）优先，其次用户方法返回类型（R-2）
             if (!_typeContextsByName.TryGetValue(currentType, out var ctx)) return null;
-            if (!ctx.AccessorMap.TryGetValue(segment.Name!, out var accInfo)) return null;
-            return accInfo.Type;
+            if (ctx.AccessorMap.TryGetValue(segment.Name!, out var accInfo)) return accInfo.Type;
+            return ctx.MethodReturnTypes.TryGetValue(segment.Name!, out var retType) ? retType : null;
         }
         if (!_typeContextsByName.TryGetValue(currentType, out var typeContext)) return null;
         return ResolveMemberTypeInContext(typeContext, segment.Name!);
