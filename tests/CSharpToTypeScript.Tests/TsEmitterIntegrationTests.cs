@@ -390,4 +390,76 @@ class Sample
         // 后与测试名名副其实。
         Assert.Contains("console.log(\"hello\")", code);
     }
+
+    [Fact]
+    public void Classic_For_With_Ternary_Is_Not_Rewritten()
+    {
+        // 端到端复现（Task 11 复审 Bug 1）：普通 for 头内三元操作数为标识符（flag != 0 ? a : b）
+        // 时不得被误改写为 for-of；整条 for 原样直通（raw 经典 for 的 Java 形态保留，
+        // 初始值 let 化属 M1 控制流/raw-for 后续任务，非本修复范围）。
+        var result = Convert("""
+class Sample
+{
+    int Pick(int flag, int a, int b)
+    {
+        int total = 0;
+        for (int i = flag != 0 ? a : b; i < 10; i = i + 1)
+        {
+            total = total + i;
+        }
+        return total;
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("for (int i = (flag != 0 ? a : b); i < 10; i = i + 1)", result.GeneratedCode);
+        Assert.DoesNotContain("for (const a of b)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Console_WriteLine_With_Println_Text_Argument_Is_Preserved()
+    {
+        // 端到端复现（Task 11 复审 Bug 2）：实参为含 "System.out.println(" 文本的字符串字面量时，
+        // 归一化不得改写字面量内容（输出 console.log("System.out.println(x)")，语义保持）。
+        var result = Convert("""
+class Sample
+{
+    void Greet()
+    {
+        Console.WriteLine("System.out.println(x)");
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("console.log(\"System.out.println(x)\")", result.GeneratedCode);
+        Assert.DoesNotContain("console.log(\"console.log(x)\")", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Nested_ForEach_Emits_ForOf_For_All_Levels()
+    {
+        // 端到端复现（Task 11 复审 Bug 3）：嵌套 foreach 整段 raw 直通时，内外两层
+        // 增强 for 头都必须归一化为 for-of，且产物可过 L3 tsc（strict/ES2022）。
+        var result = Convert("""
+class Sample
+{
+    int Sum(int[][] arr)
+    {
+        int total = 0;
+        foreach (var row in arr)
+        {
+            foreach (var item in row)
+            {
+                total = total + item;
+            }
+        }
+        return total;
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("for (const row of arr)", result.GeneratedCode);
+        Assert.Contains("for (const item of row)", result.GeneratedCode);
+        AssertCompiles(result.GeneratedCode);
+    }
 }

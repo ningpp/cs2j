@@ -116,4 +116,36 @@ public class TsRawStatementNormalizerTests
     {
         Assert.Equal(string.Empty, TsRawStatementNormalizer.Normalize(string.Empty));
     }
+
+    [Fact]
+    public void Classic_For_With_Ternary_Identifier_Operands_Passes_Through()
+    {
+        // 回归（Task 11 复审 Bug 1）：三元操作数为标识符（flag ? a : b）时，旧守卫
+        // "左侧末 token 为标识符" 无法拦截（a : 满足），会被误改写为非法 for-of；
+        // 增强 for 头不含顶层 ";"，普通 for（含任意三元）必须直通。
+        var input = "for (int i = flag ? a : b; i < n; i++) { work(i); }";
+        Assert.Equal(input, TsRawStatementNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Println_Argument_Containing_Println_Text_Is_Preserved()
+    {
+        // 回归（Task 11 复审 Bug 2）：实参字符串字面量内含 "System.out.println(" 文本时，
+        // 旧整串 Replace 会连同字面量内容一并改写（console.log("console.log(x)")），
+        // 破坏实参语义；替换必须跳过引号内区域。
+        Assert.Equal(
+            "console.log(\"System.out.println(x)\");",
+            TsRawStatementNormalizer.Normalize("System.out.println(\"System.out.println(x)\");"));
+    }
+
+    [Fact]
+    public void Nested_Enhanced_Fors_Are_All_Normalized()
+    {
+        // 回归（Task 11 复审 Bug 3）：嵌套 foreach 整段 raw 直通时，旧实现只归一化
+        // 语句起始的最外层 for 头，内层 for (int item : row) 原样保留（非法 TS）；
+        // 修复后同一文本内所有增强 for 头均改写，body 原样保留。
+        var input = "for (int row : arr) {\n        for (int item : row) {\n            total = total + item;\n        }\n    }";
+        var expected = "for (const row of arr) {\n        for (const item of row) {\n            total = total + item;\n        }\n    }";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input));
+    }
 }
