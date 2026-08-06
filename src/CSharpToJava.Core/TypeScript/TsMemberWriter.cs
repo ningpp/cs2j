@@ -114,6 +114,7 @@ public sealed class TsMemberWriter
         if ((getter.Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
         else if ((getter.Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
         if ((getter.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
+        if ((getter.Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
 
         sb.Append($"get {TsNaming.SafeIdentifier(propertyName)}(): {_exprWriter.MapType(getter.ReturnType)}");
         AppendMethodBody(sb, getter, ind, indentLevel);
@@ -131,6 +132,7 @@ public sealed class TsMemberWriter
         if ((setter.Modifiers & JavaModifiers.Private) != 0) sb.Append("private ");
         else if ((setter.Modifiers & JavaModifiers.Protected) != 0) sb.Append("protected ");
         if ((setter.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
+        if ((setter.Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
 
         sb.Append($"set {TsNaming.SafeIdentifier(propertyName)}(");
         var parms = setter.Parameters.Select(p => $"{TsNaming.SafeIdentifier(p.Name)}: {_exprWriter.MapType(p.Type)}");
