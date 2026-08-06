@@ -53,6 +53,15 @@ public class Program
                 UseOptionalForNullable = opts.UseOptionalForNullable,
                 EnableLinqRewrite = opts.EnableLinqRewrite,
                 PreferStreamApi = opts.PreferStreamApi,
+                TargetLanguage = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
+                    ? TargetLanguage.TypeScript
+                    : TargetLanguage.Java,
+                TypeScriptMappingConfigPath = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
+                    ? (opts.MappingConfig ?? ResolveTypeScriptTypeMappingPath())
+                    : null,
+                TypeScriptMemberMappingPath = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
+                    ? ResolveTypeScriptMemberMappingPath()
+                    : null,
                 EnableParallelProjectPasses = opts.EnableParallelProjectPasses,
                 UseValueClass = opts.UseValueClass,
             };
@@ -235,6 +244,15 @@ public class Program
                 UseOptionalForNullable = opts.UseOptionalForNullable,
                 EnableLinqRewrite = opts.EnableLinqRewrite,
                 PreferStreamApi = opts.PreferStreamApi,
+                TargetLanguage = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
+                    ? TargetLanguage.TypeScript
+                    : TargetLanguage.Java,
+                TypeScriptMappingConfigPath = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
+                    ? (opts.MappingConfig ?? ResolveTypeScriptTypeMappingPath())
+                    : null,
+                TypeScriptMemberMappingPath = opts.Target.Equals("typescript", StringComparison.OrdinalIgnoreCase)
+                    ? ResolveTypeScriptMemberMappingPath()
+                    : null,
                 UseValueClass = opts.UseValueClass,
             };
 
@@ -1639,6 +1657,28 @@ public class Program
         return Directory.Exists(Path.Combine(javaDir, "java.base")) ? javaDir : null;
     }
 
+    /// <summary>
+    /// Resolves the TypeScript type-mapping config (config/typescript/TypeMappings.json)
+    /// copied to the output directory. Returns null when not present.
+    /// </summary>
+    private static string? ResolveTypeScriptTypeMappingPath()
+    {
+        var basePath = AppContext.BaseDirectory;
+        var path = Path.Combine(basePath, "config", "typescript", "TypeMappings.json");
+        return File.Exists(path) ? path : null;
+    }
+
+    /// <summary>
+    /// Resolves the TypeScript member-mapping config (config/typescript/MemberMappings.json)
+    /// copied to the output directory. Returns null when not present.
+    /// </summary>
+    private static string? ResolveTypeScriptMemberMappingPath()
+    {
+        var basePath = AppContext.BaseDirectory;
+        var path = Path.Combine(basePath, "config", "typescript", "MemberMappings.json");
+        return File.Exists(path) ? path : null;
+    }
+
     private static string GetCommonRoot(IEnumerable<string> paths)
     {
         var normalizedPaths = paths
@@ -2028,6 +2068,9 @@ class MakeReadOnlyOptions
 [Verb("convert", HelpText = "Convert a C# file to Java")]
 class ConvertOptions
 {
+
+    [Option('t', "target", Default = "java", HelpText = "Target language: java or typescript")]
+    public string Target { get; set; } = "java";
     [Option('i', "input", Required = true, HelpText = "Input C# file path")]
     public string Input { get; set; } = string.Empty;
 
@@ -2080,6 +2123,9 @@ class ConvertOptions
 [Verb("convert-project", HelpText = "Convert a C# project to Java")]
 class ConvertProjectOptions
 {
+
+    [Option('t', "target", Default = "java", HelpText = "Target language: java or typescript")]
+    public string Target { get; set; } = "java";
     [Option('s', "source", Required = true, HelpText = "Source directory, .csproj, or .sln path")]
     public string Source { get; set; } = string.Empty;
 
