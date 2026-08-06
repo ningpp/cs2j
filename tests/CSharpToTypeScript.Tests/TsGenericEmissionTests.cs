@@ -121,11 +121,33 @@ class Multi<T> where T : IComparable, IDisposable
     [Fact]
     public void Type_Parameter_Name_Is_Safe_Identifier()
     {
-        // 类型参数名过 TsNaming.SafeIdentifier（TS 保留字 default -> default$）
+        // 类型参数名过 TsNaming.SafeIdentifier（TS 保留字 default -> default$）。
+        // 注意：本测试为声明层组件断言（IR 直构、类无成员使用该类型参数）——类型参数的
+        // “使用点”（字段/参数/返回/局部/cast 的类型名）尚未过 SafeIdentifier，属已登记
+        // 限制（Task 14 注记 ⑨，归后续命名管线任务）；全管线断言会因此变红，故保持
+        // 声明层形态。
         var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
         cls.TypeParameters.Add(new JavaTypeParameter("default"));
         var result = EmitType(cls);
         Assert.Contains("Foo<default$>", result);
         AssertCompiles(result);
+    }
+
+    [Fact]
+    public void Interface_Generic_Method_Emits_Type_Parameters()
+    {
+        // 双审补测：接口成员泛型方法（Task 14 实现一并接入 FormatTypeParameters，
+        // 原 EmitInterface 成员循环完全丢失类型参数）
+        var result = Convert("""
+interface IRepo<T>
+{
+    T Find<T>(T id);
+    void Put<U>(U value) where U : IComparable;
+}
+""");
+        Assert.True(result.Success);
+        Assert.Contains("find<T>(id: T): T", result.GeneratedCode);
+        Assert.Contains("put<U extends object>", result.GeneratedCode);
+        AssertCompiles(result.GeneratedCode);
     }
 }

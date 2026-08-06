@@ -4166,7 +4166,7 @@ class Utils
 }
 """);
         Assert.True(result.Success);
-        Assert.Contains("Identity<T>(x: T): T", result.GeneratedCode);
+        Assert.Contains("identity<T>(x: T): T", result.GeneratedCode);
     }
 
     [Fact]
@@ -4182,7 +4182,7 @@ class Utils
 }
 """);
         Assert.True(result.Success);
-        Assert.Contains("Max<T extends ", result.GeneratedCode);
+        Assert.Contains("max<T extends ", result.GeneratedCode);
     }
 
     [Fact]
@@ -4244,7 +4244,7 @@ Actual: PASS（7 个测试：计划 5 + 组件补测 2，全部附 L3 tsc）。
 - [x] **Step 5: 提交**
 
 ```bash
-git add src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs tests/CSharpToTypeScript.Tests/TsGenericEmissionTests.cs
+git add src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs src/CSharpToJava.Core/TypeScript/TsMemberMappingTable.cs tests/CSharpToTypeScript.Tests/TsGenericEmissionTests.cs
 git commit -m "feat(ts): emit generic type parameters with constraints"
 ```
 
@@ -4256,7 +4256,7 @@ git commit -m "feat(ts): emit generic type parameters with constraints"
 >    - 初跑绿 3/5：`Generic_Class_Emits_Type_Parameter`（`export class Container<T>`）、
 >      `Generic_Class_With_Constraint_Emits_Extends`（`Container<T extends Comparable>`，单 bound 形态
 >      Task 9 已能发射）、`Multiple_Type_Parameters_Emit_All`（`Pair<K, V>`）；
->    - 修复后 7/7 绿（含组件补测 2，见 ⑤）；全量 TS 183/183、Java 2423/2423 零回归。
+>    - 修复后 8/8 绿（含组件补测 2 + 接口泛型方法回归 1，见 ⑤/⑨）；全量 TS 184/184、Java 2423/2423 零回归。
 > ② camelCase 断言修订（既有约定，Task 10/11/13 实证；计划原断言按大写方法名书写，与实测冲突
 >    以实测为准并同步本计划）：
 >    - `Identity<T>(x: T): T` → `identity<T>(x: T): T`；
@@ -4278,19 +4278,32 @@ git commit -m "feat(ts): emit generic type parameters with constraints"
 >      拼接替换，产物须为合法 TS）；
 >    - 接口成员泛型方法（EmitInterface 成员循环）原完全丢失类型参数，一并接入
 >      （`interface IRepo<T> { T Find<T>(T id); }` → `find<T>(id: T): T;`）。
-> ⑤ 组件级补测（TsGenericEmissionTests 追加 2 个，与计划 5 个一并全绿）：
+> ⑤ 补测（TsGenericEmissionTests 追加 3 个，与计划 5 个一并全绿）：
 >    - `Multiple_Bounds_Drop_Extra_With_Diagnostic_Comment`：全管线多 bound 丢弃 + 注释 + L3 tsc；
 >    - `Type_Parameter_Name_Is_Safe_Identifier`：IR 直构 `JavaTypeParameter("default")` →
 >      `Foo<default$>` + L3 tsc；
+>    - `Interface_Generic_Method_Emits_Type_Parameters`（双审补测，全管线）：`interface IRepo<T>` >      成员泛型方法 → `find<T>(id: T): T` / `put<U extends object>` + L3 tsc；
 >    - 计划 5 个测试全部附加 `AssertCompiles`（L3：含约束/多类型参数产物经真实 tsc 编译，
 >      strict:true 全过；另以 CLI 探针 Utils/Pair/Multi/IRepo 五类场景独立 tsc exit 0）。
-> ⑥ 测试统计：TS 项目 183/183（176 + 新增 7）；Java 项目 2423/2423 零回归。
+> ⑥ 测试统计：TS 项目 184/184（176 + 新增 8）；Java 项目 2423/2423 零回归。
 > ⑦ 复审遗留登记（非阻塞，归后续任务）：
 >    - 泛型 bound 实例（`where T : IComparable<T>` → IR `Comparable<T>`）未命中类型表映射，
 >      tsc 会报 "Cannot find name 'Comparable'"——随 M2/M3 泛型擦除/命名管线补映射；
+>    - `where T : IEnumerable` → IR `CSharpGenericIterable<T>`（比 Comparable<T> 更常见）同样未命中
 >    - 约束 bound 语义保真（`object` 排除 number/string/boolean 字面量约束场景）属 M3 泛型擦除范畴。
 > ⑧ 提交：d88b5a8f（`feat(ts): emit generic type parameters with constraints`；4 文件：
 >    TsTypeWriter.cs / TsMemberWriter.cs / TsMemberMappingTable.cs / TsGenericEmissionTests.cs）。
+> ⑨ 双审修复（2026-08-07，Important + Minor）：
+>    - **使用点位转义登记**：`FormatTypeParameters` 仅转义类型参数**声明位**；类型引用位
+>      （字段/参数/返回/局部/cast 的类型名，如 `class Foo<@default> { @default value; }` →
+>      `value: default`，tsc TS2552）未过 SafeIdentifier——本任务不修（涉及全类型发射路径的
+>      命名管线），归后续命名管线任务；`Type_Parameter_Name_Is_Safe_Identifier` 保持声明层
+>      组件断言并加注释说明（不改全管线断言，避免假红）；
+>    - 接口泛型方法全管线回归补测（见 ⑤）：`interface IRepo<T>` 成员泛型方法；
+>    - docs 同步：Step 1 代码块断言 camelCase 化（identity/max）、Step 5 `git add` 更新为
+>      实际 4 文件、`TsMemberWriter` 双空行清理、测试文件行尾归一（LF）；
+>    - 统计：TS 184/184、Java 2423/2423（Core 仅空行清理，零回归）；
+>    - 提交：本修复提交（`fix(ts): sync Task 14 docs and add interface generic method test`；hash 见 git log）。
 ---
 
 ## Task 15: 接口与 implements 发射

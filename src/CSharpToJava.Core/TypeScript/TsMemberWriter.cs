@@ -84,7 +84,6 @@ public sealed class TsMemberWriter
         if ((method.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
         if ((method.Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
 
-
         var name = TsNaming.SafeIdentifier(method.Name);
         sb.Append($"{name}{TsTypeWriter.FormatTypeParameters(method.TypeParameters, MapType)}(");
 
