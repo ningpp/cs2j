@@ -118,15 +118,18 @@ public sealed class TsExpressionWriter
     private static bool IsIntegerLiteralOperand(JavaExpression expr)
     {
         // 纯文本判定（IR 字面量为文本、无类型信息；TryParse 不识别 0xFF/1_000 会漏判）：
-        // 剥离下划线后——0x/0X 前缀 -> 整数字面量；含 . / e / E -> 浮点（不包装）；
-        // L 后缀 -> bigint（不包装：JS bigint 除法天然截断，且 Math.trunc 不接受
-        // bigint，运行时 TypeError）；其余纯数字 -> 整数字面量。
+        // 剥离下划线后——先排除 L 后缀 bigint（不包装：JS bigint 除法天然截断，
+        // 且 Math.trunc 不接受 bigint，运行时 TypeError；此检查必须在 0x/0b 前缀
+        // 之前，否则 0xFFL 会命中 hex 分支被误判为 number 整数）；
+        // 再判 0x/0X、0b/0B 前缀 -> 整数字面量；含 . / e / E -> 浮点（不包装）；
+        // 其余纯数字 -> 整数字面量。
         // 混合 bigint/number 操作数（如 7L / 2）的混算转换留给 M2 Task 19 数值语义 rewriter。
         if (expr is not JavaLiteralExpression lit) return false;
         var v = lit.Value.Replace("_", "");
-        if (v.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) return true;
-        if (v.Contains('.') || v.Contains('e') || v.Contains('E')) return false;
         if (v.EndsWith("L")) return false;
+        if (v.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) return true;
+        if (v.StartsWith("0b", StringComparison.OrdinalIgnoreCase)) return true;
+        if (v.Contains('.') || v.Contains('e') || v.Contains('E')) return false;
         return v.Length > 0 && v.All(char.IsDigit);
     }
 

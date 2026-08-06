@@ -126,6 +126,32 @@ public class TsExpressionWriterTests
     }
 
     [Fact]
+    public void BinaryExpression_Hex_Long_Division_Not_Wrapped()
+    {
+        // hex long（bigint）不包 Math.trunc：Math.trunc 不接受 bigint（运行时 TypeError）
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression("0xFFL"),
+            Operator = "/",
+            Right = new JavaLiteralExpression("2"),
+        };
+        Assert.Equal("0xFFn / 2", EmitExpr(expr));
+    }
+
+    [Fact]
+    public void BinaryExpression_Binary_Literal_Division_Wrapped()
+    {
+        // 二进制整数字面量同样包装 Math.trunc
+        var expr = new JavaBinaryExpression
+        {
+            Left = new JavaLiteralExpression("0b101"),
+            Operator = "/",
+            Right = new JavaLiteralExpression("2"),
+        };
+        Assert.Equal("Math.trunc(0b101 / 2)", EmitExpr(expr));
+    }
+
+    [Fact]
     public void MethodCall_String_ToUpper_Maps_To_ToUpperCase()
     {
         // IR 中已是 Java 风味：str.toUpperCase() （Java 方法名）
