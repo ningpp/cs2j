@@ -241,6 +241,61 @@ public class TsStatementWriterTests
     }
 
     [Fact]
+    public void TryCatch_Different_Variable_Names_Emits_Alias()
+    {
+        var tryBody = new JavaBlockStatement();
+        tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
+        var body1 = new JavaBlockStatement();
+        body1.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
+        var body2 = new JavaBlockStatement();
+        body2.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("ex")));
+
+        var tryCatch = new JavaTryCatchStatement { TryBody = tryBody };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IOException",
+            VariableName = "e",
+            Body = body1,
+        });
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IllegalStateException",
+            VariableName = "ex",
+            Body = body2,
+        });
+
+        var result = EmitStmt(tryCatch);
+        Assert.Contains("const ex = e;", result);
+    }
+
+    [Fact]
+    public void TryCatch_Same_Variable_Names_No_Alias()
+    {
+        var tryBody = new JavaBlockStatement();
+        tryBody.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("a")));
+        var body1 = new JavaBlockStatement();
+        body1.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("b")));
+        var body2 = new JavaBlockStatement();
+        body2.Statements.Add(new JavaExpressionStatement(new JavaIdentifierExpression("c")));
+
+        var tryCatch = new JavaTryCatchStatement { TryBody = tryBody };
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IOException",
+            VariableName = "e",
+            Body = body1,
+        });
+        tryCatch.CatchClauses.Add(new JavaCatchClause
+        {
+            ExceptionType = "IllegalStateException",
+            VariableName = "e",
+            Body = body2,
+        });
+
+        var result = EmitStmt(tryCatch);
+        Assert.DoesNotContain("const e = e;", result);
+    }
+    [Fact]
     public void Switch_Emits_Case_Labels_With_Colons()
     {
         var sw = new JavaSwitchStatement

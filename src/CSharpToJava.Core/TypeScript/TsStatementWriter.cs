@@ -204,6 +204,8 @@ public sealed class TsStatementWriter
         // JS/TS 文法每个 try 只允许一个 catch 子句，多 catch 转守卫链：
         // if/else-if instanceof 过滤，链尾补 throw 重抛保持 C# 语义；
         // 绑定变量统一用首子句名（C# 多 catch 不同变量名场景 M1 简化，记录）。
+        // 分支若使用与绑定名不同的变量名，在分支 body 最前面发射 const 别名
+        // （限制：body 内若自声明同名变量会冲突，M1 接受）。
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder();
         // try 体经 EmitBlock 自闭合（以 } 结尾），catch 行直接接在其后，不再输出前导 }
@@ -230,19 +232,13 @@ public sealed class TsStatementWriter
                     if (isFirst)
                     {
                         // 唯一裸 catch 场景：catch 区域直接发射 body 内容，无 instanceof 守卫
-                        foreach (var s in clause.Body.Statements)
-                        {
-                            sb.AppendLine(Emit(s, indentLevel + 1));
-                        }
+                        EmitCatchBody(sb, clause, exVar, indentLevel + 1);
                     }
                     else
                     {
                         // 链尾 else 分支直接接 body 内容
                         sb.AppendLine($" else {{");
-                        foreach (var s in clause.Body.Statements)
-                        {
-                            sb.AppendLine(Emit(s, indentLevel + 2));
-                        }
+                        EmitCatchBody(sb, clause, exVar, indentLevel + 2);
                         sb.AppendLine($"{ind}{_indent}}}");
                     }
                     closedWithBare = true;
@@ -254,10 +250,7 @@ public sealed class TsStatementWriter
                     ? $"{ind}{_indent}if ({exVar} instanceof {clause.ExceptionType}) {{"
                     : $" else if ({exVar} instanceof {clause.ExceptionType}) {{";
                 sb.AppendLine(head);
-                foreach (var s in clause.Body.Statements)
-                {
-                    sb.AppendLine(Emit(s, indentLevel + 2));
-                }
+                EmitCatchBody(sb, clause, exVar, indentLevel + 2);
                 sb.Append($"{ind}{_indent}}}");
                 isFirst = false;
             }
@@ -280,6 +273,33 @@ public sealed class TsStatementWriter
             sb.Append(Emit(tryCatch.FinallyBody, indentLevel));
         }
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 发射 catch 分支 body；子句变量名与绑定名不同时先在 body 最前面发射 const 别名。
+    /// </summary>
+    private void EmitCatchBody(StringBuilder sb, JavaCatchClause clause, string exVar, int indentLevel)
+    {
+        var bodyIndent = new string(_indent[0], indentLevel * _indent.Length);
+        var alias = GetCatchClauseAlias(clause, exVar);
+        if (alias != null)
+        {
+            sb.AppendLine($"{bodyIndent}{alias}");
+        }
+        foreach (var s in clause.Body.Statements)
+        {
+            sb.AppendLine(Emit(s, indentLevel));
+        }
+    }
+
+    /// <summary>
+    /// 子句变量名 != 绑定名时生成 "const {ownName} = {exVar};"，否则返回 null（不加别名）。
+    /// </summary>
+    private static string? GetCatchClauseAlias(JavaCatchClause clause, string exVar)
+    {
+        if (string.IsNullOrEmpty(clause.VariableName)) return null;
+        var ownName = TsNaming.SafeIdentifier(clause.VariableName);
+        return ownName == exVar ? null : $"const {ownName} = {exVar};";
     }
 
     private string EmitSwitch(JavaSwitchStatement sw, int indentLevel)
