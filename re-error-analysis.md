@@ -221,8 +221,25 @@
 - **分析**: 既有冲突消解只处理“1 个显式访问器 vs 类属性访问器”；多个显式访问器同擦除签名（不同 T 的 IEnumerator<T>.Current）时直接跳过，Java 不允许同参数签名仅返回类型不同的重载。
 - **修复**: 新增 `ResolveSameSignatureAccessorCollisions` 后置扫描：同签名组内存在带类型变体时删除返回 Object 的非泛型桥接（协变返回可满足契约）；其余重复保留先出者、后续者改名为 `name$Class[N]` 并重写类内调用点。新增红→绿测试 `DualGenericEnumeratorCurrentCollisionTests`，全量测试通过。
 
-**状态**: 🔧 验证中
+**状态**: ✅ Fixed
 
+---
 
+## Iteration 10 — #if DEBUG 调试专用代码被转换（System.Reflection 缺失）
 
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\RegexAssemblyCompiler.java`
+- **行号**: 27, 28, 36…
+- **错误信息**: `程序包System.Reflection不存在`
+- **代码片段**:
+  ```java
+  import System.Reflection.MethodAttributes;   // 不存在的 Java 包
+  import System.Reflection.CallingConventions;
+  import System.Reflection.TypeAttributes;
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexAssemblyCompiler.cs`（整个文件包在 `#if DEBUG` 内，依赖 System.Reflection.Emit）
+- **根因分类**: 语义模型信息丢失（预处理符号策略）
+- **涉及组件**: `src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs`
+- **分析**: MSBuild 以 Debug 配置加载源工程，编译定义 DEBUG 符号，导致 `#if DEBUG` 调试专用代码（IL 生成器，Java 无对应域）进入转换。转换器其余部分均按 Release 语义处理（如剔除 Debug.Assert），预处理符号策略不一致。
+- **修复**: `ConvertProjectAsync(CSharpCompilation…)` 入口新增 `StripDebugPreprocessorSymbol`：检测到 DEBUG 符号时以去除 DEBUG 的解析选项重新解析所有语法树（保留 TRACE 等其他符号），重建编译。`#if DEBUG` 区域不再参与转换；陈旧产物由输出清单机制自动清理。新增红→绿测试 `DebugConditionalExclusionTests`，全量测试 2441 通过。
 
+**状态**: ✅ Fixed

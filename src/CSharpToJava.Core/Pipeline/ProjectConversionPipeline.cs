@@ -130,6 +130,7 @@ public class ProjectConversionPipeline
         IReadOnlyList<string>? projectReferences = null,
         bool isTestProject = false)
     {
+        compilation = StripDebugPreprocessorSymbol(compilation);
         var library = Cs2jLibraryFactory.CreateFromCompilation(
             compilation,
             projectName,
@@ -137,6 +138,35 @@ public class ProjectConversionPipeline
             projectReferences,
             isTestProject);
         return ConvertLibraryAsync(library, emitFilePaths);
+    }
+
+    /// <summary>
+    /// Re-parses all syntax trees without the DEBUG preprocessor symbol so that
+    /// #if DEBUG regions (debug-only helpers such as RegexAssemblyCompiler) are
+    /// excluded from conversion. Workspace compilations loaded from a Debug
+    /// configuration define DEBUG; the converter targets Release semantics
+    /// (Debug.Assert stripping follows the same policy). Other symbols (TRACE,
+    /// user-defined) are preserved.
+    /// </summary>
+    internal static CSharpCompilation StripDebugPreprocessorSymbol(CSharpCompilation compilation)
+    {
+        var firstTree = compilation.SyntaxTrees.FirstOrDefault();
+        if (firstTree?.Options is not CSharpParseOptions parseOptions
+            || !parseOptions.PreprocessorSymbolNames.Contains("DEBUG"))
+            return compilation;
+
+        var remaining = parseOptions.PreprocessorSymbolNames
+            .Where(s => !string.Equals(s, "DEBUG", StringComparison.Ordinal)).ToList();
+        var newTrees = new List<Microsoft.CodeAnalysis.SyntaxTree>();
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var options = tree.Options is CSharpParseOptions csharpOptions
+                ? csharpOptions.WithPreprocessorSymbols(remaining)
+                : CSharpParseOptions.Default.WithPreprocessorSymbols(remaining);
+            newTrees.Add(CSharpSyntaxTree.ParseText(tree.GetText(), options, tree.FilePath));
+        }
+
+        return compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees.ToArray());
     }
 
     public LinqRewrite.LinqRewriteStatistics? LastLinqStatistics { get; private set; }
