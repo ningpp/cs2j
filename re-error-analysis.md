@@ -548,3 +548,22 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 26 — Regex.java asSpan(String[]) 找不到合适的方法
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Regex.java`
+- **行号**: 244
+- **错误信息**: `对于 asSpan(java.lang.String[]), 找不到合适的方法`
+- **代码片段**:
+  ```java
+  result = MemoryExtensions.asSpan(capslist).toArray();   // capslist 为 String[]
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Regex.cs`（`capslist.AsSpan().ToArray()`）
+- **根因分类**: 类型映射缺失（compat API 缺口）
+- **涉及组件**: `java/csharptojava-compat/.../MemoryExtensions.java`
+- **分析**: compat MemoryExtensions.asSpan 仅有 String/byte[]/char[] 重载，缺通用 `T[]` 重载，故 `string[]` 的 `AsSpan()`（转 `asSpan(capslist)`）无匹配。
+- **修复**: compat MemoryExtensions 新增泛型 `asSpan(T[])` 返回 `Span<T>`（基本类型 char[]/byte[] 因更具体重载仍优先绑定）。新增红→绿 compat JUnit 测试 `MemoryExtensionsAsSpanArrayTest`，compat 全量测试通过。注：RegexCharClass 的 `asSpan(String,int)`（2 参）为另一签名缺口，另行迭代。
+
+**状态**: ✅ Fixed
+

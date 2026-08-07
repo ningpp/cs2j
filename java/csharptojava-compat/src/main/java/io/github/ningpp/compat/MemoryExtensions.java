@@ -74,6 +74,13 @@ public class MemoryExtensions {
         return new ReadOnlySpan<>(arr);
     }
 
+    /** C# T[].AsSpan() → Span&lt;T&gt; for reference-type arrays (e.g. string[] capslist).
+     *  Primitive char[]/byte[] arrays bind to their more specific overloads. */
+    @SuppressWarnings("unchecked")
+    public static <T> Span<T> asSpan(T[] data) {
+        return new Span<>(data == null ? (T[]) new Object[0] : data);
+    }
+
     /** C# char[].AsSpan() → ReadOnlySpan&lt;Character&gt;. */
     public static ReadOnlySpan<Character> asSpan(char[] data) {
         if (data == null) return new ReadOnlySpan<>(new Character[0]);
