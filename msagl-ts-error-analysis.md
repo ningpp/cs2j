@@ -16,12 +16,27 @@
 | 8 | 26 → 20 | try-with-resources 无 catch/finally 时裸 `try {`（TS1472）→ 降级为块作用域 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| 1daf46cb |
 | 10 | 15 → 10 | `Type[]::new` 方法引用 FQCN 接收者回扫残缺（`.` 段未纳入） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | ec19886a |
 | 11 | 10 → 8 | CRLF raw 文本尾注释声明未 let 化：declPattern 尾组吞不下行尾 `\r` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +6）+ 本文件 | bacd8673（代码+测试被并发会话提交扫入，见注） 
+| 12 | 8 → 6 | `boolean[]` 声明未 let 化：TryMapType 数组后缀恒等映射返回原串、白名单不认 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +1）+ 本文件 | 07acb643（代码+测试被并发会话提交扫入，见注） |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
 > bacd8673（其提交主题为 WeakReference 泛型映射）；行尾形态测试（`\r\r\n`）与
 > 本节记录被扫入 e3494d79（其提交主题为 IEnumerator 冲突）。两提交均覆盖在
 > 本轮验证链（全量重转 + tsc 10 → 8）之内。
+
+> Round 12 注：A2 修复（HasAcceptedIdentityArrayBase）与 1 例测试被并发会话的
+> git add 整文件暂存扫入 07acb643（其提交主题为 reflection flag enums 映射）；
+> 本节记录与表格行由独立提交收录。
+
+## Round 12 — `boolean[]` 恒等映射数组声明未 let 化
+
+- **C# 构造**：`bool[] enqueueed = new bool[graph.NodeCount];`（ConnectedComponentCalculator.cs:8）。
+- **错误 TS 输出**：`boolean[] enqueueed = new Array(graph.getNodeCount());`（TS1011/TS1005 ×2）。
+- **正确 TS 输出**：`let enqueueed: boolean[] = new Array(graph.getNodeCount());`。
+- **根因**：`TryRewriteDeclarators` 恒等检查对 `boolean[]` 命中——`TryMapType` 数组后缀递归映射 `boolean`→`boolean` 返回原串 `boolean[]`，`LooksLikeClassType` 为 false，且 `boolean[]` 不在白名单 → 拒改。
+- **修复位置**：恒等检查追加 `HasAcceptedIdentityArrayBase`：剥 `[]` 后缀按基类型判定（白名单名或类名放行，`[]` 后缀由 mapType 回拼）；`int[]/String[]`（非恒等映射）行为不变，未知小写基类型（`quux[]`）仍拒改。
+- **测试**：`TsRawStatementNormalizerTests.Array_Type_With_Whitelisted_Identity_Element_Is_Let_ified`（`boolean[]` 单维 + `boolean[][]` 多维）。
+- **验证链**：重建 → 删目录全量重转 → 独立 tsc 8 → 6；剩余 6 错误为原 8 严格子集（A3 ×2、E ×2、F ×2），无新增。全量 `dotnet test` 绿（7 + 554 + 2443）。
 
 ## Round 1 — MSBuild 零引用 → 注入本机 ref pack
 
