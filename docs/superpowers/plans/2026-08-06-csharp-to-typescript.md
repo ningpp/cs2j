@@ -164,12 +164,12 @@ public class TargetLanguageOptionTests
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --filter "FullyQualifiedName~TargetLanguageOptionTests"`
 Expected: FAIL with "Type 'TargetLanguage' not found" 或类似编译错误。
 
-- [ ] **Step 3: 实现最小代码**
+- [x] **Step 3: 实现最小代码**
 
 在 `src/CSharpToJava.Core/Context/ConversionOptions.cs` 末尾（`JavaVersion` 枚举前）添加字段，在文件末尾添加枚举：
 
@@ -208,7 +208,7 @@ public enum TargetLanguage
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --filter "FullyQualifiedName~TargetLanguageOptionTests"`
 Expected: PASS（2 个测试）。
@@ -228,7 +228,7 @@ git commit -m "feat(ts): add TargetLanguage option to ConversionOptions"
 - Create: `config/typescript/TypeMappings.json`
 - Create: `config/typescript/MemberMappings.json`
 
-- [ ] **Step 1: 创建 TypeMappings.json**
+- [x] **Step 1: 创建 TypeMappings.json**
 
 ```json
 {
@@ -268,7 +268,7 @@ git commit -m "feat(ts): add TargetLanguage option to ConversionOptions"
 }
 ```
 
-- [ ] **Step 2: 创建 MemberMappings.json**
+- [x] **Step 2: 创建 MemberMappings.json**
 
 ```json
 {
@@ -301,7 +301,7 @@ git commit -m "feat(ts): add TargetLanguage option to ConversionOptions"
 }
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add config/typescript/TypeMappings.json config/typescript/MemberMappings.json
@@ -319,7 +319,7 @@ git commit -m "feat(ts): add TypeScript type and member mapping configs"
 - Create: `tests/CSharpToTypeScript.Tests/TsConversionTestBase.cs`
 - Modify: `CSharpToJavaConverter.slnx`
 
-- [ ] **Step 1: 创建测试项目 csproj**
+- [x] **Step 1: 创建测试项目 csproj**
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -363,7 +363,7 @@ git commit -m "feat(ts): add TypeScript type and member mapping configs"
 </Project>
 ```
 
-- [ ] **Step 2: 创建测试基类**
+- [x] **Step 2: 创建测试基类**
 
 ```csharp
 using System.Diagnostics;
@@ -512,7 +512,7 @@ public abstract class TsConversionTestBase
 
 注：实测确认在普通 `[Fact]` 中抛 `SkipException` 会使测试 FAIL 而非 SKIP（xunit v2 普通 `[Fact]` 无法动态跳过），因此 `AssertCompiles` 在无 Node 时直接返回（空转通过），避免无 Node 机器上 L3 测试误红；`SkipException` 仅配合 `[SkippableFact]` 特性使用。共享根目录 `cs2j_ts_compile_shared` 仅保留 typescript 安装（node_modules）；每次校验在唯一 `run_<GUID>` 子目录中进行并在 `finally` 中递归删除。
 
-- [ ] **Step 3: 注册到 slnx**
+- [x] **Step 3: 注册到 slnx**
 
 读取 `CSharpToJavaConverter.slnx`（现有条目均带 `Id`/`Type` 属性，且需在 `/tests/` Folder 内加 `ProjectRef`），在 `<Solution>` 下添加：
 
@@ -526,7 +526,7 @@ public abstract class TsConversionTestBase
 <ProjectRef Id="c4d5e6f7-a8b9-4c0d-9e1f-2a3b4c5d6e7f" />
 ```
 
-- [ ] **Step 4: 验证构建**
+- [x] **Step 4: 验证构建**
 
 Run: `dotnet build tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
 Expected: BUILD SUCCESS（即使 TS 发射器尚未实现，测试项目应能编译，因为只依赖现有 Core 项目）。
@@ -599,12 +599,12 @@ public class TsNamingSafetyTests
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsNamingSafetyTests"`
 Expected: FAIL（TypeScriptEmitter 命名空间不存在）。
 
-- [ ] **Step 3: 实现 TsNaming**
+- [x] **Step 3: 实现 TsNaming**
 
 ```csharp
 using System.Collections.Generic;
@@ -686,7 +686,7 @@ public static class TsNaming
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsNamingSafetyTests"`
 Expected: PASS（6 个测试）。
@@ -807,12 +807,12 @@ public class TsMemberMappingTableTests
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsMemberMappingTableTests"`
 Expected: FAIL（类型不存在）。
 
-- [ ] **Step 3: 实现 TsMemberMappingTable**
+- [x] **Step 3: 实现 TsMemberMappingTable**
 
 ```csharp
 using System.Collections.Generic;
@@ -1017,7 +1017,7 @@ public sealed class TsMemberMappingTable
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsMemberMappingTableTests"`
 Expected: PASS（10 个测试）。
@@ -1110,12 +1110,12 @@ public class TsImportCollectorTests
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsImportCollectorTests"`
 Expected: FAIL。
 
-- [ ] **Step 3: 实现 TsImportCollector**
+- [x] **Step 3: 实现 TsImportCollector**
 
 ```csharp
 using System.Collections.Generic;
@@ -1238,7 +1238,7 @@ public sealed class TsImportCollector
 public sealed record TsImportEntry(string ModulePath, IReadOnlyList<string> NamedImports);
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsImportCollectorTests"`
 Expected: PASS（6 个测试）。
@@ -1403,12 +1403,12 @@ public class TsExpressionWriterTests
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsExpressionWriterTests"`
 Expected: FAIL（类型不存在）。
 
-- [ ] **Step 3: 实现 TsExpressionWriter**
+- [x] **Step 3: 实现 TsExpressionWriter**
 
 ```csharp
 using System.Text;
@@ -1632,7 +1632,7 @@ public sealed class TsExpressionWriter
 
 注：以上属性名已对照 `src/CSharpToJava.Core/Java/JavaExpression.cs` 实际定义核对（见文首“IR 属性名契约”）。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsExpressionWriterTests"`
 Expected: PASS（12 个测试）。
@@ -1767,12 +1767,12 @@ public class TsStatementWriterTests
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsStatementWriterTests"`
 Expected: FAIL。
 
-- [ ] **Step 3: 实现 TsStatementWriter**
+- [x] **Step 3: 实现 TsStatementWriter**
 
 ```csharp
 using System.Text;
@@ -2019,7 +2019,7 @@ public sealed class TsStatementWriter
 
 注：以上属性名已对照 `src/CSharpToJava.Core/Java/JavaStatement.cs` 实际定义核对（见文首“IR 属性名契约”）。`JavaCatchClause.ExceptionType` 在 IR 中为 Java 风味名（如 `IllegalArgumentException`），到兼容库异常名的映射在 M2 Task 21 处理。
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsStatementWriterTests"`
 Expected: PASS（9 个测试）。
@@ -2513,12 +2513,12 @@ public class TsBasicClassEmissionTests : TsConversionTestBase
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsBasicClassEmissionTests"`
 Expected: FAIL（TypeScriptEmitter.EmitType 不存在）。
 
-- [ ] **Step 3: 实现 TsMemberWriter**
+- [x] **Step 3: 实现 TsMemberWriter**
 
 ```csharp
 using System.Text;
@@ -2810,7 +2810,7 @@ public sealed class TsMemberWriter
 }
 ```
 
-- [ ] **Step 4: 实现 TsTypeWriter**
+- [x] **Step 4: 实现 TsTypeWriter**
 
 ```csharp
 using System.Text;
@@ -3009,12 +3009,12 @@ public sealed class TsTypeWriter
 
 注：**2026-08-06 复审修订（审查结论优先于原计划，tsc 7.0.2 实证）**：C1 多构造器仅首个发射 `constructor(...)`，第二起以诊断注释占位（TS2392）；C2 派生类构造器无条件发射 `super(...)`（有实参原样、无实参 `super();`，TS2377/TS17009）；C3 表达式体方法/属性 getter 输出 `{ return expr; }`、void 输出 `{ expr; }`（TS1144）；C4 嵌套类型提升到外层类之后、文件顶层发射（TS1068）；I1 无初始化器且零值为 null 的字段类型放宽为 `T | null`（TS2322）；I2 字段常量初始化器经字面量归一化（`L`→`n`、去 `f`/`d` 后缀、char→string，TS1351）；I3 接口成员参数/返回类型走 `MapType`；I4 构造器 `private`/`protected` 可见性直译。测试增至 24 个（含 L3 tsc 编译回归）。
 
-- [ ] **Step 5: 运行测试验证通过**
+- [x] **Step 5: 运行测试验证通过**
 
 Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj --filter "FullyQualifiedName~TsBasicClassEmissionTests"`
 Expected: PASS（24 个测试）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs tests/CSharpToTypeScript.Tests/TsBasicClassEmissionTests.cs
