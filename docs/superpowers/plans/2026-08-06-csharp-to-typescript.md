@@ -5495,6 +5495,12 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   构造器可收初始 Iterable）+ index.ts 导出；tsc --noEmit + vitest 123 用例全绿。
   登记：插入序删除 O(n)、Keys/Values 快照而非活视图、comparer 模式无原始键快路径。
 
+- [x] **Task 33 完成（2026-08-07）**：`src/events/` 组件（CsEvent<T>，泛型 T =
+  处理器函数类型，与发射器/L3 桩一致；Add += 不去重、Remove -= 移除最后一个
+  引用相等者、Invoke 空事件安全 + 快照（调用期间增删不影响当前批次）+ 异常立即
+  中止后续、GetInvocationList 副本、Invoke 参数由 Parameters<T> 推导）+ index.ts
+  导出；tsc --noEmit + vitest 131 用例全绿。
+
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
 | Task | 组件 | 关键验收（spec 章节） |

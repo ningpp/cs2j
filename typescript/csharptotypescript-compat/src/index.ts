@@ -20,3 +20,4 @@ export { StringSplitOptions } from "./text/StringSplitOptions.js";
 export { CsKeyValuePair } from "./collections/CsKeyValuePair.js";
 export { type IEqualityComparer, CsDictionary } from "./collections/CsDictionary.js";
 export { CsSet } from "./collections/CsSet.js";
+export { CsEvent } from "./events/CsEvent.js";
