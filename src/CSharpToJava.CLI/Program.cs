@@ -1632,6 +1632,9 @@ public class Program
     private static IReadOnlySet<string>? GetPreservedDestinationDirectories(ConvertProjectOptions opts)
     {
         var preserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // node_modules holds npm dependencies, not generated artifacts: preserving it
+        // across regenerations avoids a full npm install on every conversion round.
+        preserved.Add("node_modules");
         if (opts.UsingGotoPreprocessedSource)
         {
             preserved.Add(ProjectGotoPreprocessor.IntermediateDirectoryName);
