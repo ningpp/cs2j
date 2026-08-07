@@ -198,6 +198,34 @@ public class PropertyTransformer : IMemberTransformer
                         typeInfo.Type,
                         context);
                 }
+
+                // Expression-bodied getters can produce pre-statements during transformation
+                // (e.g. lazy initialization via ??= hoists `if (f == null) f = ...`). Convert
+                // to a block body so the statements stay inside the getter instead of leaking
+                // into the following member's declaration.
+                if (context.HasPendingPreStatements || context.HasPendingPostStatements)
+                {
+                    var bodyLines = new List<string>();
+                    if (context.HasPendingPreStatements)
+                    {
+                        foreach (var pre in context.DrainPreStatements())
+                            bodyLines.Add(pre.TrimEnd(';') + ";");
+                    }
+                    if (context.HasPendingPostStatements)
+                    {
+                        var retHolder = context.GenerateSyntheticName("_ret");
+                        bodyLines.Add($"var {retHolder} = {getter.Body};");
+                        foreach (var post in context.DrainPostStatements())
+                            bodyLines.Add(post.TrimEnd(';') + ";");
+                        bodyLines.Add($"return {retHolder};");
+                    }
+                    else
+                    {
+                        bodyLines.Add($"return {getter.Body.TrimEnd(';')};");
+                    }
+                    getter.Body = string.Join("\n", bodyLines);
+                    getter.IsBodyExpression = false;
+                }
             }
 
             // 处理显式 getter 主体
