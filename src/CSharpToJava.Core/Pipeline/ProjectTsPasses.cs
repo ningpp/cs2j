@@ -38,6 +38,16 @@ public sealed class ProjectTsSyntaxRewritePass : ICs2jPass<ProjectPassState>
         RunStage(state, () => new TypeScript.Rewriters.TsIndexerRewriter(state.Context));
         // 1f. 模式匹配（Task 27：声明模式/switch 模式 → instanceof + 守卫）
         RunStage(state, () => new TypeScript.Rewriters.TsPatternMatchingRewriter());
+
+        // 1g. Task 39 测试收集：xUnit/MSTest 测试类元数据 → context.TsTestClasses
+        //     （只收集不改写；跨文件按 "命名空间.类名" 累积合并，partial 测试类可用）
+        var testCollector = new TypeScript.Rewriters.TsTestCollectorRewriter(state.Context);
+        foreach (var tree in state.Compilation.SyntaxTrees
+            .Where(tree => !string.IsNullOrWhiteSpace(tree.FilePath)
+                && !tree.FilePath.StartsWith("<", StringComparison.Ordinal)))
+        {
+            testCollector.Visit((CompilationUnitSyntax)tree.GetRoot());
+        }
     }
 
     private static void RunStage(
@@ -131,9 +141,11 @@ public sealed class ProjectTsEmitPass : ICs2jPass<ProjectPassState>
             {
                 if (result.Success && result.Compilation != null)
                 {
-                    // 共享前端产出 Java IR；TS 二次映射发射（Task 38）
+                    // 共享前端产出 Java IR；TS 二次映射发射（Task 38）。
+                    // Task 39：测试类单元 → .test.ts（vitest include 模式 src/**/*.test.ts）
                     result.GeneratedCode = TypeScript.TsEmitSupport.EmitTypeScript(result.Compilation, state.Context);
-                    result.FileName = Path.ChangeExtension(result.FileName, ".ts");
+                    result.FileName = Path.ChangeExtension(result.FileName,
+                        IsTestUnit(result.Compilation, state.Context) ? ".test.ts" : ".ts");
                 }
 
                 var diagnostics = state.GetDiagnosticsForPaths(candidatePaths);
@@ -147,8 +159,24 @@ public sealed class ProjectTsEmitPass : ICs2jPass<ProjectPassState>
             }
         }
     }
-}
 
+    /// <summary>IR 单元含测试类（TsTestClasses 登记）→ .test.ts 命名。</summary>
+    private static bool IsTestUnit(Java.JavaCompilationUnit unit, Context.ConversionContext context)
+    {
+        var testClasses = context.TsTestClasses;
+        if (testClasses == null)
+        {
+            return false;
+        }
+        return unit.TypeDeclarations.Any(type =>
+            testClasses.ContainsKey(TestClassKey(unit.Package, type.Name))
+            || testClasses.ContainsKey(type.Name));
+    }
+
+    private static string TestClassKey(string? package, string typeName) =>
+        string.IsNullOrEmpty(package) ? typeName : $"{package}.{typeName}";
+
+}
 /// <summary>
 /// 项目级 npm 依赖收集 pass（Task 38，spec §2.4：ProjectJavaModuleDependencyPass
 /// 的 TS 变体）：扫描生成 TS 的 ESM 导入（import ... from "pkg"），把包名

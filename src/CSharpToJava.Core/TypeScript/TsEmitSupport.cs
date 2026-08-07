@@ -83,6 +83,10 @@ public static class TsEmitSupport
         // completedFuture→Promise.resolve、WhenAll→Promise.all、Task.Run 降级同步 + 诊断）
         var asyncRewriter = new Rewriters.TsAsyncRewriter(context);
         asyncRewriter.VisitCompilationUnit(compilation);
+        // Task 39：测试类 Assert.* → vitest expect 链 + this. 剥离（测试类 describe/it
+        // 结构在发射器侧处理）。在全部 rewriter 之后运行（改写后的调用形态已定型）。
+        var testRewriter = new Rewriters.TsTestAssertRewriter(context);
+        testRewriter.VisitCompilationUnit(compilation);
         var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
         compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
         // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）

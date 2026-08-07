@@ -111,6 +111,12 @@ public class ConversionContext
     /// TypeScriptEmitter 在类型声明之后追加。
     /// </summary>
     public Dictionary<string, string>? TsInterfaceProbes { get; set; }
+    /// <summary>
+    /// TS 目标（Task 39）：测试类元数据（键 "命名空间.类名"，全局命名空间键为类名）——
+    /// TsTestCollectorRewriter 收集 xUnit/MSTest 测试类信息，TsTestAssertRewriter 与
+    /// TypeScriptEmitter 据此把测试类发射为 vitest describe/it 结构。
+    /// </summary>
+    public Dictionary<string, TypeScript.TsTestClassInfo>? TsTestClasses { get; set; }
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
 

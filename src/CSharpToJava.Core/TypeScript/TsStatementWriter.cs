@@ -69,6 +69,11 @@ public sealed class TsStatementWriter
         // 实际属性名：Type/Name；类型需经 Java→TS 映射（IR 为 Java 风味）
         var tsType = _exprWriter.MapType(decl.Type);
         var init = decl.Initializer != null ? $" = {_exprWriter.ToInlineString(decl.Initializer)}" : "";
+        // C# var 局部声明：TS 类型可由初始化器推断，省略注解（var 不是合法 TS 类型）
+        if (string.Equals(tsType, "var", System.StringComparison.Ordinal))
+        {
+            return $"{ind}let {TsNaming.SafeIdentifier(decl.Name)}{init};";
+        }
         return $"{ind}let {TsNaming.SafeIdentifier(decl.Name)}: {tsType}{init};";
     }
 
@@ -130,6 +135,11 @@ public sealed class TsStatementWriter
 
         var javaType = m.Groups[1].Value.Trim();
         var name = m.Groups[2].Value;
+        // C# var for 初始化器：TS 类型由初始化器推断，省略注解
+        if (string.Equals(javaType, "var", System.StringComparison.Ordinal))
+        {
+            return $"let {TsNaming.SafeIdentifier(name)} = {m.Groups[3].Value.Trim()}";
+        }
         var tsType = _exprWriter.MapType(javaType);
 
         // 泛型/数组类型，或映射未命中（返回值 == 原类型且非已知 TS 简单类型）

@@ -46,11 +46,27 @@ public sealed class TypeScriptEmitter
             .Select(cls => cls.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        // 发射类型声明，收集 imports
+        // 发射类型声明，收集 imports；测试类（Task 39）→ vitest describe/it 结构 + vitest 导入
         var typeBodies = new StringBuilder();
+        var testClasses = context.TsTestClasses;
         foreach (var type in unit.TypeDeclarations)
         {
-            typeBodies.AppendLine(EmitType(type, mappings, imports, flagsEnumNames));
+            TsTestClassInfo? testInfo = null;
+            if (testClasses != null)
+            {
+                var key = Key(unit.Package, type.Name);
+                if (!testClasses.TryGetValue(key, out testInfo))
+                {
+                    testClasses.TryGetValue(type.Name, out testInfo);
+                }
+            }
+            if (testInfo != null)
+            {
+                imports.AddNamedImport("describe", "vitest");
+                imports.AddNamedImport("expect", "vitest");
+                imports.AddNamedImport("it", "vitest");
+            }
+            typeBodies.AppendLine(EmitType(type, mappings, imports, flagsEnumNames, testInfo, context));
             typeBodies.AppendLine();
         }
 
@@ -82,12 +98,16 @@ public sealed class TypeScriptEmitter
     /// 发射单个类型声明（供测试直接调用）。
     /// </summary>
     public string EmitType(JavaTypeDeclaration type, TsMemberMappingTable mappings, TsImportCollector imports,
-        IReadOnlySet<string>? flagsEnumNames = null)
+        IReadOnlySet<string>? flagsEnumNames = null,
+        TsTestClassInfo? testInfo = null, ConversionContext? context = null)
     {
         var exprWriter = new TsExpressionWriter(mappings, imports);
         var stmtWriter = new TsStatementWriter(exprWriter);
         var memberWriter = new TsMemberWriter(stmtWriter, exprWriter);
         var typeWriter = new TsTypeWriter(memberWriter, accessorRoles: _accessorRoles, flagsEnumNames: flagsEnumNames);
-        return typeWriter.Emit(type, 0);
+        return typeWriter.Emit(type, 0, testInfo, context);
     }
+
+    private static string Key(string? package, string typeName) =>
+        string.IsNullOrEmpty(package) ? typeName : $"{package}.{typeName}";
 }

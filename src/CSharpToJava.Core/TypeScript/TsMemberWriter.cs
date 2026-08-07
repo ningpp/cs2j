@@ -215,6 +215,127 @@ public sealed class TsMemberWriter
         sb.Append(ind).Append('}');
     }
 
+    /// <summary>
+    /// 测试类字段发射（Task 39）：vitest describe 作用域 let 变量（剥修饰符）。
+    /// 无初始化器补 null 零值（与 EmitField 的 strictNullChecks 宽化一致）。
+    /// </summary>
+    public string EmitTestField(JavaFieldDeclaration field, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+        var tsType = _exprWriter.MapType(field.Type);
+        var name = TsNaming.SafeIdentifier(field.Name);
+        var hasInitializer = !string.IsNullOrEmpty(field.Initializer);
+        var emittedType = tsType;
+        if (!hasInitializer
+            && !tsType.Contains("| null") && !tsType.Contains("null |")
+            && tsType is not ("null" or "any" or "undefined" or "void"))
+        {
+            emittedType = tsType.Contains("=>") ? $"({tsType}) | null" : $"{tsType} | null";
+        }
+        sb.Append($"let {name}: {emittedType}");
+        if (hasInitializer)
+        {
+            sb.Append($" = {NormalizeLiteral(field.Initializer!)}");
+        }
+        else
+        {
+            sb.Append(" = null");
+        }
+        sb.Append(';');
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 测试方法发射（Task 39）：[Fact] → it("名", () => { ... })；
+    /// [Theory]+InlineData → it.each([...])("名", (p1, p2) => { ... })。
+    /// async 方法回调加 async 前缀；方法体复用三路发射（结构化体/表达式体/Body 字符串）。
+    /// </summary>
+    public string EmitTestMethod(JavaMethodDeclaration method, TsTestMethodInfo info, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+        var asyncPrefix = method.IsAsync ? "async " : "";
+        if (info.IsTheory && info.HasInlineData)
+        {
+            sb.AppendLine("it.each([");
+            foreach (var row in info.InlineData)
+            {
+                sb.Append(ind).Append(_indent).AppendLine($"[{string.Join(", ", row)}],");
+            }
+            sb.Append(ind).Append("])");
+            sb.Append($"(\"{TsNaming.EscapeStringLiteral(info.MethodName)}\", {asyncPrefix}(");
+            sb.Append(string.Join(", ", method.Parameters.Select(p => TsNaming.SafeIdentifier(p.Name))));
+            sb.Append(") =>");
+        }
+        else
+        {
+            sb.Append($"it(\"{TsNaming.EscapeStringLiteral(info.MethodName)}\", {asyncPrefix}() =>");
+        }
+        AppendArrowBody(sb, method, ind, indentLevel);
+        sb.Append(");");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 测试类非测试方法发射（Task 39）：describe 作用域局部函数（剥访问修饰符；
+    /// 测试类辅助方法保持可调用）。
+    /// </summary>
+    public string EmitLocalFunction(JavaMethodDeclaration method, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+        if (method.IsAsync)
+        {
+            sb.Append("async ");
+        }
+        var name = TsNaming.SafeIdentifier(method.Name);
+        sb.Append($"function {name}{TsTypeWriter.FormatTypeParameters(method.TypeParameters, MapType)}(");
+        var parms = method.Parameters.Select(p =>
+        {
+            var pName = TsNaming.SafeIdentifier(p.Name);
+            return $"{pName}: {_exprWriter.MapType(p.Type)}";
+        });
+        sb.Append(string.Join(", ", parms));
+        sb.Append($"): {_exprWriter.MapType(method.ReturnType)}");
+        AppendMethodBody(sb, method, ind, indentLevel);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 箭头函数体发射（Task 39）：it/it.each 回调体；与 AppendMethodBody 三路对应，
+    /// 收尾不补分号（调用方追加）。
+    /// </summary>
+    private void AppendArrowBody(StringBuilder sb, JavaMethodDeclaration method, string ind, int indentLevel)
+    {
+        if (method.StructuredBody != null)
+        {
+            sb.AppendLine(" {");
+            foreach (var stmt in method.StructuredBody.Statements)
+            {
+                sb.AppendLine(_stmtWriter.Emit(stmt, indentLevel + 2));
+            }
+            sb.Append(ind).Append('}');
+            return;
+        }
+        if (method.IsBodyExpression)
+        {
+            sb.Append(" => ").Append(method.Body);
+            return;
+        }
+        if (method.Body == null)
+        {
+            sb.Append(" => { }");
+            return;
+        }
+        sb.AppendLine(" {");
+        foreach (var line in method.Body!.Split('\n'))
+        {
+            sb.Append(ind).Append(_indent).AppendLine(line);
+        }
+        sb.Append(ind).Append('}');
+    }
+
     public string EmitConstructor(JavaConstructorDeclaration ctor, string? extendedType, int indentLevel)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);

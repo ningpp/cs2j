@@ -5606,6 +5606,32 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 ## Task 39: 测试项目 → vitest 工程
 
 - **要点：** `IsTestProject` 检测；xUnit/MSTest 特性映射（`[Fact]`→`it`、`[Theory]+InlineData`→`it.each`、Assert 映射，spec §6.1）。
+- [x] **Task 39 完成（2026-08-07）**：xUnit/MSTest 测试类 → vitest describe/it 结构。
+  - `IsTestProject` 检测此前已由 SolutionLoader 实现（`tests/CSharpToJava.Tests/SolutionLoaderSdkTests.cs` 覆盖）；
+    Task 39 接线确认 `Cs2jLibraryProject.IsTestProject` 已存在并贯通（新增
+    `TsProjectPipelineTests.IsTestProject_Flag_Flows_To_Library`）。
+  - 新增 `TsTestModel.cs`（`TsTestMethodInfo`/`TsTestClassInfo`）与语法层
+    `TsTestCollectorRewriter`（只收集不改写，键 `"命名空间.类名"`，partial 类跨文件合并）；
+    `[Fact]`/`[TestMethod]`→`it`、`[Theory]`/`[DataTestMethod]`+`[InlineData]`/`[DataRow]`→
+    `it.each`（InlineData 行转 TS 字面量：数值去 C# 后缀、verbatim 串 `""`→`\"`）。
+  - 新增 IR 层 `TsTestAssertRewriter`：Assert/CollectionAssert → vitest expect 链
+    （Equal/AreEqual→toEqual、True→toBeTruthy、Null→toBeNull、Throws→toThrow、
+    Contains→toContain、Empty/Single→toHaveLength、Same→toBe、StartsWith/EndsWith→
+    `actual.startsWith(...)` 布尔断言[vitest/Chai 无 toStartWith/toEndWith，实测确认]、
+    Fail→`expect.unreachable`），结构化节点 + raw 文本双覆盖（前端 Assert 调用产出为
+    JavaRawExpression/RawStatement/Body 字符串）；测试类成员内 `this.` 前缀剥离。
+  - 发射器：测试类 → `describe("类名", () => { 字段→let 变量；测试方法→it/it.each；
+    辅助方法→局部函数 })`；测试类单元 → `.test.ts` 文件名（项目模式，vitest
+    include 模式 `src/**/*.test.ts`）；vitest 依赖经 NpmDependencyPass 收集进
+    `NpmPackageDependencies`；`var` 局部声明省略类型注解（TS 无 var 类型）。
+  - 已登记限制：xUnit 每测试新实例语义未保留（describe 作用域字段跨测试共享）；
+    测试类自定义构造器未发射（诊断 Warning）；MemberData/ClassData 无 InlineData
+    时该测试方法跳过发射（未加诊断，M5 可补）。
+  - 验证：TS 单测 472 全绿（新增 TsTestEmissionTests 8 用例 + TsProjectPipelineTests
+    2 用例，含 vitest 桩 L3 编译）；Java 2423 + ProjectTests 7 零回归；compat 包
+    tsc + vitest 203 全绿；CLI `convert -t typescript` 端到端冒烟：映射输出
+    （it/it.each/expect 链含 startsWith/endsWith 布尔形态）在真实 vitest 4.1 运行全绿。
+
 
 ## Task 40: CLI 自动验证链（spec §6.2）
 

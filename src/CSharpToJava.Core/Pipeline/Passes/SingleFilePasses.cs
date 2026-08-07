@@ -573,6 +573,14 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             }
         }
 
+        // 1g. Task 39 测试收集：xUnit/MSTest 测试类元数据 → context.TsTestClasses
+        //     （只收集不改写；TsTestAssertRewriter 与发射器据此输出 vitest describe/it）
+        if (state.Context.SemanticModel != null)
+        {
+            new TypeScript.Rewriters.TsTestCollectorRewriter(state.Context)
+                .Visit(state.SyntaxTree.GetRoot());
+        }
+
         // 2. 生成 Java IR（与 Java 路径一致）
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());

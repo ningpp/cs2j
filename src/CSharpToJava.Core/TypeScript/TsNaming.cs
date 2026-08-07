@@ -60,6 +60,16 @@ public static class TsNaming
     }
 
     /// <summary>
+    /// 字符串字面量内容转义（测试显示名等）：\ 与 " 转义为 TS 双引号字符串安全形态。
+    /// </summary>
+    public static string EscapeStringLiteral(string value)
+    {
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"");
+    }
+
+    /// <summary>
     /// 生成重载方法后缀。规则：_type1_type2（TS 映射类型名小写连接）。
     /// 示例：["string", "number"] -> "_string_number"
     /// 前置条件：调用方必须传入已小写、已消毒的简单 TS 类型名（如 "string"/"number"）；
