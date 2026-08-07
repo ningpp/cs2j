@@ -5566,6 +5566,17 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 
 - **Files:** `src/CSharpToJava.Core/TypeScript/NpmProjectPlan.cs`
 - **要点：** 项目 → npm 包目录；解决方案 → workspaces（`"workspace:*"` 依赖）；tsconfig.base.json（strict/ES2022/NodeNext/`useDefineForClassFields: false`）；每类型一文件目录布局；产物指纹按目标区分（`OutputIncrementalWriteSession`）；资源拷贝。
+- [x] **Task 37 完成（2026-08-07）**：`src/CSharpToJava.Core/TypeScript/NpmProjectPlan.cs`
+  （NpmWorkspacePlan/NpmProjectPlan/NpmProjectDependency/NpmResourceItem +
+  NpmWorkspacePlanBuilder + NpmProjectFiles 生成器）：workspaces 根 package.json
+  （"workspaces": ["modules/*"] + typescript/vitest devDependencies）、tsconfig.base.json
+  （strict/ES2022/NodeNext/declaration/useDefineForClassFields:false + esModuleInterop/
+  skipLibCheck）、模块 package.json（自动 compat 0.1.0 依赖 + 项目引用 "workspace:*" +
+  测试包 "vitest run" script）、模块 tsconfig.json（extends ../../tsconfig.base.json +
+  outDir/rootDir）、测试包 vitest.config.ts；NpmNaming kebab-case 包名规约 + scope；
+  产物指纹按目标区分（GetProjectConversionOptionTokens 增 target 令牌，--target 切换
+  不被增量缓存错误跳过）；TsNpmProjectPlanTests 8 用例全绿 + TS 457 全量 + Java 2423
+  零回归。
 
 ## Task 38: ProjectConversionPipeline TS 分叉
 

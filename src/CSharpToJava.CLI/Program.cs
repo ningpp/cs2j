@@ -1494,10 +1494,13 @@ public class Program
         });
     }
 
-    private static IReadOnlyList<string> GetProjectConversionOptionTokens(ConvertProjectOptions opts)
+    internal static IReadOnlyList<string> GetProjectConversionOptionTokens(ConvertProjectOptions opts)
     {
         return new List<string>
         {
+            // 产物指纹按目标区分（Task 37）：Java/TS 目标产物布局不同，令牌必须含 target，
+            // 否则 --target 切换会被增量缓存错误跳过。
+            $"target={opts.Target}",
             $"java-version={opts.JavaVersion}",
             $"mapping-config={(string.IsNullOrWhiteSpace(opts.MappingConfig) ? "<default>" : Path.GetFullPath(opts.MappingConfig))}",
             $"use-records={opts.UseRecords}",
