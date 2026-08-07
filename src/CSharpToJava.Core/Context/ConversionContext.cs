@@ -93,6 +93,12 @@ public class ConversionContext
 
     public ConversionOptions Options { get; }
     public SemanticModel? SemanticModel { get; set; }
+
+    /// <summary>
+    /// TS 目标（Task 23）：重载构造器工厂名集合（TsOverloadDisambiguationRewriter 登记；
+    /// InvocationExpressionTransformer 对 symbol==null 的 Type.Create$N(...) 调用保留大小写）。
+    /// </summary>
+    public HashSet<string>? TsFactoryMethodNames { get; set; }
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
 

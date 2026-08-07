@@ -393,6 +393,32 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             }
         }
 
+        // 1b. Task 23 重载消歧：语法树层改写（方法重载改名 + 调用点同步 + 构造器工厂调用点）。
+        //     在数值语义重建后运行（需有效语义模型做重载决议）；改写后重建编译供 IR visitor 查询。
+        if (state.Context.SemanticModel != null)
+        {
+            var overloadRoot = new TypeScript.Rewriters.TsOverloadDisambiguationRewriter(state.Context)
+                .Visit(state.SyntaxTree.GetRoot());
+            if (overloadRoot != null && !ReferenceEquals(overloadRoot, state.SyntaxTree.GetRoot()))
+            {
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(
+                    (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)overloadRoot,
+                    state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    state.SyntaxTree.GetRoot().ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+        }
+
         // 2. 生成 Java IR（与 Java 路径一致）
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());
@@ -443,6 +469,9 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // StringBuilder 链 → CsString.format/String(...)/模板字符串）
         var stringRewriter = new TypeScript.Rewriters.TsStringCallRewriter(context);
         stringRewriter.VisitCompilationUnit(compilation);
+        // Task 23：构造器重载 → Create$N 工厂（IR 层合成；调用点已在语法层改写为 Type.Create$N(...)）
+        var ctorFactoryRewriter = new TypeScript.Rewriters.TsCtorFactoryRewriter(context);
+        ctorFactoryRewriter.VisitCompilationUnit(compilation);
         return (propertyRewriter.Roles, stringRewriter.CompatSymbols);
     }
 }

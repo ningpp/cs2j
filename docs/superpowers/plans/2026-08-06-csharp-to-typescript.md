@@ -5139,9 +5139,86 @@ Expected: 全绿（L3 在有 Node 环境时通过）。
 
 ## Task 23: TsOverloadDisambiguationRewriter（方法重载改写，spec §2.6.1）
 
-- **Files:** `Rewriters/TsOverloadDisambiguationRewriter.cs`、`TsOverloadRewriterTests.cs`
+- **Files:** `Rewriters/TsOverloadDisambiguationRewriter.cs`（含同文件 IR 层工厂合成器 `TsCtorFactoryRewriter`）、`TsOverloadRewriterTests.cs`
 - **要点：** 同名重载分组；首个保留原名，其余追加 `TsNaming.OverloadSuffix` 类型后缀；调用点按实参数量 + 语义模型静态类型消歧（装配时注入 `SemanticModel` 回调）；构造器重载 → `Create$N` 静态工厂 + `new` 调用点同步；无法静态判定 → 诊断 + 保留首重载。
 - **验证：** §5.4 `TsOverloadRewriterTests` 全部用例 + L3。
+
+- [x] **Step 1: 核对 IR 形态与架构决策（2026-08-07 实测）**
+
+已核对（证据见 Task 19 注记同款探针）：
+- IR 方法体/构造器体均为 raw 文本（`JavaMethodDeclaration.Body`/`JavaConstructorDeclaration.Body` 字符串），
+  `JavaMethodCallExpression` 等结构化节点不携带源码位置 → **调用点改写必须在 C# 语法树层完成**
+  （沿用 Task 19 确立的 syntax-level rewriter + 重建编译模式）；IR 层无法做语义消歧。
+- 构造器当前发射：`TsTypeWriter.EmitClass` 仅发射第一个 ctor，其余降级为 `// TODO(TS): 第 N 个构造器...`
+  注释；`new Point(5, 6)` 调用点原样发射（对重载类为非法 TS）——Task 23 替换该降级路径。
+- `TsNaming.OverloadSuffix`/`FactoryName` 已就绪（Task 5 预留）；`TsMemberWriter.EmitMethod` 支持
+  static + 类型参数 + 映射返回类型；`EmitConstructor` 对派生类无条件补 `super()`（私有空构造器可直接复用）。
+- 调用点名称经 `ApplyCamelCaseAndMappings`/`TransformMemberInvocation` camelCase（如 `Create$2` → `create$2`）；
+  C# 标识符不含 `$`，工厂名 `Create$N` 需在 `TransformMemberInvocation` 顶部加**大小写保留守卫**
+  （`ConversionContext.TsFactoryMethodNames` 集合，symbol==null 时直通）。
+
+**架构决策（实现以此为准）：**
+1. `TsOverloadDisambiguationRewriter` 为 **CSharpSyntaxRewriter**（语法树层，注入 `state.Context.SemanticModel`），
+   在 `SingleFileTsEmitPass` 数值语义 rewriter 之后装配（两者都改写语法树并重建编译）。
+2. **方法重载**：同一类型内按名称分组（跳过访问器/运算符/显式接口实现）；组内按参数数量升序稳定排序，
+   首个保留原名，其余 `原名 + OverloadSuffix(参数 TS 映射名 tokens)`；tokens 由 `ITypeSymbol` 生成
+   （SpecialType → number/bigint/string/boolean/any；`int?` → `number_nullable`；泛型 → `list_string` 式
+   容器_元素；类型参数 → 小写名；未命中 → 小写 C# 名）；组内重名冲突追加 `$N` 序数。调用点经语义模型
+   `GetSymbolInfo` 解析 `IMethodSymbol.OriginalDefinition` → 查改名表（Roslyn 已做重载决议，无需自行
+   按实参类型匹配）；无法解析且名字命中重载组 → 诊断 + 保留原名。方法组引用（delegate 化）→ 已知限制。
+3. **构造器重载**（语法层只做调用点 + 命名登记，工厂合成在 IR 层）：
+   - 语法层：组内 ctor 按参数数量升序稳定排序，全部转工厂 `Create$1..N`（`TsNaming.FactoryName`，
+     1 基序数）；`new Type(args)` / target-typed `new(args)` 调用点经语义模型解析目标 ctor → 改写为
+     `Type.Create$N(args)`（object/collection 初始化器形态 → 诊断 + 保留）；工厂名登记入
+     `context.TsFactoryMethodNames` 供大小写守卫。
+   - IR 层（`TsCtorFactoryRewriter`，同文件，RunTsRewriters 内装配）：按同一算法独立重算工厂名
+     （稳定排序一致，无跨层匹配）；`cls.Constructors` 清空 → 补合成私有无参 `constructor()`（TS 将
+     字段默认值提升进该构造器，`new Foo()` 自动应用默认值）；每个用户 ctor → `static Create$N(...): Foo`
+     方法，Body 为 raw TS 文本：`const self = new Foo();` + 内联构造器体（`this(...)` 委托按实参数量
+     递归内联目标体，先委托后自身；`super(...)` → 诊断 + 跳过，私有构造器补 `super()` 兜底基类默认值）+
+     `return self;`；内联体中 `this`（标识符边界 + 跳字符串）→ `self`。
+4. **已知限制（登记，不在本任务修复）**：方法组引用（`Func<int,int> f = M;`）；派生类构造器工厂不内联
+   基类构造器体（`super(...)` 跳过，仅基类字段默认值生效）；`readonly` 字段 + 构造器重载（工厂内
+   `self.x = x` 触发 TS2540）；构造器体内裸 `return;`（工厂返回类型非 void 时 TS2355）；同参数量
+   `this(...)` 委托歧义（取首个 + 诊断）；record 主构造器不参与分组（M3 后续任务）。
+
+- [x] **Step 2: 写失败测试**（`TsOverloadRewriterTests`，spec §5.4）
+
+1. 同名两重载（不同参数数量）→ 第二改名 `Parse_string_number`，声明 + 同/跨类型调用点同步改写；
+2. 同参数量重载（int vs string）→ 按静态类型消歧（`Fmt(x)`/`Fmt(s)` 各自命中）；
+3. 无歧义单实现不改名（断言无后缀名出现）；
+4. 构造器重载 → `static Create$1/Create$2` 工厂 + `new` 调用点改写（含字段初始化器/方法体内形态）+ 
+   `this(...)` 委托内联顺序断言；
+5. 无法静态判定（`object` 实参）→ 诊断 + 保留原名；
+6. 代表性产出过 L3 `tsc --noEmit`（`AssertCompilesWithCompat`）。
+
+- [x] **Step 3: 实现**（`TsOverloadDisambiguationRewriter` + `TsCtorFactoryRewriter` + 管线装配）
+
+管线：`SingleFileTsEmitPass.Execute` 在数值语义重建后追加重载 rewriter + 重建；`RunTsRewriters` 追加
+`TsCtorFactoryRewriter(context)`；`TransformMemberInvocation` 顶部加工厂名大小写守卫；
+`ConversionContext` 新增 `TsFactoryMethodNames` 属性；`TsTypeWriter.EmitClass` 的 TODO 降级路径保留
+（直接发射器测试仍走注释路径，转换管线经 rewriter 后不再触达）。
+
+- [x] **Step 4: 运行测试 + Java 零回归 + 提交**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
+Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`（Java 零回归）
+Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
+
+**实现注记（2026-08-07）：**
+- 实测坑（与 Step 1 决策的偏差/修正）：
+  ① rewriter 必须**先访问子节点、后改标识符**——在 `node.WithIdentifier(...)` 之后调用
+     `base.Visit...` 会访问到"不在语法树中"的子树（Roslyn 节点树归属问题），先 base 访问
+     再对结果 `WithIdentifier` 即可；`VisitMethodDeclaration` 曾漏 return 改名结果（初版
+     返回未改名节点，调用点已改而声明未改），已修。
+  ② 方法体未限定实例成员引用不注入 `this.`（Task 22 已登记限制）——测试样本统一用显式
+     `this.Parse(...)` 形态；`TsPropertyReconstructionReview4Tests.Overloaded_Method_Return_Chain_Full_Pipeline`
+     期望更新为 Task 23 新行为（`GetB(int)` → `getB_number`，调用点同步）。
+  ③ 工厂调用点大小写保留：`InvocationExpressionTransformer.TransformMemberInvocation` 顶部加
+     `TsFactoryMethodNames` 守卫（symbol==null 时直通，避免 `Create$2` camelCase 成 `create$2`）。
+- 验收结果：TS 349/349 全绿（341 基线 + 8 新增，含 L3 tsc），Java 2423/2423 零回归。
+- 工厂形态（L3 验证）：`private constructor() {}` + `static Create$N(...): T { const self = new T();
+  内联体（this→self，this(...) 委托递归内联）; return self; }`；字段默认值由 TS 提升进私有构造器。
 
 ## Task 24: TsGenericErasureRewriter（泛型擦除降级，spec §2.6.2）
 

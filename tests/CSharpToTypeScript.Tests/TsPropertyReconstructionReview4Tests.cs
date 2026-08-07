@@ -292,7 +292,7 @@ public class TsPropertyReconstructionReview4Tests : TsConversionTestBase
     [Fact]
     public void Overloaded_Method_Return_Chain_Full_Pipeline()
     {
-        // 完整管线（L3 不启用：重载发射缺口 TS2393 已登记，M3 Task 23 处理）
+        // 完整管线（Task 23 起重载重命名生效：GetB(int) → getB_number，调用点同步）
         var result = Convert("""
 class B1
 {
@@ -310,9 +310,9 @@ class D
 }
 """);
         Assert.True(result.Success);
-        // 0 参调用点 → B1.Y；1 参调用点 → B2.X
+        // 0 参调用点保留 getB() → B1.Y；1 参调用点改写为 getB_number(1) → B2.X
         Assert.Contains("d.getB().Y", result.GeneratedCode);
-        Assert.Contains("d.getB(1).X", result.GeneratedCode);
+        Assert.Contains("d.getB_number(1).X", result.GeneratedCode);
         Assert.DoesNotContain("getY()", result.GeneratedCode);
         Assert.DoesNotContain("getX()", result.GeneratedCode);
     }

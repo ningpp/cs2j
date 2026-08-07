@@ -631,6 +631,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ConversionContext context,
         ExpressionTransformerFacade facade)
     {
+        // Task 23：重载构造器工厂调用点（语法层已把 new Foo(...) 改写为 Foo.Create$N(...)，
+        // C# 源中无此符号，GetSymbolInfo 为 null）。保留工厂名大小写，避免 camelCase 破坏与
+        // IR 层 TsCtorFactoryRewriter 合成工厂声明（Create$N）的一致性。
+        if (context.TsFactoryMethodNames?.Contains(memberAccess.Name.Identifier.Text) == true
+            && context.GetSymbolInfo(node).Symbol == null)
+        {
+            var factoryReceiver = facade.Transform(memberAccess.Expression, context);
+            var factoryArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            return $"{factoryReceiver}.{memberAccess.Name.Identifier.Text}({factoryArgs})";
+        }
+
         // Note: Enqueue/Dequeue methods are handled via TypeMappings (e.g. Queue<T>.Enqueue→add,
         // Queue<T>.Dequeue→remove). Custom heap types (GenericBinaryHeapPriorityQueue, EventQueue,
         // etc.) go through normal camelCase so that call sites and declarations stay consistent.
