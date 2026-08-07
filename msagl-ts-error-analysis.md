@@ -11,6 +11,8 @@
 | 4 | 2381 → 593 | raw 方法体 Java 文本未归一化 | TsRawStatementNormalizer / TsMemberWriter / TsExpressionWriter | 94bed66b |
 | 4b | — | 重转保留 node_modules（省 npm install） | src/CSharpToJava.CLI/Program.cs | f1d8482d |
 | 6 | 42 → 35 | raw 文本引用 cast 误判：控制流条件 `(X)` 被当强转丢弃（`if return true;`） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests / TsEmitterIntegrationTests）+ 本文件 | e9677465 |
+| 7 | 35 → 26 | 泛型声明/经典 for 头 let 化：类型正则吞掉 lambda `=>` 的 `>` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| a5ff3437 |
+
 
 ## Round 1 — MSBuild 零引用 → 注入本机 ref pack
 
@@ -86,3 +88,20 @@
   `TsEmitterIntegrationTests` 新增端到端 1 例（IEnumerator<int> 桥接输出含完整条件）。
 - **验证**：`dotnet test --configuration Release` 全绿（7 + 534 + 2432）；全量重转后
   `npx tsc --noEmit` 42 → 35（恰好移除 7 个 TS1005，无新增错误；剩余 35 个仍全为语法错误）。
+## Round 7 — 泛型声明/经典 for 头 let 化：类型正则吞掉 lambda `=>` 的 `>`
+
+- **C# 构造**：泛型类型局部声明与经典 for 头，初始化器含 lambda：
+  - `RBNode<ConeSide> rbNode = rightConeSides.FindLast(s => PointIsToTheRightOfSegment(site, s));`（LineSweeperForPortLocations.cs:533）
+  - `Set<SymmetricTuple<Point>> segments = new Set<SymmetricTuple<Point>>(edges.Select(e => new SymmetricTuple<Point>(...)));`（GreedyNodeRailLevelCalculator.cs:88）
+  - `Stream<LgNodeInfo> neighb = Enumerable.OrderBy(...);`（LgInteractor.cs:1985）
+  - `for (RBNode<LinkedPoint> node = tree.FindFirst(p => left <= p.Point.X); ...; node = tree.Next(node))`（LinkedPointSplitter.cs:67/73）
+- **错误 TS 输出**：以上声明/for 头原样保留为 Java 形态（`RBNode<ConeSide> rbNode = ...`），tsc 报 TS1005/TS1011（共 9 个错误，其中 LinkedPointSplitter 两个 for 头各 3 个）。
+- **正确 TS 输出**：
+  - `let rbNode: RBNode<ConeSide> = rightConeSides.findLast(s => pointIsToTheRightOfSegment(site, s));`
+  - `let segments: Set<SymmetricTuple<Point>> = new Set<...>(Enumerable.select(edges, e => ...));`（类型注解内 FQCN 实参经映射缩短为 `Point`）
+  - `let neighb: Stream<LgNodeInfo> = Enumerable.orderBy(...);`
+  - `for (let node: RBNode<LinkedPoint> = tree.findFirst(p => left <= p.getPoint().X); node !== null && ...; node = tree.next(node))`
+- **根因**：`TsRawStatementNormalizer` 声明 let 化的类型正则用 `(?:<[^;\r\n]*>)?` 匹配泛型后缀，`[^;\r\n]*>` 贪婪吞到初始化器里 lambda `=>` 的 `>`：`RBNode<ConeSide> rbNode = f(s =>` 整段被吞进 type 组，`TryRewriteDeclarators` 收到非声明文本（`pointIsToTheRightOfSegment(site, s))`）而放弃改写；`NormalizeRawDeclarations` 与 `TryRewriteClassicForHead` 两处同病。嵌套泛型（`Set<SymmetricTuple<...>>`）与 FQCN 实参同样被 `=>` 截断。
+- **修复位置**：`TsRawStatementNormalizer.cs` 新增平衡尖括号泛型后缀模式 `GenericTypeSuffixPattern`（.NET 平衡组 `(?<Open><)|(?<-Open>>)`，内容排除 `;`/换行），只匹配类型自身的闭合 `>`（含一层嵌套泛型），替换 `NormalizeRawDeclarations` 与 `TryRewriteClassicForHead` 两处正则；lambda 完整保留在初始化器内。
+- **测试**：`TsRawStatementNormalizerTests` 新增 4 例（泛型声明+lambda、嵌套泛型 FQCN 声明+lambda、`Stream<T>` 声明+lambda、经典 for 头泛型+lambda），先红后绿；全量 `dotnet test` 绿（7 + 538 + 2432）。
+- **验证**：全量重转后 `npx tsc --noEmit` 35 → 26（移除 9 个错误，无新增）。
