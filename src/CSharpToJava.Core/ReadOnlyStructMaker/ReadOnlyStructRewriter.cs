@@ -45,6 +45,29 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         // Add the readonly modifier to every instance field that doesn't already have it.
         node = MarkInstanceFieldsReadOnly(node);
 
+        // If the struct has public fields but no constructor, object initializers are the
+        // only way to set those fields. After marking the struct as readonly, readonly
+        // fields cannot be set via initializers (CS0191). Generate a constructor so that
+        // callers can use `new Struct(value, ...)` instead of object initializers.
+        if (!HasConstructor(node))
+        {
+            var publicFields = GetPublicInstanceFields(node);
+            if (publicFields.Count > 0)
+            {
+                var members = publicFields.Select(f =>
+                {
+                    var var = f.Declaration.Variables.First();
+                    return (var.Identifier.Text, f.Declaration.Type, IsPublic: true);
+                }).ToList();
+
+                var ctor = ConstructorGenerator.Generate(node.Identifier.Text, members);
+                if (ctor != null && !HasEquivalentCtor(node, ctor))
+                {
+                    node = node.AddMembers(ctor);
+                }
+            }
+        }
+
         var readonlyToken = SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)
             .WithTrailingTrivia(SyntaxFactory.Space);
 
@@ -60,6 +83,16 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var newKeyword = node.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList());
         return node.WithKeyword(newKeyword).AddModifiers(readonlyToken);
     }
+
+    private static bool HasConstructor(StructDeclarationSyntax node)
+        => node.Members.OfType<ConstructorDeclarationSyntax>().Any();
+
+    private static IReadOnlyList<FieldDeclarationSyntax> GetPublicInstanceFields(StructDeclarationSyntax node)
+        => node.Members.OfType<FieldDeclarationSyntax>()
+            .Where(f => f.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))
+                     && !f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
+                     && !f.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
+            .ToList();
 
     /// <summary>
     /// Adds the <c>readonly</c> modifier to every instance field (non-static, non-const)

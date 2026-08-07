@@ -205,7 +205,9 @@ internal static class PlatformBoundaryAnalyzer
         => identity is "System.OperatingSystem.IsWindows"
             or "System.OperatingSystem.IsLinux"
             or "System.OperatingSystem.IsMacOS"
-            or "System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform";
+            or "System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform"
+            or "System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture"
+            or "System.Runtime.InteropServices.RuntimeInformation.OSArchitecture";
 }
 
 internal static class NativeInteropAnalyzer

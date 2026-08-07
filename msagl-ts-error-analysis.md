@@ -137,3 +137,44 @@
   带 catch 保持 try、带 finally 保持 try、主体含嵌套块的花括号匹配），先红后绿；
   保留 head 片段（无主体）回退用例。全量 `dotnet test` 绿（7 + 542 + 2432）。
 - **验证**：全量重转后 `npx tsc --noEmit` 26 → 20（恰好移除 6 个 TS1472，无新增错误）。
+
+## Round 9 — 构造函数委托实参在成员位被朴素替换
+
+- **C# 构造**：构造器重载消歧把 `this(...)` 委托目标构造器体内联进 `Create$N` 工厂，
+  委托实参按形参名替换目标体内的形参引用。目标体形如 `this.left = left;` /
+  `this.center = center;` / `this.comparer = comparer;` /
+  `this.clusterSettings = clusterSettings;`：
+  - `Rectangle(IEnumerable<Point>) : this(0, 0, new Point(-1, -1))`（Rectangle.cs:219-220）
+  - `Ellipse(Point center, ...) : this(new Point(centerX, centerY), ...)`（Ellipse.cs 委托）
+  - `RbTree(Func<T,T,int> func) : this(new ComparerOnDelegate<T>(func))`（RBTree.cs:363）
+  - `InitialLayoutByCluster(GeometryGraph, LayoutAlgorithmSettings) : this(graph, anyCluster => defaultSettings)`（InitialLayoutByCluster.cs:35）
+- **错误 TS 输出**：
+  - `self.0 = 0;` ×2（Rectangle.ts:389/391，成员 `left`/`bottom` 被 `0` 替换）
+  - `self.new Point(centerX, centerY) = new Point(centerX, centerY).clone();`（Ellipse.ts:469）
+  - `self.new ComparerOnDelegate<T>(func) = new ComparerOnDelegate<T>(func);`（RbTree.ts:371）
+  - `self.anyCluster => defaultSettings = anyCluster => defaultSettings;`（InitialLayoutByCluster.ts:389）
+  - tsc：TS1005/TS1434 共 5 个错误。
+- **正确 TS 输出**：成员位（`.` 之后）不替换，仅值位替换——
+  `self.left = 0;`、`self.center = new Point(centerX, centerY).clone();`、
+  `self.comparer = new ComparerOnDelegate<T>(func);`、
+  `self.clusterSettings = anyCluster => defaultSettings;`。
+- **根因**：`TsOverloadDisambiguationRewriter.SubstituteCtorArguments` 把形参名在
+  整个内联体内全量替换，未区分成员位与值位；`.` 之后的标识符是成员名而非形参引用。
+  除本轮 5 个语法错误外，当委托实参是普通标识符（如 `this(comparer)` 传 `func`）时
+  会静默产出 `self.func = func;` 这种赋错属性的有效但错误 TS，属潜在语义损坏源。
+- **修复位置**：`SubstituteCtorArguments` 命中标识符后先检查 `code[start - 1] == '.'`，
+  成员位原样保留（`self.left` 的 `left` 不替换）。执行顺序无变化：`SubstituteThis`
+  （`this`→`self`）仍在 `InlineBody` 叶层先执行，成员位判定不受影响。
+- **测试**：`TsOverloadRewriterTests` 新增 2 例端到端（镜像 Rectangle 的 `0`/`new Point`
+  实参与 InitialLayoutByCluster/RbTree 的 lambda/`new Holder(func)` 实参），先红后绿，
+  均含 `AssertCompilesWithCompat` tsc 校验；全量 `dotnet test` 绿（7 + 544 + 2433）。
+- **验证**：全量重转后 `npx tsc --noEmit` 20 → 15（移除 5 个错误，无新增）。
+
+**修复前错误列表（20，供对照）**
+
+- D（5）：RbTree.ts:371；Ellipse.ts:469；Rectangle.ts:389,391；InitialLayoutByCluster.ts:389
+- B（5）：SplineRouter.ts:307（TS1003/TS1005）；MeshCreator.ts:1116（TS1003×1/TS1005×2）
+- A2/A4（4）：ConnectedComponentCalculator.ts:12（TS1011/TS1005）；Tiling.ts:1187（TS1434）；ProcrustesCircleConstraint.ts:198（TS1434）
+- A3（2）：ProcrustesCircleConstraint.ts:118（TS1011×2）
+- E（2）：LayoutAlgorithmHelpers.ts:69（TS1005/TS1135）
+- F（2）：Relayout.ts:106（TS1146/TS1005）

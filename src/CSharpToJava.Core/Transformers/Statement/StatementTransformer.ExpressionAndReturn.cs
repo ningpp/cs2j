@@ -541,15 +541,29 @@ public partial class StatementTransformer
         return true;
     }
 
-    private static bool IsBareReadExpression(string expr)
-    {
-        if (string.IsNullOrWhiteSpace(expr))
-            return false;
+private static bool IsBareReadExpression(string expr)
+{
+    if (string.IsNullOrWhiteSpace(expr))
+        return false;
 
-        var trimmed = expr.Trim();
-        return trimmed.EndsWith(".value", StringComparison.Ordinal)
-            || trimmed.Split('.').All(IsIdentifierLikeSegment);
-    }
+    var trimmed = expr.Trim();
+    if (trimmed.EndsWith(".value", StringComparison.Ordinal))
+        return true;
+
+    // Strip array access brackets for analysis: "_matches[cap]" → "_matches"
+    // Then check if all dot-separated segments are identifier-like
+    var stripped = System.Text.RegularExpressions.Regex.Replace(trimmed, @"\[[^\]]*\]", "");
+    return stripped.Split('.').All(IsIdentifierLikeSegment);
+}
+
+/// <summary>
+/// Checks if a segment is an array access expression like "[cap]" or "[0]".
+/// </summary>
+private static bool IsArrayAccessSegment(string segment)
+{
+    return segment.StartsWith("[") && segment.EndsWith("]")
+        && segment.Length > 2; // Must have content between [ and ]
+}
 
     private static bool IsIdentifierLikeSegment(string segment)
     {

@@ -76,3 +76,24 @@
 **状态**: 🔧 待修复
 
 ---
+
+## Iteration 3 — make-readonly 预处理 CS0206（ref 字段被改写为属性）
+
+- **阶段**: 转换预处理（readonly-struct-maker 后的 `dotnet build` 验证），尚未进入 Maven
+- **错误文件**: `d:\cs-re-20260807\.cs2j-readonly-src\src\System\Text\RegularExpressions\RegexReplacement.cs`
+- **行号**: 42
+- **错误信息**: `error CS0206: 非引用返回属性或索引器不能用作 out 或 ref 值`
+- **代码片段**:
+  ```csharp
+  FourStackStrings stackStrings = default;
+  var strings = new ValueListBuilder<string>(MemoryMarshal.CreateSpan(ref stackStrings.Item1!, 4));
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexReplacement.cs`（`FourStackStrings` 嵌套结构，行 96-103）
+- **根因分类**: Lowering pass 不足（ReadOnlyStructMaker 资格判定缺陷）
+- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/StructAnalyzer.cs`、`src/CSharpToJava.Core/ReadOnlyStructMaker/CallGraphBuilder.cs`
+- **分析**: `FourStackStrings` 是 `[StructLayout(Sequential)]` 的裸内存块结构（公共字段经 `ref stackStrings.Item1` 交给 `MemoryMarshal.CreateSpan`）。分析器未检查外部 ref/out 字段访问，将其归入 L3/L4 路径把公共字段改写为 get-only 属性，导致调用点 `ref stackStrings.Item1` 非法（CS0206）。`CallGraphBuilder.HasExternalRefFieldAccess`（专为 CS0206 设计、已支持 `!` 解包）存在但从未被调用（死代码）。
+
+**状态**: 🔧 修复中
+
+---
+

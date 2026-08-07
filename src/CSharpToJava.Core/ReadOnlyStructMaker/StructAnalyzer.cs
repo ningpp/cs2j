@@ -224,6 +224,22 @@ internal sealed class StructAnalyzer
         {
             // No mutating methods — eligible for L1/L2/L3/L4
 
+            // Guard: methods that assign to `this` (e.g. `this = default`) cannot be
+            // converted to readonly because `this` is immutable in a readonly struct.
+            // This catches cases like Dispose() methods that reset the struct state.
+            if (HasThisAssignment(syntax))
+                return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
+                    "method assigns to 'this'", name);
+
+            // Guard: non-private fields passed as ref/out arguments from outside the
+            // struct (e.g. MemoryMarshal.CreateSpan(ref s.Item1!, 4) over a raw memory
+            // block struct) cannot become properties — properties are not ref-returning,
+            // so L3/L4 field conversion would break the call sites with CS0206.
+            if (nonPrivateFields.Count > 0 &&
+                _callGraph.HasExternalRefFieldAccess(symbol, syntax.SyntaxTree.GetRoot()))
+                return new(ConversionLevel.NotConvertible, StructPattern.PublicFields, false,
+                    "non-private fields accessed by ref/out externally (CS0206 risk)", name);
+
             // Pattern E: non-private fields (public/internal/protected) with external
             // assignments → L4 PublicFieldToProperty. Fields become get-only properties
             // and external writes are rewritten to WithXxx() calls.
@@ -637,7 +653,30 @@ internal sealed class StructAnalyzer
         if (_callGraph.IsModifiedThroughRef(symbol, root))
             return "fields mutated through ref parameter";
 
+        // Methods that assign to `this` (e.g. `this = default` or `this = newStruct`)
+        // cannot be migrated to readonly because `this` is immutable in a readonly struct.
+        // Check override methods too — some override ToString/Equals and modify state.
+        if (HasThisAssignment(syntax))
+            return "method assigns to 'this'";
+
         return null;
+    }
+
+    /// <summary>
+    /// Detects methods that directly assign to `this` (e.g., `this = default;` or
+    /// `this = new Value(...);`). Such patterns are illegal in a readonly struct
+    /// because `this` is treated as a readonly variable.
+    /// </summary>
+    private static bool HasThisAssignment(StructDeclarationSyntax syntax)
+    {
+        foreach (var node in syntax.DescendantNodes())
+        {
+            if (node is not AssignmentExpressionSyntax assignment)
+                continue;
+            if (assignment.Left is ThisExpressionSyntax)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

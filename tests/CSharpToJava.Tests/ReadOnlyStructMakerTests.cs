@@ -418,6 +418,32 @@ public partial class ReadOnlyStructMakerTests
         Assert.Contains("Data = Data.WithScheme(1)", result.OutputCode);
     }
 
+    [Fact]
+    public void PublicFields_ExternalRefAccess_NotConverted()
+    {
+        // Reproduces RegexReplacement.FourStackStrings: public fields used as a raw
+        // memory block via ref field access (MemoryMarshal.CreateSpan(ref s.Item1!, 4)).
+        // Converting the fields to get-only properties breaks the ref access (CS0206),
+        // so the struct must not be rewritten at all.
+        var src = """
+        class Holder {
+            public FourStrings Items;
+            static void Take(ref string s) { }
+            void Use() { Take(ref Items.Item1!); }
+        }
+        struct FourStrings {
+            public string Item1;
+            public string Item2;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
+        // The struct must keep its mutable public fields
+        Assert.DoesNotContain("readonly struct FourStrings", result.OutputCode);
+        Assert.DoesNotContain("Item1 { get; }", result.OutputCode);
+    }
+
     // === L7 Not Convertible Tests ===
 
     [Fact]

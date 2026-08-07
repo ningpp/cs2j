@@ -562,6 +562,18 @@ public class MethodTransformer : IMemberTransformer
                     .Select(a => a.Expression)
                     .Select(expr =>
                     {
+                        // Handle string concatenation (e.g., @\"...\" + \"...\")
+                        if (expr is BinaryExpressionSyntax binExpr && binExpr.IsKind(SyntaxKind.AddExpression))
+                        {
+                            var concatenated = TryEvaluateStringConcat(binExpr);
+                            if (concatenated != null)
+                            {
+                                // Escape for CSV: wrap in single quotes if contains comma, quote, or is empty
+                                if (concatenated.Contains(',') || concatenated.Contains("'") || concatenated.Trim().Length == 0 || concatenated.Length != concatenated.Trim().Length)
+                                    return "'" + concatenated.Replace("'", "''") + "'";
+                                return concatenated;
+                            }
+                        }
                         if (expr is LiteralExpressionSyntax lit)
                         {
                             // Check for null literal first (node Kind, not token Kind)
@@ -748,6 +760,43 @@ public class MethodTransformer : IMemberTransformer
     {
         // Escape backslashes and double-quotes for Java string literals inside @CsvSource
         return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    }
+
+    /// <summary>
+    /// Tries to evaluate a binary string concatenation expression at compile time.
+    /// Returns the concatenated string value, or null if the expression contains
+    /// non-literal operands.
+    /// </summary>
+    private static string? TryEvaluateStringConcat(BinaryExpressionSyntax node)
+    {
+        // Recursively evaluate left and right
+        if (node.Left is BinaryExpressionSyntax leftBin && leftBin.IsKind(SyntaxKind.AddExpression))
+        {
+            var leftStr = TryEvaluateStringConcat(leftBin);
+            if (leftStr == null) return null;
+            var rightStr = GetStringValue(node.Right);
+            if (rightStr == null) return null;
+            return leftStr + rightStr;
+        }
+
+        var left = GetStringValue(node.Left);
+        if (left == null) return null;
+        var right = GetStringValue(node.Right);
+        if (right == null) return null;
+        return left + right;
+    }
+
+    /// <summary>
+    /// Gets the string value from a string literal expression.
+    /// Returns null if the expression is not a string literal.
+    /// </summary>
+    private static string? GetStringValue(ExpressionSyntax expr)
+    {
+        if (expr is LiteralExpressionSyntax lit && lit.Token.IsKind(SyntaxKind.StringLiteralToken))
+        {
+            return lit.Token.ValueText;
+        }
+        return null;
     }
 
     private static string NormalizeAttributeName(string rawName)
