@@ -510,3 +510,22 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 24 — Regex.java RegexParser.parse 实参不匹配（CultureInfo 被误剥离）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Regex.java`
+- **行号**: 128
+- **错误信息**: `无法将类 RegexParser 中的方法 parse 应用到给定类型；需要 String,int,CultureInfo 找到 String,int`
+- **代码片段**:
+  ```java
+  RegexTree tree = RegexParser.parse(pattern, roptions);   // 丢失第 3 个 culture 实参
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Regex.cs`（`RegexParser.Parse(pattern, roptions, culture ?? (...))`）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（parse 剥离逻辑）
+- **分析**: “从 Parse 剥离末尾 CultureInfo/NumberStyles”优化以 `originalMethodName == "Parse"` 为条件过于宽泛；`RegexParser.Parse` 仅因名为 Parse 且末参是 CultureInfo（IFormatProvider）就被 `parseStripCount=1` 剥掉，但其 culture 是语义必需参数。
+- **修复**: 将 Parse 剥离限定为“真正的数值解析接收者”（`TryGetParseHelperMethod` 命中）或 DateTime/DateTimeOffset（其 compat parse 无 culture 重载）；RegexParser 等项目类 Parse 不再剥离。新增红→绿测试 `CoalesceArgumentTests`，Java/Project 全量测试无回归（2461+7）。
+
+**状态**: ✅ Fixed
+

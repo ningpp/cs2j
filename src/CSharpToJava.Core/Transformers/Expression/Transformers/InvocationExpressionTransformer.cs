@@ -5735,7 +5735,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // accept locale/style parameters.
         // For Convert.ToString, only strip when the last arg is an IFormatProvider (not a radix).
         int parseStripCount = 0;
-        bool isParseLike = originalMethodName == "Parse"
+        // Only strip a trailing CultureInfo/NumberStyles from Parse() when the receiver is a
+        // recognized numeric parse helper (int.Parse, double.Parse, ...). Arbitrary methods
+        // named Parse (e.g. RegexParser.Parse(pattern, options, culture)) genuinely need the
+        // CultureInfo argument, so it must not be stripped.
+        bool isParseLike = (originalMethodName == "Parse"
+                && (TryGetParseHelperMethod(memberAccess.Expression, context, out _)
+                    || ExpressionTransformerHelpers.StaticReceiverMatches(memberAccess.Expression, context,
+                        "DateTime", "System.DateTime", "DateTimeOffset", "System.DateTimeOffset")))
             || (originalMethodName is "ToBoolean" or "ToInt32" or "ToInt64"
                 or "ToDouble" or "ToSingle" or "ToInt16" or "ToByte")
             || (originalMethodName == "ToString" && toStringFormatProviderStripped);
