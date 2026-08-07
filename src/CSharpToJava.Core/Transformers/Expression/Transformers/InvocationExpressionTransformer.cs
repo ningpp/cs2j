@@ -296,6 +296,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     // Use facade.Transform so properties are emitted as getXxx() rather than bare identifier.
                     // e.g. Sequence(m) where Sequence is a Func<int,double> property → getSequence().apply(m)
                     var delegateReceiver = facade.Transform(bareIdent, context);
+                    // Task 27：TS 目标委托即函数值，调用点直调 fn(args)（Java 需 .apply(...)）；
+                    // 字段接收者可空（字段发射放宽为 T | null），追加 ! 非空断言（TS2721）
+                    if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                    {
+                        var tsReceiver = delegateReceiver;
+                        if (context.GetSymbolInfo(bareIdent).Symbol is IFieldSymbol { Type.TypeKind: TypeKind.Delegate })
+                        {
+                            tsReceiver += "!";
+                        }
+                        return $"{tsReceiver}({delegateArgs})";
+                    }
                     return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
                 }
 
@@ -330,6 +341,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
                     var bareDelReceiver = facade.Transform(bareIdent, context);
                     var bareDelArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    // Task 27：TS 目标委托直调（Java 需 .apply(...)）
+                    if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                    {
+                        return $"{bareDelReceiver}({bareDelArgs})";
+                    }
                     return $"{bareDelReceiver}.{bareJavaMethod}({bareDelArgs})";
                 }
             }
@@ -382,9 +398,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var symInfo = context.GetSymbolInfo(node);
             if (symInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } delegateInvoke)
             {
-                var javaMethod = ResolveDelegateInvokeMethodName(delegateInvoke, context);
+                        var javaMethod = ResolveDelegateInvokeMethodName(delegateInvoke, context);
                 var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                 var delegateReceiver = facade.Transform(node.Expression, context);
+                // Task 27：TS 目标委托即函数值，调用点直调 expr(args)
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                {
+                    return $"{delegateReceiver}({delegateArgs})";
+                }
                 return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
             }
 
@@ -399,6 +420,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var javaMethod = ResolveDelegateInvokeMethodName(invokeMethod, context);
                     var delegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                     var delegateReceiver = facade.Transform(node.Expression, context);
+                    // Task 27：TS 目标委托即函数值，调用点直调 expr(args)
+                    if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                    {
+                        return $"{delegateReceiver}({delegateArgs})";
+                    }
                     return $"{delegateReceiver}.{javaMethod}({delegateArgs})";
                 }
             }
@@ -419,6 +445,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 : (argCount == 0 ? "get" : "apply");
             var delegateArgs4 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             var delegateReceiver4 = facade.Transform(explicitInvokeMa.Expression, context);
+            // Task 27：TS 目标委托即函数值，delegate.Invoke(args) 直调 delegate(args)
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            {
+                return $"{delegateReceiver4}({delegateArgs4})";
+            }
             return $"{delegateReceiver4}.{samMethod}({delegateArgs4})";
         }
 
@@ -438,6 +469,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 : (argCount == 0 ? "get" : "apply");  // value: Supplier.get / Function.apply
             var delegateArgs3 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             var delegateReceiver3 = facade.Transform(node.Expression, context);
+            // Task 27：TS 目标委托即函数值，复杂表达式目标直接调用 expr(args)
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            {
+                return $"{delegateReceiver3}({delegateArgs3})";
+            }
             context.Diagnostics.Warning(
                 $"Delegate invocation via complex expression '{node.Expression}'; " +
                 $"delegate type could not be resolved — using heuristic SAM method '.{samMethod}()'",
@@ -1773,6 +1809,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     delegateTarget = $"{receiver}.{originalMethodName}";
                 }
 
+                // Task 27：TS 目标委托即函数值，调用点直调 this.cb(args)
+                // （属性形态 this.getSequence()(args) 由 TsPropertyReconstructionRewriter
+                // 在发射前把 getSequence() 改写为属性访问，收敛为 this.Sequence(args)）；
+                // 字段接收者可空，追加 ! 非空断言（TS2721）
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                {
+                    var tsTarget = delegateTarget;
+                    if (memberSymbol is IFieldSymbol { Type.TypeKind: TypeKind.Delegate })
+                    {
+                        tsTarget += "!";
+                    }
+                    return $"{tsTarget}({delegateArgs})";
+                }
                 return $"{delegateTarget}.{javaMethod}({delegateArgs})";
             }
         }
@@ -2793,6 +2842,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // Issue 1: apply method-name mapping from the type-mapping registry.
         string methodName = originalMethodName;
+        // Task 27：TS 目标委托即函数值，delegate.Invoke(args) 直调 delegate(args)
+        // （Java 需经 TypeMappings 把 Invoke → apply 再 .apply(...)，TS 直接调用；
+        //  仅当语义模型确认委托 Invoke，避免误改用户接口同名方法）
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+            && originalMethodName == "Invoke"
+            && methodSymbol?.MethodKind == MethodKind.DelegateInvoke)
+        {
+            var tsDelegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            var tsReceiver = receiver;
+            // 当前类实例字段/属性裸标识符接收者补 this.（tsc TS2663），与
+            // TransformInvocation 裸方法调用前缀逻辑一致
+            if (memberAccess.Expression is IdentifierNameSyntax receiverIdent
+                && context.SemanticModel != null
+                && context.GetSymbolInfo(receiverIdent).Symbol is { IsStatic: false } recvSym
+                && (recvSym is IFieldSymbol or IPropertySymbol)
+                && context.CurrentEnclosingRoslynType != null
+                && IsSameOrDerivedType(recvSym.ContainingType, context.CurrentEnclosingRoslynType))
+            {
+                tsReceiver = $"this.{tsReceiver}";
+            }
+            // 字段接收者可空，追加 ! 非空断言（TS2721）
+            if (context.SemanticModel != null
+                && context.GetSymbolInfo(memberAccess.Expression).Symbol is IFieldSymbol { Type.TypeKind: TypeKind.Delegate })
+            {
+                tsReceiver += "!";
+            }
+            return $"{tsReceiver}({tsDelegateArgs})";
+        }
         if (methodSymbol != null)
         {
             // ToDisplayString() uses C# keyword aliases for primitive types:
@@ -3644,6 +3721,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             bool seemsVoid = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax;
             int paramCount = node.ArgumentList.Arguments.Count;
+            // Task 27：TS 目标委托即函数值，delegate.Invoke(args) 直调 delegate(args)
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            {
+                var tsDelegateArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"{receiver}({tsDelegateArgs})";
+            }
             methodName = Type.DelegateTransformer.InferSamMethodName(seemsVoid, paramCount);
         }
 

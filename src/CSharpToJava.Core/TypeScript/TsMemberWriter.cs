@@ -60,7 +60,9 @@ public sealed class TsMemberWriter
             && !tsType.Contains("| null") && !tsType.Contains("null |")
             && tsType is not ("null" or "any" or "undefined" or "void"))
         {
-            emittedType = $"{tsType} | null";
+            // 函数类型（委托）后缀 | null 会并入返回类型（(a) => string | null），
+            // 外层并集需显式括号 ((a) => string) | null（Task 27 委托）
+            emittedType = tsType.Contains("=>") ? $"({tsType}) | null" : $"{tsType} | null";
         }
         sb.Append($"{name}: {emittedType}");
 

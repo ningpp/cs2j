@@ -326,12 +326,15 @@ public class FieldTransformer : IMemberTransformer
                 var getterName = "get" + propertyName;
                 var setterName = "set" + propertyName;
 
+                // Task 27：TS 目标下字段可空（T | null），访问器体补 this. 前缀
+                // （tsc TS2663）与 ! 非空断言（getter 返回非空函数类型）
+                var isTs = context.Options.TargetLanguage == TargetLanguage.TypeScript;
                 yield return new JavaMethodDeclaration
                 {
                     Name = getterName,
                     ReturnType = javaType,
                     Modifiers = JavaModifiers.Public,
-                    Body = $"return {escapedName};"
+                    Body = isTs ? $"return this.{escapedName}!;" : $"return {escapedName};"
                 };
 
                 yield return new JavaMethodDeclaration
@@ -340,7 +343,7 @@ public class FieldTransformer : IMemberTransformer
                     ReturnType = "void",
                     Modifiers = JavaModifiers.Public,
                     Parameters = { new JavaParameter(javaType, "value") },
-                    Body = $"{escapedName} = value;"
+                    Body = isTs ? $"this.{escapedName} = value;" : $"{escapedName} = value;"
                 };
             }
         }

@@ -171,6 +171,15 @@ public sealed class TsMemberMappingTable
             imports = holderImports;
             return true;
         }
+        // ① 委托函数类型（Task 27，spec §3.1.3）：IR 中 BCL 委托为 Java 风味名
+        // （Function<Integer, String>、Consumer<Integer>、Runnable 等），TS 直接表达为
+        // 函数类型 (x: number) => string；泛型实参逐段递归映射（不追加 `| null`）。
+        if (TryMapDelegateType(csharpOrJavaType, out var delegateTs, out var delegateImports))
+        {
+            tsType = delegateTs;
+            imports = delegateImports;
+            return true;
+        }
         // ① 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
         if (BuiltinJavaTypeMappings.TryGetValue(csharpOrJavaType, out var javaMapped))
         {
@@ -213,6 +222,129 @@ public sealed class TsMemberMappingTable
     };
 
     private const string CompatHolderPrefix = "io.github.ningpp.compat.";
+
+    /// <summary>
+    /// 委托 → TS 函数类型映射（Task 27，spec §3.1.3）：Java 风味 BCL 委托名
+    /// （Function/BiFunction/Consumer/BiConsumer/Supplier/Runnable/Predicate/
+    /// Comparator/Callable）→ `(p1: T1, ...) => R`；参数名按位置取 a/b/c/…。
+    /// 泛型实参逐段递归映射（String→string、Integer→number、嵌套泛型原样递归）。
+    /// 委托类型是函数值而非引用类型，不追加 `| null`。
+    /// </summary>
+    private bool TryMapDelegateType(string javaType, out string tsType, out IReadOnlyList<string> imports)
+    {
+        tsType = javaType;
+        imports = System.Array.Empty<string>();
+        var bare = javaType;
+        var args = System.Array.Empty<string>();
+        var open = javaType.IndexOf('<');
+        if (open >= 0 && javaType.EndsWith(">", StringComparison.Ordinal))
+        {
+            bare = javaType[..open].Trim();
+            args = SplitTopLevelGenericArgs(javaType[(open + 1)..^1]);
+        }
+
+        int paramCount;
+        int returnIndex;
+        switch (bare)
+        {
+            case "Runnable":
+                paramCount = 0;
+                returnIndex = -1; // void 返回，无返回类型实参
+                break;
+            case "Supplier":
+            case "Callable":
+                paramCount = 0;
+                returnIndex = args.Length - 1;
+                break;
+            case "Function":
+            case "BiFunction":
+                paramCount = args.Length - 1;
+                returnIndex = args.Length - 1;
+                break;
+            case "Consumer":
+            case "Predicate":
+                paramCount = 1;
+                returnIndex = -1;
+                break;
+            case "BiConsumer":
+                paramCount = 2;
+                returnIndex = -1;
+                break;
+            case "Comparator":
+                paramCount = 2;
+                returnIndex = -1;
+                break;
+            default:
+                return false;
+        }
+        if (returnIndex >= 0 && returnIndex >= args.Length)
+        {
+            return false;
+        }
+        if (paramCount > args.Length)
+        {
+            return false;
+        }
+
+        var mappedArgs = args.Select(a => TryMapType(a, out var m, out _) ? m : a).ToArray();
+        var parts = new List<string>();
+        for (int i = 0; i < paramCount; i++)
+        {
+            parts.Add($"{ParameterName(i)}: {mappedArgs[i]}");
+        }
+        var returnTs = returnIndex >= 0
+            ? mappedArgs[returnIndex]
+            : bare switch
+            {
+                "Predicate" => "boolean",
+                "Comparator" => "number",
+                _ => "void",
+            };
+        tsType = $"({string.Join(", ", parts)}) => {returnTs}";
+        return true;
+    }
+
+    /// <summary>按位置生成函数类型参数名（a/b/c/…/aa/ab/…）。</summary>
+    private static string ParameterName(int index)
+    {
+        var sb = new System.Text.StringBuilder();
+        index++;
+        while (index > 0)
+        {
+            index--;
+            sb.Insert(0, (char)('a' + index % 26));
+            index /= 26;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 按顶层逗号拆分泛型实参（忽略嵌套尖括号内的逗号），如
+    /// "Integer, List<String>" → ["Integer", "List<String>"]。
+    /// </summary>
+    private static string[] SplitTopLevelGenericArgs(string inner)
+    {
+        var result = new List<string>();
+        var depth = 0;
+        var start = 0;
+        for (var i = 0; i < inner.Length; i++)
+        {
+            var ch = inner[i];
+            if (ch == '<') depth++;
+            else if (ch == '>') depth--;
+            else if (ch == ',' && depth == 0)
+            {
+                result.Add(inner[start..i].Trim());
+                start = i + 1;
+            }
+        }
+        var last = inner[start..].Trim();
+        if (last.Length > 0)
+        {
+            result.Add(last);
+        }
+        return result.ToArray();
+    }
 
     /// <summary>
     /// Java ref/out Holder 包装类型 → TS Ref&lt;T&gt;（Task 27，spec §4.3.1）。

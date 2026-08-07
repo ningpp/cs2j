@@ -183,6 +183,12 @@ public sealed class TsTypeWriter
 
     private string EmitInterface(JavaInterfaceDeclaration iface, int indentLevel)
     {
+        // Task 27：委托声明（DelegateTransformer 在 TS 目标下加 cs2j:TsDelegate 标记）
+        // → 函数类型别名 `export type X = (p: T) => R`（spec §3.1.3：TS 优势点直译）
+        if (iface.Annotations.Any(a => a.Name == "cs2j:TsDelegate"))
+        {
+            return EmitDelegateTypeAlias(iface, indentLevel);
+        }
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
 
@@ -240,6 +246,32 @@ public sealed class TsTypeWriter
         }
 
         sb.Append(ind).Append('}');
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 委托 → TS 函数类型别名发射（Task 27，spec §3.1.3）：SAM 方法（首个方法）
+    /// 的参数/返回类型经 Java→TS 映射（泛型实参装箱名走非可空映射，与
+    /// FormatTypeParameters 一致）；类型参数保留（export type X&lt;T&gt; = ...）。
+    /// </summary>
+    private string EmitDelegateTypeAlias(JavaInterfaceDeclaration iface, int indentLevel)
+    {
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+        sb.Append("export type ");
+        sb.Append(TsNaming.SafeClassName(iface.Name));
+        sb.Append(FormatTypeParameters(iface.TypeParameters, _memberWriter.MapTypeNonNull));
+        sb.Append(" = ");
+        var sam = iface.Methods.FirstOrDefault();
+        if (sam == null)
+        {
+            sb.AppendLine("() => void;");
+            return sb.ToString();
+        }
+        var parms = string.Join(", ", sam.Parameters.Select(p =>
+            $"{TsNaming.SafeIdentifier(p.Name)}: {_memberWriter.MapTypeNonNull(p.Type)}"));
+        sb.Append('(').Append(parms).Append(") => ");
+        sb.AppendLine(_memberWriter.MapTypeNonNull(sam.ReturnType) + ";");
         return sb.ToString();
     }
 

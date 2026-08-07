@@ -81,6 +81,11 @@ public sealed class TsInterfaceProbeRewriter : JavaSyntaxRewriter
         switch (type)
         {
             case JavaInterfaceDeclaration iface:
+                // Task 27：委托声明不生成运行时探针（函数类型别名无 instanceof 语义）
+                if (iface.Annotations.Any(a => a.Name == "cs2j:TsDelegate"))
+                {
+                    break;
+                }
                 _interfaces.TryAdd(iface.Name, iface);
                 foreach (var nested in iface.NestedTypes)
                 {
