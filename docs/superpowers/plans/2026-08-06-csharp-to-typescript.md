@@ -5463,6 +5463,15 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   cloneStruct 浅拷贝）+ index.ts 导出；tsc --noEmit + vitest 34 用例全绿。登记：L3 compat
   桩 → 真实包 file: 链接切换归 M4 收尾（依赖 dist 构建顺序）。
 
+- [x] **Task 30 完成（2026-08-07）**：`src/time/` 组件（DayOfWeek 枚举 Sunday=0…Saturday=6；
+  CsTimeSpan bigint ticks、Days/Hours/… 向零截断、Total*、From* 银行家舍入、
+  Add/Subtract/Negate/CompareTo/Equals/hashCode/ToString `[d.]hh:mm:ss[.fffffff]`；
+  CsDateTime 纯整数格里高利历换算（Hinnant civil 算法）、ticks=100ns bigint、
+  闰年/daysInMonth/MinValue/MaxValue/Add*（分数舍入半远离零）/AddMonths 月末收敛/
+  Subtract/CompareTo/Equals/hashCode/ToString 格式符（yyyy/MM/dd/HH/mm/ss/fff/…、
+  `\` 转义、'…' 原义段）/Date/TimeOfDay/Now/UtcNow/Today + op_Addition/op_Subtraction
+  静态降级）
+
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
 | Task | 组件 | 关键验收（spec 章节） |
