@@ -1796,7 +1796,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return scopedName;
         }
 
-        return ExpressionTransformerHelpers.StripTypeArguments(context.MapType(typeSymbol));
+        var mapped = ExpressionTransformerHelpers.StripTypeArguments(context.MapType(typeSymbol));
+
+        // MapType returns the configured Java name but does not register the mapping's
+        // required imports. A static receiver (e.g. RuntimeFeature.IsDynamicCodeCompiled)
+        // emits that short name, so the TypeMappings imports must be added here —
+        // otherwise javac reports "cannot find symbol" for the compat class.
+        if (typeSymbol is INamedTypeSymbol namedForImport)
+        {
+            foreach (var candidateKey in new[] { namedForImport.ToDisplayString(), namedForImport.Name })
+            {
+                foreach (var import in context.TypeMappings.GetRequiredImports(candidateKey))
+                    context.AddImport(import);
+            }
+        }
+
+        return mapped;
     }
 
     private static bool IsStaticReceiverExpression(ExpressionSyntax expression, ConversionContext context)

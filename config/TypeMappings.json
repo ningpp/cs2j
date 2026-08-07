@@ -529,6 +529,20 @@
             ]
         },
         {
+            "csharp": "System.Threading.Timeout",
+            "java": "Timeout",
+            "imports": [
+                "io.github.ningpp.compat.Timeout"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.CompilerServices.RuntimeFeature",
+            "java": "RuntimeFeature",
+            "imports": [
+                "io.github.ningpp.compat.RuntimeFeature"
+            ]
+        },
+        {
             "csharp": "System.Buffers.ArrayPool`1",
             "java": "ArrayPool",
             "imports": [

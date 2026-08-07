@@ -432,3 +432,23 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 20 — Regex.java 找不到符号 Timeout / RuntimeFeature
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Regex.java`
+- **行号**: 71（Timeout.InfiniteTimeSpan）、105（RuntimeFeature.getIsDynamicCodeCompiled()）
+- **错误信息**: `找不到符号 变量 Timeout` / `找不到符号 变量 RuntimeFeature`（compat 短名已发射但缺 import）
+- **代码片段**:
+  ```java
+  public static final CSharpTimeSpan InfiniteMatchTimeout = Timeout.InfiniteTimeSpan;   // 缺 import Timeout
+  if (RuntimeFeature.getIsDynamicCodeCompiled() && useOptionC()) { ... }              // 缺 import RuntimeFeature
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Regex.cs`（`RuntimeFeature.IsDynamicCodeCompiled`）与 `Regex.Timeout.cs`（`Timeout.InfiniteTimeSpan`）
+- **根因分类**: 类型映射缺失 + Transformer 逻辑缺陷
+- **涉及组件**: `config/TypeMappings.json`、`compat Timeout.java/RuntimeFeature.java`、`src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs`（`MapStaticTypeReceiver`）
+- **分析**: ① BCL 静态类型 `System.Threading.Timeout`、`System.Runtime.CompilerServices.RuntimeFeature` 无映射，访问落到未定义符号；② 补映射后，静态**属性**接收者经 `MapStaticTypeReceiver` 用 `MapType` 返回 compat 短名，但该函数只取名不注册 TypeMappings 的 required imports，导致 `RuntimeFeature.getIsDynamicCodeCompiled()` 缺 import。真实 FQN 是 `System.Runtime.CompilerServices.RuntimeFeature`（非 `System.Runtime.RuntimeFeature`）。Timeout 字段访问走 field 路径已自带 import，故仅属性路径缺。
+- **修复**: ① TypeMappings.json 新增 Timeout 与 CompilerServices.RuntimeFeature 两条映射（含 compat imports）；② 新建 compat `Timeout`（InfiniteTimeSpan/Infinite）与 `RuntimeFeature`（getIsDynamicCodeCompiled/getIsDynamicCodeSupported）；③ `MapStaticTypeReceiver` 返回映射名时补注册该类型的 required imports（display + simple name 双 key）。新增测试 `TimeoutAndRuntimeFeatureMappingTests`（单文件 Timeout + 项目级 RuntimeFeature import + Registry 配置断言），全量测试 2456+7+570 通过。
+
+**状态**: ✅ Fixed
+
