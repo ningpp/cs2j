@@ -490,3 +490,23 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 23 — Match.java 找不到符号 setIndex/setLength（private protected setter 被降为 private）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Match.java`
+- **行号**: 214、215
+- **错误信息**: `找不到符号 方法 setIndex(int)/setLength(int) 位置: 类 Match`
+- **代码片段**:
+  ```java
+  setIndex(interval[0]);    // 基类 Capture 的 setter 被生成为 private，子类不可见
+  setLength(interval[1]);
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Capture.cs`（`public int Index { get; private protected set; }`）；调用点 `Match.cs`（`tidy`）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs`（`GetSingleAccessModifier`）
+- **分析**: `private protected set` 产生 Private|Protected 双标志，`GetSingleAccessModifier` 按“private > protected”优先级错误保留 Private，setter 成为 private，子类 Match 无法调用。
+- **修复**: `GetSingleAccessModifier` 新增 Private+Protected 组合判定，映射为 Protected（private protected 对派生类可见，最接近 Java protected）。新增红→绿测试 `PrivateProtectedSetterTests`，Java/Project 全量测试无回归（2460+7）。
+
+**状态**: ✅ Fixed
+

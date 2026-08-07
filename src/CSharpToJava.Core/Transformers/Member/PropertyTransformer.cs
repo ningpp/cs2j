@@ -414,6 +414,11 @@ public class PropertyTransformer : IMemberTransformer
 
     private JavaModifiers GetSingleAccessModifier(JavaModifiers modifiers)
     {
+        // C# 'private protected' yields BOTH Private and Protected flags; it means
+        // accessible to the containing type and its derived classes — the closest
+        // Java equivalent is protected so subclasses can call the setter.
+        if ((modifiers & JavaModifiers.Private) != 0 && (modifiers & JavaModifiers.Protected) != 0)
+            return (modifiers & ~JavaModifiers.Public & ~JavaModifiers.Private);
         // 确保只有一个访问修饰符（public, protected, private）
         // 优先级：private > protected > public
         if ((modifiers & JavaModifiers.Private) != 0)
