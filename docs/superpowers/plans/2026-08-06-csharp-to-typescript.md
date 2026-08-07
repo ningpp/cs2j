@@ -5437,6 +5437,8 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   `runAsync/supplyAsync`（Task.Run）→`Promise.resolve((fn)())` 同步降级 + 诊断；
   表达式体 async 解包 completedFuture 后发射 `return X;`；登记限制：非 async 方法的
   `.join()`（Task.Result 阻塞语义）无 TS 对应不改写，async lambda 随 ③ 同步降级）
+- [x] **Task 27 完成（2026-08-07）**：M3 收尾全量 TS 测试 440 全绿，
+  Java 回归 37 基线失败不变（零新增）
 
 ---
 
