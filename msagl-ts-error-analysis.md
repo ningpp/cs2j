@@ -15,8 +15,13 @@
 | 9 | 20 → 15 | 构造器委托实参在成员位（`.` 后）被朴素替换 → 仅值位替换 | src/CSharpToJava.Core/TypeScript/Rewriters/TsOverloadDisambiguationRewriter.cs + tests/CSharpToTypeScript.Tests（TsOverloadRewriterTests +2）| 1418f93b |
 | 8 | 26 → 20 | try-with-resources 无 catch/finally 时裸 `try {`（TS1472）→ 降级为块作用域 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| 1daf46cb |
 | 10 | 15 → 10 | `Type[]::new` 方法引用 FQCN 接收者回扫残缺（`.` 段未纳入） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | ec19886a |
-| 11 | 10 → 8 | CRLF raw 文本尾注释声明未 let 化：declPattern 尾组吞不下行尾 `\r` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +6）+ 本文件 | TBD 
+| 11 | 10 → 8 | CRLF raw 文本尾注释声明未 let 化：declPattern 尾组吞不下行尾 `\r` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +6）+ 本文件 | bacd8673（代码+测试被并发会话提交扫入，见注） 
 
+
+> Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
+> bacd8673（其提交主题为 WeakReference 泛型映射）；行尾形态测试（`\r\r\n`）与
+> 本节记录被扫入 e3494d79（其提交主题为 IEnumerator 冲突）。两提交均覆盖在
+> 本轮验证链（全量重转 + tsc 10 → 8）之内。
 
 ## Round 1 — MSBuild 零引用 → 注入本机 ref pack
 
