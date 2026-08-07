@@ -238,11 +238,16 @@ public partial class StatementTransformer
 
         // C# allows foreach (char c in str) because string implements IEnumerable<char>.
         // Java String does NOT implement Iterable<Character>, so we must use toCharArray().
+        // TS（Task 27）：for-of 可直接迭代字符串（char → string 映射一致），
+        // 无需 toCharArray（string 上无此成员，tsc TS2339）。
         var exprTypeInfo = context.GetTypeInfo(stmt.Expression).Type;
         var isStringCharArray = false;
         if (exprTypeInfo?.SpecialType == SpecialType.System_String)
         {
-            expression = $"{expression}.toCharArray()";
+            if (context.Options.TargetLanguage != TargetLanguage.TypeScript)
+            {
+                expression = $"{expression}.toCharArray()";
+            }
             isStringCharArray = true;
         }
 
