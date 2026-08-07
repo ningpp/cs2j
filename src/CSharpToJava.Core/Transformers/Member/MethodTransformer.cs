@@ -962,13 +962,21 @@ public class MethodTransformer : IMemberTransformer
 
     private string GetReturnType(MethodDeclarationSyntax methodDecl, ConversionContext context)
     {
-        if (methodDecl.ReturnType is PredefinedTypeSyntax predefinedType &&
+        // Handle C# ref return types (ref char, ref int, etc.): strip the 'ref' keyword
+        // since Java does not support ref return types.
+        var actualReturnType = methodDecl.ReturnType;
+        if (actualReturnType is RefTypeSyntax refTypeSyntax)
+        {
+            actualReturnType = refTypeSyntax.Type;
+        }
+
+        if (actualReturnType is PredefinedTypeSyntax predefinedType &&
             predefinedType.Keyword.IsKind(SyntaxKind.VoidKeyword))
         {
             return "void";
         }
 
-        var typeInfo = context.GetTypeInfo(methodDecl.ReturnType);
+        var typeInfo = context.GetTypeInfo(actualReturnType);
         if (typeInfo.Type != null)
         {
             if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
@@ -983,7 +991,7 @@ public class MethodTransformer : IMemberTransformer
         }
 
         // Semantic model failed to resolve the type — fall back to the syntax text
-        return context.MapTypeFromSyntax(methodDecl.ReturnType);
+        return context.MapTypeFromSyntax(actualReturnType);
     }
 
     private static bool ShouldReturnObjectForRuntimeTypeParameterArray(

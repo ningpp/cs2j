@@ -59,7 +59,11 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
 
         if (literal.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             || literal.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
-            return literal;
+        {
+            // Strip C# unsigned/long suffixes (U, L, UL, LU, etc.) from hex/binary literals.
+            // Java does not support these suffixes on hex/binary literals.
+            return StripHexSuffix(literal);
+        }
 
         if (literal.EndsWith("f") || literal.EndsWith("F"))
         {
@@ -153,6 +157,26 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
         // For modern Java, just strip leading 0s, preserving underscores between significant digits.
         var trimmed = literal.Substring(i);
         return trimmed;
+    }
+
+    /// <summary>
+    /// Strips C# unsigned/long suffixes (U, L, UL, LU, u, l, ul, lu) from hex/binary literals.
+    /// Java does not support these suffixes on hex/binary literals.
+    /// For example: 0xF0U → 0xF0, 0x8989UL → 0x8989
+    /// </summary>
+    private static string StripHexSuffix(string literal)
+    {
+        // Find the end of the hex/binary prefix (0x or 0b)
+        int prefixEnd = 2; // Skip "0x" or "0b"
+        int i = literal.Length - 1;
+
+        // Strip trailing U, L, u, l characters from the end
+        while (i >= prefixEnd && (literal[i] == 'U' || literal[i] == 'u' || literal[i] == 'L' || literal[i] == 'l'))
+        {
+            i--;
+        }
+
+        return literal.Substring(0, i + 1);
     }
 
     private string TransformStringLiteral(LiteralExpressionSyntax node, ConversionContext context)

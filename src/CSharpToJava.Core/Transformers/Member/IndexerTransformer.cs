@@ -89,7 +89,9 @@ public class IndexerTransformer : IMemberTransformer
                     ? context.MapType(paramTypeInfo.Type)
                     : "Object";
             }
-            parameters.Add(new JavaParameter(javaType, param.Identifier.Text));
+            // Escape Java keywords in parameter names (e.g., '_' is reserved in Java 9+)
+            var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
+            parameters.Add(new JavaParameter(javaType, paramName));
             paramIndex++;
         }
 

@@ -1882,6 +1882,14 @@ public class ClassTransformer : ITypeTransformer
                     resetBody = resetMethod.Body ?? "";
                 }
 
+                // Ensure the existing body statement has a semicolon before appending.
+                // Expression-bodied methods may have a body without trailing semicolon
+                // (e.g., "_index = -1" from "void Reset() => _index = -1;").
+                if (!resetBody.EndsWith(";"))
+                {
+                    resetBody = resetBody.TrimEnd() + ";";
+                }
+
                 resetMethod.Body = resetBody + "\n        _iteratorHasNext = false;";
                 resetMethod.IsBodyExpression = false;
             }

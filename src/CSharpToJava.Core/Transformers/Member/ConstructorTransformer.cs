@@ -67,7 +67,9 @@ public class ConstructorTransformer : IMemberTransformer
             var typeInfo = context.GetTypeInfo(param.Type!);
             var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "Object";
 
-            var javaParam = new JavaParameter(javaType, param.Identifier.Text);
+            // Escape Java keywords in parameter names (e.g., '_' is reserved in Java 9+)
+            var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
+            var javaParam = new JavaParameter(javaType, paramName);
 
             // 处理修饰符
             if (param.Modifiers.Any(m => m.IsKind(SyntaxKind.ThisKeyword)))
