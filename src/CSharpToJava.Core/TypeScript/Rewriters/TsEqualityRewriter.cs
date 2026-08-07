@@ -36,6 +36,17 @@ public sealed class TsEqualityRewriter : CSharpSyntaxRewriter
         _semanticModel = context.SemanticModel!;
     }
 
+    /// <summary>按节点所在树解析语义模型（Task 38：项目模式注入 Compilation/
+    /// SemanticModel，多文件各树模型不同）；单文件模式回退到构造时捕获的模型。</summary>
+    private SemanticModel? SemanticModelFor(SyntaxNode node)
+    {
+        if (node.SyntaxTree == null)
+        {
+            return _semanticModel;
+        }
+        return _context.GetSemanticModelForNode(node) ?? _semanticModel;
+    }
+
     /// <summary>相等目标类别：仅任务范围内类型参与 CsObject.equals 改写。</summary>
     private enum EqualityKind
     {
@@ -55,7 +66,7 @@ public sealed class TsEqualityRewriter : CSharpSyntaxRewriter
         // 显式 operator==/!= 的引用类型类不改写（Task 27 运算符重载处理调用点）；
         // record 合成的 operator==（IsImplicitlyDeclared）与 struct 的 operator==
         // 仍按类型类别改写（spec：record/struct 的 == → CsObject.equals）。
-        if (_semanticModel.GetSymbolInfo(node).Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } userOp
+        if (SemanticModelFor(node)?.GetSymbolInfo(node).Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } userOp
             && !userOp.IsImplicitlyDeclared
             && userOp.ContainingType is { IsValueType: false })
         {
@@ -86,7 +97,7 @@ public sealed class TsEqualityRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         var rewritten = (InvocationExpressionSyntax)base.VisitInvocationExpression(node)!;
-        var symbol = _semanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var symbol = SemanticModelFor(node)?.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
         // 静态 Equals(a, b)（object.Equals/string.Equals/静态类内无接收者）→ CsObject.Equals(a, b)
         if (symbol is { IsStatic: true, Name: "Equals", Parameters.Length: 2 }
@@ -182,7 +193,7 @@ public sealed class TsEqualityRewriter : CSharpSyntaxRewriter
         {
             return EqualityKind.Primitive;
         }
-        return ClassifyType(_semanticModel.GetTypeInfo(expr).Type);
+        return ClassifyType(SemanticModelFor(expr)?.GetTypeInfo(expr).Type);
     }
 
     private static EqualityKind ClassifyType(ITypeSymbol? type)

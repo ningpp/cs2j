@@ -5582,6 +5582,26 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 
 - **Files:** `src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs`
 - **要点：** 按 spec §2.4 逐 pass 处置：`ProjectTypeEmitPass` → TS emit pass（注入 Compilation/SemanticModel 供重载/数值 rewriter 消歧）；`ProjectCompatibilityEmitPass`/`ProjectCrossPackageImportEmitPass` → TS 变体；`ProjectJavaModuleDependencyPass` → `NpmDependencyPass`；NativeInterop 检查降级为警告。
+- [x] **Task 38 完成（2026-08-07）**：`ProjectConversionPipeline.CreateProjectPasses` 按
+  `TargetLanguage` 分叉 TS pass 序列（LinqDesugar → CompilationCheck → UnsupportedDomain →
+  PlatformBoundary → NativeInterop → ExtensionMethod → **ProjectTsSyntaxRewritePass** →
+  PartialTypeNormalization → **ProjectTsEmitPass** → CompatibilityEmit →
+  CrossPackageImportEmit → **ProjectNpmDependencyPass**；Java 专属
+  JavaModuleDependency/StructClonePatch 不进入 TS 序列）；新增
+  `src/CSharpToJava.Core/Pipeline/ProjectTsPasses.cs`：语法层 rewriter 逐文件改写后
+  重建编译（数值→重载→泛型→相等→索引器→模式，与 SingleFileTsEmitPass 1a-1f 同序），
+  重载/泛型 rewriter 先 `Precollect` 全部文件再统一改写（`ITsSyntaxPrecollector` 接口 +
+  `Precollect(CompilationUnitSyntax)`，改名表/闭包跨文件一致，调用点同步改名）；
+  `TsEmitSupport.EmitTypeScript`（单文件/项目共享发射：12 个 IR rewriter +
+  TypeScriptEmitter），5 个 TS rewriter 语义查询改走逐节点
+  `context.GetSemanticModelForNode` 兜底（多文件各树模型不同）；ProjectTsEmitPass 复用
+  `TypeGroupResolver.ConvertTypeGroup` 共享前端 + `.ts` 扩展名输出；NativeInterop
+  检查 TS 目标降级为 Warning（结果内诊断同步降级副本，不阻断发射）；NpmDependencyPass
+  扫描生成代码 ESM 导入收集包名 → `ConversionResult.NpmPackageDependencies`；TS 单测
+  462 全绿（新增 TsProjectPipelineTests 5 用例：每类型一个 .ts/跨文件重载改名同步/
+  NativeInterop 警告/ compat 依赖收集/Java 路径零回归）+ vitest 203 + tsc 全绿；Java
+  2423 + ProjectTests 7 零回归；已登记限制：跨文件/跨包相对导入由发射器按类型归属
+  生成（spec §6.5，M4/M5 限制），CLI 工程级接线归 Task 40。
 
 ## Task 39: 测试项目 → vitest 工程
 

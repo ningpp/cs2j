@@ -19,11 +19,24 @@ namespace CSharpToJava.Core.TypeScript.Rewriters;
 /// </summary>
 public sealed class TsIndexerRewriter : CSharpSyntaxRewriter
 {
+    private readonly ConversionContext _context;
     private readonly SemanticModel _semanticModel;
 
     public TsIndexerRewriter(ConversionContext context)
     {
+        _context = context;
         _semanticModel = context.SemanticModel!;
+    }
+
+    /// <summary>按节点所在树解析语义模型（Task 38：项目模式注入 Compilation/
+    /// SemanticModel，多文件各树模型不同）；单文件模式回退到构造时捕获的模型。</summary>
+    private SemanticModel? SemanticModelFor(SyntaxNode node)
+    {
+        if (node.SyntaxTree == null)
+        {
+            return _semanticModel;
+        }
+        return _context.GetSemanticModelForNode(node) ?? _semanticModel;
     }
 
     public override SyntaxNode? VisitElementAccessExpression(ElementAccessExpressionSyntax node)
@@ -157,7 +170,7 @@ public sealed class TsIndexerRewriter : CSharpSyntaxRewriter
 
     private bool IsUserIndexer(ElementAccessExpressionSyntax node)
     {
-        return _semanticModel.GetSymbolInfo(node).Symbol is IPropertySymbol { IsIndexer: true } prop
+        return SemanticModelFor(node)?.GetSymbolInfo(node).Symbol is IPropertySymbol { IsIndexer: true } prop
             && prop.ContainingType?.Locations.Any(l => l.IsInSource) == true;
     }
 }

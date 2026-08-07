@@ -51,6 +51,17 @@ public sealed class TsNumericSemanticsRewriter : CSharpSyntaxRewriter
 
     // ─── 遍历覆盖 ───────────────────────────────────────────────────
 
+    /// <summary>按节点所在树解析语义模型（Task 38：项目模式注入 Compilation/
+    /// SemanticModel，多文件各树模型不同）；单文件模式回退到构造时捕获的模型。</summary>
+    private SemanticModel? SemanticModelFor(SyntaxNode node)
+    {
+        if (node.SyntaxTree == null)
+        {
+            return _semanticModel;
+        }
+        return _context.GetSemanticModelForNode(node) ?? _semanticModel;
+    }
+
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
     {
         // 先用原始子树做语义判定（base.Visit 后原始节点仍保持原样，可安全查询），
@@ -396,7 +407,12 @@ public sealed class TsNumericSemanticsRewriter : CSharpSyntaxRewriter
     {
         try
         {
-            var info = _semanticModel.GetTypeInfo(expr);
+            var model = SemanticModelFor(expr);
+            if (model == null)
+            {
+                return null;
+            }
+            var info = model.GetTypeInfo(expr);
             return info.Type ?? info.ConvertedType;
         }
         catch

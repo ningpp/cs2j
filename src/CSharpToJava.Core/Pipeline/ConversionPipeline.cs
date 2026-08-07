@@ -47,6 +47,13 @@ public class ConversionResult
     public IReadOnlySet<string>? JavaModuleDependencies { get; set; }
 
     /// <summary>
+    /// npm 包依赖（生成 TS 的 ESM 导入包名，如 "@csharptotypescript/compat"）。
+    /// 由 ProjectNpmDependencyPass（TS 目标，Task 38）收集；CLI 据此写模块
+    /// package.json dependencies（Task 40 接线）。
+    /// </summary>
+    public IReadOnlySet<string>? NpmPackageDependencies { get; set; }
+
+    /// <summary>
     /// The Java IR compilation unit for this output file.  Preserved after the emit pass so
     /// that downstream passes (e.g. cross-package import resolution, module dependency analysis)
     /// can operate on structured IR nodes rather than re-parsing generated code strings.

@@ -23,7 +23,7 @@ namespace CSharpToJava.Core.TypeScript.Rewriters;
 /// typeof(T) 运行时仅知类型参数名；csDefault 对 struct 约束返回 null；
 /// (List&lt;T&gt;)x 泛型实例化强转；泛型数组 new T[n] 运行时类参数机制；跨文件工厂调用点。
 /// </summary>
-public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
+public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter, ITsSyntaxPrecollector
 {
     private sealed record FactoryNeed(string TypeParamName, string FactoryParamName);
 
@@ -44,9 +44,33 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
         _semanticModel = context.SemanticModel!;
     }
 
+    private bool _precollected;
+
+    /// <summary>项目模式（Task 38）：先收集全部文件的工厂需求（跨文件透传闭包）。
+    /// 单文件模式无需调用，VisitCompilationUnit 自动收集。</summary>
+    public void Precollect(CompilationUnitSyntax root)
+    {
+        CollectFactoryNeeds(root.Members);
+        _precollected = true;
+    }
+
+    /// <summary>按节点所在树解析语义模型（Task 38：项目模式注入 Compilation/
+    /// SemanticModel，多文件各树模型不同）；单文件模式回退到构造时捕获的模型。</summary>
+    private SemanticModel? SemanticModelFor(SyntaxNode node)
+    {
+        if (node.SyntaxTree == null)
+        {
+            return _semanticModel;
+        }
+        return _context.GetSemanticModelForNode(node) ?? _semanticModel;
+    }
+
     public override SyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
     {
-        CollectFactoryNeeds(node.Members);
+        if (!_precollected)
+        {
+            CollectFactoryNeeds(node.Members);
+        }
         return base.VisitCompilationUnit(node);
     }
 
@@ -60,7 +84,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
         // 第一轮：方法体直接含 new T()（T 为类型参数）
         foreach (var method in methods)
         {
-            var symbol = _semanticModel.GetDeclaredSymbol(method);
+            var symbol = SemanticModelFor(method)?.GetDeclaredSymbol(method);
             if (symbol == null)
             {
                 continue;
@@ -69,7 +93,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
             foreach (var creation in method.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
             {
                 // 实测：GetTypeInfo(creation.Type) 对 new T() 返回 null，须用整表达式。
-                var created = _semanticModel.GetTypeInfo(creation).Type;
+                var created = SemanticModelFor(creation)?.GetTypeInfo(creation).Type;
                 if (created is ITypeParameterSymbol tp && !needs.ContainsKey(tp.Name))
                 {
                     needs[tp.Name] = $"_{"factory"}_{tp.Name}";
@@ -90,7 +114,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
             changed = false;
             foreach (var method in methods)
             {
-                var caller = _semanticModel.GetDeclaredSymbol(method);
+                var caller = SemanticModelFor(method)?.GetDeclaredSymbol(method);
                 if (caller == null)
                 {
                     continue;
@@ -142,13 +166,13 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
     /// rewritten signature breaks binding (OverloadResolutionFailure).</summary>
     private bool TryResolveMethodSymbol(InvocationExpressionSyntax invocation, out IMethodSymbol method)
     {
-        var info = _semanticModel.GetSymbolInfo(invocation);
-        if (info.Symbol is IMethodSymbol resolved)
+        var info = SemanticModelFor(invocation)?.GetSymbolInfo(invocation);
+        if (info?.Symbol is IMethodSymbol resolved)
         {
             method = resolved;
             return true;
         }
-        method = info.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault()!;
+        method = info?.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault()!;
         return method != null;
     }
 
@@ -206,7 +230,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
         if (node.Expression is TypeOfExpressionSyntax typeofExpr
             && node.Name.Identifier.Text is "Name" or "FullName")
         {
-            var type = _semanticModel.GetTypeInfo(typeofExpr.Type).Type;
+            var type = SemanticModelFor(typeofExpr.Type)?.GetTypeInfo(typeofExpr.Type).Type;
             if (type is ITypeParameterSymbol tp)
             {
                 UseCompat("TypeToken");
@@ -226,7 +250,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitTypeOfExpression(TypeOfExpressionSyntax node)
     {
-        var type = _semanticModel.GetTypeInfo(node.Type).Type;
+        var type = SemanticModelFor(node.Type)?.GetTypeInfo(node.Type).Type;
         if (type is ITypeParameterSymbol tp)
         {
             UseCompat("TypeToken");
@@ -247,7 +271,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitDefaultExpression(DefaultExpressionSyntax node)
     {
-        var type = _semanticModel.GetTypeInfo(node.Type).Type;
+        var type = SemanticModelFor(node.Type)?.GetTypeInfo(node.Type).Type;
         if (type is ITypeParameterSymbol tp && !tp.HasReferenceTypeConstraint)
         {
             UseCompat("csDefault");
@@ -262,7 +286,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
     {
         if (node.IsKind(SyntaxKind.DefaultLiteralExpression))
         {
-            var type = _semanticModel.GetTypeInfo(node).ConvertedType;
+            var type = SemanticModelFor(node)?.GetTypeInfo(node).ConvertedType;
             if (type is ITypeParameterSymbol tp && !tp.HasReferenceTypeConstraint)
             {
                 UseCompat("csDefault");
@@ -280,7 +304,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
     {
         if (node.IsKind(SyntaxKind.IsExpression))
         {
-            var type = _semanticModel.GetTypeInfo(node.Right).Type;
+            var type = SemanticModelFor(node.Right)?.GetTypeInfo(node.Right).Type;
             if (type is ITypeParameterSymbol tp)
             {
                 UseCompat("TypeToken");
@@ -296,7 +320,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
     {
         if (node.Pattern is DeclarationPatternSyntax { Type: TypeSyntax declarationType })
         {
-            var type = _semanticModel.GetTypeInfo(declarationType).Type;
+            var type = SemanticModelFor(declarationType)?.GetTypeInfo(declarationType).Type;
             if (type is ITypeParameterSymbol tp)
             {
                 Warn($"cs2j: 'x is {tp.Name} var' declaration pattern for type parameters is not supported (known limitation) — spec §2.6.2");
@@ -309,7 +333,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        var symbol = _semanticModel.GetDeclaredSymbol(node);
+        var symbol = SemanticModelFor(node)?.GetDeclaredSymbol(node);
         var previousMethod = _currentMethod;
         var previousSymbol = _currentMethodSymbol;
         _currentMethod = node;
@@ -348,7 +372,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
     {
         var visited = (ObjectCreationExpressionSyntax)base.VisitObjectCreationExpression(node);
         // 实测：GetTypeInfo(node.Type) 对 new T() 返回 null，须用整表达式。
-        var created = _semanticModel.GetTypeInfo(node).Type;
+        var created = SemanticModelFor(node)?.GetTypeInfo(node).Type;
         if (created is ITypeParameterSymbol tp)
         {
             if (_currentMethod != null
@@ -367,7 +391,7 @@ public sealed class TsGenericErasureRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
     {
         var visited = (ImplicitObjectCreationExpressionSyntax)base.VisitImplicitObjectCreationExpression(node);
-        var created = _semanticModel.GetTypeInfo(node).Type;
+        var created = SemanticModelFor(node)?.GetTypeInfo(node).Type;
         if (created is ITypeParameterSymbol tp
             && _currentMethod != null
             && _currentMethodSymbol != null

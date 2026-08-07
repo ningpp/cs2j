@@ -25,7 +25,7 @@ namespace CSharpToJava.Core.TypeScript.Rewriters;
 /// 已知限制（登记于计划 Task 23）：方法组引用（delegate 化）、派生类工厂不内联基类构造体、
 /// readonly 字段 + 工厂、构造器体内裸 return;、同参数量 this(...) 委托歧义、record 主构造器不参与。
 /// </summary>
-public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
+public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter, ITsSyntaxPrecollector
 {
     private readonly ConversionContext _context;
     private readonly SemanticModel _semanticModel;
@@ -48,9 +48,33 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
         _semanticModel = context.SemanticModel!;
     }
 
+    private bool _precollected;
+
+    /// <summary>项目模式（Task 38）：先对所有文件的根预收集改名表，保证跨文件
+    /// 调用点与改名表一致（单文件模式无需调用，VisitCompilationUnit 自动收集）。</summary>
+    public void Precollect(CompilationUnitSyntax root)
+    {
+        CollectOverloads(root.Members);
+        _precollected = true;
+    }
+
+    /// <summary>按节点所在树解析语义模型（Task 38：项目模式注入 Compilation/
+    /// SemanticModel，多文件各树模型不同）；单文件模式回退到构造时捕获的模型。</summary>
+    private SemanticModel? SemanticModelFor(SyntaxNode node)
+    {
+        if (node.SyntaxTree == null)
+        {
+            return _semanticModel;
+        }
+        return _context.GetSemanticModelForNode(node) ?? _semanticModel;
+    }
+
     public override SyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
     {
-        CollectOverloads(node.Members);
+        if (!_precollected)
+        {
+            CollectOverloads(node.Members);
+        }
         _context.TsFactoryMethodNames = _factoryNames.Count > 0 ? _factoryNames : null;
         return base.VisitCompilationUnit(node);
     }
@@ -99,13 +123,13 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
             for (var i = 1; i < sorted.Count; i++)
             {
                 var method = sorted[i].Method;
-                var symbol = _semanticModel.GetDeclaredSymbol(method);
+                var symbol = SemanticModelFor(method)?.GetDeclaredSymbol(method);
                 if (symbol == null)
                 {
                     continue;
                 }
                 var tokens = method.ParameterList.Parameters
-                    .Select(p => _semanticModel.GetDeclaredSymbol(p)?.Type)
+                    .Select(p => SemanticModelFor(p)?.GetDeclaredSymbol(p)?.Type)
                     .Select(t => t == null ? "unknown" : SuffixToken(t))
                     .ToList();
                 var newName = AllocateName(used, group.Key + TsNaming.OverloadSuffix(tokens));
@@ -127,7 +151,7 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
                     .ToList();
                 for (var i = 0; i < sorted.Count; i++)
                 {
-                    var symbol = _semanticModel.GetDeclaredSymbol(sorted[i].Ctor);
+                    var symbol = SemanticModelFor(sorted[i].Ctor)?.GetDeclaredSymbol(sorted[i].Ctor);
                     if (symbol == null)
                     {
                         continue;
@@ -213,7 +237,7 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        var symbol = _semanticModel.GetDeclaredSymbol(node);
+        var symbol = SemanticModelFor(node)?.GetDeclaredSymbol(node);
         var visited = base.VisitMethodDeclaration(node);
         if (visited is MethodDeclarationSyntax visitedMethod
             && symbol != null
@@ -227,7 +251,7 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
-        var symbol = _semanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        var symbol = SemanticModelFor(node)?.GetSymbolInfo(node).Symbol as IMethodSymbol;
         var visited = base.VisitInvocationExpression(node);
         var visitedInvocation = visited as InvocationExpressionSyntax ?? node;
         if (symbol != null && _methodRenames.TryGetValue(symbol.OriginalDefinition, out var newName))
@@ -248,7 +272,7 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
         var visitedCreation = visited as ObjectCreationExpressionSyntax ?? node;
         if (visitedCreation.Initializer == null)
         {
-            var symbol = _semanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var symbol = SemanticModelFor(node)?.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (symbol != null && _ctorRenames.TryGetValue(symbol.OriginalDefinition, out var factoryName))
             {
                 var typeName = visitedCreation.Type switch
@@ -286,7 +310,7 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter
         var visitedCreation = visited as ImplicitObjectCreationExpressionSyntax ?? node;
         if (visitedCreation.Initializer == null)
         {
-            var symbol = _semanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var symbol = SemanticModelFor(node)?.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (symbol != null && _ctorRenames.TryGetValue(symbol.OriginalDefinition, out var factoryName))
             {
                 var typeName = symbol.ContainingType.Name;

@@ -117,7 +117,7 @@ public sealed class ProjectPassState
         return $"{diagnostic.Code}|{diagnostic.Category}|{span?.Path}|{span?.StartLinePosition.Line}|{span?.StartLinePosition.Character}|{diagnostic.Severity}|{diagnostic.Message}";
     }
 
-    private static string NormalizeFilePath(string filePath)
+    internal static string NormalizeFilePath(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || filePath.StartsWith("<", StringComparison.Ordinal))
         {
@@ -608,6 +608,7 @@ public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
 
     public void Execute(ProjectPassState state)
     {
+        var isTsTarget = state.Context.Options.TargetLanguage == TargetLanguage.TypeScript;
         var syntaxTrees = state.Compilation.SyntaxTrees
             .Where(syntaxTree => !string.IsNullOrWhiteSpace(syntaxTree.FilePath) && !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
             .ToList();
@@ -624,6 +625,19 @@ public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
             var diagnostics = analysisResult.Diagnostics;
             if (diagnostics.Count == 0)
             {
+                continue;
+            }
+
+            if (isTsTarget)
+            {
+                // TS 目标（Task 38，spec §2.4）：NativeInterop 检查降级为警告，不阻断发射
+                foreach (var diagnostic in diagnostics)
+                {
+                    state.Context.Diagnostics.Warning(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
+                    // 存入结果的诊断须为降级后的 Warning 副本（原始为 Error，否则结果 Success 会被置 false）
+                    var downgraded = diagnostic with { Severity = Context.DiagnosticSeverity.Warning };
+                    state.RegisterFileDiagnostics(analysisResult.FilePath, [downgraded], blockEmit: false);
+                }
                 continue;
             }
 
@@ -715,7 +729,7 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
     /// interface converted before the enum type group would emit the Java class name
     /// instead of the underlying int/long value type.
     /// </summary>
-    private static void PreRegisterFlagsEnums(ProjectPassState state)
+    internal static void PreRegisterFlagsEnums(ProjectPassState state)
     {
         foreach (var tree in state.Compilation.SyntaxTrees)
         {
@@ -780,7 +794,7 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
         return rewriters;
     }
 
-    private static List<string> CollectCandidatePaths(PartialTypeGroup typeGroup)
+    internal static List<string> CollectCandidatePaths(PartialTypeGroup typeGroup)
     {
         var candidatePaths = new List<string>();
         foreach (var syntaxNode in typeGroup.SyntaxNodes)
@@ -804,7 +818,7 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
         return candidatePaths;
     }
 
-    private static bool ShouldEmitTypeGroup(IReadOnlyCollection<string> candidatePaths, ISet<string>? emitFilePaths)
+    internal static bool ShouldEmitTypeGroup(IReadOnlyCollection<string> candidatePaths, ISet<string>? emitFilePaths)
     {
         if (emitFilePaths == null || emitFilePaths.Count == 0)
         {
@@ -814,7 +828,7 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
         return candidatePaths.Any(path => emitFilePaths.Contains(Path.GetFullPath(path)));
     }
 
-    private static string NormalizeFilePath(string filePath)
+    internal static string NormalizeFilePath(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || filePath.StartsWith("<", StringComparison.Ordinal))
         {
@@ -942,6 +956,16 @@ public sealed class ProjectCrossPackageImportEmitPass : ICs2jPass<ProjectPassSta
     {
         if (!state.Results.Any(result => !string.IsNullOrEmpty(result.GeneratedCode)))
         {
+            return;
+        }
+
+        if (state.Context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            // TS 变体（Task 38，spec §3.3）：ESM 跨包导入由发射器按类型归属生成，
+            // 无 Java 通配导入模型；workspace 包名 → package.json dependencies 由
+            // ProjectNpmDependencyPass 收集（Task 40 CLI 接线）。当前发射器为
+            // 单文件自包含（不生成相对/跨包导入），跨文件/跨包 import 接线登记为
+            // M5 限制（Task 38 注记）。
             return;
         }
 
