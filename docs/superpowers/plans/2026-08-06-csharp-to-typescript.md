@@ -5514,6 +5514,15 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   ArgumentOutOfRangeException + oldValue null/空 → ArgumentNullException/ArgumentException、
   CsDictionary 重复 Add → ArgumentException、缺失 get_Item → KeyNotFoundException；
   index.ts 导出；tsc --noEmit + vitest 138 用例全绿。
+- [x] **Task 35 完成（2026-08-07）**：`src/primitives/` 组件（CsDecimal：bigint 尾数 + scale(0-28)，
+  Add/Subtract/Multiply/Divide/Remainder 复刻 VarDec 算法（半偶舍入、96 位下溢规范零、除尾零剥离），
+  Round 半偶、Truncate、CompareTo/Equals（scale 无关）、hashCode（剥离尾零后 FNV-1a）、
+  ToString 保留尾零、double→decimal 复刻 net10.0.8 VarDecFromR8（15 位有效数字半偶）、
+  Parse 按 NumberStyles.Number（千分位/小数点一次/e 拒绝/scale 超 28 半偶/溢出抛 OverflowException）、
+  除零 DivideByZeroException；CsChar：ToCode/FromCode 按 UTF-16 码元、Add/Subtract/CompareTo；
+  CsGuid：不可变 16 字节、Empty/NewGuid（RFC 4122 v4）、Parse/TryParse（D/N/B/P/任意连字符）、
+  ToString D/N/B/P/X、无符号 128 位大端比较）+ index.ts 导出；登记：decimal 主干精确舍入
+  以当前运行时为准未跟进；tsc --noEmit + vitest 166 用例全绿。
 
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
