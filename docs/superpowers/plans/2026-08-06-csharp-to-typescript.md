@@ -5455,6 +5455,13 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 - **验证：** `npm install` + `npx tsc --noEmit` + `npx vitest run` 在空骨架上通过。
 
 - [x] **Task 28 完成（2026-08-07）**：`typescript/csharptotypescript-compat/` 脚手架（package.json ESM + exports、strict tsconfig + declaration、vitest.config.ts、src/index.ts、smoke 测试）；npm install（typescript ^7 / vitest ^4）+ tsc --noEmit + vitest run 全过。
+- [x] **Task 29 完成（2026-08-07）**：`src/core/` 组件（Ref/refOf/outRef、CsObject.equals/
+  getHashCode/referenceEquals（原始类型 === / 实例 equals / 引用；FNV-1a 稳定字符串哈希、
+  整数直取、bool 1/0、引用身份哈希）、CsRecord（equals 运行时类型一致 + 逐字段值相等、
+  hashCode 字段组合、toString 类名 + 值列表）、CsRuntime（WeakMap 实例级接口标记）、
+  TypeToken.of/nameOf/isInstance（标记快路径 + 构造器名 + 保守 true）、csDefault→null、
+  cloneStruct 浅拷贝）+ index.ts 导出；tsc --noEmit + vitest 34 用例全绿。登记：L3 compat
+  桩 → 真实包 file: 链接切换归 M4 收尾（依赖 dist 构建顺序）。
 
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 

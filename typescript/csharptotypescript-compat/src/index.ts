@@ -4,3 +4,10 @@
  * core/（Task 29）、time/（Task 30）、text/（Task 31）、collections/（Task 32）、
  * events/（Task 33）、exceptions/（Task 34）、primitives/ 与 io/（Task 35）。
  */
+export { type Ref, refOf, outRef } from "./core/Ref.js";
+export { CsObject } from "./core/CsObject.js";
+export { CsRecord } from "./core/CsRecord.js";
+export { CsRuntime } from "./core/CsRuntime.js";
+export { TypeToken } from "./core/TypeToken.js";
+export { csDefault } from "./core/csDefault.js";
+export { cloneStruct } from "./core/cloneStruct.js";
