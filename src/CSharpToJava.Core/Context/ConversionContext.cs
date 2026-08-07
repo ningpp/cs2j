@@ -101,10 +101,16 @@ public class ConversionContext
     public HashSet<string>? TsFactoryMethodNames { get; set; }
 
     /// <summary>
-    /// TS 目标（Task 24）：语法层泛型擦除 rewriter 登记需 compat 导入的符号
-    /// （TypeToken/csDefault 等），RunTsRewriters 合并进发射器 CompatSymbols。
+    /// TS 目标（Task 24/25）：rewriter 登记需 compat 导入的符号
+    /// （TypeToken/csDefault/CsRuntime 等），RunTsRewriters 合并进发射器 CompatSymbols。
     /// </summary>
     public HashSet<string> TsCompatSymbols { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// TS 目标（Task 25）：接口探针函数（is$IXxx 全文本）——TsInterfaceProbeRewriter 生成，
+    /// TypeScriptEmitter 在类型声明之后追加。
+    /// </summary>
+    public Dictionary<string, string>? TsInterfaceProbes { get; set; }
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
 

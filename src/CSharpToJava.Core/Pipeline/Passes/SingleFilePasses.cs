@@ -502,6 +502,9 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // Task 24：泛型擦除收尾（类字面量/类型参数强转/lambda 箭头/工厂参数类型与调用改写）
         var genericErasureRewriter = new TypeScript.Rewriters.TsGenericErasureIrRewriter(context);
         genericErasureRewriter.VisitCompilationUnit(compilation);
+        // Task 25：接口运行时探针（is$IXxx 生成 + is/as 调用点改写 + 实现类构造器注入标记）
+        var interfaceProbeRewriter = new TypeScript.Rewriters.TsInterfaceProbeRewriter(context);
+        interfaceProbeRewriter.VisitCompilationUnit(compilation);
         var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
         compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
         // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）

@@ -148,6 +148,6 @@ interface IRepo<T>
         Assert.True(result.Success);
         Assert.Contains("find<T>(id: T): T", result.GeneratedCode);
         Assert.Contains("put<U extends object>", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 }

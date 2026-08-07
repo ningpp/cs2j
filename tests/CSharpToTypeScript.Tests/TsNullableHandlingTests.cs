@@ -80,7 +80,7 @@ class Foo : IRepo<int>
         Assert.True(result.Success);
         Assert.Contains("implements IRepo<number>", result.GeneratedCode);
         Assert.DoesNotContain("IRepo<number | null>", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     // ─── .HasValue / .Value 展开 ────────────────────────────────

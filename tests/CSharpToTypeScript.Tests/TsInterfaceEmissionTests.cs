@@ -38,7 +38,7 @@ interface IFoo
         Assert.Contains("export interface IFoo {", result.GeneratedCode);
         // 方法名 Java camelCase（bar，非计划原断言 Bar——既有约定，以实测为准）
         Assert.Contains("bar(): number;", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ class Foo : IFoo
 """);
         Assert.True(result.Success);
         Assert.Contains("export class Foo implements IFoo", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ interface IPoint
         // 避免与 X 子串冗余（双审 Minor ③）
         Assert.Contains("readonly X: number;", result.GeneratedCode);
         Assert.Contains("readonly Y: number;", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ interface IDerived : IBase
 """);
         Assert.True(result.Success);
         Assert.Contains("export interface IDerived extends IBase", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ interface IPoint
         // get+set → 非只读属性（无 readonly 前缀）
         Assert.Contains("    X: number;", result.GeneratedCode);
         Assert.DoesNotContain("readonly X: number;", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -125,7 +125,7 @@ interface IWritable
         // 只写属性（仅 setter）无 TS 对应形态：保留 setter 方法 + 诊断注释
         Assert.Contains("/* cs2j: write-only property Z: no TS counterpart; kept as setter method */", result.GeneratedCode);
         Assert.Contains("setZ(value: number): void;", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ class Foo : IRepo<int>
         // 单层实参全部命中 → 无嵌套泛型诊断注释
         Assert.Contains("export class Foo implements IRepo<number>", result.GeneratedCode);
         Assert.DoesNotContain("cs2j: unmapped nested generic args", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -188,7 +188,7 @@ interface IDerived : IBase<int>
         Assert.Contains("export interface IDerived extends IBase<number>", result.GeneratedCode);
         // 单层实参全部命中 → 无嵌套泛型诊断注释
         Assert.DoesNotContain("cs2j: unmapped nested generic args", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -227,7 +227,7 @@ interface IEdge
         Assert.Contains("getURL(): string;", result.GeneratedCode);
         Assert.Contains("get$(): number;", result.GeneratedCode);
         Assert.Contains("getItem(index: number): number;", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]

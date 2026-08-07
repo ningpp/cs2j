@@ -276,7 +276,7 @@ class Demo
         Assert.Contains("return l.X;", result.GeneratedCode);
         Assert.DoesNotContain("m.getX()", result.GeneratedCode);
         Assert.DoesNotContain("m2.getX()", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]
@@ -359,7 +359,7 @@ class D
         // 方法返回接口类型：getI() → I → I 的接口访问器注册 → getX 改写
         Assert.Contains("return d.getI().X;", result.GeneratedCode);
         Assert.DoesNotContain("d.getI().getX()", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]

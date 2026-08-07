@@ -275,7 +275,7 @@ class Demo
         Assert.True(result.Success);
         Assert.Contains("return s.X + s.Y;", result.GeneratedCode);
         Assert.Contains("s.Y = v;", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]

@@ -63,6 +63,18 @@ public sealed class TypeScriptEmitter
         }
 
         sb.Append(typeBodies);
+
+        // Task 25：接口探针函数（is$IXxx）在类型声明之后追加（CsRuntime 标记快路径 +
+        // 结构检查；CsRuntime 导入由 compatSymbols 生成）
+        if (context.TsInterfaceProbes != null)
+        {
+            foreach (var probe in context.TsInterfaceProbes.Values)
+            {
+                sb.AppendLine(probe);
+                sb.AppendLine();
+            }
+        }
+
         return sb.ToString();
     }
 

@@ -154,6 +154,10 @@ export declare class TypeToken<T = any> {
     static isInstance<T = any>(name: string, v: unknown): boolean;
 }
 export declare function csDefault(typeInfo?: TypeToken): any;
+export declare class CsRuntime {
+    static markImplements(obj: object, ...ifaceNames: string[]): void;
+    static isMarked(obj: unknown, ifaceName: string): boolean;
+}
 """;
 
     private const string CompatIndexJs =
@@ -181,6 +185,10 @@ export class TypeToken {
     static isInstance(name, v) { return v !== null && v !== undefined; }
 }
 export function csDefault(typeInfo) { return null; }
+export class CsRuntime {
+    static markImplements(obj, ...ifaceNames) {}
+    static isMarked(obj, ifaceName) { return false; }
+}
 """;
 
     /// <summary>

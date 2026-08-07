@@ -5339,6 +5339,38 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 - **Files:** `Rewriters/TsInterfaceProbeRewriter.cs`、`TsInterfaceProbeRewriterTests.cs`
 - **要点：** 每接口生成 `is$IXxx` 探针函数（必需方法存在性检查 + 继承链合并）；`is/as` 调用点改写；实现类构造器注入 `CsRuntime.markImplements` 标记（依赖 M4 兼容库，M3 可先用占位实现）；纯属性接口诊断。
 
+- [x] **Task 25 完成（2026-08-07）**
+
+**实现注记（2026-08-07，与设计决策的偏差/实测坑）：**
+- ① 探针函数 `export function is$IXxx(v: unknown): boolean`：`CsRuntime.isMarked(v, "IX")`
+  快路径 + `typeof v === "object" && v !== null` 守卫 + `typeof (v as IX).m === "function"`
+  结构检查；方法名用 `TsNaming.SafeIdentifier`（IR 名即发射器最终名，无需重复 TS 方法名
+  映射逻辑——曾拟 `nameof(IFoo.m)` 形态，TS 无 nameof 运算符，弃用）；继承链
+  （ExtendedTypes 递归）方法合并去重；泛型接口探针名用裸名 `is$IRepo`、结构检查强转
+  `(v as IRepo<any>)`；纯属性/无方法接口 → 仅 `return CsRuntime.isMarked(...)` +
+  "structural probe" 诊断。
+- ② 调用点改写（raw 文本扫描 + 结构化 instanceof）：`{expr} instanceof {Iface}` →
+  `is$Iface({expr})`（限定名 `Outer.IFoo` 按末段匹配）；`(Iface)({expr})` 接口强转 →
+  `({expr} as {Iface})`（泛型实参 `<String>` 归一化 `<string>`）；**as 三元式整体改写**：
+  `(x instanceof IFoo ? (IFoo)(x) : null)` → `(is$IFoo(x) ? (x as IFoo) : null) as IFoo`
+  ——strict 下 `: null` 分支类型不符，整体再 `as` 回目标类型（C# `as` 运行时仍可返回
+  null，非空性为编译期声明；`Interface_Sample_Compiles_L3` 验证 tsc）。
+- ③ 实现类构造器注入 `CsRuntime.markImplements(this, "IFoo")`（多接口逗号分隔）；无构造器
+  类合成 `constructor() { mark; }`；Task 23 工厂化后的私有空构造器同样注入（工厂内
+  `new C()` 自动经构造器标记）。
+- ④ **实测坑：raw 文本扫描在 instanceof 位置发起匹配，左侧表达式前缀已被复制进输出缓冲**
+  ——需 `sb.Length -= i - spanStart` 回退、`i = spanStart + consumed` 前进（直接
+  `i += consumed` 会吞掉 `;`/`?` 等后缀字符，探针复现）。
+- ⑤ 探针登记进 `context.TsInterfaceProbes`，发射器在类型声明后追加；`CsRuntime` 登记
+  `TsCompatSymbols` 生成 compat 导入；`TsConversionTestBase` 桩追加 CsRuntime
+  （d.ts + js）。
+- ⑥ 探针/标记使接口产物依赖 compat 模块：9 个既有接口发射测试的 `AssertCompiles` 改
+  `AssertCompilesWithCompat`。
+- ⑦ 已知限制（登记）：switch 模式变量 `case IFoo f:`（前端产出 `(x instanceof IFoo f)`
+  Java 16 形态）不改写（Task 27 模式匹配处理）。
+- 验收结果：TS 372/372 全绿（362 基线 + 10 新增，含 L3 tsc），Java 2423/2423 零回归；
+  `CSharpToJava.ConversionTests` 37 失败为基线既有（stash 干净树复现，与 Task 25 无关）。
+
 ## Task 26: TsEqualityRewriter（相等语义，spec §2.6.4）
 
 - **Files:** `Rewriters/TsEqualityRewriter.cs`、`TsEqualityRewriterTests.cs`

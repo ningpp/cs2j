@@ -1018,7 +1018,7 @@ public sealed class TsGenericErasureIrRewriter : JavaSyntaxRewriter
     }
 
     /// <summary>从表达式末尾回扫起始位置（标识符/限定名/括号组），失败返回 -1。</summary>
-    private static int BacktrackExpressionStart(string text, int end)
+    internal static int BacktrackExpressionStart(string text, int end)
     {
         var pos = end;
         while (pos >= 0)
@@ -1225,7 +1225,7 @@ public sealed class TsGenericErasureIrRewriter : JavaSyntaxRewriter
     }
 
     /// <summary>从位置起读取标识符（含 $/_），返回读到的文本（可为空）。</summary>
-    private static string ReadIdentifier(string text, int start)
+    internal static string ReadIdentifier(string text, int start)
     {
         if (start < 0 || start >= text.Length || !IsIdentifierChar(text[start]))
         {
@@ -1279,10 +1279,10 @@ public sealed class TsGenericErasureIrRewriter : JavaSyntaxRewriter
         return true;
     }
 
-    private static bool IsIdentifierChar(char c)
+    internal static bool IsIdentifierChar(char c)
         => char.IsLetterOrDigit(c) || c == '_' || c == '$';
 
-    private static int SkipQuotedLiteral(string text, int start)
+    internal static int SkipQuotedLiteral(string text, int start)
     {
         var quote = text[start];
         var i = start + 1;
@@ -1302,7 +1302,7 @@ public sealed class TsGenericErasureIrRewriter : JavaSyntaxRewriter
         return text.Length;
     }
 
-    private static int FindMatchingCloseParen(string text, int open)
+    internal static int FindMatchingCloseParen(string text, int open)
     {
         var depth = 0;
         for (var i = open; i < text.Length; i++)
