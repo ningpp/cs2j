@@ -20,6 +20,7 @@
 | 13 | 6 → 4 | `new T[][]`（空括号）数组创建在 `[` 字面量前残留前缀：字面量模式贪婪体跨整行多声明只剥首前缀 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | 2ce395e8（代码+测试被并发会话提交扫入，见注） |
 | 14 | 4 → 2 | out 形参 lambda 捕获 holder raw 文本：`@SuppressWarnings` 注解未剥 + cast lookahead 不认 `[`；剥注解+cast 后 let 化 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3 / TsRefOutParamTests +1）+ 本文件 | 6b02774b |
 | 15 | 语法 2 → 0；语义波 23043（预期转折点） | E 族：LINQ 重写产物方法引用形态未做 TS 归一化——空菱形构造剥离 + 表达式接收者 `::` 改写 + 裸 `HashSet` 局部映射 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +8 / TsRawBodyNormalizationTests +1）+ 本文件 | 本轮提交（见下） |
+| 16 | 23043 → 22171 | raw 文本裸成员引用缺前缀（TS2663 3376 / TS2662 1600 同根：实例缺 `this.`、静态缺 `类名.`） | 新增 TsMemberContext.cs；TsRawStatementNormalizer.cs（新最终 pass NormalizeBareMemberReferences）；TsMemberWriter.cs / TsStatementWriter.cs / TsExpressionWriter.cs / TsTypeWriter.cs / TypeScriptEmitter.cs（成员上下文接线）；tests （TsRawStatementNormalizerTests / 新增 TsRawMemberContextTests / 3 例断言更新）+ 本文件 | 3cf39918 |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -382,3 +383,69 @@
 - A3（2）：ProcrustesCircleConstraint.ts:118（TS1011×2）
 - E（2）：LayoutAlgorithmHelpers.ts:69（TS1005/TS1135）
 - F（2）：Relayout.ts:106（TS1146/TS1005）
+
+## Round 16 — TS2663/TS2662：raw 文本裸成员引用补前缀（实例 `this.` / 静态 `类名.`）
+
+- **C# 构造**：`BinaryHeapWithComparer.cs` 的 `if (heapSize == A.Length - 1) { var newA = new T[A.Length*2]; ... }`
+  （裸实例字段 `heapSize`/`A`、实例方法 `Less`）；`AlgorithmBase.cs` 静态字段 `threadStaticCancelToken` 与
+  `LocalProgressStepSizeDefault`（字段初始化器引用静态成员）。
+- **错误 TS 输出（修复前，本轮起点，独立 tsc 实测 23043 条）**：
+  `var newA = TypeHelper.newArrayInstance(tClass, A.length * 2);`（TS2663，裸 `tClass`/`A` 应 `this.tClass`/`this.A`）；
+  `private localProgressStepSize: number = LocalProgressStepSizeDefault;`（TS2662，应
+  `AlgorithmBase.LocalProgressStepSizeDefault`）；`threadStaticCancelToken = oldCancelToken;`（TS2662，应
+  `AlgorithmBase.threadStaticCancelToken`）。
+- **正确 TS 输出**：`var newA = TypeHelper.newArrayInstance(this.tClass, this.A.length * 2);`；
+  `private localProgressStepSize: number = AlgorithmBase.LocalProgressStepSizeDefault;` 等。
+- **根因与理由**：raw Java 文本直通发射（`TsRawStatementNormalizer` 纯文本管线）无类成员知识：实例成员名
+  从不加 `this.`、静态成员名从不加 `ClassName.`。结构化 IR 路径（访问器/结构化体）已正确加前缀，raw 文本路径
+  （方法体/箭头体/字段初始化器/ctor raw 体/静态初始化块/`JavaRawStatement`/`JavaRawExpression`）全部缺失。
+  TS2663 3376 + TS2662 1600 = 4976 条，散布 100+ 文件（LgInteractor 411、LayeredLayoutEngine 165、
+  InteractiveEdgeRouter 141 等），系统性 raw 文本问题，非个别文件。
+- **修复位置**：
+  - 新增 `src/CSharpToJava.Core/TypeScript/TsMemberContext.cs`：`ClassName`/`InstanceMembers`/`StaticMembers`/
+    `TypeParameters`/`TypeNames`/`SelfTypedMembers`；`From(cls, accessorRoles, isEnumTypeName)` 与发射点使用
+    完全相同的命名函数（字段/方法 `SafeIdentifier`、访问器按 accessorRoles 属性名 `Name.Substring(3)`、
+    嵌套类型 `SafeClassName`）；`isEnumTypeName` 谓词（`_flagsEnumNames`/`IsFlagsEnum`/`IsExplicitValueEnum`）
+    覆盖 `[Flags]`/显式值枚举映射为 int 后 IR 类型丢失枚举名的 `Direction Direction` 自类型形态。
+  - `TsTypeWriter.EmitClass` 每个类构建一次上下文 → `TsMemberWriter.SetMemberContext` 同步三个 writer；
+    `EmitTestClass` 显式清空（测试类字段是 describe 作用域 let，禁前缀）。
+  - `TsRawStatementNormalizer` 新最终 pass `NormalizeBareMemberReferences`（管线最末尾，扫描最终发射形态，
+    避免干扰声明 let 化/for 头/方法引用/数组/cast 等既有 pass）：标识符 token 命中 InstanceMembers →
+    `this.name`、StaticMembers → `ClassName.name`；遮蔽保护（参数/方法类型参数/结构化+raw 局部/`let a, b;`/
+    Java `T parent, son;`/for 头/lambda 参数/catch 绑定，brace 作用域栈）；位置保护（字符串/字符/注释、
+    `.` 后、`new`/`instanceof` 类型位、对象字面量键、类类型参数、嵌套类型名、自类型成员后跟 `.` 的类型限定
+    静态访问）；空上下文/全空集合原样返回（既有测试零影响）。
+  - 发射点全部接上：`AppendMethodBody`/`AppendArrowBody`（含结构化体方法级 `MethodShadowNames` 注入
+    `_stmtWriter.MethodLocals`/`_exprWriter.MethodLocals`）、`EmitConstructor` raw 体（此前完全不归一化，
+    本轮接入完整管线）、`NormalizeLiteral` 字段初始化器、`TsTypeWriter` 静态初始化块（整块归一化）、
+    `TsStatementWriter.Emit` `JavaRawStatement`、`TsExpressionWriter.NormalizeRaw`。
+  - 跨语句遮蔽：结构化体逐语句归一化时，前一 raw 语句声明的局部名（`var settings = ...;`）经新公开
+    `CollectDeclaredLocalNames` 预收集进方法遮蔽集（GTreeOverlapRemoval 静态方法内 `settings` 不得补 `this.`）。
+- **测试（先红后绿）**：`TsRawStatementNormalizerTests` 单元用例（`A.length`→`this.A.length`、
+  `tClass`→`this.tClass`、静态 `threadStaticCancelToken`→`AlgorithmBase.threadStaticCancelToken`、遮蔽族
+  （参数/局部/多声明/lambda 参数/for 头/catch）、`new X(...)`/字符串/注释/`.` 后/类型参数不加前缀、
+  已有 `this.x` 不重复加、无上下文原样回归守卫）；新增 `TsRawMemberContextTests` 端到端
+  （BinaryHeapWithComparer/AlgorithmBase 最小镜像：`this.A`/`this.tClass`/`ClassName.staticX`、Flags 枚举
+  自类型属性类型限定访问保持裸、跨语句 raw 局部遮蔽、ctor raw 体前缀）；3 例既有断言随正确发射更新
+  （`this.b(...)`/`this.m(...)`/`this._iteratorHasNext`）。红：新用例首跑失败（缺前缀/过前缀），实现后全绿。
+- **验证链**：`dotnet build --configuration Release` 0 错误 → 删 `D:\msags-ts-202608` 全量重转 →
+  独立 tsc 7.0.2：**23043 → 22171**（−872）；TS2663 **3376 → 112**（−96.7%）、TS2662 **1600 → 18**
+  （−98.9%）；语法 0。行三元组对比（path+行+CODE）：消失 1600、迁移 1694、**新增 106**，逐条核验
+  **0 例过前缀回归**；8 例既往过前缀行转正（GTreeOverlapRemoval.ts:34/284、ScanDirection.ts:16/17/24/70/74、
+  VertexEntry.ts:18）。
+- **残留 TS2663（112）形态（下轮候选）**：无类上下文发射路径（写专用接口形态：OptimalPacking/
+  OptimalColumnPacking/OptimalRectanglePacking 字段转 converted 形态）；属性 getter 体字段简化名与发射名
+  不一致（RectanglePacking.ts `bestPacking` 私有字段 getter 重命名形态）；DebugHelpers/DoubleStreamElement
+  `Value`；基类声明字段在派生类 raw 体（KDTree `med`/`multipoleCoefficients`、FullVisibilityGraphGenerator
+  `ObsTree`/`HorizontalScanSegments`）；静态方法内引用实例成员（MaxSeparationConstraint）；
+  EdgeLabelPlacement.startListenToLocalProgress 委托。
+- **残留 TS2662（18）形态**：全部为**基类静态成员**（VisibilityGraphGenerator 的 `SentinelOffset`/
+  `NewVisibilityGraph`/`debug_AssertGraphIsRectilinear`，基类 `delta`/`overlapP`/`vectorScaledVectorSubtract`/
+  `assert_Rounded`）——上下文只含当前类，不含基类链。
+- **dotnet test**：全绿 —— 7（项目级）+ 570（CSharpToJava.ProjectTests）+ 2462（CSharpToJava.Tests）+
+  604（CSharpToTypeScript.Tests，含本轮过滤集 126/126）。CLI 转换 510/510 成功。
+- **提交**：代码+测试 `3cf39918`；本文档独立提交。
+- **并发会话干扰**：基线 `5570661a` 后并发会话已提交 7+ 改动（HEAD `116fcc59`），其工作区未提交文件
+  （config/TypeMappings.json、IdentifierExpressionTransformer.cs、compat RuntimeFeature.java/Timeout.java、
+  TimeoutAndRuntimeFeatureMappingTests.cs 等）本轮一律不碰不纳，提交仅显式 `git add` 本轮 12 个文件。
+
