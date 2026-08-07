@@ -10,6 +10,7 @@
 | 3 | 2399 → 2381 | FQCN 兜底误切泛型实参 | TsExpressionWriter / RegisterImports | 8cbc0ab1 |
 | 4 | 2381 → 593 | raw 方法体 Java 文本未归一化 | TsRawStatementNormalizer / TsMemberWriter / TsExpressionWriter | 94bed66b |
 | 4b | — | 重转保留 node_modules（省 npm install） | src/CSharpToJava.CLI/Program.cs | f1d8482d |
+| 6 | 42 → 35 | raw 文本引用 cast 误判：控制流条件 `(X)` 被当强转丢弃（`if return true;`） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests / TsEmitterIntegrationTests）+ 本文件 | e9677465 |
 
 ## Round 1 — MSBuild 零引用 → 注入本机 ref pack
 
@@ -62,3 +63,26 @@
 | `catch (Exception __e)` 类型化捕获 | 10+ | TS1128/TS1005 |
 | 增强 for 集合为带点方法调用（`for (T v : a.b.c())`） | 多处 | TS1005 |
 | `synchronized (this)`、`0.0d`、`self.new X(...)`、`self.0`、`if return true;`、`Collections.<T>emptyList()`、Java lambda `->` | 少量 | 混合 |
+
+
+## Round 6 — 引用 cast 归一化误删控制流条件
+
+- **C# 构造**：`IEnumerator<T>` 实现类的迭代器桥接（`AddIteratorBridgeMethods`）生成 raw 方法体
+  `if (_iteratorHasNext) return true;`（MSAGL 中 RBTreeEnumerator / PolylineIterator / PointNodesList /
+  EmptyEnumerator / NetworkSimplex / PredEnumerator / SuccEnumerator 7 个类）。
+- **错误 TS 输出**：`if return true;`（条件被整体删除）→ `error TS1005: '(' expected.`（7 处）。
+- **正确 TS 输出**：`if (_iteratorHasNext) return true;`。
+- **根因**：`TsRawStatementNormalizer.NormalizeReferenceCasts` 的 cast 正则
+  `\(\s*(?<type>[A-Z_$]...)\s*\)\s*(?=[A-Za-z_(])` 把 `if (X) return/throw ...;` 中括号条件
+  `(_iteratorHasNext) return` 误判为引用强转 `(Type) expr` 并丢弃（`_`/大写开头变量名 + 后随
+  标识符即命中），且 `if` 条件本身位于控制流关键字之后，任何 `if (Foo) ...` / `while (Foo) ...`
+  形态的 raw 语句都会中招。
+- **修复位置**：`NormalizeReferenceCasts` 增两重守卫：
+  ① `IsControlFlowCondition`——`(` 前一个词是 `if/while/switch/for/catch/synchronized` 时
+  括号为条件表达式，不剥；
+  ② `IsFollowedByStatementKeyword`——`)` 后紧跟 `return/throw/if/...` 等语句关键字时不剥。
+  真正的表达式强转（`(Node) n`、`(Iterable<Edge>) es`、`f((Point) p)`）仍按原语义剥除。
+- **测试**：`TsRawStatementNormalizerTests` 新增 3 例（条件保留 ×3 形态 + 真强转仍剥 ×3）；
+  `TsEmitterIntegrationTests` 新增端到端 1 例（IEnumerator<int> 桥接输出含完整条件）。
+- **验证**：`dotnet test --configuration Release` 全绿（7 + 534 + 2432）；全量重转后
+  `npx tsc --noEmit` 42 → 35（恰好移除 7 个 TS1005，无新增错误；剩余 35 个仍全为语法错误）。
