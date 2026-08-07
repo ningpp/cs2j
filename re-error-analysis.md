@@ -410,3 +410,25 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 19 — IList&lt;T&gt;+IReadOnlyList&lt;T&gt;+IList 三重实现的擦除冲突簇
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\CaptureCollection.java`
+- **行号**: 33
+- **错误信息**: `不是抽象的, 并且未覆盖Collection中的抽象方法add(Object)`（同簇：get(int) 返回类型冲突、iterator() 返回 CSharpEnumerator 不兼容、同名疑符冲突）
+- **代码片段**:
+  ```java
+  public class CaptureCollection implements CSharpGenericIList<Object>, CSharpReadOnlyList<Capture>, Iterable<Object> {
+  public int add(Object value) { ... }        // 与泛型接口擦除后 add(Object) 冲突
+  public Object get(int index) { return this.get(index); }  // 与 Capture get(int) 同签名不同返回
+  public CSharpEnumerator iterator() { return new Enumerator(this); } // 类型不兼容
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\CaptureCollection.cs`（及 GroupCollection.cs）：`IList<Capture>, IReadOnlyList<Capture>, IList`
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs`
+- **分析**: 非泛型 IList 映射为 CSharpGenericIList<Object> 与类型化接口共存时，boolean add(Object)/Object get(int) 契约与类型化成员及显式 int IList.Add 实现在擦除后不可共存；桥接方法在冲突消解 pass 之后添加导致时序遗漏；iterator() 返回非泛型 CSharpEnumerator 与类型化枚举器不兼容。
+- **修复**: ① 同时实现泛型集合接口时抑制非泛型 IList/ICollection/IEnumerable 的 implements 条目；② 桥接后重跑同签名冲突消解；③ 新 pass `RemoveNonGenericClashingMembers` 删除擦除冲突的非泛型 Object 成员并恢复 get$Class→get；④ 可迭代元素探测扩展 CSharpGenericIList/CSharpReadOnlyList，Iterable 桥接取类型化元素，iterator() 返回非泛型时包装 CSharpEnumerator.from()。新增红→绿测试 `TripleListInterfaceCollisionTests`（项目级管道，基线红确认），全量测试 2453 通过。
+
+**状态**: ✅ Fixed
+

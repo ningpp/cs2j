@@ -86,6 +86,23 @@ public class ClassTransformer : ITypeTransformer
         }
         foreach (var iface in mergedType.TypeSymbol.AllInterfaces)
         {
+            // When the class implements both a generic collection interface
+            // (IList<T>/IReadOnlyList<T>/ICollection<T>/...) and the non-generic
+            // System.Collections one, suppress the non-generic entry: its Java
+            // mapping (CSharpGenericIList<Object> etc.) demands boolean add(Object)
+            // and Object get(int), which clash with the typed members and with the
+            // explicit int IList.Add implementations after erasure. The converted
+            // non-generic members survive as plain methods.
+            if (!iface.IsGenericType
+                && iface.ContainingNamespace?.ToDisplayString() == "System.Collections"
+                && iface.Name is "IList" or "ICollection" or "IEnumerable"
+                && mergedType.TypeSymbol.AllInterfaces.Any(other =>
+                    other.IsGenericType
+                    && other.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                    && other.Name is "IList" or "ICollection" or "IEnumerable" or "IReadOnlyList" or "IReadOnlyCollection"))
+            {
+                continue;
+            }
             // Only add directly implemented interfaces, not inherited ones
             var isDirect = false;
             foreach (var syntaxNode in mergedType.OriginalSyntaxNodes)
@@ -369,6 +386,7 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, mergedType.TypeSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass, mergedType.TypeSymbol);
+        RemoveNonGenericClashingMembers(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
         AddComparableBridgeMethods(javaClass);
@@ -582,6 +600,7 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, classSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass, classSymbol);
+        RemoveNonGenericClashingMembers(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
         AddComparableBridgeMethods(javaClass);
@@ -2073,6 +2092,26 @@ public class ClassTransformer : ITypeTransformer
             || TryExtractGenericArgument(iteratorMethod.ReturnType, "CSharpEnumerator", out elemType))
             iterableType = $"Iterable<{elemType}>";
 
+        // Prefer the element type of the implemented generic collection interface
+        // (a non-generic GetEnumerator() would otherwise pin Iterable<Object> and
+        // clash with CSharpGenericIterable<T>.iterator()).
+        if (TryGetIterableElementType(javaClass, out var ifaceElemType) && ifaceElemType != "Object")
+            iterableType = $"Iterable<{ifaceElemType}>";
+
+        // A non-generic IEnumerator GetEnumerator() converted to iterator() keeps the
+        // CSharpEnumerator return type, but the returned expression is typically a
+        // typed enumerator (implements CSharpGenericEnumerator<T>, NOT a subtype of
+        // CSharpEnumerator). Wrap the return value via CSharpEnumerator.from(...).
+        if (iteratorMethod.ReturnType == "CSharpEnumerator")
+        {
+            string? body = iteratorMethod.StructuredBody?.ToBodyString() ?? iteratorMethod.Body;
+            if (!string.IsNullOrWhiteSpace(body)
+                && !body.Contains("CSharpEnumerator.from(", StringComparison.Ordinal))
+            {
+                DowngradeIteratorReturnToNonGeneric(iteratorMethod);
+            }
+        }
+
         javaClass.ImplementedTypes.Add(iterableType);
     }
 
@@ -2274,7 +2313,10 @@ public class ClassTransformer : ITypeTransformer
         {
             if (TryExtractGenericArgument(type, "CSharpGenericIterable", out elementType)
                 || TryExtractGenericArgument(type, "CSharpIterable", out elementType)
-                || TryExtractGenericArgument(type, "CSharpICollection", out elementType))
+                || TryExtractGenericArgument(type, "CSharpICollection", out elementType)
+                || TryExtractGenericArgument(type, "CSharpGenericIList", out elementType)
+                || TryExtractGenericArgument(type, "CSharpReadOnlyList", out elementType)
+                || TryExtractGenericArgument(type, "CSharpReadOnlyCollection", out elementType))
             {
                 return true;
             }
@@ -2690,6 +2732,56 @@ public class ClassTransformer : ITypeTransformer
             .ToList();
         foreach (var duplicate in duplicates)
             javaClass.Methods.Remove(duplicate);
+
+        // Bridges added above may reintroduce same-erasure accessor collisions
+        // against pre-existing typed members (e.g. Object get(int) beside
+        // Capture get(int)); re-run the collision resolver to drop/rename them.
+        ResolveSameSignatureAccessorCollisions(javaClass);
+    }
+
+    /// <summary>
+    /// When a class implements a generic collection interface with a non-Object
+    /// element type (CSharpGenericIList&lt;Capture&gt; etc.), the generic members erase
+    /// to Object-parameter signatures (add(T)→add(Object), get(int)→T get(int)).
+    /// Converted non-generic IList members with Object parameters (int add(Object),
+    /// Object get(int), insert(int, Object), Object set(int, Object)) then collide
+    /// with the erased interface members ("same erasure, neither overrides").
+    /// Drop those non-generic members and restore the typed accessor name when a
+    /// previous collision pass had renamed it (get$Class → get).
+    /// </summary>
+    private static void RemoveNonGenericClashingMembers(JavaClassDeclaration javaClass)
+    {
+        if (!TryGetIterableElementType(javaClass, out var elementType)
+            || elementType == "Object")
+            return;
+
+        bool Matches(JavaMethodDeclaration m, string name, params string[] paramTypes)
+            => m.Name == name
+                && m.Parameters.Count == paramTypes.Length
+                && m.Parameters.Select(p => p.Type).SequenceEqual(paramTypes);
+
+        var toRemove = javaClass.Methods.Where(m =>
+            (Matches(m, "add", "Object"))
+            || (Matches(m, "insert", "int", "Object"))
+            || (Matches(m, "set", "int", "Object") && m.ReturnType == "Object")
+            || (Matches(m, "get", "int") && m.ReturnType == "Object"))
+            .ToList();
+        foreach (var method in toRemove)
+            javaClass.Methods.Remove(method);
+
+        // Restore the typed indexer accessor name when it was renamed by an
+        // earlier collision pass and the Object bridge has now been dropped.
+        if (toRemove.Count > 0
+            && !javaClass.Methods.Any(m => m.Name == "get" && Matches(m, "get", "int")))
+        {
+            var renamed = javaClass.Methods.FirstOrDefault(m =>
+                m.Name.StartsWith("get$Class", StringComparison.Ordinal)
+                && m.Parameters.Count == 1
+                && m.Parameters[0].Type == "int"
+                && IsPrimitiveOrWrapperMatch(m.ReturnType, elementType));
+            if (renamed != null)
+                renamed.Name = "get";
+        }
     }
 
     private static bool TypeOrAncestorImplementsIEnumerableT(INamedTypeSymbol type)
