@@ -126,6 +126,39 @@ public class TsNpmProjectPlanTests
     }
 
     [Fact]
+    public void EmbedCompatPackage_Root_Workspaces_And_Compat_Dependency_Use_File_References()
+    {
+        // Task 40：兼容库嵌入工作区（spec §6.2 验证链）——根 workspaces 含 compat 成员；
+        // 模块 package.json 的 compat/workspace 依赖改相对 file: 路径（npm 11 的
+        // workspace:* 协议回归 EUNSUPPORTEDPROTOCOL，npm/cli#8845；file: 全版本可用）。
+        var plan = new NpmWorkspacePlanBuilder()
+            .WorkspaceName("sample-workspace")
+            .Scope("sample")
+            .EmbedCompatPackage()
+            .AddProject("Sample.Core",
+                dependencies: [NpmProjectDependency.Workspace("@sample/sample-shared")])
+            .AddProject("Sample.Shared")
+            .Build();
+
+        var rootJson = NpmProjectFiles.GenerateRootPackageJson(plan);
+        Assert.Contains("\"modules/*\"", rootJson, StringComparison.Ordinal);
+        Assert.Contains("\"compat\"", rootJson, StringComparison.Ordinal);
+
+        var core = plan.Projects.Single(p => p.ModuleName == "sample-core");
+        var coreJson = NpmProjectFiles.GenerateProjectPackageJson(plan, core);
+        Assert.Contains("\"@csharptotypescript/compat\": \"file:../../compat\"", coreJson, StringComparison.Ordinal);
+        Assert.Contains("\"@sample/sample-shared\": \"file:../sample-shared\"", coreJson, StringComparison.Ordinal);
+
+        // 未嵌入时保持 registry 版本/workspace 协议规格（Task 37 行为）
+        var plain = new NpmWorkspacePlanBuilder()
+            .WorkspaceName("sample-workspace")
+            .AddProject("Sample.Core")
+            .Build();
+        var plainJson = NpmProjectFiles.GenerateProjectPackageJson(plain, Assert.Single(plain.Projects));
+        Assert.Contains("\"@csharptotypescript/compat\": \"0.1.0\"", plainJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Fingerprint_OptionTokens_Distinguish_Target_Language()
     {
         // 产物指纹按目标区分（Task 37）：--target 切换不得被增量缓存错误跳过。

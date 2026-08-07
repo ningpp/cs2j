@@ -86,6 +86,16 @@ public sealed class NpmWorkspacePlan
 
     public bool IsSingleProject => Projects.Count == 1;
     public bool HasTestProjects => Projects.Any(project => project.RequiresVitestConfig);
+
+    /// <summary>
+    /// 是否把兼容库（@csharptotypescript/compat）作为工作区成员嵌入产物
+    /// （Task 40，spec §6.2 验证链）：CLI 把仓库内 compat 包复制为 &lt;dest&gt;/compat，
+    /// 根 workspaces 增加 "compat"、模块依赖改相对 file: 路径（workspace 成员 →
+    /// file:../&lt;模块&gt;、compat → file:../../compat；npm 11 的 workspace:* 协议
+    /// 回归 EUNSUPPORTEDPROTOCOL，npm/cli#8845），使 npm install 无需依赖 registry
+    /// 发布即可本地解析（M5 验收：npm install + tsc + vitest 全通过）。
+    /// </summary>
+    public bool EmbedCompatPackage { get; init; }
 }
 
 /// <summary>npm 包名规约辅助（Task 37）。</summary>
@@ -123,6 +133,7 @@ public sealed class NpmWorkspacePlanBuilder
     private string _typescriptVersion = "^7.0.2";
     private string _vitestVersion = "^4.1.10";
     private string? _scope;
+    private bool _embedCompatPackage;
     private readonly List<NpmProjectPlan> _projects = [];
 
     public NpmWorkspacePlanBuilder WorkspaceName(string workspaceName)
@@ -194,12 +205,20 @@ public sealed class NpmWorkspacePlanBuilder
         return this;
     }
 
+    /// <summary>把兼容库作为工作区成员嵌入产物（见 <see cref="NpmWorkspacePlan.EmbedCompatPackage"/>）。</summary>
+    public NpmWorkspacePlanBuilder EmbedCompatPackage(bool embed = true)
+    {
+        _embedCompatPackage = embed;
+        return this;
+    }
+
     public NpmWorkspacePlan Build() => new()
     {
         WorkspaceName = _workspaceName,
         Version = _version,
         TypeScriptVersion = _typescriptVersion,
         VitestVersion = _vitestVersion,
+        EmbedCompatPackage = _embedCompatPackage,
         Projects = _projects.AsReadOnly(),
     };
 
@@ -242,7 +261,7 @@ public static class NpmProjectFiles
             ["name"] = plan.WorkspaceName,
             ["version"] = plan.Version,
             ["private"] = true,
-            ["workspaces"] = new[] { "modules/*" },
+            ["workspaces"] = plan.EmbedCompatPackage ? new[] { "modules/*", "compat" } : new[] { "modules/*" },
             ["devDependencies"] = new Dictionary<string, object?>
             {
                 ["typescript"] = plan.TypeScriptVersion,
@@ -275,7 +294,13 @@ public static class NpmProjectFiles
         """;
 
     /// <summary>模块 package.json：name/version/private/type:module + dependencies（compat + workspace 引用）。</summary>
-    public static string GenerateProjectPackageJson(NpmWorkspacePlan plan, NpmProjectPlan project)
+    /// <summary>
+    /// 模块 package.json。includeEntryPoint（Task 40 跨模块导入接线）：被其他模块
+    /// 引用的模块输出 src/index.ts barrel 入口（main/types → ./src/index.ts，
+    /// tsc 与 vitest 均按 TS 源码解析，spec §3.3 跨包导入可解析）。
+    /// </summary>
+    public static string GenerateProjectPackageJson(
+        NpmWorkspacePlan plan, NpmProjectPlan project, bool includeEntryPoint = false)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(project);
@@ -285,7 +310,7 @@ public static class NpmProjectFiles
             .OrderBy(dependency => dependency.PackageName, StringComparer.Ordinal))
         {
             var target = dependency.Kind == NpmDependencyKind.Dev ? dev : runtime;
-            target[dependency.PackageName] = dependency.ResolvedVersionSpec;
+            target[dependency.PackageName] = ResolveVersionSpec(plan, project, dependency);
         }
 
         var content = new Dictionary<string, object?>
@@ -296,6 +321,11 @@ public static class NpmProjectFiles
             ["type"] = "module",
             ["dependencies"] = runtime,
         };
+        if (includeEntryPoint)
+        {
+            content["main"] = "./src/index.ts";
+            content["types"] = "./src/index.ts";
+        }
         if (dev.Count > 0)
         {
             content["devDependencies"] = dev;
@@ -340,6 +370,36 @@ public static class NpmProjectFiles
                 },
             });
             """;
+    }
+
+    /// <summary>
+    /// 依赖版本规格解析（Task 40）：兼容库嵌入工作区时——workspace 引用改相对
+    /// file: 路径（modules/&lt;依赖模块&gt;，npm 11 的 workspace: 协议回归
+    /// EUNSUPPORTEDPROTOCOL，npm/cli#8845，file: 全版本可用且语义一致）；
+    /// compat 依赖改 file:../../compat（本地解析，无需 registry 发布）。
+    /// 未嵌入时保持 Task 37 语义（workspace:* / registry 版本）。
+    /// </summary>
+    private static string ResolveVersionSpec(NpmWorkspacePlan plan, NpmProjectPlan project, NpmProjectDependency dependency)
+    {
+        var versionSpec = dependency.ResolvedVersionSpec;
+        if (!plan.EmbedCompatPackage)
+        {
+            return versionSpec;
+        }
+
+        if (dependency.IsWorkspace)
+        {
+            var member = plan.Projects.FirstOrDefault(p =>
+                string.Equals(p.PackageName, dependency.PackageName, StringComparison.Ordinal));
+            return member != null ? $"file:../{member.ModuleName}" : versionSpec;
+        }
+
+        if (dependency.PackageName == NpmProjectPlan.DefaultCompatPackage)
+        {
+            return "file:../../compat";
+        }
+
+        return versionSpec;
     }
 
     private static string Serialize(Dictionary<string, object?> content) =>

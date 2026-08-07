@@ -5637,6 +5637,43 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 
 - **要点：** TS 目标转换完成后：`npm install` → `npx tsc --noEmit -p <模块>`（`--no-verify-build` 关闭）→ 测试包 `npx vitest run`（`--no-verify-tests` 关闭）；失败即中止并输出诊断。
 
+- [x] **Task 40 完成（2026-08-07）**：TS 目标工程级转换 + 自动验证链全通。
+  - CLI 分支：`ConvertProject` 在 Java 专属预处理（goto 消除/readonly struct）之前按
+    `-t typescript` 分叉，复用三种发现路径（MSBuild workspace / 项目图 / 目录扫描）
+    统一走 `WriteTypeScriptWorkspaceAsync`：写出 `modules/<模块>/src/<命名空间目录>/`
+    （测试类 `.test.ts`，Task 39）、资源拷贝、工作区根/模块 package.json +
+    tsconfig + vitest.config、`compat` 嵌入（`TryResolveCompatPackageDirectory` 自 CLI
+    二进制向上搜索 `typescript/csharptotypescript-compat` → `<dest>/compat`，排除
+    node_modules 保留 dist）、`cs2j-npm-workspace-plan.json` + canary/指纹快照。
+  - **跨文件/跨包导入接线**（承接 Task 38 注记，spec §3.3）：新增
+    `ProjectTsImportEmitPass`（TS pass 序列替换 Java 通配导入 pass）——语义模型按
+    `(源文件, 类型名) → 发射结果` 索引只导入本转换实际发射的类型：同模块 →
+    相对路径（`./Type.js`、`./Models/Type.js`、`../Type.js`，NodeNext 要求 .js 后缀）；
+    跨项目 → workspace 包名导入，模块名由 `ConversionOptions.TsModuleByAssemblyName`
+    （MSBuild 元数据引用）/`TsModuleBySourcePathPrefix`（项目图语义上下文目录）接线；
+    新导入插在既有 import 块之后去重；`ProjectNpmDependencyPass` 随后收集包名，
+    CLI 过滤工作区成员包（由 ProjectReferences → workspace 依赖表达）。
+  - **被引用模块入口**：跨模块导入解析/加载需要模块入口——被其他模块引用的模块生成
+    `src/index.ts` barrel（`export * from "./<命名空间目录>/<Type>.js";`，排除测试文件）
+    + package.json `main/types → ./src/index.ts`（tsc 与 vitest 均按 TS 源码解析，
+    已实测双模块项目引用端到端全绿）。
+  - **npm 11 回归规避**：`workspace:*` 依赖协议在本机 npm 11.6.2 抛
+    `EUNSUPPORTEDPROTOCOL`（npm/cli#8845，已最小复现）——生成器在兼容库嵌入模式下
+    改相对 `file:` 路径（workspace 成员 `file:../<模块>`、compat `file:../../compat`），
+    全版本可用且语义一致；未嵌入保持 Task 37 规格。
+  - 验证链（spec §6.2）：[1/3] 根 `npm install` → [2/3] 每模块
+    `npx tsc --noEmit -p tsconfig.json` → [3/3] 测试包 `npx vitest run`；失败即中止
+    输出诊断；`--no-verify-build`/`--no-verify-tests` 复用既有选项关闭；npm/npx 经
+    PATH 扫描解析绝对路径（Windows 下裸启 `.cmd` 的 `%~dp0` 按工作目录解析导致 npm
+    自举失败，已实测规避）。
+  - 验证：TS 单测 481 全绿（新增 `TsProjectImportTests` 5 用例 + `TsProjectCliTests`
+    3 用例，含真实 npm install + tsc + vitest 端到端）；Java 2423 + ProjectTests 7
+    零回归；compat 包 tsc + vitest 203 全绿；手工端到端：单模块（Calc+测试类）与
+    双模块项目引用（Sample.Core + Sample.App）验证链全绿。
+  - 已登记限制：MSBuild 模式下跨模块引用按程序集名接线，项目名与程序集名不一致时
+    该引用缺失（默认命名规约一致，M5 语料不触发）；barrel 仅生成于被引用模块
+    （未被引用模块无入口，符合 spec §3.3 无 barrel 的 YAGNI 约定）。
+
 ## Task 41: DualTargetParityTests + M5 验收（spec §5.7）
 
 - **要点：** 同一批 C# 语料分别以 Java/TS 目标转换，断言两者均成功且关键结构特征（类型数/方法数/诊断数）对齐；项目级端到端验证链全通过。

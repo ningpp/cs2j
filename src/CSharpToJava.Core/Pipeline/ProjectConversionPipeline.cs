@@ -150,7 +150,8 @@ public class ProjectConversionPipeline
             // （ProjectTsSyntaxRewritePass）在类型归一化之前；emit pass（ProjectTsEmitPass）
             // 复用共享前端 + TS 二次映射发射；Java 专属 ProjectStructClonePatchPass 不进入；
             // ProjectJavaModuleDependencyPass 由 ProjectNpmDependencyPass 替换；
-            // NativeInterop 检查在 pass 内降级为警告；CrossPackageImport 为 TS 变体。
+            // NativeInterop 检查在 pass 内降级为警告；跨文件/跨包 import 由
+            // ProjectTsImportEmitPass 发射（Task 40，spec §3.3，取代 Java 通配导入模型）。
             return new ICs2jPass<ProjectPassState>[]
             {
                 linqPass,
@@ -163,7 +164,7 @@ public class ProjectConversionPipeline
                 new ProjectPartialTypeNormalizationPass(),
                 new ProjectTsEmitPass(_irRewriters),
                 new ProjectCompatibilityEmitPass(),
-                new ProjectCrossPackageImportEmitPass(),
+                new ProjectTsImportEmitPass(),
                 new ProjectNpmDependencyPass(),
             };
         }

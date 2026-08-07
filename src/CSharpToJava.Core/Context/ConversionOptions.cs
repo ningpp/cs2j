@@ -113,6 +113,22 @@ public class ConversionOptions
     /// 仅当 TargetLanguage == TypeScript 时使用。
     /// </summary>
     public string? TypeScriptMemberMappingPath { get; set; }
+
+    /// <summary>
+    /// TS 目标跨项目导入接线（Task 40，spec §3.3）：程序集名（MSBuild workspace 模式
+    /// 下被引用项目以元数据参与编译）→ npm 工作区模块包名（kebab-case）。由
+    /// <see cref="Pipeline.ProjectTsImportEmitPass"/> 消费：跨项目类型引用 →
+    /// import { T } from "&lt;模块包名&gt;"。
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? TsModuleByAssemblyName { get; set; }
+
+    /// <summary>
+    /// TS 目标跨项目导入接线（Task 40）：源目录前缀（项目图模式的语义上下文目录）
+    /// → npm 工作区模块包名。源位置落在被引用项目目录内的类型引用 →
+    /// import { T } from "&lt;模块包名&gt;"（与 assembly 映射互补：无 MSBuild 时
+    /// 被引用项目源码合入编译）。
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? TsModuleBySourcePathPrefix { get; set; }
 }
 
 /// <summary>
