@@ -47,6 +47,14 @@ public sealed class TsMemberWriter
         var name = TsNaming.SafeIdentifier(field.Name);
         var hasInitializer = !string.IsNullOrEmpty(field.Initializer);
 
+        // Task 27：record 位置分量字段由主构造器逐字段赋值，发射省略默认零值初始化器
+        // （无 `= null` 也就无需 `T | null` 宽化，getter `T` 返回与字段类型一致）
+        if (field.IsRecordComponent)
+        {
+            sb.Append($"{name}: {tsType};");
+            return sb.ToString();
+        }
+
         // 无初始化器补默认零值（spec §2.5：tsc strictPropertyInitialization 要求）。
         // strictNullChecks 下 null 不可赋给非空类型（TS2322）：实际发射 `= null` 时
         // 类型放宽为 `T | null`（含无初始化器默认零值为 null、以及初始化器为 null

@@ -5405,7 +5405,12 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   `Invoke` 映射坑：`TypeMappings` 先映射成 `apply`，需在 TransformMemberInvocation 早期分岔）→
   提交 `e77dcf6a`
 - [x] 事件 `TsEventEmissionTests`（`CsEvent<T>` 字段 + `Add/Remove/Invoke` 调用点；handler
-  方法组归一化 lambda，成员访问方法组符号仅 Candidate 时须查 `CandidateSymbols`）→ 提交中
+  方法组归一化 lambda，成员访问方法组符号仅 Candidate 时须查 `CandidateSymbols`）→ 提交 `dc99b69f`
+- [x] record `TsRecordEmissionTests`（`TsRecordRewriter`：Java record 形态 IR
+  物化为 `extends CsRecord` + 分量 readonly 字段 + 主构造器 +
+  `getX()` + `recordFields()`；分量字段通过 `IsRecordComponent`
+  省略默认零值初始化（避 `T | null` 字段 vs `T`
+  getter 不匹配），基类值相等语义归 M4）
 
 ---
 

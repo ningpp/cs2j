@@ -570,6 +570,9 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // 参数类型映射在 TsMemberMappingTable.Holder 分支）
         var refOutRewriter = new TypeScript.Rewriters.TsRefOutRewriter(context);
         refOutRewriter.VisitCompilationUnit(compilation);
+        // Task 27：record 类物化（CsRecord 基类 + 分量字段/getter/构造器/recordFields）
+        var recordRewriter = new TypeScript.Rewriters.TsRecordRewriter(context);
+        recordRewriter.VisitCompilationUnit(compilation);
         var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
         compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
         // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）

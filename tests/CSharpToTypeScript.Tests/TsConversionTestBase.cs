@@ -158,6 +158,12 @@ export declare interface Ref<T> { value: T; }
 export declare function refOf<T>(value: T): Ref<T>;
 export declare function outRef<T>(): Ref<T>;
 export declare function csDefault(typeInfo?: TypeToken): any;
+export declare abstract class CsRecord {
+    equals(other: unknown): boolean;
+    hashCode(): number;
+    toString(): string;
+    protected abstract recordFields(): unknown[];
+}
 export declare class CsEvent<T> {
     Add(handler: T): void;
     Remove(handler: T): void;
@@ -193,6 +199,11 @@ export class TypeToken {
     static of(name) { return new TypeToken(name); }
     static nameOf(name) { return name; }
     static isInstance(name, v) { return v !== null && v !== undefined; }
+}
+export class CsRecord {
+    equals(other) { return false; }
+    hashCode() { return 0; }
+    toString() { return ""; }
 }
 export class CsEvent {
     Add(handler) {}

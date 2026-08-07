@@ -26,6 +26,12 @@ public class JavaFieldDeclaration : JavaSyntaxNode
     /// Optional comment emitted on the line immediately before this field declaration.
     /// </summary>
     public string? LeadingComment { get; set; }
+    /// <summary>
+    /// True when this field was synthesized from a record positional component
+    /// (Task 27). The TS emitter omits the default-zero initializer because the
+    /// record primary constructor assigns every component field.
+    /// </summary>
+    public bool IsRecordComponent { get; set; }
 
     public override string ToString(string indentation)
     {
