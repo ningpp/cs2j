@@ -2717,7 +2717,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Each branch has an assignment as the first evaluated operation, then
             // collapses to the required boolean.  Objects.equals is used only as a
             // sequencing vehicle so the assignment target is evaluated once per arm.
-            var successAssign = $"(java.util.Objects.equals(({assignTarget} = {receiver}.get({keyArg})), null) || true)";
+            var getExpr = $"{receiver}.get({keyArg})";
+            // map get() returns Object; when the out target is a Java primitive the
+            // assignment needs an unboxing cast (Object -> Integer -> int).
+            var outTypeSymbol = ResolveTryGetValueOutType(outArg.Expression, context);
+            if (outTypeSymbol != null)
+            {
+                var mappedOutType = context.MapType(outTypeSymbol);
+                var boxedOutType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(mappedOutType);
+                if (!string.Equals(boxedOutType, mappedOutType, StringComparison.Ordinal))
+                    getExpr = $"({boxedOutType}) {getExpr}";
+            }
+            var successAssign = $"(java.util.Objects.equals(({assignTarget} = {getExpr}), null) || true)";
             var missAssign = $"(java.util.Objects.equals(({assignTarget} = {defaultValue}), null) && false)";
             return $"({receiver}.containsKey({keyArg}) ? {successAssign} : {missAssign})";
         }

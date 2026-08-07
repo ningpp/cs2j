@@ -270,7 +270,7 @@ class Sample {
 }");
         Assert.True(result.Success, result.GeneratedCode);
         var code = result.GeneratedCode;
-        Assert.Contains("(value = d.get(\"a\"))", code, StringComparison.Ordinal);
+        Assert.Contains("(value = (Integer) d.get(\"a\"))", code, StringComparison.Ordinal);
         Assert.Contains("(value = 0)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("(value = null)", code, StringComparison.Ordinal);
     }

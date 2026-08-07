@@ -567,3 +567,22 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 27 — Regex.java TryGetValue 复用 int out 变量 Object→int 未拆箱
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Regex.java`
+- **行号**: 275、288
+- **错误信息**: `不兼容的类型: java.lang.Object 无法转换为 int`
+- **代码片段**:
+  ```java
+  caps.containsKey(i) ? (Objects.equals((i = caps.get(i)), null) || true) : ...   // get 返回 Object 赋给 int i
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Regex.cs`（`caps.TryGetValue(i, out i)`、`capnames.TryGetValue(name, out int result)`，经 HashtableExtensions.TryGetValue<T>）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（TryGetValue 降级）
+- **分析**: TryGetValue 降级发射 `{out} = {receiver}.get({key})`， Hashtable/非泛型字典的 get 返回 Object，赋给基本类型 out 变量（int）缺装箱类型转换。
+- **修复**: TryGetValue 降级在 out 目标映射为 Java 基本类型时，对 `.get()` 结果包裹装箱类型转换（`(Integer) get(...)`，Java 自动拆箱）。新增红→绿测试 `TryGetValuePrimitiveOutCastTests`，并更新既有 `TryGetValueComplexOutArgTests` 期望；Java/Project 全量测试无回归（2462+7）。
+
+**状态**: ✅ Fixed
+
