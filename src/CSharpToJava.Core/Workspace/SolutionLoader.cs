@@ -18,6 +18,9 @@ public sealed class SolutionLoader : IDisposable
     private static readonly object _locatorLock = new();
     private static bool _locatorRegistered;
 
+    private static readonly object FallbackReferencesLock = new();
+    private static IReadOnlyList<MetadataReference>? _fallbackReferences;
+
     /// <summary>
     /// Registers the MSBuild locator. Must be called exactly once before any workspace operations.
     /// Thread-safe and idempotent.
@@ -210,6 +213,15 @@ public sealed class SolutionLoader : IDisposable
 
             progress?.Report($"Compiling: {project.Name}");
             var compilation = await project.GetCompilationAsync(ct) as CSharpCompilation;
+            // MSBuildWorkspace ????????/????????????? netstandard2.0
+            // ???? NETStandard.Library ???????????????????????
+            // ??? pass?LINQ ????????????????????????????
+            // ?????? Java ???????? dotnet packs ?????????????
+            // ?? netstandard2.0 ???????? ref ?? API ???????
+            if (compilation != null)
+            {
+                compilation = EnsureFrameworkReferences(compilation);
+            }
             if (compilation == null || !compilation.SyntaxTrees.Any())
             {
                 progress?.Report($"Skipping {project.Name}: compilation is empty (MSBuild may have failed to evaluate the project).");
@@ -245,6 +257,141 @@ public sealed class SolutionLoader : IDisposable
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// ???? BCL ???netstandard.dll/mscorlib.dll/System.Runtime.dll???????
+    /// ?????? dotnet packs ?? ref ????Microsoft.NETCore.App.Ref ???
+    /// NETStandard.Library.Ref ?????????????
+    /// </summary>
+    internal static CSharpCompilation EnsureFrameworkReferences(CSharpCompilation compilation)
+    {
+        if (HasFrameworkReference(compilation))
+        {
+            return compilation;
+        }
+
+        var fallback = GetFallbackFrameworkReferences();
+        return fallback.Count == 0 ? compilation : compilation.AddReferences(fallback);
+    }
+
+    private static bool HasFrameworkReference(CSharpCompilation compilation)
+    {
+        foreach (var reference in compilation.References)
+        {
+            if (reference is PortableExecutableReference pe && pe.FilePath != null)
+            {
+                var fileName = Path.GetFileName(pe.FilePath);
+                if (fileName is "netstandard.dll" or "mscorlib.dll" or "System.Runtime.dll")
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// ??? dotnet packs ???????????????????
+    /// </summary>
+    internal static IReadOnlyList<MetadataReference> GetFallbackFrameworkReferences()
+    {
+        lock (FallbackReferencesLock)
+        {
+            if (_fallbackReferences != null)
+            {
+                return _fallbackReferences;
+            }
+
+            var paths = new List<string>();
+            foreach (var programFiles in new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            })
+            {
+                if (string.IsNullOrEmpty(programFiles)) continue;
+                var packsRoot = Path.Combine(programFiles, "dotnet", "packs");
+                paths = CollectRefAssembliesFromPacks(packsRoot);
+                if (paths.Count > 0) break;
+            }
+
+            _fallbackReferences = paths
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(File.Exists)
+                .Select(f => (MetadataReference)MetadataReference.CreateFromFile(f))
+                .ToList();
+            return _fallbackReferences;
+        }
+    }
+
+    private static List<string> CollectRefAssembliesFromPacks(string packsRoot)
+    {
+        var result = new List<string>();
+
+        // ? Microsoft.NETCore.App.Ref/<??>/ref/<tfm>/*.dll?? System.Text.Json ??
+        //    ????????????????
+        var coreAppRef = Path.Combine(packsRoot, "Microsoft.NETCore.App.Ref");
+        var bestVersionDir = PickNewestVersionDirectory(coreAppRef);
+        if (bestVersionDir != null)
+        {
+            var refRoot = Path.Combine(bestVersionDir, "ref");
+            if (Directory.Exists(refRoot))
+            {
+                var tfmDir = Directory.GetDirectories(refRoot)
+                    .OrderByDescending(GetTfmNumericSuffix)
+                    .FirstOrDefault();
+                if (tfmDir != null)
+                {
+                    result.AddRange(Directory.GetFiles(tfmDir, "*.dll"));
+                    return result;
+                }
+            }
+        }
+
+        // ? ???NETStandard.Library.Ref/<??>/ref/netstandard2.1/*.dll?
+        var netStandardRef = Path.Combine(packsRoot, "NETStandard.Library.Ref");
+        var netStandardVersionDir = PickNewestVersionDirectory(netStandardRef);
+        if (netStandardVersionDir != null)
+        {
+            var refRoot = Path.Combine(netStandardVersionDir, "ref");
+            if (Directory.Exists(refRoot))
+            {
+                foreach (var tfmDir in Directory.GetDirectories(refRoot)
+                             .OrderByDescending(GetTfmNumericSuffix))
+                {
+                    result.AddRange(Directory.GetFiles(tfmDir, "*.dll"));
+                    if (result.Count > 0) break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static string? PickNewestVersionDirectory(string packRoot)
+    {
+        if (!Directory.Exists(packRoot))
+        {
+            return null;
+        }
+        return Directory.GetDirectories(packRoot)
+            .Select(d => new { Dir = d, Version = TryParseSdkVersion(Path.GetFileName(d)) })
+            .Where(x => x.Version != null)
+            .OrderByDescending(x => x.Version)
+            .Select(x => x.Dir)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// TFM ????net10.0/net8.0/netstandard2.1?? ??????????? TFM?
+    /// ??????? -1?
+    /// </summary>
+    private static double GetTfmNumericSuffix(string directoryPath)
+    {
+        var name = Path.GetFileName(directoryPath);
+        var digits = new string(name.SkipWhile(c => !char.IsDigit(c)).ToArray());
+        return double.TryParse(digits, out var value) ? value : -1;
     }
 
     private static bool IsTestProject(Project project)
