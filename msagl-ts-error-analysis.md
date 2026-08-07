@@ -1,4 +1,4 @@
-# MSAGL → TypeScript 错误分析记录
+﻿# MSAGL → TypeScript 错误分析记录
 
 目标：`E:\agl-master\GraphLayout\MSAGL`（只读）经 cs2j 转出的 TypeScript 工程全模块 `npx tsc --noEmit` 零错误。
 每次迭代：cs2j 改动 → `dotnet build` → 全量重转（保留 node_modules）→ 收集全部 TS 诊断 → 按根因修复 → `dotnet test` 全绿 → 单根因单提交。
@@ -17,6 +17,7 @@
 | 10 | 15 → 10 | `Type[]::new` 方法引用 FQCN 接收者回扫残缺（`.` 段未纳入） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | ec19886a |
 | 11 | 10 → 8 | CRLF raw 文本尾注释声明未 let 化：declPattern 尾组吞不下行尾 `\r` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +6）+ 本文件 | bacd8673（代码+测试被并发会话提交扫入，见注） 
 | 12 | 8 → 6 | `boolean[]` 声明未 let 化：TryMapType 数组后缀恒等映射返回原串、白名单不认 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +1）+ 本文件 | 07acb643（代码+测试被并发会话提交扫入，见注） |
+| 13 | 6 → 4 | `new T[][]`（空括号）数组创建在 `[` 字面量前残留前缀：字面量模式贪婪体跨整行多声明只剥首前缀 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | 2ce395e8（代码+测试被并发会话提交扫入，见注） |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -24,9 +25,30 @@
 > 本节记录被扫入 e3494d79（其提交主题为 IEnumerator 冲突）。两提交均覆盖在
 > 本轮验证链（全量重转 + tsc 10 → 8）之内。
 
+> Round 13 注：A3 修复（空括号维度前缀剥离）与 3 例测试、临时复现工程 .scratch-a3 被并发会话的
+> git add 整文件暂存扫入 2ce395e8（其提交主题为 Span/ArrayPool compat 修复）；A3 内容完整在 HEAD。
+> 本节记录与表格行由独立提交收录，.scratch-a3 由本轮提交删除。
+
 > Round 12 注：A2 修复（HasAcceptedIdentityArrayBase）与 1 例测试被并发会话的
 > git add 整文件暂存扫入 07acb643（其提交主题为 reflection flag enums 映射）；
 > 本节记录与表格行由独立提交收录。
+
+## Round 13 — `new T[][]` 空括号数组创建在 `[` 字面量前残留前缀
+
+- **C# 构造**：`double[,] XX = { { 1, 2 }, ... }, YY = { { 0.07, ... } };`（ProcrustesCircleConstraint.cs:212-213，`#else` 分支）。
+- **错误 TS 输出**：`YY: number[][] = new double[][] [ [ 0.07, 2.62 ], ... ];`（TS1011 ×2，ProcrustesCircleConstraint.ts:118）。
+- **正确 TS 输出**：`YY: number[][] = [ [ 0.07, 2.62 ], ... ];`。
+- **根因**：`NormalizeArrayLiterals` 的数组字面量模式体为贪婪 `(?<body>\{[^\r\n]*\})`，单行多声明
+  `double[][] XX = new double[][] { ... }, YY = new double[][] { ... };` 被整体命中（首个 `{` 到行末最后一个 `}`），
+  花括号全部转方括号、但只剥掉第一个 `new double[][]` 前缀；`YY` 残留 `new double[][] [ ... ]` 形态——
+  空括号维度不满足维度模式 `\[(?<dim>[^\]]+)\]`（非空）、方括号体不满足字面量模式（要求 `{...}`），两不沾。
+- **修复位置**：数组字面量 pass 尾部新增空括号前缀剥离：`new TYPE(?:<>)?(?:[])+` 后紧跟 `[` 字面量时剥前缀。
+  `(?:[])+` 要求至少一对空括号——`new double[2][]`（非空维度，已被维度 pass 转 `new Array(2)`）与
+  `new String[] { ... }`（花括号体，被字面量 pass 消费）均不受影响。
+- **测试**：`TsRawStatementNormalizerTests` +3（多声明两前缀全剥、`new double[] [ ... ]`/`new double[][] [ ... ]`
+  单字面量剥前缀、`new double[2][]` 守卫走 `new Array(2)`）。
+- **验证链**：重建 → 删目录全量重转 → 独立 tsc 6 → 4；剩余 4 错误为原 6 严格子集（E ×2、F ×2），无新增。
+  全量 `dotnet test` 绿（7 + 557 + 2449；首轮偶发 1 例顺序相关失败，重跑全绿）。
 
 ## Round 12 — `boolean[]` 恒等映射数组声明未 let 化
 
