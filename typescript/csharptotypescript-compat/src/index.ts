@@ -17,3 +17,6 @@ export { DayOfWeek } from "./time/DayOfWeek.js";
 export { CsString } from "./text/CsString.js";
 export { CsStringBuilder } from "./text/CsStringBuilder.js";
 export { StringSplitOptions } from "./text/StringSplitOptions.js";
+export { CsKeyValuePair } from "./collections/CsKeyValuePair.js";
+export { type IEqualityComparer, CsDictionary } from "./collections/CsDictionary.js";
+export { CsSet } from "./collections/CsSet.js";

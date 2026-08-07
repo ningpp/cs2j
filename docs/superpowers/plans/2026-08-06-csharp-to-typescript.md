@@ -5484,6 +5484,17 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   登记：AppendLine 固定 LF、数值格式固定文化、TrimEntries/字符索引器未实现、
   越界暂抛 RangeError（Task 34 切换异常层次）。
 
+- [x] **Task 32 完成（2026-08-07）**：`src/collections/` 组件（CsKeyValuePair
+  key/value 只读字段、CsDictionary 双索引（原始类型键 JS Map 快速路径 + 对象键
+  CsObject.getHashCode 桶 + equals 链）、Add 重复抛 RangeError（Task 34 切
+  ArgumentException）、get_Item/set_Item（缺失抛 RangeError，切 KeyNotFoundException）、
+  TryGetValue（Ref 写入 + 未命中写 null）、ContainsKey/ContainsValue/Remove/Count/
+  Keys/Values（插入序快照）/Clear/[Symbol.iterator]（插入序 CsKeyValuePair，对齐
+  .NET 实现行为）、自定义 IEqualityComparer（equals/getHashCode，case-insensitive 验证）、
+  NaN 键相等、capacity 构造器忽略；CsSet 基于 CsDictionary（Add 重复返回 false、
+  构造器可收初始 Iterable）+ index.ts 导出；tsc --noEmit + vitest 123 用例全绿。
+  登记：插入序删除 O(n)、Keys/Values 快照而非活视图、comparer 模式无原始键快路径。
+
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
 | Task | 组件 | 关键验收（spec 章节） |
