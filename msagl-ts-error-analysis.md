@@ -14,6 +14,7 @@
 | 7 | 35 → 26 | 泛型声明/经典 for 头 let 化：类型正则吞掉 lambda `=>` 的 `>` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| a5ff3437 |
 | 9 | 20 → 15 | 构造器委托实参在成员位（`.` 后）被朴素替换 → 仅值位替换 | src/CSharpToJava.Core/TypeScript/Rewriters/TsOverloadDisambiguationRewriter.cs + tests/CSharpToTypeScript.Tests（TsOverloadRewriterTests +2）| 1418f93b |
 | 8 | 26 → 20 | try-with-resources 无 catch/finally 时裸 `try {`（TS1472）→ 降级为块作用域 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| 1daf46cb |
+| 10 | 15 → 10 | `Type[]::new` 方法引用 FQCN 接收者回扫残缺（`.` 段未纳入） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | ec19886a |
 
 
 ## Round 1 — MSBuild 零引用 → 注入本机 ref pack
@@ -176,6 +177,35 @@
 **修复前错误列表（20，供对照）**
 
 - D（5）：RbTree.ts:371；Ellipse.ts:469；Rectangle.ts:389,391；InitialLayoutByCluster.ts:389
+- B（5）：SplineRouter.ts:307（TS1003/TS1005）；MeshCreator.ts:1116（TS1003×1/TS1005×2）
+- A2/A4（4）：ConnectedComponentCalculator.ts:12（TS1011/TS1005）；Tiling.ts:1187（TS1434）；ProcrustesCircleConstraint.ts:198（TS1434）
+- A3（2）：ProcrustesCircleConstraint.ts:118（TS1011×2）
+- E（2）：LayoutAlgorithmHelpers.ts:69（TS1005/TS1135）
+- F（2）：Relayout.ts:106（TS1146/TS1005）
+
+## Round 10 — `X[]::new` 方法引用 FQCN 接收者回扫残缺
+
+- **C# 构造**：集合/LINQ `ToArray()` 经生成器产出 Java 方法引用实参，元素类型为命名空间限定名：
+  - `multiEdges.Add(edgeGroup.ToArray())`（SplineRouter.cs:401）→ `Core.Layout.Point[]::new`
+  - `Core.Geometry.Point[] points = list.ToArray()`（MeshCreator.cs:1289）→ `Core.Geometry.Point[]::new`
+- **错误 TS 输出**：
+  - `multiEdges.value.push(edgeGroup.toArray(Core.Layout.(n) => new Array(n)));`（SplineRouter.ts:307，TS1003/TS1005）
+  - `let points: Point[] = list.toArray(Core.Geometry.(n) => new Array(n));`（MeshCreator.ts:1116，TS1003/TS1005×2）
+- **正确 TS 输出**：`...toArray((n) => new Array(n))` —— 点分类型名整体丢弃，只留数组构造 lambda。
+- **根因**：`TsRawStatementNormalizer.TryRewriteMethodReference` 对 `Type[]::new` 回扫接收者时用
+  `IsIdentifierChar`（不含 `.`），FQCN 只剩末段被吃（`Core.Layout.Point[]::new` 中仅 `Point[]` 被回扫），
+  `.` 前缀残留在输出里，紧贴改写出的 `(n) => new Array(n)`。
+- **修复位置**：`[]` 后缀接收者回扫后追加点分段回扫（`code[recvStart] == '.'` 时继续向前吃掉完整点分类型名），
+  仅数组构造器场景生效；普通标识符/`this` 接收者路径不变（`Runnable::run`、`Integer::intValue`、`this::pack` 回归）。
+- **测试**：`TsRawStatementNormalizerTests` 新增 3 例（FQCN 点分 `Microsoft.Msagl.Core.Geometry.Point[]::new`
+  + `Core.Geometry.Point[]::new`、简单类型 `Point[]::new`/`Integer[]::new`、`Runnable::run`/`this::pack` 回归），
+  先红后绿（红：`toArray(Microsoft.Msagl.Core.` 残留）；全量 `dotnet test` 绿（7 + 547 + 2436，
+  CSharpToJava.Tests 首跑 1 个波动失败，重跑全绿 —— 其他会话并发构建干扰）。
+- **验证**：全量重转后 `npx tsc --noEmit` 15 → 10（移除 B 族 5 个错误：SplineRouter.ts:307×2 /
+  MeshCreator.ts:1116×3，前后列表程序化对比新增 0）。
+
+**修复前错误列表（15，供对照）**
+
 - B（5）：SplineRouter.ts:307（TS1003/TS1005）；MeshCreator.ts:1116（TS1003×1/TS1005×2）
 - A2/A4（4）：ConnectedComponentCalculator.ts:12（TS1011/TS1005）；Tiling.ts:1187（TS1434）；ProcrustesCircleConstraint.ts:198（TS1434）
 - A3（2）：ProcrustesCircleConstraint.ts:118（TS1011×2）
