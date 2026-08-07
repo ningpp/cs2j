@@ -231,6 +231,25 @@ class SegmentIntersector : IComparer<SegmentIntersector.SegEvent>, IComparer<Sca
     }
 
     [Fact]
+    public void ErasureConflictWithGenericTypeArg_StripsTypeParametersFromHelperMethodName()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Foo { }
+class Bar : IComparer<KeyValuePair<string, Foo>>, IComparer<Foo> {
+    public int Compare(KeyValuePair<string, Foo> a, KeyValuePair<string, Foo> b) { return 0; }
+    public int Compare(Foo a, Foo b) { return 0; }
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+
+        // Type arguments containing '<' must not leak into the Java identifier
+        Assert.Contains("asCSharpKeyValuePairComparer", code);
+        Assert.DoesNotMatch(new Regex(@"as[A-Za-z_$][\w$]*<"), code);
+    }
+
+
+    [Fact]
     public void ClassImplementsIComparerOfOwnNestedType_QualifiesNestedTypeInImplementsClause()
     {
         var result = Convert(@"

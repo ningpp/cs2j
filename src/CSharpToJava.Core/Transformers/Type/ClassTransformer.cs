@@ -163,7 +163,13 @@ public class ClassTransformer : ITypeTransformer
                             "short" => "Short",
                             _ => typeArg
                         };
-                        var methodName = $"as{typeArg}{rawIfaceName}";
+                        // Strip generic type parameters from the type argument
+                        // to produce a valid Java identifier (e.g., "CSharpKeyValuePair<String, Group>" → "CSharpKeyValuePair")
+                        var typeArgName = typeArg;
+                        var genericStart = typeArgName.IndexOf('<');
+                        if (genericStart > 0)
+                            typeArgName = typeArgName.Substring(0, genericStart);
+                        var methodName = $"as{typeArgName}{rawIfaceName}";
                         javaClass.Methods.Add(new JavaMethodDeclaration
                         {
                             Name = methodName,
@@ -491,7 +497,13 @@ public class ClassTransformer : ITypeTransformer
                             "short" => "Short",
                             _ => typeArg
                         };
-                        var methodName = $"as{typeArg}{rawIfaceName}";
+                        // Strip generic type parameters from the type argument
+                        // to produce a valid Java identifier (e.g., "CSharpKeyValuePair<String, Group>" → "CSharpKeyValuePair")
+                        var typeArgName = typeArg;
+                        var genericStart = typeArgName.IndexOf('<');
+                        if (genericStart > 0)
+                            typeArgName = typeArgName.Substring(0, genericStart);
+                        var methodName = $"as{typeArgName}{rawIfaceName}";
                         javaClass.Methods.Add(new JavaMethodDeclaration
                         {
                             Name = methodName,
