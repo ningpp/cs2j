@@ -492,7 +492,23 @@ public partial class StatementTransformer
                 }
                 else
                 {
-                    innerCall = $"{objExpr}.{methodName}({args});";
+                    // Apply the same well-known renames + camelCase used for normal method
+                    // invocations so the call matches the lowercased generated declaration
+                    // (e.g. _groupcoll?.Reset() -> _groupcoll.reset()).
+                    var javaMethodName = methodName switch
+                    {
+                        "GetHashCode" => "hashCode",
+                        "GetEnumerator" => "iterator",
+                        "GetType" => "getClass",
+                        "Dispose" => "close",
+                        "ToLower" => "toLowerCase",
+                        "ToUpper" => "toUpperCase",
+                        "ToLowerInvariant" => "toLowerCase",
+                        "ToUpperInvariant" => "toUpperCase",
+                        _ when methodName.Length > 0 => char.ToLowerInvariant(methodName[0]) + methodName[1..],
+                        _ => methodName
+                    };
+                    innerCall = $"{objExpr}.{javaMethodName}({args});";
                 }
                 break;
             case ConditionalAccessExpressionSyntax nestedCondAccess:

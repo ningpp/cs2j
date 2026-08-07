@@ -471,3 +471,22 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 22 — Match.java 找不到符号 方法 Reset()（空条件调用未小写化）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Match.java`
+- **行号**: 74
+- **错误信息**: `找不到符号 方法 Reset() 位置: 类型为 GroupCollection 的变量 _groupcoll`
+- **代码片段**:
+  ```java
+  if (_groupcoll != null) { _groupcoll.Reset(); }   // 声明是 reset()，调用却用 Reset()
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Match.cs`（`_groupcoll?.Reset();`）；声明 `GroupCollection.cs`（`internal void Reset() => _groups = null;`）
+- **根因分类**: Transformer 逻辑缺陷（Lowering）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs`（`TransformConditionalAccessStatement`）
+- **分析**: 语句级空条件调用 `_groupcoll?.Reset();` 被降级为 `if (_groupcoll != null) { ... }`，但 `TransformConditionalAccessStatement` 对成员绑定调用只取原始 C# 名做关键字转义，未套用普通调用的 camelCase 小写化，导致发射 `Reset()` 而声明已是 `reset()`。
+- **修复**: 在空条件语句调用的通用分支套用与普通方法调用一致的 well-known 重命名 + 首字母小写（GetHashCode→hashCode 等）。新增红→绿测试 `ConditionalAccessMethodCasingTests`，Java/Project 全量测试无回归（2459+7）。
+
+**状态**: ✅ Fixed
+
