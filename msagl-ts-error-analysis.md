@@ -12,6 +12,7 @@
 | 4b | — | 重转保留 node_modules（省 npm install） | src/CSharpToJava.CLI/Program.cs | f1d8482d |
 | 6 | 42 → 35 | raw 文本引用 cast 误判：控制流条件 `(X)` 被当强转丢弃（`if return true;`） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests / TsEmitterIntegrationTests）+ 本文件 | e9677465 |
 | 7 | 35 → 26 | 泛型声明/经典 for 头 let 化：类型正则吞掉 lambda `=>` 的 `>` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| a5ff3437 |
+| 8 | 26 → 20 | try-with-resources 无 catch/finally 时裸 `try {`（TS1472）→ 降级为块作用域 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| 1daf46cb |
 
 
 ## Round 1 — MSBuild 零引用 → 注入本机 ref pack
@@ -105,3 +106,34 @@
 - **修复位置**：`TsRawStatementNormalizer.cs` 新增平衡尖括号泛型后缀模式 `GenericTypeSuffixPattern`（.NET 平衡组 `(?<Open><)|(?<-Open>>)`，内容排除 `;`/换行），只匹配类型自身的闭合 `>`（含一层嵌套泛型），替换 `NormalizeRawDeclarations` 与 `TryRewriteClassicForHead` 两处正则；lambda 完整保留在初始化器内。
 - **测试**：`TsRawStatementNormalizerTests` 新增 4 例（泛型声明+lambda、嵌套泛型 FQCN 声明+lambda、`Stream<T>` 声明+lambda、经典 for 头泛型+lambda），先红后绿；全量 `dotnet test` 绿（7 + 538 + 2432）。
 - **验证**：全量重转后 `npx tsc --noEmit` 35 → 26（移除 9 个错误，无新增）。
+
+## Round 8 — try-with-resources 无 catch/finally：裸 `try {` 降级为块作用域
+
+- **C# 构造**：`using` 语句（无 catch/finally）：
+  - `using (Stream stream = File.OpenRead(fileName)) { ... }`（GeometryGraphReader.cs:118）
+  - `using (TextReader reader = File.OpenText(fileName)) { ... }`（GeometryGraphReader.cs:128）
+  - `using (Stream stream = File.Open(fileName, FileMode.Create)) { ... }`（GeometryGraphWriter.cs:119）
+  - `using (var file = new StreamWriter(path)) { ... }` / `using (var file = new StreamReader(path)) { ... }` ×2（SteinerCdt.cs:52/98/130）
+- **错误 TS 输出**：`try { let stream = StreamWrapper.of(FileHelper.openRead(fileName)); ... }` ——
+  TS 不允许 try 无 catch/finally，tsc 报 TS1472 `'catch' or 'finally' expected.`（6 处：
+  GeometryGraphReader.ts:98/105、GeometryGraphWriter.ts:89、SteinerCdt.ts:48/105/134）。
+- **正确 TS 输出**：`{ let stream = StreamWrapper.of(FileHelper.openRead(fileName)); ... }` ——
+  无 catch/finally 时去掉 `try` 关键字，资源声明与主体降级为普通块作用域；变量作用域与
+  Java try-with-resources 一致（资源名仅块内可见）。有 catch/finally 时保持 `try {`（已工作）。
+- **根因**：`TransformUsingStatement` 产出 Java raw 文本 `try (Type name = init) { body }`；
+  `TsRawStatementNormalizer.NormalizeTryWithResources` 只把资源头改写为 `try { let ...;`，
+  未检查 try 后是否真的存在 catch/finally。TS 中裸 `try {` 是语法错误（TS1472），
+  而 C# `using`（无异常处理语义）在 Java 风味下被机械套上 try-with-resources 外壳。
+- **修复位置**：`NormalizeTryWithResources` 在改写资源头后，用新增的 `FindMatchingBrace`
+  找到主体块匹配的 `}`，`HasCatchOrFinallyAfter` 检查其后是否紧跟 `catch`/`finally`；
+  两者皆无时把改写结果 `"try { let ...;"` 的前缀 `"try "` 剥掉，仅保留 `{ let ...;`。
+  新增 `SkipComment`（不追加 StringBuilder 的注释跳过变体）供花括号匹配跳过注释。
+- **降级语义论证**：TS 无资源跟踪语法；无 catch/finally 的 `try` 不承担任何异常流
+  语义（不捕获、不清理、不重抛），唯一作用是把资源声明限定在块内——普通块 `{ }`
+  完整保留该作用域语义。不引入 `finally { x.close?.(); }`：兼容库类型未必声明
+  `close`，可选链 `close?.()` 在 TS 下仍做成员存在性检查，会制造新的编译错误；
+  块作用域零风险且与"零错误编译"目标一致。
+- **测试**：`TsRawStatementNormalizerTests` 新增 4 例（无 catch/finally 全语句 → 块作用域、
+  带 catch 保持 try、带 finally 保持 try、主体含嵌套块的花括号匹配），先红后绿；
+  保留 head 片段（无主体）回退用例。全量 `dotnet test` 绿（7 + 542 + 2432）。
+- **验证**：全量重转后 `npx tsc --noEmit` 26 → 20（恰好移除 6 个 TS1472，无新增错误）。
