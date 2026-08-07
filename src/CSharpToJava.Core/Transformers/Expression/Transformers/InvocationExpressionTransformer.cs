@@ -548,6 +548,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         var methodName = originalName;
 
+        // JS 全局函数：Task 19 TsNumericSemanticsRewriter 已把调用点改写为 BigInt/Number 形态；
+        // C# 源中无同名符号（Symbol == null），跳过 TypeMappings 与 camelCase，TS 中保持原名。
+        if (originalName is "BigInt" or "Number" && context.GetSymbolInfo(node).Symbol == null)
+        {
+            return originalName;
+        }
+
         // Try TypeMappings via semantic model (receiver type required for lookup, skip if unavailable)
         if (context.GetSymbolInfo(node).Symbol is IMethodSymbol sym)
         {

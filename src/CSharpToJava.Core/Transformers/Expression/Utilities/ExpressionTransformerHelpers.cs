@@ -221,6 +221,13 @@ public static class ExpressionTransformerHelpers
 
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
         {
+            // Task 19：TS 目标同型直接透传——byte 掩码与 uint 常量 (int) cast 均为 Java
+            // 风味（(int) 非法 TS；窄化掩码语义由 TsNumericSemanticsRewriter 语法改写产出）。
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            {
+                return transformedExpression;
+            }
+
             // When both are C# byte, source may originate from Java byte[] (signed byte)
             // while target is Java int (unsigned). Always mask for correctness.
             // But skip if the expression already ends with & 0xFF (e.g. from (byte)cast).
@@ -296,8 +303,27 @@ public static class ExpressionTransformerHelpers
         if (IsFileOpenStreamExpression(expression) && targetType.ToDisplayString() == "System.IO.Stream")
             return $"StreamWrapper.of({transformedExpression})";
 
+        // Task 19：TS 目标下 Java 风味 cast（(int)/(long)/(double) 等）是非法 TS；按 C#
+        // 数值语义产出 TS 显式转换：整型→bigint 用 BigInt(...)（C# int→long 提升），
+        // bigint→浮点用 Number(...)（C# long→double 提升）；其余跨数值类型在 TS 统一 number
+        // 直接透传（窄化/掩码语义由 TsNumericSemanticsRewriter 语法改写产出）。
         var sourceSpecial = sourceType.SpecialType;
         var targetSpecial = targetType.SpecialType;
+
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            bool sourceIsBigInt = sourceSpecial is SpecialType.System_Int64 or SpecialType.System_UInt64;
+            bool targetIsBigInt = targetSpecial is SpecialType.System_Int64 or SpecialType.System_UInt64;
+            if (!sourceIsBigInt && targetIsBigInt && IsIntegralNumericType(sourceSpecial))
+            {
+                return $"BigInt({transformedExpression})";
+            }
+            if (sourceIsBigInt && targetSpecial is SpecialType.System_Single or SpecialType.System_Double)
+            {
+                return $"Number({transformedExpression})";
+            }
+            return transformedExpression;
+        }
 
         // Both source and target are C# byte: source may originate from a Java byte[]
         // element (signed byte) while target is Java int (unsigned). Always mask.

@@ -4999,11 +4999,11 @@ Actual: PASS（28/28，含 L3 tsc）；全量 TS 299/299（271 + 新增 28），
 - Modify: `src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs`（`RunTsRewriters` 装配）
 - Create: `tests/CSharpToTypeScript.Tests/TsNumericSemanticsTests.cs`
 
-- [ ] **Step 1: 设计**
+- [x] **Step 1: 设计**
 
 IR 不携带类型信息（同 §2.6.1 重载消歧的困境），类型感知必须由 rewriter 持有 Roslyn 语义模型回调：`SingleFileTsEmitPass` 装配时注入 `state.Context.SemanticModel`。
 
-- [ ] **Step 2: 实现**
+- [x] **Step 2: 实现**
 
 1. **整数除法**：两操作数经语义模型判定均为 C# 整型（非 long/ulong）时，将 `JavaBinaryExpression("/")` 替换为 `JavaRawExpression($"Math.trunc({l} / {r})")`；long/ulong（bigint）不包（JS bigint 除法天然截断，spec §2.5 修订注记）。补齐 Task 7 M1 阶段仅字面量包装的缺口。
 2. **窄化转换**：`(byte)e`/`(sbyte)e` 等 → 掩码/截断辅助（沿用 Java 目标的 `& 0xFF` 策略，见 spec §1.4.2）。
@@ -5011,7 +5011,19 @@ IR 不携带类型信息（同 §2.6.1 重载消歧的困境），类型感知�
 4. `List.Clear()` 语句级特殊分支（Task 2 排除项）：调用点 `x.Clear()`（接收者为数组映射类型）→ `x.length = 0` 语句改写。
 5. 测试：`TsNumericSemanticsTests`（spec §5.3：整数除法包 Math.trunc、窄化掩码、混算转换；另加“double 除法不被误包”反向用例）。
 
-- [ ] **Step 3: 运行测试 + Java 零回归 + 提交**
+- [x] **Step 3: 运行测试 + Java 零回归 + 提交**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
+Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`（Java 零回归）
+Actual: PASS（TS 314/314 = 300 基线 + 14 新增，含 L3 tsc；Java 2423/2423 零回归）。
+
+**注记（2026-08-07 Task 19 实施，实测为准）：**
+> ① 实现路径（证据）：新增 `TsNumericSemanticsRewriter`（syntax-tree 层，`SingleFileTsEmitPass` 在既有 TsRawStatementNormalizer 之前装配，注入 `state.Context.SemanticModel`），在发射 pass 步骤 1 前改写 syntax tree 并重建 compilation，再走共享 IR 管线。raw 文本直接流入（`Math.trunc`/`BigInt`/`Number` 在 Java 文本与 TS 中同形）；结构化节点（CastExpressionSyntax 等）经 `RoslynSyntaxTreeRewriter` 改写后重新绑定 semantic model。`InvocationExpressionTransformer.ApplyCamelCaseAndMappings` 增补 `BigInt`/`Number` 全局函数名白名单（TS 目标下不被 camelCase 改名）；`TsMemberWriter.NormalizeLiteral` 剥除 Java 数值 cast 前缀（`(long) (4294967295L)` → `4294967295n`）；`ExpressionTransformerHelpers.AdaptExpressionToTargetTypeCore` 在 TS 目标下共享适配层直通/转换（同型短路透传 + 跨类型 `BigInt(...)`/`Number(...)`），与 `TsRawStatementNormalizer` 无关。
+> ② 实测产物形态（探针，全部经 L3 tsc 编译验证）：`a / b`（int/int）→ `Math.trunc(a / b)`，double 除法原样、long/ulong 除法原样；`(int)d` → `Math.trunc(d)`；`(long)x`（int）→ `BigInt(x)`；`(long)d` → `BigInt(Math.trunc(x))`；`(byte)long` → `(Number(x) & 0xFF)`、`(byte)double` → `(x & 0xFF)`、object 源均 `Number(...)`；`(sbyte)x` → `x << 24 >> 24`、`(short)x` → `x << 16 >> 16`、`(ushort)x` → `x & 0xFFFF`；`(uint)d` → `(Math.trunc(Number(x)) % 0x100000000 + 0x100000000) % 0x100000000`（十六进制 `0x100000000` 避免 long 后缀 `L` 泄漏）；混算 `a + BigInt(b)`、`Number(a) + b`、比较 `a > BigInt(b)`、字符串 `s + Number(a)`、移位 `x << BigInt(n)`、复合赋值 `a += BigInt(2)`；`l.Clear()`/`this.items.Clear()` → `l.length = 0`/`this.items.length = 0`。
+> ③ 隐式转换不再泄漏 Java cast：`long Widen(int x) { return x; }` → `return BigInt(x);`；`double WidenD(int x)` → `return x;`（TS 统一 number 透传）；`long WidenByte(byte b)` → `return BigInt(b);`；`byte→int`（`NarrowByte`）直通。共享适配层 TS 分支判定规则：`!sourceIsBigInt && targetIsBigInt && 整型源` → `BigInt(...)`；`sourceIsBigInt && 目标 float/double` → `Number(...)`；其余（含同型）透传，窄化掩码语义由 rewriter 语法改写产出。
+> ④ 无法判定的类型参数与 bigint 混算（`long M<T>(long a, T b) { return a + b; }`）→ 诊断 `unresolved operand type`（rewriter `WarnOnce`，每文件一次）。
+> ⑤ 已登记限制（未修）：（1）`List.Clear()` 用例的 tsc 编译用 `global.d.ts` 桩 `type Integer = number; type CSharpList<T> = Array<T>;`——`List<int>` 泛型实参的 Java 风味名泄漏归既有基线 gap（Task 27/M4 类型映射）；（2）`const long MaxUInt = uint.MaxValue` 的 IR 形态为 `BigInt(4294967295L)`（共享适配层 TS 分支包裹），由 `TsMemberWriter.NormalizeLiteral` 归一化为 `4294967295n`（注记⑦，Sample.cs 实测无泄漏）；（3）移位计数 bigint 源（`x << (long)n`）未显式覆盖——计数侧按值侧类型包 `BigInt`/`Number`，bigint 源计数为 TS 合法形态（bigint 移位计数必须 bigint），未见泄漏用例。
+> ⑥ 提交：`feat(ts): emit C# numeric semantics for TypeScript (integer division, narrowing, bigint mixing)`，hash 见 git log（3 文件新增：TsNumericSemanticsRewriter.cs / TsNumericSemanticsTests.cs / 本计划文档；4 文件修改：SingleFilePasses.cs / InvocationExpressionTransformer.cs / TsMemberWriter.cs / ExpressionTransformerHelpers.cs——return 语句与隐式提升路径在 TS 目标经共享适配层直通/转换）。
 
 ---
 

@@ -284,6 +284,16 @@ public sealed class TsMemberWriter
     /// </summary>
     private static string NormalizeLiteral(string literal)
     {
+        // Task 19 注记⑦：Java 风味数值 cast 前缀（(long)/(int)/(short)/(byte)/(double)/(float)）
+        // const long = uint.MaxValue 等初始化经共享适配层包成 "(long) (4294967295L)"
+        // 形态，TS 无 cast 语法，需剥除前缀并把 L 后缀归一化为 n
+        // （递归处理嵌套/括号包裹形态；仅字面量整体匹配才转换）
+        var stripped = StripNumericCastPrefix(literal);
+        if (stripped != literal)
+        {
+            return NormalizeLiteral(stripped);
+        }
+
         if (literal.Length >= 3 && literal[0] == '\'' && literal[^1] == '\'' && !literal[1..^1].Contains('"'))
         {
             return "\"" + literal[1..^1] + "\"";
@@ -299,6 +309,79 @@ public sealed class TsMemberWriter
             return literal[..^1];
         }
 
+        // Task 19 note (7): under the TS target, const initializers such as uint.MaxValue
+        // reach this writer as BigInt(<Java literal>)/Number(<Java literal>) because the
+        // shared adapt layer wraps them (AdaptExpressionToConvertedType TS branch). The
+        // inner literal still carries Java suffixes, so normalize it: BigInt(4294967295L)
+        // -> 4294967295n, Number(1.5f) -> 1.5, BigInt(5) -> 5n.
+        if (literal.StartsWith("BigInt(", StringComparison.Ordinal) && literal.EndsWith(")", StringComparison.Ordinal))
+        {
+            var inner = literal["BigInt(".Length..^1].Trim();
+            if (inner.EndsWith("L", StringComparison.Ordinal) && IsNumericLiteralBody(inner[..^1]))
+            {
+                return inner[..^1] + "n";
+            }
+            if (IsNumericLiteralBody(inner))
+            {
+                return inner + "n";
+            }
+            return literal;
+        }
+
+        if (literal.StartsWith("Number(", StringComparison.Ordinal) && literal.EndsWith(")", StringComparison.Ordinal))
+        {
+            var inner = literal["Number(".Length..^1].Trim();
+            if ((inner.EndsWith("L", StringComparison.Ordinal) && IsNumericLiteralBody(inner[..^1]))
+                || (inner.EndsWith("f", StringComparison.OrdinalIgnoreCase) && IsNumericLiteralBody(inner[..^1])))
+            {
+                return inner[..^1];
+            }
+            if (IsNumericLiteralBody(inner))
+            {
+                return inner;
+            }
+            return literal;
+        }
+
+        return literal;
+    }
+
+    /// <summary>剥除 "({type}) (literal)" 或 "({type})literal" 形态的 Java 数值 cast 前缀，
+    /// 供 NormalizeLiteral 归一化 const 字段初始化器（TS 无 cast 语法）。</summary>
+    private static string StripNumericCastPrefix(string literal)
+    {
+        var trimmed = literal.TrimStart();
+        if (!trimmed.StartsWith('('))
+        {
+            return literal;
+        }
+        var closeIdx = trimmed.IndexOf(')');
+        if (closeIdx < 2)
+        {
+            return literal;
+        }
+        var typeName = trimmed[1..closeIdx];
+        if (typeName is not ("long" or "int" or "short" or "byte" or "sbyte" or "double" or "float"))
+        {
+            return literal;
+        }
+        var rest = trimmed[(closeIdx + 1)..].Trim();
+        if (rest.Length >= 2 && rest[0] == '(' && rest[^1] == ')')
+        {
+            rest = rest[1..^1];
+        }
+        if (rest.Length == 0)
+        {
+            return literal;
+        }
+        if (rest.EndsWith("L", StringComparison.Ordinal) && IsNumericLiteralBody(rest[..^1]))
+        {
+            return rest;
+        }
+        if (IsNumericLiteralBody(rest))
+        {
+            return rest;
+        }
         return literal;
     }
 

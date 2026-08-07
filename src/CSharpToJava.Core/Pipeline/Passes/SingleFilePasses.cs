@@ -364,7 +364,36 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             return;
         }
 
-        // 1. 生成 Java IR（与 Java 路径一致）
+        // 1. Task 19 数值语义：C# 语法树级改写（仅 TS 路径）。IR 方法体为 raw 文本
+        //    （JavaRawStatement），类型信息在 IR 层不可得；在语法树 + 语义模型上完成
+        //    整数除法/窄化转换/bigint 混算/List.Clear 判定，改写产物经共享 visitor
+        //    流入 raw 文本（Math.trunc/BigInt/Number 在 Java 文本与 TS 中同形）。
+        //    改写后重建编译与语义模型（模式同 LINQ desugar pass），供 visitor 查询。
+        if (state.Context.SemanticModel != null)
+        {
+            var numericRoot = new TypeScript.Rewriters.TsNumericSemanticsRewriter(state.Context)
+                .Visit(state.SyntaxTree.GetRoot());
+            if (numericRoot != null && !ReferenceEquals(numericRoot, state.SyntaxTree.GetRoot()))
+            {
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(
+                    (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)numericRoot,
+                    state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    state.SyntaxTree.GetRoot().ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+        }
+
+        // 2. 生成 Java IR（与 Java 路径一致）
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());
         if (compilationUnit is not Java.JavaCompilationUnit javaCompilation)
@@ -373,17 +402,17 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             return;
         }
 
-        // 2. 运行用户注册的 IR rewriter（目标无关）
+        // 3. 运行用户注册的 IR rewriter（目标无关）
         foreach (var rewriter in _irRewriters)
         {
             rewriter.VisitCompilationUnit(javaCompilation);
         }
 
-        // 3. 运行 TS 专属 rewriter（M1 暂空；Task 16 起装配属性重组，在用户 rewriter 之后、
+        // 4. 运行 TS 专属 rewriter（M1 暂空；Task 16 起装配属性重组，在用户 rewriter 之后、
         //    发射之前运行，Roles 侧表注入发射器）
         var (accessorRoles, compatSymbols) = RunTsRewriters(javaCompilation, state.Context);
 
-        // 4. TS 发射
+        // 5. TS 发射
         var emitter = new TypeScript.TypeScriptEmitter(accessorRoles);
         var code = emitter.Emit(javaCompilation, state.Context, compatSymbols);
 
