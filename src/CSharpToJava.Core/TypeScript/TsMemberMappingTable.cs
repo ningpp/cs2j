@@ -188,6 +188,15 @@ public sealed class TsMemberMappingTable
             imports = cfImports;
             return true;
         }
+        // Java-flavor generic/fancy names (M5, MSAGL full conversion): Class<...>,
+        // CSharpGenericIterable/CSharpList/CSharpStack/Map.Entry/Iterable, wildcard and
+        // FQCN generic args, recursively mapped per segment.
+        if (TryMapJavaFlavorGenericType(csharpOrJavaType, out var flavorTs, out var flavorImports))
+        {
+            tsType = flavorTs;
+            imports = flavorImports;
+            return true;
+        }
         // ① 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
         if (BuiltinJavaTypeMappings.TryGetValue(csharpOrJavaType, out var javaMapped))
         {
@@ -210,6 +219,17 @@ public sealed class TsMemberMappingTable
         {
             tsType = elementTs + "[]";
             imports = elementImports;
+            return true;
+        }
+        // ? Project FQCN shortening fallback (M5 / MSAGL): multi-segment names that no
+        //    table knows (Microsoft.Msagl.Core.Geometry.Point) -> last segment; the
+        //    import collector registers the short name, matching emitter output.
+        //    System.*/java.*/javax.*/io.github.* and single-segment names fall through
+        //    unchanged (false), preserving the pre-M5 pass-through contract.
+        if (TryShortenFullyQualifiedName(csharpOrJavaType, out var shortened))
+        {
+            tsType = shortened;
+            imports = System.Array.Empty<string>();
             return true;
         }
         tsType = csharpOrJavaType;
@@ -333,6 +353,146 @@ public sealed class TsMemberMappingTable
         var inner = javaType["CompletableFuture<".Length..^1];
         var mappedInner = TryMapType(inner, out var m, out _) ? m : inner;
         tsType = $"Promise<{mappedInner}>";
+        return true;
+    }
+
+    /// <summary>
+    /// Java-flavor generic/fancy type mapping (M5 extension, driven by the MSAGL full
+    /// conversion):
+    /// - Class<?>/Class<T> (Java form of C# Type) -> any (TS has no type token; usages
+    ///   are normalized textually via TypeHelper.newArrayInstance -> new Array(n));
+    /// - CSharpGenericIterable<X> -> Iterable<X>; CSharpICollection<X> /
+    ///   CSharpGenericComparer<X> keep the name (global.d.ts alias -> Iterable /
+    ///   { compare } object type);
+    /// - CSharpList/CSharpStack/CSharpHashSet/CSharpDictionary keep the name
+    ///   (global.d.ts alias / compat class), generic args mapped recursively
+    ///   (FQCN shortening, wildcard -> any);
+    /// - Map.Entry<K,V> -> CsKeyValuePair<K,V> (compat import);
+    /// - Iterable<X> keeps the name and maps its args;
+    /// - project FQCN (Microsoft.Msagl.Core.Geometry.Point) -> last segment
+    ///   (imports are collected by short name); java.util.List -> Array.
+    /// </summary>
+    private bool TryMapJavaFlavorGenericType(string javaType, out string tsType, out IReadOnlyList<string> imports)
+    {
+        tsType = javaType;
+        imports = System.Array.Empty<string>();
+
+        // Class<?>/Class<T>/Class -> any
+        if (javaType == "Class" || javaType.StartsWith("Class<", StringComparison.Ordinal))
+        {
+            tsType = "any";
+            return true;
+        }
+
+        // Map.Entry<K,V> -> CsKeyValuePair<K,V>; raw Map.Entry -> CsKeyValuePair<any, any>
+        if (javaType == "Map.Entry")
+        {
+            tsType = "CsKeyValuePair<any, any>";
+            imports = new[] { "@csharptotypescript/compat" };
+            return true;
+        }
+        if (javaType.StartsWith("Map.Entry<", StringComparison.Ordinal) && javaType.EndsWith(">", StringComparison.Ordinal))
+        {
+            var entryArgs = javaType["Map.Entry<".Length..^1];
+            tsType = $"CsKeyValuePair<{MapGenericArgs(entryArgs)}>";
+            imports = new[] { "@csharptotypescript/compat" };
+            return true;
+        }
+
+        var open = javaType.IndexOf('<');
+        if (open < 0)
+        {
+            // No generics: plain names are handled by the builtin/config tables and by
+            // the TryMapType FQCN-shortening fallback; nothing to do here.
+            return false;
+        }
+        if (!javaType.EndsWith(">", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var bare = javaType[..open].Trim();
+        var inner = javaType[(open + 1)..^1];
+        var mappedInner = MapGenericArgs(inner);
+        switch (bare)
+        {
+            case "CSharpGenericIterable":
+                tsType = $"Iterable<{mappedInner}>";
+                return true;
+            case "CSharpICollection":
+            case "CSharpGenericComparer":
+            case "CSharpList":
+            case "CSharpStack":
+            case "CSharpHashSet":
+            case "Iterable":
+                tsType = $"{bare}<{mappedInner}>";
+                return true;
+            case "CSharpDictionary":
+            case "Map":
+                // Map<K,V> (java.util.Map) -> CSharpDictionary alias (-> CsDictionary)
+                tsType = $"CSharpDictionary<{mappedInner}>";
+                return true;
+            case "java.util.List":
+                tsType = $"Array<{mappedInner}>";
+                return true;
+            case "java.util.Set":
+                tsType = $"CSharpHashSet<{mappedInner}>";
+                return true;
+            default:
+                // Known system shells (builtin/config tables) map first so dotted C#
+                // names like System.Collections.Generic.List<...> keep their table
+                // mapping instead of being FQCN-shortened.
+                if (BuiltinJavaTypeMappings.TryGetValue(bare, out var mappedBare))
+                {
+                    // Framework shells (Comparable -> object) map as-is; their type
+                    // args are erased (table values are non-generic targets).
+                    tsType = mappedBare;
+                    return true;
+                }
+                if (_typeMappings.TryGetValue(bare, out var cfgEntry))
+                {
+                    // Config shells map as-is too (e.g. Iterable); args erased.
+                    tsType = cfgEntry.TsType;
+                    return true;
+                }
+                // User generic types (Set<T>/RbTree<K,V>/...): shorten FQCN shell only
+                if (!TryShortenFullyQualifiedName(bare, out var shell))
+                {
+                    return false;
+                }
+                tsType = shell + "<" + MapGenericArgs(inner) + ">";
+                return true;
+        }
+    }
+
+    /// <summary>Generic args list mapping (top-level comma split, per-segment TryMapType, wildcard -> any).</summary>
+    private string MapGenericArgs(string inner)
+    {
+        return string.Join(", ", SplitTopLevelGenericArgs(inner)
+            .Select(a => a == "?" ? "any" : TryMapType(a, out var m, out _) ? m : a));
+    }
+
+    /// <summary>
+    /// Project FQCN shortening: A.B.C.Type (>= 2 segments) and not a java.* system name
+    /// -> last segment (matches short-name import collection). Single-segment/system
+    /// names return false.
+    /// </summary>
+    private static bool TryShortenFullyQualifiedName(string javaType, out string tsType)
+    {
+        tsType = javaType;
+        if (javaType.StartsWith("java.", StringComparison.Ordinal)
+            || javaType.StartsWith("javax.", StringComparison.Ordinal)
+            || javaType.StartsWith("io.github.", StringComparison.Ordinal)
+            || javaType.StartsWith("System.", StringComparison.Ordinal))
+        {
+            return false;
+        }
+        var segments = javaType.Split('.');
+        if (segments.Length < 2)
+        {
+            return false;
+        }
+        tsType = segments[^1];
         return true;
     }
 

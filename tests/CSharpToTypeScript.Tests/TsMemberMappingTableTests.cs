@@ -57,10 +57,21 @@ public class TsMemberMappingTableTests
     }
 
     [Fact]
-    public void TryMapType_Unknown_Returns_False()
+    public void TryMapType_Project_Fqcn_Shortens_To_Last_Segment()
+    {
+        // M5 / MSAGL: unknown multi-segment project FQCNs shorten to the last segment
+        // (the import collector registers the short name); this replaced the pre-M5
+        // pass-through contract for dotted names.
+        var table = new TsMemberMappingTable(ConfigPath("TypeMappings.json"), ConfigPath("MemberMappings.json"));
+        Assert.True(table.TryMapType("MyApp.Foo", out var tsType, out _));
+        Assert.Equal("Foo", tsType);
+    }
+
+    [Fact]
+    public void TryMapType_Single_Segment_Unknown_Returns_False()
     {
         var table = new TsMemberMappingTable(ConfigPath("TypeMappings.json"), ConfigPath("MemberMappings.json"));
-        Assert.False(table.TryMapType("MyApp.Foo", out _, out _));
+        Assert.False(table.TryMapType("Foo", out _, out _));
     }
 
     [Fact]
@@ -152,12 +163,22 @@ public class TsMemberMappingTableTests
     }
 
     [Fact]
-    public void TryMapType_Unmapped_Element_Array_Returns_False_And_Original()
+    public void TryMapType_Project_Fqcn_Array_Shortens_To_Last_Segment()
     {
-        // 元素未命中时维持原行为：返回原值 + false
+        // M5 / MSAGL: array of an unknown project FQCN shortens element + keeps [].
         var table = new TsMemberMappingTable(null, null);
-        Assert.False(table.TryMapType("MyApp.Foo[]", out var tsType, out _));
-        Assert.Equal("MyApp.Foo[]", tsType);
+        Assert.True(table.TryMapType("MyApp.Foo[]", out var tsType, out _));
+        Assert.Equal("Foo[]", tsType);
+    }
+
+    [Fact]
+    public void TryMapType_System_Prefixed_Unknown_Returns_False_And_Original()
+    {
+        // System.* names stay unmapped (they belong to the config tables, not project
+        // FQCN shortening); pass-through contract preserved.
+        var table = new TsMemberMappingTable(null, null);
+        Assert.False(table.TryMapType("System.UnknownType", out var tsType, out _));
+        Assert.Equal("System.UnknownType", tsType);
     }
 
     // ─── Task 21 异常反向映射 ──────────────────────────────────────

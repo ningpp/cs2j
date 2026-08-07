@@ -360,6 +360,10 @@ public static class NpmProjectFiles
         type CSharpList<T> = Array<T>;
         type CSharpDictionary<K, V> = import("@csharptotypescript/compat").CsDictionary<K, V>;
         type CSharpHashSet<T> = import("@csharptotypescript/compat").CsSet<T>;
+        type CSharpStack<T> = Array<T>;
+        type CSharpICollection<T> = Iterable<T>;
+        type CSharpGenericComparer<T> = { compare(a: T, b: T): number };
+        type CsKeyValuePair<K, V> = import("@csharptotypescript/compat").CsKeyValuePair<K, V>;
         """;
 
     /// <summary>模块 tsconfig.json：extends 工作区根 tsconfig.base.json。</summary>
