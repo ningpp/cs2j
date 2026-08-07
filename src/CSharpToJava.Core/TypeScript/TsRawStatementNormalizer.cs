@@ -86,7 +86,11 @@ public static class TsRawStatementNormalizer
         //（Task 27 模式匹配：前端对含 is 模式的条件整段 raw 发射 if，段首声明落在
         // raw 文本；TS 无 "Type name" 声明语法）。仅命中行首 "类型 标识符 = ...;"
         // 且类型为单个标识符/泛型名时改写（b.R = 5 等成员赋值因类型后跟 "." 不命中）。
-        var withDecls = NormalizeRawDeclarations(withObjectEmpty, mapType);
+        // 6b Java method-group references (::) and lambda arrows (->): TS has neither
+        // syntax; arrow functions preserve delegate-call semantics.
+        var withMethodRefs = NormalizeMethodReferences(withObjectEmpty);
+
+        var withDecls = NormalizeRawDeclarations(withMethodRefs, mapType);
 
         // ⑧ Java 形态空安全相等调用 java.util.Objects.equals(a, b) / Objects.equals(a, b)
         // → a === b（Task 27 模式匹配：switch 语句常量标签 case null:/case 5: 的 Java 化
@@ -397,6 +401,155 @@ public static class TsRawStatementNormalizer
     /// <summary>
     /// 扫描替换 Object.Empty（EventArgs.Empty 的 Java 化形态）→ null；跳过字符串/字符字面量。
     /// </summary>
+    /// <summary>
+    /// Normalizes Java method-group references and lambda arrows in raw text:
+    /// "this::pack" -> "(...args) => this.pack(...args)",
+    /// "Integer::intValue" -> "(x) => Number(x)", "Block[]::new" -> "(n) => new Array(n)",
+    /// "n -> n.getBoundingBox()" -> "n => n.getBoundingBox()". Arrow functions keep
+    /// delegate-call semantics; boxed-primitive accessors and Runnable.run get
+    /// element-wise rewrites. Skips string/char literals.
+    /// </summary>
+    private static string NormalizeMethodReferences(string code)
+    {
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            if (ch == ':' && i + 1 < code.Length && code[i + 1] == ':'
+                && TryRewriteMethodReference(code, i, out var rewritten, out var consumed, out var receiverStart))
+            {
+                // Drop the receiver text already copied to the buffer: the rewrite
+                // re-emits it inside the arrow function.
+                sb.Length -= i - receiverStart;
+                sb.Append(rewritten);
+                i += consumed;
+                continue;
+            }
+            if (ch == '-' && i + 1 < code.Length && code[i + 1] == '>')
+            {
+                // Java lambda arrow: "n -> expr" / "(a, b) -> expr" / "x->expr".
+                // Preceding char is ')' , an identifier char, or whitespace.
+                var prev = i > 0 ? code[i - 1] : '\0';
+                if (prev == ')' || IsIdentifierChar(prev) || char.IsWhiteSpace(prev))
+                {
+                    sb.Append("=>");
+                    i += 2;
+                    continue;
+                }
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Rewrites a "::" method-group reference at position at (the first colon).
+    /// Returns the replacement text and how many source chars it consumed
+    /// (the "::" plus the trailing member name; receiver is kept in the output).
+    /// </summary>
+    private static bool TryRewriteMethodReference(string code, int at, out string rewritten, out int consumed, out int receiverStart)
+    {
+        rewritten = string.Empty;
+        consumed = 2;
+        receiverStart = at;
+        var recvStart = at - 1;
+        if (recvStart >= 1 && code[recvStart] == ']' && code[recvStart - 1] == '[')
+        {
+            // "Type[]::new": step back over the "[]" suffix before scanning the type name.
+            recvStart -= 2;
+        }
+        while (recvStart >= 0 && IsIdentifierChar(code[recvStart]))
+        {
+            recvStart--;
+        }
+        recvStart++;
+        receiverStart = recvStart;
+        var recvLen = at - recvStart;
+        if (recvLen == 0)
+        {
+            return false;
+        }
+        var recv = code.Substring(recvStart, recvLen);
+
+        var after = at + 2;
+        var member = ReadIdentifier(code, after);
+        if (member.Length == 0)
+        {
+            return false;
+        }
+
+        if (recv.EndsWith("[]", StringComparison.Ordinal))
+        {
+            // Type[]::new -> (n) => new Array(n): array constructor reference used
+            // by .toArray(X[]::new).
+            if (member != "new")
+            {
+                return false;
+            }
+            rewritten = "(n) => new Array(n)";
+            consumed = 2 + member.Length;
+            return true;
+        }
+
+        if (!IsIdentifier(recv) && recv != "this")
+        {
+            return false;
+        }
+
+        var boxedNumeric = recv is "Integer" or "Double" or "Float" or "Long" or "Short";
+        var numericAccessor = member is "intValue" or "doubleValue" or "floatValue" or "longValue" or "shortValue";
+        if (boxedNumeric && numericAccessor)
+        {
+            rewritten = "(x) => Number(x)";
+            consumed = 2 + member.Length;
+            return true;
+        }
+        if (recv == "Boolean" && member == "booleanValue")
+        {
+            rewritten = "(x) => Boolean(x)";
+            consumed = 2 + member.Length;
+            return true;
+        }
+        if (recv == "Runnable" && member == "run")
+        {
+            // Element-wise call: actions.forEach(Runnable::run) -> (x) => x.run().
+            rewritten = "(x) => x.run()";
+            consumed = 2 + member.Length;
+            return true;
+        }
+
+        rewritten = $"(...args) => {recv}.{member}(...args)";
+        consumed = 2 + member.Length;
+        return true;
+    }
+
+    /// <summary>Reads an identifier starting at index; returns empty when absent.</summary>
+    private static string ReadIdentifier(string code, int at)
+    {
+        if (at >= code.Length || !IsIdentifierStart(code[at]))
+        {
+            return string.Empty;
+        }
+        var end = at + 1;
+        while (end < code.Length && IsIdentifierChar(code[end]))
+        {
+            end++;
+        }
+        return code.Substring(at, end - at);
+    }
+
+    private static bool IsIdentifierStart(char c)
+        => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or '_' or '$';
+
     /// <summary>
     /// Java 形态局部声明归一化（Task 27 模式匹配）：行首 "Type name = init;" →
     /// "let name: MappedType = init;"。类型仅匹配单标识符或泛型名（不含 "."，避免

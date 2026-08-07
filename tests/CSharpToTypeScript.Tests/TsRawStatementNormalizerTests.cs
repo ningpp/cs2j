@@ -364,4 +364,59 @@ public class TsRawStatementNormalizerTests
         Assert.Equal("let a: number = 1.5;", NormalizeWithTable("double a = 1.5f;"));
     }
 
+
+
+    [Fact]
+    public void Method_Reference_This_Pack_Becomes_Arrow_Function()
+    {
+        Assert.Equal(
+            "goldenSectionSearch((...args) => this.pack(...args), lowerBound, c0, upperBound, precision);",
+            TsRawStatementNormalizer.Normalize("goldenSectionSearch(this::pack, lowerBound, c0, upperBound, precision);"));
+    }
+
+    [Fact]
+    public void Method_Reference_Receiver_Becomes_Arrow_Function()
+    {
+        Assert.Equal(
+            "B b = (...args) => trimSeg.b(...args);",
+            TsRawStatementNormalizer.Normalize("B b = trimSeg::b;"));
+    }
+
+    [Fact]
+    public void Method_Reference_Boxed_Primitive_Becomes_Number_Conversion()
+    {
+        Assert.Equal(
+            "return order.stream().mapToInt((x) => Number(x)).toArray();",
+            TsRawStatementNormalizer.Normalize("return order.stream().mapToInt(Integer::intValue).toArray();"));
+        Assert.Equal(
+            "double v = d.doubleValue();",
+            TsRawStatementNormalizer.Normalize("double v = d.doubleValue();"));
+    }
+
+    [Fact]
+    public void Array_Constructor_Reference_Becomes_Array_Creation()
+    {
+        Assert.Equal(
+            "this.matrixQ[0] = this.newMatrixRow.toArray((n) => new Array(n));",
+            TsRawStatementNormalizer.Normalize("this.matrixQ[0] = this.newMatrixRow.toArray(MatrixCell[]::new);"));
+    }
+
+    [Fact]
+    public void Java_Lambda_Arrow_Becomes_TypeScript_Arrow()
+    {
+        Assert.Equal(
+            "return Stream.concat(a, b).map(n => n.getBoundingBox());",
+            TsRawStatementNormalizer.Normalize("return Stream.concat(a, b).map(n -> n.getBoundingBox());"));
+        Assert.Equal(
+            "xs.map((a, b) => a + b);",
+            TsRawStatementNormalizer.Normalize("xs.map((a, b) -> a + b);"));
+    }
+
+    [Fact]
+    public void Method_Reference_And_Lambda_Inside_String_Literals_Are_Preserved()
+    {
+        Assert.Equal(
+            "console.log(\"a::b -> c\");",
+            TsRawStatementNormalizer.Normalize("System.out.println(\"a::b -> c\");"));
+    }
 }
