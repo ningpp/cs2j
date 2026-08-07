@@ -18,6 +18,7 @@
 | 11 | 10 → 8 | CRLF raw 文本尾注释声明未 let 化：declPattern 尾组吞不下行尾 `\r` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +6）+ 本文件 | bacd8673（代码+测试被并发会话提交扫入，见注） 
 | 12 | 8 → 6 | `boolean[]` 声明未 let 化：TryMapType 数组后缀恒等映射返回原串、白名单不认 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +1）+ 本文件 | 07acb643（代码+测试被并发会话提交扫入，见注） |
 | 13 | 6 → 4 | `new T[][]`（空括号）数组创建在 `[` 字面量前残留前缀：字面量模式贪婪体跨整行多声明只剥首前缀 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | 2ce395e8（代码+测试被并发会话提交扫入，见注） |
+| 14 | 4 → 2 | out 形参 lambda 捕获 holder raw 文本：`@SuppressWarnings` 注解未剥 + cast lookahead 不认 `[`；剥注解+cast 后 let 化 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3 / TsRefOutParamTests +1）+ 本文件 | 6b02774b |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -49,6 +50,40 @@
   单字面量剥前缀、`new double[2][]` 守卫走 `new Array(2)`）。
 - **验证链**：重建 → 删目录全量重转 → 独立 tsc 6 → 4；剩余 4 错误为原 6 严格子集（E ×2、F ×2），无新增。
   全量 `dotnet test` 绿（7 + 557 + 2449；首轮偶发 1 例顺序相关失败，重跑全绿）。
+
+## Round 14 — out 形参 lambda 捕获 holder raw 文本（注解未剥 + cast lookahead 不认 `[`）
+
+- **C# 构造**：`HashSet<Node> addedNodes;` + `addedNodesByCluster.TryGetValue(cluster, out addedNodes)`
+  （Relayout.cs:144-146），`addedNodes` 被 lambda 捕获（`newGraph.Nodes.Where(v => !addedNodes.Contains(...))`）
+  且被外部重赋 → 声明后追加 lambda 捕获 holder。
+- **错误 TS 输出**：`@SuppressWarnings("unchecked") CSharpHashSet<Node>[] _addedNodes = (CSharpHashSet<Node>[]) [ null ];`
+  （Relayout.ts:106，TS1146/TS1005 ×2）。
+- **正确 TS 输出**：`let _addedNodes: CSharpHashSet<Node>[] = [ null ];`。
+- **根因链**（同源：`BuildLambdaCaptureHolderDeclaration` 的 raw Java holder 文本未归一化）：
+  - ① `declPattern` 类型组要求行首即类型（`^` 锚定），`@SuppressWarnings("unchecked")` 注解导致整行不匹配；
+  - ② `NormalizeReferenceCasts` lookahead `(?=[A-Za-z_(])` 不认 `[`：数组字面量 pass 已把
+    `new Object[] { null }` 转 `[ null ]`，`(CSharpHashSet<Node>[]) [ null ]` 的 cast 因后继 `[` 不被剥；
+  - ③ 剥注解+cast 后 `CSharpHashSet<Node>[]` 大写开头 + 数组后缀，`LooksLikeClassType` 放行，
+    声明 let 化无需额外改动（`TryMapType` 数组后缀递归映射回拼 `[]`）。
+- **修复位置**：`declPattern` 行首追加可选注解组 `(?<ann>@[A-Za-z_$][\w$]*(?:\([^)]*\))?[ \t]*)?`
+  （仅吞本行水平空白，不跨行；非声明形态整行不匹配时原样直通）；`castPattern` lookahead 增 `[`
+  （`(?=[A-Za-z_(\[])`）。管线顺序不变：`NormalizeRawDeclarations`（13）→ `NormalizeArrayLiterals`（16）
+  → `NormalizeReferenceCasts`（17），let 化产物经数组字面量 pass 再剥 cast。
+- **测试**：`TsRawStatementNormalizerTests` +3（注解+cast+let 化全链、`(X[]) [ ... ]` cast 剥离、
+  注解非声明行直通守卫）；`TsRefOutParamTests` +1 端到端镜像 Relayout（TryGetValue out 形参 +
+  lambda 捕获 → 断言 `let _addedNodes: CSharpHashSet<number>[] = [ null ];`、无 `@SuppressWarnings`、
+  无 `(CSharpHashSet` 残留；不跑 strict tsc——见环境注记）。先红后绿（红：3 例失败，实际输出为
+  未归一化 raw 文本）；全量 `dotnet test` 绿（7 + 561 + 2452，Java 目标无回归；CSharpToJava.Tests
+  较上轮 +3 为并发会话新增用例）。
+- **验证链**：重建 → 删目录全量重转 → 独立 tsc 4 → 2（实测；移除 F 族 Relayout.ts:106 两个错误，
+  剩余 E ×2 为原 4 严格子集，无新增）。
+
+> **环境注记（TS 7.0.2 原生编译器）**：实测当程序内存在任何语法错误时，`npx tsc --noEmit` 只报告
+> 语法诊断、抑制全部语义诊断（探针验证：无语法错误的文件中的未定义名 `XYZUndefinedName123` /
+> 类型不匹配均不报，语法错误照报）。因此各轮次"错误全为语法错误"的观测口径一致；语法清零后预计
+> 涌现一批语义错误（`StreamSupport`/`Stream` 全局名未声明、`[ null ]` strict null 赋值 TS2322、
+> 字段访问缺 `this.`、`CsSet.contains(...) == 0` boolean/number 比较等），属后续轮次范围。
+> E2E 测试因此只断言文本形态，不跑 strict tsc。
 
 ## Round 12 — `boolean[]` 恒等映射数组声明未 let 化
 
