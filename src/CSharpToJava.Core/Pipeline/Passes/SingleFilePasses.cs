@@ -566,6 +566,10 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // 方法体 → 合法 TS；值拷贝语义辅助 cloneStruct 归 M4）
         var structRewriter = new TypeScript.Rewriters.TsStructRewriter(context);
         structRewriter.VisitCompilationUnit(compilation);
+        // Task 27：ref/out Holder 调用点 TS 化（Ref<T> + refOf/outRef，spec §4.3.1；
+        // 参数类型映射在 TsMemberMappingTable.Holder 分支）
+        var refOutRewriter = new TypeScript.Rewriters.TsRefOutRewriter(context);
+        refOutRewriter.VisitCompilationUnit(compilation);
         var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
         compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
         // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）

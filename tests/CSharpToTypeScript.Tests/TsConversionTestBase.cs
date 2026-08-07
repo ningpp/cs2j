@@ -154,6 +154,9 @@ export declare class TypeToken<T = any> {
     static nameOf<T = any>(name: string): string;
     static isInstance<T = any>(name: string, v: unknown): boolean;
 }
+export declare interface Ref<T> { value: T; }
+export declare function refOf<T>(value: T): Ref<T>;
+export declare function outRef<T>(): Ref<T>;
 export declare function csDefault(typeInfo?: TypeToken): any;
 export declare class CsRuntime {
     static markImplements(obj: object, ...ifaceNames: string[]): void;

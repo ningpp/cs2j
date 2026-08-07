@@ -359,7 +359,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
             args = PrependClassTypeTokens(args, classTokens);
-            return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym2, context);
+            var bareCall = CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym2, context);
+            // Task 27（TS 专属）：TS 无 Java 的隐式 this —— 类内裸实例方法调用
+            // m(...) → this.m(...)（tsc TS2663）。局部函数（ContainingSymbol 为方法）
+            // 与委托/事件调用（MethodKind 非 Ordinary）不加前缀。
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+                && bareMethodSym2 is { IsStatic: false, MethodKind: MethodKind.Ordinary }
+                && bareMethodSym2.ContainingSymbol is not IMethodSymbol
+                && context.CurrentEnclosingRoslynType != null
+                && IsSameOrDerivedType(bareMethodSym2.ContainingType, context.CurrentEnclosingRoslynType))
+            {
+                bareCall = $"this.{bareCall}";
+            }
+            return bareCall;
         }
 
         // Delegate invocation via non-identifier expressions (e.g. dict[key](args)).
@@ -618,6 +630,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         };
 
         return ConversionContext.EscapeJavaKeyword(methodName);
+    }
+
+    private static bool IsSameOrDerivedType(INamedTypeSymbol? candidateBase, INamedTypeSymbol? type)
+    {
+        if (candidateBase == null || type == null)
+        {
+            return false;
+        }
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, candidateBase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>

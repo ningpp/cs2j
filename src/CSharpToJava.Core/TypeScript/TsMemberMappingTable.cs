@@ -163,6 +163,14 @@ public sealed class TsMemberMappingTable
             imports = new[] { "@csharptotypescript/compat" };
             return true;
         }
+        // ① ref/out Holder 包装（Task 27，spec §4.3.1）：io.github.ningpp.compat.IntHolder
+        // → Ref<number>、ObjectHolder<String> → Ref<string>（compat 库导入自动收集）。
+        if (TryMapHolderType(csharpOrJavaType, out var holderTs, out var holderImports))
+        {
+            tsType = holderTs;
+            imports = holderImports;
+            return true;
+        }
         // ① 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
         if (BuiltinJavaTypeMappings.TryGetValue(csharpOrJavaType, out var javaMapped))
         {
@@ -189,6 +197,54 @@ public sealed class TsMemberMappingTable
         }
         tsType = csharpOrJavaType;
         imports = System.Array.Empty<string>();
+        return false;
+    }
+
+    private static readonly Dictionary<string, string> HolderToRefElement = new()
+    {
+        { "IntHolder", "number" },
+        { "LongHolder", "bigint" },
+        { "BoolHolder", "boolean" },
+        { "DoubleHolder", "number" },
+        { "FloatHolder", "number" },
+        { "ShortHolder", "number" },
+        { "ByteHolder", "number" },
+        { "CharHolder", "string" },
+    };
+
+    private const string CompatHolderPrefix = "io.github.ningpp.compat.";
+
+    /// <summary>
+    /// Java ref/out Holder 包装类型 → TS Ref&lt;T&gt;（Task 27，spec §4.3.1）。
+    /// 原始类型 Holder（IntHolder 等）→ 固定元素类型；ObjectHolder&lt;X&gt; → 递归
+    /// 映射内层 X（String→string、Integer→number、用户类型原样）。
+    /// </summary>
+    private bool TryMapHolderType(string javaType, out string tsType, out IReadOnlyList<string> imports)
+    {
+        tsType = javaType;
+        imports = System.Array.Empty<string>();
+        if (!javaType.StartsWith(CompatHolderPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        var simple = javaType[CompatHolderPrefix.Length..];
+        if (HolderToRefElement.TryGetValue(simple, out var elem))
+        {
+            tsType = $"Ref<{elem}>";
+            imports = new[] { "@csharptotypescript/compat" };
+            return true;
+        }
+        if (simple.StartsWith("ObjectHolder<", StringComparison.Ordinal) && simple.EndsWith(">"))
+        {
+            var inner = simple["ObjectHolder<".Length..^1];
+            var mappedInner = TryMapType(inner, out var mapped, out var innerImports)
+                ? mapped
+                : inner;
+            tsType = $"Ref<{mappedInner}>";
+            // 内层用户类型无需 import；Ref 需要 compat 包导入
+            imports = new[] { "@csharptotypescript/compat" };
+            return true;
+        }
         return false;
     }
 
