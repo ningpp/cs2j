@@ -179,6 +179,28 @@
 - **分析**: 转换器只有非泛型 `System.WeakReference` 映射；生成代码直接输出 `WeakReference<T>` 而 compat 类不接受类型参数。
 - **修复**: compat `WeakReference` 改为泛型 `WeakReference<T>`（保留 getIsAlive/getTarget/setTarget，新增 `tryGetTarget(ObjectHolder<T>)`；raw 用法经擦除仍兼容）；TypeMappings.json 新增 `System.WeakReference\`1` 映射；重装 compat。新增红→绿测试 `WeakReferenceGenericMappingTests`。
 
-**状态**: 🔧 验证中
+**状态**: ✅ Fixed
+
+---
+
+## Iteration 8 — 枚举常量 value 与合成字段冲突
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\ExceptionArgument.java`
+- **行号**: 45
+- **错误信息**: `已在枚举 ExceptionArgument 中定义了变量 value`
+- **代码片段**:
+  ```java
+  value(17),          // C# 枚举常量
+  ...
+  private final int value;   // 转换器合成字段，同名冲突
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\ThrowHelper.cs`（`enum ExceptionArgument { ..., value }`）
+- **根因分类**: Transformer 逻辑缺陷（EnumTransformer 合成字段未防命名冲突）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs`
+- **分析**: EnumTransformer 为所有枚举生成 `value`/`unmappedValue` 底层字段与 getValue/fromValue；Java 枚举常量与字段同命名空间，C# 枚举成员恰名为 `value` 时冲突。
+- **修复**: 枚举成员名与合成字段名冲突时，合成字段改用 `$value`/`$unmappedValue`（`$` 在 Java 合法、C# 不可能出现），ctor/getValue/fromValue/fromValueUnchecked 方法体同步插值。新增红→绿测试 `EnumValueMemberCollisionTests`，全量测试通过。
+
+**状态**: ✅ Fixed
+
 
 
