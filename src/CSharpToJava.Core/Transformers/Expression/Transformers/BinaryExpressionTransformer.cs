@@ -125,7 +125,11 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 && !IsBuiltInType(ms.ContainingType)
                 && OperatorHasSourceDeclaration(ms))
             {
-                var javaMethodName = GetOperatorMethodName(ms);
+                // 结构体 ==/!= 声明端保持 valueEquals/notEquals（StructTransformer
+                // 合成依赖），调用点残余路径沿用 Java 名保持一致。
+                var tsOpName = context.Options.TargetLanguage == TargetLanguage.TypeScript
+                    && !(ms.ContainingType.IsValueType && ms.Name is "op_Equality" or "op_Inequality");
+                var javaMethodName = GetOperatorMethodName(ms, tsOpName);
                 var leftIR = facade.TransformToIR(binExpr.Left, context);
                 var rightIR = facade.TransformToIR(binExpr.Right, context);
 
@@ -133,9 +137,12 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 var operatorTypeName = ms.ContainingType.Name;
 
                 JavaExpression? target;
-                if (currentTypeName != null && operatorTypeName == currentTypeName)
+                // TS 无 Java 的隐式静态访问：类内调用点也必须
+                // Type.op_Add(...) 限定（Task 27）。
+                if (currentTypeName != null && operatorTypeName == currentTypeName
+                    && context.Options.TargetLanguage != TargetLanguage.TypeScript)
                 {
-                    target = null; // unqualified call within same class
+                    target = null; // unqualified call within same class (Java only)
                 }
                 else
                 {
@@ -1658,8 +1665,13 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        // Get the Java method name for this operator (e.g., operator+ → add)
-        var javaMethodName = GetOperatorMethodName(operatorSymbol);
+        // Get the method name for this operator (e.g., operator+ → add; TS 目标 op_Add)
+        // 结构体 ==/!= 声明端保持 valueEquals/notEquals（合成依赖），
+        // 调用点残余路径（非双结构体操作数）沿用 Java 名保持一致。
+        var tsOpName = context.Options.TargetLanguage == TargetLanguage.TypeScript
+            && !(operatorSymbol.ContainingType.IsValueType
+                 && operatorSymbol.Name is "op_Equality" or "op_Inequality");
+        var javaMethodName = GetOperatorMethodName(operatorSymbol, tsOpName);
 
         // Transform both operands
         var left = facade.Transform(node.Left, context);
@@ -1672,7 +1684,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var currentTypeName = context.CurrentType?.Name;  // e.g. "DemoSet"
         var operatorTypeName = operatorSymbol.ContainingType.Name; // e.g. "DemoSet" (no generics)
 
-        if (currentTypeName != null && operatorTypeName == currentTypeName)
+        // TS 无 Java 的隐式静态访问：类内调用点也必须
+        // Type.op_Add(...) 限定（Task 27）。
+        if (currentTypeName != null && operatorTypeName == currentTypeName
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
         {
             return $"{javaMethodName}({left}, {right})";
         }
@@ -1701,11 +1716,14 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         }
     }
 
-    private static string GetOperatorMethodName(IMethodSymbol operatorSymbol)
+    private static string GetOperatorMethodName(IMethodSymbol operatorSymbol, bool tsTarget = false)
     {
-        // Use the shared operator-name map from OperatorTransformer to avoid divergence
-        return CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
-            .TryGetValue(operatorSymbol.Name, out var name)
+        // Use the shared operator-name maps from OperatorTransformer to avoid divergence:
+        // TS 目标 op_Add 等（spec §3.2，Task 27），Java 目标 add/subtract 等。
+        var map = tsTarget
+            ? CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToTsName
+            : CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName;
+        return map.TryGetValue(operatorSymbol.Name, out var name)
             ? name
             : operatorSymbol.Name;
     }

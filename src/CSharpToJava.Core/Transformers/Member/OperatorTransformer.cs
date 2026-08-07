@@ -50,11 +50,63 @@ public class OperatorTransformer
             { "op_UnaryPlus",           "plus" },
         };
 
+    /// <summary>
+    /// TS 目标运算符方法名（Task 27，spec §3.2）：`operator +` → `op_Add` 等 PascalCase
+    /// 静态方法 + 调用点 `a + b` → `Type.op_Add(a, b)`。与 Java 名表（add/subtract/...）
+    /// 分离，Java 路径零影响。结构体的 op_Equality/op_Inequality 例外：StructTransformer
+    /// 的 equals/hashCode 合成依赖 valueEquals/notEquals 方法名，且结构体 ==/!= 调用点
+    /// 已由 TsEqualityRewriter 改写为 CsObject.equals，无需 TS 改名。
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> OpSymbolToTsName =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "op_Addition",            "op_Add" },
+            { "op_Subtraction",         "op_Subtract" },
+            { "op_Multiply",            "op_Multiply" },
+            { "op_Division",            "op_Divide" },
+            { "op_Modulus",             "op_Modulus" },
+            { "op_Equality",            "op_Equality" },
+            { "op_Inequality",          "op_Inequality" },
+            { "op_GreaterThan",         "op_GreaterThan" },
+            { "op_LessThan",            "op_LessThan" },
+            { "op_GreaterThanOrEqual",  "op_GreaterThanOrEqual" },
+            { "op_LessThanOrEqual",     "op_LessThanOrEqual" },
+            { "op_BitwiseAnd",          "op_BitwiseAnd" },
+            { "op_BitwiseOr",           "op_BitwiseOr" },
+            { "op_ExclusiveOr",         "op_ExclusiveOr" },
+            { "op_LogicalNot",          "op_LogicalNot" },
+            { "op_OnesComplement",      "op_OnesComplement" },
+            { "op_Increment",           "op_Increment" },
+            { "op_Decrement",           "op_Decrement" },
+            { "op_True",                "op_True" },
+            { "op_False",               "op_False" },
+            { "op_LeftShift",           "op_LeftShift" },
+            { "op_RightShift",          "op_RightShift" },
+            { "op_UnsignedRightShift",  "op_UnsignedRightShift" },
+            { "op_UnaryNegation",       "op_UnaryNegation" },
+            { "op_UnaryPlus",           "op_UnaryPlus" },
+        };
+
     public JavaMethodDeclaration? Transform(OperatorDeclarationSyntax opDecl, ConversionContext context)
     {
         var paramCount = opDecl.ParameterList.Parameters.Count;
         var opToken = opDecl.OperatorToken.Text;
         var javaName = ConvertOperatorTokenToJavaName(opToken, paramCount);
+
+        // Task 27（TS 专属）：运算符静态方法名 op_Add 等（spec §3.2）。结构体的
+        // ==/!= 保持 valueEquals/notEquals（StructTransformer 合成依赖 + 调用点已走
+        // CsObject.equals），其余运算符（含结构体 +-*/ 等）按 TS 名表改名。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            var opSymbol = context.GetDeclaredSymbol(opDecl) as IMethodSymbol;
+            bool isStructEquality = (opToken == "==" || opToken == "!=")
+                && opSymbol?.ContainingType?.IsValueType == true;
+            if (!isStructEquality
+                && OpSymbolToTsName.TryGetValue(opSymbol?.Name ?? string.Empty, out var tsName))
+            {
+                javaName = tsName;
+            }
+        }
 
         // Suffix for C# 11 checked operator variants to avoid duplicate method names (Issue 4)
         if (opDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.CheckedKeyword)))

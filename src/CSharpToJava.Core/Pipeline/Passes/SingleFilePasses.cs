@@ -534,6 +534,10 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // Task 25：接口运行时探针（is$IXxx 生成 + is/as 调用点改写 + 实现类构造器注入标记）
         var interfaceProbeRewriter = new TypeScript.Rewriters.TsInterfaceProbeRewriter(context);
         interfaceProbeRewriter.VisitCompilationUnit(compilation);
+        // Task 27：struct 发射 TS 化（implements Cloneable 移除、clone()/合成 equals/hashCode
+        // 方法体 → 合法 TS；值拷贝语义辅助 cloneStruct 归 M4）
+        var structRewriter = new TypeScript.Rewriters.TsStructRewriter(context);
+        structRewriter.VisitCompilationUnit(compilation);
         var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
         compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
         // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）

@@ -357,12 +357,16 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformUserDefinedUnaryOperatorCore(string operand, IMethodSymbol operatorSymbol, ConversionContext context)
     {
-        // Get the Java method name for this operator
-        var javaMethodName = GetOperatorMethodName(operatorSymbol);
+        // Get the method name for this operator（TS 目标 op_UnaryNegation 等，Task 27）
+        var javaMethodName = GetOperatorMethodName(operatorSymbol,
+            context.Options.TargetLanguage == TargetLanguage.TypeScript);
         var containingType = context.MapType(operatorSymbol.ContainingType);
         var currentType = context.CurrentType?.Name;
 
-        if (containingType == currentType)
+        // TS 无 Java 的隐式静态访问：类内调用点也必须
+        // Type.op_UnaryNegation(...) 限定（Task 27）。
+        if (containingType == currentType
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
         {
             return $"{javaMethodName}({operand})";
         }
@@ -372,10 +376,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
     }
 
-    private static string GetOperatorMethodName(IMethodSymbol operatorSymbol)
+    private static string GetOperatorMethodName(IMethodSymbol operatorSymbol, bool tsTarget = false)
     {
-        return CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
-            .TryGetValue(operatorSymbol.Name, out var name)
+        var map = tsTarget
+            ? CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToTsName
+            : CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName;
+        return map.TryGetValue(operatorSymbol.Name, out var name)
             ? name
             : operatorSymbol.Name;
     }
@@ -773,14 +779,18 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         var operand = facade.Transform(node.Operand, context);
-        var javaMethodName = GetOperatorMethodName(operatorSymbol);
+        var javaMethodName = GetOperatorMethodName(operatorSymbol,
+            context.Options.TargetLanguage == TargetLanguage.TypeScript);
         var containingType = context.MapType(operatorSymbol.ContainingType);
         var currentType = context.CurrentType?.Name;
 
         // Postfix semantics: save pre-increment value, apply operator, return saved value
         var tmp = context.GenerateSyntheticName("_post");
         context.AddPreStatement($"var {tmp} = {operand};");
-        var methodCall = (containingType == currentType)
+        // TS 无 Java 的隐式静态访问：类内调用点也必须
+        // Type.op_Increment(...) 限定（Task 27）。
+        var methodCall = (containingType == currentType
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
             ? $"{operand} = {javaMethodName}({operand});"
             : $"{operand} = {containingType}.{javaMethodName}({operand});";
         context.AddPreStatement(methodCall);

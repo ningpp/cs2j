@@ -131,7 +131,7 @@ public abstract class TsConversionTestBase
     private const string CompatIndexDts =
         """
 export declare namespace CsString { function format(fmt: string, ...args: unknown[]): string; }
-export declare namespace CsObject { function equals(a: unknown, b: unknown): boolean; }
+export declare namespace CsObject { function equals(a: unknown, b: unknown): boolean; function getHashCode(v: unknown): number; }
 export declare class CsException extends Error { constructor(message?: string); getMessage(): string; }
 export declare class ArgumentException extends CsException {}
 export declare class ArgumentNullException extends ArgumentException {}
