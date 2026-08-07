@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MemoryMarshalTest {
     @Test
     void asBytesReturnsUnsignedByteSpanCompatibleWithConvertedReadOnlySpanByte() {
-        ReadOnlySpan<Integer> bytes = MemoryMarshal.asBytes(MemoryExtensions.asSpan("A"));
+        ReadOnlySpan<Integer> bytes = MemoryMarshal.asBytes(new ReadOnlySpan<>(new Integer[] { 65 }));
 
         assertEquals(4, bytes.length());
         assertEquals(0, bytes.get(0));

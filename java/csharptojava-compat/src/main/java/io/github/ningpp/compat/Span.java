@@ -85,6 +85,23 @@ public final class Span<T> {
         return true;
     }
 
+    /**
+     * Mirrors C# Span&lt;T&gt;.TryCopyTo(Span&lt;T&gt;): copies into the destination
+     * span; returns false when the destination is too short.
+     */
+    public boolean tryCopyTo(Span<T> destination) {
+        if (destination == null) {
+            throw new NullPointerException("destination");
+        }
+        if (destination.length < length) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            destination.set(i, get(i));
+        }
+        return true;
+    }
+
     public T get(int index) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);

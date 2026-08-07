@@ -328,3 +328,23 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 15 — Span 缺 tryCopyTo(Span)；MemoryExtensions.asSpan(String) 返回 ReadOnlySpan<Integer> 与 Character 体系不兼容
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\System\Text\ValueStringBuilder.java`
+- **行号**: 120
+- **错误信息**: `不兼容的类型: Span<Character>无法转换为Character[]`（同簇 [149/178]: `Span<Character>无法转换为Span<Integer>`）
+- **代码片段**:
+  ```java
+  if (_chars.slice(0, _pos).tryCopyTo(destination)) {   // Span 只有 tryCopyTo(T[])
+  MemoryExtensions.asSpan(s).copyTo(_chars.slice(index)); // asSpan(String)→ReadOnlySpan<Integer>
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\ValueStringBuilder.cs`（TryCopyTo(Span<char>)、s.AsSpan().CopyTo(...)）
+- **根因分类**: 类型映射缺失（compat API 与转换器 char→Character 映射不一致）
+- **涉及组件**: `java/csharptojava-compat/.../Span.java`、`.../MemoryExtensions.java`
+- **分析**: 转换器将 C# `char`/`Span<char>` 统一映射为 `Character`/`Span<Character>`，但 compat `MemoryExtensions.asSpan(String/char[])` 早期按 byte→Integer 风格返回 `ReadOnlySpan<Integer>`；compat `Span` 也缺 `tryCopyTo(Span<T>)` 重载（C# TryCopyTo(Span<T>)）。
+- **修复**: compat `MemoryExtensions.asSpan(String/char[])` 改为返回 `ReadOnlySpan<Character>`（byte[] 重载保持 Integer 不变）；compat `Span` 新增 `tryCopyTo(Span<T>)` 重载；同步修正既有 compat 测试 `MemoryMarshalTest`。新增红→绿 compat JUnit 测试 `SpanCharCompatTest`（红：编译失败复现项目错误 → 绿：mvn test 通过）。
+
+**状态**: ✅ Fixed
+
