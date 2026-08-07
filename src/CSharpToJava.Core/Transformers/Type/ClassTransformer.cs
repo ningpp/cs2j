@@ -2427,6 +2427,7 @@ public class ClassTransformer : ITypeTransformer
                 if (containsMethod != null)
                 {
                     containsMethod.Parameters[0].Type = "Object";
+                    RemoveErasedSignatureDuplicates(javaClass, containsMethod);
                 }
 
                 var removeMethod = javaClass.Methods.FirstOrDefault(m =>
@@ -2435,6 +2436,7 @@ public class ClassTransformer : ITypeTransformer
                 if (removeMethod != null)
                 {
                     EraseParameterTypeWithCast(removeMethod, elemType);
+                    RemoveErasedSignatureDuplicates(javaClass, removeMethod);
                 }
 
                 // When C# Remove(T) returns a non-boolean type (e.g. RBNode<T>),
@@ -2481,12 +2483,18 @@ public class ClassTransformer : ITypeTransformer
             var containsMethod = javaClass.Methods.FirstOrDefault(m =>
                 m.Name == "contains" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
             if (containsMethod != null)
+            {
                 containsMethod.Parameters[0].Type = "Object";
+                RemoveErasedSignatureDuplicates(javaClass, containsMethod);
+            }
 
             var removeMethod = javaClass.Methods.FirstOrDefault(m =>
                 m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
             if (removeMethod != null)
+            {
                 EraseParameterTypeWithCast(removeMethod, elemType);
+                RemoveErasedSignatureDuplicates(javaClass, removeMethod);
+            }
         }
 
         // Handle CSharpGenericIList<T> erasure: indexOf(T) must become indexOf(Object)
@@ -2501,7 +2509,10 @@ public class ClassTransformer : ITypeTransformer
             var indexOfMethod = javaClass.Methods.FirstOrDefault(m =>
                 m.Name == "indexOf" && m.Parameters.Count == 1 && m.ReturnType == "int" && m.Parameters[0].Type == elemType);
             if (indexOfMethod != null)
+            {
                 indexOfMethod.Parameters[0].Type = "Object";
+                RemoveErasedSignatureDuplicates(javaClass, indexOfMethod);
+            }
 
             // CSharpGenericIList extends CSharpICollection, so apply same erasure
             if (csharpCollectionType == null)
@@ -2529,14 +2540,93 @@ public class ClassTransformer : ITypeTransformer
                 var containsMethod = javaClass.Methods.FirstOrDefault(m =>
                     m.Name == "contains" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
                 if (containsMethod != null)
+                {
                     containsMethod.Parameters[0].Type = "Object";
+                    RemoveErasedSignatureDuplicates(javaClass, containsMethod);
+                }
 
                 var removeMethod = javaClass.Methods.FirstOrDefault(m =>
                     m.Name == "remove" && m.Parameters.Count == 1 && m.ReturnType == "boolean" && m.Parameters[0].Type == elemType);
                 if (removeMethod != null)
+                {
                     EraseParameterTypeWithCast(removeMethod, elemType);
+                    RemoveErasedSignatureDuplicates(javaClass, removeMethod);
+                }
             }
         }
+
+        // Final sweep: a class implementing both IList<T> and non-generic IList emits
+        // explicit implementations for both contracts; after erasure they can share the
+        // same Java signature (contains(Object)/indexOf(Object)/remove(Object)). Keep the
+        // first emitted implementation — the non-generic variants typically just type-check
+        // and delegate to the generic ones, so behavior is preserved.
+        RemoveAllErasedSignatureDuplicates(javaClass);
+    }
+
+    /// <summary>
+    /// Drops methods whose name + erased parameter signature duplicate an earlier method.
+    /// Java forbids overloads that differ only by return type. For same-signature groups
+    /// with mixed return types, prefer the non-void variant when exactly one exists
+    /// (Collection contracts such as boolean remove(Object) take precedence over the
+    /// non-generic IList's void counterparts); otherwise keep the first occurrence.
+    /// Pairs of non-void accessors kept deliberately for the later rename pass are
+    /// left untouched.
+    /// </summary>
+    private static void RemoveAllErasedSignatureDuplicates(JavaClassDeclaration javaClass)
+    {
+        var groups = javaClass.Methods
+            .GroupBy(m => m.Name + "(" + ErasedParamSig(m.Parameters) + ")")
+            .Where(g => g.Count() > 1);
+
+        foreach (var group in groups)
+        {
+            var methods = group.ToList();
+            var distinctReturns = methods.Select(m => m.ReturnType).Distinct(StringComparer.Ordinal).ToList();
+
+            JavaMethodDeclaration kept;
+            if (distinctReturns.Count == 1)
+            {
+                kept = methods[0];
+            }
+            else
+            {
+                var nonVoid = methods.Where(m => m.ReturnType != "void").ToList();
+                if (nonVoid.Count == 1)
+                {
+                    kept = nonVoid[0];
+                }
+                else
+                {
+                    continue; // leave non-void conflicts to the accessor rename pass
+                }
+            }
+
+            foreach (var method in methods)
+            {
+                if (!ReferenceEquals(method, kept))
+                    javaClass.Methods.Remove(method);
+            }
+        }
+    }
+
+    /// <summary>
+    /// After erasing a generic implementation's parameter to Object, drop other methods
+    /// whose erased signature now collides (e.g. non-generic IList explicit implementations
+    /// that already take Object, such as a class implementing both IList&lt;T&gt; and IList).
+    /// The erased generic implementation satisfies both contracts in Java.
+    /// </summary>
+    private static void RemoveErasedSignatureDuplicates(JavaClassDeclaration javaClass, JavaMethodDeclaration kept)
+    {
+        var sig = ErasedParamSig(kept.Parameters);
+        var duplicates = javaClass.Methods
+            .Where(m => !ReferenceEquals(m, kept)
+                && m.Name == kept.Name
+                && m.Parameters.Count == kept.Parameters.Count
+                && ErasedParamSig(m.Parameters) == sig
+                && m.ReturnType == kept.ReturnType)
+            .ToList();
+        foreach (var duplicate in duplicates)
+            javaClass.Methods.Remove(duplicate);
     }
 
     private static bool TypeOrAncestorImplementsIEnumerableT(INamedTypeSymbol type)

@@ -141,3 +141,24 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 6 — IList<T> + IList 双接口显式实现擦除后重复定义
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\CaptureCollection.java`
+- **行号**: 136, 137, 142
+- **错误信息**: `已在类中定义了方法 contains(java.lang.Object) / indexOf(java.lang.Object) / remove(java.lang.Object)`
+- **代码片段**:
+  ```java
+  public boolean contains(Object item) { ... }   // ← IList<Capture>.Contains 参数被擦除为 Object
+  ...
+  public boolean contains(Object value) { ... }  // ← IList.Contains 显式实现，签名冲突
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\CaptureCollection.cs`（同时实现 `IList<Capture>` 与 `IList`，两者都有显式 Contains/IndexOf/Remove）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs`（`AddCollectionInterfaceBridgeMethods`）
+- **分析**: 后置桥接 pass 为满足 Java Collection 契约，把 `contains(Capture)/indexOf(Capture)/remove(Capture)` 的参数原地擦除为 `Object`，但擦除后未检查类中是否已存在同擦除签名的方法（来自非泛型 IList 的显式实现），产生重复定义。且 Java 不允许仅返回类型不同的同签名重载（`boolean remove(Object)` vs `void remove(Object)`）。
+- **修复**: 在 `AddCollectionInterfaceBridgeMethods` 中：① 每次参数擦除后立即移除同擦除签名重复；② pass 末尾统一扫描（`RemoveAllErasedSignatureDuplicates`）：同签名同返回类型保留先出者；返回类型混合且仅一个非 void 时保留非 void（Collection 契约优先）；多个非 void 冲突留给既有访问器改名 pass。新增红→绿测试 `GenericAndNonGenericIListCollisionTests`，全量测试 2437 通过。
+
+**状态**: ✅ Fixed
+
