@@ -666,6 +666,15 @@ public static class TsRawStatementNormalizer
                     }
                     if (after < code.Length && code[after] == '{')
                     {
+                        // A bare "try {" without catch/finally is invalid TS (TS1472).
+                        // When no catch/finally follows the body, drop the try keyword:
+                        // the block keeps the resource variable scoped exactly like
+                        // Java try-with-resources (TS has no resource syntax).
+                        var bodyEnd = FindMatchingBrace(code, after);
+                        if (bodyEnd >= 0 && !HasCatchOrFinallyAfter(code, bodyEnd))
+                        {
+                            rewritten = rewritten.Substring("try ".Length);
+                        }
                         sb.Append(rewritten);
                         i = after + 1;   // body continues after its opening '{'
                         continue;
@@ -676,6 +685,87 @@ public static class TsRawStatementNormalizer
             i++;
         }
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 自 openIndex 起的 '{' 找匹配的 '}'（跳过字符串/字符字面量与注释、计嵌套深度）；
+    /// 无匹配返回 -1。
+    /// </summary>
+    private static int FindMatchingBrace(string code, int openIndex)
+    {
+        var depth = 0;
+        for (var i = openIndex; i < code.Length; i++)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(code, i) - 1;
+                continue;
+            }
+            var afterComment = SkipComment(code, i);
+            if (afterComment != i)
+            {
+                i = afterComment - 1;
+                continue;
+            }
+            if (ch == '{')
+            {
+                depth++;
+            }
+            else if (ch == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>Skips a "//" or "/*" comment starting at code[i]; returns the index
+    /// just after it (or code.Length at end of text).</summary>
+    private static int SkipComment(string code, int i)
+    {
+        if (i + 1 >= code.Length || code[i] != '/')
+        {
+            return i;
+        }
+        if (code[i + 1] == '/')
+        {
+            var nl = code.IndexOf('\n', i + 2);
+            return nl < 0 ? code.Length : nl;
+        }
+        if (code[i + 1] == '*')
+        {
+            var close = code.IndexOf("*/", i + 2, System.StringComparison.Ordinal);
+            return close < 0 ? code.Length : close + 2;
+        }
+        return i;
+    }
+
+    /// <summary>True when the next non-whitespace token after bodyEnd (a '}') is
+    /// "catch" or "finally".</summary>
+    private static bool HasCatchOrFinallyAfter(string code, int bodyEnd)
+    {
+        var i = bodyEnd + 1;
+        while (i < code.Length && char.IsWhiteSpace(code[i]))
+        {
+            i++;
+        }
+        return IsKeywordAt(code, i, "catch") || IsKeywordAt(code, i, "finally");
+    }
+
+    private static bool IsKeywordAt(string code, int i, string keyword)
+    {
+        if (i + keyword.Length > code.Length ||
+            !code.AsSpan(i, keyword.Length).SequenceEqual(keyword))
+        {
+            return false;
+        }
+        var end = i + keyword.Length;
+        return end >= code.Length || !IsIdentifierChar(code[end]);
     }
 
     /// <summary>Parses a try-with-resources head into let declarations; false when

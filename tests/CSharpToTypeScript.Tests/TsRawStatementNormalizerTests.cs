@@ -541,8 +541,82 @@ public class TsRawStatementNormalizerTests
     }
 
     [Fact]
-    public void Try_With_Resources_Becomes_Try_With_Local_Declaration()
+    public void Try_With_Resources_Without_Catch_Or_Finally_Becomes_Block_Scope()
     {
+        // C# using with no catch/finally: a bare "try {" is invalid TS (TS1472);
+        // the resource declaration drops to a plain block that keeps its scope.
+        var input =
+            "try (StreamWrapper stream = StreamWrapper.of(FileHelper.openRead(fileName))) {\n" +
+            "        var graphReader = new GeometryGraphReader(stream);\n" +
+            "        return graph;\n" +
+            "    }";
+        var expected =
+            "{ let stream = StreamWrapper.of(FileHelper.openRead(fileName));\n" +
+            "        var graphReader = new GeometryGraphReader(stream);\n" +
+            "        return graph;\n" +
+            "    }";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Try_With_Resources_With_Catch_Keeps_Try_Structure()
+    {
+        var input =
+            "try (StreamWriter writer = new StreamWriter(path)) {\n" +
+            "        writer.write(\"x\");\n" +
+            "    } catch (IOException e) {\n" +
+            "        return;\n" +
+            "    }";
+        var expected =
+            "try { let writer = new StreamWriter(path);\n" +
+            "        writer.write(\"x\");\n" +
+            "    } catch (e) {\n" +
+            "        return;\n" +
+            "    }";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Try_With_Resources_With_Finally_Keeps_Try_Structure()
+    {
+        var input =
+            "try (StreamWriter writer = new StreamWriter(path)) {\n" +
+            "        writer.write(\"x\");\n" +
+            "    } finally {\n" +
+            "        writer.close();\n" +
+            "    }";
+        var expected =
+            "try { let writer = new StreamWriter(path);\n" +
+            "        writer.write(\"x\");\n" +
+            "    } finally {\n" +
+            "        writer.close();\n" +
+            "    }";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Try_With_Resources_With_Nested_Body_Blocks_Becomes_Block_Scope()
+    {
+        var input =
+            "try (var file = new StreamReader(path)) {\n" +
+            "        if (line == null) {\n" +
+            "            break;\n" +
+            "        }\n" +
+            "    }";
+        var expected =
+            "{ let file = new StreamReader(path);\n" +
+            "        if (line == null) {\n" +
+            "            break;\n" +
+            "        }\n" +
+            "    }";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Try_With_Resources_Head_Fragment_Without_Body_Keeps_Try_Prefix()
+    {
+        // Head-only fragments (no closing brace in the same text) keep the
+        // pre-existing fallback; real emission always includes the full body.
         Assert.Equal(
             "try { let stream = StreamWrapper.of(FileHelper.openRead(fileName));",
             TsRawStatementNormalizer.Normalize("try (StreamWrapper stream = StreamWrapper.of(FileHelper.openRead(fileName))) {"));
