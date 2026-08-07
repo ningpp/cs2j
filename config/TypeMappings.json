@@ -2826,7 +2826,7 @@
             "csharp": "System.TimeoutException",
             "java": "TimeoutException",
             "imports": [
-                "java.util.concurrent.TimeoutException"
+                "io.github.ningpp.compat.TimeoutException"
             ]
         },
         {

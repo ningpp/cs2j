@@ -452,3 +452,22 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 21 — RegexRunner.java 未报告的异常 RegexMatchTimeoutException（受检异常）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\RegexRunner.java`
+- **行号**: 314
+- **错误信息**: `未报告的异常错误 dotnet.text.regularexpressions.RegexMatchTimeoutException; 必须对其进行捕获或声明以便抛出`
+- **代码片段**:
+  ```java
+  throw new RegexMatchTimeoutException(runtext, runregex.pattern, CSharpTimeSpan.fromMilliseconds((long) (_timeout)));  // 受检异常未声明 throws
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexRunner.cs`（`TossTimeout`）；异常类定义 `RegexMatchTimeoutException.cs`（`: System.TimeoutException`）
+- **根因分类**: 类型映射错误（基类映射到受检异常）
+- **涉及组件**: `config/TypeMappings.json`
+- **分析**: C# `RegexMatchTimeoutException : System.TimeoutException`，而 TypeMappings 把 `System.TimeoutException` 映射为受检的 `java.util.concurrent.TimeoutException`，导致转换产物 `extends TimeoutException` 成为受检异常，`throw` 处必须捕获/声明。C# 异常均为非受检，基类应映射到 compat 非受检链（`io.github.ningpp.compat.TimeoutException extends SystemException extends RuntimeException`）。
+- **修复**: 将 TypeMappings.json 中 `System.TimeoutException` 的 import 由 `java.util.concurrent.TimeoutException` 改为 `io.github.ningpp.compat.TimeoutException`。新增红→绿测试 `TimeoutExceptionUncheckedMappingTests`（单文件转换 + Registry 配置断言），全量测试 2458+7+570 通过。
+
+**状态**: ✅ Fixed
+
