@@ -905,7 +905,9 @@ public static class TsRawStatementNormalizer
             if (ch == '(')
             {
                 var m = castPattern.Match(code, i);
-                if (m.Success && m.Index == i && !IsPrimitiveType(m.Groups["type"].Value))
+                if (m.Success && m.Index == i && !IsPrimitiveType(m.Groups["type"].Value)
+                    && !IsControlFlowCondition(code, i)
+                    && !IsFollowedByStatementKeyword(code, m.Index + m.Length))
                 {
                     i += m.Length;
                     continue;
@@ -920,6 +922,56 @@ public static class TsRawStatementNormalizer
     private static bool IsPrimitiveType(string type)
         => type is "int" or "long" or "short" or "byte" or "sbyte" or "char"
             or "float" or "double" or "boolean";
+
+    /// <summary>
+    /// True when the '(' at openParen opens the parenthesized condition of a
+    /// control-flow keyword (if/while/switch/for/catch/synchronized). "(X)" there
+    /// is a parenthesized condition expression, never a cast — treating it as a
+    /// cast would drop the condition (e.g. "if (_iteratorHasNext) return true;"
+    /// would become "if return true;").
+    /// </summary>
+    private static bool IsControlFlowCondition(string code, int openParen)
+    {
+        var j = openParen - 1;
+        while (j >= 0 && char.IsWhiteSpace(code[j]))
+        {
+            j--;
+        }
+        var end = j + 1;
+        while (j >= 0 && IsIdentifierChar(code[j]))
+        {
+            j--;
+        }
+        var word = code.Substring(j + 1, end - j - 1);
+        return word is "if" or "while" or "switch" or "for" or "catch" or "synchronized";
+    }
+
+    /// <summary>
+    /// True when the text right after a candidate cast starts with a statement
+    /// keyword (return/throw/...): "(Type) return ..." is a parenthesized
+    /// condition followed by a statement, never a cast expression.
+    /// </summary>
+    private static bool IsFollowedByStatementKeyword(string code, int at)
+    {
+        var j = at;
+        while (j < code.Length && char.IsWhiteSpace(code[j]))
+        {
+            j++;
+        }
+        if (j >= code.Length || !IsIdentifierStart(code[j]))
+        {
+            return false;
+        }
+        var end = j + 1;
+        while (end < code.Length && IsIdentifierChar(code[end]))
+        {
+            end++;
+        }
+        var word = code.Substring(j, end - j);
+        return word is "return" or "throw" or "if" or "for" or "while" or "switch"
+            or "do" or "else" or "case" or "break" or "continue" or "try"
+            or "catch" or "finally" or "synchronized" or "assert" or "yield" or "goto";
+    }
 
     /// <summary>
     /// Shortens project FQCNs in expression positions to their last segment:

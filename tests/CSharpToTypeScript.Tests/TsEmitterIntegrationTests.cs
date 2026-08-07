@@ -463,4 +463,42 @@ class Sample
         Assert.Contains("for (const item of row)", result.GeneratedCode);
         AssertCompiles(result.GeneratedCode);
     }
+
+    [Fact]
+    public void Enumerator_Bridge_HasNext_Keeps_Its_Condition()
+    {
+        // End-to-end regression: the Java iterator bridge emits a raw hasNext() body
+        // "if (_iteratorHasNext) return true;" that must keep its parenthesized
+        // condition; it was misread as a reference cast and emitted as
+        // "if return true;" (TS1005).
+        var result = Convert("""
+using System.Collections.Generic;
+
+class MyEnumerator : IEnumerator<int>
+{
+    private int _current = -1;
+
+    public int Current { get { return _current; } }
+
+    object System.Collections.IEnumerator.Current { get { return _current; } }
+
+    public bool MoveNext()
+    {
+        _current++;
+        return _current < 3;
+    }
+
+    public void Reset()
+    {
+        _current = -1;
+    }
+
+    public void Dispose()
+    {
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("if (_iteratorHasNext) return true;", result.GeneratedCode);
+    }
 }

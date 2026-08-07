@@ -358,6 +358,33 @@ public class TsRawStatementNormalizerTests
     }
 
     [Fact]
+    public void If_With_Identifier_Condition_Keeps_Condition()
+    {
+        // Regression: "(X) return" was misread as a reference cast and the
+        // parenthesized condition was dropped, yielding "if return true;"
+        // (iterator bridge hasNext bodies).
+        Assert.Equal(
+            "if (_iteratorHasNext) return true;",
+            NormalizeWithTable("if (_iteratorHasNext) return true;"));
+    }
+
+    [Fact]
+    public void Control_Flow_Conditions_Are_Not_Treated_As_Casts()
+    {
+        Assert.Equal("if (Value) return true;", NormalizeWithTable("if (Value) return true;"));
+        Assert.Equal("while (Ready) work();", NormalizeWithTable("while (Ready) work();"));
+        Assert.Equal("if (X) throw new RuntimeException();", NormalizeWithTable("if (X) throw new RuntimeException();"));
+    }
+
+    [Fact]
+    public void Reference_Casts_In_Expressions_Are_Still_Stripped()
+    {
+        Assert.Equal("return n;", NormalizeWithTable("return (Node) n;"));
+        Assert.Equal("x = es;", NormalizeWithTable("x = (Iterable<Edge>) es;"));
+        Assert.Equal("f(p);", NormalizeWithTable("f((Point) p);"));
+    }
+
+    [Fact]
     public void Float_Literal_Suffix_Is_Dropped_In_Raw_Text()
     {
         Assert.Equal("return 2.0;", NormalizeWithTable("return 2.0f;"));
