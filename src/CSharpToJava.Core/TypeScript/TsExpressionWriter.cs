@@ -44,12 +44,36 @@ public sealed class TsExpressionWriter
 
     /// <summary>
     /// Java 风味类型名 → TS 类型（供语句/成员发射器复用，如变量声明、字段）。
+    /// 可空值类型（Task 20）：IR 中整串类型名 Integer/Long/Boolean/…
+    /// 仅来自 C# 可空值类型（int?/long?/…），映射后追加 `| null`；
+    /// 泛型实参/继承约束等非可空位置的装箱名走 MapTypeNonNull 不宽化。
     /// </summary>
     public string MapType(string javaOrCsharpType)
+        => MapTypeCore(javaOrCsharpType, widenNullableBoxed: true);
+
+    /// <summary>
+    /// 非可空上下文映射（Task 20）：泛型实参/继承约束等位置的装箱名
+    /// （如 IRepo&lt;Integer&gt; 来自 C# IRepo&lt;int&gt;）不追加 `| null`。
+    /// </summary>
+    public string MapTypeNonNull(string javaOrCsharpType)
+        => MapTypeCore(javaOrCsharpType, widenNullableBoxed: false);
+
+    private static readonly System.Collections.Generic.HashSet<string> NullableBoxedTypeNames =
+        new(System.StringComparer.Ordinal)
+        {
+            "Integer", "Long", "Boolean", "Double", "Float", "Character", "Short", "Byte",
+        };
+
+    private string MapTypeCore(string javaOrCsharpType, bool widenNullableBoxed)
     {
-        return _mappings.TryMapType(javaOrCsharpType, out var ts, out var imports)
+        var mapped = _mappings.TryMapType(javaOrCsharpType, out var ts, out var imports)
             ? WithImports(ts, imports)
             : javaOrCsharpType;
+        if (widenNullableBoxed && NullableBoxedTypeNames.Contains(javaOrCsharpType))
+        {
+            mapped += " | null";
+        }
+        return mapped;
     }
 
     private string WithImports(string tsType, IReadOnlyList<string> imports)

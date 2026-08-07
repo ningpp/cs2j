@@ -5033,18 +5033,34 @@ Actual: PASS（TS 314/314 = 300 基线 + 14 新增，含 L3 tsc；Java 2423/2423
 - Modify: `src/CSharpToJava.Core/TypeScript/TsExpressionWriter.cs` / `TsMemberMappingTable.cs`
 - Create: `tests/CSharpToTypeScript.Tests/TsNullableHandlingTests.cs`
 
-- [ ] **Step 1: 核对 IR 中可空形态**
+- [x] **Step 1: 核对 IR 中可空形态**
 
 C# `int?` 在 Java 目标映射为装箱 `Integer`/`Optional`（视 `UseOptionalForNullable`）。TS 目标统一 `number | null`（spec §1.4.7），需先转换样本确认 IR 实际形态。
 
-- [ ] **Step 2: 实现**
+实测（探针，默认选项 UseOptionalForNullable=false）：
+- `int?` 字段/参数/返回值 → IR 整串类型名 `Integer`（long?/bool?/double?/char? 同理为 `Long`/`Boolean`/`Double`/`Character`；`object?` → `Object`）。
+- `.HasValue`/`.Value` 在共享管线均经 `TryGetNullableValueUnboxMethod` → 拆箱调用 `p.intValue()`（该辅助不区分成员名，HasValue 与 Value 同形）。
+- `??` → `JavaConditionalExpression`（raw 文本 `x != null ? x : y`，安全左值重复求值/复杂左值 temp 提升）；`??=` → raw 语句 `if (x == null) x = 5;`（简单标识符注入 pre-statement，复杂左值 temp 提升）。
+- `Nullable<int>` 显式形态 → 同样 `Integer`。
 
-1. 类型映射：装箱类型 `Integer/Long/Boolean/...` → `number | null`/`bigint | null`/...（内置 Java 类型表扩展，注意与 Task 5 非可空映射的区分：发射器按上下文选择）。
-2. `.HasValue` → `!== null`；`.Value` → 直接取值（必要时 `!` 断言或运行时检查 + 抛 `InvalidOperationException` 兼容类）。
-3. `??`/`??=` 直译；产物中不出现 `undefined`（断言用例，spec §5.3）。
-4. 测试：`TsNullableHandlingTests`。
+- [x] **Step 2: 实现**
 
-- [ ] **Step 3: 运行测试 + 提交**
+1. 类型映射：IR 整串装箱名 `Integer/Long/Boolean/Double/Float/Character/Short/Byte` 仅来自 C# 可空值类型 → `TsExpressionWriter.MapType` 映射后追加 `| null`（字段/参数/返回/局部变量全走此入口，一次改动全场景生效；`any` 吸收 null 不宽化）。与 Task 5 非可空映射的区分：泛型实参/继承约束等"Java 泛型装箱"位置（`IRepo<Integer>` 来自 C# `IRepo<int>`，非可空）走新增 `MapTypeNonNull` 不宽化——`MapHeritageType` 与 `FormatTypeParameters` 已切换。
+2. `.HasValue` → `({expr} !== null)`；`.Value` → `({expr}!)`（非空断言；必要时运行时抛异常形态归 M4 兼容库）。共享管线 3 处 `TryGetNullableValueUnboxMethod` 调用点（`ExpressionTransformerFacade` 两处 + `IdentifierExpressionTransformer.TransformMemberAccess`）先经新增 `IsNullableValueProperty` 分流：TS 分支直通，Java 路径行为不变。
+3. `??` → `({left} ?? {right})`（`BinaryExpressionTransformer.TransformCoalesceExpression` TS 分支，统一括号保证任意嵌入位置优先级）；`??=` → `{lhs} ??= {rhs}`（`AssignmentTransformer.TransformCoalesceAssignment` TS 分支，JS 复合赋值接收者单次求值无需 temp）。均为 ES2020/ES2021（tsconfig target ES2022 兼容）；产物不出现 `undefined`（断言用例）。
+4. 测试：`TsNullableHandlingTests` 8 个（spec §5.3：字段/参数/返回值 `number | null` 等、`HasValue/Value` 展开、`??`/`??=` 直译、泛型实参不宽化反向用例、null 统一性、全部经 L3 tsc strict 编译）。
+
+- [x] **Step 3: 运行测试 + 提交**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
+Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`（Java 零回归）
+Actual: PASS（TS 322/322 = 313 基线 + 8 新增 + 1 探针，含 L3 tsc；Java 2423/2423 零回归）。
+
+**注记（2026-08-07 Task 20 实施，实测为准）：**
+> ① 实测产物形态（探针，全部经 L3 tsc strict 编译验证）：字段 `int? a;`/`= null`/`= 5` → `a: number | null = null`/`= null`/`= 5`；`long? d = 7` → `d: bigint | null = 7n`；`bool?`/`double?`/`char?` 同理（`char? g = 'x'` → `g: string | null = "x"`）；`object?` → `any`（不宽化）；方法 `int? M(int? p)` → `m(p: number | null): number | null`；`if (p.HasValue) return p.Value;` → `if ((p !== null)) { return (p!); }`；`p.Value + 1` → `(p!) + 1`；`x ?? y` → `(x ?? y)`（嵌套 `a ?? b ?? c` → `(a ?? (b ?? c))`）；`x ??= 5` → `x ??= 5;`；`p.HasValue ? p.Value : 0` → `((p !== null) ? (p!) : 0)`。
+> ② 实现路径（证据）：类型宽化在 `TsExpressionWriter.MapType`（非计划列出的 `TsMemberMappingTable`——内置表保持 Java 装箱名 → 基础 TS 类型不变，宽化在发射入口按上下文追加，使 `MapHeritageType` 泛型实参可走 `MapTypeNonNull` 保持 `IRepo<int>` → `IRepo<number>`，避免整表改动破坏非可空泛型上下文）；`HasValue/Value` 三处调用点分流 + 新辅助 `IsNullableValueProperty`；`??`/`??=` 在共享转换器加 TS 目标分支（raw 文本直通发射器，与 Task 19 共享适配层模式一致）。
+> ③ 已登记限制（未修）：（1）`.Value` 空值语义：C# 抛 `InvalidOperationException`，TS `!` 为编译期断言（运行时得到 undefined/NaN 而非异常），运行时抛异常兼容类归 M4 `CsNullable`；（2）`== null` 仍发射 `==`（spec 表建议 `===`，语义等价且与既有 `?.` 产物形态一致，全面相等语义归 M3 Task 21 相等重写）；（3）`List<int?>`/`IRepo<int?>` 泛型实参可空性在 IR 层丢失（与 `IRepo<int>` 同形 `Integer`，泛型实参一律按非可空映射），归 Task 27/M4 语义模型类型映射；（4）`(int)p`（可空强转，C# 空值抛异常）走 Task 19 窄化路径 `Math.trunc(p)`（null → 0），归 M4。
+> ④ 提交：`feat(ts): emit C# nullable semantics for TypeScript (number | null, HasValue/Value, ??/??=)`，hash 见 git log（1 文件新增：TsNullableHandlingTests.cs；8 文件修改：TsExpressionWriter.cs / TsMemberWriter.cs / TsTypeWriter.cs / ExpressionTransformerFacade.cs / IdentifierExpressionTransformer.cs / BinaryExpressionTransformer.cs / AssignmentTransformer.cs / ExpressionTransformerHelpers.cs；本计划文档）。
 
 ---
 

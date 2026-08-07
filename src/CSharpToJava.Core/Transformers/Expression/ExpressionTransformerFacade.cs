@@ -193,11 +193,20 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                         }
                     }
                 }
-                // C# Nullable<T>.Value → Java wrapper unbox method (Boolean.booleanValue(), etc.)
+                // C# Nullable<T>.Value/HasValue → Java wrapper unbox method (Boolean.booleanValue(), etc.)
+                // Task 20: TS 目标下 Value 直接取值、HasValue 发射 null 判定
+                // （spec §1.4.7 统一 null；Java 拆箱调用在 TS 中非法）
                 if (prop != null
-                    && ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var bindingUnboxMethod))
+                    && ExpressionTransformerHelpers.IsNullableValueProperty(prop))
                 {
-                    return $"{objExpr}.{bindingUnboxMethod}()";
+                    if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                    {
+                        return prop.Name == "HasValue" ? $"({objExpr} !== null)" : $"({objExpr}!)";
+                    }
+                    if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var bindingUnboxMethod))
+                    {
+                        return $"{objExpr}.{bindingUnboxMethod}()";
+                    }
                 }
 
                 // No mapping found — generate a default getXxx() getter for property-like names.
@@ -269,8 +278,13 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 // Java bean getters (e.g. choice?.Mapping.TypeDesc.FullName).
                 if (context.GetSymbolInfo(memberAccess).Symbol is IPropertySymbol memberProp)
                 {
-                    if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(memberProp, context, out var memberUnboxMethod))
-                        return $"{accessTarget}.{memberUnboxMethod}()";
+                    if (ExpressionTransformerHelpers.IsNullableValueProperty(memberProp))
+                    {
+                        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                            return memberProp.Name == "HasValue" ? $"({accessTarget} !== null)" : $"({accessTarget}!)";
+                        if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(memberProp, context, out var memberUnboxMethod))
+                            return $"{accessTarget}.{memberUnboxMethod}()";
+                    }
 
                     var memberExprType = context.GetTypeInfo(memberAccess.Expression).Type;
                     var memberMapped = TryMapPropertyToMethod(memberProp, memberExprType, context);

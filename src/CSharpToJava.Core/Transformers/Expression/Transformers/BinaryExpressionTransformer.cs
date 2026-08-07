@@ -1779,6 +1779,13 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
 
+        // Task 20: TS 目标下 C# ?? 直译为原生 ??（ES2020，spec §1.4.7
+        // 优势点直译）；统一括号包裹保证任意嵌入位置优先级正确。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            return $"({left} ?? {right})";
+        }
+
         // If the left operand is always null (e.g. from 'IEnumerable as T[]' which
         // always yields null in Java), simplify to just the right operand.
         if (left == "null")

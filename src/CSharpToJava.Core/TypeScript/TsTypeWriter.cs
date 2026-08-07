@@ -58,7 +58,7 @@ public sealed class TsTypeWriter
         sb.Append(TsNaming.SafeClassName(cls.Name));
 
         // 类型参数（TS 约束仅支持单一类型，多 bound 降级见 FormatTypeParameters）
-        sb.Append(FormatTypeParameters(cls.TypeParameters, _memberWriter.MapType));
+        sb.Append(FormatTypeParameters(cls.TypeParameters, _memberWriter.MapTypeNonNull));
 
         // 基类
         if (!string.IsNullOrEmpty(cls.ExtendedType))
@@ -189,7 +189,7 @@ public sealed class TsTypeWriter
         sb.Append(TsNaming.SafeClassName(iface.Name));
 
         // 类型参数（TS 约束仅支持单一类型，多 bound 降级见 FormatTypeParameters）
-        sb.Append(FormatTypeParameters(iface.TypeParameters, _memberWriter.MapType));
+        sb.Append(FormatTypeParameters(iface.TypeParameters, _memberWriter.MapTypeNonNull));
 
         // 继承的接口（实际属性名：ExtendedTypes，非 ImplementedTypes；类型经 Java→TS 映射）
         if (iface.ExtendedTypes.Count > 0)
@@ -361,7 +361,7 @@ public sealed class TsTypeWriter
     private string MapHeritageType(string javaOrCsharpType)
     {
         // ① 整串精确匹配（配置表可收录完整泛型形态，保持查找顺序一致）
-        var exact = _memberWriter.MapType(javaOrCsharpType);
+        var exact = _memberWriter.MapTypeNonNull(javaOrCsharpType);
         if (exact != javaOrCsharpType) return exact == "object" ? "Object" : exact;
 
         // ② 泛型形态分解：Raw<A, B>
@@ -379,7 +379,7 @@ public sealed class TsTypeWriter
                 var argsText = javaOrCsharpType[(lt + 1)..^1];
                 var mappedArgs = argsText
                     .Split(',')
-                    .Select(a => _memberWriter.MapType(a.Trim()));
+                    .Select(a => _memberWriter.MapTypeNonNull(a.Trim()));
                 var joined = $"{raw}<{string.Join(", ", mappedArgs)}>";
                 return argsText.Contains('<')
                     ? joined + " /* cs2j: unmapped nested generic args */"

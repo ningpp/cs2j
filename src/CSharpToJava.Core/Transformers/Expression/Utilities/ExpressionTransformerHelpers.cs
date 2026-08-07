@@ -891,6 +891,16 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// True when the property is Nullable&lt;T&gt;.Value or Nullable&lt;T&gt;.HasValue.
+    /// Task 20: TS 目标下 Value 直接取值、HasValue 发射 null 判定
+    /// （与 Java 目标的拆箱方法调用分流）。
+    /// </summary>
+    public static bool IsNullableValueProperty(IPropertySymbol prop)
+        => prop.ContainingType is INamedTypeSymbol named
+            && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+            && prop.Name is "Value" or "HasValue";
+
+    /// <summary>
     /// For C# Nullable&lt;T&gt;.Value, returns the Java wrapper unbox method name
     /// (e.g. booleanValue, intValue) when T is a primitive value type.
     /// </summary>

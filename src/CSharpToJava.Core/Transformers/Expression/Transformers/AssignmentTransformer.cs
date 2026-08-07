@@ -1980,6 +1980,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var right = facade.Transform(node.Right, context);
 
+        // Task 20: TS 目标下 C# ??= 直译为原生 ??=（ES2021，spec §1.4.7）；
+        // JS 复合赋值对接收者只求值一次，无需 temp 提升。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            var lhsTs = facade.Transform(node.Left, context);
+            return $"{lhsTs} ??= {right}";
+        }
+
         if (node.Left is IdentifierNameSyntax)
         {
             // Simple identifier: a ??= b → inject pre-statement: if (a == null) a = b

@@ -24,6 +24,12 @@ public sealed class TsMemberWriter
     /// </summary>
     public string MapType(string javaOrCsharpType) => _exprWriter.MapType(javaOrCsharpType);
 
+    /// <summary>
+    /// 非可空上下文映射（Task 20）：泛型实参/继承约束等位置的装箱名
+    /// （Java 泛型装箱产物）不追加 `| null`，用于 MapHeritageType/FormatTypeParameters。
+    /// </summary>
+    public string MapTypeNonNull(string javaOrCsharpType) => _exprWriter.MapTypeNonNull(javaOrCsharpType);
+
     public string EmitField(JavaFieldDeclaration field, int indentLevel)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);

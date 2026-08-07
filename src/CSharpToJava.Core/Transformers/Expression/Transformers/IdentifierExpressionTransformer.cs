@@ -1235,9 +1235,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     return $"{propertyTarget}.{recordAccessor}()";
                 }
 
-                // C# Nullable<T>.Value → Java wrapper unbox method (Boolean.booleanValue(), etc.)
-                if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var nullableUnboxMethod))
-                    return $"{propertyTarget}.{nullableUnboxMethod}()";
+                // C# Nullable<T>.Value/HasValue → Java wrapper unbox method (Boolean.booleanValue(), etc.)
+                // Task 20: TS 目标下 Value 直接取值、HasValue 发射 null 判定
+                // （spec §1.4.7 统一 null；Java 拆箱调用在 TS 中非法）
+                if (ExpressionTransformerHelpers.IsNullableValueProperty(prop))
+                {
+                    if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                    {
+                        return prop.Name == "HasValue" ? $"({propertyTarget} !== null)" : $"({propertyTarget}!)";
+                    }
+                    if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var nullableUnboxMethod))
+                        return $"{propertyTarget}.{nullableUnboxMethod}()";
+                }
 
                 var getter = GetPropertyGetterName(prop);
                 return $"{propertyTarget}.{getter}()";
