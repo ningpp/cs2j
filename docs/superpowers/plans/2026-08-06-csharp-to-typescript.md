@@ -5375,6 +5375,7 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 
 - **Files:** `Rewriters/TsEqualityRewriter.cs`、`TsEqualityRewriterTests.cs`
 - **要点：** record/struct 与覆写 Equals 的类的 `==`/`.Equals()` 调用点 → `CsObject.equals`；原始类型/字符串 `==` → `===`；`ReferenceEquals` → `===`；`GetHashCode` → `hashCode()`。
+- [x] **Task 26 完成（2026-08-07）**
 
 ## Task 27: 委托/事件/ref-out/索引器/运算符/模式匹配/yield/async/扩展方法/record 发射
 

@@ -113,8 +113,8 @@ class X
 }
 """);
         Assert.True(result.Success);
-        // (e & f) == f → (e.ordinal() & f.ordinal()) == f.getValue() → (e & f) == f
-        Assert.Contains("(e & f) == f", result.GeneratedCode);
+        // (e & f) == f → (e.ordinal() & f.ordinal()) == f.getValue() → (e & f) === f（Task 26 ===）
+        Assert.Contains("(e & f) === f", result.GeneratedCode);
         Assert.DoesNotContain("ordinal()", result.GeneratedCode);
         Assert.DoesNotContain("getValue()", result.GeneratedCode);
         AssertCompiles(result.GeneratedCode);
@@ -174,7 +174,7 @@ class X
         Assert.True(result.Success);
         // 位运算直接使用；HasFlag 已被共享管线内联为位运算
         Assert.Contains("Style.Bold | Style.Italic", result.GeneratedCode);
-        Assert.Contains("(this.s & f) != 0", result.GeneratedCode);
+        Assert.Contains("(this.s & f) !== 0", result.GeneratedCode);
         Assert.DoesNotContain("public static has", result.GeneratedCode);
         AssertCompiles(result.GeneratedCode);
     }

@@ -1086,6 +1086,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         || context.IsFlagsEnum(namedHasFlag.ToDisplayString()))))
             {
                 var flagArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                // Task 26 (TS only): != -> !==（位运算结果与 0 的严格比较）
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                    return $"(({receiver} & {flagArg}) !== 0)";
                 return $"(({receiver} & {flagArg}) != 0)";
             }
         }

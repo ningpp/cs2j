@@ -123,7 +123,7 @@ class X
 """);
         Assert.True(result.Success);
         Assert.Contains("if (ex instanceof InvalidOperationException) {", result.GeneratedCode);
-        Assert.Contains("ex.getMessage() != null", result.GeneratedCode);
+        Assert.Contains("ex.getMessage() !== null", result.GeneratedCode);
         // 裸 catch 走链尾 else 分支（when 过滤为 false 的降级路径经尾部 return 兜底，
         // 保证 strict 下函数全路径有返回值；完整 when 语义归 M3 模式匹配任务）
         Assert.Contains("} else {", result.GeneratedCode);

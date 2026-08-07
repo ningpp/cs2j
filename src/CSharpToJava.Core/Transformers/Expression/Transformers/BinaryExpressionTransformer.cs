@@ -169,7 +169,11 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Check for string equality (needs Objects.equals) → JavaMethodCallExpression
-        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        // Task 26 (TS only): skip this branch for TypeScript, falling through to the
+        // standard JavaBinaryExpression{==/!=} node; the TS emitter's EmitBinary maps
+        // ==/!= to ===/!== uniformly (string value comparison matches on both ends).
+        if ((op == "==" || op == "!=") && context.SemanticModel != null
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
         {
             bool leftIsString = IsStringType(binExpr.Left, context.SemanticModel);
             bool rightIsString = IsStringType(binExpr.Right, context.SemanticModel);
@@ -515,9 +519,11 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                     var rightExpr = facade.Transform(node.Right, context);
                     if (leftIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Left)) leftExpr = $"{leftExpr}.getValue()";
                     if (rightIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Right)) rightExpr = $"{rightExpr}.getValue()";
-                    return op == "=="
-                        ? $"{leftExpr} == {rightExpr}"
-                        : $"{leftExpr} != {rightExpr}";
+                    // Task 26 (TS only): equality operators -> === / !==
+                    var eqOp1 = context.Options.TargetLanguage == TargetLanguage.TypeScript
+                        ? (op == "==" ? "===" : "!==")
+                        : op;
+                    return $"{leftExpr} {eqOp1} {rightExpr}";
                 }
             }
 
@@ -536,9 +542,11 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                     var rightExpr = facade.Transform(node.Right, context);
                     if (!leftIsEnumOp) leftExpr = $"{leftExpr}.getValue()";
                     if (!rightIsEnumOp) rightExpr = $"{rightExpr}.getValue()";
-                    return op == "=="
-                        ? $"{leftExpr} == {rightExpr}"
-                        : $"{leftExpr} != {rightExpr}";
+                    // Task 26 (TS only): equality operators -> === / !==
+                    var eqOp2 = context.Options.TargetLanguage == TargetLanguage.TypeScript
+                        ? (op == "==" ? "===" : "!==")
+                        : op;
+                    return $"{leftExpr} {eqOp2} {rightExpr}";
                 }
             }
         }
@@ -590,6 +598,20 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
         if (TryTransformDecimalBinaryExpression(node, op, context, left, right, out var decimalResult))
             return decimalResult;
+
+        // Task 26 (TS only): equality operators -> === / !== (spec 2.6.4).
+        // String/primitive/plain-reference/nullable comparisons in TS use ===/!==
+        // which matches C# value/reference semantics (string value comparison is
+        // identical on both ends, no Objects.equals wrapper needed); record/struct/
+        // Equals-overriding class ==/!= were already rewritten to
+        // CsObject.equals(...) by the syntax-level TsEqualityRewriter, so they never
+        // reach this branch. The Java path (default target) never enters it.
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript && (op == "==" || op == "!="))
+        {
+            left = WrapOperandIfNeeded(node.Left, left, op, true);
+            right = WrapOperandIfNeeded(node.Right, right, op, false);
+            return op == "==" ? $"{left} === {right}" : $"{left} !== {right}";
+        }
 
         // String == / != must preserve C#'s null-safe value semantics.
         if ((op == "==" || op == "!=") && context.SemanticModel != null)

@@ -412,7 +412,7 @@ class Sample
 }
 """);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("for (let i: number = (flag != 0 ? a : b); i < 10; i = i + 1)", result.GeneratedCode);
+        Assert.Contains("for (let i: number = (flag !== 0 ? a : b); i < 10; i = i + 1)", result.GeneratedCode);
         Assert.DoesNotContain("for (const a of b)", result.GeneratedCode);
         AssertCompiles(result.GeneratedCode);
     }

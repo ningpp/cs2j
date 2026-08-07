@@ -446,6 +446,35 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             }
         }
 
+        // 1d. Task 26 相等语义：语法树层改写（spec §2.6.4）。在泛型擦除重建后运行
+        //     （需有效语义模型做类型判定）：record/struct/覆写 Equals 的类的 ==/!=/
+        //     .Equals() 调用点 → CsObject.equals；ReferenceEquals → ==（TS ===）；
+        //     其余 ==/!= 保持运算符形态由 BinaryExpressionTransformer 的 TS 分叉
+        //     发射 ===/!==。改写后重建编译供 IR visitor 查询。
+        if (state.Context.SemanticModel != null)
+        {
+            var equalityRoot = new TypeScript.Rewriters.TsEqualityRewriter(state.Context)
+                .Visit(state.SyntaxTree.GetRoot());
+            if (equalityRoot != null && !ReferenceEquals(equalityRoot, state.SyntaxTree.GetRoot()))
+            {
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(
+                    (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)equalityRoot,
+                    state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    state.SyntaxTree.GetRoot().ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+        }
+
         // 2. 生成 Java IR（与 Java 路径一致）
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());
