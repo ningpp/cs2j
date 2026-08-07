@@ -56,6 +56,16 @@ public class IndexerTransformer : IMemberTransformer
             ? "set"
             : (implementsMap || isDictionaryLikeType) ? "put" : "set";
 
+        // Task 27（TS 专属，规格 §1.4.3）：TS 索引器方法名
+        // get_Item/set_Item（避免 SafeIdentifier 将 get/set 转义为 get$/set$，
+        // 且与调用点 TsIndexerRewriter 语法层改写一致）。Java 目标保持
+        // get/set/put，零回归。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            getterName = "get_Item";
+            setterName = "set_Item";
+        }
+
         // Resolve parameter types from the symbol when possible. For explicit interface
         // implementations this uses the interface member's parameter types so the generated
         // Java method signature matches the generated interface declaration exactly.
@@ -119,6 +129,15 @@ public class IndexerTransformer : IMemberTransformer
                 var body = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(
                     getAccessor.ExpressionBody.Expression, context);
                 // Fix 2: same bracket normalisation for expression bodies.
+                getter.Body = isMultiParam ? FixMultiDimBrackets(body) : body;
+                getter.IsBodyExpression = true;
+            }
+            else if (indexerDecl.ExpressionBody != null)
+            {
+                // 箭头索引器形态：public int this[int i] => items[i];
+                // （表达式体挂在 IndexerDeclarationSyntax 而非访问器上，Task 27 补齐）
+                var body = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(
+                    indexerDecl.ExpressionBody.Expression, context);
                 getter.Body = isMultiParam ? FixMultiDimBrackets(body) : body;
                 getter.IsBodyExpression = true;
             }

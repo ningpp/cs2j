@@ -1539,6 +1539,26 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // Task 27（TS 专属）：数组创建 → TS 形态（Java 路径保持，零回归）。
+        // 单维定长 new int[4] → new Array(4)；带初始化器 new int[] {1,2} → [1, 2]；
+        // 省略尺寸 new int[] → []。多维/交错/类型参数/泛型数组保持 Java 形态
+        // （M4 数组语义任务细化）。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            if (node.Initializer != null)
+            {
+                var facadeTs = ExpressionTransformerFacade.Instance;
+                var itemsTs = node.Initializer.Expressions
+                    .Select(e => facadeTs.Transform(e, context))
+                    .ToList();
+                return $"[{string.Join(", ", itemsTs)}]";
+            }
+            if (sizes.Count == 1)
+            {
+                return string.IsNullOrEmpty(sizes[0]) ? "[]" : $"new Array({sizes[0]})";
+            }
+        }
+
         var result = new StringBuilder();
         if (isTypeParameterArray)
         {
@@ -1688,6 +1708,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         bool needsGenericCast = genericStart > 0;
         if (needsGenericCast)
             rawElementType = rawElementType[..genericStart];
+
+        // Task 27（TS 专属）：隐式数组创建 → TS 数组字面量 [1, 2]（Java 路径保持）。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript && node.Initializer != null)
+        {
+            var facadeTs = ExpressionTransformerFacade.Instance;
+            var itemsTs = node.Initializer.Expressions
+                .Select(e => facadeTs.Transform(e, context))
+                .ToList();
+            return $"[{string.Join(", ", itemsTs)}]";
+        }
 
         var result = new StringBuilder();
         if (needsGenericCast)

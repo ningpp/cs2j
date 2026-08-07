@@ -475,6 +475,34 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             }
         }
 
+        // 1e. Task 27 索引器：语法层改写用户索引器调用点
+        //     b[i] → b.get_Item(i)、b[i] = v → b.set_Item(i, v)（spec §1.4.3）。
+        //     在相等语义重建后运行（需有效语义模型判定用户索引器）；
+        //     改写后重建编译供 IR visitor 查询。
+        if (state.Context.SemanticModel != null)
+        {
+            var indexerRoot = new TypeScript.Rewriters.TsIndexerRewriter(state.Context)
+                .Visit(state.SyntaxTree.GetRoot());
+            if (indexerRoot != null && !ReferenceEquals(indexerRoot, state.SyntaxTree.GetRoot()))
+            {
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(
+                    (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)indexerRoot,
+                    state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    state.SyntaxTree.GetRoot().ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+        }
+
         // 2. 生成 Java IR（与 Java 路径一致）
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());

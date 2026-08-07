@@ -517,6 +517,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Task 27（TS 专属）：裸实例字段引用 → this. 前缀（Java 中 this. 可选、TS 必须）。
+        // 仅当标识符解析为当前类实例字段时前缀；局部变量/参数（同名遮蔽）解析为
+        // ILocalSymbol/IParameterSymbol 不命中。赋值左值字段（x = 5 → this.x = 5）
+        // 同样前缀（AssignmentTransformer 对裸字段左值原样拼接，TS 下必须限定）。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+            && context.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: false } instField
+            && instField.ContainingType != null
+            && context.CurrentEnclosingRoslynType != null
+            && instField.ContainingType.Equals(context.CurrentEnclosingRoslynType, SymbolEqualityComparer.Default))
+        {
+            return $"this.{ConversionContext.EscapeJavaKeyword(name)}";
+        }
+
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
