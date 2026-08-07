@@ -531,14 +531,29 @@ public static class TsRawStatementNormalizer
         consumed = 2;
         receiverStart = at;
         var recvStart = at - 1;
+        var arrayCtorReceiver = false;
         if (recvStart >= 1 && code[recvStart] == ']' && code[recvStart - 1] == '[')
         {
             // "Type[]::new": step back over the "[]" suffix before scanning the type name.
             recvStart -= 2;
+            arrayCtorReceiver = true;
         }
         while (recvStart >= 0 && IsIdentifierChar(code[recvStart]))
         {
             recvStart--;
+        }
+        if (arrayCtorReceiver)
+        {
+            // The array type name may be namespace-qualified ("a.b.Type[]::new");
+            // walk back over the dot segments so the whole FQCN receiver is dropped.
+            while (recvStart >= 0 && code[recvStart] == '.')
+            {
+                recvStart--;
+                while (recvStart >= 0 && IsIdentifierChar(code[recvStart]))
+                {
+                    recvStart--;
+                }
+            }
         }
         recvStart++;
         receiverStart = recvStart;

@@ -470,6 +470,41 @@ public class TsRawStatementNormalizerTests
     }
 
     [Fact]
+    public void Array_Constructor_Reference_With_Fully_Qualified_Name_Drops_Entire_Type()
+    {
+        // Round 10 B: back-scan must walk over "." segments so the whole FQCN
+        // receiver is dropped, not just the last segment.
+        Assert.Equal(
+            "points = list.toArray((n) => new Array(n));",
+            TsRawStatementNormalizer.Normalize("points = list.toArray(Microsoft.Msagl.Core.Geometry.Point[]::new);"));
+        Assert.Equal(
+            "points = list.toArray((n) => new Array(n));",
+            TsRawStatementNormalizer.Normalize("points = list.toArray(Core.Geometry.Point[]::new);"));
+    }
+
+    [Fact]
+    public void Array_Constructor_Reference_With_Simple_Type_Still_Works()
+    {
+        Assert.Equal(
+            "cells = row.toArray((n) => new Array(n));",
+            TsRawStatementNormalizer.Normalize("cells = row.toArray(Point[]::new);"));
+        Assert.Equal(
+            "arr = stream.toArray((n) => new Array(n));",
+            TsRawStatementNormalizer.Normalize("arr = stream.toArray(Integer[]::new);"));
+    }
+
+    [Fact]
+    public void Non_Array_Method_References_Unaffected_By_Array_Constructor_Fix()
+    {
+        Assert.Equal(
+            "actions.forEach((x) => x.run());",
+            TsRawStatementNormalizer.Normalize("actions.forEach(Runnable::run);"));
+        Assert.Equal(
+            "goldenSectionSearch((...args) => this.pack(...args), lowerBound);",
+            TsRawStatementNormalizer.Normalize("goldenSectionSearch(this::pack, lowerBound);"));
+    }
+
+    [Fact]
     public void Java_Lambda_Arrow_Becomes_TypeScript_Arrow()
     {
         Assert.Equal(
