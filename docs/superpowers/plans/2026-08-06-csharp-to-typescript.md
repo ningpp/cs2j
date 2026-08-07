@@ -5396,6 +5396,17 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 
 - **验证：** 每子任务完成后运行对应测试类 + L3；M3 收尾时全量 TS 测试 + Java 零回归。
 
+**子任务进度（2026-08-07）：**
+- [x] 运算符重载 `TsOperatorOverloadTests`（`op_Add` 等 + 调用点改写）→ 提交 `17707001`
+- [x] 索引器 `TsIndexerTests`（`get_Item/set_Item` + 数组创建分岔）→ 提交 `16bbcc40`
+- [x] 扩展方法 `TsExtensionMethodTests`（静态宿主调用）→ 提交 `ee2a0565`
+- [x] ref/out `TsRefOutParamTests`（`Ref<T>`/`refOf`/`outRef`）→ 提交 `0a835e13`
+- [x] 委托→函数类型 `TsDelegateToFunctionTypeTests`（`cs2j:TsDelegate` 类型别名 + 直调调用点；
+  `Invoke` 映射坑：`TypeMappings` 先映射成 `apply`，需在 TransformMemberInvocation 早期分岔）→
+  提交 `e77dcf6a`
+- [x] 事件 `TsEventEmissionTests`（`CsEvent<T>` 字段 + `Add/Remove/Invoke` 调用点；handler
+  方法组归一化 lambda，成员访问方法组符号仅 Candidate 时须查 `CandidateSymbols`）→ 提交中
+
 ---
 
 # 里程碑 M4：兼容运行时库（csharptotypescript-compat）+ BCL 映射

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.TypeScript;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -61,6 +62,48 @@ public class EventFieldTransformer : IEventFieldTransformer
         public string InvokeMethodName { get; set; } = "accept";
     }
 
+    /// <summary>
+    /// Task 27：由事件监听器签名构建 TS 函数类型（(sender: any, args: any) => void）；
+    /// 参数类型经 Java→TS 映射（Object→any、int→number 等），参数名沿用 C# 委托参数名。
+    /// </summary>
+    private static string BuildTsListenerType(EventSignature sig, ConversionContext context)
+    {
+        var table = new TsMemberMappingTable(null, null);
+        var parts = new List<string>();
+        foreach (var p in sig.Parameters)
+        {
+            var pTs = table.TryMapType(p.Type, out var mapped, out _) ? mapped : p.Type;
+            parts.Add($"{p.Name}: {pTs}");
+        }
+        return $"({string.Join(", ", parts)}) => void";
+    }
+
+    /// <summary>
+    /// Task 27：事件字段可见性与 C# 事件声明一致（public/protected/private/internal→public）。
+    /// </summary>
+    private static JavaModifiers GetEventFieldVisibility(SyntaxTokenList originalModifiers)
+    {
+        JavaModifiers result = JavaModifiers.None;
+        foreach (var mod in originalModifiers)
+        {
+            switch (mod.Kind())
+            {
+                case SyntaxKind.PublicKeyword:
+                case SyntaxKind.InternalKeyword:
+                    result = JavaModifiers.Public;
+                    break;
+                case SyntaxKind.ProtectedKeyword:
+                    result = JavaModifiers.Protected;
+                    break;
+                case SyntaxKind.PrivateKeyword:
+                    result = JavaModifiers.Private;
+                    break;
+            }
+        }
+        // 无显式可见性 → private（C# 默认）
+        return result == JavaModifiers.None ? JavaModifiers.Private : result;
+    }
+
     private List<JavaSyntaxNode> GenerateEventMembers(
         string eventName,
         EventSignature sig,
@@ -70,6 +113,27 @@ public class EventFieldTransformer : IEventFieldTransformer
         string? removeBody = null)
     {
         var result = new List<JavaSyntaxNode>();
+
+        // Task 27：TS 目标事件声明 → 兼容库 CsEvent<T> 字段（spec §4.3.7），
+        // +=/-= 与触发调用点由 AssignmentTransformer/事件调用 TS 分叉改写为
+        // .Add/.Remove/.Invoke；不再生成 Java 的监听器列表字段与 add/remove/fire 方法。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            var tsStatic = originalModifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
+                ? JavaModifiers.Static
+                : JavaModifiers.None;
+            var listenerTs = BuildTsListenerType(sig, context);
+            var fieldVisibility = GetEventFieldVisibility(originalModifiers);
+            context.TsCompatSymbols.Add("CsEvent");
+            result.Add(new JavaFieldDeclaration
+            {
+                Type = $"CsEvent<{listenerTs}>",
+                Name = eventName,
+                Modifiers = fieldVisibility | tsStatic,
+                Initializer = $"new CsEvent<{listenerTs}>()",
+            });
+            return result;
+        }
 
         var fieldName = "_" + char.ToLower(eventName[0]) + eventName.Substring(1) + "Listeners";
         var baseName = char.ToUpper(eventName[0]) + eventName.Substring(1);

@@ -265,9 +265,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         if (currentTypeName != null && eventSym.ContainingType.Name == currentTypeName)
                         {
                             var eventName = bareIdent.Identifier.Text;
+                            // Task 27：TS 事件触发 Click(args) → this.Click.Invoke(args)
+                            if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                            {
+                                var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                                var evtReceiver = eventSym.IsStatic ? currentTypeName : "this";
+                                return $"{evtReceiver}.{eventName}.Invoke({eventArgs})";
+                            }
                             var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
-                            var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-                            return $"{fireMethodName}({eventArgs})";
+                            var eventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                            return $"{fireMethodName}({eventArgs2})";
                         }
                     }
                     else
@@ -285,9 +292,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                             && context.CurrentType?.Name != null
                             && SymbolEqualityComparer.Default.Equals(enclosingEvent.ContainingType, context.CurrentEnclosingRoslynType))
                         {
+                            // Task 27：TS 事件触发 Click(args) → this.Click.Invoke(args)
+                            if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                            {
+                                var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                                var evtReceiver = enclosingEvent.IsStatic ? context.CurrentType.Name : "this";
+                                return $"{evtReceiver}.{eventName}.Invoke({eventArgs})";
+                            }
                             var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
-                            var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-                            return $"{fireMethodName}({eventArgs})";
+                            var eventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                            return $"{fireMethodName}({eventArgs2})";
                         }
                     }
 
@@ -363,9 +377,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && context.CurrentType?.Name != null
                 && SymbolEqualityComparer.Default.Equals(lastResortEvent.ContainingType, context.CurrentEnclosingRoslynType))
             {
+                // Task 27：TS 事件触发 Click(args) → this.Click.Invoke(args)
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                {
+                    var lastResortEventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    var evtReceiver = lastResortEvent.IsStatic ? context.CurrentType.Name : "this";
+                    return $"{evtReceiver}.{lastResortEventName}.Invoke({lastResortEventArgs})";
+                }
                 var fireMethodName = $"fire{char.ToUpperInvariant(lastResortEventName[0])}{lastResortEventName.Substring(1)}";
-                var lastResortEventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-                return $"{fireMethodName}({lastResortEventArgs})";
+                var lastResortEventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                return $"{fireMethodName}({lastResortEventArgs2})";
             }
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
@@ -1788,9 +1809,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     if (currentTypeName != null && eventSym.ContainingType.Name == currentTypeName)
                     {
                         var eventName = originalMethodName;
+                        // Task 27：TS 事件触发 this.Click(args) → this.Click.Invoke(args)
+                        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                        {
+                            var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                            return $"{receiver}.{eventName}.Invoke({eventArgs})";
+                        }
                         var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
-                        var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-                        return $"{fireMethodName}({eventArgs})";
+                        var eventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                        return $"{fireMethodName}({eventArgs2})";
                     }
                 }
 

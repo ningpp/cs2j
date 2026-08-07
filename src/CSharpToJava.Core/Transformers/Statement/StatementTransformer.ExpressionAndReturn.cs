@@ -415,12 +415,54 @@ public partial class StatementTransformer
     /// <c>if (x != null) { ... }</c> chain. Nested conditional accesses become nested
     /// <c>if</c> statements so that the generated code is a valid Java statement.
     /// </summary>
+    /// <summary>
+    /// Task 27：构建 TS 事件字段访问（this.Click / b.Click / Use.Click）。
+    /// </summary>
+    private static string BuildTsEventFieldAccess(ExpressionSyntax expr, IEventSymbol evt, ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        switch (expr)
+        {
+            case IdentifierNameSyntax id:
+                return evt.IsStatic && context.CurrentType != null
+                    ? $"{context.CurrentType.Name}.{id.Identifier.Text}"
+                    : $"this.{id.Identifier.Text}";
+            case MemberAccessExpressionSyntax ma:
+                var receiver = ma.Expression is ThisExpressionSyntax
+                    ? "this"
+                    : exprTransformer.Transform(ma.Expression, context);
+                return $"{receiver}.{ma.Name.Identifier.Text}";
+            case ThisExpressionSyntax:
+                return $"this.{evt.Name}";
+            default:
+                return exprTransformer.Transform(expr, context);
+        }
+    }
+
     private static string TransformConditionalAccessStatement(
         ConditionalAccessExpressionSyntax condAccess,
         string objExpr,
         ConversionContext context)
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
+
+        // Task 27：TS 事件触发 —— Click?.Invoke(args) → this.Click.Invoke(args)
+        // （spec §4.3.7：CsEvent.Invoke 空事件安全，无需 null 守卫；事件字段由
+        //  EventFieldTransformer TS 分叉生成 CsEvent<T>）
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+            && context.SemanticModel != null
+            && condAccess.Expression is ExpressionSyntax condEventExpr
+            && context.GetSymbolInfo(condEventExpr).Symbol is IEventSymbol condEvent
+            && condAccess.WhenNotNull is InvocationExpressionSyntax condInvocation
+            && condInvocation.Expression is MemberBindingExpressionSyntax condBinding
+            && condBinding.Name.Identifier.Text == "Invoke")
+        {
+            var condArgs = string.Join(", ", condInvocation.ArgumentList.Arguments.Select(
+                a => exprTransformer.Transform(a.Expression, context)));
+            var eventAccess = BuildTsEventFieldAccess(condEventExpr, condEvent, context);
+            return $"{eventAccess}.Invoke({condArgs});";
+        }
+
         string innerCall;
         switch (condAccess.WhenNotNull)
         {

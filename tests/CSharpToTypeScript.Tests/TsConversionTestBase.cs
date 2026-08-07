@@ -158,6 +158,11 @@ export declare interface Ref<T> { value: T; }
 export declare function refOf<T>(value: T): Ref<T>;
 export declare function outRef<T>(): Ref<T>;
 export declare function csDefault(typeInfo?: TypeToken): any;
+export declare class CsEvent<T> {
+    Add(handler: T): void;
+    Remove(handler: T): void;
+    Invoke(...args: any[]): void;
+}
 export declare class CsRuntime {
     static markImplements(obj: object, ...ifaceNames: string[]): void;
     static isMarked(obj: unknown, ifaceName: string): boolean;
@@ -188,6 +193,11 @@ export class TypeToken {
     static of(name) { return new TypeToken(name); }
     static nameOf(name) { return name; }
     static isInstance(name, v) { return v !== null && v !== undefined; }
+}
+export class CsEvent {
+    Add(handler) {}
+    Remove(handler) {}
+    Invoke(...args) {}
 }
 export function csDefault(typeInfo) { return null; }
 export class CsRuntime {

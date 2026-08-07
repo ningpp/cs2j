@@ -72,7 +72,12 @@ public static class TsRawStatementNormalizer
 
         // ⑤ long 字面量 L 后缀 → n 后缀（Task 22 冒烟：raw 文本中 7L → 7n；数值语义
         // rewriter 改写出的 BigInt(...) 混合链同样落在 raw 文本，必须归一化）。
-        return NormalizeLongLiterals(withExceptions);
+        var withLongs = NormalizeLongLiterals(withExceptions);
+
+        // ⑥ EventArgs.Empty 的 Java 化产物 Object.Empty → null（Task 27 事件：
+        // C# EventHandler 触发 Click?.Invoke(this, EventArgs.Empty) 中 EventArgs
+        // 映射为 Object，TS 无 Object.Empty 成员；空事件参数统一 null）
+        return NormalizeObjectEmpty(withLongs);
     }
 
     /// <summary>
@@ -315,6 +320,36 @@ public static class TsRawStatementNormalizer
     /// 跳过字符串/字符字面量区域；仅在标识符边界命中数字起点（避免误改
     /// abc123L 这类标识符中的数字段）；0x/0b 前缀与下划线分隔均覆盖。
     /// </summary>
+    /// <summary>
+    /// 扫描替换 Object.Empty（EventArgs.Empty 的 Java 化形态）→ null；跳过字符串/字符字面量。
+    /// </summary>
+    private static string NormalizeObjectEmpty(string code)
+    {
+        const string needle = "Object.Empty";
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith(needle, StringComparison.Ordinal))
+            {
+                sb.Append("null");
+                i += needle.Length;
+                continue;
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
     private static string NormalizeLongLiterals(string code)
     {
         var sb = new StringBuilder(code.Length);

@@ -161,6 +161,56 @@ public class AssignmentTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
+    /// Task 27：TS 事件 += / -= handler 归一化。Java 方法引用 b::m / this::m 在 TS 非法，
+    /// 包装为 lambda（() => b.m() / (p1) => this.m(p1)）；裸方法组标识符补 this. 前缀。
+    /// 已成型 lambda（含 =>）原样保留。
+    /// </summary>
+    private static string EnsureValidEventHandlerTs(string handler, ExpressionSyntax rightNode, ConversionContext context)
+    {
+        if (handler.Contains("=>") || handler.Contains("new ")) return handler;
+
+        if (handler.Contains("::"))
+        {
+            var parts = handler.Split(new[] { "::" }, StringSplitOptions.None);
+            if (parts.Length != 2) return handler;
+            var receiver = parts[0].Trim();
+            var methodName = parts[1].Trim();
+            var info = context.GetSymbolInfo(rightNode);
+            var method = info.Symbol as IMethodSymbol
+                ?? info.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+            if (method != null)
+            {
+                var tsParams = method.Parameters.Select(p => p.Name).ToArray();
+                var lambdaParams = string.Join(", ", tsParams);
+                var callArgs = string.Join(", ", tsParams);
+                return $"({lambdaParams}) => {receiver}.{methodName}({callArgs})";
+            }
+            return handler;
+        }
+
+        if (rightNode is IdentifierNameSyntax id)
+        {
+            IMethodSymbol? method = context.GetSymbolInfo(rightNode).Symbol as IMethodSymbol;
+            method ??= context.CurrentEnclosingRoslynType?
+                .GetMembers(id.Identifier.Text)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault();
+            if (method != null)
+            {
+                var tsName = char.ToLowerInvariant(method.Name[0]) + method.Name.Substring(1);
+                var tsParams = method.Parameters.Select(p => p.Name).ToArray();
+                var lambdaParams = string.Join(", ", tsParams);
+                var callArgs = string.Join(", ", tsParams);
+                var prefix = method.IsStatic && context.CurrentType != null
+                    ? context.CurrentType.Name + "."
+                    : "this.";
+                return $"({lambdaParams}) => {prefix}{tsName}({callArgs})";
+            }
+        }
+        return handler;
+    }
+
+    /// <summary>
     /// Conservatively decides whether the RHS of a += / -= assignment looks like an event handler.
     /// Used as a guard for the fallback "OnXxx" member-access event transform, so non-event OnXxx
     /// properties/fields are not accidentally rewritten to listener calls.
@@ -281,6 +331,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 // semantic model resolves the symbol to an IMethodSymbol. In some reference assemblies that
                 // resolution returns null, leaving a bare (invalid Java) method name. Fall back to an explicit
                 // lambda derived from the method's signature so the add/remove call stays compilable.
+                // Task 27：TS 事件调用点 b.Click += h → b.Click.Add(h)（spec §4.3.7；
+                // 事件字段由 EventFieldTransformer TS 分叉生成 CsEvent<T>；handler 走
+                // TS 归一化：方法引用/方法组 → lambda）
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                {
+                    handler = EnsureValidEventHandlerTs(handler, rightNode, context);
+                    var evtMethod = op == "+=" ? "Add" : "Remove";
+                    return $"{receiver}.{evt.Name}.{evtMethod}({handler})";
+                }
                 handler = EnsureValidEventHandler(handler, rightNode, context);
                 string method = op == "+="
                     ? $"add{evt.Name}Listener"
@@ -335,8 +394,17 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     handler = facade.Transform(rightNode, context);
                 }
 
+                // Task 27：TS 事件调用点 Click += h → this.Click.Add(h)
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                {
+                    handler = EnsureValidEventHandlerTs(handler, rightNode, context);
+                    var evtMethod = op == "+=" ? "Add" : "Remove";
+                    var evtReceiver = evt.IsStatic && context.CurrentType != null
+                        ? context.CurrentType.Name
+                        : "this";
+                    return $"{evtReceiver}.{evt.Name}.{evtMethod}({handler})";
+                }
                 handler = EnsureValidEventHandler(handler, rightNode, context);
-
                 var listMethod = op == "+=" ? "add" : "remove";
                 return $"{listenerField}.{listMethod}({handler})";
             }
@@ -352,6 +420,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 var handler = rightNode is IdentifierNameSyntax { Identifier.Text: "value" }
                     ? "handler"
                     : facade.Transform(rightNode, context);
+                // Task 27：TS 事件调用点（fire 前缀兜底）→ this.NAME.Add(h)
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+                {
+                    handler = EnsureValidEventHandlerTs(handler, rightNode, context);
+                    var evtMethod = op == "+=" ? "Add" : "Remove";
+                    return $"this.{eventName}.{evtMethod}({handler})";
+                }
                 var listMethod = op == "+=" ? "add" : "remove";
                 return $"{listenerField}.{listMethod}({handler})";
             }
