@@ -17,6 +17,13 @@ public final class ReadOnlySpan<T> {
         this.length = array.length;
     }
 
+    /** Primitive byte[] backing — mirrors C# byte[] → ReadOnlySpan&lt;byte&gt;. */
+    public ReadOnlySpan(byte[] array) {
+        this.array = array;
+        this.offset = 0;
+        this.length = array.length;
+    }
+
     /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
     public ReadOnlySpan(ReadOnlySpan<T> other) {
         this.array = other.array;
@@ -25,6 +32,17 @@ public final class ReadOnlySpan<T> {
     }
 
     public ReadOnlySpan(T[] array, int offset, int length) {
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(
+                "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
+        }
+        this.array = array;
+        this.offset = offset;
+        this.length = length;
+    }
+
+    /** Primitive byte[] slice backing — mirrors C# byte[] → ReadOnlySpan&lt;byte&gt;. */
+    public ReadOnlySpan(byte[] array, int offset, int length) {
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);

@@ -389,3 +389,24 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 18 — new ReadOnlySpan<>(byte[]) 菱形推断失败（缺 byte[] 构造器）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\system\HexConverter.java`
+- **行号**: 249
+- **错误信息**: `无法推断io.github.ningpp.compat.ReadOnlySpan<>的类型参数`
+- **代码片段**:
+  ```java
+  public static ReadOnlySpan<Integer> getCharToHexLookup() {
+      return new ReadOnlySpan<>(new byte[] { (byte)0xFF, ... });   // 无 byte[] 构造器可匹配
+  }
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\Common\System\HexConverter.cs`（`CharToHexLookup => new byte[] {...}`）
+- **根因分类**: 类型映射缺失（compat API 缺口）
+- **涉及组件**: `java/csharptojava-compat/.../ReadOnlySpan.java`
+- **分析**: Iter17 的 Adapt 包装发射 `new ReadOnlySpan<>(byteArr)`，但 compat ReadOnlySpan 只有 T[]/ReadOnlySpan/Span 构造器；byte[] 实参无可用构造器，菱形推断失败（Span 已有 byte[] 构造器，ReadOnlySpan 遗漏）。
+- **修复**: compat ReadOnlySpan 新增 `ReadOnlySpan(byte[])` 与 `ReadOnlySpan(byte[], int, int)` 构造器（存储 byte[]，get() 按无符号 Integer 返回，与既有 byte[] 分支一致）。新增红→绿 compat JUnit 测试 `ReadOnlySpanByteCtorTest`（红：复现推断失败 → 绿：mvn test 通过）。
+
+**状态**: ✅ Fixed
+
