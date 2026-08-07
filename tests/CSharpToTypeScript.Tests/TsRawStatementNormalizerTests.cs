@@ -921,4 +921,290 @@ public class TsRawStatementNormalizerTests
             "goldenSectionSearch((...args) => this.pack(...args), lowerBound);",
             TsRawStatementNormalizer.Normalize("goldenSectionSearch(this::pack, lowerBound);"));
     }
+
+
+    // ================= Round 16: TS2663/TS2662 bare member references =================
+
+    private static TsMemberContext MemberCtx(string className, string[] instance, string[] statics, string[]? typeParams = null, string[]? typeNames = null, string[]? selfTyped = null)
+    {
+        return new TsMemberContext
+        {
+            ClassName = className,
+            InstanceMembers = instance.Length == 0 ? null : new HashSet<string>(instance),
+            StaticMembers = statics.Length == 0 ? null : new HashSet<string>(statics),
+            TypeParameters = typeParams is { Length: > 0 } ? new HashSet<string>(typeParams) : null,
+            TypeNames = typeNames is { Length: > 0 } ? new HashSet<string>(typeNames) : null,
+            SelfTypedMembers = selfTyped is { Length: > 0 } ? new HashSet<string>(selfTyped) : null,
+        };
+    }
+
+    [Fact]
+    public void Bare_Instance_Members_Get_This_Prefix()
+    {
+        var ctx = MemberCtx("BinaryHeapWithComparer", new[] { "A", "tClass" }, Array.Empty<string>());
+        Assert.Equal(
+            "var newA = TypeHelper.newArrayInstance(this.tClass, this.A.length * 2);",
+            TsRawStatementNormalizer.Normalize("var newA = TypeHelper.newArrayInstance(tClass, A.length * 2);", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Bare_Static_Members_Get_ClassName_Prefix()
+    {
+        var ctx = MemberCtx("AlgorithmBase", Array.Empty<string>(), new[] { "threadStaticCancelToken", "LocalProgressStepSizeDefault" });
+        Assert.Equal(
+            "this.cancelToken = AlgorithmBase.threadStaticCancelToken;",
+            TsRawStatementNormalizer.Normalize("this.cancelToken = threadStaticCancelToken;", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Bare_Instance_And_Static_Method_Calls_Get_Prefixes()
+    {
+        var ctx = MemberCtx("AlgorithmBase", new[] { "startListenToLocalProgress" }, new[] { "Reset" });
+        Assert.Equal(
+            "this.startListenToLocalProgress(expectedSteps, 1);",
+            TsRawStatementNormalizer.Normalize("startListenToLocalProgress(expectedSteps, 1);", memberContext: ctx));
+        Assert.Equal(
+            "AlgorithmBase.Reset(x);",
+            TsRawStatementNormalizer.Normalize("Reset(x);", memberContext: ctx));
+    }
+
+    [Fact]
+    public void No_Context_Returns_Input_Unchanged()
+    {
+        Assert.Equal(
+            "var newA = TypeHelper.newArrayInstance(tClass, A.length * 2);",
+            TsRawStatementNormalizer.Normalize("var newA = TypeHelper.newArrayInstance(tClass, A.length * 2);"));
+        Assert.Equal(
+            "threadStaticCancelToken = old;",
+            TsRawStatementNormalizer.Normalize("threadStaticCancelToken = old;"));
+    }
+
+    [Fact]
+    public void Empty_Member_Sets_Return_Input_Unchanged()
+    {
+        var ctx = new TsMemberContext { ClassName = "Sample" };
+        Assert.Equal("A = A + 1;", TsRawStatementNormalizer.Normalize("A = A + 1;", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Method_Parameter_Shadows_Field_And_Static_Member_Qualifies()
+    {
+        var ctx = MemberCtx("BinaryHeapWithComparer", new[] { "A", "tClass" }, new[] { "initialHeapCapacity" });
+        var locals = new HashSet<string> { "tClass" };
+        Assert.Equal(
+            "this.A = TypeHelper.newArrayInstance(tClass, BinaryHeapWithComparer.initialHeapCapacity + 1);",
+            TsRawStatementNormalizer.Normalize(
+                "this.A = TypeHelper.newArrayInstance(tClass, initialHeapCapacity + 1);",
+                memberContext: ctx, extraLocals: locals));
+    }
+
+    [Fact]
+    public void Raw_Declarations_Shadow_Members()
+    {
+        var ctx = MemberCtx("Sample", new[] { "A", "i", "parent", "son" }, Array.Empty<string>());
+        var input = "let i: number = A.length;\nT parent, son;\nson = A[i];\nparent = i;";
+        var expected = "let i: number = this.A.length;\nT parent, son;\nson = this.A[i];\nparent = i;";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input, memberContext: ctx));
+    }
+
+    [Fact]
+    public void Multi_Declarator_Let_Shadow_Spans_Line_Breaks()
+    {
+        var ctx = MemberCtx("Sample", new[] { "A", "a", "b" }, Array.Empty<string>());
+        var input = "let a, b;\na = A;";
+        var expected = "let a, b;\na = this.A;";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input, memberContext: ctx));
+    }
+
+    [Fact]
+    public void For_Head_Locals_Shadow_Members()
+    {
+        var ctx = MemberCtx("Sample", new[] { "i", "n" }, Array.Empty<string>());
+        var input = "for (let i = 0; i < n; i = i + 1) { use(i); }";
+        var expected = "for (let i = 0; i < this.n; i = i + 1) { use(i); }";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input, memberContext: ctx));
+        var ctx2 = MemberCtx("Sample", new[] { "x", "items" }, Array.Empty<string>());
+        Assert.Equal(
+            "for (const x of this.items) { use(x); }",
+            TsRawStatementNormalizer.Normalize("for (const x of items) { use(x); }", memberContext: ctx2));
+    }
+
+    [Fact]
+    public void Lambda_Params_Shadow_Members()
+    {
+        var ctx = MemberCtx("Sample", new[] { "a", "b", "x" }, Array.Empty<string>());
+        Assert.Equal(
+            "(a, b) => a + b",
+            TsRawStatementNormalizer.Normalize("(a, b) -> a + b", memberContext: ctx));
+        Assert.Equal(
+            "x => x + 1",
+            TsRawStatementNormalizer.Normalize("x -> x + 1", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Catch_Parameter_Shadows_Member()
+    {
+        var ctx = MemberCtx("Sample", new[] { "e", "A" }, Array.Empty<string>());
+        Assert.Equal(
+            "catch (e) { this.A = e; }",
+            TsRawStatementNormalizer.Normalize("catch (e) { A = e; }", memberContext: ctx));
+        Assert.Equal(
+            "catch (e: Exception) { this.A = e; }",
+            TsRawStatementNormalizer.Normalize("catch (e: Exception) { A = e; }", memberContext: ctx));
+    }
+
+    [Fact]
+    public void New_And_InstanceOf_Type_Positions_Not_Prefixed()
+    {
+        var ctx = MemberCtx("Sample", new[] { "A", "X" }, Array.Empty<string>());
+        Assert.Equal(
+            "new A(this.A);\nif (x instanceof A) { }",
+            TsRawStatementNormalizer.Normalize("new A(A);\nif (x instanceof A) { }", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Already_Qualified_References_Not_Doubled()
+    {
+        var ctx = MemberCtx("AlgorithmBase", new[] { "threadStaticCancelToken", "cancelToken" }, new[] { "threadStaticCancelToken" });
+        Assert.Equal(
+            "this.cancelToken = AlgorithmBase.threadStaticCancelToken;",
+            TsRawStatementNormalizer.Normalize("this.cancelToken = AlgorithmBase.threadStaticCancelToken;", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Type_Parameters_Never_Prefixed()
+    {
+        var ctx = MemberCtx("Sample", new[] { "T" }, Array.Empty<string>(), new[] { "T" });
+        Assert.Equal(
+            "var x = T;\nreturn x;",
+            TsRawStatementNormalizer.Normalize("var x = T;\nreturn x;", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Strings_Comments_And_Object_Keys_Not_Prefixed()
+    {
+        var ctx = MemberCtx("Sample", new[] { "A", "x" }, Array.Empty<string>());
+        var input = "console.log(\"A\"); // A\n/* A */ A = 1;\nvar o = { x: A };";
+        var expected = "console.log(\"A\"); // A\n/* A */ this.A = 1;\nvar o = { x: this.A };";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input, memberContext: ctx));
+    }
+
+    [Fact]
+    public void Ctor_Raw_Body_Static_Reference_Qualified_And_Param_Shadowed()
+    {
+        var ctx = MemberCtx("BinaryHeapWithComparer", new[] { "A", "tClass" }, new[] { "initialHeapCapacity" }, new[] { "T" });
+        var locals = new HashSet<string> { "tClass" };
+        var input = "this.A = (TypeHelper.newArrayInstance(tClass, initialHeapCapacity + 1) as T[]);";
+        var expected = "this.A = (TypeHelper.newArrayInstance(tClass, BinaryHeapWithComparer.initialHeapCapacity + 1) as T[]);";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input, memberContext: ctx, extraLocals: locals));
+    }
+
+    [Fact]
+    public void Ternary_Operands_Get_Prefixes_When_Members()
+    {
+        var ctx = MemberCtx("Sample", new[] { "A", "B" }, Array.Empty<string>());
+        Assert.Equal(
+            "x = cond ? this.A : this.B;",
+            TsRawStatementNormalizer.Normalize("x = cond ? A : B;", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Declarator_Type_Annotations_Never_Prefixed()
+    {
+        // MSAGL Curve.cs "Color Color" pattern: property name == nested type name.
+        // "let pBoxNode: ParallelogramNodeOverICurve = ..." -- the annotation is a
+        // type position and must stay bare (prefixed output is a TS syntax error).
+        var ctx = MemberCtx("Curve", new[] { "ParallelogramNodeOverICurve", "pBoxNode" }, Array.Empty<string>());
+        Assert.Equal(
+            "let pBoxNode: ParallelogramNodeOverICurve = edge.getUnderlyingPolyline().createCurve();",
+            TsRawStatementNormalizer.Normalize("let pBoxNode: ParallelogramNodeOverICurve = edge.getUnderlyingPolyline().createCurve();", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Generic_Type_Arguments_Never_Prefixed()
+    {
+        // MSAGL RouterBetweenTwoNodes: Polyline is both a property and the element
+        // type of CsDictionary<Point, Polyline> -- type arguments are type positions.
+        var ctx = MemberCtx("RouterBetweenTwoNodes", new[] { "Polyline", "pointsToObstacles", "Point", "A", "B" }, Array.Empty<string>());
+        Assert.Equal(
+            "this.pointsToObstacles = new CsDictionary<Microsoft.Msagl.Core.Geometry.Point, Polyline>();",
+            TsRawStatementNormalizer.Normalize("pointsToObstacles = new CsDictionary<Microsoft.Msagl.Core.Geometry.Point, Polyline>();", memberContext: ctx));
+        Assert.Equal(
+            "f<A, B>(1);",
+            TsRawStatementNormalizer.Normalize("f<A, B>(1);", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Nested_Type_Names_Never_Prefixed_Even_In_Expressions()
+    {
+        // MSAGL Curve: ParallelogramNodeOverICurve is a nested type (emitted as a
+        // top-level imported class) AND an instance property. Bare references are
+        // type-qualified static calls ("Type.createX()"), not property access.
+        var ctx = MemberCtx("Curve", new[] { "ParallelogramNodeOverICurve", "nn0" }, Array.Empty<string>(), typeNames: new[] { "ParallelogramNodeOverICurve" });
+        Assert.Equal(
+            "let nn0: ParallelogramNodeOverICurve = ParallelogramNodeOverICurve.createParallelogramNodeForCurveSeg(l0);",
+            TsRawStatementNormalizer.Normalize("let nn0: ParallelogramNodeOverICurve = ParallelogramNodeOverICurve.createParallelogramNodeForCurveSeg(l0);", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Typed_Lambda_Params_Shadow_Members()
+    {
+        var ctx = MemberCtx("Sample", new[] { "a", "A" }, Array.Empty<string>());
+        Assert.Equal(
+            "(a: number) => a + this.A",
+            TsRawStatementNormalizer.Normalize("(a: number) -> a + A", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Multi_Declarator_Second_Annotation_Never_Prefixed()
+    {
+        var ctx = MemberCtx("Sample", new[] { "A", "B", "Curve", "a", "b" }, Array.Empty<string>());
+        Assert.Equal(
+            "let a: number = this.A, b: Curve = this.B;",
+            TsRawStatementNormalizer.Normalize("let a: number = A, b: Curve = B;", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Comparison_In_Initializer_Still_Prefixes()
+    {
+        // Guard: "i < j" inside an initializer is a comparison, not generic type
+        // arguments; both operands are expressions and still get prefixes.
+        var ctx = MemberCtx("Sample", new[] { "i", "j", "swapped" }, Array.Empty<string>());
+        Assert.Equal(
+            "let swapped = this.i < this.j;",
+            TsRawStatementNormalizer.Normalize("let swapped = i < j;", memberContext: ctx));
+    }
+
+    [Fact]
+    public void Self_Typed_Member_Followed_By_Dot_Is_Type_Qualified_Static_Access()
+    {
+        // MSAGL "Color Color": property SolvingMethod of type SolvingMethod (enum).
+        // "SolvingMethod.PrecondConjugateGradient" is a type-qualified static enum
+        // access in C# and must stay bare (prefixing yields TS2339/TS2576).
+        var ctx = MemberCtx("StressMajorizationSettings", new[] { "SolvingMethod", "UpdateMethod" }, Array.Empty<string>(), selfTyped: new[] { "SolvingMethod", "UpdateMethod" });
+        // Field-initializer literal shape (the raw text the emitter normalizes).
+        Assert.Equal(
+            "SolvingMethod.PrecondConjugateGradient",
+            TsRawStatementNormalizer.Normalize("SolvingMethod.PrecondConjugateGradient", memberContext: ctx));
+        // Value position (property read) still gets the this. prefix.
+        Assert.Equal(
+            "x = this.SolvingMethod;",
+            TsRawStatementNormalizer.Normalize("x = SolvingMethod;", memberContext: ctx));
+        // Non-self-typed member followed by a dot is a plain instance access (A.length).
+        var ctx2 = MemberCtx("BinaryHeapWithComparer", new[] { "A" }, Array.Empty<string>());
+        Assert.Equal(
+            "this.A.length",
+            TsRawStatementNormalizer.Normalize("A.length", memberContext: ctx2));
+    }
+
+    [Fact]
+    public void Self_Typed_Member_Generic_Array_Type_Still_Not_Confused()
+    {
+        // int[] / CSharpList<T> typed members are not self-typed: prefixes apply.
+        var ctx = MemberCtx("Sample", new[] { "A", "items" }, Array.Empty<string>());
+        Assert.Equal(
+            "this.A.length + this.items.size()",
+            TsRawStatementNormalizer.Normalize("A.length + items.size()", memberContext: ctx));
+    }
+
 }

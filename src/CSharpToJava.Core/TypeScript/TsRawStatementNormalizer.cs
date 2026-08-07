@@ -65,7 +65,7 @@ public static class TsRawStatementNormalizer
     /// 将 raw 文本中的 Java 风味异常名（new IllegalStateException( 等）替换为兼容库名；
     /// 为 null 时跳过异常名归一化。
     /// </summary>
-    public static string Normalize(string code, Func<string, string>? mapType = null, Func<string, string?>? mapException = null, bool normalizeChars = true)
+    public static string Normalize(string code, Func<string, string>? mapType = null, Func<string, string?>? mapException = null, bool normalizeChars = true, TsMemberContext? memberContext = null, IReadOnlySet<string>? extraLocals = null)
     {
         if (string.IsNullOrEmpty(code))
         {
@@ -144,9 +144,652 @@ public static class TsRawStatementNormalizer
         // ? Project FQCNs in expression positions (new Microsoft.Msagl.Core.Geometry.Point(...),
         // Microsoft.Msagl.Core.Geometry.Point.op_Add(...)) -> last segment via mapType
         // (matches the type-position shortening; imports are collected by short name).
-        return NormalizeFqcnExpressions(withCasts, mapType);
+        var withFqcn = NormalizeFqcnExpressions(withCasts, mapType);
+
+        // Round 16 (MSAGL TS2663/TS2662): bare instance member names get this.,
+        // bare static member names get ClassName. — runs LAST so the pass scans the
+        // final emitted shapes (let-ified declarations, for-of heads, stripped
+        // erasure casts, rewritten method references, ...).
+        return NormalizeBareMemberReferences(withFqcn, memberContext, extraLocals);
     }
 
+
+    // ─── Round 16: bare member reference qualification (TS2663/TS2662) ─────────
+    //
+    // Raw Java text emitted straight from the front-end never carries class member
+    // knowledge: instance members stay bare (A.length, comparer.compare(...)) and
+    // static members stay bare (threadStaticCancelToken, LocalProgressStepSizeDefault),
+    // producing tsc TS2663/TS2662. This final pass adds this./ClassName. prefixes
+    // using TsMemberContext (built from the emitted class). Shadowing protection is
+    // the critical part: method parameters, structured/raw locals, lambda/catch/for
+    // bindings and type parameters must never be prefixed (over-prefixing would
+    // introduce NEW errors), so the scan tracks brace scopes and declaration names.
+    private static readonly HashSet<string> RawTextNonMemberKeywords = new(StringComparer.Ordinal)
+    {
+        "abstract", "assert", "as", "async", "await", "bigint", "boolean", "break", "byte",
+        "case", "catch", "char", "class", "const", "constructor", "continue", "debugger",
+        "declare", "default", "delete", "do", "double", "else", "enum", "export", "extends",
+        "false", "final", "finally", "float", "for", "from", "function", "get", "goto", "if",
+        "implements", "import", "in", "infer", "instanceof", "int", "interface", "is", "keyof",
+        "let", "long", "module", "namespace", "native", "never", "new", "null", "number",
+        "object", "of", "package", "private", "protected", "public", "readonly", "require",
+        "return", "satisfies", "set", "short", "static", "strictfp", "string", "super",
+        "switch", "symbol", "synchronized", "this", "throw", "throws", "transient", "true",
+        "try", "typeof", "undefined", "unknown", "var", "void", "volatile", "while", "with",
+        "yield",
+    };
+
+    private static string NormalizeBareMemberReferences(
+        string code, TsMemberContext? memberContext, IReadOnlySet<string>? extraLocals)
+    {
+        // 空上下文/全空集合 → 原样返回（既有测试全部零影响）
+        if (memberContext == null || memberContext.IsEmpty)
+        {
+            return code;
+        }
+
+        var instanceMembers = memberContext.InstanceMembers;
+        var staticMembers = memberContext.StaticMembers;
+        var className = memberContext.ClassName!;
+        var typeParameters = memberContext.TypeParameters;
+        var typeNames = memberContext.TypeNames;
+        var selfTypedMembers = memberContext.SelfTypedMembers;
+
+        // 作用域栈：根作用域持方法参数/外部传入遮蔽名，{ } 推入/弹出嵌套作用域
+        var scopes = new List<HashSet<string>> { new(StringComparer.Ordinal) };
+        if (extraLocals != null)
+        {
+            scopes[0].UnionWith(extraLocals);
+        }
+
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        // 声明器状态机：let/var/const 声明头（名字 + ": 类型"）整段直通——类型注解是
+        // 类型位，成员名与类型名同名（MSAGL "Color Color" 模式）时不得补前缀；
+        // 深度 0 的 '=' 后进入初始化表达式（正常前缀扫描）；深度 0 的 ',' 回到声明头
+        // （多声明器 "let a: number = A, b: Curve = B;"）；';' 结束声明。for-of 头
+        // "for (const x of items)" 在 of/in 后直接进入表达式扫描（items 仍需前缀）。
+        var declMode = 0;    // 0=正常, 1=声明头(直通), 2=初始化表达式
+        var declDepth = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
+                continue;
+            }
+            // 泛型类型实参跨度 "Name<...>"（含 FQCN/嵌套泛型）整段直通：类型位防误补
+            // this.（RouterBetweenTwoNodes 的 Polyline 属性/类型同名）。仅 '<' 紧跟
+            // 标识符字符（无空白，排除 "i < n" 比较）且闭合 '>' 后为类型实参/表达式
+            // 形态（'(' '.' ')' ';' '=' ',' '[' 或行尾；排除 "f(a<b, c>d)" 比较链）时命中。
+            if (ch == '<' && i > 0 && IsIdentifierChar(code[i - 1]))
+            {
+                var close = FindMatchingGenericAngle(code, i);
+                if (close > i)
+                {
+                    var afterSpan = SkipWhitespaceAt(code, close + 1);
+                    var ok = afterSpan >= code.Length
+                        || code[afterSpan] == '(' || code[afterSpan] == '.'
+                        || code[afterSpan] == ')' || code[afterSpan] == ';'
+                        || code[afterSpan] == '=' || code[afterSpan] == ','
+                        || code[afterSpan] == '[';
+                    if (ok)
+                    {
+                        sb.Append(code, i, close + 1 - i);
+                        i = close + 1;
+                        continue;
+                    }
+                }
+            }
+            if (declMode != 0)
+            {
+                if (declMode == 1)
+                {
+                    // 声明头：结构字符直通并维护深度（类型注解可含嵌套泛型/函数类型）；
+                    // 标识符/其余字符落入常规分支（标识符分支做 of/in 转换与直通）。
+                    var headStructural = true;
+                    if (ch is '(' or '[' or '<' or '{')
+                    {
+                        declDepth++;
+                    }
+                    else if (ch is ')' or ']' or '>' or '}')
+                    {
+                        if (declDepth > 0)
+                        {
+                            declDepth--;
+                        }
+                        else if (ch == ')')
+                        {
+                            declMode = 0;   // for 头闭合
+                        }
+                    }
+                    else if (ch == '=' && declDepth == 0)
+                    {
+                        declMode = 2;
+                    }
+                    else if (ch == ';' && declDepth == 0)
+                    {
+                        declMode = 0;
+                    }
+                    else
+                    {
+                        headStructural = false;
+                    }
+                    if (headStructural)
+                    {
+                        sb.Append(ch);
+                        i++;
+                        continue;
+                    }
+                }
+                // declMode == 2：初始化表达式位——只维护深度，前缀逻辑走常规分支
+                if (ch is '(' or '[' or '{')
+                {
+                    declDepth++;
+                }
+                else if (ch is ')' or ']' or '}')
+                {
+                    if (declDepth > 0)
+                    {
+                        declDepth--;
+                    }
+                    else if (ch == ')')
+                    {
+                        declMode = 0;   // for-of 头闭合（for (const x of items)）
+                    }
+                }
+                else if (ch == ',' && declDepth == 0)
+                {
+                    declMode = 1;       // 多声明器：下一声明头（名字/类型直通）
+                }
+                else if (ch == ';' && declDepth == 0)
+                {
+                    declMode = 0;
+                }
+                // 不 continue：'(' '{' '}' 走 lambda/压栈/弹栈分支，其余落入非标识符直通
+            }
+            if (ch == '{')
+            {
+                scopes.Add(new HashSet<string>(StringComparer.Ordinal));
+                sb.Append(ch);
+                i++;
+                continue;
+            }
+            if (ch == '}')
+            {
+                if (scopes.Count > 1)
+                {
+                    scopes.RemoveAt(scopes.Count - 1);
+                }
+                sb.Append(ch);
+                i++;
+                continue;
+            }
+            if (ch == '(')
+            {
+                // 括号形态 lambda 参数 "(a, b) =>" / "(Type a) =>" / "(a: number) =>"：
+                // 参数名收集遮蔽成员；参数组整段直通（类型位不补前缀）。
+                var close = FindMatchingParen(code, i);
+                if (close > i)
+                {
+                    var after = SkipWhitespaceAt(code, close + 1);
+                    if (after + 1 < code.Length && code[after] == '=' && code[after + 1] == '>')
+                    {
+                        foreach (var segment in SplitTopLevelCommas(code.Substring(i + 1, close - i - 1)))
+                        {
+                            var pname = LastIdentifierToken(segment);
+                            if (pname != null)
+                            {
+                                scopes[scopes.Count - 1].Add(pname);
+                            }
+                        }
+                        sb.Append(code, i, close + 1 - i);
+                        if (declMode == 2)
+                        {
+                            declDepth--;    // 整段直通抵消上面 '(' 的深度增量
+                        }
+                        i = close + 1;
+                        continue;
+                    }
+                }
+                sb.Append(ch);
+                i++;
+                continue;
+            }
+            if (!IsIdentifierStart(ch))
+            {
+                sb.Append(ch);
+                i++;
+                continue;
+            }
+
+            var end = ScanIdentifierEnd(code, i);
+            var name = code.Substring(i, end - i);
+
+            // 声明头内标识符（声明名/类型名）直通；for-of 头 of/in 进入表达式扫描
+            if (declMode == 1)
+            {
+                if (name is "of" or "in")
+                {
+                    declMode = 2;
+                }
+                sb.Append(name);
+                i = end;
+                continue;
+            }
+
+            // 声明上下文：let/var/const 与 Java 形态 "Type name [= ...]" 收集局部名
+            // （必须先于关键字分支：let/var/const 同时在关键字集合中）
+            if (name is "let" or "var" or "const")
+            {
+                CollectKeywordDeclaredNames(code, end, scopes);
+                declMode = 1;
+                declDepth = 0;
+                sb.Append(name);
+                i = end;
+                continue;
+            }
+            if (RawTextNonMemberKeywords.Contains(name))
+            {
+                if (name == "catch")
+                {
+                    // catch (e) / catch (e: TsType)：绑定名遮蔽成员
+                    CollectCatchBinding(code, end, scopes[scopes.Count - 1]);
+                }
+                else if (name is "new" or "instanceof" or "as" or "typeof")
+                {
+                    // 类型位：跳过后续类型标识符（FQCN 的 .段由点号规则保护）
+                    var j = SkipWhitespaceAt(code, end);
+                    if (j < code.Length && IsIdentifierStart(code[j]))
+                    {
+                        sb.Append(name);
+                        var typeEnd = ScanIdentifierEnd(code, j);
+                        sb.Append(code, end, typeEnd - end);
+                        i = typeEnd;
+                        continue;
+                    }
+                }
+                sb.Append(name);
+                i = end;
+                continue;
+            }
+            if (TryCollectJavaStyleDeclarationNames(code, i, end, scopes))
+            {
+                sb.Append(name);
+                i = end;
+                continue;
+            }
+
+            var afterName = SkipWhitespaceAt(code, end);
+            // 单参数 lambda "a =>"：参数名遮蔽成员
+            if (afterName + 1 < code.Length && code[afterName] == '=' && code[afterName + 1] == '>')
+            {
+                scopes[scopes.Count - 1].Add(name);
+                sb.Append(name);
+                i = end;
+                continue;
+            }
+
+            // 遮蔽/位置保护：局部名、类类型参数、嵌套类型名（类型位）、前导 '.'（已是成员访问目标）
+            if (IsNameInScopes(name, scopes)
+                || (typeParameters != null && typeParameters.Contains(name))
+                || (typeNames != null && typeNames.Contains(name))
+                || (i > 0 && IsPrevNonWhitespaceDot(code, i)))
+            {
+                sb.Append(name);
+                i = end;
+                continue;
+            }
+            // 对象字面量键 "x:"（前导 { , ( 之后）不加前缀
+            if (afterName < code.Length && code[afterName] == ':')
+            {
+                var prev = PrevNonWhitespaceAt(code, i);
+                if (prev >= 0 && (code[prev] == '{' || code[prev] == ',' || code[prev] == '('))
+                {
+                    sb.Append(name);
+                    i = end;
+                    continue;
+                }
+            }
+            // 自类型成员（"Color Color"）后跟 '.'：类型限定静态访问
+            // （SolvingMethod.Precond... / Type.createX()），不是实例成员访问。
+            if (selfTypedMembers != null && selfTypedMembers.Contains(name))
+            {
+                var next = SkipWhitespaceAt(code, end);
+                if (next < code.Length && code[next] == '.')
+                {
+                    sb.Append(name);
+                    i = end;
+                    continue;
+                }
+            }
+
+            if (instanceMembers != null && instanceMembers.Contains(name))
+            {
+                sb.Append("this.").Append(name);
+                i = end;
+                continue;
+            }
+            if (staticMembers != null && staticMembers.Contains(name))
+            {
+                sb.Append(className).Append('.').Append(name);
+                i = end;
+                continue;
+            }
+
+            sb.Append(name);
+            i = end;
+        }
+        return sb.ToString();
+    }
+
+    private static void CollectCatchBinding(string code, int afterKeyword, HashSet<string> scope)
+    {
+        var open = SkipWhitespaceAt(code, afterKeyword);
+        if (open >= code.Length || code[open] != '(')
+        {
+            return;
+        }
+        var close = FindMatchingParen(code, open);
+        if (close <= open)
+        {
+            return;
+        }
+        var inner = code.Substring(open + 1, close - open - 1);
+        var colon = inner.IndexOf(':');
+        var binding = colon > 0
+            ? LastIdentifierToken(inner.Substring(0, colon))   // "e: TsType"
+            : LastIdentifierToken(inner);                       // "e" / "Exception e"
+        if (binding != null)
+        {
+            scope.Add(binding);
+        }
+    }
+
+    /// <summary>
+    /// 收集 raw 文本中声明的局部变量名（let/var/const 声明器 + Java 形态
+    /// "Type name [= init]" + 经典 for 头 "for (int i = 0; ...)"），供跨语句遮蔽：
+    /// 结构化方法体逐语句归一化时，前一 raw 语句声明的局部名必须遮蔽后续语句中的
+    /// 同名成员引用（MSAGL GTreeOverlapRemoval.removeOverlaps_node_array_number：
+    /// "var settings = _obj32;" 后的 "Create$1(settings, nodes)" 不得补 this.）。
+    /// 与 NormalizeBareMemberReferences 的声明收集共用同一套函数（保守全集，
+    /// 含嵌套块——与 CollectStructuredLocalNames 的既有保守策略一致）。
+    /// </summary>
+    public static void CollectDeclaredLocalNames(string code, HashSet<string> names)
+    {
+        if (string.IsNullOrEmpty(code) || names == null)
+        {
+            return;
+        }
+        var scopes = new List<HashSet<string>>(1) { names };
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(code, i);
+                continue;
+            }
+            if (ch == '/' && i + 1 < code.Length && (code[i + 1] == '/' || code[i + 1] == '*'))
+            {
+                i = SkipCommentTo(new System.Text.StringBuilder(), code, i);
+                continue;
+            }
+            if (!IsIdentifierStart(ch))
+            {
+                i++;
+                continue;
+            }
+            var end = ScanIdentifierEnd(code, i);
+            var name = code.Substring(i, end - i);
+            if (name is "let" or "var" or "const")
+            {
+                CollectKeywordDeclaredNames(code, end, scopes);
+            }
+            else if (!RawTextNonMemberKeywords.Contains(name))
+            {
+                TryCollectJavaStyleDeclarationNames(code, i, end, scopes);
+            }
+            else if (name is "int" or "long" or "short" or "byte" or "double" or "float" or "char" or "boolean")
+            {
+                // 经典 for 头 "for (int i = 0; ...)"：NormalizeForHeads let 化后为
+                // let 声明，跨语句预收集在原始形态下同步收集（int 等是关键字，
+                // 常规分支不收集）。
+                TryCollectJavaStyleDeclarationNames(code, i, end, scopes);
+            }
+            i = end;
+        }
+    }
+
+    /// <summary>
+    /// 收集 let/var/const 声明变量名（多声明 "let a, b;"、类型注解 "let a: T"、
+    /// for 头 "for (let i = 0; ...)" / "for (const x of arr)"），加入当前作用域。
+    /// 声明段扫到深度 0 的 ';' 或 ')' 为止（')' 覆盖增强 for 头形态）。
+    /// </summary>
+    private static void CollectKeywordDeclaredNames(string code, int afterKeyword, List<HashSet<string>> scopes)
+    {
+        var top = scopes[scopes.Count - 1];
+        var i = afterKeyword;
+        var depth = 0;
+        var expectName = true;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(code, i);
+                continue;
+            }
+            if (ch == '(' || ch == '[' || ch == '{')
+            {
+                depth++;
+                i++;
+                continue;
+            }
+            if (ch == ')' || ch == ']' || ch == '}')
+            {
+                if (depth == 0)
+                {
+                    return;
+                }
+                depth--;
+                i++;
+                continue;
+            }
+            if (ch == ';' && depth == 0)
+            {
+                return;
+            }
+            if (ch == ',' && depth == 0)
+            {
+                expectName = true;
+                i++;
+                continue;
+            }
+            if (IsIdentifierStart(ch) && expectName)
+            {
+                var nameEnd = ScanIdentifierEnd(code, i);
+                top.Add(code.Substring(i, nameEnd - i));
+                expectName = false;
+                i = nameEnd;
+                continue;
+            }
+            i++;
+        }
+    }
+
+    /// <summary>
+    /// Java 形态局部声明 "Type name [= init] [, name2 ...]" 变量名收集（多声明
+    /// "T parent, son;"、数组类型 "int[] a = ..." 均覆盖）。仅在 type 后跟标识符
+    /// 且 name 后跟 '='/','/';'/')' 时触发——方法调用 f(x) 的 name 位是 '(' 不触发。
+    /// </summary>
+    private static bool TryCollectJavaStyleDeclarationNames(
+        string code, int typeStart, int typeEnd, List<HashSet<string>> scopes)
+    {
+        var top = scopes[scopes.Count - 1];
+        var i = SkipWhitespaceAt(code, typeEnd);
+        while (i < code.Length && code[i] == '[')
+        {
+            var close = code.IndexOf(']', i + 1);
+            if (close < 0)
+            {
+                return false;
+            }
+            i = SkipWhitespaceAt(code, close + 1);
+        }
+        if (i >= code.Length || !IsIdentifierStart(code[i]))
+        {
+            return false;
+        }
+        var firstName = ReadIdentifier(code, i);
+        if (!IsIdentifier(firstName))
+        {
+            return false;
+        }
+        top.Add(firstName);
+        i += firstName.Length;
+        while (true)
+        {
+            i = SkipWhitespaceAt(code, i);
+            if (i >= code.Length)
+            {
+                return true;
+            }
+            var ch = code[i];
+            if (ch == '=')
+            {
+                i = SkipJavaInitializer(code, i + 1);
+                continue;
+            }
+            if (ch == ',')
+            {
+                var j = SkipWhitespaceAt(code, i + 1);
+                if (j >= code.Length || !IsIdentifierStart(code[j]))
+                {
+                    return true;
+                }
+                var name = ReadIdentifier(code, j);
+                if (!IsIdentifier(name))
+                {
+                    return true;
+                }
+                top.Add(name);
+                i = j + name.Length;
+                continue;
+            }
+            return true;
+        }
+    }
+
+    /// <summary>跳过 '=' 后初始化器到深度 0 的 ','/';'/')'（返回该字符下标）。</summary>
+    private static int SkipJavaInitializer(string code, int start)
+    {
+        var depth = 0;
+        var i = start;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(code, i);
+                continue;
+            }
+            if (ch == '(' || ch == '[' || ch == '{')
+            {
+                depth++;
+                i++;
+                continue;
+            }
+            if (ch == ')' || ch == ']' || ch == '}')
+            {
+                if (depth == 0)
+                {
+                    return i;
+                }
+                depth--;
+                i++;
+                continue;
+            }
+            if ((ch == ',' || ch == ';') && depth == 0)
+            {
+                return i;
+            }
+            i++;
+        }
+        return i;
+    }
+
+    private static int SkipWhitespaceAt(string code, int i)
+    {
+        while (i < code.Length && char.IsWhiteSpace(code[i]))
+        {
+            i++;
+        }
+        return i;
+    }
+
+    private static int PrevNonWhitespaceAt(string code, int i)
+    {
+        var j = i - 1;
+        while (j >= 0 && char.IsWhiteSpace(code[j]))
+        {
+            j--;
+        }
+        return j;
+    }
+
+    private static bool IsPrevNonWhitespaceDot(string code, int i)
+    {
+        var prev = PrevNonWhitespaceAt(code, i);
+        return prev >= 0 && code[prev] == '.';
+    }
+
+    private static bool IsNameInScopes(string name, List<HashSet<string>> scopes)
+    {
+        for (var s = scopes.Count - 1; s >= 0; s--)
+        {
+            if (scopes[s].Contains(name))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>取文本中最后一个标识符 token（lambda/catch 参数名形态 "Type a" 取 a）。</summary>
+    private static string? LastIdentifierToken(string text)
+    {
+        // "(a: number) =>" 形态：参数名在首个冒号前（冒号后是类型位，不参与遮蔽收集）
+        var colon = text.IndexOf(':');
+        if (colon >= 0)
+        {
+            text = text.Substring(0, colon);
+        }
+        string? last = null;
+        var i = 0;
+        while (i < text.Length)
+        {
+            if (IsIdentifierStart(text[i]))
+            {
+                var end = ScanIdentifierEnd(text, i);
+                last = text.Substring(i, end - i);
+                i = end;
+                continue;
+            }
+            i++;
+        }
+        return last;
+    }
 
     /// <summary>
     /// When code[i] starts a comment (// or /*), copies it verbatim to sb and
@@ -1996,6 +2639,44 @@ public static class TsRawStatementNormalizer
     /// <summary>
     /// 从 openIndex 起的 '(' 找匹配的 ')'；跳过字符串/字符字面量，返回下标；无匹配返回 -1。
     /// </summary>
+    /// <summary>
+    /// 平衡扫描 "Name&lt;...&gt;" 的闭合 '>'（嵌套泛型深度）；跳过字符串/字符字面量；
+    /// 深度 1 时遇到 ';'（语句边界）即放弃（比较式 "a&lt;b; ..." 不越界）。
+    /// 返回闭合 '>' 下标，未找到返回 -1。
+    /// </summary>
+    private static int FindMatchingGenericAngle(string code, int openIndex)
+    {
+        var depth = 0;
+        var i = openIndex;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(code, i);
+                continue;
+            }
+            if (ch == '<')
+            {
+                depth++;
+            }
+            else if (ch == '>')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
+            }
+            else if (ch == ';' && depth == 1)
+            {
+                return -1;
+            }
+            i++;
+        }
+        return -1;
+    }
+
     private static int FindMatchingParen(string code, int openIndex)
     {
         var depth = 0;

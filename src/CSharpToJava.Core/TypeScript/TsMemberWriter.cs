@@ -12,11 +12,22 @@ public sealed class TsMemberWriter
     private readonly TsExpressionWriter _exprWriter;   // 用于 Java→TS 类型映射
     private readonly string _indent;
 
+    /// <summary>Round 16：类成员上下文（裸实例/静态成员名补 this./类名. 前缀）。</summary>
+    public TsMemberContext? MemberContext { get; set; }
+
     public TsMemberWriter(TsStatementWriter stmtWriter, TsExpressionWriter exprWriter, string indent = "    ")
     {
         _stmtWriter = stmtWriter;
         _exprWriter = exprWriter;
         _indent = indent;
+    }
+
+    /// <summary>Round 16：设置三个 writer 共享的类成员上下文（EmitClass 每个类调用一次）。</summary>
+    public void SetMemberContext(TsMemberContext? memberContext)
+    {
+        MemberContext = memberContext;
+        _stmtWriter.MemberContext = memberContext;
+        _exprWriter.MemberContext = memberContext;
     }
 
     /// <summary>
@@ -29,6 +40,9 @@ public sealed class TsMemberWriter
     /// （Java 泛型装箱产物）不追加 `| null`，用于 MapHeritageType/FormatTypeParameters。
     /// </summary>
     public string MapTypeNonNull(string javaOrCsharpType) => _exprWriter.MapTypeNonNull(javaOrCsharpType);
+
+    /// <summary>异常名映射转发（静态初始化块归一化用）。</summary>
+    public string? MapExceptionName(string name) => _exprWriter.MapExceptionName(name);
 
     public string EmitField(JavaFieldDeclaration field, int indentLevel, System.Collections.Generic.IReadOnlySet<string>? typeParameters = null)
     {
@@ -82,7 +96,7 @@ public sealed class TsMemberWriter
         {
             // 初始化器为 Java 风味字面量（FieldTransformer.RenderConstantValue 产出
             // 100L/1.5f/0xFFL 等），需归一化为合法 TS 字面量再发射
-            sb.Append($" = {NormalizeLiteral(field.Initializer)}");
+            sb.Append($" = {NormalizeLiteral(field.Initializer, MemberContext)}");
         }
         else
         {
@@ -185,15 +199,20 @@ public sealed class TsMemberWriter
             sb.Append(';');
             return;
         }
+        var shadowNames = MethodShadowNames(method);
         if (method.StructuredBody != null)
         {
             // 结构化方法体优先于 Body 字符串（JavaMethodDeclaration 契约）：
             // 逐语句交给 TsStatementWriter 发射，避免丢失 body
             sb.AppendLine(" {");
+            _stmtWriter.MethodLocals = shadowNames;
+            _exprWriter.MethodLocals = shadowNames;
             foreach (var stmt in method.StructuredBody.Statements)
             {
                 sb.AppendLine(_stmtWriter.Emit(stmt, indentLevel + 2));
             }
+            _stmtWriter.MethodLocals = null;
+            _exprWriter.MethodLocals = null;
             sb.Append(ind).Append(_indent).Append('}');
             return;
         }
@@ -206,7 +225,7 @@ public sealed class TsMemberWriter
             sb.AppendLine(" {");
             sb.Append(ind).Append(_indent);
             if (!isVoid) sb.Append("return ");
-            sb.AppendLine($"{method.Body};");
+            sb.AppendLine($"{TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName, memberContext: MemberContext, extraLocals: shadowNames)};");
             sb.Append(ind).Append('}');
             return;
         }
@@ -214,7 +233,7 @@ public sealed class TsMemberWriter
         // body 已是字符串，按行缩进
         // body is a raw string: normalize Java text first (declarations/for heads/
         // array literals/float suffixes), then emit per line.
-        var normalizedBody = TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName);
+        var normalizedBody = TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName, memberContext: MemberContext, extraLocals: shadowNames);
         foreach (var line in normalizedBody.Split('\n'))
         {
             sb.Append(ind).Append(_indent).AppendLine(line);
@@ -243,7 +262,7 @@ public sealed class TsMemberWriter
         sb.Append($"let {name}: {emittedType}");
         if (hasInitializer)
         {
-            sb.Append($" = {NormalizeLiteral(field.Initializer!)}");
+            sb.Append($" = {NormalizeLiteral(field.Initializer!, MemberContext)}");
         }
         else
         {
@@ -315,19 +334,24 @@ public sealed class TsMemberWriter
     /// </summary>
     private void AppendArrowBody(StringBuilder sb, JavaMethodDeclaration method, string ind, int indentLevel)
     {
+        var shadowNames = MethodShadowNames(method);
         if (method.StructuredBody != null)
         {
             sb.AppendLine(" {");
+            _stmtWriter.MethodLocals = shadowNames;
+            _exprWriter.MethodLocals = shadowNames;
             foreach (var stmt in method.StructuredBody.Statements)
             {
                 sb.AppendLine(_stmtWriter.Emit(stmt, indentLevel + 2));
             }
+            _stmtWriter.MethodLocals = null;
+            _exprWriter.MethodLocals = null;
             sb.Append(ind).Append('}');
             return;
         }
         if (method.IsBodyExpression)
         {
-            sb.Append(" => ").Append(method.Body);
+            sb.Append(" => ").Append(TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName, memberContext: MemberContext, extraLocals: shadowNames));
             return;
         }
         if (method.Body == null)
@@ -336,7 +360,7 @@ public sealed class TsMemberWriter
             return;
         }
         sb.AppendLine(" {");
-        var normalizedArrowBody = TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName);
+        var normalizedArrowBody = TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName, memberContext: MemberContext, extraLocals: shadowNames);
         foreach (var line in normalizedArrowBody.Split('\n'))
         {
             sb.Append(ind).Append(_indent).AppendLine(line);
@@ -385,16 +409,25 @@ public sealed class TsMemberWriter
             sb.Append(ind).Append(_indent).AppendLine("super();");
         }
 
+        var ctorLocals = new System.Collections.Generic.HashSet<string>(
+            ctor.Parameters.Select(p => TsNaming.SafeIdentifier(p.Name)), System.StringComparer.Ordinal);
         if (ctor.StructuredBody != null)
         {
+            _stmtWriter.MethodLocals = ctorLocals;
+            _exprWriter.MethodLocals = ctorLocals;
             foreach (var stmt in ctor.StructuredBody.Statements)
             {
                 sb.AppendLine(_stmtWriter.Emit(stmt, indentLevel + 1));
             }
+            _stmtWriter.MethodLocals = null;
+            _exprWriter.MethodLocals = null;
         }
         else if (!string.IsNullOrEmpty(ctor.Body))
         {
-            var bodyLines = ctor.Body.Split('\n');
+            // Round 16：ctor raw 体此前完全不归一化；接入完整 Normalize 管线
+            // （成员前缀 + 既有的声明 let 化/异常名映射等），成员上下文与参数遮蔽随行。
+            var normalizedBody = TsRawStatementNormalizer.Normalize(ctor.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName, memberContext: MemberContext, extraLocals: ctorLocals);
+            var bodyLines = normalizedBody.Split('\n');
             foreach (var line in bodyLines)
             {
                 sb.Append(ind).Append(_indent).AppendLine(line);
@@ -432,12 +465,160 @@ public sealed class TsMemberWriter
     }
 
     /// <summary>
+    /// 方法发射遮蔽名 = 参数 + 方法类型参数 + 结构化局部变量（参数/局部遮蔽成员，禁止加前缀）。
+    /// </summary>
+    private static HashSet<string> MethodShadowNames(JavaMethodDeclaration method)
+    {
+        var names = new HashSet<string>(System.StringComparer.Ordinal);
+        foreach (var parameter in method.Parameters)
+        {
+            names.Add(TsNaming.SafeIdentifier(parameter.Name));
+        }
+        foreach (var typeParameter in method.TypeParameters)
+        {
+            names.Add(typeParameter.Name);
+        }
+        if (method.StructuredBody != null)
+        {
+            CollectStructuredLocalNames(method.StructuredBody.Statements, names);
+        }
+        return names;
+    }
+
+    /// <summary>收集结构化语句树的局部变量名（与 TsPropertyReconstructionRewriter 同款，仅名字）。</summary>
+    private static void CollectStructuredLocalNames(IReadOnlyList<JavaStatement> statements, HashSet<string> names)
+    {
+        foreach (var statement in statements)
+        {
+            switch (statement)
+            {
+                case JavaVariableDeclarationStatement declaration:
+                    names.Add(declaration.Name);
+                    break;
+                case JavaRawStatement raw:
+                    // Round 16 跨语句遮蔽：raw 语句声明的局部名（var settings = ...; /
+                    // Type name = ...; / 经典 for 头）收集进方法级遮蔽集，供后续语句的
+                    // raw 表达式归一化（MSAGL GTreeOverlapRemoval：Create$1(settings, ...)
+                    // 不得补 this.——静态方法内 this.settings 是 TS2339）。
+                    TsRawStatementNormalizer.CollectDeclaredLocalNames(raw.Code, names);
+                    break;
+                case JavaForEachStatement forEach:
+                    if (!string.IsNullOrEmpty(forEach.VariableName)) names.Add(forEach.VariableName);
+                    CollectStructuredLocalNamesFromStatement(forEach.Body, names);
+                    break;
+                case JavaBlockStatement block:
+                    CollectStructuredLocalNames(block.Statements, names);
+                    break;
+                case JavaIfStatement ifStatement:
+                    CollectStructuredLocalNamesFromStatement(ifStatement.ThenBody, names);
+                    if (ifStatement.ElseBody != null) CollectStructuredLocalNamesFromStatement(ifStatement.ElseBody, names);
+                    break;
+                case JavaWhileStatement whileStatement:
+                    CollectStructuredLocalNamesFromStatement(whileStatement.Body, names);
+                    break;
+                case JavaDoWhileStatement doWhile:
+                    CollectStructuredLocalNamesFromStatement(doWhile.Body, names);
+                    break;
+                case JavaForStatement forStatement:
+                    CollectForInitNames(forStatement.Initializer, names);
+                    CollectStructuredLocalNamesFromStatement(forStatement.Body, names);
+                    break;
+                case JavaTryCatchStatement tryCatch:
+                    CollectStructuredLocalNames(tryCatch.TryBody.Statements, names);
+                    foreach (var catchClause in tryCatch.CatchClauses)
+                    {
+                        if (!string.IsNullOrEmpty(catchClause.VariableName)) names.Add(catchClause.VariableName);
+                        CollectStructuredLocalNames(catchClause.Body.Statements, names);
+                    }
+                    if (tryCatch.FinallyBody != null) CollectStructuredLocalNames(tryCatch.FinallyBody.Statements, names);
+                    break;
+                case JavaSwitchStatement switchStatement:
+                    foreach (var section in switchStatement.Sections)
+                    {
+                        CollectStructuredLocalNames(section.Statements, names);
+                    }
+                    break;
+            }
+        }
+    }
+
+    private static void CollectStructuredLocalNamesFromStatement(JavaStatement statement, HashSet<string> names)
+    {
+        switch (statement)
+        {
+            case JavaBlockStatement block:
+                CollectStructuredLocalNames(block.Statements, names);
+                break;
+            case JavaVariableDeclarationStatement declaration:
+                names.Add(declaration.Name);
+                break;
+            case JavaForEachStatement forEach:
+                if (!string.IsNullOrEmpty(forEach.VariableName)) names.Add(forEach.VariableName);
+                CollectStructuredLocalNamesFromStatement(forEach.Body, names);
+                break;
+            case JavaIfStatement ifStatement:
+                CollectStructuredLocalNamesFromStatement(ifStatement.ThenBody, names);
+                if (ifStatement.ElseBody != null) CollectStructuredLocalNamesFromStatement(ifStatement.ElseBody, names);
+                break;
+            case JavaWhileStatement whileStatement:
+                CollectStructuredLocalNamesFromStatement(whileStatement.Body, names);
+                break;
+            case JavaDoWhileStatement doWhile:
+                CollectStructuredLocalNamesFromStatement(doWhile.Body, names);
+                break;
+            case JavaForStatement forStatement:
+                CollectForInitNames(forStatement.Initializer, names);
+                CollectStructuredLocalNamesFromStatement(forStatement.Body, names);
+                break;
+            case JavaTryCatchStatement tryCatch:
+                CollectStructuredLocalNames(tryCatch.TryBody.Statements, names);
+                foreach (var catchClause in tryCatch.CatchClauses)
+                {
+                    if (!string.IsNullOrEmpty(catchClause.VariableName)) names.Add(catchClause.VariableName);
+                    CollectStructuredLocalNames(catchClause.Body.Statements, names);
+                }
+                if (tryCatch.FinallyBody != null) CollectStructuredLocalNames(tryCatch.FinallyBody.Statements, names);
+                break;
+            case JavaSwitchStatement switchStatement:
+                foreach (var section in switchStatement.Sections)
+                {
+                    CollectStructuredLocalNames(section.Statements, names);
+                }
+                break;
+        }
+    }
+
+    /// <summary>经典 for 头声明段变量名（"int i = 0, j = 1" → i, j；按顶层逗号分段）。</summary>
+    private static void CollectForInitNames(string? initializer, HashSet<string> names)
+    {
+        if (string.IsNullOrEmpty(initializer))
+        {
+            return;
+        }
+        foreach (var segment in initializer.Split(','))
+        {
+            var trimmed = segment.Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+            var eq = trimmed.IndexOf('=');
+            var head = eq < 0 ? trimmed : trimmed[..eq];
+            var tokens = head.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length > 0)
+            {
+                names.Add(tokens[^1]);
+            }
+        }
+    }
+
+    /// <summary>
     /// 将 Java 风味字面量归一化为合法 TS 字面量（I2，等价于 TsExpressionWriter.EmitLiteral 的
     /// 字符串版）：long/ulong 后缀 L → bigint 后缀 n（100L→100n、0xFFL→0xFFn、1_000L→1_000n）；
     /// float/double 后缀 f/d → 去掉（1.5f→1.5）；char 字面量 'a' → "a"。
     /// 仅当整个字符串为字面量形态时才转换，避免误伤表达式/标识符。
     /// </summary>
-    private static string NormalizeLiteral(string literal)
+    private static string NormalizeLiteral(string literal, TsMemberContext? memberContext)
     {
         // Task 19 注记⑦：Java 风味数值 cast 前缀（(long)/(int)/(short)/(byte)/(double)/(float)）
         // const long = uint.MaxValue 等初始化经共享适配层包成 "(long) (4294967295L)"
@@ -446,7 +627,7 @@ public sealed class TsMemberWriter
         var stripped = StripNumericCastPrefix(literal);
         if (stripped != literal)
         {
-            return NormalizeLiteral(stripped);
+            return NormalizeLiteral(stripped, memberContext);
         }
 
         if (literal.Length >= 3 && literal[0] == '\'' && literal[^1] == '\'' && !literal[1..^1].Contains('"'))
@@ -501,7 +682,7 @@ public sealed class TsMemberWriter
         // M5 / MSAGL: Java array creation literals (new String[] { "a" } /
         // new double[][] { {...} }) reach field initializers as raw text; route them
         // through the raw normalizer (array literal + float suffix passes).
-        return TsRawStatementNormalizer.Normalize(literal);
+        return TsRawStatementNormalizer.Normalize(literal, memberContext: memberContext);
     }
 
     /// <summary>剥除 "({type}) (literal)" 或 "({type})literal" 形态的 Java 数值 cast 前缀，

@@ -13,15 +13,18 @@ public sealed class TsTypeWriter
     private readonly TsMemberWriter _memberWriter;
     private readonly IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? _accessorRoles;
     private readonly IReadOnlySet<string> _flagsEnumNames;
+    private readonly ConversionContext? _context;
     private readonly string _indent;
 
     public TsTypeWriter(TsMemberWriter memberWriter, string indent = "    ",
         IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? accessorRoles = null,
-        IReadOnlySet<string>? flagsEnumNames = null)
+        IReadOnlySet<string>? flagsEnumNames = null,
+        ConversionContext? context = null)
     {
         _memberWriter = memberWriter;
         _accessorRoles = accessorRoles;
         _flagsEnumNames = flagsEnumNames ?? new HashSet<string>(StringComparer.Ordinal);
+        _context = context;
         _indent = indent;
     }
 
@@ -47,6 +50,8 @@ public sealed class TsTypeWriter
     private string EmitTestClass(JavaClassDeclaration cls, TsTestClassInfo testInfo, int indentLevel,
         ConversionContext? context)
     {
+        // Round 16：测试类字段是 describe 作用域 let 变量而非类成员，禁止 this./类名. 前缀
+        _memberWriter.SetMemberContext(null);
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
         sb.AppendLine($"describe(\"{TsNaming.EscapeStringLiteral(cls.Name)}\", () => {{");
@@ -90,6 +95,15 @@ public sealed class TsTypeWriter
 
     private string EmitClass(JavaClassDeclaration cls, int indentLevel)
     {
+        // Round 16：类成员上下文（裸实例/静态成员名补 this./类名. 前缀）；嵌套类型
+        // 递归 EmitClass 时各自重建，测试类走 EmitTestClass 显式清空。
+        // isEnumTypeName：项目级枚举名判定（[Flags]/显式值枚举 IR 类型为 int，仅靠
+        // 类型名比对会漏掉 "Direction Direction" 自类型模式——成员名命中枚举类型名
+        // 时同样进 SelfTypedMembers，Direction.East 保持类型限定裸访问）。
+        _memberWriter.SetMemberContext(TsMemberContext.From(cls, _accessorRoles,
+            isEnumTypeName: _context != null
+                ? name => _flagsEnumNames.Contains(name) || _context.IsFlagsEnum(name) || _context.IsExplicitValueEnum(name)
+                : null));
         // [Flags] 枚举（Task 17）：共享管线已转为静态 int 常量类 → const 对象 + 联合类型
         if (_flagsEnumNames.Contains(cls.Name))
         {
@@ -209,11 +223,16 @@ public sealed class TsTypeWriter
             sb.AppendLine(string.Join(Environment.NewLine + Environment.NewLine, methodBlocks));
         }
 
-        // 静态初始化块 -> static { } （ES2022）；实际属性是 Statements（List<string>，非 Body）
+        // 静态初始化块 -> static { } （ES2022）；实际属性是 Statements（List<string>，非 Body）。
+        // Round 16：整块归一化（成员上下文 + 既有 raw 管线：FQCN 缩短/声明 let 化等），
+        // 再按行发射——静态块内裸静态成员引用（TS2662）补 类名. 前缀。
         foreach (var staticInit in cls.StaticInitializers)
         {
             sb.Append(ind).Append(_indent).AppendLine("static {");
-            foreach (var stmtLine in staticInit.Statements)
+            var joined = string.Join("\n", staticInit.Statements.Where(s => !string.IsNullOrWhiteSpace(s)));
+            var normalized = TsRawStatementNormalizer.Normalize(
+                joined, _memberWriter.MapType, _memberWriter.MapExceptionName, memberContext: _memberWriter.MemberContext);
+            foreach (var stmtLine in normalized.Split('\n'))
             {
                 if (!string.IsNullOrWhiteSpace(stmtLine))
                 {

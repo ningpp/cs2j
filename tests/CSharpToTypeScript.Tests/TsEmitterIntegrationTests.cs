@@ -499,6 +499,7 @@ class MyEnumerator : IEnumerator<int>
 }
 """);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("if (_iteratorHasNext) return true;", result.GeneratedCode);
+        // Round 16：裸字段补 this. 前缀（与 TS2663 收敛一致）
+        Assert.Contains("if (this._iteratorHasNext) return true;", result.GeneratedCode);
     }
 }

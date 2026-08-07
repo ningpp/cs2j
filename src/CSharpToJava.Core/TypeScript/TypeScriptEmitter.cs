@@ -104,7 +104,7 @@ public sealed class TypeScriptEmitter
         var exprWriter = new TsExpressionWriter(mappings, imports);
         var stmtWriter = new TsStatementWriter(exprWriter);
         var memberWriter = new TsMemberWriter(stmtWriter, exprWriter);
-        var typeWriter = new TsTypeWriter(memberWriter, accessorRoles: _accessorRoles, flagsEnumNames: flagsEnumNames);
+        var typeWriter = new TsTypeWriter(memberWriter, accessorRoles: _accessorRoles, flagsEnumNames: flagsEnumNames, context: context);
         return typeWriter.Emit(type, 0, testInfo, context);
     }
 

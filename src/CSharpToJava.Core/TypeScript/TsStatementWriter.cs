@@ -19,6 +19,12 @@ public sealed class TsStatementWriter
     private readonly TsExpressionWriter _exprWriter;
     private readonly string _indent;
 
+    /// <summary>Round 16：类成员上下文（裸实例/静态成员名补 this./类名. 前缀）。</summary>
+    public TsMemberContext? MemberContext { get; set; }
+
+    /// <summary>Round 16：当前方法参数/结构化局部遮蔽名（由 TsMemberWriter 按方法设置）。</summary>
+    public IReadOnlySet<string>? MethodLocals { get; set; }
+
     public TsStatementWriter(TsExpressionWriter exprWriter, string indent = "    ")
     {
         _exprWriter = exprWriter;
@@ -46,7 +52,7 @@ public sealed class TsStatementWriter
             JavaBreakStatement => $"{ind}break;",
             JavaContinueStatement => $"{ind}continue;",
             JavaSwitchStatement sw => EmitSwitch(sw, indentLevel),
-            JavaRawStatement raw => $"{ind}{TsRawStatementNormalizer.Normalize(raw.Code, _exprWriter.MapType, _exprWriter.MapExceptionName)}",
+            JavaRawStatement raw => $"{ind}{TsRawStatementNormalizer.Normalize(raw.Code, _exprWriter.MapType, _exprWriter.MapExceptionName, memberContext: MemberContext, extraLocals: MethodLocals)}",
             _ => $"{ind}/* cs2j: unsupported statement {stmt.GetType().Name} */",
         };
     }

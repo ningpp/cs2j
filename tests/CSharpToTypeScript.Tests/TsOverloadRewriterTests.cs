@@ -160,7 +160,8 @@ class Amb
         Assert.True(result.Success, result.GeneratedCode);
         AssertDiagnostic(result, "无法静态判定");
         // 保留原名（camelCase 后为 m），调用点未改写为任一重载后缀名
-        Assert.Contains("return m(o);", result.GeneratedCode);
+        // Round 16：裸方法调用补 this. 前缀（与 TS2663 收敛一致）
+        Assert.Contains("return this.m(o);", result.GeneratedCode);
         Assert.DoesNotContain("return m_number(o);", result.GeneratedCode);
         Assert.DoesNotContain("return m_string(o);", result.GeneratedCode);
     }

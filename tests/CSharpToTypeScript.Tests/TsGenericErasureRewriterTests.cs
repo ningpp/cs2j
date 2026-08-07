@@ -103,7 +103,8 @@ class F
         Assert.True(result.Success);
         // A 传递 B<T>()，自身也需工厂参数并透传给 B
         Assert.Contains("a<T>(_factory_T: () => T): T", result.GeneratedCode);
-        Assert.Contains("return b(_factory_T);", result.GeneratedCode);
+        // Round 16：裸方法调用补 this. 前缀（与 TS2663 收敛一致）
+        Assert.Contains("return this.b(_factory_T);", result.GeneratedCode);
         Assert.Contains("b<U>(_factory_U: () => U): U", result.GeneratedCode);
         Assert.Contains("return _factory_U();", result.GeneratedCode);
     }
