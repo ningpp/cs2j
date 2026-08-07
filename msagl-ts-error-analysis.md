@@ -12,6 +12,7 @@
 | 4b | — | 重转保留 node_modules（省 npm install） | src/CSharpToJava.CLI/Program.cs | f1d8482d |
 | 6 | 42 → 35 | raw 文本引用 cast 误判：控制流条件 `(X)` 被当强转丢弃（`if return true;`） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests / TsEmitterIntegrationTests）+ 本文件 | e9677465 |
 | 7 | 35 → 26 | 泛型声明/经典 for 头 let 化：类型正则吞掉 lambda `=>` 的 `>` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| a5ff3437 |
+| 9 | 20 → 15 | 构造器委托实参在成员位（`.` 后）被朴素替换 → 仅值位替换 | src/CSharpToJava.Core/TypeScript/Rewriters/TsOverloadDisambiguationRewriter.cs + tests/CSharpToTypeScript.Tests（TsOverloadRewriterTests +2）| 1418f93b |
 | 8 | 26 → 20 | try-with-resources 无 catch/finally 时裸 `try {`（TS1472）→ 降级为块作用域 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| 1daf46cb |
 
 
@@ -168,7 +169,9 @@
 - **测试**：`TsOverloadRewriterTests` 新增 2 例端到端（镜像 Rectangle 的 `0`/`new Point`
   实参与 InitialLayoutByCluster/RbTree 的 lambda/`new Holder(func)` 实参），先红后绿，
   均含 `AssertCompilesWithCompat` tsc 校验；全量 `dotnet test` 绿（7 + 544 + 2433）。
-- **验证**：全量重转后 `npx tsc --noEmit` 20 → 15（移除 5 个错误，无新增）。
+- **验证**：全量重转后 `npx tsc --noEmit` 20 → 15（实测；移除 5 个错误恰为
+  D 族：RbTree.ts:371 / Ellipse.ts:469 / Rectangle.ts:389,391 /
+  InitialLayoutByCluster.ts:389，前后列表程序化对比新增 0）。
 
 **修复前错误列表（20，供对照）**
 
