@@ -14,3 +14,6 @@ export { cloneStruct } from "./core/cloneStruct.js";
 export { CsDateTime } from "./time/CsDateTime.js";
 export { CsTimeSpan } from "./time/CsTimeSpan.js";
 export { DayOfWeek } from "./time/DayOfWeek.js";
+export { CsString } from "./text/CsString.js";
+export { CsStringBuilder } from "./text/CsStringBuilder.js";
+export { StringSplitOptions } from "./text/StringSplitOptions.js";

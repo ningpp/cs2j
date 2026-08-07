@@ -5472,6 +5472,18 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   `\` 转义、'…' 原义段）/Date/TimeOfDay/Now/UtcNow/Today + op_Addition/op_Subtraction
   静态降级）
 
+- [x] **Task 31 完成（2026-08-07）**：`src/text/` 组件（CsString.format
+  `{0}`/`{0:F2}` 标准符 F/N/D/X/E/P/G + 对齐 + `{{`/`}}` 转义 + 0.00/#.## 自定义符
+  （0/#/./分组逗号/字面量，行为经 net10.0 探针逐项核对，含 `0###`→`0001` 等
+  混合占位符规则）；标准符 IEEE 半偶舍入、自定义符十进制串半远离零舍入；
+  join（null 分隔符/元素、bool True/False、单值/可迭代）、padLeft/padRight、
+  split（字符串/多分隔符最长优先、StringSplitOptions、count 早停余量并入末段、
+  3 参歧义消解）、isNullOrEmpty/isNullOrWhiteSpace；CsStringBuilder
+  （Append/AppendLine/Insert/Remove/Replace 全量+区间+字符/ToString/Length/Clear，
+  null 值 no-op、链式返回 this）+ index.ts 导出；tsc --noEmit + vitest 102 用例全绿。
+  登记：AppendLine 固定 LF、数值格式固定文化、TrimEntries/字符索引器未实现、
+  越界暂抛 RangeError（Task 34 切换异常层次）。
+
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
 | Task | 组件 | 关键验收（spec 章节） |
