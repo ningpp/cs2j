@@ -355,50 +355,57 @@ public partial class StatementTransformer
         // but we only skip if the OUTERMOST call is already .collect(CSharpList.toCSharpList()).
         // Use ContainsStreamMethodAtTopLevel to avoid false positives where stream calls
         // appear only inside nested argument lists (e.g. method(x.stream().toArray(...))).
-        bool isStream = !strippedTrailingStream
-            && !expression.TrimEnd().EndsWith(".collect(CSharpList.toCSharpList())")
-            && !EndsWithCollectCall(expression.TrimEnd())
-            && !expression.TrimEnd().EndsWith(".toArray()")
-            && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
-            && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(expression);
-
-        // Also detect by semantic type: if the C# expression type is IOrderedEnumerable or IQueryable
-        // (both are always yielded as Java Streams by the LINQ translator), force-collect.
-        if (!isStream && exprTypeInfo is INamedTypeSymbol csForeachType)
+        // Java-only stream detection: the TS target emits native array methods /
+        // Enumerable chains which are directly iterable by for-of (Task 36 LINQ
+        // fork); collecting them into CSharpList would produce invalid TS.
+        bool isStream = false;
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript)
         {
-            bool isLinqResult = csForeachType.Name is "IOrderedEnumerable" or "IOrderedQueryable" or "IQueryable"
-                || (csForeachType.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true
-                    && csForeachType.Name != "IEnumerable" && csForeachType.Name != "ICollection"
-                    && csForeachType.Name != "IGrouping");
-            if (isLinqResult)
+            isStream = !strippedTrailingStream
+                && !expression.TrimEnd().EndsWith(".collect(CSharpList.toCSharpList())")
+                && !EndsWithCollectCall(expression.TrimEnd())
+                && !expression.TrimEnd().EndsWith(".toArray()")
+                && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$")
+                && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(expression);
+
+            // Also detect by semantic type: if the C# expression type is IOrderedEnumerable or IQueryable
+            // (both are always yielded as Java Streams by the LINQ translator), force-collect.
+            if (!isStream && exprTypeInfo is INamedTypeSymbol csForeachType)
             {
-                // Guard: if the expression is a simple variable name that was NOT registered in
-                // StreamLocalVariables, its declaration already collected the stream.  Don't double-collect.
-                var exprTrimmed = expression.Trim();
-                bool isSimpleVar = !exprTrimmed.Contains('.') && !exprTrimmed.Contains('(');
-                if (!(isSimpleVar && !context.StreamLocalVariables.Contains(exprTrimmed)))
+                bool isLinqResult = csForeachType.Name is "IOrderedEnumerable" or "IOrderedQueryable" or "IQueryable"
+                    || (csForeachType.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true
+                        && csForeachType.Name != "IEnumerable" && csForeachType.Name != "ICollection"
+                        && csForeachType.Name != "IGrouping");
+                if (isLinqResult)
+                {
+                    // Guard: if the expression is a simple variable name that was NOT registered in
+                    // StreamLocalVariables, its declaration already collected the stream.  Don't double-collect.
+                    var exprTrimmed = expression.Trim();
+                    bool isSimpleVar = !exprTrimmed.Contains('.') && !exprTrimmed.Contains('(');
+                    if (!(isSimpleVar && !context.StreamLocalVariables.Contains(exprTrimmed)))
+                        isStream = true;
+                }
+            }
+
+            // Fallback: if the foreach expression is a locally-declared variable that was registered
+            // as stream-typed in TransformLocalDeclaration, treat it as a stream here too.
+            // This handles cases where the SemanticModel is unavailable or the type is not in System.Linq.
+            //
+            // Root cause of issue #10: StreamLocalVariables does not track scope - a variable name added
+            // to the set in one block persists for the rest of the method. When the same variable name is
+            // reused in a sibling scope with an array type (Point[]), the foreach must NOT collect it,
+            // because arrays are directly iterable in Java. Fix: exclude IArrayTypeSymbol from stream treatment.
+            if (!isStream && context.StreamLocalVariables.Contains(expression.Trim()))
+            {
+                bool exprIsCollectionLike =
+                    // Named collection/iterable interfaces are already collections, not streams
+                    (exprTypeInfo is INamedTypeSymbol exprNamedType &&
+                        exprNamedType.Name is "IEnumerable" or "ICollection" or "IList" or "List" or "Collection" or "Iterable")
+                    // Arrays are directly iterable in Java (T[] supports for-each without stream wrapping)
+                    || exprTypeInfo is IArrayTypeSymbol;
+                if (!exprIsCollectionLike)
                     isStream = true;
             }
-        }
-
-        // Fallback: if the foreach expression is a locally-declared variable that was registered
-        // as stream-typed in TransformLocalDeclaration, treat it as a stream here too.
-        // This handles cases where the SemanticModel is unavailable or the type is not in System.Linq.
-        //
-        // Root cause of issue #10: StreamLocalVariables does not track scope — a variable name added
-        // to the set in one block persists for the rest of the method. When the same variable name is
-        // reused in a sibling scope with an array type (Point[]), the foreach must NOT collect it,
-        // because arrays are directly iterable in Java. Fix: exclude IArrayTypeSymbol from stream treatment.
-        if (!isStream && context.StreamLocalVariables.Contains(expression.Trim()))
-        {
-            bool exprIsCollectionLike =
-                // Named collection/iterable interfaces are already collections, not streams
-                (exprTypeInfo is INamedTypeSymbol exprNamedType &&
-                    exprNamedType.Name is "IEnumerable" or "ICollection" or "IList" or "List" or "Collection" or "Iterable")
-                // Arrays are directly iterable in Java (T[] supports for-each without stream wrapping)
-                || exprTypeInfo is IArrayTypeSymbol;
-            if (!exprIsCollectionLike)
-                isStream = true;
         }
 
         if (isStream)

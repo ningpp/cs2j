@@ -38,15 +38,19 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, 
         RewriteCount = 0;
         LinqStatistics = null;
 
+        var isTsTarget = state.Request.Options.TargetLanguage == TargetLanguage.TypeScript;
         var runLinqRewrite = state.Request.Options.EnableLinqRewrite && !state.Request.Options.EffectivePreferStreamApi;
-        if (!runLinqRewrite)
+        if (!runLinqRewrite && !isTsTarget)
         {
             return;
         }
 
         if (state.Context.SemanticModel == null)
         {
-            state.Context.Diagnostics.Warning("LINQ rewrite skipped: semantic model unavailable.");
+            if (runLinqRewrite)
+            {
+                state.Context.Diagnostics.Warning("LINQ rewrite skipped: semantic model unavailable.");
+            }
             return;
         }
 
@@ -54,68 +58,107 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, 
         {
             var stats = new LinqRewriteStatistics();
 
-            // Phase 1: Desugar LINQ query expressions (from…in…where…select) to
+            // Phase 1: Desugar LINQ query expressions (from..in..where..select) to
             // equivalent method-call chains (Where/Select/OrderBy/GroupBy).
             // This is purely syntactic and requires no semantic model.
-            var desugarer = new LinqQueryDesugarer();
-            var desugaredRoot = (CompilationUnitSyntax)desugarer.Visit(state.SyntaxTree.GetRoot());
-            RewriteCount += desugarer.DesugaredCount;
-            stats.DesugaredQueryCount = desugarer.DesugaredCount;
-
-            if (desugarer.DesugaredCount > 0)
+            if (runLinqRewrite)
             {
-                // Rebuild the compilation and semantic model so that the LinqRewriter
-                // in Phase 2 can resolve the desugared method calls (Where/Select/…).
-                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(desugaredRoot, state.SyntaxTree.Options);
-                state.Compilation = CSharpCompilation.Create(
-                    state.Compilation.AssemblyName ?? "TempAssembly",
-                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
-                    state.Compilation.References,
-                    state.Compilation.Options);
-                state.Library = Cs2jLibraryFactory.CreateSingleFile(
-                    desugaredRoot.ToFullString(),
-                    state.Request.FileName,
-                    state.SyntaxTree,
-                    state.Compilation);
-                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
-                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+                var desugarer = new LinqQueryDesugarer();
+                var desugaredRoot = (CompilationUnitSyntax)desugarer.Visit(state.SyntaxTree.GetRoot());
+                RewriteCount += desugarer.DesugaredCount;
+                stats.DesugaredQueryCount = desugarer.DesugaredCount;
+                if (desugarer.DesugaredCount > 0)
+                {
+                    // Rebuild the compilation and semantic model so that the
+                    // member-mapping / LINQ rewrites can resolve the desugared calls.
+                    RebuildCompilation(state, desugaredRoot);
+                }
             }
 
-            // Phase 2: Rewrite LINQ method-call chains to procedural loops.
-            var rewriter = new LinqRewriter(state.Context.SemanticModel, state.Request.Options);
-            var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(state.SyntaxTree.GetRoot());
-            RewriteCount += rewriter.RewrittenLinqQueries;
-            state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(rewrittenRoot, state.SyntaxTree.Options);
-
-            stats.MergeFrom(rewriter.Statistics);
-            LinqStatistics = stats;
-            state.LinqStatistics = stats;
-
-            foreach (var skipped in rewriter.SkippedLinqChains)
+            // Phase 1.5 (Task 36): TS-target BCL member mapping (MemberMappings.json).
+            // Must run before the LINQ rewrite: after Enumerable.xxx rewriting the
+            // lambda parameter types are unresolvable (compilation has no Enumerable
+            // reference) and member mapping would degrade to Java-ized names.
+            // Independent of EnableLinqRewrite so that --no-linq-rewrite still maps.
+            if (isTsTarget)
             {
-                state.Context.Diagnostics.Warning($"LINQ rewrite skipped: {skipped} (will use Stream API fallback)");
+                var memberMappingTable = new TsMemberMappingTable(
+                    state.Request.Options.TypeScriptMappingConfigPath,
+                    state.Request.Options.TypeScriptMemberMappingPath,
+                    state.Request.Options.TypeMappingConfigPath);
+                var memberRoot = new TypeScript.Rewriters.TsMemberMappingRewriter(
+                    state.Context.SemanticModel, memberMappingTable, state.Context)
+                    .Visit(state.SyntaxTree.GetRoot());
+                if (memberRoot is CompilationUnitSyntax memberCompilationUnit
+                    && !ReferenceEquals(memberCompilationUnit, state.SyntaxTree.GetRoot()))
+                {
+                    RebuildCompilation(state, memberCompilationUnit);
+                }
             }
 
-            state.Compilation = CSharpCompilation.Create(
-                state.Compilation.AssemblyName ?? "TempAssembly",
-                new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
-                state.Compilation.References,
-                state.Compilation.Options);
+            if (!runLinqRewrite)
+            {
+                // TS target with LINQ rewrite disabled: member mapping only.
+                return;
+            }
 
-            state.Library = Cs2jLibraryFactory.CreateSingleFile(
-                rewrittenRoot.ToFullString(),
-                state.Request.FileName,
-                state.SyntaxTree,
-                state.Compilation);
+            // Phase 2: LINQ chain rewriting. Java target -> procedural loops
+            // (LinqRewriter); TS target (Task 36, spec 2.4 LINQ target fork) ->
+            // simple chains (Where/Select with side-effect-free lambdas) become
+            // array methods filter/map, complex chains become Enumerable.xxx
+            // lazy chains (TsLinqRewriter, spec 4.3.8).
+            CompilationUnitSyntax rewrittenRoot;
+            if (isTsTarget)
+            {
+                var tsRewriter = new TypeScript.Rewriters.TsLinqRewriter(state.Context.SemanticModel, state.Context);
+                rewrittenRoot = (CompilationUnitSyntax)tsRewriter.Visit(state.SyntaxTree.GetRoot());
+                RewriteCount += tsRewriter.RewrittenCalls;
+                stats.RewrittenChainCount += tsRewriter.RewrittenChains;
+                LinqStatistics = stats;
+                state.LinqStatistics = stats;
+            }
+            else
+            {
+                var rewriter = new LinqRewriter(state.Context.SemanticModel, state.Request.Options);
+                rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(state.SyntaxTree.GetRoot());
+                RewriteCount += rewriter.RewrittenLinqQueries;
 
-            state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
-                ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+                stats.MergeFrom(rewriter.Statistics);
+                LinqStatistics = stats;
+                state.LinqStatistics = stats;
+
+                foreach (var skipped in rewriter.SkippedLinqChains)
+                {
+                    state.Context.Diagnostics.Warning("LINQ rewrite skipped: " + skipped + " (will use Stream API fallback)");
+                }
+            }
+
+            RebuildCompilation(state, rewrittenRoot);
         }
         catch (Exception ex)
         {
-            state.Context.Diagnostics.Warning($"LINQ rewrite skipped due to error: {ex.Message}");
+            state.Context.Diagnostics.Warning("LINQ rewrite skipped due to error: " + ex.Message);
         }
     }
+
+    /// <summary>Rebuild tree/compilation/library/semantic model from a new root.</summary>
+    private static void RebuildCompilation(SingleFilePassState state, CompilationUnitSyntax root)
+    {
+        state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(root, state.SyntaxTree.Options);
+        state.Compilation = CSharpCompilation.Create(
+            state.Compilation.AssemblyName ?? "TempAssembly",
+            new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+            state.Compilation.References,
+            state.Compilation.Options);
+        state.Library = Cs2jLibraryFactory.CreateSingleFile(
+            root.ToFullString(),
+            state.Request.FileName,
+            state.SyntaxTree,
+            state.Compilation);
+        state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+            ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+    }
+
 }
 
 public sealed class SingleFileCompilationCheckPass : ICs2jPass<SingleFilePassState>

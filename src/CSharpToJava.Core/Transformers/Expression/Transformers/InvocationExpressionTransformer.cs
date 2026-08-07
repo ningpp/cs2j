@@ -5838,8 +5838,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         if (methodName is "filter" or "map" or "flatMap"
-            && context.SemanticModel != null)
+            && context.SemanticModel != null
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
         {
+            // Java-only stream fallback: re-wrap filter/map/flatMap calls into a Stream
+            // pipeline. The TypeScript target already emits native array methods
+            // (TsLinqRewriter, Task 36) and must NOT be re-stream-ified.
             var fallbackStreamType = context.GetTypeInfo(memberAccess.Expression).Type;
             if (ImplementsIEnumerable(fallbackStreamType) || fallbackStreamType is IArrayTypeSymbol)
             {

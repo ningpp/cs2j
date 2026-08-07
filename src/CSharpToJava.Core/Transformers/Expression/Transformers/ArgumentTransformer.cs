@@ -806,6 +806,7 @@ public class ArgumentTransformer
                 // materialize it so Java receives an Iterable/Collection value.
                 // Use depth-aware check to avoid false positives from nested stream args.
                 if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
+                    && context.Options.TargetLanguage != TargetLanguage.TypeScript
                     && Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
                 {
                     javaTargetNeedsCollection = true;
@@ -813,7 +814,8 @@ public class ArgumentTransformer
                 }
             }
 
-            if (argIsEnumerable && javaTargetNeedsCollection)
+            if (argIsEnumerable && javaTargetNeedsCollection
+                && context.Options.TargetLanguage != TargetLanguage.TypeScript)
             {
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 context.AddImport("java.util.stream.StreamSupport");
@@ -1198,6 +1200,10 @@ public class ArgumentTransformer
     private static string CoerceEnumerableStreamFallback(ArgumentSyntax arg, string transformedExpr, ConversionContext context)
     {
         if (context.SemanticModel == null)
+            return transformedExpr;
+
+        // Java-only stream coercion; TS target keeps native arrays / Enumerable chains.
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
             return transformedExpr;
 
         var argType = context.GetTypeInfo(arg.Expression).Type as INamedTypeSymbol;

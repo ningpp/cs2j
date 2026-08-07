@@ -226,11 +226,11 @@ public class Use
 }
 """);
         Assert.True(result.Success);
-        // 字符串联接（StringHelper.join）保持原样，不得被 await 化
-        Assert.Contains("StringHelper.join(\",\", parts);", result.GeneratedCode);
+        // 字符串联接（Task 36 成员映射 → CsString.join）保持原样，不得被 await 化
+        Assert.Contains("CsString.join(\",\", parts);", result.GeneratedCode);
         Assert.DoesNotContain("await CsString.join", result.GeneratedCode);
         Assert.DoesNotContain("await StringHelper.join", result.GeneratedCode);
         Assert.DoesNotContain("await StringHelper", result.GeneratedCode);
-        // 注：StringHelper.join → CsString.join 映射属 M4 Task 31（text/ 组件），此处不验 L3
+        // 注：StringHelper.join → CsString.join 映射由 Task 36 成员映射完成（text/ 组件 Task 31 已实现），此处不验 L3
     }
 }

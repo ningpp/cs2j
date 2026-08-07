@@ -46,4 +46,23 @@ export class CsSet<T> {
     *[Symbol.iterator](): Iterator<T> {
         yield* this._dict.Keys;
     }
+
+    // ─── Task 36 静态降级（发射契约）：同 CsDictionary，MemberMappings.json
+    // 把 HashSet 成员映射为静态调用 CsSet.xxx(set, ...)。 ───
+
+    static add<T>(set: CsSet<T>, item: T): boolean {
+        return set.Add(item);
+    }
+
+    static contains<T>(set: CsSet<T>, item: T): boolean {
+        return set.Contains(item);
+    }
+
+    static remove<T>(set: CsSet<T>, item: T): boolean {
+        return set.Remove(item);
+    }
+
+    static count<T>(set: CsSet<T>): number {
+        return set.Count;
+    }
 }

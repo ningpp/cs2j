@@ -227,4 +227,24 @@ export class CsDictionary<K, V> {
     private snapshot(): Array<[K, V]> {
         return this._order.map((key) => [key, this.get_Item(key)] as [K, V]);
     }
+
+    // ─── Task 36 静态降级（发射契约）：共享管线把 C# 方法名 Java 化为 camelCase
+    // （dict.Add → dict.add），与库内 PascalCase 实例成员冲突；MemberMappings.json
+    // 把 Dictionary 成员映射为静态调用 CsDictionary.xxx(dict, ...)，此处实现。 ───
+
+    static add<K, V>(dict: CsDictionary<K, V>, key: K, value: V): void {
+        dict.Add(key, value);
+    }
+
+    static containsKey<K, V>(dict: CsDictionary<K, V>, key: K): boolean {
+        return dict.ContainsKey(key);
+    }
+
+    static remove<K, V>(dict: CsDictionary<K, V>, key: K): boolean {
+        return dict.Remove(key);
+    }
+
+    static count<K, V>(dict: CsDictionary<K, V>): number {
+        return dict.Count;
+    }
 }

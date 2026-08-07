@@ -5522,7 +5522,7 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   除零 DivideByZeroException；CsChar：ToCode/FromCode 按 UTF-16 码元、Add/Subtract/CompareTo；
   CsGuid：不可变 16 字节、Empty/NewGuid（RFC 4122 v4）、Parse/TryParse（D/N/B/P/任意连字符）、
   ToString D/N/B/P/X、无符号 128 位大端比较）+ index.ts 导出；登记：decimal 主干精确舍入
-  以当前运行时为准未跟进；tsc --noEmit + vitest 166 用例全绿。
+  以当前运行时为准未跟进；tsc --noEmit + vitest 166 用例全绿。 → 提交 `f0f1da52`
 
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
@@ -5540,6 +5540,21 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 
 - **要点：** 发射器实际消费 MemberMappings.json 的静态调用映射（`CsString.*` 等，imports 自动收集）；LINQ 策略按目标分叉（spec §2.4：M4 起 TS 用数组方法链/`Enumerable` 惰性链，§4.3.8）；`Enumerable` generator 实现 + `Enumerable.test.ts` 惰性验证。
 - **验证：** 含 BCL 调用的样本转换后过 L3；`dotnet test` TS 全量 + Java 零回归。
+- [x] **Task 36 完成（2026-08-07）**：`TsMemberMappingRewriter`（语法层按 C# 全名查
+  TsMemberMappingTable：静态形态 `CsString.*`/`Math.trunc`/`console.log` 实例接收者前移
+  首参、纯改名（`List.Add`→`push`/`Count`→`length`/`Contains`→`includes`）、属性改名
+  （`Length`→`length`、`IGrouping.Key`→`key`）、`Dictionary`/`HashSet` → `CsDictionary.*`/
+  `CsSet.*` 静态形态；compat 符号自动登记 `TsCompatSymbols`，发射器自动生成 import）+
+  `TsLinqRewriter`（LINQ 目标分叉：简单链 Where/Select → filter/map（lambda 无副作用
+  守卫），复杂链 → `Enumerable.xxx` 惰性链，未支持算子整链跳过 + 诊断）；共享转换器
+  Java stream 检测全路径 TS 守卫（Loops/Declarations/ExpressionAndReturn/MethodTransformer/
+  Argument/InvocationExpression 共 6 处，TS 不再 `.collect(CSharpList.toCSharpList())`）；
+  链式属性映射修复（`base.Visit` 后 `WithName`：`s.Split(' ').Length` →
+  `CsString.split(s, " ").length`）；`Enumerable`/`Grouping` generator 惰性实现
+  （where/select/selectMany/orderBy/thenBy/groupBy/first/count/…）+ `Enumerable.test.ts`
+  惰性验证；`MemberMappings.json` 增补 Array.Length/Dictionary/HashSet/IGrouping.Key
+  （移除 String.Format 归 IR 层处理）；`--no-linq-rewrite` 时成员映射仍生效；
+  TS 单测 449 全绿（新增 9 用例）+ vitest 203 + tsc 全绿；Java 2423 零回归。
 
 ---
 

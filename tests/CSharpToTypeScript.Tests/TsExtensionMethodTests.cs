@@ -26,7 +26,9 @@ public class Use
         Assert.Contains("public static wordCount(s: string): number", result.GeneratedCode);
         Assert.Contains("return StringExt.wordCount(s);", result.GeneratedCode);
         Assert.DoesNotContain("s.wordCount", result.GeneratedCode);
-        AssertCompiles(result.GeneratedCode);
+        // Task 36: s.Split(' ').Length 命中 MemberMappings（CsString.split + length），
+        // 需要 compat 桩参与 L3 编译。
+        AssertCompilesWithCompat(result.GeneratedCode);
     }
 
     [Fact]

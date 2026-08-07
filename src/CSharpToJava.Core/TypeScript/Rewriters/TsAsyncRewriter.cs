@@ -12,7 +12,7 @@ namespace CSharpToJava.Core.TypeScript.Rewriters;
 /// ① async 方法（MethodTransformer 落 IsAsync 标记）→ TsMemberWriter 发射 `async ` 前缀，
 ///    返回类型经 TsMemberMappingTable 映射 CompletableFuture&lt;X&gt; → Promise&lt;X&gt;；
 /// ② async 方法体（Body 字符串 / raw 语句 / 结构化语句表达式三路）：
-///    `X.join()` → `await X`（跳过 String.join / StringHelper.join 字符串联接；
+///    `X.join()` → `await X`（跳过 String.join / StringHelper.join / CsString.join 字符串联接；
 ///    嵌套 await 如 `F(G().join()).join()` 按从内到外递归改写）、
 ///    `return CompletableFuture.completedFuture(X);` → `return X;`（null → `return;`）；
 /// ③ 全方法体（含非 async 的 Task 返回方法与字段初始化器）：
@@ -86,7 +86,7 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
             if (isAsync && call.MethodName == "join" && call.Target != null)
             {
                 var targetName = (call.Target as JavaIdentifierExpression)?.Name;
-                if (targetName is not ("String" or "java.lang.String" or "StringHelper"))
+                if (targetName is not ("String" or "java.lang.String" or "StringHelper" or "CsString"))
                 {
                     var target = VisitExpression(call.Target);
                     return new JavaRawExpression($"await ({target.ToInlineString()})");
@@ -235,7 +235,7 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 if (exprStart >= copyFrom)
                 {
                     var receiver = text[exprStart..i].Trim();
-                    if (receiver is not ("String" or "java.lang.String" or "StringHelper"))
+                    if (receiver is not ("String" or "java.lang.String" or "StringHelper" or "CsString"))
                     {
                         var close = FindMatchingParen(text, i + needle.Length - 1);
                         if (close > i + needle.Length - 1)

@@ -1396,6 +1396,11 @@ public class MethodTransformer : IMemberTransformer
         if (context.SemanticModel == null)
             return exprBody;
 
+        // Java-only: TS target returns native arrays/Enumerable chains directly
+        // (Task 36 LINQ fork), so no .collect()/Arrays.asList() wrapping is needed.
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            return exprBody;
+
         var returnTypeInfo = context.GetTypeInfo(returnTypeSyntax).Type;
         if (returnTypeInfo is not INamedTypeSymbol returnNamed)
             return exprBody;

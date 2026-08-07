@@ -7,7 +7,7 @@ namespace CSharpToTypeScript.Tests;
 
 public abstract class TsConversionTestBase
 {
-    protected ConversionResult Convert(string csharpSource)
+    protected ConversionResult Convert(string csharpSource, bool enableLinqRewrite = true)
     {
         var basePath = AppContext.BaseDirectory;
         var typeMappingPath = Path.Combine(basePath, "config", "typescript", "TypeMappings.json");
@@ -26,8 +26,16 @@ public abstract class TsConversionTestBase
                 TargetLanguage = TargetLanguage.TypeScript,
                 TypeScriptMappingConfigPath = File.Exists(typeMappingPath) ? typeMappingPath : null,
                 TypeScriptMemberMappingPath = File.Exists(memberMappingPath) ? memberMappingPath : null,
+                EnableLinqRewrite = enableLinqRewrite,
             },
         });
+    }
+
+    /// <summary>与 Convert 相同但禁用 LINQ 预处理（--no-linq-rewrite），验证
+    /// 成员映射独立于 LINQ 改写仍生效（Task 36）。</summary>
+    protected ConversionResult ConvertWithLinqRewriteDisabled(string csharpSource)
+    {
+        return Convert(csharpSource, enableLinqRewrite: false);
     }
 
     protected static string StripExports(string code)
@@ -130,7 +138,78 @@ public abstract class TsConversionTestBase
 
     private const string CompatIndexDts =
         """
-export declare namespace CsString { function format(fmt: string, ...args: unknown[]): string; }
+export declare namespace CsString {
+    function format(fmt: string, ...args: unknown[]): string;
+    function split(value: string, separator: string): string[];
+    function join(separator: string, values: Iterable<string>): string;
+    function padLeft(value: string, totalWidth: number): string;
+    function padRight(value: string, totalWidth: number): string;
+    function isNullOrEmpty(value: unknown): boolean;
+    function isNullOrWhiteSpace(value: unknown): boolean;
+}
+export declare class Grouping<TKey, T> {
+    readonly key: TKey;
+    readonly values: T[];
+    [Symbol.iterator](): Iterator<T>;
+}
+export declare const Enumerable: {
+    where<T>(source: Iterable<T>, predicate: (v: T) => boolean): Iterable<T>;
+    select<T, R>(source: Iterable<T>, selector: (v: T) => R): Iterable<R>;
+    selectMany<T, R>(source: Iterable<T>, selector: (v: T) => Iterable<R>): Iterable<R>;
+    orderBy<T, K>(source: Iterable<T>, keySelector: (v: T) => K): Iterable<T>;
+    orderByDescending<T, K>(source: Iterable<T>, keySelector: (v: T) => K): Iterable<T>;
+    thenBy<T, K>(source: Iterable<T>, keySelector: (v: T) => K): Iterable<T>;
+    thenByDescending<T, K>(source: Iterable<T>, keySelector: (v: T) => K): Iterable<T>;
+    groupBy<T, K>(source: Iterable<T>, keySelector: (v: T) => K): Iterable<Grouping<K, T>>;
+    first<T>(source: Iterable<T>): T;
+    firstOrDefault<T>(source: Iterable<T>): T;
+    single<T>(source: Iterable<T>): T;
+    singleOrDefault<T>(source: Iterable<T>): T;
+    last<T>(source: Iterable<T>): T;
+    lastOrDefault<T>(source: Iterable<T>): T;
+    any<T>(source: Iterable<T>, predicate?: (v: T) => boolean): boolean;
+    all<T>(source: Iterable<T>, predicate: (v: T) => boolean): boolean;
+    count<T>(source: Iterable<T>, predicate?: (v: T) => boolean): number;
+    sum(source: Iterable<number>): number;
+    average(source: Iterable<number>): number;
+    min(source: Iterable<number>): number;
+    max(source: Iterable<number>): number;
+    toList<T>(source: Iterable<T>): Array<T>;
+    toArray<T>(source: Iterable<T>): Array<T>;
+    toDictionary<T, K>(source: Iterable<T>, keySelector: (v: T) => K): CsDictionary<K, T>;
+    aggregate<T, A>(source: Iterable<T>, seed: A, func: (acc: A, v: T) => A): A;
+    zip<T, U>(first: Iterable<T>, second: Iterable<U>): Iterable<[T, U]>;
+    skip<T>(source: Iterable<T>, count: number): Iterable<T>;
+    take<T>(source: Iterable<T>, count: number): Iterable<T>;
+    distinct<T>(source: Iterable<T>): Iterable<T>;
+    contains<T>(source: Iterable<T>, value: T): boolean;
+};
+export declare class CsDictionary<K, V> {
+    add(key: K, value: V): void;
+    containsKey(key: K): boolean;
+    remove(key: K): boolean;
+    count(): number;
+    [Symbol.iterator](): Iterator<[K, V]>;
+}
+export declare namespace CsDictionary {
+    function add<K, V>(dict: CsDictionary<K, V>, key: K, value: V): void;
+    function containsKey<K, V>(dict: CsDictionary<K, V>, key: K): boolean;
+    function remove<K, V>(dict: CsDictionary<K, V>, key: K): boolean;
+    function count<K, V>(dict: CsDictionary<K, V>): number;
+}
+export declare class CsSet<T> {
+    add(value: T): boolean;
+    contains(value: T): boolean;
+    remove(value: T): boolean;
+    count(): number;
+    [Symbol.iterator](): Iterator<T>;
+}
+export declare namespace CsSet {
+    function add<T>(set: CsSet<T>, value: T): boolean;
+    function contains<T>(set: CsSet<T>, value: T): boolean;
+    function remove<T>(set: CsSet<T>, value: T): boolean;
+    function count<T>(set: CsSet<T>): number;
+}
 export declare namespace CsObject { function equals(a: unknown, b: unknown): boolean; function getHashCode(v: unknown): number; }
 export declare class CsException extends Error { constructor(message?: string); getMessage(): string; }
 export declare class ArgumentException extends CsException {}

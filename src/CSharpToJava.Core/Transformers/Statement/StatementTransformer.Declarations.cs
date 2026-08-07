@@ -352,7 +352,8 @@ public partial class StatementTransformer
                 // Java would otherwise infer Stream<T> from LINQ chains. Materialize eagerly.
                 // This applies both to implicit "var" and explicit IEnumerable<T> declarations,
                 // because IEnumerable<T> is intentionally lowered to Java var in this transformer.
-                if (javaType == "var" && context.SemanticModel != null)
+                if (javaType == "var" && context.SemanticModel != null
+                    && context.Options.TargetLanguage != TargetLanguage.TypeScript)
                 {
                     var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
@@ -417,7 +418,8 @@ public partial class StatementTransformer
                         var localSymForStream = context.GetDeclaredSymbol(v) as ILocalSymbol;
                         isSemanticArrayType = localSymForStream?.Type is IArrayTypeSymbol;
                     }
-                    if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType)
+                    if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType
+                        && context.Options.TargetLanguage != TargetLanguage.TypeScript)
                         context.MethodState.AddStreamVariable(v.Identifier.Text);
                 }
                 // Struct chained assignment in variable declaration:

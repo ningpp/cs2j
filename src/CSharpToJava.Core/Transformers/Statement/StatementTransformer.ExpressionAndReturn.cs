@@ -694,7 +694,9 @@ public partial class StatementTransformer
             bool isStreamReturn = retExprType is INamedTypeSymbol retNamed2 &&
                 (retNamed2.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable") &&
                 retNamed2.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
-            if (isStreamReturn && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(expr))
+            if (isStreamReturn
+                && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(expr)
+                && context.Options.TargetLanguage != TargetLanguage.TypeScript)
             {
                 // Check if enclosing method returns Iterable
                 var enclosing = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
