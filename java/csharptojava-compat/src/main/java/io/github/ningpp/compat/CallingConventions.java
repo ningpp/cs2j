@@ -1,22 +1,16 @@
 package io.github.ningpp.compat;
 
 /**
- * Stub for System.Reflection.CallingConventions.
+ * Replacement for System.Reflection.CallingConventions (flags enum).
+ * Modeled as int constants (BindingFlags style) because the converter lowers
+ * C# flag-enum composition to Java bitwise expressions.
  */
-public enum CallingConventions {
-    Standard(1),
-    VarArgs(2),
-    Any(3),
-    HasThis(32),
-    ExplicitThis(64);
+public final class CallingConventions {
+    private CallingConventions() {}
 
-    private final int _value;
-
-    CallingConventions(int value) {
-        this._value = value;
-    }
-
-    public int getValue() {
-        return _value;
-    }
+    public static final int Standard = 1;
+    public static final int VarArgs = 2;
+    public static final int Any = 3;
+    public static final int HasThis = 32;
+    public static final int ExplicitThis = 64;
 }

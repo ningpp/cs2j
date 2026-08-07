@@ -23,7 +23,7 @@ public final class MethodBuilder {
         return this;
     }
 
-    public MethodAttributes getAttributes() {
+    public int getAttributes() {
         return MethodAttributes.Public;
     }
 

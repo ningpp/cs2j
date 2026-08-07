@@ -3169,6 +3169,27 @@
             ]
         },
         {
+            "csharp": "System.Reflection.MethodAttributes",
+            "java": "MethodAttributes",
+            "imports": [
+                "io.github.ningpp.compat.MethodAttributes"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.CallingConventions",
+            "java": "CallingConventions",
+            "imports": [
+                "io.github.ningpp.compat.CallingConventions"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.TypeAttributes",
+            "java": "TypeAttributes",
+            "imports": [
+                "io.github.ningpp.compat.TypeAttributes"
+            ]
+        },
+        {
             "csharp": "WeakReference",
             "java": "WeakReference",
             "imports": [

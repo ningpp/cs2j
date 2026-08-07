@@ -372,7 +372,8 @@ public static class TsRawStatementNormalizer
         // Identity mappings are accepted for TS keywords (boolean/void/...) and
         // class-like names; only unknown lowercase names are rejected.
         if (tsType == javaType && !LooksLikeClassType(javaType)
-            && javaType is not ("boolean" or "void" or "object" or "any" or "unknown" or "never" or "string" or "number"))
+            && javaType is not ("boolean" or "void" or "object" or "any" or "unknown" or "never" or "string" or "number")
+            && !HasAcceptedIdentityArrayBase(javaType))
         {
             return false;
         }
@@ -1252,6 +1253,29 @@ public static class TsRawStatementNormalizer
         // "new Array(n)" (TS has no dimension syntax; Array(n) yields the same shape).
         var arrayDimPattern = new Regex(@"new\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^>]*>)?\[(?<dim>[^\]]+)\](?:\[\])*(?!\s*\{)");
         return arrayDimPattern.Replace(withBraces, match => $"new Array({match.Groups["dim"].Value.Trim()})");
+    }
+
+    /// <summary>
+    /// Array types whose element maps identically (boolean[] -> boolean[]) fail the
+    /// whitelist check above because the [] suffix hides the accepted base from it;
+    /// strip the suffix and judge the base with the same rules (boolean[] -> boolean
+    /// is whitelisted, so the declaration is let-ified). int[]/String[] already map
+    /// to number[]/string[] and never reach here; unknown lowercase bases (quux[])
+    /// are still rejected.
+    /// </summary>
+    private static bool HasAcceptedIdentityArrayBase(string type)
+    {
+        if (!type.EndsWith("[]", StringComparison.Ordinal))
+        {
+            return false;
+        }
+        var baseType = type;
+        while (baseType.EndsWith("[]", StringComparison.Ordinal))
+        {
+            baseType = baseType[..^2];
+        }
+        return baseType is ("boolean" or "void" or "object" or "any" or "unknown" or "never" or "string" or "number")
+            || LooksLikeClassType(baseType);
     }
 
     private static bool LooksLikeClassType(string type)

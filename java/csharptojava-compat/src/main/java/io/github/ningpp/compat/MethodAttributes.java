@@ -1,37 +1,31 @@
 package io.github.ningpp.compat;
 
 /**
- * Stub for System.Reflection.MethodAttributes.
+ * Replacement for System.Reflection.MethodAttributes (flags enum).
+ * Modeled as int constants (BindingFlags style) because the converter lowers
+ * C# flag-enum composition (Public | Static) to Java bitwise expressions.
  */
-public enum MethodAttributes {
-    PrivateScope(0),
-    Private(1),
-    FamANDAssem(2),
-    Assembly(3),
-    Family(4),
-    FamORAssem(5),
-    Public(6),
-    Static(16),
-    Final(32),
-    Virtual(64),
-    HideBySig(128),
-    NewSlot(256),
-    CheckAccessOnOverride(512),
-    Abstract(1024),
-    SpecialName(2048),
-    PinvokeImpl(8192),
-    UnmanagedExport(8),
-    RTSpecialName(4096),
-    HasSecurity(16384),
-    RequireSecObject(32768);
+public final class MethodAttributes {
+    private MethodAttributes() {}
 
-    private final int _value;
-
-    MethodAttributes(int value) {
-        this._value = value;
-    }
-
-    public int getValue() {
-        return _value;
-    }
+    public static final int PrivateScope = 0;
+    public static final int Private = 1;
+    public static final int FamANDAssem = 2;
+    public static final int Assembly = 3;
+    public static final int Family = 4;
+    public static final int FamORAssem = 5;
+    public static final int Public = 6;
+    public static final int Static = 16;
+    public static final int Final = 32;
+    public static final int Virtual = 64;
+    public static final int HideBySig = 128;
+    public static final int NewSlot = 256;
+    public static final int CheckAccessOnOverride = 512;
+    public static final int Abstract = 1024;
+    public static final int SpecialName = 2048;
+    public static final int PinvokeImpl = 8192;
+    public static final int UnmanagedExport = 8;
+    public static final int RTSpecialName = 4096;
+    public static final int HasSecurity = 16384;
+    public static final int RequireSecObject = 32768;
 }

@@ -19,15 +19,15 @@ public final class TypeBuilder {
         return new FieldBuilder(fieldName, type);
     }
 
-    public MethodBuilder defineMethod(String name, MethodAttributes attributes, Class<?> returnType, Class<?>[] parameterTypes) {
+    public MethodBuilder defineMethod(String name, int attributes, Class<?> returnType, Class<?>[] parameterTypes) {
         return new MethodBuilder(name);
     }
 
-    public MethodBuilder defineMethod(String name, MethodAttributes attributes) {
+    public MethodBuilder defineMethod(String name, int attributes) {
         return new MethodBuilder(name);
     }
 
-    public ConstructorBuilder defineDefaultConstructor(MethodAttributes attributes) {
+    public ConstructorBuilder defineDefaultConstructor(int attributes) {
         return new ConstructorBuilder();
     }
 

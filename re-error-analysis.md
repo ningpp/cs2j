@@ -243,3 +243,46 @@
 - **修复**: `ConvertProjectAsync(CSharpCompilation…)` 入口新增 `StripDebugPreprocessorSymbol`：检测到 DEBUG 符号时以去除 DEBUG 的解析选项重新解析所有语法树（保留 TRACE 等其他符号），重建编译。`#if DEBUG` 区域不再参与转换；陈旧产物由输出清单机制自动清理。新增红→绿测试 `DebugConditionalExclusionTests`，全量测试 2441 通过。
 
 **状态**: ✅ Fixed
+
+---
+
+## Iteration 11 — 表达式体 getter 前置语句泄漏污染后续成员（非法的表达式开始）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\MatchCollection.java`
+- **行号**: 33
+- **错误信息**: `非法的表达式开始`
+- **代码片段**:
+  ```java
+  private Regex _regex = /* Object initializer — consider moving to constructor. */
+  if (_groupcoll == null) _groupcoll = new GroupCollection(this, _caps);   // ← 来自 Match 类的泄漏语句
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Match.cs`（行 376：`public override GroupCollection Groups => _groupcoll ??= new GroupCollection(this, _caps);`）
+- **根因分类**: 语义模型信息丢失（ConversionContext 残留状态）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs`、`.../Expression/Transformers/AssignmentTransformer.cs`（`TransformCoalesceAssignment`）
+- **分析**: `??=` 转换为前置语句 `if (x == null) x = ...` + 表达式结果；表达式体 getter 路径不消费前置语句，残留在共享 `ConversionContext` 中，跨成员甚至跨文件被下一个字段声明的 `DrainFieldPreStatements` 吸收，污染无关类的字段初始化器。
+- **修复**: `PropertyTransformer` 在表达式体 getter 转换后检查 pending 前置/后置语句，有则转为块体（pre 语句 + return；后置语句用 `_ret` 暂存），保证语句留在 getter 内部。新增红→绿测试 `GetterPreStatementLeakTests`，全量测试 2442 通过。
+
+**状态**: ✅ Fixed
+
+---
+
+## Iteration 12 — Reflection 标志枚举无类型映射（程序包 System.Reflection 不存在）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\RegexLWCGCompiler.java`
+- **行号**: 24
+- **错误信息**: `程序包System.Reflection不存在`
+- **代码片段**:
+  ```java
+  import io.github.ningpp.compat.MemberInfo;
+  import io.github.ningpp.compat.MethodInfo;
+  import System.Reflection.MethodAttributes;      // ← 非法 import
+  import System.Reflection.CallingConventions;    // ← 非法 import
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexLWCGCompiler.cs`（及 RegexCompiler.cs）
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `config/TypeMappings.json`、`java/csharptojava-compat/src/main/java/io/github/ningpp/compat/{MethodAttributes,CallingConventions,TypeAttributes,ModuleBuilder,TypeBuilder,MethodBuilder,DynamicMethod}.java`
+- **分析**: `MethodAttributes`/`CallingConventions`/`TypeAttributes` 无映射，转换器原样保留 `System.Reflection.X` 引用。且这些是标志枚举，转换器把 const 标志组合降级为 int 位运算，故 Java enum 风格的 compat 类不可用，必须改为 int 常量类（仿 BindingFlags 模式）。
+- **修复**: 重写三个 compat 枚举为 int 常量类；`ModuleBuilder.defineType`/`TypeBuilder.defineMethod`/`defineDefaultConstructor` 参数与 `MethodBuilder.getAttributes()` 返回类型改为 int，`DynamicMethod` 新增 int 版构造器重载；`TypeMappings.json` 新增三条映射。const 标志字段被常量折叠为字面量（如 `Attribs = 22`），非 const 用法映射为 compat 常量位运算。新增红→绿测试 `ReflectionFlagEnumMappingTests`，全量测试 2443 通过。
+
+**状态**: ✅ Fixed
+

@@ -15,11 +15,11 @@ public final class ModuleBuilder {
         return _name;
     }
 
-    public TypeBuilder defineType(String name, TypeAttributes attributes) {
+    public TypeBuilder defineType(String name, int attributes) {
         return new TypeBuilder(name);
     }
 
-    public TypeBuilder defineType(String name, TypeAttributes attributes, Class<?> parent) {
+    public TypeBuilder defineType(String name, int attributes, Class<?> parent) {
         return new TypeBuilder(name);
     }
 }

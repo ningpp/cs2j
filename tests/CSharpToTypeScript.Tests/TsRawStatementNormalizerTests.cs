@@ -357,6 +357,18 @@ public class TsRawStatementNormalizerTests
     }
 
     [Fact]
+    public void Array_Type_With_Whitelisted_Identity_Element_Is_Let_ified()
+    {
+        // A2 (Round 12): boolean[] maps identically (boolean -> boolean element),
+        // so the identity whitelist check saw "boolean[]" as unknown; the base
+        // decides, the [] suffix is preserved.
+        Assert.Equal("let enqueueed: boolean[] = new Array(graph.getNodeCount());",
+            NormalizeWithTable("boolean[] enqueueed = new boolean[graph.getNodeCount()];"));
+        Assert.Equal("let seen: boolean[][] = new Array(n);",
+            NormalizeWithTable("boolean[][] seen = new boolean[n][];"));
+    }
+
+    [Fact]
     public void Fqcn_Type_Declaration_Is_Let_ified()
     {
         // Project FQCN maps to the last segment via TsMemberMappingTable.
