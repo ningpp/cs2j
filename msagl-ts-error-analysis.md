@@ -15,6 +15,7 @@
 | 9 | 20 → 15 | 构造器委托实参在成员位（`.` 后）被朴素替换 → 仅值位替换 | src/CSharpToJava.Core/TypeScript/Rewriters/TsOverloadDisambiguationRewriter.cs + tests/CSharpToTypeScript.Tests（TsOverloadRewriterTests +2）| 1418f93b |
 | 8 | 26 → 20 | try-with-resources 无 catch/finally 时裸 `try {`（TS1472）→ 降级为块作用域 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +4）| 1daf46cb |
 | 10 | 15 → 10 | `Type[]::new` 方法引用 FQCN 接收者回扫残缺（`.` 段未纳入） | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | ec19886a |
+| 11 | 10 → 8 | CRLF raw 文本尾注释声明未 let 化：declPattern 尾组吞不下行尾 `\r` | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +6）+ 本文件 | TBD 
 
 
 ## Round 1 — MSBuild 零引用 → 注入本机 ref pack
@@ -208,6 +209,50 @@
 
 - B（5）：SplineRouter.ts:307（TS1003/TS1005）；MeshCreator.ts:1116（TS1003×1/TS1005×2）
 - A2/A4（4）：ConnectedComponentCalculator.ts:12（TS1011/TS1005）；Tiling.ts:1187（TS1434）；ProcrustesCircleConstraint.ts:198（TS1434）
+- A3（2）：ProcrustesCircleConstraint.ts:118（TS1011×2）
+- E（2）：LayoutAlgorithmHelpers.ts:69（TS1005/TS1135）
+- F（2）：Relayout.ts:106（TS1146/TS1005）
+
+## Round 11 — CRLF raw 文本尾注释声明未 let 化（tail 正则吞不下行尾 `\r`）
+
+- **C# 构造**：构造器内带尾注释的局部声明。构造器体经 `AppendLine()`（`\r\n`）展平为
+  整段 raw 文本并再次展平时行尾残留 `\r`（管线内存行尾实测 `13,13`，生成文件 `\r\r\n`）：
+  - `double r = 10*(double)n; // we make our circle a reasonable size to aid numerical precision`（ProcrustesCircleConstraint.cs:28）
+  - `int m, n, k = 1; //node location and inddex`（Tiling.cs:70）
+- **错误 TS 输出**：
+  - `double r = 10 * (self.n as number); // we make our circle a reasonable size to aid numerical precision`（ProcrustesCircleConstraint.ts:198，TS1434）
+  - `int m, n, k = 1; //node location and inddex`（Tiling.ts:1187，TS1434）
+- **正确 TS 输出**（尾注释原样保留）：
+  - `let r: number = 10 * (self.n as number); // we make our circle a reasonable size to aid numerical precision`
+  - `let m: number, n: number, k: number = 1; //node location and inddex`
+- **根因**：`TsRawStatementNormalizer.NormalizeRawDeclarations` 的 `declPattern` 尾组
+  `(?<tail>\s*(?://[^\r\n]*)?)$`（Multiline）在尾注释后停在 `\r` 前：`[^\r\n]*` 不吞
+  `\r`、可选注释组之后无 `\s*` 兜底，`$` 无法匹配剩余 `\r`，整行拒绝改写；无注释行
+  tail 的 `\s*` 能吃掉 `\r` 所以正常。`TsStatementWriter` 直接以 `raw.Code`（整段展平
+  文本）归一化，故受影响的是所有行尾为 `\r\n`/`\r\r\n` 的 raw 文本。
+- **修复位置**：`declPattern` 尾组改为 `(?<tail>\s*(?://[^\r\n]*)?\s*)$`（注释后追加
+  `\s*` 吞掉行尾 `\r`；贪婪 + 回溯保证 `$` 落在行尾 `\n` 前，字符串字面量内的 `\r`
+  属 `decls` 的 `.+` 区域不受影响）。顺带核查 Normalize 内其余 `$` 锚定正则：经典 for
+  头、try-with-resources、catch 均为 Trim 子串或扫描式输入，无 `$`+Multiline+
+  `[^\r\n]` 组合，不受影响。
+- **测试**：`TsRawStatementNormalizerTests` 新增 6 例（CRLF 尾注释单声明 / 多变量 /
+  整段构造器体镜像 Tiling（`\r\r\n` 行尾）/ 无注释 CRLF 回归 / LF 尾注释回归 / 字符串
+  字面量含 `\r` 不被触碰），先红后绿（红：4 例 CRLF 尾注释形态全部失败）；全量
+  `dotnet test` 绿（7 + 553 + 2438，含其他会话未提交测试）。
+- **验证**：全量重转后 `npx tsc --noEmit` 10 → 8（实测；移除 2 个错误恰为 A4 族：
+  Tiling.ts:1187 / ProcrustesCircleConstraint.ts:198，前后列表程序化对比新增 0）。
+
+**修复前错误列表（10，供对照）**
+
+- A2（2）：ConnectedComponentCalculator.ts:12（TS1011/TS1005）
+- A4（2）：Tiling.ts:1187（TS1434）；ProcrustesCircleConstraint.ts:198（TS1434）
+- A3（2）：ProcrustesCircleConstraint.ts:118（TS1011×2）
+- E（2）：LayoutAlgorithmHelpers.ts:69（TS1005/TS1135）
+- F（2）：Relayout.ts:106（TS1146/TS1005）
+
+**修复后错误列表（8）**
+
+- A2（2）：ConnectedComponentCalculator.ts:12（TS1011/TS1005）
 - A3（2）：ProcrustesCircleConstraint.ts:118（TS1011×2）
 - E（2）：LayoutAlgorithmHelpers.ts:69（TS1005/TS1135）
 - F（2）：Relayout.ts:106（TS1146/TS1005）

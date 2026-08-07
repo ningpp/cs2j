@@ -202,5 +202,27 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 9 — 双 IEnumerator<T> 实现的 getCurrent() 重复定义
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\GroupCollection.java`
+- **行号**: 218, 225
+- **错误信息**: `已在类 GroupCollection.Enumerator 中定义了方法 getCurrent()`
+- **代码片段**:
+  ```java
+  public Group getCurrent() { ... }                              // IEnumerator<Group>.Current
+  public CSharpKeyValuePair<String, Group> getCurrent() { ... }  // IEnumerator<KeyValuePair<...>>.Current
+  public Object getCurrent() { return getCurrent(); }            // 非泛型桥接，自递归
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\GroupCollection.cs`（`Enumerator : IEnumerator<Group>, IEnumerator<KeyValuePair<string, Group>>`）
+- **根因分类**: Transformer 逻辑缺陷（显式接口访问器冲突消解不完备）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs`（`ResolveExplicitInterfacePropertyConflicts`）
+- **分析**: 既有冲突消解只处理“1 个显式访问器 vs 类属性访问器”；多个显式访问器同擦除签名（不同 T 的 IEnumerator<T>.Current）时直接跳过，Java 不允许同参数签名仅返回类型不同的重载。
+- **修复**: 新增 `ResolveSameSignatureAccessorCollisions` 后置扫描：同签名组内存在带类型变体时删除返回 Object 的非泛型桥接（协变返回可满足契约）；其余重复保留先出者、后续者改名为 `name$Class[N]` 并重写类内调用点。新增红→绿测试 `DualGenericEnumeratorCurrentCollisionTests`，全量测试通过。
+
+**状态**: 🔧 验证中
+
+
 
 

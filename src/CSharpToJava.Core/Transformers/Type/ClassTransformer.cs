@@ -1532,7 +1532,10 @@ public class ClassTransformer : ITypeTransformer
         }
 
         if (conflicts.Count == 0)
+        {
+            ResolveSameSignatureAccessorCollisions(javaClass);
             return;
+        }
 
         var renameMap = new Dictionary<string, string>();
         foreach (var (classAccessor, _) in conflicts)
@@ -1542,6 +1545,66 @@ public class ClassTransformer : ITypeTransformer
             classAccessor.Name = newName;
             renameMap[oldName] = newName;
         }
+
+        foreach (var method in javaClass.Methods)
+        {
+            RewriteAccessorCalls(method, renameMap);
+        }
+
+        foreach (var ctor in javaClass.Constructors)
+        {
+            RewriteConstructorAccessorCalls(ctor, renameMap);
+        }
+
+        ResolveSameSignatureAccessorCollisions(javaClass);
+    }
+
+    /// <summary>
+    /// Last-resort resolution for methods that still share a name + erased parameter
+    /// signature after the explicit-interface conflict pass — Java rejects such pairs
+    /// even when return types differ. Occurs e.g. for enumerators that implement
+    /// IEnumerator&lt;T&gt; for two different T (GroupCollection.Enumerator). Object-returning
+    /// non-generic bridges are dropped when a typed variant remains (Java covariant
+    /// returns satisfy the non-generic contract); any further duplicates are renamed
+    /// and internal call sites are rewritten.
+    /// </summary>
+    private static void ResolveSameSignatureAccessorCollisions(JavaClassDeclaration javaClass)
+    {
+        var renameMap = new Dictionary<string, string>();
+
+        foreach (var group in javaClass.Methods
+                     .GroupBy(m => m.Name + "(" + ErasedParamSig(m.Parameters) + ")")
+                     .Where(g => g.Count() > 1)
+                     .ToList())
+        {
+            var methods = group.ToList();
+
+            // Drop Object-returning bridges when at least one typed variant survives.
+            var typed = methods.Where(m => m.ReturnType != "Object").ToList();
+            if (typed.Count >= 1 && typed.Count < methods.Count)
+            {
+                foreach (var obj in methods.Where(m => m.ReturnType == "Object").ToList())
+                {
+                    javaClass.Methods.Remove(obj);
+                    methods.Remove(obj);
+                }
+            }
+
+            if (methods.Count <= 1)
+                continue;
+
+            // Keep the first declaration under the standard name; rename the rest.
+            foreach (var extra in methods.Skip(1).ToList())
+            {
+                string oldName = extra.Name;
+                string newName = FindUniqueAccessorName(javaClass, oldName, ErasedParamSig(extra.Parameters));
+                extra.Name = newName;
+                renameMap[oldName] = newName;
+            }
+        }
+
+        if (renameMap.Count == 0)
+            return;
 
         foreach (var method in javaClass.Methods)
         {

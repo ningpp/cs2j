@@ -722,15 +722,16 @@ public class TsRawStatementNormalizerTests
     [Fact]
     public void Crlf_Constructor_Body_Mirroring_Tiling_Is_Let_ified()
     {
-        // Realistic pipeline shape: whole ctor body is raw, lines joined with \r\n.
+        // Real pipeline shape: the flattened ctor body ends each line with \r\r\n
+        // (raw line keeps \r, re-join adds \r\n; in-memory line end measured 13,13).
         var input =
-            "const self = new Tiling();\r\n" +
-            "        int m, n, k = 1; //node location and inddex\r\n" +
-            "        self.N = bound;\r\n";
+            "const self = new Tiling();\r\r\n" +
+            "        int m, n, k = 1; //node location and inddex\r\r\n" +
+            "        self.N = bound;\r\r\n";
         var expected =
-            "const self = new Tiling();\r\n" +
-            "        let m: number, n: number, k: number = 1; //node location and inddex\r\n" +
-            "        self.N = bound;\r\n";
+            "const self = new Tiling();\r\r\n" +
+            "        let m: number, n: number, k: number = 1; //node location and inddex\r\r\n" +
+            "        self.N = bound;\r\r\n";
         Assert.Equal(expected, NormalizeWithTable(input));
     }
 
