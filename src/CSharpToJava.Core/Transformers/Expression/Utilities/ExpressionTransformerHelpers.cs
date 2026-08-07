@@ -145,6 +145,21 @@ public static class ExpressionTransformerHelpers
         var sourceJavaType = context.MapType(sourceType);
         var targetJavaType = context.MapType(targetType);
 
+        // C# implicit conversion T[] → Span<T>/ReadOnlySpan<T>: the compat span
+        // classes have no implicit conversion, so wrap the array expression.
+        // Skip when the expression was already bridged to a span by another pass
+        // (e.g. Encoding.Preamble's MemoryExtensions.asSpan(byte[]) wrapper).
+        if (sourceType is IArrayTypeSymbol && targetType is INamedTypeSymbol spanTargetNamed
+            && spanTargetNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>"
+            && !transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal)
+            && !transformedExpression.StartsWith("new Span<>(", StringComparison.Ordinal)
+            && !transformedExpression.StartsWith("new ReadOnlySpan<>(", StringComparison.Ordinal))
+        {
+            var spanJavaName = spanTargetNamed.Name == "Span" ? "Span" : "ReadOnlySpan";
+            context.AddImport($"io.github.ningpp.compat.{spanJavaName}");
+            return $"new {spanJavaName}<>({transformedExpression})";
+        }
+
         // C# non-generic ICollection source may map to CSharpCollection in Java,
         // while the target ICollection maps to CSharpICollection<?>. CSharpCollection
         // does not implement CSharpICollection, so bridge via CSharpICollection.from().

@@ -369,3 +369,23 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 17 — out _ 弃元参数发射 new Object[1]；byte[] 返回 ReadOnlySpan<byte> 未包装
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\system\HexConverter.java`
+- **行号**: 194
+- **错误信息**: `不兼容的类型: java.lang.Object[]无法转换为IntHolder`（同簇 [249]: `byte[]无法转换为ReadOnlySpan<Integer>`）
+- **代码片段**:
+  ```java
+  return tryDecodeFromUtf16(chars, bytes, new Object[1]);              // out _ 应发射类型化 holder
+  public static ReadOnlySpan<Integer> getCharToHexLookup() { return new byte[] {...}; } // 隐式转换未包装
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\Common\System\HexConverter.cs`（`TryDecodeFromUtf16(.., out _)`、`CharToHexLookup => new byte[] {...}`）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs`、`.../Utilities/ExpressionTransformerHelpers.cs`（AdaptExpressionToTargetTypeCore）
+- **分析**: out 弃元分支忽略参数类型一律发射 `new Object[1]`；数组→Span 隐式转换只在简单赋值路径包装（Iter13），表达式体/返回值等 Adapt 路径未覆盖。
+- **修复**: ① out 弃元按 parameterSymbol 类型发射类型化 holder（out int → `new io.github.ningpp.compat.IntHolder()`）；② AdaptExpressionToTargetTypeCore 新增 T[]→Span/ReadOnlySpan 包装（带防双重包装守卫，避免 Encoding.Preamble 的 asSpan 桥接被再包）。新增红→绿测试 `OutDiscardAndArraySpanAdaptationTests`（2 用例），全量测试 2452 通过。
+
+**状态**: ✅ Fixed
+

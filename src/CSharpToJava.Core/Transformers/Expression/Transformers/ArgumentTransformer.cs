@@ -255,13 +255,19 @@ public class ArgumentTransformer
 
         if (refKind == SyntaxKind.OutKeyword)
         {
-            // out _ (discard) — pass a scratch one-element array; the result is intentionally unused
-            if (arg.Expression is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax })
+            // out _ (discard) — pass a typed scratch holder matching the parameter
+            // type so typed overloads accept it; the result is intentionally unused.
+            if (arg.Expression is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax }
+                || arg.Expression is IdentifierNameSyntax { Identifier.Text: "_" })
+            {
+                if (parameterSymbol?.Type != null && context.SemanticModel != null)
+                {
+                    var discardJavaType = context.MapType(parameterSymbol.Type);
+                    var discardHolderType = HolderTypeResolver.GetHolderType(discardJavaType);
+                    return HolderTypeResolver.GetHolderInstantiation(discardHolderType);
+                }
                 return "new Object[1]";
-
-            // Bare _ identifier used as a discard
-            if (arg.Expression is IdentifierNameSyntax { Identifier.Text: "_" })
-                return "new Object[1]";
+            }
 
             // out var result — holder-object pattern: declare HolderType _resultHolder = new HolderType(); before the call
             // and read back the value after: javaType result = _resultHolder.value;
