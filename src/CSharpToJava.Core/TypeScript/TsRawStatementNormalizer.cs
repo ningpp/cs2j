@@ -77,7 +77,19 @@ public static class TsRawStatementNormalizer
         // ⑥ EventArgs.Empty 的 Java 化产物 Object.Empty → null（Task 27 事件：
         // C# EventHandler 触发 Click?.Invoke(this, EventArgs.Empty) 中 EventArgs
         // 映射为 Object，TS 无 Object.Empty 成员；空事件参数统一 null）
-        return NormalizeObjectEmpty(withLongs);
+        var withObjectEmpty = NormalizeObjectEmpty(withLongs);
+
+        // ⑦ Java 形态局部声明 "Type name = init;" → "let name: MappedType = init;"
+        //（Task 27 模式匹配：前端对含 is 模式的条件整段 raw 发射 if，段首声明落在
+        // raw 文本；TS 无 "Type name" 声明语法）。仅命中行首 "类型 标识符 = ...;"
+        // 且类型为单个标识符/泛型名时改写（b.R = 5 等成员赋值因类型后跟 "." 不命中）。
+        var withDecls = NormalizeRawDeclarations(withObjectEmpty, mapType);
+
+        // ⑧ Java 形态空安全相等调用 java.util.Objects.equals(a, b) / Objects.equals(a, b)
+        // → a === b（Task 27 模式匹配：switch 语句常量标签 case null:/case 5: 的 Java 化
+        // 条件 java.util.Objects.equals(o, null) 无 TS 对应；字符串/引用相等按 Task 26
+        // 语义统一 ===）。
+        return NormalizeObjectsEquals(withDecls);
     }
 
     /// <summary>
@@ -323,6 +335,135 @@ public static class TsRawStatementNormalizer
     /// <summary>
     /// 扫描替换 Object.Empty（EventArgs.Empty 的 Java 化形态）→ null；跳过字符串/字符字面量。
     /// </summary>
+    /// <summary>
+    /// Java 形态局部声明归一化（Task 27 模式匹配）：行首 "Type name = init;" →
+    /// "let name: MappedType = init;"。类型仅匹配单标识符或泛型名（不含 "."，避免
+    /// 成员赋值误判）；类型映射回调为空时直通。非声明行（表达式/控制流）不受影响。
+    /// </summary>
+    private static string NormalizeRawDeclarations(string code, Func<string, string>? mapType)
+    {
+        if (mapType == null)
+        {
+            return code;
+        }
+        var declPattern = new Regex(
+            @"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:<[^;\r\n]*>)?)\s+(?<name>[A-Za-z_$][\w$]*)\s*=\s*(?<init>.+);\s*$",
+            RegexOptions.Compiled | RegexOptions.Multiline);
+        return declPattern.Replace(code, match =>
+        {
+            var ind = match.Groups["ind"].Value;
+            var type = match.Groups["type"].Value;
+            var name = match.Groups["name"].Value;
+            var init = match.Groups["init"].Value;
+            var mapped = mapType(type);
+            if (string.IsNullOrEmpty(mapped) || mapped == type && !LooksLikeClassType(type))
+            {
+                return match.Value;
+            }
+            return $"{ind}let {name}: {mapped} = {init};";
+        });
+    }
+
+    private static bool LooksLikeClassType(string type)
+    {
+        // 类型名以大写开头或为泛型形态才视为类声明（小写原始类型名 int/boolean 等
+        // 也合法——原始类型映射为 number/boolean 等，mapped != type 时已放行）
+        return char.IsUpper(type[0]) || type.Contains('<');
+    }
+
+    /// <summary>
+    /// 将 raw 语句文本中的 Java 空安全相等调用归一化为 ===（Task 27 模式匹配）：
+    /// "java.util.Objects.equals(a, b)" / "Objects.equals(a, b)" → "a === b"。
+    /// 跳过字符串/字符字面量区域、仅在标识符边界命中；实参内层
+    /// 括号/逗号不受影响（按顶层逗号拆分两实参）。不匹配时原样直通。
+    /// </summary>
+    private static string NormalizeObjectsEquals(string code)
+    {
+        const string qualifiedNeedle = "java.util.Objects.equals(";
+        const string bareNeedle = "Objects.equals(";
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+
+            string? needle = null;
+            var needleLength = 0;
+            if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith(qualifiedNeedle, StringComparison.Ordinal))
+            {
+                needle = qualifiedNeedle;
+                needleLength = qualifiedNeedle.Length;
+            }
+            else if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith(bareNeedle, StringComparison.Ordinal))
+            {
+                needle = bareNeedle;
+                needleLength = bareNeedle.Length;
+            }
+            if (needle != null)
+            {
+                var open = i + needleLength - 1;
+                var close = FindMatchingParen(code, open);
+                if (close > open
+                    && TrySplitTopLevelArgs(code.Substring(open + 1, close - open - 1), out var left, out var right))
+                {
+                    sb.Append(left.Trim()).Append(" === ").Append(right.Trim());
+                    i = close + 1;
+                    continue;
+                }
+            }
+
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>按顶层逗号把实参串拆为左右两段；无顶层逗号返回 false。</summary>
+    private static bool TrySplitTopLevelArgs(string args, out string left, out string right)
+    {
+        left = string.Empty;
+        right = string.Empty;
+        var depth = 0;
+        for (var i = 0; i < args.Length; i++)
+        {
+            var c = args[i];
+            if (c == '"' || c == '\'')
+            {
+                i = SkipQuotedLiteral(args, i) - 1;
+                continue;
+            }
+            switch (c)
+            {
+                case '(':
+                case '[':
+                case '{':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                    depth--;
+                    break;
+                default:
+                    if (c == ',' && depth == 0)
+                    {
+                        left = args[..i];
+                        right = args[(i + 1)..];
+                        return true;
+                    }
+                    break;
+            }
+        }
+        return false;
+    }
+
     private static string NormalizeObjectEmpty(string code)
     {
         const string needle = "Object.Empty";

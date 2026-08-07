@@ -503,6 +503,33 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             }
         }
 
+        // 1f. Task 27 模式匹配：语法层改写（if/while 声明模式 → 类型模式 + 段首声明、
+        //     switch 表达式 → 嵌套三元、switch 语句模式标签 → 类型模式 + 段首声明）。
+        //     在前端 Java 16 形态降低之前改写；改写后重建编译供 visitor 查询。
+        if (state.Context.SemanticModel != null)
+        {
+            var patternRoot = new TypeScript.Rewriters.TsPatternMatchingRewriter()
+                .Visit(state.SyntaxTree.GetRoot());
+            if (patternRoot != null && !ReferenceEquals(patternRoot, state.SyntaxTree.GetRoot()))
+            {
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(
+                    (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)patternRoot,
+                    state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    state.SyntaxTree.GetRoot().ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+        }
+
         // 2. 生成 Java IR（与 Java 路径一致）
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());

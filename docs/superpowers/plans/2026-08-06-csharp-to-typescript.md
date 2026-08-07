@@ -5410,9 +5410,17 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   物化为 `extends CsRecord` + 分量 readonly 字段 + 主构造器 +
   `getX()` + `recordFields()`；分量字段通过 `IsRecordComponent`
   省略默认零值初始化（避 `T | null` 字段 vs `T`
-  getter 不匹配），基类值相等语义归 M4）
+  getter 不匹配），基类值相等语义归 M4）→ 提交 `5694827c`
+- [x] 模式匹配 `TsPatternMatchingTests`（`TsPatternMatchingRewriter` 语法层改写：if/while
+  声明模式 → instanceof + 段首声明（`let c: Circle = (s as Circle);`）、`is not T` →
+  `!(s is T)`（注意操作数补括号）、switch 语句模式标签 → if-else + 段首声明（接口探针
+  联动 `is$IFoo(o)`、`case null:` → `o === null`）、switch 表达式 → 嵌套三元（when 守卫 +
+  模式变量使用处强转替换）、属性模式 → 类型检查 + 成员条件；`(T)x` 简单操作数强转经
+  `TsGenericErasureIrRewriter` 扩展为 `(x as T)`；`Objects.equals` raw 归一化 ⑧ 统一 `===`；
+  原始类型模式（`int i`）与 `and`+recursive 组合登记限制不改写）
 
 ---
+
 
 # 里程碑 M4：兼容运行时库（csharptotypescript-compat）+ BCL 映射
 

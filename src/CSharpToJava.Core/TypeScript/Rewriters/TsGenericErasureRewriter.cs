@@ -1096,25 +1096,124 @@ public sealed class TsGenericErasureIrRewriter : JavaSyntaxRewriter
         {
             return false;
         }
-        if (afterName + 1 >= text.Length || text[afterName + 1] != '(')
-        {
-            return false;
-        }
         var mapped = MapCastType(name);
         if (mapped == null)
         {
             return false;
         }
-        var innerOpen = afterName + 1;
-        var innerClose = FindMatchingCloseParen(text, innerOpen);
-        if (innerClose < 0)
+        var operandStart = afterName + 1;
+        while (operandStart < text.Length && char.IsWhiteSpace(text[operandStart]))
+        {
+            operandStart++;
+        }
+        if (operandStart >= text.Length)
         {
             return false;
         }
-        castInner = text[(innerOpen + 1)..innerClose].Trim();
+        if (text[operandStart] == '(')
+        {
+            // ({type})({expr}) 形态：整表达式组括号
+            var innerClose = FindMatchingCloseParen(text, operandStart);
+            if (innerClose < 0)
+            {
+                return false;
+            }
+            castInner = text[(operandStart + 1)..innerClose].Trim();
+            consumed = innerClose + 1 - i;
+        }
+        else
+        {
+            // ({type})expr 简单操作数形态（Task 27 模式匹配：((T)x).P 属性链与
+            // switch 臂模式变量强转产物无第二层括号）；操作数为标识符/成员链，
+            // 可带调用实参或下标（(T)o.m() / (T)arr[0]）。
+            if (!TryReadSimpleCastOperand(text, operandStart, out var operand, out var operandLength))
+            {
+                return false;
+            }
+            castInner = operand;
+            consumed = operandStart + operandLength - i;
+        }
         castType = mapped + new string('[', suffixLength / 2) + new string(']', suffixLength / 2);
-        consumed = innerClose + 1 - i;
         return true;
+    }
+
+    /// <summary>
+    /// 读取强转的简单操作数：标识符（可带 .成员 / (实参) / [下标] 链）；起始处非
+    /// 标识符或链中途括号/下标不匹配时返回 false。
+    /// </summary>
+    private static bool TryReadSimpleCastOperand(string text, int start, out string operand, out int length)
+    {
+        operand = string.Empty;
+        length = 0;
+        var pos = start;
+        var name = ReadIdentifier(text, pos);
+        if (name.Length == 0)
+        {
+            return false;
+        }
+        pos += name.Length;
+        while (pos < text.Length)
+        {
+            var c = text[pos];
+            if (c == '.' && pos + 1 < text.Length && IsIdentifierChar(text[pos + 1]))
+            {
+                var member = ReadIdentifier(text, pos + 1);
+                pos += 1 + member.Length;
+                continue;
+            }
+            if (c == '(')
+            {
+                var close = FindMatchingCloseParen(text, pos);
+                if (close < 0)
+                {
+                    return false;
+                }
+                pos = close + 1;
+                continue;
+            }
+            if (c == '[')
+            {
+                var close = FindMatchingCloseBracket(text, pos);
+                if (close < 0)
+                {
+                    return false;
+                }
+                pos = close + 1;
+                continue;
+            }
+            break;
+        }
+        operand = text[start..pos];
+        length = pos - start;
+        return true;
+    }
+
+    /// <summary>自 open 起的 '[' 找匹配的 ']'（跳过字符串/字符字面量）；无匹配返回 -1。</summary>
+    internal static int FindMatchingCloseBracket(string text, int open)
+    {
+        var depth = 0;
+        for (var i = open; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(text, i) - 1;
+                continue;
+            }
+            if (ch == '[')
+            {
+                depth++;
+            }
+            else if (ch == ']')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     private string? MapCastType(string javaName)
