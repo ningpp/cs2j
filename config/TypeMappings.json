@@ -3162,6 +3162,13 @@
             ]
         },
         {
+            "csharp": "System.WeakReference`1",
+            "java": "WeakReference",
+            "imports": [
+                "io.github.ningpp.compat.WeakReference"
+            ]
+        },
+        {
             "csharp": "WeakReference",
             "java": "WeakReference",
             "imports": [

@@ -972,8 +972,10 @@ public static class TsRawStatementNormalizer
         {
             return code;
         }
+        // Tail must tolerate a trailing \r: ctor bodies flattened with AppendLine()/\r\n
+        // keep a \r before the \n on every raw line, and `[^\r\n]*` would stop before it.
         var declPattern = new Regex(
-            $@"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*{GenericTypeSuffixPattern}?(?:\[\])*)\s+(?<decls>.+);(?<tail>\s*(?://[^\r\n]*)?)$",
+            $@"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*{GenericTypeSuffixPattern}?(?:\[\])*)\s+(?<decls>.+);(?<tail>\s*(?://[^\r\n]*)?\s*)$",
             RegexOptions.Compiled | RegexOptions.Multiline);
         return declPattern.Replace(code, match =>
         {

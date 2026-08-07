@@ -162,3 +162,23 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 7 — WeakReference<T> 泛型缺失（类型不带有参数）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Regex.java`
+- **行号**: 50（另 RegexReplacement.java:106）
+- **错误信息**: `类型io.github.ningpp.compat.WeakReference不带有参数`
+- **代码片段**:
+  ```java
+  public WeakReference<RegexReplacement> _replref;   // compat 类为非泛型
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Regex.cs`（`WeakReference<RegexReplacement>`，`TryGetTarget`/`SetTarget`）
+- **根因分类**: 类型映射缺失（`System.WeakReference\`1` 无映射）+ compat 类非泛型
+- **涉及组件**: `config/TypeMappings.json`、`java/csharptojava-compat/.../WeakReference.java`
+- **分析**: 转换器只有非泛型 `System.WeakReference` 映射；生成代码直接输出 `WeakReference<T>` 而 compat 类不接受类型参数。
+- **修复**: compat `WeakReference` 改为泛型 `WeakReference<T>`（保留 getIsAlive/getTarget/setTarget，新增 `tryGetTarget(ObjectHolder<T>)`；raw 用法经擦除仍兼容）；TypeMappings.json 新增 `System.WeakReference\`1` 映射；重装 compat。新增红→绿测试 `WeakReferenceGenericMappingTests`。
+
+**状态**: 🔧 验证中
+
+

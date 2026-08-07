@@ -697,4 +697,66 @@ public class TsRawStatementNormalizerTests
             "Collections.emptyList()",
             TsRawStatementNormalizer.Normalize("Collections.<EdgeGeometry>emptyList()"));
     }
+    // ---- Round 11 (MSAGL): CRLF raw text with trailing comment let-ification ----
+    // Constructor bodies flattened via AppendLine() (\r\n) carry a trailing \r on
+    // every raw line; the old tail regex `\s*(?://[^\r\n]*)?` stops before that \r
+    // after a trailing comment, so $ cannot match and the line is left un-rewritten
+    // (Tiling.cs:70 / ProcrustesCircleConstraint.cs:28 ctor-factory paths, TS1434).
+
+    [Fact]
+    public void Crlf_Declaration_With_Trailing_Comment_Is_Let_ified()
+    {
+        var input = "        double r = 10 * (self.n as number); // we make our circle a reasonable size to aid numerical precision\r\n";
+        var expected = "        let r: number = 10 * (self.n as number); // we make our circle a reasonable size to aid numerical precision\r\n";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Crlf_Multi_Variable_Declaration_With_Trailing_Comment_Is_Let_ified()
+    {
+        var input = "        int m, n, k = 1; //node location and inddex\r\n";
+        var expected = "        let m: number, n: number, k: number = 1; //node location and inddex\r\n";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Crlf_Constructor_Body_Mirroring_Tiling_Is_Let_ified()
+    {
+        // Realistic pipeline shape: whole ctor body is raw, lines joined with \r\n.
+        var input =
+            "const self = new Tiling();\r\n" +
+            "        int m, n, k = 1; //node location and inddex\r\n" +
+            "        self.N = bound;\r\n";
+        var expected =
+            "const self = new Tiling();\r\n" +
+            "        let m: number, n: number, k: number = 1; //node location and inddex\r\n" +
+            "        self.N = bound;\r\n";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Crlf_Declaration_Without_Comment_Is_Let_ified()
+    {
+        var input = "        int index = this.Numofnodes;\r\n";
+        var expected = "        let index: number = this.Numofnodes;\r\n";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Lf_Declaration_With_Trailing_Comment_Is_Let_ified()
+    {
+        var input = "double HalfLife = 50.0; // 50 was chosen as the default\n";
+        var expected = "let HalfLife: number = 50.0; // 50 was chosen as the default\n";
+        Assert.Equal(expected, NormalizeWithTypeMap(input));
+    }
+
+    [Fact]
+    public void Crlf_Declaration_With_String_Containing_Carriage_Return_Is_Let_ified()
+    {
+        // A \r inside a string literal must not be touched by the line-end fix.
+        var input = "String s = \"a\rb\"; // keep\r\n";
+        var expected = "let s: string = \"a\rb\"; // keep\r\n";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
 }
+
