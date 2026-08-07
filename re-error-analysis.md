@@ -348,3 +348,24 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 16 — fixed(byte* p = span) 指针回传模式不可编译（MemorySegment.ofArray(ReadOnlySpan)、IntPtr、命名元组字段）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\system\HexConverter.java`
+- **行号**: 166
+- **错误信息**: `对于ofArray(ReadOnlySpan<Integer>), 找不到合适的方法`（同簇：`找不到符号 类 IntPtr`、`找不到符号 变量 Ptr/Length`）
+- **代码片段**:
+  ```java
+  MemorySegment __base1 = MemorySegment.ofArray(bytes);          // span 不是数组
+  Tuple.of((IntPtr)(bytesPtr), bytes.getLength(), casing)        // IntPtr 未降级
+  var ros = new ReadOnlySpan<Integer>(args.Ptr, args.Length);    // 命名元组字段未降级
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\Common\System\HexConverter.cs`（ToString：fixed + string.Create + 元组携带指针 + lambda 内重建 ReadOnlySpan<byte>）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `StatementTransformer.SwitchAndResource.cs`（fixed）、`TypeOperationTransformer.cs`（cast）、`IdentifierExpressionTransformer.cs`（元组）、`ObjectCreationTransformer.cs`（span 构造）、compat `Span/ReadOnlySpan`
+- **分析**: 转换器 FFM 降级假设 fixed 源是数组/字符串；span 源直接传入 ofArray；(IntPtr) 指针 cast 未当 no-op；命名元组字段（Ptr/Length/casing）只支持 ItemN 形式；`new ReadOnlySpan<byte>((byte*)ptr, len)` 无重建路径。
+- **修复**: ① fixed 源为 byte span 时追加 `.toByteArray()`；② (IntPtr)/(UIntPtr) 指针 cast 作 no-op；③ 命名元组字段降级为 vavr `_N()`（三处路径）；④ Span/ReadOnlySpan 指针+长度构造器发射 `fromByteSegment(segment, len)`；compat 新增 `toByteArray()`/`fromByteSegment()`。新增红→绿测试 `FixedPointerSpanRoundTripTests`，全量测试 2450 通过。
+
+**状态**: ✅ Fixed
+

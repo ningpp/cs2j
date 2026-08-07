@@ -250,6 +250,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return expression;
         }
 
+        // C# (IntPtr)ptr / (UIntPtr)ptr: the pointer is already a MemorySegment in
+        // Java, so casting it to IntPtr (mapped to long) must stay a no-op to keep
+        // the segment usable (e.g. tuple state carrying the pinned pointer).
+        if (targetSymbol?.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr
+            && context.GetTypeInfo(node.Expression).Type is IPointerTypeSymbol)
+        {
+            return expression;
+        }
+
         // C# enum -> enum cast: convert through the underlying value.
         // Java enum casts only work within an inheritance hierarchy, which enums do not have.
         if (targetSymbol?.TypeKind == TypeKind.Enum

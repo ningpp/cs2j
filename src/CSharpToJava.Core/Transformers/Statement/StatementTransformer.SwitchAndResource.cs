@@ -1147,6 +1147,15 @@ public partial class StatementTransformer
                     initExpr = ExpressionTransformerFacade.Instance.Transform(initValue, context);
                     var initType = context.GetTypeInfo(initValue).Type;
                     isString = initType?.SpecialType == SpecialType.System_String;
+                    // A Span/ReadOnlySpan source cannot be pinned directly —
+                    // materialize the backing byte[] for MemorySegment.ofArray.
+                    if (initType is INamedTypeSymbol initNamed
+                        && initNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>"
+                        && initNamed.TypeArguments.Length == 1
+                        && initNamed.TypeArguments[0].SpecialType == SpecialType.System_Byte)
+                    {
+                        initExpr += ".toByteArray()";
+                    }
                     var baseVar = context.GenerateSyntheticName("__base");
                     sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, baseVar));
                     context.RegisterPointerBase(varName, baseVar);

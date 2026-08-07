@@ -1594,6 +1594,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return $"{target}._{tupIdx}()";
         }
 
+        // Named C# tuple element fallthrough (e.g. args.Ptr over (Ptr: ..., Length: ...))
+        // → positional vavr accessor.
+        if (receiverType is INamedTypeSymbol { IsTupleType: true } namedTupleFallthrough)
+        {
+            var namedTupleIdx = TryGetTupleElementIndex(namedTupleFallthrough, memberName);
+            if (namedTupleIdx >= 0)
+                return $"{target}._{namedTupleIdx}()";
+        }
+
         var member = ConversionContext.EscapeJavaKeyword(memberName);
         return $"{target}.{member}";
     }
@@ -2057,6 +2066,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     if (IsTupleItemName(memberName, out var tupIdx))
                     {
                         return $"{target}._{tupIdx}()";
+                    }
+                    // Named C# tuple element (e.g. args.Ptr over (Ptr: ..., Length: ...))
+                    // → positional vavr accessor.
+                    if (m.ContainingType is INamedTypeSymbol { IsTupleType: true } fieldTupleType)
+                    {
+                        var tupleIdx = TryGetTupleElementIndex(fieldTupleType, memberName);
+                        if (tupleIdx >= 0)
+                            return $"{target}._{tupleIdx}()";
                     }
                     // It's a field — just access it directly
                     return $"{target}.{memberName}";
@@ -2748,7 +2765,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// Returns true if the member name is a C# tuple item name (Item1, Item2, ..., Item8).
     /// Outputs the numeric index (1-based → 1,2,...,8).
     /// </summary>
-    private static bool IsTupleItemName(string memberName, out int index)
+        private static bool IsTupleItemName(string memberName, out int index)
     {
         index = 0;
         if (memberName.Length >= 5 && memberName.StartsWith("Item") && int.TryParse(memberName.AsSpan(4), out index))
@@ -2756,6 +2773,23 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return index >= 1 && index <= 8;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Returns the 1-based positional index of a named C# tuple element
+    /// (e.g. "Ptr" in (Ptr: ..., Length: ...)), or -1 when not found.
+    /// Restated element names keep their declared order; unnamed slots are
+    /// skipped because they are only reachable via ItemN.
+    /// </summary>
+    private static int TryGetTupleElementIndex(INamedTypeSymbol tupleType, string elementName)
+    {
+        var elements = tupleType.TupleElements;
+        for (var i = 0; i < elements.Length; i++)
+        {
+            if (string.Equals(elements[i].Name, elementName, StringComparison.Ordinal))
+                return i + 1;
+        }
+        return -1;
     }
 
     /// <summary>

@@ -85,6 +85,33 @@ public final class ReadOnlySpan<T> {
         return Arrays.copyOfRange((T[]) array, offset, offset + length);
     }
 
+    /**
+     * Materializes the slice as a primitive byte[] (elements narrowed from the
+     * boxed representation). Used to pin a byte span for MemorySegment.ofArray.
+     */
+    public byte[] toByteArray() {
+        if (array instanceof byte[] bytes) {
+            return Arrays.copyOfRange(bytes, offset, offset + length);
+        }
+        byte[] result = new byte[length];
+        for (int i = 0; i < length; i++) {
+            result[i] = (byte)(((Number) get(i)).intValue() & 0xFF);
+        }
+        return result;
+    }
+
+    /**
+     * Rebuilds a ReadOnlySpan&lt;Integer&gt; (the converter's byte-span shape) from a
+     * pinned MemorySegment, mirroring C# new ReadOnlySpan&lt;byte&gt;((byte*)ptr, length).
+     */
+    public static ReadOnlySpan<Integer> fromByteSegment(java.lang.foreign.MemorySegment segment, int length) {
+        Integer[] data = new Integer[length];
+        for (int i = 0; i < length; i++) {
+            data[i] = segment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, i) & 0xFF;
+        }
+        return new ReadOnlySpan<>(data);
+    }
+
     public void copyTo(Span<T> destination) {
         int copyLength = Math.min(length, destination.length());
         for (int i = 0; i < copyLength; i++) {

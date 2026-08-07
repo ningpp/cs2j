@@ -203,6 +203,33 @@ public final class Span<T> {
         return array;
     }
 
+    /**
+     * Materializes the slice as a primitive byte[] (elements narrowed from the
+     * boxed representation). Used to pin a byte span for MemorySegment.ofArray.
+     */
+    public byte[] toByteArray() {
+        if (array instanceof byte[] bytes) {
+            return Arrays.copyOfRange(bytes, offset, offset + length);
+        }
+        byte[] result = new byte[length];
+        for (int i = 0; i < length; i++) {
+            result[i] = (byte)(((Number) get(i)).intValue() & 0xFF);
+        }
+        return result;
+    }
+
+    /**
+     * Rebuilds a Span&lt;Integer&gt; (the converter's byte-span shape) from a pinned
+     * MemorySegment, mirroring C# new Span&lt;byte&gt;((byte*)ptr, length).
+     */
+    public static Span<Integer> fromByteSegment(java.lang.foreign.MemorySegment segment, int length) {
+        Integer[] data = new Integer[length];
+        for (int i = 0; i < length; i++) {
+            data[i] = segment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, i) & 0xFF;
+        }
+        return new Span<>(data);
+    }
+
     int getOffset() {
         return offset;
     }

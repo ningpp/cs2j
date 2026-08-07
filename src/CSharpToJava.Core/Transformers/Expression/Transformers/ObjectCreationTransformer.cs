@@ -733,6 +733,23 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# new ReadOnlySpan<byte>((byte*)ptr, length) / new Span<byte>((byte*)ptr, length):
+        // the pointer is a pinned MemorySegment in Java; rebuild the compat span
+        // (byte spans map to ReadOnlySpan<Integer>/Span<Integer>) via the segment reader.
+        if ((bareType == "ReadOnlySpan" || bareType == "Span") && argumentList.Arguments.Count == 2)
+        {
+            var firstArgType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+            if (firstArgType is IPointerTypeSymbol)
+            {
+                var parts = SplitTopLevelArgs(args);
+                if (parts.Count == 2)
+                {
+                    context.AddImport($"io.github.ningpp.compat.{bareType}");
+                    return $"{bareType}.fromByteSegment({parts[0]}, {parts[1]})";
+                }
+            }
+        }
+
         // C# new string(char* ptr, int startIndex, int length) → Java String from MemorySegment slice.
         // Java String has no constructor accepting MemorySegment, so we slice the segment
         // to the correct byte range, convert to a primitive array, then construct the String.
