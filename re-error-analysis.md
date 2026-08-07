@@ -92,8 +92,33 @@
 - **根因分类**: Lowering pass 不足（ReadOnlyStructMaker 资格判定缺陷）
 - **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/StructAnalyzer.cs`、`src/CSharpToJava.Core/ReadOnlyStructMaker/CallGraphBuilder.cs`
 - **分析**: `FourStackStrings` 是 `[StructLayout(Sequential)]` 的裸内存块结构（公共字段经 `ref stackStrings.Item1` 交给 `MemoryMarshal.CreateSpan`）。分析器未检查外部 ref/out 字段访问，将其归入 L3/L4 路径把公共字段改写为 get-only 属性，导致调用点 `ref stackStrings.Item1` 非法（CS0206）。`CallGraphBuilder.HasExternalRefFieldAccess`（专为 CS0206 设计、已支持 `!` 解包）存在但从未被调用（死代码）。
+- **修复**: 在 `StructAnalyzer.AnalyzeCore` 的无变异方法分支（L1–L4 资格判定）中接入 `HasExternalRefFieldAccess` 守卫：非私有字段被外部 ref/out 访问时返回 NotConvertible，保持原结构不变。新增红→绿测试 `PublicFields_ExternalRefAccess_NotConverted`，全量测试 2433 通过。commit `945942fb`。
 
-**状态**: 🔧 修复中
+**状态**: ✅ Fixed
 
 ---
+
+## Iteration 4 — void 表达式体属性自减产生非法裸语句（不是语句）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\RegexParser.java`
+- **行号**: 2698
+- **错误信息**: `不是语句`（javac: not a statement）
+- **代码片段**:
+  ```java
+  private void popKeepOptions() {
+      var _prev1 = _optionsStack.getLength();
+      _optionsStack.setLength(_prev1 - 1);
+      _prev1;   // ← 非法裸语句
+  }
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexParser.cs`（行 2305）
+  ```csharp
+  private void PopKeepOptions() => _optionsStack.Length--;
+  ```
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs`
+- **分析**: `IsDiscardedValueContext` 只识别 `ExpressionStatementSyntax` 和 for 递增器，未覆盖表达式体成员（父节点为 `ArrowExpressionClauseSyntax`）。void 表达式体方法中的属性 `--` 被误判为“值消费上下文”，走 hoist 路径产生临时变量 `_prev1`，其结果又被 `MethodTransformer` 当作语句输出，形成非法裸语句。
+- **修复**: 扩展 `IsDiscardedValueContext` 识别 void 方法/局部函数表达式体、set/init 访问器表达式体、void 委托 lambda；并把 postfix/prefix 中基于 `node.Parent is ExpressionStatementSyntax` 的守卫全部改用该谓词。新增红→绿测试 `VoidExpressionBodyPropertyIncrementTests`（2 个），全量测试 2435 通过。
+
+**状态**: 🔧 验证中
 

@@ -637,7 +637,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                         sliceExpr = $"MemorySegment.ofAddress({operandExpr}.address() + {delta})";
                     }
 
-                    if (IsDiscardedValueContext(node))
+                    if (IsDiscardedValueContext(node, context))
                         return $"{operandExpr} = {sliceExpr}";
 
                     var tmp = context.GenerateSyntheticName("_ptrPost");
@@ -681,31 +681,31 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Statement context: rewrite property/indexer in place (no return value needed)
-        if (node.Parent is ExpressionStatementSyntax
+        if (IsDiscardedValueContext(node, context)
             && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
         {
             return decimalRewrite;
         }
-        if (node.Parent is ExpressionStatementSyntax
+        if (IsDiscardedValueContext(node, context)
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
             return rewritten;
         }
 
-        if (node.Parent is ExpressionStatementSyntax
+        if (IsDiscardedValueContext(node, context)
             && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
         {
             return indexerRewrite;
         }
 
         // Expression context: hoist property increment to pre-statement, return old value
-        if (node.Parent is not ExpressionStatementSyntax
+        if (!IsDiscardedValueContext(node, context)
             && TryBuildDecimalHoistForPostfix(node.Operand, op, context, out var decimalHoisted))
         {
             return decimalHoisted;
         }
 
-        if (node.Parent is not ExpressionStatementSyntax
+        if (!IsDiscardedValueContext(node, context)
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
         {
             // propRewrite = "recv.setter(recv.getter() ± 1)" — we need old value
@@ -715,7 +715,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Expression context: hoist indexer increment to pre-statement, return old value
-        if (node.Parent is not ExpressionStatementSyntax
+        if (!IsDiscardedValueContext(node, context)
             && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var idxRewrite))
         {
             if (TryBuildIndexerHoistForPostfix(node.Operand, op, context, out var hoisted))
@@ -758,7 +758,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 };
                 // In discarded value context (statement or for-incrementor),
                 // we can just use the assignment form
-                if (IsDiscardedValueContext(node))
+                if (IsDiscardedValueContext(node, context))
                 {
                     return $"{postfixOperand} = {maskExpr}";
                 }
@@ -831,7 +831,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                         sliceExpr = $"MemorySegment.ofAddress({operandExpr}.address() + {delta})";
                     }
 
-                    if (IsDiscardedValueContext(node))
+                    if (IsDiscardedValueContext(node, context))
                     {
                         if (delta < 0)
                             context.InvalidatePointerBacktrackVars(operandExpr.Trim());
@@ -856,31 +856,31 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Statement context: rewrite property/indexer in place
-        if (node.Parent is ExpressionStatementSyntax
+        if (IsDiscardedValueContext(node, context)
             && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
         {
             return decimalRewrite;
         }
-        if (node.Parent is ExpressionStatementSyntax
+        if (IsDiscardedValueContext(node, context)
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
             return rewritten;
         }
 
-        if (node.Parent is ExpressionStatementSyntax
+        if (IsDiscardedValueContext(node, context)
             && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
         {
             return indexerRewrite;
         }
 
         // Expression context: hoist property increment to pre-statement, return new value
-        if (node.Parent is not ExpressionStatementSyntax
+        if (!IsDiscardedValueContext(node, context)
             && TryBuildDecimalHoistForPrefix(node.Operand, op, context, out var decimalHoisted))
         {
             return decimalHoisted;
         }
 
-        if (node.Parent is not ExpressionStatementSyntax
+        if (!IsDiscardedValueContext(node, context)
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
         {
             if (TryBuildPropertyHoistForPrefix(node.Operand, op, context, out var hoisted))
@@ -888,7 +888,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Expression context: hoist indexer increment to pre-statement, return new value
-        if (node.Parent is not ExpressionStatementSyntax
+        if (!IsDiscardedValueContext(node, context)
             && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var idxRewrite))
         {
             if (TryBuildIndexerHoistForPrefix(node.Operand, op, context, out var hoisted))
@@ -931,7 +931,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 };
                 // In discarded value context (statement or for-incrementor),
                 // no outer parentheses needed
-                if (IsDiscardedValueContext(node))
+                if (IsDiscardedValueContext(node, context))
                     return assignmentExpr;
                 // In expression context, wrap in parentheses for correct precedence
                 return $"({assignmentExpr})";
@@ -943,14 +943,56 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         return $"{op}{operand}";
     }
 
-    private static bool IsDiscardedValueContext(SyntaxNode node)
+    private static bool IsDiscardedValueContext(SyntaxNode node, ConversionContext context)
     {
         if (node.Parent is ExpressionStatementSyntax)
             return true;
 
-        return node.Parent is ForStatementSyntax forStatement
+        if (node.Parent is ForStatementSyntax forStatement
             && (forStatement.Initializers.Any(expr => ReferenceEquals(expr, node))
-                || forStatement.Incrementors.Any(expr => ReferenceEquals(expr, node)));
+                || forStatement.Incrementors.Any(expr => ReferenceEquals(expr, node))))
+            return true;
+
+        // Expression-bodied members whose value is discarded: void methods/local
+        // functions, set/init accessors, and void-delegate lambdas. Without this,
+        // ++/-- hoisting emits a bare temp expression statement (javac: not a statement).
+        SyntaxNode? arrowOwner = node.Parent switch
+        {
+            ArrowExpressionClauseSyntax arrow => arrow.Parent,
+            AnonymousFunctionExpressionSyntax lambda => lambda,
+            _ => null
+        };
+        if (arrowOwner != null)
+        {
+            if (arrowOwner is MethodDeclarationSyntax method)
+            {
+                var methodSymbol = context.SemanticModel?.GetDeclaredSymbol(method);
+                if (methodSymbol != null)
+                    return methodSymbol.ReturnsVoid;
+                return method.ReturnType is PredefinedTypeSyntax pts
+                    && pts.Keyword.IsKind(SyntaxKind.VoidKeyword);
+            }
+            if (arrowOwner is LocalFunctionStatementSyntax localFunction)
+            {
+                var localSymbol = context.SemanticModel?.GetDeclaredSymbol(localFunction);
+                if (localSymbol != null)
+                    return localSymbol.ReturnsVoid;
+                return localFunction.ReturnType is PredefinedTypeSyntax pts
+                    && pts.Keyword.IsKind(SyntaxKind.VoidKeyword);
+            }
+            if (arrowOwner is AccessorDeclarationSyntax accessor
+                && (accessor.IsKind(SyntaxKind.SetAccessorDeclaration)
+                    || accessor.IsKind(SyntaxKind.InitAccessorDeclaration)))
+                return true;
+            if (arrowOwner is AnonymousFunctionExpressionSyntax lambda && context.SemanticModel != null)
+            {
+                var converted = context.SemanticModel.GetTypeInfo(lambda).ConvertedType as INamedTypeSymbol;
+                if (converted?.DelegateInvokeMethod != null)
+                    return converted.DelegateInvokeMethod.ReturnsVoid;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1000,7 +1042,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
         var assignmentExpr = $"{operandExpr} = {valueExpr}";
 
-        if (IsDiscardedValueContext(unaryNode))
+        if (IsDiscardedValueContext(unaryNode, context))
         {
             rewritten = assignmentExpr;
             return true;
