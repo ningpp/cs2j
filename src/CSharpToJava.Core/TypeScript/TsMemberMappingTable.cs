@@ -394,8 +394,9 @@ public sealed class TsMemberMappingTable
         if (javaType.StartsWith("Map.Entry<", StringComparison.Ordinal) && javaType.EndsWith(">", StringComparison.Ordinal))
         {
             var entryArgs = javaType["Map.Entry<".Length..^1];
-            tsType = $"CsKeyValuePair<{MapGenericArgs(entryArgs)}>";
-            imports = new[] { "@csharptotypescript/compat" };
+            var nested = new List<string>();
+            tsType = $"CsKeyValuePair<{MapGenericArgs(entryArgs, nested)}>";
+            imports = MergeImports("@csharptotypescript/compat", nested);
             return true;
         }
 
@@ -413,11 +414,13 @@ public sealed class TsMemberMappingTable
 
         var bare = javaType[..open].Trim();
         var inner = javaType[(open + 1)..^1];
-        var mappedInner = MapGenericArgs(inner);
+        var nestedImports = new List<string>();
+        var mappedInner = MapGenericArgs(inner, nestedImports);
         switch (bare)
         {
             case "CSharpGenericIterable":
                 tsType = $"Iterable<{mappedInner}>";
+                imports = nestedImports;
                 return true;
             case "CSharpICollection":
             case "CSharpGenericComparer":
@@ -426,17 +429,21 @@ public sealed class TsMemberMappingTable
             case "CSharpHashSet":
             case "Iterable":
                 tsType = $"{bare}<{mappedInner}>";
+                imports = nestedImports;
                 return true;
             case "CSharpDictionary":
             case "Map":
                 // Map<K,V> (java.util.Map) -> CSharpDictionary alias (-> CsDictionary)
                 tsType = $"CSharpDictionary<{mappedInner}>";
+                imports = nestedImports;
                 return true;
             case "java.util.List":
                 tsType = $"Array<{mappedInner}>";
+                imports = nestedImports;
                 return true;
             case "java.util.Set":
                 tsType = $"CSharpHashSet<{mappedInner}>";
+                imports = nestedImports;
                 return true;
             default:
                 // Known system shells (builtin/config tables) map first so dotted C#
@@ -455,21 +462,54 @@ public sealed class TsMemberMappingTable
                     tsType = cfgEntry.TsType;
                     return true;
                 }
-                // User generic types (Set<T>/RbTree<K,V>/...): shorten FQCN shell only
-                if (!TryShortenFullyQualifiedName(bare, out var shell))
-                {
-                    return false;
-                }
-                tsType = shell + "<" + MapGenericArgs(inner) + ">";
+                // User generic types (Set<T>/RbTree<K,V>/...): keep the shell (shorten
+                // dotted shells only) and map the args (FQCN shortening, wildcards).
+                var shell = TryShortenFullyQualifiedName(bare, out var shortenedShell)
+                    ? shortenedShell
+                    : bare;
+                tsType = shell + "<" + mappedInner + ">";
+                imports = nestedImports;
                 return true;
         }
     }
 
-    /// <summary>Generic args list mapping (top-level comma split, per-segment TryMapType, wildcard -> any).</summary>
-    private string MapGenericArgs(string inner)
+    /// <summary>
+    /// Generic args list mapping (top-level comma split, per-segment TryMapType,
+    /// wildcard -> any). Nested compat imports (e.g. an arg mapping to
+    /// CsKeyValuePair) are collected into collectImports so the caller can register
+    /// them on the emitted file.
+    /// </summary>
+    private string MapGenericArgs(string inner, List<string> collectImports)
     {
         return string.Join(", ", SplitTopLevelGenericArgs(inner)
-            .Select(a => a == "?" ? "any" : TryMapType(a, out var m, out _) ? m : a));
+            .Select(a =>
+            {
+                if (a == "?") return "any";
+                if (TryMapType(a, out var m, out var imps))
+                {
+                    // Nested compat imports are encoded as Symbol|module so the
+                    // emitter can register the right symbol (the outer tsType shell
+                    // would not name it, e.g. CSharpList<CsKeyValuePair<...>>).
+                    var symbol = m.Split('<')[0];
+                    collectImports.AddRange(imps.Select(imp => $"{symbol}|{imp}"));
+                    return m;
+                }
+                return a;
+            }));
+    }
+
+    /// <summary>Merge the shell compat module path with nested arg imports, deduped.</summary>
+    private static string[] MergeImports(string modulePath, List<string> nested)
+    {
+        var result = new List<string> { modulePath };
+        foreach (var imp in nested)
+        {
+            if (!result.Contains(imp))
+            {
+                result.Add(imp);
+            }
+        }
+        return result.ToArray();
     }
 
     /// <summary>
@@ -480,6 +520,13 @@ public sealed class TsMemberMappingTable
     private static bool TryShortenFullyQualifiedName(string javaType, out string tsType)
     {
         tsType = javaType;
+        // Generic forms (SymmetricTuple<A.B.C.Point>) are handled by the generic
+        // branches; dot-splitting them here would cut at 'Point>' (the last '.'
+        // segment). Only plain dotted names may shorten.
+        if (javaType.Contains('<') || javaType.Contains('>'))
+        {
+            return false;
+        }
         if (javaType.StartsWith("java.", StringComparison.Ordinal)
             || javaType.StartsWith("javax.", StringComparison.Ordinal)
             || javaType.StartsWith("io.github.", StringComparison.Ordinal)

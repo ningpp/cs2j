@@ -113,6 +113,40 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     }
 
     [Fact]
+    public void Nested_Fqcn_Args_Shorten_Inside_User_Generic_Shell()
+    {
+        // SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point> keeps the user shell
+        // and shortens the FQCN arg; regression: the fallback used to dot-split the
+        // whole string and emit "Point>" (invalid TS).
+        var (code, _) = FieldTypeEmission("CSharpDictionary<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>, Rail>");
+        Assert.Contains("public Value: CSharpDictionary<SymmetricTuple<Point>, Rail> | null = null;", code);
+        Assert.DoesNotContain(">", code.Replace("CSharpDictionary<SymmetricTuple<Point>, Rail> | null = null;", ""));
+    }
+
+    [Fact]
+    public void Nested_Map_Entry_Arg_Registers_Compat_Import()
+    {
+        var (code, imports) = FieldTypeEmission("CSharpList<Map.Entry<String, Integer>>");
+        Assert.Contains("public Value: CSharpList<CsKeyValuePair<string, number>> | null = null;", code);
+        Assert.Contains(imports.GetImports(), i => i.ModulePath == "@csharptotypescript/compat" && i.NamedImports.Contains("CsKeyValuePair"));
+    }
+
+    [Fact]
+    public void User_Generic_Shell_With_Fqcn_Arg_Keeps_Shell()
+    {
+        var (code, _) = FieldTypeEmission("Iterable<Microsoft.Msagl.Core.Data.Node>");
+        Assert.Contains("public Value: Iterable<Node> | null = null;", code);
+    }
+
+    [Fact]
+    public void Framework_Generic_Shell_Erases_Args()
+    {
+        // Comparable<Point> maps through the builtin shell to object (no args).
+        var (code, _) = FieldTypeEmission("Comparable<Point>");
+        Assert.Contains("public Value: object | null = null;", code);
+    }
+
+    [Fact]
     public void CSharpDictionary_Nested_Fqcn_Args_Shorten()
     {
         var (code, _) = FieldTypeEmission("CSharpDictionary<String, Microsoft.Msagl.Core.Data.Node>");

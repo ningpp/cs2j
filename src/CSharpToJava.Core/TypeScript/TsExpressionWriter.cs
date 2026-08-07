@@ -104,8 +104,19 @@ public sealed class TsExpressionWriter
     {
         foreach (var imp in imports)
         {
-            // compat 包符号导入；模块名即 imp，符号名即 tsType
-            _imports.AddNamedImport(tsType.Split('<')[0], imp);
+            // compat package symbol import; module path is imp, symbol comes from
+            // tsType. Nested compat symbols (e.g. the inner CsKeyValuePair of
+            // CSharpList<CsKeyValuePair<...>>) are encoded as Symbol|module because
+            // the symbol cannot be derived from the outer tsType shell.
+            var sep = imp.IndexOf('|');
+            if (sep > 0)
+            {
+                _imports.AddNamedImport(imp[..sep], imp[(sep + 1)..]);
+            }
+            else
+            {
+                _imports.AddNamedImport(tsType.Split('<')[0], imp);
+            }
         }
         return tsType;
     }

@@ -192,19 +192,17 @@ interface IDerived : IBase<int>
     }
 
     [Fact]
-    public void Interface_Extends_Nested_Generic_Args_Emits_Diagnostic_Comment()
+        public void Interface_Extends_Nested_Generic_Args_Maps_Recursively()
     {
-        // 组件级（IR 直构）：嵌套泛型实参（Pair<Integer, Integer>）按逗号切分无法完整映射，
-        // 产物非法 TS（tsc TS2304）→ 回拼后追加诊断注释；完整修复（深度递归映射 + import
-        // 收集）随命名管线任务登记（计划注记 ④）
+        // M5 / MSAGL: nested generic args (Pair<Integer, Integer>) now map deeply
+        // via TryMapType (Integer -> number), replacing the old comma-split +
+        // diagnostic-comment fallback.
         var iface = new JavaInterfaceDeclaration { Name = "IDerived", Modifiers = JavaModifiers.Public };
         iface.ExtendedTypes.Add("IBase<Pair<Integer, Integer>>");
         var result = EmitType(iface);
-        Assert.Contains("extends IBase<Pair<Integer, Integer>> /* cs2j: unmapped nested generic args */", result);
-        // L3：注释形态为合法 TS 语法（Integer 别名与 Pair/IBase 声明仅为探针提供解析，
-        // 发射文本原样保留，含注释行）
-        AssertCompiles("type Integer = number;\n" +
-            "interface Pair<A, B> { a: A; b: B; }\n" +
+        Assert.Contains("extends IBase<Pair<number, number>>", result);
+        Assert.DoesNotContain("unmapped nested generic args", result);
+        AssertCompiles("interface Pair<A, B> { a: A; b: B; }\n" +
             "interface IBase<T> { a: T; }\n" +
             result);
     }
