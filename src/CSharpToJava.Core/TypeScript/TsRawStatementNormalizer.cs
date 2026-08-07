@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Collections.Generic;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.TypeScript;
@@ -43,6 +44,14 @@ public static class TsRawStatementNormalizer
 
     // 与 TsStatementWriter.EmitFor 同款：long 字面量 L 后缀 → bigint n 后缀（raw 文本形态）。
     private static readonly Regex LongLiteralPattern = new(@"(0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*)[lL]");
+
+    // Round 15 (MSAGL E 族): LINQ 重写（Intersect/Except）的 BuildSetExprFromOther 只产
+    // "new HashSet<>(other)" 这一种构造接收者形态；raw 文本无类型映射回调，这里做局部
+    // Java 集合构造名 → TS compat 名映射（global.d.ts 桩与 Java 目标均不动）。
+    private static readonly Dictionary<string, string> RawCompatCollectionCtorNames = new()
+    {
+        ["HashSet"] = "CSharpHashSet",
+    };
 
     public static string Normalize(string code)
     {
@@ -96,8 +105,11 @@ public static class TsRawStatementNormalizer
         // raw 文本；TS 无 "Type name" 声明语法）。仅命中行首 "类型 标识符 = ...;"
         // 且类型为单个标识符/泛型名时改写（b.R = 5 等成员赋值因类型后跟 "." 不命中）。
         // 6b Java method-group references (::) and lambda arrows (->): TS has neither
-        // syntax; arrow functions preserve delegate-call semantics.
-        var withMethodRefs = NormalizeMethodReferences(withObjectEmpty);
+        // syntax; arrow functions preserve delegate-call semantics. 先剥空菱形构造
+        // （new HashSet<>(v) → new HashSet(v)）：表达式接收者 :: 的括号回扫需要干净的
+        // 形态（菱形不在 NormalizeGenericMethodInvocations 的 `.<T>method(` 覆盖内）。
+        var withDiamonds = NormalizeDiamondConstructors(withObjectEmpty);
+        var withMethodRefs = NormalizeMethodReferences(withDiamonds);
 
         // 6c Java control-flow text: typed catch bindings, try-with-resources heads,
         // synchronized blocks, double literal suffixes, explicit generic calls.
@@ -469,6 +481,8 @@ public static class TsRawStatementNormalizer
     /// Normalizes Java method-group references and lambda arrows in raw text:
     /// "this::pack" -> "(...args) => this.pack(...args)",
     /// "Integer::intValue" -> "(x) => Number(x)", "Block[]::new" -> "(n) => new Array(n)",
+    /// "new HashSet<>(v)::contains" -> "(x) => new CSharpHashSet(v).contains(x)"
+    /// (diamond stripped by NormalizeDiamondConstructors first),
     /// "n -> n.getBoundingBox()" -> "n => n.getBoundingBox()". Arrow functions keep
     /// delegate-call semantics; boxed-primitive accessors and Runnable.run get
     /// element-wise rewrites. Skips string/char literals.
@@ -531,7 +545,24 @@ public static class TsRawStatementNormalizer
         rewritten = string.Empty;
         consumed = 2;
         receiverStart = at;
+
+        var after = at + 2;
+        var member = ReadIdentifier(code, after);
+        if (member.Length == 0)
+        {
+            return false;
+        }
+
         var recvStart = at - 1;
+        if (recvStart >= 0 && code[recvStart] == ')')
+        {
+            // Expression receiver: "new X(args)::m" / "(expr)::m" / "name(args)::m"
+            // (nested calls and member chains included). The LINQ rewrite emits
+            // "filter(new HashSet<>(v)::contains)"; see TryRewriteExpressionMethodReference.
+            return TryRewriteExpressionMethodReference(code, at, recvStart, member,
+                out rewritten, out consumed, out receiverStart);
+        }
+
         var arrayCtorReceiver = false;
         if (recvStart >= 1 && code[recvStart] == ']' && code[recvStart - 1] == '[')
         {
@@ -564,13 +595,6 @@ public static class TsRawStatementNormalizer
             return false;
         }
         var recv = code.Substring(recvStart, recvLen);
-
-        var after = at + 2;
-        var member = ReadIdentifier(code, after);
-        if (member.Length == 0)
-        {
-            return false;
-        }
 
         if (recv.EndsWith("[]", StringComparison.Ordinal))
         {
@@ -617,7 +641,240 @@ public static class TsRawStatementNormalizer
         return true;
     }
 
-    /// <summary>Reads an identifier starting at index; returns empty when absent.</summary>
+    /// <summary>
+    /// Rewrites a "::" whose receiver is an expression ending in ')' — Java
+    /// bound-receiver method references: "new X(args)::m", "(expr)::m",
+    /// "name(args)::m" (nested calls and member chains like "a.b().c(x)::m").
+    /// The LINQ rewrite (Intersect/Except) emits "filter(new HashSet<>(v)::contains)",
+    /// a single-argument Predicate: the functional interface's argument is passed to
+    /// the instance method on the bound receiver, so the TS form is
+    /// "(x) => receiver.m(x)". Only this single-argument shape is produced by the
+    /// rewrite; spread would be arity-exact for any arity but breaks fixed-arity
+    /// instance methods under strict TS (TS2556), and a single-arg call degrades to
+    /// a harmless extra argument for 0-arg methods at runtime. Guards: the receiver
+    /// slice must have balanced quotes and no comments; anything else falls through
+    /// untouched (same as before this pass existed).
+    /// </summary>
+    private static bool TryRewriteExpressionMethodReference(string code, int at, int recvEnd, string member,
+        out string rewritten, out int consumed, out int receiverStart)
+    {
+        rewritten = string.Empty;
+        consumed = 2 + member.Length;
+        receiverStart = at;
+
+        var open = FindMatchingOpenParen(code, recvEnd);
+        if (open < 0)
+        {
+            return false;
+        }
+
+        // Walk back the callable head: identifier segments joined by '.' (skipping
+        // whitespace), generic type-argument groups ("HashSet<Node>"), and call
+        // segments ("foo().bar") so the whole receiver expression is covered.
+        var headStart = open;
+        var k = open - 1;
+        while (k >= 0)
+        {
+            while (k >= 0 && char.IsWhiteSpace(code[k]))
+            {
+                k--;
+            }
+            if (k < 0)
+            {
+                break;
+            }
+            if (code[k] == '>')
+            {
+                // Generic type arguments: walk back to the matching '<'.
+                var depth = 0;
+                var g = k;
+                while (g >= 0)
+                {
+                    if (code[g] == '>')
+                    {
+                        depth++;
+                    }
+                    else if (code[g] == '<')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            break;
+                        }
+                    }
+                    g--;
+                }
+                if (g < 0)
+                {
+                    break;
+                }
+                k = g - 1;
+                continue;
+            }
+            var c = code[k];
+            if (c == ')')
+            {
+                // Call segment "foo()" inside a member chain "foo().bar(x)": walk
+                // back over the whole call (when it is a call, not a parenthesized
+                // group "(expr)" — the char before its '(' must be identifier-ish).
+                var callOpen = FindMatchingOpenParen(code, k);
+                if (callOpen < 0 || callOpen == 0)
+                {
+                    break;
+                }
+                var beforeCall = callOpen - 1;
+                while (beforeCall >= 0 && char.IsWhiteSpace(code[beforeCall]))
+                {
+                    beforeCall--;
+                }
+                if (beforeCall < 0 || !(IsIdentifierChar(code[beforeCall]) || code[beforeCall] == '>'))
+                {
+                    break;
+                }
+                k = callOpen - 1;
+                continue;
+            }
+            if (!IsIdentifierChar(c))
+            {
+                break;
+            }
+            while (k >= 0 && IsIdentifierChar(code[k]))
+            {
+                k--;
+            }
+            headStart = k + 1;
+            var dot = k;
+            while (dot >= 0 && char.IsWhiteSpace(code[dot]))
+            {
+                dot--;
+            }
+            if (dot >= 0 && code[dot] == '.')
+            {
+                k = dot - 1;
+                continue;
+            }
+            break;
+        }
+
+        var receiver = code.Substring(headStart, recvEnd - headStart + 1);
+        if (headStart == open)
+        {
+            // No callable head: bare parenthesized expression receiver "(expr)".
+            var parenSlice = code.Substring(headStart, at - headStart);
+            if (!IsCleanReceiverSlice(parenSlice))
+            {
+                return false;
+            }
+            rewritten = $"(x) => {receiver}.{member}(x)";
+            receiverStart = headStart;
+            return true;
+        }
+
+        // 'new' constructor receiver: "new X(args)::m". Java compat collection names
+        // map to their TS stub names (raw-text-local; global.d.ts and Java target
+        // are untouched) so the output resolves through the existing global stub.
+        var beforeHead = headStart - 1;
+        while (beforeHead >= 0 && char.IsWhiteSpace(code[beforeHead]))
+        {
+            beforeHead--;
+        }
+        if (beforeHead >= 2 && code[beforeHead] == 'w' && code[beforeHead - 1] == 'e' && code[beforeHead - 2] == 'n'
+            && (beforeHead < 3 || !IsIdentifierChar(code[beforeHead - 3])))
+        {
+            var newStart = beforeHead - 2;
+            var newSlice = code.Substring(newStart, at - newStart);
+            if (!IsCleanReceiverSlice(newSlice))
+            {
+                return false;
+            }
+            var lt = code.IndexOf('<', headStart, open - headStart);
+            var baseEnd = lt < 0 ? open : lt;
+            var baseName = code.Substring(headStart, baseEnd - headStart);
+            if (RawCompatCollectionCtorNames.TryGetValue(baseName, out var mapped))
+            {
+                receiver = "new " + mapped + code.Substring(baseEnd, recvEnd - baseEnd + 1);
+            }
+            else
+            {
+                receiver = code.Substring(newStart, recvEnd - newStart + 1);
+            }
+            rewritten = $"(x) => {receiver}.{member}(x)";
+            receiverStart = newStart;
+            return true;
+        }
+
+        // Plain call receiver: "name(args)::m" / "a.b().c(x)::m".
+        var callSlice = code.Substring(headStart, at - headStart);
+        if (!IsCleanReceiverSlice(callSlice))
+        {
+            return false;
+        }
+        rewritten = $"(x) => {receiver}.{member}(x)";
+        receiverStart = headStart;
+        return true;
+    }
+
+    /// <summary>
+    /// Finds the '(' matching the ')' at closePos via a balanced back-scan
+    /// (() [] {} groups counted); -1 when unbalanced or not found.
+    /// </summary>
+    private static int FindMatchingOpenParen(string code, int closePos)
+    {
+        var parens = 0;
+        var brackets = 0;
+        var braces = 0;
+        for (var k = closePos; k >= 0; k--)
+        {
+            switch (code[k])
+            {
+                case ')': parens++; break;
+                case ']': brackets++; break;
+                case '}': braces++; break;
+                case '(':
+                    if (parens > 0)
+                    {
+                        parens--;
+                    }
+                    if (parens == 0 && brackets == 0 && braces == 0)
+                    {
+                        return k;
+                    }
+                    break;
+                case '[':
+                    if (brackets > 0)
+                    {
+                        brackets--;
+                    }
+                    break;
+                case '{':
+                    if (braces > 0)
+                    {
+                        braces--;
+                    }
+                    break;
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>Receiver slice sanity: no comments and balanced double quotes
+    /// (string-literal arguments would break the bracket back-scan otherwise).</summary>
+    private static bool IsCleanReceiverSlice(string slice)
+    {
+        if (slice.Contains("//", StringComparison.Ordinal) || slice.Contains("/*", StringComparison.Ordinal))
+        {
+            return false;
+        }
+        var quotes = 0;
+        foreach (var c in slice)
+        {
+            if (c == '"')
+            {
+                quotes++;
+            }
+        }
+        return quotes % 2 == 0;
+    }    /// <summary>Reads an identifier starting at index; returns empty when absent.</summary>
     private static string ReadIdentifier(string code, int at)
     {
         if (at >= code.Length || !IsIdentifierStart(code[at]))
@@ -960,6 +1217,21 @@ public static class TsRawStatementNormalizer
             var afterTypeArgs = match.Value.IndexOf('>');
             return "." + match.Value[(afterTypeArgs + 1)..];
         });
+    }
+
+    /// <summary>
+    /// Java 空菱形构造 "new HashSet<>(v)" → "new HashSet(v)"：TS 无空类型实参列表语法
+    /// （TS1005/TS1099；native tsc 7.0.2 在程序存在语法错误时抑制 TS1099，语法清零后
+    /// 涌现）。仅匹配空菱形 &lt;&gt;：带实参的 "new HashSet&lt;Node&gt;(v)" 不动（类型推断
+    /// 在 TS 运行时自然成立）。类型名可为点分 FQCN（new io.github.ningpp.compat.ObjectHolder&lt;&gt;()）。
+    /// 生产者：LINQ 重写（Intersect/Except 的 BuildSetExprFromOther）与
+    /// TypeOperationTransformer 的 ToCsList 适配均产 "new X&lt;&gt;(" 形态。
+    /// </summary>
+    private static string NormalizeDiamondConstructors(string code)
+    {
+        var diamondCtorPattern = new Regex(
+            @"\bnew\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*<>\s*\(");
+        return diamondCtorPattern.Replace(code, match => "new " + match.Groups[1].Value + "(");
     }
 
     /// <summary>

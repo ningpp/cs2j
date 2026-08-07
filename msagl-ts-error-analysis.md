@@ -19,6 +19,7 @@
 | 12 | 8 → 6 | `boolean[]` 声明未 let 化：TryMapType 数组后缀恒等映射返回原串、白名单不认 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +1）+ 本文件 | 07acb643（代码+测试被并发会话提交扫入，见注） |
 | 13 | 6 → 4 | `new T[][]`（空括号）数组创建在 `[` 字面量前残留前缀：字面量模式贪婪体跨整行多声明只剥首前缀 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3）+ 本文件 | 2ce395e8（代码+测试被并发会话提交扫入，见注） |
 | 14 | 4 → 2 | out 形参 lambda 捕获 holder raw 文本：`@SuppressWarnings` 注解未剥 + cast lookahead 不认 `[`；剥注解+cast 后 let 化 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3 / TsRefOutParamTests +1）+ 本文件 | 6b02774b |
+| 15 | 语法 2 → 0；语义波 23043（预期转折点） | E 族：LINQ 重写产物方法引用形态未做 TS 归一化——空菱形构造剥离 + 表达式接收者 `::` 改写 + 裸 `HashSet` 局部映射 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +8 / TsRawBodyNormalizationTests +1）+ 本文件 | 本轮提交（见下） |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -33,6 +34,54 @@
 > Round 12 注：A2 修复（HasAcceptedIdentityArrayBase）与 1 例测试被并发会话的
 > git add 整文件暂存扫入 07acb643（其提交主题为 reflection flag enums 映射）；
 > 本节记录与表格行由独立提交收录。
+
+## Round 15 — E 族：LINQ 重写产物方法引用形态 TS 归一化（语法清零，语义波涌现）
+
+- **C# 构造**：`double l = u.Union(v).Count() - u.Intersect(v).Count();`（LayoutAlgorithmHelpers.cs:106）的
+  Intersect 分支 LINQ 重写产物：`StreamSupport.stream(u.spliterator(), false).filter(new HashSet<>(v)::contains).size()`。
+- **错误 TS 输出（修复前，本轮起点）**：`...filter(new HashSet<>(v)::contains)...` —— TS1005/TS1135 两个语法错误
+  （全库仅存；TS1099 等空菱形类诊断在 native tsc 7.0.2 下被语法错误抑制，属语义类，见环境注记）。
+- **正确 TS 输出**：`...filter((x) => new CSharpHashSet(v).contains(x))...`，整行与预期形态一致。
+- **根因**：LINQ 重写（InvocationExpressionTransformer 的 Intersect/Except 分支，`BuildSetExprFromOther`）产出
+  Java 方法引用形态 raw 文本，`TsRawStatementNormalizer` 未归一化，三个子缺陷同根因：
+  1. 空菱形 `new X<>(` 未剥（`NormalizeGenericMethodInvocations` 只认 `.<T>method(`）；
+  2. `TryRewriteMethodReference` 只认标识符/`this`/`Type[]` 接收者，表达式接收者 `new HashSet(v)::contains` 直通；
+  3. 裸 `HashSet` 无全局桩（global.d.ts 只有 `CSharpHashSet<T>`）。
+- **修复位置**：`src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs`：
+  - 新 pass `NormalizeDiamondConstructors`（置于方法引用归一化之前）：`\bnew\s+类型<>\(` → `new 类型(`；仅空菱形，
+    `new HashSet<Node>(v)` 不误伤；点分 FQCN 覆盖。附带清掉全部 raw 文本 `new CSharpList<>(`/`new ObjectHolder<>()`，
+    本应涌现的约 48 个 TS1099 一并消失（验证：重转后全库 `<>` 0 处、`::` 0 处）。
+  - `TryRewriteMethodReference` 扩展表达式接收者：`new X(args)::m` / `(expr)::m` / `name(args)::m` /
+    嵌套调用 / 成员链 `a.b().c(x)::m` → `(x) => expr.m(x)`。参数个数语义论证：Java 有界接收者方法引用把函数式
+    接口实参传给实例方法；LINQ 重写只产单参 Predicate（`Set.contains`）形态，故用单参 `(x) =>`（任务预期形态）；
+    spread `(...args) =>` 对固定参数个数实例方法在 strict 下产生 TS2556，单参形态对 0 参方法运行时只是多余实参
+    无副作用。接收者回扫按 `()[]{}` 平衡，接收者切片含注释/引号不平衡时直通降级。
+  - `RawCompatCollectionCtorNames` 局部映射（`HashSet` → `CSharpHashSet`）。选 (a) 的理由：raw 文本无类型映射
+    回调；(b) 全局桩只覆盖类型位，值位 `new HashSet(v)` 仍是 TS2693，且影响其它生成物；(c) 改 LINQ 源头影响
+    Java 目标（`java.util.HashSet` 导入）。
+- **测试**：`TsRawStatementNormalizerTests` +8（菱形剥离+实参守卫、new/括号/调用/嵌套调用/成员链/带实参构造
+  接收者、既有标识符/数组接收者形态守卫）；`TsRawBodyNormalizationTests` +1 端到端（Intersect 样本全链：
+  断言 `new CSharpHashSet(v).contains`、无 `::`/`<>`，global.d.ts 桩用 type+const 同名声明合并覆盖值位，
+  strict tsc 编译通过）。先红后绿（红：7 例失败 + E2E 编译失败迭代 3 次）。
+- **验证链**：重建 → 删目录全量重转 → 独立 tsc：**语法错误 0**（67 个唯一错误码全部为语义类）；语义错误
+  **23043** 条（预期转折点：TS 7.0.2 语法清零后语义诊断涌现）。`<>`/`::` 全库 0 处。CLI 转换 510/510 成功、
+  自身诊断 errorCount 0（退出码 1 来自 CLI 后置 tsc 校验的语义波）。全量 `dotnet test` 绿：7 + 570 + 2455
+  （CSharpToJava.Tests 较上轮 +3 为并发会话新增；CSharpToTypeScript.Tests +9 为本轮）。
+- **语义波初步分类（23043 条，67 个错误码）**：
+  - 成员访问：TS2551（5048，属性不存在/大小写）、TS2339（4092）、TS2349（71）、TS2393（36，重复实现）；
+  - 名称解析：TS2663（3376，缺 `this.`）、TS2304（3155，未定义名：Stream/StreamSupport/MapHelper/StringBuilder 等
+    Java 全局）、TS2662（1600，静态名缺限定）、TS2552（162）、TS2503（156）、TS2693（370，类型别名当值用）、
+    TS2300/TS2307/TS2448 等；
+  - 空值/null：TS2531（783，可能 null 解引用）、TS2322（713，null 赋值）、TS2345（551）、TS18047（441）、
+    TS18046（299）、TS2532/TS18048/TS2721 等；
+  - 隐式 any：TS7006（262）、TS7005（65）、TS7019（36）、TS7022/TS7034；
+  - 参数个数：TS2554（196）、TS2556（17）；
+  - 其它：TS2673（769）、TS2367（126）、TS2488（123）、TS2741/TS2739（缺属性）、TS2683/TS2684（this 推断）、
+    TS2415（继承不兼容）等。
+- **并发干扰**：本轮起点 HEAD `076e5adb`；期间并发会话提交 `b6e1798b`（IList 三重实现擦除冲突修复）并留下新的
+  未提交改动（IdentifierExpressionTransformer.cs / config/TypeMappings.json / Java compat 文件）。其未提交改动
+  曾致 `TsNumericSemanticsTests.Const_UInt_MaxValue...` 短暂失败，随后并发会话更新后全绿；用独立 worktree
+  （HEAD+本轮 normalizer）验证该失败与本轮改动无关。并发未提交改动未纳入本轮提交。
 
 ## Round 13 — `new T[][]` 空括号数组创建在 `[` 字面量前残留前缀
 

@@ -831,4 +831,94 @@ public class TsRawStatementNormalizerTests
         var input = "@SuppressWarnings(\"unchecked\") class Holder {";
         Assert.Equal(input, NormalizeWithTable(input));
     }
+
+    // ---- Round 15 (MSAGL, E 族): LINQ 重写产物方法引用归一化 ----
+    // LayoutAlgorithmHelpers.cs:106 `double l = u.Union(v).Count() - u.Intersect(v).Count();`
+    // 的 LINQ 重写产物：`StreamSupport.stream(u.spliterator(), false).filter(new HashSet<>(v)::contains)`。
+    // 三个子缺陷同根因：Java 方法引用形态未做 TS 归一化 —— (a) 空菱形 `new X<>(` 未剥
+    // （NormalizeGenericMethodInvocations 只认 `.<T>method(`），(b) `TryRewriteMethodReference`
+    // 只认标识符/this/Type[] 接收者，表达式接收者 `new HashSet(v)::contains` 直通，
+    // (c) 裸 `HashSet` 无全局桩（global.d.ts 只有 CSharpHashSet）。
+
+    [Fact]
+    public void Diamond_Constructor_Type_Arguments_Are_Stripped()
+    {
+        // Java 空菱形 new HashSet<>(v) 无 TS 对应（TS1005/TS1099）；仅剥空 <>，
+        // 带实参的 new HashSet<Node>(v) 不误伤；点分 FQCN 构造同样剥。
+        Assert.Equal("new HashSet(v);", TsRawStatementNormalizer.Normalize("new HashSet<>(v);"));
+        Assert.Equal("new CSharpList(val);", TsRawStatementNormalizer.Normalize("new CSharpList<>(val);"));
+        Assert.Equal("new io.github.ningpp.compat.ObjectHolder();",
+            TsRawStatementNormalizer.Normalize("new io.github.ningpp.compat.ObjectHolder<>();"));
+        Assert.Equal("new HashSet<Node>(v);", TsRawStatementNormalizer.Normalize("new HashSet<Node>(v);"));
+    }
+
+    [Fact]
+    public void Method_Reference_On_New_Expression_Receiver_Becomes_Arrow_Function()
+    {
+        // Intersect 重写产物全链：菱形先剥、表达式接收者 :: 改写为箭头函数、裸 HashSet
+        // 映射为 CSharpHashSet（raw 文本局部映射，不动 global.d.ts 桩）。
+        Assert.Equal(
+            "xs.filter((x) => new CSharpHashSet(v).contains(x));",
+            TsRawStatementNormalizer.Normalize("xs.filter(new HashSet<>(v)::contains);"));
+    }
+
+    [Fact]
+    public void Method_Reference_On_Parenthesized_Expression_Receiver_Becomes_Arrow_Function()
+    {
+        // 一般括号表达式接收者 (expr)::method -> (x) => (expr).method(x)。
+        Assert.Equal(
+            "xs.map((x) => (getSet()).add(x));",
+            TsRawStatementNormalizer.Normalize("xs.map((getSet())::add);"));
+    }
+
+    [Fact]
+    public void Method_Reference_On_Call_Expression_Receiver_Becomes_Arrow_Function()
+    {
+        // 方法调用接收者 name(args)::method -> (x) => name(args).method(x)。
+        Assert.Equal(
+            "xs.map((x) => createSet(v).contains(x));",
+            TsRawStatementNormalizer.Normalize("xs.map(createSet(v)::contains);"));
+    }
+
+    [Fact]
+    public void Method_Reference_On_Nested_Call_Receiver_Keeps_Outermost_Call()
+    {
+        // 接收者是嵌套调用的最外层完整调用 makeSet(seed(v))，不是内层 seed(v)。
+        Assert.Equal(
+            "xs.map((x) => makeSet(seed(v)).contains(x));",
+            TsRawStatementNormalizer.Normalize("xs.map(makeSet(seed(v))::contains);"));
+    }
+
+    [Fact]
+    public void Method_Reference_On_Member_Chain_Call_Receiver_Keeps_Whole_Chain()
+    {
+        // 成员链调用接收者 foo().bar(x)::method -> (x) => foo().bar(x).method(x)。
+        Assert.Equal(
+            "xs.map((x) => getSet().create(v).contains(x));",
+            TsRawStatementNormalizer.Normalize("xs.map(getSet().create(v)::contains);"));
+    }
+
+    [Fact]
+    public void Method_Reference_On_New_With_Real_Type_Arguments_Keeps_Type_Arguments()
+    {
+        // 带实参的构造接收者不误伤（菱形 pass 不动它；映射只换基名）。
+        Assert.Equal(
+            "xs.filter((x) => new CSharpHashSet<Node>(v).contains(x));",
+            TsRawStatementNormalizer.Normalize("xs.filter(new HashSet<Node>(v)::contains);"));
+    }
+
+    [Fact]
+    public void Identifier_And_Array_Receiver_Method_References_Still_Work()
+    {
+        // 既有接收者形态（标识符/this/Type[]::new）行为不变。
+        Assert.Equal(
+            "actions.forEach((x) => x.run());",
+            TsRawStatementNormalizer.Normalize("actions.forEach(Runnable::run);"));
+        Assert.Equal(
+            "this.matrixQ[0] = this.newMatrixRow.toArray((n) => new Array(n));",
+            TsRawStatementNormalizer.Normalize("this.matrixQ[0] = this.newMatrixRow.toArray(MatrixCell[]::new);"));
+        Assert.Equal(
+            "goldenSectionSearch((...args) => this.pack(...args), lowerBound);",
+            TsRawStatementNormalizer.Normalize("goldenSectionSearch(this::pack, lowerBound);"));
+    }
 }
