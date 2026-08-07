@@ -101,6 +101,12 @@ public class JavaMethodDeclaration : JavaSyntaxNode
     /// 把含 yield 的方法改写为 `*name(...)` generator，发射器据此输出 `*` 前缀。
     /// </summary>
     public bool IsGenerator { get; set; }
+    /// <summary>
+    /// TS async 方法标记（Task 27 async/await，spec §1.4.5）：C# async 修饰符经
+    /// MethodTransformer 落标记，发射器输出 `async ` 前缀，TsAsyncRewriter 据此
+    /// 做 join→await / 返回解包改写。
+    /// </summary>
+    public bool IsAsync { get; set; }
 
     public override string ToString(string indentation)
     {

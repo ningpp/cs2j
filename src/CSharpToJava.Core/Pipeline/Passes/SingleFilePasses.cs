@@ -604,6 +604,10 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // spec §1.4.4；需要属性重构的 accessor 角色表区分 getter 与普通方法）
         var yieldRewriter = new TypeScript.Rewriters.TsYieldRewriter(context, propertyRewriter.Roles);
         yieldRewriter.VisitCompilationUnit(compilation);
+        // Task 27：async/await → Promise + 原生 await（spec §1.4.5；join→await、
+        // completedFuture→Promise.resolve、WhenAll→Promise.all、Task.Run 降级同步 + 诊断）
+        var asyncRewriter = new TypeScript.Rewriters.TsAsyncRewriter(context);
+        asyncRewriter.VisitCompilationUnit(compilation);
         var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
         compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
         // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）

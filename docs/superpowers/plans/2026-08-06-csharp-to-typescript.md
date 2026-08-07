@@ -5423,7 +5423,20 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   IIFE generator 包裹（TS 无 generator accessor）；方法 Body 字符串不经过语句发射器，
   改写后整体过 `TsRawStatementNormalizer` 补经典 for 头 let 化；`IEnumerator<T>` 迭代器
   形态同样映射为 generator；非 yield 的 `IEnumerable<T>` 返回（stream 链）归 M4 Task 36
-  LINQ 目标分叉）
+  LINQ 目标分叉）→ 提交 `b53b1d8e`
+- [x] async/await `TsAsyncAwaitTests`（`TsAsyncRewriter` IR 层改写：`async` 修饰符经
+  MethodTransformer 落 `IsAsync` 标记，TsMemberWriter 发射 `async ` 前缀，
+  `CompletableFuture`→`Promise` 类型映射（TsMemberMappingTable）；async 方法体三路
+  改写（Body 字符串 / raw 语句 / 结构化语句表达式与字段初始化器）：
+  `.join()`→`await X`（跳过 String.join / StringHelper.join 字符串联接，嵌套 await
+  如 `F(G().join()).join()` 按从内到外递归改写，接收者括号包裹保优先级）、
+  `return CompletableFuture.completedFuture(X);`→`return X;`（null → `return;`）；
+  全局 `completedFuture`→`Promise.resolve`、`delayedExecutor`（Task.Delay）→
+  `new Promise<void>(resolve => setTimeout(resolve, X))`、`yield`（Task.Yield）→
+  `Promise.resolve()`、`allOf`（Task.WhenAll）→`Promise.all([...])`、
+  `runAsync/supplyAsync`（Task.Run）→`Promise.resolve((fn)())` 同步降级 + 诊断；
+  表达式体 async 解包 completedFuture 后发射 `return X;`；登记限制：非 async 方法的
+  `.join()`（Task.Result 阻塞语义）无 TS 对应不改写，async lambda 随 ③ 同步降级）
 
 ---
 

@@ -180,6 +180,14 @@ public sealed class TsMemberMappingTable
             imports = delegateImports;
             return true;
         }
+        // ① Task/Task<T> → Promise（Task 27 async/await，spec §1.4.5）：IR 中 Java 风味名
+        // CompletableFuture → Promise<void>、CompletableFuture<X> → Promise<X>（X 递归映射）。
+        if (TryMapCompletableFutureType(csharpOrJavaType, out var cfTs, out var cfImports))
+        {
+            tsType = cfTs;
+            imports = cfImports;
+            return true;
+        }
         // ① 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
         if (BuiltinJavaTypeMappings.TryGetValue(csharpOrJavaType, out var javaMapped))
         {
@@ -301,6 +309,30 @@ public sealed class TsMemberMappingTable
                 _ => "void",
             };
         tsType = $"({string.Join(", ", parts)}) => {returnTs}";
+        return true;
+    }
+
+    /// <summary>
+    /// Task 形态映射（Task 27，spec §1.4.5）：IR 中 Java 风味名 CompletableFuture →
+    /// Promise<void>；CompletableFuture&lt;X&gt; → Promise&lt;X&gt;（X 递归映射，不追加 `| null`）。
+    /// </summary>
+    private bool TryMapCompletableFutureType(string javaType, out string tsType, out IReadOnlyList<string> imports)
+    {
+        tsType = javaType;
+        imports = System.Array.Empty<string>();
+        if (javaType == "CompletableFuture")
+        {
+            tsType = "Promise<void>";
+            return true;
+        }
+        if (!javaType.StartsWith("CompletableFuture<", StringComparison.Ordinal)
+            || !javaType.EndsWith(">", StringComparison.Ordinal))
+        {
+            return false;
+        }
+        var inner = javaType["CompletableFuture<".Length..^1];
+        var mappedInner = TryMapType(inner, out var m, out _) ? m : inner;
+        tsType = $"Promise<{mappedInner}>";
         return true;
     }
 

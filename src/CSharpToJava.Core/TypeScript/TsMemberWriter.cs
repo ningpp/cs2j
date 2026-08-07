@@ -100,6 +100,11 @@ public sealed class TsMemberWriter
         if ((method.Modifiers & JavaModifiers.Static) != 0) sb.Append("static ");
         if ((method.Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
 
+        // Task 27 async/await：async 方法经 MethodTransformer 标记 IsAsync，发射 `async ` 前缀
+        if (method.IsAsync)
+        {
+            sb.Append("async ");
+        }
         var name = TsNaming.SafeIdentifier(method.Name);
         // Task 27 yield→generator：yield 方法经 TsYieldRewriter 标记 IsGenerator，发射 `*name(...)`
         if (method.IsGenerator)

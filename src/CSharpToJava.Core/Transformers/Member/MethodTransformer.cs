@@ -84,6 +84,11 @@ public class MethodTransformer : IMemberTransformer
             Modifiers = ConvertModifiers(methodDecl.Modifiers),
             ReturnType = GetReturnType(methodDecl, context)
         };
+        // Task 27 async/await：C# async 修饰符落 IsAsync 标记（TsAsyncRewriter 改写 + 发射器输出 async 前缀）
+        if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
+        {
+            javaMethod.IsAsync = true;
+        }
 
         context.ReturnsCSharpGenericIterable = javaMethod.ReturnType != null
             && javaMethod.ReturnType.StartsWith("CSharpGenericIterable<");
