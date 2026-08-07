@@ -1,4 +1,4 @@
-using CSharpToJava.Core.TypeScript;
+﻿using CSharpToJava.Core.TypeScript;
 
 namespace CSharpToTypeScript.Tests;
 
@@ -207,6 +207,47 @@ public class TsRawStatementNormalizerTests
         // for (;;) 声明段为空 → 直通（保留无限循环形态）
         var input = "for (;;) { work(); }";
         Assert.Equal(input, NormalizeWithTable(input));
+    }
+    // ---- Round 7 (MSAGL): 泛型声明 + lambda 初始化器 let 化 ----
+    // 旧类型正则 `(?:<[^;\r\n]*>)?` 会把声明名与初始化器里 lambda `=>` 的 `>` 吞进
+    // 类型组，导致 TryRewriteDeclarators 收到非声明文本而放弃 let 化（TS1005/TS1011）。
+    // 平衡尖括号版本只匹配类型自身的闭合 `>`（含嵌套泛型），lambda 保留在初始化器内。
+
+    [Fact]
+    public void Generic_Declaration_With_Lambda_Initializer_Is_Let_ified()
+    {
+        // MSAGL LineSweeperForPortLocations.cs:533
+        var input = "RBNode<ConeSide> rbNode = rightConeSides.findLast(s => pointIsToTheRightOfSegment(site, s));";
+        var expected = "let rbNode: RBNode<ConeSide> = rightConeSides.findLast(s => pointIsToTheRightOfSegment(site, s));";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Nested_Generic_Fqcn_Declaration_With_Lambda_Is_Let_ified()
+    {
+        // MSAGL GreedyNodeRailLevelCalculator.cs:88；类型注解内 FQCN 实参走映射缩短，
+        // 初始化器文本（非 new 创建位）原样保留
+        var input = "Set<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>> segments = new Set<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>>(Enumerable.select(edges, e => new SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>(e.getSourcePoint(), e.getTargetPoint())));";
+        var expected = "let segments: Set<SymmetricTuple<Point>> = new Set<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>>(Enumerable.select(edges, e => new SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>(e.getSourcePoint(), e.getTargetPoint())));";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Generic_Stream_Declaration_With_Lambda_Is_Let_ified()
+    {
+        // MSAGL LgInteractor.cs:1985
+        var input = "Stream<LgNodeInfo> neighb = Enumerable.orderBy(this.getNeighborsOnLevel(s, i), n => n.getZoomLevel());";
+        var expected = "let neighb: Stream<LgNodeInfo> = Enumerable.orderBy(this.getNeighborsOnLevel(s, i), n => n.getZoomLevel());";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Classic_For_With_Generic_Type_And_Lambda_Is_Let_ified()
+    {
+        // MSAGL LinkedPointSplitter.cs:67/73：经典 for 头声明段泛型类型 + lambda 初始化器
+        var input = "for (RBNode<LinkedPoint> node = tree.findFirst(p => left <= p.getPoint().X); node !== null && node.Item.getPoint().X <= right; node = tree.next(node)) {";
+        var expected = "for (let node: RBNode<LinkedPoint> = tree.findFirst(p => left <= p.getPoint().X); node !== null && node.Item.getPoint().X <= right; node = tree.next(node)) {";
+        Assert.Equal(expected, NormalizeWithTable(input));
     }
 
     [Fact]

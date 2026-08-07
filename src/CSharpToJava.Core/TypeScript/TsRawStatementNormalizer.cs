@@ -29,6 +29,15 @@ namespace CSharpToJava.Core.TypeScript;
 /// </summary>
 public static class TsRawStatementNormalizer
 {
+    /// <summary>
+    /// 泛型后缀（平衡尖括号）匹配模式：<T> / Set<SymmetricTuple<Point>> 必须停在
+    /// 类型自身的闭合 >。旧 (?:<[^;\r\n]*>)? 会吞掉声明名与初始化器里 lambda => 的
+    /// >（"RBNode<ConeSide> rbNode = f(s => ...)" 被吞成类型的一部分），导致 let 化
+    /// 失败。用 .NET 平衡组按深度匹配嵌套泛型。
+    /// </summary>
+    private const string GenericTypeSuffixPattern =
+        @"(?:<(?:(?<Open><)|(?<-Open>>)|[^<>\r\n;])*>(?(Open)(?!)))";
+
     private const string OutPrintln = "System.out.println(";
     private const string ErrPrintln = "System.err.println(";
 
@@ -332,7 +341,7 @@ public static class TsRawStatementNormalizer
 
         // Declaration section = "TYPE name = init[, name2 = init2 ...]"; the type is
         // an identifier (optionally dotted/generic/array suffix).
-        var m = Regex.Match(initPart, @"^(?:final\s+)?(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^;]*>)?(?:\[\])*)\s+(?<decls>.+)$");
+        var m = Regex.Match(initPart, $@"^(?:final\s+)?(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*{GenericTypeSuffixPattern}?(?:\[\])*)\s+(?<decls>.+)$");
         if (!m.Success)
         {
             return false;   // no-initializer etc. pass through
@@ -859,7 +868,7 @@ public static class TsRawStatementNormalizer
             return code;
         }
         var declPattern = new Regex(
-            @"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^;\r\n]*>)?(?:\[\])*)\s+(?<decls>.+);(?<tail>\s*(?://[^\r\n]*)?)$",
+            $@"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*{GenericTypeSuffixPattern}?(?:\[\])*)\s+(?<decls>.+);(?<tail>\s*(?://[^\r\n]*)?)$",
             RegexOptions.Compiled | RegexOptions.Multiline);
         return declPattern.Replace(code, match =>
         {
