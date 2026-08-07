@@ -212,8 +212,10 @@ public sealed class TsMemberWriter
         }
         sb.AppendLine(" {");
         // body 已是字符串，按行缩进
-        var bodyLines = method.Body!.Split('\n');
-        foreach (var line in bodyLines)
+        // body is a raw string: normalize Java text first (declarations/for heads/
+        // array literals/float suffixes), then emit per line.
+        var normalizedBody = TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName);
+        foreach (var line in normalizedBody.Split('\n'))
         {
             sb.Append(ind).Append(_indent).AppendLine(line);
         }
@@ -334,7 +336,8 @@ public sealed class TsMemberWriter
             return;
         }
         sb.AppendLine(" {");
-        foreach (var line in method.Body!.Split('\n'))
+        var normalizedArrowBody = TsRawStatementNormalizer.Normalize(method.Body!, _exprWriter.MapType, _exprWriter.MapExceptionName);
+        foreach (var line in normalizedArrowBody.Split('\n'))
         {
             sb.Append(ind).Append(_indent).AppendLine(line);
         }
@@ -495,7 +498,10 @@ public sealed class TsMemberWriter
             return literal;
         }
 
-        return literal;
+        // M5 / MSAGL: Java array creation literals (new String[] { "a" } /
+        // new double[][] { {...} }) reach field initializers as raw text; route them
+        // through the raw normalizer (array literal + float suffix passes).
+        return TsRawStatementNormalizer.Normalize(literal);
     }
 
     /// <summary>剥除 "({type}) (literal)" 或 "({type})literal" 形态的 Java 数值 cast 前缀，

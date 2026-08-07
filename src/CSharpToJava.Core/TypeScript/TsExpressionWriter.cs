@@ -18,6 +18,15 @@ public sealed class TsExpressionWriter
         _imports = imports;
     }
 
+    /// <summary>
+    /// Raw Java-flavor expression text (e.g. initializer strings extracted by the
+    /// transformer) is normalized at emission time like raw statement bodies, so
+    /// float suffixes, Java array literals, reference casts and FQCN new-expressions
+    /// become valid TypeScript.
+    /// </summary>
+    private string NormalizeRaw(string code)
+        => TsRawStatementNormalizer.Normalize(code, MapType, MapExceptionName, normalizeChars: false);
+
     public string ToInlineString(JavaExpression expr)
     {
         return expr switch
@@ -37,7 +46,7 @@ public sealed class TsExpressionWriter
             JavaAssignmentExpression assign => $"{ToInlineString(assign.Target)} {assign.Operator} {ToInlineString(assign.Value)}",
             JavaParenthesizedExpression paren => $"({ToInlineString(paren.InnerExpression)})",
             JavaInstanceOfExpression inst => EmitInstanceOf(inst),
-            JavaRawExpression raw => raw.Code,
+            JavaRawExpression raw => NormalizeRaw(raw.Code),
             _ => expr.ToInlineString(),
         };
     }
@@ -135,6 +144,13 @@ public sealed class TsExpressionWriter
 
         // char 字面量：'a' -> "a"；泛化支持转义字符（'\n' -> "\n"）。
         // 边界：内含双引号（如 '\"'）的转义在 M2 字符处理任务中细化。
+        // float literals: 1.5f/1.5F -> 1.5 (TS has no f suffix; matches NormalizeLiteral).
+        if ((v.EndsWith("f", StringComparison.Ordinal) || v.EndsWith("F", StringComparison.Ordinal))
+            && IsFloatLiteralBody(v[..^1]))
+        {
+            return v[..^1];
+        }
+
         if (v.Length >= 3 && v.StartsWith("'") && v.EndsWith("'"))
         {
             var inner = v[1..^1];
@@ -146,6 +162,28 @@ public sealed class TsExpressionWriter
         }
 
         return v;
+    }
+
+    /// <summary>float literal body (after removing the f suffix): decimal int/float,
+    /// optionally with underscores, fraction and exponent.</summary>
+    private static bool IsFloatLiteralBody(string body)
+    {
+        if (body.Length == 0) return false;
+        var start = body[0] is '+' or '-' ? 1 : 0;
+        var anyDigit = false;
+        var anyFraction = false;
+        var anyExponent = false;
+        for (var i = start; i < body.Length; i++)
+        {
+            var c = body[i];
+            if (char.IsAsciiDigit(c)) { anyDigit = true; continue; }
+            if (c == '_') continue;
+            if (c == '.' && !anyFraction && !anyExponent) { anyFraction = true; continue; }
+            if ((c == 'e' || c == 'E') && anyDigit && !anyExponent) { anyExponent = true; continue; }
+            if ((c == '+' || c == '-') && anyExponent && i > start) { continue; }
+            return false;
+        }
+        return anyDigit;
     }
 
     private string EmitBinary(JavaBinaryExpression binary)
@@ -308,6 +346,13 @@ public sealed class TsExpressionWriter
                 tsException += " /* cs2j: unmapped exception */";
             }
             typeName = tsException;
+        }
+        else if (_mappings.TryMapType(typeName, out var mappedNewType, out var newTypeImports))
+        {
+            // M5 / MSAGL: creation types map like other type positions (project
+            // FQCNs shorten, Map.Entry/Class<?> etc. map to compat forms).
+            RegisterImports(mappedNewType, newTypeImports);
+            typeName = mappedNewType;
         }
         var args = string.Join(", ", newExpr.Arguments.Select(ToInlineString));
         return $"new {typeName}({args})";

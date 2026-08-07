@@ -185,19 +185,20 @@ public class TsRawStatementNormalizerTests
     }
 
     [Fact]
-    public void Classic_For_With_Multi_Variable_Declaration_Passes_Through()
+    public void Classic_For_With_Multi_Variable_Declaration_Is_Let_ified()
     {
-        // 多声明（init 顶层逗号）无法用单个 let 表达 → 直通
+        // M5 / MSAGL: multi-declarator init (int i = 0, j = 1) becomes a TS let
+        // declarator list with the shared type on each declarator.
         var input = "for (int i = 0, j = 1; i < n; i++) { work(i, j); }";
-        Assert.Equal(input, NormalizeWithTable(input));
+        Assert.Equal("for (let i: number = 0, j: number = 1; i < n; i++) { work(i, j); }", NormalizeWithTable(input));
     }
 
     [Fact]
-    public void Classic_For_Without_Initializer_Passes_Through()
+    public void Classic_For_Without_Initializer_Is_Let_ified()
     {
-        // 无初始化声明段（int i;）不匹配 "TYPE identifier = expr" 形态 → 直通
+        // M5 / MSAGL: no-initializer declaration (int i;) becomes let i: number;
         var input = "for (int i; i < n; i++) { work(i); }";
-        Assert.Equal(input, NormalizeWithTable(input));
+        Assert.Equal("for (let i: number; i < n; i++) { work(i); }", NormalizeWithTable(input));
     }
 
     [Fact]
@@ -282,4 +283,85 @@ public class TsRawStatementNormalizerTests
         Assert.Equal("return \"7L\";", NormalizeWithTable("return \"7L\";"));
         Assert.Equal("return abc123L;", NormalizeWithTable("return abc123L;"));
     }
+
+    // ---- M5 / MSAGL: raw method-body Java text normalization ----
+
+    [Fact]
+    public void Plain_Declaration_Without_Initializer_Is_Let_ified()
+    {
+        Assert.Equal("let x: number;", NormalizeWithTable("double x;"));
+        Assert.Equal("let par: number;", NormalizeWithTable("double par;"));
+    }
+
+    [Fact]
+    public void Multi_Variable_Declaration_Is_Let_ified()
+    {
+        Assert.Equal("let aSol: number, bSol: number;", NormalizeWithTable("double aSol, bSol;"));
+        Assert.Equal("let s: number, e: number;", NormalizeWithTable("double s, e;"));
+        Assert.Equal("let aIsInsideB: boolean, bIsInsideA: boolean;", NormalizeWithTable("boolean aIsInsideB, bIsInsideA;"));
+    }
+
+    [Fact]
+    public void Multi_Variable_With_Initializers_Is_Let_ified()
+    {
+        // Mixed declarators: TS supports let a: T = i, b: T; per declarator.
+        Assert.Equal("let x: number = 1, y: number;", NormalizeWithTable("double x = 1, y;"));
+    }
+
+    [Fact]
+    public void Array_Type_Declaration_Is_Let_ified()
+    {
+        Assert.Equal("let layer: number[] = nla.getLayers()[i];", NormalizeWithTable("int[] layer = nla.getLayers()[i];"));
+        Assert.Equal("let words: string[] = CsString.split(line, \",\");", NormalizeWithTable("String[] words = CsString.split(line, \",\");"));
+    }
+
+    [Fact]
+    public void Fqcn_Type_Declaration_Is_Let_ified()
+    {
+        // Project FQCN maps to the last segment via TsMemberMappingTable.
+        Assert.Equal("let x: Point;", NormalizeWithTable("Microsoft.Msagl.Core.Geometry.Point x;"));
+        Assert.Equal("let a: Point, b: Point;", NormalizeWithTable("Microsoft.Msagl.Core.Geometry.Point a, b;"));
+        Assert.Equal("let p: Point = new Point(1, 2);", NormalizeWithTable("Microsoft.Msagl.Core.Geometry.Point p = new Microsoft.Msagl.Core.Geometry.Point(1, 2);"));
+    }
+
+    [Fact]
+    public void Class_Like_Unmapped_Type_Declaration_Is_Let_ified()
+    {
+        // Single-segment user types (Rail) stay unmapped but must still be let-ified.
+        Assert.Equal("let rail: Rail;", NormalizeWithTable("Rail rail;"));
+        Assert.Equal("let ret: Set<T> = Set.Create$2(set0);", NormalizeWithTable("Set<T> ret = Set.Create$2(set0);"));
+    }
+
+    [Fact]
+    public void Classic_For_With_Class_Like_Unmapped_Type_Is_Let_ified()
+    {
+        var input = "for (PolylinePoint pp = poly.getStartPoint(); pp !== null; pp = pp.getNext()) { use(pp); }";
+        var expected = "for (let pp: PolylinePoint = poly.getStartPoint(); pp !== null; pp = pp.getNext()) { use(pp); }";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Classic_For_With_Generic_Type_Is_Let_ified()
+    {
+        var input = "for (RectangleNode<T, P> node = parent.getParent(); node !== null; node = node.getParent()) { use(node); }";
+        var expected = "for (let node: RectangleNode<T, P> = parent.getParent(); node !== null; node = node.getParent()) { use(node); }";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Enhanced_For_With_Iterable_Cast_Wrappers_Strips_Casts()
+    {
+        // Java erasure casts around the collection expression are dropped.
+        var input = "for (const e of (Iterable<Edge>)(Iterable<?>)(graph.getEdges())) { use(e); }";
+        var expected = "for (const e of (graph.getEdges())) { use(e); }";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Float_Literal_Suffix_Is_Dropped_In_Raw_Text()
+    {
+        Assert.Equal("return 2.0;", NormalizeWithTable("return 2.0f;"));
+        Assert.Equal("let a: number = 1.5;", NormalizeWithTable("double a = 1.5f;"));
+    }
+
 }

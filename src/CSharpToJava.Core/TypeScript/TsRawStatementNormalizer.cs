@@ -47,7 +47,7 @@ public static class TsRawStatementNormalizer
     /// 将 raw 文本中的 Java 风味异常名（new IllegalStateException( 等）替换为兼容库名；
     /// 为 null 时跳过异常名归一化。
     /// </summary>
-    public static string Normalize(string code, Func<string, string>? mapType = null, Func<string, string?>? mapException = null)
+    public static string Normalize(string code, Func<string, string>? mapType = null, Func<string, string?>? mapException = null, bool normalizeChars = true)
     {
         if (string.IsNullOrEmpty(code))
         {
@@ -64,7 +64,10 @@ public static class TsRawStatementNormalizer
         var withFors = NormalizeForHeads(normalized, mapType);
 
         // ③ char 字面量 → 双引号字符串（raw 语句中 return 'A'; 等直通文本的归一化）。
-        var withChars = NormalizeCharLiterals(withFors);
+        // Expression contexts (raw initializer/argument text) keep single-quoted char
+        // literals: they are valid TS strings and the char->string rewrite would change
+        // established output shapes (CsString.split(s, ',')).
+        var withChars = normalizeChars ? NormalizeCharLiterals(withFors) : withFors;
 
         // ④ Java 风味异常名 → 兼容库名（Task 21：方法体直通文本中的 throw new X(...) /
         // instanceof X；结构化 new/instanceof/catch 由发射器在节点层映射）。
@@ -89,8 +92,28 @@ public static class TsRawStatementNormalizer
         // → a === b（Task 27 模式匹配：switch 语句常量标签 case null:/case 5: 的 Java 化
         // 条件 java.util.Objects.equals(o, null) 无 TS 对应；字符串/引用相等按 Task 26
         // 语义统一 ===）。
-        return NormalizeObjectsEquals(withDecls);
+                var withEquals = NormalizeObjectsEquals(withDecls);
+        // ? Java float literal suffix (2.0f/1.5F) -> dropped (TS has no f suffix;
+        // matches EmitLiteral semantics).
+        var withFloats = NormalizeFloatLiterals(withEquals);
+
+        // ? Java array creation/initializer literals (new String[] { "a", "b" } /
+        // new double[][] { {...} }) -> TS array literals (["a", "b"] / [[...]]);
+        // shared by raw method bodies and field initializers.
+        var withArrays = NormalizeArrayLiterals(withFloats);
+
+        // ? Java reference casts ((Iterable<Edge>)(Iterable<?>)(expr), (Cluster) x,
+        // (Map.Entry<K,V>) expr) -> dropped: TS has no cast syntax and reference
+        // casts carry no runtime semantics (the value is already the target type).
+        // Primitive casts ((int) x / (double) x) keep numeric semantics and stay.
+        var withCasts = NormalizeReferenceCasts(withArrays);
+
+        // ? Project FQCNs in expression positions (new Microsoft.Msagl.Core.Geometry.Point(...),
+        // Microsoft.Msagl.Core.Geometry.Point.op_Add(...)) -> last segment via mapType
+        // (matches the type-position shortening; imports are collected by short name).
+        return NormalizeFqcnExpressions(withCasts, mapType);
     }
+
 
     /// <summary>
     /// 扫描替换 println 接收者；引号内文本与实参原样保留。
@@ -206,8 +229,27 @@ public static class TsRawStatementNormalizer
             return false;
         }
 
-        head = $"for (const {varName} of {right})";
+        head = $"for (const {varName} of {StripErasureCasts(right)})";
         return true;
+    }
+
+    /// <summary>
+    /// Strips Java erasure casts wrapping a collection expression
+    /// ((Iterable&lt;Edge&gt;)(Iterable&lt;?&gt;)(expr) -> (expr)): TS has no erasure
+    /// cast syntax and the cast carries no runtime semantics, so it is dropped.
+    /// </summary>
+    private static string StripErasureCasts(string expr)
+    {
+        var result = expr;
+        while (true)
+        {
+            var m = Regex.Match(result, @"^\(\s*(?:Iterable|CSharpGenericIterable)(?:<[^>]*>)?\s*\)\s*");
+            if (!m.Success)
+            {
+                return result;
+            }
+            result = result[m.Length..];
+        }
     }
 
     /// <summary>
@@ -236,37 +278,57 @@ public static class TsRawStatementNormalizer
         var condPart = header.Substring(semicolons[0] + 1, semicolons[1] - semicolons[0] - 1).Trim();
         var incPart = header.Substring(semicolons[1] + 1).Trim();
 
-        var m = Regex.Match(initPart, @"^(?:final\s+)?(\w[\w.<>\[\], ]*?)\s+(\w+)\s*=\s*(.+)$");
+        // Declaration section = "TYPE name = init[, name2 = init2 ...]"; the type is
+        // an identifier (optionally dotted/generic/array suffix).
+        var m = Regex.Match(initPart, @"^(?:final\s+)?(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^;]*>)?(?:\[\])*)\s+(?<decls>.+)$");
         if (!m.Success)
         {
-            return false;   // 无初始化等不匹配形态直通
+            return false;   // no-initializer etc. pass through
         }
-
-        var init = m.Groups[3].Value;
-
-        // 多变量（如 "int i = 0, j = 1"）无法用单个 let 表达 → 直通
-        if (HasTopLevelComma(init))
+        var javaType = m.Groups["type"].Value.Trim();
+        if (!TryRewriteDeclarators(m.Groups["decls"].Value, javaType, mapType, out var declarators))
         {
             return false;
         }
+        head = $"for (let {declarators}; {condPart}; {incPart})";
+        return true;
+    }
 
-        var javaType = m.Groups[1].Value.Trim();
-        var name = m.Groups[2].Value;
-
-        // 泛型/数组类型无法用简单类型注解表达 → 直通（M2 泛型任务细化）
-        if (javaType.IndexOfAny(new[] { '<', '>', '[', ']' }) >= 0)
+    /// <summary>
+    /// Rewrites a declarator list "name = init[, name2 = init2 ...]" into a TS let
+    /// declarator list ("name: T = init, name2: T = init2") with the type mapped via
+    /// mapType; class-like unmapped user types (Rail/PolylinePoint) keep their name.
+    /// Returns false when the shape does not match.
+    /// </summary>
+    private static bool TryRewriteDeclarators(string decls, string javaType, Func<string, string>? mapType, out string rewritten)
+    {
+        rewritten = string.Empty;
+        if (mapType == null)
         {
             return false;
         }
-
-        // IR 类型恒为 Java 风味，映射命中必改变文本；未命中（返回原值）→ 直通
         var tsType = mapType(javaType);
-        if (tsType == javaType)
+        // Identity mappings are accepted for TS keywords (boolean/void/...) and
+        // class-like names; only unknown lowercase names are rejected.
+        if (tsType == javaType && !LooksLikeClassType(javaType)
+            && javaType is not ("boolean" or "void" or "object" or "any" or "unknown" or "never" or "string" or "number"))
         {
             return false;
         }
-
-        head = $"for (let {TsNaming.SafeIdentifier(name)}: {tsType} = {init}; {condPart}; {incPart})";
+        var parts = new List<string>();
+        foreach (var declarator in SplitTopLevelCommas(decls))
+        {
+            var dm = Regex.Match(declarator, @"^(?<name>[A-Za-z_$][\w$]*)\s*(?:=\s*(?<init>.+))?$");
+            if (!dm.Success)
+            {
+                return false;
+            }
+            var name = TsNaming.SafeIdentifier(dm.Groups["name"].Value);
+            parts.Add(dm.Groups["init"].Success
+                ? $"{name}: {tsType} = {dm.Groups["init"].Value.Trim()}"
+                : $"{name}: {tsType}");
+        }
+        rewritten = string.Join(", ", parts);
         return true;
     }
 
@@ -347,20 +409,212 @@ public static class TsRawStatementNormalizer
             return code;
         }
         var declPattern = new Regex(
-            @"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:<[^;\r\n]*>)?)\s+(?<name>[A-Za-z_$][\w$]*)\s*=\s*(?<init>.+);\s*$",
+            @"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^;\r\n]*>)?(?:\[\])*)\s+(?<decls>.+);\s*$",
             RegexOptions.Compiled | RegexOptions.Multiline);
         return declPattern.Replace(code, match =>
         {
             var ind = match.Groups["ind"].Value;
             var type = match.Groups["type"].Value;
-            var name = match.Groups["name"].Value;
-            var init = match.Groups["init"].Value;
-            var mapped = mapType(type);
-            if (string.IsNullOrEmpty(mapped) || mapped == type && !LooksLikeClassType(type))
+            var decls = match.Groups["decls"].Value;
+            if (!TryRewriteDeclarators(decls, type, mapType, out var declarators))
             {
                 return match.Value;
             }
-            return $"{ind}let {name}: {mapped} = {init};";
+            return $"{ind}let {declarators};";
+        });
+    }
+
+    /// <summary>
+    /// Drops Java reference-type casts in raw text: "(Type) expr" -> "expr" for any
+    /// non-primitive Type (generic, dotted, array or plain class names). Primitive
+    /// casts (int/long/short/byte/char/float/double/boolean) are preserved because
+    /// they carry C# numeric conversion semantics. Skips string/char literals.
+    /// </summary>
+    private static string NormalizeReferenceCasts(string code)
+    {
+        var castPattern = new Regex(@"\(\s*(?<type>[A-Z_$][\w$]*(?:\.[A-Z_$][\w$]*)*(?:<[^>]*>)?(?:\[\])*)\s*\)\s*(?=[A-Za-z_(])");
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            if (ch == '(')
+            {
+                var m = castPattern.Match(code, i);
+                if (m.Success && m.Index == i && !IsPrimitiveType(m.Groups["type"].Value))
+                {
+                    i += m.Length;
+                    continue;
+                }
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsPrimitiveType(string type)
+        => type is "int" or "long" or "short" or "byte" or "sbyte" or "char"
+            or "float" or "double" or "boolean";
+
+    /// <summary>
+    /// Shortens project FQCNs in expression positions to their last segment:
+    /// "new Microsoft.Msagl.Core.Geometry.Point(...)" -> "new Point(...)",
+    /// "Microsoft.Msagl.Core.Geometry.Point.op_Add(a, b)" -> "Point.op_Add(a, b)".
+    /// Only chains whose first segment starts with an uppercase letter are
+    /// considered (this/self/lowercase member chains are never touched); the mapType
+    /// oracle guarantees the prefix is a known type (identity mappings are skipped).
+    /// </summary>
+    private static string NormalizeFqcnExpressions(string code, Func<string, string>? mapType)
+    {
+        if (mapType == null)
+        {
+            return code;
+        }
+        var chainPattern = new Regex(@"(?<prefix>\b[A-Z][A-Za-z0-9_$]*(?:\.[A-Za-z_$][\w$]*)+)");
+        return chainPattern.Replace(code, match =>
+        {
+            var full = match.Groups["prefix"].Value;
+            var after = match.Index + match.Length < code.Length ? code[match.Index + match.Length] : '\0';
+            var before = match.Index > 0 ? code[match.Index - 1] : '\0';
+            if (before == '\'' || before == '"' || before == '\'')
+            {
+                return full;
+            }
+            if (after == '(')
+            {
+                // Creation-type position (preceded by "new ") or generic call: only
+                // shorten when preceded by "new ".
+                if (match.Index >= 4 && code.Substring(match.Index - 4, 4) == "new ")
+                {
+                    var mapped = mapType(full);
+                    return mapped == full ? full : mapped;
+                }
+                return full;
+            }
+            if (after == '.')
+            {
+                // Static/member call: shorten the type prefix (all segments before
+                // the final member), never the member itself.
+                var lastDot = full.LastIndexOf('.');
+                var prefix = full[..lastDot];
+                var mapped = mapType(prefix);
+                return mapped == prefix ? full : mapped + full[lastDot..];
+            }
+            return full;
+        });
+    }
+
+    /// <summary>?????????????????????/???/?????</summary>
+    private static List<string> SplitTopLevelCommas(string text)
+    {
+        var result = new List<string>();
+        var depth = 0;
+        var startIdx = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '"' || c == '\'')
+            {
+                i = SkipQuotedLiteral(text, i) - 1;
+                continue;
+            }
+            switch (c)
+            {
+                case '(':
+                case '[':
+                case '{':
+                case '<':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                case '>':
+                    depth--;
+                    break;
+                default:
+                    if (c == ',' && depth == 0)
+                    {
+                        result.Add(text[startIdx..i].Trim());
+                        startIdx = i + 1;
+                    }
+                    break;
+            }
+        }
+        result.Add(text[startIdx..].Trim());
+        return result;
+    }
+
+    /// <summary>
+    /// Java float literal suffix normalization: 2.0f/1.5F -> 2.0/1.5 (TS has no f
+    /// suffix; matches EmitLiteral semantics). Skips string/char literals and only
+    /// fires at identifier boundaries from a digit start.
+    /// </summary>
+    private static string NormalizeFloatLiterals(string code)
+    {
+        var floatPattern = new Regex(@"(?<num>\d[\d_]*(?:\.\d[\d_]*)?)[fF](?![\w$])");
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            if (char.IsDigit(ch))
+            {
+                var m = floatPattern.Match(code, i);
+                if (m.Success && m.Index == i)
+                {
+                    sb.Append(m.Groups["num"].Value);
+                    i += m.Length;
+                    continue;
+                }
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Java array creation literal normalization: "new String[] { "a", "b" }" ->
+    /// "["a", "b"]", "new double[][] { { 1, 2 }, ... }" -> "[[1, 2], ...]".
+    /// Braces inside the initializer become brackets; the "new TYPE[]" prefix is
+    /// dropped (TS array literals carry no type). Skips string/char literals.
+    /// </summary>
+    private static string NormalizeArrayLiterals(string code)
+    {
+        var arrayPattern = new Regex(@"new\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^>]*>)?(?:\[\])*\s*(?<body>\{[^\r\n]*\})\s*");
+        return arrayPattern.Replace(code, match =>
+        {
+            var body = match.Groups["body"].Value;
+            var sb = new StringBuilder(body.Length);
+            var inString = false;
+            for (var i = 0; i < body.Length; i++)
+            {
+                var c = body[i];
+                if (c == '"')
+                {
+                    inString = !inString;
+                    sb.Append(c);
+                    continue;
+                }
+                sb.Append(c == '{' ? '[' : c == '}' ? ']' : c);
+            }
+            return sb.ToString();
         });
     }
 
