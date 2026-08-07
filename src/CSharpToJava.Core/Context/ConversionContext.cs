@@ -99,6 +99,12 @@ public class ConversionContext
     /// InvocationExpressionTransformer 对 symbol==null 的 Type.Create$N(...) 调用保留大小写）。
     /// </summary>
     public HashSet<string>? TsFactoryMethodNames { get; set; }
+
+    /// <summary>
+    /// TS 目标（Task 24）：语法层泛型擦除 rewriter 登记需 compat 导入的符号
+    /// （TypeToken/csDefault 等），RunTsRewriters 合并进发射器 CompatSymbols。
+    /// </summary>
+    public HashSet<string> TsCompatSymbols { get; } = new(StringComparer.Ordinal);
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
 

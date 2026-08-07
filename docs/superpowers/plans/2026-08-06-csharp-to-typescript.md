@@ -5225,6 +5225,115 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 - **Files:** `Rewriters/TsGenericErasureRewriter.cs`、`TsGenericErasureRewriterTests.cs`
 - **要点：** `default(T)` 类型特定零值/`csDefault`；`new T()` 工厂参数注入；`typeof(T)` → TypeToken；`typeof(SomeClass)` 直译类引用（`.Name`→`.name`）；`where T : new()/struct/class` 约束移除联动。
 
+- [x] **Step 1: 核对 IR 形态与架构决策（2026-08-07 实测）**
+
+已核对（探针证据）：
+- 共享前端对五个构造的现状（IR raw 文本/参数形态）：
+  `typeof(T)`（类型参数）→ 方法签名注入 `Class<T> _cs2j_T` + 体 `TypeHelper.toWrapperType(_cs2j_T)`，
+  调用点注入 `int.class` 实参（TS 全部非法）；`typeof(Foo)`（具体类）→ `Foo.class`（结构化
+  `JavaMemberAccessExpression{MemberName="class"}`），`.Name` → `.getName()`；`default(T)`（无约束）
+  → 方法级 `DefaultValue.of(_cs2j_T)` / 类级合成 `_cs2jDefault_T()` 辅助方法；`default(T)`（struct 约束）
+  → `new T()`；`default(T)`（class 约束）→ `null`（已正确）；`new T()`（new() 约束）→ `new Object()`
+  （与 `new object()` 不可区分）；`is T` → `x instanceof T`；`(T)x` → `(T)(x)`（且 `(Widget)x`/`(String)x`/
+  `(double)x` 具体/BCL 强转同样为非法 TS，属既有缺口）。
+- 标记调用透传验证：`csDefault(TypeToken.of("T"))`、`TypeToken.nameOf("T")`、`TypeToken.isInstance("T", x)`
+  均以 C# 树直写 → 前端原样透传为 raw 文本（仅产生一次 "Completely unresolved type degraded to Object"
+  噪音诊断）；泛型调用类型实参（`TypeToken.of<T>()`）会被前端**剥除** → 标记一律用字符串实参形态。
+- `System.Func<T>` 参数 → IR `Supplier<T>`（TS 非法）且体内调用变 `factory.get()`；可选参数（`= null`）
+  会被前端拆成重载包装（与 Task 23 重载改名冲突）→ 工厂参数用**必选** `System.Func<T>`，IR 层把
+  合成参数类型改写为 `() => T`、调用点 `_factory_T.get()` 改写为 `_factory_T()`。
+- raw 方法体内的 C# lambda 经前端变为 `() -> new Widget()`（Java 箭头），TS 非法且无既有改写 →
+  IR 层做 `->` → `=>` 文本改写（跳字符串/字符字面量；TS 无 `->` 运算符，安全）。
+
+**架构决策（实现以此为准）：**
+1. **语法树层 `TsGenericErasureRewriter`（CSharpSyntaxRewriter，注入 SemanticModel）** 在
+   `SingleFileTsEmitPass` 重载 rewriter（1b）之后装配（需有效语义模型；两者都改写并重建编译）：
+   - `default(T)`/裸 `default`（ConvertedType 为类型参数，且非 class 约束——class 约束前端已产
+     `null`）→ `csDefault(TypeToken.of("T"))` + 诊断；
+   - `typeof(T)` → `TypeToken.of("T")`、`typeof(T).Name` → `TypeToken.nameOf("T")`（+ 诊断）；
+     具体类型 → 不动（IR 层改类字面量）；
+   - `x is T`（IsExpression，右操作数解析为类型参数）→ `TypeToken.isInstance("T", x)` + 诊断；
+     `x is T t`（声明模式）→ 诊断 + 保留（登记限制）；
+   - `new T()`（ObjectCreation 目标为类型参数，方法体上下文）→ `_factory_{T}()` 调用 +
+     方法声明追加必选参数 `System.Func<T> _factory_{T}`；调用点（语义模型解析 IMethodSymbol.
+     OriginalDefinition 查登记表）追加工厂实参：类型实参为具体类 → `() => new X()`（复用实参语法
+     TypeSyntax）；为类型参数且调用方自带该工厂参数 → 透传 `_factory_{T}`；否则 → 诊断 +
+     `csDefault()`（返回 any，可赋值任意函数类型）；构造器体/字段初始化器内的 `new T()` →
+     诊断 + 保留（登记限制）。
+   - 类型参数归属：方法级与类级类型参数均可在方法级注入工厂参数。
+2. **IR 层 `TsGenericErasureIrRewriter`（JavaSyntaxRewriter，同文件）** 在 `RunTsRewriters`
+   （stringRewriter 之后、ctorFactory 之前）装配（Java 路径不进）：
+   - raw 文本改写（方法 Body/构造器 Body/字段 Initializer/静态初始化块/JavaRawStatement/
+     JavaRawExpression）：`X.class.getName()`/`X.class.getTypeName()` → `mappedX.name`；
+     `X.class` → `mappedX`（用户类/枚举 → SafeClassName 类引用；用户接口 → `TypeToken.of("IX")` +
+     诊断（Task 25 细化）；BCL 表：String→String、Integer/Short/Byte/Double/Float→Number、
+     Long→BigInt、Boolean→Boolean、Character→String、Object→Object、
+     CSharpList/ArrayList/List→Array；未命中 → `TypeToken.of("X")` + 诊断）；
+     `instanceof {T}`（T 为方法/类类型参数）→ `TypeToken.isInstance("T", expr)`；
+     `({T})({...})` / `({T[]})({...})` 类型参数强转 → `({...} as {T})`（括号配平扫描，
+     仅命中类型参数名 + 单元内类型名 + BCL 表名，避免误伤调用）；`->` → `=>`（lambda 箭头）；
+     `_factory_{T}.get()` → `_factory_{T}()`（仅合成工厂参数名）。
+   - 结构化节点同步：`JavaMemberAccessExpression{MemberName="class"}` → 类引用标识符；
+     `JavaMethodCallExpression{MethodName="getName"/"getTypeName"}` 目标为类字面量 → `.name`；
+     `JavaInstanceOfExpression.Type` 为类型参数 → `TypeToken.isInstance("T", expr)` 结构化调用；
+     `JavaParameter.Type` 为 `Supplier<T>` 且参数名为 `_factory_{T}` → `() => T`。
+   - 登记 compat 符号（`TypeToken`/`csDefault`）供发射器生成
+     `@csharptypescript/compat` 导入（RunTsRewriters 合并 CompatSymbols）。
+3. **约束 `where T : new()/struct/class`**：共享前端已移除 + 诊断，本任务只做工厂参数联动，不再重复。
+4. **已知限制（登记）**：`x is T t` 声明模式（诊断 + 保留）；构造器体/字段初始化器 `new T()`；
+   `typeof(T)` 运行时仅知类型参数名（M4 TypeToken 显式传递细化）；`csDefault` 对 struct 约束
+   返回 null（C# 为零值结构体）；`Number.name` ≠ C# `Int32`（BCL 类字面量名差异）；
+   `new X()` 工厂实参遇 Task 23 私有构造器类（TS2540）；`(List<T>)x` 泛型实例化强转未覆盖；
+   泛型数组 `new T[n]` 运行时类参数机制（`_cs2j_T: Class<T>`）不在本任务范围（既有缺口）。
+
+- [x] **Step 2: 写失败测试**（`TsGenericErasureRewriterTests`，spec §5.4）
+
+1. `default(int)`→`0`、`default(bool)`→`false`、`default(string)`→`null`（类型特定，无 csDefault 标记）；
+2. `default(T)`（无约束）→ `csDefault(TypeToken.of("T"))` + 诊断；`where T : class` → `null`（不改写）；
+3. `new T()` → `_factory_T: () => T` 参数 + 体内 `_factory_T()`，调用点 `A<Widget>()` → `a(() => new Widget())`；
+   类型参数实参透传 `b(_factory_T)`；不可解析 → 诊断 + `csDefault()`；
+4. `typeof(T)` → `TypeToken.of("T")` + 诊断；`typeof(T).Name` → `TypeToken.nameOf("T")`；
+5. `typeof(Widget)` → `Widget`、`typeof(Widget).Name` → `Widget.name`；接口 → TypeToken + 诊断；
+6. `x is T` → `TypeToken.isInstance("T", x)` + 诊断；
+7. `(T)x` → `(x as T)`；`(Widget)x` → `(x as Widget)`（具体类强转一并修复）；
+8. 代表性产出过 L3 `tsc --noEmit`（`AssertCompilesWithCompat`，stub 追加 TypeToken/csDefault）。
+
+- [x] **Step 3: 实现**（`TsGenericErasureRewriter` + `TsGenericErasureIrRewriter` + 管线装配）
+
+管线：`SingleFileTsEmitPass.Execute` 在重载重建后追加泛型擦除 rewriter + 重建；`RunTsRewriters`
+追加 IR 层 rewriter（stringRewriter 之后、ctorFactory 之前），CompatSymbols 合并；
+`TsConversionTestBase` 兼容库 stub 追加 `TypeToken`/`csDefault`。
+
+- [x] **Step 4: 运行测试 + Java 零回归 + 提交**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
+Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`（Java 零回归）
+Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
+
+**实现注记（2026-08-07，与 Step 1 决策的偏差/实测坑）：**
+- ① 语法层 `Invocation` 工具函数曾用 `SyntaxFactory.IdentifierName("TypeToken.of")` 构建
+  点分调用——IdentifierName 含点不是结构化 MemberAccess，前端会把整个标识符 camelCase 成
+  `typeToken.of`（探针复现）。改为 `IdentifierPath` 逐段建 `MemberAccessExpression` 链。
+- ② `semanticModel.GetTypeInfo(creation.Type)` 对 `new T()` 返回 **null**（探针验证），
+  预扫描 `CollectFactoryNeeds` 与 `VisitObjectCreationExpression` 均须改用
+  `GetTypeInfo(creation)`（整表达式，返回 TypeParameter）。
+- ③ `new Box<Widget>().Make()` 的 T 属**含类型**类型参数：`ResolveTypeArgSymbol` 原只查
+  方法级 TypeArguments（长度 0）→ 无法解析。补含类型 `callee.ContainingType.TypeArguments`
+  查表，`() => new Widget()` 用符号显示名回退（调用点语法无类型实参可复用）。
+- ④ 1c 重写后方法已带工厂参数，**原调用点按重写后签名绑定失败**
+  （`this.A<T>()` → OverloadResolutionFailure，裸 `A<T>()` 却能解析——Roslyn 差异）。
+  `VisitInvocationExpression`/透传闭包预扫描均回退 `CandidateSymbols` 首方法符号。
+- ⑤ 前端 lambda 消歧对工厂 lambda 实参包 `(Supplier<X>)` 目标类型强转（构造泛型方法
+  实参 `Func<Widget>` ≠ 定义 `Func<T>`，`HasOverloadWithDifferentFunctionalParam` 误判），
+  IR 层 `TryStripSupplierLambdaCast` 剥离仅后随 lambda 的 `(Supplier<X>)` 前缀（注意
+  `() ->` 括号组与箭头间有空白，需跳过）。
+- ⑥ 实例方法未限定调用不注入 `this.`（Task 22 登记限制）→ L3 样本统一
+  `this.A<Widget>(new Widget())` 显式形态。
+- ⑦ compat 符号登记：语法层 `TypeToken.of/nameOf/isInstance`、`csDefault` 使用点置位
+  `context.TsCompatSymbols`，`RunTsRewriters` 合并进发射器 CompatSymbols 生成
+  `import { TypeToken, csDefault } from "@csharptypescript/compat"`。
+- 验收结果：TS 362/362 全绿（349 基线 + 13 新增，含 L3 tsc），Java 2423/2423 零回归。
+
 ## Task 25: TsInterfaceProbeRewriter（接口运行时检查，spec §2.6.3）
 
 - **Files:** `Rewriters/TsInterfaceProbeRewriter.cs`、`TsInterfaceProbeRewriterTests.cs`

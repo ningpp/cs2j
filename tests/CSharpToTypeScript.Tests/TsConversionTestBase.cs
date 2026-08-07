@@ -145,6 +145,15 @@ export declare class DivideByZeroException extends ArithmeticException {}
 export declare class OverflowException extends ArithmeticException {}
 export declare class FormatException extends CsException {}
 export declare class IOException extends CsException {}
+export declare class TypeToken<T = any> {
+    readonly name: string;
+    constructor(name: string);
+    getName(): string;
+    static of<T = any>(name: string): TypeToken<T>;
+    static nameOf<T = any>(name: string): string;
+    static isInstance<T = any>(name: string, v: unknown): boolean;
+}
+export declare function csDefault(typeInfo?: TypeToken): any;
 """;
 
     private const string CompatIndexJs =
@@ -164,6 +173,14 @@ export class DivideByZeroException extends ArithmeticException {}
 export class OverflowException extends ArithmeticException {}
 export class FormatException extends CsException {}
 export class IOException extends CsException {}
+export class TypeToken {
+    constructor(name) { this.name = name; }
+    getName() { return this.name; }
+    static of(name) { return new TypeToken(name); }
+    static nameOf(name) { return name; }
+    static isInstance(name, v) { return v !== null && v !== undefined; }
+}
+export function csDefault(typeInfo) { return null; }
 """;
 
     /// <summary>

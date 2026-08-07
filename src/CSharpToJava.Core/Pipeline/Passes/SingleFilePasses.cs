@@ -419,6 +419,33 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
             }
         }
 
+        // 1c. Task 24 泛型擦除：语法树层改写（typeof(T)/default(T)/new T()/is T 降级 +
+        //     工厂参数注入与调用点同步）。在重载重建后运行（需有效语义模型做类型参数
+        //     判定与调用点解析）；改写后重建编译供 IR visitor 查询。
+        if (state.Context.SemanticModel != null)
+        {
+            var genericRoot = new TypeScript.Rewriters.TsGenericErasureRewriter(state.Context)
+                .Visit(state.SyntaxTree.GetRoot());
+            if (genericRoot != null && !ReferenceEquals(genericRoot, state.SyntaxTree.GetRoot()))
+            {
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(
+                    (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)genericRoot,
+                    state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    state.SyntaxTree.GetRoot().ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+        }
+
         // 2. 生成 Java IR（与 Java 路径一致）
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());
@@ -472,6 +499,13 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // Task 23：构造器重载 → Create$N 工厂（IR 层合成；调用点已在语法层改写为 Type.Create$N(...)）
         var ctorFactoryRewriter = new TypeScript.Rewriters.TsCtorFactoryRewriter(context);
         ctorFactoryRewriter.VisitCompilationUnit(compilation);
-        return (propertyRewriter.Roles, stringRewriter.CompatSymbols);
+        // Task 24：泛型擦除收尾（类字面量/类型参数强转/lambda 箭头/工厂参数类型与调用改写）
+        var genericErasureRewriter = new TypeScript.Rewriters.TsGenericErasureIrRewriter(context);
+        genericErasureRewriter.VisitCompilationUnit(compilation);
+        var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
+        compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
+        // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）
+        compatSymbols.UnionWith(context.TsCompatSymbols);
+        return (propertyRewriter.Roles, compatSymbols);
     }
 }
