@@ -22,6 +22,36 @@ public class MemoryExtensions {
         return new ReadOnlySpan<>(arr);
     }
 
+    /** C# string.AsMemory() → Java ReadOnlyMemory<Character> */
+    public static ReadOnlyMemory<Character> asMemory(String s) {
+        return ReadOnlyMemory.fromString(s);
+    }
+
+    /** C# string.AsMemory(start, length) → Java ReadOnlyMemory<Character> */
+    public static ReadOnlyMemory<Character> asMemory(String s, int start, int length) {
+        return ReadOnlyMemory.fromString(s, start, length);
+    }
+
+    /** C# char[].AsMemory() → Java ReadOnlyMemory<Character> */
+    public static ReadOnlyMemory<Character> asMemory(char[] data) {
+        if (data == null) return new ReadOnlyMemory<>();
+        Character[] arr = new Character[data.length];
+        for (int i = 0; i < data.length; i++) {
+            arr[i] = data[i];
+        }
+        return new ReadOnlyMemory<>(arr);
+    }
+
+    /** C# char[].AsMemory(start, length) → Java ReadOnlyMemory<Character> */
+    public static ReadOnlyMemory<Character> asMemory(char[] data, int start, int length) {
+        if (data == null) return new ReadOnlyMemory<>();
+        Character[] arr = new Character[length];
+        for (int i = 0; i < length; i++) {
+            arr[i] = data[start + i];
+        }
+        return new ReadOnlyMemory<>(arr, 0, length);
+    }
+
     /** C# Span<byte> → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
     public static ReadOnlySpan<Integer> asSpan(byte[] data) {
         if (data == null) return new ReadOnlySpan<>(new Integer[0]);

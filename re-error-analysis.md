@@ -120,5 +120,24 @@
 - **分析**: `IsDiscardedValueContext` 只识别 `ExpressionStatementSyntax` 和 for 递增器，未覆盖表达式体成员（父节点为 `ArrowExpressionClauseSyntax`）。void 表达式体方法中的属性 `--` 被误判为“值消费上下文”，走 hoist 路径产生临时变量 `_prev1`，其结果又被 `MethodTransformer` 当作语句输出，形成非法裸语句。
 - **修复**: 扩展 `IsDiscardedValueContext` 识别 void 方法/局部函数表达式体、set/init 访问器表达式体、void 委托 lambda；并把 postfix/prefix 中基于 `node.Parent is ExpressionStatementSyntax` 的守卫全部改用该谓词。新增红→绿测试 `VoidExpressionBodyPropertyIncrementTests`（2 个），全量测试 2435 通过。
 
-**状态**: 🔧 验证中
+**状态**: ✅ Fixed
+
+---
+
+## Iteration 5 — ReadOnlyMemory<T> 类型映射缺失（找不到符号）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\System\Text\SegmentStringBuilder.java`（及 `Capture.java` 等）
+- **行号**: 40, 65, 78, 92 …
+- **错误信息**: `找不到符号: 类 ReadOnlyMemory`
+- **代码片段**:
+  ```java
+  private ReadOnlyMemory<Character>[] _array;   // 类不存在，无 import
+  ```
+- **对应 C# 文件**: `d:\csharp-RegularExpressions\src\System\Text\SegmentStringBuilder.cs`（`ReadOnlyMemory<char>[]`）
+- **根因分类**: 类型映射缺失（TypeMappings.json）+ compat 库缺类
+- **涉及组件**: `config/TypeMappings.json`、`java/csharptojava-compat/src/main/java/io/github/ningpp/compat/`（新增 `ReadOnlyMemory.java`，扩展 `MemoryExtensions.java`）
+- **分析**: 转换器无 `System.ReadOnlyMemory<T>`/`System.Memory<T>` 映射，compat 库也无对应类；生成代码直接输出未解析的 `ReadOnlyMemory<Character>` 导致 javac 找不到符号。成员调用（`MemoryExtensions.asMemory`、getter 命名）转换器已能正确产出，只缺类型本身。
+- **修复**: 新增 compat `ReadOnlyMemory<T>`（String/数组双底层，getSpan/getLength/isEmpty/slice/toArray/toString）；`MemoryExtensions` 增加 `asMemory` 四个重载；TypeMappings.json 增加 `System.Memory\`1`/`System.ReadOnlyMemory\`1` → `io.github.ningpp.compat.ReadOnlyMemory` 映射；`mvn clean install` 重装 compat。新增红→绿测试 `ReadOnlyMemoryMappingTests`。
+
+**状态**: ✅ Fixed
 

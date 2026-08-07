@@ -536,6 +536,20 @@
             ]
         },
         {
+            "csharp": "System.Memory`1",
+            "java": "ReadOnlyMemory",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlyMemory"
+            ]
+        },
+        {
+            "csharp": "System.ReadOnlyMemory`1",
+            "java": "ReadOnlyMemory",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlyMemory"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.SortedSet`1",
             "java": "CSharpSortedSet",
             "imports": [
