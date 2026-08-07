@@ -4317,6 +4317,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return "new Object[0]";
         }
 
+        // System.Buffers.ArrayPool<T>.Shared.Rent/Return: emit a Java type witness
+        // (ArrayPool.<T>getShared()) so rent()'s return type flows from the call
+        // chain to the assignment target — bare ArrayPool.getShared().rent(n)
+        // infers T=Object and fails assignment to T[]. Primitive char cannot be a
+        // Java generic argument, so route it to the shared char[] pool helpers.
+        if (methodSymbol is { IsStatic: false }
+            && methodSymbol.ContainingType?.OriginalDefinition?.ToDisplayString() == "System.Buffers.ArrayPool<T>"
+            && originalMethodName is "Rent" or "Return")
+        {
+            var poolArgs = ((INamedTypeSymbol)methodSymbol.ContainingType).TypeArguments;
+            if (poolArgs.Length == 1)
+            {
+                context.AddImport("io.github.ningpp.compat.ArrayPool");
+                var poolArgsStr = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
+                if (poolArgs[0].SpecialType == SpecialType.System_Char)
+                {
+                    var charMethod = originalMethodName == "Rent" ? "rentSharedCharArray" : "returnSharedCharArray";
+                    return $"ArrayPool.{charMethod}({poolArgsStr})";
+                }
+                var javaElem = context.MapType(poolArgs[0]);
+                var sharedPool = $"ArrayPool.<{javaElem}>getShared()";
+                var poolMethod = originalMethodName == "Rent" ? "rent" : "returnValue";
+                return $"{sharedPool}.{poolMethod}({poolArgsStr})";
+            }
+        }
+
         // AsQueryable/AsEnumerable → identity transform: strip the wrapper and return the receiver.
         // In Java, IEnumerable<T> and IQueryable<T> both map to Stream/collection operations;
         // subsequent LINQ calls on the result are handled identically via the same Stream API path.

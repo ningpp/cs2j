@@ -308,3 +308,23 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 14 — ArrayPool.getShared().rent() 链式泛型推断失败（Object[] 无法转换为 T[]）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\System\Collections\Generic\ValueListBuilder.java`
+- **行号**: 80
+- **错误信息**: `不兼容的类型: java.lang.Object[]无法转换为T[]`（同簇：SegmentStringBuilder Object[]→ReadOnlyMemory<Character>[]；ValueStringBuilder Object[]→char[]）
+- **代码片段**:
+  ```java
+  T[] array = ArrayPool.getShared().rent(_span.getLength() * 2);   // 链式推断 T=Object
+  _arrayToReturnToPool = ArrayPool.getShared().rent(initialCapacity); // char[] 目标
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\Common\System\Collections\Generic\ValueListBuilder.cs`、`...\System\Text\ValueStringBuilder.cs`
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`、compat `ArrayPool.java`
+- **分析**: Iter13 新建的 compat `ArrayPool.getShared()` 是泛型静态方法，`ArrayPool.getShared().rent(n)` 链式调用在 javac 中无法从赋值目标反推 T（推断为 Object）；且 `ArrayPool<char>` 在 Java 中无法表达（泛型不支持 char）。需发射类型见证 `ArrayPool.<T>getShared()`，char 路由到 char[] 专用池。
+- **修复**: InvocationExpressionTransformer 拦截 `ArrayPool<T>.Shared.Rent/Return`：引用类型发射 `ArrayPool.<JavaT>getShared().rent/returnValue(...)`，char 发射 `ArrayPool.rentSharedCharArray/returnSharedCharArray(...)`；compat ArrayPool 新增 char[] 共享池。同步补齐 compat API：Span 新增 char[] 构造器/存储、`copyTo(Span)`/`copyTo(char[])`/`fill(T)`；MemoryMarshal 新增 `getReference(Span<T>)`。新增红→绿测试 `ArrayPoolTypeWitnessTests`（3 用例），全量测试 2449 通过。
+
+**状态**: ✅ Fixed
+

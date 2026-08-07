@@ -14,4 +14,12 @@ public class MemoryMarshal {
         }
         return new ReadOnlySpan<>(bytes);
     }
+
+    /**
+     * Mirrors C# MemoryMarshal.GetReference&lt;T&gt;(Span&lt;T&gt;): Java has no ref
+     * returns, so this yields the first element by value (call sites read it).
+     */
+    public static <T> T getReference(Span<T> span) {
+        return span.get(0);
+    }
 }

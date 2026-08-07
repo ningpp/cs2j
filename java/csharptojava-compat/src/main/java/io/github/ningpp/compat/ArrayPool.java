@@ -9,6 +9,7 @@ import java.util.ArrayDeque;
  */
 public final class ArrayPool<T> {
     private static final ArrayPool<Object> SHARED = new ArrayPool<>(Object.class);
+    private static final ArrayDeque<char[]> CHAR_BUCKET = new ArrayDeque<>();
 
     private final Class<?> componentType;
     private final ArrayDeque<Object[]> buckets = new ArrayDeque<>();
@@ -64,6 +65,47 @@ public final class ArrayPool<T> {
         }
         if (buckets.size() < 32) {
             buckets.addLast(array);
+        }
+    }
+
+    /**
+     * Rents a char[] from the shared char pool. Java generics cannot express
+     * ArrayPool&lt;char&gt;, so C# ArrayPool&lt;char&gt;.Shared.Rent routes here.
+     */
+    public static char[] rentSharedCharArray(int minimumLength) {
+        if (minimumLength < 0) {
+            throw new IllegalArgumentException("minimumLength=" + minimumLength);
+        }
+        int size = Math.max(1, Integer.highestOneBit(Math.max(minimumLength, 1) - 1) << 1);
+        if (size < minimumLength) {
+            size = minimumLength;
+        }
+        char[] pooled = CHAR_BUCKET.pollFirst();
+        if (pooled != null && pooled.length >= minimumLength) {
+            return pooled;
+        }
+        return new char[size];
+    }
+
+    /**
+     * Returns a char[] to the shared char pool.
+     */
+    public static void returnSharedCharArray(char[] array) {
+        returnSharedCharArray(array, false);
+    }
+
+    /**
+     * Returns a char[] to the shared char pool, optionally clearing it first.
+     */
+    public static void returnSharedCharArray(char[] array, boolean clearArray) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+        if (clearArray) {
+            java.util.Arrays.fill(array, '\0');
+        }
+        if (CHAR_BUCKET.size() < 32) {
+            CHAR_BUCKET.addLast(array);
         }
     }
 }

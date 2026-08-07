@@ -23,6 +23,12 @@ public final class Span<T> {
         this.length = array.length;
     }
 
+    public Span(char[] array) {
+        this.array = array;
+        this.offset = 0;
+        this.length = array.length;
+    }
+
     public Span(T[] array, int offset, int length) {
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
@@ -34,6 +40,16 @@ public final class Span<T> {
     }
 
     public Span(byte[] array, int offset, int length) {
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(
+                "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
+        }
+        this.array = array;
+        this.offset = offset;
+        this.length = length;
+    }
+
+    public Span(char[] array, int offset, int length) {
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
@@ -78,6 +94,11 @@ public final class Span<T> {
             T value = (T) java.lang.Integer.valueOf(bytes[offset + index] & 0xFF);
             return value;
         }
+        if (array instanceof char[] chars) {
+            @SuppressWarnings("unchecked")
+            T value = (T) Character.valueOf(chars[offset + index]);
+            return value;
+        }
         @SuppressWarnings("unchecked")
         T value = ((T[]) array)[offset + index];
         return value;
@@ -91,7 +112,56 @@ public final class Span<T> {
             bytes[offset + index] = (byte)(((Number) value).intValue() & 0xFF);
             return;
         }
+        if (array instanceof char[] chars) {
+            chars[offset + index] = ((Character) value).charValue();
+            return;
+        }
         ((T[]) array)[offset + index] = value;
+    }
+
+    /**
+     * Mirrors C# Span&lt;T&gt;.CopyTo(Span&lt;T&gt;).
+     */
+    public void copyTo(Span<T> destination) {
+        if (destination == null) {
+            throw new NullPointerException("destination");
+        }
+        if (destination.length < length) {
+            throw new IllegalArgumentException("destination too short: " + destination.length + " < " + length);
+        }
+        for (int i = 0; i < length; i++) {
+            destination.set(i, get(i));
+        }
+    }
+
+    /**
+     * Copies into a primitive char[] (C# implicit char[] → Span&lt;char&gt; at call sites).
+     */
+    public void copyTo(char[] destination) {
+        if (destination == null) {
+            throw new NullPointerException("destination");
+        }
+        if (destination.length < length) {
+            throw new IllegalArgumentException("destination too short: " + destination.length + " < " + length);
+        }
+        for (int i = 0; i < length; i++) {
+            destination[i] = ((Character) get(i)).charValue();
+        }
+    }
+
+    /**
+     * Mirrors C# Span&lt;T&gt;.Fill(T): sets every element to the given value.
+     */
+    public void fill(T value) {
+        if (array instanceof byte[] bytes) {
+            Arrays.fill(bytes, offset, offset + length, (byte)(((Number) value).intValue() & 0xFF));
+            return;
+        }
+        if (array instanceof char[] chars) {
+            Arrays.fill(chars, offset, offset + length, ((Character) value).charValue());
+            return;
+        }
+        Arrays.fill((T[]) array, offset, offset + length, value);
     }
 
     public Span<T> slice(int start) {
@@ -105,6 +175,9 @@ public final class Span<T> {
         }
         if (array instanceof byte[] bytes) {
             return new Span<>(bytes, offset + start, len);
+        }
+        if (array instanceof char[] chars) {
+            return new Span<>(chars, offset + start, len);
         }
         return new Span<>((T[]) array, offset + start, len);
     }
@@ -123,6 +196,10 @@ public final class Span<T> {
             Arrays.fill(bytes, offset, offset + length, (byte)0);
             return;
         }
+        if (array instanceof char[] chars) {
+            Arrays.fill(chars, offset, offset + length, '\0');
+            return;
+        }
         Arrays.fill((T[]) array, offset, offset + length, (T) fillValue);
     }
 
@@ -130,6 +207,7 @@ public final class Span<T> {
     private Object getDefaultValue() {
         // C# Span<T>.Clear() fills with default(T): 0 for numeric types, false for boolean, null for references
         if (array instanceof byte[]) return Integer.valueOf(0);
+        if (array instanceof char[]) return Character.valueOf('\0');
         if (array instanceof Short[]) return Short.valueOf((short)0);
         if (array instanceof Integer[]) return java.lang.Integer.valueOf(0);
         if (array instanceof Long[]) return Long.valueOf(0L);
@@ -150,6 +228,14 @@ public final class Span<T> {
             }
             return copy;
         }
+        if (array instanceof char[] chars) {
+            @SuppressWarnings("unchecked")
+            T[] copy = (T[]) new Character[length];
+            for (int i = 0; i < length; i++) {
+                copy[i] = (T) Character.valueOf(chars[offset + i]);
+            }
+            return copy;
+        }
         return Arrays.copyOfRange((T[]) array, offset, offset + length);
     }
 
@@ -161,6 +247,9 @@ public final class Span<T> {
                 sb.append(chars[offset + i]);
             }
             return sb.toString();
+        }
+        if (array instanceof char[] chars) {
+            return new String(chars, offset, length);
         }
         return super.toString();
     }

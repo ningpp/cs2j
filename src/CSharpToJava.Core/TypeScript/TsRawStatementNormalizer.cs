@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.TypeScript;
@@ -1252,7 +1252,18 @@ public static class TsRawStatementNormalizer
         // Java dimension-only array creations: "new double[2][]" / "new T[n]" ->
         // "new Array(n)" (TS has no dimension syntax; Array(n) yields the same shape).
         var arrayDimPattern = new Regex(@"new\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^>]*>)?\[(?<dim>[^\]]+)\](?:\[\])*(?!\s*\{)");
-        return arrayDimPattern.Replace(withBraces, match => $"new Array({match.Groups["dim"].Value.Trim()})");
+        var withDims = arrayDimPattern.Replace(withBraces, match => $"new Array({match.Groups["dim"].Value.Trim()})");
+
+        // Round 13: the brace pass above matches its body greedily to the LAST '}' on
+        // the line, so a multi-declarator line ("double[][] XX = new double[][] { ... },
+        // YY = new double[][] { ... };") drops only the first "new TYPE[]" prefix and
+        // leaves the second as "new double[][] [ ... ]" (empty dims + bracket literal).
+        // Strip that prefix when the empty-bracket creation is directly followed by a
+        // '[' literal. Requires at least one empty [] pair, so "new double[2][]" (non-
+        // empty dim, already converted above) and "new String[] { ... }" (brace body,
+        // consumed by the brace pass) are never touched.
+        var emptyDimLiteralPattern = new Regex(@"new\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^>]*>)?(?:\[\])+\s*(?=\[)");
+        return emptyDimLiteralPattern.Replace(withDims, string.Empty);
     }
 
     /// <summary>

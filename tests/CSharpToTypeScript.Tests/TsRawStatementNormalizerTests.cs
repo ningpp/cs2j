@@ -771,5 +771,34 @@ public class TsRawStatementNormalizerTests
         var expected = "let s: string = \"a\rb\"; // keep\r\n";
         Assert.Equal(expected, NormalizeWithTable(input));
     }
-}
+    // ---- Round 13 (MSAGL): multi-declarator array literals keep a second "new TYPE[]" prefix ----
+    // ProcrustesCircleConstraint.cs:212-213: `double[,] XX = { {...} }, YY = { {...} };` becomes
+    // raw Java text "double[][] XX = new double[][] { ... }, YY = new double[][] { ... };". The
+    // array-literal pass matches its body greedily to the LAST '}' on the line, spanning both
+    // declarators, so only the first "new double[][]" prefix is dropped; the second survives as
+    // "YY = new double[][] [ ... ]" (TS1011 x2). Empty-bracket creations directly before a '['
+    // literal lose the prefix too; non-empty dims (new double[2][]) keep the Array(n) path.
 
+    [Fact]
+    public void Multi_Declarator_Array_Literals_Strip_Every_New_Type_Prefix()
+    {
+        var input = "double[][] XX = new double[][] { { 1, 2 }, { -1, 2 } }, YY = new double[][] { { 0.07, 2.62 }, { 0.93, 3.12 } };";
+        var expected = "let XX: number[][] = [ [ 1, 2 ], [ -1, 2 ] ], YY: number[][] = [ [ 0.07, 2.62 ], [ 0.93, 3.12 ] ];";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Empty_Dimension_Array_Creation_Before_Bracket_Literal_Drops_Prefix()
+    {
+        Assert.Equal("[ 1, 2 ]", TsRawStatementNormalizer.Normalize("new double[] [ 1, 2 ]"));
+        Assert.Equal("[ [ 0.07 ], [ 0.93 ] ]", TsRawStatementNormalizer.Normalize("new double[][] [ [ 0.07 ], [ 0.93 ] ]"));
+    }
+
+    [Fact]
+    public void Non_Empty_Dimension_Array_Creation_Is_Untouched_By_Prefix_Strip()
+    {
+        // Guard: "new double[2][]" must keep the Array(n) dimension path — the strip
+        // requires at least one empty [] pair, so "new double" + "[2]" cannot match.
+        Assert.Equal("new Array(2)", TsRawStatementNormalizer.Normalize("new double[2][]"));
+    }
+}
