@@ -252,9 +252,6 @@ public class MathHelper {
         try { result.value = parseIntWithStyle(s, style); return true; }
         catch (NumberFormatException e) { return false; }
     }
-    public static boolean tryParseInt(String s, int style, NumberFormatInfo formatInfo, IntHolder result) {
-        return tryParseInt(s, style, (CultureInfo)null, result);
-    }
     public static boolean tryParseLong(String s, LongHolder result) {
         try { result.value = Long.parseLong(s); return true; }
         catch (NumberFormatException e) { return false; }
@@ -262,9 +259,6 @@ public class MathHelper {
     public static boolean tryParseLong(String s, int style, CultureInfo culture, LongHolder result) {
         try { result.value = parseLongWithStyle(s, style); return true; }
         catch (NumberFormatException e) { return false; }
-    }
-    public static boolean tryParseLong(String s, int style, NumberFormatInfo formatInfo, LongHolder result) {
-        return tryParseLong(s, style, (CultureInfo)null, result);
     }
     public static boolean tryParseBool(String s, BoolHolder result) {
         if ("true".equalsIgnoreCase(s))  { result.value = true;  return true; }
@@ -352,14 +346,6 @@ public class MathHelper {
         catch (FormatException e) { return false; }
     }
 
-    public static boolean tryParseUInt(String s, int style, NumberFormatInfo formatInfo, IntHolder result) {
-        return tryParseUInt(s, style, (CultureInfo)null, result);
-    }
-
-    public static boolean tryParseUInt(String s, int style, Locale locale, IntHolder result) {
-        return tryParseUInt(s, style, (CultureInfo)null, result);
-    }
-
     public static boolean tryParseUInt(String s, IntHolder result) {
         try { result.value = parseUInt(s); return true; }
         catch (FormatException e) { return false; }
@@ -375,14 +361,6 @@ public class MathHelper {
         catch (FormatException e) { return false; }
     }
 
-    public static boolean tryParseUShort(String s, int style, NumberFormatInfo formatInfo, IntHolder result) {
-        return tryParseUShort(s, style, (CultureInfo)null, result);
-    }
-
-    public static boolean tryParseUShort(String s, int style, Locale locale, IntHolder result) {
-        return tryParseUShort(s, style, (CultureInfo)null, result);
-    }
-
     public static boolean tryParseULong(String s, LongHolder result) {
         try { result.value = parseULong(s); return true; }
         catch (FormatException e) { return false; }
@@ -391,14 +369,6 @@ public class MathHelper {
     public static boolean tryParseULong(String s, int style, CultureInfo culture, LongHolder result) {
         try { result.value = parseULong(s, style); return true; }
         catch (FormatException e) { return false; }
-    }
-
-    public static boolean tryParseULong(String s, int style, NumberFormatInfo formatInfo, LongHolder result) {
-        return tryParseULong(s, style, (CultureInfo)null, result);
-    }
-
-    public static boolean tryParseULong(String s, int style, Locale locale, LongHolder result) {
-        return tryParseULong(s, style, (CultureInfo)null, result);
     }
 
     private static double parseDoubleWithStyle(String s, int style) {

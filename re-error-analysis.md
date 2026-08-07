@@ -586,3 +586,22 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 28 — Regex.java tryParseUInt 引用不明确（null culture 二义）
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Regex.java`
+- **行号**: 294
+- **错误信息**: `对 tryParseUInt 的引用不明确；tryParseUInt(String,int,NumberFormatInfo,IntHolder) 和 tryParseUInt(String,int,Locale,IntHolder) 都匹配`
+- **代码片段**:
+  ```java
+  MathHelper.tryParseUInt(name, NumberStyles.None, null, _resultHolder1)   // null 同时匹配 NumberFormatInfo/Locale
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Regex.cs`（`uint.TryParse(name, NumberStyles.None, null, out result)`）
+- **根因分类**: 类型映射缺失（compat API 缺口）
+- **涉及组件**: `java/csharptojava-compat/.../MathHelper.java`
+- **分析**: compat MathHelper 对整数 tryParse 同时提供 NumberFormatInfo 与 Locale 重载（均为委托到 `(CultureInfo)null` 的无用 shim）；转换器 culture 实参恒为 CultureInfo/null，`null` 令两个重载二义。
+- **修复**: 移除整数 tryParse 家族（int/long/uint/ushort/ulong）的 NumberFormatInfo/Locale 冗余 shim 重载，仅保留 CultureInfo 重载，null 不再二义。新增红→绿 compat JUnit 测试 `MathHelperTryParseNullCultureTest`，compat 全量测试通过。
+
+**状态**: ✅ Fixed
+
