@@ -5454,6 +5454,8 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 - **Files:** `typescript/csharptotypescript-compat/`（package.json name `@csharptotypescript/compat`、ESM、strict tsconfig、vitest.config.ts、src/index.ts）
 - **验证：** `npm install` + `npx tsc --noEmit` + `npx vitest run` 在空骨架上通过。
 
+- [x] **Task 28 完成（2026-08-07）**：`typescript/csharptotypescript-compat/` 脚手架（package.json ESM + exports、strict tsconfig + declaration、vitest.config.ts、src/index.ts、smoke 测试）；npm install（typescript ^7 / vitest ^4）+ tsc --noEmit + vitest run 全过。
+
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
 | Task | 组件 | 关键验收（spec 章节） |
