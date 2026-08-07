@@ -90,7 +90,15 @@ public static class TsRawStatementNormalizer
         // syntax; arrow functions preserve delegate-call semantics.
         var withMethodRefs = NormalizeMethodReferences(withObjectEmpty);
 
-        var withDecls = NormalizeRawDeclarations(withMethodRefs, mapType);
+        // 6c Java control-flow text: typed catch bindings, try-with-resources heads,
+        // synchronized blocks, double literal suffixes, explicit generic calls.
+        var withCatch = NormalizeCatchClauses(withMethodRefs);
+        var withTryResources = NormalizeTryWithResources(withCatch);
+        var withSync = NormalizeSynchronizedBlocks(withTryResources);
+        var withDoubles = NormalizeDoubleSuffixLiterals(withSync);
+        var withGenericCalls = NormalizeGenericMethodInvocations(withDoubles);
+
+        var withDecls = NormalizeRawDeclarations(withGenericCalls, mapType);
 
         // ⑧ Java 形态空安全相等调用 java.util.Objects.equals(a, b) / Objects.equals(a, b)
         // → a === b（Task 27 模式匹配：switch 语句常量标签 case null:/case 5: 的 Java 化
@@ -603,6 +611,243 @@ public static class TsRawStatementNormalizer
         => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or '_' or '$';
 
     /// <summary>
+    /// "catch (Exception __e)" -> "catch (__e)": TS catch bindings carry no type
+    /// annotation. Multi-catch unions ("catch (A | B e)") also lose their types.
+    /// </summary>
+    private static string NormalizeCatchClauses(string code)
+    {
+        var catchPattern = new Regex(@"\bcatch\s*\(\s*(?<types>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:\s*[|&]\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)*)\s+(?<name>[A-Za-z_$][\w$]*)\s*\)");
+        return catchPattern.Replace(code, match => $"catch ({match.Groups["name"].Value})");
+    }
+
+    /// <summary>
+    /// Java try-with-resources "try (Type name = init) {" -> "try { let name = init;":
+    /// the resource declaration becomes a local (TS has no resource syntax).
+    /// Resources separated by ";" each become their own let declaration.
+    /// </summary>
+    private static string NormalizeTryWithResources(string code)
+    {
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
+                continue;
+            }
+            if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith("try (", StringComparison.Ordinal))
+            {
+                var close = FindMatchingParen(code, i + 4);
+                if (close >= 0 && TryRewriteTryHead(code, i + 4, close, out var rewritten))
+                {
+                    var after = close + 1;
+                    while (after < code.Length && char.IsWhiteSpace(code[after]))
+                    {
+                        after++;
+                    }
+                    if (after < code.Length && code[after] == '{')
+                    {
+                        sb.Append(rewritten);
+                        i = after + 1;   // body continues after its opening '{'
+                        continue;
+                    }
+                }
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Parses a try-with-resources head into let declarations; false when
+    /// any resource does not match "Type name [= init]".</summary>
+    private static bool TryRewriteTryHead(string code, int openIndex, int closeIndex, out string rewritten)
+    {
+        rewritten = string.Empty;
+        var head = code.Substring(openIndex + 1, closeIndex - openIndex - 1);
+        if (string.IsNullOrWhiteSpace(head))
+        {
+            return false;
+        }
+        var resources = SplitTopLevelSemicolons(head);
+        var decls = new List<string>();
+        foreach (var resource in resources)
+        {
+            var trimmed = resource.Trim();
+            var m = Regex.Match(trimmed, @"^(?:final\s+)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^;]*>)?(?:\s*\[\s*\])*\s+(?<name>[A-Za-z_$][\w$]*)\s*(?:=\s*(?<init>.+))?$");
+            if (!m.Success)
+            {
+                return false;
+            }
+            var name = m.Groups["name"].Value;
+            decls.Add(m.Groups["init"].Success
+                ? $"let {name} = {m.Groups["init"].Value.Trim()}"
+                : $"let {name}");
+        }
+        rewritten = $"try {{ {string.Join("; ", decls)};";
+        return true;
+    }
+
+    /// <summary>Splits text on top-level semicolons (outside parens/brackets/braces/
+    /// generics and quoted literals).</summary>
+    private static List<string> SplitTopLevelSemicolons(string text)
+    {
+        var result = new List<string>();
+        var depth = 0;
+        var startIdx = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '"' || c == '\'')
+            {
+                i = SkipQuotedLiteral(text, i) - 1;
+                continue;
+            }
+            switch (c)
+            {
+                case '(':
+                case '[':
+                case '{':
+                case '<':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                case '>':
+                    depth--;
+                    break;
+                default:
+                    if (c == ';' && depth == 0)
+                    {
+                        result.Add(text[startIdx..i].Trim());
+                        startIdx = i + 1;
+                    }
+                    break;
+            }
+        }
+        result.Add(text[startIdx..].Trim());
+        return result;
+    }
+
+    /// <summary>
+    /// "synchronized (this) {" -> "{": TS has no monitor syntax; the block body is
+    /// kept (lock semantics are a documented known limitation).
+    /// </summary>
+    private static string NormalizeSynchronizedBlocks(string code)
+    {
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
+                continue;
+            }
+            if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith("synchronized", StringComparison.Ordinal))
+            {
+                var j = i + "synchronized".Length;
+                while (j < code.Length && char.IsWhiteSpace(code[j]))
+                {
+                    j++;
+                }
+                if (j < code.Length && code[j] == '(')
+                {
+                    var close = FindMatchingParen(code, j);
+                    if (close >= 0)
+                    {
+                        var after = close + 1;
+                        while (after < code.Length && char.IsWhiteSpace(code[after]))
+                        {
+                            after++;
+                        }
+                        if (after < code.Length && code[after] == '{')
+                        {
+                            i = after;   // keep the '{' and everything after
+                            continue;
+                        }
+                    }
+                }
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Java double literal suffix: 0.0d/1e-3D -> 0.0/1e-3 (TS has no d suffix).
+    /// Skips strings, chars and comments.
+    /// </summary>
+    private static string NormalizeDoubleSuffixLiterals(string code)
+    {
+        var doublePattern = new Regex(@"(?<![A-Za-z_$0-9])(?<num>\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)[dD](?![A-Za-z_$0-9])");
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
+                continue;
+            }
+            var m = doublePattern.Match(code, i);
+            if (m.Success && m.Index == i)
+            {
+                sb.Append(m.Groups["num"].Value);
+                i += m.Length;
+                continue;
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Java explicit generic method invocation "Collections.&lt;EdgeGeometry&gt;emptyList()"
+    /// -> "Collections.emptyList()": TS infers type arguments at runtime.
+    /// </summary>
+    private static string NormalizeGenericMethodInvocations(string code)
+    {
+        var genericCallPattern = new Regex(@"\.<[^<>]*>[A-Za-z_$][\w$]*\(");
+        return genericCallPattern.Replace(code, match =>
+        {
+            var afterTypeArgs = match.Value.IndexOf('>');
+            return "." + match.Value[(afterTypeArgs + 1)..];
+        });
+    }
+
+    /// <summary>
     /// Java 形态局部声明归一化（Task 27 模式匹配）：行首 "Type name = init;" →
     /// "let name: MappedType = init;"。类型仅匹配单标识符或泛型名（不含 "."，避免
     /// 成员赋值误判）；类型映射回调为空时直通。非声明行（表达式/控制流）不受影响。
@@ -816,7 +1061,7 @@ public static class TsRawStatementNormalizer
     private static string NormalizeArrayLiterals(string code)
     {
         var arrayPattern = new Regex(@"new\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^>]*>)?(?:\[\])*\s*(?<body>\{[^\r\n]*\})\s*");
-        return arrayPattern.Replace(code, match =>
+        var withBraces = arrayPattern.Replace(code, match =>
         {
             var body = match.Groups["body"].Value;
             var sb = new StringBuilder(body.Length);
@@ -834,6 +1079,11 @@ public static class TsRawStatementNormalizer
             }
             return sb.ToString();
         });
+
+        // Java dimension-only array creations: "new double[2][]" / "new T[n]" ->
+        // "new Array(n)" (TS has no dimension syntax; Array(n) yields the same shape).
+        var arrayDimPattern = new Regex(@"new\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^>]*>)?\[(?<dim>[^\]]+)\](?:\[\])*(?!\s*\{)");
+        return arrayDimPattern.Replace(withBraces, match => $"new Array({match.Groups["dim"].Value.Trim()})");
     }
 
     private static bool LooksLikeClassType(string type)

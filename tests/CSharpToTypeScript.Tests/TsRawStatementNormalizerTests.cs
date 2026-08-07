@@ -459,4 +459,65 @@ public class TsRawStatementNormalizerTests
             "double" or "int" or "long" or "float" or "short" or "byte" => "number",
             _ => t,
         });
+
+
+    [Fact]
+    public void Catch_With_Type_Annotation_Keeps_Only_The_Binding_Name()
+    {
+        Assert.Equal(
+            "} catch (__e) {",
+            TsRawStatementNormalizer.Normalize("} catch (Exception __e) {"));
+        Assert.Equal(
+            "} catch (ex) {",
+            TsRawStatementNormalizer.Normalize("} catch (CsException ex) {"));
+    }
+
+    [Fact]
+    public void Try_With_Resources_Becomes_Try_With_Local_Declaration()
+    {
+        Assert.Equal(
+            "try { let stream = StreamWrapper.of(FileHelper.openRead(fileName));",
+            TsRawStatementNormalizer.Normalize("try (StreamWrapper stream = StreamWrapper.of(FileHelper.openRead(fileName))) {"));
+    }
+
+    [Fact]
+    public void Synchronized_Block_Keeps_Its_Body()
+    {
+        Assert.Equal(
+            "{ if (this.labelObstacleMap === null) {",
+            TsRawStatementNormalizer.Normalize("synchronized (this) { if (this.labelObstacleMap === null) {"));
+    }
+
+    [Fact]
+    public void Double_Literal_Suffix_Drops()
+    {
+        Assert.Equal(
+            "self.OrigWeight = 0.0;",
+            TsRawStatementNormalizer.Normalize("self.OrigWeight = 0.0d;"));
+        Assert.Equal(
+            "self.OrigScale = 0.0;",
+            TsRawStatementNormalizer.Normalize("self.OrigScale = 0.0D;"));
+    }
+
+    [Fact]
+    public void Java_Array_Dimension_Creation_Becomes_Array_Constructor()
+    {
+        Assert.Equal(
+            "this.matrixQ = new Array(cVariables);",
+            TsRawStatementNormalizer.Normalize("this.matrixQ = new MatrixCell[cVariables][];"));
+        Assert.Equal(
+            "private elements: number[][] = new Array(2);",
+            TsRawStatementNormalizer.Normalize("private elements: number[][] = new double[2][];"));
+        Assert.Equal(
+            "new Array(this.NumRow)",
+            TsRawStatementNormalizer.Normalize("new double[this.NumRow]"));
+    }
+
+    [Fact]
+    public void Generic_Method_Invocation_Drops_Explicit_Type_Arguments()
+    {
+        Assert.Equal(
+            "Collections.emptyList()",
+            TsRawStatementNormalizer.Normalize("Collections.<EdgeGeometry>emptyList()"));
+    }
 }
