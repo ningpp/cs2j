@@ -125,10 +125,42 @@ public abstract class TsConversionTestBase
         """{"name":"@csharptotypescript/compat","version":"0.0.0","types":"index.d.ts","exports":{".":{"types":"./index.d.ts","default":"./index.js"}}}""";
 
     private const string CompatIndexDts =
-        """export declare namespace CsString { function format(fmt: string, ...args: unknown[]): string; }""";
+        """
+export declare namespace CsString { function format(fmt: string, ...args: unknown[]): string; }
+export declare class CsException extends Error { constructor(message?: string); getMessage(): string; }
+export declare class ArgumentException extends CsException {}
+export declare class ArgumentNullException extends ArgumentException {}
+export declare class ArgumentOutOfRangeException extends ArgumentException {}
+export declare class InvalidOperationException extends CsException {}
+export declare class NotSupportedException extends CsException {}
+export declare class NotImplementedException extends CsException {}
+export declare class IndexOutOfRangeException extends CsException {}
+export declare class KeyNotFoundException extends CsException {}
+export declare class ArithmeticException extends CsException {}
+export declare class DivideByZeroException extends ArithmeticException {}
+export declare class OverflowException extends ArithmeticException {}
+export declare class FormatException extends CsException {}
+export declare class IOException extends CsException {}
+""";
 
     private const string CompatIndexJs =
-        """export const CsString = { format(fmt, ...args) { return fmt; } };""";
+        """
+export const CsString = { format(fmt, ...args) { return fmt; } };
+export class CsException extends Error { constructor(message) { super(message); } getMessage() { return this.message; } }
+export class ArgumentException extends CsException {}
+export class ArgumentNullException extends ArgumentException {}
+export class ArgumentOutOfRangeException extends ArgumentException {}
+export class InvalidOperationException extends CsException {}
+export class NotSupportedException extends CsException {}
+export class NotImplementedException extends CsException {}
+export class IndexOutOfRangeException extends CsException {}
+export class KeyNotFoundException extends CsException {}
+export class ArithmeticException extends CsException {}
+export class DivideByZeroException extends ArithmeticException {}
+export class OverflowException extends ArithmeticException {}
+export class FormatException extends CsException {}
+export class IOException extends CsException {}
+""";
 
     /// <summary>
     /// 启动进程并等待退出；超时则终止整个进程树并以包含已捕获输出的清晰消息断言失败。

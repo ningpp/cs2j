@@ -46,7 +46,7 @@ public sealed class TsStatementWriter
             JavaBreakStatement => $"{ind}break;",
             JavaContinueStatement => $"{ind}continue;",
             JavaSwitchStatement sw => EmitSwitch(sw, indentLevel),
-            JavaRawStatement raw => $"{ind}{TsRawStatementNormalizer.Normalize(raw.Code, _exprWriter.MapType)}",
+            JavaRawStatement raw => $"{ind}{TsRawStatementNormalizer.Normalize(raw.Code, _exprWriter.MapType, _exprWriter.MapExceptionName)}",
             _ => $"{ind}/* cs2j: unsupported statement {stmt.GetType().Name} */",
         };
     }
@@ -246,9 +246,22 @@ public sealed class TsStatementWriter
                 }
 
                 // 守卫链块：if/else-if 行自带花括号，body 语句直接落在块内（贴合单 catch 输出形状）
+                // Task 21：catch 类型为 Java 风味异常名，反向映射到兼容库类
+                //（IllegalStateException→InvalidOperationException 等）；无精确兼容类时
+                // 降级 CsException 并追加 /* cs2j: unmapped exception */ 诊断注释。
+                var tsExceptionType = clause.ExceptionType;
+                if (_exprWriter.TryMapException(tsExceptionType, out var mappedException, out var exceptionImports, out var exceptionFallback))
+                {
+                    _exprWriter.RegisterImports(mappedException, exceptionImports);
+                    if (exceptionFallback)
+                    {
+                        mappedException += " /* cs2j: unmapped exception */";
+                    }
+                    tsExceptionType = mappedException;
+                }
                 var head = isFirst
-                    ? $"{ind}{_indent}if ({exVar} instanceof {clause.ExceptionType}) {{"
-                    : $" else if ({exVar} instanceof {clause.ExceptionType}) {{";
+                    ? $"{ind}{_indent}if ({exVar} instanceof {tsExceptionType}) {{"
+                    : $" else if ({exVar} instanceof {tsExceptionType}) {{";
                 sb.AppendLine(head);
                 EmitCatchBody(sb, clause, exVar, indentLevel + 2);
                 sb.Append($"{ind}{_indent}}}");

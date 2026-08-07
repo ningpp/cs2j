@@ -5067,18 +5067,34 @@ Actual: PASS（TS 322/322 = 313 基线 + 8 新增 + 1 探针，含 L3 tsc；Java
 ## Task 21: 异常发射与兼容异常类映射
 
 **Files:**
-- Modify: `src/CSharpToJava.Core/TypeScript/TsStatementWriter.cs`（catch 类型名映射）
-- Modify: `src/CSharpToJava.Core/TypeScript/TsMemberMappingTable.cs`（Java 异常名 → 兼容库异常名内置表）
+- Modify: `src/CSharpToJava.Core/TypeScript/TsMemberMappingTable.cs`（异常反向映射：内置覆盖表 + 兼容类集合 + Java TypeMappings 全量提取 + `TryMapException`）
+- Modify: `src/CSharpToJava.Core/TypeScript/TsExpressionWriter.cs`（`EmitNew`/`EmitInstanceOf` 异常映射 + `MapExceptionName` raw 回调）
+- Modify: `src/CSharpToJava.Core/TypeScript/TsStatementWriter.cs`（catch instanceof 类型名映射 + raw 归一化接线）
+- Modify: `src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs`（raw 文本 `new X(`/`instanceof X` 异常名归一化）
+- Modify: `src/CSharpToJava.Core/TypeScript/TsTypeWriter.cs`（基类 `extends` 异常名映射）
+- Modify: `src/CSharpToJava.Core/TypeScript/TypeScriptEmitter.cs`（传入 Java TypeMappings 路径）
+- Modify: `tests/CSharpToTypeScript.Tests/TsConversionTestBase.cs`（compat 桩补 §4.3.9 异常类层次）
+- Modify: `tests/CSharpToTypeScript.Tests/TsStatementWriterTests.cs`（IllegalStateException 期望改为映射后名）
 - Create: `tests/CSharpToTypeScript.Tests/TsExceptionEmissionTests.cs`
 
-- [ ] **Step 1: 实现**
+- [x] **Step 1: 实现**
 
 1. catch/throw 中的 Java 风味异常名（如 `IllegalArgumentException`/`IllegalStateException`）映射到兼容库名（`ArgumentException`/`InvalidOperationException`，spec §4.3.9）；未映射异常 → `CsException` + 诊断。
 2. `new IllegalArgumentException("msg")` → `new ArgumentException("msg")`，imports 自动加 compat（`WithImports` 机制）。
 3. catch 按类型过滤的 instanceof 链已在 Task 8 实现；本任务验证其与兼容异常类配合（异常类是 class，`instanceof` 可用，spec §4.3.9）。
 4. 测试：`TsExceptionEmissionTests`（spec §5.3 M2 组）。
 
-- [ ] **Step 2: 运行测试 + 提交**
+- [x] **Step 2: 运行测试 + 提交**
+
+Run: `dotnet test tests/CSharpToTypeScript.Tests/CSharpToTypeScript.Tests.csproj`
+Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`（Java 零回归）
+Actual: PASS（TS 337/337 = 322 基线 + 15 新增，含 L3 tsc；Java 2423/2423 零回归）。
+
+**注记（2026-08-07 Task 21 实施，实测为准）：**
+> ① 实测产物形态（全部经 L3 tsc strict 编译）：`throw new InvalidOperationException("bad state")` → `throw new InvalidOperationException("bad state")`（imports 自动收集 `import { InvalidOperationException } from "@csharptotypescript/compat"`）；`throw new Exception("boom")` → `throw new CsException("boom")`（IR RuntimeException → 覆盖映射，无降级注释）；`throw new NullReferenceException("null")` → `throw new CsException /* cs2j: unmapped exception */("null")`（raw 归一化形态，注释位于名字与括号之间）；`catch (InvalidOperationException ex)` → `if (ex instanceof InvalidOperationException) {`；`catch (Exception ex)` → `else if (ex instanceof CsException) {`；裸 `catch` → 链尾 else；`class MyException : Exception` → `class MyException extends CsException`（基类经 `MapTypeNonNull` 映射）；`Exception field;`/`Exception M(Exception p)` → `field: CsException | null = null`/`m(p: CsException): CsException`；用户定义异常（`MyException`）不做映射且不误加 compat 导入。
+> ② 实现路径（证据）：完整反向映射表由 `TsMemberMappingTable` 承载——5 条 Java 标准名覆盖（`IllegalArgumentException→ArgumentException`、`IllegalStateException→InvalidOperationException`、`IndexOutOfBoundsException→IndexOutOfRangeException`、`RuntimeException→CsException`、`UnsupportedOperationException→NotSupportedException`）+ spec §4.3.9 兼容类名集合（恒等）+ “已知 BCL 异常名”集合（运行时从 Java `TypeMappings.json` 全量提取 csharp/java 两侧简单名，配置缺失回退内置高频集合）；`TryMapException` 返回 `isFallback` 供调用方追加 `/* cs2j: unmapped exception */` 注释，`TryMapType` 同步挂钩覆盖字段/参数/返回值/局部变量等类型位置。发射端四处接线：`EmitNew`、`EmitInstanceOf`、`EmitTryCatch`（结构化节点）+ `TsRawStatementNormalizer` 规则 ④（方法体直通文本的 `new X(`/`instanceof X`，跳过字符串字面量、标识符边界命中）——实测方法体 throw 为 raw 文本，节点层映射不覆盖，raw 归一化是必需项（计划未列，Task 8 同款“计划外必需项”模式）。
+> ③ 已登记限制（未修）：（1）歧义共射名取语义最近兼容类：`UnsupportedOperationException` 兼收 `NotImplementedException`/`NotSupportedException`，统一映射 `NotSupportedException`（IR 无源类型信息，M4 语义模型可细分）；（2）`NullReferenceException`（IR `NullPointerException`）、`TimeoutException`、`SocketException` 等无兼容类 → 降级 `CsException` + 诊断注释（spec §4.3.9 类层次之外的 BCL 异常，M4 按需扩展）；（3）when 过滤为 false 的分支降级为跳过该 catch（不尝试后续 catch），strict 下需尾部 return 兜底（完整 when 语义归 M3 模式匹配）；（4）compat 桩仅含 §4.3.9 类 + `getMessage()`，`Message`/`InnerException` 等成员映射归 M4；（5）用户类型与 BCL 异常同名（如自建 `ConfigurationException`）会被误识别为 BCL 异常（与 Java 路径命名空间消歧机制不同，M5 语义模型修正）。
+> ④ 提交：`feat(ts): map BCL exceptions to compat classes for TypeScript`（9 文件修改 + 2 文件新增：TsExceptionEmissionTests.cs / TsMemberMappingTableTests.cs 追加 7 用例；本计划文档）。
 
 ---
 

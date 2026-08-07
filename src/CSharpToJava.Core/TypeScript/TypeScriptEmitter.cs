@@ -24,7 +24,7 @@ public sealed class TypeScriptEmitter
     {
         var mappingPath = context.Options.TypeScriptMappingConfigPath;
         var memberPath = context.Options.TypeScriptMemberMappingPath;
-        var mappings = new TsMemberMappingTable(mappingPath, memberPath);
+        var mappings = new TsMemberMappingTable(mappingPath, memberPath, context.Options.TypeMappingConfigPath);
         var imports = new TsImportCollector(unit.Package);
 
         // Task 18：rewriter 改写出的 compat 符号（CsString 等）在此登记导入

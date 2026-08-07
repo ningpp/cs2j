@@ -60,10 +60,11 @@ public sealed class TsTypeWriter
         // 类型参数（TS 约束仅支持单一类型，多 bound 降级见 FormatTypeParameters）
         sb.Append(FormatTypeParameters(cls.TypeParameters, _memberWriter.MapTypeNonNull));
 
-        // 基类
+        // 基类（Task 21：基类名可能为 Java 风味异常名——C# `: Exception` → IR RuntimeException，
+        // 经非可空类型映射转兼容库类 RuntimeException → CsException；用户类型未命中时原样发射）
         if (!string.IsNullOrEmpty(cls.ExtendedType))
         {
-            sb.Append($" extends {cls.ExtendedType}");
+            sb.Append($" extends {_memberWriter.MapTypeNonNull(cls.ExtendedType)}");
         }
 
         // 接口（implements 类型经 Java→TS 映射：框架接口 Comparable/AutoCloseable → Object；

@@ -159,4 +159,82 @@ public class TsMemberMappingTableTests
         Assert.False(table.TryMapType("MyApp.Foo[]", out var tsType, out _));
         Assert.Equal("MyApp.Foo[]", tsType);
     }
+
+    // ─── Task 21 异常反向映射 ──────────────────────────────────────
+
+    [Fact]
+    public void TryMapException_Java_Standard_Name_Maps_To_Compat_Class()
+    {
+        // IR 为 Java 风味名：IllegalStateException ← C# InvalidOperationException
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapException("IllegalStateException", out var tsType, out var imports, out var isFallback));
+        Assert.Equal("InvalidOperationException", tsType);
+        Assert.False(isFallback);
+        Assert.Contains("@csharptotypescript/compat", imports);
+    }
+
+    [Fact]
+    public void TryMapException_RuntimeException_Maps_To_CsException_Not_Fallback()
+    {
+        // C# Exception → IR RuntimeException → 兼容库基类（确定性覆盖映射，非降级）
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapException("RuntimeException", out var tsType, out _, out var isFallback));
+        Assert.Equal("CsException", tsType);
+        Assert.False(isFallback);
+    }
+
+    [Fact]
+    public void TryMapException_Identity_Compat_Name_Stays()
+    {
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapException("ArgumentException", out var tsType, out _, out var isFallback));
+        Assert.Equal("ArgumentException", tsType);
+        Assert.False(isFallback);
+        Assert.True(table.TryMapException("FormatException", out tsType, out _, out isFallback));
+        Assert.Equal("FormatException", tsType);
+        Assert.False(isFallback);
+    }
+
+    [Fact]
+    public void TryMapException_Unmapped_Bcl_Exception_Falls_Back_To_CsException()
+    {
+        // 已知 BCL 异常但兼容库无对应类（spec §4.3.9）→ CsException + 降级标记
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapException("SocketException", out var tsType, out _, out var isFallback));
+        Assert.Equal("CsException", tsType);
+        Assert.True(isFallback);
+        Assert.True(table.TryMapException("NullPointerException", out tsType, out _, out isFallback));
+        Assert.Equal("CsException", tsType);
+        Assert.True(isFallback);
+    }
+
+    [Fact]
+    public void TryMapException_Unknown_Type_Returns_False()
+    {
+        var table = new TsMemberMappingTable(null, null);
+        Assert.False(table.TryMapException("MyException", out _, out _, out _));
+        Assert.False(table.TryMapException("System.Exception", out _, out _, out _));
+    }
+
+    [Fact]
+    public void TryMapException_Java_Config_Extends_Known_Set()
+    {
+        // Java TypeMappings.json 全量提取：ConfigurationErrorsException 不在内置集，
+        // 但属配置异常条目（恒等 compat）→ 识别为 BCL 异常；无兼容类 → 降级
+        var javaConfig = System.IO.Path.Combine(System.AppContext.BaseDirectory, "config", "TypeMappings.json");
+        var table = new TsMemberMappingTable(ConfigPath("TypeMappings.json"), ConfigPath("MemberMappings.json"), javaConfig);
+        Assert.True(table.TryMapException("ConfigurationErrorsException", out var tsType, out _, out var isFallback));
+        Assert.Equal("CsException", tsType);
+        Assert.True(isFallback);
+    }
+
+    [Fact]
+    public void TryMapType_Exception_Name_Returns_Compat_Type_With_Import()
+    {
+        // 类型位置（字段/参数/返回值/局部变量）统一经 TryMapType 入口
+        var table = new TsMemberMappingTable(null, null);
+        Assert.True(table.TryMapType("IllegalStateException", out var tsType, out var imports));
+        Assert.Equal("InvalidOperationException", tsType);
+        Assert.Contains("@csharptotypescript/compat", imports);
+    }
 }

@@ -40,8 +40,11 @@ public static class TsRawStatementNormalizer
     /// <summary>
     /// 归一化 raw 语句文本；mapType 为 Java→TS 类型映射器（TsExpressionWriter.MapType），
     /// 供经典 for 头声明段 let 化使用；为 null 时经典 for 仅保留增强 for 行为（直通）。
+    /// mapException 为异常名映射回调（Task 21：TsExpressionWriter.MapExceptionName），
+    /// 将 raw 文本中的 Java 风味异常名（new IllegalStateException( 等）替换为兼容库名；
+    /// 为 null 时跳过异常名归一化。
     /// </summary>
-    public static string Normalize(string code, Func<string, string>? mapType)
+    public static string Normalize(string code, Func<string, string>? mapType = null, Func<string, string?>? mapException = null)
     {
         if (string.IsNullOrEmpty(code))
         {
@@ -58,7 +61,11 @@ public static class TsRawStatementNormalizer
         var withFors = NormalizeForHeads(normalized, mapType);
 
         // ③ char 字面量 → 双引号字符串（raw 语句中 return 'A'; 等直通文本的归一化）。
-        return NormalizeCharLiterals(withFors);
+        var withChars = NormalizeCharLiterals(withFors);
+
+        // ④ Java 风味异常名 → 兼容库名（Task 21：方法体直通文本中的 throw new X(...) /
+        // instanceof X；结构化 new/instanceof/catch 由发射器在节点层映射）。
+        return NormalizeExceptionNames(withChars, mapException);
     }
 
     /// <summary>
@@ -294,6 +301,84 @@ public static class TsRawStatementNormalizer
         }
         rewritten = "\"" + inner.Replace("\\'", "'") + "\"";
         return true;
+    }
+
+    /// <summary>
+    /// 将 raw 语句文本中的 Java 风味异常名替换为 TS 兼容库名（Task 21）。
+    /// 两种形态：`new <Name>(`（throw new IllegalStateException(...) 等）与
+    /// `instanceof <Name>`。均跳过字符串/字符字面量区域、仅在标识符边界命中；
+    /// 回调返回 null（非 BCL 异常/用户类型）时直通。降级名（CsException + 诊断注释）
+    /// 由回调拼入，注释位于名字与括号之间（new CsException /* cs2j: unmapped exception */(...)）。
+    /// </summary>
+    private static string NormalizeExceptionNames(string code, Func<string, string?>? mapException)
+    {
+        if (mapException == null)
+        {
+            return code;
+        }
+
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+
+            if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith("new ", StringComparison.Ordinal))
+            {
+                var nameEnd = ScanIdentifierEnd(code, i + 4);
+                if (nameEnd > i + 4 && nameEnd < code.Length && code[nameEnd] == '(')
+                {
+                    var name = code.Substring(i + 4, nameEnd - i - 4);
+                    var mapped = mapException(name);
+                    if (mapped != null)
+                    {
+                        sb.Append("new ").Append(mapped).Append('(');
+                        i = nameEnd + 1;
+                        continue;
+                    }
+                }
+            }
+
+            if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith("instanceof ", StringComparison.Ordinal))
+            {
+                var nameEnd = ScanIdentifierEnd(code, i + 11);
+                if (nameEnd > i + 11)
+                {
+                    var name = code.Substring(i + 11, nameEnd - i - 11);
+                    var mapped = mapException(name);
+                    if (mapped != null)
+                    {
+                        sb.Append("instanceof ").Append(mapped);
+                        i = nameEnd;
+                        continue;
+                    }
+                }
+            }
+
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 自 start 起的标识符结束下标（首个非标识符字符位置）；无标识符时返回 start。
+    /// </summary>
+    private static int ScanIdentifierEnd(string code, int start)
+    {
+        var i = start;
+        while (i < code.Length && IsIdentifierChar(code[i]))
+        {
+            i++;
+        }
+        return i;
     }
 
     /// <summary>

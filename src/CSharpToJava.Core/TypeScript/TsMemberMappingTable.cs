@@ -18,6 +18,7 @@ public sealed class TsMemberMappingTable
     private readonly Dictionary<string, (string TsType, List<string> Imports)> _typeMappings = new();
     private readonly Dictionary<(string Type, string Method), (string TsMethod, List<string> Imports)> _methodMappings = new();
     private readonly Dictionary<(string Type, string Member), string> _memberMappings = new();
+    private readonly HashSet<string> _bclExceptionNames;
 
     // 与 TypeMappingRegistry 一致的 JSON 反序列化选项（属性名大小写不敏感）。
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -86,14 +87,82 @@ public sealed class TsMemberMappingTable
         { ("java.util.ArrayList", "size"), "length" },
     };
 
-    public TsMemberMappingTable(string? typeMappingPath, string? memberMappingPath)
+    // ─── 异常反向映射（Task 21，spec §4.3.9）────────────────────────────────
+    // TS 路径复用 C#→Java 前端，IR 中异常类型为 Java 风味名（Java TypeMappings.json
+    // 映射：InvalidOperationException→IllegalStateException、Exception→RuntimeException、
+    // NullReferenceException→NullPointerException 等）。发射前做完整反向映射：
+    // Java 异常名 → TS 兼容库异常名（spec §4.3.9 类层次，M4 Task 34 实现）。
+    // 查找规则（TryMapException）：
+    // ① Java 标准名覆盖表（多个 C# 异常共射同一 Java 标准异常时的歧义消解，
+    //    取值来源见 Java config/TypeMappings.json 各条目）
+    // ② spec §4.3.9 兼容库类名集合（同名恒等：ArgumentException/FormatException/…）
+    // ③ 已知 BCL 异常名但兼容库无对应类 → CsException + 调用方输出
+    //    /* cs2j: unmapped exception */ 诊断注释
+    // “已知 BCL 异常名”集合运行时从 Java TypeMappings.json 全量提取（csharp/java
+    // 两侧简单名，EndsWith Exception/Error），配置缺失时回退内置高频集合。
+    private static readonly Dictionary<string, string> JavaExceptionOverrides = new(StringComparer.Ordinal)
     {
+        ["IllegalArgumentException"] = "ArgumentException",            // ← ArgumentOutOfRangeException/RankException
+        ["IllegalStateException"] = "InvalidOperationException",       // ← InvalidOperationException
+        ["IndexOutOfBoundsException"] = "IndexOutOfRangeException",    // ← IndexOutOfRangeException
+        ["RuntimeException"] = "CsException",                          // ← Exception/ApplicationException
+        ["UnsupportedOperationException"] = "NotSupportedException",   // ← NotImplementedException/NotSupportedException
+    };
+
+    private static readonly HashSet<string> CompatExceptionNames = new(StringComparer.Ordinal)
+    {
+        "CsException",
+        "ArgumentException", "ArgumentNullException", "ArgumentOutOfRangeException",
+        "InvalidOperationException", "NotSupportedException", "NotImplementedException",
+        "IndexOutOfRangeException", "KeyNotFoundException",
+        "ArithmeticException", "DivideByZeroException", "OverflowException",
+        "FormatException", "IOException",
+    };
+
+    private static readonly HashSet<string> BuiltinBclExceptionNames = new(StringComparer.Ordinal)
+    {
+        // Java 标准异常名（共享管线映射目标）
+        "IllegalArgumentException", "IllegalStateException", "IndexOutOfBoundsException",
+        "NullPointerException", "RuntimeException", "UnsupportedOperationException",
+        "ArithmeticException", "ClassCastException", "ClassNotFoundException",
+        "NumberFormatException", "IOException", "SecurityException", "TimeoutException",
+        "FileNotFoundException", "CancellationException", "EOFException",
+        "ExceptionInInitializerError", "ExecutionException", "IllegalAccessException",
+        "NoSuchFieldException", "ArrayStoreException", "Exception", "SystemException",
+        // 常见恒等兼容异常（Java 配置恒等映射源；其余全量条目运行时从配置提取）
+        "ArgumentException", "ArgumentNullException", "ArgumentOutOfRangeException",
+        "InvalidOperationException", "ObjectDisposedException", "InvalidDataException",
+        "NotSupportedException", "NotImplementedException", "FormatException",
+        "IndexOutOfRangeException", "KeyNotFoundException", "AggregateException",
+        "SocketException", "StackOverflowException", "UnauthorizedAccessException",
+        "NullReferenceException", "InvalidCastException", "TypeLoadException",
+        "ApplicationException", "Win32Exception", "RankException",
+        "EndOfStreamException", "OperationCanceledException", "TaskCanceledException",
+        "TypeInitializationException", "MemberAccessException", "MissingFieldException",
+        "ArrayTypeMismatchException", "DirectoryNotFoundException",
+        "DivideByZeroException", "OverflowException", "CsException",
+    };
+
+    public TsMemberMappingTable(string? typeMappingPath, string? memberMappingPath, string? javaTypeMappingPath = null)
+    {
+        _bclExceptionNames = new HashSet<string>(BuiltinBclExceptionNames, StringComparer.Ordinal);
         LoadTypeMappings(typeMappingPath);
         LoadMemberMappings(memberMappingPath);
+        LoadBclExceptionNames(javaTypeMappingPath);
     }
 
     public bool TryMapType(string csharpOrJavaType, out string tsType, out IReadOnlyList<string> imports)
     {
+        // ① 异常名（Task 21）：IR 为 Java 风味异常名（IllegalStateException 等），
+        //    映射到兼容库异常类（spec §4.3.9）。类型位置（字段/参数/返回值/局部变量）
+        //    统一走此入口；未映射 BCL 异常降级 CsException（不附带诊断注释，
+        //    需要注释的 new/instanceof/catch 位置走 TryMapException）。
+        if (_bclExceptionNames.Contains(csharpOrJavaType))
+        {
+            tsType = ResolveCompatExceptionName(csharpOrJavaType);
+            imports = new[] { "@csharptotypescript/compat" };
+            return true;
+        }
         // ① 内置 Java 风味类型表（IR 中实际出现的类型名，如 int/String）
         if (BuiltinJavaTypeMappings.TryGetValue(csharpOrJavaType, out var javaMapped))
         {
@@ -121,6 +190,43 @@ public sealed class TsMemberMappingTable
         tsType = csharpOrJavaType;
         imports = System.Array.Empty<string>();
         return false;
+    }
+
+    /// <summary>
+    /// Java 风味异常名 → TS 兼容库异常名（Task 21，spec §4.3.9）。
+    /// 返回 false = 非已知 BCL 异常（用户定义异常/普通类型），调用方原样发射。
+    /// isFallback = true 表示无精确兼容类，降级 CsException（调用方应追加
+    /// `/* cs2j: unmapped exception */` 诊断注释，见计划 Task 21“未映射异常”）。
+    /// </summary>
+    public bool TryMapException(string javaOrCsharpName, out string tsType, out IReadOnlyList<string> imports, out bool isFallback)
+    {
+        tsType = javaOrCsharpName;
+        imports = System.Array.Empty<string>();
+        isFallback = false;
+        if (!_bclExceptionNames.Contains(javaOrCsharpName))
+        {
+            return false;
+        }
+        tsType = ResolveCompatExceptionName(javaOrCsharpName);
+        // 仅“已知 BCL 异常但无精确兼容类”分支为降级（isFallback）；
+        // 覆盖表（RuntimeException→CsException 等）与恒等兼容类均非降级。
+        isFallback = !JavaExceptionOverrides.ContainsKey(javaOrCsharpName)
+            && !CompatExceptionNames.Contains(javaOrCsharpName);
+        imports = new[] { "@csharptotypescript/compat" };
+        return true;
+    }
+
+    private static string ResolveCompatExceptionName(string javaOrCsharpName)
+    {
+        if (JavaExceptionOverrides.TryGetValue(javaOrCsharpName, out var overridden))
+        {
+            return overridden;
+        }
+        if (CompatExceptionNames.Contains(javaOrCsharpName))
+        {
+            return javaOrCsharpName;
+        }
+        return "CsException";
     }
 
     public bool TryMapMethod(string ownerType, string methodName, out string tsMethod, out IReadOnlyList<string> imports)
@@ -216,6 +322,49 @@ public sealed class TsMemberMappingTable
         }
     }
 
+    /// <summary>
+    /// 从 Java TypeMappings.json 全量提取 BCL 异常名（csharp/java 两侧简单名，
+    /// 以 Exception/Error 结尾的条目），与内置高频集合合并为完整反向映射键集。
+    /// 配置缺失或解析失败保持静默（纯内置表模式）。
+    /// </summary>
+    private void LoadBclExceptionNames(string? path)
+    {
+        if (path == null || !File.Exists(path)) return;
+        try
+        {
+            var json = File.ReadAllText(path);
+            var file = JsonSerializer.Deserialize<JavaTypeMappingFile>(json, JsonOptions);
+            if (file?.TypeMappings == null) return;
+            foreach (var item in file.TypeMappings)
+            {
+                if (item.Csharp == null || item.Java == null) continue;
+                var csharpSimple = SimpleName(item.Csharp);
+                var javaSimple = SimpleName(item.Java);
+                if (IsExceptionName(csharpSimple) || IsExceptionName(javaSimple))
+                {
+                    _bclExceptionNames.Add(csharpSimple);
+                    _bclExceptionNames.Add(javaSimple);
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // 配置解析失败不阻断发射（回退内置集；TS 配置表加载失败仍走独立抛错路径）
+        }
+    }
+
+    private static string SimpleName(string fullName)
+    {
+        var idx = fullName.LastIndexOf('.');
+        return idx >= 0 ? fullName[(idx + 1)..] : fullName;
+    }
+
+    private static bool IsExceptionName(string simpleName)
+    {
+        return simpleName.EndsWith("Exception", StringComparison.Ordinal)
+            || simpleName.EndsWith("Error", StringComparison.Ordinal);
+    }
+
     private sealed class TypeMappingFile
     {
         public List<TypeMappingItem>? TypeMappings { get; set; }
@@ -239,6 +388,18 @@ public sealed class TsMemberMappingTable
         public string? Method { get; set; }
         public string? TsMethod { get; set; }
         public string? Signature { get; set; }
+        public List<string>? Imports { get; set; }
+    }
+
+    private sealed class JavaTypeMappingFile
+    {
+        public List<JavaTypeMappingItem>? TypeMappings { get; set; }
+    }
+
+    private sealed class JavaTypeMappingItem
+    {
+        public string? Csharp { get; set; }
+        public string? Java { get; set; }
         public List<string>? Imports { get; set; }
     }
 }

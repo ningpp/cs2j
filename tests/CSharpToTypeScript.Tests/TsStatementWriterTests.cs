@@ -156,7 +156,8 @@ public class TsStatementWriterTests
 
         var result = EmitStmt(tryCatch);
         Assert.Contains("if (e instanceof IOException) {", result);
-        Assert.Contains("} else if (e instanceof IllegalStateException) {", result);
+        // Task 21：catch 类型经异常反向映射（IllegalStateException → InvalidOperationException）
+        Assert.Contains("} else if (e instanceof InvalidOperationException) {", result);
         Assert.Contains("} else {", result);
         Assert.Contains("throw e;", result);
     }

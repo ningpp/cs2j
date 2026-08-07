@@ -67,7 +67,7 @@ public sealed class TsExpressionWriter
     private string MapTypeCore(string javaOrCsharpType, bool widenNullableBoxed)
     {
         var mapped = _mappings.TryMapType(javaOrCsharpType, out var ts, out var imports)
-            ? WithImports(ts, imports)
+            ? RegisterImports(ts, imports)
             : javaOrCsharpType;
         if (widenNullableBoxed && NullableBoxedTypeNames.Contains(javaOrCsharpType))
         {
@@ -76,7 +76,31 @@ public sealed class TsExpressionWriter
         return mapped;
     }
 
-    private string WithImports(string tsType, IReadOnlyList<string> imports)
+    /// <summary>
+    /// 异常名反向映射（Task 21）：委托 TsMemberMappingTable.TryMapException，
+    /// 供语句发射器（catch instanceof）复用。
+    /// </summary>
+    public bool TryMapException(string javaOrCsharpName, out string tsType, out IReadOnlyList<string> imports, out bool isFallback)
+        => _mappings.TryMapException(javaOrCsharpName, out tsType, out imports, out isFallback);
+
+    /// <summary>
+    /// 异常名 → 兼容库名的 raw 文本映射回调（Task 21）：非 BCL 异常返回 null（直通）；
+    /// 无精确兼容类时返回带 /* cs2j: unmapped exception */ 注释的降级名。
+    /// </summary>
+    public string? MapExceptionName(string javaOrCsharpName)
+    {
+        if (!_mappings.TryMapException(javaOrCsharpName, out var tsType, out var imports, out var isFallback))
+        {
+            return null;
+        }
+        RegisterImports(tsType, imports);
+        return isFallback ? $"{tsType} /* cs2j: unmapped exception */" : tsType;
+    }
+
+    /// <summary>
+    /// 登记 compat 包具名导入并返回类型名（Task 18 起；Task 21 异常类复用）。
+    /// </summary>
+    public string RegisterImports(string tsType, IReadOnlyList<string> imports)
     {
         foreach (var imp in imports)
         {
@@ -261,8 +285,21 @@ public sealed class TsExpressionWriter
 
     private string EmitNew(JavaNewExpression newExpr)
     {
+        // Task 21：IR 中异常类型为 Java 风味名（IllegalArgumentException/IllegalStateException/
+        // RuntimeException 等），反向映射到兼容库异常类（spec §4.3.9）；无精确兼容类时
+        // 降级 CsException 并追加 /* cs2j: unmapped exception */ 诊断注释。
+        var typeName = newExpr.Type;
+        if (_mappings.TryMapException(typeName, out var tsException, out var exceptionImports, out var isFallback))
+        {
+            RegisterImports(tsException, exceptionImports);
+            if (isFallback)
+            {
+                tsException += " /* cs2j: unmapped exception */";
+            }
+            typeName = tsException;
+        }
         var args = string.Join(", ", newExpr.Arguments.Select(ToInlineString));
-        return $"new {newExpr.Type}({args})";
+        return $"new {typeName}({args})";
     }
 
     private string EmitMethodCall(JavaMethodCallExpression call)
@@ -373,6 +410,17 @@ public sealed class TsExpressionWriter
     {
         // class 直译 instanceof；interface 由 TsInterfaceProbeRewriter 预处理（M3）
         // 实际属性名是 Type（非 TypeName）；Java 16 模式变量（PatternVariable）在 M3 模式匹配任务处理
-        return $"{ToInlineString(inst.Expression)} instanceof {inst.Type}";
+        // Task 21：异常类型名反向映射到兼容库类（C# `x is Exception` 等类型模式）。
+        var tsType = inst.Type;
+        if (_mappings.TryMapException(tsType, out var mappedException, out var exceptionImports, out var isFallback))
+        {
+            RegisterImports(mappedException, exceptionImports);
+            if (isFallback)
+            {
+                mappedException += " /* cs2j: unmapped exception */";
+            }
+            tsType = mappedException;
+        }
+        return $"{ToInlineString(inst.Expression)} instanceof {tsType}";
     }
 }
