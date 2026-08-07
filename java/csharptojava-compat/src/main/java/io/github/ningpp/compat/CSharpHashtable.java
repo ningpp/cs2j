@@ -15,6 +15,16 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     public CSharpHashtable(int capacity, CSharpEqualityComparer comparer) { this.map = new LinkedHashMap<>(capacity); }
     public CSharpHashtable(int capacity, StringComparer comparer) { this.map = new LinkedHashMap<>(capacity); }
 
+    // Copy constructor from any CSharpIDictionary (C# 'new Hashtable(IDictionary)').
+    public CSharpHashtable(CSharpIDictionary d) {
+        this.map = new LinkedHashMap<>();
+        if (d != null) {
+            for (Map.Entry<Object, Object> e : d.entrySet()) {
+                this.map.put(e.getKey(), e.getValue());
+            }
+        }
+    }
+
     public static CSharpHashtable synchronizedValue(CSharpHashtable table) {
         return new SynchronizedHashtable(table);
     }

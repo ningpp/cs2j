@@ -529,3 +529,22 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 25 — Regex.java CSharpHashtable(CSharpIDictionary) 找不到合适的构造器
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\Regex.java`
+- **行号**: 169、177
+- **错误信息**: `对于 CSharpHashtable(io.github.ningpp.compat.CSharpIDictionary), 找不到合适的构造器`
+- **代码片段**:
+  ```java
+  caps = _coalesce1 != null ? _coalesce1 : new CSharpHashtable(value);   // value 为 CSharpIDictionary
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\System\Text\RegularExpressions\Regex.cs`（`Caps`/`CapNames` setter 中 `value as Hashtable ?? new Hashtable(value)`）
+- **根因分类**: 类型映射缺失（compat API 缺口）
+- **涉及组件**: `java/csharptojava-compat/.../CSharpHashtable.java`
+- **分析**: C# `new Hashtable(IDictionary)` 拷贝构造被正确转换为 `new CSharpHashtable(CSharpIDictionary)`，但 compat CSharpHashtable 仅有 ()/int/Map/comparer 构造器，缺 `CSharpIDictionary` 拷贝构造器。
+- **修复**: compat CSharpHashtable 新增 `CSharpHashtable(CSharpIDictionary)`，通过 `entrySet()` 逐项拷贝。新增红→绿 compat JUnit 测试 `CSharpHashtableIDictionaryCtorTest`（红：编译失败 → 绿：mvn test 通过），compat 全量测试通过。
+
+**状态**: ✅ Fixed
+
