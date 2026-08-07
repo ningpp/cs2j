@@ -102,6 +102,22 @@ export class CsDictionary<K, V> {
         return this.find(key).found;
     }
 
+    // ─── Task 41 Java-IR 兼容别名（共享前端 raw 文本/直通产物持久性：
+    // TryGetValue 降级产物 map.containsKey(key) + map.get(key)、索引器读 map[key]
+    // → map.get(key)、集合初始化右值→ tmp.put(k, v)；Java 兼容库同款实例方法名。
+    // 结构上等价于 get_Item/set_Item/ContainsKey，保持 TS 与库内 PascalCase 约定并行。 ───
+    get(key: K): V {
+        return this.get_Item(key);
+    }
+
+    put(key: K, value: V): void {
+        this.set_Item(key, value);
+    }
+
+    containsKey(key: K): boolean {
+        return this.ContainsKey(key);
+    }
+
     /** C# ContainsValue：按 EqualityComparer<V>.Default（CsObject 值语义）。 */
     ContainsValue(value: V): boolean {
         if (this._primitiveMap !== null) {

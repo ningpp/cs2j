@@ -510,7 +510,14 @@ public sealed class TsCtorFactoryRewriter : JavaSyntaxRewriter
                     .ToList();
                 if (candidates.Count == 1)
                 {
-                    sb.Append(InlineBody(cls, candidates[0].Ctor, factoryName, all, visited));
+                    var target = candidates[0].Ctor;
+                    var delegatedBody = InlineBody(cls, target, factoryName, all, visited);
+                    // 委托实参替换（Task 41 修复）：内联目标构造器体时，目标参数名须
+                    // 替换为委托实参表达式——this(1) 内联 _scale = scale; 应产出
+                    // self._scale = 1;（此前直接内联导致裸参名泄漏，运行时 ReferenceError）。
+                    var delegatedArgs = SplitTopLevelArguments(ctor.Initializer);
+                    delegatedBody = SubstituteCtorArguments(delegatedBody, target.Parameters, delegatedArgs);
+                    sb.Append(delegatedBody);
                 }
                 else
                 {
@@ -597,6 +604,100 @@ public sealed class TsCtorFactoryRewriter : JavaSyntaxRewriter
             i++;
         }
         return code.Length;
+    }
+
+    /// <summary>委托实参替换：目标构造器参数名（标识符边界）→ 委托实参表达式（跳字符串/字符字面量）。</summary>
+    private static string SubstituteCtorArguments(
+        string code,
+        System.Collections.Generic.IReadOnlyList<JavaParameter> targetParams,
+        System.Collections.Generic.IReadOnlyList<string> args)
+    {
+        if (targetParams.Count == 0 || args.Count == 0)
+        {
+            return code;
+        }
+        var sb = new StringBuilder(code.Length);
+        for (var i = 0; i < code.Length; i++)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i) - 1;
+                sb.Append(code, start, i - start + 1);
+                continue;
+            }
+            if (IsIdentifierChar(ch))
+            {
+                var start = i;
+                while (i + 1 < code.Length && IsIdentifierChar(code[i + 1]))
+                {
+                    i++;
+                }
+                var word = code.Substring(start, i - start + 1);
+                var idx = -1;
+                for (var p = 0; p < targetParams.Count; p++)
+                {
+                    if (targetParams[p].Name == word)
+                    {
+                        idx = p;
+                        break;
+                    }
+                }
+                sb.Append(idx >= 0 && idx < args.Count && args[idx].Length > 0 ? args[idx] : word);
+                continue;
+            }
+            sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>切分 "this(...)"/"super(...)" 首层实参（跳字符串/嵌套括号），返回实参文本列表。</summary>
+    private static System.Collections.Generic.List<string> SplitTopLevelArguments(string initializer)
+    {
+        var open = initializer.IndexOf('(');
+        if (open < 0)
+        {
+            return new System.Collections.Generic.List<string>();
+        }
+        var args = new System.Collections.Generic.List<string>();
+        var start = open + 1;
+        var depth = 0;
+        for (var i = open + 1; i < initializer.Length; i++)
+        {
+            var ch = initializer[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(initializer, i) - 1;
+                continue;
+            }
+            switch (ch)
+            {
+                case '(':
+                case '[':
+                case '{':
+                    depth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                    depth--;
+                    if (ch == ')' && depth < 0)
+                    {
+                        args.Add(initializer[start..i].Trim());
+                        return args;
+                    }
+                    break;
+                default:
+                    if (ch == ',' && depth == 0)
+                    {
+                        args.Add(initializer[start..i].Trim());
+                        start = i + 1;
+                    }
+                    break;
+            }
+        }
+        return args;
     }
 
     /// <summary>统计 "this(...)" 首层括号内顶层逗号数（跳字符串/嵌套括号）。</summary>

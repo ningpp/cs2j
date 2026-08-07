@@ -1,0 +1,51 @@
+name: CI Tests (Java + TypeScript)
+
+# Task 41 / spec §5.8: run the full test matrix on every push/PR, including the
+# TypeScript target (converter unit tests + npm install/tsc/vitest end-to-end)
+# and the compat runtime vitest suite. Node LTS is pinned so the generated
+# npm workspace output is validated against a stable toolchain.
+
+on:
+  push:
+    branches: [dev-2.x, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Set up Node (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: typescript/csharptotypescript-compat/package-lock.json
+
+      # dist/ is git-ignored; the TS pipeline embeds it (TryResolveCompatPackageDirectory),
+      # so it must be built before the converter tests run.
+      - name: Build compat runtime
+        working-directory: typescript/csharptotypescript-compat
+        run: |
+          npm ci
+          npm run build
+
+      - name: Java unit tests
+        run: dotnet test tests/CSharpToJava.Tests --configuration Release -v minimal
+
+      - name: Java project tests
+        run: dotnet test tests/CSharpToJava.ProjectTests --configuration Release -v minimal
+
+      - name: TypeScript converter tests (incl. npm/tsc/vitest E2E)
+        run: dotnet test tests/CSharpToTypeScript.Tests --configuration Release -v minimal
+
+      - name: Compat runtime vitest suite
+        working-directory: typescript/csharptotypescript-compat
+        run: npm test

@@ -236,7 +236,7 @@ public partial class StatementTransformer
                         if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
                             caseLabel.Value,
                             context,
-                            useUnqualifiedRegularEnumInSwitchLabel: true,
+                            useUnqualifiedRegularEnumInSwitchLabel: context.Options.TargetLanguage != TargetLanguage.TypeScript,
                             out var formattedEnumLabel))
                         {
                             transformedLabel = formattedEnumLabel;
@@ -508,7 +508,7 @@ public partial class StatementTransformer
             if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
                 caseValue,
                 ctx,
-                useUnqualifiedRegularEnumInSwitchLabel: true,
+                useUnqualifiedRegularEnumInSwitchLabel: context.Options.TargetLanguage != TargetLanguage.TypeScript,
                 out var formattedEnumLabel))
             {
                 transformedLabel = formattedEnumLabel;

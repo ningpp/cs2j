@@ -97,22 +97,22 @@ public sealed class ProjectTsImportEmitPass : ICs2jPass<ProjectPassState>
                 if (sourceLocation != null)
                 {
                     var sourcePath = sourceLocation.SourceTree.FilePath;
-                    if (PathsEqual(sourcePath, tree.FilePath))
-                    {
-                        continue; // 同文件自引用（类型即在本文件发射）
-                    }
-
                     var key = (Path.GetFullPath(sourcePath), typeSymbol.Name);
                     if (typeIndex.TryGetValue(key, out var target) && !ReferenceEquals(target, result))
                     {
-                        // 同模块：相对路径导入（目标发射文件所在命名空间目录）
+                        // 同模块：相对路径导入（目标发射文件所在命名空间目录）。
+                        // 注意源文件与发射文件并非一一对应：一个 .cs 可含多个类型
+                        // （如 MyException + ExceptionFlow 同文件），各类型独立发射，
+                        // 因此“同源文件”不代表“同发射文件”——仅当目标结果就是
+                        // 当前结果（自引用）时才跳过。
                         var modulePath = ComputeRelativeImportPath(
                             currentNamespace, target.Package ?? string.Empty, target.FileName!);
                         AddPendingImport(pendingImports, existingImports, modulePath, typeSymbol.Name);
                     }
-                    else
+                    else if (!PathsEqual(sourcePath, tree.FilePath))
                     {
-                        // 跨项目：源目录前缀映射（项目图/语义上下文目录）
+                        // 跨项目：源目录前缀映射（项目图/语义上下文目录）。
+                        // 同源文件且未命中发射索引（blocked/自引用）跳过。
                         var moduleName = ResolveModuleBySourcePath(state, sourcePath);
                         if (moduleName != null)
                         {

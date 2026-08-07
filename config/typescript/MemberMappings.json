@@ -2,6 +2,7 @@
     "methodMappings": [
         { "type": "System.String", "method": "ToUpper", "tsMethod": "toUpperCase", "signature": "" },
         { "type": "System.String", "method": "ToLower", "tsMethod": "toLowerCase", "signature": "" },
+        { "type": "System.String", "method": "Contains", "tsMethod": "includes", "signature": "" },
         { "type": "System.String", "method": "Length", "tsMethod": "length", "signature": "property" },
         { "type": "System.String", "method": "Split", "tsMethod": "CsString.split", "signature": "static", "imports": ["@csharptotypescript/compat"] },
         { "type": "System.String", "method": "IsNullOrEmpty", "tsMethod": "CsString.isNullOrEmpty", "signature": "static", "imports": ["@csharptotypescript/compat"] },
@@ -23,6 +24,7 @@
         { "type": "System.Math", "method": "Round", "tsMethod": "Math.round", "signature": "static" },
         { "type": "System.Convert", "method": "ToInt32", "tsMethod": "Math.trunc", "signature": "static" },
         { "type": "System.Convert", "method": "ToInt64", "tsMethod": "BigInt", "signature": "static" },
+        { "type": "System.Int32", "method": "Parse", "tsMethod": "Number.parseInt", "signature": "static" },
         { "type": "System.Collections.Generic.List`1", "method": "Contains", "tsMethod": "includes", "signature": "" },
         { "type": "System.Collections.Generic.Dictionary`2", "method": "Add", "tsMethod": "CsDictionary.add", "signature": "static", "imports": ["@csharptotypescript/compat"] },
         { "type": "System.Collections.Generic.Dictionary`2", "method": "ContainsKey", "tsMethod": "CsDictionary.containsKey", "signature": "static", "imports": ["@csharptotypescript/compat"] },

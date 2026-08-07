@@ -30,7 +30,7 @@ public sealed class TsMemberWriter
     /// </summary>
     public string MapTypeNonNull(string javaOrCsharpType) => _exprWriter.MapTypeNonNull(javaOrCsharpType);
 
-    public string EmitField(JavaFieldDeclaration field, int indentLevel)
+    public string EmitField(JavaFieldDeclaration field, int indentLevel, System.Collections.Generic.IReadOnlySet<string>? typeParameters = null)
     {
         var ind = new string(_indent[0], indentLevel * _indent.Length);
         var sb = new StringBuilder(ind);
@@ -64,7 +64,11 @@ public sealed class TsMemberWriter
             ? string.Equals(field.Initializer, "null", StringComparison.Ordinal)
             : DefaultValueForType(tsType) == "null";
         var emittedType = tsType;
-        if (emitsNull
+        // Task 41：泛型类类型参数（如 Box<T> 的 T _value）不可宽化为 T | null——
+        // getter 返回 T 时 tsc 报 TS2322；无初始化器默认值改发射 null!（非空断言，
+        // 与 strictPropertyInitialization 兼容），类型保持 T。
+        var isTypeParameter = typeParameters != null && typeParameters.Contains(tsType);
+        if (emitsNull && !isTypeParameter
             && !tsType.Contains("| null") && !tsType.Contains("null |")
             && tsType is not ("null" or "any" or "undefined" or "void"))
         {
@@ -82,7 +86,8 @@ public sealed class TsMemberWriter
         }
         else
         {
-            sb.Append($" = {DefaultValueForType(tsType)}");
+            // 类型参数默认值用 null!（非空断言）保持 T；其余类型沿用默认零值
+            sb.Append(isTypeParameter ? " = null!" : $" = {DefaultValueForType(tsType)}");
         }
 
         sb.Append(';');

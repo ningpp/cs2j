@@ -116,10 +116,12 @@ public sealed class TsInterfaceProbeRewriter : JavaSyntaxRewriter
         }
         else
         {
-            var castType = iface.TypeParameters.Count > 0 ? $"{name}<any>" : name;
+            // Task 41：探针强转改鸭子类型结构 `{ m?: unknown }`——探针可能追加到
+            // 引用接口的跨文件单元（如 Point.ts 探测 Models 的 IMeasurable），引用接口名
+            // 会在该文件触发 TS2304（导入 pass 看不到 IR 层标识符）；结构形态无需导入。
             var checks = string.Join(
                 "\n            && ",
-                methods.Select(m => $"typeof (v as {castType}).{m} === \"function\""));
+                methods.Select(m => $"typeof (v as {{ {m}?: unknown }}).{m} === \"function\""));
             probe = $"export function {probeName}(v: unknown): boolean {{\n" +
                     $"    return CsRuntime.isMarked(v, \"{name}\")\n" +
                     "        || (typeof v === \"object\" && v !== null\n" +

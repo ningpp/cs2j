@@ -5678,11 +5678,57 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
 
 - **要点：** 同一批 C# 语料分别以 Java/TS 目标转换，断言两者均成功且关键结构特征（类型数/方法数/诊断数）对齐；项目级端到端验证链全通过。
 
+- [x] **Task 41 完成（2026-08-07）**：M5 验收语料 + 双目标对照测试 + 项目级验证链全通。
+  - **M5 验收语料**（tests/DualTargetCorpus，12 文件/17 类型）：Calculator（构造器重载
+    →Create$N 工厂、string 重载 →add_string_string、MaxOperand 常量）、Geometry/Point
+    （record：位置分量/op_Add/接口探针）、Models/Shape+Circle（抽象类/接口继承）、
+    Enums（Color 枚举 + [Flags] Permissions + switch 映射）、Exceptions（MyException
+    继承 + 多 catch + finally）、Generics（Box<T> 泛型字段/方法 + List 字面量）、
+    Collections（foreach/LINQ 链/TryGetValue）、Numerics（int?/long bigint/整数除法
+    Math.trunc）、Strings（插值/ToLower/Contains/string.Join）、Tests 两个 xUnit 类
+    （Fact/Theory/Assert.Equal/True/Null → vitest describe/it/expect）。
+  - **项目模式 record 修复**（M5 关键卡点，Task 41 前卡住全链）：TypeGroupResolver
+    对 IsRecord 的 Class/Struct 类型组改用 `RecordTransformer.TransformMerged`
+    （此前直接传 MergedSyntax 合成节点，成员脱离语法树导致语义解析抛异常）；
+    TransformMerged 锚定 `OriginalSyntaxNodes` 中首个 RecordDeclarationSyntax 并
+    `GetSemanticModelForTree` 注入；BinaryExpressionTransformer 的
+    TryTransformOperatorByTypeInfo 语义模型改 `GetSemanticModelForNode` 兜底。
+  - **TS 发射修复**（L3 tsc 全链驱动 6 处）：
+    - 泛型字段 `T _value` 无初始化器不再宽化 `T | null`（getter 返回 T 触发 TS2322），
+      改发射 `= null!`（TsMemberWriter.EmitField 增类型参数集合参数，TsTypeWriter
+      传入类类型参数名）；
+    - 接口探针 `(v as IX).m` 改鸭子类型结构 `(v as { m?: unknown }).m`——探针追加到
+      引用接口的跨文件单元时接口名触发 TS2304（导入 pass 看不到 IR 层标识符），
+      结构形态免导入；
+    - 对象初始化器路径（`new Dictionary<K,V> { [k] = v }` 索引器初始化）补 TS 分叉：
+      创建语句发射 `new CsDictionary<K,V>()` + 条目改静态 `CsDictionary.add(tmp, k, v)`
+      （原 Java 形态 `new CSharpDictionary<...>()` + `put` 在 TS 无运行时绑定/TS2693）；
+    - compat CsDictionary 增 Java-IR 兼容实例别名 get/put/containsKey（TryGetValue
+      降级产物 `map.containsKey(key)`/`map.get(key)` 与索引器直通文本，Java 兼容库
+      同款方法名，vitest 203 保持全绿）；
+    - 语料修正：Generics.Describe 改 `box.GetValue()`（原 box.Value 非法 C#）；
+      ExceptionFlow.Guard 显式 `if (value == 0) throw new DivideByZeroException()`
+      （JS 中 100/0 不抛异常，vitest 需可验证的异常路径；发射为 ArithmeticException
+      + catch CsException 命中）。
+  - **DualTargetParityTests**（spec §5.7，2 用例）：同一语料分别以 Java/TS 目标经
+    ProjectConversionPipeline 转换，断言类型数/类型名集合对齐、全部成功且 0 错误诊断、
+    每类型公共方法面（C# 源码 Roslyn 解析）在两侧产物都存在（测试类 TS 侧按 it 标签
+    子串）、TS 产物 `.ts`+export+compat 导入、vitest 结构（describe/it/vitest 依赖）。
+  - **已知限制告知**（收尾清单）：TS 目标转换完成时 CLI 打印 spec §6.5 已知限制清单
+    （PrintTypeScriptKnownLimitations），逐项诊断仍走 Warning。
+  - **CI（spec §5.8）**：新增 .github/workflows/ci.yml——push/PR 触发，.NET 10 +
+    Node 24 LTS（setup-node + npm cache）；先 `npm ci` + `npm run build` 构建 compat
+    （dist 为 git-ignored），再跑 Java 2423 + ProjectTests 7 + TS 全量
+    （含 npm install/tsc/vitest 端到端）+ compat vitest 203。
+  - 验证：DualTargetParityTests 2/2；TS 单测 483 全绿；Java 2423 + ProjectTests 7
+    零回归；compat tsc + vitest 203 全绿；CLI 语料端到端 `npm install → tsc → vitest
+    12/12` 全通。
+
 ---
 
 ## 收尾检查清单（M5 完成后）
 
-- [ ] 全部 TS 测试项目绿 + Java 全量测试零回归
-- [ ] L3/L4（tsc/vitest）在 CI 中启用（Node LTS 锁定，spec §5.8）
-- [ ] 已知限制清单（spec §6.5）随产物诊断告知用户
-- [ ] `analyze --target typescript` 等后续项归档至 spec §6.6（本计划不实现）
+- [x] 全部 TS 测试项目绿 + Java 全量测试零回归
+- [x] L3/L4（tsc/vitest）在 CI 中启用（Node LTS 锁定，spec §5.8）
+- [x] 已知限制清单（spec §6.5）随产物诊断告知用户
+- [x] `analyze --target typescript` 等后续项归档至 spec §6.6（本计划不实现）

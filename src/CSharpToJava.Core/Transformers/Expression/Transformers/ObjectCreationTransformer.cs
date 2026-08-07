@@ -443,6 +443,20 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return newExpr;
         }
 
+        // Task 41（TS 专属）：Java 兼容集合构造 → TS 运行时形态。CSharpList/
+        // CSharpDictionary/CSharpHashSet 等 Java 风味名在类型位置由 global.d.ts 桩
+        // 声明（既有已知限制，Task 36 登记），但运行时无绑定——空参构造直接产出
+        // TS 运行时形态（[] / new CsDictionary<K,V>() / new CsSet<T>()）。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+            && (argumentList == null || argumentList.Arguments.Count == 0))
+        {
+            var tsCollectionCtor = MapTsCollectionCtor(typeName, context);
+            if (tsCollectionCtor != null)
+            {
+                return tsCollectionCtor;
+            }
+        }
+
         if (argumentList == null || argumentList.Arguments.Count == 0)
         {
             var runtimeArgs = RuntimeClassParameterHelper.GetRuntimeClassArguments(createdTypeSymbol, context);
@@ -1321,7 +1335,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                             ? nt2.TypeArguments[1] : null;
                         key = ExpressionTransformerHelpers.AdaptExpressionToTargetType(args[0].Expression, key, keyType, context);
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, valueType, context);
-                        pendingAssignments.Add($"{tmpVar}.put({key}, {value});");
+                        if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+                            && IsBareCompatTypeName(typeName, "CSharpDictionary"))
+                        {
+                            // Task 41（TS 专属）：Java 兼容字典运行时无 put；改静态 add
+                            context.TsCompatSymbols.Add("CsDictionary");
+                            pendingAssignments.Add($"CsDictionary.add({tmpVar}, {key}, {value});");
+                        }
+                        else
+                        {
+                            pendingAssignments.Add($"{tmpVar}.put({key}, {value});");
+                        }
                     }
                     else
                     {
@@ -1341,7 +1365,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        context.AddBranchScopedPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+            && MapTsCollectionCtor(typeName, context) is { } tsCollectionCtor)
+        {
+            // Task 41（TS 专属）：Java 兼容集合（CSharpList/CSharpDictionary/CSharpHashSet）
+            // 运行时无绑定，创建语句发射 TS 运行时形态（[] / new CsDictionary<K,V>() / new CsSet<T>()）
+            context.AddBranchScopedPreStatement($"var {tmpVar} = {tsCollectionCtor};");
+        }
+        else
+        {
+            context.AddBranchScopedPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
+        }
         foreach (var assignment in pendingAssignments)
             context.AddBranchScopedPreStatement(assignment);
 
@@ -1969,6 +2003,29 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (isDictionaryLike)
         {
             string tmpVar = context.GenerateSyntheticName("_map");
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            {
+                // Task 41（TS 专属）：Java 风味名（CSharpDictionary<String, Integer>）
+                // 运行时无绑定；改用 compat CsDictionary + 静态 add（与 MemberMappings
+                // 的 Dictionary 成员契约一致）。
+                var tsKeyType = keyType != null ? MapTsCompatTypeName(context.MapType(keyType)) : "any";
+                var tsValueType = valueType != null ? MapTsCompatTypeName(context.MapType(valueType)) : "any";
+                context.AddPreStatement($"var {tmpVar} = new CsDictionary<{tsKeyType}, {tsValueType}>();");
+                context.TsCompatSymbols.Add("CsDictionary");
+                foreach (var element in initializer.Expressions)
+                {
+                    if (element is InitializerExpressionSyntax complexInit && complexInit.Expressions.Count == 2)
+                    {
+                        var key = facade.Transform(complexInit.Expressions[0], context);
+                        var value = facade.Transform(complexInit.Expressions[1], context);
+                        key = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[0], key, keyType, context);
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[1], value, valueType, context);
+                        context.AddPreStatement($"CsDictionary.add({tmpVar}, {key}, {value});");
+                    }
+                }
+                return tmpVar;
+            }
+
             context.AddPreStatement($"var {tmpVar} = new {typeName}();");
             foreach (var element in initializer.Expressions)
             {
@@ -1994,6 +2051,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             .ToList();
         var itemsStr = string.Join(", ", items);
 
+        // Task 41（TS 专属）：集合初始化器 → TS 数组字面量。List/HashSet 在 TS 均以
+        // Array 表达（与 List 成员映射 push/length/includes 一致），Java 路径保持。
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            return $"[{itemsStr}]";
+        }
+
         bool isSetLike = typeName.StartsWith("HashSet", StringComparison.Ordinal) ||
                          typeName.StartsWith("TreeSet", StringComparison.Ordinal) ||
                          typeName.StartsWith("LinkedHashSet", StringComparison.Ordinal);
@@ -2016,6 +2080,60 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Default: List-like
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
         return $"new {typeName}(ArrayHelper.toList({itemsStr}))";
+    }
+
+    /// <summary>
+    /// Task 41：TS 目标下 Java 兼容集合名 → 真实 TS 构造表达式。
+    /// CSharpList/CSharpDictionary/CSharpHashSet 等 Java 风味名在类型位置由
+    /// global.d.ts 桩声明（既有已知限制，Task 36 登记），但运行时无绑定——
+    /// 空参构造直接产出 TS 运行时形态（[] / new CsDictionary&lt;K,V&gt;() /
+    /// new CsSet&lt;T&gt;()）。
+    /// </summary>
+    /// <summary>Task 41：判断 Java 兼容类型名的裸名是否等于指定名（CSharpDictionary 等）。</summary>
+    private static bool IsBareCompatTypeName(string typeName, string bareName)
+    {
+        var open = typeName.IndexOf('<');
+        var bare = open >= 0 ? typeName[..open] : typeName;
+        return string.Equals(bare, bareName, StringComparison.Ordinal);
+    }
+
+    private static string? MapTsCollectionCtor(string typeName, ConversionContext context)
+    {
+        var open = typeName.IndexOf('<');
+        var bare = open >= 0 ? typeName[..open] : typeName;
+        var args = open >= 0 ? typeName[(open + 1)..^1] : "";
+        var mappedArgs = string.Join(", ", args.Split(',').Select(a => MapTsCompatTypeName(a.Trim())));
+        switch (bare)
+        {
+            case "CSharpList":
+                return "[]";
+            case "CSharpDictionary":
+                context.TsCompatSymbols.Add("CsDictionary");
+                return $"new CsDictionary<{mappedArgs}>()";
+            case "CSharpHashSet":
+                context.TsCompatSymbols.Add("CsSet");
+                return $"new CsSet<{mappedArgs}>()";
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Task 41：TS 集合初始化分叉——Java 装箱名（Integer/String/…）映射为 TS 类型名。
+    /// 与 TsMemberMappingTable 内置 Java 风味类型表保持一致（前端 raw 文本不经过
+    /// 发射器映射）。
+    /// </summary>
+    private static string MapTsCompatTypeName(string javaTypeName)
+    {
+        return javaTypeName switch
+        {
+            "Integer" or "Short" or "Byte" or "Float" or "Double" => "number",
+            "Long" => "bigint",
+            "Boolean" => "boolean",
+            "Character" or "String" => "string",
+            "Object" => "any",
+            _ => javaTypeName,
+        };
     }
 
     /// <summary>

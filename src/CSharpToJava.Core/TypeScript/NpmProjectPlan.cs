@@ -340,6 +340,28 @@ public static class NpmProjectFiles
         return Serialize(content);
     }
 
+    /// <summary>
+    /// global.d.ts 类型桩（Task 41）：共享前端在 TS 目标下仍产出 Java 风味名
+    /// （CSharpList/CSharpDictionary/Integer/String 等，既有已知限制，Task 36 登记）——
+    /// L3 tsc 需要这些名字可解析；类型别名在运行时擦除，不影响 vitest 执行。
+    /// 与单文件测试 GlobalStub（TsMemberMappingEmissionTests）同源。
+    /// </summary>
+    public static string GenerateGlobalTypeStub() =>
+        """
+        type Integer = number;
+        type Long = bigint;
+        type Boolean = boolean;
+        type Double = number;
+        type Float = number;
+        type Short = number;
+        type Byte = number;
+        type Character = string;
+        type String = string;
+        type CSharpList<T> = Array<T>;
+        type CSharpDictionary<K, V> = import("@csharptotypescript/compat").CsDictionary<K, V>;
+        type CSharpHashSet<T> = import("@csharptotypescript/compat").CsSet<T>;
+        """;
+
     /// <summary>模块 tsconfig.json：extends 工作区根 tsconfig.base.json。</summary>
     public static string GenerateProjectTsconfig(NpmProjectPlan project)
     {

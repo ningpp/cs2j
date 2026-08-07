@@ -74,7 +74,12 @@ public sealed class TsRecordRewriter : JavaSyntaxRewriter
             });
         }
 
-        // ④ 主构造器（分量非空时）
+        // ③b（Task 41）：record 自身实例方法体中的裸分量访问器调用（Java 允许裸
+        // getX()，TS 必须 this.getX()——TS2663）；分量 getter 名在物化后可知，
+        // 故在 ③ 之后统一补 this. 前缀。静态方法（无 this）与 .getX() 成员访问跳过。
+        QualifyBareComponentGetterCalls(visited, componentNames);
+
+
         if (componentNames.Count > 0 && visited.Constructors.Count == 0)
         {
             var ctor = new JavaConstructorDeclaration
@@ -107,5 +112,93 @@ public sealed class TsRecordRewriter : JavaSyntaxRewriter
 
         _context?.TsCompatSymbols.Add("CsRecord");
         return visited;
+    }
+    /// <summary>裸分量访问器调用限定：getX( → this.getX(（标识符边界 + 跳字符串/字符字面量）。</summary>
+    private static void QualifyBareComponentGetterCalls(JavaClassDeclaration cls, IReadOnlyList<string> componentNames)
+    {
+        if (componentNames.Count == 0)
+        {
+            return;
+        }
+        var getterNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var name in componentNames)
+        {
+            getterNames.Add("get" + char.ToUpperInvariant(name[0]) + name.Substring(1));
+        }
+        foreach (var method in cls.Methods)
+        {
+            if ((method.Modifiers & JavaModifiers.Static) != 0 || string.IsNullOrEmpty(method.Body))
+            {
+                continue;
+            }
+            if (!getterNames.Any(g => method.Body.Contains(g, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+            method.Body = QualifyBareGetterCalls(method.Body, getterNames);
+        }
+    }
+
+    private static string QualifyBareGetterCalls(string code, HashSet<string> getterNames)
+    {
+        var sb = new StringBuilder(code.Length);
+        for (var i = 0; i < code.Length; i++)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i) - 1;
+                sb.Append(code, start, i - start + 1);
+                continue;
+            }
+            if (IsIdentifierChar(ch))
+            {
+                var start = i;
+                while (i + 1 < code.Length && IsIdentifierChar(code[i + 1]))
+                {
+                    i++;
+                }
+                var word = code.Substring(start, i - start + 1);
+                var isCall = i + 1 < code.Length && code[i + 1] == '(';
+                var precededByDot = start > 0 && code[start - 1] == '.';
+                if (isCall && !precededByDot && getterNames.Contains(word))
+                {
+                    sb.Append("this.").Append(word);
+                }
+                else
+                {
+                    sb.Append(word);
+                }
+                continue;
+            }
+            sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsIdentifierChar(char c)
+    {
+        return char.IsLetterOrDigit(c) || c == '_' || c == '$';
+    }
+
+    private static int SkipQuotedLiteral(string code, int start)
+    {
+        var quote = code[start];
+        var i = start + 1;
+        while (i < code.Length)
+        {
+            if (code[i] == '\\' && i + 1 < code.Length)
+            {
+                i += 2;
+                continue;
+            }
+            if (code[i] == quote)
+            {
+                return i + 1;
+            }
+            i++;
+        }
+        return code.Length;
     }
 }

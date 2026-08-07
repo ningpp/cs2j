@@ -129,10 +129,13 @@ public sealed class TsTypeWriter
 
         sb.AppendLine(" {");
 
-        // 字段
+        // 字段（Task 41：传入类类型参数名，泛型字段默认值发射 null! 保持 T）
+        var typeParameterNames = cls.TypeParameters.Count > 0
+            ? new System.Collections.Generic.HashSet<string>(cls.TypeParameters.Select(tp => tp.Name), System.StringComparer.Ordinal)
+            : null;
         foreach (var field in cls.Fields)
         {
-            sb.AppendLine(_memberWriter.EmitField(field, indentLevel + 1));
+            sb.AppendLine(_memberWriter.EmitField(field, indentLevel + 1, typeParameterNames));
         }
 
         if (cls.Fields.Count > 0 && (cls.Constructors.Count > 0 || cls.Methods.Count > 0))

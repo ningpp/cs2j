@@ -216,22 +216,39 @@ public static class TypeGroupResolver
                 switch (typeGroup.TypeSymbol.TypeKind)
                 {
                     case TypeKind.Class:
-                        javaType = new ClassTransformer().TransformMerged(mergedDeclaration, context);
+                        if (typeGroup.TypeSymbol.IsRecord)
+                        {
+                            // record class（含 record struct，TypeKind.Struct 亦走此处）：
+                            // 共享前端 Dispatch 补齐（Task 41 语料），RecordTransformer
+                            // 产出 Java record / 不可变类 IR（TS 侧由 TsRecordRewriter 物化）
+                            javaType = new RecordTransformer().TransformMerged(mergedDeclaration, context);
+                        }
+                        else
+                        {
+                            javaType = new ClassTransformer().TransformMerged(mergedDeclaration, context);
+                        }
                         break;
                     case TypeKind.Struct:
-                        // Use the first valid syntax node directly; structs are rarely partial
-                        TypeDeclarationSyntax? structNode = null;
-                        foreach (var n in typeGroup.SyntaxNodes)
+                        if (typeGroup.TypeSymbol.IsRecord)
                         {
-                            if (compilation.ContainsSyntaxTree(n.SyntaxTree))
-                            {
-                                structNode = n;
-                                break;
-                            }
+                            javaType = new RecordTransformer().TransformMerged(mergedDeclaration, context);
                         }
-                        javaType = structNode != null
-                            ? new StructTransformer().Transform(structNode, context)
-                            : null;
+                        else
+                        {
+                            // Use the first valid syntax node directly; structs are rarely partial
+                            TypeDeclarationSyntax? structNode = null;
+                            foreach (var n in typeGroup.SyntaxNodes)
+                            {
+                                if (compilation.ContainsSyntaxTree(n.SyntaxTree))
+                                {
+                                    structNode = n;
+                                    break;
+                                }
+                            }
+                            javaType = structNode != null
+                                ? new StructTransformer().Transform(structNode, context)
+                                : null;
+                        }
                         break;
                     case TypeKind.Interface:
                     javaType = new InterfaceTransformer().TransformMerged(mergedDeclaration, context);
@@ -596,6 +613,7 @@ public static class TypeGroupResolver
                         Compilation = javaCompilation,
                         FileName = $"{typeGroup.TypeSymbol.Name}.java",
                         Package = pkg,
+                        SourceFilePath = syntax.SyntaxTree.FilePath,
                         Diagnostics = context.Diagnostics.Messages.ToList()
                     };
                 }
@@ -674,6 +692,7 @@ public static class TypeGroupResolver
                         Compilation = javaCompilation,
                         FileName = $"{javaInterface.Name}.java",
                         Package = pkg,
+                        SourceFilePath = delegateSyntax.SyntaxTree.FilePath,
                         Diagnostics = new List<Context.DiagnosticMessage>()
                     };
                 }

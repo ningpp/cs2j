@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers.Expression;
 
 namespace CSharpToJava.Core.Transformers.Type;
@@ -49,6 +50,35 @@ public class RecordTransformer : ITypeTransformer
             // 否则创建等效的不可变类
             return CreateImmutableClass(recordDecl, context);
         }
+    }
+
+    /// <summary>
+    /// 转换已合并的 partial record 声明（项目级模式）。
+    /// 合成的 MergedSyntax 成员节点脱离任何语法树（detached），语义查询
+    /// （GetTypeInfo/GetDeclaredSymbol 及表达式变换）会抛 "Syntax node is not
+    /// within syntax tree"；此处锚定第一个原始 RecordDeclarationSyntax ——
+    /// 其成员/参数/基类列表均为编译树内真实节点（与 ClassTransformer 遍历
+    /// OriginalSyntaxNodes 同一策略）。partial record 的附加成员暂不合并
+    /// （项目级 record 支持前亦不存在该路径，保持既有能力边界）。
+    /// </summary>
+    public JavaTypeDeclaration TransformMerged(MergedTypeDeclaration mergedType, ConversionContext context)
+    {
+        var primaryNode = mergedType.OriginalSyntaxNodes.OfType<RecordDeclarationSyntax>().FirstOrDefault();
+        if (primaryNode == null)
+        {
+            throw new ArgumentException(
+                $"Expected a RecordDeclarationSyntax original node, got {mergedType.MergedSyntax.GetType()}");
+        }
+
+        // Ensure the semantic model matches the primary node's tree (project mode has
+        // one model per file; the context model may point at a different tree).
+        var nodeModel = context.GetSemanticModelForTree(primaryNode.SyntaxTree);
+        if (nodeModel != null)
+        {
+            context.SemanticModel = nodeModel;
+        }
+
+        return Transform(primaryNode, context);
     }
 
     private JavaTypeDeclaration CreateJavaRecord(RecordDeclarationSyntax recordDecl, ConversionContext context)

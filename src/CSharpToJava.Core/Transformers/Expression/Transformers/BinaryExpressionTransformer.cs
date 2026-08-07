@@ -1240,7 +1240,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private string? TryTransformOperatorByTypeInfo(BinaryExpressionSyntax node, string op, ConversionContext context)
     {
-        var semanticModel = context.SemanticModel!;
+        var semanticModel = context.GetSemanticModelForNode(node) ?? context.SemanticModel!;
         var leftType = semanticModel.GetTypeInfo(node.Left).Type;
         var rightType = semanticModel.GetTypeInfo(node.Right).Type;
 
@@ -1355,7 +1355,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private JavaExpression? TryTransformOperatorByTypeInfoToIR(BinaryExpressionSyntax node, string op, ConversionContext context)
     {
-        var semanticModel = context.SemanticModel!;
+        var semanticModel = context.GetSemanticModelForNode(node) ?? context.SemanticModel!;
         var leftType = semanticModel.GetTypeInfo(node.Left).Type;
         var rightType = semanticModel.GetTypeInfo(node.Right).Type;
 

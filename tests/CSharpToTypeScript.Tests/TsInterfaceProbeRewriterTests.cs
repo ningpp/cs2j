@@ -26,7 +26,7 @@ class F
         Assert.True(result.Success);
         Assert.Contains("return is$IFoo(x);", result.GeneratedCode);
         Assert.Contains("export function is$IFoo(v: unknown): boolean", result.GeneratedCode);
-        Assert.Contains("typeof (v as IFoo).m === \"function\"", result.GeneratedCode);
+        Assert.Contains("typeof (v as { m?: unknown }).m === \"function\"", result.GeneratedCode);
         Assert.Contains("CsRuntime.isMarked(v, \"IFoo\")", result.GeneratedCode);
         Assert.DoesNotContain("instanceof IFoo", result.GeneratedCode);
     }
@@ -69,8 +69,8 @@ class F
 }
 """);
         Assert.True(result.Success);
-        Assert.Contains("typeof (v as IFoo).b === \"function\"", result.GeneratedCode);
-        Assert.Contains("typeof (v as IFoo).m === \"function\"", result.GeneratedCode);
+        Assert.Contains("typeof (v as { b?: unknown }).b === \"function\"", result.GeneratedCode);
+        Assert.Contains("typeof (v as { m?: unknown }).m === \"function\"", result.GeneratedCode);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ class F
         Assert.Contains("export function is$IRepo(v: unknown): boolean", result.GeneratedCode);
         Assert.Contains("is$IRepo(x)", result.GeneratedCode);
         Assert.Contains("(x as IRepo<string>)", result.GeneratedCode);
-        Assert.Contains("typeof (v as IRepo<any>).get$ === \"function\"", result.GeneratedCode);
+        Assert.Contains("typeof (v as { get$?: unknown }).get$ === \"function\"", result.GeneratedCode);
     }
 
     [Fact]

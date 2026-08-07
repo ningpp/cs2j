@@ -859,6 +859,11 @@ public class Program
                 Path.Combine(moduleRoot, "tsconfig.json"),
                 NpmProjectFiles.GenerateProjectTsconfig(module),
                 OutputIncrementalEntryKind.BuildFile);
+            // Task 41：Java 风味名类型桩（global.d.ts，L3 tsc 解析；运行时类型别名擦除）
+            outputSession.WriteTextFile(
+                Path.Combine(moduleRoot, "src", "global.d.ts"),
+                NpmProjectFiles.GenerateGlobalTypeStub(),
+                OutputIncrementalEntryKind.BuildFile);
             if (module.RequiresVitestConfig)
             {
                 outputSession.WriteTextFile(
@@ -886,6 +891,7 @@ public class Program
 
         Console.WriteLine();
         Console.WriteLine($"Conversion complete (TypeScript, {discoveryLabel}): {successCount} succeeded, {failureCount} failed, {copiedResourceCount} resources copied, modules={projects.Count}");
+        PrintTypeScriptKnownLimitations();
 
         if (failureCount > 0)
         {
@@ -1071,6 +1077,25 @@ public class Program
 
         Console.WriteLine("TypeScript verification passed.");
         return 0;
+    }
+
+    /// <summary>TS 目标完成时告知 spec §6.5 已知限制（收尾清单 Task 41：随产物诊断告知用户）。
+    /// 逐项转换诊断（如接口探针 mark-only、测试类构造器未发射）仍按既有 Warning 机制输出。</summary>
+    private static void PrintTypeScriptKnownLimitations()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Known TypeScript-target limitations (spec §6.5):");
+        Console.WriteLine("  - structs convert to classes: value semantics become shared references (cloneStruct at key copy points)");
+        Console.WriteLine("  - integer overflow does not wrap (unchecked overflow semantics not modeled)");
+        Console.WriteLine("  - static constructor timing is not guaranteed to match C#");
+        Console.WriteLine("  - generic runtime info (typeof(T)/default(T)/new T()) is degraded");
+        Console.WriteLine("  - array index out of range returns undefined instead of throwing");
+        Console.WriteLine("  - LINQ chains are eagerly evaluated; side-effect timing may differ");
+        Console.WriteLine("  - DateTime is UTC-only in this milestone");
+        Console.WriteLine("  - explicit interface implementation probes may be wider than C#");
+        Console.WriteLine("  - cyclic module imports are not detected");
+        Console.WriteLine("  - Task/async is degraded to synchronous or diagnostic");
+        Console.WriteLine("  - events expose Invoke publicly (encapsulation reduced)");
     }
 
     /// <summary>解析 npm/npx 可执行文件完整路径（PATH 扫描）。Windows 下 .NET
