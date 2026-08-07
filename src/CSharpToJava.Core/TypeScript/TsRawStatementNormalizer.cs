@@ -976,7 +976,7 @@ public static class TsRawStatementNormalizer
         // Tail must tolerate a trailing \r: ctor bodies flattened with AppendLine()/\r\n
         // keep a \r before the \n on every raw line, and `[^\r\n]*` would stop before it.
         var declPattern = new Regex(
-            $@"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*{GenericTypeSuffixPattern}?(?:\[\])*)\s+(?<decls>.+);(?<tail>\s*(?://[^\r\n]*)?\s*)$",
+            $@"^(?<ind>\s*)(?<ann>@[A-Za-z_$][\w$]*(?:\([^)]*\))?[ \t]*)?(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*{GenericTypeSuffixPattern}?(?:\[\])*)\s+(?<decls>.+);(?<tail>\s*(?://[^\r\n]*)?\s*)$",
             RegexOptions.Compiled | RegexOptions.Multiline);
         return declPattern.Replace(code, match =>
         {
@@ -1000,7 +1000,7 @@ public static class TsRawStatementNormalizer
     /// </summary>
     private static string NormalizeReferenceCasts(string code)
     {
-        var castPattern = new Regex(@"\(\s*(?<type>[A-Z_$][\w$]*(?:\.[A-Z_$][\w$]*)*(?:<[^>]*>)?(?:\[\])*)\s*\)\s*(?=[A-Za-z_(])");
+        var castPattern = new Regex(@"\(\s*(?<type>[A-Z_$][\w$]*(?:\.[A-Z_$][\w$]*)*(?:<[^>]*>)?(?:\[\])*)\s*\)\s*(?=[A-Za-z_(\[])");
         var sb = new StringBuilder(code.Length);
         var i = 0;
         while (i < code.Length)

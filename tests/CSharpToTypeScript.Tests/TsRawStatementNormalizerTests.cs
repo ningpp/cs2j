@@ -801,4 +801,34 @@ public class TsRawStatementNormalizerTests
         // requires at least one empty [] pair, so "new double" + "[2]" cannot match.
         Assert.Equal("new Array(2)", TsRawStatementNormalizer.Normalize("new double[2][]"));
     }
+
+    // ---- Round 14 (MSAGL): out-param lambda-capture holder raw text ----
+    // Relayout.cs:144-161 `HashSet<Node> addedNodes; ... TryGetValue(cluster, out addedNodes)`
+    // with the variable captured by a lambda emits BuildLambdaCaptureHolderDeclaration raw text:
+    //   @SuppressWarnings("unchecked") CSharpHashSet<Node>[] _addedNodes = (CSharpHashSet<Node>[]) new Object[] { null };
+    // Sub-defects: (a) declPattern rejects a leading @ annotation, (b) NormalizeReferenceCasts
+    // lookahead does not accept '[' so the cast survives the array-literal pass, (c) the
+    // declaration must then let-ify (uppercase type + array suffix is accepted).
+
+    [Fact]
+    public void SuppressWarnings_Generic_Array_Holder_Declaration_Is_Let_ified()
+    {
+        var input = "@SuppressWarnings(\"unchecked\") CSharpHashSet<Node>[] _addedNodes = (CSharpHashSet<Node>[]) new Object[] { null };";
+        var expected = "let _addedNodes: CSharpHashSet<Node>[] = [ null ];";
+        Assert.Equal(expected, NormalizeWithTable(input));
+    }
+
+    [Fact]
+    public void Reference_Cast_Before_Bracket_Array_Literal_Is_Stripped()
+    {
+        Assert.Equal("[ null ]", TsRawStatementNormalizer.Normalize("(CSharpHashSet<Node>[]) [ null ]"));
+        Assert.Equal("x = [ 1, 2 ];", NormalizeWithTable("x = (Point[]) [ 1, 2 ];"));
+    }
+
+    [Fact]
+    public void SuppressWarnings_On_Non_Declaration_Text_Is_Preserved()
+    {
+        var input = "@SuppressWarnings(\"unchecked\") class Holder {";
+        Assert.Equal(input, NormalizeWithTable(input));
+    }
 }

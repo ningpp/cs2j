@@ -1,4 +1,4 @@
-﻿using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Context;
 
 namespace CSharpToTypeScript.Tests;
 
@@ -113,5 +113,33 @@ public class Use
         Assert.Contains("public m(x: Ref<bigint>): void", result.GeneratedCode);
         Assert.Contains("const _aRef = refOf(a);", result.GeneratedCode);
         AssertCompilesWithCompat(result.GeneratedCode);
+    }
+
+    [Fact]
+    public void TryGetValue_Out_Param_Captured_In_Lambda_Emits_Let_Holder()
+    {
+        // Relayout.cs:144-161: out-param holder raw text must normalize to a TS let
+        // declaration (annotation + erasure cast stripped, array literal kept).
+        var result = Convert("""
+using System.Collections.Generic;
+using System.Linq;
+public class Use
+{
+    private Dictionary<string, HashSet<int>> addedNodesByCluster = new Dictionary<string, HashSet<int>>();
+    public void M(string cluster)
+    {
+        HashSet<int> addedNodes;
+        if (addedNodesByCluster.TryGetValue(cluster, out addedNodes))
+        {
+            var nodes = new List<int> { 0, 1, 2 }.Where(v => !addedNodes.Contains(v));
+        }
+    }
+}
+""");
+        Assert.True(result.Success);
+        Assert.Contains("_addedNodes", result.GeneratedCode);
+        Assert.Contains("let _addedNodes: CSharpHashSet<number>[] = [ null ];", result.GeneratedCode);
+        Assert.DoesNotContain("@SuppressWarnings", result.GeneratedCode);
+        Assert.DoesNotContain("(CSharpHashSet", result.GeneratedCode);
     }
 }
