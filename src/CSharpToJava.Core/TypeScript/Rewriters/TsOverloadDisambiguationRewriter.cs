@@ -635,6 +635,16 @@ public sealed class TsCtorFactoryRewriter : JavaSyntaxRewriter
                     i++;
                 }
                 var word = code.Substring(start, i - start + 1);
+                // 成员位（紧邻 '.' 之后的标识符是成员名，如 self.left 的 left）
+                // 不是形参引用，不得替换：this.left = left; 传 0 应产出
+                // self.left = 0;，此前退化成 self.0 = 0;（RbTree/Ellipse/
+                // Rectangle/InitialLayoutByCluster 共 5 处语法错误，且当实参为
+                // 普通标识符时静默产出赋错属性的有效但错误 TS）。
+                if (start > 0 && code[start - 1] == '.')
+                {
+                    sb.Append(word);
+                    continue;
+                }
                 var idx = -1;
                 for (var p = 0; p < targetParams.Count; p++)
                 {

@@ -197,4 +197,76 @@ class User
         Assert.True(result.Success, result.GeneratedCode);
         AssertCompilesWithCompat(result.GeneratedCode);
     }
+
+    [Fact]
+    public void Ctor_Delegation_Replaces_Args_In_Value_Positions_Only()
+    {
+        // 镜像 MSAGL Rectangle(IEnumerable<Point>) : this(0, 0, new Point(-1, -1))：
+        // 委托实参只替换值位（self.left = 0;），成员位（self.<name>）不得替换——
+        // 此前整条语句退化成 self.0 = 0; / self.new Point(-1, -1) = ...。
+        var result = Convert("""
+class Point
+{
+    public Point(double x, double y) { }
 }
+
+class Box
+{
+    double left;
+    double bottom;
+    Point sizeF;
+
+    public Box(Point[] points) : this(0, 0, new Point(-1, -1)) { }
+    public Box(double left, double bottom, Point sizeF)
+    {
+        this.left = left;
+        this.bottom = bottom;
+        this.sizeF = sizeF;
+    }
+}
+""");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.True(result.GeneratedCode.Contains("self.left = 0;", StringComparison.Ordinal), result.GeneratedCode);
+        Assert.True(result.GeneratedCode.Contains("self.bottom = 0;", StringComparison.Ordinal), result.GeneratedCode);
+        Assert.True(result.GeneratedCode.Contains("self.sizeF = new Point(-1, -1);", StringComparison.Ordinal), result.GeneratedCode);
+        Assert.DoesNotContain("self.0 = 0;", result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Ctor_Delegation_With_Lambda_And_Object_Creation_Args()
+    {
+        // 镜像 MSAGL InitialLayoutByCluster : this(graph, anyCluster => defaultSettings)
+        // 与 RBTree : this(new ComparerOnDelegate<T>(func))：lambda / new 表达式实参
+        // 只进值位——此前成员位也被替换成 self.anyCluster => ... = ... 与
+        // self.new Holder(func) = ...。
+        var result = Convert("""
+class Holder
+{
+    public Holder(System.Func<int, int> f) { }
+}
+
+class Tree
+{
+    Holder holder;
+
+    public Tree(System.Func<int, int> func) : this(new Holder(func)) { }
+    public Tree(Holder holder) { this.holder = holder; }
+}
+
+class Layout
+{
+    public Layout() : this(n => n + 1) { }
+    public Layout(System.Func<int, int> settings) { this.settings = settings; }
+    System.Func<int, int> settings;
+}
+""");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.True(result.GeneratedCode.Contains("self.holder = new Holder(func);", StringComparison.Ordinal), result.GeneratedCode);
+        Assert.True(result.GeneratedCode.Contains("self.settings = n => n + 1;", StringComparison.Ordinal), result.GeneratedCode);
+        Assert.DoesNotContain("self.new Holder", result.GeneratedCode);
+        Assert.DoesNotContain("self.n => n + 1", result.GeneratedCode);
+        AssertCompilesWithCompat(result.GeneratedCode);
+    }
+}
+
