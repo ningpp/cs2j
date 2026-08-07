@@ -257,4 +257,29 @@ public class TsRawStatementNormalizerTests
         var input = "return '\\\"';";
         Assert.Equal(input, NormalizeWithTable(input));
     }
+
+    // ─── Task 22：raw 文本 long 字面量 L → n ──────────────────────────
+
+    [Fact]
+    public void Long_Literal_Suffix_Emits_Bigint()
+    {
+        // 数值语义 rewriter 改写出的混合链落在 raw 文本（7L + BigInt(1)），L 后缀必须归一化
+        Assert.Equal("return 7n + BigInt(1);", NormalizeWithTable("return 7L + BigInt(1);"));
+        Assert.Equal("return 100n;", NormalizeWithTable("return 100L;"));
+    }
+
+    [Fact]
+    public void Long_Literal_Hex_And_Underscore_Emits_Bigint()
+    {
+        Assert.Equal("return 0xFFn;", NormalizeWithTable("return 0xFFL;"));
+        Assert.Equal("return 1_000n;", NormalizeWithTable("return 1_000L;"));
+    }
+
+    [Fact]
+    public void Long_Literal_Inside_String_And_Identifier_Not_Touched()
+    {
+        // 字符串内 L 后缀不改写；标识符中的数字段（abc123L）不做字面量改写
+        Assert.Equal("return \"7L\";", NormalizeWithTable("return \"7L\";"));
+        Assert.Equal("return abc123L;", NormalizeWithTable("return abc123L;"));
+    }
 }

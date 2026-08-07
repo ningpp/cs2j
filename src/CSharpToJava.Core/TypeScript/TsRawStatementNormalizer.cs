@@ -32,6 +32,9 @@ public static class TsRawStatementNormalizer
     private const string OutPrintln = "System.out.println(";
     private const string ErrPrintln = "System.err.println(";
 
+    // 与 TsStatementWriter.EmitFor 同款：long 字面量 L 后缀 → bigint n 后缀（raw 文本形态）。
+    private static readonly Regex LongLiteralPattern = new(@"(0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*)[lL]");
+
     public static string Normalize(string code)
     {
         return Normalize(code, null);
@@ -65,7 +68,11 @@ public static class TsRawStatementNormalizer
 
         // ④ Java 风味异常名 → 兼容库名（Task 21：方法体直通文本中的 throw new X(...) /
         // instanceof X；结构化 new/instanceof/catch 由发射器在节点层映射）。
-        return NormalizeExceptionNames(withChars, mapException);
+        var withExceptions = NormalizeExceptionNames(withChars, mapException);
+
+        // ⑤ long 字面量 L 后缀 → n 后缀（Task 22 冒烟：raw 文本中 7L → 7n；数值语义
+        // rewriter 改写出的 BigInt(...) 混合链同样落在 raw 文本，必须归一化）。
+        return NormalizeLongLiterals(withExceptions);
     }
 
     /// <summary>
@@ -301,6 +308,43 @@ public static class TsRawStatementNormalizer
         }
         rewritten = "\"" + inner.Replace("\\'", "'") + "\"";
         return true;
+    }
+
+    /// <summary>
+    /// 将 raw 语句文本中的 long 字面量 L 后缀归一化为 bigint n 后缀（Task 22）。
+    /// 跳过字符串/字符字面量区域；仅在标识符边界命中数字起点（避免误改
+    /// abc123L 这类标识符中的数字段）；0x/0b 前缀与下划线分隔均覆盖。
+    /// </summary>
+    private static string NormalizeLongLiterals(string code)
+    {
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+
+            if ((char.IsDigit(ch) || ch == '0') && AtIdentifierBoundary(code, i))
+            {
+                var m = LongLiteralPattern.Match(code, i);
+                if (m.Success && m.Index == i)
+                {
+                    sb.Append(m.Groups[1].Value).Append('n');
+                    i += m.Length;
+                    continue;
+                }
+            }
+
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
     }
 
     /// <summary>

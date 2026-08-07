@@ -113,12 +113,16 @@ public abstract class TsConversionTestBase
     /// d.ts 桩使导入可解析（Task 18 起 CsString.format 用例需要；语义测试在 M4 以
     /// vitest 对齐 spec §5.6，桩仅满足 tsc 编译）。
     /// </summary>
-    protected void AssertCompilesWithCompat(string tsCode)
+    protected void AssertCompilesWithCompat(string tsCode, params string[] additionalFiles)
     {
-        AssertCompiles(tsCode,
+        var args = new List<string>
+        {
             @"node_modules/@csharptotypescript/compat/package.json", CompatPackageJson,
             @"node_modules/@csharptotypescript/compat/index.d.ts", CompatIndexDts,
-            @"node_modules/@csharptotypescript/compat/index.js", CompatIndexJs);
+            @"node_modules/@csharptotypescript/compat/index.js", CompatIndexJs,
+        };
+        args.AddRange(additionalFiles);
+        AssertCompiles(tsCode, args.ToArray());
     }
 
     private const string CompatPackageJson =
