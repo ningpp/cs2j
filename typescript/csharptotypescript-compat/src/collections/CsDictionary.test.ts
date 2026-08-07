@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ArgumentException, KeyNotFoundException } from "../exceptions/CsException.js";
 import { CsDictionary } from "./CsDictionary.js";
 import { CsKeyValuePair } from "./CsKeyValuePair.js";
 import { outRef } from "../core/Ref.js";
@@ -29,7 +30,7 @@ describe("CsDictionary (spec §4.3.5)", () => {
     it("Add throws on duplicate keys (C# ArgumentException)", () => {
         const d = new CsDictionary<string, number>();
         d.Add("a", 1);
-        expect(() => d.Add("a", 2)).toThrow(RangeError);
+        expect(() => d.Add("a", 2)).toThrow(ArgumentException);
         expect(d.Count).toBe(1);
     });
 
@@ -44,7 +45,7 @@ describe("CsDictionary (spec §4.3.5)", () => {
 
     it("get_Item throws on missing key (C# KeyNotFoundException)", () => {
         const d = new CsDictionary<string, number>();
-        expect(() => d.get_Item("missing")).toThrow(RangeError);
+        expect(() => d.get_Item("missing")).toThrow(KeyNotFoundException);
     });
 
     it("TryGetValue writes the Ref and reports success", () => {
@@ -158,7 +159,7 @@ describe("CsDictionary (spec §4.3.5)", () => {
         d.Add("Key", 1);
         expect(d.ContainsKey("key")).toBe(true);
         expect(d.get_Item("KEY")).toBe(1);
-        expect(() => d.Add("KEY", 2)).toThrow(RangeError);
+        expect(() => d.Add("KEY", 2)).toThrow(ArgumentException);
         expect([...d][0].key).toBe("Key");
         expect(d.Count).toBe(1);
     });

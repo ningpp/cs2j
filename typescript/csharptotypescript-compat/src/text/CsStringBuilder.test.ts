@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ArgumentException, ArgumentNullException, ArgumentOutOfRangeException } from "../exceptions/CsException.js";
 import { CsStringBuilder } from "./CsStringBuilder.js";
 
 describe("CsStringBuilder (spec §4.3.6)", () => {
@@ -28,14 +29,14 @@ describe("CsStringBuilder (spec §4.3.6)", () => {
         expect(new CsStringBuilder("ab").Insert(0, ">").ToString()).toBe(">ab");
         expect(new CsStringBuilder("ab").Insert(2, "<").ToString()).toBe("ab<");
         expect(new CsStringBuilder("ab").Insert(1, null).ToString()).toBe("ab");
-        expect(() => new CsStringBuilder("ab").Insert(5, "X")).toThrow(RangeError);
+        expect(() => new CsStringBuilder("ab").Insert(5, "X")).toThrow(ArgumentOutOfRangeException);
     });
 
     it("Remove deletes a range; out-of-range throws", () => {
         expect(new CsStringBuilder("hello").Remove(1, 3).ToString()).toBe("ho");
         expect(new CsStringBuilder("hello").Remove(0, 5).ToString()).toBe("");
-        expect(() => new CsStringBuilder("hello").Remove(4, 2)).toThrow(RangeError);
-        expect(() => new CsStringBuilder("hello").Remove(-1, 1)).toThrow(RangeError);
+        expect(() => new CsStringBuilder("hello").Remove(4, 2)).toThrow(ArgumentOutOfRangeException);
+        expect(() => new CsStringBuilder("hello").Remove(-1, 1)).toThrow(ArgumentOutOfRangeException);
     });
 
     it("Replace replaces all occurrences (no overlap rescan)", () => {
@@ -56,9 +57,9 @@ describe("CsStringBuilder (spec §4.3.6)", () => {
     });
 
     it("Replace validates oldValue and ranges", () => {
-        expect(() => new CsStringBuilder("abc").Replace("", "x")).toThrow(RangeError);
-        expect(() => new CsStringBuilder("abc").Replace(null, "x")).toThrow(RangeError);
-        expect(() => new CsStringBuilder("abc").Replace("a", "x", 2, 2)).toThrow(RangeError);
+        expect(() => new CsStringBuilder("abc").Replace("", "x")).toThrow(ArgumentException);
+        expect(() => new CsStringBuilder("abc").Replace(null, "x")).toThrow(ArgumentNullException);
+        expect(() => new CsStringBuilder("abc").Replace("a", "x", 2, 2)).toThrow(ArgumentOutOfRangeException);
     });
 
     it("Replace with null newValue removes matches (C# semantics)", () => {

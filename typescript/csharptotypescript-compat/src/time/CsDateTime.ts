@@ -1,11 +1,12 @@
 import { CsTimeSpan } from "./CsTimeSpan.js";
 import { DayOfWeek } from "./DayOfWeek.js";
+import { ArgumentOutOfRangeException } from "../exceptions/CsException.js";
 
 /**
  * CsDateTime — 日期时间（spec §4.3.4）。内部以 ticks（C# tick = 100 纳秒）bigint 存储，
  * 纯整数格里高利历换算（Howard Hinnant civil 算法），不依赖 JS Date（避免时区/精度陷阱）。
  * 第一里程碑按 UTC 语义处理（DateTimeKind 简化）：Now/UtcNow 同为 UTC 时钟，
- * 本地时区换算记入限制。构造器范围校验暂抛 RangeError（Task 34 异常层次落地后切换）。
+ * 本地时区换算记入限制。构造器范围校验抛 ArgumentOutOfRangeException（spec §4.3.9）。
  */
 const TICKS_PER_MS = 10000n;
 const TICKS_PER_SECOND = 10000000n;
@@ -295,7 +296,7 @@ export class CsDateTime {
             case 2:
                 return isLeapYear(year) ? 29 : 28;
             default:
-                throw new RangeError(`month out of range: ${month}`);
+                throw new ArgumentOutOfRangeException(`month out of range: ${month}`);
         }
     }
 
@@ -322,17 +323,17 @@ export class CsDateTime {
         millisecond: number,
     ): bigint {
         if (year < 1 || year > 9999) {
-            throw new RangeError(`year out of range: ${year}`);
+            throw new ArgumentOutOfRangeException(`year out of range: ${year}`);
         }
         if (month < 1 || month > 12) {
-            throw new RangeError(`month out of range: ${month}`);
+            throw new ArgumentOutOfRangeException(`month out of range: ${month}`);
         }
         const lastDay = CsDateTime.daysInMonth(year, month);
         if (day < 1 || day > lastDay) {
-            throw new RangeError(`day out of range: ${day}`);
+            throw new ArgumentOutOfRangeException(`day out of range: ${day}`);
         }
         if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 || millisecond < 0 || millisecond > 999) {
-            throw new RangeError("time component out of range");
+            throw new ArgumentOutOfRangeException("time component out of range");
         }
         const days = daysFromCivil(year, month, day);
         return (

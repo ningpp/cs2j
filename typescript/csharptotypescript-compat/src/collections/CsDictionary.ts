@@ -1,3 +1,4 @@
+import { ArgumentException, KeyNotFoundException } from "../exceptions/CsException.js";
 import { CsObject } from "../core/CsObject.js";
 import { type Ref } from "../core/Ref.js";
 import { CsKeyValuePair } from "./CsKeyValuePair.js";
@@ -30,8 +31,7 @@ function keysEqual(a: unknown, b: unknown): boolean {
  *
  * 登记简化：
  * - 插入序经数组维护，删除 O(n)（.NET 为摊还 O(1)）。
- * - 越界/重复键暂抛 RangeError（Task 34 异常层次落地后切换
- *   ArgumentException/KeyNotFoundException）。
+ * - 重复键抛 ArgumentException、缺失键抛 KeyNotFoundException（spec §4.3.9）。
  * - Keys/Values 返回快照数组（C# 返回活视图）；构造器容量参数忽略。
  * - 自定义比较器模式下无原始键快速路径（全部走桶）。
  */
@@ -55,20 +55,20 @@ export class CsDictionary<K, V> {
         this._primitiveMap = this._comparer === undefined ? new Map<K, V>() : null;
     }
 
-    /** C# Dictionary.Add：重复键抛异常（对齐 ArgumentException）。 */
+    /** C# Dictionary.Add：重复键抛 ArgumentException。 */
     Add(key: K, value: V): void {
         const existing = this.find(key);
         if (existing.found) {
-            throw new RangeError("An item with the same key has already been added.");
+            throw new ArgumentException("An item with the same key has already been added.");
         }
         this.insertNew(key, value);
     }
 
-    /** 索引器读取（C# dict[key]）：缺失抛异常（对齐 KeyNotFoundException）。 */
+    /** 索引器读取（C# dict[key]）：缺失抛 KeyNotFoundException。 */
     get_Item(key: K): V {
         const existing = this.find(key);
         if (!existing.found) {
-            throw new RangeError("The given key was not present in the dictionary.");
+            throw new KeyNotFoundException("The given key was not present in the dictionary.");
         }
         return existing.value as V;
     }

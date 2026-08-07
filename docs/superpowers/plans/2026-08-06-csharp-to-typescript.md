@@ -5501,6 +5501,20 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   中止后续、GetInvocationList 副本、Invoke 参数由 Parameters<T> 推导）+ index.ts
   导出；tsc --noEmit + vitest 131 用例全绿。
 
+- [x] **Task 34 完成（2026-08-07）**：`src/exceptions/` 组件（spec §4.3.9 全部类：
+  CsException 基类含 InnerException/Message/StackTrace/ToString、name 按运行时类型
+  （new.target.name）、ArgumentException/ArgumentNullException/ArgumentOutOfRangeException/
+  InvalidOperationException/NotSupportedException/NotImplementedException/
+  IndexOutOfRangeException/KeyNotFoundException/ArithmeticException/
+  DivideByZeroException/OverflowException/FormatException/IOException；
+  instanceof 链可用（catch 类型过滤 §2.5））+ 已登记调用点切换：
+  CsDateTime 范围校验 → ArgumentOutOfRangeException、CsString.format 错误 →
+  FormatException/null 格式 → ArgumentNullException、split count →
+  ArgumentOutOfRangeException、CsStringBuilder Insert/Remove/Replace 区间 →
+  ArgumentOutOfRangeException + oldValue null/空 → ArgumentNullException/ArgumentException、
+  CsDictionary 重复 Add → ArgumentException、缺失 get_Item → KeyNotFoundException；
+  index.ts 导出；tsc --noEmit + vitest 138 用例全绿。
+
 ## Task 29-35: 逐组件实现（每个含 vitest 对齐 C# 行为的语义测试，spec §5.6）
 
 | Task | 组件 | 关键验收（spec 章节） |

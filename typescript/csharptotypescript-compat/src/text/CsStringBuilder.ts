@@ -1,3 +1,5 @@
+import { ArgumentException, ArgumentNullException, ArgumentOutOfRangeException } from "../exceptions/CsException.js";
+
 /**
  * CsStringBuilder — C# StringBuilder 兼容（spec §4.3.6）。
  * Append/AppendLine/Insert/Remove/Replace/ToString/Length/Clear，行为经 net10.0 探针核对。
@@ -5,7 +7,7 @@
  * 登记简化：
  * - AppendLine 行终止符固定 LF（C# Environment.NewLine 平台相关：Windows CRLF/Linux LF）。
  * - 构造器容量参数忽略（JS 字符串拼接无容量概念）；Length 仅提供 getter（setter 未实现）。
- * - 越界/非法参数暂抛 RangeError（Task 34 异常层次落地后切换 Argument*Exception）。
+ * - 越界/非法参数抛 Argument*Exception 层次（spec §4.3.9）。
  * - 字符索引器 sb[i]（get/set）未实现。
  */
 
@@ -62,7 +64,7 @@ export class CsStringBuilder {
         return this;
     }
 
-    /** C# StringBuilder.Insert：null 值无操作；越界抛 RangeError。 */
+    /** C# StringBuilder.Insert：null 值无操作；越界抛 ArgumentOutOfRangeException。 */
     Insert(index: number, value: unknown): this {
         const s = toAppendString(value);
         if (s === null) {
@@ -70,17 +72,17 @@ export class CsStringBuilder {
         }
         const text = this.ToString();
         if (index < 0 || index > text.length) {
-            throw new RangeError("index out of range");
+            throw new ArgumentOutOfRangeException("index out of range");
         }
         this._chunks = [text.slice(0, index), s, text.slice(index)].filter((c) => c.length > 0);
         return this;
     }
 
-    /** C# StringBuilder.Remove(startIndex, length)：越界抛 RangeError。 */
+    /** C# StringBuilder.Remove(startIndex, length)：越界抛 ArgumentOutOfRangeException。 */
     Remove(startIndex: number, length: number): this {
         const text = this.ToString();
         if (startIndex < 0 || length < 0 || startIndex + length > text.length) {
-            throw new RangeError("startIndex/length out of range");
+            throw new ArgumentOutOfRangeException("startIndex/length out of range");
         }
         this._chunks = [text.slice(0, startIndex), text.slice(startIndex + length)].filter((c) => c.length > 0);
         return this;
@@ -88,19 +90,22 @@ export class CsStringBuilder {
 
     /**
      * C# StringBuilder.Replace：全量替换 / 区间重载（startIndex, count）。
-     * oldValue 为 null/空串抛 RangeError（对齐 ArgumentNullException/ArgumentException）；
+     * oldValue 为 null 抛 ArgumentNullException、空串抛 ArgumentException（对齐 C#）；
      * newValue 为 null 视为 ""（移除匹配）。
      */
     Replace(oldValue: string, newValue: string, startIndex?: number, count?: number): this {
-        if (oldValue === null || oldValue === undefined || oldValue.length === 0) {
-            throw new RangeError("oldValue must not be null or empty");
+        if (oldValue === null || oldValue === undefined) {
+            throw new ArgumentNullException("oldValue");
+        }
+        if (oldValue.length === 0) {
+            throw new ArgumentException("oldValue must not be empty");
         }
         const replacement = newValue === null || newValue === undefined ? "" : newValue;
         const text = this.ToString();
         if (startIndex !== undefined) {
             const actualCount = count ?? text.length - startIndex;
             if (startIndex < 0 || actualCount < 0 || startIndex + actualCount > text.length) {
-                throw new RangeError("startIndex/count out of range");
+                throw new ArgumentOutOfRangeException("startIndex/count out of range");
             }
             const head = text.slice(0, startIndex);
             const range = text.slice(startIndex, startIndex + actualCount);

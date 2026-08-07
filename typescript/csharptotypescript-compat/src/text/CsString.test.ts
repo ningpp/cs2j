@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CsString } from "./CsString.js";
+import { ArgumentNullException, ArgumentOutOfRangeException, FormatException } from "../exceptions/CsException.js";
 import { StringSplitOptions } from "./StringSplitOptions.js";
 
 describe("CsString.format (spec §4.3.6)", () => {
@@ -101,10 +102,10 @@ describe("CsString.format (spec §4.3.6)", () => {
     });
 
     it("throws on malformed format or out-of-range index", () => {
-        expect(() => CsString.format("{2}", "a")).toThrow(RangeError);
-        expect(() => CsString.format("{0", 1)).toThrow(RangeError);
-        expect(() => CsString.format("}", 1)).toThrow(RangeError);
-        expect(() => CsString.format(null, 1)).toThrow(RangeError);
+        expect(() => CsString.format("{2}", "a")).toThrow(FormatException);
+        expect(() => CsString.format("{0", 1)).toThrow(FormatException);
+        expect(() => CsString.format("}", 1)).toThrow(FormatException);
+        expect(() => CsString.format(null, 1)).toThrow(ArgumentNullException);
     });
 });
 
@@ -165,6 +166,7 @@ describe("CsString.split (spec §4.3.6)", () => {
         expect(CsString.split(",," , ",", StringSplitOptions.None, 2)).toEqual(["", ","]);
         expect(CsString.split(",," , ",", StringSplitOptions.RemoveEmptyEntries, 2)).toEqual([]);
         expect(CsString.split("a,b", ",", StringSplitOptions.None, 0)).toEqual([]);
+        expect(() => CsString.split("a,b", ",", StringSplitOptions.None, -1)).toThrow(ArgumentOutOfRangeException);
         // 第 3 参歧义消解：非 0/1 数值按 count 解释（Java split(regex, limit) 形态）
         expect(CsString.split("a,b,,c", ",", 3)).toEqual(["a", "b", ",c"]);
     });

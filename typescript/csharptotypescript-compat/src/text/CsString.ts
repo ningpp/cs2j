@@ -1,4 +1,5 @@
 import { StringSplitOptions } from "./StringSplitOptions.js";
+import { ArgumentNullException, ArgumentOutOfRangeException, FormatException } from "../exceptions/CsException.js";
 
 /**
  * CsString — C# string 静态成员兼容（spec §4.3.6）。
@@ -11,7 +12,8 @@ import { StringSplitOptions } from "./StringSplitOptions.js";
  * - 标准符 F/N/P/E 采用 .NET Core 3.0+ 的 IEEE 半偶舍入；自定义符按十进制字符串
  *   半远离零舍入（与 .NET 实际行为一致，如 2.55 → "2.6"、1.005 → "1.01"）。
  * - 非有限数输出 JS 表示（"NaN"/"Infinity"，C# 为 "NaN"/"∞"）。
- * - 格式错误/索引越界暂抛 RangeError（Task 34 异常层次落地后切换 FormatException）。
+ * - 格式错误/索引越界抛 FormatException（对齐 C# string.Format）；null 格式串抛
+ *   ArgumentNullException；split count 非法抛 ArgumentOutOfRangeException。
  * - D 作用于非整数时截断（C# 抛 FormatException）；X 对 number 按 32 位补码、
  *   bigint 按 64 位补码（与 C# int/long 一致）。
  * - 未知标准符按原样字符串输出（C# 抛 FormatException）；StringSplitOptions.TrimEntries 未实现。
@@ -333,7 +335,7 @@ export class CsString {
     /** C# string.Format：{index[,alignment][:format]}；{{/}} 转义。 */
     static format(fmt: string | null | undefined, ...args: unknown[]): string {
         if (fmt === null || fmt === undefined) {
-            throw new RangeError("format is null");
+            throw new ArgumentNullException("format");
         }
         const out: string[] = [];
         let i = 0;
@@ -348,7 +350,7 @@ export class CsString {
                 }
                 const close = fmt.indexOf("}", i + 1);
                 if (close < 0) {
-                    throw new RangeError("Input string was not in a correct format.");
+                    throw new FormatException("Input string was not in a correct format.");
                 }
                 const spec = fmt.slice(i + 1, close);
                 let alignPart: string | null = null;
@@ -365,11 +367,11 @@ export class CsString {
                     idxPart = idxPart.slice(0, comma);
                 }
                 if (!/^\d+$/.test(idxPart)) {
-                    throw new RangeError("Input string was not in a correct format.");
+                    throw new FormatException("Input string was not in a correct format.");
                 }
                 const index = Number(idxPart);
                 if (index >= args.length) {
-                    throw new RangeError(
+                    throw new FormatException(
                         "Index (zero based) must be greater than or equal to zero and less than the size of the argument list: " + index,
                     );
                 }
@@ -391,7 +393,7 @@ export class CsString {
                     i += 2;
                     continue;
                 }
-                throw new RangeError("Input string was not in a correct format.");
+                throw new FormatException("Input string was not in a correct format.");
             }
             out.push(ch);
             i++;
@@ -476,7 +478,7 @@ export class CsString {
             return [];
         }
         if (actualCount !== undefined && actualCount < 0) {
-            throw new RangeError("count must be greater than or equal to zero");
+            throw new ArgumentOutOfRangeException("count must be greater than or equal to zero");
         }
         const removeEmpty = (options & StringSplitOptions.RemoveEmptyEntries) !== 0;
         const seps: string[] = [];

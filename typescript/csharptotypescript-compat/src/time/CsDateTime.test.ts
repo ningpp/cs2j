@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CsDateTime } from "./CsDateTime.js";
 import { CsTimeSpan } from "./CsTimeSpan.js";
 import { DayOfWeek } from "./DayOfWeek.js";
+import { ArgumentOutOfRangeException } from "../exceptions/CsException.js";
 
 const TICKS_PER_DAY = 864000000000n;
 
@@ -29,9 +30,9 @@ describe("CsDateTime (spec §4.3.4)", () => {
 
     it("validates calendar ranges (leap-day rules)", () => {
         expect(new CsDateTime(2024, 2, 29).Day).toBe(29);
-        expect(() => new CsDateTime(2023, 2, 29)).toThrow(RangeError);
-        expect(() => new CsDateTime(2024, 13, 1)).toThrow(RangeError);
-        expect(() => new CsDateTime(0, 1, 1)).toThrow(RangeError);
+        expect(() => new CsDateTime(2023, 2, 29)).toThrow(ArgumentOutOfRangeException);
+        expect(() => new CsDateTime(2024, 13, 1)).toThrow(ArgumentOutOfRangeException);
+        expect(() => new CsDateTime(0, 1, 1)).toThrow(ArgumentOutOfRangeException);
     });
 
     it("leap-year and days-in-month rules align with C#", () => {

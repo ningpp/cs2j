@@ -21,3 +21,19 @@ export { CsKeyValuePair } from "./collections/CsKeyValuePair.js";
 export { type IEqualityComparer, CsDictionary } from "./collections/CsDictionary.js";
 export { CsSet } from "./collections/CsSet.js";
 export { CsEvent } from "./events/CsEvent.js";
+export {
+    CsException,
+    ArgumentException,
+    ArgumentNullException,
+    ArgumentOutOfRangeException,
+    InvalidOperationException,
+    NotSupportedException,
+    NotImplementedException,
+    IndexOutOfRangeException,
+    KeyNotFoundException,
+    ArithmeticException,
+    DivideByZeroException,
+    OverflowException,
+    FormatException,
+    IOException,
+} from "./exceptions/CsException.js";
