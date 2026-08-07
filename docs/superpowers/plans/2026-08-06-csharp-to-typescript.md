@@ -5417,7 +5417,13 @@ Expected: 全绿（TS 新增用例全过 + L3；Java 2423 零回归）。
   联动 `is$IFoo(o)`、`case null:` → `o === null`）、switch 表达式 → 嵌套三元（when 守卫 +
   模式变量使用处强转替换）、属性模式 → 类型检查 + 成员条件；`(T)x` 简单操作数强转经
   `TsGenericErasureIrRewriter` 扩展为 `(x as T)`；`Objects.equals` raw 归一化 ⑧ 统一 `===`；
-  原始类型模式（`int i`）与 `and`+recursive 组合登记限制不改写）
+  原始类型模式（`int i`）与 `and`+recursive 组合登记限制不改写）→ 提交 `0b9e20c3`
+- [x] yield→generator `TsYieldToGeneratorTests`（`TsYieldRewriter` IR 层改写：方法 →
+  `*name(...): IterableIterator<T>` + `yield expr;`、`yield break` → `return;`、属性 getter →
+  IIFE generator 包裹（TS 无 generator accessor）；方法 Body 字符串不经过语句发射器，
+  改写后整体过 `TsRawStatementNormalizer` 补经典 for 头 let 化；`IEnumerator<T>` 迭代器
+  形态同样映射为 generator；非 yield 的 `IEnumerable<T>` 返回（stream 链）归 M4 Task 36
+  LINQ 目标分叉）
 
 ---
 

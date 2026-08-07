@@ -101,6 +101,11 @@ public sealed class TsMemberWriter
         if ((method.Modifiers & JavaModifiers.Abstract) != 0) sb.Append("abstract ");
 
         var name = TsNaming.SafeIdentifier(method.Name);
+        // Task 27 yield→generator：yield 方法经 TsYieldRewriter 标记 IsGenerator，发射 `*name(...)`
+        if (method.IsGenerator)
+        {
+            sb.Append('*');
+        }
         sb.Append($"{name}{TsTypeWriter.FormatTypeParameters(method.TypeParameters, MapType)}(");
 
         // 参数/返回值类型需经 Java→TS 映射

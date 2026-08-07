@@ -600,6 +600,10 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
         // Task 27：record 类物化（CsRecord 基类 + 分量字段/getter/构造器/recordFields）
         var recordRewriter = new TypeScript.Rewriters.TsRecordRewriter(context);
         recordRewriter.VisitCompilationUnit(compilation);
+        // Task 27：yield 方法/属性 getter → generator（function* + IterableIterator<T>，
+        // spec §1.4.4；需要属性重构的 accessor 角色表区分 getter 与普通方法）
+        var yieldRewriter = new TypeScript.Rewriters.TsYieldRewriter(context, propertyRewriter.Roles);
+        yieldRewriter.VisitCompilationUnit(compilation);
         var compatSymbols = new HashSet<string>(stringRewriter.CompatSymbols, StringComparer.Ordinal);
         compatSymbols.UnionWith(genericErasureRewriter.CompatSymbols);
         // Task 24：语法层泛型擦除 rewriter 登记的 compat 符号（TypeToken/csDefault）

@@ -96,6 +96,11 @@ public class JavaMethodDeclaration : JavaSyntaxNode
     /// Optional comment emitted verbatim on the line immediately before this method declaration.
     /// </summary>
     public string? LeadingComment { get; set; }
+    /// <summary>
+    /// TS generator 方法标记（Task 27 yield→generator，spec §1.4.4）：TsYieldRewriter
+    /// 把含 yield 的方法改写为 `*name(...)` generator，发射器据此输出 `*` 前缀。
+    /// </summary>
+    public bool IsGenerator { get; set; }
 
     public override string ToString(string indentation)
     {
