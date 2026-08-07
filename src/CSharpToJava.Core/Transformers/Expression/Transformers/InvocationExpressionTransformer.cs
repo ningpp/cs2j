@@ -4304,6 +4304,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // because Java byte is signed, but array types use the Java byte primitive).
                 if (typeArgInfo.Type?.SpecialType == SpecialType.System_Byte)
                     mappedType = "byte";
+                // Java forbids generic array creation (e.g. new ReadOnlyMemory<Character>[0]).
+                // Emit a raw-element array and cast back to the generic array type.
+                var genericOpen = mappedType.IndexOf('<');
+                if (genericOpen > 0 && mappedType.EndsWith(">", StringComparison.Ordinal))
+                {
+                    var rawType = mappedType[..genericOpen];
+                    return $"({mappedType}[]) new {rawType}[0]";
+                }
                 return $"new {mappedType}[0]";
             }
             return "new Object[0]";

@@ -47,6 +47,28 @@ public final class Span<T> {
         return length;
     }
 
+    /** Alias of {@link #length()} matching C# Span&lt;T&gt;.Length property access. */
+    public int getLength() {
+        return length;
+    }
+
+    /**
+     * Mirrors C# Span&lt;T&gt;.TryCopyTo(Span&lt;T&gt;): copies elements into the
+     * destination array; returns false when the destination is too short.
+     */
+    public boolean tryCopyTo(T[] destination) {
+        if (destination == null) {
+            throw new NullPointerException("destination");
+        }
+        if (destination.length < length) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            destination[i] = get(i);
+        }
+        return true;
+    }
+
     public T get(int index) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);

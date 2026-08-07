@@ -1131,6 +1131,17 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
                 return $"{left} = {right}";
             }
+
+            // C# implicit conversion T[] → Span<T>/ReadOnlySpan<T>: Java's compat
+            // Span classes have no implicit conversion, wrap in new Span<>(array).
+            if (rhsType is IArrayTypeSymbol && lhsType is INamedTypeSymbol lhsNamed
+                && lhsNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
+            {
+                var right = facade.Transform(rightNode, context);
+                var spanName = lhsNamed.Name == "Span" ? "Span" : "ReadOnlySpan";
+                context.AddImport($"io.github.ningpp.compat.{spanName}");
+                return $"{left} = new {spanName}<>({right})";
+            }
         }
 
         var rightStr = facade.Transform(rightNode, context);

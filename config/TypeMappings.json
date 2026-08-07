@@ -529,6 +529,13 @@
             ]
         },
         {
+            "csharp": "System.Buffers.ArrayPool`1",
+            "java": "ArrayPool",
+            "imports": [
+                "io.github.ningpp.compat.ArrayPool"
+            ]
+        },
+        {
             "csharp": "System.ReadOnlySpan`1",
             "java": "ReadOnlySpan",
             "imports": [

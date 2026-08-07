@@ -286,3 +286,25 @@
 
 **状态**: ✅ Fixed
 
+---
+
+## Iteration 13 — compat Span 缺少 getLength()/tryCopyTo()，ArrayPool 未映射
+
+- **Java 文件**: `d:\cs-re-20260807\dotnet-text-regularexpressions\src\main\java\System\Collections\Generic\ValueListBuilder.java`
+- **行号**: 63
+- **错误信息**: `找不到符号: 方法 getLength()，位置: 类型为 io.github.ningpp.compat.Span<T> 的变量 _span`（后续还有 ArrayPool 未映射、`T[] 无法转换为 Span<T>`、tryCopyTo 缺失）
+- **代码片段**:
+  ```java
+  if (pos >= _span.getLength()) { grow(); }          // Span 无 getLength()
+  T[] array = ArrayPool.getShared().rent(...);       // ArrayPool 未映射
+  boolean success = _span.tryCopyTo(array);          // Span 无 tryCopyTo
+  _span = _arrayFromPool = array;                    // T[] 隐式转 Span 未包装
+  ```
+- **对应 C# 文件**: `D:\csharp-RegularExpressions\src\Common\System\Collections\Generic\ValueListBuilder.cs`
+- **根因分类**: 类型映射缺失
+- **涉及组件**: `java/csharptojava-compat/.../Span.java`、`config/TypeMappings.json`（ArrayPool）、转换器数组→Span 隐式转换处理
+- **分析**: compat `Span` 只有 `length()`，而 `ReadOnlySpan` 同时有 `length()`/`getLength()`，转换器将 `_span.Length` 转为 `getLength()`；`ArrayPool<T>` 无映射；`_span = array` 的 T[]→Span 隐式转换未包装为 `new Span<>(array)`。
+- **修复**: 五处联合修复：① compat `Span` 新增 `getLength()`/`tryCopyTo(T[])`；② 新建 compat `ArrayPool<T>`（getShared/rent/returnValue）并在 TypeMappings.json 添加 `System.Buffers.ArrayPool`1` 映射；③ AssignmentTransformer 新增 T[]→Span/ReadOnlySpan 赋值包装 `new Span<>(array)`；④ `Array.Empty<T>()` 泛型元素改为 `(T[]) new Raw[0]` 避免非法泛型数组创建；⑤ `StringHelper.createString` 泛型化 `<TState>`。新增红→绿测试 `SpanArrayCompatClusterTests`（3 用例），全量测试 2446 通过。
+
+**状态**: ✅ Fixed
+
