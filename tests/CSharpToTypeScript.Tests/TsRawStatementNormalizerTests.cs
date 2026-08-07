@@ -419,4 +419,44 @@ public class TsRawStatementNormalizerTests
             "console.log(\"a::b -> c\");",
             TsRawStatementNormalizer.Normalize("System.out.println(\"a::b -> c\");"));
     }
+
+
+    [Fact]
+    public void Comment_With_Apostrophe_Does_Not_Swallow_Following_For_Head()
+    {
+        var input = "// we've made the matrix such that Q[i][i] is 1\nfor (int rowNum = 0; rowNum < this.matrixQ.length; ++rowNum) {";
+        var expected = "// we've made the matrix such that Q[i][i] is 1\nfor (let rowNum: number = 0; rowNum < this.matrixQ.length; ++rowNum) {";
+        Assert.Equal(expected, NormalizeWithTypeMap(input));
+    }
+
+    [Fact]
+    public void For_Inside_Comment_Is_Not_Rewritten()
+    {
+        var input = "//   for all jj\nfor (QpscVar qvar : this.vectorQpscVars) {";
+        var expected = "//   for all jj\nfor (const qvar of this.vectorQpscVars) {";
+        Assert.Equal(expected, TsRawStatementNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Declaration_With_Trailing_Comment_Is_Let_ified()
+    {
+        var input = "double HalfLife = 50.0; // 50 was chosen as the default";
+        var expected = "let HalfLife: number = 50.0; // 50 was chosen as the default";
+        Assert.Equal(expected, NormalizeWithTypeMap(input));
+    }
+
+    [Fact]
+    public void Declaration_With_Array_Type_And_Trailing_Comment_Is_Let_ified()
+    {
+        var input = "VertStatus[] status = new Array(graph.getNodeCount()); //will be Unvisited at the beginning";
+        var expected = "let status: VertStatus[] = new Array(graph.getNodeCount()); //will be Unvisited at the beginning";
+        Assert.Equal(expected, NormalizeWithTypeMap(input));
+    }
+
+    private static string NormalizeWithTypeMap(string code)
+        => TsRawStatementNormalizer.Normalize(code, t => t switch
+        {
+            "double" or "int" or "long" or "float" or "short" or "byte" => "number",
+            _ => t,
+        });
 }

@@ -120,6 +120,34 @@ public static class TsRawStatementNormalizer
 
 
     /// <summary>
+    /// When code[i] starts a comment (// or /*), copies it verbatim to sb and
+    /// returns the index after the comment; otherwise returns i unchanged.
+    /// Line comments stop before the trailing newline (the caller copies it).
+    /// </summary>
+    private static int SkipCommentTo(System.Text.StringBuilder sb, string code, int i)
+    {
+        if (i + 1 >= code.Length || code[i] != '/')
+        {
+            return i;
+        }
+        if (code[i + 1] == '/')
+        {
+            var nl = code.IndexOf('\n', i + 2);
+            var end = nl < 0 ? code.Length : nl;
+            sb.Append(code, i, end - i);
+            return end;
+        }
+        if (code[i + 1] == '*')
+        {
+            var close = code.IndexOf("*/", i + 2, System.StringComparison.Ordinal);
+            var end = close < 0 ? code.Length : close + 2;
+            sb.Append(code, i, end - i);
+            return end;
+        }
+        return i;
+    }
+
+    /// <summary>
     /// 扫描替换 println 接收者；引号内文本与实参原样保留。
     /// </summary>
     private static string NormalizePrintln(string code)
@@ -134,6 +162,12 @@ public static class TsRawStatementNormalizer
                 var start = i;
                 i = SkipQuotedLiteral(code, i);
                 sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
                 continue;
             }
 
@@ -174,6 +208,12 @@ public static class TsRawStatementNormalizer
                 var start = i;
                 i = SkipQuotedLiteral(code, i);
                 sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
                 continue;
             }
 
@@ -356,6 +396,12 @@ public static class TsRawStatementNormalizer
                 sb.Append(code, start, i - start);
                 continue;
             }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
+                continue;
+            }
 
             if (ch == '\'')
             {
@@ -421,6 +467,12 @@ public static class TsRawStatementNormalizer
                 var start = i;
                 i = SkipQuotedLiteral(code, i);
                 sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
                 continue;
             }
             if (ch == ':' && i + 1 < code.Length && code[i + 1] == ':'
@@ -562,18 +614,19 @@ public static class TsRawStatementNormalizer
             return code;
         }
         var declPattern = new Regex(
-            @"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^;\r\n]*>)?(?:\[\])*)\s+(?<decls>.+);\s*$",
+            @"^(?<ind>\s*)(?<type>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:<[^;\r\n]*>)?(?:\[\])*)\s+(?<decls>.+);(?<tail>\s*(?://[^\r\n]*)?)$",
             RegexOptions.Compiled | RegexOptions.Multiline);
         return declPattern.Replace(code, match =>
         {
             var ind = match.Groups["ind"].Value;
             var type = match.Groups["type"].Value;
             var decls = match.Groups["decls"].Value;
+            var tail = match.Groups["tail"].Value;
             if (!TryRewriteDeclarators(decls, type, mapType, out var declarators))
             {
                 return match.Value;
             }
-            return $"{ind}let {declarators};";
+            return $"{ind}let {declarators};{tail}";
         });
     }
 
@@ -596,6 +649,12 @@ public static class TsRawStatementNormalizer
                 var start = i;
                 i = SkipQuotedLiteral(code, i);
                 sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
                 continue;
             }
             if (ch == '(')
@@ -726,6 +785,12 @@ public static class TsRawStatementNormalizer
                 sb.Append(code, start, i - start);
                 continue;
             }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
+                continue;
+            }
             if (char.IsDigit(ch))
             {
                 var m = floatPattern.Match(code, i);
@@ -798,6 +863,12 @@ public static class TsRawStatementNormalizer
                 var start = i;
                 i = SkipQuotedLiteral(code, i);
                 sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
                 continue;
             }
 
@@ -886,6 +957,12 @@ public static class TsRawStatementNormalizer
                 sb.Append(code, start, i - start);
                 continue;
             }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
+                continue;
+            }
             if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith(needle, StringComparison.Ordinal))
             {
                 sb.Append("null");
@@ -910,6 +987,12 @@ public static class TsRawStatementNormalizer
                 var start = i;
                 i = SkipQuotedLiteral(code, i);
                 sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
                 continue;
             }
 
@@ -954,6 +1037,12 @@ public static class TsRawStatementNormalizer
                 var start = i;
                 i = SkipQuotedLiteral(code, i);
                 sb.Append(code, start, i - start);
+                continue;
+            }
+            var afterComment = SkipCommentTo(sb, code, i);
+            if (afterComment != i)
+            {
+                i = afterComment;
                 continue;
             }
 
