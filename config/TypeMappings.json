@@ -6426,6 +6426,16 @@
             "javaMethod": "capacity"
         },
         {
+            "type": "System.Text.StringBuilder",
+            "method": "get_Length",
+            "javaMethod": "length"
+        },
+        {
+            "type": "System.Text.StringBuilder",
+            "method": "Length",
+            "javaMethod": "length"
+        },
+        {
             "type": "System.Drawing.Color",
             "method": "FromArgb",
             "javaMethod": "DrawingColor.fromArgb"
