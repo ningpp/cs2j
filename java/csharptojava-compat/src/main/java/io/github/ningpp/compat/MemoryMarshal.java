@@ -26,6 +26,16 @@ public class MemoryMarshal {
     }
 
     /**
+     * Mirrors C# MemoryMarshal.GetReference&lt;T&gt;(ReadOnlySpan&lt;T&gt;): Java has no ref
+     * returns, so this yields the first element by value (call sites read it).
+     * Returns {@code null} for an empty span (C# returns a ref to the backing buffer,
+     * which is unsafe to dereference; returning null is the safe Java equivalent).
+     */
+    public static <T> T getReference(ReadOnlySpan<T> span) {
+        return span.length() > 0 ? span.get(0) : null;
+    }
+
+    /**
      * Mirrors C# MemoryMarshal.CreateSpan&lt;T&gt;(ref T reference, int length):
      * creates a Span of {@code length} elements seeded from the first field of a
      * generated struct/class (e.g. FourStackStrings.Item1). Subsequent fields are

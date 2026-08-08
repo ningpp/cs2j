@@ -183,4 +183,70 @@ public class MemoryExtensions {
         return count;
     }
 
+    // ------------------------------------------------------------------
+    // Generic overloads — type erasure produces (ReadOnlySpan, Object) etc.
+    // These are required by converted C# code that uses reflection to look up
+    // generic methods via TypeHelper.getMethod(class, name, paramTypes).
+    // Without these, the reflection lookup returns null and chained calls
+    // (e.g. .makeGenericMethod()) throw NullPointerException.
+    // ------------------------------------------------------------------
+
+    /**
+     * Generic C# MemoryExtensions.IndexOf&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T).
+     * After erasure: {@code indexOf(ReadOnlySpan, Object)} — matches reflection
+     * lookups that pass {@code ReadOnlySpan.class, Object.class}.
+     */
+    public static <T> int indexOf(ReadOnlySpan<T> span, T value) {
+        if (span == null || value == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            if (java.util.Objects.equals(span.get(i), value)) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * Generic C# MemoryExtensions.IndexOfAny&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T, T).
+     * After erasure: {@code indexOfAny(ReadOnlySpan, Object, Object)}.
+     */
+    public static <T> int indexOfAny(ReadOnlySpan<T> span, T value0, T value1) {
+        if (span == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0) || java.util.Objects.equals(element, value1)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Generic C# MemoryExtensions.IndexOfAny&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T, T, T).
+     * After erasure: {@code indexOfAny(ReadOnlySpan, Object, Object, Object)}.
+     */
+    public static <T> int indexOfAny(ReadOnlySpan<T> span, T value0, T value1, T value2) {
+        if (span == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0)
+                    || java.util.Objects.equals(element, value1)
+                    || java.util.Objects.equals(element, value2)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Generic C# MemoryExtensions.StartsWith&lt;T&gt;(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;).
+     * After erasure: {@code startsWith(ReadOnlySpan, ReadOnlySpan)}.
+     */
+    public static <T> boolean startsWith(ReadOnlySpan<T> span, ReadOnlySpan<T> value) {
+        if (span == null || value == null) return false;
+        if (value.length() > span.length()) return false;
+        for (int i = 0; i < value.length(); i++) {
+            if (!java.util.Objects.equals(span.get(i), value.get(i))) return false;
+        }
+        return true;
+    }
+
 }
