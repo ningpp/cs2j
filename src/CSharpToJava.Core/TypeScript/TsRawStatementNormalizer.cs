@@ -110,7 +110,10 @@ public static class TsRawStatementNormalizer
         // 形态（菱形不在 NormalizeGenericMethodInvocations 的 `.<T>method(` 覆盖内）。
         var withDiamonds = NormalizeDiamondConstructors(withObjectEmpty);
         var withListCtors = NormalizeCompatListConstructors(withDiamonds);
-        var withMethodRefs = NormalizeMethodReferences(withListCtors);
+        // 6b2 Round 21：Java 风味 IEnumerable/ICollection 值位包装剥除（详见 pass
+        // 注释；属值位直通文本归一化）。
+        var withIterableWrappers = NormalizeIterableFromWrappers(withListCtors);
+        var withMethodRefs = NormalizeMethodReferences(withIterableWrappers);
 
         // 6c Java control-flow text: typed catch bindings, try-with-resources heads,
         // synchronized blocks, double literal suffixes, explicit generic calls.
@@ -1951,6 +1954,61 @@ public static class TsRawStatementNormalizer
     private static bool IsNumericLiteral(string text)
         => text.Length > 0 && text.All(c => char.IsDigit(c) || c == '.' || c == '-')
            && text.Any(char.IsDigit);
+
+    /// <summary>
+    /// Round 21（MSAGL TS2304 176）：Java 风味 IEnumerable/ICollection 值位包装剥除——
+    /// 前端对 C# IEnumerable&lt;T&gt;/ICollection&lt;T&gt; 值生产（StatementTransformer.
+    /// ExpressionAndReturn.cs / ArgumentTransformer.cs 的 CSharpGenericIterable.from(
+    /// 包装、CSharpICollection.fromTyped( 包装）在 TS 中是无操作：Iterable&lt;T&gt; 是
+    /// 结构类型，数组/生成器/既有 Iterable 值天然满足，"CSharpGenericIterable.from(x)"
+    /// ≡ "x"。剥除后值位与类型注解（Iterable&lt;T&gt;）完全一致。嵌套/同行多包装全部
+    /// 剥除（RTree.ts:97 嵌套形态）。守卫：① 字符串/字符字面量区域；② 标识符前缀
+    /// 边界；③ CSharpGenericEnumerator.from( 包装（产物后续使用 moveNext()/getCurrent()，
+    /// 非无操作，保留待 compat CsEnumerator 面）；④ instanceof 类型位（值位包装外的
+    /// 裸类型名保留，属下轮候选）。
+    /// </summary>
+    private static string NormalizeIterableFromWrappers(string code)
+    {
+        while (true)
+        {
+            var index = -1;
+            var i = 0;
+            while (i < code.Length)
+            {
+                var ch = code[i];
+                if (ch == '"' || ch == '\'')
+                {
+                    i = SkipQuotedLiteral(code, i);
+                    continue;
+                }
+                if (ch == 'C'
+                    && (code.AsSpan(i).StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal)
+                        || code.AsSpan(i).StartsWith("CSharpICollection.fromTyped(", StringComparison.Ordinal)))
+                {
+                    index = i;
+                    break;
+                }
+                i++;
+            }
+            if (index < 0)
+            {
+                return code;
+            }
+            if (index > 0 && IsIdentifierChar(code[index - 1]))
+            {
+                // 无词边界（标识符中段命中，理论不可达）：跳过以免破坏
+                return code;
+            }
+            var open = index + code.AsSpan(index).IndexOf('(');
+            var close = FindMatchingParen(code, open);
+            if (close <= open)
+            {
+                return code;
+            }
+            var inner = code.Substring(open + 1, close - open - 1);
+            code = code.Remove(index, close + 1 - index).Insert(index, inner);
+        }
+    }
 
     /// <summary>
     /// Java 形态局部声明归一化（Task 27 模式匹配）：行首 "Type name = init;" →

@@ -1292,4 +1292,63 @@ public class TsRawStatementNormalizerTests
             NormalizeWithTable("y = foo(Microsoft.Unknown.Ns.Value, 5);"));
     }
 
+    // ─── Round 21（MSAGL TS2304 1,392）：CSharpGenericIterable.from(x) 值位包装剥除 ──
+
+    [Fact]
+    public void GenericIterable_From_Wrapper_Is_Dropped()
+    {
+        // C# IEnumerable<T> 值生产：前端产出 Java 兼容包装 CSharpGenericIterable.from(x)
+        //（StatementTransformer.ExpressionAndReturn.cs / ArgumentTransformer.cs）。
+        // TS 中 Iterable<T> 是结构类型，x 本身即可迭代，包装是无操作——剥除后
+        // 类型注解 Iterable<T> 与值位 x 完全一致。
+        Assert.Equal(
+            "return this.clusterHierarchies;",
+            TsRawStatementNormalizer.Normalize("return CSharpGenericIterable.from(this.clusterHierarchies);"));
+        Assert.Equal(
+            "return convexHull.calculate();",
+            TsRawStatementNormalizer.Normalize("return CSharpGenericIterable.from(convexHull.calculate());"));
+    }
+
+    [Fact]
+    public void GenericIterable_From_Nested_Wrappers_Are_All_Dropped()
+    {
+        // RTree.ts:97 嵌套形态（外层包装内层包装）：全部剥除至裸表达式。
+        Assert.Equal(
+            "return (cond ? a : x);",
+            TsRawStatementNormalizer.Normalize("return CSharpGenericIterable.from((cond ? a : CSharpGenericIterable.from(x)));"));
+        // 同行多个包装（sibling）：各自剥除。
+        Assert.Equal(
+            "return a + b;",
+            TsRawStatementNormalizer.Normalize("return CSharpGenericIterable.from(a) + CSharpGenericIterable.from(b);"));
+    }
+
+    [Fact]
+    public void GenericIterable_From_Non_Noop_Wrappers_Are_Not_Touched()
+    {
+        // 守卫：CSharpGenericEnumerator.from(x.iterator()) 包装产物后续使用
+        // moveNext()/getCurrent()，剥除会使调用点失去枚举器语义——原样保留。
+        Assert.Equal(
+            "let outEnum: CSharpGenericEnumerator<TEdge> = CSharpGenericEnumerator.from(graph.outEdges(vertex).iterator());",
+            NormalizeWithTable("let outEnum: CSharpGenericEnumerator<TEdge> = CSharpGenericEnumerator.from(graph.outEdges(vertex).iterator());"));
+        // 守卫：字符串字面量内含包装文本不被改写
+        Assert.Equal(
+            "console.log(\"CSharpGenericIterable.from(x)\");",
+            TsRawStatementNormalizer.Normalize("console.log(\"CSharpGenericIterable.from(x)\");"));
+        // 守卫：instanceof 类型位不是值位包装（外层 .from 仍是无操作剥除；
+        // 残留 instanceof 类型位属类型映射下轮候选）。
+        Assert.Equal(
+            "return (feedbackSet instanceof CSharpGenericIterable ? (feedbackSet) : null);",
+            TsRawStatementNormalizer.Normalize("return CSharpGenericIterable.from((feedbackSet instanceof CSharpGenericIterable ? (feedbackSet) : null));"));
+    }
+
+    [Fact]
+    public void GenericICollection_FromTyped_Wrapper_Is_Dropped()
+    {
+        // C# ICollection<T> 值生产（InitialLayoutByCluster.ts:387/409）：
+        // CSharpICollection.fromTyped(x) 与 Iterable 包装同源同语义，剥除。
+        Assert.Equal(
+            "self.clusters = Enumerable.toList(ArrayHelper.toList([graph.getRootCluster()]));",
+            TsRawStatementNormalizer.Normalize("self.clusters = CSharpICollection.fromTyped(Enumerable.toList(ArrayHelper.toList([graph.getRootCluster()])));"));
+    }
+
 }
