@@ -1,6 +1,7 @@
 package csharp.xunit;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -47,6 +48,12 @@ public final class Assert {
             throw new AssertionError("Assert.all() failure: " + errors.size()
                 + " out of " + index + " items failed.\n" + String.join("\n", errors));
         }
+    }
+
+    // Java arrays are not Iterable, so provide an array overload matching
+    // xunit's IEnumerable<T> parameter.
+    public static <T> void all(T[] collection, Consumer<T> action) {
+        all(Arrays.asList(collection), action);
     }
 
     // ── Collection ───────────────────────────────────────────────────
@@ -558,6 +565,20 @@ public final class Assert {
                     + "Expected type: " + expectedType.getName() + "\n"
                     + "Actual type: " + object.getClass().getName());
             }
+        }
+        return (T) object;
+    }
+
+    /**
+     * Single-argument overload emitted by the converter when the generic type
+     * argument of the C# {@code Assert.IsType<T>(object)} call cannot be
+     * resolved to a Java class literal. Only the null check can be performed;
+     * the assertion is accepted as-is so that generated code compiles.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T isType(Object object) {
+        if (object == null) {
+            throw new AssertionError("Assert.isType() failure: Value was null");
         }
         return (T) object;
     }

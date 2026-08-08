@@ -10,16 +10,42 @@ import java.util.Objects;
  */
 public final class CSharpArray {
     private final Object array;
+    private final int[] lowerBounds;
 
     private CSharpArray(Object array) {
+        this(array, null);
+    }
+
+    private CSharpArray(Object array, int[] lowerBounds) {
         if (array == null || !array.getClass().isArray()) {
             throw new IllegalArgumentException("CSharpArray requires a Java array");
         }
         this.array = array;
+        this.lowerBounds = lowerBounds;
     }
 
     public static CSharpArray of(Object array) {
         return new CSharpArray(array);
+    }
+
+    /**
+     * C# Array.CreateInstance(Type, int[] lengths, int[] lowerBounds).
+     * <p>
+     * Java arrays always have a zero lower bound, so the lower bounds are
+     * remembered and applied as an offset in {@link #getValue(int)} /
+     * {@link #setValue(Object, int)}. Accessing an element below the lower
+     * bound therefore throws ArrayIndexOutOfBoundsException, matching the
+     * C# behavior for arrays with a non-zero lower bound.
+     */
+    public static CSharpArray createInstance(Class<?> type, int[] lengths, int[] lowerBounds) {
+        if (type == null || lengths == null) {
+            throw new ArgumentNullException();
+        }
+        if (lengths.length != 1 || (lowerBounds != null && lowerBounds.length != lengths.length)) {
+            throw new ArgumentException();
+        }
+        Object arr = Array.newInstance(type, lengths);
+        return new CSharpArray(arr, lowerBounds == null ? null : lowerBounds.clone());
     }
 
     public static <T> int binarySearch(T[] array, Object value, Comparator<? super Object> comparer) {
@@ -44,12 +70,19 @@ public final class CSharpArray {
         return Array.getLength(array);
     }
 
+    private int offsetIndex(int index) {
+        if (lowerBounds != null && lowerBounds.length > 0 && lowerBounds[0] != 0) {
+            return index - lowerBounds[0];
+        }
+        return index;
+    }
+
     public Object getValue(int index) {
-        return Array.get(array, index);
+        return Array.get(array, offsetIndex(index));
     }
 
     public void setValue(Object value, int index) {
-        Array.set(array, index, value);
+        Array.set(array, offsetIndex(index), value);
     }
 
     public Object unwrap() {

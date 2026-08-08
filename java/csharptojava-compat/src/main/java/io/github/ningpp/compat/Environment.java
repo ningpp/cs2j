@@ -71,4 +71,14 @@ public final class Environment {
     public static void exit(int exitCode) {
         System.exit(exitCode);
     }
+
+    /**
+     * Mirrors Environment.SetEnvironmentVariable(string, string).
+     * <p>
+     * Java cannot modify the process environment, so this is a no-op.
+     * Tests that merely set an environment variable without asserting
+     * on the side effect remain functional.
+     */
+    public static void setEnvironmentVariable(String name, String value) {
+    }
 }

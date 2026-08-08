@@ -62,6 +62,19 @@ public class CultureInfo implements IFormatProvider, Cloneable {
         return new CultureInfo(Locale.ENGLISH, true);
     }
 
+    /**
+     * Mirrors CultureInfo.GetCultures(CultureTypes). Returns the installed
+     * cultures as seen by the JVM (the culture types filter is ignored).
+     */
+    public static CultureInfo[] getCultures(CultureTypes types) {
+        Locale[] locales = Locale.getAvailableLocales();
+        CultureInfo[] result = new CultureInfo[locales.length];
+        for (int i = 0; i < locales.length; i++) {
+            result[i] = new CultureInfo(locales[i], false);
+        }
+        return result;
+    }
+
     // --- Instance properties ---
 
     public String getName() {
