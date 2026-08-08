@@ -2282,15 +2282,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         var sb = new StringBuilder("new ");
         sb.Append(elementType);
-        foreach (var s in sizes)
-        {
-            sb.Append('[');
-            sb.Append(s);
-            sb.Append(']');
-        }
 
+        // When an initializer is present, Java forbids explicit sizes
+        // (e.g. new char[1] { ... } is invalid); emit empty brackets so the
+        // initializer provides the length, mirroring TransformArrayCreation.
         if (node.Initializer != null)
+        {
+            foreach (var rankSpec in arrayTypeSyntax.RankSpecifiers)
+                sb.Append("[]");
             sb.Append(TransformArrayInitializer(node.Initializer, context, elementType));
+        }
+        else
+        {
+            foreach (var s in sizes)
+            {
+                sb.Append('[');
+                sb.Append(s);
+                sb.Append(']');
+            }
+        }
 
         var arrayCreation = sb.ToString();
         var typeInfo = context.GetTypeInfo(node);

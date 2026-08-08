@@ -503,6 +503,33 @@ public class MethodConversionState
     // ─── Lifecycle ──────────────────────────────────────────────────
 
     /// <summary>
+    // ─── Hoisted Local Functions ────────────────────────────────────
+
+    private readonly List<LocalFunctionStatementSyntax> _hoistedLocalFunctions = new();
+
+    /// <summary>
+    /// Registers a C# local function for hoisting to class level (Java has no local functions).
+    /// Deduplicated by syntax reference so pre-scan and inline paths agree.
+    /// </summary>
+    public void RegisterHoistedLocalFunction(LocalFunctionStatementSyntax localFunction)
+    {
+        if (!_hoistedLocalFunctions.Any(f => ReferenceEquals(f, localFunction)))
+            _hoistedLocalFunctions.Add(localFunction);
+    }
+
+    /// <summary>
+    /// Returns and clears all registered hoisted local functions.
+    /// </summary>
+    public List<LocalFunctionStatementSyntax> DrainHoistedLocalFunctions()
+    {
+        var result = _hoistedLocalFunctions.ToList();
+        _hoistedLocalFunctions.Clear();
+        return result;
+    }
+
+    /// <summary>
+    /// Resets all method-level state. Called on entering each new method.
+    /// </summary>
     /// Resets all method-level state. Called on entering each new method.
     /// </summary>
     public void Reset(IEnumerable<string>? readOnlyRefStructParamNames = null)
@@ -524,6 +551,7 @@ public class MethodConversionState
         _activeLambdaCaptureHolderFrames.Clear();
         _runtimeClassParametersByTypeParameter.Clear();
         LambdaCapturePreScanDone = false;
+        _hoistedLocalFunctions.Clear();
         Labels.Clear();
         GotoAnalyzer = null;
         _postLoopGotoLabels.Clear();

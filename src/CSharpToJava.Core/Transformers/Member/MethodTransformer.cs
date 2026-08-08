@@ -487,14 +487,109 @@ public class MethodTransformer : IMemberTransformer
             context,
             Transformers.Expression.ExpressionTransformerFacade.Instance);
 
-        if (overloads.Count > 0)
+        // Local functions without captures are hoisted to class level as private
+        // methods (Java has no local functions). Nested local functions are registered
+        // while transforming each hoisted body, so drain iteratively until stable.
+        var allDeclarations = new List<JavaSyntaxNode> { javaMethod };
+        var processed = new HashSet<LocalFunctionStatementSyntax>();
+        var worklist = new Queue<LocalFunctionStatementSyntax>();
+        foreach (var localFn in context.MethodState.DrainHoistedLocalFunctions())
         {
-            var allDeclarations = new List<JavaSyntaxNode> { javaMethod };
-            allDeclarations.AddRange(overloads);
-            return new JavaMemberCollection(allDeclarations);
+            if (processed.Add(localFn))
+                worklist.Enqueue(localFn);
         }
 
+        while (worklist.Count > 0)
+        {
+            var localFn = worklist.Dequeue();
+            allDeclarations.Add(TransformLocalFunction(localFn, context));
+            foreach (var nested in context.MethodState.DrainHoistedLocalFunctions())
+            {
+                if (processed.Add(nested))
+                    worklist.Enqueue(nested);
+            }
+        }
+
+        if (overloads.Count > 0)
+            allDeclarations.AddRange(overloads);
+
+        return allDeclarations.Count > 1
+            ? new JavaMemberCollection(allDeclarations)
+            : javaMethod;
+    }
+
+    private JavaMethodDeclaration TransformLocalFunction(LocalFunctionStatementSyntax localFn, ConversionContext context)
+    {
+        var javaMethod = new JavaMethodDeclaration
+        {
+            Name = GetLocalFunctionJavaName(localFn),
+            Modifiers = JavaModifiers.Private
+                | (localFn.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) ? JavaModifiers.Static : JavaModifiers.None),
+            ReturnType = GetLocalFunctionReturnType(localFn, context)
+        };
+
+        foreach (var typeParam in localFn.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
+        {
+            javaMethod.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
+        }
+
+        if (localFn.ConstraintClauses.Count > 0)
+        {
+            ClassTransformer.ApplyTypeParameterConstraints(localFn.ConstraintClauses, javaMethod.TypeParameters, context);
+        }
+
+        foreach (var param in localFn.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+        {
+            var converted = ConvertParameter(param, context);
+            if (converted != null)
+                javaMethod.Parameters.Add(converted);
+        }
+
+        // Local functions are never async themselves, even inside async methods.
+        context.IsInAsyncContext = false;
+        if (localFn.Body != null)
+        {
+            javaMethod.StructuredBody = new Transformers.Statement.StatementTransformer()
+                .TransformBlockToStructuredBody(localFn.Body, context);
+        }
+        else if (localFn.ExpressionBody != null)
+        {
+            var expr = Transformers.Expression.ExpressionTransformerFacade.Instance
+                .Transform(localFn.ExpressionBody.Expression, context);
+            javaMethod.Body = expr;
+            javaMethod.IsBodyExpression = true;
+        }
         return javaMethod;
+    }
+
+    private string GetLocalFunctionReturnType(LocalFunctionStatementSyntax localFn, ConversionContext context)
+    {
+        var actualReturnType = localFn.ReturnType;
+        if (actualReturnType is RefTypeSyntax refTypeSyntax)
+        {
+            actualReturnType = refTypeSyntax.Type;
+        }
+
+        if (actualReturnType is PredefinedTypeSyntax predefinedType &&
+            predefinedType.Keyword.IsKind(SyntaxKind.VoidKeyword))
+        {
+            return "void";
+        }
+
+        var typeInfo = context.GetTypeInfo(actualReturnType);
+        if (typeInfo.Type != null)
+        {
+            return context.MapType(typeInfo.Type);
+        }
+
+        return context.MapTypeFromSyntax(actualReturnType);
+    }
+
+    private static string GetLocalFunctionJavaName(LocalFunctionStatementSyntax localFn)
+    {
+        var name = localFn.Identifier.Text;
+        var camelName = name.Length > 0 ? char.ToLowerInvariant(name[0]) + name[1..] : name;
+        return ConversionContext.EscapeJavaKeyword(camelName);
     }
 
     private static void ApplyTestMethodAnnotations(

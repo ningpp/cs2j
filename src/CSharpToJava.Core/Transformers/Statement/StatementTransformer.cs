@@ -45,6 +45,7 @@ public partial class StatementTransformer : IStatementTransformer
             SyntaxKind.UnsafeStatement => TransformUnsafeStatement(node as UnsafeStatementSyntax, context),
             SyntaxKind.EmptyStatement => new JavaStatementNode(""),
             SyntaxKind.LocalDeclarationStatement => TransformLocalDeclaration(node as LocalDeclarationStatementSyntax, context),
+            SyntaxKind.LocalFunctionStatement => TransformLocalFunctionStatement(node as LocalFunctionStatementSyntax, context),
             SyntaxKind.CheckedStatement => TransformCheckedStatement(node as CheckedStatementSyntax, context),
             SyntaxKind.UncheckedStatement => TransformUncheckedStatement(node as CheckedStatementSyntax, context),
             _ => new JavaStatementNode($"/* TODO: {node.Kind()} - {node} */")
@@ -67,6 +68,7 @@ public partial class StatementTransformer : IStatementTransformer
         if (context.MethodState.ScopeDepth == 0)
         {
             PrescanLabels(block.Statements, context);
+            PrescanLocalFunctions(block, context);
 
             // Analyze goto patterns to determine if state machine is needed
             var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);
@@ -112,6 +114,7 @@ public partial class StatementTransformer : IStatementTransformer
         if (context.MethodState.ScopeDepth == 0)
         {
             PrescanLabels(block.Statements, context);
+            PrescanLocalFunctions(block, context);
 
             // Analyze goto patterns to determine if state machine is needed
             var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);

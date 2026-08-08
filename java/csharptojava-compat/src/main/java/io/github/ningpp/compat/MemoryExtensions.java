@@ -113,4 +113,15 @@ public class MemoryExtensions {
             j--;
         }
     }
+
+    /** C# ReadOnlySpan<T>.SequenceEqual(ReadOnlySpan<T>) — element-wise equality. */
+    public static <T> boolean sequenceEqual(ReadOnlySpan<T> left, ReadOnlySpan<T> right) {
+        if (left == null || right == null) return left == right;
+        if (left.length() != right.length()) return false;
+        for (int i = 0; i < left.length(); i++) {
+            if (!java.util.Objects.equals(left.get(i), right.get(i))) return false;
+        }
+        return true;
+    }
+
 }

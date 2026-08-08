@@ -701,6 +701,15 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         {
             // Extract the inner expression between prefix and suffix
             string inner = expr.Substring(prefix.Length, expr.Length - prefix.Length - suffix.Length);
+            // Only strip when the operand is a single (uint) cast. For compound
+            // uint-typed operands (e.g. (uint)a + (uint)b), the prefix/suffix match
+            // by coincidence but the inner text is not balanced — stripping would
+            // mangle the expression. compareUnsigned still works with the masked
+            // operand left intact.
+            if (!IsBalancedParentheses(inner))
+            {
+                return expr;
+            }
             // The inner expression may have an extra layer of parentheses from the
             // original cast, e.g. ((character - 'a')). Strip one layer if present.
             if (inner.StartsWith("(") && inner.EndsWith(")") && IsBalancedParentheses(inner.Substring(1, inner.Length - 2)))
