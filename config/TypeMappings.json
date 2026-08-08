@@ -4406,6 +4406,13 @@
             ]
         },
         {
+            "csharp": "Xunit.Record",
+            "java": "XunitRecord",
+            "imports": [
+                "csharp.xunit.XunitRecord"
+            ]
+        },
+        {
             "csharp": "Xunit.Abstractions.IDataDiscoverer",
             "java": "IDataDiscoverer",
             "imports": [

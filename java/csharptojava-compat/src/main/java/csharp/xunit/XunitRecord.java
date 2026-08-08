@@ -6,9 +6,9 @@ package csharp.xunit;
  * C# Xunit.Record.Exception(Action) captures the exception thrown by an
  * action, or null when the action completes without throwing.
  */
-public final class Record {
+public final class XunitRecord {
 
-    private Record() {}
+    private XunitRecord() {}
 
     /**
      * C# Xunit.Record.Exception(Action) — runs the action and returns the

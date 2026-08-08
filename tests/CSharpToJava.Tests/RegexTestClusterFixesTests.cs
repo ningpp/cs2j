@@ -15,7 +15,7 @@ namespace CSharpToJava.Tests;
 ///    CSharpGenericIterable.from(...) stream pipeline type-checks.
 /// 6. Lambda body value null (e.g. () => obj.Name = null) must declare a typed __result
 ///    (String __result = null;) instead of var __result = null;.
-/// 7. Xunit Record.Exception(action) must emit Record.exception(...) (csharp.xunit.Record compat).
+/// 7. Xunit Record.Exception(action) must emit XunitRecord.exception(...) (csharp.xunit.XunitRecord compat).
 /// 8. `ex is T` in a hoisted local function must emit Class-token isInstance with the
 ///    Class&lt;T&gt; parameters injected into the hoisted method signature and at call sites.
 /// 9. typeof(AssemblyCompanyAttribute) must emit AssemblyCompanyAttribute.class (compat class).
@@ -171,7 +171,7 @@ class C
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("Record.exception(", code);
+        Assert.Contains("XunitRecord.exception(", code);
     }
 
     [Fact]
