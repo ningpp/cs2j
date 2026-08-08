@@ -253,6 +253,34 @@ public static class ExpressionTransformerHelpers
             }
         }
 
+        // C# user-defined implicit conversion operators at implicit-conversion sites
+        // (method arguments, returns, assignments) — e.g. "implicit operator
+        // LocalBuilder(RentedLocalBuilder)". Java has no conversion operators, so emit
+        // the generated static to<TargetType>(source) helper, mirroring the explicit
+        // cast path in TypeOperationTransformer. This must run before the same-type
+        // short-circuit because a conversion may exist even when the emitted Java
+        // types would otherwise be unrelated.
+        // Span/ReadOnlySpan targets are excluded: Roslyn models array/stackalloc →
+        // span conversions as user-defined, but those are handled by the dedicated
+        // span rules above.
+        bool isUserDefinedSpanTarget = targetType is INamedTypeSymbol spanConvTarget
+            && spanConvTarget.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>";
+        if (context.SemanticModel != null && !isUserDefinedSpanTarget)
+        {
+            var implicitConversion = context.SemanticModel.ClassifyConversion(expression, targetType);
+            if (implicitConversion.IsUserDefined && implicitConversion.MethodSymbol != null)
+            {
+                var convMethod = implicitConversion.MethodSymbol;
+                var javaContainingType = context.MapType(convMethod.ContainingType);
+                var javaTargetType = context.MapType(convMethod.ReturnType);
+                if (!string.IsNullOrWhiteSpace(javaTargetType))
+                {
+                    var javaMethodName = "to" + char.ToUpperInvariant(javaTargetType[0]) + javaTargetType[1..];
+                    return $"{javaContainingType}.{javaMethodName}({transformedExpression})";
+                }
+            }
+        }
+
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
         {
             // Task 19：TS 目标同型直接透传——byte 掩码与 uint 常量 (int) cast 均为 Java
@@ -261,7 +289,6 @@ public static class ExpressionTransformerHelpers
             {
                 return transformedExpression;
             }
-
             // When both are C# byte, source may originate from Java byte[] (signed byte)
             // while target is Java int (unsigned). Always mask for correctness.
             // But skip if the expression already ends with & 0xFF (e.g. from (byte)cast).

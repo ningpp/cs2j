@@ -209,6 +209,18 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     }
                 }
 
+                // Direct field access: fields keep their Java name (no getter synthesis).
+                // The default-getter heuristic below only applies to property-like members;
+                // uppercase field names like CaseInsensitive must stay direct field access
+                // (public fields are emitted as public fields in the project pipeline).
+                // Delegate-typed public fields are the exception — they are emitted with
+                // accessors (getXxx()), so keep the getter synthesis for those.
+                if (context.GetSymbolInfo(binding).Symbol is IFieldSymbol bindingField
+                    && bindingField.Type?.TypeKind != TypeKind.Delegate)
+                {
+                    return $"{objExpr}.{ConversionContext.EscapeJavaKeyword(memberName)}";
+                }
+
                 // No mapping found — generate a default getXxx() getter for property-like names.
                 // Names starting with uppercase are likely properties in C# that should be
                 // getters in Java.

@@ -527,6 +527,24 @@ public class MethodConversionState
         return result;
     }
 
+    // ─── Non-hoisted (capturing) Local Functions ─────────────────────
+
+    private readonly HashSet<string> _nonHoistedLocalFunctions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Registers a capturing local function that cannot be hoisted to class level.
+    /// Call sites must not emit method calls for it (the declaration becomes a TODO).
+    /// </summary>
+    public void RegisterNonHoistedLocalFunction(string name)
+    {
+        _nonHoistedLocalFunctions.Add(name);
+    }
+
+    public bool IsNonHoistedLocalFunction(string name)
+    {
+        return _nonHoistedLocalFunctions.Contains(name);
+    }
+
     /// <summary>
     /// Resets all method-level state. Called on entering each new method.
     /// </summary>
@@ -552,6 +570,7 @@ public class MethodConversionState
         _runtimeClassParametersByTypeParameter.Clear();
         LambdaCapturePreScanDone = false;
         _hoistedLocalFunctions.Clear();
+        _nonHoistedLocalFunctions.Clear();
         Labels.Clear();
         GotoAnalyzer = null;
         _postLoopGotoLabels.Clear();

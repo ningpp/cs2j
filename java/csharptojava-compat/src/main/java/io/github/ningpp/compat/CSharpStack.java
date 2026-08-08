@@ -120,6 +120,15 @@ public class CSharpStack<T> implements CSharpICollection<T>, Cloneable {
         return deque.removeLast();
     }
 
+    /** C# Stack&lt;T&gt;.TryPop(out T) over the generated ObjectHolder out-parameter pattern. */
+    public boolean tryPop(ObjectHolder<T> result) {
+        if (deque.isEmpty()) {
+            return false;
+        }
+        result.value = deque.removeLast();
+        return true;
+    }
+
     public T tryPeek() {
         if (deque.isEmpty()) {
             return null;

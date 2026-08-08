@@ -47,6 +47,18 @@ public final class ILGenerator {
         throw new UnsupportedOperationException("ILGenerator.Emit is not supported on Java.");
     }
 
+    public void Emit(OpCode opcode, MethodInfo method) {
+        throw new UnsupportedOperationException("ILGenerator.Emit is not supported on Java.");
+    }
+
+    public void Emit(OpCode opcode, ConstructorInfo constructor) {
+        throw new UnsupportedOperationException("ILGenerator.Emit is not supported on Java.");
+    }
+
+    public void Emit(OpCode opcode, FieldInfo field) {
+        throw new UnsupportedOperationException("ILGenerator.Emit is not supported on Java.");
+    }
+
     public void Emit(OpCode opcode, LocalBuilder local) {
         throw new UnsupportedOperationException("ILGenerator.Emit is not supported on Java.");
     }

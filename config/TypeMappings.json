@@ -6436,6 +6436,46 @@
             "javaMethod": "length"
         },
         {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "Emit",
+            "javaMethod": "Emit"
+        },
+        {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "EmitCall",
+            "javaMethod": "EmitCall"
+        },
+        {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "DefineLabel",
+            "javaMethod": "DefineLabel"
+        },
+        {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "MarkLabel",
+            "javaMethod": "MarkLabel"
+        },
+        {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "DeclareLocal",
+            "javaMethod": "DeclareLocal"
+        },
+        {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "BeginExceptionBlock",
+            "javaMethod": "BeginExceptionBlock"
+        },
+        {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "BeginCatchBlock",
+            "javaMethod": "BeginCatchBlock"
+        },
+        {
+            "type": "System.Reflection.Emit.ILGenerator",
+            "method": "EndExceptionBlock",
+            "javaMethod": "EndExceptionBlock"
+        },
+        {
             "type": "System.Drawing.Color",
             "method": "FromArgb",
             "javaMethod": "DrawingColor.fromArgb"

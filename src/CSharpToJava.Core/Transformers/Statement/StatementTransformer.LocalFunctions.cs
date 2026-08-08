@@ -21,6 +21,7 @@ public partial class StatementTransformer
         // keep the legacy TODO comment so the situation remains visible at the call site.
         if (LocalFunctionCapturesEnclosingState(node, context))
         {
+            context.MethodState.RegisterNonHoistedLocalFunction(node.Identifier.Text);
             return new JavaStatementNode($"/* TODO: LocalFunctionStatement - {node} */");
         }
 
@@ -42,6 +43,10 @@ public partial class StatementTransformer
             if (!LocalFunctionCapturesEnclosingState(localFn, context))
             {
                 context.MethodState.RegisterHoistedLocalFunction(localFn);
+            }
+            else
+            {
+                context.MethodState.RegisterNonHoistedLocalFunction(localFn.Identifier.Text);
             }
         }
     }
@@ -65,6 +70,10 @@ public partial class StatementTransformer
             var symbol = context.GetSymbolInfo(identifier).Symbol;
             switch (symbol)
             {
+                case ILocalSymbol local when local.HasConstantValue:
+                    // Const locals are compile-time constants — the hoisted method can
+                    // reference the constant value directly, so they are not captures.
+                    break;
                 case ILocalSymbol or IParameterSymbol or IRangeVariableSymbol:
                     if (!SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, localFnSymbol))
                     {

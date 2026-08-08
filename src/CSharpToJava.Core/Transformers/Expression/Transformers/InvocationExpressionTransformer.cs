@@ -393,6 +393,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var bareMethodSym2 = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
             if (bareMethodSym2 != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
+
+            // Calls to capturing local functions cannot be hoisted (their declaration
+            // becomes a TODO comment); emit a TODO instead of an invalid method call.
+            if (context.MethodState.IsNonHoistedLocalFunction(bareIdent.Identifier.Text))
+            {
+                return $"/* TODO: call to capturing local function {bareIdent.Identifier.Text}(...) */";
+            }
+
             var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
             args = PrependClassTypeTokens(args, classTokens);
@@ -3020,6 +3028,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // Issue 1: apply method-name mapping from the type-mapping registry.
         string methodName = originalMethodName;
+        // Explicit TypeMappings results are authoritative (e.g. ILGenerator.Emit →
+        // Emit keeps PascalCase); the camelCase fallback below must skip them.
+        bool methodMapped = false;
         // Task 27：TS 目标委托即函数值，delegate.Invoke(args) 直调 delegate(args)
         // （Java 需经 TypeMappings 把 Invoke → apply 再 .apply(...)，TS 直接调用；
         //  仅当语义模型确认委托 Invoke，避免误改用户接口同名方法）
@@ -3097,6 +3108,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
                 ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                 methodName = mapped;
+                methodMapped = true;
             }
         }
 
@@ -3949,7 +3961,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        if (methodName == originalMethodName)
+        if (methodName == originalMethodName && !methodMapped)
         {
             // When a non-operator method's camelCase name would collide with an auto-generated
             // operator method in the same class, keep the PascalCase name — the method declaration

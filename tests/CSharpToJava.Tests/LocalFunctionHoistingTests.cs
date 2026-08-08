@@ -73,11 +73,11 @@ class C {
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The call site stays broken (compile error) and no bogus private method is emitted:
-        // closure conversion is not implemented yet, so capturing local functions must
-        // not be hoisted.
-        Assert.Contains("twice()", result.GeneratedCode ?? "", StringComparison.Ordinal);
+        // The declaration stays un-hoisted (closure conversion is not implemented yet),
+        // and the call site becomes a visible TODO comment instead of a broken method call.
+        Assert.Contains("TODO: call to capturing local function Twice", result.GeneratedCode ?? "", StringComparison.Ordinal);
         Assert.DoesNotContain("private int twice", result.GeneratedCode ?? "", StringComparison.Ordinal);
+        Assert.DoesNotContain("twice()", result.GeneratedCode ?? "", StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

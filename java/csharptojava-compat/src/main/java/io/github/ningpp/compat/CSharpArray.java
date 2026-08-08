@@ -103,6 +103,31 @@ public final class CSharpArray {
         return type.isInstance(array) ? type.cast(array) : null;
     }
 
+    /** C# Array.Fill(int[], int) — fills the whole array with a value. */
+    public static void fill(int[] array, int value) {
+        java.util.Arrays.fill(array, value);
+    }
+
+    /** C# Array.Fill(char[], char) — fills the whole array with a value. */
+    public static void fill(char[] array, char value) {
+        java.util.Arrays.fill(array, value);
+    }
+
+    /** C# Array.Fill(long[], long) — fills the whole array with a value. */
+    public static void fill(long[] array, long value) {
+        java.util.Arrays.fill(array, value);
+    }
+
+    /** C# Array.Fill(double[], double) — fills the whole array with a value. */
+    public static void fill(double[] array, double value) {
+        java.util.Arrays.fill(array, value);
+    }
+
+    /** C# Array.Fill(T[], T) — fills a reference-type array with a value. */
+    public static <T> void fill(T[] array, T value) {
+        java.util.Arrays.fill(array, value);
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof CSharpArray other && Objects.equals(array, other.array);
