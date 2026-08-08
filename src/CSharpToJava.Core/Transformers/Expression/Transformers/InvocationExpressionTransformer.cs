@@ -2778,6 +2778,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{baseTypeArg}.isAssignableFrom({receiver})";
         }
 
+        // System.Type.IsInstanceOfType(object) → type.isInstance(object)
+        // java.lang.Class has isInstance(Object), not isInstanceOfType.
+        if (originalMethodName == "IsInstanceOfType"
+            && node.ArgumentList.Arguments.Count == 1
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Type"
+                || IsReceiverOfType(memberAccess.Expression, "System.Type", context)))
+        {
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"{receiver}.isInstance({valueArg})";
+        }
+
         // System.Array.SetValue(value, index) maps to the CSharpArray wrapper when
         // the receiver is a System.Array value.
         if (originalMethodName == "SetValue"

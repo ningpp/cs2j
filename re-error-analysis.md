@@ -289,3 +289,19 @@
 - **分析**: TypeMappings 把 System.ArgumentOutOfRangeException 映射到 java.lang.IllegalArgumentException（Java 标准类无 getParamName），导致 `aore.ParamName` 发射的 `getParamName()` 编译失败。修复：(1) compat 新增 `ArgumentOutOfRangeException extends ArgumentException`（保持 .NET 层次，继承 ParamName 支持，提供 (String)、(String,String) 等构造器）；(2) TypeMappings 改为映射到 compat 类；(3) 从 ExceptionApiRewriter.ExceptionTypeMap 删除 ArgumentOutOfRangeException→IndexOutOfBoundsException（否则 new/catch 会被改写成丢失 ParamName 的 Java 标准类）。全项目仅 ThrowHelper 的 `new` 使用受影响，1 参 String 构造器兼容。
 - **测试**: `ExceptionCatchOrderTests.ArgumentOutOfRangeException_Pattern_CompilesAgainstCompatRuntime`（先红后绿，javac 对生成的 Java + compat 源码编译验证，全量 2527 通过）
 - **状态**: ✅ Fixed
+
+## Iteration 17 — 找不到符号 isInstanceOfType（Type.IsInstanceOfType 未映射到 Class.isInstance）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/System/Tests/AssertExtensions.java
+- **行号**: 111
+- **错误信息**: `[111,30] 找不到符号 符号: 方法 isInstanceOfType(java.lang.RuntimeException) 位置: 类型为java.lang.Class的变量 exceptionType`
+- **代码片段**:
+  ```java
+  if (exceptionType.isInstanceOfType(ex)) {
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\TestUtilities\System\Tests\AssertExtensions.cs（第 90 行 `exceptionType.IsInstanceOfType(ex)`）
+- **根因分类**: Transformer 逻辑缺陷（System.Type 接收者方法缺 Java 等价物路由）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（IsSubclassOf 分支旁）
+- **分析**: System.Type → java.lang.Class 的映射已有 IsSubclassOf → isAssignableFrom 的模板，但 IsInstanceOfType 没有对应分支，落入通用 camelCase 产出 `isInstanceOfType`（java.lang.Class 无此方法）。修复：新增 IsInstanceOfType → `{receiver}.isInstance({arg})` 分支（与 IsSubclassOf 相同的守卫条件：methodSymbol 属于 System.Type 或 IsReceiverOfType 命中）。
+- **测试**: `TestModuleBatch3Tests.TypeIsInstanceOfType_MapsToIsInstance`（先红后绿，全量 2528 通过）
+- **状态**: ✅ Fixed
