@@ -307,7 +307,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         // Delegate construction (new D(expr)) should become a functional value in Java,
-        // not interface instantiation.
+        // not interface instantiation. Cast to the delegate type so Java can infer the
+        // target functional interface even in Object-typed contexts (e.g. Object[]).
         if (createdTypeSymbol?.TypeKind == TypeKind.Delegate
             && node.ArgumentList?.Arguments.Count == 1)
         {
@@ -324,10 +325,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 var argCode = facade.Transform(arg, context);
                 var adapter = TryBuildDelegateAdapterLambda(argType, argCode, context);
                 if (adapter != null)
-                    return adapter;
+                    return context.Options.TargetLanguage != TargetLanguage.TypeScript
+                        ? $"({typeName}) ({adapter})"
+                        : adapter;
             }
 
-            return facade.Transform(arg, context);
+            var delegateArgCode = facade.Transform(arg, context);
+            return context.Options.TargetLanguage != TargetLanguage.TypeScript
+                ? $"({typeName}) ({delegateArgCode})"
+                : delegateArgCode;
         }
 
             return TransformObjectCreationWithArgs(typeName, node.ArgumentList, node.Type as TypeSyntax, context, createdTypeSymbol as INamedTypeSymbol);
@@ -524,11 +530,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         // Java functional interfaces are not instantiated with constructors.
         // C# delegate construction like new Func<T, R>(obj.Method) should map to method refs/lambdas.
+        // Cast to the functional interface type so Java can infer the target type even in
+        // Object-typed contexts (e.g. Object[] initializer).
         if (argumentList.Arguments.Count == 1
             && (IsJavaFunctionalInterfaceType(typeName)
                 || ctorSymbol?.ContainingType.TypeKind == TypeKind.Delegate))
         {
-            return ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
+            var innerExpr = ExpressionTransformerFacade.Instance.Transform(argumentList.Arguments[0].Expression, context);
+            return context.Options.TargetLanguage != TargetLanguage.TypeScript
+                ? $"({typeName}) ({innerExpr})"
+                : innerExpr;
         }
 
         var args = ArgumentTransformer.TransformArgumentList(

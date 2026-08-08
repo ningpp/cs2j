@@ -270,6 +270,23 @@ public partial class StatementTransformer
 
         var stmtTransformer = new StatementTransformer();
         string body;
+
+        // Lambda capture holder for the foreach loop variable: Java for-each variables are
+        // never effectively final, so a captured variable (e.g. `foreach (int options in ...)`
+        // with a lambda inside the loop body) requires a holder copy at the top of the body.
+        // PreScanLambdaCaptures registered the pending holder; emit + activate it here so the
+        // body's references are rewritten to the holder element.
+        var loopVarHolderPrefix = "";
+        if (context.MethodState.HasPendingLambdaCaptureHolder(stmt.Identifier.Text) &&
+            context.MethodState.TryGetPendingLambdaCaptureHolder(stmt.Identifier.Text, stmt, out var loopVarCapType, out var loopVarHolderName))
+        {
+            var loopVarInit = ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text);
+            loopVarHolderPrefix = loopVarCapType.Contains('<')
+                ? $"{loopVarCapType}[] {loopVarHolderName} = ({loopVarCapType}[]) new Object[] {{ {loopVarInit} }};"
+                : $"{loopVarCapType}[] {loopVarHolderName} = new {loopVarCapType}[] {{ {loopVarInit} }};";
+            context.MethodState.ActivateLambdaCaptureHolder(stmt.Identifier.Text, stmt);
+        }
+
         var hasPostLoopBreakLabel = LoopNeedsPostLabelForBreakFromNestedBreakable(stmt, context, out var postLoopBreakLabel);
         if (hasPostLoopBreakLabel)
         {
@@ -278,9 +295,18 @@ public partial class StatementTransformer
 
         try
         {
-            body = stmt.Statement is BlockSyntax block
-                ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-                : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+            if (loopVarHolderPrefix.Length > 0)
+            {
+                body = stmt.Statement is BlockSyntax block
+                    ? $"{{\n        {loopVarHolderPrefix}\n        {TransformBlock(block, context)}\n    }}"
+                    : $"{{ {loopVarHolderPrefix} {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+            }
+            else
+            {
+                body = stmt.Statement is BlockSyntax block
+                    ? $"{{\n        {TransformBlock(block, context)}\n    }}"
+                    : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
+            }
         }
         finally
         {

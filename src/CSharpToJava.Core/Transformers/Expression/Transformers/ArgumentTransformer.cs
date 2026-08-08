@@ -850,6 +850,45 @@ public class ArgumentTransformer
             }
         }
 
+        // ── Case 2b: Multi-enumeration collection → IEnumerable<E> parameter ──
+        // C# types like GroupCollection implement BOTH IList<T>/IEnumerable<T> (default
+        // enumeration yields T) AND IReadOnlyDictionary<K, V> (enumeration yields
+        // KeyValuePair<K,V>). The Java mapping keeps only the dictionary enumeration
+        // (CSharpReadOnlyDict iterates CSharpKeyValuePair), so passing the raw value to
+        // an IEnumerable<T> parameter produces CSharpGenericIterable<KeyValuePair<..>>
+        // instead of CSharpGenericIterable<T> and javac fails type inference.
+        // When the target element equals the dictionary's Value (or Key) type, adapt via
+        // .getValues() (C# GroupCollection.Values enumerates index 0..Count-1, exactly like
+        // its IEnumerable<Group> enumeration) / .getKeys().
+        if (paramType is INamedTypeSymbol paramNamedMulti
+            && paramNamedMulti.IsGenericType
+            && paramNamedMulti.Name is "IEnumerable"
+            && paramNamedMulti.ContainingNamespace?.ToDisplayString().StartsWith("System") == true
+            && paramNamedMulti.TypeArguments.Length == 1
+            && argType is INamedTypeSymbol argNamedMulti)
+        {
+            var paramElem = paramNamedMulti.TypeArguments[0];
+            var dictIface = argNamedMulti.AllInterfaces
+                .FirstOrDefault(i => i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2);
+            if (dictIface != null)
+            {
+                var keyType = dictIface.TypeArguments[0];
+                var valueType = dictIface.TypeArguments[1];
+                bool argIsEnumerableOfParamElem = argNamedMulti.AllInterfaces
+                    .Any(i => i.Name == "IEnumerable"
+                        && i.IsGenericType
+                        && i.TypeArguments.Length == 1
+                        && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], paramElem));
+                if (argIsEnumerableOfParamElem)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(valueType, paramElem))
+                        return $"{transformedExpr}.getValues()";
+                    if (SymbolEqualityComparer.Default.Equals(keyType, paramElem))
+                        return $"{transformedExpr}.getKeys()";
+                }
+            }
+        }
+
         // ── Case 3: Collection argument → IEnumerable parameter (CSharpGenericIterable) ──
         // C# List<T>/HashSet<T> etc. implement IEnumerable<T> and can be passed directly,
         // but in Java CSharpGenericIterable<T> is not implemented by List/Set/Collection.

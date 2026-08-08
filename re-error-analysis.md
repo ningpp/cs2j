@@ -340,3 +340,20 @@
 - **分析**: 转换器把 Thread.CurrentThread.CurrentUICulture 发射为 ThreadHelper.currentThread().getCurrentUICulture()/setCurrentUICulture()，但 compat ThreadHelper 只有 CurrentCulture 的访问器，没有 UI 文化访问器。修复：补充 `getCurrentUICulture()`/`setCurrentUICulture(CultureInfo)`（委托 CultureInfo 静态访问器，与 CurrentCulture 一致）。
 - **测试**: `ExceptionCatchOrderTests.ThreadCurrentUICulture_MapsToThreadHelperAccessors`（先红后绿，全量 2530 通过；compat 编译验证由 Maven 构建执行，测试内不再调用 javac）
 - **状态**: ✅ Fixed
+## Iteration 20 — 不兼容的类型: CSharpGenericIterable 泛型推断失败（GroupCollection 多枚举接口丢失）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/dotnet/text/regularexpressions/Tests/AttRegexTests.java
+- **行号**: 118
+- **错误信息**: [118,114] 不兼容的类型: 推论变量 T 具有不兼容的上限（等式约束: Group；下限: CSharpKeyValuePair<String,Group>）；[118,92] 不兼容的类型: 不存在类型变量T的实例, 以使 CSharpGenericIterable<T>与int一致
+- **代码片段**:
+  `java
+  var actual = new CSharpHashSet<Tuple2<Integer, Integer>>(CSharpGenericIterable.from(StreamSupport.stream(
+      test_ProceduralLinq2(CSharpGenericIterable.from(match.getGroups()), match).spliterator(), false)
+      .sorted(...).collect(CSharpList.toCSharpList())));
+  // test_ProceduralLinq2 的参数类型: CSharpGenericIterable<Group>
+  `
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\AttRegexTests.cs（第 400-406 行 ` match.Groups.Cast<Group>().Select(...) `）
+- **根因分类**: Transformer 逻辑缺陷（多枚举类型 Java 映射丢失非默认枚举）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs（Case 3: Collection 实参 → IEnumerable 形参包装）
+- **分析**: C# GroupCollection 同时实现 IList<Group>（非默认枚举产 Group）与 IReadOnlyDictionary<string, Group>（产 KeyValuePair）。转换器将其映射为 CSharpReadOnlyDict<String, Group>（迭代产 KeyValuePair），IEnumerable<Group> 枚举语义丢失。LINQ 重写 Cast<Group> 生成形参 IEnumerable<Group> 的方法，调用处把 match.getGroups() 直接包装为 CSharpGenericIterable.from(...)，元素类型 KeyValuePair 与 Group 不匹配，javac 泛型推断失败。C# 中 GroupCollection.Values 与 IEnumerable<Group> 枚举（索引 0..Count-1）语义完全一致，且 Java 侧 getValues() 返回 CSharpReadOnlyCollection<Group>（是 CSharpGenericIterable 子类型），可直接适配。
+- **状态**: 待修复

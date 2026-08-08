@@ -130,8 +130,8 @@ public partial class StatementTransformer
 
         // For each lambda, collect captured local variable names
         // Use a list to handle variable shadowing (same name, different symbols)
-        var capturedLocals = new List<(string Name, ILocalSymbol Symbol)>();
-        var seenSymbols = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+        var capturedLocals = new List<(string Name, ISymbol Symbol)>();
+        var seenSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
         foreach (var lambda in lambdas)
         {
@@ -160,14 +160,14 @@ public partial class StatementTransformer
                 if (node is IdentifierNameSyntax id && !paramNames.Contains(id.Identifier.Text))
                 {
                     var symbol = context.GetSymbolInfo(id).Symbol;
-                    if (symbol is ILocalSymbol local && !seenSymbols.Contains(local))
+                    if (symbol is ILocalSymbol or IParameterSymbol && !seenSymbols.Contains(symbol))
                     {
                         // Confirm the declaration is outside the lambda span
-                            var declLocation = local.Locations.FirstOrDefault();
+                            var declLocation = symbol.Locations.FirstOrDefault();
                             if (declLocation != null && !lambda.Span.Contains(declLocation.SourceSpan))
                             {
-                                seenSymbols.Add(local);
-                                capturedLocals.Add((local.Name, local));
+                                seenSymbols.Add(symbol);
+                                capturedLocals.Add((symbol.Name, symbol));
                             }
                     }
                 }
@@ -224,18 +224,30 @@ public partial class StatementTransformer
 
                 // Verify it refers to the same local symbol
                 var refSymbol = context.GetSymbolInfo(targetId).Symbol;
-                if (refSymbol is ILocalSymbol refLocal &&
-                    SymbolEqualityComparer.Default.Equals(refLocal, localSymbol))
+                if (refSymbol is ILocalSymbol or IParameterSymbol &&
+                    SymbolEqualityComparer.Default.Equals(refSymbol, localSymbol))
                 {
                     isExternallyReassigned = true;
                     break;
                 }
             }
 
-            if (isExternallyReassigned)
+            // Java for-each loop variables are never effectively final (javac treats them
+            // as reassigned each iteration), so a holder is required whenever such a variable
+            // is captured by a lambda, even if no explicit reassignment appears in the AST.
+            var declaringSyntax = localSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            bool isForEachVariable = declaringSyntax is Microsoft.CodeAnalysis.CSharp.Syntax.ForEachStatementSyntax
+                or Microsoft.CodeAnalysis.CSharp.Syntax.ForEachVariableStatementSyntax;
+
+            if (isExternallyReassigned || isForEachVariable)
             {
-                var javaType = context.MapType(localSymbol.Type);
-                var declaringSyntax = localSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+                ITypeSymbol? capturedType = localSymbol switch
+                {
+                    ILocalSymbol local => local.Type,
+                    IParameterSymbol parameter => parameter.Type,
+                    _ => null
+                };
+                var javaType = capturedType != null ? context.MapType(capturedType) : "Object";
                 if (declaringSyntax != null)
                     context.MethodState.RegisterPendingLambdaCaptureHolder(varName, javaType, declaringSyntax);
             }

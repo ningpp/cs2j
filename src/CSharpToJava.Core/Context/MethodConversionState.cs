@@ -391,6 +391,16 @@ public class MethodConversionState
         => _pendingLambdaCaptureHolders.Any(h => h.VarName == varName);
 
     /// <summary>
+    /// Get all pending lambda capture holders declared by method parameters. These are
+    /// emitted at the start of the method body (there is no parameter declaration
+    /// statement inside the body to attach them to).
+    /// </summary>
+    public IReadOnlyList<PendingLambdaCaptureHolder> GetPendingParameterLambdaCaptureHolders()
+        => _pendingLambdaCaptureHolders
+            .Where(h => h.DeclaringSyntax is Microsoft.CodeAnalysis.CSharp.Syntax.ParameterSyntax)
+            .ToList();
+
+    /// <summary>
     /// Try to get the pending holder info for a specific variable declaration.
     /// </summary>
     public bool TryGetPendingLambdaCaptureHolder(string varName, SyntaxNode declaringSyntax, out string javaType, out string holderName)
