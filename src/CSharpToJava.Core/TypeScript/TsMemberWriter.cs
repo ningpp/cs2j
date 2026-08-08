@@ -1,5 +1,6 @@
 using System.Text;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.TypeScript.Rewriters;
 
 namespace CSharpToJava.Core.TypeScript;
 
@@ -192,7 +193,7 @@ public sealed class TsMemberWriter
             sb.Append(ind).Append(_indent).AppendLine("return {");
             sb.Append(ind).Append(_indent).Append(_indent).AppendLine($"next(): IteratorResult<{mapped}> {{");
             sb.Append(ind).Append(_indent).Append(_indent).Append(_indent)
-              .AppendLine("if (__it.moveNext()) { return { value: __it.getCurrent(), done: false }; }");
+              .AppendLine($"if (__it.moveNext()) {{ return {{ value: __it.getCurrent() as {mapped}, done: false }}; }}");
             sb.Append(ind).Append(_indent).Append(_indent).Append(_indent)
               .AppendLine("return { done: true, value: undefined };");
             sb.Append(ind).Append(_indent).Append(_indent).AppendLine("},");
@@ -226,6 +227,75 @@ public sealed class TsMemberWriter
         }
 
         return "any";
+    }
+
+    /// <summary>
+    /// Round 23：CSharpGenericEnumerator&lt;T&gt; implements 契约补发 getCurrent() 桥接。
+    /// C# IEnumerator&lt;T&gt; 实现类的 Current 属性经属性重组发射为 `get Current()`（IR
+    /// 方法 getCurrent + Getter role），而 global.d.ts 的 CSharpGenericEnumerator 接口
+    /// 契约要求 Java 风味 getCurrent() 方法（TS2304 修复后 TS2420 缺口）。本钩子对
+    /// 仅有 Current getter、无 getCurrent() 方法的枚举器类补发
+    /// `getCurrent(): T { return this.Current; }`（TS 目标专用；Java 目标零接触）。
+    /// </summary>
+    public string? EmitGetCurrentBridge(
+        JavaClassDeclaration cls,
+        IReadOnlyDictionary<JavaMethodDeclaration, TsAccessorRole>? accessorRoles,
+        int indentLevel)
+    {
+        if (!cls.ImplementedTypes.Any(t => t.StartsWith("CSharpGenericEnumerator<", StringComparison.Ordinal)))
+        {
+            return null;
+        }
+        if (accessorRoles == null)
+        {
+            return null;
+        }
+        var hasRealGetCurrent = cls.Methods.Any(m =>
+            m.Name == "getCurrent" && m.Parameters.Count == 0 && !accessorRoles.ContainsKey(m));
+        if (hasRealGetCurrent)
+        {
+            return null;
+        }
+        var currentGetter = cls.Methods.FirstOrDefault(m =>
+            m.Name == "getCurrent"
+            && m.Parameters.Count == 0
+            && accessorRoles.TryGetValue(m, out var role)
+            && role is TsAccessorRole.Getter or TsAccessorRole.GetterSetter);
+        if (currentGetter == null)
+        {
+            return null;
+        }
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var ret = _exprWriter.MapType(currentGetter.ReturnType);
+        return $"{ind}public getCurrent(): {ret} {{ return this.Current; }}";
+    }
+
+    /// <summary>
+    /// Round 23：CSharpGenericIList&lt;T&gt; implements 契约补发 get(index) 桥接。
+    /// C# IList&lt;T&gt; 实现类的索引器发射为 Java 风味 get_Item(index)（Task 16 属性
+    /// 重组后仍为方法），而 global.d.ts 的 CSharpGenericIList 接口契约要求 Java IList
+    /// 形态 get(index)（消费端 nodes.get(i) 保留该形态；TS2304 修复后 TS2420 缺口）。
+    /// 对含 get_Item、无 get 方法的实现类补发 `get(index: number): T { return
+    /// this.get_Item(index); }`（TS 目标专用）。
+    /// </summary>
+    public string? EmitIListGetBridge(JavaClassDeclaration cls, int indentLevel)
+    {
+        if (!cls.ImplementedTypes.Any(t => t.StartsWith("CSharpGenericIList<", StringComparison.Ordinal)))
+        {
+            return null;
+        }
+        if (cls.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1))
+        {
+            return null;
+        }
+        var getItem = cls.Methods.FirstOrDefault(m => m.Name == "get_Item" && m.Parameters.Count == 1);
+        if (getItem == null)
+        {
+            return null;
+        }
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var ret = _exprWriter.MapType(getItem.ReturnType);
+        return $"{ind}public get(index: number): {ret} {{ return this.get_Item(index); }}";
     }
 
     /// <summary>

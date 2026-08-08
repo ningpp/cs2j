@@ -232,6 +232,21 @@ public sealed class TsTypeWriter
             sb.AppendLine(symbolIteratorBlock);
         }
 
+        // Round 23：CSharpGenericEnumerator<T>/CSharpGenericIList<T> implements 契约
+        // 的 Java 风味方法面缺口（getCurrent()/get(index)）补发桥接。
+        var enumeratorBridge = _memberWriter.EmitGetCurrentBridge(cls, _accessorRoles, indentLevel + 1);
+        if (enumeratorBridge != null)
+        {
+            sb.AppendLine();
+            sb.AppendLine(enumeratorBridge);
+        }
+        var iListBridge = _memberWriter.EmitIListGetBridge(cls, indentLevel + 1);
+        if (iListBridge != null)
+        {
+            sb.AppendLine();
+            sb.AppendLine(iListBridge);
+        }
+
         // 静态初始化块 -> static { } （ES2022）；实际属性是 Statements（List<string>，非 Body）。
         // Round 16：整块归一化（成员上下文 + 既有 raw 管线：FQCN 缩短/声明 let 化等），
         // 再按行发射——静态块内裸静态成员引用（TS2662）补 类名. 前缀。

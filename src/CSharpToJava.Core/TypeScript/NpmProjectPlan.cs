@@ -364,6 +364,52 @@ public static class NpmProjectFiles
         type CSharpICollection<T> = Iterable<T>;
         type CSharpGenericComparer<T> = { compare(a: T, b: T): number };
         type CsKeyValuePair<K, V> = import("@csharptotypescript/compat").CsKeyValuePair<K, V>;
+        // ─── Round 23：Java 风味 CSharp* compat 名（io.github.ningpp.compat 面）───
+        // C# IEnumerator<T>/IEnumerable 桥接类 implements 契约 + 值位 from() 工厂
+        // （CSharpGenericEnumerator 56 / CSharpEnumerator 24 / CSharpGenericIList 52
+        // TS2304）。getCurrent 可空宽化（Java 风味 Integer 元素），调用点按
+        // C# Current 契约（moveNext()==true 后有效）自行断言。
+        interface CSharpGenericEnumerator<T> {
+            hasNext(): boolean;
+            next(): T | null;
+            moveNext(): boolean;
+            getCurrent(): T | null;
+        }
+        declare const CSharpGenericEnumerator: typeof import("@csharptotypescript/compat").CsEnumerator;
+        // IList<T> → CSharpGenericIList<T>：TS 结构契约 = 生成集合类（implements，
+        // 含 Round 23 补发的 get() 桥接）与 Array（CSharpList 别名，polyfill 面）
+        // 的公共面；iterator() 双形态（生成类枚举器 / Array 迭代器）。
+        interface CSharpGenericIList<T> {
+            [Symbol.iterator](): Iterator<T>;
+            add(item: T): boolean;
+            remove(item: any): boolean;
+            indexOf(item: any): number;
+            insert(index: number, item: T): void;
+            removeAt(index: number): void;
+            size(): number;
+            get(index: number): T;
+            iterator(): CSharpGenericEnumerator<T> | IterableIterator<T>;
+        }
+        // 非泛型 IEnumerator：C# Current 为 object → any（与 Java Object→any 映射一致）。
+        type CSharpEnumerator = import("@csharptotypescript/compat").CsEnumerator<any>;
+        declare const CSharpEnumerator: typeof import("@csharptotypescript/compat").CsEnumerator;
+        type CSharpRandom = import("@csharptotypescript/compat").CsRandom;
+        declare const CSharpRandom: typeof import("@csharptotypescript/compat").CsRandom;
+        type CSharpQueue<T> = import("@csharptotypescript/compat").CsQueue<T>;
+        declare const CSharpQueue: typeof import("@csharptotypescript/compat").CsQueue;
+        type CSharpLinkedList<T> = import("@csharptotypescript/compat").CsLinkedList<T>;
+        declare const CSharpLinkedList: typeof import("@csharptotypescript/compat").CsLinkedList;
+        type CSharpLinkedListNode<T> = import("@csharptotypescript/compat").CsLinkedListNode<T>;
+        declare const CSharpLinkedListNode: typeof import("@csharptotypescript/compat").CsLinkedListNode;
+        type CSharpSortedDict<K, V> = import("@csharptotypescript/compat").CsSortedDictionary<K, V>;
+        declare const CSharpSortedDict: typeof import("@csharptotypescript/compat").CsSortedDictionary;
+        type CSharpKeyValuePair<K, V> = import("@csharptotypescript/compat").CsKeyValuePair<K, V>;
+        declare const CSharpKeyValuePair: typeof import("@csharptotypescript/compat").CsKeyValuePair;
+        type CSharpGenericIterable<T> = Iterable<T>;
+        type CSharpArray = import("@csharptotypescript/compat").CsArray;
+        declare const CSharpArray: typeof import("@csharptotypescript/compat").CsArray;
+        type CSharpObjQueue = import("@csharptotypescript/compat").CsQueue<unknown>;
+        declare const CSharpObjQueue: typeof import("@csharptotypescript/compat").CsQueue;
         // Round 19：值位同名 const 合并（TS 允许 type+const 同名声明）——生成的
         // "new CSharpDictionary<K,V>(capacity)" / "new CSharpHashSet<T>(...)" 调用点
         // 经此解析为 compat 类构造器（TS2693）。CSharpList/CSharpStack 的值位由
