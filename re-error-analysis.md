@@ -125,3 +125,21 @@
 - **分析**: 普通表达式体方法（MethodTransformer 第 349 行）会调用 `AdaptExpressionToTargetType` 做 byte[]→ReadOnlySpan 包装，但局部函数表达式体路径（TransformLocalFunction）直接透传表达式，漏掉适配，导致原始 byte[] 被返回。修复：局部函数表达式体同样应用 WrapExpressionBodyForIterableReturn + AdaptExpressionToTargetType。
 - **测试**: `LocalFunctionExpressionBodySpanAdaptationTests`（先红后绿）
 - **状态**: ✅ Fixed
+
+## Iteration 8 — 找不到符号 Interlocked.or(IntHolder,int)（compat 缺 ref-holder 位运算重载）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 630
+- **错误信息**: `[630,20] 找不到符号 符号: 方法 or(IntHolder,int) 位置: 类 Interlocked`
+- **代码片段**:
+  ```java
+  io.github.ningpp.compat.IntHolder _slotRef = new io.github.ningpp.compat.IntHolder(slot);
+  Interlocked.or(_slotRef, bitsToSet);
+  slot = _slotRef.value;
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 1118 行 `Interlocked.Or(ref slot, bitsToSet);`）
+- **根因分类**: 语义模型信息丢失（compat API 缺口）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Interlocked.java
+- **分析**: 转换器将 C# `Interlocked.Or(ref int, int)` 经 ref-holder 模式发射为 `Interlocked.or(IntHolder, int)`，但 compat 只有 increment/decrement 的 holder 重载。修复：补充 `or(IntHolder,int)` 与对称的 `and(IntHolder,int)`。
+- **测试**: `InterlockedOrCompatTests.InterlockedOr_CompilesAgainstCompatRuntime`（先红后绿）
+- **状态**: ✅ Fixed
