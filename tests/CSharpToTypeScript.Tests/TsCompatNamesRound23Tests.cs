@@ -57,7 +57,7 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
         declare const CSharpRandom: { new(seed?: number): CSharpRandom };
         type CSharpQueue<T> = { enqueue(item: T): void; add(item: T): void; dequeue(): T; poll(): T | null; peek(): T; size(): number; isEmpty(): boolean; clear(): void; [Symbol.iterator](): Iterator<T> };
         declare const CSharpQueue: { new<T>(items?: Iterable<T>): CSharpQueue<T> };
-        type CSharpLinkedList<T> = { addLast(value: T): CSharpLinkedListNode<T>; addFirst(node: CSharpLinkedListNode<T>): void; remove(node: CSharpLinkedListNode<T>): void; getFirst(): CSharpLinkedListNode<T>; getLast(): CSharpLinkedListNode<T>; size(): number; contains(value: T): boolean; length: number };
+        type CSharpLinkedList<T> = { addLast(value: T): CSharpLinkedListNode<T>; addFirst(node: CSharpLinkedListNode<T>): void; addFirst(value: T): CSharpLinkedListNode<T>; addAfter(node: CSharpLinkedListNode<T>, value: T): CSharpLinkedListNode<T>; addBefore(node: CSharpLinkedListNode<T>, value: T): CSharpLinkedListNode<T>; remove(node: CSharpLinkedListNode<T>): void; getFirst(): CSharpLinkedListNode<T>; getLast(): CSharpLinkedListNode<T>; size(): number; contains(value: T): boolean; length: number };
         declare const CSharpLinkedList: { new<T>(): CSharpLinkedList<T> };
         type CSharpLinkedListNode<T> = { getNext(): CSharpLinkedListNode<T>; getPrevious(): CSharpLinkedListNode<T>; getValue(): T; getList(): CSharpLinkedList<T> };
         declare const CSharpLinkedListNode: { new<T>(value: T): CSharpLinkedListNode<T> };
@@ -232,7 +232,11 @@ public class Probe
     public void M(Random rnd)
     {
         list.AddLast(1);
+        list.AddFirst(5);
         int v = list.First.Value;
+        LinkedListNode<int> node = list.First;
+        list.AddAfter(node, 2);
+        list.AddBefore(node, 3);
         queue.Enqueue(v);
         queue.Dequeue();
         dict.Add(v, 1);

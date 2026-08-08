@@ -58,7 +58,57 @@ export class CsLinkedList<T> {
     }
 
     /** 把既有节点移到表头（C# LinkedList.AddFirst(LinkedListNode<T>) 形态）。 */
-    addFirst(node: CsLinkedListNode<T>): void {
+    addFirst(node: CsLinkedListNode<T>): void;
+    /** 新建节点插入表头（C# LinkedList.AddFirst(T value) 形态）。 */
+    addFirst(value: T): CsLinkedListNode<T>;
+    addFirst(nodeOrValue: CsLinkedListNode<T> | T): CsLinkedListNode<T> | void {
+        if (nodeOrValue instanceof CsLinkedListNode) {
+            this.addFirstNode(nodeOrValue);
+            return;
+        }
+        const node = new CsLinkedListNode<T>(this, nodeOrValue);
+        this.addFirstNode(node);
+        return node;
+    }
+
+    /** 在既有节点后插入新值（C# LinkedList.AddAfter(LinkedListNode<T>, T)）。 */
+    addAfter(node: CsLinkedListNode<T>, value: T): CsLinkedListNode<T> {
+        const fresh = new CsLinkedListNode<T>(this, value);
+        fresh._prev = node;
+        fresh._next = node._next;
+        if (node._next !== null) {
+            node._next._prev = fresh;
+        } else {
+            this._tail = fresh;
+        }
+        node._next = fresh;
+        this._count++;
+        return fresh;
+    }
+
+    /** 在既有节点前插入新值（C# LinkedList.AddBefore(LinkedListNode<T>, T)）。 */
+    addBefore(node: CsLinkedListNode<T>, value: T): CsLinkedListNode<T> {
+        const fresh = new CsLinkedListNode<T>(this, value);
+        fresh._next = node;
+        fresh._prev = node._prev;
+        if (node._prev !== null) {
+            node._prev._next = fresh;
+        } else {
+            this._head = fresh;
+        }
+        node._prev = fresh;
+        this._count++;
+        return fresh;
+    }
+
+    getFirst(): CsLinkedListNode<T> {
+        if (this._head === null) {
+            throw new Error("List is empty.");
+        }
+        return this._head;
+    }
+
+    private addFirstNode(node: CsLinkedListNode<T>): void {
         this.remove(node);
         node._prev = null;
         node._next = this._head;
@@ -72,13 +122,6 @@ export class CsLinkedList<T> {
         this._count++;
     }
 
-    getFirst(): CsLinkedListNode<T> {
-        if (this._head === null) {
-            throw new Error("List is empty.");
-        }
-        return this._head;
-    }
-
     getLast(): CsLinkedListNode<T> {
         if (this._tail === null) {
             throw new Error("List is empty.");
@@ -89,6 +132,9 @@ export class CsLinkedList<T> {
     remove(node: CsLinkedListNode<T>): void {
         const prev = node._prev;
         const next = node._next;
+        if (prev === null && next === null && this._head !== node && this._tail !== node) {
+            return; // 未链接节点：no-op（addFirst 值形态/误删防御）
+        }
         if (prev === null) {
             this._head = next;
         } else {

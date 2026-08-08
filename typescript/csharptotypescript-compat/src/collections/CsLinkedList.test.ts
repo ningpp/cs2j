@@ -35,6 +35,28 @@ describe("CsLinkedList", () => {
         expect(list.getLast()).toBe(n1);
     });
 
+    it("addFirst(value) creates a new head node", () => {
+        const list = new CsLinkedList<number>();
+        list.addLast(1);
+        const node = list.addFirst(0);
+        expect(node.getValue()).toBe(0);
+        expect(list.getFirst()).toBe(node);
+        expect(list.getLast()!.getValue()).toBe(1);
+        expect(list.size()).toBe(2);
+    });
+
+    it("addAfter/addBefore insert values around a node", () => {
+        const list = new CsLinkedList<number>();
+        const n1 = list.addLast(1);
+        const n3 = list.addLast(3);
+        const after = list.addAfter(n1, 2);
+        const before = list.addBefore(n3, 2.5);
+        expect(after.getValue()).toBe(2);
+        expect(before.getValue()).toBe(2.5);
+        expect([...list]).toEqual([1, 2, 2.5, 3]);
+        expect(list.size()).toBe(4);
+    });
+
     it("contains scans by value", () => {
         const list = new CsLinkedList<number>();
         list.addLast(1);
