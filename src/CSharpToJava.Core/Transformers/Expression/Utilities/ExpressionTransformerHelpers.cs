@@ -164,9 +164,13 @@ public static class ExpressionTransformerHelpers
         // span classes have no implicit conversion, so wrap the string expression
         // with MemoryExtensions.asSpan(...). Java's String is not a CharSequence of
         // boxed Characters; the compat overload boxes the string element-wise.
+        // Conditional expressions whose ConvertedType is a span are branch-adapted
+        // by the conditional transformer; wrapping the whole ternary again would
+        // produce asSpan(cond) with incompatible ReadOnlySpan branches.
         if (sourceType.SpecialType == SpecialType.System_String
             && targetType is INamedTypeSymbol stringSpanTarget
             && stringSpanTarget.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>"
+            && expression is not ConditionalExpressionSyntax
             && !transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal)
             && !transformedExpression.StartsWith("new Span<>(", StringComparison.Ordinal)
             && !transformedExpression.StartsWith("new ReadOnlySpan<>(", StringComparison.Ordinal))

@@ -171,6 +171,24 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             }
         }
 
+        // Target-typed conditional producing Span<T>/ReadOnlySpan<T>: C# implicitly
+        // converts string branches to ReadOnlySpan<char> (and T[] branches to spans),
+        // but Java has no such implicit conversion. Adapt every branch to the span
+        // type (wrapping String branches with MemoryExtensions.asSpan, arrays with
+        // new ReadOnlySpan<>(...)) so the ternary type-checks.
+        if (context.SemanticModel != null)
+        {
+            var conditionalType = context.GetTypeInfo(node).ConvertedType;
+            if (conditionalType is INamedTypeSymbol condSpanType
+                && condSpanType.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
+            {
+                trueExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    node.WhenTrue, trueExpr, conditionalType, context);
+                falseExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    node.WhenFalse, falseExpr, conditionalType, context);
+            }
+        }
+
         // If either branch generated branch-scoped pre-statements (e.g. object
         // initializer extraction), the ternary must be converted to an if-else
         // so that side effects execute only inside the taken branch.
