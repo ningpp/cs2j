@@ -128,6 +128,54 @@ public final class CSharpArray {
         java.util.Arrays.fill(array, value);
     }
 
+    /** C# Array.IndexOf(int[], int) — index of the first occurrence, or -1. */
+    public static int indexOf(int[] array, int value) {
+        for (int i = 0; i < array.length; i++) {
+            if (array[i] == value) return i;
+        }
+        return -1;
+    }
+
+    /** C# Array.IndexOf(char[], char) — index of the first occurrence, or -1. */
+    public static int indexOf(char[] array, char value) {
+        for (int i = 0; i < array.length; i++) {
+            if (array[i] == value) return i;
+        }
+        return -1;
+    }
+
+    /** C# Array.IndexOf(long[], long) — index of the first occurrence, or -1. */
+    public static int indexOf(long[] array, long value) {
+        for (int i = 0; i < array.length; i++) {
+            if (array[i] == value) return i;
+        }
+        return -1;
+    }
+
+    /** C# Array.IndexOf(double[], double) — index of the first occurrence, or -1. */
+    public static int indexOf(double[] array, double value) {
+        for (int i = 0; i < array.length; i++) {
+            if (array[i] == value) return i;
+        }
+        return -1;
+    }
+
+    /** C# Array.IndexOf(boolean[], boolean) — index of the first occurrence, or -1. */
+    public static int indexOf(boolean[] array, boolean value) {
+        for (int i = 0; i < array.length; i++) {
+            if (array[i] == value) return i;
+        }
+        return -1;
+    }
+
+    /** C# Array.IndexOf(T[], T) — index of the first occurrence, or -1. */
+    public static <T> int indexOf(T[] array, T value) {
+        for (int i = 0; i < array.length; i++) {
+            if (Objects.equals(array[i], value)) return i;
+        }
+        return -1;
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof CSharpArray other && Objects.equals(array, other.array);
