@@ -25,6 +25,7 @@
 | 18 | 15013 → 13278 | ①构造器重载调用点未改 Create$N 工厂（TS2673 769→238）；②FQCN 静态方法调用接收者未缩短（TS2304 'Microsoft' 1791→146） | ① ObjectCreationTransformer.cs / TsOverloadDisambiguationRewriter.cs + TsCtorFactoryCrossFileTests.cs；② TsRawStatementNormalizer.cs + TsRawStatementNormalizerTests | 42f4dffe + 7fccb22c |
 | 19 | 13278 → 7502 | ①无初始化器引用类型字段宽化 `T | null`（TS2531 2922→15 / TS18047 771→116 / getter 内 TS2322）；②compat Java 集合 API 面缺口（TS2339 CSharpList .get/.set 等 328→0、CsKeyValuePair getKey/getValue 224→0、TS2693 new CSharpList/Stack/Dictionary 130→26） | ① src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs（EmitField）+ TsNullAssertionRound19Tests.cs + 3 例既有断言更新；② NpmProjectPlan.cs（global.d.ts 桩 Array 接口合并 + const 合并）/ TsRawStatementNormalizer.cs / TsExpressionWriter.cs（new CSharpList 改写）+ compat ArrayCompat.ts + CsKeyValuePair.ts + index.ts + TsCollectionCompatRound19Tests.cs | b52ea407 + 4424932a + fd623fe3 + cc02d254（另：并发会话先期提交 b289f65f 已收割 TS2551 FQCN 接收者族，纳入本轮起点 12633） |
 | 20 | 7502 → 7235 | 构造器工厂（Create$N）调用点残余缺口（TS2673 369→75）：①结构化 JavaNewExpression 发射路径（EmitNew）无工厂改写；②结构体默认零值填充（字段/自动属性后备字段）raw 文本；③LINQ 重写产物链内 ctor 符号不可解析 → 回退实参数量+字面量种类匹配 | JavaExpression.cs（JavaNewExpression.FactoryName）+ ObjectCreationTransformer.cs（TransformToIR 携带工厂名 / TryGetCtorFactoryName 回退）/ TsExpressionWriter.cs（EmitNew）+ FieldTransformer.cs / PropertyTransformer.cs（Create$1 填充）+ TsCtorFactoryRound20Tests.cs | a5931994 + b89df38c |
+| 21 | 7235 → 6769 | ①值位无操作包装剥除（CSharpGenericIterable.from/fromTyped 172→0，TS2304 −222）；②compat Holder FQCN 构造值位改写（new io.github.ningpp.compat.*Holder → refOf/outRef，TS2304 'io' 69→0）；③FQCN 缩短不得剥断点号前导成员链（回退：TS2339 2 例 + 旧版静默剥断 ~270 行揭示/修复） | TsRawStatementNormalizer.cs（NormalizeIterableFromWrappers / NormalizeCompatHolderConstructors / NormalizeFqcnExpressions 点号前导守卫）+ TsRawStatementNormalizerTests.cs | 3eaa5813 + 9c92d7d5 + e759ff10 |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -122,6 +123,72 @@
   Rectangle / 10 Edge / 8 BorderInfo / 6 DebugCurve 等——需 raw 文本工厂
   注册表改写）；`RectanglePacking<TData>` 单 C# 构造器但 IR 侧被工厂化
   （实例构造器数不一致 → 回退跳过）等。
+
+## Round 21 — 值位无操作包装剥除 + compat Holder FQCN 构造改写 + FQCN 缩短点号守卫（TS2304 1,392 → 1,152）
+
+实测起点 = Round 20 终态 **7,235 错误行**（tsc-r21-full.txt 复核一致）。
+
+- **根因 A（提交 3eaa5813）——C# `IEnumerable<T>`/`ICollection<T>` 值生产被 Java 风味包装**：
+  前端（StatementTransformer.ExpressionAndReturn.cs / ArgumentTransformer.cs 等 6 处）
+  为类型兼容产出 `CSharpGenericIterable.from(x)` / `CSharpICollection.fromTyped(x)`
+  包装，TS 目标直通 raw 文本 → `TS2304: Cannot find name 'CSharpGenericIterable'`
+  （176 条，TS2304 头号名字族）。TS 中 `Iterable<T>` 是结构类型，数组/生成器/既有
+  Iterable 值天然满足，包装是无操作 → 剥除 `CSharpGenericIterable.from(X)` → `X`
+  （嵌套/同行多包装全剥，引号跳过扫描；守卫：`CSharpGenericEnumerator.from(`
+  非无操作——产物用 moveNext()/getCurrent()，保留待 compat CsEnumerator 面；
+  instanceof 类型位保留）。
+- **根因 B（提交 9c92d7d5）——compat Holder FQCN 构造值位**：ref/out 形参传递的
+  Holder 包装（HolderTypeResolver / StatementTransformer.ExpressionAndReturn.cs 的
+  `new io.github.ningpp.compat.ObjectHolder<>(x)` 等）→ `TS2304: Cannot find name 'io'`
+  （69 条，全部为 Holder new 形态：35 无参 ObjectHolder + 28 DoubleHolder(实参) +
+  6 ObjectHolder(实参)）。TS 对应 compat Ref：带实参 → `refOf(expr)`（T 由实参推断）、
+  无参（out 传入点）→ `outRef()`（T 由赋值目标类型推断）；两符号由既有 ref/out
+  发射引入（受影响 19 文件全部已导入，实证）。菱形 `<>` 由更早的
+  NormalizeDiamondConstructors 先行剥离。
+- **根因 C（提交 e759ff10，回退修复）——FQCN 缩短剥断点号前导成员链**：Round 19 的
+  `after==','` 分支把任何大写开头点分链当 FQCN 缩短到末段；值位成员链
+  `this.ObstacleCalculator.LooseObstacles`（InteractiveEdgeRouter.ts:1160）/
+  `this.Graph.Nodes`（IncrementalDragger.ts:47）被剥成 `this.LooseObstacles`/
+  `this.Nodes` → TS2339。根因 A 剥除包装后把链暴露到逗号位触发（此前包装闭合
+  `)` 挡在 `after` 判定外）。修复：链首个段前是 `.`（this./super./表达式接收者）
+  时跳过缩短——类型链（new FQCN 构造/静态调用/泛型实参）首段前必为空白/括号/
+  尖括号，零误伤；顺带修复旧版对三段成员链（x.A.B.C）的静默剥断（全量重转后
+  TS2339 −78 中约 275 行为既有剥断行的揭示/转正）。
+- **验证链**：重建 0 错误 → 删目录全量重转（511 文件）→ 独立 tsc 7.0.2：
+  **7,235 → 6,769（−466）**。三元组对比：**移除 502 / 新增 61**，61 全部为
+  揭示型迁移（TS2741 38：Set/RBTree 等生成类缺 `[Symbol.iterator]`——TS2488 已知
+  族在返回位的镜像；TS2322 12：IterableIterator<unknown> 对 Iterable<X> 与
+  null 三元返回；TS2551 7：剥断链转正后 lambda 元素接收者 getter 形态浮现——
+  Round 17 残量族；TS2345 4：unknown 元素/未剥断链揭示）——逐条核对非既有正确
+  代码回归；2 例新错误行（LayeredLayoutEngine:114/RecoveryLayeredLayoutEngine:160，
+  `ret.insert(edge)` edge: unknown）为剥断链转正后 unknown 元素揭示（基线同块
+  3 错 → 现在 3 错，计数中性）。语法 0。TS2304 1,392 → 1,152（−240；
+  CSharpGenericIterable 176→4 残量 = `new CSharpList<CSharpGenericIterable<Integer>>`
+  值位泛型实参 ×2 + instanceof ×2；'io' 69→0）。TS2339 1,316 → 1,048（−268，
+  其中 ~275 为剥断链修复的净转正）。
+- **dotnet test 全绿**：7 + 679（CSharpToTypeScript.Tests，含本轮 +9：
+  包装剥除 4 + Holder 3 + 菱形断言更新 1 + FQCN 点号守卫 1）+ 2492
+  （CSharpToJava.Tests）。
+- **测试（先红后绿）**：TsRawStatementNormalizerTests 共 +8 例——GenericIterable_
+  From_Wrapper_Is_Dropped（return/成员链实参）/ GenericIterable_From_Nested_Wrappers_
+  Are_All_Dropped（嵌套+同行）/ GenericIterable_From_Non_Noop_Wrappers_Are_Not_Touched
+  （CSharpGenericEnumerator.from/字符串字面量/instanceof 守卫）/ GenericICollection_
+  FromTyped_Wrapper_Is_Dropped / CompatHolder_Fqcn_New_With_Argument_Becomes_RefOf /
+  CompatHolder_Fqcn_New_No_Arg_Becomes_OutRef（含菱形）/ CompatHolder_Fqcn_Non_Holder_
+  Names_Are_Not_Touched / Fqcn_Value_Chain_Preceded_By_Dot_Is_Not_Shortened（成员链
+  不缩短 + 类型链仍缩短回归）。红：新 8 例首跑 5+1 失败（含 1 例守卫预期迭代修正），
+  全绿后既有 FQCN/菱形断言 1 例随正确最终发射更新（`new io.github.ningpp.compat.
+  ObjectHolder<>()` → `outRef()`）。
+- **提交**：3eaa5813（A）、9c92d7d5（B）、e759ff10（C）；本文档独立提交。
+- **并发干扰**：无（本轮起点与终点 `git status` 均干净，无并发提交混入）。
+- **残留（下轮候选）**：① TS2304 1,152——CSharp* 名类型位（CSharpGenericEnumerator
+  56 / CSharpGenericIList 52 / CSharpRandom 31 等，需 compat CsEnumerator/CsRandom +
+  global 桩）与 Java stdlib 名（StreamSupport 72 / AbstractMap 63 / Stream 37 /
+  System 32 / *Helper 族 ~140，需 Stream 链改写或 compat 函数面）；② TS2339 1,048——
+  Edge.NodeId 103/Selected 27/Used 22（属性名映射）、`accept` 38、spliterator 46、
+  addRange 51（compat 面）等；③ TS2551 666（getter 形态调用点残量）+
+  TS2741 177（生成集合类缺 [Symbol.iterator]，Set/RBTree 族）。
+
 
 ## Round 15 — E 族：LINQ 重写产物方法引用形态 TS 归一化（语法清零，语义波涌现）
 
