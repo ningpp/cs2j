@@ -556,6 +556,16 @@ public class MethodTransformer : IMemberTransformer
         {
             var expr = Transformers.Expression.ExpressionTransformerFacade.Instance
                 .Transform(localFn.ExpressionBody.Expression, context);
+
+            // Expression-bodied local functions skip TransformReturnStatement, so the
+            // same target-type adaptation used by regular expression-bodied methods
+            // must be applied here (e.g. byte[] -> ReadOnlySpan<byte> wrapping).
+            expr = WrapExpressionBodyForIterableReturn(expr, localFn.ExpressionBody.Expression,
+                localFn.ReturnType, context);
+            var returnTypeSymbol = context.GetTypeInfo(localFn.ReturnType).Type;
+            expr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                localFn.ExpressionBody.Expression, expr, returnTypeSymbol, context);
+
             javaMethod.Body = expr;
             javaMethod.IsBodyExpression = true;
         }
