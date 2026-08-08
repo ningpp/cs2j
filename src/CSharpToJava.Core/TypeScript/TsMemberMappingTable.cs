@@ -87,6 +87,92 @@ public sealed class TsMemberMappingTable
         { ("java.util.ArrayList", "size"), "length" },
     };
 
+    // ─── 通用 compat 方法名映射（无类型依赖，按方法名推断）──────────────────
+    // 共享前端把 C# 成员 Java 化为 camelCase（如 Clear() → clear()），而 compat 库
+    // 使用 PascalCase 实例方法。发射器在发射阶段没有目标类型信息，只能按方法名
+    // 推断：命中本表时把 camelCase 转为 PascalCase（首字母大写）。
+    // 注意：本表仅收录“确定是 compat 库高频方法”的条目，避免误伤用户方法。
+    private static readonly HashSet<string> CompatMethodNames = new(StringComparer.Ordinal)
+    {
+        // CsSet<T> / CsDictionary<K,V> 实例方法
+        "add", "remove", "clear", "contains", "size", "iterator", "toArray",
+        // CsDictionary<K,V> 额外
+        "put", "get", "containsKey", "keySet", "values",
+        // CsKeyValuePair<K,V>
+        "getKey", "getValue",
+        // CsSortedDictionary<K,V>
+        "comparable",
+        // CsList/CSharpList
+        "addRange", "insert", "removeAt", "indexOf", "lastIndexOf",
+        // 通用 Java 集合方法
+        "spliterator", "stream", "parallelStream", "forEach",
+        // IEquatable/IComparable
+        "containsValue",
+    };
+
+    /// <summary>
+    /// 尝试按方法名推断是否为 compat 库方法，返回 PascalCase 形式。
+    /// 发射器无目标类型信息，此映射基于方法名约定（compat 库使用 PascalCase）。
+    /// </summary>
+    public bool TryMapCompatMethod(string methodName, out string tsMethod)
+    {
+        tsMethod = methodName;
+        if (CompatMethodNames.Contains(methodName))
+        {
+            // 首字母大写（camelCase → PascalCase）
+            tsMethod = char.ToUpperInvariant(methodName[0]) + methodName[1..];
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 尝试识别 getter 模式：getXxx() → Xxx（属性名）。
+    /// 返回 true 表示是 getter，out propertyName 为去 get 前缀 + 首字母大写的属性名。
+    /// </summary>
+    public static bool TryParseGetter(string methodName, out string propertyName)
+    {
+        propertyName = methodName;
+        if (methodName.Length > 3 && methodName.StartsWith("get", StringComparison.Ordinal)
+            && char.IsUpper(methodName[3]))
+        {
+            propertyName = methodName[3..];
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 尝试识别 setter 模式：setXxx(v) → Xxx（属性名）。
+    /// 返回 true 表示是 setter，out propertyName 为去 set 前缀 + 首字母大写的属性名。
+    /// </summary>
+    public static bool TryParseSetter(string methodName, out string propertyName)
+    {
+        propertyName = methodName;
+        if (methodName.Length > 3 && methodName.StartsWith("set", StringComparison.Ordinal)
+            && char.IsUpper(methodName[3]))
+        {
+            propertyName = methodName[3..];
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 尝试识别 boolean getter 模式：isXxx() → Xxx（属性名）。
+    /// </summary>
+    public static bool TryParseBooleanGetter(string methodName, out string propertyName)
+    {
+        propertyName = methodName;
+        if (methodName.Length > 2 && methodName.StartsWith("is", StringComparison.Ordinal)
+            && char.IsUpper(methodName[2]))
+        {
+            propertyName = methodName[2..];
+            return true;
+        }
+        return false;
+    }
+
     // ─── 异常反向映射（Task 21，spec §4.3.9）────────────────────────────────
     // TS 路径复用 C#→Java 前端，IR 中异常类型为 Java 风味名（Java TypeMappings.json
     // 映射：InvalidOperationException→IllegalStateException、Exception→RuntimeException、

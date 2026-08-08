@@ -458,6 +458,40 @@ public sealed class TsExpressionWriter
             }
         }
 
+        // ─── Compat 库方法映射（M6 / MSAGL 修复）──────────────────────────────
+        // 发射器在发射阶段没有目标类型信息，按方法名推断是否为 compat 库方法：
+        // ① getter 模式 getXxx() → target.Xxx（属性访问）
+        // ② boolean getter isXxx() → target.Xxx（属性访问）
+        // ③ 已知 compat 方法名（add/remove/clear/size/iterator 等）→ PascalCase
+        if (call.Target != null)
+        {
+            // getter 模式：getXxx() → .Xxx（无参时才可能是属性 getter）
+            if (call.Arguments.Count == 0 && TsMemberMappingTable.TryParseGetter(methodName, out var getterProp))
+            {
+                var targetStr = ToInlineString(call.Target);
+                return $"{targetStr}.{getterProp}";
+            }
+            // boolean getter 模式：isXxx() → .Xxx
+            if (call.Arguments.Count == 0 && TsMemberMappingTable.TryParseBooleanGetter(methodName, out var boolProp))
+            {
+                var targetStr = ToInlineString(call.Target);
+                return $"{targetStr}.{boolProp}";
+            }
+            // setter 模式：setXxx(v) → .Xxx = v
+            if (call.Arguments.Count == 1 && TsMemberMappingTable.TryParseSetter(methodName, out var setterProp))
+            {
+                var targetStr = ToInlineString(call.Target);
+                return $"{targetStr}.{setterProp} = {ToInlineString(call.Arguments[0])}";
+            }
+
+            // compat 方法名映射：camelCase → PascalCase
+            if (_mappings.TryMapCompatMethod(methodName, out var compatMethod))
+            {
+                var compatArgs = string.Join(", ", call.Arguments.Select(ToInlineString));
+                return $"{target}{compatMethod}({compatArgs})";
+            }
+        }
+
         var args = string.Join(", ", call.Arguments.Select(ToInlineString));
 
         // 类型参数（泛型方法调用）TS 不需要运行时类型参数，丢弃
