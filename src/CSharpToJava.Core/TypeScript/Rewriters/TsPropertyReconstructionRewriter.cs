@@ -451,10 +451,26 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
 
     public override JavaConstructorDeclaration VisitConstructorDeclaration(JavaConstructorDeclaration node)
     {
+        // Round 17：构造函数同样参与局部变量/lambda 参数收集（真实管线 Relayout 构造器
+        // 内 Enumerable.selectMany(modifiedNodes, v => v.getAllClusterAncestors()) 形态）
+        var variables = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var parameter in node.Parameters)
+        {
+            variables[parameter.Name] = parameter.Type;
+        }
+        if (node.StructuredBody != null)
+        {
+            CollectRawLocalsRecursive(node.StructuredBody.Statements, variables);
+            CollectStructuredLambdaParams(node.StructuredBody.Statements, variables);
+        }
+        if (!string.IsNullOrEmpty(node.Body))
+        {
+            CollectRawLocals(node.Body, variables);
+        }
         var methodContext = new MethodContext
         {
-            NonFieldNames = node.Parameters.Select(p => p.Name).ToHashSet(StringComparer.Ordinal),
-            VariableTypes = node.Parameters.ToDictionary(p => p.Name, p => p.Type, StringComparer.Ordinal),
+            NonFieldNames = variables.Keys.ToHashSet(StringComparer.Ordinal),
+            VariableTypes = variables,
         };
         _methodStack.Push(methodContext);
         try

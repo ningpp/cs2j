@@ -1028,4 +1028,31 @@ class C
         var body = Assert.IsType<JavaMethodCallExpression>(lambda2.ExpressionBody);
         Assert.Equal("PlacementOffset", Assert.IsType<JavaMemberAccessExpression>(body.Target).MemberName);
     }
+
+    /// <summary>
+    /// Round 17 补强：构造函数 raw 体内的 lambda 参数收集（真实管线 Relayout 构造器
+    /// Enumerable.selectMany(modifiedNodes, v => ...) 形态——此前构造函数路径未做
+    /// 局部变量/lambda 收集，v 无法解析）。
+    /// </summary>
+    [Fact]
+    public void CtorRawBody_Lambda_Param_Element_Is_Inferred()
+    {
+        var label = ClassWith("Label",
+            fields: [BackingField("PlacementOffset", "double")],
+            methods: [AutoGetter("PlacementOffset", "double"), AutoSetter("PlacementOffset", "double")]);
+        var c = ClassWith("C");
+        c.Constructors.Add(new JavaConstructorDeclaration
+        {
+            ClassName = "C",
+            Modifiers = JavaModifiers.Public,
+            Parameters = { new JavaParameter("CSharpList<Label>", "edges") },
+            Body = "this.ancestors = Enumerable.selectMany(edges, e -> e.getPlacementOffset());",
+        });
+
+        var rewriter = new TsPropertyReconstructionRewriter();
+        rewriter.VisitCompilationUnit(UnitWith(label, c));
+
+        Assert.Contains("e.PlacementOffset", c.Constructors[0].Body);
+        Assert.DoesNotContain("getPlacementOffset()", c.Constructors[0].Body);
+    }
 }
