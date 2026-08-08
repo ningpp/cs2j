@@ -175,3 +175,21 @@
 - **分析**: System.Text.StringBuilder 映射到 java.lang.StringBuilder，其长度属性是 `length()` 方法，但 TypeMappings 缺少 `Length`/`get_Length` 条目，属性访问按默认规则发射为 `getLength()`。修复：为 System.Text.StringBuilder 补充 `get_Length`/`Length` → `length` 映射（与 Capacity → capacity 条目一致）。
 - **测试**: `StringBuilderLengthMappingTests`（先红后绿）
 - **状态**: ✅ Fixed
+
+## Iteration 11 — 找不到符号 getChunks()（StringBuilder.GetChunks 无 Java 等价物）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 820
+- **错误信息**: `[820,59] 找不到符号 符号: 方法 getChunks()`
+- **代码片段**:
+  ```java
+  for (ReadOnlyMemory<Character> chunk : _categories.getChunks()) {
+      vsb.append(chunk.getSpan());
+  }
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 1383 行 `foreach (ReadOnlyMemory<char> chunk in _categories!.GetChunks())`）
+- **根因分类**: Transformer 逻辑缺陷（C# 专属 API 缺 Java 等价物路由）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs；java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringBuilderExtensions.java（新增）
+- **分析**: System.Text.StringBuilder 映射到 java.lang.StringBuilder，没有 `getChunks()`。修复：新增 compat `StringBuilderExtensions.getChunks(StringBuilder)` 返回覆盖整个内容的单个 ReadOnlyMemory 分块；转换器对 StringBuilder 接收者的 `GetChunks()` 调用（语义模型守卫）重写为 `StringBuilderExtensions.getChunks(...)` 并加 import。循环体 `vsb.append(chunk.getSpan())` 绑定到 `append(Object)`（ReadOnlySpan.toString 返回字符内容，语义等价）。
+- **测试**: `StringBuilderGetChunksTests`（先红后绿，javac 编译验证）
+- **状态**: ✅ Fixed
