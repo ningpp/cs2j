@@ -57,3 +57,25 @@
 - **分析**: 转换器将 `ToLower` 统一映射为 `toLowerCase`，但 compat `TextInfo` 只有 `toLowerCase(String)` 与 `toLower(char)`，没有 `toLowerCase(char)`；`textinfo.ToLower(text[i])` 生成的 `toLowerCase(char)` 调用解析到 String 重载导致 char→String 编译错误。修复：在 compat TextInfo 中补充 `toLowerCase(char)`/`toUpperCase(char)`（镜像 C# ToLower(char)/ToUpper(char)）。
 - **测试**: `TextInfoCompatibilityTests.TextInfoToLowerChar_CompilesAgainstCompatRuntime`（先红后绿，javac 对生成的 Java + compat 源码编译验证）
 - **状态**: ✅ Fixed
+
+## Iteration 4 — 条件表达式类型错误: String无法转换为ReadOnlySpan<Character>（隐式 string→span 转换缺失）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 326（以及 333、340）
+- **错误信息**: `[326,26] 不兼容的类型: 条件表达式中的类型错误; String无法转换为ReadOnlySpan<Character>`
+- **代码片段**:
+  ```java
+  public void addWord(boolean ecma, boolean negate) {
+      if (ecma) {
+          addSet((negate ? NotECMAWordSet : ECMAWordSet));
+      } else {
+          addCategory((negate ? NotWord : Word));
+      }
+  }
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 639、651、663 行 `AddSet(negate ? NotECMAWordSet : ECMAWordSet);`，`AddSet` 声明为 `private void AddSet(ReadOnlySpan<char> set)`）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（AdaptExpressionToTargetTypeCore）
+- **分析**: C# 中 `string` 可隐式转换为 `ReadOnlySpan<char>`，但 `AdaptExpressionToTargetTypeCore` 只处理了 `T[] → Span<T>/ReadOnlySpan<T>`（`new ReadOnlySpan<>(...)`），没有处理 `String → ReadOnlySpan<Character>/Span<Character>`（应包 `MemoryExtensions.asSpan(...)`）。方法实参经由 ArgumentTransformer.CoerceArgumentType → AdaptExpressionToTargetType 的路径因此不包装字符串，生成的 `addSet("...")` 无法编译。显式 cast 路径（`(ReadOnlySpan<char>)s`）已有处理，隐式路径缺失。
+- **测试**: `StringArgumentToSpanParameterTests`（先红后绿）
+- **状态**: ✅ Fixed

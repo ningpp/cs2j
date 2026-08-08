@@ -160,6 +160,21 @@ public static class ExpressionTransformerHelpers
             return $"new {spanJavaName}<>({transformedExpression})";
         }
 
+        // C# implicit conversion string → Span<char>/ReadOnlySpan<char>: the compat
+        // span classes have no implicit conversion, so wrap the string expression
+        // with MemoryExtensions.asSpan(...). Java's String is not a CharSequence of
+        // boxed Characters; the compat overload boxes the string element-wise.
+        if (sourceType.SpecialType == SpecialType.System_String
+            && targetType is INamedTypeSymbol stringSpanTarget
+            && stringSpanTarget.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>"
+            && !transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal)
+            && !transformedExpression.StartsWith("new Span<>(", StringComparison.Ordinal)
+            && !transformedExpression.StartsWith("new ReadOnlySpan<>(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+            return $"MemoryExtensions.asSpan({transformedExpression})";
+        }
+
         // C# non-generic ICollection source may map to CSharpCollection in Java,
         // while the target ICollection maps to CSharpICollection<?>. CSharpCollection
         // does not implement CSharpICollection, so bridge via CSharpICollection.from().
