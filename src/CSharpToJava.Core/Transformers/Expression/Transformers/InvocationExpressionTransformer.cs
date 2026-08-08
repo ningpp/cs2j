@@ -3027,7 +3027,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 return $"System.arraycopy({receiver}, 0, {destArrayArg}, {destIndexArg}, {receiver}.length)";
             }
-            return $"System.arraycopy({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
+            // List<T>.CopyTo(T[] array, int index): delegate to a compat helper that
+            // applies C# validation (ArgumentNullException for null destination,
+            // ArgumentOutOfRangeException for a negative index, ArgumentException when
+            // the range overflows) and copies element-wise when the source materializes
+            // as Object[] (avoiding ArrayStoreException on typed destinations).
+            context.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.copyTo({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
         }
         skipCopyToRewrite:
 

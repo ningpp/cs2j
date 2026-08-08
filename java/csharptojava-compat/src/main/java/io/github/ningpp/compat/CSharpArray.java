@@ -218,4 +218,30 @@ public final class CSharpArray {
     public int hashCode() {
         return Objects.hashCode(array);
     }
+    /**
+     * Mirrors C# Array.Copy(Array, int, Array, int, int) with C# parameter validation:
+     * ArgumentNullException for null arrays, ArgumentOutOfRangeException for negative
+     * indexes or lengths, ArgumentException when the ranges overflow. Copies element-wise
+     * when the source materializes as Object[] and the destination is typed (a direct
+     * System.arraycopy would throw ArrayStoreException).
+     */
+    public static void copyTo(Object sourceArray, int sourceIndex, Object destinationArray, int destinationIndex, int length) {
+        if (sourceArray == null) throw new ArgumentNullException("sourceArray");
+        if (destinationArray == null) throw new ArgumentNullException("destinationArray");
+        if (sourceIndex < 0) throw new ArgumentOutOfRangeException("sourceIndex");
+        if (destinationIndex < 0) throw new ArgumentOutOfRangeException("destinationIndex");
+        if (length < 0) throw new ArgumentOutOfRangeException("length");
+        int sourceLength = Array.getLength(sourceArray);
+        int destinationLength = Array.getLength(destinationArray);
+        if (sourceIndex > sourceLength - length) throw new ArgumentException("Source array was not long enough.");
+        if (destinationIndex > destinationLength - length) throw new ArgumentException("Destination array was not long enough.");
+        if (sourceArray.getClass() == destinationArray.getClass()
+            || sourceArray.getClass().getComponentType().isAssignableFrom(destinationArray.getClass().getComponentType())) {
+            System.arraycopy(sourceArray, sourceIndex, destinationArray, destinationIndex, length);
+        } else {
+            for (int i = 0; i < length; i++) {
+                Array.set(destinationArray, destinationIndex + i, Array.get(sourceArray, sourceIndex + i));
+            }
+        }
+    }
 }
