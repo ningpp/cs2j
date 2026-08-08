@@ -25,4 +25,12 @@ public final class AssemblyBuilder {
     public static AssemblyBuilder defineDynamicAssembly(Object assemblyName, AssemblyBuilderAccess access) {
         return new AssemblyBuilder(String.valueOf(assemblyName));
     }
+
+    public AssemblyCompat.AssemblyNameCompat getPackage() {
+        return new AssemblyCompat.AssemblyNameCompat(_name);
+    }
+
+    public AssemblyCompat.AssemblyNameCompat getAssemblyName() {
+        return new AssemblyCompat.AssemblyNameCompat(_name);
+    }
 }

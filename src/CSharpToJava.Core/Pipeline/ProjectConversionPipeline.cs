@@ -1,4 +1,6 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.TypeMapping.JavaModel;
@@ -130,7 +132,30 @@ public class ProjectConversionPipeline
         IReadOnlyList<string>? projectReferences = null,
         bool isTestProject = false)
     {
-        compilation = StripDebugPreprocessorSymbol(compilation);
+        // Strip #if DEBUG regions by default (Release semantics). Set CS2J_KEEP_DEBUG=1
+        // to convert them instead — required when the source's tests depend on debug-only
+        // members such as RegexCode.ToString() (RegexReductionTests compares it).
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("CS2J_KEEP_DEBUG"),
+                "1",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            compilation = StripDebugPreprocessorSymbol(compilation);
+        }
+        else
+        {
+            // RegexAssemblyCompiler is debug-only dynamic assembly emission with no Java
+            // equivalent (TypeBuilder/ILGenerator are stubs), and RegexCompiler's DEBUG
+            // CompileToAssembly references it. Strip DEBUG from those two files. Regex.cs
+            // keeps its DEBUG blocks (RegexRunner/Match reference Regex.IsDebug), but its
+            // DEBUG CompileToAssembly branch must not call the stripped RegexCompiler
+            // method — rewrite the body to throw PlatformNotSupportedException instead.
+            compilation = StripDebugPreprocessorSymbol(
+                compilation,
+                t => t.EndsWith("RegexAssemblyCompiler.cs", StringComparison.OrdinalIgnoreCase)
+                    || t.EndsWith("RegexCompiler.cs", StringComparison.OrdinalIgnoreCase));
+            compilation = StripDebugCompileToAssemblyCall(compilation);
+        }
         var library = Cs2jLibraryFactory.CreateFromCompilation(
             compilation,
             projectName,
@@ -149,6 +174,11 @@ public class ProjectConversionPipeline
     /// user-defined) are preserved.
     /// </summary>
     internal static CSharpCompilation StripDebugPreprocessorSymbol(CSharpCompilation compilation)
+        => StripDebugPreprocessorSymbol(compilation, _ => true);
+
+    internal static CSharpCompilation StripDebugPreprocessorSymbol(
+        CSharpCompilation compilation,
+        Func<string, bool> shouldStripFile)
     {
         var firstTree = compilation.SyntaxTrees.FirstOrDefault();
         if (firstTree?.Options is not CSharpParseOptions parseOptions
@@ -163,10 +193,68 @@ public class ProjectConversionPipeline
             var options = tree.Options is CSharpParseOptions csharpOptions
                 ? csharpOptions.WithPreprocessorSymbols(remaining)
                 : CSharpParseOptions.Default.WithPreprocessorSymbols(remaining);
-            newTrees.Add(CSharpSyntaxTree.ParseText(tree.GetText(), options, tree.FilePath));
+            newTrees.Add(shouldStripFile(tree.FilePath)
+                ? CSharpSyntaxTree.ParseText(tree.GetText(), options, tree.FilePath)
+                : tree);
         }
 
         return compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees.ToArray());
+    }
+
+    /// <summary>
+    /// Rewrites Regex.CompileToAssembly method bodies to throw PlatformNotSupportedException.
+    /// Called when DEBUG regions are kept: the DEBUG branch calls
+    /// RegexCompiler.CompileToAssembly, which is stripped together with RegexAssemblyCompiler
+    /// (dynamic assembly emission has no Java equivalent).
+    /// </summary>
+    private static CSharpCompilation StripDebugCompileToAssemblyCall(CSharpCompilation compilation)
+    {
+        var newTrees = new List<Microsoft.CodeAnalysis.SyntaxTree>();
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            if (!tree.FilePath.EndsWith("Regex.cs", StringComparison.OrdinalIgnoreCase))
+            {
+                newTrees.Add(tree);
+                continue;
+            }
+            var root = tree.GetRoot();
+            var rewritten = new CompileToAssemblyThrowingRewriter().Visit(root);
+            if (!ReferenceEquals(rewritten, root))
+            {
+                newTrees.Add(CSharpSyntaxTree.Create(
+                    (CSharpSyntaxNode)rewritten!,
+                    (CSharpParseOptions)tree.Options,
+                    tree.FilePath));
+            }
+            else
+            {
+                newTrees.Add(tree);
+            }
+        }
+        return compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees.ToArray());
+    }
+
+    private sealed class CompileToAssemblyThrowingRewriter : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+        {
+            if (node.Identifier.Text == "CompileToAssembly" && node.Body != null)
+            {
+                var throwStatement = SyntaxFactory.ThrowStatement(
+                    SyntaxFactory.ObjectCreationExpression(
+                        SyntaxFactory.ParseTypeName("PlatformNotSupportedException"))
+                    .WithArgumentList(SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.Argument(
+                                SyntaxFactory.MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("SR"),
+                                    SyntaxFactory.IdentifierName("PlatformNotSupported_CompileToAssembly")))))));
+                return node.WithBody(
+                    SyntaxFactory.Block(SyntaxFactory.SingletonList<StatementSyntax>(throwStatement)));
+            }
+            return base.VisitMethodDeclaration(node);
+        }
     }
 
     public LinqRewrite.LinqRewriteStatistics? LastLinqStatistics { get; private set; }

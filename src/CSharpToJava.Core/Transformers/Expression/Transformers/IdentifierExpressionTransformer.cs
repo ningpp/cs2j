@@ -1102,6 +1102,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getAssembly({target})";
         }
 
+        // C# Type.EmptyTypes is a static Class<?>[] with no java.lang.Class equivalent —
+        // emit a fresh empty Class array wherever it appears (not only as a GetMethod argument).
+        if (memberName == "EmptyTypes"
+            && (target is "Class" or "java.lang.Class"
+                || (receiverType != null && receiverType.TypeKind != TypeKind.Error
+                    && receiverType.ToDisplayString() is "System.Type" or "System.Reflection.TypeInfo")))
+        {
+            return "new Class<?>[0]";
+        }
+
         if (context.GetSymbolInfo(node).Symbol is IPropertySymbol prop)
         {
             // .NET exception members without direct Java equivalents → ExceptionCompat helpers
@@ -1127,6 +1137,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
                 return $"TypeHelper.getFullName({target})";
+            }
+
+            // C# Type.EmptyTypes is a static Class<?>[] — java.lang.Class has no EmptyTypes
+            // member, so emit a fresh empty Class array wherever it appears (not only as an
+            // argument to GetMethod/GetConstructor).
+            if (memberName == "EmptyTypes" && (prop.IsStatic || IsSystemType(receiverType)))
+            {
+                return "new Class<?>[0]";
             }
 
             // C# System.Type is mapped to java.lang.Class, but many C# Type properties/methods

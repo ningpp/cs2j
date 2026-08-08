@@ -252,6 +252,18 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         super.sort((a, b) -> comparer.compare(a, b));
     }
 
+    /** Mirrors C# List&lt;T&gt;.ConvertAll(Converter&lt;T, U&gt;) — maps every element. */
+    public <U> CSharpList<U> convertAll(Converter<? super T, ? extends U> converter) {
+        if (converter == null) {
+            throw new NullPointerException("converter");
+        }
+        CSharpList<U> result = new CSharpList<>(size());
+        for (T item : this) {
+            result.add(converter.convert(item));
+        }
+        return result;
+    }
+
     public void trimExcess() {
         super.trimToSize();
     }

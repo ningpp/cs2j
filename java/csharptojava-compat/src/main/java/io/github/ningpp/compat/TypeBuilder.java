@@ -45,4 +45,12 @@ public final class TypeBuilder {
 
     public void defineInitializedData(String name, byte[] data, FieldAttributes attributes) {
     }
+
+    public Class<?> createType() {
+        return Object.class;
+    }
+
+    public ConstructorBuilder defineConstructor(int attributes, int callingConvention, Class<?>[] parameterTypes) {
+        return new ConstructorBuilder();
+    }
 }

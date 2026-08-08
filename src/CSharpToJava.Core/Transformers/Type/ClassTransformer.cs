@@ -394,10 +394,93 @@ public class ClassTransformer : ITypeTransformer
         AddIRectangleBridgeMethods(javaClass);
         ResolveReadOnlyDictListConflict(javaClass, context);
         InjectMSTestExtensionIfNeeded(javaClass, context);
+        ReorderStaticFieldInitializers(javaClass);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
         return javaClass;
+    }
+
+    /// <summary>
+    /// Static fields whose initializer reads another static field that is initialized
+    /// inside a static initializer block would run BEFORE that block (Java emits fields
+    /// before static blocks), reading null and crashing — e.g. RegexCharClass's DEBUG
+    /// CategoryIdToName = PopulateCategoryIdToName() which reads s_definedCategories
+    /// (a dictionary initializer drained into a static block). Move such initializers
+    /// into the trailing static block so they run after their dependencies.
+    /// </summary>
+    internal static void ReorderStaticFieldInitializers(JavaClassDeclaration javaClass)
+    {
+        var staticBlockNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var block in javaClass.StaticInitializers)
+        {
+            foreach (var stmt in block.Statements)
+            {
+                var text = stmt as string;
+                if (text == null) continue;
+                var eq = text.IndexOf('=');
+                if (eq <= 0) continue;
+                var name = text.Substring(0, eq).Trim();
+                if (name.Length > 0 && (char.IsLetter(name[0]) || name[0] == '_'))
+                    staticBlockNames.Add(name);
+            }
+        }
+        if (staticBlockNames.Count == 0)
+            return;
+
+        var moved = new List<(JavaFieldDeclaration Field, string Statement)>();
+        foreach (var field in javaClass.Fields)
+        {
+            if (!field.Modifiers.HasFlag(JavaModifiers.Static)) continue;
+            if (string.IsNullOrWhiteSpace(field.Initializer)) continue;
+            if (InitializerDependsOnStaticBlock(field.Initializer, staticBlockNames, javaClass))
+            {
+                moved.Add((field, $"{field.Name} = {field.Initializer};"));
+                field.Initializer = null;
+            }
+        }
+        if (moved.Count == 0)
+            return;
+
+        var targetBlock = javaClass.StaticInitializers.LastOrDefault();
+        if (targetBlock == null)
+        {
+            targetBlock = new JavaStaticInitializerBlock();
+            javaClass.StaticInitializers.Add(targetBlock);
+        }
+        foreach (var (_, statement) in moved)
+            targetBlock.Statements.Add(statement);
+    }
+
+    /// <summary>
+    /// True when the field initializer reads a static-block-initialized name — either
+    /// directly (e.g. <c>X = s_definedCategories</c>) or transitively through a single
+    /// method call whose body references one (e.g. <c>X = populate()</c> where populate
+    /// reads s_definedCategories).
+    /// </summary>
+    private static bool InitializerDependsOnStaticBlock(
+        string initializer,
+        HashSet<string> staticBlockNames,
+        JavaClassDeclaration javaClass)
+    {
+        if (staticBlockNames.Any(n => ContainsIdentifier(initializer, n)))
+            return true;
+
+        var trimmed = initializer.Trim();
+        var openParen = trimmed.IndexOf('(');
+        if (openParen > 0)
+        {
+            var callee = trimmed.Substring(0, openParen).Trim();
+            // Strip qualifier (e.g. "Foo.bar(" → "bar") and type arguments.
+            var dot = callee.LastIndexOf('.');
+            if (dot >= 0) callee = callee.Substring(dot + 1);
+            callee = callee.TrimEnd('>');
+            var method = javaClass.Methods.FirstOrDefault(m => m.Name == callee);
+            var body = method?.Body ?? method?.StructuredBody?.ToBodyString();
+            if (body != null && staticBlockNames.Any(n => body.Contains(n, StringComparison.Ordinal)))
+                return true;
+        }
+        return false;
     }
 
     public JavaTypeDeclaration Transform(TypeDeclarationSyntax node, ConversionContext context)
