@@ -76,6 +76,16 @@ public class PropertyTransformer : IMemberTransformer
         // inside the derived class rely on the derived return type.
         var isHidingBaseMember = IsHidingBaseMember(propertySymbol);
 
+        // A hiding property whose getter/setter purely delegate to the base property
+        // (e.g. `public new T X { get => base.X; set => base.X = value; }`) exists only
+        // to widen accessibility (e.g. protected -> public). It must still be emitted in
+        // Java as super.getX()/super.setX(value) so callers resolve to the public bridge
+        // rather than the inaccessible base member. This is semantically safe because the
+        // body explicitly calls super — there is no non-virtual dispatch concern (the
+        // existing expression transformer already turns `base.X` into `super.getX()` and
+        // `base.X = value` into `super.setX(value)`).
+        var isPureBaseDelegation = isHidingBaseMember && IsPureBaseDelegationProperty(propDecl);
+
         // 检查是否是只读属性（只有 getter）
         var isReadOnly = hasGetter && !hasSetter;
         // 检查是否是只写属性（只有 setter）
@@ -148,7 +158,7 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         // 创建 getter
-        if (!isHidingBaseMember && (hasGetter || propDecl.AccessorList == null))  // 默认有 getter
+        if ((!isHidingBaseMember || isPureBaseDelegation) && (hasGetter || propDecl.AccessorList == null))  // 默认有 getter
         {
             var getterModifiers = modifiers;
             // 如果属性本身没有访问修饰符，默认为 public
@@ -283,7 +293,7 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         // 创建 setter
-        if (!isHidingBaseMember && hasSetter)
+        if ((!isHidingBaseMember || isPureBaseDelegation) && hasSetter)
         {
             var setterModifiers = modifiers;
             // 如果属性本身没有访问修饰符，默认为 public
@@ -471,6 +481,69 @@ public class PropertyTransformer : IMemberTransformer
             @"^(?:Iterable|Iterator|List|ArrayList|Collection|IEnumerable|CSharpGenericIterable|CSharpGenericEnumerator|CSharpICollection|CSharpGenericIList|CSharpList|CSharpEnumerator)<(.+)>$");
         return m.Success ? m.Groups[1].Value : null;
     }
+
+    /// <summary>
+    /// Detects whether a hiding property's accessor bodies purely delegate to the base
+    /// property (e.g. <c>public new T X { get => base.X; set => base.X = value; }</c>).
+    /// Such properties exist solely to widen accessibility (e.g. protected -> public);
+    /// they must still be emitted in Java as <c>super.getX()</c>/<c>super.setX(value)</c>
+    /// so callers resolve to the public bridge instead of the inaccessible base member.
+    /// Both expression-bodied (<c>get => base.X;</c>) and single-statement block-bodied
+    /// (<c>get { return base.X; }</c>) forms are recognised.
+    /// </summary>
+    private static bool IsPureBaseDelegationProperty(PropertyDeclarationSyntax propDecl)
+    {
+        if (propDecl.AccessorList == null) return false;
+        var propName = propDecl.Identifier.Text;
+
+        var getAccessor = propDecl.AccessorList.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+        var setAccessor = propDecl.AccessorList.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration) || a.IsKind(SyntaxKind.InitAccessorDeclaration));
+
+        bool getterIsBaseDelegation = getAccessor == null || IsBasePropertyRead(getAccessor, propName);
+        bool setterIsBaseDelegation = setAccessor == null || IsBasePropertyWrite(setAccessor, propName);
+        return getterIsBaseDelegation && setterIsBaseDelegation;
+    }
+
+    private static bool IsBasePropertyRead(AccessorDeclarationSyntax accessor, string propName)
+    {
+        // get => base.PropName;
+        if (accessor.ExpressionBody?.Expression is MemberAccessExpressionSyntax mas)
+        {
+            return IsBaseMemberAccess(mas, propName);
+        }
+        // get { return base.PropName; }
+        if (accessor.Body?.Statements.Count == 1
+            && accessor.Body.Statements[0] is ReturnStatementSyntax ret
+            && ret.Expression is MemberAccessExpressionSyntax mas2)
+        {
+            return IsBaseMemberAccess(mas2, propName);
+        }
+        return false;
+    }
+
+    private static bool IsBasePropertyWrite(AccessorDeclarationSyntax accessor, string propName)
+    {
+        // set => base.PropName = value;
+        if (accessor.ExpressionBody?.Expression is AssignmentExpressionSyntax assign
+            && assign.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && assign.Right is IdentifierNameSyntax { Identifier: { Text: "value" } })
+        {
+            return assign.Left is MemberAccessExpressionSyntax mas && IsBaseMemberAccess(mas, propName);
+        }
+        // set { base.PropName = value; }
+        if (accessor.Body?.Statements.Count == 1
+            && accessor.Body.Statements[0] is ExpressionStatementSyntax es
+            && es.Expression is AssignmentExpressionSyntax assign2
+            && assign2.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && assign2.Right is IdentifierNameSyntax { Identifier: { Text: "value" } })
+        {
+            return assign2.Left is MemberAccessExpressionSyntax mas && IsBaseMemberAccess(mas, propName);
+        }
+        return false;
+    }
+
+    private static bool IsBaseMemberAccess(MemberAccessExpressionSyntax mas, string propName)
+        => mas.Expression is BaseExpressionSyntax && mas.Name.Identifier.Text == propName;
 
     /// <summary>
     /// Checks whether a C# property hides a base class property (using `new` keyword or implicit hiding).

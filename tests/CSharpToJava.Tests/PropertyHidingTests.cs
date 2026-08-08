@@ -69,6 +69,52 @@ class Derived : Base {
         Assert.Contains("getExtra", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PropertyHiding_PureBaseDelegation_ExpressionBodied_StillGeneratesGetterSetter()
+    {
+        // Mirrors the Regex.DerivedRegex scenario: a `public new` property whose
+        // getter/setter purely delegate to the base property exists only to widen
+        // accessibility (protected -> public). It must still be emitted in Java as
+        // super.getX()/super.setX(value) so callers resolve to the public bridge
+        // instead of the inaccessible base member.
+        var result = Convert(@"
+class Base {
+    private string _caps;
+    protected string Caps { get { return _caps; } set { _caps = value; } }
+}
+class Derived : Base {
+    public new string Caps { get => base.Caps; set => base.Caps = value; }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var derivedCode = ExtractClassCode(result.GeneratedCode, "Derived");
+        Assert.Contains("getCaps", derivedCode, StringComparison.Ordinal);
+        Assert.Contains("super.getCaps()", derivedCode, StringComparison.Ordinal);
+        Assert.Contains("setCaps", derivedCode, StringComparison.Ordinal);
+        Assert.Contains("super.setCaps(value)", derivedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PropertyHiding_PureBaseDelegation_BlockBodied_StillGeneratesGetterSetter()
+    {
+        // Equivalent block-bodied form of pure base delegation.
+        var result = Convert(@"
+class Base {
+    private string _caps;
+    protected string Caps { get { return _caps; } set { _caps = value; } }
+}
+class Derived : Base {
+    public new string Caps { get { return base.Caps; } set { base.Caps = value; } }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var derivedCode = ExtractClassCode(result.GeneratedCode, "Derived");
+        Assert.Contains("getCaps", derivedCode, StringComparison.Ordinal);
+        Assert.Contains("super.getCaps()", derivedCode, StringComparison.Ordinal);
+        Assert.Contains("setCaps", derivedCode, StringComparison.Ordinal);
+        Assert.Contains("super.setCaps(value)", derivedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
