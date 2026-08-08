@@ -50,7 +50,7 @@ public partial class StatementTransformer
                     thenBody = $"{{ {tvStmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
 
                 var ifSb = new System.Text.StringBuilder();
-                ifSb.Append($"{outJavaType} {outVarName} = {tvTarget}.get({tvKey});\n");
+                ifSb.Append($"{outJavaType} {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget, tvKey, outJavaType)};\n");
                 ifSb.Append($"if ({outVarName} == null) {thenBody}");
 
                 if (stmt.Else != null)
@@ -192,12 +192,12 @@ public partial class StatementTransformer
                 if (stmt.Statement is BlockSyntax tvIfThenBlock3)
                 {
                     var bodyStr = TransformBlock(tvIfThenBlock3, context);
-                    thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
+                    thenBody = $"{{\n        {outJavaType} {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget2, tvKey2, outJavaType)};\n        {bodyStr}\n    }}";
                 }
                 else
                 {
                     var bodyStr = tvStmtTransformer3.Transform(stmt.Statement, context).ToString("");
-                    thenBody = $"{{\n        {outJavaType} {outVarName} = {tvTarget2}.get({tvKey2});\n        {bodyStr}\n    }}";
+                    thenBody = $"{{\n        {outJavaType} {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget2, tvKey2, outJavaType)};\n        {bodyStr}\n    }}";
                 }
 
                 var ifSb3 = new System.Text.StringBuilder();
@@ -308,32 +308,16 @@ public partial class StatementTransformer
         if (context.HasPendingPostStatements)
         {
             var post = context.DrainPostStatements();
-            // Split post-statements:
-            // - New variable declarations (e.g. "int n = _nHolder1.value") have a type before '='
-            //   → these are out-var read-backs, scoped to the then-body
-            // - Assignments to existing variables (e.g. "v = _vHolder1.value") have no type
-            //   → these must be available after the if, so extract condition to temp var
-            var bodyScoped = new List<string>();
-            var preIfScoped = new List<string>();
-            foreach (var s in post)
-            {
-                var eqIdx = s.IndexOf('=');
-                if (eqIdx > 0 && s.Substring(0, eqIdx).Trim().Contains(' '))
-                    bodyScoped.Add(s);
-                else
-                    preIfScoped.Add(s);
-            }
-            if (preIfScoped.Count > 0)
-            {
-                var condTemp = context.GenerateSyntheticName("_ifCond");
-                condPreamble += $"var {condTemp} = {condition};\n"
-                    + string.Join("\n", preIfScoped.Select(s => s.TrimEnd(';') + ";")) + "\n";
-                effectiveCondition = condTemp;
-            }
-            if (bodyScoped.Count > 0)
-            {
-                readBacks = string.Join("\n        ", bodyScoped.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
-            }
+            // Out-var read-backs (declarations like "int n = _nHolder1.value" and
+            // assignments like "v = _vHolder1.value") must be visible AFTER the if
+            // statement: C# out-var scope is the enclosing block, so the read-back
+            // can be used below the condition (e.g. "if (!TryGet(key, out Regex r))
+            // { ... } return r;"). Extract the condition to a temp variable, emit
+            // all read-backs before the if, and use the temp as the condition.
+            var condTemp = context.GenerateSyntheticName("_ifCond");
+            condPreamble += $"var {condTemp} = {condition};\n"
+                + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";")) + "\n";
+            effectiveCondition = condTemp;
         }
 
         var stmtTransformer = new StatementTransformer();
@@ -362,5 +346,19 @@ public partial class StatementTransformer
         }
 
         return new JavaStatementNode(result.ToString());
+    }
+
+    /// <summary>
+    /// Dictionary/Hashtable get() returns Object in the compat library; when the
+    /// C# out variable is a Java primitive the assignment needs an unboxing cast
+    /// (Object -&gt; Integer -&gt; int). Matches the invocation-path handling in
+    /// InvocationExpressionTransformer for TryGetValue expressions.
+    /// </summary>
+    private static string CastGetResultForPrimitiveOutType(string target, string key, string outJavaType)
+    {
+        var boxedOutType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(outJavaType);
+        if (string.Equals(boxedOutType, outJavaType, StringComparison.Ordinal))
+            return $"{target}.get({key})";
+        return $"({boxedOutType}) {target}.get({key})";
     }
 }

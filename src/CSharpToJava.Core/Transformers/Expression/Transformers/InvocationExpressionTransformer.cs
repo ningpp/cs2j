@@ -731,7 +731,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Queue<T>.Dequeue→remove). Custom heap types (GenericBinaryHeapPriorityQueue, EventQueue,
         // etc.) go through normal camelCase so that call sites and declarations stay consistent.
 
-        // C# MethodInfo.GetBaseDefinition() → ReflectionHelper.getBaseDefinition(method).
+        // MethodInfo.GetBaseDefinition() → ReflectionHelper.getBaseDefinition(method).
         // Java java.lang.reflect.Method has no getBaseDefinition method.
         if (memberAccess.Name.Identifier.Text == "GetBaseDefinition"
             && node.ArgumentList.Arguments.Count == 0
@@ -743,6 +743,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // C# ((IConvertible)x).ToInt64(IFormatProvider) → IConvertible.toInt64(x, provider)
+        // C# ((IConvertible)x).ToInt64() → IConvertible.toInt64(x)
         // C# ((IConvertible)x).ToInt64() → IConvertible.toInt64(x)
         if (memberAccess.Name.Identifier.Text == "ToInt64"
             && node.ArgumentList.Arguments.Count <= 1
@@ -1099,6 +1100,50 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+
+        // System.Threading.Volatile.Read(ref T) / Volatile.Write(ref T, T):
+        // Java volatile field reads/writes are already atomic/volatile, so a plain
+        // read / assignment is the semantic equivalent. The ref argument must NOT go
+        // through the ref-holder machinery (no write-back is needed for Read, and
+        // Write's holder round-trip is pure overhead).
+        if (originalMethodName is "Read" or "Write"
+            && node.ArgumentList.Arguments.Count is 1 or 2
+            && IsVolatileReceiver(memberAccess.Expression, context))
+        {
+            if (originalMethodName == "Read" && node.ArgumentList.Arguments.Count == 1)
+            {
+                return facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            }
+            if (originalMethodName == "Write" && node.ArgumentList.Arguments.Count == 2)
+            {
+                var volatileRefArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var volatileValueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"{volatileRefArg} = {volatileValueArg}";
+            }
+        }
+
+        // System.Collections.Concurrent.ConcurrentDictionary.TryRemove(key, out value):
+        // mapped to java.util.concurrent.ConcurrentHashMap, which has no tryRemove —
+        // use remove(key) (the removed value is returned; discarded or written back).
+        if (originalMethodName == "TryRemove"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsConcurrentDictionaryReceiver(memberAccess.Expression, context))
+        {
+            var tryRemoveKeyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var tryRemoveOutArg = node.ArgumentList.Arguments[1];
+            var tryRemoveOutText = facade.Transform(tryRemoveOutArg.Expression, context);
+            bool tryRemoveIsDiscard = tryRemoveOutArg.Expression is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax }
+                || (tryRemoveOutArg.Expression is IdentifierNameSyntax tryRemoveDiscardId && tryRemoveDiscardId.Identifier.Text == "_");
+            if (tryRemoveIsDiscard)
+            {
+                return $"{receiver}.remove({tryRemoveKeyArg})";
+            }
+            if (tryRemoveOutText.EndsWith(".value", StringComparison.Ordinal))
+            {
+                return $"{tryRemoveOutText} = {receiver}.remove({tryRemoveKeyArg})";
+            }
+            return $"{receiver}.remove({tryRemoveKeyArg})";
+        }
 
         if (TryTransformGenericOfTypeInvocation(
             memberAccess,
@@ -1491,6 +1536,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // MethodInfo.CreateDelegate(Type, object) → ReflectionHelper.createDelegate(method, target, DelegateType.class)
         // MethodInfo.CreateDelegate<T>() → ReflectionHelper.createDelegate(method, T.class)
         // MethodInfo.CreateDelegate<T>(object) → ReflectionHelper.createDelegate(method, target, T.class)
+        // DynamicMethod.CreateDelegate<T>() → method.createDelegate(T.class) (instance call;
+        //   DynamicMethod inherits CreateDelegate from MethodInfo, so the receiver's own type
+        //   must be consulted — ReflectionHelper.createDelegate takes Method/MethodInfo, not DynamicMethod).
         // C# MethodInfo.CreateDelegate creates a typed delegate from a reflection method;
         // Java has no direct equivalent. Bridge via ReflectionHelper using Proxy.
         if (originalMethodName == "CreateDelegate"
@@ -1498,12 +1546,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 || IsMethodInfoReceiver(memberAccess.Expression, context)))
         {
             context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+            bool isDynamicMethod = context.GetTypeInfo(memberAccess.Expression).Type?.ToDisplayString()
+                == "System.Reflection.Emit.DynamicMethod";
 
             if (memberAccess.Name is GenericNameSyntax genericCreateDelegate
                 && genericCreateDelegate.TypeArgumentList.Arguments.Count > 0)
             {
                 var delegateTypeArg = ResolveDelegateTypeArg(
                     genericCreateDelegate.TypeArgumentList.Arguments[0], context);
+                if (isDynamicMethod)
+                {
+                    return $"{receiver}.createDelegate({delegateTypeArg}.class)";
+                }
                 if (node.ArgumentList.Arguments.Count == 0)
                 {
                     return $"ReflectionHelper.createDelegate({receiver}, {delegateTypeArg}.class)";
@@ -1521,6 +1575,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     var delegateTypeArg = facade.Transform(
                         node.ArgumentList.Arguments[0].Expression, context);
+                    if (isDynamicMethod)
+                    {
+                        return $"{receiver}.createDelegate({delegateTypeArg})";
+                    }
                     return $"ReflectionHelper.createDelegate({receiver}, {delegateTypeArg})";
                 }
                 if (node.ArgumentList.Arguments.Count == 2)
@@ -2727,6 +2785,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var keyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var outArg = node.ArgumentList.Arguments[1];
+            // out _ (discard): the caller ignores the value, so the whole expression
+            // collapses to the key-presence check (assignment side effects are void).
+            if (outArg.Expression is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax }
+                || (outArg.Expression is IdentifierNameSyntax discardId && discardId.Identifier.Text == "_"))
+            {
+                return $"{receiver}.containsKey({keyArg})";
+            }
             var outHolderArg = facade.Transform(outArg.Expression, context);
             // Detect whether the out argument is a holder variable (needs .value access).
             bool isHolder = false;
@@ -7223,6 +7288,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         // Fall back to type info on the receiver expression
         return IsReceiverOfType(expr, "System.Reflection.MethodInfo", context);
+    }
+
+    private static bool IsVolatileReceiver(ExpressionSyntax expr, ConversionContext context)
+    {
+        if (context.GetSymbolInfo(expr).Symbol is INamedTypeSymbol { Name: "Volatile" })
+            return true;
+        return IsReceiverOfType(expr, "System.Threading.Volatile", context);
+    }
+
+    private static bool IsConcurrentDictionaryReceiver(ExpressionSyntax expr, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(expr).Type;
+        if (type?.ToDisplayString().StartsWith("System.Collections.Concurrent.ConcurrentDictionary", StringComparison.Ordinal) == true)
+            return true;
+        // Fallback: name-based receiver check (e.g. static alias or unresolved symbol).
+        return type?.Name == "ConcurrentDictionary";
     }
 
     private static bool IsSystemTypeReceiver(ExpressionSyntax expr, ConversionContext context)

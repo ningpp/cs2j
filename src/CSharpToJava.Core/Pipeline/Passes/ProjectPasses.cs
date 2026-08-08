@@ -663,6 +663,51 @@ public sealed class ProjectPartialTypeNormalizationPass : ICs2jPass<ProjectPassS
     }
 }
 
+/// <summary>
+/// Java 目标语法树层 rewriter pass：提升泛型声明模式（`x is List&lt;T&gt; v` → 类型模式 +
+/// 段首强转声明），保证模式变量保持完整泛型类型（JavaGenericPatternRewriter）。
+/// 必须在 ProjectPartialTypeNormalizationPass 之前运行（类型组基于改写后树构建）。
+/// </summary>
+public sealed class ProjectJavaPatternRewritePass : ICs2jPass<ProjectPassState>
+{
+    public string Name => nameof(ProjectJavaPatternRewritePass);
+    public Cs2jPassStage Stage => Cs2jPassStage.Normalize;
+
+    public void Execute(ProjectPassState state)
+    {
+        var trees = state.Compilation.SyntaxTrees
+            .Where(tree => !string.IsNullOrWhiteSpace(tree.FilePath)
+                && !tree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            .ToList();
+        if (trees.Count == 0)
+        {
+            return;
+        }
+
+        var changed = new List<(SyntaxTree Old, SyntaxTree New)>();
+        foreach (var tree in trees)
+        {
+            var root = tree.GetRoot();
+            var newRoot = new Rewriters.JavaGenericPatternRewriter().Visit(root);
+            if (newRoot is CompilationUnitSyntax newUnit && !ReferenceEquals(newUnit, root))
+            {
+                changed.Add((tree, tree.WithRootAndOptions(newUnit, tree.Options)));
+            }
+        }
+
+        if (changed.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var (oldTree, newTree) in changed)
+        {
+            state.Compilation = state.Compilation.ReplaceSyntaxTree(oldTree, newTree);
+        }
+        ProjectLinqDesugarPass.RebuildProjectStateAfterCompilationChange(state);
+    }
+}
+
 public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
 {
     private readonly IReadOnlyList<Java.JavaSyntaxRewriter> _irRewriters;

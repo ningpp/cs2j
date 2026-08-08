@@ -207,6 +207,7 @@ public class ProjectConversionPipeline
             new ProjectPlatformBoundaryCheckPass(),
             new ProjectNativeInteropCheckPass(),
             new ProjectExtensionMethodCheckPass(),
+            new ProjectJavaPatternRewritePass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
             new ProjectCompatibilityEmitPass(),

@@ -392,6 +392,7 @@ public class ClassTransformer : ITypeTransformer
         AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
+        ResolveReadOnlyDictListConflict(javaClass, context);
         InjectMSTestExtensionIfNeeded(javaClass, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
@@ -606,6 +607,7 @@ public class ClassTransformer : ITypeTransformer
         AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
+        ResolveReadOnlyDictListConflict(javaClass, context);
 
         // static class → private no-arg constructor to prevent instantiation (Java has no static class keyword)
         if (classDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) && javaClass.Constructors.Count == 0)
@@ -2371,6 +2373,186 @@ public class ClassTransformer : ITypeTransformer
         {
             next.ReturnType = expectedCurrentReturnType;
         }
+    }
+
+    /// <summary>
+    /// When a C# class implements both a generic list interface (IList&lt;T&gt;/IReadOnlyList&lt;T&gt;)
+    /// and IReadOnlyDictionary&lt;K, V&gt; (mapped to CSharpReadOnlyDict), Java cannot express both:
+    /// the list chain requires iterator() → CSharpGenericEnumerator&lt;T&gt; while the dictionary
+    /// chain requires iterator() → CSharpGenericEnumerator&lt;CSharpKeyValuePair&lt;K, V&gt;&gt;,
+    /// which also erasure-conflicts at the shared CSharpGenericIterable ancestor. Resolution:
+    /// keep the dictionary contract (C# code commonly uses the collection as a dictionary),
+    /// drop the clashing list/collection interfaces (their members survive as plain methods),
+    /// make the single iterator() return the KVP enumerator, and adapt the dictionary members
+    /// (containsKey(Object), get(Object), tryGetValue(K), getKeys()/getValues() → CSharpReadOnlyCollection).
+    /// </summary>
+    private static void ResolveReadOnlyDictListConflict(JavaClassDeclaration javaClass, ConversionContext context)
+    {
+        var dictInterface = javaClass.ImplementedTypes.FirstOrDefault(t => t.StartsWith("CSharpReadOnlyDict<", StringComparison.Ordinal));
+        if (dictInterface == null)
+            return;
+
+        var (keyType, valueType) = ExtractReadOnlyDictTypeArguments(dictInterface);
+        if (keyType == null || valueType == null)
+            return;
+
+        var kvpType = $"CSharpKeyValuePair<{keyType}, {valueType}>";
+
+        // 1. Drop list/collection interfaces whose iterable element type clashes with the
+        //    dictionary's CSharpKeyValuePair<K, V> chain (Java forbids inheriting the same
+        //    generic interface with different type arguments). Members survive as plain methods.
+        javaClass.ImplementedTypes.RemoveAll(t =>
+            t.StartsWith("CSharpGenericIList<", StringComparison.Ordinal)
+            || t.StartsWith("CSharpReadOnlyList<", StringComparison.Ordinal)
+            || t.StartsWith("CSharpICollection<", StringComparison.Ordinal)
+            || t.StartsWith("CSharpGenericIterable<", StringComparison.Ordinal)
+            || t.StartsWith("Iterable<", StringComparison.Ordinal)
+            || t is "CSharpGenericIterable" or "Iterable");
+
+        // 2. The single iterator() must satisfy the dictionary chain.
+        var iteratorMethod = javaClass.Methods.FirstOrDefault(m => m.Name == "iterator" && m.Parameters.Count == 0);
+        if (iteratorMethod != null)
+        {
+            string body = iteratorMethod.StructuredBody?.ToBodyString() ?? iteratorMethod.Body ?? "";
+            var nestedEnumerator = FindNestedEnumerator(javaClass);
+            if (nestedEnumerator != null
+                && nestedEnumerator.Methods.Any(m => m.Name == "getCurrent$Class")
+                && body.Contains("new Enumerator(", StringComparison.Ordinal))
+            {
+                iteratorMethod.ReturnType = $"CSharpGenericEnumerator<{kvpType}>";
+                iteratorMethod.StructuredBody = null;
+                iteratorMethod.IsBodyExpression = false;
+                iteratorMethod.Body =
+                    "Enumerator __enumerator = new Enumerator(this);\n" +
+                    "return new io.github.ningpp.compat.CSharpGenericEnumerator<" + kvpType + ">() {\n" +
+                    "    public boolean moveNext() { return __enumerator.moveNext(); }\n" +
+                    "    public " + kvpType + " getCurrent() { return __enumerator.getCurrent$Class(); }\n" +
+                    "    public boolean hasNext() { return __enumerator.moveNext(); }\n" +
+                    "    public " + kvpType + " next() { return __enumerator.getCurrent$Class(); }\n" +
+                    "    public void remove() { throw new UnsupportedOperationException(); }\n" +
+                    "};";
+                context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+            }
+            else
+            {
+                // No KVP-capable nested enumerator: at least satisfy the return type when
+                // the existing body already produces the right enumerator shape.
+                iteratorMethod.ReturnType = $"CSharpGenericEnumerator<{kvpType}>";
+                context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+            }
+        }
+
+        context.AddImport("io.github.ningpp.compat.CSharpKeyValuePair");
+
+        // 3. containsKey(Object) overload delegating to the C#-typed containsKey(K).
+        if (!javaClass.Methods.Any(m => m.Name == "containsKey" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
+            && javaClass.Methods.Any(m => m.Name == "containsKey" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
+        {
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Modifiers = JavaModifiers.Public,
+                ReturnType = "boolean",
+                Name = "containsKey",
+                Parameters = { new JavaParameter("Object", "key") },
+                Body = $"return containsKey(({keyType}) key);"
+            });
+        }
+
+        // 4. get(Object) overload delegating to the C#-typed get(K).
+        if (!javaClass.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
+            && javaClass.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
+        {
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Modifiers = JavaModifiers.Public,
+                ReturnType = valueType,
+                Name = "get",
+                Parameters = { new JavaParameter("Object", "key") },
+                Body = $"return get(({keyType}) key);"
+            });
+        }
+
+        // 5. tryGetValue(K) delegating to the out-parameter version (or containsKey/get).
+        if (!javaClass.Methods.Any(m => m.Name == "tryGetValue" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
+        {
+            if (javaClass.Methods.Any(m => m.Name == "tryGetValue" && m.Parameters.Count == 2
+                && m.Parameters[0].Type == keyType
+                && m.Parameters[1].Type == $"io.github.ningpp.compat.ObjectHolder<{valueType}>"))
+            {
+                javaClass.Methods.Add(new JavaMethodDeclaration
+                {
+                    Modifiers = JavaModifiers.Public,
+                    ReturnType = valueType,
+                    Name = "tryGetValue",
+                    Parameters = { new JavaParameter(keyType, "key") },
+                    Body = $"io.github.ningpp.compat.ObjectHolder<{valueType}> __value = new io.github.ningpp.compat.ObjectHolder<>();\n" +
+                           $"        return tryGetValue(key, __value) ? __value.value : null;"
+                });
+            }
+            else
+            {
+                javaClass.Methods.Add(new JavaMethodDeclaration
+                {
+                    Modifiers = JavaModifiers.Public,
+                    ReturnType = valueType,
+                    Name = "tryGetValue",
+                    Parameters = { new JavaParameter(keyType, "key") },
+                    Body = $"return containsKey(key) ? get(key) : null;"
+                });
+            }
+        }
+
+        // 6. getKeys()/getValues() must return CSharpReadOnlyCollection<X> per the interface
+        //    contract; wrap the accumulated CSharpList via CSharpCollectionExtensions.asReadOnly.
+        AdaptReadOnlyDictKeysValuesMethod(javaClass, "getKeys", keyType, context);
+        AdaptReadOnlyDictKeysValuesMethod(javaClass, "getValues", valueType, context);
+
+        // 7. Erasure-conflict helper methods with a bogus `this::compare` body (designed for
+        //    Comparable/Comparator) are dead code once the conflicting interfaces are dropped.
+        javaClass.Methods.RemoveAll(m => (m.Body?.Trim() ?? "") == "return this::compare;");
+        foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
+        {
+            nested.Methods.RemoveAll(m => (m.Body?.Trim() ?? "") == "return this::compare;");
+        }
+    }
+
+    private static (string? Key, string? Value) ExtractReadOnlyDictTypeArguments(string interfaceType)
+    {
+        var open = interfaceType.IndexOf('<');
+        var close = interfaceType.LastIndexOf('>');
+        if (open < 0 || close <= open)
+            return (null, null);
+        var args = interfaceType.Substring(open + 1, close - open - 1);
+        var comma = args.IndexOf(',');
+        if (comma < 0)
+            return (null, null);
+        return (args.Substring(0, comma).Trim(), args.Substring(comma + 1).Trim());
+    }
+
+    private static JavaClassDeclaration? FindNestedEnumerator(JavaClassDeclaration javaClass)
+        => javaClass.NestedTypes.OfType<JavaClassDeclaration>()
+            .FirstOrDefault(n => n.Methods.Any(m => m.Name == "moveNext" && m.Parameters.Count == 0));
+
+    private static void AdaptReadOnlyDictKeysValuesMethod(
+        JavaClassDeclaration javaClass,
+        string methodName,
+        string elementType,
+        ConversionContext context)
+    {
+        var method = javaClass.Methods.FirstOrDefault(m => m.Name == methodName && m.Parameters.Count == 0
+            && m.ReturnType.StartsWith("CSharpGenericIterable<", StringComparison.Ordinal));
+        if (method == null)
+            return;
+
+        string body = method.StructuredBody?.ToBodyString() ?? method.Body ?? "";
+        if (!body.Contains("return _yieldResult;", StringComparison.Ordinal))
+            return;
+
+        method.ReturnType = $"CSharpReadOnlyCollection<{elementType}>";
+        method.StructuredBody = null;
+        method.Body = body.Replace("return _yieldResult;", "return CSharpCollectionExtensions.asReadOnly(_yieldResult);");
+        context.AddImport("io.github.ningpp.compat.CSharpReadOnlyCollection");
+        context.AddImport("io.github.ningpp.compat.CSharpCollectionExtensions");
     }
 
     /// <summary>

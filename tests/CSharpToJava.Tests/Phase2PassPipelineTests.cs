@@ -168,6 +168,7 @@ public class Phase2PassPipelineTests
                 "ProjectPlatformBoundaryCheckPass",
                 "ProjectNativeInteropCheckPass",
                 "ProjectExtensionMethodCheckPass",
+                "ProjectJavaPatternRewritePass",
                 "ProjectPartialTypeNormalizationPass",
                 "ProjectTypeEmitPass",
                 "ProjectCompatibilityEmitPass",

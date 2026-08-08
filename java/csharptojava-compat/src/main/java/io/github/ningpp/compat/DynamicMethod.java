@@ -37,11 +37,13 @@ public final class DynamicMethod {
         return new ILGenerator();
     }
 
-    public Object createDelegate(Class<?> delegateType) {
+    @SuppressWarnings("unchecked")
+    public <T> T createDelegate(Class<T> delegateType) {
         return null;
     }
 
-    public Object createDelegate(Class<?> delegateType, Object target) {
+    @SuppressWarnings("unchecked")
+    public <T> T createDelegate(Class<T> delegateType, Object target) {
         return null;
     }
 

@@ -237,6 +237,53 @@ class C {
     // ═══════════════════════════════════════════════════════════
 
     [Fact]
+    public void IsPattern_GenericDeclarationPattern_HoistsTypedDeclaration()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class C {
+    void Test(object o) {
+        if (o is List<string> list) {
+            System.Console.WriteLine(list[0].ToUpper());
+        }
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("instanceof CSharpList)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpList<String> list = (CSharpList<String>)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("list.get(0).toUpperCase()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IsPattern_GenericTypePattern_StripsTypeArguments()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class C {
+    bool Test(object o) => o is List<string>;
+}");
+        Assert.True(result.Success);
+        Assert.Contains("instanceof CSharpList", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("instanceof CSharpList<String>", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Cast_StringToReadOnlySpan_UsesMemoryExtensions()
+    {
+        var result = Convert(@"
+using System;
+class C {
+    void Test(string s) {
+        ReadOnlySpan<char> span = (ReadOnlySpan<char>)s;
+        System.Console.WriteLine(span.Length);
+    }
+}");
+        Assert.True(result.Success);
+        Assert.Contains("MemoryExtensions.asSpan(s)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("toReadOnlySpan", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SwitchExpr_RecursivePropertyPattern()
     {
         var result = Convert(@"

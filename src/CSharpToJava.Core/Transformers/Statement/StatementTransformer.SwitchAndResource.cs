@@ -1248,7 +1248,7 @@ public partial class StatementTransformer
             DeclarationPatternSyntax dp
                 => BuildDeclPatternCondition(expr, dp, context),
             TypePatternSyntax tp
-                => $"({expr} instanceof {context.MapTypeFromSyntax(tp.Type)})",
+                => $"({expr} instanceof {ExpressionTransformerHelpers.StripTypeArguments(context.MapTypeFromSyntax(tp.Type))})",
             DiscardPatternSyntax
                 => "true",
             UnaryPatternSyntax np when np.OperatorToken.IsKind(SyntaxKind.NotKeyword)
@@ -1294,7 +1294,7 @@ public partial class StatementTransformer
 
         var conditions = new List<string>();
         if (typeName != null)
-            conditions.Add($"{expr} instanceof {typeName}");
+            conditions.Add($"{expr} instanceof {ExpressionTransformerHelpers.StripTypeArguments(typeName)}");
 
         if (pattern.PropertyPatternClause != null && typeName != null)
         {

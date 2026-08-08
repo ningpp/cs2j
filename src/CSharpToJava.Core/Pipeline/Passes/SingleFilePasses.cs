@@ -284,6 +284,33 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
             return;
         }
 
+        // 1f. 泛型声明模式提升（Java 路径）：`x is List<T> v` → 类型模式 + 段首强转声明，
+        //     保证模式变量保持完整泛型类型（与项目路径 ProjectJavaPatternRewritePass 一致）。
+        //     改写后重建编译与语义模型，供 visitor 查询。
+        if (state.Context.SemanticModel != null)
+        {
+            var patternRoot = new Rewriters.JavaGenericPatternRewriter()
+                .Visit(state.SyntaxTree.GetRoot());
+            if (patternRoot != null && !ReferenceEquals(patternRoot, state.SyntaxTree.GetRoot()))
+            {
+                state.SyntaxTree = state.SyntaxTree.WithRootAndOptions(
+                    (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)patternRoot,
+                    state.SyntaxTree.Options);
+                state.Compilation = CSharpCompilation.Create(
+                    state.Compilation.AssemblyName ?? "TempAssembly",
+                    new[] { state.SyntaxTree, ConversionPipeline.GlobalUsingsTree },
+                    state.Compilation.References,
+                    state.Compilation.Options);
+                state.Library = Cs2jLibraryFactory.CreateSingleFile(
+                    state.SyntaxTree.GetRoot().ToFullString(),
+                    state.Request.FileName,
+                    state.SyntaxTree,
+                    state.Compilation);
+                state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
+                    ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
+            }
+        }
+
         var visitor = new CSharpToJavaVisitor(state.Context);
         var compilationUnit = visitor.Visit(state.SyntaxTree.GetRoot());
         if (compilationUnit is not Java.JavaCompilationUnit javaCompilation)

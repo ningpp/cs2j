@@ -553,6 +553,29 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 var method = conversion.MethodSymbol;
                 var javaContainingType = context.MapType(method.ContainingType);
                 var javaTargetType = context.MapType(method.ReturnType);
+
+                // C# implicit operator ReadOnlySpan<char>(string) / ReadOnlyMemory<char>(string):
+                // the compat library's MemoryExtensions.asSpan/asMemory(String) are the semantic
+                // equivalents (matching the string.AsSpan() invocation mapping). The generic
+                // "to<TargetType>" name synthesis below would emit a non-existent helper
+                // (e.g. String.toReadOnlySpan<Character>), so intercept here.
+                var mappedSource = context.GetTypeInfo(node.Expression).Type is { } sourceSymbol
+                    ? context.MapType(sourceSymbol)
+                    : null;
+                if (mappedSource == "String")
+                {
+                    if (javaTargetType.StartsWith("ReadOnlySpan<", StringComparison.Ordinal))
+                    {
+                        context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+                        return $"MemoryExtensions.asSpan({expression})";
+                    }
+                    if (javaTargetType.StartsWith("ReadOnlyMemory<", StringComparison.Ordinal))
+                    {
+                        context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+                        return $"MemoryExtensions.asMemory({expression})";
+                    }
+                }
+
                 var javaMethodName = "to" + char.ToUpper(javaTargetType[0]) + javaTargetType[1..];
                 return $"{javaContainingType}.{javaMethodName}({expression})";
             }
@@ -766,7 +789,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             RelationalPatternSyntax relPattern
                 => $"{expression} {relPattern.OperatorToken.Text} {facade.Transform(relPattern.Expression, context)}",
             TypePatternSyntax typePattern
-                => $"{expression} instanceof {context.MapTypeFromSyntax(typePattern.Type)}",
+                => $"{expression} instanceof {ExpressionTransformerHelpers.StripTypeArguments(context.MapTypeFromSyntax(typePattern.Type))}",
             VarPatternSyntax varPattern
                 => TransformVarPattern(expression, varPattern, context),
             ParenthesizedPatternSyntax parenPattern
