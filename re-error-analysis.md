@@ -143,3 +143,19 @@
 - **分析**: 转换器将 C# `Interlocked.Or(ref int, int)` 经 ref-holder 模式发射为 `Interlocked.or(IntHolder, int)`，但 compat 只有 increment/decrement 的 holder 重载。修复：补充 `or(IntHolder,int)` 与对称的 `and(IntHolder,int)`。
 - **测试**: `InterlockedOrCompatTests.InterlockedOr_CompilesAgainstCompatRuntime`（先红后绿）
 - **状态**: ✅ Fixed
+
+## Iteration 9 — 找不到符号 Character.getUnicodeCategory（char 静态方法未映射到 compat helper）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 687
+- **错误信息**: `[687,47] 找不到符号 符号: 方法 getUnicodeCategory(char) 位置: 类 Character`
+- **代码片段**:
+  ```java
+  UnicodeCategory chcategory = Character.getUnicodeCategory(ch);
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 1199 行 `UnicodeCategory chcategory = char.GetUnicodeCategory(ch);`）
+- **根因分类**: Transformer 逻辑缺陷（预定义类型静态接收者路径短路配置映射）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（预定义类型静态调用路径）；config/TypeMappings.json
+- **分析**: `char.xxx` 静态调用走预定义类型路径（`{boxedReceiver}.{mappedMethod}`），在 TypeMappings 查找之前短路，`GetUnicodeCategory` 落入通用 camelCase 规则产出 `Character.getUnicodeCategory`，而 java.lang.Character 无此方法。修复：在预定义类型路径特判 `char.GetUnicodeCategory` → `CharUnicodeInfo.getUnicodeCategory(...)`（compat helper 返回 C# UnicodeCategory 枚举），并在 TypeMappings.json 为 System.Char/char 补充同名映射条目。
+- **测试**: `CharGetUnicodeCategoryMappingTests`（先红后绿）
+- **状态**: ✅ Fixed
