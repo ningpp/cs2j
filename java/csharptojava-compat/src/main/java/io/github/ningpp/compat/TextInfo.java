@@ -56,6 +56,10 @@ public class TextInfo {
         return str.toLowerCase(locale);
     }
 
+    public char toLowerCase(char c) {
+        return Character.toLowerCase(c);
+    }
+
     public String toLowerCase(String str) {
         return toLower(str);
     }
@@ -67,6 +71,10 @@ public class TextInfo {
     public String toUpper(String str) {
         if (str == null) return null;
         return str.toUpperCase(locale);
+    }
+
+    public char toUpperCase(char c) {
+        return Character.toUpperCase(c);
     }
 
     public String toUpperCase(String str) {

@@ -39,3 +39,21 @@
 - **测试**: `RefLambdaParameterProjectTests.ProjectPath_TupleElementMemberCall_RefParamElementNameMismatch`（先红后绿，全量 2476 通过）
 - **状态**: ✅ Fixed
 
+
+## Iteration 3 — 不兼容的类型: char无法转换为String（TextInfo.ToLower(char) 缺少 compat 重载）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexBoyerMoore.java
+- **行号**: 270（以及 317、341）
+- **错误信息**: `不兼容的类型: char无法转换为java.lang.String`
+- **代码片段**:
+  ```java
+  if (Pattern.charAt(i) != textinfo.toLowerCase(text.charAt(index + i))) {
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexBoyerMoore.cs（第 245、305、334 行 `culture.TextInfo.ToLower(char)`）
+- **根因分类**: 语义模型信息丢失（compat API 缺口）
+- **涉及组件**:
+  - java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TextInfo.java
+  - src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（方法名映射 ToLower → toLowerCase）
+- **分析**: 转换器将 `ToLower` 统一映射为 `toLowerCase`，但 compat `TextInfo` 只有 `toLowerCase(String)` 与 `toLower(char)`，没有 `toLowerCase(char)`；`textinfo.ToLower(text[i])` 生成的 `toLowerCase(char)` 调用解析到 String 重载导致 char→String 编译错误。修复：在 compat TextInfo 中补充 `toLowerCase(char)`/`toUpperCase(char)`（镜像 C# ToLower(char)/ToUpper(char)）。
+- **测试**: `TextInfoCompatibilityTests.TextInfoToLowerChar_CompilesAgainstCompatRuntime`（先红后绿，javac 对生成的 Java + compat 源码编译验证）
+- **状态**: ✅ Fixed
