@@ -550,27 +550,80 @@ public class MethodTransformer : IMemberTransformer
 
         // Local functions are never async themselves, even inside async methods.
         context.IsInAsyncContext = false;
-        if (localFn.Body != null)
+        // The local function body is its own method scope: push its symbol so that
+        // GetClassLiteral registers Class<T> token requirements (e.g. `e is T1` →
+        // `_cs2j_T1.isInstance(e)`) against the local function instead of nothing.
+        var localFnSymbol = context.GetDeclaredSymbol(localFn) as IMethodSymbol;
+        context.EnterNestedMethodContext(localFnSymbol);
+        try
         {
-            javaMethod.StructuredBody = new Transformers.Statement.StatementTransformer()
-                .TransformBlockToStructuredBody(localFn.Body, context);
+            if (localFn.Body != null)
+            {
+                javaMethod.StructuredBody = new Transformers.Statement.StatementTransformer()
+                    .TransformBlockToStructuredBody(localFn.Body, context);
+            }
+            else if (localFn.ExpressionBody != null)
+            {
+                var expr = Transformers.Expression.ExpressionTransformerFacade.Instance
+                    .Transform(localFn.ExpressionBody.Expression, context);
+
+                // Expression-bodied local functions skip TransformReturnStatement, so the
+                // same target-type adaptation used by regular expression-bodied methods
+                // must be applied here (e.g. byte[] -> ReadOnlySpan<byte> wrapping).
+                expr = WrapExpressionBodyForIterableReturn(expr, localFn.ExpressionBody.Expression,
+                    localFn.ReturnType, context);
+                var returnTypeSymbol = context.GetTypeInfo(localFn.ReturnType).Type;
+                expr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    localFn.ExpressionBody.Expression, expr, returnTypeSymbol, context);
+
+                javaMethod.Body = expr;
+                javaMethod.IsBodyExpression = true;
+            }
         }
-        else if (localFn.ExpressionBody != null)
+        finally
         {
-            var expr = Transformers.Expression.ExpressionTransformerFacade.Instance
-                .Transform(localFn.ExpressionBody.Expression, context);
+            context.LeaveNestedMethodContext();
+        }
 
-            // Expression-bodied local functions skip TransformReturnStatement, so the
-            // same target-type adaptation used by regular expression-bodied methods
-            // must be applied here (e.g. byte[] -> ReadOnlySpan<byte> wrapping).
-            expr = WrapExpressionBodyForIterableReturn(expr, localFn.ExpressionBody.Expression,
-                localFn.ReturnType, context);
-            var returnTypeSymbol = context.GetTypeInfo(localFn.ReturnType).Type;
-            expr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                localFn.ExpressionBody.Expression, expr, returnTypeSymbol, context);
+        // Class<T> tokens required by the body (e.g. `e is T1` checks) become
+        // signature parameters, exactly like regular methods (AddPendingRuntimeClassParameters).
+        // Only type parameters declared by this local function may be promoted — enclosing
+        // method/type parameters do not belong to the hoisted method's signature.
+        // The parameter order must match the call-site token order (registration order),
+        // otherwise the Class tokens would be bound to the wrong type parameters.
+        var pendingClassTypeParams = context.DrainClassTypeParams();
+        if (pendingClassTypeParams != null && pendingClassTypeParams.Count > 0)
+        {
+            var ownTypeParamNames = (localFn.TypeParameterList?.Parameters
+                    ?? Enumerable.Empty<TypeParameterSyntax>())
+                .Select(p => p.Identifier.Text)
+                .ToHashSet(StringComparer.Ordinal);
+            // Registration order lives in the ordered per-method list; fall back to the
+            // drained set (unorderd) sorted deterministically when the key is unknown.
+            var containingTypeMetadataName = localFnSymbol?.ContainingType?.MetadataName ?? "";
+            var methodMetadataName = localFnSymbol?.MetadataName ?? "";
+            List<string> orderedNames = context.GetMethodClassTypeParamNames(
+                    containingTypeMetadataName, methodMetadataName)?
+                .Where(ownTypeParamNames.Contains)
+                .ToList()
+                ?? pendingClassTypeParams.Where(ownTypeParamNames.Contains)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToList();
 
-            javaMethod.Body = expr;
-            javaMethod.IsBodyExpression = true;
+            var classTypeParams = new List<JavaParameter>();
+            foreach (var typeParameterName in orderedNames)
+            {
+                var parameterName = $"_cs2j_{typeParameterName}";
+                if (javaMethod.Parameters.Any(p => p.Name == parameterName))
+                    continue;
+
+                classTypeParams.Add(new JavaParameter($"Class<{typeParameterName}>", parameterName));
+                context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
+            }
+            // Class tokens are prepended at call sites before the regular arguments,
+            // so the signature must expose them first, in the same order.
+            if (classTypeParams.Count > 0)
+                javaMethod.Parameters.InsertRange(0, classTypeParams);
         }
         return javaMethod;
     }

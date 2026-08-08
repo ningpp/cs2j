@@ -546,6 +546,27 @@ public class ConversionContext
             _methodStack.Pop();
     }
 
+    /// <summary>
+    /// Pushes a method symbol onto the current-method stack WITHOUT resetting the
+    /// method conversion state. Used when converting hoisted local function bodies
+    /// (which belong to their own method scope but must not wipe the enclosing
+    /// method's bookkeeping), so GetClassLiteral can register Class&lt;T&gt; token
+    /// requirements against the local function.
+    /// </summary>
+    public void EnterNestedMethodContext(IMethodSymbol? method)
+    {
+        _methodStack.Push(method);
+    }
+
+    /// <summary>
+    /// Pops a method symbol pushed by <see cref="EnterNestedMethodContext"/>.
+    /// </summary>
+    public void LeaveNestedMethodContext()
+    {
+        if (_methodStack.Count > 0)
+            _methodStack.Pop();
+    }
+
     public string GenerateSyntheticName(string prefix)
     {
         if (!_syntheticNameCounters.ContainsKey(prefix))
