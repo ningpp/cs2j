@@ -85,3 +85,4 @@ typescript/csharptotypescript-compat/node_modules/
 typescript/csharptotypescript-compat/dist/
 
 repro/
+.worktrees/
