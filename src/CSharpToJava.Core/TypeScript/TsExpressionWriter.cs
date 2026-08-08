@@ -379,6 +379,16 @@ public sealed class TsExpressionWriter
             return IsNumericLiteral(arg) ? $"new Array({arg})" : $"Array.from({arg})";
         }
         var args = string.Join(", ", newExpr.Arguments.Select(ToInlineString));
+        // Round 20（TS2673）：结构化 new 表达式携带构造器工厂名（ObjectCreationTransformer.
+        // TransformToIR 按语义模型解析目标构造器重算 Create$N 序号）——发射端改发
+        // Type.Create$N(args)；工厂化类声明端只剩私有无参构造器，直发 new 形态
+        // 会报 TS2673（Constructor of class 'X' is private）。接收者取映射后类型名的
+        // 裸名（泛型类静态工厂按类名访问，与 raw 路径 TryBuildTsCtorFactoryCall 同规）。
+        if (newExpr.FactoryName != null)
+        {
+            var bareType = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+            return $"{bareType}.{newExpr.FactoryName}({args})";
+        }
         return $"new {typeName}({args})";
     }
 

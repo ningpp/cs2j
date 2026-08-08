@@ -178,7 +178,22 @@ public class FieldTransformer : IMemberTransformer
                 && fieldTypeSymbol != null
                 && StructCloneHelper.IsUserDefinedStruct(fieldTypeSymbol))
             {
-                javaField.Initializer = $"new {javaType}()";
+                // Round 20（TS2673）：TS 目标下结构体字段默认零值填充若直发 `new X()`
+                // 而 X 已被构造器工厂化（含隐式无参构造器集合 >1，声明端只剩私有
+                // 无参构造器）→ tsc TS2673。零参隐式构造器恒为 Create$1（参数数量
+                // 升序排序置首）；未工厂化（单构造器）或非本编译单元类型保持 new。
+                if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+                    && fieldTypeSymbol is INamedTypeSymbol structSymbol
+                    && structSymbol.InstanceConstructors.Length > 1
+                    && structSymbol.Locations.Any(location => location.IsInSource))
+                {
+                    var bareJavaType = javaType.Contains('<') ? javaType[..javaType.IndexOf('<')] : javaType;
+                    javaField.Initializer = $"{bareJavaType}.Create$1()";
+                }
+                else
+                {
+                    javaField.Initializer = $"new {javaType}()";
+                }
             }
             else if (variable.Initializer == null
                 && fieldTypeSymbol is ITypeParameterSymbol typeParam)

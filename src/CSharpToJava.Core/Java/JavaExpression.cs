@@ -170,6 +170,12 @@ public class JavaNewExpression : JavaExpression
     /// 数组初始化器，例如 new int[] {1, 2, 3}
     /// </summary>
     public string? ArrayInitializer { get; set; }
+    /// <summary>
+    /// TS 专属（Round 20）：构造器重载工厂名（Create$N）。结构化 JavaNewExpression
+    /// 发射路径（TsExpressionWriter.EmitNew）在 IR 生成时由语义模型解析出目标构造器、
+    /// 独立重算工厂序号后携带到发射端；null = 普通 new 形态（Java 目标恒 null）。
+    /// </summary>
+    public string? FactoryName { get; set; }
 
     public override string ToInlineString()
     {

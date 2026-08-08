@@ -80,6 +80,23 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     && !HasComplexArguments(objCreation.ArgumentList))
                 {
                     var ir = new JavaNewExpression { Type = typeName };
+                    // Round 20（TS2673）：结构化 new 表达式发射路径此前从未改写构造器
+                    // 工厂调用点（语法层 TsOverloadDisambiguationRewriter / raw 字符串
+                    // 路径 TryBuildTsCtorFactoryCall 各自独立改写，JavaNewExpression 经
+                    // TsExpressionWriter.EmitNew 直发 new Type(args)）→ 工厂化类只剩
+                    // 私有无参构造器时 tsc TS2673。此处按语义模型解析目标构造器并把
+                    // 工厂名携带到发射端（EmitNew 改发 Type.Create$N(args)）；
+                    // LINQ 重写产物链内语义模型不可解析时回退实参数量/字面量匹配。
+                    ir.FactoryName = TryGetCtorFactoryName(
+                        context.GetSymbolInfo(node).Symbol as IMethodSymbol,
+                        createdType as INamedTypeSymbol,
+                        objCreation.ArgumentList?.Arguments
+                            .Select(a => a.Expression.ToString())
+                            .ToList(),
+                        context,
+                        out var factoryName)
+                        ? factoryName
+                        : null;
                     if (objCreation.ArgumentList != null)
                     {
                         foreach (var arg in objCreation.ArgumentList.Arguments)
@@ -103,6 +120,18 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 if (!HasComplexArguments(implicitNew.ArgumentList))
                 {
                     var ir = new JavaNewExpression { Type = typeName };
+                    // Round 20（TS2673）：与显式 new 分支同规——解析目标构造器并携带
+                    // 工厂名（Create$N），发射端改发 Type.Create$N(args)。
+                    ir.FactoryName = TryGetCtorFactoryName(
+                        context.GetSymbolInfo(node).Symbol as IMethodSymbol,
+                        typeInfo.Type as INamedTypeSymbol,
+                        implicitNew.ArgumentList?.Arguments
+                            .Select(a => a.Expression.ToString())
+                            .ToList(),
+                        context,
+                        out var factoryName)
+                        ? factoryName
+                        : null;
                     foreach (var arg in implicitNew.ArgumentList.Arguments)
                         ir.Arguments.Add(facade.TransformToIR(arg.Expression, context));
                     var runtimeClassArguments = RuntimeClassParameterHelper.GetRuntimeClassArguments(typeInfo.Type as INamedTypeSymbol, context);
@@ -473,7 +502,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     zeroArgCtor = createdTypeSymbol?.InstanceConstructors
                         .FirstOrDefault(c => c.Parameters.Length == 0);
                 }
-                var zeroArgFactoryCall = TryBuildTsCtorFactoryCall(zeroArgCtor, typeName, "", context);
+                var zeroArgFactoryCall = TryBuildTsCtorFactoryCall(zeroArgCtor, createdTypeSymbol, typeName, "", context);
                 if (zeroArgFactoryCall != null)
                 {
                     return zeroArgFactoryCall;
@@ -834,7 +863,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        var tsFactoryCall = TryBuildTsCtorFactoryCall(ctorSymbol, typeName, args, context);
+        var tsFactoryCall = TryBuildTsCtorFactoryCall(ctorSymbol, createdTypeSymbol, typeName, args, context);
         return tsFactoryCall ?? $"new {typeName}({args})";
     }
 
@@ -853,30 +882,144 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     /// 可解析且类型在本编译单元（compat/BCL 类型无源位置，跳过）时改写为
     /// Type.Create$N(args)。仅 TS 目标；Java 目标保持 new 形态（构造器在 Java
     /// 中合法，零回归）。
+    /// Round 20：抽出 TryGetCtorFactoryName 供结构化 TransformToIR 路径复用
+    /// （JavaNewExpression 携带工厂名到发射端，见 TsExpressionWriter.EmitNew）。
     /// </summary>
     private static string? TryBuildTsCtorFactoryCall(
         IMethodSymbol? ctorSymbol,
+        INamedTypeSymbol? createdType,
         string typeName,
         string args,
         ConversionContext context)
     {
-        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
-            || ctorSymbol?.MethodKind != MethodKind.Constructor
-            || ctorSymbol.ContainingType is not INamedTypeSymbol containing
-            || containing.IsRecord
-            || containing.TypeKind == TypeKind.Delegate)
+        var argTexts = string.IsNullOrWhiteSpace(args) ? [] : SplitTopLevelArgs(args);
+        if (!TryGetCtorFactoryName(ctorSymbol, createdType, argTexts, context, out var factoryName))
         {
             return null;
         }
+
+        var bareType = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+        return $"{bareType}.{factoryName}({args})";
+    }
+
+    /// <summary>
+    /// Round 20：构造器重载 → Create$N 工厂的序号独立重算（与 TryBuildTsCtorFactoryCall
+    /// 同一算法：参数数量升序稳定排序 + 1 基序数，隐式无参构造器置首）。仅 TS 目标；
+    /// ctor 符号不可解析 / 非构造器 / record / 委托 / 非本编译单元类型 / 单构造器时
+    /// 返回 false（调用点保持 new 形态——未工厂化的类型 new 合法）。
+    /// </summary>
+    /// <summary>
+    /// Round 20：构造器重载 → Create$N 工厂的序号独立重算（与 TryBuildTsCtorFactoryCall
+    /// 同一算法：参数数量升序稳定排序 + 1 基序数，隐式无参构造器置首）。仅 TS 目标；
+    /// ctor 符号可解析时精确匹配；符号不可解析（LINQ 重写产物 Enumerable.select(...)
+    /// 链内 lambda 参数类型为错误类型 → 重载决议失败，MSAGL 全库 TS2673）时回退
+    /// 实参数量 + 字面量种类匹配（createdType 语义符号仍可解析——仅实参类型被污染）：
+    /// 实参数量唯一 → 确定工厂；同参数量多候选 → 数值/字符串字面量对数值/字符串形参
+    /// 打分，唯一零失配者胜出；仍歧义 → 不改写（调用点保持 new，未误改语义）。
+    /// </summary>
+    private static bool TryGetCtorFactoryName(
+        IMethodSymbol? ctorSymbol,
+        INamedTypeSymbol? createdType,
+        IReadOnlyList<string>? argTexts,
+        ConversionContext context,
+        out string factoryName)
+    {
+        factoryName = string.Empty;
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        {
+            return false;
+        }
+
+        if (ctorSymbol?.MethodKind == MethodKind.Constructor)
+        {
+            if (TryGetCtorFactoryNameCore(ctorSymbol, context, out factoryName))
+            {
+                return true;
+            }
+        }
+
+        // 回退：ctor 符号不可解析（或非构造器）但类型符号可解析——按实参数量 +
+        // 字面量种类匹配候选构造器。
+        if (createdType == null
+            || createdType.IsRecord
+            || createdType.TypeKind == TypeKind.Delegate
+            || !createdType.Locations.Any(location => location.IsInSource))
+        {
+            return false;
+        }
+
+        var ctors = createdType.InstanceConstructors.ToList();
+        if (ctors.Count <= 1)
+        {
+            return false;
+        }
+
+        var implicitZero = ctors.FirstOrDefault(c => c.IsImplicitlyDeclared && c.Parameters.Length == 0);
+        var ordered = new List<IMethodSymbol>(ctors.Count);
+        if (implicitZero != null)
+        {
+            ordered.Add(implicitZero);
+            ordered.AddRange(ctors.Where(c => !SymbolEqualityComparer.Default.Equals(c, implicitZero)));
+        }
+        else
+        {
+            ordered.AddRange(ctors);
+        }
+
+        var sorted = ordered
+            .Select((ctor, idx) => (Ctor: ctor, Idx: idx))
+            .OrderBy(x => x.Ctor.Parameters.Length)
+            .ThenBy(x => x.Idx)
+            .ToList();
+
+        var argCount = argTexts?.Count ?? -1;
+        var arityMatches = sorted.Where(x => x.Ctor.Parameters.Length == argCount).ToList();
+        if (arityMatches.Count == 0)
+        {
+            return false;
+        }
+
+        IMethodSymbol? target = arityMatches.Count == 1
+            ? arityMatches[0].Ctor
+            : PickByLiteralKinds(arityMatches.Select(x => x.Ctor).ToList(), argTexts!);
+        if (target == null)
+        {
+            return false;
+        }
+
+        var targetIdx = sorted.FindIndex(x =>
+            SymbolEqualityComparer.Default.Equals(x.Ctor.OriginalDefinition, target.OriginalDefinition));
+        if (targetIdx < 0)
+        {
+            return false;
+        }
+
+        factoryName = TsNaming.FactoryName(targetIdx + 1);
+        return true;
+    }
+
+    /// <summary>既有精确路径：ctor 符号解析成功后按参数数量升序稳定排序取序号。</summary>
+    private static bool TryGetCtorFactoryNameCore(
+        IMethodSymbol ctorSymbol,
+        ConversionContext context,
+        out string factoryName)
+    {
+        factoryName = string.Empty;
+        if (ctorSymbol.ContainingType is not INamedTypeSymbol containing
+            || containing.IsRecord
+            || containing.TypeKind == TypeKind.Delegate)
+        {
+            return false;
+        }
         if (!containing.Locations.Any(location => location.IsInSource))
         {
-            return null;
+            return false;
         }
 
         var ctors = containing.InstanceConstructors.ToList();
         if (ctors.Count <= 1)
         {
-            return null;
+            return false;
         }
 
         // 与 StructTransformer 一致：隐式无参构造器插入构造器列表最前
@@ -901,11 +1044,113 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             SymbolEqualityComparer.Default.Equals(x.Ctor.OriginalDefinition, ctorSymbol.OriginalDefinition));
         if (targetIdx < 0)
         {
-            return null;
+            return false;
         }
 
-        var bareType = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
-        return $"{bareType}.{TsNaming.FactoryName(targetIdx + 1)}({args})";
+        factoryName = TsNaming.FactoryName(targetIdx + 1);
+        return true;
+    }
+
+    /// <summary>
+    /// 同参数量多候选时按实参字面量种类打分：数值字面量只匹配数值形参、字符串字面量
+    /// 只匹配字符串形参；非字面量实参视为未知（任何形参均可）；形参类型不可映射时
+    /// 视为未知。零失配候选唯一 → 返回；否则 null（歧义，保持 new 形态）。
+    /// </summary>
+    private static IMethodSymbol? PickByLiteralKinds(List<IMethodSymbol> candidates, IReadOnlyList<string> argTexts)
+    {
+        var argKinds = argTexts.Select(ArgLiteralKind).ToList();
+        IMethodSymbol? best = null;
+        var bestScore = int.MaxValue;
+        foreach (var candidate in candidates)
+        {
+            var score = 0;
+            var mismatch = false;
+            for (var i = 0; i < argKinds.Count; i++)
+            {
+                if (argKinds[i] == ArgKind.Unknown)
+                {
+                    continue;
+                }
+                if (i >= candidate.Parameters.Length)
+                {
+                    mismatch = true;
+                    break;
+                }
+                if (!ParamAcceptsKind(candidate.Parameters[i].Type, argKinds[i]))
+                {
+                    mismatch = true;
+                    break;
+                }
+            }
+            if (mismatch)
+            {
+                continue;
+            }
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+            else if (score == bestScore)
+            {
+                best = null; // 平局 → 歧义
+            }
+        }
+        return best;
+    }
+
+    private enum ArgKind { Unknown, Number, String }
+
+    private static ArgKind ArgLiteralKind(string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length > 0
+            && (trimmed[0] == '"' || trimmed[0] == '\''))
+        {
+            return ArgKind.String;
+        }
+        // 数值字面量：十进制/十六进制/科学计数/带 L/f/d 后缀/负号
+        if (trimmed.Length > 0 && (char.IsDigit(trimmed[0]) || trimmed[0] == '-' || trimmed[0] == '.'))
+        {
+            return ArgKind.Number;
+        }
+        return ArgKind.Unknown;
+    }
+
+    private static bool ParamAcceptsKind(ITypeSymbol paramType, ArgKind kind)
+    {
+        switch (paramType.SpecialType)
+        {
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+                return kind == ArgKind.Number;
+            case SpecialType.System_String:
+            case SpecialType.System_Char:
+                return kind == ArgKind.String;
+            case SpecialType.System_Object:
+                return true;
+        }
+        // Java 风味装箱数值名（Integer/Double/Float/... → number）
+        if (paramType is INamedTypeSymbol named && named.Locations.Any(l => l.IsInSource))
+        {
+            return true; // 用户类型实参无字面量约束
+        }
+        return paramType.Name switch
+        {
+            "Integer" or "Long" or "Short" or "Byte" or "Double" or "Float" or "Decimal" or "BigDecimal" or "BigInteger" => kind == ArgKind.Number,
+            "String" or "Char" or "Character" => kind == ArgKind.String,
+            "Object" or "Number" => true,
+            _ => true, // 未知类型：不设约束（保守不误伤）
+        };
     }
 
     private static bool IsErasedFactoryConstructor(ObjectCreationExpressionSyntax node, ConversionContext context)
@@ -1488,7 +1733,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         else
         {
             var tsFactoryCall = !appendedRuntimeArgs
-                ? TryBuildTsCtorFactoryCall(ctorSymbol, typeName, ctorArgs, context)
+                ? TryBuildTsCtorFactoryCall(ctorSymbol, createdType, typeName, ctorArgs, context)
                 : null;
             context.AddBranchScopedPreStatement(tsFactoryCall != null
                 ? $"var {tmpVar} = {tsFactoryCall};"
