@@ -364,6 +364,33 @@ public static class NpmProjectFiles
         type CSharpICollection<T> = Iterable<T>;
         type CSharpGenericComparer<T> = { compare(a: T, b: T): number };
         type CsKeyValuePair<K, V> = import("@csharptotypescript/compat").CsKeyValuePair<K, V>;
+        // Round 19：值位同名 const 合并（TS 允许 type+const 同名声明）——生成的
+        // "new CSharpDictionary<K,V>(capacity)" / "new CSharpHashSet<T>(...)" 调用点
+        // 经此解析为 compat 类构造器（TS2693）。CSharpList/CSharpStack 的值位由
+        // TsRawStatementNormalizer/EmitNew 改写为 []/Array.from，无需 const。
+        declare const CSharpDictionary: typeof import("@csharptotypescript/compat").CsDictionary;
+        declare const CSharpHashSet: typeof import("@csharptotypescript/compat").CsSet;
+        // Round 19：Java 风味 IList/Stack 方法面（CSharpList/CSharpStack = Array 别名，
+        // 生成调用点保留 .get(i)/.set(i,v)/.removeAt(i)/.peek() 等形态）。声明与
+        // @csharptotypescript/compat 的 ArrayCompat 运行时 polyfill 一一对应——
+        // compat 包根入口副作用导入保证任意 compat 导入即安装。
+        interface Array<T> {
+            get(index: number): T;
+            set(index: number, value: T): void;
+            add(value: T): void;
+            addAll(values: Iterable<T>): void;
+            remove(value: T): boolean;
+            removeAt(index: number): void;
+            insert(index: number, value: T): void;
+            removeRange(start: number, end: number): void;
+            size(): number;
+            toArray<U = T>(mapper?: (n: number) => U[]): U[];
+            iterator(): IterableIterator<T>;
+            spliterator(): IterableIterator<T>;
+            exists(predicate: (value: T) => boolean): boolean;
+            ensureCapacity(minimumCapacity: number): void;
+            peek(): T;
+        }
         """;
 
     /// <summary>模块 tsconfig.json：extends 工作区根 tsconfig.base.json。</summary>

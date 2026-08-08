@@ -109,7 +109,8 @@ public static class TsRawStatementNormalizer
         // （new HashSet<>(v) → new HashSet(v)）：表达式接收者 :: 的括号回扫需要干净的
         // 形态（菱形不在 NormalizeGenericMethodInvocations 的 `.<T>method(` 覆盖内）。
         var withDiamonds = NormalizeDiamondConstructors(withObjectEmpty);
-        var withMethodRefs = NormalizeMethodReferences(withDiamonds);
+        var withListCtors = NormalizeCompatListConstructors(withDiamonds);
+        var withMethodRefs = NormalizeMethodReferences(withListCtors);
 
         // 6c Java control-flow text: typed catch bindings, try-with-resources heads,
         // synchronized blocks, double literal suffixes, explicit generic calls.
@@ -1876,6 +1877,76 @@ public static class TsRawStatementNormalizer
             @"\bnew\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*<>\s*\(");
         return diamondCtorPattern.Replace(code, match => "new " + match.Groups[1].Value + "(");
     }
+
+    /// <summary>
+    /// Round 19：Java 集合构造值位改写（TS2693 "only refers to a type"）：global.d.ts 中
+    /// CSharpList/CSharpStack 是类型别名（Array），"new CSharpList&lt;X&gt;(...)" 无运行时值。
+    /// 无参 → "[]"；单实参 → "Array.from(expr)"（数字字面量 → "new Array(n)"，容量构造，
+    /// Java ArrayList(int) 语义）；多实参/复杂形态直通（非本构造）。类型实参按尖括号
+    /// 平衡扫描（含一层嵌套泛型，CSharpList&lt;CsKeyValuePair&lt;A,B&gt;&gt;）。
+    /// 结构化路径 TsExpressionWriter.EmitNew 同规改写。生产者：C# new List/Stack
+    /// （ObjectCreationTransformer raw/结构化发射）。
+    /// </summary>
+    private static readonly Regex CompatListCtorHeadPattern = new(
+        @"\bnew\s+(?<name>CSharpList|CSharpStack)<(?:<[^>\r\n]*>)?[^>\r\n]*>",
+        RegexOptions.Compiled);
+
+    private static string NormalizeCompatListConstructors(string code)
+    {
+        var sb = new StringBuilder(code.Length);
+        var i = 0;
+        while (i < code.Length)
+        {
+            var ch = code[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var start = i;
+                i = SkipQuotedLiteral(code, i);
+                sb.Append(code, start, i - start);
+                continue;
+            }
+            if (ch == 'n' && code.AsSpan(i).StartsWith("new ", StringComparison.Ordinal))
+            {
+                var m = CompatListCtorHeadPattern.Match(code, i);
+                if (m.Success && m.Index == i)
+                {
+                    var open = m.Index + m.Length;
+                    if (open < code.Length && code[open] == '(')
+                    {
+                        var close = FindMatchingParen(code, open);
+                        if (close > open)
+                        {
+                            var inner = code.Substring(open + 1, close - open - 1).Trim();
+                            if (inner.Length == 0)
+                            {
+                                sb.Append("[]");
+                            }
+                            else if (inner.IndexOf(',') < 0)
+                            {
+                                sb.Append(IsNumericLiteral(inner)
+                                    ? $"new Array({inner})"
+                                    : $"Array.from({inner})");
+                            }
+                            else
+                            {
+                                // 多实参：非 List 构造形态，原样保留
+                                sb.Append(code, i, close + 1 - i);
+                            }
+                            i = close + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+            sb.Append(ch);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsNumericLiteral(string text)
+        => text.Length > 0 && text.All(c => char.IsDigit(c) || c == '.' || c == '-')
+           && text.Any(char.IsDigit);
 
     /// <summary>
     /// Java 形态局部声明归一化（Task 27 模式匹配）：行首 "Type name = init;" →

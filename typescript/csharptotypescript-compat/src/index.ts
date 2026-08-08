@@ -3,7 +3,9 @@
  * 桥接 C# 与 TS/JS 语义差异，零第三方运行时依赖；组件按任务增量导出：
  * core/（Task 29）、time/（Task 30）、text/（Task 31）、collections/（Task 32/36）、
  * events/（Task 33）、exceptions/（Task 34）、primitives/（Task 35）。
+ * 副作用：导入本包任意符号即安装 ArrayCompat（Java 风味 IList/Stack 方法面）。
  */
+import "./collections/ArrayCompat.js";
 export { type Ref, refOf, outRef } from "./core/Ref.js";
 export { CsObject } from "./core/CsObject.js";
 export { CsRecord } from "./core/CsRecord.js";

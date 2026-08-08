@@ -360,9 +360,28 @@ public sealed class TsExpressionWriter
             RegisterImports(mappedNewType, newTypeImports);
             typeName = mappedNewType;
         }
+        // Round 19：CSharpList/CSharpStack 是 global.d.ts 类型别名（Array），值位
+        // "new CSharpList<X>(...)" 无运行时值（TS2693）——与 raw 文本
+        // TsRawStatementNormalizer.NormalizeCompatListConstructors 同规改写：
+        // 无参 → []；单实参 → Array.from(expr)（数字字面量 → new Array(n)）。
+        if ((typeName.StartsWith("CSharpList<", StringComparison.Ordinal)
+             || typeName.StartsWith("CSharpStack<", StringComparison.Ordinal))
+            && (newExpr.Arguments.Count == 0 || newExpr.Arguments.Count == 1))
+        {
+            if (newExpr.Arguments.Count == 0)
+            {
+                return "[]";
+            }
+            var arg = ToInlineString(newExpr.Arguments[0]);
+            return IsNumericLiteral(arg) ? $"new Array({arg})" : $"Array.from({arg})";
+        }
         var args = string.Join(", ", newExpr.Arguments.Select(ToInlineString));
         return $"new {typeName}({args})";
     }
+
+    private static bool IsNumericLiteral(string text)
+        => text.Length > 0 && text.All(c => char.IsDigit(c) || c == '.' || c == '-')
+           && text.Any(char.IsDigit);
 
     private string EmitMethodCall(JavaMethodCallExpression call)
     {

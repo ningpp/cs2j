@@ -5,4 +5,14 @@
  */
 export class CsKeyValuePair<K, V> {
     constructor(public readonly key: K, public readonly value: V) {}
+
+    /** Java 风味 Map.Entry.getKey()（cs2j 生成调用点保留此形态）。 */
+    getKey(): K {
+        return this.key;
+    }
+
+    /** Java 风味 Map.Entry.getValue()（cs2j 生成调用点保留此形态）。 */
+    getValue(): V {
+        return this.value;
+    }
 }
