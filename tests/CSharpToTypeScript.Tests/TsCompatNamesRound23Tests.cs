@@ -65,6 +65,7 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
         declare const CSharpSortedDict: { new<K, V>(comparer?: { compare(a: K, b: K): number }): CSharpSortedDict<K, V> };
         type CSharpKeyValuePair<K, V> = { key: K; value: V; getKey(): K; getValue(): V };
         declare const CSharpKeyValuePair: { new<K, V>(key: K, value: V): CSharpKeyValuePair<K, V> };
+        type CSharpGenericIDictionary<K, V> = { put(key: K, value: V): void; get(key: K): V; containsKey(key: K): boolean; remove(key: K): boolean; size(): number; [Symbol.iterator](): Iterator<CSharpKeyValuePair<K, V>> };
         type CSharpGenericIterable<T> = Iterable<T>;
         type CSharpArray = { setValue(value: unknown, index: number): void; getValue(index: number): unknown };
         declare const CSharpArray: { of(inner: unknown[]): CSharpArray };
@@ -112,6 +113,7 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
         Assert.Contains("type CSharpKeyValuePair<K, V> = import", stub);
         Assert.Contains("declare const CSharpKeyValuePair: typeof import", stub);
         Assert.Contains("type CSharpGenericIterable<T> = Iterable<T>", stub);
+        Assert.Contains("type CSharpGenericIDictionary<K, V> = import", stub);
         Assert.Contains("type CSharpArray = import", stub);
         Assert.Contains("declare const CSharpArray: typeof import", stub);
         Assert.Contains("type CSharpObjQueue = import", stub);

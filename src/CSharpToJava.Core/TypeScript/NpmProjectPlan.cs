@@ -410,6 +410,7 @@ public static class NpmProjectFiles
         declare const CSharpSortedDict: typeof import("@csharptotypescript/compat").CsSortedDictionary;
         type CSharpKeyValuePair<K, V> = import("@csharptotypescript/compat").CsKeyValuePair<K, V>;
         declare const CSharpKeyValuePair: typeof import("@csharptotypescript/compat").CsKeyValuePair;
+        type CSharpGenericIDictionary<K, V> = import("@csharptotypescript/compat").CsDictionary<K, V>;
         type CSharpGenericIterable<T> = Iterable<T>;
         type CSharpArray = import("@csharptotypescript/compat").CsArray;
         declare const CSharpArray: typeof import("@csharptotypescript/compat").CsArray;
