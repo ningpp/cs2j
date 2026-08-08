@@ -1395,6 +1395,27 @@
             "imports": []
         },
         {
+            "csharp": "System.Runtime.InteropServices.RuntimeInformation",
+            "java": "RuntimeInformation",
+            "imports": [
+                "io.github.ningpp.compat.RuntimeInformation"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.InteropServices.OSPlatform",
+            "java": "OSPlatform",
+            "imports": [
+                "io.github.ningpp.compat.OSPlatform"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.InteropServices.Architecture",
+            "java": "Architecture",
+            "imports": [
+                "io.github.ningpp.compat.Architecture"
+            ]
+        },
+        {
             "csharp": "System.Text.DecoderFallbackException",
             "java": "DecoderFallbackException",
             "imports": [
