@@ -93,3 +93,19 @@
 - **分析**: C# `string.AsSpan(int)`（从 start 切片到末尾）被转换器发射为 `MemoryExtensions.asSpan(String, int)`，但 compat 只有 1 参与 3 参重载。修复：补充 `asSpan(String,int)`（以及对称的 `asSpan(char[],int)`、`asSpan(byte[],int)`、`asMemory(String,int)`），2 参重载委托 3 参实现。
 - **测试**: `MemoryExtensionsAsSpanStartTests.StringAsSpanStart_CompilesAgainstCompatRuntime`（先红后绿，javac 对 compat 源码 + API 检查代码编译验证）
 - **状态**: ✅ Fixed
+
+## Iteration 6 — 找不到符号 fromValue(int)（compat UnicodeCategory 缺 C# 枚举强转入口）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 402（以及 409、708、719、742、751）
+- **错误信息**: `[402,41] 找不到符号 符号: 方法 fromValue(int) 位置: 类 UnicodeCategory`
+- **代码片段**:
+  ```java
+  category.value = UnicodeCategory.fromValue((int)((c - 1)));
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 763、772、1226、1241、1271、1284 行 `(UnicodeCategory)(c - 1)` 等枚举强转）
+- **根因分类**: 语义模型信息丢失（compat API 缺口）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/UnicodeCategory.java
+- **分析**: 转换器将 C# 整型→枚举强转发射为 `{EnumType}.fromValue(...)`（AdaptExpressionToTargetTypeCore 枚举规则），但 compat UnicodeCategory 只有 `of(int)`（Java Character 类别映射）。修复：新增 `fromValue(int)` 按 .NET UnicodeCategory 序号取值（越界回落 OtherNotAssigned）。
+- **测试**: `UnicodeCategoryFromValueTests.UnicodeCategoryEnumCast_CompilesAgainstCompatRuntime`（先红后绿）
+- **状态**: ✅ Fixed
