@@ -78,7 +78,7 @@ public class Range : IEnumerable<int>
         var m = IteratorMemberPattern.Match(result.GeneratedCode);
         Assert.True(m.Success, $"Missing [Symbol.iterator] member in:\n{result.GeneratedCode}");
         Assert.Equal("number", m.Groups["elem"].Value);
-        Assert.Contains("return this.iterator();", result.GeneratedCode);
+        Assert.Contains("return this.iterator() as IterableIterator<number>;", result.GeneratedCode);
         AssertCompilesWithCompat(result.GeneratedCode, "global.d.ts", GlobalStub);
     }
 

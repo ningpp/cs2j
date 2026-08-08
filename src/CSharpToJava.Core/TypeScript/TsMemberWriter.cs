@@ -180,7 +180,11 @@ public sealed class TsMemberWriter
         sb.Append($"[Symbol.iterator](): IterableIterator<{mapped}> {{").AppendLine();
         if (iteratorMethod.ReturnType.StartsWith("IterableIterator", StringComparison.Ordinal))
         {
-            sb.Append(ind).Append(_indent).AppendLine("return this.iterator();");
+            // yield→generator 形态：实际元素类型可能比类契约（implements Iterable<T>）
+            // 更宽（IterableIterator<unknown>，TsYieldRewriter 元素类型丢失）——按类契约
+            // 断言（C# IEnumerable<T> 契约），避免 IterableIterator<unknown> 与 T 失配
+            // TS2322 与消费端元素退化为 unknown。
+            sb.Append(ind).Append(_indent).AppendLine($"return this.iterator() as IterableIterator<{mapped}>;");
         }
         else
         {
