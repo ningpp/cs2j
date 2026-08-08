@@ -1087,7 +1087,27 @@ public final class Assert {
             }
             return da == db;
         }
+        // C# Assert.Equal on arrays performs a deep comparison (element-wise).
+        if (a != null && b != null && a.getClass().isArray() && b.getClass().isArray()) {
+            return deepArraysEqual(a, b);
+        }
         return false;
+    }
+
+    private static boolean deepArraysEqual(Object a, Object b) {
+        int lengthA = java.lang.reflect.Array.getLength(a);
+        int lengthB = java.lang.reflect.Array.getLength(b);
+        if (lengthA != lengthB) {
+            return false;
+        }
+        for (int i = 0; i < lengthA; i++) {
+            Object ea = java.lang.reflect.Array.get(a, i);
+            Object eb = java.lang.reflect.Array.get(b, i);
+            if (!objectsEqual(ea, eb)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isIgnoreCase(StringComparison comparisonType) {
