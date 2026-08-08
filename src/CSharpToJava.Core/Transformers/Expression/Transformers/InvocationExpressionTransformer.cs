@@ -1037,6 +1037,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // StringBuilder.GetChunks() has no java.lang.StringBuilder equivalent →
+        // StringBuilderExtensions helper returning one ReadOnlyMemory chunk.
+        if (memberAccess.Name.Identifier.Text == "GetChunks"
+            && node.ArgumentList.Arguments.Count == 0
+            && context.SemanticModel != null)
+        {
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType?.ToDisplayString() == "System.Text.StringBuilder")
+            {
+                context.AddImport("io.github.ningpp.compat.StringBuilderExtensions");
+                return $"StringBuilderExtensions.getChunks({facade.Transform(memberAccess.Expression, context)})";
+            }
+        }
+
         // Count() with no args → size() (Collection) or count() (Iterable fallback)
         // Any() with no args → length>0 (array) or iterator().hasNext() (Iterable/Collection)
         if (node.ArgumentList.Arguments.Count == 0)
