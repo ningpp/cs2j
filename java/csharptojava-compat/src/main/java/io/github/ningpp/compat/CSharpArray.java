@@ -237,7 +237,7 @@ public final class CSharpArray {
         if (destinationIndex > destinationLength) throw new ArgumentOutOfRangeException("arrayIndex");
         if (destinationIndex > destinationLength - length) throw new ArgumentException("Destination array was not long enough.");
         if (sourceArray.getClass() == destinationArray.getClass()
-            || sourceArray.getClass().getComponentType().isAssignableFrom(destinationArray.getClass().getComponentType())) {
+            || destinationArray.getClass().getComponentType().isAssignableFrom(sourceArray.getClass().getComponentType())) {
             System.arraycopy(sourceArray, sourceIndex, destinationArray, destinationIndex, length);
         } else {
             for (int i = 0; i < length; i++) {
