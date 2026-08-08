@@ -946,9 +946,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // matches by erasure, so a constructed generic Type argument is exactly the
         // raw X.class literal. Strip the call and keep the receiver.
         // For variable receivers (proxyType.MakeGenericType(args)) route through
-        // TypeHelper.makeGenericType so the call compiles.
+        // TypeHelper.makeGenericType so the call compiles. MakeGenericType only exists
+        // on System.Type in C#, so no receiver-type guard is needed.
         if (memberAccess.Name.Identifier.Text == "MakeGenericType"
-            && IsSystemTypeReceiver(memberAccess.Expression, context))
+            && node.ArgumentList.Arguments.Count >= 1)
         {
             if (memberAccess.Expression is TypeOfExpressionSyntax)
             {

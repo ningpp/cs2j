@@ -10,9 +10,12 @@ public interface ICustomAttributeProvider {
         return new Object[0];
     }
 
-    /** C# CustomAttributes property — all attributes without the inherit flag. */
-    default Object[] getCustomAttributes() {
-        return getCustomAttributes(false);
+    /**
+     * C# CustomAttributes property — all attributes without the inherit flag,
+     * wrapped as CustomAttributeData metadata.
+     */
+    default CSharpGenericIterable<CustomAttributeData> getCustomAttributes() {
+        return CSharpGenericIterable.from(new java.util.ArrayList<>());
     }
 
     default Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {

@@ -143,8 +143,8 @@ public final class TypeInfo {
     }
 
     /** C# CustomAttributes on the underlying type. */
-    public Object[] getCustomAttributes() {
-        return new Object[0];
+    public CSharpGenericIterable<CustomAttributeData> getCustomAttributes() {
+        return CSharpGenericIterable.from(new java.util.ArrayList<>());
     }
 
     /** C# Type.MakeGenericType(args) — stub returning the raw type. */

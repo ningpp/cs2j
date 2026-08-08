@@ -38,10 +38,14 @@ public class PathHelper {
         return Paths.get(path1, path2).toString();
     }
     /** Mirrors Path.GetExtension */
-    public static String getExtension(String path) {
-        String name = getFileName(path);
+    public static String getExtension(String path) {        String name = getFileName(path);
         if (name == null) return null;
         int dot = name.lastIndexOf('.');
         return dot >= 0 ? name.substring(dot) : "";
+    }
+
+    /** Mirrors Path.GetRandomFileName() — an 8.3-style random file name. */
+    public static String getRandomFileName() {
+        return UUID.randomUUID().toString("N").substring(0, 8) + ".tmp";
     }
 }

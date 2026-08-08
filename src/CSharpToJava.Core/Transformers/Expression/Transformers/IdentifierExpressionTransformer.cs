@@ -1323,6 +1323,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     {
                         return prop.Name == "HasValue" ? $"({propertyTarget} !== null)" : $"({propertyTarget}!)";
                     }
+                    // HasValue on a boxed wrapper is a null check, not an unbox call.
+                    if (prop.Name == "HasValue")
+                        return $"{propertyTarget} != null";
                     if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var nullableUnboxMethod))
                         return $"{propertyTarget}.{nullableUnboxMethod}()";
                 }

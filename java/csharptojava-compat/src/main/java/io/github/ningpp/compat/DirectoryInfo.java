@@ -71,4 +71,39 @@ public class DirectoryInfo {
         }
         return result.toArray(String[]::new);
     }
+
+    /** C# Directory.CreateDirectory(path). */
+    public static void createDirectory(String path) {
+        try {
+            Files.createDirectories(Paths.get(path));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** C# Directory.Delete(path, recursive). */
+    public static void delete(String path, boolean recursive) {
+        try {
+            Path p = Paths.get(path);
+            if (recursive) {
+                deleteRecursively(p);
+            } else {
+                Files.deleteIfExists(p);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void deleteRecursively(Path p) throws IOException {
+        if (!Files.exists(p)) return;
+        if (Files.isDirectory(p) && !Files.isSymbolicLink(p)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(p)) {
+                for (Path child : stream) {
+                    deleteRecursively(child);
+                }
+            }
+        }
+        Files.deleteIfExists(p);
+    }
 }

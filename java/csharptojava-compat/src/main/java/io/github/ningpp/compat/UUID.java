@@ -65,6 +65,14 @@ public final class UUID implements Comparable<UUID> {
         return value.toString();
     }
 
+    /** C# Guid.ToString(format): "N" = 32 hex digits, no dashes; "D"/"" = dashed. */
+    public String toString(String format) {
+        if ("N".equalsIgnoreCase(format)) {
+            return value.toString().replace("-", "");
+        }
+        return value.toString();
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof UUID && value.equals(((UUID) obj).value);

@@ -105,6 +105,9 @@ public partial class StatementTransformer
             if (!hasTernaryWithLambda)
                 javaType = "var";
         }
+        // Java's var cannot infer the type from a null literal initializer — fall back to Object.
+        if (javaType == "var" && hasNullLiteralInitializer)
+            javaType = "Object";
         if (stmt.Declaration.Variables.Count == 1
             && stmt.Declaration.Variables[0].Initializer?.Value is { } singleInitializer
             && TryInferStringTypeFromDegradedInitializer(singleInitializer, context, out var inferredStringType))
