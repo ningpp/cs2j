@@ -43,6 +43,34 @@ namespace App
     }
 
     [Fact]
+    public void Auto_Property_Backing_Field_Default_Zero_Becomes_Factory()
+    {
+        // 镜像 MSAGL Arrowhead.TipPosition（`public Point TipPosition { get; set; }`
+        // 无初始化器自动属性）：PropertyTransformer 为结构体自动属性后备字段填充
+        // `new Point()`，同样需改写为 Point.Create$1()。
+        var result = Convert("""
+namespace App
+{
+    public struct Point
+    {
+        public double X;
+        public double Y;
+
+        public Point(double x, double y) { X = x; Y = y; }
+    }
+
+    public class Use
+    {
+        public Point TipPosition { get; set; }
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("public TipPosition: Point = Point.Create$1();", result.GeneratedCode);
+        Assert.DoesNotContain("TipPosition: Point = new Point();", result.GeneratedCode);
+    }
+
+    [Fact]
     public void Struct_Field_Default_Zero_Initializer_With_Only_Implicit_Ctor_Stays_New()
     {
         // 守卫：仅隐式构造器（无重载组）的 struct 不会被工厂化，`new X()` 保持合法。

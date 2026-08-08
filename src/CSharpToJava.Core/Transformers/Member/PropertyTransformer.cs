@@ -113,7 +113,21 @@ public class PropertyTransformer : IMemberTransformer
         else if (propDecl.Initializer == null && needsBackingField
             && StructCloneHelper.IsUserDefinedStruct(typeInfo.Type))
         {
-            field.Initializer = $"new {propType}()";
+            // Round 20（TS2673）：与 FieldTransformer 结构体字段默认零值填充同规——
+            // TS 目标下工厂化结构体（含隐式无参构造器集合 >1）直发 `new X()` 报
+            // TS2673，零参隐式构造器恒为 Create$1；未工厂化/非本编译单元保持 new。
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript
+                && typeInfo.Type is INamedTypeSymbol structSymbol
+                && structSymbol.InstanceConstructors.Length > 1
+                && structSymbol.Locations.Any(location => location.IsInSource))
+            {
+                var barePropType = propType.Contains('<') ? propType[..propType.IndexOf('<')] : propType;
+                field.Initializer = $"{barePropType}.Create$1()";
+            }
+            else
+            {
+                field.Initializer = $"new {propType}()";
+            }
         }
 
         // 如果有默认值
