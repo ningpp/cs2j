@@ -32,8 +32,9 @@ declare global {
         size(): number;
         /** Java List.contains(Object) → includes（Round 23：CSharpGenericIList 契约）。 */
         contains(item: any): boolean;
-        /** Java List.toArray()/toArray(IntFunction) → 拷贝（生成器形态 T[]::new）。 */
-        toArray<U = T>(mapper?: (n: number) => U[]): U[];
+        /** Java List.toArray()/toArray(T[]::new)/toArray(IntFunction) → 拷贝
+         * （Round 23：CSharpGenericIList 契约；实参可为数组形态或生成器函数）。 */
+        toArray<U = T>(mapper?: ((n: number) => U[]) | U[]): U[];
         /** Java List.iterator() → Symbol.iterator。 */
         iterator(): IterableIterator<T>;
         /** Java Iterable.spliterator() → Symbol.iterator。 */

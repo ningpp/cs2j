@@ -45,8 +45,9 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
             removeAt(index: number): void;
             size(): number;
             get(index: number): T;
+            set(index: number, value: T): void;
             contains(item: any): boolean;
-            toArray(): T[];
+            toArray(mapper?: ((n: number) => T[]) | T[]): T[];
             length?: number;
             iterator(): CSharpGenericEnumerator<T> | IterableIterator<T>;
         }
@@ -81,7 +82,7 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
             insert(index: number, value: T): void;
             removeRange(start: number, end: number): void;
             size(): number;
-            toArray<U = T>(mapper?: (n: number) => U[]): U[];
+            toArray<U = T>(mapper?: ((n: number) => U[]) | U[]): U[];
             iterator(): IterableIterator<T>;
             spliterator(): IterableIterator<T>;
             exists(predicate: (value: T) => boolean): boolean;
@@ -210,6 +211,7 @@ public class NodeCollection : IList<Node>
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         Assert.Contains("implements CSharpGenericIList<Node>", result.GeneratedCode);
         Assert.Contains("public get(index: number): Node { return this.get_Item(index); }", result.GeneratedCode);
+        Assert.Contains("public set(index: number, value: Node): void { this.set_Item(index, value); }", result.GeneratedCode);
         Assert.Contains("public toArray(): Node[] { return Array.from(this); }", result.GeneratedCode);
         AssertCompilesWithCompat(result.GeneratedCode, "global.d.ts", GlobalStub);
     }

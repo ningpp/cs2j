@@ -293,6 +293,12 @@ public sealed class TsMemberWriter
             var ret = _exprWriter.MapType(getItem.ReturnType);
             blocks.Add($"{ind}public get(index: number): {ret} {{ return this.get_Item(index); }}");
         }
+        var setItem = cls.Methods.FirstOrDefault(m => m.Name == "set_Item" && m.Parameters.Count == 2);
+        if (setItem != null && !cls.Methods.Any(m => m.Name == "set" && m.Parameters.Count == 2))
+        {
+            var ret = _exprWriter.MapType(setItem.Parameters[1].Type);
+            blocks.Add($"{ind}public set(index: number, value: {ret}): void {{ this.set_Item(index, value); }}");
+        }
         if (!cls.Methods.Any(m => m.Name == "toArray" && m.Parameters.Count == 0))
         {
             var elementType = cls.ImplementedTypes

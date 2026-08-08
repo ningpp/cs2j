@@ -389,8 +389,9 @@ public static class NpmProjectFiles
             removeAt(index: number): void;
             size(): number;
             get(index: number): T;
+            set(index: number, value: T): void;
             contains(item: any): boolean;
-            toArray(): T[];
+            toArray(mapper?: ((n: number) => T[]) | T[]): T[];
             length?: number;
             iterator(): CSharpGenericEnumerator<T> | IterableIterator<T>;
         }
@@ -434,7 +435,7 @@ public static class NpmProjectFiles
             insert(index: number, value: T): void;
             removeRange(start: number, end: number): void;
             size(): number;
-            toArray<U = T>(mapper?: (n: number) => U[]): U[];
+            toArray<U = T>(mapper?: ((n: number) => U[]) | U[]): U[];
             iterator(): IterableIterator<T>;
             spliterator(): IterableIterator<T>;
             exists(predicate: (value: T) => boolean): boolean;
