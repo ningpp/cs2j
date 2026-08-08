@@ -23,7 +23,7 @@
 | 16 | 23043 → 22171 | raw 文本裸成员引用缺前缀（TS2663 3376 / TS2662 1600 同根：实例缺 `this.`、静态缺 `类名.`） | 新增 TsMemberContext.cs；TsRawStatementNormalizer.cs（新最终 pass NormalizeBareMemberReferences）；TsMemberWriter.cs / TsStatementWriter.cs / TsExpressionWriter.cs / TsTypeWriter.cs / TypeScriptEmitter.cs（成员上下文接线）；tests （TsRawStatementNormalizerTests / 新增 TsRawMemberContextTests / 3 例断言更新）+ 本文件 | 3cf39918 |
 | 17 | 22171 → 15013 | 非自动属性访问器 getter/setter 形态调用点改写（项目级注册表 + raw/结构化 lambda 参数推断） | TsPropertyReconstructionRewriter.cs（ProjectAccessorRegistry / CollectProjectContexts / 访问器调用改写缺口 9 项 + lambda 族）/ TsEmitSupport.cs / ProjectTsPasses.cs / TsPropertyReconstructionRound17Tests.cs | cabeb448（主体被并发会话扫入，内容完整在 HEAD）+ 本轮提交（见下） |
 | 18 | 15013 → 13278 | ①构造器重载调用点未改 Create$N 工厂（TS2673 769→238）；②FQCN 静态方法调用接收者未缩短（TS2304 'Microsoft' 1791→146） | ① ObjectCreationTransformer.cs / TsOverloadDisambiguationRewriter.cs + TsCtorFactoryCrossFileTests.cs；② TsRawStatementNormalizer.cs + TsRawStatementNormalizerTests | 42f4dffe + 7fccb22c |
-| 19 | 13278 → 8159 | 无初始化器引用类型字段宽化 `T | null`（TS2531 2922→15 / TS18047 771→116 / getter 内 TS2322） | src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs（EmitField）+ TsNullAssertionRound19Tests.cs + 3 例既有断言更新 | b52ea407（另：并发会话先期提交 b289f65f 已收割 TS2551 FQCN 接收者族，纳入本轮起点 12633） |
+| 19 | 13278 → 7502 | ①无初始化器引用类型字段宽化 `T | null`（TS2531 2922→15 / TS18047 771→116 / getter 内 TS2322）；②compat Java 集合 API 面缺口（TS2339 CSharpList .get/.set 等 328→0、CsKeyValuePair getKey/getValue 224→0、TS2693 new CSharpList/Stack/Dictionary 130→26） | ① src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs（EmitField）+ TsNullAssertionRound19Tests.cs + 3 例既有断言更新；② NpmProjectPlan.cs（global.d.ts 桩 Array 接口合并 + const 合并）/ TsRawStatementNormalizer.cs / TsExpressionWriter.cs（new CSharpList 改写）+ compat ArrayCompat.ts + CsKeyValuePair.ts + index.ts + TsCollectionCompatRound19Tests.cs | b52ea407 + 4424932a + fd623fe3 + cc02d254（另：并发会话先期提交 b289f65f 已收割 TS2551 FQCN 接收者族，纳入本轮起点 12633） |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -628,3 +628,58 @@ getset 1,145 → 约 450；`getSource 135` 等大项清零），并留下 `e4f13
   getKey/getValue；本轮 null 修复后 ~40 处此前被 TS2531 掩盖的 `.get` 调用点浮现）；
   ② TS2551 612 残量 getset 调用点（Edge.getSource/getTarget 16、TreeNode.type/module 20…）+
   TS2339 Edge.NodeId 103；③ TS2304 1,394 残量 Java 全局名（Stream/StreamSupport/MapHelper…）。
+
+## Round 19（根因 B）— compat Java 集合 API 面（TS2339 2,012 → 1,316 / TS2693 364 → 296）
+
+- **C# 构造**：`List<T>`/`Stack<T>` 索引器与成员方法映射为 Java 风味调用点（`A[0]` →
+  `.get(0)`、`A[0]=x` → `.set(0,x)`、`RemoveAt` → `.removeAt`、`Peek` → `.peek`），
+  LINQ/字典迭代元素访问 `kv.getKey()/getValue()`（Map.Entry 形态）；`new List<T>(coll)` →
+  `new CSharpList<T>(coll)` 值位（probe：`this.B = new CSharpList<Integer>(other);`）。
+- **错误 TS 输出（修复前）**：`let x: number = this.A.get(0);` → TS2339 "Property 'get' does
+  not exist on type 'CSharpList<number>'"（get 328/set 22/remove 28/addRange 23/…，合计 ~460）；
+  `kv.getKey()` → TS2339 224；`new CSharpList<Integer>(other)` → TS2693（CSharpList 89 /
+  CSharpStack 31 / CSharpDictionary 10）。
+- **正确 TS 输出**：同一调用点编译通过（Array 方法面声明）；`new CSharpList<X>()` → `[]`、
+  `new CSharpList<X>(e)` → `Array.from(e)`（数字字面量 → `new Array(n)`）、
+  `new CSharpDictionary<K,V>(n)` → compat 类构造（const 合并）。
+- **根因**：`CSharpList<T> = Array<T>`/`CSharpStack<T> = Array<T>` 是纯类型别名，无运行时值
+  与方法面；compat `CsKeyValuePair` 只有 key/value 字段无 Java 访问器。三个子面同一根因
+  （compat API 缺口）：
+  1. **方法面**——global.d.ts 桩增 `interface Array<T>` 合并声明（get/set/add/addAll/remove/
+     removeAt/insert/removeRange/size/toArray/iterator/spliterator/exists/ensureCapacity/peek），
+     与 compat 运行时 `ArrayCompat.ts`（Array.prototype 非枚举 polyfill，spec §4.3.5 IList/
+     Stack 语义：get=下标、set=下标写、add=push、remove=按值删、removeAt=splice、size=length、
+     toArray=拷贝/生成器、iterator/spliterator=Symbol.iterator、exists=some、peek=末元素）一一
+     对应；compat 根入口副作用导入（实证：全库 140 个使用该面的文件全部已 import compat，
+     任意 compat 导入即安装 polyfill）。
+  2. **构造值位**——raw 文本 `NormalizeCompatListConstructors` 与结构化 `EmitNew` 同规改写
+     `new CSharpList/Stack<X>()` → `[]`、单实参 → `Array.from(e)`（数字字面量 `new Array(n)`，
+     Java ArrayList(int) 容量语义）；`CSharpDictionary/CSharpHashSet` 值位经桩 `declare const`
+     同名合并解析为 compat 类构造器（type+const 同名声明，Round 15 测试桩同模式）。
+  3. **CsKeyValuePair**——compat 类增 `getKey()/getValue()`。
+- **测试（先红后绿）**：compat vitest `ArrayCompat.test.ts` 15 例（get/set/add/addAll/remove/
+  removeAt/insert/removeRange/size/toArray/iterator/exists/ensureCapacity/peek）+ CsKeyValuePair
+  getKey/getValue；cs2j `TsCollectionCompatRound19Tests.cs` 6 例（Array.from/[]/new Array 形态、
+  多实参/非集合构造守卫、端到端 List 探针 strict tsc 编译含桩）。红：6 例全败 + compat 模块
+  不存在；绿后 compat tsc 干净 + vitest 218/218。
+- **验证链**：重建 → 删目录全量重转 → 独立 tsc：**8,159 → 7,502 行（−657）**；三元组
+  −649 / +121 全为揭示型迁移（TS2551 42：列表元素类型 getter 形态调用点浮现——元素接收者
+  属 TsPropertyReconstruction 残量族；TS2556 17 spread、TS2345 16、TS2322 9、TS2769 8
+  容量表达式、TS18046 7 unknown 等——均非既有正确代码回归）。TS2339 **2,012 → 1,316**
+  （CSharpList 方法面 328→0、CsKeyValuePair 224→0）、TS2693 **364 → 296**（构造值位
+  130→26，残量为 Double/Integer 装箱族）。语法 0。compat 复制品（dest/compat）含新 dist
+  （ArrayCompat.d.ts + index.js 副作用）实证。
+- **中途修正**：fd623fe3 曾以 typeof 分发三元处理容量表达式（`Array.from(typeof (e) ===
+  "number" ? new Array(e) : (e))`）——实参三处重复导致实参内部诊断三倍化（+42 quads，
+  TS7006/TS2304 在 lambda/名字位），cc02d254 回退为单次 `Array.from(e)`；8 个容量表达式位
+  （TS2769，`new CSharpList<X>(a.length + b.length - 1)` 形态）登记为下轮候选（需类型感知
+  的容量/集合分派）。往返验证 7,502 与回退前一致。
+- **dotnet test 全绿**：7 + 664（CSharpToTypeScript.Tests，含本轮 6）+ 2492（CSharpToJava.Tests；
+  较上轮 +5 为并发会话新增）。
+- **提交**：4424932a（主修复）、fd623fe3 + cc02d254（容量表达式往返）、本文档独立提交。
+- **并发干扰**：InvocationExpressionTransformer.cs 途中构建中断（CS0841，并发会话迭代中），
+  轮询后恢复；其未提交文件一律不碰不纳。
+- **下轮候选（更新）**：① TS2339 1,316 —— Edge.NodeId 103/Selected 27/Used 22（属性名映射）、
+  ParallelogramLeaf getLow/getHigh 52、`accept` ShowDebugCurvesEnumeration 37；② TS2551 663
+  （列表元素/字典值接收者 getter 形态 + 本轮新浮现 42）；③ TS2304 1,393（Stream/StreamSupport/
+  MapHelper 等 Java 全局名）+ TS2693 装箱族（Double 148/Integer 62 等，new Double(x) → x）。
