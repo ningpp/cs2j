@@ -15,8 +15,14 @@ public class ThreadHelper {
     /** Mirrors Thread.CurrentThread.CurrentCulture getter. */
     public CultureInfo getCurrentCulture() { return CultureInfo.getCurrentCulture(); }
 
+    /** Mirrors Thread.CurrentThread.CurrentUICulture getter. */
+    public CultureInfo getCurrentUICulture() { return CultureInfo.getCurrentUICulture(); }
+
     /** Mirrors Thread.CurrentThread.CurrentCulture setter with CultureInfo. */
     public void setCurrentCulture(CultureInfo culture) { /* locale-setting is global in JVM */ }
+
+    /** Mirrors Thread.CurrentThread.CurrentUICulture setter with CultureInfo. */
+    public void setCurrentUICulture(CultureInfo culture) { /* locale-setting is global in JVM */ }
 
     /** Mirrors Thread.CurrentThread.CurrentCulture setter with Locale. */
     public void setCurrentCulture(Locale locale) { Locale.setDefault(locale); }

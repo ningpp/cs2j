@@ -323,3 +323,20 @@
 - **分析**: `ex is T1` 在 Roslyn 中解析为 BinaryExpressionSyntax(IsExpression)（非 IsPatternExpression），走 TransformIs/TransformToIR 发射 `ex instanceof T1`，而 Java 禁止 instanceof 类型变量（T1 擦除为 RuntimeException，报"无法安全地转换为"）。修复：三处发射点统一处理 ITypeParameterSymbol —— TransformIs 与 TransformToIR 的 IsExpression 分支、以及 TransformTypePattern（真 TypePattern 语境）在模式类型为类型参数时发射 `_cs2j_T1.isInstance(ex)`（GetClassLiteral 自动注册 Class<T> 签名参数）；具体类型保持 instanceof。
 - **测试**: `ExceptionCatchOrderTests.IsTypeParameterPattern_UsesRuntimeClassToken`（先红后绿，全量 2529 通过）
 - **状态**: ✅ Fixed
+
+## Iteration 19 — 找不到符号 getCurrentUICulture（compat ThreadHelper 缺 UI 文化访问器）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/System/Tests/ThreadCultureChange.java
+- **行号**: 37（以及 40、46）
+- **错误信息**: `[37,58] 找不到符号 符号: 方法 getCurrentUICulture() 位置: 类型为io.github.ningpp.compat.ThreadHelper的变量`
+- **代码片段**:
+  ```java
+  _originalUICulture = ThreadHelper.currentThread().getCurrentUICulture();
+  ThreadHelper.currentThread().setCurrentUICulture(culture);
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\TestUtilities\System\Tests\AssertExtensions.cs（ThreadCultureChange 类，Thread.CurrentThread.CurrentUICulture 读写）
+- **根因分类**: 语义模型信息丢失（compat API 缺口）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ThreadHelper.java
+- **分析**: 转换器把 Thread.CurrentThread.CurrentUICulture 发射为 ThreadHelper.currentThread().getCurrentUICulture()/setCurrentUICulture()，但 compat ThreadHelper 只有 CurrentCulture 的访问器，没有 UI 文化访问器。修复：补充 `getCurrentUICulture()`/`setCurrentUICulture(CultureInfo)`（委托 CultureInfo 静态访问器，与 CurrentCulture 一致）。
+- **测试**: `ExceptionCatchOrderTests.ThreadCurrentUICulture_MapsToThreadHelperAccessors`（先红后绿，全量 2530 通过；compat 编译验证由 Maven 构建执行，测试内不再调用 javac）
+- **状态**: ✅ Fixed
