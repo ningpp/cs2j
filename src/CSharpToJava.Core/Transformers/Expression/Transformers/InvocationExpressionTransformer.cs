@@ -1595,7 +1595,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // C# Type.GetField(name) → TypeHelper.getField(class, name)
-        // Java Class.getDeclaredField throws; use compat helper returning null.
+        // C# Type.GetField(name, BindingFlags) → TypeHelper.getField(class, name, int)
+        // Java Class.getField only finds public fields; when BindingFlags includes
+        // NonPublic, use the compat overload that searches declared fields.
         if (originalMethodName == "GetField"
             && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Type"
             && node.ArgumentList.Arguments.Count >= 1)
@@ -1604,6 +1606,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var fieldNameArg = node.ArgumentList.Arguments[0].Expression is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax lit2
                 ? $"\"{lit2.Token.ValueText}\""
                 : facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+
+            // Check for GetField(name, BindingFlags) overload
+            bool hasFieldBindingFlags = node.ArgumentList.Arguments.Count >= 2
+                && earlyMethodSymbol.Parameters.Length >= 2
+                && earlyMethodSymbol.Parameters[1].Type.ToDisplayString() == "System.Reflection.BindingFlags";
+
+            if (hasFieldBindingFlags)
+            {
+                var flagsExpr = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"TypeHelper.getField({receiver}, {fieldNameArg}, {flagsExpr})";
+            }
             return $"TypeHelper.getField({receiver}, {fieldNameArg})";
         }
 

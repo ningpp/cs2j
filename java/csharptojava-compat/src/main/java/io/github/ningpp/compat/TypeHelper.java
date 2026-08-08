@@ -306,6 +306,36 @@ public final class TypeHelper {
     }
 
     /**
+     * Bridges C# Type.GetField(name, BindingFlags) semantics.
+     * When BindingFlags include NonPublic, searches declared fields
+     * (including private, protected, and package-private) across the
+     * class hierarchy, matching C# behavior where NonPublic | Instance
+     * finds non-public instance fields.
+     */
+    public static FieldInfo getField(Class<?> type, String name, int bindingFlags) {
+        if (type == null || name == null) {
+            return null;
+        }
+        boolean wantNonPublic = (bindingFlags & 0x20) != 0;
+        if (wantNonPublic) {
+            // Search declared fields across the hierarchy to find non-public members
+            Class<?> current = type;
+            while (current != null) {
+                for (Field field : current.getDeclaredFields()) {
+                    if (field.getName().equals(name) && matchesBindingFlags(field.getModifiers(), bindingFlags)) {
+                        field.setAccessible(true);
+                        return new FieldInfo(field);
+                    }
+                }
+                current = current.getSuperclass();
+            }
+            return null;
+        }
+        // Public-only search — delegate to the simple overload
+        return getField(type, name);
+    }
+
+    /**
      * Bridges C# Type.GetProperty(name) semantics.
      * Looks up a Java bean property by its C#/Java property name (e.g. "Value" or "value").
      */
