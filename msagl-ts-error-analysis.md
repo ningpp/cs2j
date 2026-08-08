@@ -24,6 +24,7 @@
 | 17 | 22171 → 15013 | 非自动属性访问器 getter/setter 形态调用点改写（项目级注册表 + raw/结构化 lambda 参数推断） | TsPropertyReconstructionRewriter.cs（ProjectAccessorRegistry / CollectProjectContexts / 访问器调用改写缺口 9 项 + lambda 族）/ TsEmitSupport.cs / ProjectTsPasses.cs / TsPropertyReconstructionRound17Tests.cs | cabeb448（主体被并发会话扫入，内容完整在 HEAD）+ 本轮提交（见下） |
 | 18 | 15013 → 13278 | ①构造器重载调用点未改 Create$N 工厂（TS2673 769→238）；②FQCN 静态方法调用接收者未缩短（TS2304 'Microsoft' 1791→146） | ① ObjectCreationTransformer.cs / TsOverloadDisambiguationRewriter.cs + TsCtorFactoryCrossFileTests.cs；② TsRawStatementNormalizer.cs + TsRawStatementNormalizerTests | 42f4dffe + 7fccb22c |
 | 19 | 13278 → 7502 | ①无初始化器引用类型字段宽化 `T | null`（TS2531 2922→15 / TS18047 771→116 / getter 内 TS2322）；②compat Java 集合 API 面缺口（TS2339 CSharpList .get/.set 等 328→0、CsKeyValuePair getKey/getValue 224→0、TS2693 new CSharpList/Stack/Dictionary 130→26） | ① src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs（EmitField）+ TsNullAssertionRound19Tests.cs + 3 例既有断言更新；② NpmProjectPlan.cs（global.d.ts 桩 Array 接口合并 + const 合并）/ TsRawStatementNormalizer.cs / TsExpressionWriter.cs（new CSharpList 改写）+ compat ArrayCompat.ts + CsKeyValuePair.ts + index.ts + TsCollectionCompatRound19Tests.cs | b52ea407 + 4424932a + fd623fe3 + cc02d254（另：并发会话先期提交 b289f65f 已收割 TS2551 FQCN 接收者族，纳入本轮起点 12633） |
+| 20 | 7502 → 7235 | 构造器工厂（Create$N）调用点残余缺口（TS2673 369→73）：①结构化 JavaNewExpression 发射路径（EmitNew）无工厂改写；②结构体默认零值填充（字段/自动属性后备字段）raw 文本；③LINQ 重写产物链内 ctor 符号不可解析 → 回退实参数量+字面量种类匹配 | JavaExpression.cs（JavaNewExpression.FactoryName）+ ObjectCreationTransformer.cs（TransformToIR 携带工厂名 / TryGetCtorFactoryName 回退）/ TsExpressionWriter.cs（EmitNew）+ FieldTransformer.cs / PropertyTransformer.cs（Create$1 填充）+ TsCtorFactoryRound20Tests.cs | a5931994 + b89df38c |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -38,6 +39,89 @@
 > Round 12 注：A2 修复（HasAcceptedIdentityArrayBase）与 1 例测试被并发会话的
 > git add 整文件暂存扫入 07acb643（其提交主题为 reflection flag enums 映射）；
 > 本节记录与表格行由独立提交收录。
+
+## Round 20 — 构造器工厂（Create$N）调用点残余缺口（TS2673 369 → 73）
+
+实测起点 = Round 19 终态 **7,502 错误行**（新独立 tsc 复核一致；tsc-r20-full.txt
+与 r19-final4.txt 字节级相同）。
+
+- **C# 构造**：任一 `new X(args)`，其中 X 被 TsCtorFactoryRewriter 工厂化
+  （实例构造器 >1，含 struct 隐式无参；声明端只剩私有无参构造器 + 静态
+  Create$N 工厂）：
+  - `Point pivot;`（ConvexHull.cs:15，struct 字段无初始化器 → Java 默认零值填充）
+  - `public Point TipPosition { get; set; }`（Arrowhead.cs:38，自动属性后备字段）
+  - `obstacleShapes.Select(s => new DebugCurve(1, s.BoundaryCurve))`
+    （SplineRouter.cs:748，复杂 LINQ 链 lambda 体）
+  - `new Point(0, Double.MaxValue)`（ConvexHull.cs:24，方法体内）
+- **错误 TS 输出（修复前，本轮起点 369 条）**：上述形态全部直发 `new X(...)`
+  → `error TS2673: Constructor of class 'X' is private and only accessible
+  within the class declaration.`（Point 170 / DebugCurve 37 / Rectangle 27 /
+  LineSegment 20 / Edge 11 / BorderInfo 8 …）。
+- **正确 TS 输出**：`Point.Create$1()` / `DebugCurve.Create$3(1, s.BoundaryCurve)`
+  （工厂序号按参数数量升序稳定排序 + 1 基序数，隐式无参置首；与 IR 层
+  TsCtorFactoryRewriter 同算法独立重算）。
+- **TS2673 回归/揭示判定（程序化）**：对比 Round 19 起点（tsc-r19-full.txt，
+  12,633 态）与 Round 19 终态（tsc-r19-final4.txt，7,502 态）的 TS2673 行：
+  **348/348 行完全相同**（终点新增 0、移除 0）→ +131（238→369）全部发生于
+  Round 18 终态与 Round 19 起点之间，由并发会话 b289f65f 的字段初始化器
+  FQCN 缩短揭示（此前被 TS2304 'Microsoft' 掩盖）→ **揭示非回归**，Round 19
+  自身改动（null!/compat）零影响。
+- **根因链（同一族三条产线，全部绕过了既有三处工厂改写点——语法层
+  TsOverloadDisambiguationRewriter（≥2 显式构造器）、raw 字符串路径
+  ObjectCreationTransformer.TryBuildTsCtorFactoryCall（line 837）、
+  TsCtorFactoryRewriter（仅声明侧））**：
+  1. **结构化 JavaNewExpression 发射路径**（主根因，~250 条）：简单实参
+     `new X(...)`（含 lambda 体/嵌套实参）在 IR 生成走 TransformToIR →
+     JavaNewExpression → TsExpressionWriter.EmitNew **直发 `new Type(args)`，
+     无任何工厂改写**（与 raw 路径不同步）。
+  2. **结构体默认零值填充 raw 文本**（~150 条）：FieldTransformer（字段）与
+     PropertyTransformer（自动属性后备字段）对无初始化器用户定义结构体字段
+     直产 `new {javaType}()`，从未经工厂改写。
+  3. **LINQ 重写产物链内 ctor 符号不可解析**：TsLinqRewriter 复杂链产物
+     `Enumerable.select(xs, x => …)` 在 C# 中无绑定 → lambda 参数类型为错误
+     类型 → 内部 `new X(…)` 的重载决议失败 → GetSymbolInfo 返回 null →
+     连既有 raw 路径 line 837 也跳过（实证：探针首实参为字面量的内层
+     `new LineSegment(1.0, 2.0)` 被改写、依赖错误类型参数的外层不改写）。
+- **修复位置与策略**：
+  1. `Java/JavaExpression.cs`：`JavaNewExpression` 增可选 `FactoryName`；
+     `ObjectCreationTransformer.TransformToIR` 两个分支（显式/隐式 new）按
+     语义模型解析目标构造器、独立重算 Create$N 序号携带到发射端；
+     `TsExpressionWriter.EmitNew` 有 FactoryName 时改发 `Type.Create$N(args)`
+     （接收者取映射后裸名，泛型类静态工厂按类名访问）。仅 TS 目标；Java
+     目标 FactoryName 恒 null，零回归。
+  2. `TryGetCtorFactoryName`（自 TryBuildTsCtorFactoryCall 抽出，三者共用）
+     增**回退**：ctor 符号不可解析但 createdType 符号可解析（类型未被污染，
+     仅实参类型被污染）→ 实参数量唯一 → 确定工厂；同参数量多候选 → 数值/
+     字符串字面量对数值/字符串形参打分，唯一零失配者胜出；仍歧义 → 不改写
+     （保持 new，语义安全——未工厂化场景 new 合法）。
+  3. `FieldTransformer` / `PropertyTransformer` 结构体默认零值填充：TS 目标
+     + 实例构造器 >1 + 本编译单元 → `X.Create$1()`（零参隐式构造器恒为
+     Create$1）；单构造器（如 `struct Plain`）保持 `new X()`。
+- **测试（先红后绿）**：`TsCtorFactoryRound20Tests.cs` 7 例——字段默认零值
+  工厂化 / 自动属性后备字段工厂化 / 仅隐式构造器守卫（保持 new）/ raw LINQ
+  lambda 工厂化（`DebugCurve.Create$3(1, "red", x)`）/ 嵌套 struct-in-lambda
+  工厂化 / 同参数量字面量种类消歧（4 参两组，数值字面量失配排除）/ 全标识符
+  实参歧义守卫（保持 new 且无 Create$）。红态：新 7 例首跑 5 失败 + 探针
+  迭代（TransformObjectCreation/GetSymbolInfo 调试输出定位 LINQ 链
+  ctor=null 根因）；修复后全绿。既有 TsCtorFactoryCrossFileTests/
+  TsOverloadRewriterTests 回归全绿。
+- **验证链**：重建 → 删目录全量重转（510/510）→ 独立 tsc 7.0.2：
+  **7,502 → 7,235 错误行（−267）**；TS2673 **369 → 73**（−80.2%）。三元组
+  对比（path+line+code）：**移除 281**（TS2673 275 + TS2554 4 + TS2702 1 +
+  TS2304 1）、**新增 32** 全为既有行迁移（TS2345 12 / TS2322 8 / TS2741 5 /
+  TS2739 3 / TS2554 3 / TS2488 1——均为 TS2673 移除后同一行上早已存在的
+  null/unknown/Iterable 族语义错误浮现，与 Round 17-19 揭示模式一致，逐条
+  核对非既有正确代码回归）。语法 0。全量 `dotnet test` 绿：7 + 671
+  （CSharpToTypeScript.Tests，含本轮 7）+ 2492（CSharpToJava.Tests，较上轮
+  +7 为并发会话新增）。
+- **提交**：a5931994（JavaNewExpression 工厂携带 + 回退匹配 + 字段填充）、
+  b89df38c（自动属性后备字段填充）；本文档独立提交。
+- **并发干扰**：无（本轮起点与终点 `git status` 均干净；无并发提交混入）。
+- **残留 TS2673（73，下轮候选）**：raw 文本产线（Arrays.setAll/Stream 链
+  lambda 体等 Java 风味直通文本中的 `new Point()` 等，33 Point / 13
+  Rectangle / 10 Edge / 8 BorderInfo / 6 DebugCurve 等——需 raw 文本工厂
+  注册表改写）；`RectanglePacking<TData>` 单 C# 构造器但 IR 侧被工厂化
+  （实例构造器数不一致 → 回退跳过）等。
 
 ## Round 15 — E 族：LINQ 重写产物方法引用形态 TS 归一化（语法清零，语义波涌现）
 
