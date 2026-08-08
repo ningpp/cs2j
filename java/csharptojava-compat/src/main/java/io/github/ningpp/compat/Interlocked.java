@@ -57,4 +57,16 @@ public final class Interlocked {
     public static int decrement(IntHolder location) {
         return --location.value;
     }
+
+    /** Mirrors Interlocked.Or(ref int, int) over generated ref holders. */
+    public static int or(IntHolder location, int value) {
+        location.value |= value;
+        return location.value;
+    }
+
+    /** Mirrors Interlocked.And(ref int, int) over generated ref holders. */
+    public static int and(IntHolder location, int value) {
+        location.value &= value;
+        return location.value;
+    }
 }
