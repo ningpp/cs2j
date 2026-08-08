@@ -250,3 +250,26 @@
 - **修复**: 新增 `InitializerEmitsNull` 帮助方法——`null` 字面量，或 `default(T)` 且 T 为引用类型/Nullable<T>/仅引用约束类型参数时视为发射 null；null 发射初始化器时跳过"回写 var"并保留解析出的具体类型（`CustomAttributeData _last = null;`），纯 null 字面量（无解析类型）仍回退 `Object`。一处修复覆盖所有 LINQ 重写的 _last/_acc/bestItem_ 声明。
 - **测试**: `TestModuleBatch3Tests.VarWithDefaultReferenceTypeInitializer_KeepsResolvedType`、`SingleOrDefaultRewrittenLast_NullInitializerTyped`（先红后绿，全量 2525 通过；1 个存量 TypeScript CLI 测试失败与本次无关）
 - **状态**: ✅ Fixed
+
+## Iteration 15 — 意外的类型: catch (T ex)（Java 禁止 catch 类型变量）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/System/Tests/AssertExtensions.java
+- **行号**: 36（以及 46、54、68、76 共 5 处）
+- **错误信息**: `[36,18] 意外的类型 需要: 类 找到: 类型参数T`
+- **代码片段**:
+  ```java
+  public static <T extends ArgumentException> T throwsValue(Class<T> _cs2j_T, String paramName, Runnable testCode) {
+      try {
+          testCode.run();
+      } catch (T ex) {          // ← line 36: Java 禁止 catch 类型变量
+          return ex;
+      }
+      throw new ArgumentException("...");
+  }
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\TestUtilities\System\Tests\AssertExtensions.cs（`catch (T ex)` 出现在 Throws<T> 的 5 个重载，T 有 ArgumentException/Exception 约束）
+- **根因分类**: Transformer 逻辑缺陷（catch 类型为类型参数时无降级）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs（TransformTryStatement）；src/CSharpToJava.Core/Java/JavaStatement.cs（JavaCatchClause）
+- **分析**: C# 允许 `catch (T)`（T 有 Exception 约束），Java 禁止 catch 类型变量。转换器对 catch 类型只做 MapType（类型参数原样输出 "T"）。修复：检测 catch 类型为 ITypeParameterSymbol 时，(1) 取第一个 class 约束作为 catch 类型（System.ArgumentException → compat ArgumentException，System.Exception → RuntimeException）；(2) 用 `ConversionContext.GetClassLiteral` 注册并取得 `Class<T>` token（`_cs2j_T`），catch 子句整段以 JavaCatchClause.RawOverride 原样发射：`catch (约束 _cs2j_xCatch) { if (!_cs2j_T.isInstance(_cs2j_xCatch)) throw ...; T ex = (T) _cs2j_xCatch; <body 原样> }`——主体引用绑定到 T 类型局部，保持 C# catch(T) 语义（不匹配的异常继续传播）。主体用原始语法树变换（不做语法重命名），避免语义模型节点越界异常；filter 时 body 包 if(filter)。
+- **测试**: `ExceptionCatchOrderTests.TypeParameterCatch_UsesConstraintTypeWithRuntimeGuard`（先红后绿，全量 2526 通过）
+- **状态**: ✅ Fixed

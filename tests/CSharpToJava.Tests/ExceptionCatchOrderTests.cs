@@ -40,6 +40,40 @@ public class Test
             "Project-specific exception catch must precede RuntimeException catch.\n" + result.GeneratedCode);
     }
 
+    [Fact]
+    public void TypeParameterCatch_UsesConstraintTypeWithRuntimeGuard()
+    {
+        var result = Convert(@"
+using System;
+
+public class Test
+{
+    public static T Throws<T>(Action testCode) where T : ArgumentException
+    {
+        try
+        {
+            testCode();
+        }
+        catch (T ex)
+        {
+            return ex;
+        }
+        throw new ArgumentException(""oops"");
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        // Java cannot catch a type variable: catch the constraint type + runtime guard.
+        Assert.DoesNotContain("catch (T ex)", code);
+        Assert.Contains("catch (ArgumentException _cs2j_exCatch)", code);
+        Assert.Contains("_cs2j_T.isInstance(_cs2j_exCatch)", code);
+        Assert.Contains("T ex = (T) _cs2j_exCatch;", code);
+        Assert.Contains("return ex;", code);
+        Assert.Contains("Class<T> _cs2j_T", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

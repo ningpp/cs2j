@@ -756,10 +756,25 @@ public partial class StatementTransformer
         {
             string javaType = "Exception";
             string? varName = null;
+            ITypeParameterSymbol? caughtTypeParam = null;
             if (catchClause.Declaration != null)
             {
                 var typeInfo = context.GetTypeInfo(catchClause.Declaration.Type);
-                javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "Exception";
+                if (typeInfo.Type is ITypeParameterSymbol tp)
+                {
+                    // Java cannot catch a type variable (catch (T ex)). C# allows it when T has
+                    // an Exception constraint. The clause is rewritten to catch the constraint
+                    // type plus a runtime isInstance guard (using the Class<T> token) so that
+                    // non-matching exceptions continue to propagate, and a T-typed local that
+                    // the body binds to (C# catch(T) semantics).
+                    caughtTypeParam = tp;
+                    var constraint = tp.ConstraintTypes.FirstOrDefault(t => t.TypeKind == TypeKind.Class);
+                    javaType = constraint != null ? context.MapType(constraint) : "Exception";
+                }
+                else
+                {
+                    javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "Exception";
+                }
                 var rawVarName = catchClause.Declaration.Identifier.ValueText;
                 if (!string.IsNullOrWhiteSpace(rawVarName))
                     varName = ConversionContext.EscapeJavaKeyword(rawVarName);
@@ -770,6 +785,52 @@ public partial class StatementTransformer
                 ExceptionType = javaType,
                 VariableName = varName
             };
+
+            // For catch (T ...) with a type-parameter type, emit the whole clause raw:
+            // catch (constraint _cs2j_xCatch) { guard; T x = (T) _cs2j_xCatch; body }
+            bool typeParameterCatch = caughtTypeParam != null && catchClause.Declaration != null;
+            if (typeParameterCatch)
+            {
+                var token = ConversionContext.GetClassLiteral(caughtTypeParam!, context);
+                var rawCatchVarName = catchClause.Declaration.Identifier.ValueText;
+                var syntheticCatchName = string.IsNullOrWhiteSpace(rawCatchVarName)
+                    ? "_cs2j_catchEx"
+                    : $"_cs2j_{rawCatchVarName}Catch";
+                var catchText = new StringBuilder();
+                catchText.Append(" catch (").Append(javaType).Append(' ').Append(syntheticCatchName).Append(") {\n");
+                catchText.Append("    if (!").Append(token).Append(".isInstance(").Append(syntheticCatchName).Append(")) {\n");
+                catchText.Append("        throw ").Append(syntheticCatchName).Append(";\n");
+                catchText.Append("    }\n");
+                if (!string.IsNullOrWhiteSpace(rawCatchVarName))
+                {
+                    catchText.Append("    ").Append(caughtTypeParam!.Name).Append(' ').Append(varName)
+                        .Append(" = (").Append(caughtTypeParam.Name).Append(") ").Append(syntheticCatchName).Append(";\n");
+                }
+
+                var exprTransformer = ExpressionTransformerFacade.Instance;
+                var filterExpr = catchClause.Filter?.FilterExpression;
+                var filter = filterExpr != null ? exprTransformer.Transform(filterExpr, context) : null;
+                context.MethodState.PushScope();
+                var catchStatements = TransformStatementsToIR(catchClause.Block.Statements, context);
+                context.MethodState.PopScope();
+                var innerBody = new Java.JavaBlockStatement();
+                foreach (var s in catchStatements)
+                    innerBody.Statements.Add(s);
+                var bodyText = innerBody.ToString("            ");
+                if (filter != null)
+                {
+                    // Java doesn't support catch filters — wrap body in if statement
+                    catchText.Append("    if (").Append(filter).Append(") ").Append(bodyText).Append('\n');
+                }
+                else
+                {
+                    catchText.Append(bodyText);
+                }
+                catchText.Append("    }");
+                catchClauseIR.RawOverride = catchText.ToString();
+                result.CatchClauses.Add(catchClauseIR);
+                continue;
+            }
 
             if (catchClause.Filter != null)
             {

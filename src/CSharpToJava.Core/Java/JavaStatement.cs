@@ -289,6 +289,11 @@ public class JavaTryCatchStatement : JavaStatement
 
         foreach (var catchClause in CatchClauses)
         {
+            if (!string.IsNullOrEmpty(catchClause.RawOverride))
+            {
+                sb.Append(catchClause.RawOverride);
+                continue;
+            }
             sb.Append(" catch (").Append(catchClause.ExceptionType);
             if (!string.IsNullOrEmpty(catchClause.VariableName))
             {
@@ -319,6 +324,15 @@ public class JavaCatchClause
     public string ExceptionType { get; set; } = "Exception";
     public string? VariableName { get; set; }
     public JavaBlockStatement Body { get; set; } = new();
+
+    /// <summary>
+    /// When set, the complete catch clause (including " catch (...) { ... }") is
+    /// emitted verbatim instead of the structured ExceptionType/VariableName/Body
+    /// form. Used for catch (T) with a type-parameter type, which Java forbids:
+    /// the clause is rewritten to catch the constraint type plus a runtime
+    /// isInstance guard and a T-typed local.
+    /// </summary>
+    public string? RawOverride { get; set; }
 }
 
 /// <summary>
