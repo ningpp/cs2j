@@ -42,7 +42,7 @@ public class TsCollectionCompatRound19Tests : TsConversionTestBase
         var normalized = TsRawStatementNormalizer.Normalize(
             "CSharpList<Polyline> holes = new CSharpList<Polyline>(orientHolesClockwise(obstacles));",
             s => s, null);
-        Assert.Contains("Array.from(typeof (orientHolesClockwise(obstacles)) === \"number\" ? new Array(orientHolesClockwise(obstacles)) : (orientHolesClockwise(obstacles)))", normalized);
+        Assert.Contains("= Array.from(orientHolesClockwise(obstacles))", normalized);
         Assert.DoesNotContain("new CSharpList", normalized);
     }
 
@@ -72,11 +72,11 @@ public class TsCollectionCompatRound19Tests : TsConversionTestBase
             "CSharpList<Point> pts = new CSharpList<Point>(5);",
             s => s, null);
         Assert.Contains("= new Array(5)", normalized);
-        // 数字表达式非字面量 → typeof 分发三元（编译期类型不可判定）
+        // 非字面量单实参 → Array.from(expr)（集合拷贝语义）
         var normalizedExpr = TsRawStatementNormalizer.Normalize(
             "CSharpList<Point> pts = new CSharpList<Point>(count - 1);",
             s => s, null);
-        Assert.Contains("Array.from(typeof (count - 1) === \"number\" ? new Array(count - 1) : (count - 1))", normalizedExpr);
+        Assert.Contains("= Array.from(count - 1)", normalizedExpr);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public class Probe
 """);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("this.A = [];", result.GeneratedCode);
-        Assert.Contains("this.B = Array.from(typeof (other) === \"number\" ? new Array(other) : (other));", result.GeneratedCode);
+        Assert.Contains("this.B = Array.from(other);", result.GeneratedCode);
         Assert.Contains("let x: number = this.A.get(0);", result.GeneratedCode);
         Assert.Contains("this.A.set(0, x);", result.GeneratedCode);
         Assert.Contains("this.A.removeAt(0);", result.GeneratedCode);

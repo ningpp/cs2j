@@ -1923,9 +1923,13 @@ public static class TsRawStatementNormalizer
                             }
                             else if (inner.IndexOf(',') < 0)
                             {
+                                // 数字字面量 → new Array(n)（ArrayList(int) 容量语义）；
+                                // 其余单实参 → Array.from(expr)（ArrayList(Collection) 拷贝）。
+                                // 容量表达式（非字面量）经 Array.from 触发 TS2769（残留，见
+                                // 分析文档下轮候选：需类型感知的容量/集合分派）。
                                 sb.Append(IsNumericLiteral(inner)
                                     ? $"new Array({inner})"
-                                    : $"Array.from(typeof ({inner}) === \"number\" ? new Array({inner}) : ({inner}))");
+                                    : $"Array.from({inner})");
                             }
                             else
                             {

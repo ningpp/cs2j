@@ -373,12 +373,10 @@ public sealed class TsExpressionWriter
                 return "[]";
             }
             var arg = ToInlineString(newExpr.Arguments[0]);
-            // 容量（number）与集合（Iterable）单实参形态在编译期不可区分：
-            // typeof 分发——number → new Array(n)（ArrayList(int) 语义），
-            // 其余 → Array.from（ArrayList(Collection) 拷贝语义）
-            return IsNumericLiteral(arg)
-                ? $"new Array({arg})"
-                : $"Array.from(typeof ({arg}) === \"number\" ? new Array({arg}) : ({arg}))";
+            // 数字字面量 → new Array(n)（ArrayList(int) 容量语义）；其余单实参 →
+            // Array.from(expr)（ArrayList(Collection) 拷贝语义；容量表达式非字面量
+            // 时 Array.from 触发 TS2769，属下轮候选，与 raw 文本路径行为一致）
+            return IsNumericLiteral(arg) ? $"new Array({arg})" : $"Array.from({arg})";
         }
         var args = string.Join(", ", newExpr.Arguments.Select(ToInlineString));
         return $"new {typeName}({args})";
