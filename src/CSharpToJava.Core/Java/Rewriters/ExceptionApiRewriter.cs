@@ -36,7 +36,6 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
         ["InvalidOperationException"] = "IllegalStateException",
         ["ArgumentNullException"] = "NullPointerException",
         ["ArgumentException"] = "IllegalArgumentException",
-        ["ArgumentOutOfRangeException"] = "IndexOutOfBoundsException",
         ["NotImplementedException"] = "UnsupportedOperationException",
         ["NotSupportedException"] = "UnsupportedOperationException",
         ["ObjectDisposedException"] = "IllegalStateException",

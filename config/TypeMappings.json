@@ -2768,9 +2768,9 @@
         },
         {
             "csharp": "System.ArgumentOutOfRangeException",
-            "java": "IllegalArgumentException",
+            "java": "ArgumentOutOfRangeException",
             "imports": [
-                "java.lang.IllegalArgumentException"
+                "io.github.ningpp.compat.ArgumentOutOfRangeException"
             ]
         },
         {

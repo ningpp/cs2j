@@ -273,3 +273,19 @@
 - **分析**: C# 允许 `catch (T)`（T 有 Exception 约束），Java 禁止 catch 类型变量。转换器对 catch 类型只做 MapType（类型参数原样输出 "T"）。修复：检测 catch 类型为 ITypeParameterSymbol 时，(1) 取第一个 class 约束作为 catch 类型（System.ArgumentException → compat ArgumentException，System.Exception → RuntimeException）；(2) 用 `ConversionContext.GetClassLiteral` 注册并取得 `Class<T>` token（`_cs2j_T`），catch 子句整段以 JavaCatchClause.RawOverride 原样发射：`catch (约束 _cs2j_xCatch) { if (!_cs2j_T.isInstance(_cs2j_xCatch)) throw ...; T ex = (T) _cs2j_xCatch; <body 原样> }`——主体引用绑定到 T 类型局部，保持 C# catch(T) 语义（不匹配的异常继续传播）。主体用原始语法树变换（不做语法重命名），避免语义模型节点越界异常；filter 时 body 包 if(filter)。
 - **测试**: `ExceptionCatchOrderTests.TypeParameterCatch_UsesConstraintTypeWithRuntimeGuard`（先红后绿，全量 2526 通过）
 - **状态**: ✅ Fixed
+
+## Iteration 16 — 找不到符号 getParamName()（ArgumentOutOfRangeException 映射到 java.lang.IllegalArgumentException）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/System/Tests/AssertExtensions.java
+- **行号**: 73（以及 110、121 的下游错误）
+- **错误信息**: `[73,83] 找不到符号 符号: 方法 getParamName() 位置: 类型为java.lang.IllegalArgumentException的变量 aore`
+- **代码片段**:
+  ```java
+  if (ex instanceof IllegalArgumentException aore && Objects.equals(aore.getParamName(), paramName)) {
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\TestUtilities\System\Tests\AssertExtensions.cs（第 49 行 `ex is ArgumentOutOfRangeException aore && aore.ParamName == paramName`）
+- **根因分类**: 类型映射缺失（TypeMappings.json 配置缺陷）
+- **涉及组件**: config/TypeMappings.json（System.ArgumentOutOfRangeException 条目）；src/CSharpToJava.Core/Java/Rewriters/ExceptionApiRewriter.cs；java/csharptojava-compat（新增 ArgumentOutOfRangeException.java）
+- **分析**: TypeMappings 把 System.ArgumentOutOfRangeException 映射到 java.lang.IllegalArgumentException（Java 标准类无 getParamName），导致 `aore.ParamName` 发射的 `getParamName()` 编译失败。修复：(1) compat 新增 `ArgumentOutOfRangeException extends ArgumentException`（保持 .NET 层次，继承 ParamName 支持，提供 (String)、(String,String) 等构造器）；(2) TypeMappings 改为映射到 compat 类；(3) 从 ExceptionApiRewriter.ExceptionTypeMap 删除 ArgumentOutOfRangeException→IndexOutOfBoundsException（否则 new/catch 会被改写成丢失 ParamName 的 Java 标准类）。全项目仅 ThrowHelper 的 `new` 使用受影响，1 参 String 构造器兼容。
+- **测试**: `ExceptionCatchOrderTests.ArgumentOutOfRangeException_Pattern_CompilesAgainstCompatRuntime`（先红后绿，javac 对生成的 Java + compat 源码编译验证，全量 2527 通过）
+- **状态**: ✅ Fixed
