@@ -625,8 +625,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     bool isKnownDictionary = false;
                     bool isKnownList = false;
                     bool isStringBuilder = false;
-                    if (containerType is INamedTypeSymbol namedContainer)
+                    INamedTypeSymbol? namedContainer = null;
+                    if (containerType is INamedTypeSymbol namedContainerType)
                     {
+                        namedContainer = namedContainerType;
                         var fullName = namedContainer.OriginalDefinition.ToDisplayString();
                         isKnownDictionary = IsDictionaryLikeContainer(namedContainer);
                         isKnownList = fullName is
@@ -666,6 +668,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     if (node.Parent is not ExpressionStatementSyntax
                         && (isKnownDictionary || isKnownList))
                     {
+                        // MapHelper.setValue requires a java.util.List receiver. C# IList<T> /
+                        // IReadOnlyList<T> receivers may map to concrete types (e.g. GroupCollection
+                        // implements CSharpReadOnlyDict) whose generated set() already returns the
+                        // NEW value, so emit target.set() directly for non-List-mapped containers.
+                        bool javaTypeIsList = namedContainer != null && IsJavaListMappedContainer(namedContainer);
+                        if (!isKnownDictionary && !javaTypeIsList)
+                        {
+                            return $"{target}.set({arg0}, {right})";
+                        }
                         context.AddImport("io.github.ningpp.compat.MapHelper");
                         return isKnownDictionary
                             ? $"MapHelper.putValue({target}, {arg0}, {right})"
@@ -737,6 +748,23 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     || i.Name.Contains("Dictionary", StringComparison.Ordinal)
                     || i.Name.Contains("Map", StringComparison.Ordinal);
             });
+        }
+
+        /// <summary>
+        /// Returns true when the C# container type maps to a java.util.List in Java
+        /// (System.Collections.Generic.List&lt;T&gt; maps to CSharpList which extends
+        /// ArrayList, and ImmutableArray maps to CSharpImmutableArray which extends
+        /// CSharpList). IList&lt;T&gt;/IReadOnlyList&lt;T&gt; map to CSharpGenericIList
+        /// (NOT a java.util.List), and concrete types like GroupCollection map to
+        /// CSharpReadOnlyDict — MapHelper.setValue(List&lt;T&gt;, ...) cannot be applied
+        /// to those; their generated set() returns the NEW value.
+        /// </summary>
+        static bool IsJavaListMappedContainer(INamedTypeSymbol type)
+        {
+            var self = type.OriginalDefinition.ToDisplayString();
+            return self is
+                "System.Collections.Generic.List<T>"
+                or "System.Collections.Immutable.ImmutableArray<T>";
         }
 
         // Fix 7: Compound assignment on indexer (e.g. dict[key] += value → dict.put(key, dict.get(key) + value))

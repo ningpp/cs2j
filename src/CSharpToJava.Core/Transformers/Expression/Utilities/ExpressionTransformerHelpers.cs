@@ -146,6 +146,20 @@ public static class ExpressionTransformerHelpers
         var sourceJavaType = context.MapType(sourceType);
         var targetJavaType = context.MapType(targetType);
 
+        // C# implicit Dictionary<K,V> → IDictionary (non-generic): the Java mappings
+        // CSharpDictionary/CSharpGenericIDictionary are unrelated to the non-generic
+        // CSharpIDictionary, so bridge the argument via CSharpIDictionary.from().
+        if (targetType is INamedTypeSymbol targetDictNamed
+            && targetDictNamed.ToDisplayString() == "System.Collections.IDictionary"
+            && sourceType is INamedTypeSymbol sourceDictNamed
+            && (sourceDictNamed.Name is "Dictionary" or "SortedDictionary"
+                || sourceDictNamed.AllInterfaces.Any(i => i.Name == "IDictionary" && i.IsGenericType))
+            && !transformedExpression.StartsWith("CSharpIDictionary.from(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+            return $"CSharpIDictionary.from({transformedExpression})";
+        }
+
         // C# implicit conversion T[] → Span<T>/ReadOnlySpan<T>: the compat span
         // classes have no implicit conversion, so wrap the array expression.
         // Skip when the expression was already bridged to a span by another pass
@@ -1844,9 +1858,25 @@ public static class ExpressionTransformerHelpers
             or SpecialType.System_Boolean or SpecialType.System_Char;
 
     /// <summary>
+    /// Builds a Java <c>Stream&lt;Character&gt;</c> expression from a C# string expression.
+    /// C# <c>string</c> implements <c>IEnumerable&lt;char&gt;</c>, but Java <c>String</c> does
+    /// not implement <c>Iterable</c> and has no <c>spliterator()</c> method.
+    /// Uses <c>chars().mapToObj(c -> (char) c)</c> to create a <c>Stream&lt;Character&gt;</c>.
+    /// </summary>
+    public static string BuildStringStreamExpression(string receiverExpr)
+        => $"{receiverExpr}.chars().mapToObj(c -> (char) c)";
+
+    /// <summary>
+    /// Returns true if the given type symbol represents <c>System.String</c>.
+    /// </summary>
+    public static bool IsSystemStringType(ITypeSymbol? type)
+        => type?.SpecialType == SpecialType.System_String;
+
+    /// <summary>
     /// Builds a Java stream source expression for the given C# collection/iterable expression.
     /// Priority: array → Arrays.stream | IGrouping → getValue().stream()
     ///           Dictionary → entrySet().stream() | Collection → .stream()
+    ///           String → chars().mapToObj(c -> (char) c)
     ///           Iterable/IEnumerable → StreamSupport.stream(spliterator, false)
     ///           null type → .stream() (safe fallback for Collection receivers)
     /// </summary>
@@ -1893,6 +1923,13 @@ public static class ExpressionTransformerHelpers
                 return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
             }
             return $"{receiverExpr}.stream()";
+        }
+
+        // C# string implements IEnumerable<char>; Java String does not implement Iterable
+        // and has no spliterator(). Use chars().mapToObj() to create Stream<Character>.
+        if (IsSystemStringType(receiverType))
+        {
+            return BuildStringStreamExpression(receiverExpr);
         }
 
         if (receiverType != null)

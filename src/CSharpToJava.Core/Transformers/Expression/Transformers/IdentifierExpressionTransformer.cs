@@ -1341,8 +1341,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     // HasValue on a boxed wrapper is a null check, not an unbox call.
                     if (prop.Name == "HasValue")
                         return $"{propertyTarget} != null";
+                    // Nullable<T>.Value where T maps to a Java wrapper (Integer, Boolean, ...):
+                    // emit the unbox call. For enums/structs mapped to classes (RegexParseError,
+                    // CSharpDateTime, ...) the receiver IS the value — the unwrap is a no-op.
+                    // Falling through to the generic getter would emit a bogus .getValue().
                     if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var nullableUnboxMethod))
                         return $"{propertyTarget}.{nullableUnboxMethod}()";
+                    return propertyTarget;
                 }
 
                 var getter = GetPropertyGetterName(prop);

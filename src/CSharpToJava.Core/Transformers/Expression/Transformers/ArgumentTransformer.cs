@@ -624,14 +624,48 @@ public class ArgumentTransformer
         // parameter at the same position (value types cannot accept null). After conversion to
         // Java, the value type becomes a class, so null becomes applicable to both overloads and
         // the call is ambiguous (or resolves to the wrong overload). Cast null to the resolved
-        // parameter's Java type to force the intended overload.
-        if (arg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression })
+        // parameter's Java type to force the intended overload. The same applies when two
+        // overloads have DIFFERENT reference-type parameters at the same position (e.g.
+        // CopyTo(Array, int) vs CopyTo(Capture[], int)): C# resolves to the more specific one,
+        // but Java sees a bare null as applicable to both and reports an ambiguous call.
+        if (IsNullEmittingArgument(arg, context))
         {
             var javaTargetType = context.MapType(targetParam.Type);
             if (!string.IsNullOrWhiteSpace(javaTargetType)
-                && HasValueTypeOverloadAtSamePosition(targetParam))
+                && (HasValueTypeOverloadAtSamePosition(targetParam, GetReceiverTypeOfInvocation(arg, context))
+                    || HasReferenceTypeOverloadAtSamePosition(targetParam, GetReceiverTypeOfInvocation(arg, context), context)
+                    || (context.Options.TargetLanguage != TargetLanguage.TypeScript
+                        && (IsSystemCollectionsInterfaceReceiver(arg, context)
+                            || IsMultiEnumerableReceiver(arg, context)))))
             {
-                return $"({javaTargetType}) {transformedExpr}";
+                // Non-generic interface members (e.g. IList.Add(object)) bind the param to
+                // System.Object. The concrete Java receiver may lack an Object overload
+                // entirely (e.g. GroupCollection has add(Group) / add(KeyValuePair) but no
+                // add(Object)), so cast to the receiver's element type instead.
+                var castType = javaTargetType;
+                if (castType == "Object")
+                {
+                    var elemJava = MapReceiverElementType(GetReceiverTypeOfInvocation(arg, context), context);
+                    if (!string.IsNullOrWhiteSpace(elemJava) && elemJava != "Object" && !IsJavaPrimitiveTypeName(elemJava))
+                        castType = elemJava;
+                }
+                return $"({castType}) {transformedExpr}";
+            }
+        }
+
+        // Array-typed null parameters: the Java side may declare sibling overloads that a
+        // bare null also matches (e.g. MethodInfo.invoke(Object, Object...) vs
+        // invoke(Object, List<?>) — C# Invoke(object, object[]) binds the array overload).
+        // Cast null to the array type to force the intended overload.
+        if (IsNullEmittingArgument(arg, context)
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        {
+            var javaTargetType2 = context.MapType(targetParam.Type);
+            if (!string.IsNullOrWhiteSpace(javaTargetType2)
+                && !IsJavaPrimitiveTypeName(javaTargetType2)
+                && javaTargetType2.EndsWith("[]", StringComparison.Ordinal))
+            {
+                return $"({javaTargetType2}) {transformedExpr}";
             }
         }
 
@@ -968,6 +1002,22 @@ public class ArgumentTransformer
             return $"CSharpGenericIList.from({transformedExpr})";
         }
 
+        // Non-generic IDictionary parameter (System.Collections.IDictionary → CSharpIDictionary)
+        // receiving a generic dictionary argument (Dictionary<K,V> → CSharpDictionary /
+        // CSharpGenericIDictionary): the Java interfaces are unrelated, so bridge via
+        // CSharpIDictionary.from() (C# allows implicit Dictionary → IDictionary conversion).
+        if (paramType is INamedTypeSymbol pNamedIDict
+            && pNamedIDict.ToDisplayString() == "System.Collections.IDictionary"
+            && argType is INamedTypeSymbol aNamedIDict
+            && (aNamedIDict.Name is "Dictionary" or "SortedDictionary" or "IDictionary"
+                && aNamedIDict.IsGenericType
+                || aNamedIDict.AllInterfaces.Any(i => i.Name == "IDictionary" && i.IsGenericType))
+            && !transformedExpr.StartsWith("CSharpIDictionary.from(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+            return $"CSharpIDictionary.from({transformedExpr})";
+        }
+
         var result = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
             arg.Expression,
             transformedExpr,
@@ -1033,12 +1083,52 @@ public class ArgumentTransformer
     /// After conversion to Java the value type becomes a class, so null applies to both and
     /// the call becomes ambiguous (or resolves to the wrong overload).
     /// </summary>
-    private static bool HasValueTypeOverloadAtSamePosition(IParameterSymbol targetParam)
+    private static bool HasValueTypeOverloadAtSamePosition(IParameterSymbol targetParam, INamedTypeSymbol? receiverType)
     {
-        var containingMethod = targetParam.ContainingSymbol as IMethodSymbol;
-        if (containingMethod == null) return false;
+        foreach (var otherParam in GetSiblingOverloadParamAtPosition(targetParam, receiverType))
+        {
+            if (otherParam.Type.IsValueType)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the containing method/constructor has another overload where the
+    /// parameter at the same position maps to a Java reference type DIFFERENT from the
+    /// selected parameter's Java type. In C# such overloads are disambiguated by null
+    /// resolution (the more specific reference type wins), but after conversion a bare
+    /// null literal is applicable to both Java overloads and the call becomes ambiguous.
+    /// </summary>
+    private static bool HasReferenceTypeOverloadAtSamePosition(IParameterSymbol targetParam, INamedTypeSymbol? receiverType, ConversionContext context)
+    {
+        var targetJava = context.MapType(targetParam.Type);
+        if (string.IsNullOrWhiteSpace(targetJava) || IsJavaPrimitiveTypeName(targetJava))
+            return false;
+
+        foreach (var otherParam in GetSiblingOverloadParamAtPosition(targetParam, receiverType))
+        {
+            var otherJava = context.MapType(otherParam.Type);
+            if (string.IsNullOrWhiteSpace(otherJava) || IsJavaPrimitiveTypeName(otherJava))
+                continue;
+            if (otherJava != targetJava)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Enumerates the parameters at the same position from sibling overloads (same name/arity,
+    /// identical types at all other positions) whose type differs from the selected parameter's
+    /// type. The selected method may be an interface member (e.g. ICollection.CopyTo) whose
+    /// containing interface has no sibling overloads; the real overload set lives on the
+    /// receiver's static type (e.g. CaptureCollection.CopyTo(Capture[], int)), so both are scanned.
+    /// </summary>
+    private static IEnumerable<IParameterSymbol> GetSiblingOverloadParamAtPosition(IParameterSymbol targetParam, INamedTypeSymbol? receiverType)
+    {
+        if (targetParam.ContainingSymbol is not IMethodSymbol containingMethod) yield break;
         var containingType = containingMethod.ContainingType;
-        if (containingType == null) return false;
+        if (containingType == null) yield break;
 
         int ordinal = targetParam.Ordinal;
         var parameters = containingMethod.Parameters;
@@ -1046,6 +1136,10 @@ public class ArgumentTransformer
         IEnumerable<IMethodSymbol> overloads = containingMethod.MethodKind == MethodKind.Constructor
             ? containingType.Constructors
             : containingType.GetMembers(containingMethod.Name).OfType<IMethodSymbol>();
+        if (receiverType != null && !SymbolEqualityComparer.Default.Equals(receiverType, containingType))
+        {
+            overloads = overloads.Concat(receiverType.GetMembers(containingMethod.Name).OfType<IMethodSymbol>());
+        }
 
         foreach (var overload in overloads)
         {
@@ -1070,12 +1164,132 @@ public class ArgumentTransformer
             var otherParam = overload.Parameters[ordinal];
             if (SymbolEqualityComparer.Default.Equals(otherParam.Type, targetParam.Type))
                 continue;
-            if (otherParam.Type.IsValueType)
-                return true;
+            yield return otherParam;
+        }
+    }
+
+    private static INamedTypeSymbol? GetReceiverTypeOfInvocation(ArgumentSyntax arg, ConversionContext context)
+    {
+        INamedTypeSymbol? receiver = null;
+        if (arg.Parent is ArgumentListSyntax argList
+            && argList.Parent is InvocationExpressionSyntax invocation
+            && invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            receiver = context.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+            if (receiver == null)
+                return null;
+
+            // The receiver may be a local declared with an interface type (e.g.
+            // `IList list = CreateCollection();`) whose Java declaration was emitted as
+            // `var`; recover the concrete type from the initializer. The Java-side
+            // overload set (and therefore the ambiguity) is determined by the concrete
+            // value type, not the declared interface.
+            if (memberAccess.Expression is IdentifierNameSyntax receiverId
+                && context.GetSymbolInfo(receiverId).Symbol is ILocalSymbol receiverLocal)
+            {
+                var declarator = receiverLocal.DeclaringSyntaxReferences
+                    .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+                if (declarator?.Initializer != null
+                    && context.GetTypeInfo(declarator.Initializer.Value).Type is INamedTypeSymbol initNamed)
+                {
+                    receiver = initNamed;
+                }
+            }
+        }
+        return receiver;
+    }
+
+    /// <summary>
+    /// The argument is a null literal, or a default(T) expression that the converter
+    /// emits as null (reference types / Nullable&lt;T&gt;). Both produce a bare Java
+    /// null at the call site.
+    /// </summary>
+    private static bool IsNullEmittingArgument(ArgumentSyntax arg, ConversionContext context)
+    {
+        if (arg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression })
+            return true;
+
+        if (arg.Expression is DefaultExpressionSyntax defaultExpr && context.SemanticModel != null)
+        {
+            var type = context.GetTypeInfo(defaultExpr.Type).Type;
+            if (type == null) return false;
+            return type.IsReferenceType
+                || type.IsValueType && type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
         }
 
         return false;
     }
+
+    /// <summary>
+    /// The receiver's C# type implements multiple DISTINCT IEnumerable&lt;T&gt;
+    /// instantiations (e.g. GroupCollection implements IEnumerable&lt;Group&gt; via
+    /// IList&lt;Group&gt; AND IEnumerable&lt;KeyValuePair&lt;K,V&gt;&gt; via
+    /// IReadOnlyDictionary). The Java mapping keeps only one enumeration but merges
+    /// method sets from both (e.g. add(Group) alongside Collection.add(KeyValuePair)),
+    /// making a bare null argument ambiguous. Cast null to force the resolved overload.
+    /// </summary>
+    private static bool IsMultiEnumerableReceiver(ArgumentSyntax arg, ConversionContext context)
+    {
+        if (GetReceiverTypeOfInvocation(arg, context) is not INamedTypeSymbol receiver)
+            return false;
+
+        var genericEnumerables = receiver.AllInterfaces
+            .Where(i => i.Name == "IEnumerable"
+                && i.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                && i.TypeArguments.Length == 1)
+            .Select(i => i.TypeArguments[0])
+            .ToList();
+
+        return genericEnumerables
+            .Distinct(SymbolEqualityComparer.Default)
+            .Count() > 1;
+    }
+
+    /// <summary>
+    /// Java type of the receiver's element: the Value type of an implemented
+    /// IReadOnlyDictionary (GroupCollection), else the first IEnumerable&lt;T&gt;
+    /// element. Used to pick a cast target for null args when the C#-selected
+    /// parameter is System.Object (non-generic interface members).
+    /// </summary>
+    private static string? MapReceiverElementType(INamedTypeSymbol? receiver, ConversionContext context)
+    {
+        if (receiver == null) return null;
+
+        var dict = receiver.AllInterfaces
+            .FirstOrDefault(i => i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2);
+        if (dict != null)
+            return context.MapType(dict.TypeArguments[1]);
+
+        var elem = receiver.AllInterfaces
+            .Where(i => i.Name == "IEnumerable"
+                && i.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                && i.TypeArguments.Length == 1)
+            .Select(i => i.TypeArguments[0])
+            .FirstOrDefault();
+        return elem != null ? context.MapType(elem) : null;
+    }
+
+    /// <summary>
+    /// The receiver is statically typed as a System.Collections(.Generic) interface
+    /// (e.g. ICollection, IList, IList&lt;T&gt;). Such receivers are often emitted as
+    /// `var` with the concrete type, whose Java mapping merges overloads from several
+    /// C# interfaces (e.g. CSharpICollection declares copyTo(T[], int) AND
+    /// copyTo(CSharpArray, int); a CSharpReadOnlyDict-backed list declares add(T)
+    /// alongside Collection.add(KeyValuePair)). A bare null then becomes ambiguous
+    /// even though C# resolved it to exactly one member. Cast to the resolved
+    /// parameter's Java type to force the intended overload.
+    /// </summary>
+    private static bool IsSystemCollectionsInterfaceReceiver(ArgumentSyntax arg, ConversionContext context)
+    {
+        if (GetReceiverTypeOfInvocation(arg, context) is not INamedTypeSymbol receiver)
+            return false;
+        if (receiver.TypeKind != TypeKind.Interface)
+            return false;
+        return receiver.ContainingNamespace?.ToDisplayString().StartsWith("System.Collections") == true;
+    }
+
+    private static bool IsJavaPrimitiveTypeName(string? javaType)
+        => javaType is "int" or "long" or "short" or "byte" or "char" or "boolean" or "double" or "float";
 
     /// <summary>
     /// Returns true if the type is an interface with exactly one abstract method,

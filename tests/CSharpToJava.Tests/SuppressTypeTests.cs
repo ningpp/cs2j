@@ -17,19 +17,42 @@ public class MyUri : ISerializable
 }");
 
         Assert.True(result.Success);
-        Assert.DoesNotContain("__suppress__", result.GeneratedCode);
         Assert.DoesNotContain("ISerializable", result.GeneratedCode);
+        Assert.DoesNotContain("implements", result.GeneratedCode);
     }
 
     [Fact]
-    public void GetObjectData_Method_With_Suppressed_Parameters_Is_Skipped()
+    public void GetObjectData_TrivialBody_EmitsSuppressedParameterVersion()
     {
+        // A GetObjectData whose body does not use the suppressed params is emitted with
+        // __suppress__-typed parameters so that derived call sites (e.g. base.GetObjectData
+        // forwarding) still compile.
         var result = Convert(@"
 using System.Runtime.Serialization;
 
 public class MyUri : ISerializable
 {
     public void GetObjectData(SerializationInfo info, StreamingContext context) { }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("getObjectData(__suppress__ info, __suppress__ context)", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void GetObjectData_UsingSuppressedParams_IsSkipped()
+    {
+        // A GetObjectData whose body calls members ON the suppressed params (e.g. info.GetString)
+        // cannot compile against the __suppress__ placeholder and must be omitted.
+        var result = Convert(@"
+using System.Runtime.Serialization;
+
+public class MyUri : ISerializable
+{
+    public void GetObjectData(SerializationInfo info, StreamingContext context)
+    {
+        info.AddValue(""name"", 42);
+    }
 }");
 
         Assert.True(result.Success);

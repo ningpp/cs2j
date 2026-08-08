@@ -29,8 +29,10 @@ class Test
     }
 
     [Fact]
-    public void ExceptionSerializationConstructor_IsOmitted()
+    public void ExceptionSerializationConstructor_ForwardsToBase()
     {
+        // A .NET serialization constructor whose body is a pure base forwarding is emitted
+        // with __suppress__-typed parameters so derived serialization call sites compile.
         var result = Convert("""
 using System;
 using System.Runtime.Serialization;
@@ -52,7 +54,7 @@ class AcceptException : Exception
         Assert.Contains("AcceptException()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("SerializationInfo", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("StreamingContext", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("super(info, context)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("super(info, context)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

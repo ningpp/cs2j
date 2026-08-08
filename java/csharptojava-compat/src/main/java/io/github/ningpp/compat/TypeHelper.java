@@ -212,6 +212,10 @@ public final class TypeHelper {
         }
     }
 
+    public static ConstructorInfo getConstructor(Class<?> type, Class<?>... parameterTypes) {
+        return getConstructorInfo(type, 0, parameterTypes);
+    }
+
     public static ConstructorInfo getConstructor(Class<?> type, int bindingFlags, Class<?>... parameterTypes) {
         if (type == null) {
             return null;

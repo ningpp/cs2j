@@ -63,7 +63,10 @@ public class MethodTransformer : IMemberTransformer
             return null!;
         }
 
-        // Skip methods with __suppress__ typed parameters (e.g. GetObjectData with SerializationInfo/StreamingContext)
+        // Methods with __suppress__ typed parameters (e.g. GetObjectData with SerializationInfo/StreamingContext):
+        // omit them when the body calls members ON the suppressed params (cannot compile against the
+        // __suppress__ placeholder). Trivial bodies (throw, base forwarding) are emitted with
+        // __suppress__-typed parameters so call sites still compile and runtime behavior is preserved.
         bool hasSuppressedParam = methodDecl.ParameterList?.Parameters.Any(p =>
         {
             var ti = context.GetTypeInfo(p.Type!);
@@ -72,7 +75,7 @@ public class MethodTransformer : IMemberTransformer
                 : context.MapTypeFromSyntax(p.Type!);
             return jt == "__suppress__";
         }) == true;
-        if (hasSuppressedParam)
+        if (hasSuppressedParam && MethodReferencesSuppressedParams(methodDecl, context))
             return null!;
 
         var methodInfo = context.GetDeclaredSymbol(methodDecl) as IMethodSymbol;
@@ -1210,6 +1213,50 @@ public class MethodTransformer : IMemberTransformer
         return context.MapTypeFromSyntax(actualReturnType);
     }
 
+    /// <summary>
+    /// Returns true when the method body calls members ON the __suppress__-typed parameters
+    /// (e.g. info.GetString(...)). Such bodies cannot compile against the __suppress__
+    /// placeholder and the method must be omitted. Plain references (throw, base forwarding
+    /// like base.GetObjectData(info, context)) are safe to emit.
+    /// </summary>
+    private static bool MethodReferencesSuppressedParams(
+        MethodDeclarationSyntax methodDecl,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return true;
+
+        var suppressedParams = (methodDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+            .Where(p =>
+            {
+                var ti = context.GetTypeInfo(p.Type!);
+                var jt = ti.Type != null && ti.Type is not IErrorTypeSymbol
+                    ? context.MapType(ti.Type)
+                    : context.MapTypeFromSyntax(p.Type!);
+                return jt == "__suppress__";
+            })
+            .Select(p => p.Identifier.Text)
+            .ToHashSet(StringComparer.Ordinal);
+        if (suppressedParams.Count == 0)
+            return false;
+
+        SyntaxNode? body = methodDecl.Body;
+        if (body == null && methodDecl.ExpressionBody != null)
+            body = methodDecl.ExpressionBody.Expression;
+        if (body == null)
+            return false;
+
+        foreach (var id in body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            if (!suppressedParams.Contains(id.Identifier.Text))
+                continue;
+            if (id.Parent is MemberAccessExpressionSyntax or InvocationExpressionSyntax)
+                return true;
+        }
+
+        return false;
+    }
+
     private static bool ShouldReturnObjectForRuntimeTypeParameterArray(
         IMethodSymbol? methodSymbol,
         ConversionContext context)
@@ -1233,9 +1280,15 @@ public class MethodTransformer : IMemberTransformer
             ? context.MapType(typeInfo.Type)
             : context.MapTypeFromSyntax(param.Type!);
 
-        // Skip parameters whose type is mapped to __suppress__ (e.g. SerializationInfo, StreamingContext)
-        if (javaType == "__suppress__")
+        // Skip parameters whose type is mapped to __suppress__ (e.g. SerializationInfo, StreamingContext),
+        // unless the containing method is emitted with suppressed params (trivial serialization members
+        // like GetObjectData whose body only throws or forwards to base).
+        if (javaType == "__suppress__"
+            && !(param.Parent?.Parent is MethodDeclarationSyntax suppressedMethodDecl
+                && !MethodReferencesSuppressedParams(suppressedMethodDecl, context)))
+        {
             return null;
+        }
 
         var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);
         var javaParam = new JavaParameter(javaType, paramName);

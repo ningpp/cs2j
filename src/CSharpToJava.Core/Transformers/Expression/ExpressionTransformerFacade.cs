@@ -276,7 +276,15 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 if (invocation.Expression is MemberBindingExpressionSyntax invokeBinding
                     && invokeBinding.Name.Identifier.Text == "Invoke"
                     && invocation.ArgumentList.Arguments.Count == 2
-                    && IsConditionalAccessReceiverOfType(invocation, "System.Reflection.MethodInfo", context))
+                    && IsConditionalAccessReceiverOfType(invocation, new[]
+                    {
+                        "System.Reflection.MethodInfo",
+                        "System.Reflection.MethodBase",
+                        "System.Reflection.ConstructorInfo",
+                        "MethodInfo",
+                        "MethodBase",
+                        "ConstructorInfo",
+                    }, context))
                 {
                 var invokeInvokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
                 var invokeTargetArg = Transform(invocation.ArgumentList.Arguments[0].Expression, context);
@@ -359,11 +367,9 @@ public class ExpressionTransformerFacade : IExpressionTransformer
     /// </summary>
     private static bool IsConditionalAccessReceiverOfType(
         SyntaxNode node,
-        string csharpTypeName,
+        string[] csharpTypeNames,
         ConversionContext context)
     {
-        if (context.SemanticModel == null)
-            return false;
         var ancestor = node.Parent;
         while (ancestor != null)
         {
@@ -372,11 +378,8 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 var type = context.GetTypeInfo(cond.Expression).Type;
                 if (type == null)
                     return false;
-                if (type.ToDisplayString() == csharpTypeName)
-                    return true;
-                if (type.Name == csharpTypeName)
-                    return true;
-                return false;
+                var display = type.ToDisplayString();
+                return csharpTypeNames.Contains(display) || csharpTypeNames.Contains(type.Name);
             }
             ancestor = ancestor.Parent;
         }

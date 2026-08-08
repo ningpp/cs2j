@@ -17,4 +17,12 @@ public final class CustomAttributeBuilder {
      */
     public CustomAttributeBuilder(Constructor<?> constructor, Object[] constructorArgs) {
     }
+
+    /**
+     * C# CustomAttributeBuilder(ConstructorInfo, object[]) — the converter maps
+     * typeof(X).GetConstructor(...) to TypeHelper.getConstructor which returns the
+     * compat ConstructorInfo wrapper.
+     */
+    public CustomAttributeBuilder(ConstructorInfo constructor, Object[] constructorArgs) {
+    }
 }

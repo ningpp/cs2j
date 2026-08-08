@@ -910,6 +910,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"TypeHelper.getConstructorInfo({typeReceiver}, {flags}, {types})";
         }
 
+        // C# Type.GetConstructor(Type[]) → TypeHelper.getConstructor(Class, Class[])
+        // (1-arg variant; Java Class.getConstructor throws checked NoSuchMethodException,
+        // C# Type.GetConstructor returns null when not found)
+        if (memberAccess.Name.Identifier.Text == "GetConstructor"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var types = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var typeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"TypeHelper.getConstructor({typeReceiver}, {types})";
+        }
+
         // C# Type.GetConstructor(BindingFlags, Type[]) → TypeHelper.getConstructor(Class, int, Class[])
         if (memberAccess.Name.Identifier.Text == "GetConstructor"
             && node.ArgumentList.Arguments.Count == 2
@@ -1210,6 +1223,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
+        // System.Reflection.MethodBase.Invoke(object, object[]): the compat MethodInfo
+        // declares invoke(Object, Object...) AND invoke(Object, List<?>) — a bare null
+        // args argument is ambiguous. C# binds Invoke(obj, null) to the object[] overload;
+        // cast null arguments explicitly (works even when the semantic model cannot
+        // resolve the method, e.g. after project preprocessing rewrites the tree).
+        if (originalMethodName == "Invoke"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsMethodBaseReceiver(memberAccess.Expression, context))
+        {
+            var invokeArg0 = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var invokeArg1 = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            if (IsNullLiteralSyntax(node.ArgumentList.Arguments[0].Expression))
+                invokeArg0 = $"(Object) {invokeArg0}";
+            if (IsNullLiteralSyntax(node.ArgumentList.Arguments[1].Expression))
+                invokeArg1 = $"(Object[]) {invokeArg1}";
+            return $"{receiver}.invoke({invokeArg0}, {invokeArg1})";
+        }
+
         // System.Threading.Volatile.Read(ref T) / Volatile.Write(ref T, T):
         // Java volatile field reads/writes are already atomic/volatile, so a plain
         // read / assignment is the semantic equivalent. The ref argument must NOT go
@@ -1387,6 +1418,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.CSharpDictEnumerator");
                 return $"CSharpDictEnumerator.from({receiver}.iterator())";
+            }
+            // Multi-enumeration types (e.g. GroupCollection) expose a PUBLIC non-generic
+            // GetEnumerator() returning System.Collections.IEnumerator alongside the
+            // dictionary enumeration. The Java iterator() yields KeyValuePair<K,V>, which
+            // is not assignable to CSharpEnumerator (invariant generics). Wrap with
+            // CSharpEnumerator.from() so the result flows into non-generic IEnumerator.
+            // The same applies when the C# bound method returns IEnumerator<T> (generic
+            // dictionary receiver) but the result flows into a non-generic IEnumerator target.
+            if (IsNonGenericEnumeratorGetEnumeratorInvocation(node, context)
+                || NeedsCSharpEnumeratorFrom(node, context))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
+                return $"CSharpEnumerator.from({receiver}.iterator())";
             }
             return $"{receiver}.iterator()";
         }
@@ -2310,6 +2354,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var collectionAssertArgs = TransformMSTestCollectionAssertArguments(node.ArgumentList, context, facade);
             context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.CollectionAssert");
             return $"CollectionAssert.{mstestCollectionAssertName}({collectionAssertArgs})";
+        }
+
+        // Xunit Record.Exception* -> csharp.xunit.XunitRecord compatibility layer.
+        // Same syntactic-detection rationale as Assert above: the xunit assembly is not
+        // referenced by the conversion pipeline, so when Roslyn cannot resolve the symbol
+        // we still emit XunitRecord.exception(...) instead of the raw "Record." name
+        // (which would resolve to java.lang.Record and fail to compile).
+        if (TryMapXunitRecordInvocation(memberAccess.Expression, context, originalMethodName, methodSymbol, out var xunitRecordName))
+        {
+            var recordArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            context.AddImport("csharp.xunit.XunitRecord");
+            return $"XunitRecord.{xunitRecordName}({recordArgs})";
         }
 
         // Xunit Assert.* -> csharp.xunit.Assert.* compatibility layer.
@@ -4278,7 +4334,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return receiver;
         }
 
-        // Regex.Split(input, pattern) -> input.split(pattern)
+        // Static Regex.Split(input, pattern[, options[, matchTimeout]]) → Regex.split(args)
+        // The receiver is fully-qualified (or imported) by the static-receiver remap above.
+        // Emitting `<arg0>.split(<arg1>)` was invalid for null inputs (cannot dereference
+        // nulltype) and silently dropped the options/matchTimeout arguments for 3- and
+        // 4-arg overloads. Instance regex.Split(input[, count[, startat]]) calls are NOT
+        // affected — their receiver is a Regex instance, which StaticReceiverMatches rejects.
         bool isRegexSplit = originalMethodName == "Split"
             && node.ArgumentList.Arguments.Count >= 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Text.RegularExpressions.Regex"
@@ -4289,9 +4350,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     "System.Text.RegularExpressions.Regex"));
         if (isRegexSplit)
         {
-            var splitInput = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            var splitPattern = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            return $"{splitInput}.split({splitPattern})";
+            var splitArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            return $"{receiver}.split({splitArgs})";
         }
 
         // Fix: String.Split(' ') → Java split(" ") — Java's split() takes a String regex, not char.
@@ -5497,7 +5558,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 bool isStatement = node.Parent is Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax;
                 if (!isChained && !isStatement && methodSymbol?.TypeArguments.Length >= 1)
                 {
-                    var elemJavaType = context.MapType(methodSymbol.TypeArguments[0]);
+                    var elemJavaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(
+                        context.MapType(methodSymbol.TypeArguments[0]));
                     if (!string.IsNullOrEmpty(elemJavaType))
                     {
                         // C# IEnumerable<T> maps to CSharpGenericIterable<T> (not java.lang.Iterable<T>),
@@ -8161,6 +8223,45 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return !string.IsNullOrEmpty(xunitMethodName);
     }
 
+    private static bool TryMapXunitRecordInvocation(
+        ExpressionSyntax receiverExpression,
+        ConversionContext context,
+        string originalMethodName,
+        IMethodSymbol? methodSymbol,
+        out string xunitMethodName)
+    {
+        xunitMethodName = string.Empty;
+
+        // Detect Xunit.Record syntactically: "Record.Xxx(...)". When Roslyn resolved the
+        // symbol, verify it is Xunit.Record; otherwise require "using Xunit;" so a
+        // user-defined class named Record is not hijacked.
+        if (receiverExpression is not IdentifierNameSyntax { Identifier.Text: "Record" })
+        {
+            return false;
+        }
+
+        var containingType = methodSymbol?.ContainingType.ToDisplayString();
+        if (containingType != null)
+        {
+            if (containingType != "Xunit.Record")
+                return false;
+        }
+        else if (!context.HasUsingDirective("Xunit"))
+        {
+            return false;
+        }
+
+        // Map Xunit.Record method names to csharp.xunit.XunitRecord camelCase equivalents.
+        xunitMethodName = originalMethodName switch
+        {
+            "Exception" => "exception",
+            "ExceptionAsync" => "exceptionAsync",
+            _ => string.Empty,
+        };
+
+        return !string.IsNullOrEmpty(xunitMethodName);
+    }
+
     private static bool TryTransformDecimalStaticInvocation(
         InvocationExpressionSyntax node,
         MemberAccessExpressionSyntax memberAccess,
@@ -8348,6 +8449,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return t.AllInterfaces.Any(IsEnumerator);
     }
 
+    private static bool IsNullLiteralSyntax(ExpressionSyntax expression)
+        => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression };
+
+    private static bool IsMethodBaseReceiver(ExpressionSyntax receiverExpression, ConversionContext context)
+    {
+        var type = context.GetTypeInfo(receiverExpression).Type as INamedTypeSymbol;
+        if (type == null)
+            return false;
+        return type.ToDisplayString() is "System.Reflection.MethodBase"
+            or "System.Reflection.MethodInfo"
+            or "System.Reflection.ConstructorInfo"
+            || type.AllInterfaces.Any(b =>
+                b.ToDisplayString() is "System.Reflection.MethodBase" or "System.Reflection.MethodInfo");
+    }
+
     private static bool IsExplicitEnumeratorGetEnumeratorInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
         var method = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
@@ -8355,6 +8471,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
 
         return IsCSharpEnumeratorType(method.ReturnType);
+    }
+
+    /// <summary>
+    /// Returns true when the C# GetEnumerator() call was bound to a public non-generic
+    /// GetEnumerator returning System.Collections.IEnumerator (e.g. GroupCollection's
+    /// public GetEnumerator). Such types enumerate their elements (not KeyValuePairs)
+    /// in C#, so the Java result must be wrapped to a non-generic CSharpEnumerator.
+    /// </summary>
+    private static bool IsNonGenericEnumeratorGetEnumeratorInvocation(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        var method = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        if (method == null || method.Name != "GetEnumerator" || method.Parameters.Length != 0)
+            return false;
+
+        return method.ReturnType is INamedTypeSymbol named
+            && named.Name == "IEnumerator"
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections"
+            && named.TypeArguments.Length == 0;
     }
 
     private static string BuildIteratorExpressionForExplicitGetEnumerator(

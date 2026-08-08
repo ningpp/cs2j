@@ -669,10 +669,19 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                         i.OriginalDefinition.ToDisplayString() is "System.Collections.IEnumerable"
                             or "System.Collections.Generic.IEnumerable<T>"))
                 {
-                    context.AddImport("java.util.stream.StreamSupport");
                     context.AddImport("java.util.stream.Collectors");
                     context.AddImport("java.util.ArrayList");
-                    args = $"StreamSupport.stream({args}.spliterator(), false).collect(CSharpList.toCSharpList())";
+                    // C# string implements IEnumerable<char> but Java String has no spliterator().
+                    // Use chars().mapToObj() to create Stream<Character> instead.
+                    if (Utilities.ExpressionTransformerHelpers.IsSystemStringType(argType))
+                    {
+                        args = $"{Utilities.ExpressionTransformerHelpers.BuildStringStreamExpression(args)}.collect(CSharpList.toCSharpList())";
+                    }
+                    else
+                    {
+                        context.AddImport("java.util.stream.StreamSupport");
+                        args = $"StreamSupport.stream({args}.spliterator(), false).collect(CSharpList.toCSharpList())";
+                    }
                 }
             }
         }

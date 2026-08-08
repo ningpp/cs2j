@@ -254,6 +254,28 @@ class C
         Assert.Contains("AssemblyCompanyAttribute.class", code);
     }
 
+    [Fact]
+    public void TypeGetConstructor_NoBindingFlags_EmitsTypeHelperCall()
+    {
+        var result = Convert(@"
+using System;
+using System.Reflection;
+class C
+{
+    static void M()
+    {
+        var ctor = typeof(AssemblyCompanyAttribute).GetConstructor(new[] { typeof(string) });
+        var ctor2 = typeof(AssemblyCompanyAttribute).GetConstructor(Array.Empty<Type>());
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("TypeHelper.getConstructor(AssemblyCompanyAttribute.class, new Class[] { String.class })", code);
+        Assert.DoesNotContain("AssemblyCompanyAttribute.class.getConstructor(", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -356,4 +356,39 @@
 - **根因分类**: Transformer 逻辑缺陷（多枚举类型 Java 映射丢失非默认枚举）
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs（Case 3: Collection 实参 → IEnumerable 形参包装）
 - **分析**: C# GroupCollection 同时实现 IList<Group>（非默认枚举产 Group）与 IReadOnlyDictionary<string, Group>（产 KeyValuePair）。转换器将其映射为 CSharpReadOnlyDict<String, Group>（迭代产 KeyValuePair），IEnumerable<Group> 枚举语义丢失。LINQ 重写 Cast<Group> 生成形参 IEnumerable<Group> 的方法，调用处把 match.getGroups() 直接包装为 CSharpGenericIterable.from(...)，元素类型 KeyValuePair 与 Group 不匹配，javac 泛型推断失败。C# 中 GroupCollection.Values 与 IEnumerable<Group> 枚举（索引 0..Count-1）语义完全一致，且 Java 侧 getValues() 返回 CSharpReadOnlyCollection<Group>（是 CSharpGenericIterable 子类型），可直接适配。
+- **状态**: ✅ Fixed（工作区修复：ArgumentTransformer Case 3 对 GroupCollection 实参使用 getValues() 适配；本迭代 mvn 构建已无 AttRegexTests.java 错误，修复随 Iteration 21 一并提交）
+
+## Iteration 21 — 未报告的异常错误 NoSuchMethodException（Type.GetConstructor(Type[]) 落为 Class.getConstructor，lambda 内无法捕获）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/dotnet/text/regularexpressions/Tests/RegexCompileToAssemblyTests.java
+- **行号**: 64（列 459）
+- **错误信息**: `[64,459] 未报告的异常错误java.lang.NoSuchMethodException; 必须对其进行捕获或声明以便抛出`
+- **代码片段**:
+  ```java
+  Assert.throws_(PlatformNotSupportedException.class, () -> dotnet.text.regularexpressions.Regex.compileToAssembly(
+      ..., new CustomAttributeBuilder[] { new CustomAttributeBuilder(
+          AssemblyCompanyAttribute.class.getConstructor(new Class[] { String.class }),
+          new String[] { "TestCompany" }) }));
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\Regex.CompileToAssembly.Tests.cs（第 67 行 `typeof(AssemblyCompanyAttribute).GetConstructor(new[] { typeof(string) })`）
+- **根因分类**: Transformer 逻辑缺陷（InvocationExpressionTransformer 缺少 1 参 GetConstructor(Type[]) 映射）
+- **涉及组件**:
+  - src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（GetConstructor 仅映射 2 参/4 参 BindingFlags 变体）
+  - java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java（缺 2 参 getConstructor(Class, Class...) 重载）
+- **分析**: C# `Type.GetConstructor(Type[])` 找不到时返回 null（不抛异常），且调用处位于 Runnable lambda 内——Java 的 `Class.getConstructor(Class...)` 声明 throws NoSuchMethodException，lambda 体内无法声明 throws、外层 try-catch 也救不了。转换器只把 2 参 (BindingFlags, Type[]) 与 4 参 (BindingFlags, Binder, Type[], ParameterModifier[]) 变体映射到 TypeHelper，1 参变体落入通用方法名映射发射为 `.getConstructor(...)`。修复：1 参 GetConstructor 映射到新增的 TypeHelper.getConstructor(Class, Class...) 重载（catch NoSuchMethodException 返回 null，镜像 C# 语义）。
+- **测试**: `RegexTestClusterFixesTests.TypeGetConstructor_NoBindingFlags_EmitsTypeHelperCall`（先红后绿）
+- **状态**: ✅ Fixed（附带修复同轮全量回归：`RecordException_EmitsRecordExceptionCall` 增加 Xunit.Record 语法回退映射 → `XunitRecord.exception`；3 个 suppression 测试更新为新行为——trivial 序列化成员发射 `__suppress__` 参数版本、使用被抑制参数时省略。本轮编译错误全部清零，Maven 进入测试执行阶段）
+
+## Iteration 22 — 运行时 NullPointerException: TypeHelper.getMethod 返回 null（AttRegexTests 284 个测试错误）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/dotnet/text/regularexpressions/Tests/AttRegexTests.java（以及 src/main 下 Regex.compile / RegexCache.getOrAdd 调用链）
+- **错误信息**: `java.lang.NullPointerException: Cannot invoke "io.github.ningpp.compat.MethodInfo.makeGenericMethod(java.lang.Class[])" because the return value of "io.github.ningpp.compat.TypeHelper.getMethod(java.lang.Class, String, java.lang.Class[])" is null`
+- **代码片段**:
+  ```
+  at dotnet.text.regularexpressions.Regex.compile(Regex.java:191)
+  at dotnet.text.regularexpressions.Regex.<init>(Regex.java:109)
+  at dotnet.text.regularexpressions.RegexCache.getOrAdd(RegexCache.java:136)
+  at dotnet.text.regularexpressions.Tests.AttRegexTests.test(AttRegexTests.java:117)
+  ```
+- **根因分类**: 待分析（怀疑 compat TypeHelper.getMethod 对泛型方法/实例方法查找规则不匹配，或转换器发射的 getMethod 参数不对）
 - **状态**: 待修复

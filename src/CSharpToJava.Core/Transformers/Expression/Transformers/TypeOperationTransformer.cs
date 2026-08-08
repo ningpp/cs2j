@@ -493,6 +493,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                         targetArrayType.ElementType,
                         context,
                         "size");
+                    // C# string implements IEnumerable<char> but Java String has no spliterator().
+                    // Use chars().mapToObj() to create Stream<Character> instead.
+                    if (ExpressionTransformerHelpers.IsSystemStringType(sourceType))
+                    {
+                        return $"{ExpressionTransformerHelpers.BuildStringStreamExpression(expression)}.toArray(size -> {streamArrayCreation})";
+                    }
                     context.AddImport("java.util.stream.StreamSupport");
                     return $"StreamSupport.stream({expression}.spliterator(), false).toArray(size -> {streamArrayCreation})";
                 }
@@ -635,6 +641,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 context.AddImport("io.github.ningpp.compat.CSharpList");
                 return $"new CSharpList<>({expression})";
             }
+        }
+
+        // C# casts to suppressed types (ISerializable → __suppress__) cannot be emitted:
+        // __suppress__ is a final placeholder class, so a cast from an unrelated class is
+        // a compile error. The receiver's own class declares the corresponding members
+        // (e.g. ISerializable.GetObjectData is emitted as a public method), so the cast
+        // becomes a no-op.
+        if (targetType == "__suppress__")
+        {
+            return expression;
         }
 
         return $"({targetType})({expression})";

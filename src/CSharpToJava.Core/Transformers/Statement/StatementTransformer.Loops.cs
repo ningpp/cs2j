@@ -237,6 +237,47 @@ public partial class StatementTransformer
         // record synthesis (from `select new { ... }`) registers the record
         // before we resolve the foreach variable type via MapType.
         var expression = exprTransformer.Transform(stmt.Expression, context);
+
+        // Multi-enumeration adaptation: C# types like GroupCollection implement BOTH
+        // IEnumerable<T> (C# foreach yields T) AND IReadOnlyDictionary<K, V> (Java
+        // iteration yields CSharpKeyValuePair<K,V>). The Java mapping keeps only the
+        // dictionary enumeration, so `foreach (Group item in groups)` would iterate
+        // KeyValuePairs. When the C# foreach variable type equals the dictionary's
+        // Value (or Key) type, iterate .getValues() (C# GroupCollection.Values
+        // enumerates index 0..Count-1, exactly like its IEnumerable<Group>) / .getKeys().
+        if (typeInfo.Type is INamedTypeSymbol foreachVarType
+            && context.GetTypeInfo(stmt.Expression).Type is INamedTypeSymbol foreachExprNamed)
+        {
+            // The receiver may be a local declared with an interface type (e.g.
+            // `ICollection<Group> collection = CreateCollection();`) whose Java
+            // declaration was emitted as `var`; recover the concrete type from the
+            // initializer so dictionary-backed collections are detected.
+            var effectiveExprType = foreachExprNamed;
+            if (stmt.Expression is IdentifierNameSyntax receiverId
+                && context.GetSymbolInfo(receiverId).Symbol is ILocalSymbol receiverLocal)
+            {
+                var declarator = receiverLocal.DeclaringSyntaxReferences
+                    .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+                if (declarator?.Initializer != null
+                    && context.GetTypeInfo(declarator.Initializer.Value).Type is INamedTypeSymbol initNamed)
+                {
+                    effectiveExprType = initNamed;
+                }
+            }
+
+            var dictIface = effectiveExprType.AllInterfaces
+                .FirstOrDefault(i => i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2);
+            if (dictIface != null)
+            {
+                var keyType = dictIface.TypeArguments[0];
+                var valueType = dictIface.TypeArguments[1];
+                if (SymbolEqualityComparer.Default.Equals(valueType, foreachVarType))
+                    expression = $"{expression}.getValues()";
+                else if (SymbolEqualityComparer.Default.Equals(keyType, foreachVarType))
+                    expression = $"{expression}.getKeys()";
+            }
+        }
+
         var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "var";
 
         // C# allows foreach (char c in str) because string implements IEnumerable<char>.
