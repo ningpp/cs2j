@@ -385,7 +385,16 @@ public class LambdaTransformer : IIRExpressionTransformer
                         result = $"{paramStr} -> {{\n{preBlock}{bodyStmt}\n{postBlock}\n}}";
                     }
                     else
-                        result = $"{paramStr} -> {{\n{preBlock}\nvar __result = {body};\n{postBlock}\nreturn __result;\n}}";
+                    {
+                        // Java's var cannot infer a type from a null initializer. When the
+                        // body value is null (null literal or a cast of null, e.g. from a
+                        // hoisted property assignment `obj.Name = null`), declare __result
+                        // with the mapped type of the expression body instead of var.
+                        string resultDecl = EmitsNullValue(body)
+                            ? GetLambdaBodyResultType(node, context)
+                            : "var";
+                        result = $"{paramStr} -> {{\n{preBlock}\n{resultDecl} __result = {body};\n{postBlock}\nreturn __result;\n}}";
+                    }
                 }
                 else
                 {
@@ -428,6 +437,41 @@ public class LambdaTransformer : IIRExpressionTransformer
         }
 
         return $"{paramStr} -> null";
+    }
+
+    /// <summary>
+    /// True when the transformed body string is a Java null value (the null literal
+    /// or a cast of null), which Java's var cannot infer a type from.
+    /// </summary>
+    private static bool EmitsNullValue(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+        var trimmed = body.Trim();
+        if (trimmed == "null")
+            return true;
+        return System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^\(.+\)\s*null$");
+    }
+
+    /// <summary>
+    /// Returns the Java type to declare the lambda's __result variable with when
+    /// the body value is null. Uses the C# type of the expression body via the
+    /// semantic model; falls back to Object when it cannot be resolved.
+    /// </summary>
+    private static string GetLambdaBodyResultType(LambdaExpressionSyntax lambda, ConversionContext context)
+    {
+        if (lambda.ExpressionBody != null && context.SemanticModel != null)
+        {
+            var typeInfo = context.GetTypeInfo(lambda.ExpressionBody);
+            if (typeInfo.Type is { } typeSymbol
+                && typeSymbol is not IErrorTypeSymbol)
+            {
+                var javaType = context.MapType(typeSymbol);
+                if (!string.IsNullOrWhiteSpace(javaType) && javaType != "var")
+                    return javaType;
+            }
+        }
+        return "Object";
     }
 
     private string TransformAnonymousMethod(AnonymousMethodExpressionSyntax node, ConversionContext context)

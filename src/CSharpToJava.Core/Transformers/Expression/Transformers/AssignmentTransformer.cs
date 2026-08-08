@@ -1612,6 +1612,17 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return true;
         }
 
+        // A null literal needs no temp variable — Java's var cannot infer a type
+        // from null, so hoisting it would emit the uninferable `var _chainVal = null;`.
+        // Pass null straight through; callers (e.g. lambda __result handling) declare
+        // the value with an explicit type.
+        if (right.Trim() == "null")
+        {
+            context.AddPreStatement($"{receiver}.{setter}({right})");
+            result = right;
+            return true;
+        }
+
         var temp = context.GenerateSyntheticName("_chainVal");
         context.AddPreStatement($"var {temp} = {right}");
         context.AddPreStatement($"{receiver}.{setter}({temp})");
