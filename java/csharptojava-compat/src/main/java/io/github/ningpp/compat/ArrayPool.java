@@ -47,6 +47,29 @@ public final class ArrayPool<T> {
     }
 
     /**
+     * Rents an array of the given component type. Java erases the ArrayPool&lt;T&gt;
+     * type argument, so the caller's assignment to T[] would fail with
+     * ClassCastException if rent() returned Object[]. Passing the component Class
+     * lets this allocate a properly-typed array (the caller's checkcast succeeds).
+     * Arrays are allocated fresh — the shared buckets cannot pool arrays of
+     * different component types.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T[] rentShared(Class<?> componentType, int minimumLength) {
+        if (componentType == null) {
+            throw new NullPointerException("componentType");
+        }
+        if (minimumLength < 0) {
+            throw new IllegalArgumentException("minimumLength=" + minimumLength);
+        }
+        int size = Math.max(1, Integer.highestOneBit(Math.max(minimumLength, 1) - 1) << 1);
+        if (size < minimumLength) {
+            size = minimumLength;
+        }
+        return (T[]) Array.newInstance(componentType, size);
+    }
+
+    /**
      * Returns an array to the pool.
      */
     public void returnValue(T[] array) {

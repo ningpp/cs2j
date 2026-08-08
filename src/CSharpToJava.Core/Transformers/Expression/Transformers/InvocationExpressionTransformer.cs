@@ -4686,9 +4686,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return $"ArrayPool.{charMethod}({poolArgsStr})";
                 }
                 var javaElem = context.MapType(poolArgs[0]);
+                if (originalMethodName == "Rent")
+                {
+                    // Erasure: ArrayPool.getShared() can only produce Object[] at runtime,
+                    // so the caller's assignment to T[] would throw ClassCastException
+                    // (e.g. ReadOnlyMemory[] in SegmentStringBuilder.GrowAndAdd). Pass the
+                    // component Class so rentShared() allocates a properly-typed array.
+                    var classToken = javaElem;
+                    var lt = classToken.IndexOf('<');
+                    if (lt >= 0) classToken = classToken.Substring(0, lt).Trim();
+                    var dot = classToken.LastIndexOf('.');
+                    if (dot >= 0) classToken = classToken.Substring(dot + 1);
+                    return $"ArrayPool.rentShared({classToken}.class, {poolArgsStr})";
+                }
                 var sharedPool = $"ArrayPool.<{javaElem}>getShared()";
-                var poolMethod = originalMethodName == "Rent" ? "rent" : "returnValue";
-                return $"{sharedPool}.{poolMethod}({poolArgsStr})";
+                return $"{sharedPool}.returnValue({poolArgsStr})";
             }
         }
 
