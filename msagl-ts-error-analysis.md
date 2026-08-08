@@ -26,6 +26,7 @@
 | 19 | 13278 → 7502 | ①无初始化器引用类型字段宽化 `T | null`（TS2531 2922→15 / TS18047 771→116 / getter 内 TS2322）；②compat Java 集合 API 面缺口（TS2339 CSharpList .get/.set 等 328→0、CsKeyValuePair getKey/getValue 224→0、TS2693 new CSharpList/Stack/Dictionary 130→26） | ① src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs（EmitField）+ TsNullAssertionRound19Tests.cs + 3 例既有断言更新；② NpmProjectPlan.cs（global.d.ts 桩 Array 接口合并 + const 合并）/ TsRawStatementNormalizer.cs / TsExpressionWriter.cs（new CSharpList 改写）+ compat ArrayCompat.ts + CsKeyValuePair.ts + index.ts + TsCollectionCompatRound19Tests.cs | b52ea407 + 4424932a + fd623fe3 + cc02d254（另：并发会话先期提交 b289f65f 已收割 TS2551 FQCN 接收者族，纳入本轮起点 12633） |
 | 20 | 7502 → 7235 | 构造器工厂（Create$N）调用点残余缺口（TS2673 369→75）：①结构化 JavaNewExpression 发射路径（EmitNew）无工厂改写；②结构体默认零值填充（字段/自动属性后备字段）raw 文本；③LINQ 重写产物链内 ctor 符号不可解析 → 回退实参数量+字面量种类匹配 | JavaExpression.cs（JavaNewExpression.FactoryName）+ ObjectCreationTransformer.cs（TransformToIR 携带工厂名 / TryGetCtorFactoryName 回退）/ TsExpressionWriter.cs（EmitNew）+ FieldTransformer.cs / PropertyTransformer.cs（Create$1 填充）+ TsCtorFactoryRound20Tests.cs | a5931994 + b89df38c |
 | 21 | 7235 → 6769 | ①值位无操作包装剥除（CSharpGenericIterable.from/fromTyped 172→0，TS2304 −222）；②compat Holder FQCN 构造值位改写（new io.github.ningpp.compat.*Holder → refOf/outRef，TS2304 'io' 69→0）；③FQCN 缩短不得剥断点号前导成员链（回退：TS2339 2 例 + 旧版静默剥断 ~270 行揭示/修复） | TsRawStatementNormalizer.cs（NormalizeIterableFromWrappers / NormalizeCompatHolderConstructors / NormalizeFqcnExpressions 点号前导守卫）+ TsRawStatementNormalizerTests.cs | 3eaa5813 + 9c92d7d5 + e759ff10 |
+| 22 | 6769 → 6404 | 生成集合类补 `[Symbol.iterator]()`（TS2488 197→0 / TS2741 177→0 / TS2420 18→2 同根三族 + TS18046 −73 级联） | TsTypeWriter.cs（EmitClass 钩子）/ TsMemberWriter.cs（EmitSymbolIterator 新成员）+ tests/CSharpToTypeScript.Tests/TsSymbolIteratorRound22Tests.cs | d3cfcc10 + 9f263a09 |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -189,6 +190,76 @@
   addRange 51（compat 面）等；③ TS2551 666（getter 形态调用点残量）+
   TS2741 177（生成集合类缺 [Symbol.iterator]，Set/RBTree 族）。
 
+
+## Round 22 — 生成集合类补 `[Symbol.iterator]()`（TS2488 197→0 / TS2741 177→0 / TS2420 18→2，6769 → 6404）
+
+实测起点 = Round 21 终态 **6,769 错误行**（tsc-r22-full.txt 复核一致）。
+
+- **C# 构造**：实现 `IEnumerable<T>`/`ICollection<T>` 的类（MSAGL `Set<T>`/`RbTree<T>`/
+  `EdgeCollection`/`Polyline`/`ThreeArray<T>`/`IncEdges`/`Pred`/`Succ`/`SmoothedPolyline`/
+  `NetworkSimplex`/`NodeCollection`/`GenericBinaryHeapPriorityQueue<T>`/`LinkedPoint` 等 17 个
+  生成类），生成端为 Java 风味产出 public 实例 `iterator()` 桥接
+  （`CSharpGenericEnumerator<T>` 返回，yield 类为 `*iterator(): IterableIterator<T>`），
+  TS 侧无 `[Symbol.iterator]()`。
+- **错误 TS 输出（修复前，本轮起点）**：`for (const o of this)`（Set.ts:53 等）
+  → `TS2488: Type 'Set<T>' must have a '[Symbol.iterator]()' method that returns an iterator.`
+  （197）；`Enumerable.select(set, ...)`/方法实参（Set 值传入 `Iterable<T>` 形参）
+  → `TS2741: Property '[Symbol.iterator]' is missing in type 'X' but required in type 'Iterable<T>'`
+  （177）；`class Set<T> implements CSharpICollection<T>` → `TS2420: Class 'X' incorrectly
+  implements interface 'Iterable<T>'`（18）。同根三族 = 392 行：TS for-of / Iterable 结构化
+  协议要求 `[Symbol.iterator]()`，生成类只有 Java 枚举器桥接。
+- **正确 TS 输出**：类体方法块后追加
+  - 适配器形态（`CSharpGenericEnumerator<T>` 返回）：`[Symbol.iterator](): IterableIterator<T>`
+    内联 `const __it = this.iterator();` 返回 `{ next(): IteratorResult<T> { if (__it.moveNext())
+    { return { value: __it.getCurrent(), done: false }; } return { done: true, value: undefined }; },
+    [Symbol.iterator]() { return this; } }`；
+  - 委托形态（yield→generator `*iterator(): IterableIterator<X>`）：`return this.iterator() as
+    IterableIterator<T>;`。
+- **根因**：TS 的 for-of/Iterable 结构化契约（`[Symbol.iterator](): Iterator<T>`）与生成端的
+  Java 枚举器形态（`iterator()` + `moveNext()/getCurrent()`）不对接；`CSharpICollection<T> =
+  Iterable<T>` 结构别名使 implements 子句永远无法满足。元素类型取自 implements 上
+  Iterable 类接口实参（C# `IEnumerable<T>` 契约，`MapTypeNonNull` 防 Java 可空宽化——
+  实测 `IEnumerator<int>` 链返回 `CSharpGenericEnumerator<Integer?>` 会把元素宽化成
+  `number | null`），回退 iterator() 返回类型泛型实参，再回退 any（Java Object 语义）。
+  委托形态加 `as` 断言：TsYieldRewriter 的 generator 声明 `IterableIterator<unknown>`
+  （元素类型丢失）与类契约 `Iterable<T>` 失配——直接委托产生
+  `TS2322: 'IterableIterator<unknown>' is not assignable to 'IterableIterator<T>'`（实测
+  GenericBinaryHeapPriorityQueue.ts:143 / ThreeArray.ts:94 各 1 行，与它们替换掉的 TS2420
+  1:1 互换），断言按类契约（C# IEnumerable<T>）恢复元素类型而非把消费端退化 unknown。
+- **修复位置**：`TsTypeWriter.EmitClass` 方法块后新增钩子；`TsMemberWriter.EmitSymbolIterator`
+  （新成员）+ `ExtractIteratorElementType`。仅 TS 目标发射；Java 目标零接触。
+- **测试（先红后绿）**：`TsSymbolIteratorRound22Tests.cs` 3 例——`IEnumerable<int>` 类
+  foreach-over-this（断言 `[Symbol.iterator](): IterableIterator<number>` + 适配器形态 +
+  strict tsc 编译）、yield generator 委托形态（`as` 断言）、泛型 `Box<T>` 元素类型 T。
+  红：首跑 3/3 失败（无成员发射）+ 迭代（元素 `number|null` 宽化 → implements 优先 +
+  MapTypeNonNull；测试桩补 `CSharpGenericEnumerator` type+const 合并，镜像真实 global.d.ts）。
+  绿后全量 `dotnet test` 7 + 682（CSharpToTypeScript.Tests，含本轮 3）+ 2492
+  （CSharpToJava.Tests）全绿；既有 TsYieldToGeneratorTests 6 例回归全绿。
+- **验证链**：`dotnet build --configuration Release` 0 错误 → 删目录全量重转（511 文件）→
+  独立 tsc 7.0.2：**6,769 → 6,404（−365）**。TS2488 **197 → 0**、TS2741 **177 → 0**
+  （残 2 行为对象字面量 SweepEvent 'site' 缺属性，异根因）、TS2420 **18 → 2**
+  （残 Rectangle/IntPair 为 IRectangle/IEdge 接口实现族，异根因）、TS18046 **319 → 250**
+  （−73，循环元素 typed）。三元组对比（path+line+code，含 17 个注入文件的行偏移修正）：
+  **移除 513 / 新增 144**，新增全为揭示型迁移（TS2551 54：Edge/VisibilityEdge/Shape 等
+  元素 getter 形态调用点浮现——Round 17 残量族；TS2339 43：`getItem2` on CsKeyValuePair
+  ~20 + `getA/getB` on SymmetricTuple ~6 + CdtTriangle.getEdges + `toString/hashCode` on
+  无约束 T ×3（Set/RbTree 内）——compat/属性面缺口 + object 方法；TS2345 18 + TS2322 17：
+  unknown/null 实参与 null 赋值 + `Set<unknown>` vs `Iterable<X>`；TS2445 6：ConeSide.Cone
+  protected 跨类（C# internal→protected，元素 typed 后浮现）；TS18046 4 + TS2739 2：
+  unknown 元素循环/IRectangle 一致性）——逐条核对均位于此前 TS2488/TS2741/TS2420 掩盖的
+  unknown/any 元素位（NodePositionsAdjuster:376 为既有错误行的形态迁移，两轮均报错），
+  **0 例既有正确代码回归**；注入块自伤 2 行（GenericBinaryHeapPriorityQueue/ThreeArray
+  TS2322）由 9f263a09 的 `as` 断言清除。语法 0。
+- **提交**：d3cfcc10（主修复）、9f263a09（委托形态 `as` 断言）；本文档独立提交。
+- **并发干扰**：无（本轮起点与终点 `git status` 均干净，无并发提交混入）。
+- **残留（下轮候选）**：① TS2304 1,152——CSharp* 名（CSharpGenericEnumerator 56 /
+  CSharpGenericIList 52 / CSharpRandom 31 / CSharpEnumerator 24 等，需 compat
+  CsEnumerator/CsRandom + global.d.ts type+const 合并）与 Java stdlib 名（StreamSupport 72 /
+  AbstractMap 63 / Stream 37 / System 32 / ArrayHelper 52 / MathHelper 26，需 Stream 链改写
+  或 compat 函数面）；② TS2339 1,090——`getItem2` ~20（CsKeyValuePair 补 getItem2 或
+  Item2 属性映射）、`getA/getB` SymmetricTuple ~6、spliterator 46、addRange 51（compat 面）；
+  ③ TS2551 724——getter 形态调用点残量（本轮新揭示 54 为循环元素接收者，LgInteractor 20+
+  最集中）→ 下一轮候选为 TsPropertyReconstructionRewriter 元素接收者推断再扩展。
 
 ## Round 15 — E 族：LINQ 重写产物方法引用形态 TS 归一化（语法清零，语义波涌现）
 
