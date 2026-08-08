@@ -193,3 +193,19 @@
 - **分析**: System.Text.StringBuilder 映射到 java.lang.StringBuilder，没有 `getChunks()`。修复：新增 compat `StringBuilderExtensions.getChunks(StringBuilder)` 返回覆盖整个内容的单个 ReadOnlyMemory 分块；转换器对 StringBuilder 接收者的 `GetChunks()` 调用（语义模型守卫）重写为 `StringBuilderExtensions.getChunks(...)` 并加 import。循环体 `vsb.append(chunk.getSpan())` 绑定到 `append(Object)`（ReadOnlySpan.toString 返回字符内容，语义等价）。
 - **测试**: `StringBuilderGetChunksTests`（先红后绿，javac 编译验证）
 - **状态**: ✅ Fixed
+
+## Iteration 12 — 条件表达式类型错误（目标类型化条件表达式到 ReadOnlySpan 分支未适配）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 912/913
+- **错误信息**: `[912,27] 不兼容的类型: 条件表达式中的类型错误; [912,111] 不兼容的类型: 条件表达式中的类型错误`
+- **代码片段**:
+  ```java
+  return (!invert ? set : (set.charAt(0) == NullChar ? MemoryExtensions.asSpan(set, 1) : NullCharString + set));
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 1513 行附近 `return !invert ? set : set[0] == NullChar ? set.AsSpan(1) : NullCharString + set;`，SetFromProperty 返回 ReadOnlySpan<char>）
+- **根因分类**: Transformer 逻辑缺陷（目标类型化条件表达式的分支未按 span 目标适配）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs（TransformConditional）；src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（string→span 规则跳过条件表达式，防双重包装）
+- **分析**: C# 目标类型化条件表达式（ConvertedType 为 ReadOnlySpan<char>）中 string 分支隐式转换为 span，但 Java 三元两个分支类型必须一致；TransformConditional 只对枚举/Decimal 做了分支适配，没有处理 span 目标。修复：当条件表达式 ConvertedType 是 Span/ReadOnlySpan 时对每个分支调用 AdaptExpressionToTargetType（string 分支包 MemoryExtensions.asSpan）。同时修复实参 string→span 规则对整体三元表达式的重复包装（asSpan(cond) 分支类型不兼容）。
+- **测试**: `ConditionalSpanBranchAdaptationTests`（先红后绿）
+- **状态**: ✅ Fixed
