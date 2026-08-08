@@ -190,14 +190,11 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
         return SyntaxFactory.Block(declarations).WithTriviaFrom(node);
     }
 
-    /// <summary>规范化 case 值：源文本去空白，非字母数字→下划线。</summary>
+    /// <summary>规范化 case 值：源文本去空白；字母/数字/下划线保留，其余字符按码点编码。</summary>
     internal static string NormalizeCase(ExpressionSyntax expr)
     {
         var text = expr.ToString().Replace(" ", "");
-        var sb = new System.Text.StringBuilder();
-        foreach (var ch in text)
-            sb.Append(char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_');
-        return sb.ToString();
+        return NormalizeCaseText(text);
     }
 
     /// <summary>规范化 case 模式：取模式文本（如常量模式 2 → "2"）。</summary>
@@ -206,10 +203,21 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
         // CasePatternSwitchLabel 的 Pattern 可能是 ConstantPatternSyntax 等。
         // 简化处理：取其第一个 ExpressionSyntax 后代，回退到模式文本。
         var expr = pattern.DescendantNodes().OfType<ExpressionSyntax>().FirstOrDefault();
-        var text = (expr ?? pattern).ToString().Replace(" ", "");
+        return NormalizeCaseText((expr ?? pattern).ToString().Replace(" ", ""));
+    }
+
+    /// <summary>
+    /// Encodes case values so distinct labels never collide. Older normalization mapped
+    /// every non-alphanumeric character (e.g. the char literals '\'', '&lt;', '(') to '_',
+    /// so <c>goto case 'X'</c> in a switch with several punctuation labels (like
+    /// RegexParser.ScanGroupOpen) jumped to the wrong section — the one registered last.
+    /// Non-alphanumeric characters are now encoded as their code point (e.g. '(' → "_28_").
+    /// </summary>
+    private static string NormalizeCaseText(string text)
+    {
         var sb = new System.Text.StringBuilder();
         foreach (var ch in text)
-            sb.Append(char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_');
+            sb.Append(char.IsLetterOrDigit(ch) || ch == '_' ? ch : $"_{(int)ch:X}");
         return sb.ToString();
     }
 
