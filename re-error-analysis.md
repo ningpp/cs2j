@@ -227,3 +227,26 @@
 - **分析**: `Type.MakeGenericMethodParameter(i)` 被发射为 `Class.makeGenericMethodParameter(i)`、`typeof(X<>).MakeGenericType(T)` 被发射为 `X.class.makeGenericType(...)`，两个方法在 java.lang.Class 上都不存在（内层符号错误遮蔽了外层 makeGenericType 错误）。修复：由于 Java `Class.getMethod` 按擦除匹配，转换器对这两类调用发射擦除形态——方法类型变量发射 `Object.class`，MakeGenericType 调用剥离为裸 `X.class` 字面量。
 - **测试**: `TypeReflectionMetadataErasureTests`（先红后绿）
 - **状态**: ✅ Fixed
+
+## Iteration 14 — 无法推断本地变量 _last 的类型（LINQ 重写生成的 var + default(T) → null）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/System/Diagnostics/DebuggerAttributes.java
+- **行号**: 200
+- **错误信息**: `[200,13] 无法推断本地变量 _last 的类型 (变量初始化程序为 'null')`
+- **代码片段**:
+  ```java
+  static CustomAttributeData getDebuggerBrowsableState_ProceduralLinq1(CSharpGenericIterable<CustomAttributeData> _linqitems, MemberInfo info) {
+      ...
+      var _last = null;      // ← line 200
+      var _found = false;
+      ...
+      _last = _linqitem;
+      return _last;
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\TestUtilities\System\Diagnostics\DebuggerAttributes.cs（第 63 行 `info.Attributes.SingleOrDefault(a => a.AttributeType == typeof(DebuggerBrowsableAttribute))`）
+- **根因分类**: Transformer 逻辑缺陷（var 类型推断未识别 default(T) 引用类型会发射 null）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs（TransformLocalDeclaration）
+- **分析**: LINQ 重写器将 SingleOrDefault/FirstOrDefault/LastOrDefault 等重写为 `var _last = default(T)`（LinqRewriter.cs:1570 CreateLocalVariableDeclaration）。声明变换器只把 `NullLiteralExpression` 识别为"var 无法推断"的初始化器（原 hasNullLiteralInitializer），而 `default(CustomAttributeData)`（DefaultExpressionSyntax，引用类型经 TypeOperationTransformer.GetDefaultValueForType 发射 null）被漏掉，且 `wasImplicitVar && !hasNoInitializer` 路径把已解析类型强制回写为 var，最终输出 `var _last = null;` 导致 javac 报错。
+- **修复**: 新增 `InitializerEmitsNull` 帮助方法——`null` 字面量，或 `default(T)` 且 T 为引用类型/Nullable<T>/仅引用约束类型参数时视为发射 null；null 发射初始化器时跳过"回写 var"并保留解析出的具体类型（`CustomAttributeData _last = null;`），纯 null 字面量（无解析类型）仍回退 `Object`。一处修复覆盖所有 LINQ 重写的 _last/_acc/bestItem_ 声明。
+- **测试**: `TestModuleBatch3Tests.VarWithDefaultReferenceTypeInitializer_KeepsResolvedType`、`SingleOrDefaultRewrittenLast_NullInitializerTyped`（先红后绿，全量 2525 通过；1 个存量 TypeScript CLI 测试失败与本次无关）
+- **状态**: ✅ Fixed

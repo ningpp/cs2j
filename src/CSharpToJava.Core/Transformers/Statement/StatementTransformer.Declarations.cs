@@ -67,10 +67,11 @@ public partial class StatementTransformer
         // When mapping C# IEnumerable<T>/ICollection<T>/IList<T> to CSharpGenericIterable<T>/CSharpICollection<T>/CSharpGenericIList<T>
         // for a local variable, use 'var' so Java infers the concrete return type (e.g. CSharpList<T>) from the initializer.
         // This prevents CSharpGenericIterable<T> vs CSharpICollection<T> compatibility issues.
-        // Exception: when the initializer is a null literal, Java's var cannot infer the type, so keep the explicit type.
-        bool hasNullLiteralInitializer = stmt.Declaration.Variables.Any(v =>
-            v.Initializer?.Value.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.NullLiteralExpression) == true);
-        if (!hasNullLiteralInitializer
+        // Exception: when the initializer emits Java null (null literal or default(T) of a reference type),
+        // Java's var cannot infer the type, so keep the explicit type.
+        bool hasNullEmittingInitializer = stmt.Declaration.Variables.Any(v =>
+            v.Initializer?.Value is { } initValue && InitializerEmitsNull(initValue, context));
+        if (!hasNullEmittingInitializer
             && (javaType is "Iterable" or "CSharpGenericIterable" or "CSharpICollection" or "CSharpGenericIList"
                   or "CSharpReadOnlyCollection" or "CSharpReadOnlyList"
                 || javaType.StartsWith("Iterable<") || javaType.StartsWith("CSharpGenericIterable<")
@@ -93,8 +94,10 @@ public partial class StatementTransformer
         // If C# used implicit 'var' with an initializer, prefer 'var' in Java.
         // This avoids incorrect/over-specific type annotations when C# resolves to ILookup,
         // IEnumerable, or uninstantiated generic types that don't cleanly map to Java equivalents.
+        // Exception: a null-emitting initializer (null literal or default(T) of a reference type)
+        // cannot be inferred by Java var, so keep the resolved concrete type.
         bool hasNoInitializer = stmt.Declaration.Variables.All(v => v.Initializer == null);
-        if (wasImplicitVar && !hasNoInitializer)
+        if (wasImplicitVar && !hasNoInitializer && !hasNullEmittingInitializer)
         {
             // Exception: Java's var cannot infer lambda/method-reference types inside ternary
             // expressions, so keep the explicit type when the initializer is a conditional
@@ -105,8 +108,9 @@ public partial class StatementTransformer
             if (!hasTernaryWithLambda)
                 javaType = "var";
         }
-        // Java's var cannot infer the type from a null literal initializer — fall back to Object.
-        if (javaType == "var" && hasNullLiteralInitializer)
+        // Java's var cannot infer the type from a null-emitting initializer (null literal or
+        // default(T) of a reference type) — fall back to Object.
+        if (javaType == "var" && hasNullEmittingInitializer)
             javaType = "Object";
         if (stmt.Declaration.Variables.Count == 1
             && stmt.Declaration.Variables[0].Initializer?.Value is { } singleInitializer
@@ -785,6 +789,30 @@ public partial class StatementTransformer
         }
 
         return new JavaStatementNode($"{localDeclPreCode}{effectiveJavaType} {declarations};{localDeclPostCode}");
+    }
+
+    /// <summary>
+    /// Determines whether an initializer expression will emit a Java null literal.
+    /// Java's var cannot infer a type from null, so such declarations must keep an
+    /// explicit type. Handles both the null literal and default(T) where T is a
+    /// reference type, a nullable value type, or a reference-constrained type parameter
+    /// (all of which emit null via GetDefaultValueForType).
+    /// </summary>
+    private static bool InitializerEmitsNull(ExpressionSyntax initValue, ConversionContext context)
+    {
+        if (initValue.IsKind(SyntaxKind.NullLiteralExpression))
+            return true;
+        if (initValue is not DefaultExpressionSyntax defaultExpr)
+            return false;
+        var defaultType = context.GetTypeInfo(defaultExpr.Type).Type;
+        if (defaultType == null || defaultType is IErrorTypeSymbol)
+            return false;
+        if (defaultType is INamedTypeSymbol { IsGenericType: true } namedType
+            && namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+            return true;
+        if (defaultType is ITypeParameterSymbol typeParam)
+            return typeParam.HasReferenceTypeConstraint && !typeParam.HasValueTypeConstraint;
+        return defaultType.TypeKind is not (TypeKind.Struct or TypeKind.Enum);
     }
 
     private static string GetEffectiveLocalDeclarationType(

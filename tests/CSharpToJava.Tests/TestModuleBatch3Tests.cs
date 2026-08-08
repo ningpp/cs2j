@@ -34,6 +34,47 @@ class C
     }
 
     [Fact]
+    public void VarWithDefaultReferenceTypeInitializer_KeepsResolvedType()
+    {
+        var result = Convert(@"
+class C
+{
+    object M()
+    {
+        var _last = default(string);
+        return _last;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("String _last = null;", code);
+        Assert.DoesNotContain("var _last = null;", code);
+    }
+
+    [Fact]
+    public void SingleOrDefaultRewrittenLast_NullInitializerTyped()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+using System.Linq;
+class C
+{
+    static string Pick(IEnumerable<string> attrs)
+    {
+        return attrs.SingleOrDefault(a => a.Length > 0);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.DoesNotContain("var _last = null;", code);
+        Assert.Contains("_last = null;", code);
+    }
+
+    [Fact]
     public void NullableHasValue_EmitNullCheck()
     {
         var result = Convert(@"
