@@ -617,8 +617,11 @@ public sealed class TsMemberWriter
     /// 字符串版）：long/ulong 后缀 L → bigint 后缀 n（100L→100n、0xFFL→0xFFn、1_000L→1_000n）；
     /// float/double 后缀 f/d → 去掉（1.5f→1.5）；char 字面量 'a' → "a"。
     /// 仅当整个字符串为字面量形态时才转换，避免误伤表达式/标识符。
+    /// Round 19：尾路径归一化传入 _exprWriter.MapType（字段初始化器 raw 文本中的 FQCN——
+    /// "private l: Point = new Microsoft.Msagl.Core.Geometry.Point();"（CubicBezierSegment
+    /// 等 146 处 TS2304 'Microsoft'）此前 mapType 为 null 直通）。
     /// </summary>
-    private static string NormalizeLiteral(string literal, TsMemberContext? memberContext)
+    private string NormalizeLiteral(string literal, TsMemberContext? memberContext)
     {
         // Task 19 注记⑦：Java 风味数值 cast 前缀（(long)/(int)/(short)/(byte)/(double)/(float)）
         // const long = uint.MaxValue 等初始化经共享适配层包成 "(long) (4294967295L)"
@@ -682,7 +685,7 @@ public sealed class TsMemberWriter
         // M5 / MSAGL: Java array creation literals (new String[] { "a" } /
         // new double[][] { {...} }) reach field initializers as raw text; route them
         // through the raw normalizer (array literal + float suffix passes).
-        return TsRawStatementNormalizer.Normalize(literal, memberContext: memberContext);
+        return TsRawStatementNormalizer.Normalize(literal, _exprWriter.MapType, memberContext: memberContext);
     }
 
     /// <summary>剥除 "({type}) (literal)" 或 "({type})literal" 形态的 Java 数值 cast 前缀，

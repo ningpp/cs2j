@@ -460,6 +460,9 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
         if (node.StructuredBody != null)
         {
+            // Round 19：与 VisitMethodDeclaration 对齐——结构化 var 声明（Type 占位 "var"）
+            // 经初始化器推断（Create$N 工厂/compat 链/FQCN 静态调用），构造器同规则
+            CollectStructuredLocals(node.StructuredBody.Statements, variables);
             CollectRawLocalsRecursive(node.StructuredBody.Statements, variables);
             CollectStructuredLambdaParams(node.StructuredBody.Statements, variables);
         }
@@ -696,7 +699,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 // Round 17：非 new 初始化表达式（方法调用链/字段链/括号表达式）→ 尝试类型推断；
                 // 解析不到仍登记 "var"（保守不改写）
                 var exprText = ReadExpressionUpToDelimiter(text, ref i);
-                inferred = exprText != null ? ResolveExpressionTextType(exprText) : null;
+                inferred = exprText != null ? ResolveExpressionTextType(exprText, variables) : null;
             }
             variables[name] = inferred ?? "var";
         }
@@ -1319,6 +1322,20 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             switch (statement)
             {
                 case JavaVariableDeclarationStatement declaration:
+                    if (string.IsNullOrEmpty(declaration.Type) || declaration.Type == "var")
+                    {
+                        // Round 19（TS2551 主根因实证形态）：结构化 var 声明（Type 占位
+                        // "var"）从初始化器推断——let ret = Polyline.Create$2(ps)
+                        // （Create$N 工厂）/ let d = Point.op_Subtract(a, b)（FQCN 静态调用）/
+                        // let info = data.Map.get(nd)（compat 链）此前登记 "var" 使后续
+                        // 调用点保守不改写；推断失败回退 "var"（C1）。
+                        var inferred = ResolveInitializerType(declaration.Initializer, variables);
+                        if (inferred != null)
+                        {
+                            variables[declaration.Name] = inferred;
+                            break;
+                        }
+                    }
                     variables[declaration.Name] = declaration.Type;
                     break;
                 case JavaForEachStatement forEach:
@@ -1389,6 +1406,15 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 CollectStructuredLocals(block.Statements, variables);
                 break;
             case JavaVariableDeclarationStatement declaration:
+                if (string.IsNullOrEmpty(declaration.Type) || declaration.Type == "var")
+                {
+                    var inferred = ResolveInitializerType(declaration.Initializer, variables);
+                    if (inferred != null)
+                    {
+                        variables[declaration.Name] = inferred;
+                        break;
+                    }
+                }
                 variables[declaration.Name] = declaration.Type;
                 break;
             case JavaForEachStatement forEach:
@@ -1539,10 +1565,29 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     }
 
     /// <summary>
+    /// Round 19：结构化 var 声明初始化器类型推断——结构化表达式（JavaMethodCallExpression/
+    /// JavaMemberAccessExpression 等）走 ResolveExpressionType；raw 文本初始化器
+    /// （JavaRawExpression.ResolvedType 为 null 时）走 ResolveExpressionTextType
+    /// （Create$N 工厂/compat 链/FQCN 静态调用均在此解析），变量表透传（BuildMethodContext
+    /// 期间 _methodStack 尚未 push，参数/局部经 buildVariables 解析）。解析不到 → null（C1）。
+    /// </summary>
+    private string? ResolveInitializerType(JavaExpression? initializer, Dictionary<string, string> variables)
+    {
+        if (initializer == null) return null;
+        if (initializer is JavaRawExpression raw)
+        {
+            return ResolveExpressionTextType(raw.Code, variables);
+        }
+        return ResolveExpressionType(initializer);
+    }
+
+    /// <summary>
     /// Round 17：raw 文本表达式 → 可确定类型（标识符/this.字段链/new 表达式/方法调用返回
     /// 类型/括号表达式）。递归解析链式段；任何段不可解析 → null（C1 保守）。
+    /// buildVariables（Round 19）：BuildMethodContext 期间 _methodStack 尚未 push，
+    /// 标识符段经调用方构建中的变量表解析（结构化 var 初始化器推断路径）。
     /// </summary>
-    private string? ResolveExpressionTextType(string text)
+    private string? ResolveExpressionTextType(string text, Dictionary<string, string>? buildVariables = null)
     {
         var t = text.Trim();
         if (t.Length == 0) return null;
@@ -1550,7 +1595,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         {
             var open = t.IndexOf('(');
             var close = FindMatchingParen(t, open);
-            if (close == t.Length - 1) return ResolveExpressionTextType(t[(open + 1)..^1]);
+            if (close == t.Length - 1) return ResolveExpressionTextType(t[(open + 1)..^1], buildVariables);
         }
         if (t.StartsWith("new ", StringComparison.Ordinal))
         {
@@ -1571,6 +1616,28 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             return _classStack.Count > 0 ? _classStack.Peek().ClassName : null;
         }
         if (t == "super") return null;
+        // Round 19（TS2551 FQCN 接收者族）：raw 文本整链查扁平表——点分链逐段分解
+        // （Microsoft.Msagl.Core.Geometry.Point → Microsoft 首段即失败 → 整链 null）是
+        // 保守不改写的根因；结构化路径（JavaRawExpression.ResolvedType → TryGetTypeContexts）
+        // 经全名键 _typeContextsByName["Microsoft.Msagl.Core.Geometry.Point"] 可命中。
+        // 此处分解前先整链查表：命中返回简单名（简单名与全名同上下文时）或全名
+        // （歧义时指向精确上下文），与结构化路径对齐。
+        var wholeName = NormalizeTypeName(t);
+        if (wholeName != null && _typeContextsByName.TryGetValue(wholeName, out var wholeCtx))
+        {
+            var nameDot = wholeName.LastIndexOf('.');
+            if (nameDot > 0)
+            {
+                var simple = wholeName[(nameDot + 1)..];
+                if (simple.Length > 0
+                    && _typeContextsByName.TryGetValue(simple, out var simpleCtx)
+                    && ReferenceEquals(simpleCtx, wholeCtx))
+                {
+                    return simple;
+                }
+            }
+            return wholeName;
+        }
         var lastDot = -1;
         var depth = 0;
         for (var idx = 0; idx < t.Length; idx++)
@@ -1582,7 +1649,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
         if (lastDot < 0)
         {
-            return IsSimpleIdentifier(t) ? ResolveIdentifierType(t) : null;
+            return IsSimpleIdentifier(t) ? ResolveIdentifierType(t, buildVariables) : null;
         }
         var recvText = t[..lastDot].Trim();
         var memberPart = t[(lastDot + 1)..].Trim();
@@ -1592,14 +1659,21 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             var memberName = memberPart[..openIdx];
             if (!IsSimpleIdentifier(memberName)) return null;
             var args = memberPart[(openIdx + 1)..^1];
-            var recvType = ResolveExpressionTextType(recvText);
-            if (recvType == null || !TryGetTypeContext(recvType, out var ctx)) return null;
-            if (ctx.AccessorMap.TryGetValue(memberName, out var accInfo)) return accInfo.Type;
-            return ctx.MethodReturnTypes.TryGetValue(MethodReturnKey(memberName, CountTopLevelArgs(args)), out var retType) ? retType : null;
+            var argCount = CountTopLevelArgs(args);
+            var recvType = ResolveExpressionTextType(recvText, buildVariables);
+            if (recvType == null) return null;
+            // Round 19：注册上下文（访问器/用户方法）解析不到时回退内置签名表
+            // （compat 集合 get(k)/getValue()/size()... 与 Create$N 工厂），链式段续行
+            if (TryGetTypeContext(recvType, out var ctx))
+            {
+                if (ctx.AccessorMap.TryGetValue(memberName, out var accInfo)) return accInfo.Type;
+                if (ctx.MethodReturnTypes.TryGetValue(MethodReturnKey(memberName, argCount), out var retType)) return retType;
+            }
+            return TryResolveBuiltinMethodReturn(recvType, memberName, argCount);
         }
         if (IsSimpleIdentifier(memberPart))
         {
-            var recvType = ResolveExpressionTextType(recvText);
+            var recvType = ResolveExpressionTextType(recvText, buildVariables);
             if (recvType == null || !TryGetTypeContext(recvType, out var ctx)) return null;
             return ResolveMemberTypeInContext(ctx, memberPart);
         }
@@ -2200,7 +2274,16 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             case JavaMemberAccessExpression access:
             {
                 var targetType = ResolveExpressionType(access.Target);
-                if (targetType == null || !TryGetTypeContext(targetType, out var ctx))
+                if (targetType == null)
+                {
+                    // Round 19：结构化 FQCN 成员链（Microsoft.Msagl.Core.Geometry.Point）
+                    // 逐段解析首段 Microsoft 即失败——整链文本查扁平表全名键兜底
+                    var chain = access.ToInlineString();
+                    var whole = NormalizeTypeName(chain);
+                    if (whole != null && _typeContextsByName.ContainsKey(whole)) return whole;
+                    return null;
+                }
+                if (!TryGetTypeContext(targetType, out var ctx))
                 {
                     return null;
                 }
@@ -2213,9 +2296,14 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 // 裸调用（Target == null）无类型信息，保守 null
                 if (call.Target == null) return null;
                 var callTargetType = ResolveExpressionType(call.Target);
-                if (callTargetType == null || !TryGetTypeContext(callTargetType, out var callCtx)) return null;
-                if (callCtx.AccessorMap.TryGetValue(call.MethodName, out var accInfo)) return accInfo.Type;
-                return callCtx.MethodReturnTypes.TryGetValue(MethodReturnKey(call.MethodName, call.Arguments.Count), out var retType) ? retType : null;
+                if (callTargetType == null) return null;
+                // Round 19：注册上下文解析不到时回退内置签名表（compat 集合/Create$N）
+                if (TryGetTypeContext(callTargetType, out var callCtx))
+                {
+                    if (callCtx.AccessorMap.TryGetValue(call.MethodName, out var accInfo)) return accInfo.Type;
+                    if (callCtx.MethodReturnTypes.TryGetValue(MethodReturnKey(call.MethodName, call.Arguments.Count), out var retType)) return retType;
+                }
+                return TryResolveBuiltinMethodReturn(callTargetType, call.MethodName, call.Arguments.Count);
             }
             case JavaArrayAccessExpression arrayAccess:
             {
@@ -2263,12 +2351,19 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
 
     /// <summary>
     /// 解析标识符的类型：当前方法参数/局部变量 → 当前类型字段 → 类型名（静态访问）。
+    /// buildVariables（Round 19）：BuildMethodContext 期间 _methodStack 尚未 push，
+    /// 构建中的变量表直接查（结构化 var 初始化器推断路径）。
     /// </summary>
-    private string? ResolveIdentifierType(string name)
+    private string? ResolveIdentifierType(string name, Dictionary<string, string>? buildVariables = null)
     {
         if (_methodStack.Count > 0 && _methodStack.Peek().VariableTypes.TryGetValue(name, out var variableType))
         {
             // Round 17：变量类型为泛型参数（TEdge extends IEdge）→ 映射到可解析的约束类型
+            var mapped = ResolveTypeParameter(variableType);
+            return mapped ?? variableType;
+        }
+        if (buildVariables != null && buildVariables.TryGetValue(name, out variableType))
+        {
             var mapped = ResolveTypeParameter(variableType);
             return mapped ?? variableType;
         }
@@ -2696,13 +2791,155 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
         if (segment.IsCall)
         {
-            // 调用段 getA()/getB()：属性 getter（AccessorMap）优先，其次用户方法返回类型（R-2）
-            if (!TryGetTypeContext(currentType, out var ctx)) return null;
-            if (ctx.AccessorMap.TryGetValue(segment.Name!, out var accInfo)) return accInfo.Type;
-            return ctx.MethodReturnTypes.TryGetValue(MethodReturnKey(segment.Name!, segment.ArgCount), out var retType) ? retType : null;
+            // 调用段 getA()/getB()：属性 getter（AccessorMap）优先，其次用户方法返回类型（R-2）；
+            // Round 19：compat 集合内置方法（get(k)/getValue()/size()...）与 Create$N 工厂
+            // （注册表收集时尚未合成）按内置签名表解析，供链式段续行
+            if (TryGetTypeContext(currentType, out var ctx))
+            {
+                if (ctx.AccessorMap.TryGetValue(segment.Name!, out var accInfo)) return accInfo.Type;
+                if (ctx.MethodReturnTypes.TryGetValue(MethodReturnKey(segment.Name!, segment.ArgCount), out var retType)) return retType;
+            }
+            return TryResolveBuiltinMethodReturn(currentType, segment.Name!, segment.ArgCount);
         }
         if (!TryGetTypeContext(currentType, out var typeContext)) return null;
         return ResolveMemberTypeInContext(typeContext, segment.Name!);
+    }
+
+    /// <summary>
+    /// Round 19：注册表外内置方法签名解析（链式段续行）——两类：
+    /// ① Create$N 工厂：TsCtorFactoryRewriter 在 CollectProjectContexts 之后才合成
+    ///    （RunTsRewriters 内晚于属性重建器运行），MethodReturnTypes 恒缺 Create$N 键；
+    ///    工厂返回类型 = 接收者类自身。
+    /// ② compat 集合/对类型内置方法（CsDictionary.get(k)→V、CSharpList.get(i)→T、
+    ///    CsKeyValuePair.getValue()→V、size()→number、values()/keySet()/iterator()...）：
+    ///    compat 类无注册上下文，MethodReturnTypes 恒缺。按接收者类型名 + 泛型实参
+    ///    解析；任何形态不可识别 → null（C1 保守不改写）。
+    /// </summary>
+    private static string? TryResolveBuiltinMethodReturn(string receiverType, string methodName, int argCount)
+    {
+        if (methodName.StartsWith("Create$", StringComparison.Ordinal))
+        {
+            return NormalizeTypeName(receiverType);
+        }
+        var t = receiverType.Trim();
+        if (t.EndsWith("[]", StringComparison.Ordinal)) return null;
+        if (t.EndsWith(" | null", StringComparison.Ordinal)) t = t[..^" | null".Length].TrimEnd();
+        else if (t.EndsWith("?", StringComparison.Ordinal)) t = t[..^1].TrimEnd();
+        var lt = t.IndexOf('<');
+        string baseName;
+        string[] args;
+        if (lt > 0 && t.EndsWith(">", StringComparison.Ordinal))
+        {
+            baseName = t[..lt].Trim();
+            args = SplitGenericArgs(t[(lt + 1)..^1]);
+        }
+        else
+        {
+            baseName = t;
+            args = Array.Empty<string>();
+        }
+        if (baseName.Contains("KeyValuePair", StringComparison.Ordinal) || baseName.Contains("Entry", StringComparison.Ordinal))
+        {
+            if (args.Length >= 2)
+            {
+                if (methodName == "getKey" && argCount == 0) return args[0].Trim();
+                if (methodName == "getValue" && argCount == 0) return args[1].Trim();
+            }
+            return null;
+        }
+        if (IsCompatMapType(baseName))
+        {
+            if (args.Length >= 2)
+            {
+                if (methodName == "get" && argCount == 1) return args[1].Trim();
+                if (methodName == "getOrDefault" && argCount == 2) return args[1].Trim();
+                if (methodName == "put" && argCount == 2) return args[1].Trim();
+                if (methodName == "remove" && argCount == 1) return args[1].Trim();
+                if (methodName == "values" && argCount == 0) return "CSharpList<" + args[1].Trim() + ">";
+                if (methodName == "keySet" && argCount == 0) return "CsSet<" + args[0].Trim() + ">";
+                if (methodName == "entrySet" && argCount == 0)
+                {
+                    return "CsSet<CsKeyValuePair<" + args[0].Trim() + ", " + args[1].Trim() + ">>";
+                }
+                if (methodName == "iterator" && argCount == 0) return "Iterator<" + args[1].Trim() + ">";
+            }
+            return null;
+        }
+        if (IsCompatCollectionType(baseName))
+        {
+            var isSetLike = baseName.Contains("Set", StringComparison.Ordinal);
+            if (args.Length >= 1)
+            {
+                var element = args[0].Trim();
+                if (methodName == "get" && argCount == 1) return element;
+                if (methodName == "set" && argCount == 2) return element;
+                if (methodName == "getFirst" && argCount == 0) return element;
+                if (methodName == "getLast" && argCount == 0) return element;
+                if (methodName == "element" && argCount == 0) return element;
+                if (methodName == "peek" && argCount == 0) return element;
+                if (methodName == "poll" && argCount == 0) return element;
+                if (methodName == "pop" && argCount == 0) return element;
+                if (methodName == "next" && argCount == 0) return element;
+                if (methodName == "iterator" && argCount == 0) return "Iterator<" + element + ">";
+                if (methodName == "spliterator" && argCount == 0) return "Spliterator<" + element + ">";
+                if (methodName == "toArray" && argCount == 0) return element + "[]";
+                // List.remove(index)→T；Set.remove(v)→boolean（set 形态不续行）
+                if (methodName == "remove" && argCount == 1 && !isSetLike) return element;
+            }
+            if (methodName == "size" && argCount == 0) return "number";
+            if (methodName == "isEmpty" && argCount == 0) return "boolean";
+            if (methodName == "contains" && argCount == 1) return "boolean";
+            if (methodName == "containsKey" && argCount == 1) return "boolean";
+            if (methodName == "add" && argCount == 1) return "boolean";
+            return null;
+        }
+        return null;
+    }
+
+    /// <summary>Map 族兼容集合基名（K,V 二元；含 CSharp/Cs 前缀变体）。</summary>
+    private static bool IsCompatMapType(string baseName)
+    {
+        if (baseName.Contains("Dictionary", StringComparison.Ordinal)) return true;
+        if (baseName.Contains("Map", StringComparison.Ordinal)) return true;
+        return baseName is "CSharpSortedDict" or "SortedDictionary" or "SortedMap";
+    }
+
+    /// <summary>1 元元素集合兼容基名（List/Set/Queue/Iterable/Iterator 族 + CSharp/Cs 前缀变体）。</summary>
+    private static bool IsCompatCollectionType(string baseName)
+    {
+        if (baseName.Contains("KeyValuePair", StringComparison.Ordinal)) return false;
+        return baseName is "CsList" or "CSharpList" or "List" or "ArrayList" or "LinkedList"
+            or "Vector" or "Stack" or "Queue" or "Deque" or "ArrayDeque" or "PriorityQueue"
+            or "Collection" or "Iterable" or "Set" or "CsSet" or "HashSet" or "TreeSet"
+            or "LinkedHashSet" or "SortedSet" or "CSharpHashSet" or "CSharpDictionary"
+            or "CSharpGenericIList" or "CSharpGenericList" or "CSharpGenericCollection"
+            or "CSharpGenericSet" or "CSharpGenericIterable" or "Iterator" or "Spliterator";
+    }
+
+    /// <summary>按顶层逗号切分泛型实参文本（跳过嵌套泛型/括号）。</summary>
+    private static string[] SplitGenericArgs(string inner)
+    {
+        var result = new List<string>();
+        var depth = 0;
+        var start = 0;
+        for (var i = 0; i < inner.Length; i++)
+        {
+            var ch = inner[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(inner, i) - 1;
+                continue;
+            }
+            if (ch == '<' || ch == '[' || ch == '(') depth++;
+            else if (ch == '>' || ch == ']' || ch == ')') depth--;
+            else if (ch == ',' && depth == 0)
+            {
+                result.Add(inner[start..i].Trim());
+                start = i + 1;
+            }
+        }
+        result.Add(inner[start..].Trim());
+        return result.ToArray();
     }
 
     /// <summary>

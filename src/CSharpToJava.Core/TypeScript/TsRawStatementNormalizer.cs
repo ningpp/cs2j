@@ -2064,6 +2064,17 @@ public static class TsRawStatementNormalizer
                 var mapped = mapType(prefix);
                 return mapped == prefix ? full : mapped + full[lastDot..];
             }
+            if (after == '>' || after == ',')
+            {
+                // Round 19（MSAGL TS2503 156 条）：泛型实参位（after=='>'）此前直通——
+                // "new CSharpSortedDict<Double, Microsoft.Msagl.Core.Geometry.Point>()"
+                // （Curve.ts:1593）/ "new CSharpKeyValuePair<Double, Microsoft.Msagl.Core.
+                // Geometry.Point>(...)"（EdgeLabelPlacement.ts:504）。链末段是类型名
+                // （非方法名），按类型规则整链缩短；非末位泛型实参（after==','）同规则。
+                // mapType 神谕对未知链恒等返回，值位裸链不受影响。
+                var mapped = mapType(full);
+                return mapped == full ? full : mapped;
+            }
             return full;
         });
     }

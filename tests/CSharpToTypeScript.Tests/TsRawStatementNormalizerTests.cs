@@ -226,9 +226,11 @@ public class TsRawStatementNormalizerTests
     public void Nested_Generic_Fqcn_Declaration_With_Lambda_Is_Let_ified()
     {
         // MSAGL GreedyNodeRailLevelCalculator.cs:88；类型注解内 FQCN 实参走映射缩短，
-        // 初始化器文本（非 new 创建位）原样保留
+        // 初始化器文本原样保留。Round 19（TS2503）：泛型实参位（after=='>'）同样缩短
+        // ——"new Set<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>>(...)" 的实参
+        // FQCN 此前直通产生 Cannot find namespace 'Microsoft'，现按类型规则整链缩短。
         var input = "Set<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>> segments = new Set<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>>(Enumerable.select(edges, e => new SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>(e.getSourcePoint(), e.getTargetPoint())));";
-        var expected = "let segments: Set<SymmetricTuple<Point>> = new Set<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>>(Enumerable.select(edges, e => new SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>(e.getSourcePoint(), e.getTargetPoint())));";
+        var expected = "let segments: Set<SymmetricTuple<Point>> = new Set<SymmetricTuple<Point>>(Enumerable.select(edges, e => new SymmetricTuple<Point>(e.getSourcePoint(), e.getTargetPoint())));";
         Assert.Equal(expected, NormalizeWithTable(input));
     }
 
@@ -1251,6 +1253,43 @@ public class TsRawStatementNormalizerTests
         Assert.Equal(
             "this.A.length + this.items.size()",
             TsRawStatementNormalizer.Normalize("A.length + items.size()", memberContext: ctx));
+    }
+
+    // ─── Round 19（MSAGL TS2503/TS2304）：FQCN 泛型实参位 + 字段初始化器位 ──
+
+    [Fact]
+    public void Fqcn_Generic_Argument_Position_Is_Shortened()
+    {
+        // Round 19（MSAGL TS2503 156 条）：NormalizeFqcnExpressions 只有 after=='('
+        // 与 after=='.' 分支，泛型实参位（after=='>'）直通 ——
+        // "new CSharpSortedDict<Double, Microsoft.Msagl.Core.Geometry.Point>()"（Curve.ts:1593）
+        // "new CSharpKeyValuePair<Double, Microsoft.Msagl.Core.Geometry.Point>(...)"（EdgeLabelPlacement.ts:504）
+        // 链末段是类型名（非方法名），按类型规则整链缩短。
+        Assert.Equal(
+            "dict = new CSharpSortedDict<Double, Point>();",
+            NormalizeWithTable("dict = new CSharpSortedDict<Double, Microsoft.Msagl.Core.Geometry.Point>();"));
+        Assert.Equal(
+            "list.push(new CSharpKeyValuePair<Double, Point>(start, startPoint));",
+            NormalizeWithTable("list.push(new CSharpKeyValuePair<Double, Microsoft.Msagl.Core.Geometry.Point>(start, startPoint));"));
+        // 非末位泛型实参（后继 ','）同样缩短
+        Assert.Equal(
+            "p = new CSharpPair<Point, Station>(a, b);",
+            NormalizeWithTable("p = new CSharpPair<Microsoft.Msagl.Core.Geometry.Point, Station>(a, b);"));
+    }
+
+    [Fact]
+    public void Fqcn_Generic_Argument_Java_Prefix_Is_Not_Shortened()
+    {
+        // 守卫（与 Round 18 一致）：java./io.github./System. 前缀经 mapType 恒等返回，
+        // 泛型实参位（after=='>'）同样不受影响。
+        Assert.Equal(
+            "x = new CSharpSortedDict<Double, java.math.BigDecimal>();",
+            NormalizeWithTable("x = new CSharpSortedDict<Double, java.math.BigDecimal>();"));
+        // 值位裸链（after==','）走同一类型规则：mapType 末段映射（该形态在 TS 中
+        // 本身即非法——未知链缩短不引入新错误行）
+        Assert.Equal(
+            "y = foo(Value, 5);",
+            NormalizeWithTable("y = foo(Microsoft.Unknown.Ns.Value, 5);"));
     }
 
 }
