@@ -621,10 +621,11 @@ public final class TypeHelper {
         boolean isPublic = Modifier.isPublic(modifiers);
         boolean isStatic = Modifier.isStatic(modifiers);
 
-        if (wantPublic && !isPublic) {
-            return false;
-        }
-        if (wantNonPublic && isPublic) {
+        // C# semantics: Public and NonPublic are alternatives, not requirements.
+        // A member matches when it is public AND Public is requested, or when it
+        // is non-public AND NonPublic is requested. Treating them as AND made
+        // every member fail the common Public | NonPublic combination.
+        if (!((wantPublic && isPublic) || (wantNonPublic && !isPublic))) {
             return false;
         }
         if (wantStatic && !isStatic) {
