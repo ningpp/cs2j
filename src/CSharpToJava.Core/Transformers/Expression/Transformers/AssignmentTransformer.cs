@@ -2239,6 +2239,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return $"{tmpName}.{memberName}";
         }
 
+        if (node.Left is ElementAccessExpressionSyntax elementAccess)
+        {
+            // Extract receiver and index to temps so side-effecting expressions (e.g.
+            // classes[classPos++] ??= new X()) are evaluated exactly once, like C#.
+            var elemTarget = facade.Transform(elementAccess.Expression, context);
+            var elemIndices = string.Join(", ", elementAccess.ArgumentList.Arguments
+                .Select(a => facade.Transform(a.Expression, context)));
+            var tmpArray = context.GenerateSyntheticName("__nullCoalArr");
+            var tmpIndex = context.GenerateSyntheticName("__nullCoalIdx");
+            context.AddPreStatement($"var {tmpArray} = {elemTarget}");
+            context.AddPreStatement($"var {tmpIndex} = {elemIndices}");
+            context.AddPreStatement($"if ({tmpArray}[{tmpIndex}] == null) {tmpArray}[{tmpIndex}] = {right}");
+            return $"{tmpArray}[{tmpIndex}]";
+        }
+
         // General complex case (best effort — evaluates LHS expression string once but may have side effects)
         var lhs = facade.Transform(node.Left, context);
         context.AddPreStatement($"if ({lhs} == null) {lhs} = {right}");
