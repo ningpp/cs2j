@@ -664,7 +664,11 @@ private static bool IsArrayAccessSegment(string segment)
         // Detect when a C# array element (from jagged array) is returned where a List<T> is expected.
         // e.g., return outEdges[vertex]; where the method returns IList<TEdge> → List<TEdge> in Java
         // and outEdges is TEdge[][] — element is TEdge[] which doesn't implement List<TEdge> in Java.
-        if (stmt.Expression != null && context.SemanticModel != null)
+        // Inside a lambda, `return expr` returns from the lambda (whose element type is the
+        // array itself, e.g. Select(obj => { ...; return obj; }) on IEnumerable<object[]>),
+        // so the enclosing method's return type must NOT drive array-to-collection wrapping.
+        bool returnInsideLambda = stmt.Ancestors().OfType<AnonymousFunctionExpressionSyntax>().Any();
+        if (!returnInsideLambda && stmt.Expression != null && context.SemanticModel != null)
         {
             var exprType = context.GetTypeInfo(stmt.Expression).Type;
             if (exprType is IArrayTypeSymbol { Rank: 1 } arrayType)
