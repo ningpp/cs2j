@@ -206,7 +206,8 @@ public partial class StatementTransformer
                 }
                 if (lhsIsProp)
                 {
-                    var varName = ConversionContext.EscapeJavaKeyword(sv.Identifier.Text);
+                    var varName = context.MethodState.GetEffectiveLocalJavaName(
+                        context.GetDeclaredSymbol(sv), ConversionContext.EscapeJavaKeyword(sv.Identifier.Text));
                     var rhsExpr = exprTransformer.Transform(assignInit.Right, context);
                     if (context.SemanticModel != null)
                     {
@@ -288,7 +289,8 @@ public partial class StatementTransformer
                         var binLeftExpr = exprTransformer.Transform(binInit.Left, context);
                         if (context.TryGetPointerBase(binLeftExpr.Trim(), out var inheritedBase))
                         {
-                            context.RegisterPointerBase(ConversionContext.EscapeJavaKeyword(v.Identifier.Text), inheritedBase);
+                            context.RegisterPointerBase(context.MethodState.GetEffectiveLocalJavaName(
+                                context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text)), inheritedBase);
                         }
                     }
                 }
@@ -302,7 +304,8 @@ public partial class StatementTransformer
                         var binAddLeftExpr = exprTransformer.Transform(binAddInit.Left, context);
                         if (context.TryGetPointerBase(binAddLeftExpr.Trim(), out var inheritedBase))
                         {
-                            context.RegisterPointerBase(ConversionContext.EscapeJavaKeyword(v.Identifier.Text), inheritedBase);
+                            context.RegisterPointerBase(context.MethodState.GetEffectiveLocalJavaName(
+                                context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text)), inheritedBase);
                         }
                     }
                 }
@@ -314,7 +317,8 @@ public partial class StatementTransformer
                     var idExpr = exprTransformer.Transform(idInit, context);
                     if (context.TryGetPointerBase(idExpr.Trim(), out var inheritedBase))
                     {
-                        context.RegisterPointerBase(ConversionContext.EscapeJavaKeyword(v.Identifier.Text), inheritedBase);
+                        context.RegisterPointerBase(context.MethodState.GetEffectiveLocalJavaName(
+                            context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text)), inheritedBase);
                     }
                 }
                 // When the declared type is a primitive array (e.g., int[]) and the initializer is
@@ -561,7 +565,7 @@ public partial class StatementTransformer
                     init = "";
                 }
             }
-            return $"{ConversionContext.EscapeJavaKeyword(v.Identifier.Text)}{init}";
+            return $"{context.MethodState.GetEffectiveLocalJavaName(context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text))}{init}";
         }));
 
         string localDeclPreCode = "";
@@ -585,7 +589,8 @@ public partial class StatementTransformer
         if (stmt.Declaration.Variables.Count == 1)
         {
             var varDeclarator = stmt.Declaration.Variables[0];
-            var varName = ConversionContext.EscapeJavaKeyword(varDeclarator.Identifier.Text);
+            var varName = context.MethodState.GetEffectiveLocalJavaName(
+                context.GetDeclaredSymbol(varDeclarator), ConversionContext.EscapeJavaKeyword(varDeclarator.Identifier.Text));
             if (context.MethodState.HasPendingLambdaCaptureHolder(varDeclarator.Identifier.Text))
             {
                 var origName = varDeclarator.Identifier.Text;
@@ -633,7 +638,8 @@ public partial class StatementTransformer
                             a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
                     if (!isFlags)
                     {
-                        var varNameFill = ConversionContext.EscapeJavaKeyword(singleVarCheck.Identifier.Text);
+                        var varNameFill = context.MethodState.GetEffectiveLocalJavaName(
+                            context.GetDeclaredSymbol(singleVarCheck), ConversionContext.EscapeJavaKeyword(singleVarCheck.Identifier.Text));
                         var enumTypeRef = BuildEnumTypeReference(enumNamedType);
                         var zeroMember = FindEnumMemberByValue(enumNamedType, 0);
                         string fillValue = zeroMember != null
@@ -656,7 +662,8 @@ public partial class StatementTransformer
             && lambdaCaptureHolderCode == null)
         {
             var singleVar = stmt.Declaration.Variables[0];
-            var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
+            var varName = context.MethodState.GetEffectiveLocalJavaName(
+                context.GetDeclaredSymbol(singleVar), ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text));
 
             // Determine initializer expression as IR node
             JavaExpression? initializerIR = null;
@@ -705,7 +712,8 @@ public partial class StatementTransformer
             && lambdaCaptureHolderCode == null)
         {
             var singleVar = stmt.Declaration.Variables[0];
-            var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
+            var varName = context.MethodState.GetEffectiveLocalJavaName(
+                context.GetDeclaredSymbol(singleVar), ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text));
 
             JavaExpression? initializerIR = null;
             string? resolvedInitType = null;
@@ -750,7 +758,8 @@ public partial class StatementTransformer
             && enumArrayFillStmt == null)
         {
             var singleVar = stmt.Declaration.Variables[0];
-            var varName = ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text);
+            var varName = context.MethodState.GetEffectiveLocalJavaName(
+                context.GetDeclaredSymbol(singleVar), ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text));
 
             JavaExpression? initializerIR = null;
             string? resolvedInitType = null;

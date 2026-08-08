@@ -153,6 +153,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (symbol is ILocalSymbol or IParameterSymbol)
                 {
                     var name = ConversionContext.EscapeJavaKeyword(id.Identifier.Text);
+                    // Locals renamed due to cross-lambda shadowing (C# allows shadowing
+                    // an enclosing parameter/local inside a lambda body; Java forbids it)
+                    // must be emitted under the registered Java name.
+                    if (symbol is ILocalSymbol localSym2
+                        && context.MethodState.TryGetLocalRename(localSym2, out var irRenamedName))
+                        name = irRenamedName;
                     // Lambda capture holder: replace references to externally-reassigned
                     // captured variables with holder element access (_varNameCap[0]).
                     if (symbol is ILocalSymbol && context.MethodState.TryGetActiveLambdaCaptureHolder(id.Identifier.Text, out var irHolderName))
@@ -550,6 +556,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (context.GetSymbolInfo(node).Symbol is ILocalSymbol { HasConstantValue: true } constLocal)
         {
             return RenderConstLocalValue(constLocal.ConstantValue);
+        }
+
+        // Locals renamed due to cross-lambda shadowing (C# allows a local declared
+        // inside a lambda body to shadow an enclosing parameter/local; Java forbids
+        // it) must be emitted under the registered Java name.
+        if (context.GetSymbolInfo(node).Symbol is ILocalSymbol localSym
+            && context.MethodState.TryGetLocalRename(localSym, out var renamedName))
+        {
+            return renamedName;
         }
 
         return ConversionContext.EscapeJavaKeyword(name);

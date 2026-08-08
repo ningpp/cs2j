@@ -310,6 +310,45 @@ public class MethodConversionState
     /// </summary>
     public bool LambdaCapturePreScanDone { get; set; }
 
+    // ─── Renamed Locals (Lambda Shadowing) ────────────────────────
+
+    /// <summary>
+    /// Locals declared inside a lambda body whose name collides with a variable
+    /// visible from the enclosing scope (method parameter/local or enclosing lambda
+    /// parameter/local). C# allows shadowing across lambda boundaries, Java forbids
+    /// it, so the inner declaration must be renamed and every reference to it
+    /// (resolved by symbol) emitted under the new name.
+    /// </summary>
+    private readonly Dictionary<ISymbol, string> _renamedLocals = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// Register that <paramref name="symbol"/> (a local declared inside a lambda body)
+    /// is emitted as <paramref name="javaName"/> instead of its C# name.
+    /// </summary>
+    public void RegisterLocalRename(ILocalSymbol symbol, string javaName)
+    {
+        _renamedLocals[symbol] = javaName;
+    }
+
+    /// <summary>
+    /// Look up the effective Java name for a local that was renamed due to
+    /// cross-lambda shadowing. Returns false when the local was not renamed.
+    /// </summary>
+    public bool TryGetLocalRename(ISymbol? symbol, out string javaName)
+    {
+        if (symbol != null && _renamedLocals.TryGetValue(symbol, out javaName!))
+            return true;
+        javaName = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    /// Returns <paramref name="fallbackName"/> unless the local was renamed due to
+    /// cross-lambda shadowing, in which case the registered Java name is returned.
+    /// </summary>
+    public string GetEffectiveLocalJavaName(ISymbol? symbol, string fallbackName)
+        => TryGetLocalRename(symbol, out var renamed) ? renamed : fallbackName;
+
     // ─── Label Registry ────────────────────────────────────────────
 
     public LabelRegistry Labels { get; } = new();
@@ -577,6 +616,7 @@ public class MethodConversionState
         _lambdaCaptureRegistry.Clear();
         _pendingLambdaCaptureHolders.Clear();
         _activeLambdaCaptureHolderFrames.Clear();
+        _renamedLocals.Clear();
         _runtimeClassParametersByTypeParameter.Clear();
         LambdaCapturePreScanDone = false;
         _hoistedLocalFunctions.Clear();

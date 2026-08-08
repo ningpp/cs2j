@@ -116,7 +116,9 @@ public partial class StatementTransformer
                 }
                 else
                 {
-                    vars.Add($"{varDeclarator.Identifier}{init}");
+                    var forVarName = context.MethodState.GetEffectiveLocalJavaName(
+                        context.GetDeclaredSymbol(varDeclarator), varDeclarator.Identifier.ToString());
+                    vars.Add($"{forVarName}{init}");
                 }
             }
 
@@ -229,7 +231,8 @@ public partial class StatementTransformer
         }
 
         var typeInfo = context.GetTypeInfo(stmt.Type);
-        var identifier = ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text);
+        var identifier = context.MethodState.GetEffectiveLocalJavaName(
+            context.GetDeclaredSymbol(stmt), ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text));
         // Transform the collection expression FIRST so that any anonymous-type
         // record synthesis (from `select new { ... }`) registers the record
         // before we resolve the foreach variable type via MapType.
@@ -280,7 +283,8 @@ public partial class StatementTransformer
         if (context.MethodState.HasPendingLambdaCaptureHolder(stmt.Identifier.Text) &&
             context.MethodState.TryGetPendingLambdaCaptureHolder(stmt.Identifier.Text, stmt, out var loopVarCapType, out var loopVarHolderName))
         {
-            var loopVarInit = ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text);
+            var loopVarInit = context.MethodState.GetEffectiveLocalJavaName(
+                context.GetDeclaredSymbol(stmt), ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text));
             loopVarHolderPrefix = loopVarCapType.Contains('<')
                 ? $"{loopVarCapType}[] {loopVarHolderName} = ({loopVarCapType}[]) new Object[] {{ {loopVarInit} }};"
                 : $"{loopVarCapType}[] {loopVarHolderName} = new {loopVarCapType}[] {{ {loopVarInit} }};";

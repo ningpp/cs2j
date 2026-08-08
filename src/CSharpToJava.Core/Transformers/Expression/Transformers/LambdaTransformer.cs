@@ -143,6 +143,22 @@ public class LambdaTransformer : IIRExpressionTransformer
                 string name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
                 bool isRefOrOut = p.Modifiers.Any(m =>
                     m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword));
+                // C# lambda parameters may shadow enclosing locals (C# allows it); Java
+                // forbids a lambda parameter with the same name as an enclosing local or
+                // parameter. Apply the rename regardless of whether the parameter is
+                // explicitly typed (simple lambdas like `m -> ...` can shadow too).
+                if (enclosingNames.Contains(p.Identifier.Text))
+                {
+                    string newName = $"{name}_1";
+                    int suffix = 2;
+                    while (enclosingNames.Contains(newName))
+                    {
+                        newName = $"{name}_{suffix}";
+                        suffix++;
+                    }
+                    paramRenames[p.Identifier.Text] = newName;
+                    name = newName;
+                }
                 // Fix 2: emit explicit type when the parameter carries a declared type
                 if (p.Type != null)
                 {
@@ -152,18 +168,6 @@ public class LambdaTransformer : IIRExpressionTransformer
                     {
                         context.AddImport("io.github.ningpp.compat.ObjectHolder");
                         javaType = $"io.github.ningpp.compat.ObjectHolder<{javaType}>";
-                    }
-                    if (enclosingNames.Contains(p.Identifier.Text))
-                    {
-                        string newName = $"{name}_1";
-                        int suffix = 2;
-                        while (enclosingNames.Contains(newName))
-                        {
-                            newName = $"{name}_{suffix}";
-                            suffix++;
-                        }
-                        paramRenames[p.Identifier.Text] = newName;
-                        name = newName;
                     }
                     return $"{javaType} {name}";
                 }
@@ -204,6 +208,17 @@ public class LambdaTransformer : IIRExpressionTransformer
         // Generate body
         if (node.Block != null)
         {
+            // C# allows a local declared inside the lambda body to shadow a variable
+            // visible from the enclosing scope (method parameter/local or enclosing
+            // lambda parameter/local); Java forbids that shadowing, so the inner
+            // declarations (and every reference that binds to them) must be renamed.
+            // Register the renames before the body is transformed so that both the
+            // declaration emission and the reference emission use the new names.
+            var bodyLocalBlockedNames = CollectVisibleEnclosingNames(node);
+            foreach (var p in parameters) bodyLocalBlockedNames.Add(p.Identifier.Text);
+            foreach (var newName in paramRenames.Values) bodyLocalBlockedNames.Add(newName);
+            RegisterLambdaBodyShadowRenames(node.Block, bodyLocalBlockedNames, context);
+
             // Save pending pre-statements before processing the block body.
             // Array-holder pre-statements added above must be emitted at the
             // enclosing scope (before the statement containing this lambda),
@@ -492,6 +507,17 @@ public class LambdaTransformer : IIRExpressionTransformer
             paramStr = "()";
         }
 
+        // Anonymous method bodies have the same C#-allows / Java-forbids shadowing
+        // rules as lambda bodies — rename body locals that collide with enclosing
+        // scope names before the body is transformed.
+        var bodyLocalBlockedNames = CollectVisibleEnclosingNames(node);
+        if (node.ParameterList != null)
+        {
+            foreach (var p in node.ParameterList.Parameters)
+                bodyLocalBlockedNames.Add(p.Identifier.Text);
+        }
+        RegisterLambdaBodyShadowRenames(node.Block, bodyLocalBlockedNames, context);
+
         var body = stmtTransformer.TransformBlock(node.Block, context);
         return $"{paramStr} -> {{\n{body}\n}}";
     }
@@ -537,7 +563,27 @@ public class LambdaTransformer : IIRExpressionTransformer
         SyntaxNode? current = lambda.Parent;
         while (current != null)
         {
-            if (current is MethodDeclarationSyntax method)
+            if (current is LambdaExpressionSyntax enclosingLambda)
+            {
+                foreach (var p in GetLambdaParameters(enclosingLambda))
+                    names.Add(p.Identifier.Text);
+                if (enclosingLambda.Block != null)
+                    CollectLocalNames(enclosingLambda.Block, names);
+                else if (enclosingLambda.ExpressionBody != null)
+                    CollectLocalNames(enclosingLambda.ExpressionBody, names);
+                // Do not break — enclosing lambda parameters/locals are visible too,
+                // and the enclosing method's names must still be collected.
+            }
+            else if (current is AnonymousMethodExpressionSyntax enclosingAnon)
+            {
+                if (enclosingAnon.ParameterList != null)
+                {
+                    foreach (var p in enclosingAnon.ParameterList.Parameters)
+                        names.Add(p.Identifier.Text);
+                }
+                CollectLocalNames(enclosingAnon.Block, names);
+            }
+            else if (current is MethodDeclarationSyntax method)
             {
                 foreach (var p in method.ParameterList.Parameters)
                     names.Add(p.Identifier.Text);
@@ -547,7 +593,7 @@ public class LambdaTransformer : IIRExpressionTransformer
                     CollectLocalNames(method.ExpressionBody, names);
                 break;
             }
-            if (current is LocalFunctionStatementSyntax localFn)
+            else if (current is LocalFunctionStatementSyntax localFn)
             {
                 foreach (var p in localFn.ParameterList.Parameters)
                     names.Add(p.Identifier.Text);
@@ -555,13 +601,13 @@ public class LambdaTransformer : IIRExpressionTransformer
                     CollectLocalNames(localFn.Body, names);
                 break;
             }
-            if (current is AccessorDeclarationSyntax accessor)
+            else if (current is AccessorDeclarationSyntax accessor)
             {
                 if (accessor.Body != null)
                     CollectLocalNames(accessor.Body, names);
                 break;
             }
-            if (current is ArrowExpressionClauseSyntax arrow)
+            else if (current is ArrowExpressionClauseSyntax arrow)
             {
                 CollectLocalNames(arrow, names);
                 break;
@@ -569,6 +615,167 @@ public class LambdaTransformer : IIRExpressionTransformer
             current = current.Parent;
         }
         return names;
+    }
+
+    /// <summary>
+    /// Collects the names of every variable/parameter visible from outside
+    /// <paramref name="lambdaNode"/>: parameters of the enclosing method/constructor/
+    /// accessor/local function, locals declared in their bodies outside the lambda's
+    /// subtree, and parameters/locals of enclosing lambdas. Java forbids a local
+    /// declared inside the lambda body from reusing any of these names, while C#
+    /// allows the shadowing — so such declarations must be renamed.
+    /// </summary>
+    private static HashSet<string> CollectVisibleEnclosingNames(SyntaxNode lambdaNode)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        SyntaxNode? current = lambdaNode.Parent;
+        while (current != null)
+        {
+            switch (current)
+            {
+                case MethodDeclarationSyntax method:
+                    AddParameterNames(method.ParameterList.Parameters, names);
+                    CollectLocalNamesExcludingScope(method.Body ?? (SyntaxNode?)method.ExpressionBody, lambdaNode, names);
+                    return names;
+                case ConstructorDeclarationSyntax ctor:
+                    AddParameterNames(ctor.ParameterList.Parameters, names);
+                    CollectLocalNamesExcludingScope(ctor.Body ?? (SyntaxNode?)ctor.ExpressionBody, lambdaNode, names);
+                    return names;
+                case OperatorDeclarationSyntax op:
+                    AddParameterNames(op.ParameterList.Parameters, names);
+                    CollectLocalNamesExcludingScope(op.Body ?? (SyntaxNode?)op.ExpressionBody, lambdaNode, names);
+                    return names;
+                case ConversionOperatorDeclarationSyntax conv:
+                    AddParameterNames(conv.ParameterList.Parameters, names);
+                    CollectLocalNamesExcludingScope(conv.Body ?? (SyntaxNode?)conv.ExpressionBody, lambdaNode, names);
+                    return names;
+                case DestructorDeclarationSyntax destructor:
+                    CollectLocalNamesExcludingScope(destructor.Body, lambdaNode, names);
+                    return names;
+                case IndexerDeclarationSyntax indexer:
+                    AddParameterNames(indexer.ParameterList.Parameters, names);
+                    // Accessor bodies are visited as AccessorDeclarationSyntax.
+                    CollectLocalNamesExcludingScope(indexer.ExpressionBody, lambdaNode, names);
+                    break;
+                case LocalFunctionStatementSyntax localFn:
+                    AddParameterNames(localFn.ParameterList.Parameters, names);
+                    CollectLocalNamesExcludingScope(localFn.Body ?? (SyntaxNode?)localFn.ExpressionBody, lambdaNode, names);
+                    return names;
+                case AccessorDeclarationSyntax accessor:
+                    CollectLocalNamesExcludingScope(accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody, lambdaNode, names);
+                    return names;
+                case ArrowExpressionClauseSyntax:
+                    // Transparent — the owning member contributes its names above/below.
+                    break;
+                case LambdaExpressionSyntax enclosingLambda:
+                    AddParameterNames(GetLambdaParameters(enclosingLambda), names);
+                    CollectLocalNamesExcludingScope(enclosingLambda.Block ?? (SyntaxNode?)enclosingLambda.ExpressionBody, lambdaNode, names);
+                    break; // continue to the enclosing method — its names are visible too
+                case AnonymousMethodExpressionSyntax enclosingAnon:
+                    if (enclosingAnon.ParameterList != null)
+                        AddParameterNames(enclosingAnon.ParameterList.Parameters, names);
+                    CollectLocalNamesExcludingScope(enclosingAnon.Block, lambdaNode, names);
+                    break;
+            }
+            current = current.Parent;
+        }
+        return names;
+    }
+
+    private static void AddParameterNames(IEnumerable<ParameterSyntax> parameters, HashSet<string> names)
+    {
+        foreach (var p in parameters)
+            names.Add(p.Identifier.Text);
+    }
+
+    private static IEnumerable<ParameterSyntax> GetLambdaParameters(LambdaExpressionSyntax lambda) => lambda switch
+    {
+        SimpleLambdaExpressionSyntax simple => [simple.Parameter],
+        ParenthesizedLambdaExpressionSyntax paren => paren.ParameterList.Parameters,
+        _ => []
+    };
+
+    /// <summary>
+    /// Like <see cref="CollectLocalNames"/>, but skips declarations whose span lies
+    /// inside <paramref name="excludedNode"/> (the lambda being processed), because
+    /// those are not visible from the lambda.
+    /// </summary>
+    private static void CollectLocalNamesExcludingScope(
+        SyntaxNode? scope, SyntaxNode excludedNode, HashSet<string> names)
+    {
+        if (scope == null) return;
+        foreach (var n in scope.DescendantNodes())
+        {
+            if (excludedNode.Span.Contains(n.Span)) continue;
+            switch (n)
+            {
+                case VariableDeclarationSyntax vd:
+                    foreach (var v in vd.Variables)
+                        if (v.Identifier.ValueText.Length > 0)
+                            names.Add(v.Identifier.ValueText);
+                    break;
+                case ForEachStatementSyntax fe:
+                    if (fe.Identifier.ValueText.Length > 0)
+                        names.Add(fe.Identifier.ValueText);
+                    break;
+                case CatchDeclarationSyntax cd:
+                    if (cd.Identifier.ValueText.Length > 0)
+                        names.Add(cd.Identifier.ValueText);
+                    break;
+                case SingleVariableDesignationSyntax svd:
+                    names.Add(svd.Identifier.ValueText);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finds every local declared in <paramref name="block"/> whose name collides with
+    /// a name in <paramref name="blockedNames"/> (names visible from outside the lambda)
+    /// and registers a rename for it. Declarations inside nested lambdas are skipped —
+    /// each lambda registers its own renames when it is transformed.
+    /// </summary>
+    private static void RegisterLambdaBodyShadowRenames(
+        BlockSyntax block, HashSet<string> blockedNames, ConversionContext context)
+    {
+        foreach (var n in block.DescendantNodes(
+                     descendIntoChildren: n => n is not (LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)))
+        {
+            switch (n)
+            {
+                case VariableDeclaratorSyntax vd when vd.Identifier.ValueText.Length > 0:
+                    TryRenameLambdaShadowedLocal(vd, blockedNames, context);
+                    break;
+                case ForEachStatementSyntax fe when fe.Identifier.ValueText.Length > 0:
+                    TryRenameLambdaShadowedLocal(fe, blockedNames, context);
+                    break;
+                case SingleVariableDesignationSyntax svd:
+                    TryRenameLambdaShadowedLocal(svd, blockedNames, context);
+                    break;
+                case CatchDeclarationSyntax cd when cd.Identifier.ValueText.Length > 0:
+                    TryRenameLambdaShadowedLocal(cd, blockedNames, context);
+                    break;
+            }
+        }
+    }
+
+    private static void TryRenameLambdaShadowedLocal(
+        SyntaxNode declaration, HashSet<string> blockedNames, ConversionContext context)
+    {
+        var symbol = context.GetDeclaredSymbol(declaration) as ILocalSymbol;
+        if (symbol == null) return;
+        if (!blockedNames.Contains(symbol.Name)) return;
+        if (context.MethodState.TryGetLocalRename(symbol, out _)) return;
+
+        string newName = $"{symbol.Name}_1";
+        int suffix = 2;
+        while (blockedNames.Contains(newName))
+        {
+            newName = $"{symbol.Name}_{suffix}";
+            suffix++;
+        }
+        blockedNames.Add(newName);
+        context.MethodState.RegisterLocalRename(symbol, newName);
     }
 
     private static void CollectLocalNames(SyntaxNode scope, HashSet<string> names)

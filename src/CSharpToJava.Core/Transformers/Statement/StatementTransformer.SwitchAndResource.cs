@@ -777,7 +777,8 @@ public partial class StatementTransformer
                 }
                 var rawVarName = catchClause.Declaration.Identifier.ValueText;
                 if (!string.IsNullOrWhiteSpace(rawVarName))
-                    varName = ConversionContext.EscapeJavaKeyword(rawVarName);
+                    varName = context.MethodState.GetEffectiveLocalJavaName(
+                        context.GetDeclaredSymbol(catchClause.Declaration), ConversionContext.EscapeJavaKeyword(rawVarName));
             }
 
             var catchClauseIR = new Java.JavaCatchClause
@@ -940,7 +941,9 @@ public partial class StatementTransformer
                 context)
             : string.Empty;
         var init = variable.Initializer != null ? $" = {resourceInit}" : "";
-        return $"{javaType} {ConversionContext.EscapeJavaKeyword(variable.Identifier.Text)}{init}";
+        var resourceVarName = context.MethodState.GetEffectiveLocalJavaName(
+            context.GetDeclaredSymbol(variable), ConversionContext.EscapeJavaKeyword(variable.Identifier.Text));
+        return $"{javaType} {resourceVarName}{init}";
     }
 
     private static string BuildUsingExpressionResource(ExpressionSyntax resourceExpression, ConversionContext context)
