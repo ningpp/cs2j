@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -195,6 +195,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 // Non-const field → JavaMemberAccessExpression
                 if (symbol is IFieldSymbol { IsConst: false })
                 {
+                    // C# tuple elements are fields; map ItemN/named elements to vavr _N().
+                    if (IsTupleItemName(memberAccess.Name.Identifier.Text, out var irTupleIdx)
+                        || TryGetReceiverTupleIndex(memberAccess, context, memberAccess.Name.Identifier.Text, out irTupleIdx))
+                    {
+                        var tupleTarget = facade.TransformToIR(memberAccess.Expression, context);
+                        var accessor = new JavaMethodCallExpression
+                        {
+                            Target = tupleTarget,
+                            MethodName = $"_{irTupleIdx}",
+                        };
+                        return new JavaRawExpression($"{Transform(memberAccess.Expression, context)}._{irTupleIdx}()",
+                            context.MapType(GetSymbolType(symbol)!));
+                    }
                     var target = facade.TransformToIR(memberAccess.Expression, context);
                     var memberName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
                     return new JavaMemberAccessExpression { Target = target, MemberName = memberName };
@@ -754,7 +767,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (context.LocalTypeOverrides.TryGetValue(simpleValueReceiver.Identifier.Text, out var overrideType)
                 && overrideType.TypeKind != TypeKind.Error)
             {
-                receiverType = overrideType;
+                receiverType = TryGetLambdaParameterType(simpleValueReceiver, context, out var shadowedLambdaType)
+                    ? shadowedLambdaType
+                    : overrideType;
             }
             else
             {
@@ -1589,7 +1604,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         // Handle C# tuple field access fallthrough: Item1/Item2/... → vavr _1()/_2()/...
-        if (IsTupleItemName(memberName, out var tupIdx))
+        // Only applies when the receiver is actually a tuple type — a user struct with a
+        // field literally named Item1/Item2 must keep plain field access.
+        if (IsTupleItemName(memberName, out var tupIdx)
+            && (receiverType is INamedTypeSymbol { IsTupleType: true }
+                || (receiverType is INamedTypeSymbol rt && IsVavrTupleType(rt))))
         {
             return $"{target}._{tupIdx}()";
         }
@@ -2078,7 +2097,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 {
                     // Handle C# tuple field access: Item1/Item2/... → vavr _1()/_2()/...
                     // (KeyValuePair Item1/Item2 case is handled earlier in TransformMemberAccess)
-                    if (IsTupleItemName(memberName, out var tupIdx))
+                    // Only applies when the receiver is actually a tuple type — a user struct
+                    // with a field literally named Item1/Item2 must keep plain field access.
+                    if (IsTupleItemName(memberName, out var tupIdx)
+                        && (receiverType is INamedTypeSymbol { IsTupleType: true }
+                            || (receiverType is INamedTypeSymbol rt2 && IsVavrTupleType(rt2))))
                     {
                         return $"{target}._{tupIdx}()";
                     }
@@ -2225,10 +2248,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (context.LocalTypeOverrides.TryGetValue(identifier.Identifier.Text, out var overrideType)
             && overrideType.TypeKind != TypeKind.Error)
         {
-            type = overrideType;
+            // A lambda parameter shadows an outer local with the same name (C# scoping);
+            // prefer the parameter's own type from Roslyn over the recorded outer type.
+            type = TryGetLambdaParameterType(identifier, context, out var shadowedLambdaType)
+                ? shadowedLambdaType
+                : overrideType;
             return true;
         }
-
         if (TryGetNearestScopedIdentifierType(identifier, context, out type))
             return true;
 
@@ -2257,6 +2283,35 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         return false;
     }
 
+
+    /// <summary>
+    /// When an identifier is a lambda parameter that shadows an outer local with the
+    /// same name (C# allows this), Roslyn's binding is the authoritative source:
+    /// return the parameter's own type instead of the outer local's recorded type
+    /// (LocalTypeOverrides), which would otherwise win and produce wrong member
+    /// resolution (e.g. tuple element names of the outer local instead of the parameter).
+    /// </summary>
+    private static bool TryGetLambdaParameterType(
+        IdentifierNameSyntax identifier,
+        ConversionContext context,
+        out ITypeSymbol type)
+    {
+        type = null!;
+        if (context.SemanticModel == null)
+            return false;
+        if (context.GetSymbolInfo(identifier).Symbol is IParameterSymbol parameterSymbol)
+        {
+            var typeInfo = context.GetTypeInfo(identifier);
+            var resolved = typeInfo.Type ?? typeInfo.ConvertedType;
+            if (resolved != null && resolved.TypeKind is not (TypeKind.Error or TypeKind.Unknown))
+            {
+                type = resolved;
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static bool TryGetNearestScopedIdentifierType(
         IdentifierNameSyntax identifier,
         ConversionContext context,
@@ -2266,12 +2321,36 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var name = identifier.Identifier.Text;
         var root = identifier.SyntaxTree.GetRoot();
 
+        // C# shadowing: a lambda parameter shadows an enclosing local with the same name.
+        // Find the NEAREST declaration (by source position) that is in scope; parameters
+        // of the enclosing lambda are closer than outer locals, so a same-named lambda
+        // parameter must win even when an outer `var x = ...` declarator exists.
         var declarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Where(v => v.Identifier.Text == name && v.SpanStart <= identifier.SpanStart)
             .OrderByDescending(v => v.SpanStart)
             .FirstOrDefault(v => v.Parent is VariableDeclarationSyntax declaration
                 && IsVariableDeclarationInScope(declaration, identifier));
+
+        var parameter = root.DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .Where(p => p.Identifier.Text == name && p.SpanStart <= identifier.SpanStart)
+            .OrderByDescending(p => p.SpanStart)
+            .FirstOrDefault(p => p.Type != null && IsParameterInScope(p, identifier));
+
+        // The nearest declaration wins (larger SpanStart). Lambda parameters sit inside
+        // the lambda's parameter list, which is closer to the identifier than outer locals.
+        if (parameter != null
+            && (declarator == null || parameter.SpanStart > declarator.SpanStart))
+        {
+            var parameterType = context.GetTypeInfo(parameter.Type).Type;
+            if (IsUsableResolvedType(parameterType))
+            {
+                type = parameterType!;
+                return true;
+            }
+        }
+
         if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration)
         {
             var declaredType = context.GetTypeInfo(variableDeclaration.Type).Type;
@@ -2293,17 +2372,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             }
         }
 
-        var parameter = root.DescendantNodes()
-            .OfType<ParameterSyntax>()
-            .Where(p => p.Identifier.Text == name && p.SpanStart <= identifier.SpanStart)
-            .OrderByDescending(p => p.SpanStart)
-            .FirstOrDefault(p => p.Type != null && IsParameterInScope(p, identifier));
         if (parameter?.Type != null)
         {
-            var parameterType = context.GetTypeInfo(parameter.Type).Type;
-            if (IsUsableResolvedType(parameterType))
+            var parameterType2 = context.GetTypeInfo(parameter.Type).Type;
+            if (IsUsableResolvedType(parameterType2))
             {
-                type = parameterType!;
+                type = parameterType2!;
                 return true;
             }
         }
@@ -2434,6 +2508,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             && context.LocalTypeOverrides.TryGetValue(overrideIdentifier.Identifier.Text, out var overrideType)
             && overrideType.TypeKind != TypeKind.Error)
         {
+            // A lambda parameter shadows an outer local with the same name (C# scoping);
+            // Roslyn's binding is authoritative, so the parameter's own type must win
+            // over the type recorded for the shadowed outer var declaration.
+            if (TryGetLambdaParameterType(overrideIdentifier, context, out var shadowedLambdaParamType))
+                return shadowedLambdaParamType;
             return overrideType;
         }
 
@@ -2462,26 +2541,37 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 && mappedType.TypeKind != TypeKind.Error)
                 return mappedType;
 
-            var declarator = receiver.SyntaxTree.GetRoot()
+            var nearestDeclarator = receiver.SyntaxTree.GetRoot()
                 .DescendantNodes()
                 .OfType<VariableDeclaratorSyntax>()
                 .LastOrDefault(v => v.Identifier.Text == name && v.SpanStart <= receiver.SpanStart);
-            if (declarator?.Parent is VariableDeclarationSyntax variableDeclaration)
+            var nearestParameter = receiver.SyntaxTree.GetRoot()
+                .DescendantNodes()
+                .OfType<ParameterSyntax>()
+                .LastOrDefault(p => p.Identifier.Text == name && p.SpanStart <= receiver.SpanStart);
+
+            // Lambda parameters shadow outer locals (C# scoping); the nearer declaration wins.
+            if (nearestParameter != null
+                && (nearestDeclarator == null || nearestParameter.SpanStart > nearestDeclarator.SpanStart)
+                && nearestParameter.Type != null)
+            {
+                var parameterType = context.GetTypeInfo(nearestParameter.Type).Type;
+                if (parameterType != null && parameterType.TypeKind != TypeKind.Error)
+                    return parameterType;
+            }
+
+            if (nearestDeclarator?.Parent is VariableDeclarationSyntax variableDeclaration)
             {
                 var declaredType = context.GetTypeInfo(variableDeclaration.Type).Type;
                 if (declaredType != null && declaredType.TypeKind != TypeKind.Error)
                     return declaredType;
             }
 
-            var parameter = receiver.SyntaxTree.GetRoot()
-                .DescendantNodes()
-                .OfType<ParameterSyntax>()
-                .LastOrDefault(p => p.Identifier.Text == name && p.SpanStart <= receiver.SpanStart);
-            if (parameter?.Type != null)
+            if (nearestParameter?.Type != null)
             {
-                var parameterType = context.GetTypeInfo(parameter.Type).Type;
-                if (parameterType != null && parameterType.TypeKind != TypeKind.Error)
-                    return parameterType;
+                var parameterType2 = context.GetTypeInfo(nearestParameter.Type).Type;
+                if (parameterType2 != null && parameterType2.TypeKind != TypeKind.Error)
+                    return parameterType2;
             }
         }
 
@@ -2778,6 +2868,40 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 or "java.util.Map.Entry<K, V>";
         }
 
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves the positional index of a named tuple element access like
+    /// <c>tuple.namedElement</c> (or through a holder <c>tuple.value.namedElement</c>),
+    /// returning 1-based index. Returns false when the receiver is not a tuple type.
+    /// </summary>
+    private static bool TryGetReceiverTupleIndex(
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        string memberName,
+        out int index)
+    {
+        index = -1;
+        if (context.SemanticModel == null)
+            return false;
+
+        ITypeSymbol? receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+        if (receiverType == null || receiverType.TypeKind == TypeKind.Error)
+        {
+            receiverType = context.GetSymbolInfo(memberAccess.Expression).Symbol switch
+            {
+                ILocalSymbol l => l.Type,
+                IParameterSymbol p => p.Type,
+                IFieldSymbol f => f.Type,
+                _ => null
+            };
+        }
+        if (receiverType is INamedTypeSymbol { IsTupleType: true } tupleSym)
+        {
+            index = TryGetTupleElementIndex(tupleSym, memberName);
+            return index >= 0;
+        }
         return false;
     }
 

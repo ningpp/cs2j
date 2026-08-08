@@ -83,3 +83,5 @@ output/
 # TypeScript compat package (M4 Task 28)
 typescript/csharptotypescript-compat/node_modules/
 typescript/csharptotypescript-compat/dist/
+
+repro/

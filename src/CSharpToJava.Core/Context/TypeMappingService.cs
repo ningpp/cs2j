@@ -457,7 +457,8 @@ public class TypeMappingService
             if (mappedBase != fullQualifiedName)
             {
                 baseType = MapSimpleTypeName(mappedBase);
-                AddImportsForType(configKey);
+                if (!IsDefinedInSource(namedType))
+                    AddImportsForType(configKey);
             }
 
             var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext)));
@@ -585,7 +586,8 @@ public class TypeMappingService
 
         if (mapped != name && mapped != fullQualifiedNameSimple)
         {
-            AddImportsForType(configKeySimple);
+            if (!IsDefinedInSource(typeSymbol))
+                AddImportsForType(configKeySimple);
             var mappedFromExplicitConfig = _typeMappings.HasTypeMapping(configKeySimple);
             var mappedSimple = MapSimpleTypeName(mapped);
             if (!mappedFromExplicitConfig
@@ -602,7 +604,8 @@ public class TypeMappingService
         // When the mapped name equals the C# simple name (e.g. CSharpStack
         // → CSharpStack), the type name doesn't change but the config entry
         // may still carry imports that must be registered.
-        AddImportsForType(configKeySimple);
+        if (!IsDefinedInSource(typeSymbol))
+            AddImportsForType(configKeySimple);
         if (_typeMappings.HasTypeMapping(configKeySimple))
             return MapSimpleTypeName(mapped);
 
@@ -1097,6 +1100,17 @@ public class TypeMappingService
         foreach (var import in imports)
             AddImport(import);
     }
+
+    /// <summary>
+    /// Returns true when the type is defined in the C# project source being converted
+    /// (as opposed to a referenced BCL/assembly type). When a config type mapping
+    /// targets a type that the project also defines in source (e.g.
+    /// System.Collections.Generic.ValueListBuilder`1), the compat import must be
+    /// skipped so the project's own converted class is used instead of being
+    /// shadowed by the single-type compat import.
+    /// </summary>
+    private static bool IsDefinedInSource(ITypeSymbol typeSymbol)
+        => typeSymbol.Locations.Any(static loc => loc.IsInSource);
 
     public void AddImportsForTypePublic(string csharpType) => AddImportsForType(csharpType);
 

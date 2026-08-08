@@ -32,6 +32,34 @@ public class ValueListBuilder<T> {
     }
 
     /**
+     * Mirrors the C# ref-struct constructor ValueListBuilder&lt;T&gt;(Span&lt;T&gt;):
+     * the span provides the backing storage. Java falls back to an ArrayList copy.
+     */
+    public ValueListBuilder(Span<T> span) {
+        this.list = new ArrayList<>();
+        if (span != null) {
+            for (int i = 0; i < span.length(); i++) {
+                this.list.add(span.get(i));
+            }
+        }
+    }
+
+    /**
+     * Mirrors C# AsSpan(): exposes the current elements as a Span.
+     */
+    @SuppressWarnings("unchecked")
+    public Span<T> asSpan() {
+        return new Span<>((T[]) list.toArray());
+    }
+
+    /**
+     * Mirrors C# Dispose() on the ref struct — a no-op in Java.
+     */
+    public void dispose() {
+        // no-op
+    }
+
+    /**
      * Appends an item.  C# Append(T) → Java append(T) via camelCase conversion.
      */
     public void append(T item) {

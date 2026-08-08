@@ -100,4 +100,17 @@ public class MemoryExtensions {
         }
         return new ReadOnlySpan<>(arr);
     }
+
+    /** C# Span<T>.Reverse() / MemoryExtensions.Reverse(Span<T>) — reverses in place. */
+    public static <T> void reverse(Span<T> span) {
+        int i = 0;
+        int j = span.length() - 1;
+        while (i < j) {
+            T tmp = span.get(i);
+            span.set(i, span.get(j));
+            span.set(j, tmp);
+            i++;
+            j--;
+        }
+    }
 }

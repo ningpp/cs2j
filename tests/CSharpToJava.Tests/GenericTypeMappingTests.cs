@@ -308,6 +308,31 @@ class Derived : Base, IComparer<Derived> {
         Assert.Contains("implements CSharpGenericComparer<Derived>", code);
     }
 
+    [Fact]
+    public void ValueListBuilder_DefinedInSource_DoesNotImportCompat()
+    {
+        // When the C# project includes its own ValueListBuilder<T> source (e.g. in
+        // namespace System.Collections.Generic), the converter must NOT add the
+        // compat import io.github.ningpp.compat.ValueListBuilder, which would
+        // shadow the project's own converted class via single-type-import precedence.
+        var result = Convert(@"
+using System.Collections.Generic;
+namespace System.Collections.Generic
+{
+    internal struct ValueListBuilder<T>
+    {
+        public int Length => 0;
+        public void Append(T item) { }
+    }
+}
+class Test {
+    private ValueListBuilder<string> _builder;
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        Assert.DoesNotContain("io.github.ningpp.compat.ValueListBuilder", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
