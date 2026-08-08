@@ -1294,6 +1294,35 @@ public class TsRawStatementNormalizerTests
             NormalizeWithTable("y = foo(Microsoft.Unknown.Ns.Value, 5);"));
     }
 
+    // ─── Round 21（MSAGL TS2339 回退）：FQCN 缩短不得剥断点号前导的成员链 ──
+
+    [Fact]
+    public void Fqcn_Value_Chain_Preceded_By_Dot_Is_Not_Shortened()
+    {
+        // Round 21 回退修复：值位成员链（this.ObstacleCalculator.LooseObstacles，
+        // InteractiveEdgeRouter.ts:1160）首段前是 '.'，是成员访问而非类型链——
+        // Round 19 的 after==',' 分支曾把 "ObstacleCalculator.LooseObstacles"
+        // 当 FQCN 缩短为 "LooseObstacles"，剥断成员链产生 TS2339。包装剥除
+        // （CSharpGenericIterable.from）把链暴露到逗号位后触发；点号前导一律跳过。
+        Assert.Equal(
+            "var _obj136 = ConeSpanner.Create$1(this.ObstacleCalculator.LooseObstacles, this.VisibilityGraph);",
+            NormalizeWithTable("var _obj136 = ConeSpanner.Create$1(this.ObstacleCalculator.LooseObstacles, this.VisibilityGraph);"));
+        Assert.Equal(
+            "this.listOfPushers.push(new BumperPusher(this.Graph.Nodes, this.nodeSeparation, this.pushingNodesArray));",
+            NormalizeWithTable("this.listOfPushers.push(new BumperPusher(this.Graph.Nodes, this.nodeSeparation, this.pushingNodesArray));"));
+        // 三段成员链 + 逗号位（A.B.C → 旧逻辑剥成 C）同样不缩短
+        Assert.Equal(
+            "f(this.first.Second.Third, x);",
+            NormalizeWithTable("f(this.first.Second.Third, x);"));
+        // 类型链（无点号前导）仍按 Round 19 规则缩短
+        Assert.Equal(
+            "y = foo(Value, 5);",
+            NormalizeWithTable("y = foo(Microsoft.Unknown.Ns.Value, 5);"));
+        Assert.Equal(
+            "dict = new CSharpSortedDict<Double, Point>();",
+            NormalizeWithTable("dict = new CSharpSortedDict<Double, Microsoft.Msagl.Core.Geometry.Point>();"));
+    }
+
     // ─── Round 21（MSAGL TS2304 1,392）：CSharpGenericIterable.from(x) 值位包装剥除 ──
 
     [Fact]

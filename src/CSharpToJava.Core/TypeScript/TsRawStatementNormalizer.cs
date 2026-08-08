@@ -2229,6 +2229,17 @@ public static class TsRawStatementNormalizer
             {
                 return full;
             }
+            // Round 21 回退修复：点号前导的链是成员访问（this.ObstacleCalculator.
+            // LooseObstacles / x.First.Second.Third），不是类型链——跳过缩短。
+            // Round 19 的 after==',' 分支曾把 "ObstacleCalculator.LooseObstacles"
+            // 当 FQCN 缩短为 "LooseObstacles"，剥断成员链产生 TS2339（MSAGL
+            // InteractiveEdgeRouter.ts:1160 / IncrementalDragger.ts:47，包装剥除
+            // 把链暴露到逗号位后触发）。类型链（new/FQCN 静态调用/泛型实参）首个
+            // 段前必为空白/括号/尖括号，永不以 '.' 前导，此守卫零误伤。
+            if (before == '.')
+            {
+                return full;
+            }
             if (after == '(')
             {
                 // Creation-type position (preceded by "new "): the whole chain is the
