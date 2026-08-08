@@ -144,7 +144,20 @@ public final class TypeInfo {
 
     /** C# CustomAttributes on the underlying type. */
     public CSharpGenericIterable<CustomAttributeData> getCustomAttributes() {
-        return CSharpGenericIterable.from(new java.util.ArrayList<>());
+        CSharpList<CustomAttributeData> result = new CSharpList<>();
+        java.lang.annotation.Annotation[] annotations = asClass().getAnnotations();
+        for (java.lang.annotation.Annotation annotation : annotations) {
+            if (annotation instanceof DebuggerDisplay display) {
+                CSharpList<CustomAttributeTypedArgument> args = new CSharpList<>();
+                args.add(new CustomAttributeTypedArgument(String.class, display.value()));
+                result.add(new CustomAttributeData(DebuggerDisplayAttribute.class, args));
+            } else if (annotation instanceof DebuggerTypeProxy proxy) {
+                CSharpList<CustomAttributeTypedArgument> args = new CSharpList<>();
+                args.add(new CustomAttributeTypedArgument(Class.class, proxy.value()));
+                result.add(new CustomAttributeData(DebuggerTypeProxyAttribute.class, args));
+            }
+        }
+        return CSharpGenericIterable.from(result);
     }
 
     /** C# Type.MakeGenericType(args) — stub returning the raw type. */

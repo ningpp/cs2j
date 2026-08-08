@@ -395,10 +395,48 @@ public class ClassTransformer : ITypeTransformer
         ResolveReadOnlyDictListConflict(javaClass, context);
         InjectMSTestExtensionIfNeeded(javaClass, context);
         ReorderStaticFieldInitializers(javaClass);
+        AddDebuggerAnnotations(javaClass, mergedType.TypeSymbol, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
         return javaClass;
+    }
+
+    /// <summary>
+    /// Mirrors C# [DebuggerDisplay]/[DebuggerTypeProxy] as runtime-visible Java annotations
+    /// so compat TypeInfo.getCustomAttributes() can surface them to reflection tests.
+    /// </summary>
+    private static void AddDebuggerAnnotations(
+        JavaClassDeclaration javaClass,
+        INamedTypeSymbol typeSymbol,
+        ConversionContext context)
+    {
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            var attributeName = attr.AttributeClass?.Name;
+            if (attributeName == "DebuggerDisplayAttribute")
+            {
+                var text = attr.ConstructorArguments.Length > 0
+                    ? attr.ConstructorArguments[0].Value?.ToString() ?? ""
+                    : "";
+                javaClass.Annotations.Add(new JavaAnnotation(
+                    $"DebuggerDisplay(\"{text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n")}\")"));
+                context.AddImport("io.github.ningpp.compat.DebuggerDisplay");
+            }
+            else if (attributeName == "DebuggerTypeProxyAttribute")
+            {
+                var typeArg = attr.ConstructorArguments.Length > 0
+                    ? attr.ConstructorArguments[0].Value as ITypeSymbol
+                    : null;
+                var mapped = typeArg != null ? context.MapType(typeArg) : "Object";
+                var lt = mapped.IndexOf('<');
+                if (lt >= 0) mapped = mapped.Substring(0, lt).Trim();
+                var dot = mapped.LastIndexOf('.');
+                if (dot >= 0) mapped = mapped.Substring(dot + 1);
+                javaClass.Annotations.Add(new JavaAnnotation($"DebuggerTypeProxy({mapped}.class)"));
+                context.AddImport("io.github.ningpp.compat.DebuggerTypeProxy");
+            }
+        }
     }
 
     /// <summary>
