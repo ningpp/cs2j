@@ -10,6 +10,11 @@ public interface ICustomAttributeProvider {
         return new Object[0];
     }
 
+    /** C# CustomAttributes property — all attributes without the inherit flag. */
+    default Object[] getCustomAttributes() {
+        return getCustomAttributes(false);
+    }
+
     default Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
         return new Object[0];
     }

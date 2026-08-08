@@ -125,4 +125,30 @@ public final class TypeInfo {
         }
         return result;
     }
+
+    /** C# TypeInfo.GetDeclaredField(name). */
+    public FieldInfo getDeclaredField(String name) {
+        for (FieldInfo field : getDeclaredFields()) {
+            if (field.getName().equals(name)) return field;
+        }
+        return null;
+    }
+
+    /** C# TypeInfo.GetDeclaredProperty(name). */
+    public PropertyInfo getDeclaredProperty(String name) {
+        for (PropertyInfo property : getDeclaredProperties()) {
+            if (property.getName().equals(name)) return property;
+        }
+        return null;
+    }
+
+    /** C# CustomAttributes on the underlying type. */
+    public Object[] getCustomAttributes() {
+        return new Object[0];
+    }
+
+    /** C# Type.MakeGenericType(args) — stub returning the raw type. */
+    public Class<?> makeGenericType(Class<?>... typeArguments) {
+        return asClass();
+    }
 }

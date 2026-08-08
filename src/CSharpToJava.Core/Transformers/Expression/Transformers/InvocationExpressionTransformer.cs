@@ -945,10 +945,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // C# typeof(X<>).MakeGenericType(...) has no Java equivalent: Class.getMethod
         // matches by erasure, so a constructed generic Type argument is exactly the
         // raw X.class literal. Strip the call and keep the receiver.
+        // For variable receivers (proxyType.MakeGenericType(args)) route through
+        // TypeHelper.makeGenericType so the call compiles.
         if (memberAccess.Name.Identifier.Text == "MakeGenericType"
             && IsSystemTypeReceiver(memberAccess.Expression, context))
         {
-            return facade.Transform(memberAccess.Expression, context);
+            if (memberAccess.Expression is TypeOfExpressionSyntax)
+            {
+                return facade.Transform(memberAccess.Expression, context);
+            }
+
+            var makeGenericReceiver = facade.Transform(memberAccess.Expression, context);
+            var makeGenericArgs = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            return $"TypeHelper.makeGenericType({makeGenericReceiver}, {makeGenericArgs})";
         }
 
         // C# Type.MakeGenericMethodParameter(i) → the erasure of an unconstrained

@@ -1136,6 +1136,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"TypeHelper.getGenericArguments({target})";
             }
 
+            // C# Type.GenericTypeArguments → TypeHelper.getGenericTypeArguments(Class).
+            if (IsSystemType(receiverType) && memberName == "GenericTypeArguments")
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.getGenericTypeArguments({target})";
+            }
+
             // C# ParameterInfo.IsOptional → ReflectionHelper.isOptional(parameter).
             // ParameterInfo is mapped to java.lang.reflect.Parameter, which has no isOptional method.
             if (memberName == "IsOptional" && IsJavaReflectParameterInfoType(receiverType))

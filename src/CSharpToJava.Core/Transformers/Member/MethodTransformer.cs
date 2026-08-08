@@ -129,7 +129,10 @@ public class MethodTransformer : IMemberTransformer
         // C# "new" member that hides a base-class method: Java treats same-signature methods as overrides,
         // so we must not reduce the access level compared to the hidden base method. Otherwise Java reports
         // "attempting to assign weaker access privileges" and derived classes can no longer see the member.
-        if (methodInfo != null && methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.NewKeyword)))
+        // The same applies to C# overrides of "protected internal" base members: "protected internal"
+        // maps to public in Java, so the override must also be public.
+        if (methodInfo != null && (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.NewKeyword))
+            || methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.OverrideKeyword))))
         {
             var hiddenBase = FindHiddenBaseMethod(methodInfo);
             if (hiddenBase != null)

@@ -56,6 +56,21 @@ public final class TypeHelper {
         return type == null ? null : type.getSuperclass();
     }
 
+    /** C# Type.BaseType on a TypeInfo wrapper. */
+    public static Class<?> getBaseType(TypeInfo type) {
+        return type == null ? null : type.getBaseType();
+    }
+
+    /** C# Type.GenericTypeArguments. */
+    public static Class<?>[] getGenericTypeArguments(Class<?> type) {
+        return type == null ? new Class<?>[0] : IntrospectionExtensions.getTypeInfo(type).getGenericTypeArguments();
+    }
+
+    /** C# Type.MakeGenericType(args) — stub returning the raw type. */
+    public static Class<?> makeGenericType(Class<?> type, Class<?>... typeArguments) {
+        return type;
+    }
+
     public static Class<?> getDeclaringType(Class<?> type) {
         return type == null ? null : type.getDeclaringClass();
     }
