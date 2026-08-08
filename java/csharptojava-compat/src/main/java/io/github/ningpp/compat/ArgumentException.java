@@ -23,12 +23,19 @@ public class ArgumentException extends IllegalArgumentException {
         this.paramName = null;
     }
 
-    public ArgumentException(String message, String paramName) {
+    /**
+     * Mirrors C# ArgumentException(string paramName, string? message) — the FIRST
+     * string is the parameter name, the second the message.
+     */
+    public ArgumentException(String paramName, String message) {
         super(message);
         this.paramName = paramName;
     }
 
-    public ArgumentException(String message, String paramName, Throwable cause) {
+    /**
+     * Mirrors C# ArgumentException(string paramName, string? message, Exception? innerException).
+     */
+    public ArgumentException(String paramName, String message, Throwable cause) {
         super(message, cause);
         this.paramName = paramName;
     }

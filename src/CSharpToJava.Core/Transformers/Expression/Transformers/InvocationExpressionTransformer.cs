@@ -2225,6 +2225,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && node.ArgumentList.Arguments.Count >= 1)
             {
                 var concatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                // A raw Stream argument (e.g. from Enumerable.Repeat(...).limit(n)) is not
+                // Iterable — StringHelper.concat would call toString() on it. Materialize.
+                concatArgs = MaterializeRawStreamArguments(concatArgs, context);
                 return $"StringHelper.concat({concatArgs})";
             }
 
@@ -9828,6 +9831,74 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
         return count;
+    }
+
+    /// <summary>
+    /// Wraps raw <c>Stream</c> arguments (e.g. <c>Stream.generate(...).limit(n)</c> from
+    /// Enumerable.Repeat) in <c>CSharpGenericIterable.from(x.collect(CSharpList.toCSharpList()))</c>
+    /// so collection-consuming helpers like StringHelper.concat receive an Iterable instead
+    /// of calling toString() on the stream.
+    /// </summary>
+    private static string MaterializeRawStreamArguments(string args, ConversionContext context)
+    {
+        if (string.IsNullOrWhiteSpace(args))
+            return args;
+
+        var parts = new List<string>();
+        var start = 0;
+        int depth = 0;
+        bool inString = false;
+        bool inChar = false;
+        for (int i = 0; i < args.Length; i++)
+        {
+            char c = args[i];
+            if (inString)
+            {
+                if (c == '\\') { i++; }
+                else if (c == '"') { inString = false; }
+                continue;
+            }
+            if (inChar)
+            {
+                if (c == '\\') { i++; }
+                else if (c == '\'') { inChar = false; }
+                continue;
+            }
+            switch (c)
+            {
+                case '"': inString = true; break;
+                case '\'': inChar = true; break;
+                case '(': case '[': case '{': depth++; break;
+                case ')': case ']': case '}': depth--; break;
+                case ',' when depth == 0:
+                    parts.Add(args.Substring(start, i - start));
+                    start = i + 1;
+                    break;
+            }
+        }
+        parts.Add(args.Substring(start));
+
+        var rewritten = new List<string>(parts.Count);
+        foreach (var part in parts)
+        {
+            var trimmed = part.Trim();
+            if ((trimmed.StartsWith("Stream.", StringComparison.Ordinal)
+                || trimmed.StartsWith("IntStream.", StringComparison.Ordinal)
+                || trimmed.StartsWith("LongStream.", StringComparison.Ordinal)
+                || trimmed.StartsWith("DoubleStream.", StringComparison.Ordinal))
+                && !trimmed.Contains(".collect(", StringComparison.Ordinal))
+            {
+                context.AddImport("java.util.stream.Collectors");
+                context.AddImport("io.github.ningpp.compat.CSharpList");
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                rewritten.Add($"CSharpGenericIterable.from({trimmed}.collect(CSharpList.toCSharpList()))");
+            }
+            else
+            {
+                rewritten.Add(part);
+            }
+        }
+        return string.Join(", ", rewritten);
     }
 
     /// <summary>

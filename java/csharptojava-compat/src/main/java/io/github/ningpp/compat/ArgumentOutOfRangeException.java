@@ -12,24 +12,27 @@ public class ArgumentOutOfRangeException extends ArgumentException {
         super();
     }
 
-    public ArgumentOutOfRangeException(String message) {
-        super(message);
+    public ArgumentOutOfRangeException(String paramName) {
+        super(paramName, (String) null);
     }
 
     public ArgumentOutOfRangeException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public ArgumentOutOfRangeException(String message, String paramName) {
-        super(message, paramName);
+    /** Mirrors C# ArgumentOutOfRangeException(string paramName, string? message). */
+    public ArgumentOutOfRangeException(String paramName, String message) {
+        super(paramName, message);
     }
 
-    public ArgumentOutOfRangeException(String message, String paramName, Object actualValue) {
-        super(message, paramName);
+    /** Mirrors C# ArgumentOutOfRangeException(string paramName, string? message, object? actualValue). */
+    public ArgumentOutOfRangeException(String paramName, String message, Object actualValue) {
+        super(paramName, message);
     }
 
-    public ArgumentOutOfRangeException(String message, String paramName, Throwable cause) {
-        super(message, paramName, cause);
+    /** Mirrors C# ArgumentOutOfRangeException(string paramName, string? message, Exception? innerException). */
+    public ArgumentOutOfRangeException(String paramName, String message, Throwable cause) {
+        super(paramName, message, cause);
     }
 
     public Object getActualValue() {
