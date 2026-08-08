@@ -21,6 +21,7 @@
 | 14 | 4 → 2 | out 形参 lambda 捕获 holder raw 文本：`@SuppressWarnings` 注解未剥 + cast lookahead 不认 `[`；剥注解+cast 后 let 化 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +3 / TsRefOutParamTests +1）+ 本文件 | 6b02774b |
 | 15 | 语法 2 → 0；语义波 23043（预期转折点） | E 族：LINQ 重写产物方法引用形态未做 TS 归一化——空菱形构造剥离 + 表达式接收者 `::` 改写 + 裸 `HashSet` 局部映射 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +8 / TsRawBodyNormalizationTests +1）+ 本文件 | 本轮提交（见下） |
 | 16 | 23043 → 22171 | raw 文本裸成员引用缺前缀（TS2663 3376 / TS2662 1600 同根：实例缺 `this.`、静态缺 `类名.`） | 新增 TsMemberContext.cs；TsRawStatementNormalizer.cs（新最终 pass NormalizeBareMemberReferences）；TsMemberWriter.cs / TsStatementWriter.cs / TsExpressionWriter.cs / TsTypeWriter.cs / TypeScriptEmitter.cs（成员上下文接线）；tests （TsRawStatementNormalizerTests / 新增 TsRawMemberContextTests / 3 例断言更新）+ 本文件 | 3cf39918 |
+| 17 | 22171 → 15013 | 非自动属性访问器 getter/setter 形态调用点改写（项目级注册表 + raw/结构化 lambda 参数推断） | TsPropertyReconstructionRewriter.cs（ProjectAccessorRegistry / CollectProjectContexts / 访问器调用改写缺口 9 项 + lambda 族）/ TsEmitSupport.cs / ProjectTsPasses.cs / TsPropertyReconstructionRound17Tests.cs | cabeb448（主体被并发会话扫入，内容完整在 HEAD）+ 本轮提交（见下） |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -449,3 +450,73 @@
   （config/TypeMappings.json、IdentifierExpressionTransformer.cs、compat RuntimeFeature.java/Timeout.java、
   TimeoutAndRuntimeFeatureMappingTests.cs 等）本轮一律不碰不纳，提交仅显式 `git add` 本轮 12 个文件。
 
+
+## Round 17 — 非自动属性访问器 getter/setter 形态调用点改写（TS2551 6,070 → 1,019）
+
+- **C# 构造**：MSAGL 大量**非自动属性**（显式 get/set 体），如 `Edge.cs` `public Node Source { get { return source; } set { source = value; } }`；
+  调用点 raw 文本保留 Java getter 形态（`item.getSource()`、`this.EdgeGeometry.getSourcePort()`、`typeof ApproximateComparer` 静态
+  `getTolerance()`、裸 `getSweepDirection()`）与结构化/raw lambda 参数（`ret.sort((a, b) => b.getZoomLevel()...)`、
+  `Enumerable.selectMany(modifiedNodes, v => v.getAllClusterAncestors())`）。
+- **错误 TS 输出（修复前，本轮起点 22,171）**：TS2551 6,070（770 个成员名，getter/setter 形态占绝大多数：getSource 254、
+  getTarget 220、getCenter 160、getBoundingBox 130、getLength 107、getUserData 83…）；TS2304 裸 getter 族
+  （getSweepDirection 48 / getDirectionPerp 22 / getObstacles 10）；TS2339 4,566。
+- **根因与缺口环节定位**：`TsPropertyReconstructionRewriter` 对非自动属性访问器的调用点改写存在覆盖缺口，逐环定位：
+  1. **项目级注册表缺失**——per-unit 分析看不到跨文件类型的 AccessorMap（EdgeCollection.item.getSource() 不改写）；
+  2. 同名多类型覆盖（Edge Layout/Tiling）无候选列表；
+  3. 泛型实例化/约束（BasicGraph<Node,TEdge>、TEdge extends IEdge）不解析；
+  4. 局部变量收集只覆盖结构化 raw 顶层（for/while/if 整段 raw 内声明不收集）；
+  5. Java 形态声明（`Node n = new Node();` 嵌套整段 raw for）不识别（真实管线 LayeredLayoutEngine pushLayers 形态）；
+  6. forEach VariableType 为空（Java 文本路径）不从 Collection 推断；
+  7. 非 new 初始化链（`let bounds = this.curve.BoundingBox.clone();`）不推断类型；
+  8. 括号表达式接收者 `(Point.op_Subtract(a,b)).getLength()` 链式段解析缺括号段；
+  9. 裸访问器链首段 `getEdgeGeometry().getSourcePort()` 首段方法调用不回退访问器；`NormalizeTypeName` 不剥尾部 ` | null`。
+  lambda 族另有三处：**raw 双括号/裸参数/逗号分隔调用名回扫缺口**（`sort((a, b) ->` / `sort(a ->` /
+  `Enumerable.sum(ret, n ->` 形态）、**BuildMethodContext 期间 `_methodStack` 未 push**（简单标识符须先查变量表）、
+  **结构化语句内 lambda 不在 raw 文本**（赋值/声明初始化，需语句树遍历）+ **构造函数路径无任何收集** +
+  `IterableElementType` 被 `NormalizeTypeName` 剥泛型实参/不剥 ` | null`。
+- **修复内容**（`src/CSharpToJava.Core/TypeScript/Rewriters/TsPropertyReconstructionRewriter.cs` 为主）：
+  - 新增 `ProjectAccessorRegistry`（全名键 + 简单名候选导入/同包消歧）、`CollectProjectContexts`；`ProjectTsPasses.cs`
+    两阶段发射、`TsEmitSupport.cs` 参数透传；
+  - `TryGetTypeContexts` 候选列表、`ResolveTypeParameter`/`NormalizeTypeName` 泛型约束与 ` | null` 剥离；
+  - `CollectRawLocalsRecursive`/`CollectRawLocalsFromStatement` 递归进 for/while/if/block/catch；
+    `TryCollectJavaStyleDeclaration`（Java 形态声明）、`ResolveForEachElementType`、`ResolveExpressionTextType`/
+    `ReadRawChainText`/`ReadExpressionUpToDelimiter`（非 new 初始化链）、`RawChainSegment.IsParen`（括号段）；
+  - lambda 族：`TryCollectLambdaParamTypes`（白名单 + 接收者/首参数元素类型推断，双括号/裸参数/逗号分隔统一
+    `TryFindLambdaCallBefore` 回扫）、`ResolveLambdaSourceType`（变量表优先）、`CollectStructuredLambdaParams` 语句树
+    遍历（结构化 lambda）、`VisitConstructorDeclaration` 补同套收集、`IterableElementType` 仅剥尾部可空修饰；
+    `LambdaMethodWhitelist` 增 selectMany/thenBy/firstOrDefault 等；
+  - 测试：`tests/CSharpToTypeScript.Tests/TsPropertyReconstructionRound17Tests.cs`（81 → 85 例，新增
+    EndToEnd_Lambda_Param_Getter / EndToEnd_Lambda_FormB / RawLambda_FormB_Array_And_Param_Collection /
+    StructuredLambda_Param_Element / CtorRawBody_Lambda_Param_Element；此前 24 例覆盖跨文件/泛型/嵌套 raw/
+    Java 形态声明/括号接收者等）。
+- **先红后绿**：探针 Round17ReproProbe11（`ret.sort((a, b) => b.getZoomLevel()...)` 端到端）首跑红
+  （输出仍 getter 形态），修复后绿；RawLambda_FormB/CtorRawBody 用例先红（selectMany/lbs/构造器形态残留
+  getter）后绿；红态证据均保留在验证链的 loop17d/e 中间态。
+- **验证链**：`dotnet build --configuration Release` 0 错误 → 整删 `D:\msags-ts-202608` 全量重转
+  （510/510 成功）→ 独立 tsc 7.0.2：**22,171 → 15,013**（−7,158）；TS2551 **6,070 → 1,019**（−83.2%；
+  getset 族 5,908 → 850，**−85.6%**）；TS2339 4,566 → 1,923（−2,643，getter→属性后成员名命中正确）；TS2304
+  3,118 → 2,986，**裸 getter getSweepDirection/getDirectionPerp/getObstacles 全清零**；语法 0。
+- **迁移分析**：getter→属性访问揭示下游可空性/类型错误（同一位置换码）：TS2531 +52、TS18047 +308、TS2345 +112、
+  TS2322 +92、TS2488 +64、TS2739 +24、TS2741 +33 等；固定位置中 1,319 处转 TS2531（`X.Source` 为 `Node | null`）、
+  713 处同行仍 TS2551（同行其他 getter）、507 处转 TS2304、305 处转 TS18047、289 处转 TS2339、200 处转 TS2345——
+  属正常揭示，非回归。新增回归核对：相对 R16 无错误行新增 70 处 getset 位置，其中 69 处在本轮 9 缺口中间态
+  （loop17d）已存在；唯一新增 TransientGraphUtility.ts:437 为揭示型迁移（select lambda 参数推断使 crossingsArray
+  类型化，`s` 不再 any，暴露 `s.getIsTransparent()`）。
+- **残留 TS2551（1,019）形态（下轮候选）**：① compat 命名族（排除项 169：values 49、keySet 45、clear 34、
+  type 11、module 9、spliterator 6、signum 等，索引器 get_Item/set_Item、set$ 混名同族）；② lambda-line 148
+  （多为同行非 lambda：curve.getParEnd() 参数接收者、e.setSourcePort 的 forEach 元素；真 lambda 残余：
+  Enumerable.toList/toArray 链式推断 var 局部、内部 filter lambda 未白名单、initialize 等 Func 末参形态、
+  thenBy 嵌套调用首参数）；③ 非 lambda 702：参数/局部接收者接口或未注册类型（BorderInfo `bi`、Curve `md`）、
+  字典 `.get(x)` 链接收者（edgeInfo.getZoomLevel() 45）、forEach 元素类型擦除（`for (const c of ...)` 集合泛型
+  擦除 → c.getSegments()）、`typeof Class` 静态、成员链接收者（segment.value.getParEnd()）。
+- **dotnet test**：全绿 —— 7（项目级）+ 633（CSharpToTypeScript.Tests，含本轮过滤集 85/85）+
+  2471（CSharpToJava.Tests）；2 例环境相关顺序失败（SystemPrivateXmlRuntimeResourceTests /
+  ToStringFormatTests）隔离重跑通过，与本轮无关。
+- **提交**：Round 17 主体（ProjectAccessorRegistry/结构化 lambda 推断等）被并发会话整文件暂存扫入
+  `cabeb448`（其提交主题为 mutable ValueTuple lowering），经核对**内容完整在 HEAD**（TryFindLambdaCallBefore/
+  CollectStructuredLambdaParams/IterableElementType 修复/白名单/4 例 lambda 测试均在）；本轮独立提交补
+  构造函数收集 + CtorRawBody 测试；本文档独立提交。
+- **并发会话干扰**：MethodMigrator.cs 中途出现不存在的 `LambdaExpressionParameterSyntax` 破坏构建 3 次
+  （并发会话迭代中），轮询等待其修复后继续；RefLambdaParameterProjectTests 中途失败、随后被并发会话修复；
+  cabeb448 扫入本轮大部分改动（见上）；并发会话其他文件（LambdaTransformer.cs / InvocationExpressionTransformer.cs /
+  StructCloneHelper.cs / compat Java / re-error-analysis.md 等）一律不碰不纳。
