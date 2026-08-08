@@ -784,6 +784,16 @@ public class MethodTransformer : IMemberTransformer
                         hasArrayArg = true;
                         break;
                     }
+                    // String values containing control characters (e.g. "[\\u0000-\\uFFFF]"
+                    // ranges written with a literal NUL) are invalid CSV — route to the
+                    // data method so the string is emitted with Java escapes.
+                    if (expr is LiteralExpressionSyntax strLit
+                        && strLit.IsKind(SyntaxKind.StringLiteralExpression)
+                        && strLit.Token.ValueText.Any(c => c < 0x20 || c == 0x7F))
+                    {
+                        hasArrayArg = true;
+                        break;
+                    }
                     // Enum-typed arguments boxed into an object parameter (e.g. a test
                     // method taking (string, int, object) with RegexParseError values in
                     // its InlineData rows) cannot round-trip through CSV either: JUnit
