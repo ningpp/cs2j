@@ -973,6 +973,17 @@ public class StringHelper {
             return;
         }
 
+        // C# string.Concat(char[]) binds to Concat(ReadOnlySpan<char>), which concatenates
+        // every character. Primitive arrays (char[], int[], byte[], ...) are not Object[],
+        // so without this branch concat(char[]) would append the array's toString() instead.
+        if (value.getClass().isArray()) {
+            int length = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                appendConcatValue(builder, java.lang.reflect.Array.get(value, i));
+            }
+            return;
+        }
+
         builder.append(value);
     }
 
