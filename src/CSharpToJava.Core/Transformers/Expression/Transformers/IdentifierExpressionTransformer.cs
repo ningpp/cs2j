@@ -543,7 +543,51 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return $"this.{ConversionContext.EscapeJavaKeyword(name)}";
         }
 
+        // Const locals are compile-time constants: inline their value. Required when
+        // a hoisted local function references a const local of its enclosing method —
+        // the const declaration is method-scoped and does not exist at class level
+        // (e.g. RegexCompiler's HasCapturesFlag referenced from a hoisted function).
+        if (context.GetSymbolInfo(node).Symbol is ILocalSymbol { HasConstantValue: true } constLocal)
+        {
+            return RenderConstLocalValue(constLocal.ConstantValue);
+        }
+
         return ConversionContext.EscapeJavaKeyword(name);
+    }
+
+    private static string RenderConstLocalValue(object? value)
+    {
+        if (value == null)
+            return "null";
+
+        if (value is bool b)
+            return b ? "true" : "false";
+
+        if (value is string s)
+            return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t") + "\"";
+
+        if (value is char c)
+            return "'" + (c == '\'' ? "\\'" : c.ToString()) + "'";
+
+        if (value is float f)
+            return f.ToString(System.Globalization.CultureInfo.InvariantCulture) + "f";
+
+        if (value is double d)
+        {
+            var text = d.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return text.Contains('.') || text.Contains('E') || text.Contains('e') ? text : text + ".0";
+        }
+
+        if (value is long l)
+            return l.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
+
+        if (value is uint ui)
+            return $"0x{ui:X}";
+
+        if (value is ulong ul)
+            return $"0x{ul:X}L";
+
+        return value.ToString() ?? "null";
     }
 
     // Fix 3 & 4: Replaced duplicate local BoxedTypeName with TransformPredefinedType.

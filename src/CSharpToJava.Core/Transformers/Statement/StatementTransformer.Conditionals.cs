@@ -42,6 +42,11 @@ public partial class StatementTransformer
                 var outJavaType = tyInfo.Type != null ? context.MapType(tyInfo.Type) : "Object";
                 var outVarName = ConversionContext.EscapeJavaKeyword(tvIfSvd.Identifier.Text);
 
+                // Primitive out types (int, long, ...) must be declared with their boxed
+                // type so the null check below compiles (int == null is illegal Java).
+                // Subsequent uses auto-unbox/autobox (e.g. _stringTable.add(str, i)).
+                string declaredJavaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(outJavaType);
+
                 var tvStmtTransformer = new StatementTransformer();
                 string thenBody;
                 if (stmt.Statement is BlockSyntax tvIfThenBlock)
@@ -50,7 +55,7 @@ public partial class StatementTransformer
                     thenBody = $"{{ {tvStmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
 
                 var ifSb = new System.Text.StringBuilder();
-                ifSb.Append($"{outJavaType} {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget, tvKey, outJavaType)};\n");
+                ifSb.Append($"{declaredJavaType} {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget, tvKey, outJavaType)};\n");
                 ifSb.Append($"if ({outVarName} == null) {thenBody}");
 
                 if (stmt.Else != null)

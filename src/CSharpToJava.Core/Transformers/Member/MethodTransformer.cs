@@ -863,8 +863,14 @@ public class MethodTransformer : IMemberTransformer
 
     private static string EscapeCsvValue(string value)
     {
-        // Escape backslashes and double-quotes for Java string literals inside @CsvSource
-        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        // Escape backslashes, double-quotes and control characters for Java string
+        // literals inside @CsvSource (a raw newline would terminate the literal).
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\n", "\\n")
+            .Replace("\r", "\\r")
+            .Replace("\t", "\\t");
     }
 
     /// <summary>

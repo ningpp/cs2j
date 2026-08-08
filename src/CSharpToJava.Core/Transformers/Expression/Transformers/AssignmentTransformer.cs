@@ -760,7 +760,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 else
                 {
                     // List-like: set(idx, get(idx) op rhs)
-                    return $"{target}.set({arg0}, {target}.get({arg0}) {baseOp} {rhs})";
+                    var compoundCombined = $"{target}.get({arg0}) {baseOp} {rhs}";
+                    // C# char elements (Java Character): char op char widens to int in
+                    // Java, but set(T) expects Character — cast back to char.
+                    if (compoundElaContainerType is INamedTypeSymbol compoundElemNamed
+                        && compoundElemNamed.TypeArguments.Length > 0
+                        && compoundElemNamed.TypeArguments[0].SpecialType == SpecialType.System_Char)
+                    {
+                        compoundCombined = $"(char)({compoundCombined})";
+                    }
+                    return $"{target}.set({arg0}, {compoundCombined})";
                 }
             }
         }

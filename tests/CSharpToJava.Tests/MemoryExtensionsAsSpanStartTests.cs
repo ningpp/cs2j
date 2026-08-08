@@ -60,6 +60,13 @@ class CompatApiCheck {
             "ReadOnlyMemory.java",
             "ReadOnlySpan.java",
             "Span.java",
+            "CultureInfo.java",
+            "IFormatProvider.java",
+            "TextInfo.java",
+            "NumberFormatInfo.java",
+            "DateTimeFormatInfo.java",
+            "CompareInfo.java",
+            "CultureTypes.java",
         }.Select(name => Path.Combine(compatDir, name)).ToArray();
 
         foreach (var source in compatSources)

@@ -87,6 +87,25 @@ class Test {
         Assert.Contains("''", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void InlineData_ControlCharacters_EscapedInCsv()
+    {
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    [DataTestMethod]
+    [InlineData(""\n"", ""\na"")]
+    public void M(string a, string b) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Raw newlines inside the literal would terminate the Java string — they must
+        // be escaped as \\n inside the @CsvSource annotation.
+        Assert.Contains("'\\n'", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("'\\na'", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

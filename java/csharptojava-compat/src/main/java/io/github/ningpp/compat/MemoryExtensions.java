@@ -144,4 +144,43 @@ public class MemoryExtensions {
         return true;
     }
 
+    /** C# MemoryExtensions.IndexOf(ReadOnlySpan&lt;char&gt;, char) — first index or -1. */
+    public static int indexOf(ReadOnlySpan<Character> span, Character value) {
+        if (span == null || value == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            if (span.get(i).equals(value)) return i;
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.IndexOf(ReadOnlySpan&lt;char&gt;, char) with a primitive char. */
+    public static int indexOf(ReadOnlySpan<Character> span, char value) {
+        return indexOf(span, Character.valueOf(value));
+    }
+
+    /** C# MemoryExtensions.IndexOf(ReadOnlySpan&lt;int&gt;, int) — first index or -1. */
+    public static int indexOf(ReadOnlySpan<Integer> span, Integer value) {
+        if (span == null || value == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            if (span.get(i).equals(value)) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * C# MemoryExtensions.ToLower(ReadOnlySpan&lt;char&gt;, Span&lt;char&gt;, CultureInfo):
+     * lowercases each source char into the destination span and returns the number
+     * of chars written.
+     */
+    public static int toLowerCase(ReadOnlySpan<Character> source, Span<Character> destination, CultureInfo culture) {
+        int count = 0;
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.get(i);
+            char lowered = Character.toLowerCase(c);
+            destination.set(count, lowered);
+            count++;
+        }
+        return count;
+    }
+
 }

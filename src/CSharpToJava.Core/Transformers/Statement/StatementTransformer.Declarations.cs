@@ -16,11 +16,23 @@ public partial class StatementTransformer
 {
     private JavaSyntaxNode TransformLocalDeclaration(LocalDeclarationStatementSyntax stmt, ConversionContext context)
     {
-        var typeInfo = context.GetTypeInfo(stmt.Declaration.Type);
-        string javaType;
-        if (typeInfo.Type != null)
+        // Ref locals (ref int x = ref y;): the declaration's type is a RefTypeSyntax,
+        // for which Roslyn reports no type info — unwrap to the underlying type and
+        // resolve from the declared local symbol if needed.
+        var declTypeSyntax = stmt.Declaration.Type is RefTypeSyntax refTypeSyntax
+            ? refTypeSyntax.Type
+            : stmt.Declaration.Type;
+        var typeInfo = context.GetTypeInfo(declTypeSyntax);
+        ITypeSymbol? resolvedDeclType = typeInfo.Type;
+        bool isRefLocalDeclaration = stmt.Declaration.Type is RefTypeSyntax;
+        if (resolvedDeclType == null && isRefLocalDeclaration && stmt.Declaration.Variables.Count > 0)
         {
-            var resolvedType = typeInfo.Type;
+            resolvedDeclType = (context.GetDeclaredSymbol(stmt.Declaration.Variables[0]) as ILocalSymbol)?.Type;
+        }
+        string javaType;
+        if (resolvedDeclType != null)
+        {
+            var resolvedType = resolvedDeclType;
             // C# concrete enumerator structs (e.g. Dictionary<K,V>.Enumerator, List<T>.Enumerator)
             // have no Java equivalent. The .iterator() call returns a Java-compatible adapter,
             // so let Java infer the concrete type. Explicit IEnumerator declarations are mapped
@@ -45,7 +57,11 @@ public partial class StatementTransformer
         }
         else
         {
-            javaType = "var";
+            javaType = isRefLocalDeclaration
+                ? context.MapTypeFromSyntax(declTypeSyntax)
+                : "var";
+            if (string.IsNullOrWhiteSpace(javaType))
+                javaType = "var";
         }
 
         // When mapping C# IEnumerable<T>/ICollection<T>/IList<T> to CSharpGenericIterable<T>/CSharpICollection<T>/CSharpGenericIList<T>
@@ -229,7 +245,13 @@ public partial class StatementTransformer
                 {
                     context.LocalTypeOverrides[v.Identifier.Text] = localTargetType!;
                 }
-                var initExpr = exprTransformer.Transform(v.Initializer.Value, context);
+                // C# ref locals (ref int[]? setLookup = ref _code.StringsAsciiLookup[operand0]):
+                // Java has no ref locals — bind the variable to the referenced value.
+                // The ref-holder machinery handles the ref argument passing at call sites.
+                var initValueExpr = v.Initializer.Value is RefExpressionSyntax refInit
+                    ? refInit.Expression
+                    : v.Initializer.Value;
+                var initExpr = exprTransformer.Transform(initValueExpr, context);
                 if (!IsUsableLocalOverrideType(localTargetType) && context.SemanticModel != null)
                 {
                     var initTypeInfoForOverride = context.GetTypeInfo(v.Initializer.Value);

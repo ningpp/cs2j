@@ -281,6 +281,20 @@ public static class ExpressionTransformerHelpers
             }
         }
 
+        // C# List<T>.ToArray() emits Object[] via the compat toArray(); when the C#
+        // expression type is T[] the Java side needs an explicit cast (e.g.
+        // String[] capnamelist = list?.ToArray()).
+        if (sourceType is IArrayTypeSymbol
+            && targetType is IArrayTypeSymbol
+            && transformedExpression.Contains(".toArray()", StringComparison.Ordinal))
+        {
+            var javaArrayType = context.MapType(sourceType);
+            if (!string.IsNullOrWhiteSpace(javaArrayType))
+            {
+                return $"({javaArrayType}) {transformedExpression}";
+            }
+        }
+
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
         {
             // Task 19：TS 目标同型直接透传——byte 掩码与 uint 常量 (int) cast 均为 Java
