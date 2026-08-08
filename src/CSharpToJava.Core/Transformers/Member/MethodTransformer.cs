@@ -6,6 +6,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Transformers.Type;
 using CSharpToJava.Core.Transformers.Utilities;
@@ -122,7 +123,7 @@ public class MethodTransformer : IMemberTransformer
             }
         }
         javaMethod.LeadingComment = context.GetDeclarationComments(methodDecl, methodInfo).ToCombinedComment();
-        ApplyTestMethodAnnotations(methodDecl, javaMethod, context);
+        var extraTestMembers = ApplyTestMethodAnnotations(methodDecl, javaMethod, context);
 
         // Explicit interface implementations (e.g., ICurve ICurve.Clone()) have no access modifier in C#,
         // but interface implementations in Java MUST be public.
@@ -519,6 +520,11 @@ public class MethodTransformer : IMemberTransformer
         if (overloads.Count > 0)
             allDeclarations.AddRange(overloads);
 
+        // Synthetic test-data methods generated for array-typed [InlineData] arguments
+        // are returned alongside the test method so ClassTransformer adds them to the class.
+        if (extraTestMembers != null)
+            allDeclarations.AddRange(extraTestMembers.Members);
+
         return allDeclarations.Count > 1
             ? new JavaMemberCollection(allDeclarations)
             : javaMethod;
@@ -612,7 +618,6 @@ public class MethodTransformer : IMemberTransformer
                 ?? pendingClassTypeParams.Where(ownTypeParamNames.Contains)
                     .OrderBy(name => name, StringComparer.Ordinal)
                     .ToList();
-
             var classTypeParams = new List<JavaParameter>();
             foreach (var typeParameterName in orderedNames)
             {
@@ -661,7 +666,7 @@ public class MethodTransformer : IMemberTransformer
         return ConversionContext.EscapeJavaKeyword(camelName);
     }
 
-    private static void ApplyTestMethodAnnotations(
+    private static JavaMemberCollection? ApplyTestMethodAnnotations(
         MethodDeclarationSyntax methodDecl,
         JavaMethodDeclaration javaMethod,
         ConversionContext context)
@@ -717,6 +722,47 @@ public class MethodTransformer : IMemberTransformer
             .ToList();
         if (inlineDataAttrs.Count > 0)
         {
+            // JUnit's @CsvSource converts each CSV field to a String and then applies
+            // built-in implicit conversions (primitives, enums, one-arg constructors).
+            // It CANNOT convert a String into an array. When any InlineData argument
+            // targets an array-typed parameter (e.g. char[], int[], string[]), generate
+            // a synthetic static data method whose rows use the normal expression
+            // conversion (typed array initializers, enum members, literals) and annotate
+            // the test with @MethodSource instead.
+            var paramTypes = (methodDecl.ParameterList?.Parameters
+                    .Select(p => context.GetTypeInfo(p.Type!).Type)
+                    .ToList())
+                ?? new List<ITypeSymbol?>();
+            bool hasArrayArg = false;
+            foreach (var attr in inlineDataAttrs)
+            {
+                var argList = attr.ArgumentList?.Arguments ?? default;
+                for (int i = 0; i < argList.Count; i++)
+                {
+                    var expr = argList[i].Expression;
+                    if (expr is ArrayCreationExpressionSyntax
+                        or ImplicitArrayCreationExpressionSyntax
+                        or CollectionExpressionSyntax)
+                    {
+                        hasArrayArg = true;
+                        break;
+                    }
+                    if (i < paramTypes.Count && paramTypes[i] is IArrayTypeSymbol)
+                    {
+                        hasArrayArg = true;
+                        break;
+                    }
+                }
+                if (hasArrayArg) break;
+            }
+            if (hasArrayArg)
+            {
+                var dataMethod = BuildInlineDataDataMethod(javaMethod.Name, inlineDataAttrs, context);
+                javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{dataMethod.Name}\")"));
+                context.AddImport("org.junit.jupiter.params.provider.MethodSource");
+                return new JavaMemberCollection(dataMethod);
+            }
+
             context.AddImport("org.junit.jupiter.params.provider.CsvSource");
             var csvEntries = new List<string>();
             bool hasNullValue = false;
@@ -925,6 +971,8 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.Annotations.Add(annotation);
             }
         }
+
+        return null;
     }
 
     private static string EscapeCsvValue(string value)
@@ -937,6 +985,48 @@ public class MethodTransformer : IMemberTransformer
             .Replace("\n", "\\n")
             .Replace("\r", "\\r")
             .Replace("\t", "\\t");
+    }
+
+    /// <summary>
+    /// Builds a synthetic static data method for a [Theory] whose [InlineData] arguments
+    /// include array-typed values that @CsvSource cannot express. The generated method
+    /// returns <c>CSharpGenericIterable&lt;Object[]&gt;</c> — the same shape produced for
+    /// [MemberData] — and is referenced by the test method's @MethodSource annotation.
+    /// Each argument is converted with the normal expression conversion so array
+    /// initializers, enum members and literals keep their real types.
+    /// </summary>
+    private static JavaMethodDeclaration BuildInlineDataDataMethod(
+        string testMethodName,
+        List<AttributeSyntax> inlineDataAttrs,
+        ConversionContext context)
+    {
+        var dataMethodName = context.GenerateSyntheticName(testMethodName + "_data");
+        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+        context.AddImport("io.github.ningpp.compat.CSharpList");
+
+        var body = new System.Text.StringBuilder();
+        body.AppendLine("CSharpList<Object[]> _yieldResult = new CSharpList<Object[]>();");
+        foreach (var attr in inlineDataAttrs)
+        {
+            var argList = attr.ArgumentList?.Arguments ?? default;
+            if (argList.Count == 0)
+                continue;
+            var converted = new List<string>(argList.Count);
+            foreach (var arg in argList)
+            {
+                converted.Add(ExpressionTransformerFacade.Instance.Transform(arg.Expression, context));
+            }
+            body.AppendLine($"_yieldResult.add(new Object[] {{ {string.Join(", ", converted)} }});");
+        }
+        body.Append("return _yieldResult;");
+
+        return new JavaMethodDeclaration
+        {
+            Name = dataMethodName,
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            ReturnType = "CSharpGenericIterable<Object[]>",
+            Body = body.ToString()
+        };
     }
 
     /// <summary>
