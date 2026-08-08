@@ -660,6 +660,38 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return ConversionContext.EscapeJavaKeyword(mapped);
             }
 
+            // Also check interfaces implemented by the containing type. This handles
+            // implicit interface implementations such as IEquatable<T>.Equals(T) → equalsTo.
+            // Only apply the mapping when the invocation's resolved signature matches
+            // the interface member, so that calls to object.Equals(object) are not
+            // renamed to equalsTo.  This mirrors the logic in TransformMemberInvocation
+            // and GetJavaMethodName, ensuring bare (unqualified) calls like Equals(other)
+            // — where other is the IEquatable<T> parameter type — are correctly remapped
+            // to equalsTo(other) instead of falling through to camelCase equals(other),
+            // which would cause infinite self-recursion in equals(Object).
+            if (sym.ContainingType is INamedTypeSymbol containingType)
+            {
+                var paramCount = sym.Parameters.Length;
+                foreach (var iface in containingType.AllInterfaces)
+                {
+                    if (!MethodSignatureMatchesInterface(sym, iface, originalName))
+                        continue;
+
+                    var ifaceTypeName = iface.ConstructedFrom.ToDisplayString();
+                    mapped = context.TypeMappings.MapMethod(ifaceTypeName, originalName, paramCount);
+                    if (mapped != null) break;
+
+                    var ifaceFqn = $"{iface.ContainingNamespace}.{iface.Name}";
+                    mapped = context.TypeMappings.MapMethod(ifaceFqn, originalName, paramCount);
+                    if (mapped != null) break;
+                }
+
+                if (mapped != null)
+                {
+                    return ConversionContext.EscapeJavaKeyword(mapped);
+                }
+            }
+
             // Primitive type static method mapping (e.g. char.IsLower → Character.isLowerCase)
             // When the containing type is a C# primitive, use the specialized method name mapper
             // that knows about Java wrapper class differences (e.g. IsLower→isLowerCase, not isLower).
