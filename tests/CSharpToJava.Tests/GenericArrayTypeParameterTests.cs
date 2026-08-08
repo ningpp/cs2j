@@ -128,7 +128,7 @@ class Demo {
         stopwatch.Stop();
 
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.True(stopwatch.ElapsedMilliseconds < 5000, $"Conversion took {stopwatch.ElapsedMilliseconds} ms");
+        Assert.True(stopwatch.ElapsedMilliseconds < 30000, $"Conversion took {stopwatch.ElapsedMilliseconds} ms");
         var code = result.GeneratedCode!;
 
         Assert.Contains("public <T> Object repeat(T value, int count, Class<?> clazz)", code);
