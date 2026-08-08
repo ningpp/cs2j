@@ -58,9 +58,7 @@
 - **测试**: `TextInfoCompatibilityTests.TextInfoToLowerChar_CompilesAgainstCompatRuntime`（先红后绿，javac 对生成的 Java + compat 源码编译验证）
 - **状态**: ✅ Fixed
 
-## Iteration 4 — 条件表达式类型错误: String无法转换为ReadOnlySpan<Character>（隐式 string→span 转换缺失）
-
-- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+## Iteration 4 — 条件表达式类型错误: String无法转换为ReadOnlySpan<Character>（隐式 string→span 转换缺失）- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
 - **行号**: 326（以及 333、340）
 - **错误信息**: `[326,26] 不兼容的类型: 条件表达式中的类型错误; String无法转换为ReadOnlySpan<Character>`
 - **代码片段**:
@@ -78,4 +76,20 @@
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（AdaptExpressionToTargetTypeCore）
 - **分析**: C# 中 `string` 可隐式转换为 `ReadOnlySpan<char>`，但 `AdaptExpressionToTargetTypeCore` 只处理了 `T[] → Span<T>/ReadOnlySpan<T>`（`new ReadOnlySpan<>(...)`），没有处理 `String → ReadOnlySpan<Character>/Span<Character>`（应包 `MemoryExtensions.asSpan(...)`）。方法实参经由 ArgumentTransformer.CoerceArgumentType → AdaptExpressionToTargetType 的路径因此不包装字符串，生成的 `addSet("...")` 无法编译。显式 cast 路径（`(ReadOnlySpan<char>)s`）已有处理，隐式路径缺失。
 - **测试**: `StringArgumentToSpanParameterTests`（先红后绿）
+- **状态**: ✅ Fixed
+
+## Iteration 5 — 无法将 asSpan 应用到给定类型（compat 缺 2 参重载）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 357（以及 514、912 中的 `MemoryExtensions.asSpan(set, 1)`）
+- **错误信息**: `[357,25] 无法将类 MemoryExtensions 中的方法 asSpan 应用到给定类型; 需要: T[]; 找到: String,int`
+- **代码片段**:
+  ```java
+  MemoryExtensions.asSpan(state._1(), 2).copyTo(span.slice(SetStartIndex));
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 689 行 `state.set.AsSpan(2).CopyTo(...)`、第 898 行 `set1.AsSpan(1)`）
+- **根因分类**: 语义模型信息丢失（compat API 缺口）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/MemoryExtensions.java
+- **分析**: C# `string.AsSpan(int)`（从 start 切片到末尾）被转换器发射为 `MemoryExtensions.asSpan(String, int)`，但 compat 只有 1 参与 3 参重载。修复：补充 `asSpan(String,int)`（以及对称的 `asSpan(char[],int)`、`asSpan(byte[],int)`、`asMemory(String,int)`），2 参重载委托 3 参实现。
+- **测试**: `MemoryExtensionsAsSpanStartTests.StringAsSpanStart_CompilesAgainstCompatRuntime`（先红后绿，javac 对 compat 源码 + API 检查代码编译验证）
 - **状态**: ✅ Fixed
