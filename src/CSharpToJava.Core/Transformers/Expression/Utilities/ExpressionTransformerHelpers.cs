@@ -297,12 +297,83 @@ public static class ExpressionTransformerHelpers
         }
 
         // C# List<T>.ToArray() emits Object[] via the compat toArray(); when the C#
-        // expression type is T[] the Java side needs an explicit cast (e.g.
-        // String[] capnamelist = list?.ToArray()).
-        if (sourceType is IArrayTypeSymbol
+        // expression type is T[] the Java side needs a typed toArray call.
+        // A bare cast like (String[]) list.toArray() fails at runtime because
+        // ArrayList.toArray() returns Object[], which cannot be cast to String[].
+        // Fix: replace .toArray() with .toArray(Type[]::new) so the Collection
+        // allocates a correctly-typed array. This handles the conditional-access
+        // pattern (e.g. list?.ToArray()) that bypasses InvocationExpressionTransformer's
+        // TransformInstanceCollectionToArray.
+        //
+        // Guards:
+        //  - Only apply when the expression contains a null-conditional pattern
+        //    ("!= null ?") — this is the signature of list?.ToArray() that
+        //    TransformWhenNotNull produces as bare toArray().
+        //  - Skip when the expression already contains a stream pipeline
+        //    (StreamSupport.stream, .stream(), .mapToInt(), etc.) — the .toArray()
+        //    at the end of a stream pipeline already returns the correct type.
+        if (sourceType is IArrayTypeSymbol sourceArraySymbol
             && targetType is IArrayTypeSymbol
-            && transformedExpression.Contains(".toArray()", StringComparison.Ordinal))
+            && transformedExpression.Contains(".toArray()", StringComparison.Ordinal)
+            && transformedExpression.Contains("!= null ?", StringComparison.Ordinal)
+            && !transformedExpression.Contains("StreamSupport.stream(", StringComparison.Ordinal)
+            && !transformedExpression.Contains(".stream().", StringComparison.Ordinal)
+            && !transformedExpression.Contains(".mapToInt(", StringComparison.Ordinal)
+            && !transformedExpression.Contains(".mapToLong(", StringComparison.Ordinal)
+            && !transformedExpression.Contains(".mapToDouble(", StringComparison.Ordinal))
         {
+            var elementType = sourceArraySymbol.ElementType;
+            var javaElementType = context.MapType(elementType);
+
+            // Primitive element types: use stream().mapToXxx().toArray() which
+            // returns a primitive array directly.
+            if (elementType.SpecialType is SpecialType.System_Int32
+                or SpecialType.System_Int16 or SpecialType.System_Byte)
+            {
+                return transformedExpression.Replace(
+                    ".toArray()",
+                    ".stream().mapToInt(Integer::intValue).toArray()",
+                    StringComparison.Ordinal);
+            }
+            if (elementType.SpecialType == SpecialType.System_Int64)
+            {
+                return transformedExpression.Replace(
+                    ".toArray()",
+                    ".stream().mapToLong(Long::longValue).toArray()",
+                    StringComparison.Ordinal);
+            }
+            if (elementType.SpecialType is SpecialType.System_Double
+                or SpecialType.System_Single)
+            {
+                return transformedExpression.Replace(
+                    ".toArray()",
+                    ".stream().mapToDouble(Double::doubleValue).toArray()",
+                    StringComparison.Ordinal);
+            }
+            // char: box to Character[] then convert back to char[].
+            if (elementType.SpecialType == SpecialType.System_Char)
+            {
+                context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                return transformedExpression.Replace(
+                    ".toArray()",
+                    ".toArray(Character[]::new)",
+                    StringComparison.Ordinal);
+            }
+
+            // Reference types: replace .toArray() with .toArray(Type[]::new).
+            // Java cannot create generic arrays, so strip type parameters.
+            if (!string.IsNullOrWhiteSpace(javaElementType) && javaElementType != "Object")
+            {
+                var arrayTypeRef = javaElementType.Contains('<')
+                    ? javaElementType.Substring(0, javaElementType.IndexOf('<'))
+                    : javaElementType;
+                return transformedExpression.Replace(
+                    ".toArray()",
+                    $".toArray({arrayTypeRef}[]::new)",
+                    StringComparison.Ordinal);
+            }
+
+            // Fallback: keep the cast for unknown element types.
             var javaArrayType = context.MapType(sourceType);
             if (!string.IsNullOrWhiteSpace(javaArrayType))
             {

@@ -37,7 +37,12 @@ class P {
         _out.WriteLine(result.GeneratedCode ?? "FAILED");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
-        Assert.Contains("(String[]) ", code);
+        // ToArray() on List<string> via conditional access (?.ToArray())
+        // must produce a typed array, not a bare cast that fails at runtime.
+        // Old: (String[]) (_capnamelist != null ? _capnamelist.toArray() : null)
+        // New: (_capnamelist != null ? _capnamelist.toArray(String[]::new) : null)
+        Assert.Contains("toArray(String[]::new)", code);
+        Assert.DoesNotContain("(String[])", code);
     }
 
     [Fact]
