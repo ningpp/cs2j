@@ -2008,6 +2008,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"StringHelper.compareOrdinal({compareOrdinalArgs})";
             }
 
+            // char.GetUnicodeCategory(ch) → CharUnicodeInfo.getUnicodeCategory(ch)
+            // java.lang.Character has no getUnicodeCategory; the compat CharUnicodeInfo
+            // helper returns the C# UnicodeCategory enum values.
+            if (primTypeSyntax.Keyword.Text == "char" && originalMethodName == "GetUnicodeCategory"
+                && node.ArgumentList.Arguments.Count >= 1)
+            {
+                var ucArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                context.AddImport("io.github.ningpp.compat.CharUnicodeInfo");
+                return $"CharUnicodeInfo.getUnicodeCategory({ucArgs})";
+            }
+
             // string.Compare(...) → StringHelper.compare(...)
             if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Compare")
             {

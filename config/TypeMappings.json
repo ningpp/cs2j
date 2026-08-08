@@ -7151,6 +7151,16 @@
             "javaMethod": "CharUnicodeInfo.getUnicodeCategory"
         },
         {
+            "type": "System.Char",
+            "method": "GetUnicodeCategory",
+            "javaMethod": "CharUnicodeInfo.getUnicodeCategory"
+        },
+        {
+            "type": "char",
+            "method": "GetUnicodeCategory",
+            "javaMethod": "CharUnicodeInfo.getUnicodeCategory"
+        },
+        {
             "type": "System.Type",
             "method": "AssemblyQualifiedName",
             "javaMethod": "getName"
