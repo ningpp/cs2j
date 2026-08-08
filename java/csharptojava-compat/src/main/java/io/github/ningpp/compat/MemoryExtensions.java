@@ -24,9 +24,19 @@ public class MemoryExtensions {
         return new ReadOnlySpan<>(arr);
     }
 
+    /** C# string.AsSpan(start) → ReadOnlySpan&lt;Character&gt; (slice from start to end). */
+    public static ReadOnlySpan<Character> asSpan(String s, int start) {
+        return asSpan(s, start, s.length() - start);
+    }
+
     /** C# string.AsMemory() → Java ReadOnlyMemory<Character> */
     public static ReadOnlyMemory<Character> asMemory(String s) {
         return ReadOnlyMemory.fromString(s);
+    }
+
+    /** C# string.AsMemory(start) → Java ReadOnlyMemory<Character> (slice from start to end) */
+    public static ReadOnlyMemory<Character> asMemory(String s, int start) {
+        return ReadOnlyMemory.fromString(s, start, s.length() - start);
     }
 
     /** C# string.AsMemory(start, length) → Java ReadOnlyMemory<Character> */
@@ -99,6 +109,16 @@ public class MemoryExtensions {
             arr[i] = data[start + i];
         }
         return new ReadOnlySpan<>(arr);
+    }
+
+    /** C# char[].AsSpan(start) → ReadOnlySpan&lt;Character&gt; (slice from start to end). */
+    public static ReadOnlySpan<Character> asSpan(char[] data, int start) {
+        return asSpan(data, start, data.length - start);
+    }
+
+    /** C# byte[].AsSpan(start) → ReadOnlySpan&lt;Integer&gt; (slice from start to end). */
+    public static ReadOnlySpan<Integer> asSpan(byte[] data, int start) {
+        return asSpan(data, start, data.length - start);
     }
 
     /** C# Span<T>.Reverse() / MemoryExtensions.Reverse(Span<T>) — reverses in place. */
