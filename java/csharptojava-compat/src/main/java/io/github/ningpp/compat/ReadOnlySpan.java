@@ -8,11 +8,13 @@ import java.util.Arrays;
  */
 public final class ReadOnlySpan<T> {
     private final Object array;
-    private final int offset;
-    private final int length;
+    private String stringBacking;
+    private int offset;
+    private int length;
 
     public ReadOnlySpan(T[] array) {
         this.array = array;
+        this.stringBacking = null;
         this.offset = 0;
         this.length = array.length;
     }
@@ -20,6 +22,7 @@ public final class ReadOnlySpan<T> {
     /** Primitive byte[] backing — mirrors C# byte[] → ReadOnlySpan&lt;byte&gt;. */
     public ReadOnlySpan(byte[] array) {
         this.array = array;
+        this.stringBacking = null;
         this.offset = 0;
         this.length = array.length;
     }
@@ -27,6 +30,7 @@ public final class ReadOnlySpan<T> {
     /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
     public ReadOnlySpan(ReadOnlySpan<T> other) {
         this.array = other.array;
+        this.stringBacking = other.stringBacking;
         this.offset = other.offset;
         this.length = other.length;
     }
@@ -37,6 +41,7 @@ public final class ReadOnlySpan<T> {
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
         }
         this.array = array;
+        this.stringBacking = null;
         this.offset = offset;
         this.length = length;
     }
@@ -48,14 +53,36 @@ public final class ReadOnlySpan<T> {
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
         }
         this.array = array;
+        this.stringBacking = null;
         this.offset = offset;
         this.length = length;
     }
 
     public ReadOnlySpan(Span<T> span) {
         this.array = span.getArray();
+        this.stringBacking = null;
         this.offset = span.getOffset();
         this.length = span.length();
+    }
+
+    /**
+     * Creates a lazy, String-backed span. No char array is copied: each get(i)
+     * reads directly from the String (and boxes the single char), mirroring C#
+     * string.AsSpan() which views the string in place. Without this, every
+     * asSpan call materialized the whole substring as a boxed Character[] —
+     * e.g. RegexInterpreter.findFirstChar called asSpan on the remaining input
+     * on every match attempt, allocating ~1 MB of boxed chars per call.
+     */
+    public static ReadOnlySpan<Character> fromString(String s, int start, int length) {
+        if (start < 0 || length < 0 || start + length > s.length()) {
+            throw new IndexOutOfBoundsException(
+                "start=" + start + ", length=" + length + ", stringLength=" + s.length());
+        }
+        ReadOnlySpan<Character> span = new ReadOnlySpan<>(new Character[0]);
+        span.stringBacking = s;
+        span.offset = start;
+        span.length = length;
+        return span;
     }
 
     public int length() {
@@ -70,6 +97,11 @@ public final class ReadOnlySpan<T> {
     public T get(int index) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
+        }
+        if (stringBacking != null) {
+            @SuppressWarnings("unchecked")
+            T value = (T) java.lang.Character.valueOf(stringBacking.charAt(offset + index));
+            return value;
         }
         if (array instanceof byte[] bytes) {
             @SuppressWarnings("unchecked")
@@ -89,6 +121,9 @@ public final class ReadOnlySpan<T> {
         if (start < 0 || len < 0 || start + len > length) {
             throw new IndexOutOfBoundsException(
                 "start=" + start + ", len=" + len + ", length=" + length);
+        }
+        if (stringBacking != null) {
+            return (ReadOnlySpan<T>) (ReadOnlySpan<?>) fromString(stringBacking, offset + start, len);
         }
         if (array instanceof byte[] bytes) {
             return new ReadOnlySpan<>((T[]) toIntegerArray(bytes, offset + start, len));
@@ -139,6 +174,9 @@ public final class ReadOnlySpan<T> {
 
     @Override
     public String toString() {
+        if (stringBacking != null) {
+            return stringBacking.substring(offset, offset + length);
+        }
         if (array instanceof Character[] chars) {
             StringBuilder sb = new StringBuilder(length);
             for (int i = 0; i < length; i++) {

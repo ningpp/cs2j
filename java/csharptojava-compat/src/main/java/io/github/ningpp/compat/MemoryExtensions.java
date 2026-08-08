@@ -7,21 +7,13 @@ public class MemoryExtensions {
     /** C# string.AsSpan() → ReadOnlySpan&lt;Character&gt; (converter maps char → Character). */
     public static ReadOnlySpan<Character> asSpan(String s) {
         if (s == null) return new ReadOnlySpan<>(new Character[0]);
-        Character[] arr = new Character[s.length()];
-        for (int i = 0; i < s.length(); i++) {
-            arr[i] = s.charAt(i);
-        }
-        return new ReadOnlySpan<>(arr);
+        return ReadOnlySpan.fromString(s, 0, s.length());
     }
 
     /** C# string.AsSpan(start, length) → ReadOnlySpan&lt;Character&gt;. */
     public static ReadOnlySpan<Character> asSpan(String s, int start, int length) {
         if (s == null) return new ReadOnlySpan<>(new Character[0]);
-        Character[] arr = new Character[length];
-        for (int i = 0; i < length; i++) {
-            arr[i] = s.charAt(start + i);
-        }
-        return new ReadOnlySpan<>(arr);
+        return ReadOnlySpan.fromString(s, start, length);
     }
 
     /** C# string.AsSpan(start) → ReadOnlySpan&lt;Character&gt; (slice from start to end). */
