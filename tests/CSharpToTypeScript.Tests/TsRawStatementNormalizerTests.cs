@@ -895,7 +895,9 @@ public class TsRawStatementNormalizerTests
         // 带实参的 new HashSet<Node>(v) 不误伤；点分 FQCN 构造同样剥。
         Assert.Equal("new HashSet(v);", TsRawStatementNormalizer.Normalize("new HashSet<>(v);"));
         Assert.Equal("new CSharpList(val);", TsRawStatementNormalizer.Normalize("new CSharpList<>(val);"));
-        Assert.Equal("new io.github.ningpp.compat.ObjectHolder();",
+        // 点分 FQCN Holder 构造：菱形剥除后由 Round 21 holder pass 继续改写为
+        // outRef()（compat Ref 值位等价形态；assertion 随正确最终发射更新）。
+        Assert.Equal("outRef();",
             TsRawStatementNormalizer.Normalize("new io.github.ningpp.compat.ObjectHolder<>();"));
         Assert.Equal("new HashSet<Node>(v);", TsRawStatementNormalizer.Normalize("new HashSet<Node>(v);"));
     }
@@ -1349,6 +1351,50 @@ public class TsRawStatementNormalizerTests
         Assert.Equal(
             "self.clusters = Enumerable.toList(ArrayHelper.toList([graph.getRootCluster()]));",
             TsRawStatementNormalizer.Normalize("self.clusters = CSharpICollection.fromTyped(Enumerable.toList(ArrayHelper.toList([graph.getRootCluster()])));"));
+    }
+
+    // ─── Round 21（MSAGL TS2304 'io' 69）：io.github.ningpp.compat Holder 值位改写 ──
+
+    [Fact]
+    public void CompatHolder_Fqcn_New_With_Argument_Becomes_RefOf()
+    {
+        // C# ref/out 参数经 Holder 包装（HolderTypeResolver/StatementTransformer.ExpressionAndReturn），
+        // raw 文本保留 FQCN 构造形态；TS 对应 compat Ref（refOf/outRef 由既有
+        // ref/out 发射引入，受影响文件全部已导入）。类型注解 Ref<number> 与
+        // refOf(minX): Ref<number> 完全一致。
+        Assert.Equal(
+            "let _minXRef: Ref<number> = refOf(minX);",
+            NormalizeWithTable("let _minXRef: Ref<number> = new io.github.ningpp.compat.DoubleHolder(minX);"));
+        Assert.Equal(
+            "let _outEnumHolder1: Ref<CSharpGenericEnumerator<TEdge>> = refOf(outEnum);",
+            NormalizeWithTable("let _outEnumHolder1: Ref<CSharpGenericEnumerator<TEdge>> = new io.github.ningpp.compat.ObjectHolder(outEnum);"));
+    }
+
+    [Fact]
+    public void CompatHolder_Fqcn_New_No_Arg_Becomes_OutRef()
+    {
+        // 无参 Holder（out 参数传入点）→ outRef()：上下文目标类型驱动泛型实参推断。
+        // 菱形 <>（NormalizeDiamondConstructors 先剥）与裸形态统一。
+        Assert.Equal(
+            "let _proximityEdgesWithDistanceHolder1: Ref<CSharpList<Tuple4<number, number, number, number>>> = outRef();",
+            NormalizeWithTable("let _proximityEdgesWithDistanceHolder1: Ref<CSharpList<Tuple4<number, number, number, number>>> = new io.github.ningpp.compat.ObjectHolder();"));
+        Assert.Equal(
+            "let _valueHolder2: Ref<string> = outRef();",
+            NormalizeWithTable("let _valueHolder2: Ref<string> = new io.github.ningpp.compat.ObjectHolder<>();"));
+    }
+
+    [Fact]
+    public void CompatHolder_Fqcn_Non_Holder_Names_Are_Not_Touched()
+    {
+        // 守卫：仅 Holder 类名族（IntHolder/LongHolder/BoolHolder/DoubleHolder/FloatHolder/
+        // ShortHolder/ByteHolder/CharHolder/ObjectHolder）改写；同名前缀的其它 compat
+        // 类（CSharpRandom 等）原样保留。
+        Assert.Equal(
+            "let rnd: CSharpRandom = new io.github.ningpp.compat.CSharpRandom(1);",
+            NormalizeWithTable("let rnd: CSharpRandom = new io.github.ningpp.compat.CSharpRandom(1);"));
+        Assert.Equal(
+            "x = new io.github.ningpp.compat.CSharpSortedDict<>(a, b);".Replace("<>", ""),
+            NormalizeWithTable("x = new io.github.ningpp.compat.CSharpSortedDict<>(a, b);"));
     }
 
 }

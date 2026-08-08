@@ -110,10 +110,11 @@ public static class TsRawStatementNormalizer
         // 形态（菱形不在 NormalizeGenericMethodInvocations 的 `.<T>method(` 覆盖内）。
         var withDiamonds = NormalizeDiamondConstructors(withObjectEmpty);
         var withListCtors = NormalizeCompatListConstructors(withDiamonds);
-        // 6b2 Round 21：Java 风味 IEnumerable/ICollection 值位包装剥除（详见 pass
-        // 注释；属值位直通文本归一化）。
+        // 6b2 Round 21：Java 风味 IEnumerable/ICollection 值位包装剥除 + compat Holder
+        // FQCN 构造值位改写（详见两 pass 的注释；均属值位直通文本归一化）。
         var withIterableWrappers = NormalizeIterableFromWrappers(withListCtors);
-        var withMethodRefs = NormalizeMethodReferences(withIterableWrappers);
+        var withHolders = NormalizeCompatHolderConstructors(withIterableWrappers);
+        var withMethodRefs = NormalizeMethodReferences(withHolders);
 
         // 6c Java control-flow text: typed catch bindings, try-with-resources heads,
         // synchronized blocks, double literal suffixes, explicit generic calls.
@@ -2007,6 +2008,72 @@ public static class TsRawStatementNormalizer
             }
             var inner = code.Substring(open + 1, close - open - 1);
             code = code.Remove(index, close + 1 - index).Insert(index, inner);
+        }
+    }
+
+    /// <summary>
+    /// Round 21（MSAGL TS2304 'io' 69）：compat Holder 构造值位改写——ref/out 形参
+    /// 传递的 Holder 包装在 raw 文本保留 FQCN 构造形态（HolderTypeResolver /
+    /// StatementTransformer.ExpressionAndReturn.cs 的 new io.github.ningpp.compat.
+    /// ObjectHolder&lt;&gt;(x) 等）。TS 对应 compat Ref：带实参 → refOf(expr)
+    /// （Ref&lt;T&gt; 值包装，T 由实参推断），无参（out 参数传入点）→ outRef()
+    /// （默认值包装，T 由赋值目标类型推断）。两类符号由既有 ref/out 发射引入
+    /// （受影响文件全部已导入，实证 19/19），无需追加 import。菱形 &lt;&gt; 由
+    /// NormalizeDiamondConstructors（更早的 pass）先行剥离。守卫：仅 8 个原始/
+    /// 对象 Holder 类名；字符串/字符字面量；标识符边界。
+    /// </summary>
+    private static string NormalizeCompatHolderConstructors(string code)
+    {
+        var holderNames = new[]
+        {
+            "IntHolder", "LongHolder", "BoolHolder", "DoubleHolder",
+            "FloatHolder", "ShortHolder", "ByteHolder", "CharHolder", "ObjectHolder",
+        };
+        while (true)
+        {
+            var index = -1;
+            var matchName = (string?)null;
+            var i = 0;
+            while (i < code.Length)
+            {
+                var ch = code[i];
+                if (ch == '"' || ch == '\'')
+                {
+                    i = SkipQuotedLiteral(code, i);
+                    continue;
+                }
+                if (ch == 'n' && code.AsSpan(i).StartsWith("new io.github.ningpp.compat.", StringComparison.Ordinal))
+                {
+                    var afterPrefix = i + "new io.github.ningpp.compat.".Length;
+                    foreach (var name in holderNames)
+                    {
+                        if (code.AsSpan(afterPrefix).StartsWith(name + "(", StringComparison.Ordinal))
+                        {
+                            index = i;
+                            matchName = name;
+                            break;
+                        }
+                    }
+                    if (index >= 0)
+                    {
+                        break;
+                    }
+                }
+                i++;
+            }
+            if (index < 0 || matchName == null)
+            {
+                return code;
+            }
+            var open = index + "new io.github.ningpp.compat.".Length + matchName.Length;
+            var close = FindMatchingParen(code, open);
+            if (close <= open)
+            {
+                return code;
+            }
+            var inner = code.Substring(open + 1, close - open - 1);
+            var replacement = inner.Trim().Length == 0 ? "outRef()" : $"refOf({inner.Trim()})";
+            code = code.Remove(index, close + 1 - index).Insert(index, replacement);
         }
     }
 
