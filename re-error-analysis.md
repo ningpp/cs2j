@@ -209,3 +209,21 @@
 - **分析**: C# 目标类型化条件表达式（ConvertedType 为 ReadOnlySpan<char>）中 string 分支隐式转换为 span，但 Java 三元两个分支类型必须一致；TransformConditional 只对枚举/Decimal 做了分支适配，没有处理 span 目标。修复：当条件表达式 ConvertedType 是 Span/ReadOnlySpan 时对每个分支调用 AdaptExpressionToTargetType（string 分支包 MemoryExtensions.asSpan）。同时修复实参 string→span 规则对整体三元表达式的重复包装（asSpan(cond) 分支类型不兼容）。
 - **测试**: `ConditionalSpanBranchAdaptationTests`（先红后绿）
 - **状态**: ✅ Fixed
+
+## Iteration 13 — 找不到符号 Class.makeGenericMethodParameter/makeGenericType（反射元数据擦除发射）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCompiler.java
+- **行号**: 76-79、82
+- **错误信息**: `[76,179] 找不到符号 符号: 方法 makeGenericMethodParameter(int) 位置: 类 Class`
+- **代码片段**:
+  ```java
+  private static final MethodInfo s_spanIndexOf = TypeHelper.getMethod(MemoryExtensions.class, "indexOf",
+      new Class[] { ReadOnlySpan.class.makeGenericType(Class.makeGenericMethodParameter(0)), Class.makeGenericMethodParameter(0) })
+      .makeGenericMethod(Character.class);
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCompiler.cs（第 59-65 行 `typeof(ReadOnlySpan<>).MakeGenericType(Type.MakeGenericMethodParameter(0))` 反射元数据）
+- **根因分类**: Transformer 逻辑缺陷（.NET 反射构造型 API 无 Java 等价物）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs
+- **分析**: `Type.MakeGenericMethodParameter(i)` 被发射为 `Class.makeGenericMethodParameter(i)`、`typeof(X<>).MakeGenericType(T)` 被发射为 `X.class.makeGenericType(...)`，两个方法在 java.lang.Class 上都不存在（内层符号错误遮蔽了外层 makeGenericType 错误）。修复：由于 Java `Class.getMethod` 按擦除匹配，转换器对这两类调用发射擦除形态——方法类型变量发射 `Object.class`，MakeGenericType 调用剥离为裸 `X.class` 字面量。
+- **测试**: `TypeReflectionMetadataErasureTests`（先红后绿）
+- **状态**: ✅ Fixed
