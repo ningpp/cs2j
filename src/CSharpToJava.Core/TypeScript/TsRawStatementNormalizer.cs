@@ -2031,12 +2031,27 @@ public static class TsRawStatementNormalizer
             }
             if (after == '(')
             {
-                // Creation-type position (preceded by "new ") or generic call: only
-                // shorten when preceded by "new ".
+                // Creation-type position (preceded by "new "): the whole chain is the
+                // type name; only shorten when preceded by "new ".
                 if (match.Index >= 4 && code.Substring(match.Index - 4, 4) == "new ")
                 {
                     var mapped = mapType(full);
                     return mapped == full ? full : mapped;
+                }
+                // Round 18（MSAGL TS2304 'Microsoft' 族）：静态方法调用
+                // "Microsoft.Msagl.Core.Geometry.Point.op_Multiply(ct, ct)" 此前在
+                // after=='(' 且非 "new " 形态下直通——链末段是方法名而非类型名，按
+                // 成员调用规则缩短类型前缀。守卫：类型前缀必须含 ≥2 个点（FQCN
+                // 类型形态）；"Timer.GlobalTick.add(...)" 这类短类型名 + 静态成员的
+                // 3 段链，前缀 Timer.GlobalTick 并非类型名，不得缩短（否则剥掉
+                // Timer. 限定，产生裸静态成员）。mapType 神谕对 java./io.github./
+                // System. 与单段名恒等返回，不受影响。
+                var lastDot = full.LastIndexOf('.');
+                var prefix = full[..lastDot];
+                if (prefix.Count(c => c == '.') >= 2)
+                {
+                    var mapped = mapType(prefix);
+                    return mapped == prefix ? full : mapped + full[lastDot..];
                 }
                 return full;
             }

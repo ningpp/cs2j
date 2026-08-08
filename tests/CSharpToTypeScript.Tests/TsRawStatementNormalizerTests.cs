@@ -378,6 +378,52 @@ public class TsRawStatementNormalizerTests
     }
 
     [Fact]
+    public void Fqcn_Static_Method_Call_Is_Shortened()
+    {
+        // Round 18（MSAGL TS2304 'Microsoft' 族）：static 调用
+        // Microsoft.Msagl.Core.Geometry.Point.op_Multiply(ct, ct) 此前在
+        // after=='(' 且非 "new " 形态下直通——链末段是方法名，须按成员调用规则
+        // 缩短类型前缀（此前只缩短 after=='.' 形态）。
+        Assert.Equal(
+            "secondDerivative = Point.op_Multiply(ct, ct) + Point.op_Multiply((Point.op_Subtract(c, a)), ctt);",
+            NormalizeWithTable("secondDerivative = Microsoft.Msagl.Core.Geometry.Point.op_Multiply(ct, ct) + Microsoft.Msagl.Core.Geometry.Point.op_Multiply((Microsoft.Msagl.Core.Geometry.Point.op_Subtract(c, a)), ctt);"));
+        Assert.Equal(
+            "dt = Point.op_Multiply((Point.op_Subtract(c, a)), ct) / secondDerivative;",
+            NormalizeWithTable("dt = Microsoft.Msagl.Core.Geometry.Point.op_Multiply((Microsoft.Msagl.Core.Geometry.Point.op_Subtract(c, a)), ct) / secondDerivative;"));
+        Assert.Equal(
+            "return (Point.subtract(curve.get_Item(hint), a)).getLength();",
+            NormalizeWithTable("return (Microsoft.Msagl.Core.Geometry.Point.subtract(curve.get_Item(hint), a)).getLength();"));
+    }
+
+    [Fact]
+    public void Fqcn_Static_Method_Call_Guards()
+    {
+        // 无点分链（Java 全局名）不受影响；java./io.github./System./单段前缀
+        // 经 mapType 恒等返回，不得误缩短。
+        Assert.Equal(
+            "Stream.concat(a, b).map(n => n.getBoundingBox());",
+            NormalizeWithTable("Stream.concat(a, b).map(n -> n.getBoundingBox());"));
+        Assert.Equal(
+            "System.arraycopy(this.A, 1, newA, 1, this.heapSize);",
+            NormalizeWithTable("System.arraycopy(this.A, 1, newA, 1, this.heapSize);"));
+        Assert.Equal(
+            "x = io.github.ningpp.compat.StringHelper.parseInt(s);",
+            NormalizeWithTable("x = io.github.ningpp.compat.StringHelper.parseInt(s);"));
+        Assert.Equal(
+            "throw new java.util.NoSuchElementException();",
+            NormalizeWithTable("throw new java.util.NoSuchElementException();"));
+        // 既有 new FQCN(...) 形态回归守卫
+        Assert.Equal(
+            "return new Point(1, 2);",
+            NormalizeWithTable("return new Microsoft.Msagl.Core.Geometry.Point(1, 2);"));
+        // 短类型名 + 静态成员的 3 段链：前缀（Timer.GlobalTick）不是类型名，
+        // 不得缩短（否则剥掉 Timer. 限定产生裸静态成员）
+        Assert.Equal(
+            "Timer.GlobalTick.add((seconds) => this.onTick(seconds));",
+            NormalizeWithTable("Timer.GlobalTick.add((seconds) => this.onTick(seconds));"));
+    }
+
+    [Fact]
     public void Class_Like_Unmapped_Type_Declaration_Is_Let_ified()
     {
         // Single-segment user types (Rail) stay unmapped but must still be let-ified.
