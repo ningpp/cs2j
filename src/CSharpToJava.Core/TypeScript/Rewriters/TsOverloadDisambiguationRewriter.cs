@@ -297,10 +297,8 @@ public sealed class TsOverloadDisambiguationRewriter : CSharpSyntaxRewriter, ITs
                 Warn($"TsOverload: 无法静态判定新建表达式 {unresolvedType} 的目标构造器，保留 new 形态");
             }
         }
-        else if (TryGetTypeName(visitedCreation.Type, out var initType) && _factoryTypes.Contains(initType))
-        {
-            Warn($"TsOverload: 构造器重载类 {initType} 的新建表达式含初始化器，保留 new 形态（产物可能无法编译）");
-        }
+        // Round 18：带对象初始化器的新建表达式由 ObjectCreationTransformer 在 IR 层
+        // 改写为 Type.Create$N(...)（初始器分解为 _objN 语句），此处保持 new 形态即可。
         return visited;
     }
 

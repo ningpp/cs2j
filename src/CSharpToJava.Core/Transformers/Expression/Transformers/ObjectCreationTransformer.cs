@@ -7,6 +7,7 @@ using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Transformers.Type;
 using CSharpToJava.Core.Transformers.Utilities;
+using CSharpToJava.Core.TypeScript;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -460,6 +461,24 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (argumentList == null || argumentList.Arguments.Count == 0)
         {
             var runtimeArgs = RuntimeClassParameterHelper.GetRuntimeClassArguments(createdTypeSymbol, context);
+            if (context.Options.TargetLanguage == TargetLanguage.TypeScript && runtimeArgs.Count == 0)
+            {
+                IMethodSymbol? zeroArgCtor = null;
+                if (argumentList != null && argumentList.Parent != null && context.SemanticModel != null)
+                {
+                    zeroArgCtor = context.GetSymbolInfo(argumentList.Parent).Symbol as IMethodSymbol;
+                }
+                else
+                {
+                    zeroArgCtor = createdTypeSymbol?.InstanceConstructors
+                        .FirstOrDefault(c => c.Parameters.Length == 0);
+                }
+                var zeroArgFactoryCall = TryBuildTsCtorFactoryCall(zeroArgCtor, typeName, "", context);
+                if (zeroArgFactoryCall != null)
+                {
+                    return zeroArgFactoryCall;
+                }
+            }
             return runtimeArgs.Count == 0
                 ? $"new {typeName}()"
                 : $"new {typeName}({string.Join(", ", runtimeArgs)})";
@@ -815,7 +834,78 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        return $"new {typeName}({args})";
+        var tsFactoryCall = TryBuildTsCtorFactoryCall(ctorSymbol, typeName, args, context);
+        return tsFactoryCall ?? $"new {typeName}({args})";
+    }
+
+    /// <summary>
+    /// TS 专属（Round 18 MSAGL TS2673）：构造器重载 → Create$N 工厂的调用点形态。
+    /// 语法层 TsOverloadDisambiguationRewriter 只覆盖语法可见的构造器重载组
+    /// （≥2 个显式构造器），两类调用点漏改写：
+    /// ① 结构体隐式无参构造器（仅语义层可见）——IR 层 TsCtorFactoryRewriter 按含
+    ///    隐式构造器的集合工厂化，调用点却保持 new 形态，而声明端只剩私有无参
+    ///    构造器 → tsc TS2673；
+    /// ② 带对象初始化器的新建表达式（语法层因 initializer 而跳过，见
+    ///    VisitObjectCreationExpression 的 Initializer == null 分支）。
+    /// 此处与既有"IR 层独立重算"模式一致（TsCtorFactoryRewriter 同样不依赖语法层
+    /// 改名表）：参数数量升序稳定排序 + 1 基序数，隐式无参构造器置首（与
+    /// StructTransformer.Insert(0) 一致）；仅当类型含 &gt;1 个实例构造器、ctor 符号
+    /// 可解析且类型在本编译单元（compat/BCL 类型无源位置，跳过）时改写为
+    /// Type.Create$N(args)。仅 TS 目标；Java 目标保持 new 形态（构造器在 Java
+    /// 中合法，零回归）。
+    /// </summary>
+    private static string? TryBuildTsCtorFactoryCall(
+        IMethodSymbol? ctorSymbol,
+        string typeName,
+        string args,
+        ConversionContext context)
+    {
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            || ctorSymbol?.MethodKind != MethodKind.Constructor
+            || ctorSymbol.ContainingType is not INamedTypeSymbol containing
+            || containing.IsRecord
+            || containing.TypeKind == TypeKind.Delegate)
+        {
+            return null;
+        }
+        if (!containing.Locations.Any(location => location.IsInSource))
+        {
+            return null;
+        }
+
+        var ctors = containing.InstanceConstructors.ToList();
+        if (ctors.Count <= 1)
+        {
+            return null;
+        }
+
+        // 与 StructTransformer 一致：隐式无参构造器插入构造器列表最前
+        var implicitZero = ctors.FirstOrDefault(c => c.IsImplicitlyDeclared && c.Parameters.Length == 0);
+        var ordered = new List<IMethodSymbol>(ctors.Count);
+        if (implicitZero != null)
+        {
+            ordered.Add(implicitZero);
+            ordered.AddRange(ctors.Where(c => !SymbolEqualityComparer.Default.Equals(c, implicitZero)));
+        }
+        else
+        {
+            ordered.AddRange(ctors);
+        }
+
+        var sorted = ordered
+            .Select((ctor, idx) => (Ctor: ctor, Idx: idx))
+            .OrderBy(x => x.Ctor.Parameters.Length)
+            .ThenBy(x => x.Idx)
+            .ToList();
+        var targetIdx = sorted.FindIndex(x =>
+            SymbolEqualityComparer.Default.Equals(x.Ctor.OriginalDefinition, ctorSymbol.OriginalDefinition));
+        if (targetIdx < 0)
+        {
+            return null;
+        }
+
+        var bareType = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
+        return $"{bareType}.{TsNaming.FactoryName(targetIdx + 1)}({args})";
     }
 
     private static bool IsErasedFactoryConstructor(ObjectCreationExpressionSyntax node, ConversionContext context)
@@ -1207,11 +1297,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             ctorArgs = ArgumentTransformer.TransformArgumentList(
                 argumentList, context, facade, methodSymbol: ctorSymbol);
         }
+        else if (createdType != null)
+        {
+            ctorSymbol = createdType.InstanceConstructors.FirstOrDefault(c => c.Parameters.Length == 0);
+        }
 
+        var ctorArgsBeforeRuntime = ctorArgs;
         if (argumentList == null || argumentList.Arguments.Count == 0 || ctorSymbol == null)
         {
             AppendRuntimeClassArguments(createdType, context, ref ctorArgs);
         }
+        bool appendedRuntimeArgs = ctorArgs != ctorArgsBeforeRuntime;
 
         // For readonly structs (all instance fields are readonly/final), object initializers
         // must be converted to constructor calls since final fields can't be assigned after construction.
@@ -1391,7 +1487,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
         else
         {
-            context.AddBranchScopedPreStatement($"var {tmpVar} = new {typeName}({ctorArgs});");
+            var tsFactoryCall = !appendedRuntimeArgs
+                ? TryBuildTsCtorFactoryCall(ctorSymbol, typeName, ctorArgs, context)
+                : null;
+            context.AddBranchScopedPreStatement(tsFactoryCall != null
+                ? $"var {tmpVar} = {tsFactoryCall};"
+                : $"var {tmpVar} = new {typeName}({ctorArgs});");
         }
         foreach (var assignment in pendingAssignments)
             context.AddBranchScopedPreStatement(assignment);
