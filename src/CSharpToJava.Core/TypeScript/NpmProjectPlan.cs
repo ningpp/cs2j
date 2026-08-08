@@ -377,17 +377,21 @@ public static class NpmProjectFiles
         }
         declare const CSharpGenericEnumerator: typeof import("@csharptotypescript/compat").CsEnumerator;
         // IList<T> → CSharpGenericIList<T>：TS 结构契约 = 生成集合类（implements，
-        // 含 Round 23 补发的 get() 桥接）与 Array（CSharpList 别名，polyfill 面）
-        // 的公共面；iterator() 双形态（生成类枚举器 / Array 迭代器）。
+        // 含 Round 23 补发的 get()/toArray() 桥接）与 Array（CSharpList 别名，
+        // polyfill 面）的公共面；iterator() 双形态（生成类枚举器 / Array 迭代器）；
+        // length 可选（生成类无该成员，仅消费端 Array 形态读写）。
         interface CSharpGenericIList<T> {
             [Symbol.iterator](): Iterator<T>;
-            add(item: T): boolean;
+            add(item: T): void;
             remove(item: any): boolean;
             indexOf(item: any): number;
             insert(index: number, item: T): void;
             removeAt(index: number): void;
             size(): number;
             get(index: number): T;
+            contains(item: any): boolean;
+            toArray(): T[];
+            length?: number;
             iterator(): CSharpGenericEnumerator<T> | IterableIterator<T>;
         }
         // 非泛型 IEnumerator：C# Current 为 object → any（与 Java Object→any 映射一致）。
@@ -436,6 +440,7 @@ public static class NpmProjectFiles
             exists(predicate: (value: T) => boolean): boolean;
             ensureCapacity(minimumCapacity: number): void;
             peek(): T;
+            contains(item: any): boolean;
         }
         """;
 

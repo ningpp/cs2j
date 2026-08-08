@@ -38,18 +38,21 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
         declare const CSharpGenericEnumerator: { from<T>(source: Iterable<T> | IterableIterator<T> | CSharpGenericEnumerator<T>): CSharpGenericEnumerator<T> };
         interface CSharpGenericIList<T> {
             [Symbol.iterator](): Iterator<T>;
-            add(item: T): boolean;
+            add(item: T): void;
             remove(item: any): boolean;
             indexOf(item: any): number;
             insert(index: number, item: T): void;
             removeAt(index: number): void;
             size(): number;
             get(index: number): T;
+            contains(item: any): boolean;
+            toArray(): T[];
+            length?: number;
             iterator(): CSharpGenericEnumerator<T> | IterableIterator<T>;
         }
         type CSharpEnumerator = CSharpGenericEnumerator<any>;
         declare const CSharpEnumerator: { from<T>(source: Iterable<T> | IterableIterator<T> | CSharpGenericEnumerator<T>): CSharpGenericEnumerator<T> };
-        type CSharpRandom = { nextDouble(): number; next(bound: number): number };
+        type CSharpRandom = { next(): number; next(bound: number): number; next(minValue: number, maxValue: number): number; nextDouble(): number };
         declare const CSharpRandom: { new(seed?: number): CSharpRandom };
         type CSharpQueue<T> = { enqueue(item: T): void; add(item: T): void; dequeue(): T; poll(): T | null; peek(): T; size(): number; isEmpty(): boolean; clear(): void; [Symbol.iterator](): Iterator<T> };
         declare const CSharpQueue: { new<T>(items?: Iterable<T>): CSharpQueue<T> };
@@ -84,6 +87,7 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
             exists(predicate: (value: T) => boolean): boolean;
             ensureCapacity(minimumCapacity: number): void;
             peek(): T;
+            contains(item: any): boolean;
         }
         """;
 
@@ -123,12 +127,16 @@ public class Probe
     private Random rnd = new Random(3);
     public double NextDouble() { return rnd.NextDouble(); }
     public int Next(int bound) { return rnd.Next(bound); }
+    public int Next() { return rnd.Next(); }
+    public int NextRange(int lo, int hi) { return rnd.Next(lo, hi); }
 }
 """);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         Assert.Contains("new CSharpRandom(3)", result.GeneratedCode);
         Assert.Contains("rnd.nextDouble()", result.GeneratedCode);
         Assert.Contains("rnd.next(bound)", result.GeneratedCode);
+        Assert.Contains("rnd.next()", result.GeneratedCode);
+        Assert.Contains("rnd.next(lo, hi)", result.GeneratedCode);
         AssertCompilesWithCompat(result.GeneratedCode, "global.d.ts", GlobalStub);
     }
 
@@ -202,6 +210,7 @@ public class NodeCollection : IList<Node>
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         Assert.Contains("implements CSharpGenericIList<Node>", result.GeneratedCode);
         Assert.Contains("public get(index: number): Node { return this.get_Item(index); }", result.GeneratedCode);
+        Assert.Contains("public toArray(): Node[] { return Array.from(this); }", result.GeneratedCode);
         AssertCompilesWithCompat(result.GeneratedCode, "global.d.ts", GlobalStub);
     }
 

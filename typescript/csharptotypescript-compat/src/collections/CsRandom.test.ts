@@ -19,6 +19,22 @@ describe("CsRandom", () => {
         }
     });
 
+    it("next(min, max) yields values in [min, max)", () => {
+        const r = new CsRandom(8);
+        for (let i = 0; i < 100; i++) {
+            const v = r.next(5, 15);
+            expect(v).toBeGreaterThanOrEqual(5);
+            expect(v).toBeLessThan(15);
+        }
+    });
+
+    it("next() yields non-negative integers", () => {
+        const r = new CsRandom(9);
+        for (let i = 0; i < 100; i++) {
+            expect(r.next()).toBeGreaterThanOrEqual(0);
+        }
+    });
+
     it("nextDouble() yields values in [0, 1)", () => {
         const r = new CsRandom(9);
         for (let i = 0; i < 100; i++) {

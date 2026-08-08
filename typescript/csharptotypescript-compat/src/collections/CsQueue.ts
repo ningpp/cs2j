@@ -16,9 +16,12 @@ export class CsQueue<T> {
         }
     }
 
-    /** C# Queue.Enqueue / Java Queue.add。 */
-    enqueue(item: T): void {
-        this._items.push(item);
+    /** C# Queue.Enqueue / Java Queue.add。rest 参数使生成类可安全覆写
+     * 多参形态（TS2416：SplitQueue.enqueue(l, r) 对 (item) 签名的覆写被 TS 7 拒绝）。 */
+    enqueue(...items: T[]): void {
+        for (const item of items) {
+            this._items.push(item);
+        }
     }
 
     /** Java Queue.add 别名（生成调用点两形态并存）。 */

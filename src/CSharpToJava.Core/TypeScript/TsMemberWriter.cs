@@ -271,12 +271,13 @@ public sealed class TsMemberWriter
     }
 
     /// <summary>
-    /// Round 23：CSharpGenericIList&lt;T&gt; implements 契约补发 get(index) 桥接。
+    /// Round 23：CSharpGenericIList&lt;T&gt; implements 契约补发 Java IList 方法面桥接。
     /// C# IList&lt;T&gt; 实现类的索引器发射为 Java 风味 get_Item(index)（Task 16 属性
     /// 重组后仍为方法），而 global.d.ts 的 CSharpGenericIList 接口契约要求 Java IList
-    /// 形态 get(index)（消费端 nodes.get(i) 保留该形态；TS2304 修复后 TS2420 缺口）。
-    /// 对含 get_Item、无 get 方法的实现类补发 `get(index: number): T { return
-    /// this.get_Item(index); }`（TS 目标专用）。
+    /// 形态 get(index)（消费端 nodes.get(i) 保留该形态）与 toArray()（copyTo/System.
+    /// arraycopy 消费）；TS2304 修复后 TS2420 缺口。对含 get_Item、无 get 的实现类
+    /// 补发 `get(index: number): T { return this.get_Item(index); }`；无 toArray 的
+    /// 补发 `toArray&lt;U = T&gt;(): U[] { return Array.from(this); }`（TS 目标专用）。
     /// </summary>
     public string? EmitIListGetBridge(JavaClassDeclaration cls, int indentLevel)
     {
@@ -284,18 +285,26 @@ public sealed class TsMemberWriter
         {
             return null;
         }
-        if (cls.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1))
-        {
-            return null;
-        }
-        var getItem = cls.Methods.FirstOrDefault(m => m.Name == "get_Item" && m.Parameters.Count == 1);
-        if (getItem == null)
-        {
-            return null;
-        }
         var ind = new string(_indent[0], indentLevel * _indent.Length);
-        var ret = _exprWriter.MapType(getItem.ReturnType);
-        return $"{ind}public get(index: number): {ret} {{ return this.get_Item(index); }}";
+        var blocks = new List<string>();
+        var getItem = cls.Methods.FirstOrDefault(m => m.Name == "get_Item" && m.Parameters.Count == 1);
+        if (getItem != null && !cls.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1))
+        {
+            var ret = _exprWriter.MapType(getItem.ReturnType);
+            blocks.Add($"{ind}public get(index: number): {ret} {{ return this.get_Item(index); }}");
+        }
+        if (!cls.Methods.Any(m => m.Name == "toArray" && m.Parameters.Count == 0))
+        {
+            var elementType = cls.ImplementedTypes
+                .Where(t => t.StartsWith("CSharpGenericIList<", StringComparison.Ordinal))
+                .Select(t => t.Substring("CSharpGenericIList<".Length, t.Length - "CSharpGenericIList<".Length - 1).Trim())
+                .FirstOrDefault();
+            if (!string.IsNullOrEmpty(elementType))
+            {
+                blocks.Add($"{ind}public toArray(): {elementType}[] {{ return Array.from(this); }}");
+            }
+        }
+        return blocks.Count > 0 ? string.Join(Environment.NewLine, blocks) : null;
     }
 
     /// <summary>

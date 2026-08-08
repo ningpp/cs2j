@@ -30,6 +30,8 @@ declare global {
         removeRange(start: number, end: number): void;
         /** Java List.size() → length。 */
         size(): number;
+        /** Java List.contains(Object) → includes（Round 23：CSharpGenericIList 契约）。 */
+        contains(item: any): boolean;
         /** Java List.toArray()/toArray(IntFunction) → 拷贝（生成器形态 T[]::new）。 */
         toArray<U = T>(mapper?: (n: number) => U[]): U[];
         /** Java List.iterator() → Symbol.iterator。 */
@@ -95,6 +97,10 @@ install("removeRange", function removeRange(this: unknown[], start: number, end:
 
 install("size", function size(this: unknown[]): number {
     return this.length;
+});
+
+install("contains", function contains<T>(this: T[], item: T): boolean {
+    return this.includes(item);
 });
 
 install("toArray", function toArray<U>(this: U[], mapper?: (n: number) => U[]): U[] {

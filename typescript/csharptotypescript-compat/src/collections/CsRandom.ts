@@ -13,12 +13,26 @@ export class CsRandom {
         this._state = (s ^ 0x5deece66d) >>> 0;
     }
 
+    /** C# Random.Next()：返回 [0, 2^31) 的整数。 */
+    next(): number;
     /** C# Random.Next(maxValue)：返回 [0, maxValue) 的整数。 */
-    next(bound: number): number {
-        if (!(bound > 0)) {
-            throw new Error("bound must be positive");
+    next(bound: number): number;
+    /** C# Random.Next(minValue, maxValue)：返回 [minValue, maxValue) 的整数。 */
+    next(minValue: number, maxValue: number): number;
+    next(minValueOrBound?: number, maxValue?: number): number {
+        if (minValueOrBound === undefined) {
+            return this.nextBits(31);
         }
-        return this.nextBits(31) % bound;
+        if (maxValue === undefined) {
+            if (!(minValueOrBound > 0)) {
+                throw new Error("bound must be positive");
+            }
+            return this.nextBits(31) % minValueOrBound;
+        }
+        if (!(maxValue > minValueOrBound)) {
+            throw new Error("maxValue must be greater than minValue");
+        }
+        return minValueOrBound + (this.nextBits(31) % (maxValue - minValueOrBound));
     }
 
     /** C# Random.NextDouble()：返回 [0, 1) 的浮点数（26 位 + 27 位拼接，无 32 位符号移位）。 */
