@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
@@ -535,8 +535,13 @@ public class MethodTransformer : IMemberTransformer
         var javaMethod = new JavaMethodDeclaration
         {
             Name = GetLocalFunctionJavaName(localFn),
+            // Static when the local function is declared static OR its enclosing method
+            // is static (a local function inside a static method can only capture locals).
             Modifiers = JavaModifiers.Private
-                | (localFn.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) ? JavaModifiers.Static : JavaModifiers.None),
+                | ((localFn.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
+                    || (context.GetDeclaredSymbol(localFn)?.ContainingSymbol as IMethodSymbol)?.IsStatic == true)
+                    ? JavaModifiers.Static
+                    : JavaModifiers.None),
             ReturnType = GetLocalFunctionReturnType(localFn, context)
         };
 
@@ -557,6 +562,17 @@ public class MethodTransformer : IMemberTransformer
                 javaMethod.Parameters.Add(converted);
         }
 
+        // Capturing local functions: the captured enclosing locals/parameters become
+        // trailing parameters, and references in the body are renamed to them. The
+        // registered capture list already includes callee captures (transitive closure
+        // computed during the prescan), so signatures and call sites agree.
+        var captures = context.MethodState.GetHoistedLocalFunctionCaptures(localFn.Identifier.Text)
+            ?? new List<MethodConversionState.CapturedLocal>();
+        foreach (var capture in captures)
+        {
+            javaMethod.Parameters.Add(new JavaParameter(capture.JavaType, capture.ParamName));
+        }
+
         // Local functions are never async themselves, even inside async methods.
         context.IsInAsyncContext = false;
         // The local function body is its own method scope: push its symbol so that
@@ -566,6 +582,10 @@ public class MethodTransformer : IMemberTransformer
         context.EnterNestedMethodContext(localFnSymbol);
         try
         {
+            foreach (var capture in captures)
+            {
+                context.MethodState.PushCaptureRename(capture.Symbol, capture.ParamName);
+            }
             if (localFn.Body != null)
             {
                 javaMethod.StructuredBody = new Transformers.Statement.StatementTransformer()
@@ -591,6 +611,10 @@ public class MethodTransformer : IMemberTransformer
         }
         finally
         {
+            foreach (var capture in captures)
+            {
+                context.MethodState.PopCaptureRename();
+            }
             context.LeaveNestedMethodContext();
         }
 

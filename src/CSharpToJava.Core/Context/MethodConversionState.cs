@@ -594,6 +594,89 @@ public class MethodConversionState
         return _nonHoistedLocalFunctions.Contains(name);
     }
 
+    /// <summary>Captured variable of a hoisted local function.</summary>
+    public sealed record CapturedLocal(ISymbol Symbol, string Name, string JavaType, string ParamName);
+
+    private readonly Dictionary<string, List<CapturedLocal>> _hoistedLocalFunctionCaptures = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Registers the enclosing-scope captures of a hoisted local function so the hoisted
+    /// method receives them as parameters and call sites pass them as arguments.
+    /// </summary>
+    public void RegisterHoistedLocalFunctionCaptures(string name, List<CapturedLocal> captures)
+    {
+        if (captures.Count > 0)
+        {
+            _hoistedLocalFunctionCaptures[name] = captures;
+        }
+    }
+
+    /// <summary>Gets the captures of a hoisted local function by its C# name (call-site key).</summary>
+    public List<CapturedLocal>? GetHoistedLocalFunctionCaptures(string name)
+    {
+        return _hoistedLocalFunctionCaptures.TryGetValue(name, out var captures) ? captures : null;
+    }
+
+    private readonly Dictionary<string, List<string?>> _hoistedLocalFunctionDefaults = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Registers the Java literal default values of a hoisted local function's regular
+    /// parameters (null entry = no default). Call sites pad omitted trailing arguments
+    /// from this list, since hoisted signatures keep no parameter defaults.
+    /// </summary>
+    public void RegisterHoistedLocalFunctionDefaults(string name, List<string?> defaults)
+    {
+        _hoistedLocalFunctionDefaults[name] = defaults;
+    }
+
+    public List<string?>? GetHoistedLocalFunctionDefaults(string name)
+    {
+        return _hoistedLocalFunctionDefaults.TryGetValue(name, out var defaults) ? defaults : null;
+    }
+
+    private readonly List<(ISymbol Symbol, string ParamName)> _activeCaptureRenames = new();
+
+    /// <summary>Maps a captured enclosing symbol to its hoisted-method parameter during body conversion.</summary>
+    public void PushCaptureRename(ISymbol symbol, string paramName)
+    {
+        _activeCaptureRenames.Add((symbol, paramName));
+    }
+
+    public void PopCaptureRename()
+    {
+        if (_activeCaptureRenames.Count > 0)
+            _activeCaptureRenames.RemoveAt(_activeCaptureRenames.Count - 1);
+    }
+
+    /// <summary>
+    /// When converting the body of a hoisted capturing local function, references to the
+    /// captured enclosing symbol must emit the hoisted parameter name instead.
+    /// </summary>
+    public string? TryGetCaptureRename(ISymbol symbol)
+    {
+        for (int i = _activeCaptureRenames.Count - 1; i >= 0; i--)
+        {
+            if (SymbolEqualityComparer.Default.Equals(_activeCaptureRenames[i].Symbol, symbol))
+                return _activeCaptureRenames[i].ParamName;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Name-based capture rename lookup for synthetic call-site identifiers that have no
+    /// symbol (e.g. a captured variable passed as an argument inside another hoisted
+    /// capturing local function, whose own Java name is its hoisted parameter name).
+    /// </summary>
+    public string? TryGetCaptureRenameByName(string name)
+    {
+        for (int i = _activeCaptureRenames.Count - 1; i >= 0; i--)
+        {
+            if (_activeCaptureRenames[i].Symbol.Name == name)
+                return _activeCaptureRenames[i].ParamName;
+        }
+        return null;
+    }
+
     /// <summary>
     /// Resets all method-level state. Called on entering each new method.
     /// </summary>

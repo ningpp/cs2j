@@ -152,6 +152,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 var symbol = context.GetSymbolInfo(node).Symbol;
                 if (symbol is ILocalSymbol or IParameterSymbol)
                 {
+                    // Hoisted capturing local functions: references to captured enclosing
+                    // locals/parameters emit the hoisted parameter name.
+                    var captureRename = context.MethodState.TryGetCaptureRename(symbol);
+                    if (captureRename != null)
+                    {
+                        return new JavaRawExpression(captureRename, context.MapType(GetSymbolType(symbol)!));
+                    }
                     var name = ConversionContext.EscapeJavaKeyword(id.Identifier.Text);
                     // Locals renamed due to cross-lambda shadowing (C# allows shadowing
                     // an enclosing parameter/local inside a lambda body; Java forbids it)
@@ -344,6 +351,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     private string TransformIdentifier(IdentifierNameSyntax node, ConversionContext context)
     {
         var name = node.Identifier.Text;
+
+        // Hoisted capturing local functions: references to captured enclosing
+        // locals/parameters inside the body emit the hoisted parameter name.
+        if (context.SemanticModel != null)
+        {
+            var symbol = context.GetSymbolInfo(node).Symbol;
+            if (symbol != null)
+            {
+                var rename = context.MethodState.TryGetCaptureRename(symbol);
+                if (rename != null)
+                    return rename;
+            }
+        }
 
         // Fix 2: resolve LINQ 'let' clause variables inlined via QueryLetAliases
         if (context.QueryLetAliases.TryGetValue(name, out var letAlias))

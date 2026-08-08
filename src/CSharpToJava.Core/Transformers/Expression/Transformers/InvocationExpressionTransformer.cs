@@ -399,9 +399,48 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (bareMethodSym2 != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
 
-            // Calls to capturing local functions cannot be hoisted (their declaration
-            // becomes a TODO comment); emit a TODO instead of an invalid method call.
-            // In expression positions a bare comment is not valid Java — emit null.
+            // Calls to capturing local functions are hoisted with the captured variables
+            // passed as trailing arguments (declaration and call site share the capture
+            // order registered by MethodConversionState).
+            var captures = context.MethodState.GetHoistedLocalFunctionCaptures(bareIdent.Identifier.Text);
+            if (captures != null)
+            {
+                // Capture arguments are synthetic identifiers without symbols; inside
+                // another hoisted capturing function the captured variable's Java name is
+                // its hoisted parameter name, so resolve that rename by name first.
+                var capArgs = captures.Select(c =>
+                {
+                    var renamed = context.MethodState.TryGetCaptureRenameByName(c.Name);
+                    return renamed ?? c.Name;
+                });
+                var captureArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
+                // Hoisted signatures keep no parameter defaults — pad omitted trailing
+                // arguments with the C# default values registered during the prescan
+                // (e.g. EmitSingleChar(node) → emitSingleChar(node, true, null, ...)).
+                var paramDefaults = context.MethodState.GetHoistedLocalFunctionDefaults(bareIdent.Identifier.Text);
+                if (paramDefaults != null)
+                {
+                    while (CountTopLevelArguments(captureArgs) < paramDefaults.Count)
+                    {
+                        var fillIndex = CountTopLevelArguments(captureArgs);
+                        if (fillIndex >= paramDefaults.Count)
+                            break;
+                        var defaultValue = paramDefaults[fillIndex];
+                        if (defaultValue == null)
+                            break;
+                        captureArgs = string.IsNullOrWhiteSpace(captureArgs)
+                            ? defaultValue
+                            : $"{captureArgs}, {defaultValue}";
+                    }
+                }
+                if (!string.IsNullOrEmpty(captureArgs) && captureArgs.Trim().Length > 0)
+                    captureArgs += ", ";
+                captureArgs += string.Join(", ", capArgs);
+                return $"{methodName}({captureArgs})";
+            }
+
+            // Calls to local functions that could not be analyzed for captures keep the
+            // legacy TODO fallback.
             if (context.MethodState.IsNonHoistedLocalFunction(bareIdent.Identifier.Text))
             {
                 bool isExpressionContext = node.Parent is not (
@@ -9750,6 +9789,71 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var prefix = string.Join(", ", classTypeTokens);
         return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
+    }
+
+    /// <summary>
+    /// Counts the top-level comma-separated arguments in a transformed argument string,
+    /// ignoring commas inside parentheses, brackets, braces, strings and char literals.
+    /// </summary>
+    private static int CountTopLevelArguments(string args)
+    {
+        if (string.IsNullOrWhiteSpace(args))
+            return 0;
+        int depth = 0;
+        bool inString = false;
+        bool inChar = false;
+        int count = 1;
+        for (int i = 0; i < args.Length; i++)
+        {
+            char c = args[i];
+            if (inString)
+            {
+                if (c == '\\') { i++; }
+                else if (c == '"') { inString = false; }
+                continue;
+            }
+            if (inChar)
+            {
+                if (c == '\\') { i++; }
+                else if (c == '\'') { inChar = false; }
+                continue;
+            }
+            switch (c)
+            {
+                case '"': inString = true; break;
+                case '\'': inChar = true; break;
+                case '(': case '[': case '{': depth++; break;
+                case ')': case ']': case '}': depth--; break;
+                case ',' when depth == 0: count++; break;
+            }
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Converts an optional parameter's default value into a Java literal, used to pad
+    /// omitted trailing arguments at hoisted local-function call sites (hoisted methods
+    /// keep no parameter defaults).
+    /// </summary>
+    private static string ConvertHoistedDefaultValue(object? value)
+    {
+        return value switch
+        {
+            null => "null",
+            string s => "\"" + CSharpToJava.Core.Utilities.StringEscapeHelper.EscapeJavaString(s) + "\"",
+            char c => "'" + (c == '\'' ? "\\'" : c == '\\' ? "\\\\" : c.ToString()) + "'",
+            bool b => b ? "true" : "false",
+            long l => l + "L",
+            int i => i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            short sh => sh.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            byte by => by.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            uint ui => (ui > int.MaxValue
+                ? ui + "L"
+                : ui.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "f",
+            _ => value.ToString() ?? "null"
+        };
     }
 
     /// <summary>
