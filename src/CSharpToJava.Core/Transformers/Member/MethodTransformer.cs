@@ -760,12 +760,23 @@ public class MethodTransformer : IMemberTransformer
                         hasArrayArg = true;
                         break;
                     }
+                    // Enum-typed arguments boxed into an object parameter (e.g. a test
+                    // method taking (string, int, object) with RegexParseError values in
+                    // its InlineData rows) cannot round-trip through CSV either: JUnit
+                    // would pass the member-name string and the test's cast to the enum
+                    // type would throw ClassCastException.
+                    if (targetType?.SpecialType == SpecialType.System_Object
+                        && context.GetTypeInfo(expr).Type?.TypeKind == TypeKind.Enum)
+                    {
+                        hasArrayArg = true;
+                        break;
+                    }
                 }
                 if (hasArrayArg) break;
             }
             if (hasArrayArg)
             {
-                var dataMethod = BuildInlineDataDataMethod(javaMethod.Name, inlineDataAttrs, context);
+                var dataMethod = BuildInlineDataDataMethod(methodDecl, javaMethod.Name, inlineDataAttrs, context);
                 javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{dataMethod.Name}\")"));
                 context.AddImport("org.junit.jupiter.params.provider.MethodSource");
                 return new JavaMemberCollection(dataMethod);
@@ -1001,9 +1012,12 @@ public class MethodTransformer : IMemberTransformer
     /// returns <c>CSharpGenericIterable&lt;Object[]&gt;</c> — the same shape produced for
     /// [MemberData] — and is referenced by the test method's @MethodSource annotation.
     /// Each argument is converted with the normal expression conversion so array
-    /// initializers, enum members and literals keep their real types.
+    /// initializers, enum members and literals keep their real types. Rows shorter than
+    /// the parameter list are padded with the trailing parameters' C# default values
+    /// (JUnit cannot fill optional parameters, e.g. <c>void Parse(..., int offset = -1)</c>).
     /// </summary>
     private static JavaMethodDeclaration BuildInlineDataDataMethod(
+        MethodDeclarationSyntax methodDecl,
         string testMethodName,
         List<AttributeSyntax> inlineDataAttrs,
         ConversionContext context)
@@ -1011,6 +1025,11 @@ public class MethodTransformer : IMemberTransformer
         var dataMethodName = context.GenerateSyntheticName(testMethodName + "_data");
         context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
         context.AddImport("io.github.ningpp.compat.CSharpList");
+
+        var paramSymbols = (methodDecl.ParameterList?.Parameters
+                .Select(p => context.GetDeclaredSymbol(p) as IParameterSymbol)
+                .ToList())
+            ?? new List<IParameterSymbol?>();
 
         var body = new System.Text.StringBuilder();
         body.AppendLine("CSharpList<Object[]> _yieldResult = new CSharpList<Object[]>();");
@@ -1024,6 +1043,14 @@ public class MethodTransformer : IMemberTransformer
             {
                 converted.Add(ExpressionTransformerFacade.Instance.Transform(arg.Expression, context));
             }
+            // Pad missing trailing arguments with the parameter's explicit default value.
+            while (converted.Count < paramSymbols.Count)
+            {
+                var missing = paramSymbols[converted.Count];
+                if (missing == null || !missing.HasExplicitDefaultValue)
+                    break;
+                converted.Add(ConvertDefaultParameterValue(missing, missing.ExplicitDefaultValue, context));
+            }
             body.AppendLine($"_yieldResult.add(new Object[] {{ {string.Join(", ", converted)} }});");
         }
         body.Append("return _yieldResult;");
@@ -1035,6 +1062,54 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = "CSharpGenericIterable<Object[]>",
             Body = body.ToString()
         };
+    }
+
+    /// <summary>
+    /// Converts a C# parameter's explicit default value into a Java expression literal.
+    /// </summary>
+    private static string ConvertDefaultParameterValue(
+        IParameterSymbol param,
+        object? value,
+        ConversionContext context)
+    {
+        if (value == null)
+            return "null";
+
+        switch (value)
+        {
+            case string s:
+                return "\"" + CSharpToJava.Core.Utilities.StringEscapeHelper.EscapeJavaString(s) + "\"";            case char c:
+                return "'" + (c == '\'' ? "\\'" : c == '\\' ? "\\\\" : c.ToString()) + "'";
+            case bool b:
+                return b ? "true" : "false";
+            case long l:
+                return l + "L";
+            case int i:
+                return i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            case short sh:
+                return sh.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            case byte by:
+                return by.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            case uint ui:
+                return (ui > int.MaxValue
+                    ? ui + "L"
+                    : ui.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            case double d:
+                return d.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            case float f:
+                return f.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "f";
+            default:
+                // Enum defaults (e.g. default(RegexOptions)) — emit EnumType.Member.
+                if (value.GetType().IsEnum && param.Type is INamedTypeSymbol enumType)
+                {
+                    var javaType = context.MapType(enumType);
+                    if (!string.IsNullOrWhiteSpace(javaType))
+                    {
+                        return $"{javaType}.{value}";
+                    }
+                }
+                return value.ToString() ?? "null";
+        }
     }
 
     /// <summary>
