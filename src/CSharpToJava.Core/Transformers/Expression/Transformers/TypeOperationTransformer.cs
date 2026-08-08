@@ -91,6 +91,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 targetType = context.MapType(typeInfo.Type);
             else
                 targetType = context.MapTypeFromSyntax(isExpr.Right as TypeSyntax ?? throw new ArgumentException("Expected type"));
+            // C#: obj is T1 with a generic method type parameter — Java forbids
+            // instanceof on type variables; use the Class<T> token instead.
+            if (typeInfo.Type is ITypeParameterSymbol typeParam)
+                return new JavaRawExpression($"{ConversionContext.GetClassLiteral(typeParam, context)}.isInstance({exprIR.ToInlineString()})");
             return new JavaInstanceOfExpression
             {
                 Expression = exprIR,
@@ -773,6 +777,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             targetType = context.MapTypeFromSyntax(node.Right as TypeSyntax ?? throw new ArgumentException("Expected type"));
         }
 
+        // C#: obj is T1 (generic method type parameter) → obj's runtime type checked
+        // against the Class<T> token: Java forbids instanceof on type variables.
+        if (typeInfo.Type is ITypeParameterSymbol typeParam)
+            return $"{ConversionContext.GetClassLiteral(typeParam, context)}.isInstance({left})";
+
         // C#: obj is Type  → Java: obj instanceof Type
         return $"{left} instanceof {ToRuntimeTypeForInstanceOf(targetType)}";
     }
@@ -798,7 +807,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             RelationalPatternSyntax relPattern
                 => $"{expression} {relPattern.OperatorToken.Text} {facade.Transform(relPattern.Expression, context)}",
             TypePatternSyntax typePattern
-                => $"{expression} instanceof {ExpressionTransformerHelpers.StripTypeArguments(context.MapTypeFromSyntax(typePattern.Type))}",
+                => TransformTypePattern(expression, typePattern, context),
             VarPatternSyntax varPattern
                 => TransformVarPattern(expression, varPattern, context),
             ParenthesizedPatternSyntax parenPattern
@@ -829,7 +838,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             RelationalPatternSyntax relPattern
                 => $"{expression} {relPattern.OperatorToken.Text} {facade.Transform(relPattern.Expression, context)}",
             TypePatternSyntax typePattern
-                => $"{expression} instanceof {context.MapTypeFromSyntax(typePattern.Type)}",
+                => TransformTypePattern(expression, typePattern, context),
             VarPatternSyntax varPattern
                 => TransformVarPattern(expression, varPattern, context),
             ParenthesizedPatternSyntax parenPattern
@@ -837,6 +846,22 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             DiscardPatternSyntax => "true",
             _ => $"/* TODO: sub-pattern {pattern.GetType().Name} */ true"
         };
+    }
+
+    /// <summary>
+    /// `expr is TypePattern` where the pattern type is a method type parameter
+    /// (e.g. `ex is T1`): Java forbids instanceof on type variables, so emit
+    /// `_cs2j_T1.isInstance(expr)` using the Class&lt;T&gt; token. For concrete
+    /// types, emit the normal instanceof.
+    /// </summary>
+    private string TransformTypePattern(string expression, TypePatternSyntax typePattern, ConversionContext context)
+    {
+        var typeInfo = context.GetTypeInfo(typePattern.Type);
+        if (typeInfo.Type is ITypeParameterSymbol typeParam)
+        {
+            return $"{ConversionContext.GetClassLiteral(typeParam, context)}.isInstance({expression})";
+        }
+        return $"{expression} instanceof {ExpressionTransformerHelpers.StripTypeArguments(context.MapTypeFromSyntax(typePattern.Type))}";
     }
 
     private string TransformVarPattern(string expression, VarPatternSyntax pattern, ConversionContext context)

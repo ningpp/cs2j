@@ -305,3 +305,21 @@
 - **分析**: System.Type → java.lang.Class 的映射已有 IsSubclassOf → isAssignableFrom 的模板，但 IsInstanceOfType 没有对应分支，落入通用 camelCase 产出 `isInstanceOfType`（java.lang.Class 无此方法）。修复：新增 IsInstanceOfType → `{receiver}.isInstance({arg})` 分支（与 IsSubclassOf 相同的守卫条件：methodSymbol 属于 System.Type 或 IsReceiverOfType 命中）。
 - **测试**: `TestModuleBatch3Tests.TypeIsInstanceOfType_MapsToIsInstance`（先红后绿，全量 2528 通过）
 - **状态**: ✅ Fixed
+
+## Iteration 18 — RuntimeException 无法安全地转换为 T1（instanceof 类型参数非法）
+
+- **Java 文件**: dotnet-text-regularexpressions-tests/src/test/java/System/Tests/AssertExtensions.java
+- **行号**: 122
+- **错误信息**: `[122,18] java.lang.RuntimeException 无法安全地转换为 T1`（及 122,40 的 T2）
+- **代码片段**:
+  ```java
+  public static <T1 extends RuntimeException, T2 extends RuntimeException> RuntimeException throwsAny(Class<T2> _cs2j_T2, Class<T1> _cs2j_T1, Runnable testCode) {
+      ...
+      if ((ex instanceof T1) || (ex instanceof T2)) {
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\tests\TestUtilities\System\Tests\AssertExtensions.cs（第 107 行 `if (ex is T1 || ex is T2)`，ThrowsAny<T1,T2>）
+- **根因分类**: Transformer 逻辑缺陷（is 类型参数无 Java 等价物路由）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs（TransformIs 759-778、TransformToIR IsExpression 分支 84-99；并统一 TypePattern 发射）
+- **分析**: `ex is T1` 在 Roslyn 中解析为 BinaryExpressionSyntax(IsExpression)（非 IsPatternExpression），走 TransformIs/TransformToIR 发射 `ex instanceof T1`，而 Java 禁止 instanceof 类型变量（T1 擦除为 RuntimeException，报"无法安全地转换为"）。修复：三处发射点统一处理 ITypeParameterSymbol —— TransformIs 与 TransformToIR 的 IsExpression 分支、以及 TransformTypePattern（真 TypePattern 语境）在模式类型为类型参数时发射 `_cs2j_T1.isInstance(ex)`（GetClassLiteral 自动注册 Class<T> 签名参数）；具体类型保持 instanceof。
+- **测试**: `ExceptionCatchOrderTests.IsTypeParameterPattern_UsesRuntimeClassToken`（先红后绿，全量 2529 通过）
+- **状态**: ✅ Fixed
