@@ -270,6 +270,23 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     return result;
                 }
 
+                // C# MethodInfo?.Invoke(object, object[]): the compat MethodInfo exposes both
+                // invoke(Object, Object...) and invoke(Object, List<?>), so a bare null second
+                // argument is ambiguous. Cast it to (Object[]) to select the varargs overload.
+                if (invocation.Expression is MemberBindingExpressionSyntax invokeBinding
+                    && invokeBinding.Name.Identifier.Text == "Invoke"
+                    && invocation.ArgumentList.Arguments.Count == 2
+                    && IsConditionalAccessReceiverOfType(invocation, "System.Reflection.MethodInfo", context))
+                {
+                var invokeInvokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
+                var invokeTargetArg = Transform(invocation.ArgumentList.Arguments[0].Expression, context);
+                var invokeArgsExpr = invocation.ArgumentList.Arguments[1].Expression;
+                var invokeArgsArg = invokeArgsExpr.IsKind(SyntaxKind.NullLiteralExpression)
+                    ? "(Object[]) null"
+                    : Transform(invokeArgsExpr, context);
+                return $"{invokeInvokedTarget}({invokeTargetArg}, {invokeArgsArg})";
+                }
+
                 var invokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
                 var invArgs = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
                 return $"{invokedTarget}({invArgs})";
@@ -334,6 +351,36 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 // for unregistered kinds rather than throwing.
                 return Transform(expr, context);
         }
+    }
+
+    /// <summary>
+    /// True when the receiver of the ConditionalAccessExpressionSyntax owning the given
+    /// node has the given C# type name (e.g. "System.Reflection.MethodInfo").
+    /// </summary>
+    private static bool IsConditionalAccessReceiverOfType(
+        SyntaxNode node,
+        string csharpTypeName,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return false;
+        var ancestor = node.Parent;
+        while (ancestor != null)
+        {
+            if (ancestor is ConditionalAccessExpressionSyntax cond)
+            {
+                var type = context.GetTypeInfo(cond.Expression).Type;
+                if (type == null)
+                    return false;
+                if (type.ToDisplayString() == csharpTypeName)
+                    return true;
+                if (type.Name == csharpTypeName)
+                    return true;
+                return false;
+            }
+            ancestor = ancestor.Parent;
+        }
+        return false;
     }
 
     /// <summary>
