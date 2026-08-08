@@ -24,7 +24,7 @@
 | 17 | 22171 → 15013 | 非自动属性访问器 getter/setter 形态调用点改写（项目级注册表 + raw/结构化 lambda 参数推断） | TsPropertyReconstructionRewriter.cs（ProjectAccessorRegistry / CollectProjectContexts / 访问器调用改写缺口 9 项 + lambda 族）/ TsEmitSupport.cs / ProjectTsPasses.cs / TsPropertyReconstructionRound17Tests.cs | cabeb448（主体被并发会话扫入，内容完整在 HEAD）+ 本轮提交（见下） |
 | 18 | 15013 → 13278 | ①构造器重载调用点未改 Create$N 工厂（TS2673 769→238）；②FQCN 静态方法调用接收者未缩短（TS2304 'Microsoft' 1791→146） | ① ObjectCreationTransformer.cs / TsOverloadDisambiguationRewriter.cs + TsCtorFactoryCrossFileTests.cs；② TsRawStatementNormalizer.cs + TsRawStatementNormalizerTests | 42f4dffe + 7fccb22c |
 | 19 | 13278 → 7502 | ①无初始化器引用类型字段宽化 `T | null`（TS2531 2922→15 / TS18047 771→116 / getter 内 TS2322）；②compat Java 集合 API 面缺口（TS2339 CSharpList .get/.set 等 328→0、CsKeyValuePair getKey/getValue 224→0、TS2693 new CSharpList/Stack/Dictionary 130→26） | ① src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs（EmitField）+ TsNullAssertionRound19Tests.cs + 3 例既有断言更新；② NpmProjectPlan.cs（global.d.ts 桩 Array 接口合并 + const 合并）/ TsRawStatementNormalizer.cs / TsExpressionWriter.cs（new CSharpList 改写）+ compat ArrayCompat.ts + CsKeyValuePair.ts + index.ts + TsCollectionCompatRound19Tests.cs | b52ea407 + 4424932a + fd623fe3 + cc02d254（另：并发会话先期提交 b289f65f 已收割 TS2551 FQCN 接收者族，纳入本轮起点 12633） |
-| 20 | 7502 → 7235 | 构造器工厂（Create$N）调用点残余缺口（TS2673 369→73）：①结构化 JavaNewExpression 发射路径（EmitNew）无工厂改写；②结构体默认零值填充（字段/自动属性后备字段）raw 文本；③LINQ 重写产物链内 ctor 符号不可解析 → 回退实参数量+字面量种类匹配 | JavaExpression.cs（JavaNewExpression.FactoryName）+ ObjectCreationTransformer.cs（TransformToIR 携带工厂名 / TryGetCtorFactoryName 回退）/ TsExpressionWriter.cs（EmitNew）+ FieldTransformer.cs / PropertyTransformer.cs（Create$1 填充）+ TsCtorFactoryRound20Tests.cs | a5931994 + b89df38c |
+| 20 | 7502 → 7235 | 构造器工厂（Create$N）调用点残余缺口（TS2673 369→75）：①结构化 JavaNewExpression 发射路径（EmitNew）无工厂改写；②结构体默认零值填充（字段/自动属性后备字段）raw 文本；③LINQ 重写产物链内 ctor 符号不可解析 → 回退实参数量+字面量种类匹配 | JavaExpression.cs（JavaNewExpression.FactoryName）+ ObjectCreationTransformer.cs（TransformToIR 携带工厂名 / TryGetCtorFactoryName 回退）/ TsExpressionWriter.cs（EmitNew）+ FieldTransformer.cs / PropertyTransformer.cs（Create$1 填充）+ TsCtorFactoryRound20Tests.cs | a5931994 + b89df38c |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -40,7 +40,7 @@
 > git add 整文件暂存扫入 07acb643（其提交主题为 reflection flag enums 映射）；
 > 本节记录与表格行由独立提交收录。
 
-## Round 20 — 构造器工厂（Create$N）调用点残余缺口（TS2673 369 → 73）
+## Round 20 — 构造器工厂（Create$N）调用点残余缺口（TS2673 369 → 75）
 
 实测起点 = Round 19 终态 **7,502 错误行**（新独立 tsc 复核一致；tsc-r20-full.txt
 与 r19-final4.txt 字节级相同）。
@@ -106,7 +106,7 @@
   ctor=null 根因）；修复后全绿。既有 TsCtorFactoryCrossFileTests/
   TsOverloadRewriterTests 回归全绿。
 - **验证链**：重建 → 删目录全量重转（510/510）→ 独立 tsc 7.0.2：
-  **7,502 → 7,235 错误行（−267）**；TS2673 **369 → 73**（−80.2%）。三元组
+  **7,502 → 7,235 错误行（−267）**；TS2673 **369 → 75**（−79.7%）。三元组
   对比（path+line+code）：**移除 281**（TS2673 275 + TS2554 4 + TS2702 1 +
   TS2304 1）、**新增 32** 全为既有行迁移（TS2345 12 / TS2322 8 / TS2741 5 /
   TS2739 3 / TS2554 3 / TS2488 1——均为 TS2673 移除后同一行上早已存在的
