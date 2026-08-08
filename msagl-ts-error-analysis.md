@@ -23,6 +23,7 @@
 | 16 | 23043 → 22171 | raw 文本裸成员引用缺前缀（TS2663 3376 / TS2662 1600 同根：实例缺 `this.`、静态缺 `类名.`） | 新增 TsMemberContext.cs；TsRawStatementNormalizer.cs（新最终 pass NormalizeBareMemberReferences）；TsMemberWriter.cs / TsStatementWriter.cs / TsExpressionWriter.cs / TsTypeWriter.cs / TypeScriptEmitter.cs（成员上下文接线）；tests （TsRawStatementNormalizerTests / 新增 TsRawMemberContextTests / 3 例断言更新）+ 本文件 | 3cf39918 |
 | 17 | 22171 → 15013 | 非自动属性访问器 getter/setter 形态调用点改写（项目级注册表 + raw/结构化 lambda 参数推断） | TsPropertyReconstructionRewriter.cs（ProjectAccessorRegistry / CollectProjectContexts / 访问器调用改写缺口 9 项 + lambda 族）/ TsEmitSupport.cs / ProjectTsPasses.cs / TsPropertyReconstructionRound17Tests.cs | cabeb448（主体被并发会话扫入，内容完整在 HEAD）+ 本轮提交（见下） |
 | 18 | 15013 → 13278 | ①构造器重载调用点未改 Create$N 工厂（TS2673 769→238）；②FQCN 静态方法调用接收者未缩短（TS2304 'Microsoft' 1791→146） | ① ObjectCreationTransformer.cs / TsOverloadDisambiguationRewriter.cs + TsCtorFactoryCrossFileTests.cs；② TsRawStatementNormalizer.cs + TsRawStatementNormalizerTests | 42f4dffe + 7fccb22c |
+| 19 | 13278 → 8159 | 无初始化器引用类型字段宽化 `T | null`（TS2531 2922→15 / TS18047 771→116 / getter 内 TS2322） | src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs（EmitField）+ TsNullAssertionRound19Tests.cs + 3 例既有断言更新 | b52ea407（另：并发会话先期提交 b289f65f 已收割 TS2551 FQCN 接收者族，纳入本轮起点 12633） |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -573,3 +574,57 @@ ew \（创建位）的链，
 - **dotnet test 全绿**：7 + 638 + 2475（独立复核确认）。
 - **提交**：42f4dffe（A）、7fccb22c（B），本文档独立提交。
 - **并发干扰**：无（本轮执行期间无并发提交；仓库现存未提交改动属其他会话工作区，不碰不纳）。
+
+## Round 19 — 无初始化器引用类型字段 `= null` 宽化（TS2531 2,922 → 15 / TS18047 771 → 116）
+
+本轮起点前并发会话已提交 `b289f65f`（Round 18 预测的 TS2551 FQCN/compat/Create$N 接收者族，
+getset 1,145 → 约 450；`getSource 135` 等大项清零），并留下 `e4f137e5`（clean 脚本）、`09cd49e7`
+（局部函数提升，Java 侧）。实测起点：**12,633 错误行**（13,278 已含 b289f65f 的 −645）。
+
+- **C# 构造**：无初始化器引用类型字段，由构造器赋值（C# 非可空上下文缺省非空）：
+  `readonly List<ICurve> segs;`（Curve.cs:19）、`IComparer<T> comparer;`（BinaryHeapWithComparer.cs:104）、
+  `Node source;`（Edge.cs:56）、`ICurve curve;`（CurvatureDerivative.cs:8）、`Curve curve;`（RoundedRect.cs:12）。
+- **错误 TS 输出（修复前）**：`private segs: CSharpList<ICurve> | null = null;` —— 每个解引用点
+  `this.segs.get(i).reverse()` 报 TS2531 "Object is possibly 'null'."（全库 2,922，186 文件）；
+  `this.comparer.compare(...)` 同（BinaryHeapWithComparer 5 处）；TS18047 "'x.parent' is possibly 'null'"
+  771；属性 getter `get Curve(): Curve { return this.curve; }` 内部 `return this.curve`（字段
+  `Curve | null`）TS2322（Edge.ts:71 等 ~350 条）。
+- **正确 TS 输出**：`private segs: CSharpList<ICurve> = null!;`（非空断言保持类型 T，满足
+  strictPropertyInitialization）——与既有类型参数路径（Task 41 `Box<T> _value` → `T = null!`）
+  同一惯例；显式 `= null` 初始化器（`int? x = null`、`string Label = null`，C# 真实可空）维持
+  `T | null` 宽化不变。
+- **根因与理由**：`TsMemberWriter.EmitField` 对"无初始化器且默认零值为 null"的字段一律
+  `T | null` 宽化（注释自述"strictNullChecks 下 null 不可赋给非空类型 TS2322"）——但 C# 非可空
+  上下文中无初始化器字段语义是非空（构造器定赋值），宽化是转换器对 strictPropertyInitialization
+  的过度保守：每个读取点失实报错（TS2531/TS18047）、getter 直返字段反而在 getter 内部失实
+  TS2322。`null!` 非空断言是 TS 对"构造器赋值"的标准惯用法，且与类型参数分支完全同构。
+- **修复位置**：`src/CSharpToJava.Core/TypeScript/TsMemberWriter.cs` `EmitField`：新增
+  `isDefaultedNullField = !hasInitializer && DefaultValueForType(tsType) == "null" && 类型不在
+  (null/any/undefined/void)`——该形态跳过 `| null` 宽化（保持 T），初始化器改发射
+  `isTypeParameter || isDefaultedNullField ? " = null!"`；显式 null 初始化器路径（emitsNull 且
+  hasInitializer）仍走宽化。any/null/undefined/void 吸收 null，保持裸 `= null`（`any` 回归由
+  Class_Wildcard_Type_Maps_To_Any 捕获）。
+- **测试（先红后绿）**：新增 `tests/CSharpToTypeScript.Tests/TsNullAssertionRound19Tests.cs` 5 例
+  （无初始化器字段 → `= null!` 且无 `| null`、显式 `= null` 保持宽化、值类型缺省零值不变
+  （int 0/bool false/double 0/int? null）、getter 直返构造器赋值字段端到端 tsc 编译、
+  非空字段 `!= null` 比较编译）；3 例既有断言随正确发射更新（TsBasicClassEmissionTests 改名
+  String_Field_Default_Null_Emits_NonNull_Assertion、TsDelegateToFunctionTypeTests 4 个委托字段、
+  TsJavaFlavorTypeMappingTests 10 个 Java 风味类型字段）。红：新 5 例首跑 5 失败 → 修复后全绿。
+- **验证链（预测仿真先行）**：实现前先在 scratch 目录（.sim-a，已随 clean 脚本删除）对生成
+  产物机械套用修复并独立 tsc：预测 12,633 → 8,143 行、三元组 −3,791（新增 82）。实修后
+  重建 → 删目录全量重转（510/510）→ 独立 tsc：**12,633 → 8,159 行（−4,474）**；对 Round 18
+  基线 **13,278 → 8,159（−5,119）**；三元组 10,898 → 7,122（移除 3,852 / **新增 76**：
+  TS2322 50 / TS2741 18 / TS2740 7 / TS2739 1，全部为对现非空成员的 null 赋值/对象字面量
+  揭示，非既有正确代码回归）。TS2531 **2,922 → 15**（−99.5%）、TS18047 **771 → 116**、
+  TS2322 833 → 526（getter 内部 ~350 清零、新增 50）、TS2345 931 → 319。语法 0。
+- **dotnet test 全绿**：7 + 658（CSharpToTypeScript.Tests，含本轮 5）+ 2487（CSharpToJava.Tests；
+  较上轮 +12 为并发会话新增）。
+- **提交**：b52ea407（代码+测试）；本文档独立提交。
+- **并发干扰**：ClassTransformer.cs 途中 2 次构建中断（CS1002/CS7036，并发会话迭代中），
+  轮询后其修复完成，未触碰其任何文件；其未提交文件（Pipeline 三件、TypeOperationTransformer、
+  SwitchAndResource、Rewriters/、ReadOnlyDictInterfaceTests 等）一律不碰不纳。
+- **下轮候选**：① TS2339 2,012 —— CSharpList `.get(i)` 328 + CsKeyValuePair `getKey/getValue`
+  224（compat API 缺口：CSharpList<T> = Array<T> 别名无 get/set、compat CsKeyValuePair 无
+  getKey/getValue；本轮 null 修复后 ~40 处此前被 TS2531 掩盖的 `.get` 调用点浮现）；
+  ② TS2551 612 残量 getset 调用点（Edge.getSource/getTarget 16、TreeNode.type/module 20…）+
+  TS2339 Edge.NodeId 103；③ TS2304 1,394 残量 Java 全局名（Stream/StreamSupport/MapHelper…）。
