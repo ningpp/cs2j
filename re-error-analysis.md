@@ -109,3 +109,19 @@
 - **分析**: 转换器将 C# 整型→枚举强转发射为 `{EnumType}.fromValue(...)`（AdaptExpressionToTargetTypeCore 枚举规则），但 compat UnicodeCategory 只有 `of(int)`（Java Character 类别映射）。修复：新增 `fromValue(int)` 按 .NET UnicodeCategory 序号取值（越界回落 OtherNotAssigned）。
 - **测试**: `UnicodeCategoryFromValueTests.UnicodeCategoryEnumCast_CompilesAgainstCompatRuntime`（先红后绿）
 - **状态**: ✅ Fixed
+
+## Iteration 7 — byte[]无法转换为ReadOnlySpan<Integer>（表达式体局部函数未做目标类型适配）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 597
+- **错误信息**: `[597,65] 不兼容的类型: byte[]无法转换为io.github.ningpp.compat.ReadOnlySpan<java.lang.Integer>`
+- **代码片段**:
+  ```java
+  private static ReadOnlySpan<Integer> asciiLookup() { return new byte[] { (byte)0x00, ... }; }
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 1044 行 `static ReadOnlySpan<byte> AsciiLookup() => new byte[] {...}`，为局部函数）
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs（TransformLocalFunction 表达式体路径）
+- **分析**: 普通表达式体方法（MethodTransformer 第 349 行）会调用 `AdaptExpressionToTargetType` 做 byte[]→ReadOnlySpan 包装，但局部函数表达式体路径（TransformLocalFunction）直接透传表达式，漏掉适配，导致原始 byte[] 被返回。修复：局部函数表达式体同样应用 WrapExpressionBodyForIterableReturn + AdaptExpressionToTargetType。
+- **测试**: `LocalFunctionExpressionBodySpanAdaptationTests`（先红后绿）
+- **状态**: ✅ Fixed
