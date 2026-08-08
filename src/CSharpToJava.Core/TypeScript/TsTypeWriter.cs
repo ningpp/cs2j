@@ -223,6 +223,15 @@ public sealed class TsTypeWriter
             sb.AppendLine(string.Join(Environment.NewLine + Environment.NewLine, methodBlocks));
         }
 
+        // Round 22：C# IEnumerable<T> 实现类（含 public 实例 iterator() 桥接）补发
+        // [Symbol.iterator]()——TS for-of/Iterable 结构化协议（TS2488/TS2741/TS2420）。
+        var symbolIteratorBlock = _memberWriter.EmitSymbolIterator(cls, indentLevel + 1);
+        if (symbolIteratorBlock != null)
+        {
+            sb.AppendLine();
+            sb.AppendLine(symbolIteratorBlock);
+        }
+
         // 静态初始化块 -> static { } （ES2022）；实际属性是 Statements（List<string>，非 Body）。
         // Round 16：整块归一化（成员上下文 + 既有 raw 管线：FQCN 缩短/声明 let 化等），
         // 再按行发射——静态块内裸静态成员引用（TS2662）补 类名. 前缀。

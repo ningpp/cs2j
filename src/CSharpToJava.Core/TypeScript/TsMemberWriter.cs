@@ -157,6 +157,74 @@ public sealed class TsMemberWriter
     }
 
     /// <summary>
+    /// Round 22：C# IEnumerable&lt;T&gt; 实现类经生成端产 Java 风味 `iterator()` 桥接，
+    /// TS 目标缺 `[Symbol.iterator]()`——for-of（TS2488）、Iterable&lt;T&gt; 结构化实参
+    /// （TS2741）、implements Iterable&lt;T&gt;（TS2420）三族同根。含 public 实例
+    /// iterator() 的类补发 `[Symbol.iterator](): IterableIterator&lt;T&gt;`：
+    /// 返回 IterableIterator（yield→generator 形态）时直接委托；moveNext()/getCurrent()
+    /// 风味（CSharpGenericEnumerator）用适配器对象包装（TS 无 Java 枚举器协议）。
+    /// </summary>
+    public string? EmitSymbolIterator(JavaClassDeclaration cls, int indentLevel)
+    {
+        var iteratorMethod = cls.Methods.FirstOrDefault(m =>
+            m.Name == "iterator"
+            && m.Parameters.Count == 0
+            && (m.Modifiers & JavaModifiers.Static) == 0);
+        if (iteratorMethod == null) return null;
+
+        var elementType = ExtractIteratorElementType(iteratorMethod.ReturnType, cls);
+        var mapped = _exprWriter.MapTypeNonNull(elementType);
+        var ind = new string(_indent[0], indentLevel * _indent.Length);
+        var sb = new StringBuilder(ind);
+
+        sb.Append($"[Symbol.iterator](): IterableIterator<{mapped}> {{").AppendLine();
+        if (iteratorMethod.ReturnType.StartsWith("IterableIterator", StringComparison.Ordinal))
+        {
+            sb.Append(ind).Append(_indent).AppendLine("return this.iterator();");
+        }
+        else
+        {
+            sb.Append(ind).Append(_indent).AppendLine("const __it = this.iterator();");
+            sb.Append(ind).Append(_indent).AppendLine("return {");
+            sb.Append(ind).Append(_indent).Append(_indent).AppendLine($"next(): IteratorResult<{mapped}> {{");
+            sb.Append(ind).Append(_indent).Append(_indent).Append(_indent)
+              .AppendLine("if (__it.moveNext()) { return { value: __it.getCurrent(), done: false }; }");
+            sb.Append(ind).Append(_indent).Append(_indent).Append(_indent)
+              .AppendLine("return { done: true, value: undefined };");
+            sb.Append(ind).Append(_indent).Append(_indent).AppendLine("},");
+            sb.Append(ind).Append(_indent).Append(_indent).AppendLine("[Symbol.iterator]() { return this; }");
+            sb.Append(ind).Append(_indent).AppendLine("};");
+        }
+        sb.Append(ind).Append('}');
+        return sb.ToString();
+    }
+
+    /// <summary>[Symbol.iterator] 元素类型：优先取 implements 上 Iterable 类接口实参
+    /// （C# IEnumerable&lt;T&gt; 的元素类型，非空）；回退 iterator() 返回类型泛型实参
+    /// （可能带 Java 风味可空修饰）；再回退 any（与 Java Object→any 映射一致）。</summary>
+    private static string ExtractIteratorElementType(string returnType, JavaClassDeclaration cls)
+    {
+        foreach (var iface in cls.ImplementedTypes)
+        {
+            var lt2 = iface.IndexOf('<');
+            if (lt2 <= 0 || !iface.EndsWith(">", StringComparison.Ordinal)) continue;
+            var baseName = iface.Substring(0, lt2);
+            if (baseName is "Iterable" or "CSharpICollection" or "CSharpGenericIList" or "CSharpGenericIterable" or "CSharpCollection")
+            {
+                return iface.Substring(lt2 + 1, iface.Length - lt2 - 2).Trim();
+            }
+        }
+
+        var lt = returnType.IndexOf('<');
+        if (lt >= 0 && returnType.EndsWith(">", StringComparison.Ordinal))
+        {
+            return returnType.Substring(lt + 1, returnType.Length - lt - 2).Trim();
+        }
+
+        return "any";
+    }
+
+    /// <summary>
     /// 属性 getter 访问器发射（Task 16）：`get X(): T { ... }`。可见性 public 省略
     /// （TS 类成员默认），private/protected/static 保留；方法体复用 EmitMethod 三路发射。
     /// </summary>
