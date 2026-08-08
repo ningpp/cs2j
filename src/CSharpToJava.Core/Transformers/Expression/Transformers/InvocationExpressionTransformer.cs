@@ -226,6 +226,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (bareMethodSym != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
             var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context) : null;
+            // Syntactic fallback: when the semantic model cannot resolve the call (e.g. the
+            // argument lambda references unresolved types), a hoisted local function's
+            // Class<T> tokens can still be derived from the explicit type arguments and the
+            // local function's own `is T` usage scan.
+            classTokens ??= GetClassTokensForLocalFunctionCallSyntax(genericMethodName, context);
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
             args = PrependClassTypeTokens(args, classTokens);
             return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
@@ -753,6 +758,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             context.AddImport("io.github.ningpp.compat.ReflectionHelper");
             var baseDefReceiver = facade.Transform(memberAccess.Expression, context);
             return $"ReflectionHelper.getBaseDefinition({baseDefReceiver})";
+        }
+
+        // C# MethodInfo.Invoke(object, object[]) — the compat MethodInfo exposes both
+        // invoke(Object, Object...) and invoke(Object, List<?>), so a bare null second
+        // argument is ambiguous. Cast the args-array argument to (Object[]) to select
+        // the varargs overload that mirrors C# MethodInfo.Invoke(object, object[]).
+        if (memberAccess.Name.Identifier.Text == "Invoke"
+            && node.ArgumentList.Arguments.Count == 2
+            && IsMethodInfoReceiver(memberAccess.Expression, context))
+        {
+            var invokeReceiver = facade.Transform(memberAccess.Expression, context);
+            var invokeTargetArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var invokeArgsExpr = node.ArgumentList.Arguments[1].Expression;
+            string invokeArgsArg;
+            if (invokeArgsExpr.IsKind(SyntaxKind.NullLiteralExpression))
+            {
+                invokeArgsArg = "(Object[]) null";
+            }
+            else
+            {
+                invokeArgsArg = facade.Transform(invokeArgsExpr, context);
+                // Only null (and null-typed arrays) are ambiguous; a non-null
+                // expression already has a concrete type. Leave it untouched.
+            }
+            return $"{invokeReceiver}.invoke({invokeTargetArg}, {invokeArgsArg})";
         }
 
         // C# ((IConvertible)x).ToInt64(IFormatProvider) → IConvertible.toInt64(x, provider)
@@ -6970,6 +7000,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             return $"{receiver}.mapToDouble(Double::doubleValue).toArray()";
         }
+        // char: Stream<Character> has no char[] generator; box to Character[]
+        // via toArray(Character[]::new) and convert back to char[].
+        if (specialType == SpecialType.System_Char)
+        {
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            return $"ArrayHelper.toCharArray({receiver}.toArray(Character[]::new))";
+        }
 
         // Reference types: .toArray(TypeName[]::new)
         var javaType = context.MapType(elementType);
@@ -7008,6 +7045,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{receiver}.stream().mapToLong(Long::longValue).toArray()";
         if (specialType is SpecialType.System_Double or SpecialType.System_Single)
             return $"{receiver}.stream().mapToDouble(Double::doubleValue).toArray()";
+        // char: List<char> maps to CSharpList<Character>; there is no char[] generator
+        // for Collection.toArray, so box to Character[] and convert back to char[].
+        if (specialType == SpecialType.System_Char)
+        {
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            return $"ArrayHelper.toCharArray({receiver}.toArray(Character[]::new))";
+        }
 
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
@@ -9426,9 +9470,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     /// <summary>
     /// Scans the method's C# syntax for method-level type parameters used in
-    /// default expressions (e.g. default(T)). Returns the names of type params
-    /// that are used with default(). Used when the method body hasn't been
-    /// processed yet (declared after the call site).
+    /// default expressions (e.g. default(T)) or `is T` checks (e.g. `ex is T1`).
+    /// Returns the names of type params used that way. Used when the method body
+    /// hasn't been processed yet (declared after the call site, or hoisted local
+    /// functions whose bodies are converted after the enclosing method body).
     /// </summary>
     private static List<string>? DetectDefaultUsageInMethod(IMethodSymbol methodSymbol)
     {
@@ -9436,15 +9481,33 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (typeParams.Length == 0)
             return null;
 
+        void AddTypeParamName(ITypeParameterSymbol tp, ref List<string>? result)
+        {
+            result ??= new List<string>();
+            if (!result.Contains(tp.Name))
+                result.Add(tp.Name);
+        }
+
         List<string>? result = null;
         foreach (var syntaxRef in methodSymbol.DeclaringSyntaxReferences)
         {
             var syntax = syntaxRef.GetSyntax();
-            if (syntax is not Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax methodDecl)
+            // Hoisted local functions declare via LocalFunctionStatementSyntax, not
+            // MethodDeclarationSyntax; scan their bodies the same way.
+            SyntaxNode scanRoot = syntax;
+            if (syntax is Microsoft.CodeAnalysis.CSharp.Syntax.LocalFunctionStatementSyntax localFnDecl)
+            {
+                if (localFnDecl.Body == null)
+                    continue;
+                scanRoot = localFnDecl.Body;
+            }
+            else if (syntax is not Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax)
+            {
                 continue;
+            }
 
             // Collect type param names that appear in default() expressions
-            var defaultNodes = methodDecl.DescendantNodes()
+            var defaultNodes = scanRoot.DescendantNodes()
                 .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.DefaultExpressionSyntax>();
             foreach (var defNode in defaultNodes)
             {
@@ -9453,12 +9516,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     foreach (var tp in typeParams)
                     {
                         if (tp.Name == id.Identifier.Text)
-                        {
-                            result ??= new List<string>();
-                            if (!result.Contains(tp.Name))
-                                result.Add(tp.Name);
-                        }
+                            AddTypeParamName(tp, ref result);
                     }
+                }
+            }
+
+            // Collect type param names used in `x is T` checks (BinaryExpression IsExpression
+            // or TypePattern), which the converter emits as Class-token isInstance calls.
+            var isTypeNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var isExpr in scanRoot.DescendantNodes().OfType<BinaryExpressionSyntax>())
+            {
+                if (isExpr.IsKind(SyntaxKind.IsExpression)
+                    && isExpr.Right is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax isTypeName)
+                    isTypeNames.Add(isTypeName.Identifier.Text);
+            }
+            foreach (var pattern in scanRoot.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypePatternSyntax>())
+            {
+                if (pattern.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax patternTypeName)
+                    isTypeNames.Add(patternTypeName.Identifier.Text);
+            }
+            if (isTypeNames.Count > 0)
+            {
+                foreach (var tp in typeParams)
+                {
+                    if (isTypeNames.Contains(tp.Name))
+                        AddTypeParamName(tp, ref result);
                 }
             }
         }
@@ -9476,6 +9559,62 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var prefix = string.Join(", ", classTypeTokens);
         return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
+    }
+
+    /// <summary>
+    /// Syntactic fallback for Class&lt;T&gt; token arguments at generic call sites of
+    /// hoisted local functions whose symbols cannot be resolved (degraded semantic
+    /// model, e.g. the argument lambda references unresolved types). The local function
+    /// is located in the enclosing method body by name; when its body uses `is T` checks
+    /// on its own type parameters, the call site's explicit type arguments are converted
+    /// to .class literals in declaration order (matching the hoisted signature).
+    /// </summary>
+    private static List<string>? GetClassTokensForLocalFunctionCallSyntax(
+        GenericNameSyntax genericName,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return null;
+
+        var enclosingMethod = genericName.Ancestors()
+            .OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault();
+        if (enclosingMethod?.Body == null)
+            return null;
+
+        var localFn = enclosingMethod.Body.DescendantNodes()
+            .OfType<LocalFunctionStatementSyntax>()
+            .FirstOrDefault(lf => lf.Identifier.Text == genericName.Identifier.Text);
+        if (localFn == null || localFn.Body == null)
+            return null;
+
+        var typeParamNames = (localFn.TypeParameterList?.Parameters
+                ?? Enumerable.Empty<TypeParameterSyntax>())
+            .Select(p => p.Identifier.Text)
+            .ToList();
+        if (typeParamNames.Count == 0 || typeParamNames.Count > genericName.TypeArgumentList.Arguments.Count)
+            return null;
+
+        bool usesIsTypeParamCheck = localFn.Body.DescendantNodes().Any(n =>
+            (n is BinaryExpressionSyntax isExpr
+                && isExpr.IsKind(SyntaxKind.IsExpression)
+                && isExpr.Right is IdentifierNameSyntax isRight
+                && typeParamNames.Contains(isRight.Identifier.Text))
+            || (n is TypePatternSyntax typePattern
+                && typePattern.Type is IdentifierNameSyntax tpName
+                && typeParamNames.Contains(tpName.Identifier.Text)));
+        if (!usesIsTypeParamCheck)
+            return null;
+
+        var tokens = new List<string>();
+        for (int i = 0; i < typeParamNames.Count; i++)
+        {
+            var typeArgSymbol = context.GetTypeInfo(genericName.TypeArgumentList.Arguments[i]).Type;
+            if (typeArgSymbol == null || typeArgSymbol is IErrorTypeSymbol)
+                return null;
+            tokens.Add(ConversionContext.GetClassLiteral(typeArgSymbol, context));
+        }
+        return tokens;
     }
 
     private static string TransformArrayCopyArrayArgument(ExpressionSyntax expression, ConversionContext context)
