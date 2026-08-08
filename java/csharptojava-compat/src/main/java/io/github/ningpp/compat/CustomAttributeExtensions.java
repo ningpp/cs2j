@@ -11,4 +11,22 @@ public final class CustomAttributeExtensions {
         Object[] attrs = member.getCustomAttributes(true);
         return attrs == null ? java.util.List.of() : java.util.Arrays.asList(attrs);
     }
+
+    /** C# MemberInfo.GetCustomAttribute&lt;T&gt;() — returns the single attribute or null. */
+    public static <T> T getCustomAttribute(Class<T> attributeType, MemberInfo member) {
+        Iterable<Object> attrs = getCustomAttributes(member);
+        for (Object attr : attrs) {
+            return attributeType.cast(attr);
+        }
+        return null;
+    }
+
+    /** C# MemberInfo.GetCustomAttribute&lt;T&gt;() — returns the single attribute or null. */
+    public static <T> T getCustomAttribute(Class<T> attributeType, PropertyInfo member) {
+        Iterable<Object> attrs = getCustomAttributes(member);
+        for (Object attr : attrs) {
+            return attributeType.cast(attr);
+        }
+        return null;
+    }
 }

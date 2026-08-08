@@ -273,4 +273,12 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
     public CSharpList<T> clone() {
         return new CSharpList<>(this);
     }
+
+    /** C# LINQ Single() — returns the only element or throws. */
+    public T single() {
+        if (size() != 1) {
+            throw new IllegalStateException("The sequence contains more than one element.");
+        }
+        return get(0);
+    }
 }

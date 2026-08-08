@@ -204,6 +204,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // Get the target type
         var typeInfo = context.GetTypeInfo(node.Type);
         var targetSymbol = typeInfo.Type;
+        // Nullable<Enum> casts (e.g. (DebuggerBrowsableState?)(int?)value): the target
+        // symbol is Nullable<T> (TypeKind.Struct), which bypasses the enum-cast rules
+        // below — unwrap to the enum type argument so fromValue(...) is emitted.
+        var targetSymbolForEnumCheck = targetSymbol;
+        if (targetSymbol is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableTarget
+            && nullableTarget.TypeArguments.Length > 0)
+        {
+            targetSymbolForEnumCheck = nullableTarget.TypeArguments[0];
+        }
         string targetType;
         if (targetSymbol != null && targetSymbol is not IErrorTypeSymbol)
         {
@@ -261,7 +270,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         // C# enum -> enum cast: convert through the underlying value.
         // Java enum casts only work within an inheritance hierarchy, which enums do not have.
-        if (targetSymbol?.TypeKind == TypeKind.Enum
+        if (targetSymbolForEnumCheck?.TypeKind == TypeKind.Enum
             && context.SemanticModel != null
             && targetType is not ("int" or "long" or "short" or "byte" or "double" or "float"))
         {
@@ -269,8 +278,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (sourceType?.TypeKind == TypeKind.Enum)
             {
                 var sourceValue = GetEnumUnderlyingValueExpression(sourceType, expression, context);
-                bool targetIsExplicitValue = IsExplicitValueEnum(targetSymbol, context);
-                if (!targetIsExplicitValue && targetSymbol is INamedTypeSymbol namedTargetEnum)
+                bool targetIsExplicitValue = IsExplicitValueEnum(targetSymbolForEnumCheck, context);
+                if (!targetIsExplicitValue && targetSymbolForEnumCheck is INamedTypeSymbol namedTargetEnum)
                 {
                     targetIsExplicitValue = namedTargetEnum.GetMembers()
                         .OfType<IFieldSymbol>()
@@ -279,9 +288,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
                 if (targetIsExplicitValue)
                 {
-                    var valueType = IsExplicitValueEnum(targetSymbol, context)
-                        ? GetExplicitValueEnumValueType(targetSymbol, context)
-                        : (targetSymbol is INamedTypeSymbol ne && ne.EnumUnderlyingType?.SpecialType
+                    var valueType = IsExplicitValueEnum(targetSymbolForEnumCheck, context)
+                        ? GetExplicitValueEnumValueType(targetSymbolForEnumCheck, context)
+                        : (targetSymbolForEnumCheck is INamedTypeSymbol ne && ne.EnumUnderlyingType?.SpecialType
                             is SpecialType.System_Int64 or SpecialType.System_UInt64 ? "long" : "int");
                     return $"{targetType}.fromValue(({valueType})({sourceValue}))";
                 }
@@ -293,7 +302,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // C# numeric -> enum cast: (MyEnum)i
         // Java cannot cast int to enum directly; map by ordinal index instead.
         // For enums with explicit values, use fromValue() instead of values()[] to avoid AIOOBE.
-        if (targetSymbol?.TypeKind == TypeKind.Enum
+        if (targetSymbolForEnumCheck?.TypeKind == TypeKind.Enum
             && context.SemanticModel != null
             && targetType is not ("int" or "long" or "short" or "byte" or "double" or "float"))
         {
@@ -305,9 +314,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
             if (sourceType?.TypeKind != TypeKind.Enum)
             {
-                bool isExplicitValue = IsExplicitValueEnum(targetSymbol, context);
+                bool isExplicitValue = IsExplicitValueEnum(targetSymbolForEnumCheck, context);
                 // Fallback: check the enum symbol directly if not yet registered
-                if (!isExplicitValue && targetSymbol is INamedTypeSymbol namedEnum)
+                if (!isExplicitValue && targetSymbolForEnumCheck is INamedTypeSymbol namedEnum)
                 {
                     isExplicitValue = namedEnum.GetMembers()
                         .OfType<IFieldSymbol>()
@@ -315,9 +324,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 }
                 if (isExplicitValue)
                 {
-                    var valueType = IsExplicitValueEnum(targetSymbol, context)
-                        ? GetExplicitValueEnumValueType(targetSymbol, context)
-                        : (targetSymbol is INamedTypeSymbol ne && ne.EnumUnderlyingType?.SpecialType
+                    var valueType = IsExplicitValueEnum(targetSymbolForEnumCheck, context)
+                        ? GetExplicitValueEnumValueType(targetSymbolForEnumCheck, context)
+                        : (targetSymbolForEnumCheck is INamedTypeSymbol ne && ne.EnumUnderlyingType?.SpecialType
                             is SpecialType.System_Int64 or SpecialType.System_UInt64 ? "long" : "int");
                     return $"{targetType}.fromValue(({valueType})({expression}))";
                 }

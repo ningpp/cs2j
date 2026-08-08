@@ -396,9 +396,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             // Calls to capturing local functions cannot be hoisted (their declaration
             // becomes a TODO comment); emit a TODO instead of an invalid method call.
+            // In expression positions a bare comment is not valid Java — emit null.
             if (context.MethodState.IsNonHoistedLocalFunction(bareIdent.Identifier.Text))
             {
-                return $"/* TODO: call to capturing local function {bareIdent.Identifier.Text}(...) */";
+                bool isExpressionContext = node.Parent is not (
+                    Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax);
+                return isExpressionContext
+                    ? $"null /* TODO: call to capturing local function {bareIdent.Identifier.Text}(...) */"
+                    : $"/* TODO: call to capturing local function {bareIdent.Identifier.Text}(...) */";
             }
 
             var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
@@ -977,6 +982,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var inheritArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var typeReceiver = facade.Transform(memberAccess.Expression, context);
             return $"TypeHelper.getCustomAttributes({typeReceiver}, {inheritArg})";
+        }
+
+        // C# CustomAttributeExtensions.GetCustomAttribute<T>(member) — keep the
+        // generic type argument so the returned attribute's members resolve (e.g.
+        // pr.GetCustomAttribute<DebuggerBrowsableAttribute>().State).
+        if (memberAccess.Name.Identifier.Text == "GetCustomAttribute"
+            && context.SemanticModel != null)
+        {
+            var getCustomAttrMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            if (getCustomAttrMethodSym is { IsGenericMethod: true, TypeArguments.Length: 1 }
+                && getCustomAttrMethodSym.ContainingType?.ToDisplayString() == "System.Reflection.CustomAttributeExtensions")
+            {
+                var typeArgJava = context.MapType(getCustomAttrMethodSym.TypeArguments[0]);
+                if (!string.IsNullOrWhiteSpace(typeArgJava))
+                {
+                    var attrReceiver = facade.Transform(memberAccess.Expression, context);
+                    var attrArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    // Extension-method form: the receiver is the first argument.
+                    var fullArgs = attrArgs.Length > 0 ? $"{attrReceiver}, {attrArgs}" : attrReceiver;
+                    context.AddImport("io.github.ningpp.compat.CustomAttributeExtensions");
+                    return $"CustomAttributeExtensions.getCustomAttribute({typeArgJava}.class, {fullArgs})";
+                }
+            }
         }
 
         // C# Type.GetCustomAttributes(Type, bool) → TypeHelper.getCustomAttributes(Class, Class, bool)
