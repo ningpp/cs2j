@@ -27,6 +27,7 @@
 | 20 | 7502 → 7235 | 构造器工厂（Create$N）调用点残余缺口（TS2673 369→75）：①结构化 JavaNewExpression 发射路径（EmitNew）无工厂改写；②结构体默认零值填充（字段/自动属性后备字段）raw 文本；③LINQ 重写产物链内 ctor 符号不可解析 → 回退实参数量+字面量种类匹配 | JavaExpression.cs（JavaNewExpression.FactoryName）+ ObjectCreationTransformer.cs（TransformToIR 携带工厂名 / TryGetCtorFactoryName 回退）/ TsExpressionWriter.cs（EmitNew）+ FieldTransformer.cs / PropertyTransformer.cs（Create$1 填充）+ TsCtorFactoryRound20Tests.cs | a5931994 + b89df38c |
 | 21 | 7235 → 6769 | ①值位无操作包装剥除（CSharpGenericIterable.from/fromTyped 172→0，TS2304 −222）；②compat Holder FQCN 构造值位改写（new io.github.ningpp.compat.*Holder → refOf/outRef，TS2304 'io' 69→0）；③FQCN 缩短不得剥断点号前导成员链（回退：TS2339 2 例 + 旧版静默剥断 ~270 行揭示/修复） | TsRawStatementNormalizer.cs（NormalizeIterableFromWrappers / NormalizeCompatHolderConstructors / NormalizeFqcnExpressions 点号前导守卫）+ TsRawStatementNormalizerTests.cs | 3eaa5813 + 9c92d7d5 + e759ff10 |
 | 22 | 6769 → 6404 | 生成集合类补 `[Symbol.iterator]()`（TS2488 197→0 / TS2741 177→0 / TS2420 18→2 同根三族 + TS18046 −73 级联） | TsTypeWriter.cs（EmitClass 钩子）/ TsMemberWriter.cs（EmitSymbolIterator 新成员）+ tests/CSharpToTypeScript.Tests/TsSymbolIteratorRound22Tests.cs | d3cfcc10 + 9f263a09 |
+| 23 | 6404 → 6211 | Java 风味 CSharp* compat 名无 TS 类型/值面（TS2304 233→0 全族，CSharpGenericEnumerator 56/CSharpGenericIList 52/CSharpRandom 31/CSharpEnumerator 24/CSharpQueue/LinkedList/LinkedListNode/SortedDict/KeyValuePair/Array/ObjQueue/GenericIterable/GenericIDictionary 等） | NpmProjectPlan.cs（global.d.ts type+const/接口契约桩）/ TsMemberWriter.cs（适配器 `as T` + getCurrent/get/toArray/set 桥接钩子）/ TsTypeWriter.cs + typescript/csharptotypescript-compat（CsEnumerator/CsRandom/CsQueue/CsLinkedList/CsSortedDictionary/CsArray 运行时 + ArrayCompat.contains/toArray 面）+ tests（TsCompatNamesRound23Tests 6 例 / compat vitest +15） | 79556657 + fe01722a + ee8835f8 + 0fd3b454 + 6c85db4a |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -260,6 +261,117 @@
   Item2 属性映射）、`getA/getB` SymmetricTuple ~6、spliterator 46、addRange 51（compat 面）；
   ③ TS2551 724——getter 形态调用点残量（本轮新揭示 54 为循环元素接收者，LgInteractor 20+
   最集中）→ 下一轮候选为 TsPropertyReconstructionRewriter 元素接收者推断再扩展。
+
+## Round 23 — Java 风味 CSharp* compat 名 TS 类型/值面（TS2304 1,152 → 919，全族 233→0；6,404 → 6,211）
+
+实测起点 = Round 22 终态 **6,404 错误行**（tsc-r23-full.txt 复核一致）。
+
+- **C# 构造**：`IEnumerator<T>`/`IEnumerator`/`IList<T>`/`Random`/`LinkedList<T>`/
+  `LinkedListNode<T>`/`Queue<T>`/`SortedDictionary<K,V>`/`KeyValuePair<K,V>`/
+  `IEnumerable<T>`/`IDictionary<K,V>` 经 Java 共享前端映射为 io.github.ningpp.compat
+  风味名（CSharpGenericEnumerator/CSharpGenericIList/CSharpRandom/CSharpEnumerator/
+  CSharpQueue/CSharpLinkedList/CSharpLinkedListNode/CSharpSortedDict/CSharpKeyValuePair/
+  CSharpGenericIterable/CSharpArray/CSharpObjQueue/CSharpGenericIDictionary），TS 目标
+  直出裸名 → `TS2304: Cannot find name`（233 行 = TS2304 头号名字族，基线总数 1,152 中
+  的整族；类型位 + 值位并存：implements 契约、字段/形参注解、`new CSharpRandom(seed)`、
+  `CSharpGenericEnumerator.from(x)`、`new CSharpLinkedList<T>()`）。
+- **错误 TS 输出（修复前，本轮起点）**：`export class RBTreeEnumerator<T> implements
+  CSharpGenericEnumerator<T>` / `iterator(): CSharpGenericEnumerator<T> { return
+  CSharpGenericEnumerator.from(this.hashSet.iterator()); }` / `let r = new
+  CSharpRandom(1); r.nextDouble();` / `private L: CSharpLinkedList<number> = null!;`
+  / `let q = new CSharpQueue<Shape>(); q.enqueue(x);` / `new CSharpSortedDict<Point,
+  Integer>(new PointByDelegateComparer(...))` / `new CSharpKeyValuePair<K,V>(k,v)`。
+- **正确 TS 输出**：上述全部经 global.d.ts 桩 + compat 运行时类解析：
+  - `interface CSharpGenericEnumerator<T> { hasNext(): boolean; next(): T | null;
+    moveNext(): boolean; getCurrent(): T | null; }`（implements 契约）+ `declare
+    const ...: typeof import("...").CsEnumerator`（from() 值位）；消费端保留
+    moveNext()/getCurrent() Java 形态；
+  - `interface CSharpGenericIList<T>`（生成集合类与 Array 公共面：add/remove/
+    indexOf/insert/removeAt/size/get/set/contains/toArray/length?/iterator 双形态）
+    ——add() 返回 void（TS 7 下 Array polyfill void 不可赋给 boolean）、iterator()
+    联合返回（生成类枚举器 / Array 迭代器）、length 可选（生成类无该成员）；
+  - `CSharpEnumerator = CsEnumerator<any>`（C# IEnumerator.Current 为 object，
+    与 Java Object→any 映射一致）、CSharpRandom/CSharpQueue/CSharpLinkedList(Node)/
+    CSharpSortedDict/CSharpKeyValuePair/CSharpArray/CSharpObjQueue 的 type+const 合并、
+    CSharpGenericIterable/CSharpGenericIDictionary 类型别名；
+  - 生成类桥接补发：仅 C# 风味 `get Current()` 的枚举器类补 `getCurrent(): T {
+    return this.Current; }`；IList 实现类补 `get(index)`/`set(index, value)`/
+    `toArray(): T[]`；[Symbol.iterator] 适配器 `__it.getCurrent() as T`（C#
+    Current 契约：moveNext()==true 后有效）。
+- **根因**：Java 共享前端把 C# 集合/枚举/Random 类型映射为 Java 兼容库名，TS 发射
+  直通裸名；TS 侧既无 global 类型面（TS2304 类型位）、无值面（TS2304/TS2693 值位）、
+  无运行时（vitest 无法执行），且生成集合类的 Java 风味方法面（getCurrent/get/set/
+  toArray）与契约接口不一致（TS2420/TS2416 揭示源）。
+- **修复位置与策略**（五个提交，同一根因）：
+  1. **79556657**（主修复）：compat 运行时 CsEnumerator（from/moveNext/getCurrent/
+     hasNext/next，无 private 字段保协变——非泛型 CSharpEnumerator=CsEnumerator<any>
+     赋值）、CsRandom（种子 LCG）、CsQueue、CsLinkedList(Node)、CsSortedDictionary、
+     CsArray + index.ts 导出 + 5 个 vitest 测试文件；global.d.ts 全部 type+const 合并
+     与接口契约桩（NpmProjectPlan.cs GenerateGlobalTypeStub）；TsMemberWriter 适配器
+     `as T` + EmitGetCurrentBridge/EmitIListGetBridge 钩子（TsTypeWriter 接线）。
+  2. **fe01722a**（二波）：IList 契约完整性——add() void 返回（全部 CSharpList→
+     CSharpGenericIList 赋值 TS2322/TS2740/TS2739）、contains()（ArrayCompat 新
+     polyfill）、toArray()（实现类桥接）、length? 可选；CsRandom next()/next(min,max)
+     重载；CsQueue.enqueue 变参（TS 7 拒绝 SplitQueue 多参覆写 TS2416）。
+  3. **ee8835f8**（三波）：set(index,value) 桥接（14 处 .set(i,v) 消费）+ toArray
+     (mapper|T[]) 数组形态（Java T[]::new）。
+  4. **0fd3b454**（四波）：CsLinkedList addAfter/addBefore + addFirst(value) 重载
+     （LinearMetroMapOrdering TS2339、EdgeLabelPlacement TS2740）；remove() 对未链接
+     节点 no-op。
+  5. **6c85db4a**（五波）：CSharpGenericIDictionary 类型别名（TS2304 残 3 行收口）。
+- **测试（先红后绿）**：`TsCompatNamesRound23Tests.cs` 6 例——桩声明全量断言 / Random
+  E2E（next/next(bound)/next(lo,hi)/nextDouble 编译）/ IEnumerable 桥接适配器 `as T` /
+  IEnumerator 实现类 getCurrent 桥接（`getCurrent(): number | null { return
+  this.Current; }`）/ IList 实现类 get/set/toArray 三桥接 + implements 编译 /
+  LinkedList+Queue+SortedDict+KeyValuePair E2E（AddFirst/AddAfter/AddBefore 等）。
+  红：首跑 6/6 失败（含探针迭代：interface+const 同名声明的合法组合、可选成员调用
+  TS2722 否决、null 比较不触发 TS2367、`length` 属性可选赋值）。绿后全量 `dotnet
+  test` 7 + 688（CSharpToTypeScript.Tests 含本轮 6）+ 2492 全绿；compat vitest
+  **250/250**（+15：CsEnumerator 5/CsRandom 7/CsQueue 7/CsLinkedList 8/
+  CsSortedDictionary 6，含二波重载与 addAfter/addBefore 语义）。
+- **验证链**：`dotnet build --configuration Release` 0 错误 → 删目录全量重转（511 文件，
+  compat dist 随包复制）→ 独立 tsc 7.0.2：**6,404 → 6,211（−193）**。TS2304
+  **1,152 → 919（−233 = 全 CSharp* 族）**；CSharp* 名残留 **0**（'StreamSupport'/
+  'AbstractMap'/'Stream'/'System' 等 Java stdlib 名原样保留）。三元组对比（path+line+
+  code）：**移除 257 / 新增 96**，新增全为**既有错误代码位的揭示型迁移**（此前
+  TS2304 错误类型掩盖的接收者/元素位）：
+  - TS2551 42：getter 形态调用点（setCenter/getBoundaryCurve/getOutEdges/getSecond/
+    getIntersectionPoint/getChildren/getParents/getUserData…——Round 17 残量族，
+    LgInteractor 最集中；typed 元素/接收者浮现）；
+  - TS2322 17：getCurrent() 可空宽化赋值（CycleRemoval:60、TopologicalSort:31/85、
+    SingleSourceDistances:48、PolyIntEdge:186——C# Current 契约未在调用点断言）；
+    null! 字段赋 null（FastIncrementalLayout ×5、EdgeLabelPlacement ×2、
+    EdgeConstraintGenerator:151）；Array.pop() undefined 赋枚举器（CycleRemoval:33）；
+    泛型推断退化（ObstacleTree:163 P=unknown、MinimumSpanningTreeByPrim:36
+    Array.from(number) 产物 unknown[]、LgInteractor:1452）；
+  - TS2345 14：IRectangle 结构探针失配（SteinerCdt:198、SplineRouter:661、
+    RecoveryLayeredLayoutEngine:968/969/1003/1004——Rectangle 类缺
+    contains_irectangle_p 等探针方法）；unknown 元素流（GraphConnectedComponents:79、
+    Nudger:806、LgInteractor:2181/2422/2423、CombinatorialNudger:42/45——
+    from() 对 error 实参推断 unknown）；null 实参（MoveToFront:20 mtf_md(null)）；
+  - TS2739/TS2740 7：IRectangle 接口一致性（MdsGraphLayout:217、EdgeLabelPlacement:100、
+    LgInteractor:2735/2795/2803/2811、MstOnDelaunayTriangulation:24）；
+  - TS2339 7：Iterable 缺 clear（EdgeCollection:37-39——Node.OutEdges 为
+    Iterable 映射）；IList 缺原生 Array 方法面 .map/.filter（GeometryGraph:144、
+    MstOnDelaunayTriangulation:37、ExampleStressMajorization:34——3 行，接口无法
+    承载全部 Array API，接受）；
+  - TS2571 3（Nudger:800/803/813——既有 Iterable.iterator() TS2339 行的未知级联）、
+    TS18047 2（RectanglePacking:36/39 getCurrent 解引用，本轮预期）、TS2367 2
+    （ShapeCreator:19、FastIncrementalLayout:385 boolean/number 比较）、TS2769 1
+    （ExampleStressMajorization:35 Array.from(number) 发射产物）、TS2693 1
+    （CycleRemoval:78 CSharpGenericIterable instanceof——接口擦除，语义本不可达）。
+  逐条核对均位于此前 TS2304 掩盖的错误类型位，**0 例既有正确代码回归**；语法 0。
+- **提交**：79556657（主）、fe01722a、ee8835f8、0fd3b454、6c85db4a；本文档独立提交。
+- **并发干扰**：无（本轮起点与终点 `git status` 均干净，无并发提交混入）。
+- **残留（下轮候选）**：① TS2304 919——Java stdlib 名（StreamSupport 72 / AbstractMap
+  63 / Stream 37 / System 32 / ArrayHelper 52 / MathHelper 26 / Point 31（
+  VisibilityGraphGenerator 单文件缺导入）/ Collections 15 / Comparator 14 / IntStream
+  14 / SimpleEntry 14 / 'java' 12 等，需 Stream 链改写或 compat 函数面）；② TS2339
+  1,098——Edge.NodeId/Selected/Used（属性名映射）、spliterator 46、addRange 51、
+  CsSet 方法面（iterator/toArray/size/clear）、CsDictionary.values 等；③ TS2551 768——
+  getter 形态调用点残量（本轮新揭示 42 为 typed 元素位，LgInteractor/Shape/
+  NodePositionsAdjuster 最集中）→ TsPropertyReconstructionRewriter 元素接收者推断
+  再扩展。
 
 ## Round 15 — E 族：LINQ 重写产物方法引用形态 TS 归一化（语法清零，语义波涌现）
 
