@@ -82,7 +82,15 @@ public sealed class TsMemberWriter
         // getter 返回 T 时 tsc 报 TS2322；无初始化器默认值改发射 null!（非空断言，
         // 与 strictPropertyInitialization 兼容），类型保持 T。
         var isTypeParameter = typeParameters != null && typeParameters.Contains(tsType);
-        if (emitsNull && !isTypeParameter
+        // Round 19：无初始化器引用类型字段（C# 非可空上下文中由构造器赋值，如
+        // `readonly List<ICurve> segs;`）不再宽化 `T | null`——否则每个解引用点
+        // TS2531/TS18047、属性 getter 内部 `return this.field` TS2322（MSAGL 全库
+        // ~3700 条）。缺省零值改发射 null!（非空断言），类型保持 T，与上方
+        // 类型参数路径同一惯例。显式 `= null` 初始化器（C# 真实可空）仍宽化。
+        // any/null/undefined/void 吸收 null，无需非空断言，保持裸 `= null`。
+        var isDefaultedNullField = !hasInitializer && DefaultValueForType(tsType) == "null"
+            && tsType is not ("null" or "any" or "undefined" or "void");
+        if (emitsNull && !isTypeParameter && !isDefaultedNullField
             && !tsType.Contains("| null") && !tsType.Contains("null |")
             && tsType is not ("null" or "any" or "undefined" or "void"))
         {
@@ -100,8 +108,9 @@ public sealed class TsMemberWriter
         }
         else
         {
-            // 类型参数默认值用 null!（非空断言）保持 T；其余类型沿用默认零值
-            sb.Append(isTypeParameter ? " = null!" : $" = {DefaultValueForType(tsType)}");
+            // 类型参数/无初始化器引用类型字段用 null!（非空断言）保持 T；
+            // 其余类型沿用默认零值
+            sb.Append(isTypeParameter || isDefaultedNullField ? " = null!" : $" = {DefaultValueForType(tsType)}");
         }
 
         sb.Append(';');

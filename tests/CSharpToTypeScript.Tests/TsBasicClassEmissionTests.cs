@@ -81,10 +81,11 @@ public class TsBasicClassEmissionTests : TsConversionTestBase
     }
 
     [Fact]
-    public void String_Field_Default_Null_Widens_To_Nullable()
+    public void String_Field_Default_Null_Emits_NonNull_Assertion()
     {
-        // 零值 null 在 strictNullChecks 下不可赋给 string（TS2322）：
-        // 无初始化器且默认零值为 null 时，字段类型放宽为 string | null
+        // Round 19：无初始化器引用类型字段（C# 构造器赋值，非可空上下文）不再
+        // 宽化 `string | null`——缺省零值发射 null!（非空断言）保持类型 string，
+        // 消除全库解引用 TS2531/TS18047 与 getter 内部 TS2322。
         var cls = new JavaClassDeclaration { Name = "Foo", Modifiers = JavaModifiers.Public };
         cls.Fields.Add(new JavaFieldDeclaration
         {
@@ -93,7 +94,7 @@ public class TsBasicClassEmissionTests : TsConversionTestBase
             Name = "Name",
         });
         var result = EmitType(cls);
-        Assert.Contains("public Name: string | null = null;", result);
+        Assert.Contains("public Name: string = null!;", result);
     }
 
     [Fact]

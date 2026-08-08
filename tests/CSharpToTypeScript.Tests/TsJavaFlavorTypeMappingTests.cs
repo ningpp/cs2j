@@ -49,7 +49,7 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     public void CSharpGenericIterable_Wildcard_Maps_To_Iterable_Any()
     {
         var (code, _) = FieldTypeEmission("CSharpGenericIterable<?>");
-        Assert.Contains("public Value: Iterable<any> | null = null;", code);
+        Assert.Contains("public Value: Iterable<any> = null!;", code);
         Assert.DoesNotContain("CSharpGenericIterable", code);
     }
 
@@ -57,7 +57,7 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     public void Map_Entry_Maps_To_CsKeyValuePair_With_Compat_Import()
     {
         var (code, imports) = FieldTypeEmission("Map.Entry<String, Integer>");
-        Assert.Contains("public Value: CsKeyValuePair<string, number> | null = null;", code);
+        Assert.Contains("public Value: CsKeyValuePair<string, number> = null!;", code);
         Assert.Contains(imports.GetImports(), i => i.ModulePath == "@csharptotypescript/compat" && i.NamedImports.Contains("CsKeyValuePair"));
     }
 
@@ -65,7 +65,7 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     public void JavaUtil_List_Maps_To_Array()
     {
         var (code, _) = FieldTypeEmission("java.util.List<Integer>");
-        Assert.Contains("public Value: Array<number> | null = null;", code);
+        Assert.Contains("public Value: Array<number> = null!;", code);
         Assert.DoesNotContain("java.util.List", code);
     }
 
@@ -73,21 +73,21 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     public void JavaUtil_Set_Maps_To_CSharpHashSet()
     {
         var (code, _) = FieldTypeEmission("java.util.Set<Integer>");
-        Assert.Contains("public Value: CSharpHashSet<number> | null = null;", code);
+        Assert.Contains("public Value: CSharpHashSet<number> = null!;", code);
     }
 
     [Fact]
     public void Map_Maps_To_CSharpDictionary()
     {
         var (code, _) = FieldTypeEmission("Map<String, CSharpList<Integer>>");
-        Assert.Contains("public Value: CSharpDictionary<string, CSharpList<number>> | null = null;", code);
+        Assert.Contains("public Value: CSharpDictionary<string, CSharpList<number>> = null!;", code);
     }
 
     [Fact]
     public void Project_Fqcn_Shortens_To_Last_Segment()
     {
         var (code, _) = FieldTypeEmission("Microsoft.Msagl.Core.Geometry.Point");
-        Assert.Contains("public Value: Point | null = null;", code);
+        Assert.Contains("public Value: Point = null!;", code);
         Assert.DoesNotContain("Microsoft.Msagl", code);
     }
 
@@ -102,14 +102,14 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     public void Project_Fqcn_Generic_Arg_Shortens_Inside_Container()
     {
         var (code, _) = FieldTypeEmission("CSharpList<Microsoft.Msagl.Core.Data.Node>");
-        Assert.Contains("public Value: CSharpList<Node> | null = null;", code);
+        Assert.Contains("public Value: CSharpList<Node> = null!;", code);
     }
 
     [Fact]
     public void Iterable_Keeps_Name_And_Maps_Args()
     {
         var (code, _) = FieldTypeEmission("Iterable<Integer>");
-        Assert.Contains("public Value: Iterable<number> | null = null;", code);
+        Assert.Contains("public Value: Iterable<number> = null!;", code);
     }
 
     [Fact]
@@ -119,15 +119,15 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
         // and shortens the FQCN arg; regression: the fallback used to dot-split the
         // whole string and emit "Point>" (invalid TS).
         var (code, _) = FieldTypeEmission("CSharpDictionary<SymmetricTuple<Microsoft.Msagl.Core.Geometry.Point>, Rail>");
-        Assert.Contains("public Value: CSharpDictionary<SymmetricTuple<Point>, Rail> | null = null;", code);
-        Assert.DoesNotContain(">", code.Replace("CSharpDictionary<SymmetricTuple<Point>, Rail> | null = null;", ""));
+        Assert.Contains("public Value: CSharpDictionary<SymmetricTuple<Point>, Rail> = null!;", code);
+        Assert.DoesNotContain(">", code.Replace("CSharpDictionary<SymmetricTuple<Point>, Rail> = null!;", ""));
     }
 
     [Fact]
     public void Nested_Map_Entry_Arg_Registers_Compat_Import()
     {
         var (code, imports) = FieldTypeEmission("CSharpList<Map.Entry<String, Integer>>");
-        Assert.Contains("public Value: CSharpList<CsKeyValuePair<string, number>> | null = null;", code);
+        Assert.Contains("public Value: CSharpList<CsKeyValuePair<string, number>> = null!;", code);
         Assert.Contains(imports.GetImports(), i => i.ModulePath == "@csharptotypescript/compat" && i.NamedImports.Contains("CsKeyValuePair"));
     }
 
@@ -135,7 +135,7 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     public void User_Generic_Shell_With_Fqcn_Arg_Keeps_Shell()
     {
         var (code, _) = FieldTypeEmission("Iterable<Microsoft.Msagl.Core.Data.Node>");
-        Assert.Contains("public Value: Iterable<Node> | null = null;", code);
+        Assert.Contains("public Value: Iterable<Node> = null!;", code);
     }
 
     [Fact]
@@ -143,13 +143,13 @@ public class TsJavaFlavorTypeMappingTests : TsConversionTestBase
     {
         // Comparable<Point> maps through the builtin shell to object (no args).
         var (code, _) = FieldTypeEmission("Comparable<Point>");
-        Assert.Contains("public Value: object | null = null;", code);
+        Assert.Contains("public Value: object = null!;", code);
     }
 
     [Fact]
     public void CSharpDictionary_Nested_Fqcn_Args_Shorten()
     {
         var (code, _) = FieldTypeEmission("CSharpDictionary<String, Microsoft.Msagl.Core.Data.Node>");
-        Assert.Contains("public Value: CSharpDictionary<string, Node> | null = null;", code);
+        Assert.Contains("public Value: CSharpDictionary<string, Node> = null!;", code);
     }
 }

@@ -44,10 +44,11 @@ public class Use
 }
 """);
         Assert.True(result.Success);
-        Assert.Contains("public F: ((a: number) => string) | null = null;", result.GeneratedCode);
-        Assert.Contains("public A: ((a: number) => void) | null = null;", result.GeneratedCode);
-        Assert.Contains("public P: ((a: string) => boolean) | null = null;", result.GeneratedCode);
-        Assert.Contains("public Add2: ((a: number, b: number) => number) | null = null;", result.GeneratedCode);
+        // Round 19：无初始化器委托字段不再宽化 `((...) => T) | null`——null! 保持函数类型
+        Assert.Contains("public F: (a: number) => string = null!;", result.GeneratedCode);
+        Assert.Contains("public A: (a: number) => void = null!;", result.GeneratedCode);
+        Assert.Contains("public P: (a: string) => boolean = null!;", result.GeneratedCode);
+        Assert.Contains("public Add2: (a: number, b: number) => number = null!;", result.GeneratedCode);
         Assert.Contains("public useFn(fn: (a: number) => number, v: number): void", result.GeneratedCode);
         Assert.DoesNotContain("Function<Integer", result.GeneratedCode);
         Assert.DoesNotContain("Consumer<Integer", result.GeneratedCode);
