@@ -106,6 +106,97 @@ class Test {
         Assert.Contains("'\\na'", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void InlineData_FlagsEnumMember_ConvertedToIntegerValue()
+    {
+        var result = Convert(@"
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+[Flags]
+public enum MyOptions {
+    None = 0,
+    IgnoreCase = 1,
+    CultureInvariant = 256
+}
+
+class Test {
+    [DataTestMethod]
+    [InlineData(""abc"", MyOptions.None)]
+    [InlineData(""abc"", MyOptions.IgnoreCase)]
+    [InlineData(""abc"", MyOptions.IgnoreCase | MyOptions.CultureInvariant)]
+    public void M(string s, MyOptions options) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Flags enum members should be converted to their integer values
+        Assert.Contains(", 0\"", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(", 1\"", result.GeneratedCode, StringComparison.Ordinal);
+        // 1 | 256 = 257
+        Assert.Contains(", 257\"", result.GeneratedCode, StringComparison.Ordinal);
+        // Should NOT contain the raw enum member names
+        Assert.DoesNotContain("MyOptions.None", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("MyOptions.IgnoreCase", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_RegularEnumMember_ConvertedToSimpleName()
+    {
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+public enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+class Test {
+    [DataTestMethod]
+    [InlineData(""a"", Color.Red)]
+    [InlineData(""b"", Color.Green)]
+    [InlineData(""c"", Color.Blue)]
+    public void M(string s, Color c) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Regular enum members should be converted to simple names (without type prefix)
+        Assert.Contains(", Red\"", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(", Green\"", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(", Blue\"", result.GeneratedCode, StringComparison.Ordinal);
+        // Should NOT contain the qualified enum member names
+        Assert.DoesNotContain("Color.Red", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Color.Green", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_FlagsEnumWithCast_ConvertedToIntegerValue()
+    {
+        var result = Convert(@"
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+[Flags]
+public enum MyFlags {
+    None = 0,
+    A = 1,
+    B = 2
+}
+
+class Test {
+    [DataTestMethod]
+    [InlineData(""x"", MyFlags.None | (MyFlags)0x80)]
+    [InlineData(""y"", (MyFlags)0x80)]
+    public void M(string s, MyFlags f) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // 0 | 128 = 128
+        Assert.Contains(", 128\"", result.GeneratedCode, StringComparison.Ordinal);
+        // Should NOT contain the raw cast expression
+        Assert.DoesNotContain("(MyFlags)0x80", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

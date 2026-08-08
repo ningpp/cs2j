@@ -757,6 +757,13 @@ public class MethodTransformer : IMemberTransformer
                         }
                         if (expr is TypeOfExpressionSyntax toe)
                             return toe.Type.ToString() + ".class";
+                        // Try to resolve C# enum member references (e.g. RegexOptions.None,
+                        // UnicodeCategory.Control) and bitwise OR expressions (e.g.
+                        // RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) to their
+                        // Java equivalents for @CsvSource.
+                        var resolvedEnum = TryResolveEnumValue(expr, context);
+                        if (resolvedEnum != null)
+                            return resolvedEnum;
                         // Handle other expressions that might represent null (e.g., cast expressions)
                         var exprStr = expr.ToString();
                         if (exprStr == "null")
@@ -930,6 +937,66 @@ public class MethodTransformer : IMemberTransformer
             .Replace("\n", "\\n")
             .Replace("\r", "\\r")
             .Replace("\t", "\\t");
+    }
+
+    /// <summary>
+    /// Tries to resolve a C# enum expression to its Java equivalent for @CsvSource.
+    /// <para>[Flags] enums (mapped to int/long in Java): returns the integer constant value
+    /// (e.g. <c>RegexOptions.None</c> → <c>"0"</c>,
+    /// <c>RegexOptions.IgnoreCase | RegexOptions.CultureInvariant</c> → <c>"257"</c>).</para>
+    /// <para>Regular enums (staying as Java enums): returns the simple enum member name
+    /// (e.g. <c>UnicodeCategory.Control</c> → <c>"Control"</c>).</para>
+    /// <para>Returns null if the expression is not an enum or cannot be resolved.</para>
+    /// </summary>
+    private static string? TryResolveEnumValue(ExpressionSyntax expr, ConversionContext context)
+    {
+        var model = context.GetSemanticModelForNode(expr);
+        if (model == null)
+            return null;
+
+        Optional<object?> constantValue;
+        try
+        {
+            constantValue = model.GetConstantValue(expr);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (!constantValue.HasValue)
+            return null;
+
+        var typeInfo = context.GetTypeInfo(expr);
+        if (typeInfo.Type is not { TypeKind: TypeKind.Enum })
+            return null;
+
+        var enumType = typeInfo.Type;
+        var enumTypeName = enumType.Name;
+
+        // Check if this is a [Flags] enum → mapped to int/long in Java
+        bool hasFlagsAttr = enumType.GetAttributes().Any(a =>
+            a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+        bool isFlagsEnum = hasFlagsAttr || context.IsFlagsEnum(enumTypeName);
+
+        if (isFlagsEnum)
+        {
+            // Output the integer constant value (e.g. 0, 1, 257)
+            return System.Convert.ToString(constantValue.Value,
+                System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        // Regular enum → stays as Java enum.
+        // For simple member access (e.g. UnicodeCategory.Control), return the member name
+        // so that JUnit's Enum.valueOf() can resolve it.
+        if (expr is MemberAccessExpressionSyntax memberAccess)
+        {
+            return memberAccess.Name.Identifier.Text;
+        }
+
+        // For other expressions (bitwise OR, cast, etc.) on regular enums,
+        // fall through to the existing code.
+        return null;
     }
 
     /// <summary>
