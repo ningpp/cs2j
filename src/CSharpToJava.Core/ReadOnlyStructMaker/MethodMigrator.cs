@@ -147,19 +147,71 @@ internal sealed class MethodMigrator
             var name = node.Identifier.Text;
             if ((_fieldNames.Contains(name) || _propertyNames.Contains(name)) && !_localNames.Contains(name))
             {
-                // Check it's not already qualified (e.g. result._field)
-                if (node.Parent is MemberAccessExpressionSyntax ma && ma.Name == node)
-                    return base.VisitIdentifierName(node); // already qualified
+                // Never rewrite identifiers in type positions (local declaration types,
+                // casts, typeof, generic type arguments, etc.) — those refer to types,
+                // not fields, and rewriting them would break the (TypeSyntax) casts in
+                // Roslyn's base rewriter.
+                if (!IsTypePosition(node))
+                {
+                    // Check it's not already qualified (e.g. result._field)
+                    if (node.Parent is MemberAccessExpressionSyntax ma && ma.Name == node)
+                        return base.VisitIdentifierName(node); // already qualified
 
-                // Replace with result.fieldName or result.propertyName
-                var resultAccess = SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.IdentifierName("result"),
-                    node.WithoutTrivia())
-                    .WithTriviaFrom(node);
-                return resultAccess;
+                    // Replace with result.fieldName or result.propertyName
+                    var resultAccess = SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("result"),
+                        node.WithoutTrivia())
+                        .WithTriviaFrom(node);
+                    return resultAccess;
+                }
             }
             return base.VisitIdentifierName(node);
+        }
+
+        /// <summary>
+        /// Determines whether the identifier is used where a type is expected:
+        /// climb the surrounding type syntax (qualified/generic/array/nullable names,
+        /// type argument lists) and check the outermost node occupies a type slot.
+        /// Identifiers under a type argument list are always type usages (C# method
+        /// and type arguments can only name types).
+        /// </summary>
+        private static bool IsTypePosition(IdentifierNameSyntax node)
+        {
+            SyntaxNode current = node;
+            var inTypeArgumentList = false;
+            while (current.Parent is TypeSyntax || current.Parent is TypeArgumentListSyntax)
+            {
+                if (current.Parent is TypeArgumentListSyntax)
+                {
+                    inTypeArgumentList = true;
+                }
+                current = current.Parent!;
+            }
+
+            // Type arguments (e.g. List<JsonClassInfo>, obj.Method<JsonClassInfo>())
+            // can only name types in C#, regardless of the outer context.
+            if (inTypeArgumentList) return true;
+
+            return current.Parent switch
+            {
+                VariableDeclarationSyntax vd => vd.Type == current,
+                ParameterSyntax p => p.Type == current,
+                CastExpressionSyntax ce => ce.Type == current,
+                ObjectCreationExpressionSyntax oc => oc.Type == current,
+                TypeOfExpressionSyntax to => to.Type == current,
+                DefaultExpressionSyntax de => de.Type == current,
+                DeclarationExpressionSyntax dx => dx.Type == current,
+                TupleElementSyntax te => te.Type == current,
+                MethodDeclarationSyntax md => md.ReturnType == current,
+                PropertyDeclarationSyntax pd => pd.Type == current,
+                FieldDeclarationSyntax fd => fd.Declaration.Type == current,
+                EventDeclarationSyntax ed => ed.Type == current,
+                IndexerDeclarationSyntax id => id.Type == current,
+                LocalFunctionStatementSyntax lf => lf.ReturnType == current,
+                DelegateDeclarationSyntax dd => dd.ReturnType == current,
+                _ => false,
+            };
         }
     }
 

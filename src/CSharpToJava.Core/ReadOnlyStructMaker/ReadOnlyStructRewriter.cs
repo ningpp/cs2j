@@ -912,8 +912,14 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     {
         foreach (var info in interfaceMigrations)
         {
+            // Prefer the declaration in this struct's tree: for partial types merged
+            // with ref-assembly stubs, the first DeclaringSyntaxReference may live in
+            // a different tree (and its signature is identical anyway).
             var originalSyntax = info.Method.DeclaringSyntaxReferences
-                .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>()
+                .FirstOrDefault(s => s.SyntaxTree == node.SyntaxTree)
+                ?? info.Method.DeclaringSyntaxReferences
+                    .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
             if (originalSyntax == null) continue;
 
             var ifaceTypeName = info.InterfaceMember.ContainingType

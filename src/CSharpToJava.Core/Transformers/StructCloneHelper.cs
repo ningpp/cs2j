@@ -25,6 +25,13 @@ internal static class StructCloneHelper
         if (named.TypeKind != TypeKind.Struct || named.TypeKind == TypeKind.Enum)
             return false;
 
+        // C# ValueTuple types (tuple literals like (a, b)) have DeclaringSyntaxReferences
+        // pointing at the tuple expression itself, so they would wrongly pass the source
+        // declaration check below. They are mapped to immutable io.vavr.TupleN classes in
+        // Java — never user-defined structs — so exclude them from clone() insertion.
+        if (named.IsTupleType || named.OriginalDefinition.IsTupleType)
+            return false;
+
         if (named.SpecialType != SpecialType.None)
             return false;
 

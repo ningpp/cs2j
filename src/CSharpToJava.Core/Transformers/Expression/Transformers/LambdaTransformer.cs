@@ -52,15 +52,29 @@ public class LambdaTransformer : IIRExpressionTransformer
                 var mutatedCaptures = GetMutatedCaptures(lambda, context);
                 if (mutatedCaptures.Count == 0)
                 {
-                    // Collect parameters
+                    // ref/out lambda parameters need ObjectHolder wrapping which the
+                    // structured-IR fast path does not model — fall back to raw transform.
                     IEnumerable<ParameterSyntax> parameters = lambda switch
                     {
                         SimpleLambdaExpressionSyntax simple => [simple.Parameter],
                         ParenthesizedLambdaExpressionSyntax paren => paren.ParameterList.Parameters,
                         _ => []
                     };
+                    if (parameters.Any(p => p.Modifiers.Any(m =>
+                            m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword))))
+                    {
+                        return new JavaRawExpression(Transform(node, context));
+                    }
 
-                    var javaParams = parameters
+                    // Collect parameters
+                    IEnumerable<ParameterSyntax> collectedParams = lambda switch
+                    {
+                        SimpleLambdaExpressionSyntax simple => [simple.Parameter],
+                        ParenthesizedLambdaExpressionSyntax paren => paren.ParameterList.Parameters,
+                        _ => []
+                    };
+
+                    var javaParams = collectedParams
                         .Select(p =>
                         {
                             string name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
@@ -117,15 +131,40 @@ public class LambdaTransformer : IIRExpressionTransformer
             _ => []
         };
 
+        // C# lambda parameters may shadow enclosing locals (C# allows it); Java forbids a
+        // lambda parameter with the same name as an enclosing local/parameter. Ref/out
+        // parameters also need ObjectHolder<T> wrapping to match the generated delegate
+        // signature. Track renames so the lambda body can be rewritten consistently.
+        var enclosingNames = CollectEnclosingMethodNames(node);
+        var paramRenames = new Dictionary<string, string>();
         var javaParams = parameters
             .Select(p =>
             {
                 string name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
+                bool isRefOrOut = p.Modifiers.Any(m =>
+                    m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword));
                 // Fix 2: emit explicit type when the parameter carries a declared type
                 if (p.Type != null)
                 {
                     string javaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(
                         context.MapTypeFromSyntax(p.Type));
+                    if (isRefOrOut)
+                    {
+                        context.AddImport("io.github.ningpp.compat.ObjectHolder");
+                        javaType = $"io.github.ningpp.compat.ObjectHolder<{javaType}>";
+                    }
+                    if (enclosingNames.Contains(p.Identifier.Text))
+                    {
+                        string newName = $"{name}_1";
+                        int suffix = 2;
+                        while (enclosingNames.Contains(newName))
+                        {
+                            newName = $"{name}_{suffix}";
+                            suffix++;
+                        }
+                        paramRenames[p.Identifier.Text] = newName;
+                        name = newName;
+                    }
                     return $"{javaType} {name}";
                 }
                 return name;
@@ -173,6 +212,12 @@ public class LambdaTransformer : IIRExpressionTransformer
             var savedPre = context.HasPendingPreStatements
                 ? context.DrainPreStatements().ToList()
                 : new List<string>();
+            // Same for post-statements: ref/out write-backs generated while converting
+            // the invocation's other arguments (e.g. a `ref state` argument preceding the
+            // lambda) must stay at the enclosing call site, not leak into the lambda body.
+            var savedPost = context.HasPendingPostStatements
+                ? context.DrainPostStatements().ToList()
+                : new List<string>();
 
             var stmtTransformer = new StatementTransformer();
             string body = stmtTransformer.TransformBlock(node.Block, context);
@@ -180,6 +225,8 @@ public class LambdaTransformer : IIRExpressionTransformer
             // Restore saved pre-statements for the enclosing scope
             foreach (var ps in savedPre)
                 context.AddPreStatement(ps);
+            foreach (var ps in savedPost)
+                context.AddPostStatement(ps);
 
             // Fix 3: replace mutated captured variable usages with array-element access
             // Always apply regex replacement even when HasLambdaCaptureHolder is true,
@@ -196,6 +243,10 @@ public class LambdaTransformer : IIRExpressionTransformer
                     $@"(_{Regex.Escape(capName)}\s*=\s*\{{\s*)_{Regex.Escape(capName)}\[0\](\s*\}})",
                     $"$1{capName}$2");
             }
+
+            // Apply parameter renames (shadowing/conflict avoidance) to the lambda body.
+            foreach (var (oldName, newName) in paramRenames)
+                body = Regex.Replace(body, $@"\b{Regex.Escape(oldName)}\b", newName);
 
             string result = $"{paramStr} -> {{\n{body}\n}}";
 
@@ -277,6 +328,10 @@ public class LambdaTransformer : IIRExpressionTransformer
                 string.IsNullOrWhiteSpace(s) ? s : (s.EndsWith(";") ? s : s + ";")).ToList();
             var postStatementsWithSemis = postStatements.Select(s =>
                 string.IsNullOrWhiteSpace(s) ? s : (s.EndsWith(";") ? s : s + ";")).ToList();
+
+            // Apply parameter renames (shadowing/conflict avoidance) to the lambda body.
+            foreach (var (oldName, newName) in paramRenames)
+                body = Regex.Replace(body, $@"\b{Regex.Escape(oldName)}\b", newName);
 
             bool hasExtraStatements = preStatements.Count > 0 || postStatements.Count > 0;
 
@@ -424,6 +479,74 @@ public class LambdaTransformer : IIRExpressionTransformer
         return segment.Length > 0
             && (char.IsLetter(segment[0]) || segment[0] == '_' || segment[0] == '$')
             && segment.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
+    }
+
+    /// <summary>
+    /// Collects local-variable and parameter names declared in the enclosing method
+    /// (and in all nested blocks between the method body and the lambda). Java forbids
+    /// a lambda parameter with the same name as any enclosing local/parameter, while
+    /// C# allows shadowing — so conflicting parameters must be renamed.
+    /// </summary>
+    private static HashSet<string> CollectEnclosingMethodNames(LambdaExpressionSyntax lambda)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        SyntaxNode? current = lambda.Parent;
+        while (current != null)
+        {
+            if (current is MethodDeclarationSyntax method)
+            {
+                foreach (var p in method.ParameterList.Parameters)
+                    names.Add(p.Identifier.Text);
+                if (method.Body != null)
+                    CollectLocalNames(method.Body, names);
+                if (method.ExpressionBody != null)
+                    CollectLocalNames(method.ExpressionBody, names);
+                break;
+            }
+            if (current is LocalFunctionStatementSyntax localFn)
+            {
+                foreach (var p in localFn.ParameterList.Parameters)
+                    names.Add(p.Identifier.Text);
+                if (localFn.Body != null)
+                    CollectLocalNames(localFn.Body, names);
+                break;
+            }
+            if (current is AccessorDeclarationSyntax accessor)
+            {
+                if (accessor.Body != null)
+                    CollectLocalNames(accessor.Body, names);
+                break;
+            }
+            if (current is ArrowExpressionClauseSyntax arrow)
+            {
+                CollectLocalNames(arrow, names);
+                break;
+            }
+            current = current.Parent;
+        }
+        return names;
+    }
+
+    private static void CollectLocalNames(SyntaxNode scope, HashSet<string> names)
+    {
+        // Local variable declarations
+        foreach (var decl in scope.DescendantNodes().OfType<VariableDeclarationSyntax>())
+        {
+            foreach (var v in decl.Variables)
+                names.Add(v.Identifier.Text);
+        }
+        // Foreach iteration variables
+        foreach (var fe in scope.DescendantNodes().OfType<ForEachStatementSyntax>())
+            names.Add(fe.Identifier.Text);
+        // For-loop declared variables
+        foreach (var forStmt in scope.DescendantNodes().OfType<ForStatementSyntax>())
+        {
+            if (forStmt.Declaration != null)
+            {
+                foreach (var v in forStmt.Declaration.Variables)
+                    names.Add(v.Identifier.Text);
+            }
+        }
     }
 
     /// <summary>

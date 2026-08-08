@@ -117,7 +117,8 @@ internal static class ProjectConversionExclusionPlanner
                 reasons.Add("WindowsDesktop SDK");
             }
 
-            if (GetBooleanProperty(doc, "UseWPF"))
+            var useWpf = GetBooleanProperty(doc, "UseWPF");
+            if (useWpf)
             {
                 reasons.Add("UseWPF=true");
             }
@@ -125,6 +126,18 @@ internal static class ProjectConversionExclusionPlanner
             if (GetBooleanProperty(doc, "UseWindowsForms"))
             {
                 reasons.Add("UseWindowsForms=true");
+            }
+
+            // GenAPI-style ref assemblies (e.g. dotnet/runtime ref\*.csproj) are
+            // API-surface stubs: every public type is re-declared with `throw null`
+            // bodies. Converting them duplicates all Java types, and merging them
+            // into the semantic compilation corrupts DeclaringSyntaxReferences of
+            // partial types (cross-tree references crash the converters).
+            var assemblyName = GetPropertyValues(doc, "AssemblyName").FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(assemblyName)
+                && assemblyName.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase))
+            {
+                reasons.Add($"Ref assembly (AssemblyName={assemblyName})");
             }
 
             var targetFrameworks = GetPropertyValues(doc, "TargetFramework")

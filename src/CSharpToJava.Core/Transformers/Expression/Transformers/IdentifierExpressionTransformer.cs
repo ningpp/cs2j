@@ -2084,7 +2084,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     }
                     // Named C# tuple element (e.g. args.Ptr over (Ptr: ..., Length: ...))
                     // → positional vavr accessor.
-                    if (m.ContainingType is INamedTypeSymbol { IsTupleType: true } fieldTupleType)
+                    // Note: the field's ContainingType is the underlying ValueTuple<...>
+                    // (IsTupleType == false); the named tuple type is the receiver type.
+                    var fieldTupleType = (receiverType as INamedTypeSymbol)?.IsTupleType == true
+                        ? receiverType as INamedTypeSymbol
+                        : m.ContainingType is INamedTypeSymbol { IsTupleType: true } ct ? ct : null;
+                    if (fieldTupleType != null)
                     {
                         var tupleIdx = TryGetTupleElementIndex(fieldTupleType, memberName);
                         if (tupleIdx >= 0)
@@ -2780,7 +2785,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// Returns true if the member name is a C# tuple item name (Item1, Item2, ..., Item8).
     /// Outputs the numeric index (1-based → 1,2,...,8).
     /// </summary>
-        private static bool IsTupleItemName(string memberName, out int index)
+        internal static bool IsTupleItemName(string memberName, out int index)
     {
         index = 0;
         if (memberName.Length >= 5 && memberName.StartsWith("Item") && int.TryParse(memberName.AsSpan(4), out index))
@@ -2796,7 +2801,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// Restated element names keep their declared order; unnamed slots are
     /// skipped because they are only reachable via ItemN.
     /// </summary>
-    private static int TryGetTupleElementIndex(INamedTypeSymbol tupleType, string elementName)
+    internal static int TryGetTupleElementIndex(INamedTypeSymbol tupleType, string elementName)
     {
         var elements = tupleType.TupleElements;
         for (var i = 0; i < elements.Length; i++)

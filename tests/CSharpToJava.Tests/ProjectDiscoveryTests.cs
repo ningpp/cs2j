@@ -130,6 +130,41 @@ public class ProjectDiscoveryTests
         }
     }
 
+    [Fact]
+    public void ProjectConversionExclusionPlanner_ExcludesRefStubAssemblies()
+    {
+        // GenAPI-style ref assemblies (e.g. dotnet/runtime ref\*.csproj with
+        // AssemblyName ending in ".Ref") are API-surface stubs duplicating every
+        // public type. They must be excluded from conversion, otherwise the stub
+        // declarations merge with the real partial types in the semantic compilation
+        // (cross-tree DeclaringSyntaxReferences → converter crashes) and the stub
+        // files themselves become duplicate Java classes.
+        var root = CreateTempDirectory();
+        try
+        {
+            var coreProject = CreateProject(root, "Core", isTest: false);
+            var refProject = CreateProject(
+                root,
+                "Core.Ref",
+                isTest: false,
+                projectReferences: [coreProject],
+                assemblyName: "Core.Ref");
+            var solutionPath = CreateSolution(root, "GraphLayout.sln", [coreProject, refProject]);
+
+            var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+
+            Assert.Contains(Path.GetFullPath(refProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("Ref", exclusions[Path.GetFullPath(refProject)].Reason, StringComparison.Ordinal);
+            // The referenced production project stays supported
+            Assert.DoesNotContain(Path.GetFullPath(coreProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "cs2j-project-discovery-" + Guid.NewGuid().ToString("N"));
@@ -147,7 +182,8 @@ public class ProjectDiscoveryTests
         bool useWpf = false,
         bool useWindowsForms = false,
         string? targetPlatformIdentifier = null,
-        IReadOnlyList<string>? packageReferences = null)
+        IReadOnlyList<string>? packageReferences = null,
+        string? assemblyName = null)
     {
         var projectDir = Path.Combine(root, name);
         Directory.CreateDirectory(projectDir);
@@ -163,6 +199,9 @@ public class ProjectDiscoveryTests
         var isTestProperty = isTest ? "    <IsTestProject>true</IsTestProject>" + Environment.NewLine : string.Empty;
                 var useWpfProperty = useWpf ? "    <UseWPF>true</UseWPF>" + Environment.NewLine : string.Empty;
                 var useWindowsFormsProperty = useWindowsForms ? "    <UseWindowsForms>true</UseWindowsForms>" + Environment.NewLine : string.Empty;
+                var assemblyNameProperty = string.IsNullOrWhiteSpace(assemblyName)
+                        ? string.Empty
+                        : $"    <AssemblyName>{assemblyName}</AssemblyName>" + Environment.NewLine;
                 var targetPlatformIdentifierProperty = string.IsNullOrWhiteSpace(targetPlatformIdentifier)
                         ? string.Empty
                         : $"    <TargetPlatformIdentifier>{targetPlatformIdentifier}</TargetPlatformIdentifier>" + Environment.NewLine;
@@ -186,7 +225,7 @@ public class ProjectDiscoveryTests
                 var content = $@"<Project Sdk=""{sdk}"">
   <PropertyGroup>
         <TargetFramework>{targetFramework}</TargetFramework>
-{isTestProperty}{useWpfProperty}{useWindowsFormsProperty}{targetPlatformIdentifierProperty}  </PropertyGroup>{itemGroup}{packageItemGroup}
+{isTestProperty}{useWpfProperty}{useWindowsFormsProperty}{targetPlatformIdentifierProperty}{assemblyNameProperty}  </PropertyGroup>{itemGroup}{packageItemGroup}
 </Project>";
 
         var projectPath = Path.Combine(projectDir, name + ".csproj");

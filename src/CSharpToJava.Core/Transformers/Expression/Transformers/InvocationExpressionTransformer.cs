@@ -1132,13 +1132,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return decimalStaticInvocation;
         }
 
-        if (originalMethodName == "CompareExchange"
+        if (originalMethodName is "CompareExchange" or "Exchange"
             && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Threading.Interlocked")
         {
             context.AddImport("io.github.ningpp.compat.InterlockedHelper");
             var interlockedArgs = ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, methodSymbol: earlyMethodSymbol);
-            return $"InterlockedHelper.compareExchange({interlockedArgs})";
+            var helperMethod = originalMethodName == "CompareExchange" ? "compareExchange" : "exchange";
+            return $"InterlockedHelper.{helperMethod}({interlockedArgs})";
         }
 
         // Replace receiver with mapped static type reference ONLY when the method is
@@ -1830,6 +1831,37 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     var getterName = "get" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
                     delegateTarget = $"{receiver}.{getterName}()";
+                }
+                else if (memberSymbol is IFieldSymbol tupleField)
+                {
+                    // C# tuple element delegate (state.evaluator(x)) → vavr accessor.
+                    // The field's ContainingType is the underlying ValueTuple<...>; resolve the
+                    // positional index through the receiver's named tuple type when available.
+                    var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+                    if (receiverType == null || receiverType.TypeKind == TypeKind.Error)
+                    {
+                        receiverType = context.GetSymbolInfo(memberAccess.Expression).Symbol switch
+                        {
+                            ILocalSymbol l => l.Type,
+                            IParameterSymbol p => p.Type,
+                            IFieldSymbol f2 => f2.Type,
+                            _ => null
+                        };
+                    }
+                    var tupleType = (receiverType as INamedTypeSymbol)?.IsTupleType == true
+                        ? receiverType as INamedTypeSymbol
+                        : tupleField.ContainingType is INamedTypeSymbol { IsTupleType: true } ct ? ct : null;
+                    int tupleIdx = tupleType != null
+                        ? IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleType, originalMethodName)
+                        : -1;
+                    if (tupleIdx >= 0)
+                    {
+                        delegateTarget = $"{receiver}._{tupleIdx}()";
+                    }
+                    else
+                    {
+                        delegateTarget = $"{receiver}.{originalMethodName}";
+                    }
                 }
                 else
                 {

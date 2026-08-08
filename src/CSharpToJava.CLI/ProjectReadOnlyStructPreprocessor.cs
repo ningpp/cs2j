@@ -177,6 +177,7 @@ internal static class ProjectReadOnlyStructPreprocessor
             }
 
             var semanticModel = compilation.GetSemanticModel(tree);
+            Console.Error.WriteLine($"[TMP-TRACE] processing {relativePath}");
             var result = maker.MakeReadOnly(tree, semanticModel, request.MakerOptions);
 
             MergeStatistics(statistics, result.Statistics);

@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.PartialType;
 
 namespace CSharpToJava.Core.Pipeline;
 
@@ -123,6 +124,10 @@ public sealed class ProjectTsEmitPass : ICs2jPass<ProjectPassState>
         // 预登记 [Flags] 枚举（与 Java emit pass 一致；name-based flags 注册表）
         ProjectTypeEmitPass.PreRegisterFlagsEnums(state);
 
+        // Round 17：项目模式两阶段发射——先转换全部类型组（持有 IR 供注册表收集与
+        // 发射共用），收集项目级访问器注册表（跨文件 getter/setter 调用点改写），
+        // 再逐单元运行 TS 专属 rewriter 并发射 .ts。
+        var pending = new List<(PartialTypeGroup TypeGroup, List<string> CandidatePaths, ConversionResult Result)>();
         foreach (var typeGroup in state.TypeGroups)
         {
             var candidatePaths = ProjectTypeEmitPass.CollectCandidatePaths(typeGroup);
@@ -139,24 +144,33 @@ public sealed class ProjectTsEmitPass : ICs2jPass<ProjectPassState>
             var result = TypeGroupResolver.ConvertTypeGroup(typeGroup, state.Compilation, state.Context, _irRewriters);
             if (result != null)
             {
-                if (result.Success && result.Compilation != null)
-                {
-                    // 共享前端产出 Java IR；TS 二次映射发射（Task 38）。
-                    // Task 39：测试类单元 → .test.ts（vitest include 模式 src/**/*.test.ts）
-                    result.GeneratedCode = TypeScript.TsEmitSupport.EmitTypeScript(result.Compilation, state.Context);
-                    result.FileName = Path.ChangeExtension(result.FileName,
-                        IsTestUnit(result.Compilation, state.Context) ? ".test.ts" : ".ts");
-                }
-
-                var diagnostics = state.GetDiagnosticsForPaths(candidatePaths);
-                if (diagnostics.Count > 0)
-                {
-                    result.Diagnostics = result.Diagnostics.Concat(diagnostics).ToList();
-                    result.Success = result.Success && diagnostics.All(diagnostic => diagnostic.Severity != Context.DiagnosticSeverity.Error);
-                }
-
-                state.Results.Add(result);
+                pending.Add((typeGroup, candidatePaths, result));
             }
+        }
+
+        var projectContexts = TypeScript.TsEmitSupport.CollectProjectAccessorContexts(pending
+            .Where(item => item.Result.Success && item.Result.Compilation != null)
+            .Select(item => item.Result.Compilation!));
+
+        foreach (var (typeGroup, candidatePaths, result) in pending)
+        {
+            if (result.Success && result.Compilation != null)
+            {
+                // 共享前端产出 Java IR；TS 二次映射发射（Task 38）。
+                // Task 39：测试类单元 → .test.ts（vitest include 模式 src/**/*.test.ts）
+                result.GeneratedCode = TypeScript.TsEmitSupport.EmitTypeScript(result.Compilation, state.Context, projectContexts);
+                result.FileName = Path.ChangeExtension(result.FileName,
+                    IsTestUnit(result.Compilation, state.Context) ? ".test.ts" : ".ts");
+            }
+
+            var diagnostics = state.GetDiagnosticsForPaths(candidatePaths);
+            if (diagnostics.Count > 0)
+            {
+                result.Diagnostics = result.Diagnostics.Concat(diagnostics).ToList();
+                result.Success = result.Success && diagnostics.All(diagnostic => diagnostic.Severity != Context.DiagnosticSeverity.Error);
+            }
+
+            state.Results.Add(result);
         }
     }
 

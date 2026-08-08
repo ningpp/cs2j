@@ -138,8 +138,7 @@ internal sealed class StructAnalyzer
         var methodSyntaxMap = new Dictionary<IMethodSymbol, MethodDeclarationSyntax>(SymbolEqualityComparer.Default);
         foreach (var method in methods)
         {
-            var methodSyntax = method.DeclaringSyntaxReferences
-                .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
+            var methodSyntax = GetMethodSyntaxInTree(method, _model.SyntaxTree);
             if (methodSyntax == null) continue;
             methodSyntaxMap[method] = methodSyntax;
             if (IsMutating(methodSyntax))
@@ -314,8 +313,7 @@ internal sealed class StructAnalyzer
             var migrations = new List<MethodMigrationInfo>();
             foreach (var method in mutatingMethods)
             {
-                var methodSyntax = method.DeclaringSyntaxReferences
-                    .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                var methodSyntax = GetMethodSyntaxInTree(method, _model.SyntaxTree);
                 if (methodSyntax == null) continue;
 
                 var migrationType = ClassifyMigrationType(method, methodSyntax);
@@ -376,6 +374,20 @@ internal sealed class StructAnalyzer
 
         return returnsThis &&
                SymbolEqualityComparer.Default.Equals(method.ReturnType, method.ContainingType);
+    }
+
+    /// <summary>
+    /// Returns the method declaration whose syntax lives in <paramref name="tree"/>.
+    /// Partial types can merge declarations across files (e.g. a ref-assembly stub
+    /// next to the real implementation); only the declaration in the analyzed tree
+    /// is valid for this semantic model. Returns null when the method is declared
+    /// exclusively in other trees (stub-only members are skipped).
+    /// </summary>
+    private static MethodDeclarationSyntax? GetMethodSyntaxInTree(IMethodSymbol method, SyntaxTree tree)
+    {
+        return method.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault(s => s.SyntaxTree == tree);
     }
 
     private bool HasOptOutAttribute(INamedTypeSymbol symbol)

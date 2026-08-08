@@ -159,6 +159,21 @@ interface ITest {
         Assert.DoesNotContain("Map.Entry<Integer, List<Boolean>>", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TupleLocalDeclaration_DoesNotAddClone()
+    {
+        var result = Convert(@"
+class C {
+    string Test(System.Func<string, string> evaluator) {
+        var state = (segments: new System.Text.StringBuilder(), prevat: 0);
+        return state.segments.ToString();
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Tuple.of(new StringBuilder(), 0)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("clone()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string csharpCode)
     {
         var pipeline = new ConversionPipeline();

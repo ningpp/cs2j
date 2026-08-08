@@ -54,6 +54,15 @@ public enum TsAccessorRole
 /// </summary>
 public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
 {
+    /// <summary>项目级上下文注册表（Round 17：跨文件调用点改写；本单元类型优先）。</summary>
+    public ProjectAccessorRegistry? ProjectContexts { get; set; }
+    /// <summary>本单元简单类型名 → 导入全名（Round 17：同名多类型消歧）。</summary>
+    private readonly Dictionary<string, string> _unitImports = new(StringComparer.Ordinal);
+    /// <summary>本单元命名空间（Round 17：同包消歧）。</summary>
+    private string? _unitPackage;
+    /// <summary>简单类型名 → 全名候选列表（Round 17：同名多类型消歧）。</summary>
+    private readonly Dictionary<string, List<string>> _simpleNameCandidates = new(StringComparer.Ordinal);
+
     private readonly Dictionary<JavaMethodDeclaration, TsAccessorRole> _roles = new();
 
     /// <summary>
@@ -76,6 +85,8 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     private readonly Stack<MethodContext> _methodStack = new();
     /// <summary>正在遍历访问器方法体（触发裸字段限定，P1/I5）。</summary>
     private bool _qualifyingAccessorBody;
+    /// <summary>收集模式（Round 17：项目注册表分析）：只建上下文不注册 roles、不改 IR。</summary>
+    private bool _collectOnly;
     /// <summary>结构化 lambda 参数遮蔽栈（I8：lambda 参数与字段同名不得限定）。</summary>
     private readonly Stack<HashSet<string>> _shadowStack = new();
     /// <summary>本单元内被 override 的属性名集合（R1：继承参与的属性统一禁字段简化）。</summary>
@@ -84,10 +95,22 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     /// <summary>
     /// 访问器注册信息：属性名/静态性/声明类型/角色（super 形态判定 R2）/属性类型（链式解析 C2）。
     /// </summary>
-    private sealed record AccessorInfo(
+    public sealed record AccessorInfo(
         string PropertyName, bool IsStatic, string OwnerClassName, TsAccessorRole Role, string? Type);
 
-    private sealed class ClassContext
+    /// <summary>
+    /// Round 17：项目级访问器注册表。ByFullName 以全名（命名空间.类型名，嵌套类型
+    /// 为 外层全名.类型名）键控，SimpleNameCandidates 记录简单名 → 全名候选列表
+    /// （同名多类型时调用点改写按本单元导入/同包消歧；无消歧信息时按访问器名
+    /// 匹配取首个命中，C1 保守：不命中不改写）。
+    /// </summary>
+    public sealed class ProjectAccessorRegistry
+    {
+        public Dictionary<string, ClassContext> ByFullName { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, List<string>> SimpleNameCandidates { get; } = new(StringComparer.Ordinal);
+    }
+
+    public sealed class ClassContext
     {
         public required string ClassName { get; init; }
         /// <summary>基类型名（类：ExtendedType；接口：ExtendedTypes 列表）。</summary>
@@ -99,6 +122,9 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         /// <summary>本类型方法签名键（方法名 + 参数个数）→ 返回类型（R-2：链式调用段解析用户
         /// 方法返回类型；R-6：同名重载按参数个数消诧，同名同参个数的歧义重载不登记）。</summary>
         public Dictionary<string, string> MethodReturnTypes { get; } = new(StringComparer.Ordinal);
+        /// <summary>类型参数名 → 约束类型名列表（Round 17：TEdge extends IEdge → ["IEdge"]，
+        /// 泛型接收者调用点按约束解析访问器）。</summary>
+        public Dictionary<string, List<string>> TypeParameterBounds { get; } = new(StringComparer.Ordinal);
     }
 
     private sealed class MethodContext
@@ -107,12 +133,65 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         public required HashSet<string> NonFieldNames { get; init; }
         /// <summary>变量名 → 类型（dot-target 目标类型解析）。</summary>
         public required Dictionary<string, string> VariableTypes { get; init; }
+        /// <summary>方法级类型参数名 → 约束类型名列表（Round 17：静态泛型方法接收者）。</summary>
+        public Dictionary<string, List<string>> TypeParameterBounds { get; } = new(StringComparer.Ordinal);
     }
+
+    /// <summary>
+    /// Round 17：收集项目级类型上下文（跨文件访问器调用点改写）。对每个单元的顶层
+    /// 类型运行非改写分析（_collectOnly：不注册 roles、不修改 IR），产出类型名 →
+    /// ClassContext 注册表；调用点改写阶段合并进各单元的 _typeContextsByName。
+    /// </summary>
+    public static ProjectAccessorRegistry CollectProjectContexts(IEnumerable<JavaCompilationUnit> units)
+    {
+        var rewriter = new TsPropertyReconstructionRewriter { _collectOnly = true };
+        foreach (var unit in units)
+        {
+            rewriter._currentUnitPackage = string.IsNullOrEmpty(unit.Package) ? string.Empty : unit.Package;
+            foreach (var type in unit.TypeDeclarations)
+            {
+                rewriter.CollectInheritedPropertyNames(type);
+            }
+            foreach (var type in unit.TypeDeclarations)
+            {
+                rewriter.AnalyzeTypesRecursive(type, null);
+            }
+        }
+        var registry = new ProjectAccessorRegistry();
+        foreach (var pair in rewriter._fullNameContexts)
+        {
+            registry.ByFullName[pair.Key] = pair.Value;
+        }
+        foreach (var pair in rewriter._simpleCandidates)
+        {
+            registry.SimpleNameCandidates[pair.Key] = new List<string>(pair.Value);
+        }
+        return registry;
+    }
+
+    /// <summary>收集模式：当前单元命名空间（全名键）。</summary>
+    private string _currentUnitPackage = string.Empty;
+    /// <summary>收集模式：全名（命名空间.类型名）→ 上下文。</summary>
+    private readonly Dictionary<string, ClassContext> _fullNameContexts = new(StringComparer.Ordinal);
+    /// <summary>收集模式：简单类型名 → 全名候选列表。</summary>
+    private readonly Dictionary<string, List<string>> _simpleCandidates = new(StringComparer.Ordinal);
 
     // ─── 类型遍历 ─────────────────────────────────────────────────────
 
     public override JavaCompilationUnit VisitCompilationUnit(JavaCompilationUnit node)
     {
+        // Round 17：本单元导入表（简单名 → 全名，同名多类型消歧用；通配/静态导入不映射）。
+        _unitImports.Clear();
+        _unitPackage = string.IsNullOrEmpty(node.Package) ? null : node.Package;
+        foreach (var import in node.Imports)
+        {
+            if (import.IsWildcard || import.IsStatic) continue;
+            var lastDot = import.Name.LastIndexOf('.');
+            if (lastDot <= 0 || lastDot == import.Name.Length - 1) continue;
+            var simple = import.Name[(lastDot + 1)..];
+            if (simple.Length == 0) continue;
+            _unitImports[simple] = import.Name;
+        }
         // 两阶段：先全量分析（所有类/接口/嵌套类型的重组决策与注册），再遍历改写调用点。
         // 保证基类在派生类之后声明时，派生类内的裸调用也能解析到基类属性。
         foreach (var type in node.TypeDeclarations)
@@ -122,6 +201,31 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         foreach (var type in node.TypeDeclarations)
         {
             AnalyzeTypesRecursive(type);
+        }
+        if (ProjectContexts != null)
+        {
+            // Round 17：合并项目级上下文（跨文件调用点改写）。本单元类型优先；
+            // 全名键直接并入；无歧义的简单名并入扁平表（快速路径）；歧义简单名
+            // 走 SimpleNameCandidates 按导入/同包消歧。
+            foreach (var pair in ProjectContexts.ByFullName)
+            {
+                if (!_typeContextsByName.ContainsKey(pair.Key))
+                {
+                    _typeContextsByName[pair.Key] = pair.Value;
+                }
+            }
+            foreach (var pair in ProjectContexts.SimpleNameCandidates)
+            {
+                if (pair.Value.Count == 1 && !_typeContextsByName.ContainsKey(pair.Key))
+                {
+                    _typeContextsByName[pair.Key] = ProjectContexts.ByFullName[pair.Value[0]];
+                }
+            }
+            _simpleNameCandidates.Clear();
+            foreach (var pair in ProjectContexts.SimpleNameCandidates)
+            {
+                _simpleNameCandidates[pair.Key] = new List<string>(pair.Value);
+            }
         }
         return base.VisitCompilationUnit(node);
     }
@@ -150,7 +254,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
     }
 
-    private void AnalyzeTypesRecursive(JavaTypeDeclaration type)
+    private void AnalyzeTypesRecursive(JavaTypeDeclaration type, string? parentFullName = null)
     {
         switch (type)
         {
@@ -158,18 +262,46 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 var context = CreateClassContext(cls.Name, BaseTypeNamesFor(cls), cls.Fields);
                 _classContexts[cls] = context;
                 _typeContextsByName[cls.Name] = context;
+                RegisterFullNameKey(cls.Name, context, parentFullName);
+                CollectTypeParameterBounds(cls.TypeParameters, context);
                 RecordMethodReturnTypes(context, cls.Methods);
                 AnalyzeClass(cls, context);
-                foreach (var nested in cls.NestedTypes) AnalyzeTypesRecursive(nested);
+                foreach (var nested in cls.NestedTypes) AnalyzeTypesRecursive(nested, _lastFullName);
                 break;
             case JavaInterfaceDeclaration iface:
                 var ifaceContext = CreateClassContext(iface.Name, iface.ExtendedTypes, iface.Fields);
                 _interfaceContexts[iface] = ifaceContext;
                 _typeContextsByName[iface.Name] = ifaceContext;
+                RegisterFullNameKey(iface.Name, ifaceContext, parentFullName);
+                CollectTypeParameterBounds(iface.TypeParameters, ifaceContext);
                 RecordMethodReturnTypes(ifaceContext, iface.Methods);
                 AnalyzeInterface(iface, ifaceContext);
-                foreach (var nested in iface.NestedTypes) AnalyzeTypesRecursive(nested);
+                foreach (var nested in iface.NestedTypes) AnalyzeTypesRecursive(nested, _lastFullName);
                 break;
+        }
+    }
+
+    /// <summary>最近登记类型的全名（嵌套类型全名 = 外层全名.类型名）。</summary>
+    private string? _lastFullName;
+
+    /// <summary>
+    /// Round 17：登记全名键（命名空间.类型名 / 外层全名.类型名）与简单名候选列表。
+    /// 全名与简单名相同（全局命名空间）时不登记候选（避免自环）。
+    /// </summary>
+    private void RegisterFullNameKey(string typeName, ClassContext context, string? parentFullName)
+    {
+        var fullName = parentFullName == null
+            ? (string.IsNullOrEmpty(_currentUnitPackage) ? typeName : _currentUnitPackage + "." + typeName)
+            : parentFullName + "." + typeName;
+        _lastFullName = fullName;
+        _fullNameContexts[fullName] = context;
+        if (fullName != typeName)
+        {
+            if (!_simpleCandidates.TryGetValue(typeName, out var list))
+            {
+                _simpleCandidates[typeName] = list = new List<string>();
+            }
+            if (!list.Contains(fullName)) list.Add(fullName);
         }
     }
 
@@ -185,6 +317,17 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             if (!names.Contains(implemented, StringComparer.Ordinal)) names.Add(implemented);
         }
         return names;
+    }
+
+    /// <summary>Round 17：登记类型参数约束（TEdge extends IEdge → "IEdge"；多约束按序尝试，
+    /// 解析不到已注册上下文的约束保守不返回）。</summary>
+    private static void CollectTypeParameterBounds(IEnumerable<JavaTypeParameter> typeParameters, ClassContext context)
+    {
+        foreach (var tp in typeParameters)
+        {
+            if (tp.Bounds.Count == 0) continue;
+            context.TypeParameterBounds[tp.Name] = new List<string>(tp.Bounds);
+        }
     }
 
     /// <summary>登记方法签名键 → 返回类型（R-2；void/空返回不登记，链式解析无意义）。
@@ -403,7 +546,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
 
     // ─── 方法上下文（参数/局部变量收集） ───────────────────────────────
 
-    private static MethodContext BuildMethodContext(JavaMethodDeclaration method)
+    private MethodContext BuildMethodContext(JavaMethodDeclaration method)
     {
         var variables = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var parameter in method.Parameters)
@@ -413,15 +556,746 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         if (method.StructuredBody != null)
         {
             CollectStructuredLocals(method.StructuredBody.Statements, variables);
+            // Round 17：raw 语句文本中的局部声明（let/const/var/for-of）参与接收者类型解析；
+            // 递归覆盖嵌套在结构化控制流（for/while/if/block 等）内部的 raw 语句
+            CollectRawLocalsRecursive(method.StructuredBody.Statements, variables);
+            // Round 17：结构化语句（赋值/声明初始化）内的 lambda 参数类型收集——真实管线
+            // let x = Enumerable.selectMany(...) 等以结构化 IR 存在，lambda 不在 raw 文本中；
+            // 依赖上述局部变量收集已就绪（先于本步执行）
+            CollectStructuredLambdaParams(method.StructuredBody.Statements, variables);
         }
-        return new MethodContext
+        if (!string.IsNullOrEmpty(method.Body))
+        {
+            CollectRawLocals(method.Body, variables);
+        }
+        var methodContext = new MethodContext
         {
             NonFieldNames = variables.Keys.ToHashSet(StringComparer.Ordinal),
             VariableTypes = variables,
         };
+        foreach (var tp in method.TypeParameters)
+        {
+            if (tp.Bounds.Count > 0)
+            {
+                methodContext.TypeParameterBounds[tp.Name] = new List<string>(tp.Bounds);
+            }
+        }
+        return methodContext;
     }
 
-    private static void CollectStructuredLocals(
+    /// <summary>
+    /// Round 17：扫描 raw 文本中的局部变量声明并登记到变量表（接收者类型解析）：
+    /// - "let x: T = ..." / "const x: T = ..." / "let x: T;" → x: T（类型含限定名/泛型/数组）；
+    /// - "var x = new Foo(...)" → x: Foo（仅 new 表达式可推断，其余登记 "var" 保守不改写）；
+    /// - "for (const x of EXPR)" → x: 可解析的元素类型（参数/局部/字段的 Iterable&lt;T&gt;/T[]）。
+    /// 跳过字符串/注释；未识别形态一律不登记（C1：宁可不改不可误改）。
+    /// </summary>
+    private void CollectRawLocals(string text, Dictionary<string, string> variables)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        var i = 0;
+        while (i < text.Length)
+        {
+            var ch = text[i];
+            if (ch == '"' || ch == '\'')
+            {
+                i = SkipQuotedLiteral(text, i);
+                continue;
+            }
+            if (ch == '/' && i + 1 < text.Length && (text[i + 1] == '/' || text[i + 1] == '*'))
+            {
+                i = SkipComment(text, i);
+                continue;
+            }
+            if ((ch == '=' || ch == '-') && i + 1 < text.Length
+                && ((text[i] == '=' && text[i + 1] == '>') || (text[i] == '-' && text[i + 1] == '>'))
+                && (AtIdentifierBoundaryBefore(text, i) || IsIdentifierChar(text[i - 1])))
+            {
+                // Round 17：lambda 参数类型推断（sort((a, b) => ...) / sort(a => ...) 等集合操作形态；
+                // 裸参数形态的 '=>' 前是参数名标识符，边界检查需放行）
+                TryCollectLambdaParamTypes(text, i, variables);
+                i += 2;
+                continue;
+            }
+            if (IsIdentifierStart(ch) && AtIdentifierBoundaryBefore(text, i))
+            {
+                var nameEnd = i + 1;
+                while (nameEnd < text.Length && IsIdentifierChar(text[nameEnd])) nameEnd++;
+                var word = text[i..nameEnd];
+                if (word == "for")
+                {
+                    // "for (" 与 "for(" 均支持（发射产物带空格）
+                    var forOpen = nameEnd;
+                    while (forOpen < text.Length && (text[forOpen] == ' ' || text[forOpen] == '\t')) forOpen++;
+                    if (forOpen < text.Length && text[forOpen] == '(')
+                    {
+                        CollectRawForEachLocal(text, forOpen, variables);
+                        i = forOpen;
+                        continue;
+                    }
+                }
+                if ((word == "let" || word == "const" || word == "var")
+                    && nameEnd < text.Length && char.IsWhiteSpace(text[nameEnd]))
+                {
+                    CollectRawDeclaration(text, nameEnd, variables);
+                    i = nameEnd;
+                    continue;
+                }
+                // Round 17：Java 形态局部声明（"Node n = new Node();" / "Anchor a = ..."）——
+                // 嵌套 raw 段（for/while 整段 raw）中的局部变量参与接收者类型解析
+                TryCollectJavaStyleDeclaration(text, i, nameEnd, variables);
+                i = nameEnd;
+                continue;
+            }
+            i++;
+        }
+    }
+
+    /// <summary>解析 "let|const|var" 之后的声明文本：类型标注（: T）或 new 表达式推断。</summary>
+    private void CollectRawDeclaration(string text, int afterKeyword, Dictionary<string, string> variables)
+    {
+        var i = afterKeyword;
+        SkipWhitespace(text, ref i);
+        var name = ReadIdentifier(text, ref i);
+        if (name == null) return;
+        SkipWhitespace(text, ref i);
+        if (i < text.Length && text[i] == ':')
+        {
+            i++;
+            SkipWhitespace(text, ref i);
+            var type = ReadRawType(text, ref i);
+            if (type != null)
+            {
+                variables[name] = type;
+            }
+            return;
+        }
+        if (i < text.Length && text[i] == '=')
+        {
+            i++;
+            SkipWhitespace(text, ref i);
+            var inferred = TryInferNewExpressionType(text, ref i);
+            if (inferred == null)
+            {
+                // Round 17：非 new 初始化表达式（方法调用链/字段链/括号表达式）→ 尝试类型推断；
+                // 解析不到仍登记 "var"（保守不改写）
+                var exprText = ReadExpressionUpToDelimiter(text, ref i);
+                inferred = exprText != null ? ResolveExpressionTextType(exprText) : null;
+            }
+            variables[name] = inferred ?? "var";
+        }
+    }
+
+    /// <summary>读取类型标注文本（标识符/限定名/泛型/数组；遇到顶层 = , ; 或行尾停止）。</summary>
+    private static string? ReadRawType(string text, ref int i)
+    {
+        var start = i;
+        var depth = 0;
+        while (i < text.Length)
+        {
+            var ch = text[i];
+            if (ch == ';' || ch == '=' || ch == ',') break;
+            if (ch == '<' || ch == '[') depth++;
+            else if (ch == '>' || ch == ']')
+            {
+                if (depth > 0) depth--;
+                else break;
+            }
+            else if ((ch == ' ' || ch == '\t') && depth == 0)
+            {
+                // 类型与变量名之间的空白（"let x: T y" 罕见）；对 "let x: T" 直接结束
+                if (i + 1 < text.Length && !IsIdentifierStart(text[i + 1])) break;
+            }
+            i++;
+        }
+        return i > start ? text[start..i].Trim() : null;
+    }
+
+    private static readonly HashSet<string> LambdaMethodWhitelist = new(StringComparer.Ordinal)
+    {
+        "sort", "select", "where", "forEach", "any", "all", "first", "last", "takeWhile", "skipWhile",
+        "min", "max", "sum", "count", "aggregate", "orderBy", "orderByDescending", "groupBy",
+        "toDictionary", "distinct", "average", "selectMany", "thenBy", "firstOrDefault",
+        "lastOrDefault", "singleOrDefault", "skip", "take",
+    };
+
+    /// <summary>
+    /// Round 17：lambda 参数类型推断——"recv.sort((a, b) => ...)" /
+    /// "Enumerable.select(xs, x => ...)" 形态：从接收者（或首参数）的集合元素类型登记
+    /// lambda 参数，供访问器调用改写（tsc TS2551 残余 lambda 族）。解析不到 → 不登记
+    /// （C1 保守）。
+    /// </summary>
+    private void TryCollectLambdaParamTypes(string text, int arrowPos, Dictionary<string, string> variables)
+    {
+        var j = arrowPos - 1;
+        while (j >= 0 && char.IsWhiteSpace(text[j])) j--;
+        if (j < 0) return;
+        List<string> paramNames = new();
+        var paramListStart = -1;
+        var callArgsOpen = -1;
+        var callName = string.Empty;
+        if (text[j] == ')')
+        {
+            var open = FindMatchingOpenBackward(text, j, '(', ')');
+            if (open < 0) return;
+            foreach (var segment in SplitTopLevelByComma(text[(open + 1)..j]))
+            {
+                var pname = TryParseDeclarationName(segment, out _);
+                if (pname == null) return;
+                paramNames.Add(pname);
+            }
+            if (paramNames.Count == 0) return;
+            paramListStart = open + 1;
+        }
+        else if (IsIdentifierChar(text[j]))
+        {
+            var end = j + 1;
+            while (j >= 0 && IsIdentifierChar(text[j])) j--;
+            var pname = text[(j + 1)..end];
+            if (j >= 0 && text[j] == '.') return;
+            paramNames.Add(pname);
+            paramListStart = j + 1;
+        }
+        else
+        {
+            return;
+        }
+        // 回扫外层方法调用 '(' 与调用名：sort((a, b) =>（紧邻嵌套 '('）、
+        // ret.sort(a =>（裸参数）、Enumerable.sum(ret, n => / Enumerable.select(ret, (n) =>
+        // （逗号分隔前一实参）——统一走 TryFindLambdaCallBefore
+        if (!TryFindLambdaCallBefore(text, paramListStart, out callArgsOpen, out callName)) return;
+        if (!LambdaMethodWhitelist.Contains(callName)) return;
+
+        // 方法调用前缀参数（lambda 前的参数文本，顶层逗号分隔）；
+        // 双括号 lambda 形态（sort((a, b) => ...)）分隔符间仅剩嵌套 '(' → 视为形态 A
+        var prefix = text[(callArgsOpen + 1)..paramListStart].Trim();
+        if (prefix.Length > 0 && prefix.Trim('(').Length == 0) prefix = string.Empty;
+        string? elementType = null;
+        if (prefix.Length == 0)
+        {
+            // 形态 A：recv.method(lambda) —— 接收者类型 → 元素类型。
+            // 从 '(' 回扫：先跳过方法名标识符，再跳过 '.'，再回扫接收者链
+            var recvStart = callArgsOpen;
+            while (recvStart > 0 && IsIdentifierChar(text[recvStart - 1])) recvStart--;
+            var receiverEnd = recvStart;   // 接收者文本终点：默认方法名起点（无接收者 → 空）
+            if (recvStart > 0 && text[recvStart - 1] == '.')
+            {
+                recvStart--;
+                receiverEnd = recvStart;   // 终点移到 '.' 之前，排除方法名与分隔符
+            }
+            while (recvStart > 0)
+            {
+                var ch = text[recvStart - 1];
+                if (IsIdentifierChar(ch) || ch == '.')
+                {
+                    recvStart--;
+                    continue;
+                }
+                if (ch == ')' || ch == ']')
+                {
+                    var open = ch == ')'
+                        ? FindMatchingOpenBackward(text, recvStart - 1, '(', ')')
+                        : FindMatchingOpenBackward(text, recvStart - 1, '[', ']');
+                    if (open < 0) break;
+                    recvStart = open;
+                    continue;
+                }
+                break;
+            }
+            var receiver = text[recvStart..receiverEnd].Trim();
+            if (receiver.Length == 0) return;
+            var recvType = ResolveLambdaSourceType(receiver, variables);
+            if (recvType != null) elementType = IterableElementType(recvType);
+        }
+        else
+        {
+            // 形态 B：Enumerable.method(collection, lambda) —— 首参数类型 → 元素类型
+            var firstArg = SplitTopLevelByComma(prefix).FirstOrDefault()?.Trim();
+            if (string.IsNullOrEmpty(firstArg)) return;
+            var argType = ResolveLambdaSourceType(firstArg, variables);
+            if (argType != null) elementType = IterableElementType(argType);
+        }
+        if (elementType == null) return;
+        foreach (var pname in paramNames)
+        {
+            variables[pname] = elementType;
+        }
+    }
+
+
+
+    /// <summary>
+    /// Round 17：从 lambda 参数列表起点回扫外层方法调用的 '(' 与调用名。
+    /// 覆盖形态：recv.sort((a, b) =>（紧邻嵌套 '('）、recv.sort(a =>（裸参数）、
+    /// Enumerable.sum(ret, n => / Enumerable.select(ret, (n) =>（逗号分隔前一实参）。
+    /// 解析不到 → false（C1 保守不改写）。
+    /// </summary>
+    private static bool TryFindLambdaCallBefore(string text, int paramListStart, out int callArgsOpen, out string callName)
+    {
+        callArgsOpen = -1;
+        callName = string.Empty;
+        var openPos = paramListStart - 1;
+        if (openPos >= 0 && text[openPos] == '(')
+        {
+            // 参数列表带括号：仅当其前（隔空白）为 ','（父调用实参内的参数列表，
+            // 如 Enumerable.select(ret, (n) =>）时跳过该 '('，走逗号回扫路径；
+            // 紧邻外层 '('（sort((a, b) =>）与裸参数（sort(a =>，此 '(' 即调用
+            // 括号）保持不动。
+            var prev = openPos;
+            while (prev > 0 && char.IsWhiteSpace(text[prev - 1])) prev--;
+            if (prev > 0 && text[prev - 1] == ',')
+            {
+                openPos = prev - 1;
+            }
+        }
+        while (openPos >= 0 && char.IsWhiteSpace(text[openPos])) openPos--;
+        if (openPos >= 0 && text[openPos] == ',')
+        {
+            // 逗号分隔（form B 裸参数/带括号参数）：回扫前一实参文本，定位其起点，
+            // 再跳过起点前的空白找到外层调用 '('
+            var scan = openPos;
+            while (scan > 0)
+            {
+                var ch = text[scan - 1];
+                if (IsIdentifierChar(ch) || ch == '.')
+                {
+                    scan--;
+                    continue;
+                }
+                if (ch == ')' || ch == ']')
+                {
+                    var open = ch == ')'
+                        ? FindMatchingOpenBackward(text, scan - 1, '(', ')')
+                        : FindMatchingOpenBackward(text, scan - 1, '[', ']');
+                    if (open < 0) break;
+                    scan = open;
+                    continue;
+                }
+                break;
+            }
+            openPos = scan;
+            while (openPos > 0 && char.IsWhiteSpace(text[openPos - 1])) openPos--;
+            if (openPos <= 0 || text[openPos - 1] != '(') return false;
+            openPos--;
+        }
+        if (openPos < 0 || text[openPos] != '(') return false;
+        var outerOpen = openPos;
+        while (outerOpen > 0 && text[outerOpen - 1] == '(') outerOpen--;
+        var nameEnd = outerOpen;
+        var nameStart = nameEnd;
+        while (nameStart > 0 && IsIdentifierChar(text[nameStart - 1])) nameStart--;
+        if (nameStart == nameEnd) return false;
+        callArgsOpen = outerOpen;
+        callName = text[nameStart..nameEnd];
+        return true;
+    }
+    /// <summary>
+    /// Round 17：结构化语句中的 lambda 参数类型收集。真实管线中赋值/声明语句
+    /// （let x = Enumerable.selectMany(...) / this.f = Enumerable.where(...) 等）以
+    /// 结构化 IR 存在，lambda 不在 raw 文本中（raw 路径由 TryCollectLambdaParamTypes
+    /// 覆盖）。语句树递归：白名单方法调用末参为 JavaLambdaExpression 且首参（或
+    /// 接收者）可解析集合类型 → 元素类型登记 lambda 参数（C1：解析不到不登记）。
+    /// </summary>
+    private void CollectStructuredLambdaParams(
+        IReadOnlyList<JavaStatement> statements, Dictionary<string, string> variables)
+    {
+        foreach (var statement in statements)
+        {
+            switch (statement)
+            {
+                case JavaExpressionStatement expression:
+                    CollectStructuredLambdaParamsInExpression(expression.Expression, variables);
+                    break;
+                case JavaVariableDeclarationStatement declaration:
+                    if (declaration.Initializer != null)
+                        CollectStructuredLambdaParamsInExpression(declaration.Initializer, variables);
+                    break;
+                case JavaReturnStatement returnStatement:
+                    if (returnStatement.Expression != null)
+                        CollectStructuredLambdaParamsInExpression(returnStatement.Expression, variables);
+                    break;
+                case JavaThrowStatement throwStatement:
+                    CollectStructuredLambdaParamsInExpression(throwStatement.Expression, variables);
+                    break;
+                case JavaBlockStatement block:
+                    CollectStructuredLambdaParams(block.Statements, variables);
+                    break;
+                case JavaIfStatement ifStatement:
+                    if (ifStatement.Condition != null)
+                        CollectStructuredLambdaParamsInExpression(ifStatement.Condition, variables);
+                    CollectStructuredLambdaParamsFromStatement(ifStatement.ThenBody, variables);
+                    if (ifStatement.ElseBody != null)
+                        CollectStructuredLambdaParamsFromStatement(ifStatement.ElseBody, variables);
+                    break;
+                case JavaWhileStatement whileStatement:
+                    if (whileStatement.Condition != null)
+                        CollectStructuredLambdaParamsInExpression(whileStatement.Condition, variables);
+                    CollectStructuredLambdaParamsFromStatement(whileStatement.Body, variables);
+                    break;
+                case JavaDoWhileStatement doWhile:
+                    CollectStructuredLambdaParamsFromStatement(doWhile.Body, variables);
+                    if (doWhile.Condition != null)
+                        CollectStructuredLambdaParamsInExpression(doWhile.Condition, variables);
+                    break;
+                case JavaForStatement forStatement:
+                    if (forStatement.Condition != null)
+                        CollectStructuredLambdaParamsInExpression(forStatement.Condition, variables);
+                    CollectStructuredLambdaParamsFromStatement(forStatement.Body, variables);
+                    break;
+                case JavaForEachStatement forEach:
+                    if (forEach.Collection != null)
+                        CollectStructuredLambdaParamsInExpression(forEach.Collection, variables);
+                    CollectStructuredLambdaParamsFromStatement(forEach.Body, variables);
+                    break;
+                case JavaTryCatchStatement tryCatch:
+                    CollectStructuredLambdaParams(tryCatch.TryBody.Statements, variables);
+                    foreach (var catchClause in tryCatch.CatchClauses)
+                    {
+                        CollectStructuredLambdaParams(catchClause.Body.Statements, variables);
+                    }
+                    if (tryCatch.FinallyBody != null)
+                        CollectStructuredLambdaParams(tryCatch.FinallyBody.Statements, variables);
+                    break;
+                case JavaSwitchStatement switchStatement:
+                    foreach (var section in switchStatement.Sections)
+                    {
+                        CollectStructuredLambdaParams(section.Statements, variables);
+                    }
+                    break;
+            }
+        }
+    }
+
+    private void CollectStructuredLambdaParamsFromStatement(
+        JavaStatement statement, Dictionary<string, string> variables)
+    {
+        switch (statement)
+        {
+            case JavaBlockStatement block:
+                CollectStructuredLambdaParams(block.Statements, variables);
+                break;
+            case JavaExpressionStatement expression:
+                CollectStructuredLambdaParamsInExpression(expression.Expression, variables);
+                break;
+            case JavaVariableDeclarationStatement declaration:
+                if (declaration.Initializer != null)
+                    CollectStructuredLambdaParamsInExpression(declaration.Initializer, variables);
+                break;
+            case JavaReturnStatement returnStatement:
+                if (returnStatement.Expression != null)
+                    CollectStructuredLambdaParamsInExpression(returnStatement.Expression, variables);
+                break;
+            case JavaThrowStatement throwStatement:
+                CollectStructuredLambdaParamsInExpression(throwStatement.Expression, variables);
+                break;
+            case JavaIfStatement ifStatement:
+                if (ifStatement.Condition != null)
+                    CollectStructuredLambdaParamsInExpression(ifStatement.Condition, variables);
+                CollectStructuredLambdaParamsFromStatement(ifStatement.ThenBody, variables);
+                if (ifStatement.ElseBody != null)
+                    CollectStructuredLambdaParamsFromStatement(ifStatement.ElseBody, variables);
+                break;
+            case JavaWhileStatement whileStatement:
+                if (whileStatement.Condition != null)
+                    CollectStructuredLambdaParamsInExpression(whileStatement.Condition, variables);
+                CollectStructuredLambdaParamsFromStatement(whileStatement.Body, variables);
+                break;
+            case JavaDoWhileStatement doWhile:
+                CollectStructuredLambdaParamsFromStatement(doWhile.Body, variables);
+                if (doWhile.Condition != null)
+                    CollectStructuredLambdaParamsInExpression(doWhile.Condition, variables);
+                break;
+            case JavaForStatement forStatement:
+                if (forStatement.Condition != null)
+                    CollectStructuredLambdaParamsInExpression(forStatement.Condition, variables);
+                CollectStructuredLambdaParamsFromStatement(forStatement.Body, variables);
+                break;
+            case JavaForEachStatement forEach:
+                if (forEach.Collection != null)
+                    CollectStructuredLambdaParamsInExpression(forEach.Collection, variables);
+                CollectStructuredLambdaParamsFromStatement(forEach.Body, variables);
+                break;
+            case JavaTryCatchStatement tryCatch:
+                CollectStructuredLambdaParams(tryCatch.TryBody.Statements, variables);
+                foreach (var catchClause in tryCatch.CatchClauses)
+                {
+                    CollectStructuredLambdaParams(catchClause.Body.Statements, variables);
+                }
+                if (tryCatch.FinallyBody != null)
+                    CollectStructuredLambdaParams(tryCatch.FinallyBody.Statements, variables);
+                break;
+            case JavaSwitchStatement switchStatement:
+                foreach (var section in switchStatement.Sections)
+                {
+                    CollectStructuredLambdaParams(section.Statements, variables);
+                }
+                break;
+        }
+    }
+
+    /// <summary>表达式树递归：所有含子表达式的节点逐一展开，命中方法调用走推断。</summary>
+    private void CollectStructuredLambdaParamsInExpression(
+        JavaExpression expression, Dictionary<string, string> variables)
+    {
+        switch (expression)
+        {
+            case JavaMethodCallExpression call:
+                TryCollectStructuredLambdaParams(call, variables);
+                foreach (var arg in call.Arguments)
+                {
+                    CollectStructuredLambdaParamsInExpression(arg, variables);
+                }
+                if (call.Target != null)
+                    CollectStructuredLambdaParamsInExpression(call.Target, variables);
+                break;
+            case JavaLambdaExpression lambda:
+                if (lambda.ExpressionBody != null)
+                {
+                    CollectStructuredLambdaParamsInExpression(lambda.ExpressionBody, variables);
+                }
+                else if (lambda.BlockBody != null)
+                {
+                    CollectStructuredLambdaParams(lambda.BlockBody.Statements, variables);
+                }
+                break;
+            case JavaMemberAccessExpression access:
+                CollectStructuredLambdaParamsInExpression(access.Target, variables);
+                break;
+            case JavaBinaryExpression binary:
+                CollectStructuredLambdaParamsInExpression(binary.Left, variables);
+                CollectStructuredLambdaParamsInExpression(binary.Right, variables);
+                break;
+            case JavaUnaryExpression unary:
+                CollectStructuredLambdaParamsInExpression(unary.Operand, variables);
+                break;
+            case JavaConditionalExpression conditional:
+                CollectStructuredLambdaParamsInExpression(conditional.Condition, variables);
+                CollectStructuredLambdaParamsInExpression(conditional.WhenTrue, variables);
+                CollectStructuredLambdaParamsInExpression(conditional.WhenFalse, variables);
+                break;
+            case JavaCastExpression cast:
+                CollectStructuredLambdaParamsInExpression(cast.Expression, variables);
+                break;
+            case JavaNewExpression newExpression:
+                foreach (var arg in newExpression.Arguments)
+                {
+                    CollectStructuredLambdaParamsInExpression(arg, variables);
+                }
+                break;
+            case JavaArrayAccessExpression arrayAccess:
+                CollectStructuredLambdaParamsInExpression(arrayAccess.Target, variables);
+                CollectStructuredLambdaParamsInExpression(arrayAccess.Index, variables);
+                break;
+            case JavaAssignmentExpression assignment:
+                CollectStructuredLambdaParamsInExpression(assignment.Target, variables);
+                CollectStructuredLambdaParamsInExpression(assignment.Value, variables);
+                break;
+            case JavaParenthesizedExpression parenthesized:
+                CollectStructuredLambdaParamsInExpression(parenthesized.InnerExpression, variables);
+                break;
+            case JavaInstanceOfExpression instanceOf:
+                CollectStructuredLambdaParamsInExpression(instanceOf.Expression, variables);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 结构化方法调用的 lambda 参数推断（与 raw 文本 TryCollectLambdaParamTypes 同构）：
+    /// 末参为 JavaLambdaExpression；lambda 为首参（无前置实参）→ 接收者类型推断元素，
+    /// 否则 → 首实参类型推断元素。表达式文本经 ToInlineString 复用 ResolveLambdaSourceType。
+    /// </summary>
+    private void TryCollectStructuredLambdaParams(
+        JavaMethodCallExpression call, Dictionary<string, string> variables)
+    {
+        if (!LambdaMethodWhitelist.Contains(call.MethodName)) return;
+        var lambdaIndex = -1;
+        for (var i = 0; i < call.Arguments.Count; i++)
+        {
+            if (call.Arguments[i] is JavaLambdaExpression)
+            {
+                lambdaIndex = i;
+                break;
+            }
+        }
+        if (lambdaIndex < 0) return;
+        var lambda = (JavaLambdaExpression)call.Arguments[lambdaIndex];
+        if (lambda.Parameters.Count == 0) return;
+
+        string? elementType = null;
+        if (lambdaIndex == 0)
+        {
+            // 形态 A：recv.method(lambda) —— 接收者类型 → 元素类型
+            if (call.Target == null) return;
+            var receiver = call.Target.ToInlineString();
+            var recvType = ResolveLambdaSourceType(receiver, variables);
+            if (recvType != null) elementType = IterableElementType(recvType);
+        }
+        else
+        {
+            // 形态 B：Enumerable.method(collection, lambda) —— 首实参类型 → 元素类型
+            var firstArg = call.Arguments[0].ToInlineString();
+            var argType = ResolveLambdaSourceType(firstArg, variables);
+            if (argType != null) elementType = IterableElementType(argType);
+        }
+        if (elementType == null) return;
+        foreach (var pname in lambda.Parameters)
+        {
+            variables[pname] = elementType;
+        }
+    }
+
+    /// <summary>
+    /// Round 17：lambda 接收者/首参数类型解析——BuildMethodContext 期间 _methodStack 尚未
+    /// push，方法参数与局部变量直接查构建中的变量表；复合表达式（this.字段链/方法调用）回退
+    /// ResolveExpressionTextType。登记 "var"（未知类型）视为解析不到（C1 保守）。
+    /// </summary>
+    private string? ResolveLambdaSourceType(string source, Dictionary<string, string> variables)
+    {
+        string? variableType = null;
+        if (IsSimpleIdentifier(source) && variables.TryGetValue(source, out variableType))
+        {
+            return variableType == "var" ? null : variableType;
+        }
+        return ResolveExpressionTextType(source);
+    }
+    /// <summary>
+    /// Round 17：Java 形态局部声明收集——"Type name = expr;" / "Type name;"（raw 段中嵌套
+    /// 在结构化控制流内的声明，如 "for (...) { Node n = new Node(); n.getX(); }"）。
+    /// 排除关键字与 TS 声明形态；仅当第二个标识符后跟 '='/';'/':' 时登记（保守）。
+    /// </summary>
+    private static void TryCollectJavaStyleDeclaration(
+        string text, int wordStart, int wordEnd, Dictionary<string, string> variables)
+    {
+        var word = text[wordStart..wordEnd];
+        switch (word)
+        {
+            case "let" or "const" or "var" or "for" or "if" or "while" or "return" or "new" or "this"
+                or "super" or "switch" or "catch" or "throw" or "yield" or "do" or "else" or "try"
+                or "case" or "typeof" or "void" or "delete" or "in" or "instanceof" or "class"
+                or "interface" or "enum" or "break" or "continue" or "function" or "import" or "export"
+                or "static" or "public" or "private" or "protected" or "readonly" or "abstract"
+                or "async" or "await" or "null" or "true" or "false" or "outRef" or "Ref" or "refOf":
+                return;
+        }
+        var i = wordEnd;
+        SkipWhitespace(text, ref i);
+        if (i >= text.Length || !IsIdentifierStart(text[i])) return;
+        var nameStart = i;
+        while (i < text.Length && IsIdentifierChar(text[i])) i++;
+        var name = text[nameStart..i];
+        SkipWhitespace(text, ref i);
+        if (i >= text.Length || (text[i] != '=' && text[i] != ';' && text[i] != ':')) return;
+        // 泛型类型名（Foo<T> n = ...）纳入类型文本
+        var fullType = word;
+        var lt = word.IndexOf('<');
+        if (lt < 0 && wordEnd < text.Length && text[wordEnd] == '<')
+        {
+            var close = SkipBalancedForward(text, wordEnd, '<', '>');
+            if (close < 0) return;
+            fullType = text[wordStart..(close + 1)];
+        }
+        variables[name] = fullType;
+    }
+
+    /// <summary>尝试从 "new Type(...)" / "new Type&lt;T&gt;(...)" 推断变量类型；非 new 表达式返回 null。</summary>
+    private static string? TryInferNewExpressionType(string text, ref int i)
+    {
+        if (i + 3 >= text.Length || text[i] != 'n' || text[i + 1] != 'e' || text[i + 2] != 'w')
+        {
+            return null;
+        }
+        if (i > 0 && IsIdentifierChar(text[i - 1])) return null;   // 非词边界（如 "known"）
+        i += 3;
+        SkipWhitespace(text, ref i);
+        var typeStart = i;
+        var first = ReadIdentifier(text, ref i);
+        if (first == null) return null;
+        while (i < text.Length && text[i] == '.')
+        {
+            i++;
+            if (ReadIdentifier(text, ref i) == null) return null;
+        }
+        if (i < text.Length && text[i] == '<')
+        {
+            var close = SkipBalancedForward(text, i, '<', '>');
+            if (close < 0) return null;
+            i = close;
+        }
+        return text[typeStart..i];
+    }
+
+    /// <summary>解析 "for (const x of EXPR)" 的元素类型：EXPR 为参数/局部（Iterable&lt;T&gt;/T[]）或
+    /// this.字段；解析不到登记 "var"（保守不改写）。</summary>
+    private void CollectRawForEachLocal(string text, int afterFor, Dictionary<string, string> variables)
+    {
+        var i = afterFor + 1;   // 跳过 '('
+        SkipWhitespace(text, ref i);
+        if (i + 3 >= text.Length || text[i] != 'l' || text[i + 1] != 'e' || text[i + 2] != 't'
+            || text[i + 3] != ' ' && text[i + 3] != '\t')
+        {
+            // 仅支持 let/const 形态（C# foreach 转换产物）
+            if (i + 5 >= text.Length) return;
+            if (text[i] != 'c' || text[i + 1] != 'o' || text[i + 2] != 'n' || text[i + 3] != 's' || text[i + 4] != 't') return;
+            if (text[i + 5] != ' ' && text[i + 5] != '\t') return;
+            i += 6;
+        }
+        else
+        {
+            i += 4;
+        }
+        SkipWhitespace(text, ref i);
+        var name = ReadIdentifier(text, ref i);
+        if (name == null) return;
+        SkipWhitespace(text, ref i);
+        if (i + 1 >= text.Length || text[i] != 'o' || text[i + 1] != 'f') return;
+        i += 2;
+        SkipWhitespace(text, ref i);
+        // 读元素表达式（标识符链/this.字段链/方法调用；括号表达式保守不推断）
+        var exprText = ReadRawChainText(text, ref i);
+        string? elementType = null;
+        if (exprText != null)
+        {
+            // Round 17：整链文本（this.dag.Edges / 参数 / 局部 / 方法调用）统一走表达式类型解析
+            var iteratedType = ResolveExpressionTextType(exprText);
+            if (iteratedType != null)
+            {
+                elementType = IterableElementType(iteratedType);
+            }
+        }
+        variables[name] = elementType ?? "var";
+    }
+
+    /// <summary>Iterable&lt;T&gt;/T[]/CSharpList&lt;T&gt; → 元素类型（首个顶层泛型实参或数组元素）；
+    /// 多实参或不可解析 → null（保守 "var"）。</summary>
+    private static string? IterableElementType(string iteratedType)
+    {
+        var t = iteratedType.Trim();
+        // 仅剥离尾部可空修饰（Iterable<Node> | null / CSharpList<Label>?）；泛型实参
+        // 保留（NormalizeTypeName 会剥掉，此处不可复用）
+        if (t.EndsWith(" | null", StringComparison.Ordinal)) t = t[..^" | null".Length].TrimEnd();
+        else if (t.EndsWith("?", StringComparison.Ordinal)) t = t[..^1].TrimEnd();
+        if (t.EndsWith("[]", StringComparison.Ordinal)) return t[..^2].Trim();
+        var lt = t.IndexOf('<');
+        if (lt <= 0 || !t.EndsWith(">", StringComparison.Ordinal)) return null;
+        var inner = t[(lt + 1)..^1];
+        var depth = 0;
+        var split = -1;
+        for (var i = 0; i < inner.Length; i++)
+        {
+            var ch = inner[i];
+            if (ch == '<' || ch == '[') depth++;
+            else if (ch == '>' || ch == ']') depth--;
+            else if (ch == ',' && depth == 0)
+            {
+                split = i;
+                break;
+            }
+        }
+        var element = split >= 0 ? inner[..split].Trim() : inner.Trim();
+        return element.Length == 0 ? null : element;
+    }
+
+    private void CollectStructuredLocals(
         IReadOnlyList<JavaStatement> statements, Dictionary<string, string> variables)
     {
         foreach (var statement in statements)
@@ -433,7 +1307,21 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                     break;
                 case JavaForEachStatement forEach:
                     if (!string.IsNullOrEmpty(forEach.VariableName))
-                        variables[forEach.VariableName] = forEach.VariableType;
+                    {
+                        if (!string.IsNullOrEmpty(forEach.VariableType))
+                        {
+                            variables[forEach.VariableName] = forEach.VariableType;
+                        }
+                        else
+                        {
+                            // Round 17：Java 文本路径 VariableType 未填充 → 从 Collection 推断元素类型
+                            var elementType = ResolveForEachElementType(forEach, variables);
+                            if (elementType != null)
+                            {
+                                variables[forEach.VariableName] = elementType;
+                            }
+                        }
+                    }
                     CollectStructuredLocalsFromStatement(forEach.Body, variables);
                     break;
                 case JavaBlockStatement block:
@@ -476,7 +1364,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
     }
 
-    private static void CollectStructuredLocalsFromStatement(
+    private void CollectStructuredLocalsFromStatement(
         JavaStatement statement, Dictionary<string, string> variables)
     {
         switch (statement)
@@ -524,6 +1412,256 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 }
                 break;
         }
+    }
+
+    private void CollectRawLocalsRecursive(
+        IReadOnlyList<JavaStatement> statements, Dictionary<string, string> variables)
+    {
+        foreach (var statement in statements)
+        {
+            switch (statement)
+            {
+                case JavaRawStatement raw:
+                    CollectRawLocals(raw.Code, variables);
+                    break;
+                case JavaBlockStatement block:
+                    CollectRawLocalsRecursive(block.Statements, variables);
+                    break;
+                case JavaIfStatement ifStatement:
+                    CollectRawLocalsFromStatement(ifStatement.ThenBody, variables);
+                    if (ifStatement.ElseBody != null) CollectRawLocalsFromStatement(ifStatement.ElseBody, variables);
+                    break;
+                case JavaWhileStatement whileStatement:
+                    CollectRawLocalsFromStatement(whileStatement.Body, variables);
+                    break;
+                case JavaDoWhileStatement doWhile:
+                    CollectRawLocalsFromStatement(doWhile.Body, variables);
+                    break;
+                case JavaForStatement forStatement:
+                    CollectRawLocalsFromStatement(forStatement.Body, variables);
+                    break;
+                case JavaForEachStatement forEach:
+                    CollectRawLocalsFromStatement(forEach.Body, variables);
+                    break;
+                case JavaTryCatchStatement tryCatch:
+                    CollectRawLocalsRecursive(tryCatch.TryBody.Statements, variables);
+                    foreach (var catchClause in tryCatch.CatchClauses)
+                    {
+                        CollectRawLocalsRecursive(catchClause.Body.Statements, variables);
+                    }
+                    if (tryCatch.FinallyBody != null)
+                        CollectRawLocalsRecursive(tryCatch.FinallyBody.Statements, variables);
+                    break;
+                case JavaSwitchStatement switchStatement:
+                    foreach (var section in switchStatement.Sections)
+                    {
+                        CollectRawLocalsRecursive(section.Statements, variables);
+                    }
+                    break;
+            }
+        }
+    }
+
+    private void CollectRawLocalsFromStatement(JavaStatement statement, Dictionary<string, string> variables)
+    {
+        switch (statement)
+        {
+            case JavaBlockStatement block:
+                CollectRawLocalsRecursive(block.Statements, variables);
+                break;
+            case JavaRawStatement raw:
+                CollectRawLocals(raw.Code, variables);
+                break;
+            case JavaIfStatement ifStatement:
+                CollectRawLocalsFromStatement(ifStatement.ThenBody, variables);
+                if (ifStatement.ElseBody != null) CollectRawLocalsFromStatement(ifStatement.ElseBody, variables);
+                break;
+            case JavaWhileStatement whileStatement:
+                CollectRawLocalsFromStatement(whileStatement.Body, variables);
+                break;
+            case JavaDoWhileStatement doWhile:
+                CollectRawLocalsFromStatement(doWhile.Body, variables);
+                break;
+            case JavaForStatement forStatement:
+                CollectRawLocalsFromStatement(forStatement.Body, variables);
+                break;
+            case JavaForEachStatement forEach:
+                CollectRawLocalsFromStatement(forEach.Body, variables);
+                break;
+            case JavaTryCatchStatement tryCatch:
+                CollectRawLocalsRecursive(tryCatch.TryBody.Statements, variables);
+                foreach (var catchClause in tryCatch.CatchClauses)
+                {
+                    CollectRawLocalsRecursive(catchClause.Body.Statements, variables);
+                }
+                if (tryCatch.FinallyBody != null)
+                    CollectRawLocalsRecursive(tryCatch.FinallyBody.Statements, variables);
+                break;
+            case JavaSwitchStatement switchStatement:
+                foreach (var section in switchStatement.Sections)
+                {
+                    CollectRawLocalsRecursive(section.Statements, variables);
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Round 17：结构化 forEach 元素类型推断——VariableType 未填充（Java 文本路径）时，
+    /// 从 Collection 表达式类型（参数/局部/字段/方法调用链）提取 Iterable 元素类型；
+    /// 解析不到 → null（不登记，保守不改写）。
+    /// </summary>
+    private string? ResolveForEachElementType(JavaForEachStatement forEach, Dictionary<string, string> variables)
+    {
+        // BuildMethodContext 期间 _methodStack 尚未 push：标识符 Collection 直接查构建中的变量表；
+        // 其他形态（this.字段/方法调用等）走结构化表达式类型解析（_classStack 已就绪）
+        string? collectionType = forEach.Collection is JavaIdentifierExpression id
+            ? (variables.TryGetValue(id.Name, out var vt) ? vt : null)
+            : ResolveExpressionType(forEach.Collection);
+        if (collectionType == null) return null;
+        return IterableElementType(collectionType);
+    }
+
+    /// <summary>
+    /// Round 17：raw 文本表达式 → 可确定类型（标识符/this.字段链/new 表达式/方法调用返回
+    /// 类型/括号表达式）。递归解析链式段；任何段不可解析 → null（C1 保守）。
+    /// </summary>
+    private string? ResolveExpressionTextType(string text)
+    {
+        var t = text.Trim();
+        if (t.Length == 0) return null;
+        if (t.StartsWith('(') && t.EndsWith(')'))
+        {
+            var open = t.IndexOf('(');
+            var close = FindMatchingParen(t, open);
+            if (close == t.Length - 1) return ResolveExpressionTextType(t[(open + 1)..^1]);
+        }
+        if (t.StartsWith("new ", StringComparison.Ordinal))
+        {
+            var typeStart = 4;
+            var typeEnd = typeStart;
+            while (typeEnd < t.Length && (IsIdentifierChar(t[typeEnd]) || t[typeEnd] == '.')) typeEnd++;
+            if (typeEnd == typeStart) return null;
+            if (typeEnd < t.Length && t[typeEnd] == '<')
+            {
+                var close = SkipBalancedForward(t, typeEnd, '<', '>');
+                if (close < 0) return null;
+                typeEnd = close + 1;
+            }
+            return NormalizeTypeName(t[typeStart..typeEnd]);
+        }
+        if (t == "this")
+        {
+            return _classStack.Count > 0 ? _classStack.Peek().ClassName : null;
+        }
+        if (t == "super") return null;
+        var lastDot = -1;
+        var depth = 0;
+        for (var idx = 0; idx < t.Length; idx++)
+        {
+            var ch = t[idx];
+            if (ch == '(' || ch == '<' || ch == '[') depth++;
+            else if (ch == ')' || ch == '>' || ch == ']') depth--;
+            else if (ch == '.' && depth == 0) lastDot = idx;
+        }
+        if (lastDot < 0)
+        {
+            return IsSimpleIdentifier(t) ? ResolveIdentifierType(t) : null;
+        }
+        var recvText = t[..lastDot].Trim();
+        var memberPart = t[(lastDot + 1)..].Trim();
+        var openIdx = memberPart.IndexOf('(');
+        if (openIdx >= 0 && memberPart.EndsWith(')'))
+        {
+            var memberName = memberPart[..openIdx];
+            if (!IsSimpleIdentifier(memberName)) return null;
+            var args = memberPart[(openIdx + 1)..^1];
+            var recvType = ResolveExpressionTextType(recvText);
+            if (recvType == null || !TryGetTypeContext(recvType, out var ctx)) return null;
+            if (ctx.AccessorMap.TryGetValue(memberName, out var accInfo)) return accInfo.Type;
+            return ctx.MethodReturnTypes.TryGetValue(MethodReturnKey(memberName, CountTopLevelArgs(args)), out var retType) ? retType : null;
+        }
+        if (IsSimpleIdentifier(memberPart))
+        {
+            var recvType = ResolveExpressionTextType(recvText);
+            if (recvType == null || !TryGetTypeContext(recvType, out var ctx)) return null;
+            return ResolveMemberTypeInContext(ctx, memberPart);
+        }
+        return null;
+    }
+
+    /// <summary>raw 文本中读取表达式链（标识符(.标识符)*(调用)?）；停在非法字符（C1 保守）。</summary>
+    private static string? ReadRawChainText(string text, ref int i)
+    {
+        if (i >= text.Length || !IsIdentifierStart(text[i])) return null;
+        var start = i;
+        while (i < text.Length)
+        {
+            if (IsIdentifierChar(text[i]))
+            {
+                i++;
+                continue;
+            }
+            if (text[i] == '.')
+            {
+                i++;
+                if (i < text.Length && IsIdentifierStart(text[i])) continue;
+                return null;
+            }
+            if (text[i] == '(')
+            {
+                var close = FindMatchingParen(text, i);
+                if (close < 0) return null;
+                i = close + 1;
+                continue;
+            }
+            break;
+        }
+        return text[start..i];
+    }
+
+    /// <summary>
+    /// Round 17：raw 声明初始化表达式读取（顶层 ,/;/行尾停止；跳过字符串与注释），
+    /// 供非 new 初始化表达式的类型推断。
+    /// </summary>
+    private static string? ReadExpressionUpToDelimiter(string text, ref int i)
+    {
+        var start = i;
+        var depth = 0;
+        while (i < text.Length)
+        {
+            var ch = text[i];
+            if (ch == '"' || ch == '\'')
+            {
+                var close = SkipQuotedLiteral(text, i);
+                if (close < 0) return null;
+                i = close;
+                continue;
+            }
+            if (ch == '/' && i + 1 < text.Length && (text[i + 1] == '/' || text[i + 1] == '*'))
+            {
+                var close = SkipComment(text, i);
+                if (close < 0) return null;
+                i = close;
+                continue;
+            }
+            if (ch == '(' || ch == '[' || ch == '<') depth++;
+            else if (ch == ')' || ch == ']' || ch == '>') depth--;
+            else if ((ch == ',' || ch == ';') && depth <= 0) break;
+            else if ((ch == '\r' || ch == '\n') && depth <= 0) break;
+            i++;
+        }
+        return text[start..i].Trim();
+    }
+
+    private static bool IsSimpleIdentifier(string s)
+    {
+        if (s.Length == 0 || !IsIdentifierStart(s[0])) return false;
+        for (var idx = 1; idx < s.Length; idx++)
+        {
+            if (!IsIdentifierChar(s[idx])) return false;
+        }
+        return true;
     }
 
     // ─── for-init 声明解析（I7） ───────────────────────────────────────
@@ -748,7 +1886,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             if (setter == null)
             {
                 // 只读属性（自动或表达式体）→ getter 访问器
-                RenameConflictingBackingField(cls, context, propName, getter, null);
+                if (!_collectOnly) RenameConflictingBackingField(cls, context, propName, getter, null);
                 _roles[getter] = TsAccessorRole.Getter;
                 RegisterAccessorNames(getter, context, registerSetter: false, TsAccessorRole.Getter);
                 continue;
@@ -767,32 +1905,35 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                     f.Name == ToCamelCase(propName) && (f.Modifiers & JavaModifiers.Static) == (getter.Modifiers & JavaModifiers.Static));
                 if (backingField != null)
                 {
-                    backingField.Name = propName;
-                    backingField.Modifiers = (backingField.Modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private))
-                                           | (getter.Modifiers & (JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
-                    // C2：字段改名后同步刷新上下文字段表（链式解析按新名字查）
-                    var camelName = ToCamelCase(propName);
-                    if ((getter.Modifiers & JavaModifiers.Static) != 0)
+                    if (!_collectOnly)
                     {
-                        context.StaticFieldTypes.Remove(camelName);
-                        context.StaticFieldTypes[propName] = backingField.Type;
+                        backingField.Name = propName;
+                        backingField.Modifiers = (backingField.Modifiers & ~(JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private))
+                                               | (getter.Modifiers & (JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
+                        // C2：字段改名后同步刷新上下文字段表（链式解析按新名字查）
+                        var camelName = ToCamelCase(propName);
+                        if ((getter.Modifiers & JavaModifiers.Static) != 0)
+                        {
+                            context.StaticFieldTypes.Remove(camelName);
+                            context.StaticFieldTypes[propName] = backingField.Type;
+                        }
+                        else
+                        {
+                            context.InstanceFieldTypes.Remove(camelName);
+                            context.InstanceFieldTypes[propName] = backingField.Type;
+                        }
+                        _roles[getter] = TsAccessorRole.Field;
+                        _roles[setter] = TsAccessorRole.Field;
+                        cls.Methods.Remove(getter);
+                        cls.Methods.Remove(setter);
                     }
-                    else
-                    {
-                        context.InstanceFieldTypes.Remove(camelName);
-                        context.InstanceFieldTypes[propName] = backingField.Type;
-                    }
-                    _roles[getter] = TsAccessorRole.Field;
-                    _roles[setter] = TsAccessorRole.Field;
-                    cls.Methods.Remove(getter);
-                    cls.Methods.Remove(setter);
                     RegisterAccessorNames(getter, context, registerSetter: true, TsAccessorRole.Field);
                     continue;
                 }
             }
 
             // getter + setter（受限可见性或表达式体/无后备字段/override）→ 访问器对
-            RenameConflictingBackingField(cls, context, propName, getter, setter);
+            if (!_collectOnly) RenameConflictingBackingField(cls, context, propName, getter, setter);
             _roles[getter] = TsAccessorRole.GetterSetter;
             _roles[setter] = TsAccessorRole.GetterSetter;
             RegisterAccessorNames(getter, context, registerSetter: true, TsAccessorRole.GetterSetter);
@@ -971,12 +2112,24 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         HashSet<string>? visited = null)
     {
         info = null!;
-        // C1：IR 级循环继承（self-extends/互相 extends）→ 访问集合防栈溢出，解析中止于环
+        // C1：IR 级循环继承（self-extends/互相 extends）→ 访问集合防栈溢出，解析中止于环。
+        // Round 17：同名多类型候选逐个尝试，首个命中访问器者胜（无消歧信息时保守不误改）。
         visited ??= new HashSet<string>(StringComparer.Ordinal);
-        if (!visited.Add(typeName)) return false;
+        if (!TryGetTypeContexts(typeName, out var contexts)) return false;
+        foreach (var ctx in contexts)
+        {
+            if (TryResolveAccessorInContextCore(ctx, methodName, out info, visited)) return true;
+        }
+        return false;
+    }
+
+    private bool TryResolveAccessorInContextCore(ClassContext ctx, string methodName, out AccessorInfo info,
+        HashSet<string> visited)
+    {
+        info = null!;
+        if (!visited.Add(ctx.ClassName)) return false;
         try
         {
-            if (!_typeContextsByName.TryGetValue(typeName, out var ctx)) return false;
             if (ctx.AccessorMap.TryGetValue(methodName, out info!)) return true;
             foreach (var baseName in ctx.BaseTypeNames)
             {
@@ -986,7 +2139,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         }
         finally
         {
-            visited.Remove(typeName);
+            visited.Remove(ctx.ClassName);
         }
     }
 
@@ -1031,7 +2184,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             case JavaMemberAccessExpression access:
             {
                 var targetType = ResolveExpressionType(access.Target);
-                if (targetType == null || !_typeContextsByName.TryGetValue(targetType, out var ctx))
+                if (targetType == null || !TryGetTypeContext(targetType, out var ctx))
                 {
                     return null;
                 }
@@ -1044,7 +2197,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 // 裸调用（Target == null）无类型信息，保守 null
                 if (call.Target == null) return null;
                 var callTargetType = ResolveExpressionType(call.Target);
-                if (callTargetType == null || !_typeContextsByName.TryGetValue(callTargetType, out var callCtx)) return null;
+                if (callTargetType == null || !TryGetTypeContext(callTargetType, out var callCtx)) return null;
                 if (callCtx.AccessorMap.TryGetValue(call.MethodName, out var accInfo)) return accInfo.Type;
                 return callCtx.MethodReturnTypes.TryGetValue(MethodReturnKey(call.MethodName, call.Arguments.Count), out var retType) ? retType : null;
             }
@@ -1099,7 +2252,9 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
     {
         if (_methodStack.Count > 0 && _methodStack.Peek().VariableTypes.TryGetValue(name, out var variableType))
         {
-            return variableType;
+            // Round 17：变量类型为泛型参数（TEdge extends IEdge）→ 映射到可解析的约束类型
+            var mapped = ResolveTypeParameter(variableType);
+            return mapped ?? variableType;
         }
         if (_classStack.Count > 0)
         {
@@ -1108,6 +2263,117 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             if (context.StaticFieldTypes.TryGetValue(name, out variableType)) return variableType;
         }
         return _typeContextsByName.ContainsKey(name) ? name : null;
+    }
+
+    /// <summary>
+    /// Round 17：类型参数名 → 可解析的约束类型（TEdge extends IEdge → IEdge）。
+    /// 方法级类型参数优先，其次当前类型级；仅当约束解析为已注册上下文时返回
+    /// （C1 保守：解析不了宁可不改）。泛型约束本身（IComparable&lt;T&gt; 等）查不到
+    /// 上下文 → null，调用点保持方法形态。
+    /// </summary>
+    private string? ResolveTypeParameter(string typeName)
+    {
+        if (_methodStack.Count > 0
+            && _methodStack.Peek().TypeParameterBounds.TryGetValue(typeName, out var methodBounds))
+        {
+            foreach (var bound in methodBounds)
+            {
+                if (TryGetTypeContexts(bound, out _)) return bound;
+            }
+        }
+        if (_classStack.Count > 0
+            && _classStack.Peek().TypeParameterBounds.TryGetValue(typeName, out var classBounds))
+        {
+            foreach (var bound in classBounds)
+            {
+                if (TryGetTypeContexts(bound, out _)) return bound;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Round 17：按类型名取上下文（多候选首个）；类型参数名（当前方法/类的约束）
+    /// 回退到约束类型。覆盖泛型接收者（TEdge[] 元素、TEdge 参数）的访问器解析。
+    /// </summary>
+    private bool TryGetTypeContext(string typeName, out ClassContext context)
+    {
+        if (TryGetTypeContexts(typeName, out var contexts))
+        {
+            context = contexts[0];
+            return true;
+        }
+        context = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// Round 17：类型名 → 候选上下文列表。解析顺序：泛型实参剥离（BasicGraph&lt;Node,
+    /// PolyIntEdge&gt; → BasicGraph）→ 可空修饰剥离 → 扁平表精确命中（本单元类型/
+    /// 全名键/无歧义简单名）→ 简单名候选（导入优先、同包次之、无消歧信息时全部
+    /// 候选，由访问器名匹配取首个命中）→ 类型参数约束。解析不到 → 空（保守不改写）。
+    /// </summary>
+    private bool TryGetTypeContexts(string typeName, out List<ClassContext> contexts)
+    {
+        contexts = new List<ClassContext>();
+        var normalized = NormalizeTypeName(typeName);
+        if (normalized == null) return false;
+        if (_typeContextsByName.TryGetValue(normalized, out var exact))
+        {
+            contexts.Add(exact);
+            return true;
+        }
+        if (ProjectContexts == null || !_simpleNameCandidates.TryGetValue(normalized, out var candidates))
+        {
+            // 类型参数约束（TEdge extends IEdge）
+            var bound = ResolveTypeParameter(typeName);
+            if (bound == null) return false;
+            return TryGetTypeContexts(bound, out contexts);
+        }
+        var resolved = new List<string>();
+        if (_unitImports.TryGetValue(normalized, out var importedFull))
+        {
+            // 导入消歧：只取与本单元导入全名一致的候选
+            foreach (var full in candidates)
+            {
+                if (full == importedFull) resolved.Add(full);
+            }
+        }
+        else
+        {
+            // 同包消歧：只取与本单元命名空间一致的候选
+            var packagePrefix = string.IsNullOrEmpty(_unitPackage) ? null : _unitPackage + ".";
+            foreach (var full in candidates)
+            {
+                if (packagePrefix != null && full.StartsWith(packagePrefix, StringComparison.Ordinal)) resolved.Add(full);
+            }
+        }
+        if (resolved.Count == 0)
+        {
+            // 无消歧信息：全部候选（下游按访问器名匹配，首个命中者胜）
+            resolved.AddRange(candidates);
+        }
+        foreach (var full in resolved)
+        {
+            if (ProjectContexts.ByFullName.TryGetValue(full, out var ctx) && !contexts.Contains(ctx))
+            {
+                contexts.Add(ctx);
+            }
+        }
+        return contexts.Count > 0;
+    }
+
+    /// <summary>Round 17：类型名规范化——去空白、剥离泛型实参（BasicGraph&lt;Node, PolyIntEdge&gt; →
+    /// BasicGraph）与尾部可空修饰（Node? → Node）。数组类型由链式段解析剥离，此处不处理。</summary>
+    private static string? NormalizeTypeName(string typeName)
+    {
+        var t = typeName.Trim();
+        var lt = t.IndexOf('<');
+        if (lt > 0) t = t[..lt].TrimEnd();
+        if (t.EndsWith("?", StringComparison.Ordinal)) t = t[..^1].TrimEnd();
+        // Round 17：TS 可空联合形态（"Curve | null"）剥离尾部联合项
+        if (t.EndsWith(" | null", StringComparison.Ordinal)) t = t[..^" | null".Length].TrimEnd();
+        return t.Length == 0 ? null : t;
     }
 
     // ─── 结构化调用点改写 ─────────────────────────────────────────────
@@ -1298,7 +2564,7 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
         return TryResolveAccessorInContext(currentType, methodName, out info);
     }
 
-    private sealed record RawChainSegment(string? Name, bool IsArray, bool IsCall, int ArgCount = 0);
+    private sealed record RawChainSegment(string? Name, bool IsArray, bool IsCall, int ArgCount = 0, bool IsParen = false);
 
     /// <summary>
     /// 从方法名前的点号回扫提取链段（正向顺序）：标识符段（b/a）、数组访问段（arr[0]）、
@@ -1319,7 +2585,13 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 if (open < 0) return null;
                 var start = open;
                 while (start > 0 && IsIdentifierChar(text[start - 1])) start--;
-                if (start == open) return null;
+                if (start == open)
+                {
+                    // Round 17：括号表达式段 (expr)——整体作为接收者（如 (Point.op_Subtract(a, b)).getLength()）
+                    reversed.Add(new RawChainSegment(text[(open + 1)..pos], false, false, 0, IsParen: true));
+                    pos = open - 1;
+                    continue;
+                }
                 reversed.Add(new RawChainSegment(text[start..open], false, true, CountTopLevelArgs(text[(open + 1)..pos])));
                 pos = start - 1;
             }
@@ -1380,6 +2652,12 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
             if (currentType == null) return null;
             return currentType.EndsWith("[]", StringComparison.Ordinal) ? currentType[..^2].Trim() : null;
         }
+        if (segment.IsParen)
+        {
+            // Round 17：括号表达式接收者（仅链首）：(expr).getX()
+            if (currentType != null) return null;
+            return ResolveExpressionTextType(segment.Name!);
+        }
         if (currentType == null)
         {
             var name = segment.Name!;
@@ -1392,16 +2670,22 @@ public sealed class TsPropertyReconstructionRewriter : JavaSyntaxRewriter
                 // super 链（super.A.getX()）既有缺口：基类成员逐级解析未实现，保守不改写
                 return null;
             }
+            if (segment.IsCall)
+            {
+                // Round 17：裸访问器调用链首段（getEdgeGeometry().getSourcePort()）——
+                // 隐式 this/静态目标，按当前类 + 基类链解析访问器返回类型
+                return TryResolveAccessor(name, out var info) ? info.Type : null;
+            }
             return ResolveIdentifierType(name);
         }
         if (segment.IsCall)
         {
             // 调用段 getA()/getB()：属性 getter（AccessorMap）优先，其次用户方法返回类型（R-2）
-            if (!_typeContextsByName.TryGetValue(currentType, out var ctx)) return null;
+            if (!TryGetTypeContext(currentType, out var ctx)) return null;
             if (ctx.AccessorMap.TryGetValue(segment.Name!, out var accInfo)) return accInfo.Type;
             return ctx.MethodReturnTypes.TryGetValue(MethodReturnKey(segment.Name!, segment.ArgCount), out var retType) ? retType : null;
         }
-        if (!_typeContextsByName.TryGetValue(currentType, out var typeContext)) return null;
+        if (!TryGetTypeContext(currentType, out var typeContext)) return null;
         return ResolveMemberTypeInContext(typeContext, segment.Name!);
     }
 

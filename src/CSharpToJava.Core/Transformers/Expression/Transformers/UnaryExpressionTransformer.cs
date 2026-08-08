@@ -94,6 +94,13 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 bool isPropertyTarget = operandSyntax != null && context.SemanticModel != null
                     && context.GetSymbolInfo(operandSyntax).Symbol is IPropertySymbol;
 
+                // Tuple element increment (state.count++) must rebuild the immutable
+                // vavr tuple via updateN() — use the raw transform.
+                bool isTupleElementTarget = operandSyntax is MemberAccessExpressionSyntax tupleMa
+                    && context.SemanticModel != null
+                    && context.GetTypeInfo(tupleMa.Expression).Type is INamedTypeSymbol { IsTupleType: true } tupleTargetSym
+                    && IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleTargetSym, tupleMa.Name.Identifier.Text) >= 0;
+
                 bool isDecimalTarget = operandSyntax != null && context.SemanticModel != null
                     && ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operandSyntax).Type);
 
@@ -111,7 +118,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(Transform(node, context));
                 }
 
-                if (!isPropertyTarget && !isDecimalTarget && !isEnumTarget && operandSyntax != null)
+                if (!isPropertyTarget && !isTupleElementTarget && !isDecimalTarget && !isEnumTarget && operandSyntax != null)
                 {
                     var operandIR = ExpressionTransformerFacade.Instance.TransformToIR(operandSyntax, context);
                     return new JavaUnaryExpression
@@ -687,6 +694,11 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             return decimalRewrite;
         }
         if (IsDiscardedValueContext(node, context)
+            && TryTransformTupleIncrementAsMutation(node.Operand, op, context, out var tupleRewrite))
+        {
+            return tupleRewrite;
+        }
+        if (IsDiscardedValueContext(node, context)
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
             return rewritten;
@@ -703,6 +715,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             && TryBuildDecimalHoistForPostfix(node.Operand, op, context, out var decimalHoisted))
         {
             return decimalHoisted;
+        }
+
+        if (!IsDiscardedValueContext(node, context)
+            && TryBuildTupleHoistForPostfix(node.Operand, op, context, out var tupleHoisted))
+        {
+            return tupleHoisted;
         }
 
         if (!IsDiscardedValueContext(node, context)
@@ -862,6 +880,11 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             return decimalRewrite;
         }
         if (IsDiscardedValueContext(node, context)
+            && TryTransformTupleIncrementAsMutation(node.Operand, op, context, out var tupleRewrite))
+        {
+            return tupleRewrite;
+        }
+        if (IsDiscardedValueContext(node, context)
             && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
         {
             return rewritten;
@@ -878,6 +901,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             && TryBuildDecimalHoistForPrefix(node.Operand, op, context, out var decimalHoisted))
         {
             return decimalHoisted;
+        }
+
+        if (!IsDiscardedValueContext(node, context)
+            && TryBuildTupleHoistForPrefix(node.Operand, op, context, out var tupleHoisted))
+        {
+            return tupleHoisted;
         }
 
         if (!IsDiscardedValueContext(node, context)
@@ -1458,5 +1487,93 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Rewrites a statement-context tuple element increment (state.count++ / --state.count)
+    /// into an immutable vavr tuple rebuild: `state = state.updateN(state._N() ± 1)`.
+    /// The receiver string may already carry a holder unwrap (state.value for ref/out
+    /// parameters), which is preserved as-is.
+    /// </summary>
+    private static bool TryTransformTupleIncrementAsMutation(
+        ExpressionSyntax operand, string op, ConversionContext context, out string rewritten)
+    {
+        rewritten = string.Empty;
+        if (context.SemanticModel == null || operand is not MemberAccessExpressionSyntax ma)
+            return false;
+
+        var receiverType = context.GetTypeInfo(ma.Expression).Type;
+        if (receiverType is not INamedTypeSymbol { IsTupleType: true } tupleSym)
+            return false;
+
+        var elementIndex = IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleSym, ma.Name.Identifier.Text);
+        if (elementIndex < 0) return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var recv = facade.Transform(ma.Expression, context);
+        context.AddImport("io.vavr.Tuple");
+        rewritten = $"{recv} = {recv}.update{elementIndex}({recv}._{elementIndex}() {delta})";
+        return true;
+    }
+
+    /// <summary>
+    /// Hoists a postfix tuple element increment into pre-statements.
+    /// Returns the old value (pre-increment) as the expression result.
+    /// Pattern: var _t = state._N(); state = state.updateN(_t ± 1); → returns _t
+    /// </summary>
+    private static bool TryBuildTupleHoistForPostfix(
+        ExpressionSyntax operand, string op, ConversionContext context, out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null || operand is not MemberAccessExpressionSyntax ma)
+            return false;
+
+        var receiverType = context.GetTypeInfo(ma.Expression).Type;
+        if (receiverType is not INamedTypeSymbol { IsTupleType: true } tupleSym)
+            return false;
+
+        var elementIndex = IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleSym, ma.Name.Identifier.Text);
+        if (elementIndex < 0) return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var recv = facade.Transform(ma.Expression, context);
+        var tmp = context.GenerateSyntheticName("_prev");
+        context.AddImport("io.vavr.Tuple");
+        context.AddPreStatement($"var {tmp} = {recv}._{elementIndex}();");
+        context.AddPreStatement($"{recv} = {recv}.update{elementIndex}({tmp} {delta});");
+        result = tmp;
+        return true;
+    }
+
+    /// <summary>
+    /// Hoists a prefix tuple element increment into pre-statements.
+    /// Returns the new value as the expression result.
+    /// Pattern: var _t = state._N() ± 1; state = state.updateN(_t); → returns _t
+    /// </summary>
+    private static bool TryBuildTupleHoistForPrefix(
+        ExpressionSyntax operand, string op, ConversionContext context, out string result)
+    {
+        result = string.Empty;
+        if (context.SemanticModel == null || operand is not MemberAccessExpressionSyntax ma)
+            return false;
+
+        var receiverType = context.GetTypeInfo(ma.Expression).Type;
+        if (receiverType is not INamedTypeSymbol { IsTupleType: true } tupleSym)
+            return false;
+
+        var elementIndex = IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleSym, ma.Name.Identifier.Text);
+        if (elementIndex < 0) return false;
+
+        var delta = op == "++" ? "+ 1" : "- 1";
+        var facade = ExpressionTransformerFacade.Instance;
+        var recv = facade.Transform(ma.Expression, context);
+        var tmp = context.GenerateSyntheticName("_inc");
+        context.AddImport("io.vavr.Tuple");
+        context.AddPreStatement($"var {tmp} = {recv}._{elementIndex}() {delta};");
+        context.AddPreStatement($"{recv} = {recv}.update{elementIndex}({tmp});");
+        result = tmp;
+        return true;
     }
 }

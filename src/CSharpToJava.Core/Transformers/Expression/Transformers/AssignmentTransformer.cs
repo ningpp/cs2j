@@ -1399,7 +1399,103 @@ public class AssignmentTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# ValueTuple fields are mutable (state.prevat = X), but vavr TupleN is immutable.
+        // Element assignment must rebuild the tuple: state = state.updateN(X).
+        // Matches LHS like `state.prevat` / `holder.value.prevat` where the receiver is a
+        // tuple-typed local, parameter, or holder value.
+        if (op == "=" && leftNode is MemberAccessExpressionSyntax tupleElementMa
+            && TryTransformTupleElementAssignment(tupleElementMa, rightNode, facade, context, out var tupleAssignment))
+        {
+            return tupleAssignment;
+        }
+
         return $"{left} {op} {rightStr}";
+    }
+
+    /// <summary>
+    /// Rewrites `tuple.element = rhs` (C# mutable ValueTuple field write) into a vavr
+    /// immutable rebuild: `tuple = tuple.updateN(rhs)`. The LHS may be a bare tuple
+    /// identifier (`state.prevat`) or a holder value access (`state.value.prevat` when the
+    /// tuple is a ref/out parameter). Returns false when the LHS is not a tuple element write.
+    /// </summary>
+    private static bool TryTransformTupleElementAssignment(
+        MemberAccessExpressionSyntax memberAccess,
+        ExpressionSyntax rightNode,
+        IExpressionTransformer facade,
+        ConversionContext context,
+        out string expression)
+    {
+        expression = null!;
+        if (context.SemanticModel == null)
+            return false;
+
+        string memberName = memberAccess.Name.Identifier.Text;
+        bool isItemName = IdentifierExpressionTransformer.IsTupleItemName(memberName, out _);
+        if (!isItemName && !IsTupleNamedElementName(memberName))
+            return false;
+
+        // Resolve the receiver's type (unwrap .value holder access).
+        var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+        bool isHolderValue = false;
+        var receiverExpr = memberAccess.Expression;
+        if (receiverExpr is MemberAccessExpressionSyntax innerValueAccess
+            && innerValueAccess.Name.Identifier.Text == "value")
+        {
+            isHolderValue = true;
+            receiverType = context.GetTypeInfo(innerValueAccess.Expression).Type;
+        }
+
+        int elementIndex = -1;
+        if (receiverType is INamedTypeSymbol { IsTupleType: true } tupleSym)
+        {
+            elementIndex = IdentifierExpressionTransformer.IsTupleItemName(memberName, out var itemIdx)
+                ? itemIdx
+                : IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleSym, memberName);
+        }
+        if (elementIndex < 0)
+            return false;
+
+        var receiverStr = facade.Transform(memberAccess.Expression, context);
+        var rightStr = facade.Transform(rightNode, context);
+        var rightType = context.GetTypeInfo(rightNode).Type;
+        if (elementIndex >= 1 && elementIndex <= receiverType switch
+        {
+            _ when receiverType is INamedTypeSymbol t => t.TupleElements.Length,
+            _ => 0
+        })
+        {
+            var lhsForAdapt = receiverType is INamedTypeSymbol tupleN
+                ? (elementIndex <= tupleN.TupleElements.Length ? tupleN.TupleElements[elementIndex - 1].Type : null)
+                : null;
+            rightStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, rightStr, lhsForAdapt, context);
+        }
+
+        if (isHolderValue)
+        {
+            // state.value.prevat = X  →  state.value = state.value.updateN(X)
+            var holderStr = receiverStr[..^".value".Length];
+            context.AddImport("io.vavr.Tuple");
+            expression = $"{holderStr}.value = {receiverStr}.update{elementIndex}({rightStr})";
+        }
+        else
+        {
+            // state.prevat = X  →  state = state.updateN(X)
+            context.AddImport("io.vavr.Tuple");
+            expression = $"{receiverStr} = {receiverStr}.update{elementIndex}({rightStr})";
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Rough syntactic pre-filter: a member name that could be a named tuple element
+    /// (any identifier that is not ItemN and not a known property/method pattern).
+    /// The precise check happens against the semantic tuple type afterwards.
+    /// </summary>
+    private static bool IsTupleNamedElementName(string memberName)
+    {
+        if (string.IsNullOrEmpty(memberName))
+            return false;
+        return char.IsLetter(memberName[0]) || memberName[0] == '_';
     }
 
     private static bool TryTransformRuntimeTypeParameterArraySet(

@@ -388,4 +388,70 @@ public class ReadOnlyStructMakerL5Tests
         Assert.Contains("new BorderInfo().WithInnerMargin(1.0).WithFixedPosition(2.0).WithWeight(3.0)", result.OutputCode);
         Assert.DoesNotContain("{ InnerMargin = 1.0", result.OutputCode);
     }
+
+    [Fact]
+    public void PartialStructMethodDeclaredOnlyInStubFile_DoesNotCrash()
+    {
+        // Reproduces: System.Text.Json ref-assembly stubs (ref\System.Text.Json.cs).
+        // The real declaration `struct ArrayEnumerator` (no partial) merges with the
+        // stub `partial struct ArrayEnumerator` in the ref file, so member symbols
+        // like Dispose resolve their DeclaringSyntaxReference to the stub tree.
+        // StructAnalyzer must only analyze methods declared in the model's own tree.
+        var srcTree = CSharpSyntaxTree.ParseText("""
+        struct Frame {
+            private int _x;
+            public void Reset() { _x = 0; }
+        }
+        """, path: "src.cs");
+        var stubTree = CSharpSyntaxTree.ParseText("""
+        partial struct Frame {
+            public void Dispose() { }
+        }
+        """, path: "stub.cs");
+        var compilation = CSharpCompilation.Create("test",
+            new[] { srcTree, stubTree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var result = new Core.ReadOnlyStructMaker.ReadOnlyStructMaker()
+            .MakeReadOnly(srcTree, compilation.GetSemanticModel(srcTree));
+
+        // Stub-only method must not crash analysis; the real method is migrated.
+        Assert.True(result.Changed);
+        Assert.Contains("Frame Reset(", result.OutputCode);
+    }
+
+    [Fact]
+    public void LocalDeclarationTypeNamedLikeField_NotRewrittenToMemberAccess()
+    {
+        // Reproduces: System.Text.Json WriteStackFrame struct whose public fields
+        // share names with types (e.g. `public JsonClassInfo JsonClassInfo;`).
+        // Method migration rewrites implicit field accesses to result.<field>, but
+        // must NOT rewrite identifiers in TYPE position (local declaration types),
+        // otherwise Roslyn's VisitVariableDeclaration cast (TypeSyntax) crashes.
+        var src = """
+        class JsonClassInfo {
+            public JsonClassInfo PropertyInfoForClassInfo;
+        }
+        class JsonConverter {
+            public JsonConverter ConverterBase;
+        }
+        struct Frame {
+            public JsonClassInfo JsonClassInfo;
+            public JsonConverter InitializeReEntry() {
+                JsonClassInfo classInfo = null;
+                JsonClassInfo = classInfo;
+                return JsonClassInfo.ConverterBase;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // The local declaration type must stay a plain identifier
+        Assert.Contains("JsonClassInfo classInfo = null", result.OutputCode);
+        // No invalid member access in type position
+        Assert.DoesNotContain("result.JsonClassInfo classInfo", result.OutputCode);
+        // Implicit field READS are still rewritten to result.JsonClassInfo
+        Assert.Contains("result.JsonClassInfo.ConverterBase", result.OutputCode);
+    }
 }

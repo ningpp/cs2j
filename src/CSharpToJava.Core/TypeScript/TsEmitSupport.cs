@@ -27,8 +27,20 @@ public static class TsEmitSupport
 {
 /// <summary>对已生成的 Java IR 运行 TS 专属 rewriter 并发射 .ts 代码。</summary>
     public static string EmitTypeScript(Java.JavaCompilationUnit compilation, ConversionContext context)
+        => EmitTypeScript(compilation, context, null);
+
+    /// <summary>
+    /// Round 17：收集项目级访问器注册表（全部单元的跨文件调用点改写上下文）。
+    /// 仅项目模式调用（ProjectTsEmitPass 先全量转换再统一发射）；单文件模式不收集。
+    /// </summary>
+    public static Rewriters.TsPropertyReconstructionRewriter.ProjectAccessorRegistry
+        CollectProjectAccessorContexts(IEnumerable<Java.JavaCompilationUnit> compilations)
+        => Rewriters.TsPropertyReconstructionRewriter.CollectProjectContexts(compilations);
+
+    internal static string EmitTypeScript(Java.JavaCompilationUnit compilation, ConversionContext context,
+        Rewriters.TsPropertyReconstructionRewriter.ProjectAccessorRegistry? projectContexts)
     {
-        var (accessorRoles, compatSymbols) = RunTsRewriters(compilation, context);
+        var (accessorRoles, compatSymbols) = RunTsRewriters(compilation, context, projectContexts);
         var emitter = new TypeScriptEmitter(accessorRoles);
         return emitter.Emit(compilation, context, compatSymbols);
     }
@@ -43,10 +55,19 @@ public static class TsEmitSupport
     public static (IReadOnlyDictionary<Java.JavaMethodDeclaration, Rewriters.TsAccessorRole>? Roles,
         IReadOnlySet<string> CompatSymbols) RunTsRewriters(
         Java.JavaCompilationUnit compilation, ConversionContext context)
+        => RunTsRewriters(compilation, context, null);
+
+    internal static (IReadOnlyDictionary<Java.JavaMethodDeclaration, Rewriters.TsAccessorRole>? Roles,
+        IReadOnlySet<string> CompatSymbols) RunTsRewriters(
+        Java.JavaCompilationUnit compilation, ConversionContext context,
+        Rewriters.TsPropertyReconstructionRewriter.ProjectAccessorRegistry? projectContexts)
     {
         // TsOverloadDisambiguationRewriter, TsGenericErasureRewriter,
         // TsInterfaceProbeRewriter, TsEqualityRewriter (M3)
-        var propertyRewriter = new Rewriters.TsPropertyReconstructionRewriter();
+        var propertyRewriter = new Rewriters.TsPropertyReconstructionRewriter
+        {
+            ProjectContexts = projectContexts,
+        };
         propertyRewriter.VisitCompilationUnit(compilation);
         // Task 17：枚举转换调用点（getValue/fromValue/ordinal）改写 + Enum.Parse/ToString 诊断
         var enumRewriter = new Rewriters.TsEnumCallRewriter(context);

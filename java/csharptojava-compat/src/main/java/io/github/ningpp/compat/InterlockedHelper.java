@@ -44,4 +44,34 @@ public final class InterlockedHelper {
         }
         return old;
     }
+
+    public static <T> T exchange(ObjectHolder<T> location, T value) {
+        T old = location.value;
+        location.value = value;
+        return old;
+    }
+
+    public static int exchange(IntHolder location, int value) {
+        int old = location.value;
+        location.value = value;
+        return old;
+    }
+
+    public static long exchange(LongHolder location, long value) {
+        long old = location.value;
+        location.value = value;
+        return old;
+    }
+
+    public static float exchange(FloatHolder location, float value) {
+        float old = location.value;
+        location.value = value;
+        return old;
+    }
+
+    public static double exchange(DoubleHolder location, double value) {
+        double old = location.value;
+        location.value = value;
+        return old;
+    }
 }
