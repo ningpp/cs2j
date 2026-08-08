@@ -159,3 +159,19 @@
 - **分析**: `char.xxx` 静态调用走预定义类型路径（`{boxedReceiver}.{mappedMethod}`），在 TypeMappings 查找之前短路，`GetUnicodeCategory` 落入通用 camelCase 规则产出 `Character.getUnicodeCategory`，而 java.lang.Character 无此方法。修复：在预定义类型路径特判 `char.GetUnicodeCategory` → `CharUnicodeInfo.getUnicodeCategory(...)`（compat helper 返回 C# UnicodeCategory 枚举），并在 TypeMappings.json 为 System.Char/char 补充同名映射条目。
 - **测试**: `CharGetUnicodeCategoryMappingTests`（先红后绿）
 - **状态**: ✅ Fixed
+
+## Iteration 10 — 找不到符号 getLength()（StringBuilder.Length 属性未映射为 length()）
+
+- **Java 文件**: dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCharClass.java
+- **行号**: 798
+- **错误信息**: `[798,66] 找不到符号 符号: 方法 getLength()`
+- **代码片段**:
+  ```java
+  int categoriesLength = (_categories != null ? _categories.getLength() : 0);
+  ```
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCharClass.cs（第 1354 行 `int categoriesLength = _categories?.Length ?? 0;`，`_categories` 为 StringBuilder）
+- **根因分类**: 类型映射缺失（TypeMappings.json 配置缺陷）
+- **涉及组件**: config/TypeMappings.json（System.Text.StringBuilder 条目）
+- **分析**: System.Text.StringBuilder 映射到 java.lang.StringBuilder，其长度属性是 `length()` 方法，但 TypeMappings 缺少 `Length`/`get_Length` 条目，属性访问按默认规则发射为 `getLength()`。修复：为 System.Text.StringBuilder 补充 `get_Length`/`Length` → `length` 映射（与 Capacity → capacity 条目一致）。
+- **测试**: `StringBuilderLengthMappingTests`（先红后绿）
+- **状态**: ✅ Fixed
