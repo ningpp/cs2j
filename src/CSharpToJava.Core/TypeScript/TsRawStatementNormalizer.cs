@@ -1925,7 +1925,7 @@ public static class TsRawStatementNormalizer
                             {
                                 sb.Append(IsNumericLiteral(inner)
                                     ? $"new Array({inner})"
-                                    : $"Array.from({inner})");
+                                    : $"Array.from(typeof ({inner}) === \"number\" ? new Array({inner}) : ({inner}))");
                             }
                             else
                             {

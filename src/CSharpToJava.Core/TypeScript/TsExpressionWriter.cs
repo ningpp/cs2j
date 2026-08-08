@@ -373,7 +373,12 @@ public sealed class TsExpressionWriter
                 return "[]";
             }
             var arg = ToInlineString(newExpr.Arguments[0]);
-            return IsNumericLiteral(arg) ? $"new Array({arg})" : $"Array.from({arg})";
+            // 容量（number）与集合（Iterable）单实参形态在编译期不可区分：
+            // typeof 分发——number → new Array(n)（ArrayList(int) 语义），
+            // 其余 → Array.from（ArrayList(Collection) 拷贝语义）
+            return IsNumericLiteral(arg)
+                ? $"new Array({arg})"
+                : $"Array.from(typeof ({arg}) === \"number\" ? new Array({arg}) : ({arg}))";
         }
         var args = string.Join(", ", newExpr.Arguments.Select(ToInlineString));
         return $"new {typeName}({args})";
