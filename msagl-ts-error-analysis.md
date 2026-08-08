@@ -22,6 +22,7 @@
 | 15 | 语法 2 → 0；语义波 23043（预期转折点） | E 族：LINQ 重写产物方法引用形态未做 TS 归一化——空菱形构造剥离 + 表达式接收者 `::` 改写 + 裸 `HashSet` 局部映射 | src/CSharpToJava.Core/TypeScript/TsRawStatementNormalizer.cs + tests/CSharpToTypeScript.Tests（TsRawStatementNormalizerTests +8 / TsRawBodyNormalizationTests +1）+ 本文件 | 本轮提交（见下） |
 | 16 | 23043 → 22171 | raw 文本裸成员引用缺前缀（TS2663 3376 / TS2662 1600 同根：实例缺 `this.`、静态缺 `类名.`） | 新增 TsMemberContext.cs；TsRawStatementNormalizer.cs（新最终 pass NormalizeBareMemberReferences）；TsMemberWriter.cs / TsStatementWriter.cs / TsExpressionWriter.cs / TsTypeWriter.cs / TypeScriptEmitter.cs（成员上下文接线）；tests （TsRawStatementNormalizerTests / 新增 TsRawMemberContextTests / 3 例断言更新）+ 本文件 | 3cf39918 |
 | 17 | 22171 → 15013 | 非自动属性访问器 getter/setter 形态调用点改写（项目级注册表 + raw/结构化 lambda 参数推断） | TsPropertyReconstructionRewriter.cs（ProjectAccessorRegistry / CollectProjectContexts / 访问器调用改写缺口 9 项 + lambda 族）/ TsEmitSupport.cs / ProjectTsPasses.cs / TsPropertyReconstructionRound17Tests.cs | cabeb448（主体被并发会话扫入，内容完整在 HEAD）+ 本轮提交（见下） |
+| 18 | 15013 → 13278 | ①构造器重载调用点未改 Create$N 工厂（TS2673 769→238）；②FQCN 静态方法调用接收者未缩短（TS2304 'Microsoft' 1791→146） | ① ObjectCreationTransformer.cs / TsOverloadDisambiguationRewriter.cs + TsCtorFactoryCrossFileTests.cs；② TsRawStatementNormalizer.cs + TsRawStatementNormalizerTests | 42f4dffe + 7fccb22c |
 
 
 > Round 11 注：A4 修复代码与 6 例测试被并发会话的 git add 整文件暂存扫入 
@@ -520,3 +521,55 @@
   （并发会话迭代中），轮询等待其修复后继续；RefLambdaParameterProjectTests 中途失败、随后被并发会话修复；
   cabeb448 扫入本轮大部分改动（见上）；并发会话其他文件（LambdaTransformer.cs / InvocationExpressionTransformer.cs /
   StructCloneHelper.cs / compat Java / re-error-analysis.md 等）一律不碰不纳。
+
+## Round 18 — 双根因：构造器重载调用点 Create\ 工厂改写（TS2673）+ FQCN 静态调用接收者缩短（TS2304 'Microsoft'）
+
+本轮为子代理执行轮（报告丢失，由提交、临时错误清单与独立复核重建）。实测口径：tsc 错误行数（每行一错，含一行多错）。
+
+### 根因 A — 构造器重载调用点未改 Create\ 工厂（42f4dffe）
+
+- **C# 构造**：① 仅含显式构造器 + 隐式无参构造器的 struct（MSAGL Point：484 处 TS2673）；② 对象初始化器新建
+  （ConvexHull/CurveFactory 等的 \
+ew Polyline(points) { Closed = true }\ 形态，100+ 处 TS2673）。
+- **错误 TS 输出（修复前）**：\
+ew Point(...)\ 直呼声明侧已工厂化的类（IR 层 TsCtorFactoryRewriter 已把重载
+  构造器改私有合成构造器 + Create\ 工厂），语法层 TsOverloadDisambiguationRewriter 只覆盖 ≥2 显式构造器且
+  无初始化器的场景 → \error TS2673: Constructor of class X is private.\（全库 769 条）。
+- **正确 TS 输出**：\Point.create\(...)\（与 IR 层同算法：形参个数稳定排序、隐式零参构造器优先）。
+- **根因**：IR 层工厂化与语法层调用点改写不同步——struct 隐式构造器、带对象初始化器的调用点被漏改。
+- **修复位置**：\ObjectCreationTransformer.TryBuildTsCtorFactoryCall\ 独立重算 Create 序号（与 IR 重写器同算法）
+  并覆盖三条发射路径（普通实参 / 零参 / 对象初始化器前置语句）；TsOverloadDisambiguationRewriter 同步调整。
+  TS 专属，Java 目标未动。
+- **测试**：\TsCtorFactoryCrossFileTests.cs\ +2（struct 隐式构造器同/跨文件、对象初始化器新建），先红后绿。
+- **验证**：TS2673 769 → 238（−531）。
+
+### 根因 B — FQCN 静态方法调用接收者未缩短（7fccb22c）
+
+- **C# 构造**：struct 运算符 / 静态调用发射为 raw Java 文本时保留全限定接收者：
+  \ct * ct\ → \Microsoft.Msagl.Core.Geometry.Point.op_Multiply(ct, ct)\（ClosestPointOnCurve 等）。
+- **错误 TS 输出（修复前）**：\error TS2304: Cannot find name 'Microsoft'.\（1,791 条，TS2304 头号族，
+  占全库 ~60%）；NormalizeFqcnExpressions 只缩短末段后随 \.\（成员访问）或 \
+ew \（创建位）的链，
+  以 \(\ 结尾的静态调用直通。
+- **正确 TS 输出**：\Point.op_Multiply(ct, ct)\。
+- **修复位置**：\TsRawStatementNormalizer.NormalizeFqcnExpressions\ 增 \fter == '('\ 非 new 分支——末段视为
+  方法名、类型前缀经 mapType oracle 缩短。守卫：类型前缀必须 ≥2 个点（FQCN 形态），短链 \Timer.GlobalTick.add(...)\
+  不误伤（回归由 TsEventEmissionTests 捕获，先红后绿）；\java./io.github./System.\ 前缀与单段前缀经 oracle 恒等
+  返回不动。
+- **测试**：\TsRawStatementNormalizerTests\ +2（含嵌套括号接收者的静态调用缩短；守卫：Stream.concat /
+  System.arraycopy / io.github FQCN / throw new java.util. / Timer.GlobalTick + new FQCN 回归），先红后绿。
+- **验证**：TS2304 'Microsoft' 1,791 → 146（−1,645）。
+
+### 验证链（独立复核）
+
+- 15,013 → 13,278 错误行（−1,735）；唯一三元组 14,786 → 13,053（−1,733）。语法 0。
+- 修复后主要错误族：TS2531 2,959、TS2339 1,969、TS2304 1,343、TS2551 1,318、TS2345 918、TS18047 826、
+  TS2322 820、TS2693 370、TS18046 304、TS2673 238、TS7006 221、TS2488 195。
+- **TS2551 1019 → 1318（+299，揭示型迁移非回归）**：新增 356 处全为 getter/setter 形态调用点（getLength 135 /
+  getLengthSquared 17 / setClosed 17 / setUserData 13 / getDirection 12 / getIsEmpty 8 / setPolyline 8 /
+  getCenter 7 / setLength 7 等）——FQCN 接收者缩短后类型解析成功，先前被 TS2304 掩盖的
+  \x.getLength()\ 直呼形态浮现（Round 17 重写器对这些接收者当时无法解析未改写）。**下轮主候选**：
+  让 TsPropertyReconstructionRewriter 覆盖此类接收者（缩短后/类型化后的调用点），预计可一次收割数百条。
+- **dotnet test 全绿**：7 + 638 + 2475（独立复核确认）。
+- **提交**：42f4dffe（A）、7fccb22c（B），本文档独立提交。
+- **并发干扰**：无（本轮执行期间无并发提交；仓库现存未提交改动属其他会话工作区，不碰不纳）。
