@@ -42,6 +42,12 @@ public enum UnicodeCategory {
         return ordinal();
     }
 
+    /** Maps a .NET UnicodeCategory ordinal (C# enum cast) to this enum. */
+    public static UnicodeCategory fromValue(int value) {
+        UnicodeCategory[] values = values();
+        return (value >= 0 && value < values.length) ? values[value] : OtherNotAssigned;
+    }
+
     public static UnicodeCategory of(int javaType) {
         return switch (javaType) {
             case java.lang.Character.UPPERCASE_LETTER -> UppercaseLetter;
