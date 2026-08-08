@@ -3637,6 +3637,13 @@
             ]
         },
         {
+            "csharp": "System.Reflection.AssemblyCompanyAttribute",
+            "java": "AssemblyCompanyAttribute",
+            "imports": [
+                "io.github.ningpp.compat.AssemblyCompanyAttribute"
+            ]
+        },
+        {
             "csharp": "System.Reflection.FieldInfo",
             "java": "FieldInfo",
             "imports": [
