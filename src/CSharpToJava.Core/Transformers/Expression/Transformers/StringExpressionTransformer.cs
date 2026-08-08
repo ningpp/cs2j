@@ -246,6 +246,11 @@ public class StringExpressionTransformer : IIRExpressionTransformer
             text = text.Replace("\\\"\\\"", "\\\"");
         }
 
+        // C# interpolated strings escape literal braces as {{ and }} in the source text;
+        // the token text still contains the doubled braces, which Java does not unescape.
+        // Unescape them so $@"\p{{{x}}}" produces "\p{" + x + "}" instead of "\p{{" + x + "}}".
+        text = text.Replace("{{", "{").Replace("}}", "}");
+
         return text;
     }
 

@@ -747,7 +747,15 @@ public class MethodTransformer : IMemberTransformer
                         hasArrayArg = true;
                         break;
                     }
-                    if (i < paramTypes.Count && paramTypes[i] is IArrayTypeSymbol)
+                    var targetType = i < paramTypes.Count ? paramTypes[i] : null;
+                    if (targetType is IArrayTypeSymbol)
+                    {
+                        hasArrayArg = true;
+                        break;
+                    }
+                    // char parameters cannot round-trip through CSV: control characters
+                    // (e.g. '\0') make the CSV record invalid and JUnit rejects them.
+                    if (targetType?.SpecialType == SpecialType.System_Char)
                     {
                         hasArrayArg = true;
                         break;
