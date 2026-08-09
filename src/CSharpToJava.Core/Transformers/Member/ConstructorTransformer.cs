@@ -118,7 +118,8 @@ public class ConstructorTransformer : IMemberTransformer
             var expr = ctorDecl.ExpressionBody.Expression;
             var exprTransformer = ExpressionTransformerFacade.Instance;
             var transformed = exprTransformer.Transform(expr, context);
-            bool isVoidCompatible = expr is AssignmentExpressionSyntax
+            bool isVoidCompatible = expr is ThrowExpressionSyntax
+                || expr is AssignmentExpressionSyntax
                 || expr is InvocationExpressionSyntax
                 || expr is PostfixUnaryExpressionSyntax
                 || expr is PrefixUnaryExpressionSyntax;

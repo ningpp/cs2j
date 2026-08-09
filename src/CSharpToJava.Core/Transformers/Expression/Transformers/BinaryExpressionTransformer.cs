@@ -484,7 +484,13 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             var rightType = context.GetTypeInfo(node.Right).Type;
             bool leftIsUInt = leftType?.SpecialType == SpecialType.System_UInt32;
             bool rightIsUInt = rightType?.SpecialType == SpecialType.System_UInt32;
-            if (leftIsUInt || rightIsUInt)
+            bool leftIsULong = leftType?.SpecialType == SpecialType.System_UInt64;
+            bool rightIsULong = rightType?.SpecialType == SpecialType.System_UInt64;
+            // C# (uint)ch - 'A' promotes to long (uint op char), hiding the UInt32 type
+            // from the semantic model — but the emitted chain still carries the uint mask
+            // (e.g. RegexCharClass.IsECMAWordChar's letter check). The wrap-around happens
+            // inside the uint subtraction, so the comparison must stay unsigned.
+            if (leftIsUInt || rightIsUInt || leftIsULong || rightIsULong)
             {
                 var leftExpr = facade.Transform(node.Left, context);
                 var rightExpr = facade.Transform(node.Right, context);
@@ -492,7 +498,15 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 // Integer.compareUnsigned handles the unsigned semantics directly.
                 leftExpr = StripUIntMask(leftExpr);
                 rightExpr = StripUIntMask(rightExpr);
-                var cmpOp = op switch
+                // UInt64 comparisons use Long.compareUnsigned; UInt32 uses Integer.
+                var cmpOp = (leftIsULong || rightIsULong) ? op switch
+                {
+                    "<" => "Long.compareUnsigned({0}, {1}) < 0",
+                    ">" => "Long.compareUnsigned({0}, {1}) > 0",
+                    "<=" => "Long.compareUnsigned({0}, {1}) <= 0",
+                    ">=" => "Long.compareUnsigned({0}, {1}) >= 0",
+                    _ => "{0} " + op + " {1}"
+                } : op switch
                 {
                     "<" => "Integer.compareUnsigned({0}, {1}) < 0",
                     ">" => "Integer.compareUnsigned({0}, {1}) > 0",
@@ -501,6 +515,23 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                     _ => "{0} " + op + " {1}"
                 };
                 return string.Format(cmpOp, leftExpr, rightExpr);
+            }
+            var leftExprMasked = facade.Transform(node.Left, context);
+            var rightExprMasked = facade.Transform(node.Right, context);
+            if (leftExprMasked.Contains("& 0xFFFFFFFFL", StringComparison.Ordinal)
+                || rightExprMasked.Contains("& 0xFFFFFFFFL", StringComparison.Ordinal))
+            {
+                var cmpOpMasked = op switch
+                {
+                    "<" => "Integer.compareUnsigned({0}, {1}) < 0",
+                    ">" => "Integer.compareUnsigned({0}, {1}) > 0",
+                    "<=" => "Integer.compareUnsigned({0}, {1}) <= 0",
+                    ">=" => "Integer.compareUnsigned({0}, {1}) >= 0",
+                    _ => "{0} " + op + " {1}"
+                };
+                return string.Format(cmpOpMasked,
+                    StripUIntMask(leftExprMasked),
+                    StripUIntMask(rightExprMasked));
             }
         }
 
