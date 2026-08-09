@@ -231,6 +231,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
                 '\\' => "'\\\\'",
                 '\'' => "'\\''",
                 _ when c < 0x20 => $"'\\u{((int)c):X4}'",
+                _ when char.IsSurrogate(c) => $"'\\u{((int)c):X4}'",
                 _ => $"'{c}'"
             };
         }

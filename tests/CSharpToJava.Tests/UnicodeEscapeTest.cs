@@ -332,7 +332,8 @@ public class UnicodeEscapeTest
             """);
 
         Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics)}");
-        Assert.Contains("\\0", result.GeneratedCode, StringComparison.Ordinal);
+        // \u0000 (not the \0 octal form — a following digit would extend the escape)
+        Assert.Contains("\\u0000", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

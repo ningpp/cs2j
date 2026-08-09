@@ -68,7 +68,7 @@ public class StringExpressionTransformer : IIRExpressionTransformer
         {
             if (content is InterpolatedStringTextSyntax textSyntax)
             {
-                currentText.Append(GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw));
+                currentText.Append(GetProcessedInterpolatedText(textSyntax, isVerbatim, isRaw));
             }
             else if (content is InterpolationSyntax interpolation)
             {
@@ -151,7 +151,7 @@ public class StringExpressionTransformer : IIRExpressionTransformer
         {
             if (content is InterpolatedStringTextSyntax textSyntax)
             {
-                currentText.Append(GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw));
+                currentText.Append(GetProcessedInterpolatedText(textSyntax, isVerbatim, isRaw));
             }
             else if (content is InterpolationSyntax interpolation)
             {
@@ -202,7 +202,7 @@ public class StringExpressionTransformer : IIRExpressionTransformer
         {
             if (content is InterpolatedStringTextSyntax textSyntax)
             {
-                var text = GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw);
+                var text = GetProcessedInterpolatedText(textSyntax, isVerbatim, isRaw);
                 // Escape literal % characters so they don't become format specifiers
                 text = text.Replace("%", "%%");
                 formatSb.Append(text);
@@ -252,6 +252,23 @@ public class StringExpressionTransformer : IIRExpressionTransformer
         text = text.Replace("{{", "{").Replace("}}", "}");
 
         return text;
+    }
+
+    /// <summary>
+    /// Regular (non-verbatim, non-raw) interpolated strings keep C# escape sequences
+    /// (\" etc.) in the token TEXT; using the parsed VALUE makes the Java re-escaping
+    /// correct (e.g. $"Match: \"{m}\"" emits a plain quote, not backslash-quote).
+    /// </summary>
+    private static string GetProcessedInterpolatedText(
+        InterpolatedStringTextSyntax textSyntax,
+        bool isVerbatim,
+        bool isRaw)
+    {
+        if (!isVerbatim && !isRaw)
+        {
+            return StringEscapeHelper.EscapeJavaString(textSyntax.TextToken.ValueText);
+        }
+        return GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw);
     }
 
     // Fix 1: Complete C# → Java format specifier conversion table

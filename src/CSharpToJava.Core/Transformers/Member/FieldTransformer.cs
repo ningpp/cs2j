@@ -591,7 +591,7 @@ public class FieldTransformer : IMemberTransformer
             return b ? "true" : "false";
 
         if (value is string s)
-            return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t") + "\"";
+            return "\"" + global::CSharpToJava.Core.Utilities.StringEscapeHelper.EscapeJavaString(s) + "\"";
 
         if (value is char c)
             return EscapeJavaChar(c);

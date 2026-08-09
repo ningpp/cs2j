@@ -18,9 +18,15 @@ internal static class StringEscapeHelper
                 case '\r': sb.Append("\\r"); break;
                 case '\b': sb.Append("\\b"); break;
                 case '\f': sb.Append("\\f"); break;
-                case '\0': sb.Append("\\0"); break;
+                case '\0': sb.Append("\\u0000"); break;
                 default:
                     if (c < 0x20)
+                        sb.Append("\\u").Append(((int)c).ToString("X4"));
+                    else if (char.IsSurrogate(c))
+                        // Surrogate code units (e.g. RegexCharClass category ranges
+                        // like "\uD800\uDB80"): the .NET UTF-8 encoder replaces unpaired
+                        // surrogates with U+FFFD when writing the output file. Emit the
+                        // Java \u escape so the exact code unit survives.
                         sb.Append("\\u").Append(((int)c).ToString("X4"));
                     else
                         sb.Append(c);
