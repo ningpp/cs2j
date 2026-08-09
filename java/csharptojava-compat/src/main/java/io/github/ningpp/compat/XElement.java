@@ -23,6 +23,15 @@ public final class XElement {
         return attribute == null ? null : new XAttribute(localName(attribute), attribute.getValue());
     }
 
+    /**
+     * Overload for converted call sites that pass the C# XElement.Attribute(XName)
+     * form; the converter emits XName.toXName("Id") for the implicit string->XName
+     * conversion, so the attribute name arrives as an XName.
+     */
+    public XAttribute attribute(XName name) {
+        return attribute(name.LocalName);
+    }
+
     Element unwrap() {
         return element;
     }

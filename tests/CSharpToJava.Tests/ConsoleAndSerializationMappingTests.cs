@@ -29,10 +29,13 @@ class Test
     }
 
     [Fact]
-    public void ExceptionSerializationConstructor_ForwardsToBase()
+    public void ExceptionSerializationConstructor_IsOmitted()
     {
-        // A .NET serialization constructor whose body is a pure base forwarding is emitted
-        // with __suppress__-typed parameters so derived serialization call sites compile.
+        // A .NET serialization constructor (SerializationInfo, StreamingContext) is
+        // meaningless in Java: java.io.Serializable does not use it, and a base
+        // forwarding super(info, context) cannot compile because the mapped base
+        // (Exception -> RuntimeException) has no (Object, Object) constructor.
+        // The constructor must be omitted entirely.
         var result = Convert("""
 using System;
 using System.Runtime.Serialization;
@@ -54,7 +57,9 @@ class AcceptException : Exception
         Assert.Contains("AcceptException()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("SerializationInfo", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("StreamingContext", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("super(info, context)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("__suppress__", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("super(info, context)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("super(SerializationInfo", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -35,14 +35,11 @@ public class ConstructorTransformer : IMemberTransformer
         }
 
         // .NET serialization constructors take (SerializationInfo, StreamingContext).
-        // Java has no equivalent; the params map to the __suppress__ placeholder type.
-        // When the ctor body does NOT use the suppressed params (e.g. Regex's ctor is a
-        // throw, a derived ctor is a pure base call), emit it with __suppress__ params so
-        // call sites still compile and the runtime behavior (throw) is preserved. When the
-        // body does use them (info.GetString(...) etc.), omit it as before.
-        bool isSerializationCtor = IsDotNetSerializationConstructor(ctorDecl, context);
-        if (isSerializationCtor
-            && SerializationCtorReferencesSuppressedParams(ctorDecl, context))
+        // Java has no equivalent: java.io.Serializable does not use such a constructor,
+        // and emitting it cannot work because the mapped base (Exception -> RuntimeException)
+        // has no matching (Object, Object) constructor, so even a pure base-forwarding
+        // ctor would produce uncompilable super(...) calls. Omit it unconditionally.
+        if (IsDotNetSerializationConstructor(ctorDecl, context))
         {
             context.Diagnostics.Info(
                 ".NET serialization constructor omitted; Java serialization does not use SerializationInfo/StreamingContext constructors.",
@@ -330,46 +327,5 @@ public class ConstructorTransformer : IMemberTransformer
         var syntaxText = typeSyntax.ToString();
         return syntaxText == expectedName
             || syntaxText.EndsWith($".{expectedName}", StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Returns true when the serialization constructor's body or initializer calls
-    /// members ON the suppressed parameters (e.g. info.GetString(...)). Such bodies
-    /// cannot compile with __suppress__-typed parameters and the ctor must be omitted.
-    /// Plain parameter references (e.g. base(info, context) forwarding) are safe.
-    /// </summary>
-    private static bool SerializationCtorReferencesSuppressedParams(
-        ConstructorDeclarationSyntax ctorDecl,
-        ConversionContext context)
-    {
-        if (context.SemanticModel == null)
-            return true;
-
-        var suppressedParams = (ctorDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
-            .Where(p => IsSerializationType(p.Type, context, "SerializationInfo")
-                || IsSerializationType(p.Type, context, "StreamingContext"))
-            .Select(p => p.Identifier.Text)
-            .ToHashSet(StringComparer.Ordinal);
-        if (suppressedParams.Count == 0)
-            return false;
-
-        SyntaxNode[] scanNodes =
-        {
-            ctorDecl.Body as SyntaxNode ?? ctorDecl.ExpressionBody as SyntaxNode,
-            ctorDecl.Initializer
-        };
-
-        foreach (var node in scanNodes.Where(n => n != null))
-        {
-            foreach (var id in node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
-            {
-                if (!suppressedParams.Contains(id.Identifier.Text))
-                    continue;
-                if (id.Parent is MemberAccessExpressionSyntax or InvocationExpressionSyntax)
-                    return true;
-            }
-        }
-
-        return false;
     }
 }

@@ -309,3 +309,42 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **分析**: bd189ff3 曾基于"readonly 迁移会把 IRectangle.add 返回类型扩大为接口类型"的错误假设，将桥接方法返回类型从 void 改成 IRectangle<P>；但 C# 中 IRectangle.Add(P) 始终返回 void（readonly 迁移的显式接口实现也是 void），导致生成的桥接方法无法实现接口方法。已改回 void。
 
 ✅ Fixed (2026-08-09) — AddIRectangleBridgeMethods 桥接 add(BoxedType) 改回 void 返回。验证: mvn clean package -e → BUILD SUCCESS (EXIT=0)。
+
+## Iteration 1 — incompatible types: __suppress__ cannot be converted to String (serialization ctor)
+- **Java 文件**: qut-shiftreduceparser/src/main/java/QUT/Gppg/ShiftReduceParser.java:398,405,412
+- **错误信息**: 不兼容的类型: io.github.ningpp.compat.__suppress__无法转换为java.lang.String
+- **代码片段**:
+  `
+  java
+  protected AcceptException(__suppress__ i, __suppress__ c) {
+      super(i, c);
+  }
+  `
+- **对应 C# 文件**: tools\QUT.ShiftReduceParser\ShiftReduceParser.cs:411-449 (AcceptException/AbortException/ErrorException)
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Member/ConstructorTransformer.cs:37-51
+- **分析**: .NET 序列化构造函数 (SerializationInfo, StreamingContext) 若函数体只做 base 转发，转换器会按注释"让派生调用点可编译"发射 __suppress__ 参数版本；但 super(i, c) 的 Java 基类 (Exception→RuntimeException) 没有 (Object,Object) 构造函数，javac 必然报错。发射这个构造函数本身就是错误——Java 序列化从不使用该模式，应整体省略。
+
+## Iteration 2 — 运行时 ClassCastException: Character 无法转换为 Number (MemoryMarshal.asBytes)
+- **Java 文件**: msagltests (InitialLayoutTests/SplineRouterTests 等)
+- **错误信息**: java.lang.ClassCastException: class java.lang.Character cannot be cast to class java.lang.Number
+  at io.github.ningpp.compat.MemoryMarshal.asBytes(MemoryMarshal.java:13)
+  at dotnet.xml.NameTable.computeHash32(NameTable.java:162)
+- **对应 C# 文件**: D:\csharpxml\System\Xml\NameTable.cs:238 (MemoryMarshal.AsBytes(key.AsSpan()))
+- **根因分类**: compat 库缺陷
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/MemoryMarshal.java
+- **分析**: C# MemoryMarshal.AsBytes(ReadOnlySpan<char>) 按 UTF-16 小端语义每字符产出 2 字节；compat asBytes 无条件按 Number 处理（每元素 4 字节），char span 元素是 Character → ClassCastException。
+- **修复**: asBytes 检测 Character 元素，按 UTF-16 小端 2 字节展开。
+- **测试**: MemoryMarshalTest.asBytesReinterpretsCharacterSpanAsUtf16LittleEndianBytes（先红后绿）
+
+## Iteration 3 — 找不到符号 XName.toXName / attribute(XName) 不兼容 String
+- **Java 文件**: dgmlparser/src/main/java/DgmlParser/DgmlParser.java:38 等 10 处
+- **错误信息**: 找不到符号 方法 toXName(java.lang.String) 位置: 类 io.github.ningpp.compat.XName；随后: 不兼容的类型: XName无法转换为java.lang.String
+- **对应 C# 文件**: E:\agl-master\GraphLayout\tools\DgmlParser\DGMLParser.cs:34 (nodeElement.Attribute("Id"))
+- **根因分类**: compat 库缺陷
+- **涉及组件**: TypeOperationTransformer.cs:606 / ExpressionTransformerHelpers.cs:293（生成 to<Type> 工厂调用）；java/csharptojava-compat 的 XName.java、XElement.java
+- **分析**: 转换器对 C# 隐式转换 string→XName 按约定合成 XName.toXName(...) 调用并传给 attribute(XName)；compat 缺 toXName 工厂且 attribute 只收 String。
+- **修复**: XName 增加 static toXName(String) 工厂；XElement 增加 attribute(XName) 重载（委托 String 版本）。
+- **测试**: XmlLinqTest.toXNameFactoryCreatesNameFromString / attributeAcceptsXNameFromToXNameFactory（先红后绿；首版测试自身有死循环 bug 已修正）
+
+✅ Fixed (2026-08-09) — mvn clean package -e → BUILD SUCCESS (EXIT=0)，9 模块全部成功，609 测试 0 失败 0 错误。

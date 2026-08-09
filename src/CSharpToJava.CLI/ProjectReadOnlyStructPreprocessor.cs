@@ -706,6 +706,15 @@ internal static class ProjectReadOnlyStructPreprocessor
             !exclusionInfo.ExcludedProjectPaths.Contains(Path.GetFullPath(project.ProjectFilePath)));
     }
 
+    private static async Task ForwardOutputAsync(System.IO.StreamReader source, TextWriter destination)
+    {
+        string? line;
+        while ((line = await source.ReadLineAsync()) != null)
+        {
+            await destination.WriteLineAsync(line);
+        }
+    }
+
     private static async Task<int> RunDotNetCommandAsync(string verb, string targetPath, bool verbose, string? configuration = null)
     {
         try
@@ -726,23 +735,19 @@ internal static class ProjectReadOnlyStructPreprocessor
                 return -1;
             }
 
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
+            var outputTask = ForwardOutputAsync(process.StandardOutput, Console.Out);
+            var errorTask = ForwardOutputAsync(process.StandardError, Console.Error);
             await process.WaitForExitAsync();
-            var output = await outputTask;
-            var error = await errorTask;
+            await outputTask;
+            await errorTask;
 
             if (process.ExitCode != 0)
             {
                 Console.Error.WriteLine($"dotnet {verb} exited with code {process.ExitCode} for {targetPath}");
-                if (!string.IsNullOrWhiteSpace(output))
-                    Console.Error.WriteLine(output);
-                if (!string.IsNullOrWhiteSpace(error))
-                    Console.Error.WriteLine(error);
             }
-            else if (verbose)
+            else
             {
-                Console.WriteLine($"dotnet {verb} succeeded for {targetPath}");
+                Console.WriteLine($"[make-readonly] dotnet {verb} succeeded for {targetPath}");
             }
 
             return process.ExitCode;
