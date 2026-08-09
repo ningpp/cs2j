@@ -3423,14 +3423,14 @@ public class ClassTransformer : ITypeTransformer
             javaClass.Methods.Add(bridge);
         }
 
-        // Bridge: IRectangle<P> add(BoxedType point)  →  add((primitive) point)
-        // The readonly-struct migration widened IRectangle.add to return the interface
-        // type, so the bridge must return it too (a void bridge no longer implements
-        // the interface method).
+        // Bridge: void add(BoxedType point)  →  add((primitive) point)
+        // C# IRectangle.Add(P) always returns void — the readonly-struct migration
+        // keeps the interface implementation void (the result-bearing form is only
+        // used internally as this = Add(point)), so the bridge must return void too.
         if (!javaClass.Methods.Any(m => m.Name == "add" && m.Parameters.Count == 1 && m.Parameters[0].Type == boxedType)
             && javaClass.Methods.Any(m => m.Name == "add" && m.Parameters.Count == 1 && m.Parameters[0].Type == primitiveType))
         {
-            var bridge = new JavaMethodDeclaration { Modifiers = JavaModifiers.Public, ReturnType = iRectType, Name = "add", Body = $"return add(({primitiveType}) point);" };
+            var bridge = new JavaMethodDeclaration { Modifiers = JavaModifiers.Public, ReturnType = "void", Name = "add", Body = $"add(({primitiveType}) point);" };
             bridge.Parameters.Add(new JavaParameter(boxedType, "point"));
             javaClass.Methods.Add(bridge);
         }

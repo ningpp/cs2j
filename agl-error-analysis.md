@@ -291,3 +291,19 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **根因分类**: Transformer
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs:6512-6518; src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs:576-614 (RenderConstLocalValue)
 - **分析**: (1) base.ToString() 解析到 System.Object.ToString() 时命中 ObjectHelper.objectToString 分支，receiver "base" 被 facade 渲染为 "super"，而 super 不能作为方法参数；(2) const 局部变量 double.PositiveInfinity 经 RenderConstLocalValue 用 d.ToString(InvariantCulture) 得到 "Infinity"，因无小数点追加 ".0" 成为非法字面量 "Infinity.0"。
+
+## Iteration 2 — IRectangle add 桥接方法返回类型错误
+
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Layout/LargeGraphLayout/Interval.java:61,158,159
+- **行号**: Interval.java:158
+- **错误信息**: Interval中的add(java.lang.Double)无法实现IRectangle中的add(P); 返回类型IRectangle<Double>与void不兼容
+- **代码片段**:
+  `java
+  public IRectangle<Double> add(Double point) {
+      return add((double) point);
+  }
+  `
+- **对应 C# 文件**: Core\Geometry\IRectangle.cs:3 (void Add(P point);); Layout\LargeGraphLayout\Interval.cs:38 (public void Add(double v))
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs:3430-3436 (AddIRectangleBridgeMethods)
+- **分析**: bd189ff3 曾基于"readonly 迁移会把 IRectangle.add 返回类型扩大为接口类型"的错误假设，将桥接方法返回类型从 void 改成 IRectangle<P>；但 C# 中 IRectangle.Add(P) 始终返回 void（readonly 迁移的显式接口实现也是 void），导致生成的桥接方法无法实现接口方法。已改回 void。
