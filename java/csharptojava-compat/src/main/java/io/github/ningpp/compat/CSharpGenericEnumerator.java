@@ -3,14 +3,27 @@ package io.github.ningpp.compat;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public interface CSharpGenericEnumerator<T> extends Iterator<T> {
+public interface CSharpGenericEnumerator<T> extends CSharpEnumerator, Iterator<T> {
     @SuppressWarnings("unchecked")
     static <T> CSharpGenericEnumerator<T> from(Iterator<? extends T> iterator) {
         return new IteratorBackedCSharpEnumerator<T>((Iterator<T>) iterator);
     }
 
     boolean moveNext();
+    @Override
     T getCurrent();
+
+    /** Iterator bridge — hasNext() delegates to moveNext(). */
+    @Override
+    default boolean hasNext() {
+        return moveNext();
+    }
+
+    /** Iterator bridge — next() returns the current element. */
+    @Override
+    default T next() {
+        return getCurrent();
+    }
 
     default void reset() {
         throw new UnsupportedOperationException("Reset is not supported");

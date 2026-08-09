@@ -20,8 +20,25 @@ public final class ReadOnlyMemory<T> {
         this.length = 0;
     }
 
+    /** Mirrors ReadOnlyMemory&lt;T&gt;.Empty. */
+    @SuppressWarnings("rawtypes")
+    public static final ReadOnlyMemory Empty = new ReadOnlyMemory<>();
+
+    /** Mirrors ReadOnlyMemory&lt;T&gt;.Empty as a generated static getter call. */
+    @SuppressWarnings("unchecked")
+    public static <T> ReadOnlyMemory<T> getEmpty() {
+        return Empty;
+    }
+
     public ReadOnlyMemory(T[] array) {
         this(array, 0, array == null ? 0 : array.length);
+    }
+
+    /** Copy constructor — allows re-wrapping a ReadOnlyMemory without type inference issues. */
+    public ReadOnlyMemory(ReadOnlyMemory<T> other) {
+        this.backing = other.backing;
+        this.start = other.start;
+        this.length = other.length;
     }
 
     public ReadOnlyMemory(T[] array, int start, int length) {

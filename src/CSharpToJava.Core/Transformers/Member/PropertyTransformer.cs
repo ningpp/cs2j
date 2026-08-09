@@ -328,7 +328,14 @@ public class PropertyTransformer : IMemberTransformer
                                 | (accessorVisibility & (JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private));
             }
             // 确保只有一个访问修饰符
-            setterModifiers = GetSingleAccessModifier(setterModifiers);
+            bool propertyIsPublic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))
+                || !propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ProtectedKeyword)
+                    || m.IsKind(SyntaxKind.PrivateKeyword)
+                    || m.IsKind(SyntaxKind.InternalKeyword));
+            setterModifiers = GetSingleAccessModifier(
+                setterModifiers,
+                propertyIsPublic,
+                context.Options.TargetLanguage == TargetLanguage.Java);
 
             string? setterBodyExpr = null;
             bool setterIsBodyExpr = false;
@@ -452,13 +459,25 @@ public class PropertyTransformer : IMemberTransformer
         return result;
     }
 
-    private JavaModifiers GetSingleAccessModifier(JavaModifiers modifiers)
+    private JavaModifiers GetSingleAccessModifier(JavaModifiers modifiers, bool propertyIsPublic = false, bool javaTarget = true)
     {
         // C# 'private protected' yields BOTH Private and Protected flags; it means
         // accessible to the containing type and its derived classes — the closest
         // Java equivalent is protected so subclasses can call the setter.
         if ((modifiers & JavaModifiers.Private) != 0 && (modifiers & JavaModifiers.Protected) != 0)
             return (modifiers & ~JavaModifiers.Public & ~JavaModifiers.Private);
+        // C# 'private set' on a public property: C# permits assignment from any
+        // method of the declaring type, including to instances of derived classes
+        // (e.g. a base-class method assigning a subclass instance's property). Java's
+        // private member is not visible through a subclass reference, so widen a
+        // private setter to protected — matching the private-protected precedent.
+        // TypeScript keeps a plain private setter (its set accessor is private).
+        if (javaTarget
+            && propertyIsPublic
+            && (modifiers & JavaModifiers.Private) != 0
+            && (modifiers & JavaModifiers.Public) == 0
+            && (modifiers & JavaModifiers.Protected) == 0)
+            return (modifiers & ~JavaModifiers.Private) | JavaModifiers.Protected;
         // 确保只有一个访问修饰符（public, protected, private）
         // 优先级：private > protected > public
         if ((modifiers & JavaModifiers.Private) != 0)

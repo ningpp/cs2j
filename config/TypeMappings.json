@@ -118,6 +118,13 @@
             ]
         },
         {
+            "csharp": "Dictionary",
+            "java": "CSharpDictionary",
+            "imports": [
+                "io.github.ningpp.compat.CSharpDictionary"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.IDictionary`2",
             "java": "CSharpGenericIDictionary",
             "imports": [
@@ -3842,6 +3849,34 @@
             "java": "BigInteger",
             "imports": [
                 "java.math.BigInteger"
+            ]
+        },
+        {
+            "csharp": "System.Numerics.Vector`1",
+            "java": "Vector",
+            "imports": [
+                "io.github.ningpp.compat.Vector"
+            ]
+        },
+        {
+            "csharp": "System.Numerics.Vector",
+            "java": "Vector",
+            "imports": [
+                "io.github.ningpp.compat.Vector"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.CompilerServices.Unsafe",
+            "java": "Unsafe",
+            "imports": [
+                "io.github.ningpp.compat.Unsafe"
+            ]
+        },
+        {
+            "csharp": "System.Buffers.Text.Base64",
+            "java": "Base64",
+            "imports": [
+                "io.github.ningpp.compat.Base64"
             ]
         },
         {

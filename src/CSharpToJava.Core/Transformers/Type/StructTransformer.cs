@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Type;
@@ -21,8 +22,42 @@ public class StructTransformer : ITypeTransformer
             throw new ArgumentException($"Expected StructDeclarationSyntax, got {node.GetType()}");
         }
 
-        // Detect readonly and ref modifiers for special handling
-        bool isReadOnly = structDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword));
+        return TransformCore(structDecl, null, context);
+    }
+
+    /// <summary>
+    /// Converts a merged partial struct (e.g. ref partial struct Utf8JsonReader split
+    /// across multiple files). Members are processed per original syntax node so the
+    /// semantic model matches each member's own tree, mirroring ClassTransformer.
+    /// </summary>
+    public JavaTypeDeclaration TransformMerged(MergedTypeDeclaration mergedType, ConversionContext context)
+        => TransformMerged(mergedType, context, mergedType.OriginalSyntaxNodes);
+
+    /// <summary>
+    /// Converts a merged partial struct, restricted to the syntax nodes that belong
+    /// to the current compilation (synthetic GetSyntax() trees must be excluded —
+    /// their members fail semantic lookups with "syntax node is not within syntax tree").
+    /// </summary>
+    public JavaTypeDeclaration TransformMerged(
+        MergedTypeDeclaration mergedType,
+        ConversionContext context,
+        IReadOnlyList<TypeDeclarationSyntax> validNodes)
+    {
+        if (mergedType.MergedSyntax is not StructDeclarationSyntax structDecl)
+        {
+            throw new ArgumentException($"Expected merged StructDeclarationSyntax, got {mergedType.MergedSyntax.GetType()}");
+        }
+
+        return TransformCore(structDecl, mergedType.TypeSymbol, context, validNodes);
+    }
+
+    private JavaTypeDeclaration TransformCore(
+        StructDeclarationSyntax structDecl,
+        INamedTypeSymbol? mergedStructSymbol,
+        ConversionContext context,
+        IReadOnlyList<TypeDeclarationSyntax>? originalNodes = null)
+    {
+        var isReadOnly = structDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword));
         bool isRefStruct = structDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword));
 
         // C# struct 转换为 Java 类
@@ -34,7 +69,7 @@ public class StructTransformer : ITypeTransformer
             // Mark as value class if UseValueClass option is enabled and struct is readonly
             IsValueClass = context.Options.UseValueClass && isReadOnly
         };
-        var structSymbol = context.GetDeclaredSymbol(structDecl);
+        var structSymbol = mergedStructSymbol ?? context.GetDeclaredSymbol(structDecl);
         var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();
 
         // Fix 3: ref struct — emit a leading comment since Java has no stack-only equivalent.
@@ -98,7 +133,7 @@ public class StructTransformer : ITypeTransformer
 
         // Pre-register nested enums so that their type information (FlagsEnum, ExplicitValueEnum)
         // is available when processing method bodies that reference them.
-        foreach (var member in structDecl.Members)
+        foreach (var member in EnumerateMembers(structDecl, originalNodes, context))
         {
             if (member is EnumDeclarationSyntax nestedEnum)
             {
@@ -107,7 +142,7 @@ public class StructTransformer : ITypeTransformer
             }
         }
 
-        foreach (var member in structDecl.Members)
+        foreach (var member in EnumerateMembers(structDecl, originalNodes, context))
         {
             ProcessStructMember(member, javaClass, context);
         }
@@ -124,35 +159,13 @@ public class StructTransformer : ITypeTransformer
                     field.Modifiers |= JavaModifiers.Final;
                 }
             }
-
-            // For final fields assigned in constructors, remove field initializers.
-            // In Java, a final field with an initializer cannot be assigned in a constructor.
-            var fieldsAssignedInCtors = new HashSet<string>();
-            foreach (var ctor in javaClass.Constructors)
-            {
-                var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
-                foreach (var field in javaClass.Fields)
-                {
-                    if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
-                    if (body.Contains($"this.{field.Name} =") || body.Contains($"this.{field.Name}=") ||
-                        System.Text.RegularExpressions.Regex.IsMatch(body, $@"(?<!this\.)(?<!\w){System.Text.RegularExpressions.Regex.Escape(field.Name)}\s*="))
-                    {
-                        fieldsAssignedInCtors.Add(field.Name);
-                    }
-                }
-            }
-            foreach (var field in javaClass.Fields)
-            {
-                if (fieldsAssignedInCtors.Contains(field.Name) && !string.IsNullOrWhiteSpace(field.Initializer))
-                {
-                    field.Initializer = null;
-                }
-            }
         }
 
         // For non-readonly structs, still apply final to individually-declared readonly fields.
         // The StructTransformer handles the no-arg ctor initialization, so final is safe here.
-        if (!isReadOnly)
+        // Exception: ref structs may be reassigned as a whole (`this = other;`), which the
+        // converter expands into per-field assignments — final fields would then fail to compile.
+        if (!isReadOnly && !isRefStruct)
         {
             var readonlyFieldNames = new HashSet<string>();
             foreach (var member in structDecl.Members)
@@ -168,6 +181,33 @@ public class StructTransformer : ITypeTransformer
             {
                 if (readonlyFieldNames.Contains(field.Name))
                     field.Modifiers |= JavaModifiers.Final;
+            }
+        }
+
+        // For final fields assigned in constructors, remove field initializers:
+        // Java forbids assigning a final field that carries an initializer in a
+        // constructor ("variable x might already have been assigned"). Applies to
+        // both readonly structs (all fields final) and readonly fields of plain structs.
+        var finalFieldsAssignedInCtors = new HashSet<string>();
+        foreach (var ctor in javaClass.Constructors)
+        {
+            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
+            foreach (var field in javaClass.Fields)
+            {
+                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
+                if ((field.Modifiers & JavaModifiers.Final) == 0) continue;
+                if (body.Contains($"this.{field.Name} =") || body.Contains($"this.{field.Name}=") ||
+                    System.Text.RegularExpressions.Regex.IsMatch(body, $@"(?<!this\.)(?<!\w){System.Text.RegularExpressions.Regex.Escape(field.Name)}\s*="))
+                {
+                    finalFieldsAssignedInCtors.Add(field.Name);
+                }
+            }
+        }
+        foreach (var field in javaClass.Fields)
+        {
+            if (finalFieldsAssignedInCtors.Contains(field.Name) && !string.IsNullOrWhiteSpace(field.Initializer))
+            {
+                field.Initializer = null;
             }
         }
 
@@ -317,6 +357,53 @@ public class StructTransformer : ITypeTransformer
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// Enumerates the struct members. For merged partial structs, iterates each
+    /// original syntax node with its own semantic model and deduplicates members.
+    /// </summary>
+    private static IEnumerable<MemberDeclarationSyntax> EnumerateMembers(
+        StructDeclarationSyntax structDecl,
+        IReadOnlyList<TypeDeclarationSyntax>? originalNodes,
+        ConversionContext context)
+    {
+        if (originalNodes == null || originalNodes.Count <= 1)
+        {
+            foreach (var member in structDecl.Members)
+                yield return member;
+            yield break;
+        }
+
+        var seenMemberKeys = new HashSet<string>();
+        foreach (var originalNode in originalNodes)
+        {
+            var nodeModel = context.GetSemanticModelForTree(originalNode.SyntaxTree);
+            if (nodeModel != null)
+                context.SemanticModel = nodeModel;
+
+            foreach (var member in originalNode.Members)
+            {
+                if (!seenMemberKeys.Add(GetMemberKey(member)))
+                    continue;
+                yield return member;
+            }
+        }
+    }
+
+    private static string GetMemberKey(MemberDeclarationSyntax member)
+    {
+        return member switch
+        {
+            MethodDeclarationSyntax m => $"method:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
+            PropertyDeclarationSyntax p => $"property:{p.Identifier.Text}",
+            FieldDeclarationSyntax f => $"field:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
+            ConstructorDeclarationSyntax c => c.Modifiers.Any(mod => mod.IsKind(SyntaxKind.StaticKeyword))
+                ? "cctor"
+                : $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
+            EventDeclarationSyntax e => $"event:{e.Identifier.Text}",
+            _ => $"other:{member.Kind()}:{member.GetHashCode()}"
+        };
     }
 
     /// <summary>
@@ -1057,6 +1144,16 @@ public class StructTransformer : ITypeTransformer
                 {
                     ClassTransformer.AddCtorIfNotDuplicateInternal(javaClass, javaCtor);
                 }
+                else if (ctor is Java.JavaMemberCollection ctorCollection)
+                {
+                    foreach (var ctorMember in ctorCollection.Members)
+                    {
+                        if (ctorMember is JavaConstructorDeclaration jcc)
+                        {
+                            ClassTransformer.AddCtorIfNotDuplicateInternal(javaClass, jcc);
+                        }
+                    }
+                }
                 else if (ctor is JavaStaticInitializerBlock staticInitBlock)
                 {
                     javaClass.StaticInitializers.Add(staticInitBlock);
@@ -1297,6 +1394,13 @@ public class StructTransformer : ITypeTransformer
         {
             // Find which final fields are already assigned in the body
             var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
+            // this(...) forwarding constructors assign all final fields in the target;
+            // prepending defaults would push the required this() call off the first
+            // statement and double-assign final fields.
+            if (body.TrimStart().StartsWith("this(", StringComparison.Ordinal))
+            {
+                continue;
+            }
             var assignedFields = new HashSet<string>();
             foreach (var field in instanceFields)
             {

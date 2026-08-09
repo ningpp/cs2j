@@ -92,7 +92,7 @@ public abstract class CSharpDictionaryBase implements CSharpIDictionary {
     }
 
     @Override
-    public CSharpEnumerator iterator() {
+    public CSharpGenericEnumerator<Object> iterator() {
         return innerHashtable.iterator();
     }
 

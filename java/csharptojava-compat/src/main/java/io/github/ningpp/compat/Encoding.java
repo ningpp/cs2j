@@ -278,6 +278,29 @@ public class Encoding {
         return bb.remaining();
     }
 
+    public int getByteCount(ReadOnlySpan<Character> chars) {
+        int n = chars.getLength();
+        char[] arr = new char[n];
+        for (int i = 0; i < n; i++) {
+            arr[i] = chars.get(i);
+        }
+        return getByteCount(arr, 0, n);
+    }
+
+    public int getBytes(ReadOnlySpan<Character> chars, Span<Integer> dest) {
+        int n = chars.getLength();
+        char[] arr = new char[n];
+        for (int i = 0; i < n; i++) {
+            arr[i] = chars.get(i);
+        }
+        byte[] result = getBytes(arr, 0, n);
+        int m = Math.min(result.length, dest.getLength());
+        for (int i = 0; i < m; i++) {
+            dest.set(i, result[i] & 0xFF);
+        }
+        return m;
+    }
+
     // ---- Instance Methods: GetBytes ----
 
     public byte[] getBytes(char[] chars) {
@@ -414,6 +437,15 @@ public class Encoding {
 
     public String getString(byte[] bytes) {
         return getString(bytes, 0, bytes.length);
+    }
+
+    /** Mirrors Encoding.GetString(ReadOnlySpan&lt;byte&gt;) — element view decode. */
+    public String getString(ReadOnlySpan<Integer> bytes) {
+        byte[] arr = new byte[bytes.length()];
+        for (int i = 0; i < bytes.length(); i++) {
+            arr[i] = (byte) (bytes.get(i) & 0xFF);
+        }
+        return getString(arr, 0, arr.length);
     }
 
     public String getString(byte[] bytes, int index, int count) {

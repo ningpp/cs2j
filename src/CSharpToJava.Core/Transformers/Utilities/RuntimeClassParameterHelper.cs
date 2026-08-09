@@ -36,6 +36,16 @@ internal static class RuntimeClassParameterHelper
                     AddClassOwnedRequirements(methodSymbol.OriginalDefinition, context, visiting, required);
             }
 
+            foreach (var prop in declaration.Members.OfType<PropertyDeclarationSyntax>())
+            {
+                // Property getters (e.g. `Type TypeToConvert => typeof(T)`) also consume
+                // class-level type parameters via typeof(T) — scan them like methods.
+                var propSymbol = semanticModel.GetDeclaredSymbol(prop);
+                if (propSymbol is IPropertySymbol propSymbol2
+                    && propSymbol2.GetMethod != null)
+                    AddClassOwnedRequirements(propSymbol2.GetMethod.OriginalDefinition, context, visiting, required);
+            }
+
             foreach (var ctor in declaration.Members.OfType<ConstructorDeclarationSyntax>())
             {
                 if (semanticModel.GetDeclaredSymbol(ctor) is IMethodSymbol ctorSymbol)
@@ -101,8 +111,7 @@ internal static class RuntimeClassParameterHelper
     public static IReadOnlyList<string> GetRuntimeClassArguments(
         INamedTypeSymbol? typeSymbol,
         ConversionContext context)
-    {
-        if (typeSymbol == null)
+    {        if (typeSymbol == null)
             return Array.Empty<string>();
 
         var requiredTypeParameters = GetRequiredTypeParameters(typeSymbol, context);
@@ -128,7 +137,8 @@ internal static class RuntimeClassParameterHelper
         ConversionContext context,
         HashSet<IMethodSymbol> visiting)
     {
-        if (context.TryGetCachedRuntimeClassRequiredTypeParameters(originalMethod, out var cached))
+        if (context.TryGetCachedRuntimeClassRequiredTypeParameters(originalMethod, out var cached)
+            && originalMethod.MethodKind != MethodKind.PropertyGet)
             return cached;
 
         if (!visiting.Add(originalMethod))
@@ -141,6 +151,39 @@ internal static class RuntimeClassParameterHelper
             var declaration = originalMethod.DeclaringSyntaxReferences
                 .Select(r => r.GetSyntax())
                 .FirstOrDefault();
+            if (originalMethod.MethodKind == MethodKind.PropertyGet)
+            {
+                // Getter expression bodies (e.g. `Type TypeToConvert => typeof(T)`) consume
+                // class-level type parameters via typeof(T); nothing else needs scanning.
+                // Expression-bodied properties give the getter no standalone syntax
+                // reference, so locate the property declaration via the associated symbol.
+                var propDeclaration = declaration as PropertyDeclarationSyntax;
+                if (propDeclaration == null
+                    && originalMethod.AssociatedSymbol is IPropertySymbol associatedProp)
+                {
+                    propDeclaration = associatedProp.DeclaringSyntaxReferences
+                        .Select(r => r.GetSyntax())
+                        .OfType<PropertyDeclarationSyntax>()
+                        .FirstOrDefault();
+                }
+                var getterRequired = new List<ITypeParameterSymbol>();
+                var propModel = propDeclaration != null
+                    ? GetSemanticModelForDeclaration(propDeclaration, context)
+                    : null;
+                if (propModel != null)
+                {
+                    foreach (var typeOf in propDeclaration!.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+                    {
+                        if (propModel.GetTypeInfo(typeOf.Type).Type is ITypeParameterSymbol tp
+                            && tp.DeclaringMethod == null)
+                            AddUnique(getterRequired, tp);
+                    }
+                }
+                context.CacheRuntimeClassRequiredTypeParameters(originalMethod, getterRequired);
+                if (getterRequired.Count > 0)
+                    context.Options.RuntimeClassParameters.RegisterMethodRequirements(originalMethod, getterRequired);
+                return getterRequired;
+            }
             if (declaration is not MethodDeclarationSyntax and not ConstructorDeclarationSyntax)
                 return Array.Empty<ITypeParameterSymbol>();
 
@@ -487,7 +530,16 @@ internal static class RuntimeClassParameterHelper
         if (semanticModel?.SyntaxTree == declaration.SyntaxTree)
             return semanticModel;
 
-        return null;
+        // The current tree's model may belong to another file (class-level scans run
+        // from any caller). Fall back to the project compilation.
+        try
+        {
+            return context.ProjectCompilation?.GetSemanticModel(declaration.SyntaxTree);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static bool IsOwnedByMethodOrType(ITypeParameterSymbol typeParameter, IMethodSymbol originalMethod)

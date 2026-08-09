@@ -76,11 +76,44 @@ public class MemoryExtensions {
         return new ReadOnlySpan<>(arr);
     }
 
+    /** C# ReadOnlyMemory&lt;byte&gt; slice → Java ReadOnlyMemory&lt;Integer&gt;. */
+    public static ReadOnlyMemory<Integer> asMemory(byte[] data, int start, int length) {
+        Integer[] arr = new Integer[length];
+        for (int i = 0; i < length; i++) {
+            arr[i] = data[start + i] & 0xFF;
+        }
+        return new ReadOnlyMemory<>(arr);
+    }
+
+    /** C# ReadOnlyMemory&lt;byte&gt; from start → Java ReadOnlyMemory&lt;Integer&gt;. */
+    public static ReadOnlyMemory<Integer> asMemory(byte[] data, int start) {
+        return asMemory(data, start, data.length - start);
+    }
+
+    /** C# MemoryExtensions.SequenceEqual(Span&lt;T&gt;, ReadOnlySpan&lt;T&gt;). */
+    public static <T> boolean sequenceEqual(Span<T> left, ReadOnlySpan<T> right) {
+        if (left == null || right == null || left.length() != right.length()) return false;
+        for (int i = 0; i < left.length(); i++) {
+            if (!java.util.Objects.equals(left.get(i), right.get(i))) return false;
+        }
+        return true;
+    }
+
     /** C# T[].AsSpan() → Span&lt;T&gt; for reference-type arrays (e.g. string[] capslist).
      *  Primitive char[]/byte[] arrays bind to their more specific overloads. */
     @SuppressWarnings("unchecked")
     public static <T> Span<T> asSpan(T[] data) {
         return new Span<>(data == null ? (T[]) new Object[0] : data);
+    }
+
+    /** C# ArraySegment&lt;byte&gt;.AsSpan() — element view over the byte array. */
+    public static Span<Integer> asSpan(ArraySegment<Integer> segment) {
+        return segment.asSpan();
+    }
+
+    /** C# ArraySegment&lt;byte&gt;.AsMemory() — element view over the byte array. */
+    public static ReadOnlyMemory<Integer> asMemory(ArraySegment<Integer> segment) {
+        return segment.asMemory();
     }
 
     /** C# char[].AsSpan() → ReadOnlySpan&lt;Character&gt;. */
@@ -155,6 +188,37 @@ public class MemoryExtensions {
         if (span == null || value == null) return -1;
         for (int i = 0; i < span.length(); i++) {
             if (span.get(i).equals(value)) return i;
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.IndexOf(Span&lt;int&gt;, int) — mutable span variant. */
+    public static int indexOf(Span<Integer> span, Integer value) {
+        if (span == null || value == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            if (span.get(i).equals(value)) return i;
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.IndexOf(Span&lt;int&gt;, int) with primitive int. */
+    public static int indexOf(Span<Integer> span, int value) {
+        return indexOf(span, Integer.valueOf(value));
+    }
+
+    /** C# MemoryExtensions.IndexOf(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;) — subsequence search or -1. */
+    public static <T> int indexOf(ReadOnlySpan<T> span, ReadOnlySpan<T> value) {
+        if (span == null || value == null || value.length() == 0) return -1;
+        int lastStart = span.length() - value.length();
+        for (int i = 0; i <= lastStart; i++) {
+            boolean matched = true;
+            for (int j = 0; j < value.length(); j++) {
+                if (!java.util.Objects.equals(span.get(i + j), value.get(j))) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) return i;
         }
         return -1;
     }
@@ -234,6 +298,15 @@ public class MemoryExtensions {
      * After erasure: {@code startsWith(ReadOnlySpan, ReadOnlySpan)}.
      */
     public static <T> boolean startsWith(ReadOnlySpan<T> span, ReadOnlySpan<T> value) {
+        if (span == null || value == null) return false;
+        if (value.length() > span.length()) return false;
+        for (int i = 0; i < value.length(); i++) {
+            if (!java.util.Objects.equals(span.get(i), value.get(i))) return false;
+        }
+        return true;
+    }
+
+    public static <T> boolean startsWith(Span<T> span, ReadOnlySpan<T> value) {
         if (span == null || value == null) return false;
         if (value.length() > span.length()) return false;
         for (int i = 0; i < value.length(); i++) {

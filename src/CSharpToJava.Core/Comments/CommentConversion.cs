@@ -53,7 +53,7 @@ internal static class CommentConversion
             .Where(static comment => !string.IsNullOrWhiteSpace(comment))
             .ToList();
 
-        return trailingComments.Count == 0 ? null : string.Join("\n", trailingComments);
+        return trailingComments.Count == 0 ? null : EscapeUnicodeInComment(string.Join("\n", trailingComments));
     }
 
     private static string? ConvertDocumentationComment(ISymbol? symbol)

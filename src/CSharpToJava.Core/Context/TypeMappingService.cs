@@ -562,6 +562,24 @@ public class TypeMappingService
 
         // Non-generic named types — check config mapping
         var name = typeSymbol.Name;
+        // C# 9+ nint/nuint aliases: Roslyn reports these symbols with display
+        // string "nint"/"nuint", so the fully-qualified config lookup below misses
+        // the System.IntPtr/System.UIntPtr entries. Resolve via the BCL name.
+        string? specialTypeConfigName = typeSymbol.SpecialType switch
+        {
+            SpecialType.System_IntPtr => "System.IntPtr",
+            SpecialType.System_UIntPtr => "System.UIntPtr",
+            _ => null
+        };
+        if (specialTypeConfigName != null)
+        {
+            var specialMapped = _typeMappings.MapType(specialTypeConfigName);
+            if (specialMapped != specialTypeConfigName)
+            {
+                AddImportsForType(specialTypeConfigName);
+                return MapSimpleTypeName(specialMapped);
+            }
+        }
         var assemblyScopedName = typeSymbol is INamedTypeSymbol namedNonGeneric
             ? _getAssemblyScopedTypeName(namedNonGeneric)
             : null;

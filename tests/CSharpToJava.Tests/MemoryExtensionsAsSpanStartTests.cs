@@ -60,6 +60,7 @@ class CompatApiCheck {
             "ReadOnlyMemory.java",
             "ReadOnlySpan.java",
             "Span.java",
+            "ArraySegment.java",
             "CultureInfo.java",
             "IFormatProvider.java",
             "TextInfo.java",

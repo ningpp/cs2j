@@ -39,9 +39,9 @@ public class CSharpObjStack implements CSharpIterable<Object>, Cloneable {
     }
     public Object getSyncRoot() { return syncRoot; }
     public boolean getIsSynchronized() { return false; }
-    @Override public CSharpEnumerator iterator() {
+    @Override public CSharpGenericEnumerator<Object> iterator() {
         // C# Stack enumerator returns top-to-bottom
-        return CSharpEnumerator.from(new java.util.Iterator<Object>() {
+        return CSharpGenericEnumerator.<Object>from(new java.util.Iterator<Object>() {
             private final java.util.Iterator<Object> it = stack.descendingIterator();
             @Override public boolean hasNext() { return it.hasNext(); }
             @Override public Object next() { return it.next(); }

@@ -119,6 +119,11 @@ public final class PropertyInfo implements MemberInfo {
         return getter;
     }
 
+    /** Mirrors C# PropertyInfo.GetIndexParameters() — indexer parameters (not modeled). */
+    public java.lang.reflect.Parameter[] getIndexParameters() {
+        return new java.lang.reflect.Parameter[0];
+    }
+
     public MethodInfo getGetMethod() {
         return getter == null ? null : new MethodInfo(getter);
     }

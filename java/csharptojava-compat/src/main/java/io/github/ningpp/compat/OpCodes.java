@@ -112,6 +112,8 @@ public final class OpCodes {
     public static final OpCode Ldlen = new OpCode("Ldlen");
     public static final OpCode Ldloc = new OpCode("Ldloc");
     public static final OpCode Ldloca = new OpCode("Ldloca");
+    public static final OpCode Ldloca_S = new OpCode("Ldloca_S");
+    public static final OpCode Ldloc_S = new OpCode("Ldloc_S");
     public static final OpCode Ldnull = new OpCode("Ldnull");
     public static final OpCode Ldobj = new OpCode("Ldobj");
     public static final OpCode Ldsfld = new OpCode("Ldsfld");

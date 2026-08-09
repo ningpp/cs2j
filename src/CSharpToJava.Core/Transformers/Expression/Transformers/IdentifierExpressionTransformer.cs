@@ -702,6 +702,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var memberName = node.Name.Identifier.Text;
         string? staticTypeTarget = null;
 
+        // C# bool.TrueString / bool.FalseString → "True" / "False" literals.
+        if (memberName is "TrueString" or "FalseString"
+            && node.Expression is PredefinedTypeSyntax { Keyword.Text: "bool" })
+        {
+            return memberName == "TrueString" ? "\"True\"" : "\"False\"";
+        }
+
         // Extract receiver type early for fallback property resolution.
         // Try multiple approaches: GetTypeInfo first, then GetSymbolInfo on the expression.
         ITypeSymbol? receiverType = node.Expression is not TypeSyntax
@@ -1182,7 +1189,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             // have no Java equivalent. Bridge them through TypeHelper.
             if (IsSystemType(receiverType) && memberName is "BaseType" or "DeclaringType" or "IsGenericType"
                 or "ContainsGenericParameters" or "IsAbstract" or "IsValueType" or "IsVisible"
-                or "IsNestedPublic" or "IsClass" or "ArrayRank" or "IsGenericParameter")
+                or "IsNestedPublic" or "IsClass" or "ArrayRank" or "IsGenericParameter"
+                or "IsPointer" or "IsByRefLike" or "IsArray" or "IsEnum" or "IsPrimitive"
+                or "IsInterface" or "IsSealed" or "IsGenericTypeDefinition")
             {
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
                 return $"TypeHelper.get{memberName}({target})";
@@ -1213,6 +1222,44 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.ReflectionHelper");
                 return $"ReflectionHelper.isOptional({target})";
+            }
+
+            // C# ParameterInfo.Position → ReflectionHelper.getPosition(parameter).
+            if (memberName == "Position" && IsJavaReflectParameterInfoType(receiverType))
+            {
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                return $"ReflectionHelper.getPosition({target})";
+            }
+
+            // C# ParameterInfo.HasDefaultValue → ReflectionHelper.getHasDefaultValue(parameter).
+            if (memberName == "HasDefaultValue" && IsJavaReflectParameterInfoType(receiverType))
+            {
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                return $"ReflectionHelper.getHasDefaultValue({target})";
+            }
+
+            // C# ParameterInfo.DefaultValue → ReflectionHelper.getDefaultValue(parameter).
+            if (memberName == "DefaultValue" && IsJavaReflectParameterInfoType(receiverType))
+            {
+                context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+                return $"ReflectionHelper.getDefaultValue({target})";
+            }
+
+            // C# bool.TrueString / bool.FalseString → "True" / "False" literals.
+            if (memberName is "TrueString" or "FalseString"
+                && receiverType?.SpecialType == SpecialType.System_Boolean)
+            {
+                return memberName == "TrueString" ? "\"True\"" : "\"False\"";
+            }
+
+            // C# ArraySegment<byte>.Array → getByteArray() (call sites expect byte[]).
+            if (memberName == "Array"
+                && receiverType is INamedTypeSymbol arraySegNamed
+                && arraySegNamed.OriginalDefinition?.ToDisplayString() == "System.ArraySegment<T>"
+                && arraySegNamed.TypeArguments.Length == 1
+                && arraySegNamed.TypeArguments[0].SpecialType == SpecialType.System_Byte)
+            {
+                return $"{target}.getByteArray()";
             }
 
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
@@ -2267,7 +2314,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     private static bool IsSystemType(ITypeSymbol? type)
     {
         if (type == null) return false;
-        if (type.ToDisplayString() == "System.Type") return true;
+        if (type.ToDisplayString() is "System.Type" or "System.Type?") return true;
+        // Nullable<Type> wraps System.Type.
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+            && nullable.TypeArguments.Length == 1
+            && nullable.TypeArguments[0].ToDisplayString() == "System.Type")
+            return true;
         for (var current = type.BaseType; current != null; current = current.BaseType)
         {
             if (current.ToDisplayString() == "System.Type") return true;

@@ -111,8 +111,40 @@ public partial class StatementTransformer
             var stmtTransformer = new StatementTransformer();
             var statements = section.Statements.Select(s =>
                 stmtTransformer.Transform(s, context).ToString("")).ToList();
-            // Strip trailing break statements (they're implicit in if-else)
-            statements = statements.Where(s => s.Trim() != "break;").ToList();
+            // Strip trailing break statements (they're implicit in if-else). A break may
+            // hide inside a trailing block ({ ... break; }) — strip it from the tail too.
+            while (statements.Count > 0)
+            {
+                var t = statements[statements.Count - 1].Trim();
+                if (t == "break;")
+                {
+                    statements.RemoveAt(statements.Count - 1);
+                }
+                else if (t.StartsWith("{") && t.EndsWith("break;"))
+                {
+                    var idx = statements[statements.Count - 1].LastIndexOf("break;", StringComparison.Ordinal);
+                    if (idx > 0)
+                        statements[statements.Count - 1] = statements[statements.Count - 1].Remove(idx, 7).TrimEnd();
+                    break;
+                }
+                else if (t.StartsWith("{") && t.EndsWith("}", StringComparison.Ordinal))
+                {
+                    // Trailing block ({ ... break;\n    }): strip the final break; when it
+                    // is the block's last statement (nothing but whitespace/} after it).
+                    var idx = statements[statements.Count - 1].LastIndexOf("break;", StringComparison.Ordinal);
+                    if (idx > 0)
+                    {
+                        var tail = statements[statements.Count - 1].Substring(idx + 6).Trim();
+                        if (tail is "" or "}")
+                            statements[statements.Count - 1] = statements[statements.Count - 1].Remove(idx, 7).TrimEnd();
+                    }
+                    break;
+                }
+                else
+                {
+                    break;
+                }
+            }
             var body = string.Join("\n        ", statements);
 
             foreach (var label in section.Labels)
@@ -169,8 +201,40 @@ public partial class StatementTransformer
             var stmtTransformer = new StatementTransformer();
             var statements = section.Statements.Select(s =>
                 stmtTransformer.Transform(s, context).ToString("")).ToList();
-            // Strip trailing break statements (they're implicit in if-else)
-            statements = statements.Where(s => s.Trim() != "break;").ToList();
+            // Strip trailing break statements (they're implicit in if-else). A break may
+            // hide inside a trailing block ({ ... break; }) — strip it from the tail too.
+            while (statements.Count > 0)
+            {
+                var t = statements[statements.Count - 1].Trim();
+                if (t == "break;")
+                {
+                    statements.RemoveAt(statements.Count - 1);
+                }
+                else if (t.StartsWith("{") && t.EndsWith("break;"))
+                {
+                    var idx = statements[statements.Count - 1].LastIndexOf("break;", StringComparison.Ordinal);
+                    if (idx > 0)
+                        statements[statements.Count - 1] = statements[statements.Count - 1].Remove(idx, 7).TrimEnd();
+                    break;
+                }
+                else if (t.StartsWith("{") && t.EndsWith("}", StringComparison.Ordinal))
+                {
+                    // Trailing block ({ ... break;\n    }): strip the final break; when it
+                    // is the block's last statement (nothing but whitespace/} after it).
+                    var idx = statements[statements.Count - 1].LastIndexOf("break;", StringComparison.Ordinal);
+                    if (idx > 0)
+                    {
+                        var tail = statements[statements.Count - 1].Substring(idx + 6).Trim();
+                        if (tail is "" or "}")
+                            statements[statements.Count - 1] = statements[statements.Count - 1].Remove(idx, 7).TrimEnd();
+                    }
+                    break;
+                }
+                else
+                {
+                    break;
+                }
+            }
             var body = string.Join("\n        ", statements);
 
             foreach (var label in section.Labels)
@@ -1212,13 +1276,15 @@ public partial class StatementTransformer
                     var initType = context.GetTypeInfo(initValue).Type;
                     isString = initType?.SpecialType == SpecialType.System_String;
                     // A Span/ReadOnlySpan source cannot be pinned directly —
-                    // materialize the backing byte[] for MemorySegment.ofArray.
+                    // materialize the backing byte[]/char[] for MemorySegment.ofArray.
                     if (initType is INamedTypeSymbol initNamed
                         && initNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>"
-                        && initNamed.TypeArguments.Length == 1
-                        && initNamed.TypeArguments[0].SpecialType == SpecialType.System_Byte)
+                        && initNamed.TypeArguments.Length == 1)
                     {
-                        initExpr += ".toByteArray()";
+                        if (initNamed.TypeArguments[0].SpecialType == SpecialType.System_Byte)
+                            initExpr += ".toByteArray()";
+                        else if (initNamed.TypeArguments[0].SpecialType == SpecialType.System_Char)
+                            initExpr += ".toCharArray()";
                     }
                     var baseVar = context.GenerateSyntheticName("__base");
                     sb.AppendLine(FfmHelper.GenerateMemorySegmentInit(varName, initExpr, info, isString, isNull, baseVar));

@@ -344,7 +344,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 var facade2 = ExpressionTransformerFacade.Instance;
                 var leftExpr = facade2.Transform(node.Left, context);
                 var rightExpr = facade2.Transform(node.Right, context);
-                return $"{leftExpr}.address() {op} {rightExpr}.address()";
+                return $"{TransformPointerComparisonOperand(node.Left, leftExpr, context)} {op} {TransformPointerComparisonOperand(node.Right, rightExpr, context)}";
             }
         }
 
@@ -373,9 +373,11 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 if (leftIsPointer && rightIsPointer)
                 {
                     // Both are pointers: compare addresses
+                    var leftAddr = TransformPointerComparisonOperand(node.Left, leftExpr, context);
+                    var rightAddr = TransformPointerComparisonOperand(node.Right, rightExpr, context);
                     return op == "=="
-                        ? $"{leftExpr}.address() == {rightExpr}.address()"
-                        : $"{leftExpr}.address() != {rightExpr}.address()";
+                        ? $"{leftAddr} == {rightAddr}"
+                        : $"{leftAddr} != {rightAddr}";
                 }
                 if (leftIsPointer && rightIsNull)
                 {
@@ -714,6 +716,35 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
 
     private static bool IsComparisonOp(string op) => op is "<" or ">" or "<=" or ">=";
+
+    /// <summary>
+    /// Renders one operand of a pointer comparison. Real MemorySegment pointer
+    /// expressions are compared via .address(). Numeric literals (e.g. (byte*)8)
+    /// and pointer casts of integral values (e.g. (byte*)nLength where nLength is
+    /// IntPtr/long) are already raw values — appending .address() to them would
+    /// produce invalid Java (8.address()).
+    /// </summary>
+    private string TransformPointerComparisonOperand(ExpressionSyntax node, string transformed, ConversionContext context)
+    {
+        if (ExpressionTransformerHelpers.IsNumericLiteral(transformed))
+            return transformed;
+        if (node is CastExpressionSyntax cast)
+        {
+            var innerType = context.GetTypeInfo(cast.Expression).Type;
+            if (innerType != null && IsIntegralValueType(innerType))
+                return transformed;
+        }
+        return transformed + ".address()";
+    }
+
+    private static bool IsIntegralValueType(ITypeSymbol type)
+    {
+        return type.SpecialType is
+            SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Int16 or
+            SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UInt16 or
+            SpecialType.System_Byte or SpecialType.System_SByte or SpecialType.System_Char or
+            SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
+    }
 
     /// <summary>
     /// Strips the (int)((expr) &amp; 0xFFFFFFFFL) pattern from uint operands

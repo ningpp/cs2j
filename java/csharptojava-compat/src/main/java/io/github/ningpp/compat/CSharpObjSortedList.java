@@ -29,7 +29,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
             }
             @Override public boolean getIsSynchronized() { return false; }
             @Override public Object getSyncRoot() { return syncRoot; }
-            @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(map.keySet().iterator()); }
+            @Override public CSharpGenericEnumerator<Object> iterator() { return CSharpGenericEnumerator.<Object>from(map.keySet().iterator()); }
         };
     }
     @Override public CSharpCollection getValues() {
@@ -41,7 +41,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
             }
             @Override public boolean getIsSynchronized() { return false; }
             @Override public Object getSyncRoot() { return syncRoot; }
-            @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(map.values().iterator()); }
+            @Override public CSharpGenericEnumerator<Object> iterator() { return CSharpGenericEnumerator.<Object>from(map.values().iterator()); }
         };
     }
     @Override public void remove(Object key) { map.remove(key); }
@@ -57,8 +57,8 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
     }
     @Override public boolean getIsSynchronized() { return false; }
     @Override public Object getSyncRoot() { return syncRoot; }
-    @Override public CSharpEnumerator iterator() {
-        return CSharpEnumerator.from(map.entrySet().stream()
+    @Override public CSharpGenericEnumerator<Object> iterator() {
+        return CSharpGenericEnumerator.<Object>from(map.entrySet().stream()
             .map(e -> (Object) new CSharpDictEntry(e.getKey(), e.getValue()))
             .iterator());
     }

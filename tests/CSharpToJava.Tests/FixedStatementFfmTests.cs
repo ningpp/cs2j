@@ -682,7 +682,8 @@ class Test {
     }
 }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("new ReadOnlySpan<>(new Byte[size])", result.GeneratedCode, StringComparison.Ordinal);
+        // byte[] stays byte[] (the compat Span/ReadOnlySpan classes expose byte[] constructors).
+        Assert.Contains("new ReadOnlySpan<>(new byte[size])", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

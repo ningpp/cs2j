@@ -272,8 +272,35 @@ public class ClassTransformer : ITypeTransformer
         // Process members from original syntax nodes (not the synthetic merged node).
         // Original nodes are from the compilation trees, so semantic model works correctly.
 
-        // Process members from original syntax nodes (not the synthetic merged node).
-        // Original nodes are from the compilation trees, so semantic model works correctly.
+        // Pre-scan all methods for Class<T> type-parameter usage (typeof(T), default(T),
+        // is T) and register the requirements before any member body is converted.
+        // Call sites in earlier members need the registration of later-declared methods
+        // (e.g. DeserializeAsync<TValue> calling ReadAsync<TValue>). Pending requirements
+        // are scoped per method, so each method drains exactly its own at signature time.
+        foreach (var originalNode in mergedType.OriginalSyntaxNodes)
+        {
+            var preModel = context.GetSemanticModelForTree(originalNode.SyntaxTree);
+            if (preModel == null) continue;
+            foreach (var member in originalNode.Members)
+            {
+                if (member is MethodDeclarationSyntax preMethod)
+                {
+                    var preSym = preModel.GetDeclaredSymbol(preMethod);
+                    var preTypeParamNames = DetectTypeOfDefaultUsage(preMethod, preModel);
+                    if (preSym != null && preTypeParamNames != null)
+                    {
+                        foreach (var tpName in preTypeParamNames)
+                        {
+                            if (preSym.TypeParameters.Any(tp => tp.Name == tpName))
+                                context.RequireClassTypeParam(
+                                    preSym.ContainingType?.MetadataName ?? "",
+                                    preSym.ToDisplayString(),
+                                    tpName);
+                        }
+                    }
+                }
+            }
+        }
 
         // Process members from original syntax nodes (not the synthetic merged node).
         // Original nodes are from the compilation trees, so semantic model works correctly.
@@ -411,11 +438,16 @@ public class ClassTransformer : ITypeTransformer
         INamedTypeSymbol typeSymbol,
         ConversionContext context)
     {
+        // Partial types merge attributes from every part; keep the first occurrence
+        // of each annotation kind (Java annotations are not repeatable here).
+        var seenAnnotationNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var attr in typeSymbol.GetAttributes())
         {
             var attributeName = attr.AttributeClass?.Name;
             if (attributeName == "DebuggerDisplayAttribute")
             {
+                if (!seenAnnotationNames.Add("DebuggerDisplay"))
+                    continue;
                 var text = attr.ConstructorArguments.Length > 0
                     ? attr.ConstructorArguments[0].Value?.ToString() ?? ""
                     : "";
@@ -425,6 +457,8 @@ public class ClassTransformer : ITypeTransformer
             }
             else if (attributeName == "DebuggerTypeProxyAttribute")
             {
+                if (!seenAnnotationNames.Add("DebuggerTypeProxy"))
+                    continue;
                 var typeArg = attr.ConstructorArguments.Length > 0
                     ? attr.ConstructorArguments[0].Value as ITypeSymbol
                     : null;
@@ -766,8 +800,75 @@ public class ClassTransformer : ITypeTransformer
         return new JavaClassDeclaration { Name = name };
     }
 
-    internal static IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> AddRuntimeClassFields(
-        JavaClassDeclaration javaClass,
+    /// <summary>
+    /// Detects type parameters used via typeof(T)/default(T)/`is T` in a method
+    /// declaration, which requires a Class&lt;T&gt; token at the signature.
+    /// </summary>
+    private static List<string>? DetectTypeOfDefaultUsage(
+        MethodDeclarationSyntax method,
+        Microsoft.CodeAnalysis.SemanticModel semanticModel)
+    {
+        if (method.TypeParameterList == null || method.TypeParameterList.Parameters.Count == 0)
+            return null;
+
+        List<string>? result = null;
+        var typeParamNames = method.TypeParameterList.Parameters
+            .Select(p => p.Identifier.Text)
+            .ToHashSet(StringComparer.Ordinal);
+
+        void AddName(string name)
+        {
+            if (!typeParamNames.Contains(name))
+                return;
+            result ??= new List<string>();
+            if (!result.Contains(name))
+                result.Add(name);
+        }
+
+        foreach (var node in method.DescendantNodes())
+        {
+            if (node is Microsoft.CodeAnalysis.CSharp.Syntax.TypeOfExpressionSyntax typeOf)
+            {
+                if (typeOf.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeOfId)
+                    AddName(typeOfId.Identifier.Text);
+                else if (typeOf.Type is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax genericTypeOf)
+                    AddName(genericTypeOf.Identifier.Text);
+            }
+            else if (node is Microsoft.CodeAnalysis.CSharp.Syntax.DefaultExpressionSyntax def)
+            {
+                if (def.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax defId)
+                    AddName(defId.Identifier.Text);
+            }
+            else if (node is Microsoft.CodeAnalysis.CSharp.Syntax.BinaryExpressionSyntax binary
+                && binary.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.IsExpression)
+                && binary.Right is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax isId)
+            {
+                AddName(isId.Identifier.Text);
+            }
+            else if (node is Microsoft.CodeAnalysis.CSharp.Syntax.TypePatternSyntax tp
+                && tp.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax tpId)
+            {
+                AddName(tpId.Identifier.Text);
+            }
+            else if (node is Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax inv
+                && inv.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax invGeneric
+                && invGeneric.TypeArgumentList.Arguments.Count > 0)
+            {
+                // Explicit generic call forwarding a type parameter (e.g.
+                // ReadCore<TValue>(...)) — the callee likely needs the Class token,
+                // so this method's signature must carry it too.
+                foreach (var typeArg in invGeneric.TypeArgumentList.Arguments)
+                {
+                    if (typeArg is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeArgId)
+                        AddName(typeArgId.Identifier.Text);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    internal static IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> AddRuntimeClassFields(        JavaClassDeclaration javaClass,
         INamedTypeSymbol? typeSymbol,
         ConversionContext context)
     {
@@ -786,7 +887,14 @@ public class ClassTransformer : ITypeTransformer
             {
                 javaClass.Fields.Add(new JavaFieldDeclaration
                 {
-                    Modifiers = JavaModifiers.Private | JavaModifiers.Final,
+                    // Java: static so that static field initializers (e.g. a static
+                    // readonly enum lookup using TypeToConvert) can reference the
+                    // runtime class token; instance semantics approximated per-class
+                    // (not final — the constructor still assigns it per instance).
+                    // TypeScript keeps the instance field.
+                    Modifiers = context.Options.TargetLanguage == TargetLanguage.TypeScript
+                        ? JavaModifiers.Private | JavaModifiers.Final
+                        : JavaModifiers.Private | JavaModifiers.Static,
                     Type = "Class<?>",
                     Name = fieldName
                 });
@@ -3607,7 +3715,6 @@ public class ClassTransformer : ITypeTransformer
                     if ((isExternMethod || hasDllImport) && javaMethod.Body == null)
                         javaMethod.Body = "throw new UnsupportedOperationException(\"Native P/Invoke method not supported in Java\");";
                     AddMethodIfNotDuplicate(javaClass, javaMethod);
-                    ApplyPendingClassTypeParams(javaClass, context);
                 }
                 else if (method is JavaMemberCollection methodCollection)
                 {
@@ -3622,7 +3729,6 @@ public class ClassTransformer : ITypeTransformer
                             m.Body = "throw new UnsupportedOperationException(\"Native P/Invoke method not supported in Java\");";
                         AddMethodIfNotDuplicate(javaClass, m);
                     }
-                    ApplyPendingClassTypeParams(javaClass, context);
                 }
                 break;
 

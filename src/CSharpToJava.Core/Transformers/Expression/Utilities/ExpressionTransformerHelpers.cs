@@ -164,15 +164,56 @@ public static class ExpressionTransformerHelpers
         // classes have no implicit conversion, so wrap the array expression.
         // Skip when the expression was already bridged to a span by another pass
         // (e.g. Encoding.Preamble's MemoryExtensions.asSpan(byte[]) wrapper).
-        if (sourceType is IArrayTypeSymbol && targetType is INamedTypeSymbol spanTargetNamed
-            && spanTargetNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>"
-            && !transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal)
-            && !transformedExpression.StartsWith("new Span<>(", StringComparison.Ordinal)
-            && !transformedExpression.StartsWith("new ReadOnlySpan<>(", StringComparison.Ordinal))
+        if (sourceType is IArrayTypeSymbol spanSourceArray && targetType is INamedTypeSymbol spanTargetNamed
+            && spanTargetNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
         {
+            var spanTargetJavaName = spanTargetNamed.Name == "Span" ? "Span" : "ReadOnlySpan";
+            context.AddImport($"io.github.ningpp.compat.{spanTargetJavaName}");
+            // byte[].AsSpan(...) already routed through MemoryExtensions.asSpan (ReadOnlySpan):
+            // re-wrap for a mutable Span target.
+            if (transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal))
+            {
+                return spanTargetNamed.Name == "Span"
+                    ? $"new Span<>({transformedExpression})"
+                    : transformedExpression;
+            }
+            if (transformedExpression.StartsWith("new Span<>(", StringComparison.Ordinal)
+                || transformedExpression.StartsWith("new ReadOnlySpan<>(", StringComparison.Ordinal))
+            {
+                return transformedExpression;
+            }
             var spanJavaName = spanTargetNamed.Name == "Span" ? "Span" : "ReadOnlySpan";
             context.AddImport($"io.github.ningpp.compat.{spanJavaName}");
-            return $"new {spanJavaName}<>({transformedExpression})";
+            // char[] cannot be passed to the generic T[] constructor with an explicit
+            // <Character> witness (char[] ≠ Character[]), and diamond inference is
+            // ambiguous — route through MemoryExtensions.asSpan(char[]). A mutable
+            // Span target re-wraps the read-only result via the Span(ReadOnlySpan) ctor.
+            if (spanSourceArray.ElementType.SpecialType == SpecialType.System_Char)
+            {
+                context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+                var charAsSpan = $"MemoryExtensions.asSpan({transformedExpression})";
+                return spanTargetNamed.Name == "Span"
+                    ? $"new Span<>({charAsSpan})"
+                    : charAsSpan;
+            }
+            // byte[]/sbyte[] are matched by both the generic T[] constructor and the
+            // specialized primitive constructors, which breaks diamond inference —
+            // emit an explicit type argument for them.
+            var explicitTypeArg = spanSourceArray.ElementType.SpecialType
+                is SpecialType.System_Byte or SpecialType.System_SByte
+                ? "<Integer>"
+                : "<>";
+            return $"new {spanJavaName}{explicitTypeArg}({transformedExpression})";
+        }
+
+        // C# Memory<T>.Span returns Span<T>; the compat Memory maps to ReadOnlyMemory,
+        // whose getSpan() yields ReadOnlySpan<T> — wrap for a mutable Span target.
+        if (targetType is INamedTypeSymbol spanTargetNamed2
+            && spanTargetNamed2.OriginalDefinition?.ToDisplayString() == "System.Span<T>"
+            && transformedExpression.EndsWith(".getSpan()", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.Span");
+            return $"new Span<>({transformedExpression})";
         }
 
         // C# implicit conversion string → Span<char>/ReadOnlySpan<char>: the compat
@@ -290,6 +331,16 @@ public static class ExpressionTransformerHelpers
                 var javaTargetType = context.MapType(convMethod.ReturnType);
                 if (!string.IsNullOrWhiteSpace(javaTargetType))
                 {
+                    // Generic targets (e.g. implicit operator ReadOnlyMemory<T>(T[])):
+                    // the to<TargetType> name synthesis would embed type arguments and
+                    // produce invalid Java (ReadOnlyMemory<Integer>.toReadOnlyMemory<Integer>).
+                    // The compat memory/span types model these conversions with
+                    // constructors, so wrap the source in a constructor instead.
+                    if (javaTargetType.Contains('<')
+                        && IsCompatMemorySpanFamily(javaTargetType))
+                    {
+                        return $"new {javaTargetType}({transformedExpression})";
+                    }
                     var javaMethodName = "to" + char.ToUpperInvariant(javaTargetType[0]) + javaTargetType[1..];
                     return $"{javaContainingType}.{javaMethodName}({transformedExpression})";
                 }
@@ -1338,14 +1389,14 @@ public static class ExpressionTransformerHelpers
                 // semantic model can't resolve a property (e.g. "Graph") and falls
                 // back to an unrelated type (e.g. "BasicGraphOnEdges"), the names
                 // won't match and we must not treat it as a static type reference.
+                // Note: a member with the same name as the type (e.g.
+                // `public ClassType ClassType = ClassType.None;`) does NOT make this
+                // an instance access — Roslyn already resolved the receiver to the
+                // type (the C# "Color Color = Color.Red" rule), and rejecting it
+                // would emit a self-referencing field initializer.
                 if (expression is IdentifierNameSyntax idExpr2)
                 {
                     if (!string.Equals(idExpr2.Identifier.Text, namedType.Name, StringComparison.Ordinal))
-                        return false;
-                    // When the identifier matches a property on the enclosing type
-                    // (e.g. "using Label = X;" + "public Label Label {…}"), prefer the
-                    // instance member over the static type reference.
-                    if (HasEnclosingTypeMember(idExpr2))
                         return false;
                 }
                 typeSymbol = namedType;
@@ -1568,14 +1619,14 @@ public static class ExpressionTransformerHelpers
         ConversionContext context,
         bool preserveEnumType)
     {
+        string result;
         if (typeSymbol.ContainingType == null
             && context.TryGetAssemblyScopedJavaTypeName(typeSymbol, out var scopedName))
         {
             AddImportForTopLevelType(typeSymbol, context);
-            return scopedName;
+            result = scopedName;
         }
-
-        if (preserveEnumType
+        else if (preserveEnumType
             && TryGetExplicitTypeMappingKey(typeSymbol, context, out var configKey))
         {
             foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
@@ -1583,24 +1634,42 @@ public static class ExpressionTransformerHelpers
 
             var mappedType = context.TypeMappings.MapType(configKey);
             var javaType = StripPackageQualifier(StripTypeArguments(mappedType));
-            if (!string.IsNullOrWhiteSpace(javaType))
-                return javaType;
+            result = !string.IsNullOrWhiteSpace(javaType) ? javaType : BuildNestedTypeReference(typeSymbol, context);
         }
-
-        if (!preserveEnumType)
+        else if (!preserveEnumType)
         {
             var mappedType = context.MapType(typeSymbol);
-            if (!string.IsNullOrWhiteSpace(mappedType))
-                return BoxJavaPrimitiveType(mappedType);
+            if (string.IsNullOrWhiteSpace(mappedType))
+                return BuildNestedTypeReference(typeSymbol, context);
+            result = BoxJavaPrimitiveType(mappedType);
         }
         else if (typeSymbol.TypeKind == TypeKind.Enum && IsFlagsEnum(typeSymbol, context))
         {
             AddImportForTopLevelType(typeSymbol, context);
-            return BuildNestedTypeReference(typeSymbol, context);
+            result = BuildNestedTypeReference(typeSymbol, context);
+        }
+        else
+        {
+            AddImportForTopLevelType(typeSymbol, context);
+            result = BuildNestedTypeReference(typeSymbol, context);
         }
 
-        AddImportForTopLevelType(typeSymbol, context);
-        return BuildNestedTypeReference(typeSymbol, context);
+        // When a member of the current type shadows the type name (e.g.
+        // `public ClassType ClassType = ClassType.None;`), Java resolves the
+        // simple name to the field — qualify with the package instead.
+        if (context.CurrentEnclosingRoslynType != null
+            && context.CurrentEnclosingRoslynType.GetMembers(result).Length > 0)
+        {
+            var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
+            if (!string.IsNullOrEmpty(ns) && ns != "<global namespace>")
+            {
+                var javaPkg = context.NamespaceToPackage(ns);
+                if (!string.IsNullOrEmpty(javaPkg))
+                    result = $"{javaPkg}.{result}";
+            }
+        }
+
+        return result;
     }
 
     private static void AddImportForTopLevelType(INamedTypeSymbol typeSymbol, ConversionContext context)
@@ -2170,6 +2239,19 @@ public static class ExpressionTransformerHelpers
             SpecialType.System_Double or SpecialType.System_Single or
             SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte or
             SpecialType.System_Char;
+    }
+
+    /// <summary>
+    /// Returns true if the Java type string is one of the compat memory/span family
+    /// types, which model C# user-defined conversions with constructors rather than
+    /// the synthesized to&lt;TargetType&gt; static helpers.
+    /// </summary>
+    internal static bool IsCompatMemorySpanFamily(string javaType)
+    {
+        return javaType.StartsWith("Span<", StringComparison.Ordinal)
+            || javaType.StartsWith("ReadOnlySpan<", StringComparison.Ordinal)
+            || javaType.StartsWith("Memory<", StringComparison.Ordinal)
+            || javaType.StartsWith("ReadOnlyMemory<", StringComparison.Ordinal);
     }
 
     /// <summary>

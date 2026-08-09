@@ -162,6 +162,20 @@ public class FieldTransformer : IMemberTransformer
                 if (!isFlags)
                 {
                     var enumTypeRef = BuildEnumTypeReference(enumType);
+                    // A field/property with the same name as the enum type
+                    // (e.g. `public ClassType ClassType = ...`) makes the simple
+                    // reference self-referencing in Java — qualify with the package.
+                    if (context.CurrentEnclosingRoslynType != null
+                        && context.CurrentEnclosingRoslynType.GetMembers(enumTypeRef).Length > 0)
+                    {
+                        var enumNs = enumType.ContainingNamespace?.ToDisplayString();
+                        if (!string.IsNullOrEmpty(enumNs) && enumNs != "<global namespace>")
+                        {
+                            var enumJavaPkg = context.NamespaceToPackage(enumNs);
+                            if (!string.IsNullOrEmpty(enumJavaPkg))
+                                enumTypeRef = $"{enumJavaPkg}.{enumTypeRef}";
+                        }
+                    }
                     var zeroMember = FindEnumMemberByValue(enumType, 0);
                     javaField.Initializer = zeroMember != null
                         ? $"{enumTypeRef}.{zeroMember}"

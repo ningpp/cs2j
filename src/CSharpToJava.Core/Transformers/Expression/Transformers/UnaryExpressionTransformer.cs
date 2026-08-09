@@ -188,10 +188,29 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var operand = facade.Transform(node.Operand, context);
 
         if (IsBooleanExpression(node.Operand, context))
+        {
+            // Wrap operands whose transformed form embeds a top-level comparison
+            // (e.g. `!x.HasValue` → `!(x != null)`) so the negation binds to the
+            // whole comparison. Plain calls/property reads (e.g. `!node.isValid()`)
+            // need no parentheses.
+            if (node.Operand is BinaryExpressionSyntax
+                || (node.Operand is not IdentifierNameSyntax && ContainsTopLevelComparison(operand)))
+                operand = $"({operand})";
             return $"!{operand}";
+        }
 
         // Non-boolean: rewrite !x → (x == 0)
         return $"({operand} == 0)";
+    }
+
+    private static bool ContainsTopLevelComparison(string expr)
+    {
+        foreach (var op in new[] { " != ", " == ", " < ", " > ", " <= ", " >= ", " && ", " || " })
+        {
+            if (expr.Contains(op, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

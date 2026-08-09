@@ -29,6 +29,41 @@ public class Sample
     }
 
     [Fact]
+    public void HexLiteralWithLongSuffix_PreservesSuffix()
+    {
+        var result = Convert(@"
+public class Sample
+{
+    public long M()
+    {
+        return 0x00ffffffffffffffL;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // javac rejects hex literals without L suffix once they exceed 8 hex digits
+        // ("integer number too large"), so the L suffix must be preserved.
+        Assert.Contains("0x00ffffffffffffffL", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void HexLiteralWithUnsignedLongSuffix_KeepsLongSuffix()
+    {
+        var result = Convert(@"
+public class Sample
+{
+    public long M()
+    {
+        return 0xFFFFFFFFFFFFFFF0UL;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("0xFFFFFFFFFFFFFFF0L", result.GeneratedCode);
+        Assert.DoesNotContain("UL", result.GeneratedCode);
+    }
+
+    [Fact]
     public void HexLiteralInExpression_StripsUSuffix()
     {
         var result = Convert(@"

@@ -171,10 +171,20 @@ public static class JavaNaming
     {
         for (int i = 0; i < a.Parameters.Length; i++)
         {
-            if (GetErasedTypeName(a.Parameters[i].Type) != GetErasedTypeName(b.Parameters[i].Type))
+            if (GetErasedTypeName(a.Parameters[i]) != GetErasedTypeName(b.Parameters[i]))
                 return false;
         }
         return true;
+    }
+
+    private static string GetErasedTypeName(IParameterSymbol parameter)
+    {
+        // ref/out parameters are wrapped in a holder class (ObjectHolder<T>, IntHolder,
+        // ...) by the converter; Java erases the type argument, so e.g. DateTime and
+        // DateTimeOffset out parameters collide to the same ObjectHolder signature.
+        if (parameter.RefKind is RefKind.Ref or RefKind.Out)
+            return "System.ObjectHolder";
+        return GetErasedTypeName(parameter.Type);
     }
 
     private static string GetErasedTypeName(ITypeSymbol type) => type switch

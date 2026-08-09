@@ -12,6 +12,24 @@ public final class ReadOnlySpan<T> {
     private int offset;
     private int length;
 
+    /** Default (empty) span — mirrors default(ReadOnlySpan&lt;T&gt;). */
+    public ReadOnlySpan() {
+        this.array = null;
+        this.stringBacking = null;
+        this.offset = 0;
+        this.length = 0;
+    }
+
+    /** Mirrors ReadOnlySpan&lt;T&gt;.Empty. */
+    @SuppressWarnings("rawtypes")
+    public static final ReadOnlySpan Empty = new ReadOnlySpan<>();
+
+    /** Mirrors ReadOnlySpan&lt;T&gt;.Empty as a static method call (generated getter form). */
+    @SuppressWarnings("unchecked")
+    public static <T> ReadOnlySpan<T> getEmpty() {
+        return Empty;
+    }
+
     public ReadOnlySpan(T[] array) {
         this.array = array;
         this.stringBacking = null;
@@ -94,6 +112,64 @@ public final class ReadOnlySpan<T> {
         return length;
     }
 
+    /** Mirrors C# Span.IsEmpty. */
+    public boolean isEmpty() {
+        return length == 0;
+    }
+
+    /** Alias for isEmpty() — matches C# IsEmpty property getter translation. */
+    public boolean getIsEmpty() {
+        return length == 0;
+    }
+
+    /** Mirrors C# Span.Clear() — zeroes the span contents. */
+    public void clear() {
+        for (int i = 0; i < length; i++) {
+            if (stringBacking != null) {
+                @SuppressWarnings("unchecked")
+                T value = (T) java.lang.Character.valueOf('\0');
+                setInternal(i, value);
+            } else if (array instanceof byte[] bytes) {
+                bytes[offset + i] = 0;
+            } else if (array instanceof char[] chars) {
+                chars[offset + i] = '\0';
+            } else if (array instanceof Object[] objects) {
+                objects[offset + i] = null;
+            }
+        }
+    }
+
+    /** Element write — supports code that treats this span as writable (C# Span migration). */
+    public void set(int index, T value) {
+        if (index < 0 || index >= length) {
+            throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
+        }
+        if (stringBacking != null) {
+            setInternal(index, value);
+            return;
+        }
+        if (array instanceof byte[] bytes) {
+            bytes[offset + index] = ((Number) value).byteValue();
+        } else if (array instanceof char[] chars) {
+            chars[offset + index] = (char) ((Number) value).intValue();
+        } else {
+            @SuppressWarnings("unchecked")
+            T[] arr = (T[]) array;
+            arr[offset + index] = value;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setInternal(int index, T value) {
+        if (stringBacking != null) {
+            StringBuilder sb = new StringBuilder(stringBacking);
+            sb.setCharAt(offset + index, (char) value);
+            stringBacking = sb.toString();
+            return;
+        }
+        ((T[]) array)[offset + index] = value;
+    }
+
     public T get(int index) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
@@ -161,6 +237,15 @@ public final class ReadOnlySpan<T> {
         Integer[] data = new Integer[length];
         for (int i = 0; i < length; i++) {
             data[i] = segment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, i) & 0xFF;
+        }
+        return new ReadOnlySpan<>(data);
+    }
+
+    /** Mirrors new ReadOnlySpan&lt;char&gt;((char*)ptr, length) — reads UTF-16 char elements. */
+    public static ReadOnlySpan<Character> fromCharSegment(java.lang.foreign.MemorySegment segment, int length) {
+        Character[] data = new Character[length];
+        for (int i = 0; i < length; i++) {
+            data[i] = segment.get(java.lang.foreign.ValueLayout.JAVA_CHAR, (long) i * 2);
         }
         return new ReadOnlySpan<>(data);
     }

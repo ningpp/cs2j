@@ -42,7 +42,12 @@ public class EnumHelper {
     }
 
     @SuppressWarnings("unchecked")
-    public static Object[] getValues(Class<?> enumType) {
+    public static CSharpArray getValues(Class<?> enumType) {
+        return CSharpArray.of(enumType.getEnumConstants());
+    }
+
+    /** Object[]-typed variant for call sites that consume values as an array. */
+    public static Object[] getValuesArray(Class<?> enumType) {
         return enumType.getEnumConstants();
     }
 

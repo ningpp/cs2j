@@ -193,19 +193,26 @@ public partial class StatementTransformer
 
                 var tvStmtTransformer3 = new StatementTransformer();
 
+                // C# out-variable declarations scope to the whole enclosing block,
+                // so the declaration must be hoisted before the if, not nested inside
+                // the then-branch (which would make later uses fail to compile).
                 string thenBody;
                 if (stmt.Statement is BlockSyntax tvIfThenBlock3)
                 {
                     var bodyStr = TransformBlock(tvIfThenBlock3, context);
-                    thenBody = $"{{\n        {outJavaType} {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget2, tvKey2, outJavaType)};\n        {bodyStr}\n    }}";
+                    thenBody = $"{{\n        {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget2, tvKey2, outJavaType)};\n        {bodyStr}\n    }}";
                 }
                 else
                 {
                     var bodyStr = tvStmtTransformer3.Transform(stmt.Statement, context).ToString("");
-                    thenBody = $"{{\n        {outJavaType} {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget2, tvKey2, outJavaType)};\n        {bodyStr}\n    }}";
+                    thenBody = $"{{\n        {outVarName} = {CastGetResultForPrimitiveOutType(tvTarget2, tvKey2, outJavaType)};\n        {bodyStr}\n    }}";
                 }
 
                 var ifSb3 = new System.Text.StringBuilder();
+                // Primitive out types must be declared with their boxed type so the
+                // null initialization compiles (int value = null is illegal Java).
+                var hoistedDeclType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(outJavaType);
+                ifSb3.Append($"{hoistedDeclType} {outVarName} = null;\n");
                 ifSb3.Append($"if ({tvTarget2}.containsKey({tvKey2})) {thenBody}");
 
                 if (stmt.Else != null)

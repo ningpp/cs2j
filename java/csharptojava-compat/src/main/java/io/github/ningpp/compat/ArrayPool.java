@@ -117,6 +117,31 @@ public final class ArrayPool<T> {
         returnSharedCharArray(array, false);
     }
 
+    /** Mirrors ArrayPool&lt;byte&gt;.Shared.Rent — allocates a byte[] of the requested size. */
+    public static byte[] rentSharedByteArray(int minimumLength) {
+        if (minimumLength < 0) {
+            throw new IllegalArgumentException("minimumLength=" + minimumLength);
+        }
+        return new byte[Math.max(minimumLength, 1)];
+    }
+
+    /** Mirrors ArrayPool&lt;byte&gt;.Shared.Return. */
+    public static void returnSharedByteArray(byte[] array) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+    }
+
+    /** Mirrors ArrayPool&lt;byte&gt;.Shared.Return(array, clearArray). */
+    public static void returnSharedByteArray(byte[] array, boolean clearArray) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+        if (clearArray) {
+            java.util.Arrays.fill(array, (byte) 0);
+        }
+    }
+
     /**
      * Returns a char[] to the shared char pool, optionally clearing it first.
      */

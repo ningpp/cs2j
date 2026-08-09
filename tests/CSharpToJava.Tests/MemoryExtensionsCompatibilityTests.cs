@@ -51,6 +51,7 @@ class C {
             "ReadOnlySpan.java",
             "ReadOnlyMemory.java",
             "Span.java",
+            "ArraySegment.java",
             "CultureInfo.java",
             "IFormatProvider.java",
             "TextInfo.java",

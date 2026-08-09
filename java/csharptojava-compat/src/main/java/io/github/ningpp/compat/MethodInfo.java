@@ -47,6 +47,31 @@ public final class MethodInfo implements MemberInfo {
         return name.startsWith("op_") || name.startsWith("get") || name.startsWith("set");
     }
 
+    /** Mirrors C# MethodInfo.IsVirtual — true for non-final instance methods. */
+    public boolean getIsVirtual() {
+        return !Modifier.isStatic(method.getModifiers()) && !Modifier.isFinal(method.getModifiers());
+    }
+
+    /** Mirrors C# MethodInfo.IsAbstract. */
+    public boolean getIsAbstract() {
+        return Modifier.isAbstract(method.getModifiers());
+    }
+
+    /** Mirrors C# MethodInfo.IsGenericMethod — true when the method declares type parameters. */
+    public boolean getIsGenericMethod() {
+        return method.getTypeParameters().length > 0;
+    }
+
+    /** Mirrors C# MethodInfo.GetGenericArguments(). */
+    public Class<?>[] getGenericArguments() {
+        java.lang.reflect.TypeVariable<?>[] vars = method.getTypeParameters();
+        Class<?>[] result = new Class<?>[vars.length];
+        for (int i = 0; i < vars.length; i++) {
+            result[i] = Object.class;
+        }
+        return result;
+    }
+
     public ReturnParameter getReturnParameter() {
         return new ReturnParameter(method.getReturnType());
     }

@@ -291,6 +291,48 @@ public final class CSharpArray {
      * when the source materializes as Object[] and the destination is typed (a direct
      * System.arraycopy would throw ArrayStoreException).
      */
+    /** Mirrors Array.Resize(ref int[] array, int newSize). */
+    public static void resize(ObjectHolder<int[]> array, int newSize) {
+        int[] old = array.value;
+        if (old == null) {
+            array.value = new int[newSize];
+            return;
+        }
+        array.value = java.util.Arrays.copyOf(old, newSize);
+    }
+
+    /** Mirrors Array.Resize(ref long[] array, int newSize). */
+    public static void resizeLongArray(ObjectHolder<long[]> array, int newSize) {
+        long[] old = array.value;
+        if (old == null) {
+            array.value = new long[newSize];
+            return;
+        }
+        array.value = java.util.Arrays.copyOf(old, newSize);
+    }
+
+    /** Mirrors Array.Resize(ref byte[] array, int newSize). */
+    public static void resizeByteArray(ObjectHolder<byte[]> array, int newSize) {
+        byte[] old = array.value;
+        if (old == null) {
+            array.value = new byte[newSize];
+            return;
+        }
+        array.value = java.util.Arrays.copyOf(old, newSize);
+    }
+
+    /** Mirrors Array.Resize(ref T[] array, int newSize) for reference arrays. */
+    public static <T> void resizeArray(ObjectHolder<T[]> array, int newSize) {
+        T[] old = array.value;
+        if (old == null) {
+            @SuppressWarnings("unchecked")
+            T[] fresh = (T[]) new Object[newSize];
+            array.value = fresh;
+            return;
+        }
+        array.value = java.util.Arrays.copyOf(old, newSize);
+    }
+
     public static void copyTo(Object sourceArray, int sourceIndex, Object destinationArray, int destinationIndex, int length) {
         if (sourceArray == null) throw new ArgumentNullException("sourceArray");
         if (destinationArray == null) throw new ArgumentNullException("destinationArray");

@@ -253,12 +253,18 @@ public class ArgumentTransformer
             };
         }
 
+        // Unwrap C# null-forgiving (bytes!) — it carries no runtime semantics and
+        // otherwise defeats the ref/out identifier fast paths below.
+        var argExpr = arg.Expression is PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } pw
+            ? pw.Operand
+            : arg.Expression;
+
         if (refKind == SyntaxKind.OutKeyword)
         {
             // out _ (discard) — pass a typed scratch holder matching the parameter
             // type so typed overloads accept it; the result is intentionally unused.
-            if (arg.Expression is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax }
-                || arg.Expression is IdentifierNameSyntax { Identifier.Text: "_" })
+            if (argExpr is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax }
+                || argExpr is IdentifierNameSyntax { Identifier.Text: "_" })
             {
                 if (parameterSymbol?.Type != null && context.SemanticModel != null)
                 {
@@ -271,7 +277,7 @@ public class ArgumentTransformer
 
             // out var result — holder-object pattern: declare HolderType _resultHolder = new HolderType(); before the call
             // and read back the value after: javaType result = _resultHolder.value;
-            if (arg.Expression is DeclarationExpressionSyntax outDecl &&
+            if (argExpr is DeclarationExpressionSyntax outDecl &&
                 outDecl.Designation is SingleVariableDesignationSyntax svd)
             {
                 var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
@@ -287,7 +293,7 @@ public class ArgumentTransformer
 
             // out existingVar — use Holder class matching the variable's type
             // and read back the updated value into the existing variable after the call
-            if (arg.Expression is IdentifierNameSyntax ident)
+            if (argExpr is IdentifierNameSyntax ident)
             {
                 // If the identifier is already a ref/out parameter (i.e. already a holder),
                 // pass it directly — same as the ref-forwarding fix (Bug 1).
@@ -295,6 +301,18 @@ public class ArgumentTransformer
                     && (outParam.RefKind == RefKind.Ref || outParam.RefKind == RefKind.Out))
                 {
                     return ConversionContext.EscapeJavaKeyword(outParam.Name);
+                }
+
+                // A local already declared as a holder (ObjectHolder/IntHolder/etc.) that is
+                // passed as out must pass the holder itself, not its .value.
+                if (context.SemanticModel != null)
+                {
+                    var outIdentType = context.GetTypeInfo(ident).Type;
+                    if (outIdentType != null
+                        && HolderTypeResolver.IsHolderType(context.MapType(outIdentType)))
+                    {
+                        return ConversionContext.EscapeJavaKeyword(ident.Identifier.Text);
+                    }
                 }
 
                 var varName = ConversionContext.EscapeJavaKeyword(ident.Identifier.Text);
@@ -391,18 +409,43 @@ public class ArgumentTransformer
             // are visible to both caller and callee without a holder object.
             if (parameterSymbol != null && StructCloneHelper.IsRefParamEffectivelyReadOnly(parameterSymbol))
             {
+                // Hoisted local functions generate holder-typed ref parameters
+                // (ObjectHolder<DateTimeParseData> etc.). For those, an argument that
+                // is already a holder parameter must pass the holder itself — never
+                // its .value. Ordinary methods keep the by-value shape for
+                // effectively-readonly structs, so their ref args must be unwrapped.
+                if (parameterSymbol.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction }
+                    && argExpr is IdentifierNameSyntax roIdent
+                    && context.GetSymbolInfo(roIdent).Symbol is IParameterSymbol roParam
+                    && (roParam.RefKind is RefKind.Ref or RefKind.Out))
+                {
+                    return ConversionContext.EscapeJavaKeyword(roParam.Name);
+                }
                 return transformer.Transform(arg.Expression, context);
             }
 
             // Bug 1: if the argument is already a ref/out parameter (e.g. forwarding ref d2 to another ref method),
             // the IdentifierExpressionTransformer would emit "d2.value" — but we must pass the holder itself.
-            if (arg.Expression is IdentifierNameSyntax refIdent)
+            if (argExpr is IdentifierNameSyntax refIdent)
             {
                 if (context.GetSymbolInfo(refIdent).Symbol is IParameterSymbol refParam
                     && (refParam.RefKind == RefKind.Ref || refParam.RefKind == RefKind.Out))
                 {
                     // Already a holder — pass it directly with no wrapping.
                     return ConversionContext.EscapeJavaKeyword(refParam.Name);
+                }
+
+                // A local already declared as a holder (ObjectHolder/IntHolder/etc.) that is
+                // passed by ref must pass the holder itself, not its .value.
+                var refIdentName = ConversionContext.EscapeJavaKeyword(refIdent.Identifier.Text);
+                if (context.SemanticModel != null)
+                {
+                    var refIdentType = context.GetTypeInfo(refIdent).Type;
+                    if (refIdentType != null
+                        && HolderTypeResolver.IsHolderType(context.MapType(refIdentType)))
+                    {
+                        return refIdentName;
+                    }
                 }
 
                 // Bug 2: local variable (or non-ref parameter) passed as ref — wrap it in a holder
@@ -449,15 +492,15 @@ public class ArgumentTransformer
 
             // Member/element ref argument: wrap expression value in a holder and write back after call.
             // Example: RefMethod(ref obj.field) -> Holder h = new Holder(obj.field); RefMethod(h); obj.field = h.value;
-            if (arg.Expression is MemberAccessExpressionSyntax or ElementAccessExpressionSyntax)
+            if (argExpr is MemberAccessExpressionSyntax or ElementAccessExpressionSyntax)
             {
-                var exprText = transformer.Transform(arg.Expression, context);
+                var exprText = transformer.Transform(argExpr, context);
                 var holderName = context.GenerateSyntheticName("_refArgHolder");
 
                 var javaType = "Object";
                 if (context.SemanticModel != null)
                 {
-                    var typeInfo = context.GetTypeInfo(arg.Expression);
+                    var typeInfo = context.GetTypeInfo(argExpr);
                     if (typeInfo.Type != null)
                         javaType = context.MapType(typeInfo.Type);
                 }
@@ -467,6 +510,19 @@ public class ArgumentTransformer
 
                 context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
                 context.AddPostStatement($"{exprText} = {holderName}.value");
+                return holderName;
+            }
+
+            // `ref this` argument (e.g. ThrowHelper.ThrowJsonReaderException(ref this, ...)):
+            // Java passes class instances by reference, so mutations inside the callee are
+            // already visible — only the holder wrapper is needed, no write-back.
+            if (argExpr is ThisExpressionSyntax)
+            {
+                var thisType = context.GetTypeInfo(argExpr).Type;
+                var javaType = thisType != null ? context.MapType(thisType) : "Object";
+                var holderType = HolderTypeResolver.GetHolderType(javaType);
+                var holderName = context.GenerateSyntheticName("_refThisHolder");
+                context.AddPreStatement($"{holderType} {holderName} = {HolderTypeResolver.GetHolderInstantiationWithValue(holderType, "this")}");
                 return holderName;
             }
 
@@ -1023,6 +1079,17 @@ public class ArgumentTransformer
             transformedExpr,
             paramType,
             context);
+
+        // C# ref/pointer parameters map to holders (IntHolder/ObjectHolder/...) in the
+        // generated signature. A MemoryMarshal.getReference(...) argument yields the
+        // element value, which must be re-wrapped to satisfy the holder parameter.
+        var refArgType = paramType ?? (context.SemanticModel != null ? context.GetTypeInfo(arg.Expression).Type : null);
+        if (refArgType != null
+            && transformedExpr.Contains("getReference(", StringComparison.Ordinal))
+        {
+            var holderJavaType = HolderTypeResolver.GetHolderType(context.MapType(refArgType));
+            return HolderTypeResolver.GetHolderInstantiationWithValue(holderJavaType, transformedExpr);
+        }
 
         // When C# byte (Java int) is passed to Java byte (sbyte/library) parameter,
         // narrow with (byte) cast

@@ -224,6 +224,33 @@ public final class ReflectionHelper {
         return parameter != null && parameter.isVarArgs();
     }
 
+    /** Mirrors C# ParameterInfo.Position — zero-based index of the parameter. */
+    public static int getPosition(Parameter parameter) {
+        // java.lang.reflect.Parameter does not expose its index; derive it from the
+        // declaring executable's parameter array.
+        java.lang.reflect.Executable executable = parameter.getDeclaringExecutable();
+        if (executable != null) {
+            Parameter[] parameters = executable.getParameters();
+            for (int i = 0; i < parameters.length; i++) {
+                if (parameters[i] == parameter) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /** Mirrors C# ParameterInfo.HasDefaultValue. Java has no parameter defaults; only
+     *  varargs params (C# `params`) carry a meaningful implicit default of an empty array. */
+    public static boolean getHasDefaultValue(Parameter parameter) {
+        return parameter != null && parameter.isVarArgs();
+    }
+
+    /** Mirrors C# ParameterInfo.DefaultValue. */
+    public static Object getDefaultValue(Parameter parameter) {
+        return null;
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> Iterable<T> asIterable(Object value) {
         if (value == null) return null;

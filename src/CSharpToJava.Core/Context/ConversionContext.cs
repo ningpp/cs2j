@@ -294,6 +294,7 @@ public class ConversionContext
     /// after each method is processed to add params to the method signature.
     /// </summary>
     private HashSet<string>? _pendingClassTypeParams;
+    private Dictionary<string, List<string>>? _pendingClassTypeParamsByMethod;
 
     /// <summary>
     /// Persistent set of method keys (containingType.MetadataName|method.MetadataName)
@@ -323,6 +324,33 @@ public class ConversionContext
         }
         if (!nameList.Contains(typeParamName))
             nameList.Add(typeParamName);
+
+        _pendingClassTypeParamsByMethod ??= new();
+        if (!_pendingClassTypeParamsByMethod.TryGetValue(key, out var pendingList))
+        {
+            pendingList = new List<string>();
+            _pendingClassTypeParamsByMethod[key] = pendingList;
+        }
+        if (!pendingList.Contains(typeParamName))
+            pendingList.Add(typeParamName);
+    }
+
+    /// <summary>
+    /// Records a method-level Class&lt;T&gt; requirement without enqueuing another
+    /// pending drain (used when the signature was already patched).
+    /// </summary>
+    public void RegisterMethodClassTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
+    {
+        _methodsWithClassParams.Add($"{containingTypeMetadataName}|{methodMetadataName}");
+
+        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
+        if (!_methodClassTypeParamNames.TryGetValue(key, out var nameList))
+        {
+            nameList = new List<string>();
+            _methodClassTypeParamNames[key] = nameList;
+        }
+        if (!nameList.Contains(typeParamName))
+            nameList.Add(typeParamName);
     }
 
     /// <summary>
@@ -342,6 +370,25 @@ public class ConversionContext
         return result;
     }
 
+    /// <summary>
+    /// Drains the pending Class&lt;T&gt; requirements for a single method only.
+    /// Pending requirements registered by other methods (e.g. while converting
+    /// call sites inside a different method body) stay queued for their own drain.
+    /// </summary>
+    public IReadOnlyList<string>? DrainClassTypeParamsForMethod(string containingTypeMetadataName, string methodMetadataName)
+    {
+        if (_pendingClassTypeParamsByMethod == null)
+            return null;
+
+        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
+        if (_pendingClassTypeParamsByMethod.TryGetValue(key, out var list))
+        {
+            _pendingClassTypeParamsByMethod.Remove(key);
+            return list;
+        }
+        return null;
+    }
+
     public bool MethodHasClassParams(string containingTypeMetadataName, string methodMetadataName)
     {
         return _methodsWithClassParams.Contains($"{containingTypeMetadataName}|{methodMetadataName}");
@@ -359,7 +406,20 @@ public class ConversionContext
         if (typeSymbol is ITypeParameterSymbol typeParam)
         {
             if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
+            {
+                // The runtime class parameter may belong to another method (global
+                // name-based registry). Ensure the CURRENT method's signature carries
+                // the matching parameter so the emitted _cs2j_{T} reference resolves.
+                var currentMethod2 = context.CurrentMethod;
+                if (currentMethod2 != null)
+                {
+                    context.RequireClassTypeParam(
+                        currentMethod2.ContainingType?.MetadataName ?? "",
+                        currentMethod2.ToDisplayString(),
+                        typeParam.Name);
+                }
                 return runtimeClassParam;
+            }
             // Register a Class<T> parameter requirement for the current method so that
             // ApplyPendingClassTypeParams adds the parameter to the method signature.
             var currentMethod = context.CurrentMethod;
@@ -367,7 +427,7 @@ public class ConversionContext
             {
                 context.RequireClassTypeParam(
                     currentMethod.ContainingType?.MetadataName ?? "",
-                    currentMethod.MetadataName,
+                    currentMethod.ToDisplayString(),
                     typeParam.Name);
             }
             // The parameter naming convention is _cs2j_{typeParamName}.
@@ -382,7 +442,31 @@ public class ConversionContext
         if (typeSymbol.SpecialType == SpecialType.System_Boolean) return "boolean.class";
         if (typeSymbol.SpecialType == SpecialType.System_Char) return "char.class";
         var mappedType = context.MapType(typeSymbol);
-        return $"{mappedType}.class";
+        // Class literals cannot carry generic type arguments (Foo<T>.class is
+        // illegal Java) — strip them, including nested ones.
+        return $"{StripAllTypeArguments(mappedType)}.class";
+    }
+
+    private static string StripAllTypeArguments(string typeName)
+    {
+        var builder = new System.Text.StringBuilder(typeName.Length);
+        int depth = 0;
+        foreach (var ch in typeName)
+        {
+            if (ch == '<')
+            {
+                depth++;
+                continue;
+            }
+            if (ch == '>' && depth > 0)
+            {
+                depth--;
+                continue;
+            }
+            if (depth == 0)
+                builder.Append(ch);
+        }
+        return builder.ToString();
     }
 
     /// <summary>

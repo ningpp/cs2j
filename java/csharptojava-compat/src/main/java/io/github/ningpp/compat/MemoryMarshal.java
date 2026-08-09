@@ -96,4 +96,48 @@ public class MemoryMarshal {
         }
         return new Span<>((T[]) arr);
     }
+
+    /** Mirrors MemoryMarshal.Read&lt;T&gt;(ReadOnlySpan&lt;byte&gt;) for struct targets — default instance. */
+    public static <T> T read(ReadOnlySpan<Integer> span, Class<T> type) {
+        try {
+            var ctor = type.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            return ctor.newInstance();
+        } catch (ReflectiveOperationException e) {
+            return null;
+        }
+    }
+
+    /** Mirrors MemoryMarshal.Cast&lt;TFrom, TTo&gt;(Span&lt;TFrom&gt;) — element reinterpretation is a no-op. */
+    public static Span<Integer> cast(Span<Integer> span) {
+        return span;
+    }
+
+    /** Mirrors MemoryMarshal.Write&lt;T&gt;(Span&lt;byte&gt;, ref T) — writes the value as little-endian bytes. */
+    public static <T> void write(Span<Integer> span, ObjectHolder<T> value) {
+        writeValue(span, value.value);
+    }
+
+    /** Mirrors MemoryMarshal.Write&lt;int&gt;(Span&lt;byte&gt;, ref int). */
+    public static void write(Span<Integer> span, IntHolder value) {
+        writeValue(span, value.value);
+    }
+
+    /** Mirrors MemoryMarshal.Write&lt;long&gt;(Span&lt;byte&gt;, ref long). */
+    public static void write(Span<Integer> span, LongHolder value) {
+        writeValue(span, value.value);
+    }
+
+    private static void writeValue(Span<Integer> span, Object value) {
+        if (value instanceof Number n) {
+            long lv = n.longValue();
+            for (int i = 0; i < span.length() && i < 8; i++) {
+                span.set(i, (int) ((lv >>> (i * 8)) & 0xFF));
+            }
+            return;
+        }
+        for (int i = 0; i < span.length(); i++) {
+            span.set(i, 0);
+        }
+    }
 }

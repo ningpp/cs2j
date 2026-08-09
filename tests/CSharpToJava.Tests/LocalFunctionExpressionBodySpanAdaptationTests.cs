@@ -32,7 +32,7 @@ class CharClass
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("new ReadOnlySpan<>(", code);
+        Assert.Contains("new ReadOnlySpan<Integer>(", code);
         Assert.DoesNotContain("ReadOnlySpan<Integer> asciiLookup() { return new byte[]", code);
     }
 

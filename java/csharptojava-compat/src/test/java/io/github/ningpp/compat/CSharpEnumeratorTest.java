@@ -14,7 +14,7 @@ class CSharpEnumeratorTest {
         List<Object> items = new ArrayList<>();
         items.add(1);
         items.add(2);
-        CSharpEnumerator en = CSharpEnumerator.from(items.iterator());
+        CSharpGenericEnumerator<Object> en = CSharpGenericEnumerator.<Object>from(items.iterator());
 
         assertTrue(en.moveNext());
         assertEquals(1, en.getCurrent());
@@ -30,7 +30,7 @@ class CSharpEnumeratorTest {
         List<Object> items = new ArrayList<>();
         items.add(1);
         items.add(2);
-        CSharpEnumerator en = CSharpEnumerator.from(items.iterator());
+        CSharpGenericEnumerator<Object> en = CSharpGenericEnumerator.<Object>from(items.iterator());
 
         assertTrue(en.hasNext());
         assertEquals(1, en.next());

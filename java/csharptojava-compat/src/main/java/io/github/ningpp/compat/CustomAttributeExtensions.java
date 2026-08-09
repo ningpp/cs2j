@@ -29,4 +29,19 @@ public final class CustomAttributeExtensions {
         }
         return null;
     }
+
+    /** C# MemberInfo.GetCustomAttribute&lt;T&gt;(MemberInfo, bool inherit). */
+    public static <T> T getCustomAttribute(MemberInfo member, Class<T> attributeType, boolean inherit) {
+        return getCustomAttribute(attributeType, member);
+    }
+
+    /** C# MemberInfo.GetCustomAttribute&lt;T&gt;(PropertyInfo, bool inherit). */
+    public static <T> T getCustomAttribute(PropertyInfo member, Class<T> attributeType, boolean inherit) {
+        return getCustomAttribute(attributeType, member);
+    }
+
+    /** C# MemberInfo.GetCustomAttribute(Type) — extension-method order (member, type). */
+    public static Object getCustomAttribute(MemberInfo member, Class<?> attributeType) {
+        return getCustomAttribute(attributeType, member);
+    }
 }

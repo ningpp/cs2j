@@ -7,6 +7,8 @@ import java.lang.reflect.Parameter;
 public final class ConstructorInfo implements MemberInfo {
     private final Constructor<?> constructor;
 
+    public static final String ConstructorName = ".ctor";
+
     public ConstructorInfo(Constructor<?> constructor) {
         this.constructor = constructor;
         this.constructor.setAccessible(true);

@@ -19,6 +19,12 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
     public static final CSharpDateTimeOffset MAX_VALUE =
         new CSharpDateTimeOffset(CSharpDateTime.MAX_VALUE, CSharpTimeSpan.ZERO);
 
+    /** Default (unix epoch) offset — mirrors default(DateTimeOffset). */
+    public CSharpDateTimeOffset() {
+        this.dateTime = CSharpDateTime.MIN_VALUE;
+        this.offset = CSharpTimeSpan.ZERO;
+    }
+
     public CSharpDateTimeOffset(CSharpDateTime dateTime, CSharpTimeSpan offset) {
         validateOffset(dateTime, offset);
         this.dateTime = dateTime;

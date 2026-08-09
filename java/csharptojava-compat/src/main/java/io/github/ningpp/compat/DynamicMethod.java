@@ -19,6 +19,14 @@ public final class DynamicMethod {
         this._name = name;
     }
 
+    public DynamicMethod(String name, Class<?> returnType, Class<?>[] parameterTypes, Module owner, boolean restrictedSkipVisibility) {
+        this._name = name;
+    }
+
+    public DynamicMethod(String name, Class<?> returnType, Class<?>[] parameterTypes, Object owner, boolean restrictedSkipVisibility) {
+        this._name = name;
+    }
+
     public DynamicMethod(String name, int methodAttributes, int callingConvention,
             Class<?> returnType, Class<?>[] parameterTypes, Object owner, boolean skipVisibility) {
         this._name = name;

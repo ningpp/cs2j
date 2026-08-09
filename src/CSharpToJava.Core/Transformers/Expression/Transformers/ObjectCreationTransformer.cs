@@ -813,7 +813,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 if (parts.Count == 2)
                 {
                     context.AddImport($"io.github.ningpp.compat.{bareType}");
-                    return $"{bareType}.fromByteSegment({parts[0]}, {parts[1]})";
+                    // new Span<char>((char*)ptr, length) reads char (UTF-16) elements;
+                    // everything else (byte/sbyte) reads bytes.
+                    bool isCharSpan = typeSyntax is GenericNameSyntax gnsSpan
+                        && gnsSpan.TypeArgumentList.Arguments.Count == 1
+                        && gnsSpan.TypeArgumentList.Arguments[0].ToString().Trim() == "char";
+                    var segmentMethod = isCharSpan ? "fromCharSegment" : "fromByteSegment";
+                    return $"{bareType}.{segmentMethod}({parts[0]}, {parts[1]})";
                 }
             }
         }
@@ -2569,16 +2575,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         var arrayCreation = sb.ToString();
         var typeInfo = context.GetTypeInfo(node);
-        var stackAllocType = typeInfo.Type ?? typeInfo.ConvertedType;
-        if (stackAllocType is IPointerTypeSymbol)
-        {
-            context.AddImport("java.lang.foreign.MemorySegment");
-            return $"MemorySegment.ofArray({arrayCreation})";
-        }
 
         // When stackalloc is assigned to Span<T> or ReadOnlySpan<T>, wrap in Span constructor.
         // Use ConvertedType to detect the actual target type, because stackalloc naturally
-        // produces Span<T> but can be implicitly converted to ReadOnlySpan<T>.
+        // produces Span<T> (and its Type is T*) but can be implicitly converted to
+        // ReadOnlySpan<T>.
         var spanTargetType = typeInfo.ConvertedType ?? typeInfo.Type;
         if (spanTargetType is INamedTypeSymbol { IsGenericType: true } namedType)
         {
@@ -2590,12 +2591,23 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 var spanImport = isSpan ? "io.github.ningpp.compat.Span" : "io.github.ningpp.compat.ReadOnlySpan";
                 context.AddImport(spanImport);
 
-                // Use wrapper type for array element (Java generics require boxed types)
+                // Use wrapper type for array element (Java generics require boxed types).
+                // Exception: byte[] stays byte[] — the compat Span classes expose a
+                // dedicated Span(byte[]) constructor, so boxing to Byte[] would break it.
                 var wrapperElementType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(elementType);
-                var wrapperArrayCreation = arrayCreation.Replace($"new {elementType}", $"new {wrapperElementType}");
+                var wrapperArrayCreation = elementType == "byte"
+                    ? arrayCreation
+                    : arrayCreation.Replace($"new {elementType}", $"new {wrapperElementType}");
 
                 return $"new {spanJavaName}<>({wrapperArrayCreation})";
             }
+        }
+
+        var stackAllocType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (stackAllocType is IPointerTypeSymbol)
+        {
+            context.AddImport("java.lang.foreign.MemorySegment");
+            return $"MemorySegment.ofArray({arrayCreation})";
         }
 
         return $"/* C# stackalloc — allocated on heap in Java */ {arrayCreation}";

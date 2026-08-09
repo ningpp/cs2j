@@ -160,6 +160,14 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         return map.values();
     }
 
+    /** Mirrors Dictionary&lt;TKey, TValue&gt;.Values.CopyTo(T[], int) — used by generated code. */
+    public void copyValuesTo(V[] array, int arrayIndex) {
+        java.util.List<V> values = new java.util.ArrayList<>(map.values());
+        for (int i = 0; i < values.size() && arrayIndex + i < array.length; i++) {
+            array[arrayIndex + i] = values.get(i);
+        }
+    }
+
     public java.util.Set<Map.Entry<K, V>> entrySet() {
         return map.entrySet();
     }
@@ -179,21 +187,57 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
-    public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> iterator() {
-        return CSharpGenericEnumerator.from(new Iterator<CSharpKeyValuePair<K, V>>() {
-            private final Iterator<Map.Entry<K, V>> it = map.entrySet().iterator();
+    public Enumerator<K, V> iterator() {
+        return new Enumerator<>(map.entrySet().iterator());
+    }
 
-            @Override
-            public boolean hasNext() {
-                return it.hasNext();
-            }
+    /**
+     * Mirrors Dictionary&lt;TKey, TValue&gt;.Enumerator — the C# generic dictionary
+     * enumerator. The converter references it as Dictionary.Enumerator (raw).
+     */
+    public static class Enumerator<K, V> implements CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> {
+        private final Iterator<Map.Entry<K, V>> it;
+        private CSharpKeyValuePair<K, V> current;
+        private boolean hasCurrent;
 
-            @Override
-            public CSharpKeyValuePair<K, V> next() {
-                Map.Entry<K, V> e = it.next();
-                return new CSharpKeyValuePair<>(e.getKey(), e.getValue());
+        public Enumerator(Iterator<Map.Entry<K, V>> it) {
+            this.it = it;
+        }
+
+        @Override
+        public boolean moveNext() {
+            if (!it.hasNext()) {
+                current = null;
+                hasCurrent = false;
+                return false;
             }
-        });
+            Map.Entry<K, V> e = it.next();
+            current = new CSharpKeyValuePair<>(e.getKey(), e.getValue());
+            hasCurrent = true;
+            return true;
+        }
+
+        @Override
+        public CSharpKeyValuePair<K, V> getCurrent() {
+            if (!hasCurrent) throw new IllegalStateException("Enumeration has not started or has already finished.");
+            return current;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return it.hasNext();
+        }
+
+        @Override
+        public CSharpKeyValuePair<K, V> next() {
+            if (!moveNext()) throw new java.util.NoSuchElementException();
+            return current;
+        }
+
+        @Override
+        public void remove() {
+            it.remove();
+        }
     }
 
     public CSharpGenericEqualityComparer<K> getComparer() {

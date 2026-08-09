@@ -37,7 +37,7 @@ public class CSharpObjQueue implements CSharpIterable<Object>, Cloneable {
     public Stream<Object> stream() { return queue.stream(); }
     public boolean isEmpty() { return queue.isEmpty(); }
 
-    @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(queue.iterator()); }
+    @Override public CSharpGenericEnumerator<Object> iterator() { return CSharpGenericEnumerator.<Object>from(queue.iterator()); }
     @Override public CSharpObjQueue clone() {
         return new CSharpObjQueue(queue);
     }

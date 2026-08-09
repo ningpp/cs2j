@@ -8,10 +8,10 @@ public interface CSharpDictEnumerator extends CSharpEnumerator {
     @Override
     default Object getCurrent() { return getEntry(); }
 
-    @Override
+    /** Iterator-style convenience: hasNext() == moveNext(). */
     default boolean hasNext() { return moveNext(); }
 
-    @Override
+    /** Iterator-style convenience: next() == getCurrent(). */
     default Object next() { return getCurrent(); }
 
     /**

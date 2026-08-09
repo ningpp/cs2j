@@ -113,8 +113,8 @@ public abstract class CSharpCollectionBase implements CSharpIList {
     }
 
     @Override
-    public CSharpEnumerator iterator() {
-        return CSharpEnumerator.from(innerList.iterator());
+    public CSharpGenericEnumerator<Object> iterator() {
+        return CSharpGenericEnumerator.<Object>from(innerList.iterator());
     }
 
     @Override

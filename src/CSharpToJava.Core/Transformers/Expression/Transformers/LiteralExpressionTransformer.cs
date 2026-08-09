@@ -60,9 +60,12 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
         if (literal.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             || literal.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
         {
-            // Strip C# unsigned/long suffixes (U, L, UL, LU, etc.) from hex/binary literals.
-            // Java does not support these suffixes on hex/binary literals.
-            return StripHexSuffix(literal);
+            // Java does not support the unsigned U/u suffix on hex/binary literals,
+            // but it DOES support the long L/l suffix. javac rejects any hex/binary
+            // literal that exceeds int range unless it carries an explicit L suffix
+            // ("integer number too large"), so the L suffix must be preserved.
+            // TypeScript has no L suffix either: the TS writer turns L into bigint 'n'.
+            return TransformHexBinaryLiteral(literal, context.Options.TargetLanguage);
         }
 
         if (literal.EndsWith("f") || literal.EndsWith("F"))
@@ -160,23 +163,64 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
-    /// Strips C# unsigned/long suffixes (U, L, UL, LU, u, l, ul, lu) from hex/binary literals.
-    /// Java does not support these suffixes on hex/binary literals.
-    /// For example: 0xF0U → 0xF0, 0x8989UL → 0x8989
+    /// Transforms a C# hex/binary literal into a valid target-language literal.
+    /// The unsigned U/u suffix is stripped. The long L/l suffix is preserved and
+    /// normalized to uppercase 'L' (the TS writer converts it to bigint 'n').
+    /// For Java, hex/binary literals whose value exceeds int range MUST carry an L
+    /// suffix, otherwise javac rejects them with "integer number too large" even
+    /// when the value fits in a long. TypeScript has no such requirement and the
+    /// implicit suffix would wrongly turn plain number masks (uint constants,
+    /// generated 2^32 truncation masks) into bigint.
     /// </summary>
-    private static string StripHexSuffix(string literal)
+    private static string TransformHexBinaryLiteral(string literal, TargetLanguage target)
     {
-        // Find the end of the hex/binary prefix (0x or 0b)
-        int prefixEnd = 2; // Skip "0x" or "0b"
+        // Strip trailing C# suffixes (U/u/L/l in any order, e.g. UL, LU).
         int i = literal.Length - 1;
-
-        // Strip trailing U, L, u, l characters from the end
-        while (i >= prefixEnd && (literal[i] == 'U' || literal[i] == 'u' || literal[i] == 'L' || literal[i] == 'l'))
+        bool hadLongSuffix = false;
+        while (i >= 2 && (literal[i] == 'U' || literal[i] == 'u' || literal[i] == 'L' || literal[i] == 'l'))
         {
+            hadLongSuffix |= literal[i] == 'L' || literal[i] == 'l';
             i--;
         }
 
-        return literal.Substring(0, i + 1);
+        string digits = literal.Substring(0, i + 1);
+
+        // Normalize the long suffix to uppercase 'L'.
+        if (hadLongSuffix)
+        {
+            return digits + "L";
+        }
+
+        if (target == TargetLanguage.TypeScript)
+        {
+            // Unsuffixed C# hex/binary literals are int/uint constants; TS keeps
+            // them as plain number literals (no implicit L, no implicit bigint).
+            return digits;
+        }
+
+        // Java: determine whether an L suffix is required based on the value.
+        int radix = literal.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? 16 : 2;
+        string valueText = digits.Substring(2).Replace("_", "");
+
+        ulong value;
+        try
+        {
+            value = Convert.ToUInt64(valueText, radix);
+        }
+        catch
+        {
+            return digits;
+        }
+
+        if (value <= int.MaxValue)
+        {
+            return digits;
+        }
+        if (value <= long.MaxValue)
+        {
+            return digits + "L";
+        }
+        return $"Long.parseUnsignedLong(\"{valueText}\", {radix})";
     }
 
     private string TransformStringLiteral(LiteralExpressionSyntax node, ConversionContext context)

@@ -338,12 +338,12 @@ public class MethodTransformer : IMemberTransformer
                 // C# async Task (non-generic) methods implicitly return a completed Task
                 // when execution falls through the end. Add the implicit return unless
                 // the last statement already returns or throws on all paths.
-                // We only apply this to non-generic CompletableFuture (Task), not
-                // CompletableFuture<T> (Task<T>), because C# requires Task<T> methods
-                // to explicitly return a value on every path.
+                // We only apply this to non-generic CompletableFuture (Task) and
+                // CompletableFuture<ValueTask> (async ValueTask), not other
+                // CompletableFuture<T> (Task<T>) — C# requires Task<T> methods to
+                // explicitly return a value on every path.
                 if (context.IsInAsyncContext
-                    && javaMethod.ReturnType != null
-                    && javaMethod.ReturnType == "CompletableFuture"
+                    && javaMethod.ReturnType is "CompletableFuture" or "CompletableFuture<ValueTask>"
                     && javaMethod.StructuredBody != null
                     && javaMethod.StructuredBody.Statements.Count > 0)
                 {
@@ -351,8 +351,33 @@ public class MethodTransformer : IMemberTransformer
                         && StructuredBodyCanFallThrough(javaMethod.StructuredBody))
                     {
                         context.AddImport("java.util.concurrent.CompletableFuture");
+                        var completedValue = javaMethod.ReturnType == "CompletableFuture"
+                            ? "null"
+                            : "new io.github.ningpp.compat.ValueTask()";
                         javaMethod.StructuredBody.Statements.Add(
-                            new Java.JavaRawStatement("return CompletableFuture.completedFuture(null);"));
+                            new Java.JavaRawStatement($"return CompletableFuture.completedFuture({completedValue});"));
+                    }
+                }
+
+                // Java requires an explicit terminating statement after a try-catch
+                // whose catch blocks can fall through (C# flow analysis may still accept
+                // the method if each rethrow path returns). Append an unreachable throw
+                // only when at least one catch block does NOT end with a terminating
+                // statement — otherwise Java reports it as unreachable.
+                if (javaMethod.ReturnType != null && javaMethod.ReturnType != "void"
+                    && javaMethod.StructuredBody != null
+                    && javaMethod.StructuredBody.Statements.Count > 0)
+                {
+                    var lastBodyText = javaMethod.StructuredBody.Statements[^1].ToString("").TrimStart();
+                    if (lastBodyText.StartsWith("try", StringComparison.Ordinal)
+                        && StructuredBodyCanFallThrough(javaMethod.StructuredBody)
+                        && HasFallThroughCatch(javaMethod.StructuredBody.Statements[^1]))
+                    {
+                        javaMethod.StructuredBody.Statements.Add(
+                            new Java.JavaRawStatement(
+                                context.Options.TargetLanguage == TargetLanguage.TypeScript
+                                    ? "throw new Error(\"unreachable\");"
+                                    : "throw new AssertionError(\"unreachable\");"));
                     }
                 }
             }
@@ -646,7 +671,9 @@ public class MethodTransformer : IMemberTransformer
         // method/type parameters do not belong to the hoisted method's signature.
         // The parameter order must match the call-site token order (registration order),
         // otherwise the Class tokens would be bound to the wrong type parameters.
-        var pendingClassTypeParams = context.DrainClassTypeParams();
+        var pendingClassTypeParams = localFnSymbol != null
+            ? (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(localFnSymbol.ContainingType?.MetadataName ?? "", localFnSymbol.ToDisplayString())
+            : context.DrainClassTypeParams();
         if (pendingClassTypeParams != null && pendingClassTypeParams.Count > 0)
         {
             var ownTypeParamNames = (localFn.TypeParameterList?.Parameters
@@ -656,7 +683,7 @@ public class MethodTransformer : IMemberTransformer
             // Registration order lives in the ordered per-method list; fall back to the
             // drained set (unorderd) sorted deterministically when the key is unknown.
             var containingTypeMetadataName = localFnSymbol?.ContainingType?.MetadataName ?? "";
-            var methodMetadataName = localFnSymbol?.MetadataName ?? "";
+            var methodMetadataName = localFnSymbol?.ToDisplayString() ?? "";
             List<string> orderedNames = context.GetMethodClassTypeParamNames(
                     containingTypeMetadataName, methodMetadataName)?
                 .Where(ownTypeParamNames.Contains)
@@ -1677,7 +1704,10 @@ public class MethodTransformer : IMemberTransformer
         JavaMethodDeclaration javaMethod,
         ConversionContext context)
     {
-        var pendingTypeParameters = context.DrainClassTypeParams();
+        var sym = context.CurrentMethod;
+        var pendingTypeParameters = sym != null
+            ? (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(sym.ContainingType?.MetadataName ?? "", sym.ToDisplayString())
+            : context.DrainClassTypeParams();
         if (pendingTypeParameters == null || pendingTypeParameters.Count == 0)
             return;
 
@@ -1689,6 +1719,16 @@ public class MethodTransformer : IMemberTransformer
 
             javaMethod.Parameters.Insert(0, new JavaParameter($"Class<{typeParameterName}>", parameterName));
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
+            // The injected Class<T> parameter references the type parameter — make sure
+            // the method declares it (stripped when the body never used it before).
+            if (!javaMethod.TypeParameters.Any(tp => tp.Name == typeParameterName))
+                javaMethod.TypeParameters.Add(new Java.JavaTypeParameter(typeParameterName));
+            // Keep the method-level requirement table in sync so call sites can emit
+            // the matching Class token.
+            context.RegisterMethodClassTypeParam(
+                sym?.ContainingType?.MetadataName ?? "",
+                sym?.ToDisplayString() ?? "",
+                typeParameterName);
         }
     }
 
@@ -1784,6 +1824,49 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return StatementCanCompleteNormally(body.Statements[^1]);
+    }
+
+    /// <summary>
+    /// True when the generated try-catch text has at least one catch block that does
+    /// not end with a terminating statement (return/throw), meaning Java needs an
+    /// explicit unreachable throw after the construct.
+    /// </summary>
+    private static bool HasFallThroughCatch(Java.JavaStatement lastStatement)
+    {
+        if (lastStatement is not Java.JavaTryCatchStatement tryCatch)
+            return false;
+
+        foreach (var catchClause in tryCatch.CatchClauses)
+        {
+            // Raw catch text (pre-converted) is assumed terminating.
+            if (!string.IsNullOrEmpty(catchClause.RawOverride))
+                continue;
+            var body = catchClause.Body;
+            var statements = body?.Statements;
+            if (statements == null || statements.Count == 0)
+                return true;
+            // Walk backwards past any trailing comment/empty statements to find the
+            // actual last code statement of the catch block.
+            for (int i = statements.Count - 1; i >= 0; i--)
+            {
+                var stmtText = statements[i].ToString("").TrimStart();
+                if (string.IsNullOrWhiteSpace(stmtText)
+                    || stmtText.StartsWith("//", StringComparison.Ordinal)
+                    || stmtText.StartsWith("/*", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                if (!stmtText.StartsWith("return", StringComparison.Ordinal)
+                    && !stmtText.StartsWith("return;", StringComparison.Ordinal)
+                    && !stmtText.StartsWith("throw ", StringComparison.Ordinal)
+                    && !stmtText.StartsWith("throw;", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+                break;
+            }
+        }
+        return false;
     }
 
     private static bool StructuredBodyCanFallThrough(Java.JavaMethodBody? body)

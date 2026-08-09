@@ -11,6 +11,13 @@ public final class Span<T> {
     private final int offset;
     private final int length;
 
+    /** Default (empty) span — mirrors default(Span&lt;T&gt;). */
+    public Span() {
+        this.array = null;
+        this.offset = 0;
+        this.length = 0;
+    }
+
     public Span(T[] array) {
         this.array = array;
         this.offset = 0;
@@ -27,6 +34,13 @@ public final class Span<T> {
         this.array = array;
         this.offset = 0;
         this.length = array.length;
+    }
+
+    /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
+    public Span(ReadOnlySpan<T> other) {
+        this.array = other.toArray();
+        this.offset = 0;
+        this.length = other.getLength();
     }
 
     public Span(T[] array, int offset, int length) {
@@ -226,6 +240,15 @@ public final class Span<T> {
         Integer[] data = new Integer[length];
         for (int i = 0; i < length; i++) {
             data[i] = segment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, i) & 0xFF;
+        }
+        return new Span<>(data);
+    }
+
+    /** Mirrors new Span&lt;char&gt;((char*)ptr, length) — reads UTF-16 char elements. */
+    public static Span<Character> fromCharSegment(java.lang.foreign.MemorySegment segment, int length) {
+        Character[] data = new Character[length];
+        for (int i = 0; i < length; i++) {
+            data[i] = segment.get(java.lang.foreign.ValueLayout.JAVA_CHAR, (long) i * 2);
         }
         return new Span<>(data);
     }

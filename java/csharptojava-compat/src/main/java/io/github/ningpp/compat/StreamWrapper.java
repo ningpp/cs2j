@@ -105,6 +105,20 @@ public class StreamWrapper implements AutoCloseable {
         return CompletableFuture.completedFuture(read(buffer, offset, count));
     }
 
+    /** Mirrors Stream.ReadAsync(Memory&lt;byte&gt;, CancellationToken) — reads into the memory view. */
+    public CompletableFuture<Integer> readAsync(ReadOnlyMemory<Integer> memory, boolean cancellationToken) {
+        ReadOnlySpan<Integer> span = memory.getSpan();
+        byte[] buffer = new byte[span.length()];
+        for (int i = 0; i < span.length(); i++) {
+            buffer[i] = (byte) (span.get(i) & 0xFF);
+        }
+        int n = read(buffer, 0, buffer.length);
+        for (int i = 0; i < n && i < span.length(); i++) {
+            span.set(i, buffer[i] & 0xFF);
+        }
+        return CompletableFuture.completedFuture(n);
+    }
+
     public void write(int value) {
         try { outputStream().write(value); }
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
@@ -149,8 +163,46 @@ public class StreamWrapper implements AutoCloseable {
         return CompletableFuture.runAsync(this::flush);
     }
 
+    public CompletableFuture<Void> flushAsync(boolean cancellationToken) {
+        return CompletableFuture.runAsync(this::flush);
+    }
+
+    public void write(Span<Integer> span) {
+        for (int i = 0; i < span.length(); i++) {
+            write(span.get(i));
+        }
+    }
+
     public CompletableFuture<Void> writeAsync(byte[] buffer, int offset, int count) {
         return CompletableFuture.runAsync(() -> write(buffer, offset, count));
+    }
+
+    public CompletableFuture<Void> writeAsync(ReadOnlySpan<Integer> span, boolean cancellationToken) {
+        return CompletableFuture.runAsync(() -> write(span));
+    }
+
+    public CompletableFuture<Void> writeAsync(ReadOnlyMemory<Integer> memory, boolean cancellationToken) {
+        return CompletableFuture.runAsync(() -> write(memory.getSpan()));
+    }
+
+    public void write(ReadOnlyMemory<Integer> memory) {
+        write(memory.getSpan());
+    }
+
+    public boolean getCanWrite() {
+        return outputStream != null;
+    }
+
+    public boolean getCanRead() {
+        return inputStream != null;
+    }
+
+    public boolean getCanTimeout() {
+        return false;
+    }
+
+    public void setLength(long value) {
+        throw new UnsupportedOperationException("This stream does not support SetLength");
     }
 
     public CompletableFuture<Void> copyToAsync(StreamWrapper destination) {

@@ -75,6 +75,11 @@ public final class TypeHelper {
         return type == null ? null : type.getDeclaringClass();
     }
 
+    /** Mirrors Nullable.GetUnderlyingType(Type) — null unless the type is a boxed nullable wrapper. */
+    public static Class<?> getUnderlyingType(Class<?> type) {
+        return null;
+    }
+
     public static boolean getIsGenericType(Class<?> type) {
         return type != null && type.getTypeParameters().length > 0;
     }
@@ -132,6 +137,40 @@ public final class TypeHelper {
 
     public static boolean getIsClass(Class<?> type) {
         return type != null && !type.isInterface() && !type.isPrimitive() && !type.isArray();
+    }
+
+    /** Mirrors C# Type.IsPointer — pointers are not representable in Java. */
+    public static boolean getIsPointer(Class<?> type) {
+        return false;
+    }
+
+    /** Mirrors C# Type.IsByRefLike — ref structs have no Java equivalent. */
+    public static boolean getIsByRefLike(Class<?> type) {
+        return false;
+    }
+
+    public static boolean getIsArray(Class<?> type) {
+        return type != null && type.isArray();
+    }
+
+    public static boolean getIsEnum(Class<?> type) {
+        return type != null && type.isEnum();
+    }
+
+    public static boolean getIsPrimitive(Class<?> type) {
+        return type != null && type.isPrimitive();
+    }
+
+    public static boolean getIsInterface(Class<?> type) {
+        return type != null && type.isInterface();
+    }
+
+    public static boolean getIsSealed(Class<?> type) {
+        return type != null && java.lang.reflect.Modifier.isFinal(type.getModifiers());
+    }
+
+    public static boolean getIsGenericTypeDefinition(Class<?> type) {
+        return type != null && type.getTypeParameters().length > 0;
     }
 
     public static int getArrayRank(Class<?> type) {

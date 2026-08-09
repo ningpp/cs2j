@@ -99,8 +99,8 @@ public interface CSharpIDictionary extends CSharpCollection {
                 return ((CSharpGenericIDictionary) dict).put(key, value);
             }
             @Override
-            public CSharpEnumerator iterator() {
-                return CSharpEnumerator.from(dict.iterator());
+            public CSharpGenericEnumerator<Object> iterator() {
+                return CSharpGenericEnumerator.<Object>from(dict.iterator());
             }
         };
     }
@@ -128,8 +128,8 @@ public interface CSharpIDictionary extends CSharpCollection {
                 return list.size();
             }
             @Override
-            public CSharpEnumerator iterator() {
-                return CSharpEnumerator.from(list.iterator());
+            public CSharpGenericEnumerator<Object> iterator() {
+                return CSharpGenericEnumerator.<Object>from(list.iterator());
             }
         };
     }

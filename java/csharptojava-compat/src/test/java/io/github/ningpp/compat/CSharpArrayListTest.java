@@ -40,8 +40,8 @@ class CSharpArrayListTest {
             @Override public void copyTo(CSharpArray array, int index) { }
             @Override public boolean getIsSynchronized() { return false; }
             @Override public Object getSyncRoot() { return this; }
-            @Override public CSharpEnumerator iterator() {
-                return CSharpEnumerator.from(Arrays.asList("x", "y", "z").iterator());
+            @Override public CSharpGenericEnumerator<Object> iterator() {
+                return CSharpGenericEnumerator.<Object>from(Arrays.asList("x", "y", "z").iterator());
             }
         };
         CSharpArrayList list = new CSharpArrayList(collection);

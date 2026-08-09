@@ -195,13 +195,13 @@ class EnumHelperTest {
 
     @Test
     void getValues_returnsAllConstants() {
-        Object[] values = EnumHelper.getValues(Color.class);
+        Object[] values = EnumHelper.getValuesArray(Color.class);
         assertArrayEquals(new Object[]{Color.Red, Color.Green, Color.Blue}, values);
     }
 
     @Test
     void getValues_statusEnum() {
-        Object[] values = EnumHelper.getValues(Status.class);
+        Object[] values = EnumHelper.getValuesArray(Status.class);
         assertArrayEquals(new Object[]{Status.Open, Status.Closed, Status.Pending}, values);
     }
 }

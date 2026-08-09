@@ -106,7 +106,10 @@ class C {
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode ?? "";
-        Assert.Contains("int value = (Integer) ", code, StringComparison.Ordinal);
+        // The out-variable declaration is hoisted before the if (C# out-variable
+        // scope covers the whole block); the get() result is cast inside the then-branch.
+        Assert.Contains("Integer value = null;", code, StringComparison.Ordinal);
+        Assert.Contains("value = (Integer) ", code, StringComparison.Ordinal);
         Assert.Contains(".get(", code, StringComparison.Ordinal);
     }
 

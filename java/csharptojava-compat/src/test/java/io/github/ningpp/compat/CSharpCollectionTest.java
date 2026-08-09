@@ -30,8 +30,8 @@ class CSharpCollectionTest {
         }
 
         @Override
-        public CSharpEnumerator iterator() {
-            return CSharpEnumerator.from(Collections.emptyList().iterator());
+        public CSharpGenericEnumerator<Object> iterator() {
+            return CSharpGenericEnumerator.<Object>from(Collections.emptyList().iterator());
         }
 
         @Override

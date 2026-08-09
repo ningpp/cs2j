@@ -41,8 +41,8 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     }
     @Override public boolean getIsSynchronized() { return false; }
     @Override public Object getSyncRoot() { return syncRoot; }
-    @Override public CSharpEnumerator iterator() {
-        return CSharpEnumerator.from(list.iterator());
+    @Override public CSharpGenericEnumerator<Object> iterator() {
+        return CSharpGenericEnumerator.<Object>from(list.iterator());
     }
 
     public int getCapacity() { return -1; } // ArrayList doesn't expose capacity

@@ -603,6 +603,17 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     }
                 }
 
+                // Generic targets (e.g. implicit operator ReadOnlyMemory<T>(T[])):
+                // the to<TargetType> name synthesis would embed type arguments and
+                // produce invalid Java (ReadOnlyMemory<Integer>.toReadOnlyMemory<Integer>).
+                // The compat memory/span types model these conversions with
+                // constructors, so wrap the source in a constructor instead.
+                if (javaTargetType.Contains('<')
+                    && ExpressionTransformerHelpers.IsCompatMemorySpanFamily(javaTargetType))
+                {
+                    return $"new {javaTargetType}({expression})";
+                }
+
                 var javaMethodName = "to" + char.ToUpper(javaTargetType[0]) + javaTargetType[1..];
                 return $"{javaContainingType}.{javaMethodName}({expression})";
             }
@@ -1293,14 +1304,19 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // (e.g. Optional.class or ArraySegment.class), not to the unwrapped
             // type parameter.
             var ns = namedType.ContainingNamespace?.ToDisplayString() ?? "";
+            if (ns == "<global namespace>")
+                ns = "";
             var configKey = (string.IsNullOrEmpty(ns) ? "" : ns + ".") + namedType.Name + "`" + namedType.TypeArguments.Length;
-            typeName = context.TypeMappings.MapType(configKey);
-            if (typeName != configKey)
+            if (context.TypeMappings.HasTypeMapping(configKey))
             {
+                typeName = context.TypeMappings.MapType(configKey);
                 context.AddImportsForTypePublic(configKey);
             }
             else
             {
+                // No explicit mapping (e.g. a project type or an unconfigured BCL
+                // type): MapType(configKey) would return the bare simple name with
+                // the arity marker (Generic`1), so resolve through the symbol.
                 typeName = context.MapType(typeInfo.Type);
             }
         }
@@ -1455,8 +1471,18 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // For type parameters with struct constraint, emit new T().
         // C# default(T) where T : struct yields the zero-initialized value,
         // which in Java corresponds to new T() (structs become classes).
-        if (typeSymbol is ITypeParameterSymbol { HasValueTypeConstraint: true })
+        if (typeSymbol is ITypeParameterSymbol { HasValueTypeConstraint: true } structTypeParam)
+        {
+            // Java cannot instantiate a type parameter (new T() is illegal). When a
+            // runtime Class<T> token is available (class-level field or method-level
+            // parameter), route through DefaultValue.ofClass to obtain the zero value.
+            if (context.TryGetRuntimeClassParameter(structTypeParam.Name, out var structRuntimeClassParam))
+            {
+                context.AddImport("io.github.ningpp.compat.DefaultValue");
+                return $"({typeName}) DefaultValue.ofClass({structRuntimeClassParam})";
+            }
             return $"new {typeName}()";
+        }
 
         // For type parameters with class constraint, null is always correct.
         if (typeSymbol is ITypeParameterSymbol { HasReferenceTypeConstraint: true })
@@ -1518,7 +1544,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     var method = typeParam.DeclaringMethod;
                     context.RequireClassTypeParam(
                         containingType.MetadataName,
-                        method.MetadataName,
+                        method.ToDisplayString(),
                         typeParam.Name);
                     context.AddImport("io.github.ningpp.compat.DefaultValue");
                     return $"DefaultValue.of(_cs2j_{typeParam.Name})";

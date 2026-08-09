@@ -235,19 +235,23 @@ public static class TypeGroupResolver
                         }
                         else
                         {
-                            // Use the first valid syntax node directly; structs are rarely partial
-                            TypeDeclarationSyntax? structNode = null;
-                            foreach (var n in typeGroup.SyntaxNodes)
+                            // Merged path handles partial structs (e.g. ref partial struct
+                            // Utf8JsonReader split across multiple files). GetSyntax() may
+                            // return synthetic trees for stale syntax references, so filter
+                            // to nodes actually present in this compilation first — the
+                            // synthetic ones break semantic lookups (not within syntax tree).
+                            var validStructNodes = typeGroup.SyntaxNodes
+                                .Where(n => compilation.ContainsSyntaxTree(n.SyntaxTree))
+                                .ToList();
+                            if (validStructNodes.Count <= 1)
                             {
-                                if (compilation.ContainsSyntaxTree(n.SyntaxTree))
-                                {
-                                    structNode = n;
-                                    break;
-                                }
+                                var singleNode = validStructNodes.FirstOrDefault() ?? typeGroup.SyntaxNodes[0];
+                                javaType = new StructTransformer().Transform(singleNode, context);
                             }
-                            javaType = structNode != null
-                                ? new StructTransformer().Transform(structNode, context)
-                                : null;
+                            else
+                            {
+                                javaType = new StructTransformer().TransformMerged(mergedDeclaration, context, validStructNodes);
+                            }
                         }
                         break;
                     case TypeKind.Interface:

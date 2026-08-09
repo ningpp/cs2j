@@ -51,8 +51,8 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     }
     @Override public boolean getIsSynchronized() { return false; }
     @Override public Object getSyncRoot() { return syncRoot; }
-    @Override public CSharpEnumerator iterator() {
-        return CSharpEnumerator.from(map.entrySet().stream()
+    @Override public CSharpGenericEnumerator<Object> iterator() {
+        return CSharpGenericEnumerator.<Object>from(map.entrySet().stream()
             .map(e -> (Object) new CSharpDictEntry(e.getKey(), e.getValue()))
             .iterator());
     }
@@ -72,7 +72,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         }
         @Override public boolean getIsSynchronized() { return false; }
         @Override public Object getSyncRoot() { return syncRoot; }
-        @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(keys.iterator()); }
+        @Override public CSharpGenericEnumerator<Object> iterator() { return CSharpGenericEnumerator.<Object>from(keys.iterator()); }
     }
 
     private static class CSharpValueCollection implements CSharpCollection {
@@ -86,7 +86,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         }
         @Override public boolean getIsSynchronized() { return false; }
         @Override public Object getSyncRoot() { return syncRoot; }
-        @Override public CSharpEnumerator iterator() { return CSharpEnumerator.from(values.iterator()); }
+        @Override public CSharpGenericEnumerator<Object> iterator() { return CSharpGenericEnumerator.<Object>from(values.iterator()); }
     }
 
     private static final class SynchronizedHashtable extends CSharpHashtable {
@@ -109,7 +109,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         @Override public int size() { synchronized (syncRoot) { return inner.size(); } }
         @Override public int getCount() { synchronized (syncRoot) { return inner.getCount(); } }
         @Override public void copyTo(CSharpArray array, int index) { synchronized (syncRoot) { inner.copyTo(array, index); } }
-        @Override public CSharpEnumerator iterator() { synchronized (syncRoot) { return inner.iterator(); } }
+        @Override public CSharpGenericEnumerator<Object> iterator() { synchronized (syncRoot) { return inner.iterator(); } }
         @Override public CSharpCollection getKeys() { synchronized (syncRoot) { return inner.getKeys(); } }
         @Override public CSharpCollection getValues() { synchronized (syncRoot) { return inner.getValues(); } }
         @Override public boolean getIsSynchronized() { return true; }
