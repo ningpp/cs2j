@@ -454,4 +454,172 @@ public class ReadOnlyStructMakerL5Tests
         // Implicit field READS are still rewritten to result.JsonClassInfo
         Assert.Contains("result.JsonClassInfo.ConverterBase", result.OutputCode);
     }
+
+    [Fact]
+    public void PrefixDecrementInArrayIndex_PreservesOffByOneSemantics()
+    {
+        // Reproduces: WriteStack.Pop `Current = _previous[--_count - 1];`.
+        // The hoisted temp must keep the original value semantics:
+        //   --_count - 1 == (oldCount - 1) - 1, NOT oldCount - 1.
+        var src = """
+        struct Frame {
+            public int Current;
+        }
+        struct Stack2 {
+            private int _count;
+            private Frame[] _previous;
+            public Frame Pop() {
+                if (_count > 1) {
+                    Current = _previous[--_count - 1];
+                }
+                return Current;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // The decrement write-back must use the OLD value minus one…
+        Assert.Contains("__cs2jOld_count_0 - 1)", result.OutputCode);
+        // …and the array index must be (old - 1) - 1, i.e. old - 2.
+        Assert.Contains("__cs2jOld_count_0 - 1) - 1", result.OutputCode);
+        Assert.DoesNotContain("_previous[__cs2jOld_count_0 - 1]", result.OutputCode);
+    }
+
+    [Fact]
+    public void PrefixIncrementInExpression_ReturnsNewValue()
+    {
+        // --/++ used as an operand must yield the NEW value (temp ± 1),
+        // not the old value, and must be parenthesized for precedence.
+        var src = """
+        struct Counter2 {
+            private int _count;
+            public int Next() {
+                int x = --_count * 2;
+                return x;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("__cs2jOld_count_0 - 1) * 2", result.OutputCode);
+        Assert.DoesNotContain("__cs2jOld_count_0 * 2", result.OutputCode);
+    }
+
+    [Fact]
+    public void BareInstanceMethodCall_ReadsResultNotStaleThis()
+    {
+        // Reproduces: BitStack.Pop calling PopFromArray() after decrementing
+        // _currentDepth through the `result` local. The bare call must be
+        // rewritten to result.PopFromArray() so it observes the new depth.
+        var src = """
+        struct Stack3 {
+            private int _currentDepth;
+            public bool Pop() {
+                _currentDepth--;
+                bool inObject = false;
+                if (_currentDepth >= 2) {
+                    inObject = PopFromArray();
+                }
+                return inObject;
+            }
+            private bool PopFromArray() { return _currentDepth > 0; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("inObject = result.PopFromArray()", result.OutputCode);
+        Assert.DoesNotContain("= PopFromArray()", result.OutputCode);
+        Assert.Contains("result = result.With_currentDepth(result._currentDepth - 1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void MixedPublicAndPrivateFields_WithMethodsPreserveAllState()
+    {
+        // Reproduces: System.Text.Json ReadStack/WriteStack structs with BOTH public
+        // fields (converted to get-only properties) and private fields. The full
+        // constructor must assign every storage member; otherwise WithCurrent etc.
+        // silently drop _count/_previous and deserialization breaks.
+        var src = """
+        class JsonClassInfo { }
+        struct Frame {
+            public JsonClassInfo JsonClassInfo;
+        }
+        struct Stack4 {
+            private int _count;
+            private Frame[] _previous;
+            public Frame Current;
+            public int FlushThreshold;
+            public Stack4 Reset() {
+                Current = new Frame();
+                return Current;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // The full constructor must cover private fields AND converted public props.
+        Assert.Contains("_count", result.OutputCode);
+        Assert.Contains("internal Stack4(", result.OutputCode);
+        // WithCurrent must pass the private fields back through the constructor.
+        Assert.Contains("WithCurrent(Frame current) => new Stack4(count: this._count", result.OutputCode);
+        // With_count must pass the public properties back through the constructor.
+        Assert.Contains("With_count(int _count) => new Stack4(count: _count, previous: this._previous, current: this.Current", result.OutputCode);
+    }
+
+    [Fact]
+    public void MutatingInterfaceImplementation_NotConverted()
+    {
+        // Reproduces: IEnumerator/ITestClass-implementing structs (e.g.
+        // JsonElement.ObjectEnumerator, SimpleTestStruct). Interface dispatch
+        // happens on a boxed instance; the explicit implementation shim cannot
+        // write the migrated struct result back through the box, so the mutation
+        // would be silently lost. Such structs must stay mutable.
+        var src = """
+        interface IIt { void Advance(); }
+        struct It : IIt {
+            private int _cur;
+            public int Current { get; }
+            public void Advance() { _cur++; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+    }
+
+    [Fact]
+    public void SetterWithValidation_NotConverted()
+    {
+        // Reproduces: JsonReaderOptions — setter validation (if/throw) is silently
+        // dropped by the L3 conversion (generated ctor assigns raw values).
+        var src = """
+        struct Opts {
+            private int _maxDepth;
+            public int MaxDepth {
+                get => _maxDepth;
+                set { if (value < 0) throw new System.ArgumentOutOfRangeException(); _maxDepth = value; }
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+    }
+
+    [Fact]
+    public void PlainBackingFieldSetter_StillConverted()
+    {
+        // A setter that is a single plain `_field = value;` write carries no
+        // semantics to preserve — the L3 conversion may proceed.
+        var src = """
+        struct Opts2 {
+            private int _maxDepth;
+            public int MaxDepth {
+                get => _maxDepth;
+                set { _maxDepth = value; }
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Opts2", result.OutputCode);
+    }
 }

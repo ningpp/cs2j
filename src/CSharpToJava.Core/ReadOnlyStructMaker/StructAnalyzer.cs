@@ -64,6 +64,95 @@ internal sealed class StructAnalyzer
     }
 
     /// <summary>
+    /// True when the struct type is passed by <c>ref</c>/<c>out</c>/<c>in</c> as a
+    /// parameter of methods declared in OTHER types, and one of those methods
+    /// mutates the parameter's members heavily (8+ writes). Every such write is
+    /// rewritten into an <c>obj = obj.WithXxx(...)</c> chain whose temporaries
+    /// bloat the JIT frames of hot recursive serializer methods several times over —
+    /// deeply nested payloads (e.g. StreamTests.DeepNestedJsonFileTest, depth 324)
+    /// then overflow the 1 MB test stack although the original code handles them
+    /// fine. Lightly-mutated ref parameters (e.g. <c>void Update(ref Pixel p)
+    /// { p.X++; }</c>) are unaffected and keep converting.
+    /// </summary>
+    private bool HasExternalRefParamPassing(INamedTypeSymbol structSymbol)
+    {
+        var compilation = _model.Compilation;
+        var target = structSymbol.OriginalDefinition;
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var method in tree.GetRoot().DescendantNodes()
+                         .OfType<MethodDeclarationSyntax>())
+            {
+                var methodSymbol = model.GetDeclaredSymbol(method);
+                if (methodSymbol == null) continue;
+                if (SymbolEqualityComparer.Default.Equals(
+                        methodSymbol.ContainingType?.OriginalDefinition, target))
+                {
+                    continue; // the struct's own methods
+                }
+                foreach (var parameter in method.ParameterList.Parameters)
+                {
+                    if (!parameter.Modifiers.Any(m =>
+                            m.IsKind(SyntaxKind.RefKeyword) ||
+                            m.IsKind(SyntaxKind.OutKeyword) ||
+                            m.IsKind(SyntaxKind.InKeyword)))
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        var type = model.GetTypeInfo(parameter.Type).Type;
+                        if (type == null ||
+                            !SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, target))
+                        {
+                            continue;
+                        }
+                    }
+                    catch (ArgumentException)
+                    {
+                        continue;
+                    }
+
+                    // Count writes to the parameter's members: p.F = v / p.F++ /
+                    // p.F op= v / p.F[..] = v — each becomes a With-chain.
+                    var paramName = parameter.Identifier.Text;
+                    int chainCount = 0;
+                    foreach (var assign in method.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+                    {
+                        if (IsParamMemberWrite(assign.Left, paramName)) chainCount++;
+                    }
+                    foreach (var unary in method.DescendantNodes()
+                                 .OfType<PrefixUnaryExpressionSyntax>()
+                                 .Cast<ExpressionSyntax>()
+                                 .Concat(method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()))
+                    {
+                        if (unary is PrefixUnaryExpressionSyntax pre && IsParamMemberWrite(pre.Operand, paramName) ||
+                            unary is PostfixUnaryExpressionSyntax post && IsParamMemberWrite(post.Operand, paramName))
+                        {
+                            chainCount++;
+                        }
+                    }
+                    if (chainCount >= 8)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool IsParamMemberWrite(ExpressionSyntax expr, string paramName)
+    {
+        while (expr is MemberAccessExpressionSyntax ma)
+        {
+            expr = ma.Expression;
+        }
+        return expr is IdentifierNameSyntax id && id.Identifier.Text == paramName;
+    }
+
+    /// <summary>
     /// Detects invocations inside the struct declaration that pass one of the struct's
     /// own fields as a ref/out argument (receiver resolves to this struct type, or `this`).
     /// </summary>
@@ -124,6 +213,14 @@ internal sealed class StructAnalyzer
         if (HasOptOutAttribute(symbol))
             return new(ConversionLevel.Skip, StructPattern.AlreadyReadonly, false,
                 $"[{_options.OptOutAttributeName}] attribute (skipped)", name);
+
+        // L0: structs passed by ref/out/in to methods of other types. External
+        // callers' mutation rewrites (obj = obj.WithXxx(...)) bloat the JIT frames
+        // of hot recursive methods, overflowing the test stack on deeply nested
+        // payloads the original code handles fine. Keep them mutable.
+        if (HasExternalRefParamPassing(symbol))
+            return new(ConversionLevel.Skip, StructPattern.MutableMethodsNonMigratable, false,
+                "passed by ref/out to external methods (frame-size preservation)", name);
 
         // Gather members
         var fields = symbol.GetMembers().OfType<IFieldSymbol>()
@@ -295,6 +392,23 @@ internal sealed class StructAnalyzer
                 return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
                     "property with custom derived getter and public setter (state not recoverable via constructor)", name);
 
+            // Guard: setters whose bodies contain validation or other logic beyond a
+            // plain `_field = value;` write (e.g. `if (value > Max) throw ...;`). The
+            // L3 conversion removes setters and the generated constructor assigns raw
+            // values — silently dropping the validation (e.g. JsonReaderOptions).
+            if (HasValidationSetterProps(syntax))
+                return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
+                    "property setter contains validation logic (state not recoverable via constructor)", name);
+
+            // Guard: [JsonConstructor]-attributed structs are deserialized by
+            // System.Text.Json through the annotated constructor PLUS property-setter
+            // assignment for the remaining members. The L3 conversion removes those
+            // setters, breaking round-trips, so keep such structs mutable.
+            if (symbol.InstanceConstructors.Any(c => c.GetAttributes().Any(a =>
+                    a.AttributeClass?.Name is "JsonConstructorAttribute" or "JsonConstructor")))
+                return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
+                    "has [JsonConstructor] (System.Text.Json deserialization target)", name);
+
             if (_options.EnableDtoConversion)
             {
                 return new(ConversionLevel.DataContainer, StructPattern.DataContainer, true,
@@ -353,6 +467,18 @@ internal sealed class StructAnalyzer
                         }
                     }
                 }
+            }
+
+            // A migrated method that implicitly implements an interface member is
+            // invoked through interface dispatch on a boxed instance (e.g. foreach
+            // calls IEnumerator.MoveNext(), tests call ITestClass.Initialize()).
+            // The explicit implementation shim cannot write the migrated struct
+            // result back through the box (this = ... is CS1604 in a readonly
+            // struct), so the mutation is silently lost. Keep such structs mutable.
+            if (interfaceMigrations.Count > 0)
+            {
+                return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
+                    "mutating methods implement interface members (state cannot be written back through interface dispatch)", name);
             }
 
             return new(ConversionLevel.MethodMigrate, StructPattern.MutableMethods, true,
@@ -465,6 +591,37 @@ internal sealed class StructAnalyzer
                 ?? getter.Body?.DescendantNodes().OfType<ReturnStatementSyntax>().SingleOrDefault()?.Expression;
             if (returnExpr is not IdentifierNameSyntax)
                 return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when the struct has a non-private setter whose body is not a plain
+    /// backing-field write (e.g. contains validation like <c>if (value &gt; Max)
+    /// throw ...;</c> or <c>Debug.Assert(...)</c>). The L3 conversion removes
+    /// setters and its generated constructor assigns raw values, silently dropping
+    /// the validation — so such structs must not be converted.
+    /// </summary>
+    private static bool HasValidationSetterProps(StructDeclarationSyntax syntax)
+    {
+        foreach (var prop in syntax.Members.OfType<PropertyDeclarationSyntax>())
+        {
+            if (prop.AccessorList == null) continue;
+            var setter = prop.AccessorList.Accessors
+                .FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+            if (setter == null) continue;
+            if (setter.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword))) continue;
+            if (setter.Body == null && setter.ExpressionBody == null) continue; // auto-prop
+
+            if (setter.Body == null) return true; // expression-bodied setter: not a plain write
+
+            // Plain backing write: exactly one assignment of `value` to a field.
+            var statements = setter.Body.Statements;
+            if (statements.Count != 1) return true;
+            if (statements[0] is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assign })
+                return true;
+            if (!assign.IsKind(SyntaxKind.SimpleAssignmentExpression)) return true;
+            if (assign.Right is not IdentifierNameSyntax { Identifier.Text: "value" }) return true;
         }
         return false;
     }

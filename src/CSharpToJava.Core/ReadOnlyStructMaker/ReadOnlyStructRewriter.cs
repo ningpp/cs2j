@@ -309,6 +309,15 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             .Where(f => f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword)))
             .Select(f => f.Variable.Identifier.Text).ToHashSet();
 
+        // ALL instance fields (private included). The full constructor must assign
+        // EVERY storage member — otherwise WithXxx methods (which pass
+        // `this.<otherField>` for the remaining members) silently drop the struct's
+        // private state, e.g. ReadStack.WithCurrent loses _count/_previous.
+        var allFieldTypes = allFields
+            .Where(f => !f.Field.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) ||
+                                                    m.IsKind(SyntaxKind.ConstKeyword)))
+            .ToDictionary(f => f.Variable.Identifier.Text, f => f.Field.Declaration.Type);
+
         // 1b. Filter out fields that have preprocessor directives in their leading trivia
         // These fields cannot be safely converted to properties because the #endif directive
         // is typically in the next member's leading trivia, and moving it would break the
@@ -321,8 +330,8 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             var readonlyNode = ApplyDirectAdd(node);
 
             // Ensure a full constructor exists for all non-private fields
-            var allCtorMembersPreproc = allNonPrivateFieldTypes.Select(kvp =>
-                (kvp.Key, kvp.Value, !internalFieldNames.Contains(kvp.Key))).ToList();
+            var allCtorMembersPreproc = allFieldTypes.Select(kvp =>
+                (kvp.Key, kvp.Value, !internalFieldNames.Contains(kvp.Key) && !IsPrivateField(kvp.Key, node))).ToList();
             var fullCtorPreproc = ConstructorGenerator.Generate(structName, allCtorMembersPreproc);
             if (fullCtorPreproc != null)
             {
@@ -337,10 +346,11 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             }
 
             // Generate WithXxx methods for ALL non-private fields using constructor
-            var existingCtor = readonlyNode.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+            var existingCtor = readonlyNode.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault()
+                ?? fullCtorPreproc;
             foreach (var fieldName in allNonPrivateFieldTypes.Keys)
             {
-                var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allNonPrivateFieldTypes, existingCtor,
+                var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allFieldTypes, existingCtor,
                     isInternal: internalFieldNames.Contains(fieldName));
                 readonlyNode = readonlyNode.AddMembers(withMethod);
             }
@@ -410,8 +420,8 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
         // 5. Ensure a full constructor exists that assigns ALL non-private fields.
         // Readonly structs require all fields to be definitely assigned in every constructor.
-        var allCtorMembers = allNonPrivateFieldTypes.Select(kvp =>
-            (kvp.Key, kvp.Value, !internalFieldNames.Contains(kvp.Key))).ToList();
+        var allCtorMembers = allFieldTypes.Select(kvp =>
+            (kvp.Key, kvp.Value, !internalFieldNames.Contains(kvp.Key) && !IsPrivateField(kvp.Key, node))).ToList();
         var fullCtor = ConstructorGenerator.Generate(structName, allCtorMembers);
         if (fullCtor != null)
         {
@@ -461,13 +471,18 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         }
         foreach (var fieldName in allNonPrivateFieldTypes.Keys)
         {
-            var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allNonPrivateFieldTypes, ctor,
+            var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allFieldTypes, ctor,
                 isInternal: internalFieldNames.Contains(fieldName));
             result = result.AddMembers(withMethod);
         }
 
         return result;
     }
+
+    private static bool IsPrivateField(string fieldName, StructDeclarationSyntax node)
+        => node.Members.OfType<FieldDeclarationSyntax>()
+            .Any(f => f.Declaration.Variables.Any(v => v.Identifier.Text == fieldName) &&
+                      f.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)));
 
     /// <summary>
     /// Extracts parameter name to field name mapping from constructor body.
@@ -640,7 +655,11 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         {
             var migratedMethodNames = result.MethodMigrations
                 .Select(m => m.Method.Name).ToHashSet();
-            var migrator = new MethodMigrator(structName, fieldNames, propertyNames, migratedMethodNames);
+            var instanceMethodNames = rewritten.Members.OfType<MethodDeclarationSyntax>()
+                .Where(m => !m.Modifiers.Any(md => md.IsKind(SyntaxKind.StaticKeyword)))
+                .Select(m => m.Identifier.Text)
+                .ToHashSet();
+            var migrator = new MethodMigrator(structName, fieldNames, propertyNames, migratedMethodNames, instanceMethodNames);
             foreach (var migration in result.MethodMigrations)
             {
                 var migrated = migrator.Migrate(migration.Syntax);
@@ -746,6 +765,15 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 {
                     newBody = (BlockSyntax)new MethodMigrator.ImplicitFieldToResultRewriter(fieldNames, propertyNames).Visit(newBody)!;
                 }
+                var instanceMethodNames = node.Members.OfType<MethodDeclarationSyntax>()
+                    .Where(m => !m.Modifiers.Any(md => md.IsKind(SyntaxKind.StaticKeyword)))
+                    .Select(m => m.Identifier.Text)
+                    .ToHashSet();
+                if (instanceMethodNames.Count > 0)
+                {
+                    newBody = (BlockSyntax)new MethodMigrator.ImplicitInstanceCallRewriter(
+                        instanceMethodNames, withMethodName).Visit(newBody)!;
+                }
                 newBody = newBody.AddStatements(
                     SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result"))
                         .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
@@ -791,6 +819,19 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         }
         foreach (var ap in autoStorageProps)
             instanceFieldTypes[ap.PropName] = ap.Type;
+
+        // Public fields converted to get-only properties at step 0 are storage
+        // members too (hidden auto-property backing fields): the compose constructor
+        // must assign them, otherwise With methods (which pass `this.<member>` for
+        // everything but their own field) drop the converted property's state.
+        foreach (var name in withTargets)
+        {
+            if (instanceFieldTypes.ContainsKey(name)) continue;
+            var convertedProp = rewritten.Members.OfType<PropertyDeclarationSyntax>()
+                .FirstOrDefault(p => p.Identifier.Text == name);
+            if (convertedProp != null)
+                instanceFieldTypes[name] = convertedProp.Type;
+        }
 
         ConstructorDeclarationSyntax? composeCtor = null;
         if (instanceFieldTypes.Count > 0)
@@ -1447,7 +1488,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 if ((node.IsKind(SyntaxKind.PostIncrementExpression) || node.IsKind(SyntaxKind.PostDecrementExpression)) &&
                     _parent.TryGetTargetAccess(node.Operand, out var access))
                 {
-                    return Hoist(node, access, node.IsKind(SyntaxKind.PostIncrementExpression));
+                    return Hoist(node, access, node.IsKind(SyntaxKind.PostIncrementExpression), isPrefix: false);
                 }
                 return base.VisitPostfixUnaryExpression(node);
             }
@@ -1457,12 +1498,12 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 if ((node.IsKind(SyntaxKind.PreIncrementExpression) || node.IsKind(SyntaxKind.PreDecrementExpression)) &&
                     _parent.TryGetTargetAccess(node.Operand, out var access))
                 {
-                    return Hoist(node, access, node.IsKind(SyntaxKind.PreIncrementExpression));
+                    return Hoist(node, access, node.IsKind(SyntaxKind.PreIncrementExpression), isPrefix: true);
                 }
                 return base.VisitPrefixUnaryExpression(node);
             }
 
-            private SyntaxNode Hoist(ExpressionSyntax node, MemberAccessExpressionSyntax access, bool isIncrement)
+            private SyntaxNode Hoist(ExpressionSyntax node, MemberAccessExpressionSyntax access, bool isIncrement, bool isPrefix)
             {
                 var fieldName = access.Name.Identifier.Text;
                 var tempName = _parent.NextTempName(fieldName);
@@ -1476,6 +1517,21 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 Hoisted.Add(SyntaxFactory.ExpressionStatement(
                     _parent_BuildWithCall(access, tempName, isIncrement)));
 
+                if (isPrefix)
+                {
+                    // Prefix ++/-- evaluates to the NEW value (temp ± 1); the write-back
+                    // above already mutated the field. Parenthesize so surrounding binary
+                    // operators (e.g. `--x * 2`) keep their original precedence.
+                    return SyntaxFactory.ParenthesizedExpression(
+                            SyntaxFactory.BinaryExpression(
+                                isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
+                                SyntaxFactory.IdentifierName(tempName),
+                                SyntaxFactory.LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1))))
+                        .WithTriviaFrom(node);
+                }
+
+                // Postfix ++/-- evaluates to the OLD value.
                 return SyntaxFactory.IdentifierName(tempName).WithTriviaFrom(node);
             }
 

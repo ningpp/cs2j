@@ -112,6 +112,25 @@ internal static class BoxingReachabilityAnalyzer
                             }
                         }
                         break;
+
+                    case TypeArgumentListSyntax typeArgs:
+                        // Generic type arguments to serializer-family APIs:
+                        // `JsonSerializer.Deserialize<T>(json)` / `Serializer.DeserializeWrapper<T>(json)`.
+                        // The struct flows into reflection-based writers inside the library,
+                        // which the call site cannot see, so treat it as boxed.
+                        if (IsSerializerFamilyMethod(typeArgs, GetModel(), compilation, out var serializerTypeArg))
+                        {
+                            Enqueue(serializerTypeArg);
+                        }
+                        break;
+
+                    case TypeOfExpressionSyntax typeOf:
+                        // typeof(T) arguments: `JsonSerializer.Deserialize(json, type, options)`.
+                        if (IsArgumentToSerializerFamily(typeOf, GetModel(), out var typeOfArgType))
+                        {
+                            Enqueue(typeOfArgType);
+                        }
+                        break;
                 }
             }
         }
@@ -208,7 +227,20 @@ internal static class BoxingReachabilityAnalyzer
         if (method == null || index < 0 || index >= method.Parameters.Length) return;
 
         var parameter = method.Parameters[index];
-        if (!IsObjectLike(parameter.Type)) return;
+        if (!IsObjectLike(parameter.Type))
+        {
+            // Generic parameter: `JsonSerializer.Serialize<T>(T value)` — the value
+            // is sunk into reflection-based writers inside the library.
+            if (parameter.Type is ITypeParameterSymbol && IsSerializerFamily(method.ContainingType))
+            {
+                var genericValueType = model.GetTypeInfo(argument.Expression).Type;
+                if (IsUserCodeType(genericValueType))
+                {
+                    enqueue(genericValueType);
+                }
+            }
+            return;
+        }
         if (IsHarmlessFormattingSink(method)) return;
 
         var valueType = model.GetTypeInfo(argument.Expression).Type;
@@ -216,6 +248,81 @@ internal static class BoxingReachabilityAnalyzer
         {
             enqueue(valueType);
         }
+    }
+
+    /// <summary>
+    /// True when <paramref name="typeArgs"/> belongs to an invocation of a generic
+    /// method on a serializer-family type (e.g. <c>JsonSerializer.Deserialize&lt;T&gt;</c>
+    /// or a test helper <c>Serializer.DeserializeWrapper&lt;T&gt;</c> that forwards to
+    /// one). Values passed as generic arguments to such APIs are processed by
+    /// reflection-based readers/writers, so their mutable state must be preserved.
+    /// </summary>
+    private static bool IsSerializerFamilyMethod(
+        TypeArgumentListSyntax typeArgs,
+        SemanticModel model,
+        Compilation compilation,
+        out ITypeSymbol? declaredType)
+    {
+        declaredType = null;
+        var parent = typeArgs.Parent;
+        if (parent is not GenericNameSyntax genericName) return false;
+
+        if (genericName.Parent is MemberAccessExpressionSyntax ma &&
+            ma.Parent is InvocationExpressionSyntax invocation)
+        {
+            var symbol = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (symbol == null) return false;
+            if (!IsSerializerFamily(symbol.ContainingType)) return false;
+            declaredType = model.GetTypeInfo(genericName.TypeArgumentList.Arguments[0]).Type;
+            return true;
+        }
+
+        // Bare generic invocation: DeserializeWrapper<T>(json) inside the same file.
+        if (genericName.Parent is InvocationExpressionSyntax bareInvocation)
+        {
+            var symbol = model.GetSymbolInfo(bareInvocation).Symbol as IMethodSymbol;
+            if (symbol == null) return false;
+            if (!IsSerializerFamily(symbol.ContainingType)) return false;
+            declaredType = model.GetTypeInfo(genericName.TypeArgumentList.Arguments[0]).Type;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// True for types whose name suggests reflection-based (de)serialization:
+    /// JsonSerializer, XmlSerializer, Deserializer, Mapper, etc.
+    /// </summary>
+    private static bool IsSerializerFamily(INamedTypeSymbol? type)
+    {
+        if (type == null) return false;
+        var name = type.Name;
+        return name.IndexOf("Serializ", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               name.IndexOf("Deserializ", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               name.Equals("Mapper", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// True when <paramref name="typeOf"/> is the <c>typeof(T)</c> argument of an
+    /// invocation on a serializer-family type. Returns the argument's type.
+    /// </summary>
+    private static bool IsArgumentToSerializerFamily(
+        TypeOfExpressionSyntax typeOf,
+        SemanticModel model,
+        out ITypeSymbol? type)
+    {
+        type = null;
+        if (typeOf.Parent is not ArgumentSyntax argument ||
+            argument.Parent is not BaseArgumentListSyntax argList ||
+            argList.Parent is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method) return false;
+        if (!IsSerializerFamily(method.ContainingType)) return false;
+        type = model.GetTypeInfo(typeOf.Type).Type;
+        return true;
     }
 
     /// <summary>

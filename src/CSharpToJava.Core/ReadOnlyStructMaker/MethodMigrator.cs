@@ -10,14 +10,17 @@ internal sealed class MethodMigrator
     private readonly HashSet<string> _fieldNames;
     private readonly HashSet<string> _propertyNames;
     private readonly HashSet<string> _migratedMethodNames;
+    private readonly HashSet<string> _instanceMethodNames;
 
     public MethodMigrator(string structName, HashSet<string>? fieldNames = null,
-        HashSet<string>? propertyNames = null, HashSet<string>? migratedMethodNames = null)
+        HashSet<string>? propertyNames = null, HashSet<string>? migratedMethodNames = null,
+        HashSet<string>? instanceMethodNames = null)
     {
         _structName = structName;
         _fieldNames = fieldNames ?? new HashSet<string>();
         _propertyNames = propertyNames ?? new HashSet<string>();
         _migratedMethodNames = migratedMethodNames ?? new HashSet<string>();
+        _instanceMethodNames = instanceMethodNames ?? new HashSet<string>();
     }
 
     public MethodDeclarationSyntax Migrate(MethodDeclarationSyntax method)
@@ -54,6 +57,15 @@ internal sealed class MethodMigrator
         if (_migratedMethodNames.Count > 0)
         {
             newBody = (BlockSyntax)new ImplicitCallRewriter(_migratedMethodNames, method.Identifier.Text).Visit(newBody)!;
+        }
+
+        // 3c. Replace bare calls to OTHER instance methods with result.Method(args).
+        // The local `result` carries the mutations performed so far; implicit `this`
+        // would read stale state (e.g. a depth decremented through result above).
+        if (_instanceMethodNames.Count > 0)
+        {
+            newBody = (BlockSyntax)new ImplicitInstanceCallRewriter(_instanceMethodNames, method.Identifier.Text,
+                _migratedMethodNames).Visit(newBody)!;
         }
 
         // 4. Replace `return this;` with `return result;`
@@ -297,6 +309,70 @@ internal sealed class MethodMigrator
             }
 
             return base.VisitExpressionStatement(node);
+        }
+    }
+
+    /// <summary>
+    /// Rewrites bare calls to instance methods (implicit this) into result-qualified
+    /// calls: `PopFromArray();` → `result.PopFromArray();`. The `result` local is the
+    /// "current instance" once a method starts mutating through `var result = this;` —
+    /// calling back through implicit `this` would read stale field state.
+    /// Migrated methods are excluded: their statement calls are handled by
+    /// <see cref="ImplicitCallRewriter"/> (result = result.Method(...)), and migrated
+    /// methods cannot legally appear in expression position in original code.
+    /// </summary>
+    internal sealed class ImplicitInstanceCallRewriter : CSharpSyntaxRewriter
+    {
+        private readonly HashSet<string> _instanceMethodNames;
+        private readonly HashSet<string> _migratedMethodNames;
+        private readonly string _currentMethodName;
+        private readonly HashSet<string> _localNames = new();
+
+        public ImplicitInstanceCallRewriter(HashSet<string> instanceMethodNames, string currentMethodName,
+            HashSet<string>? migratedMethodNames = null)
+        {
+            _instanceMethodNames = instanceMethodNames;
+            _currentMethodName = currentMethodName;
+            _migratedMethodNames = migratedMethodNames ?? new HashSet<string>();
+        }
+
+        public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
+        {
+            foreach (var variable in node.Declaration.Variables)
+                _localNames.Add(variable.Identifier.Text);
+            return base.VisitLocalDeclarationStatement(node);
+        }
+
+        public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+        {
+            _localNames.Add(node.Identifier.Text);
+            return base.VisitForEachStatement(node);
+        }
+
+        public override SyntaxNode? VisitParameter(ParameterSyntax node)
+        {
+            _localNames.Add(node.Identifier.Text);
+            return base.VisitParameter(node);
+        }
+
+        public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+        {
+            node = (InvocationExpressionSyntax)base.VisitInvocationExpression(node)!;
+
+            if (node.Expression is IdentifierNameSyntax id &&
+                id.Identifier.Text != _currentMethodName &&
+                !_localNames.Contains(id.Identifier.Text) &&
+                _instanceMethodNames.Contains(id.Identifier.Text) &&
+                !_migratedMethodNames.Contains(id.Identifier.Text))
+            {
+                return node.WithExpression(SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("result"),
+                        id.WithoutTrivia()))
+                    .WithTriviaFrom(node);
+            }
+
+            return node;
         }
     }
 
