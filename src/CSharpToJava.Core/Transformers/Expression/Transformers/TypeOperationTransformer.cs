@@ -326,16 +326,24 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                         .OfType<IFieldSymbol>()
                         .Any(f => f.IsConst && f.HasConstantValue && f.Name != "_UNMAPPED");
                 }
+                // C# (MyEnum?)(int?)expr: a null nullable casts to a null nullable enum.
+                // Java enums are reference types, so the fromValue call must be guarded
+                // (e.g. DebuggerAttributes.GetDebuggerBrowsableState on members without
+                // the attribute passes a null boxed Integer).
+                bool sourceMayBeNull = sourceType?.IsValueType == true
+                    && sourceType.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T;
+                var nullGuard = sourceMayBeNull ? $"({expression} != null ? " : "";
+                var nullSuffix = sourceMayBeNull ? " : null)" : "";
                 if (isExplicitValue)
                 {
                     var valueType = IsExplicitValueEnum(targetSymbolForEnumCheck, context)
                         ? GetExplicitValueEnumValueType(targetSymbolForEnumCheck, context)
                         : (targetSymbolForEnumCheck is INamedTypeSymbol ne && ne.EnumUnderlyingType?.SpecialType
                             is SpecialType.System_Int64 or SpecialType.System_UInt64 ? "long" : "int");
-                    return $"{targetType}.fromValue(({valueType})({expression}))";
+                    return $"{nullGuard}{targetType}.fromValue(({valueType})({expression})){nullSuffix}";
                 }
 
-                return $"{targetType}.fromValue((int)({expression}))";
+                return $"{nullGuard}{targetType}.fromValue((int)({expression})){nullSuffix}";
             }
         }
 
@@ -638,8 +646,23 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             bool isEnumerableLikeSource = IsEnumerableLikeSourceType(sourceType);
             if (isEnumerableLikeSource)
             {
+                // Dictionary-backed multi-enumeration types (e.g. GroupCollection): the
+                // Java mapping keeps the CSharpReadOnlyDict<K,V> iteration (KeyValuePair),
+                // but a cast to the LIST contract targets the dict's VALUE elements.
+                // Wrap the values view so the constructed list holds the right elements
+                // (e.g. ((IList<Group>)this).IndexOf(item) must compare Groups).
+                string wrapSource = expression;
+                var castTargetElement = (typeInfo.Type as INamedTypeSymbol)?.TypeArguments.FirstOrDefault();
+                if (sourceType is INamedTypeSymbol sourceNamed
+                    && sourceNamed.AllInterfaces.FirstOrDefault(i =>
+                        i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2) is { } dictIfaceCast
+                    && castTargetElement != null
+                    && SymbolEqualityComparer.Default.Equals(dictIfaceCast.TypeArguments[1], castTargetElement))
+                {
+                    wrapSource = $"{expression}.getValues()";
+                }
                 context.AddImport("io.github.ningpp.compat.CSharpList");
-                return $"new CSharpList<>({expression})";
+                return $"new CSharpList<>({wrapSource})";
             }
         }
 
@@ -659,6 +682,19 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private static bool IsJavaNumericType(string javaType)
         => javaType is "int" or "long" or "short" or "byte" or "double" or "float" or "char"
             or "Integer" or "Long" or "Short" or "Byte" or "Double" or "Float" or "Character";
+
+    private static bool TryExtractGenericArgument(string javaType, out string elementType)
+    {
+        var open = javaType.IndexOf('<');
+        var close = javaType.LastIndexOf('>');
+        if (open >= 0 && close > open)
+        {
+            elementType = javaType[(open + 1)..close];
+            return true;
+        }
+        elementType = "";
+        return false;
+    }
 
     private static bool IsSystemArrayReferenceType(ITypeSymbol? type)
         => type is not IArrayTypeSymbol
@@ -1078,6 +1114,30 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             var classLiteral = ToRuntimeTypeForClassLiteral(targetType);
             context.AddImport("io.github.ningpp.compat.CSharpArray");
             return $"({expression} != null ? CSharpArray.tryAs({expression}, {classLiteral}.class) : null)";
+        }
+
+        // C# obj as T[] where obj is statically typed object: the runtime value may be an
+        // Object[] produced by Java generics erasure (e.g. a debugger proxy's T[] property
+        // lowered to Object[]). A plain instanceof T[] check fails for such arrays even
+        // though every element is a T. CSharpArray.tryAsArray materializes a T[] copy when
+        // the runtime array is Object[] with all-T elements, keeping C# 'as' semantics.
+        // Excludes array targets whose element type is a type parameter (no class literal)
+        // or a Java primitive (int[] etc. never undergo erasure widening; the plain
+        // instanceof path stays correct there).
+        if (targetType.EndsWith("[]", StringComparison.Ordinal))
+        {
+            var arraySymbol = typeInfo.Type as IArrayTypeSymbol;
+            var componentType = targetType[..^2];
+            if (componentType.Length > 0
+                && !componentType.Contains('<')
+                && componentType is not ("int" or "long" or "short" or "byte" or "double" or "float" or "boolean" or "char")
+                && !(arraySymbol?.ElementType is ITypeParameterSymbol)
+                && arraySymbol?.ElementType is not IErrorTypeSymbol)
+            {
+                var componentLiteral = ToRuntimeTypeForClassLiteral(componentType);
+                context.AddImport("io.github.ningpp.compat.CSharpArray");
+                return $"({expression} != null ? CSharpArray.tryAsArray({expression}, {componentLiteral}.class) : null)";
+            }
         }
 
         return $"({expression} instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType})({expression}) : null)";

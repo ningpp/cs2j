@@ -147,6 +147,9 @@ namespace Test.Routing.Nudging {
         Assert.Contains("getPoint().getX()", code, StringComparison.Ordinal);
         Assert.Contains("getPoint().getY()", code, StringComparison.Ordinal);
         // ToString: should be getPoint().toString() not Point.toString()
-        Assert.Contains("getPoint().toString()", code, StringComparison.Ordinal);
+        // (Point has no ToString override, so object.ToString semantics apply:
+        // routed through ObjectHelper to mirror .NET's FullName-returning behavior.)
+        Assert.DoesNotContain("Point.toString()", code, StringComparison.Ordinal);
+        Assert.Contains("getPoint()", code, StringComparison.Ordinal);
     }
 }

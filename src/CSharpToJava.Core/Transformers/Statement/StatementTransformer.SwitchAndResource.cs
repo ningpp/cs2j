@@ -1294,7 +1294,10 @@ public partial class StatementTransformer
         if (label.WhenClause != null)
         {
             var whenCond = facade.Transform(label.WhenClause.Condition, context);
-            condition = $"{condition} && {whenCond}";
+            // Parenthesize: the when-clause may contain || which would otherwise bind
+            // looser than the && joining it to the pattern condition, changing semantics
+            // (e.g. `case Boundary when A || B` must not become `(case==B && A) || B`).
+            condition = $"{condition} && ({whenCond})";
         }
 
         return condition;

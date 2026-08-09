@@ -275,6 +275,13 @@ public partial class StatementTransformer
                     expression = $"{expression}.getValues()";
                 else if (SymbolEqualityComparer.Default.Equals(keyType, foreachVarType))
                     expression = $"{expression}.getKeys()";
+                // Non-generic enumeration (foreach (object item in list) over the
+                // non-generic IList): GroupCollection's non-generic IEnumerator.Current
+                // yields the Group itself (the collection's VALUE), so use the values view.
+                else if (foreachVarType.SpecialType == SpecialType.System_Object
+                    && effectiveExprType.AllInterfaces.Any(i =>
+                        i.ToDisplayString() == "System.Collections.IList"))
+                    expression = $"{expression}.getValues()";
             }
         }
 

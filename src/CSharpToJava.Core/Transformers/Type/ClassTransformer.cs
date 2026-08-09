@@ -2550,6 +2550,7 @@ public class ClassTransformer : ITypeTransformer
                     "    public " + kvpType + " getCurrent() { return __enumerator.getCurrent$Class(); }\n" +
                     "    public boolean hasNext() { return __enumerator.moveNext(); }\n" +
                     "    public " + kvpType + " next() { return __enumerator.getCurrent$Class(); }\n" +
+                    "    public void reset() { __enumerator.reset(); }\n" +
                     "    public void remove() { throw new UnsupportedOperationException(); }\n" +
                     "};";
                 context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");

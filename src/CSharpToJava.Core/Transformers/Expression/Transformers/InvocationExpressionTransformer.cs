@@ -1501,6 +1501,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 || NeedsCSharpEnumeratorFrom(node, context))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpEnumerator");
+                // GroupCollection-like multi-enumeration types: the public non-generic
+                // GetEnumerator yields the collection's ELEMENTS (the dictionary VALUES),
+                // not KeyValuePairs. Wrap the values view's enumerator instead.
+                var enumeratorReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+                if (IsDictBackedListMultiEnumerationType(enumeratorReceiverType))
+                    return $"CSharpEnumerator.from({receiver}.getValues().iterator())";
                 return $"CSharpEnumerator.from({receiver}.iterator())";
             }
             return $"{receiver}.iterator()";
@@ -1846,7 +1852,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && (resetReceiverType.Name is "IEnumerator" or "Iterator"
                     || resetReceiverType.AllInterfaces.Any(i => i.Name is "IEnumerator" or "Iterator"));
             if (isIteratorLike)
+            {
+                // Compat enumerators (System.Collections.IEnumerator → CSharpEnumerator,
+                // IEnumerator<T> → CSharpGenericEnumerator) expose a .NET-style reset()
+                // that concrete enumerator classes override. Emit the real call so C#
+                // loops that reset the enumerator between iterations keep working.
+                // Plain java.util.Iterator has no reset — keep the comment there.
+                var resetMappedType = context.MapType(resetReceiverType);
+                if (resetMappedType.StartsWith("CSharpEnumerator", StringComparison.Ordinal)
+                    || resetMappedType.StartsWith("CSharpGenericEnumerator", StringComparison.Ordinal))
+                {
+                    return $"{receiver}.reset()";
+                }
                 return "/* reset unsupported for Java Iterator */";
+            }
         }
 
         // GCHandle.Alloc() → GCHandle.alloc(arg)
@@ -1876,6 +1895,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"Objects.equals({leftArg}, {rightArg})";
         }
 
+        // C# string.ToLowerInvariant()/ToUpperInvariant(): the no-arg Java toLowerCase()
+        // uses the JVM default locale (e.g. zh-CN lowercases U+0130 to "i" + combining
+        // dot), while .NET invariant rules leave U+0130 unchanged. Route through compat.
+        if (originalMethodName is "ToLowerInvariant" or "ToUpperInvariant"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemStringType(context.GetTypeInfo(memberAccess.Expression).Type))
+        {
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            return originalMethodName == "ToLowerInvariant"
+                ? $"StringHelper.toLowerCaseInvariant({receiver})"
+                : $"StringHelper.toUpperCaseInvariant({receiver})";
+        }
+
         if (IsSystemStringMethod(earlyMethodSymbol, memberAccess.Expression, context))
         {
             if (originalMethodName == "Equals"
@@ -1884,7 +1916,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"StringHelper.equals({leftArg}, {rightArg}, {ToJavaBooleanLiteral(staticEqualsIgnoreCase)})";
+                var comparisonArg = MapStringComparisonArg(node.ArgumentList.Arguments[2].Expression, staticEqualsIgnoreCase, context);
+                return $"StringHelper.equals({leftArg}, {rightArg}, {comparisonArg})";
             }
 
             if (originalMethodName == "Compare"
@@ -1893,7 +1926,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 var leftArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var rightArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-                return $"StringHelper.compare({leftArg}, {rightArg}, {ToJavaBooleanLiteral(compareIgnoreCase)})";
+                var comparisonArg = MapStringComparisonArg(node.ArgumentList.Arguments[2].Expression, compareIgnoreCase, context);
+                return $"StringHelper.compare({leftArg}, {rightArg}, {comparisonArg})";
             }
 
             if (originalMethodName == "CompareOrdinal"
@@ -1933,7 +1967,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[1].Expression, context.SemanticModel, out var instanceEqualsIgnoreCase))
         {
             var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            return $"StringHelper.equals({receiver}, {arg}, {ToJavaBooleanLiteral(instanceEqualsIgnoreCase)})";
+            var comparisonArg = MapStringComparisonArg(node.ArgumentList.Arguments[1].Expression, instanceEqualsIgnoreCase, context);
+            return $"StringHelper.equals({receiver}, {arg}, {comparisonArg})";
         }
 
         if (IsSystemStringType(stringEqualsReceiverType)
@@ -1943,7 +1978,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var helperMethod = originalMethodName == "StartsWith" ? "startsWith" : "endsWith";
-            return $"StringHelper.{helperMethod}({receiver}, {arg}, {ToJavaBooleanLiteral(prefixIgnoreCase)})";
+            var comparisonArg = MapStringComparisonArg(node.ArgumentList.Arguments[1].Expression, prefixIgnoreCase, context);
+            return $"StringHelper.{helperMethod}({receiver}, {arg}, {comparisonArg})";
         }
 
         if (IsSystemStringType(stringEqualsReceiverType)
@@ -1952,7 +1988,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && TryGetStringComparisonIgnoreCase(node.ArgumentList.Arguments[1].Expression, context.SemanticModel, out var containsIgnoreCase))
         {
             var valueArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            return $"StringHelper.contains({receiver}, {valueArg}, {ToJavaBooleanLiteral(containsIgnoreCase)})";
+            var comparisonArg = MapStringComparisonArg(node.ArgumentList.Arguments[1].Expression, containsIgnoreCase, context);
+            return $"StringHelper.contains({receiver}, {valueArg}, {comparisonArg})";
         }
 
         if (IsSystemStringType(stringEqualsReceiverType)
@@ -2462,6 +2499,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // for true_, false_, null_, throws_).
         if (TryMapXunitAssertInvocation(memberAccess.Expression, context, originalMethodName, methodSymbol, out var xunitAssertName))
         {
+            // Xunit Assert.Equal(collection, array) on a dictionary-backed multi-enumeration
+            // type (e.g. GroupCollection): the Java iteration yields KeyValuePairs, but C#
+            // enumerates the VALUE elements. When the other side is an array of the dict's
+            // value type, compare the values view instead (matches C# Assert.Equal<T> which
+            // enumerates the IEnumerable<T> chain).
+            if (xunitAssertName == "equal"
+                && node.ArgumentList.Arguments.Count == 2
+                && context.SemanticModel != null
+                && context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is INamedTypeSymbol assertExpectedNamed
+                && assertExpectedNamed.AllInterfaces.FirstOrDefault(i =>
+                    i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2) is { } assertDictIface
+                && context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type is IArrayTypeSymbol assertActualArray
+                && SymbolEqualityComparer.Default.Equals(assertActualArray.ElementType, assertDictIface.TypeArguments[1]))
+            {
+                var assertExpectedExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var assertActualExpr = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                context.AddImport("csharp.xunit.Assert");
+                return $"Assert.equal({assertExpectedExpr}.getValues(), {assertActualExpr})";
+            }
+
             var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             context.AddImport("csharp.xunit.Assert");
 
@@ -3033,7 +3090,36 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // the range overflows) and copies element-wise when the source materializes
             // as Object[] (avoiding ArrayStoreException on typed destinations).
             context.AddImport("io.github.ningpp.compat.CSharpArray");
-            return $"CSharpArray.copyTo({receiver}.toArray(), 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
+            // Dictionary-backed multi-enumeration types (e.g. GroupCollection): toArray()
+            // yields KeyValuePairs, but the C# CopyTo(T[]) contract copies the VALUES.
+            // The receiver may be typed with a list interface (ICollection<Group>) while
+            // the runtime object is the dictionary-backed concrete type; recover the
+            // concrete type from the declaring local's initializer.
+            var copyEffectiveType = copySourceType;
+            if (memberAccess.Expression is IdentifierNameSyntax copyReceiverId
+                && context.GetSymbolInfo(copyReceiverId).Symbol is ILocalSymbol copyReceiverLocal)
+            {
+                var copyDeclarator = copyReceiverLocal.DeclaringSyntaxReferences
+                    .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+                if (copyDeclarator?.Initializer != null
+                    && context.GetTypeInfo(copyDeclarator.Initializer.Value).Type is INamedTypeSymbol copyInitNamed)
+                {
+                    copyEffectiveType = copyInitNamed;
+                }
+            }
+            string copySource = $"{receiver}.toArray()";
+            if (copyEffectiveType is INamedTypeSymbol copySourceNamed
+                && copySourceNamed.AllInterfaces.FirstOrDefault(i =>
+                    i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2) is { } copyDictIface)
+            {
+                var copyFirstParam = methodSymbol?.Parameters.FirstOrDefault();
+                if (copyFirstParam?.Type is IArrayTypeSymbol copyParamArray
+                    && SymbolEqualityComparer.Default.Equals(copyParamArray.ElementType, copyDictIface.TypeArguments[1]))
+                {
+                    copySource = $"{receiver}.getValues().toArray()";
+                }
+            }
+            return $"CSharpArray.copyTo({copySource}, 0, {destArrayArg}, {destIndexArg}, {receiver}.size())";
         }
         skipCopyToRewrite:
 
@@ -3107,6 +3193,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             var successAssign = $"(java.util.Objects.equals(({assignTarget} = {getExpr}), null) || true)";
             var missAssign = $"(java.util.Objects.equals(({assignTarget} = {defaultValue}), null) && false)";
+            // Custom dictionaries (e.g. GroupCollection, LowLevelDictionary) map to non-Java
+            // Map types and expose a generated tryGetValue(key) returning value-or-null.
+            // containsKey on those may itself dereference a null internal state (e.g.
+            // GroupCollection.ContainsKey dereferences _match._regex), so the generated
+            // tryGetValue is the null-safe presence check.
+            var receiverTypeForTryGet = context.GetTypeInfo(memberAccess.Expression).Type;
+            bool useGeneratedTryGetValue = receiverTypeForTryGet != null
+                && receiverTypeForTryGet.GetMembers("TryGetValue").Any(m => m is IMethodSymbol { Parameters.Length: 2 })
+                && !IsJavaMapMappedType(context.MapType(receiverTypeForTryGet));
+            if (useGeneratedTryGetValue)
+            {
+                return $"({receiver}.tryGetValue({keyArg}) != null ? {successAssign} : {missAssign})";
+            }
             return $"({receiver}.containsKey({keyArg}) ? {successAssign} : {missAssign})";
         }
 
@@ -6402,6 +6501,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# object.ToString() on a type with NO ToString override returns the runtime
+        // type's FullName (e.g. "dotnet.text.regularexpressions.RegexCode"), while Java's
+        // default Object.toString() appends "@hash". When a parameterless ToString() call
+        // resolves to the default System.Object.ToString() (i.e. the static receiver type
+        // declares no override in this compilation — overrides bind to their own methods),
+        // route through ObjectHelper.objectToString which reproduces .NET virtual semantics:
+        // types overriding toString() return their override; types without one return
+        // getClass().getName().
+        if (originalMethodName == "ToString"
+            && node.ArgumentList.Arguments.Count == argStartIndex
+            && methodSymbol?.ContainingType?.SpecialType == SpecialType.System_Object)
+        {
+            context.AddImport("io.github.ningpp.compat.ObjectHelper");
+            return $"ObjectHelper.objectToString({receiver})";
+        }
+
         return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{receiver}.{methodName}({args})", methodSymbol, context);
     }
 
@@ -7490,6 +7605,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return true;
     }
 
+    private static bool IsJavaMapMappedType(string javaType)
+    {
+        var bare = javaType.Contains('<') ? javaType[..javaType.IndexOf('<')] : javaType;
+        return bare.StartsWith("java.util.", StringComparison.Ordinal)
+            || bare is "Map" or "HashMap" or "LinkedHashMap" or "TreeMap" or "ConcurrentHashMap"
+                or "CSharpDictionary" or "CSharpGenericIDictionary" or "CSharpHashtable";
+    }
+
     private static string GetTryGetValueOutDefault(ExpressionSyntax outExpression, ConversionContext context)
     {
         var typeSymbol = ResolveTryGetValueOutType(outExpression, context);
@@ -8516,6 +8639,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return true;
     }
 
+    /// <summary>
+    /// True for types like GroupCollection: dictionary-backed (IReadOnlyDictionary&lt;K,V&gt;)
+    /// whose list contract enumerates the VALUES. The Java mapping keeps only the
+    /// KeyValuePair enumeration, so value-typed iteration must go through getValues().
+    /// </summary>
+    private static bool IsDictBackedListMultiEnumerationType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+        bool hasReadOnlyDict = named.AllInterfaces.Any(i =>
+            i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2);
+        bool hasNonGenericIList = named.AllInterfaces.Any(i =>
+            i.ToDisplayString() == "System.Collections.IList")
+            || named.ToDisplayString() == "System.Collections.IList";
+        return hasReadOnlyDict && hasNonGenericIList;
+    }
+
     private static bool IsDictionaryLikeExpression(ExpressionSyntax expression, ConversionContext context)
     {
         var type = context.GetTypeInfo(expression).Type as INamedTypeSymbol;
@@ -9254,6 +9394,52 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         ignoreCase = false;
         return false;
+    }
+
+    /// <summary>
+    /// Maps a C# StringComparison argument to a compat StringComparison constant for
+    /// CULTURE comparisons (CurrentCulture/InvariantCulture ± IgnoreCase — the compat
+    /// implements NFD-canonicalized culture semantics) or to a plain boolean flag for
+    /// Ordinal/OrdinalIgnoreCase (existing StringHelper boolean overloads).
+    /// </summary>
+    private static string MapStringComparisonArg(ExpressionSyntax expression, bool ignoreCase, ConversionContext context)
+    {
+        if (context.SemanticModel?.GetConstantValue(expression) is { HasValue: true, Value: int comparisonValue })
+        {
+            if (comparisonValue <= 3)
+            {
+                context.AddImport("io.github.ningpp.compat.StringComparison");
+                return $"StringComparison.values()[{comparisonValue}]";
+            }
+            return ToJavaBooleanLiteral(comparisonValue == 5);
+        }
+
+        if (context.SemanticModel?.GetSymbolInfo(expression).Symbol is IFieldSymbol fieldSymbol
+            && fieldSymbol.ContainingType?.ToDisplayString() == "System.StringComparison")
+        {
+            var memberName = fieldSymbol.Name;
+            if (memberName is "CurrentCulture" or "CurrentCultureIgnoreCase" or "InvariantCulture" or "InvariantCultureIgnoreCase")
+            {
+                context.AddImport("io.github.ningpp.compat.StringComparison");
+                return $"StringComparison.{memberName}";
+            }
+            return ToJavaBooleanLiteral(memberName.EndsWith("IgnoreCase", StringComparison.Ordinal));
+        }
+
+        var text = expression.ToString();
+        var idx = text.IndexOf("StringComparison.", StringComparison.Ordinal);
+        if (idx >= 0)
+        {
+            var memberName = text[(idx + "StringComparison.".Length)..].Trim();
+            if (memberName is "CurrentCulture" or "CurrentCultureIgnoreCase" or "InvariantCulture" or "InvariantCultureIgnoreCase")
+            {
+                context.AddImport("io.github.ningpp.compat.StringComparison");
+                return $"StringComparison.{memberName}";
+            }
+            return ToJavaBooleanLiteral(memberName.EndsWith("IgnoreCase", StringComparison.Ordinal));
+        }
+
+        return ToJavaBooleanLiteral(ignoreCase);
     }
 
     private static string ToJavaBooleanLiteral(bool value) => value ? "true" : "false";
