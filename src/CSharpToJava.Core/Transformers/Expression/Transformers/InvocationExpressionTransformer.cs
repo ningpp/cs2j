@@ -49,14 +49,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ["Char"]    = "char",
     };
 
-    public string Transform(ExpressionSyntax node, ConversionContext context)
+    public string Transform(ExpressionSyntax node, ConversionContext context) => node.Kind() switch
     {
-        return node.Kind() switch
-        {
-            SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
-            _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
-        };
-    }
+        SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
+        _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
+    };
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
@@ -236,83 +233,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             classTokens ??= GetClassTokensForLocalFunctionCallSyntax(genericMethodName, context);
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
             args = PrependClassTypeTokens(args, classTokens);
-            var genericCallText = CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
-
-            // DynamicMethod.CreateDelegate<TDelegate>(target): Java generic inference
-            // fails for the erased delegate target — cast to the call-site type.
-            if (genericMethodName.Identifier.Text == "CreateDelegate")
-            {
-                var delTargetType = context.GetTypeInfo(node).Type;
-                var delJavaType = delTargetType != null ? context.MapType(delTargetType) : null;
-                if (!string.IsNullOrWhiteSpace(delJavaType)
-                    && delJavaType != "Object"
-                    && !delJavaType!.Contains("?"))
-                {
-                    return $"({delJavaType})({genericCallText})";
-                }
-                return genericCallText;
-            }
-
-            // Unsafe.As<TFrom, TTo>(ref x) with an explicit TTo type argument: Java type
-            // inference degrades T to Object, so the result must be cast to the target.
-            if (genericMethodName.Identifier.Text == "As"
-                && bareMethodSym?.ContainingType.ToDisplayString() == "System.Runtime.CompilerServices.Unsafe"
-                && genericMethodName.TypeArgumentList.Arguments.Count > 0)
-            {
-                var targetType = facade.Transform(
-                    genericMethodName.TypeArgumentList.Arguments[^1], context);
-                var targetSym = context.GetTypeInfo(genericMethodName.TypeArgumentList.Arguments[^1]).Type;
-                // (T)(Object)(Integer)(...) — a type-parameter target cannot be cast
-                // directly from a primitive; box through the wrapper class first.
-                if (targetSym is ITypeParameterSymbol && genericMethodName.TypeArgumentList.Arguments.Count >= 2)
-                {
-                    var fromSym = context.GetTypeInfo(genericMethodName.TypeArgumentList.Arguments[0]).Type;
-                    var boxType = fromSym?.SpecialType switch
-                    {
-                        SpecialType.System_Int32 => "Integer",
-                        SpecialType.System_UInt32 => "Integer",
-                        SpecialType.System_Int64 => "Long",
-                        SpecialType.System_UInt64 => "Long",
-                        SpecialType.System_Int16 => "Short",
-                        SpecialType.System_UInt16 => "Short",
-                        SpecialType.System_Byte => "Byte",
-                        SpecialType.System_SByte => "Byte",
-                        SpecialType.System_Char => "Character",
-                        SpecialType.System_Single => "Float",
-                        SpecialType.System_Double => "Double",
-                        SpecialType.System_Boolean => "Boolean",
-                        _ => null
-                    };
-                    if (boxType != null)
-                    {
-                        // The compat holder carries the MAPPED primitive (e.g. byte→int via
-                        // IntHolder), so when the box target's primitive differs from the
-                        // mapped source primitive, narrow first: (Byte)((byte)(intExpr)).
-                        var boxPrimitive = boxType switch
-                        {
-                            "Integer" => "int",
-                            "Long" => "long",
-                            "Short" => "short",
-                            "Byte" => "byte",
-                            "Character" => "char",
-                            "Float" => "float",
-                            "Double" => "double",
-                            "Boolean" => "boolean",
-                            _ => null
-                        };
-                        string inner = genericCallText;
-                        if (boxPrimitive != null && fromSym != null)
-                        {
-                            var mappedFrom = context.MapType(fromSym);
-                            if (mappedFrom != boxPrimitive)
-                                inner = $"(({boxPrimitive})({inner}))";
-                        }
-                        return $"({targetType})(Object)({boxType})({inner})";
-                    }
-                }
-                return $"({targetType})({genericCallText})";
-            }
-            return genericCallText;
+            return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
         }
 
         // Bare identifier call: e.g. LandmarkClassicalScaling(...) → landmarkClassicalScaling(...)
@@ -1338,20 +1259,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{dlgReceiver}.{dlgGetter}().accept({dlgArgs})";
         }
 
-        // Nullable.GetUnderlyingType(Type) → TypeHelper.getUnderlyingType(Class).
-        // The generic Nullable<T> receiver otherwise degrades to "Object".
-        if (memberAccess.Name.Identifier.Text == "GetUnderlyingType"
-            && node.ArgumentList.Arguments.Count == 1)
-        {
-            var nullableMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (nullableMethodSym?.IsStatic == true
-                && nullableMethodSym.ContainingType?.ToDisplayString() is "System.Nullable`1" or "System.Nullable")
-            {
-                context.AddImport("io.github.ningpp.compat.TypeHelper");
-                return $"TypeHelper.getUnderlyingType({facade.Transform(node.ArgumentList.Arguments[0].Expression, context)})";
-            }
-        }
-
         // Nullable<T>.GetValueOrDefault() → null-coalescing with default value.
         // The LINQ rewriter generates ((items as ICollection<T>)?.Count).GetValueOrDefault()
         // which must become (expr != null ? expr : 0) in Java.
@@ -1447,270 +1354,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"{tryRemoveOutText} = {receiver}.remove({tryRemoveKeyArg})";
             }
             return $"{receiver}.remove({tryRemoveKeyArg})";
-        }
-
-        // Unsafe.As<TFrom, TTo>(ref x) via member access (e.g. Unsafe.As<FieldInfo>(m)):
-        // Java type inference degrades T to Object, so cast the result to the explicit
-        // target type argument.
-        if (originalMethodName == "As"
-            && node.Expression is MemberAccessExpressionSyntax asMemberAccess
-            && asMemberAccess.Name is GenericNameSyntax asGenericName
-            && asGenericName.TypeArgumentList.Arguments.Count > 0)
-        {
-            var asMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (asMethodSym?.ContainingType.ToDisplayString() == "System.Runtime.CompilerServices.Unsafe")
-            {
-                var asArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: asMethodSym);
-                var asTargetType = facade.Transform(asGenericName.TypeArgumentList.Arguments[^1], context);
-                var asTargetSym = context.GetTypeInfo(asGenericName.TypeArgumentList.Arguments[^1]).Type;
-                // (T)(Object)(Integer)(...) — a type-parameter target cannot be cast
-                // directly from a primitive; box through the wrapper class first.
-                if (asTargetSym is ITypeParameterSymbol
-                    && asGenericName.TypeArgumentList.Arguments.Count >= 2)
-                {
-                    var asFromSym = context.GetTypeInfo(asGenericName.TypeArgumentList.Arguments[0]).Type;
-                    var asBoxType = asFromSym?.SpecialType switch
-                    {
-                        SpecialType.System_Int32 => "Integer",
-                        SpecialType.System_UInt32 => "Integer",
-                        SpecialType.System_Int64 => "Long",
-                        SpecialType.System_UInt64 => "Long",
-                        SpecialType.System_Int16 => "Short",
-                        SpecialType.System_UInt16 => "Short",
-                        SpecialType.System_Byte => "Byte",
-                        SpecialType.System_SByte => "Byte",
-                        SpecialType.System_Char => "Character",
-                        SpecialType.System_Single => "Float",
-                        SpecialType.System_Double => "Double",
-                        SpecialType.System_Boolean => "Boolean",
-                        _ => null
-                    };
-                    if (asBoxType != null)
-                    {
-                        // The compat holder carries the MAPPED primitive (e.g. byte→int via
-                        // IntHolder), so when the box target's primitive differs from the
-                        // mapped source primitive, narrow first: (Byte)((byte)(intExpr)).
-                        var asBoxPrimitive = asBoxType switch
-                        {
-                            "Integer" => "int",
-                            "Long" => "long",
-                            "Short" => "short",
-                            "Byte" => "byte",
-                            "Character" => "char",
-                            "Float" => "float",
-                            "Double" => "double",
-                            "Boolean" => "boolean",
-                            _ => null
-                        };
-                        string asInner = $"Unsafe.as({asArgs})";
-                        if (asBoxPrimitive != null && asFromSym != null)
-                        {
-                            var mappedFrom = context.MapType(asFromSym);
-                            if (mappedFrom != asBoxPrimitive)
-                                asInner = $"(({asBoxPrimitive})({asInner}))";
-                        }
-                        return $"(({asTargetType})(Object)({asBoxType})({asInner}))";
-                    }
-                }
-                return $"(({asTargetType})(Unsafe.as({asArgs})))";
-            }
-        }
-
-        // Unsafe.ReadUnaligned<T>(ref byte): numeric T maps to readUnaligned(...)
-        // (returns the raw value); Vector<byte> T maps to readUnalignedVector(...).
-        if (originalMethodName == "ReadUnaligned"
-            && node.Expression is MemberAccessExpressionSyntax ruMemberAccess
-            && ruMemberAccess.Name is GenericNameSyntax ruGenericName
-            && ruGenericName.TypeArgumentList.Arguments.Count > 0)
-        {
-            var ruMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (ruMethodSym?.ContainingType.ToDisplayString() == "System.Runtime.CompilerServices.Unsafe")
-            {
-                var ruArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: ruMethodSym);
-                var ruTypeArg = context.GetTypeInfo(ruGenericName.TypeArgumentList.Arguments[0]).Type;
-                bool isVectorTarget = ruTypeArg?.ToDisplayString().Contains("Vector", StringComparison.Ordinal) == true
-                    || ruTypeArg?.Name == "Vector";
-                var ruMethod = isVectorTarget ? "readUnalignedVector" : "readUnaligned";
-                return $"Unsafe.{ruMethod}({ruArgs})";
-            }
-        }
-
-        // Utf8Parser.TryParse<T>(...) → compat Utf8Parser.tryParse* method chosen by
-        // the target type T (ObjectHolder-based out parameters erase identically, so
-        // the Guid/DateTime/DateTimeOffset/Decimal variants use dedicated names).
-        if (originalMethodName == "TryParse")
-        {
-            var upMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (upMethodSym?.ContainingType.ToDisplayString() == "System.Buffers.Text.Utf8Parser")
-            {
-                // The method symbol may be unconstructed (TypeArguments empty); the
-                // target type is the out parameter's declared type.
-                ITypeSymbol? upTarget = null;
-                if (upMethodSym.TypeArguments.Length > 0)
-                {
-                    upTarget = upMethodSym.TypeArguments[0];
-                }
-                else if (node.ArgumentList.Arguments.Count >= 2)
-                {
-                    var upOutExpr = node.ArgumentList.Arguments[1].Expression;
-                    upTarget = context.GetTypeInfo(upOutExpr).Type;
-                    if (upTarget is IErrorTypeSymbol or null
-                        && upOutExpr is DeclarationExpressionSyntax upDecl
-                        && upDecl.Type != null)
-                    {
-                        upTarget = context.GetTypeInfo(upDecl.Type).Type;
-                    }
-                }
-
-                var upMethodName = "tryParse";
-                if (upTarget != null)
-                {
-                    upMethodName = upTarget.SpecialType switch
-                    {
-                        SpecialType.System_DateTime => "tryParseDateTime",
-                        SpecialType.System_Decimal => "tryParseDecimal",
-                        _ => upTarget.ToDisplayString() switch
-                        {
-                            "System.Guid" => "tryParseUuid",
-                            "System.DateTimeOffset" => "tryParseDateTimeOffset",
-                            _ => "tryParse"
-                        }
-                    };
-                }
-                var upArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: upMethodSym);
-                return $"Utf8Parser.{upMethodName}({upArgs})";
-            }
-        }
-
-        // System.Array.Resize<T>(ref T[], int) → CSharpArray.resize* chosen by element type
-        // (int[]/long[]/byte[] use dedicated overloads; reference arrays use the generic one).
-        if (originalMethodName == "Resize"
-            && node.ArgumentList.Arguments.Count == 2)
-        {
-            var resizeMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (resizeMethodSym?.ContainingType.ToDisplayString() == "System.Array")
-            {
-                var resizeArgType = context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type;
-                string resizeMethod = resizeArgType is IArrayTypeSymbol resizeArrayType
-                    ? resizeArrayType.ElementType.SpecialType switch
-                    {
-                        SpecialType.System_Int32 or SpecialType.System_UInt32 => "resize",
-                        SpecialType.System_Int64 or SpecialType.System_UInt64 => "resizeLongArray",
-                        SpecialType.System_Byte or SpecialType.System_SByte => "resizeByteArray",
-                        _ => "resizeArray"
-                    }
-                    : "resizeArray";
-                var resizeArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: resizeMethodSym);
-                context.AddImport("io.github.ningpp.compat.CSharpArray");
-                return $"CSharpArray.{resizeMethod}({resizeArgs})";
-            }
-        }
-
-        // byte[].AsSpan(...) / char[].AsSpan(...): routed to MemoryExtensions.asSpan
-        // (ReadOnlySpan result). When the target is a mutable Span<T>, re-wrap so the
-        // assignment type-checks (compat Span has a Span(ReadOnlySpan) constructor).
-        if (originalMethodName == "AsSpan")
-        {
-            var asSpanSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (asSpanSym?.IsExtensionMethod == true
-                && asSpanSym.ContainingType.ToDisplayString() == "System.MemoryExtensions")
-            {
-                var asSpanArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: asSpanSym);
-                var asSpanCall = $"MemoryExtensions.asSpan({receiver}{(!string.IsNullOrEmpty(asSpanArgs) ? ", " + asSpanArgs : "")})";
-                var asSpanTarget = context.GetTypeInfo(node).ConvertedType;
-                var asSpanReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
-                bool asSpanReceiverIsArraySegment = asSpanReceiverType is INamedTypeSymbol asNamed
-                    && asNamed.OriginalDefinition?.ToDisplayString() == "System.ArraySegment<T>";
-                if (asSpanTarget is INamedTypeSymbol { Name: "Span" } && !asSpanReceiverIsArraySegment)
-                {
-                    // Diamond inference is ambiguous with the specialized byte[]/char[]
-                    // constructors; the wrapped operand is ReadOnlySpan<T>.
-                    context.AddImport("io.github.ningpp.compat.Span");
-                    return $"new Span<Integer>({asSpanCall})";
-                }
-                return asSpanCall;
-            }
-        }
-
-        // MemoryMarshal.Read<T>(span) / MemoryMarshal.Cast<TFrom,TTo>(span):
-        // Read<int> maps to the int overload; struct targets (DbRow etc.) need the
-        // Class-token overload since the erased signature can only return Object.
-        if (originalMethodName == "Read"
-            && node.Expression is MemberAccessExpressionSyntax mmReadAccess
-            && mmReadAccess.Name is GenericNameSyntax mmReadGeneric
-            && mmReadGeneric.TypeArgumentList.Arguments.Count > 0)
-        {
-            var mmReadSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (mmReadSym?.ContainingType.ToDisplayString() == "System.Runtime.InteropServices.MemoryMarshal")
-            {
-                var mmArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: mmReadSym);
-                var mmTarget = context.GetTypeInfo(mmReadGeneric.TypeArgumentList.Arguments[0]).Type;
-                if (mmTarget is { TypeKind: TypeKind.Struct or TypeKind.Enum }
-                    || mmTarget?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64)
-                {
-                    var mmTargetType = facade.Transform(mmReadGeneric.TypeArgumentList.Arguments[0], context);
-                    return $"MemoryMarshal.read({mmArgs}, {mmTargetType}.class)";
-                }
-                return $"MemoryMarshal.read({mmArgs})";
-            }
-        }
-        if (originalMethodName == "Cast"
-            && node.Expression is MemberAccessExpressionSyntax mmCastAccess
-            && mmCastAccess.Name is GenericNameSyntax mmCastGeneric
-            && mmCastGeneric.TypeArgumentList.Arguments.Count > 0)
-        {
-            var mmCastSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (mmCastSym?.ContainingType.ToDisplayString() == "System.Runtime.InteropServices.MemoryMarshal")
-            {
-                var mmArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: mmCastSym);
-                return $"MemoryMarshal.cast({mmArgs})";
-            }
-        }
-
-        // MemoryMarshal.GetReference<T>(span) is a ref-return. When used as a plain
-        // argument (C# passes the ref implicitly), the generated callee expects a holder
-        // (ref/pointer params map to holders), so wrap the element value. Local ref
-        // declarations (ref byte r = ref GetReference(...)) keep the raw value.
-        if (originalMethodName == "GetReference"
-            && node.Parent is ArgumentSyntax
-            && node.Expression is MemberAccessExpressionSyntax mmRefAccess
-            && (mmRefAccess.Expression is IdentifierNameSyntax mmRefStaticName
-                && mmRefStaticName.Identifier.Text == "MemoryMarshal"
-                || mmRefAccess.Expression is MemberAccessExpressionSyntax mmRefStaticAccess
-                && mmRefStaticAccess.Name.Identifier.Text == "MemoryMarshal"))
-        {
-            var mmRefSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-            if (mmRefSym?.ContainingType.ToDisplayString() == "System.Runtime.InteropServices.MemoryMarshal")
-            {
-                var mmRefArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: mmRefSym);
-                var elemType = context.GetTypeInfo(node).Type;
-                var elemJavaType = elemType != null ? context.MapType(elemType) : "Object";
-                var refHolderType = HolderTypeResolver.GetHolderType(elemJavaType);
-                return HolderTypeResolver.GetHolderInstantiationWithValue(
-                    refHolderType, $"MemoryMarshal.getReference({mmRefArgs})");
-            }
-        }
-
-        // bool.TrueString / bool.FalseString → "True" / "False" literals.
-        if (originalMethodName is "TrueString" or "FalseString")
-        {
-            var boolStringSym = context.GetSymbolInfo(node).Symbol as IFieldSymbol;
-            if (boolStringSym?.ContainingType.SpecialType == SpecialType.System_Boolean)
-            {
-                return originalMethodName == "TrueString" ? "\"True\"" : "\"False\"";
-            }
-        }
-
-        // ConcurrentDictionary.GetOrAdd(key, valueFactory) → ConcurrentHashMapHelper.getOrAdd(map, key, value).
-        // ConcurrentHashMap lacks GetOrAdd; the helper provides computeIfAbsent semantics.
-        if (originalMethodName == "GetOrAdd"
-            && node.ArgumentList.Arguments.Count == 2
-            && IsConcurrentDictionaryReceiver(memberAccess.Expression, context))
-        {
-            context.AddImport("io.github.ningpp.compat.ConcurrentHashMapHelper");
-            var getOrAddKeyArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            var getOrAddValueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            return $"ConcurrentHashMapHelper.getOrAdd({receiver}, {getOrAddKeyArg}, {getOrAddValueArg})";
         }
 
         if (TryTransformGenericOfTypeInvocation(
@@ -3001,19 +2644,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"StringHelper.createString({lengthArg}, {stateArg}, {actionArg})";
         }
 
-        // ReadOnlySpan<byte>.ToArray() / Span<byte>.ToArray() / ReadOnlyMemory<byte>
-        // .ToArray(): Java represents byte spans as ReadOnlySpan<Integer>, whose
-        // toArray() yields Integer[] — the byte[] result must come from toByteArray().
-        if (originalMethodName == "ToArray"
-            && node.ArgumentList.Arguments.Count == 0
-            && methodSymbol?.ReturnType is IArrayTypeSymbol spanToArrayReturn
-            && spanToArrayReturn.ElementType.SpecialType == SpecialType.System_Byte
-            && methodSymbol.ContainingType?.OriginalDefinition?.ToDisplayString()
-                is "System.ReadOnlySpan<T>" or "System.Span<T>"
-                    or "System.ReadOnlyMemory<T>" or "System.Memory<T>")
-        {
-            return $"{receiver}.toByteArray()";
-        }
         // Instance collection ToArray() should produce a typed array, not Object[].
         if (originalMethodName == "ToArray"
             && node.ArgumentList.Arguments.Count == 0
@@ -3569,30 +3199,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // GroupCollection.ContainsKey dereferences _match._regex), so the generated
             // tryGetValue is the null-safe presence check.
             var receiverTypeForTryGet = context.GetTypeInfo(memberAccess.Expression).Type;
-            string receiverJavaType = receiverTypeForTryGet != null
-                ? context.MapType(receiverTypeForTryGet)
-                : string.Empty;
-            // Plain types declaring their own TryGetValue (e.g.
-            // JsonDocument.TryGetValue(int, out byte[])) convert to the regular
-            // holder-parameter form — fall through to the standard out-argument path.
-            bool isJavaMapType = IsJavaMapMappedType(receiverJavaType);
-            // Dictionary-interface implementations (e.g. GroupCollection) are
-            // rewritten to a generated single-arg tryGetValue(key) returning
-            // value-or-null.
-            bool isDictionaryInterfaceImpl = receiverTypeForTryGet != null
-                && receiverTypeForTryGet.AllInterfaces.Any(i => i.Name is "IDictionary" or "IReadOnlyDictionary")
-                && receiverTypeForTryGet.GetMembers("TryGetValue").Any(m => m is IMethodSymbol { Parameters.Length: 2 });
-            if (!isJavaMapType && !isDictionaryInterfaceImpl)
+            bool useGeneratedTryGetValue = receiverTypeForTryGet != null
+                && receiverTypeForTryGet.GetMembers("TryGetValue").Any(m => m is IMethodSymbol { Parameters.Length: 2 })
+                && !IsJavaMapMappedType(context.MapType(receiverTypeForTryGet));
+            if (useGeneratedTryGetValue)
             {
-                goto skipTryGetValueRewrite;
+                return $"({receiver}.tryGetValue({keyArg}) != null ? {successAssign} : {missAssign})";
             }
-            if (isJavaMapType)
-            {
-                return $"({receiver}.containsKey({keyArg}) ? {successAssign} : {missAssign})";
-            }
-            return $"({receiver}.tryGetValue({keyArg}) != null ? {successAssign} : {missAssign})";
+            return $"({receiver}.containsKey({keyArg}) ? {successAssign} : {missAssign})";
         }
-        skipTryGetValueRewrite:
 
         // Fix: Array.GetLength(dim) → Java dimensional length access.
         // Java represents multi-dimensional arrays as jagged arrays (arrays of arrays).
@@ -5212,33 +4827,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.ArrayPool");
                 var poolArgsStr = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
-                // C# byte[] stays Java byte[] (byte elements map to int elsewhere), so
-                // the byte pool needs dedicated byte[] helpers.
-                if (poolArgs[0].SpecialType == SpecialType.System_Byte)
-                {
-                    var byteMethod = originalMethodName == "Rent" ? "rentSharedByteArray" : "returnSharedByteArray";
-                    return $"ArrayPool.{byteMethod}({poolArgsStr})";
-                }
                 if (poolArgs[0].SpecialType == SpecialType.System_Char)
                 {
                     var charMethod = originalMethodName == "Rent" ? "rentSharedCharArray" : "returnSharedCharArray";
                     return $"ArrayPool.{charMethod}({poolArgsStr})";
                 }
                 var javaElem = context.MapType(poolArgs[0]);
-                // Java forbids primitive type arguments (ArrayPool.<int>getShared());
-                // box primitive element types for the type witness.
-                var witnessElem = javaElem switch
-                {
-                    "int" => "Integer",
-                    "long" => "Long",
-                    "short" => "Short",
-                    "byte" => "Byte",
-                    "char" => "Character",
-                    "boolean" => "Boolean",
-                    "float" => "Float",
-                    "double" => "Double",
-                    _ => javaElem
-                };
                 if (originalMethodName == "Rent")
                 {
                     // Erasure: ArrayPool.getShared() can only produce Object[] at runtime,
@@ -5250,12 +4844,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     if (lt >= 0) classToken = classToken.Substring(0, lt).Trim();
                     var dot = classToken.LastIndexOf('.');
                     if (dot >= 0) classToken = classToken.Substring(dot + 1);
-                    // rentShared(T.class, n) infers the RAW element type (T = raw class),
-                    // so assignments to parameterized T[] fail — cast to the typed array:
-                    // (Tuple5<...>[]) ArrayPool.rentShared(Tuple5.class, n).
-                    return $"({javaElem}[]) ArrayPool.rentShared({classToken}.class, {poolArgsStr})";
+                    return $"ArrayPool.rentShared({classToken}.class, {poolArgsStr})";
                 }
-                var sharedPool = $"ArrayPool.<{witnessElem}>getShared()";
+                var sharedPool = $"ArrayPool.<{javaElem}>getShared()";
                 return $"{sharedPool}.returnValue({poolArgsStr})";
             }
         }
@@ -6922,14 +6513,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && node.ArgumentList.Arguments.Count == argStartIndex
             && methodSymbol?.ContainingType?.SpecialType == SpecialType.System_Object)
         {
-            // C# base.ToString() resolving to System.Object.ToString() — Java's super
-            // cannot be passed as a method argument, so emit a direct super.toString()
-            // (Object.toString semantics match the base call exactly).
-            if (memberAccess.Expression is BaseExpressionSyntax)
-            {
+            // base.ToString() binds to System.Object.ToString() but `super`/`base`
+            // is not a value expression — it cannot be passed to ObjectHelper.
+            // Emit a direct super.toString() call (the base implementation).
+            if (memberAccess.Expression.IsKind(SyntaxKind.BaseExpression))
                 return "super.toString()";
-            }
-
             context.AddImport("io.github.ningpp.compat.ObjectHelper");
             return $"ObjectHelper.objectToString({receiver})";
         }
@@ -9586,10 +9174,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             or "System.Collections.Generic.IList<T>"
             or "System.Collections.Generic.ISet<T>"
             or "System.Collections.ICollection"
-            or "System.Collections.IList"
-            or "System.Collections.Generic.Dictionary<TKey, TValue>.ValueCollection"
-            or "System.Collections.Generic.Dictionary<TKey, TValue>.KeyCollection"
-            or "System.Collections.Generic.Dictionary<TKey, TValue>";
+            or "System.Collections.IList";
     }
 
     private static bool IsSystemStringMethod(
@@ -10253,10 +9838,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return null;
 
         var containingTypeMetadataName = containingType.MetadataName;
-        // Use the full display string (not just MetadataName) so C# overloads with
-        // identical names (e.g. Deserialize<TValue>(string, Type, options) vs
-        // Deserialize<TValue>(string, options)) get distinct requirement keys.
-        var methodMetadataName = originalDef.ToDisplayString();
+        var methodMetadataName = originalDef.MetadataName;
 
         // First check the pre-registered set (populated when the method was processed
         // before the call site). If not found, scan the method body directly — the
@@ -10281,9 +9863,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
                 // Drain immediately — the method's signature will be patched when
                 // ApplyPendingClassTypeParams runs after the method is processed.
-                // Scope the drain to this method so other methods' pending
-                // requirements stay queued for their own drain.
-                context.DrainClassTypeParamsForMethod(containingTypeMetadataName, methodMetadataName);
+                context.DrainClassTypeParams();
             }
         }
 
@@ -10366,22 +9946,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     foreach (var tp in typeParams)
                     {
                         if (tp.Name == id.Identifier.Text)
-                            AddTypeParamName(tp, ref result);
-                    }
-                }
-            }
-
-            // Collect type param names used in typeof(T) expressions (e.g. a generic
-            // attribute lookup GetAttribute<T> calling GetCustomAttribute(typeof(T))).
-            var typeOfNodes = scanRoot.DescendantNodes()
-                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeOfExpressionSyntax>();
-            foreach (var typeOfNode in typeOfNodes)
-            {
-                if (typeOfNode.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeOfId)
-                {
-                    foreach (var tp in typeParams)
-                    {
-                        if (tp.Name == typeOfId.Identifier.Text)
                             AddTypeParamName(tp, ref result);
                     }
                 }

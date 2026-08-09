@@ -34,6 +34,25 @@ class Foo {
     }
 
     [Fact]
+    public void BaseToString_BindingToObject_EmitsSuperToString()
+    {
+        var result = Convert("""
+class Base { }
+class Foo : Base {
+    public override string ToString()
+    {
+        return base.ToString();
+    }
+}
+""");
+
+        _ = result.GeneratedCode ?? "";
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("super.toString()", result.GeneratedCode);
+        Assert.DoesNotContain("ObjectHelper", result.GeneratedCode);
+    }
+
+    [Fact]
     public void ToString_WithOverride_KeepsVirtualDispatch()
     {
         var result = Convert("""
