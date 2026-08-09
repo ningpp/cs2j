@@ -833,8 +833,8 @@ internal static class ProjectReadOnlyStructPreprocessor
         }
 
         // Find migrated method names by scanning struct declarations
-        var migratedMethodToStruct = new Dictionary<string, string>();
-        var outMigratedMethodToStruct = new Dictionary<string, string>();
+        var migratedMethodToStruct = new Dictionary<string, HashSet<string>>();
+        var outMigratedMethodToStruct = new Dictionary<string, HashSet<string>>();
         var migratedArities = new Dictionary<string, HashSet<int>>();
         var allMethodArities = new Dictionary<string, HashSet<int>>();
         foreach (var (_, tree) in outputTrees)
@@ -849,6 +849,10 @@ internal static class ProjectReadOnlyStructPreprocessor
                 foreach (var method in structDecl.Members.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>())
                 {
                     if (method.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)))
+                        continue;
+                    // Explicit interface implementations are not callable by name at
+                    // ordinary call sites — excluding them keeps the arity sets exact.
+                    if (method.ExplicitInterfaceSpecifier != null)
                         continue;
 
                     var name = method.Identifier.Text;
@@ -867,7 +871,9 @@ internal static class ProjectReadOnlyStructPreprocessor
                     if (method.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax returnTypeId &&
                         returnTypeId.Identifier.Text == structName)
                     {
-                        migratedMethodToStruct[name] = structName;
+                        if (!migratedMethodToStruct.TryGetValue(name, out var ms))
+                            migratedMethodToStruct[name] = ms = new HashSet<string>(StringComparer.Ordinal);
+                        ms.Add(structName);
                         if (!migratedArities.TryGetValue(arityKey, out var mset))
                             migratedArities[arityKey] = mset = new HashSet<int>();
                         mset.Add(arity);
@@ -881,7 +887,9 @@ internal static class ProjectReadOnlyStructPreprocessor
                             parameter.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax outType &&
                             outType.Identifier.Text == structName)
                         {
-                            outMigratedMethodToStruct[name] = structName;
+                            if (!outMigratedMethodToStruct.TryGetValue(name, out var os))
+                                outMigratedMethodToStruct[name] = os = new HashSet<string>(StringComparer.Ordinal);
+                            os.Add(structName);
                         }
                     }
                 }
@@ -1056,10 +1064,15 @@ internal static class ProjectReadOnlyStructPreprocessor
             }
         }
 
-        // Also detect L3-converted structs (DataContainer): structs with get-only auto-properties
+        // Also detect L3-converted structs (DataContainer): structs with get-only properties
         // and a constructor whose parameters match all property names. These structs need object
-        // initializers (new S { Prop = v }) converted to constructor calls (new S(prop: v)).
+        // initializers (new S { Prop = v }) converted to constructor calls (new S(prop: v)),
+        // and external writes (x.Prop = v) reconstructed through the constructor.
         // Reads stay as property access (like L5) since there are no getXxx() methods.
+        // For each L3 struct we record its non-underscore get-only properties (the public
+        // surface) and the generated constructor's parameter names, so writes can be
+        // rewritten to `x = new S(p1: x.P1, ..., pj: v)`.
+        var l3Structs = new Dictionary<string, (HashSet<string> Props, List<string> CtorParams)>(StringComparer.Ordinal);
         foreach (var (_, tree) in outputTrees)
         {
             var root = tree.GetRoot();
@@ -1069,13 +1082,20 @@ internal static class ProjectReadOnlyStructPreprocessor
                 if (publicFieldStructs.ContainsKey(structName))
                     continue;
 
-                // Find get-only auto-properties: { get; } with no setter, no body, no expression body
+                // Get-only properties: { get; } auto-properties AND custom getter
+                // bodies (get => _backing / get { return _backing; }). Both were made
+                // get-only by the L3 conversion and their storage is assignable
+                // through the generated constructor, so object initializers must map
+                // them to named constructor arguments. Expression-bodied properties
+                // (IsContinuation => ...) have no accessor list and are excluded —
+                // they are computed read-only and can never appear in an initializer.
+                // Field-converted storage properties (_maxDepth { get; }) keep the
+                // field's leading underscore; they are excluded from the public
+                // surface but covered by the constructor parameters.
                 var getOnlyProps = structDecl.Members
                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax>()
                     .Where(p => p.AccessorList?.Accessors.Count == 1
-                                && p.AccessorList.Accessors[0].IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.GetAccessorDeclaration)
-                                && p.AccessorList.Accessors[0].Body == null
-                                && p.AccessorList.Accessors[0].ExpressionBody == null)
+                                && p.AccessorList.Accessors[0].IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.GetAccessorDeclaration))
                     .Select(p => p.Identifier.Text)
                     .ToHashSet();
 
@@ -1083,21 +1103,29 @@ internal static class ProjectReadOnlyStructPreprocessor
                     continue;
 
                 // Check if there's a constructor with parameters matching ALL property names
-                // (case-insensitive: property "Direction" matches parameter "direction")
-                var hasMatchingCtor = structDecl.Members
+                // (case-insensitive with leading underscores stripped: property "MaxDepth"
+                // matches parameter "maxDepth").
+                var matchingCtor = structDecl.Members
                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax>()
-                    .Any(c =>
+                    .FirstOrDefault(c =>
                     {
                         var paramNames = c.ParameterList.Parameters
-                            .Select(p => p.Identifier.Text)
+                            .Select(p => p.Identifier.Text.TrimStart('_'))
                             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                        return getOnlyProps.All(prop => paramNames.Contains(prop));
+                        return getOnlyProps.All(prop => paramNames.Contains(prop.TrimStart('_')));
                     });
 
-                if (hasMatchingCtor)
+                if (matchingCtor != null)
                 {
-                    publicFieldStructs[structName] = getOnlyProps;
+                    var publicProps = getOnlyProps
+                        .Where(p => !p.StartsWith("_", StringComparison.Ordinal))
+                        .ToHashSet(StringComparer.Ordinal);
+                    var ctorParams = matchingCtor.ParameterList.Parameters
+                        .Select(p => p.Identifier.Text)
+                        .ToList();
+                    publicFieldStructs[structName] = publicProps;
                     l5StructNames.Add(structName);
+                    l3Structs[structName] = (publicProps, ctorParams);
                 }
             }
         }
@@ -1117,7 +1145,7 @@ internal static class ProjectReadOnlyStructPreprocessor
         {
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
-            var rewriter = new AssignmentRewriter(publicFieldStructs, model, l5StructNames, withChainStructs);
+            var rewriter = new AssignmentRewriter(publicFieldStructs, model, l5StructNames, withChainStructs, l3Structs);
             rewriter.BuildVariableTypeMap(root);
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
@@ -1156,7 +1184,9 @@ internal static class ProjectReadOnlyStructPreprocessor
             outputTrees[file] = CSharpSyntaxTree.ParseText(code, path: file);
         }
 
-        // Collect instance field names of readonly structs (all of them are readonly fields).
+        // Collect instance field names of readonly structs (all of them are readonly fields),
+        // plus get-only properties (fields converted by L3/L4/L5 — same storage, and
+        // ref/out uses of them must be hoisted into temps + WithXxx write-backs too).
         var readonlyStructFields = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         foreach (var (_, tree) in outputTrees)
         {
@@ -1170,6 +1200,11 @@ internal static class ProjectReadOnlyStructPreprocessor
                     .Where(f => !f.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)
                                                      || m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ConstKeyword)))
                     .SelectMany(f => f.Declaration.Variables.Select(v => v.Identifier.Text))
+                    .Concat(structDecl.Members
+                        .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax>()
+                        .Where(p => p.AccessorList?.Accessors.Count == 1
+                                    && p.AccessorList.Accessors[0].IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.GetAccessorDeclaration))
+                        .Select(p => p.Identifier.Text))
                     .ToHashSet(StringComparer.Ordinal);
                 if (fields.Count == 0) continue;
                 var name = structDecl.Identifier.Text;
@@ -1279,6 +1314,27 @@ internal static class ProjectReadOnlyStructPreprocessor
                     nameToType[variable.Identifier.Text] = tn;
             }
 
+            // `var result = this;` locals inside a type declaration (migrated methods'
+            // accumulator) resolve to the containing type. Semantic resolution is
+            // unavailable for nodes rebuilt by the rewriter, so this syntactic mapping
+            // is required for the hoist fallback.
+            var enclosingTypeForThis = node.Ancestors()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax>().FirstOrDefault();
+            if (enclosingTypeForThis != null)
+            {
+                foreach (var decl in node.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclarationSyntax>())
+                {
+                    if (decl.Type is not Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax { Identifier.Text: "var" })
+                        continue;
+                    foreach (var variable in decl.Variables)
+                    {
+                        if (variable.Initializer?.Value is Microsoft.CodeAnalysis.CSharp.Syntax.ThisExpressionSyntax &&
+                            !nameToType.ContainsKey(variable.Identifier.Text))
+                            nameToType[variable.Identifier.Text] = enclosingTypeForThis.Identifier.Text;
+                    }
+                }
+            }
+
             var enclosingStruct = node.Ancestors()
                 .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>().FirstOrDefault();
             return new HoistContext(nameToType, enclosingStruct?.Identifier.Text);
@@ -1339,7 +1395,8 @@ internal static class ProjectReadOnlyStructPreprocessor
                 try
                 {
                     var type = _model.GetTypeInfo(ma.Expression).Type;
-                    if (type != null && _readonlyStructFields.TryGetValue(type.Name, out var fields) &&
+                    if (type != null && type.TypeKind == TypeKind.Struct &&
+                        _readonlyStructFields.TryGetValue(type.Name, out var fields) &&
                         fields.Contains(fieldName))
                         structName = type.Name;
                 }
@@ -2151,6 +2208,27 @@ internal static class ProjectReadOnlyStructPreprocessor
         var explicitImplsToWiden = new List<(string File, string IfaceTypeName, string MemberName, INamedTypeSymbol Interface)>();
         var seenWidenKeys = new HashSet<(string, string, string)>();
 
+        // Interfaces that have CLASS implementers cannot have their members' return
+        // types changed: classes cannot covariantly return the interface type without
+        // explicit bridges, and derived-class overrides break (CS0738/CS0508). Their
+        // struct implementers keep the generated explicit interface implementations
+        // (void IFace.M(args) { M(args); }), which satisfy the original contract.
+        var classImplementedInterfaces = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var (_, tree) in outputTrees)
+        {
+            var model = outputCompilation.GetSemanticModel(tree);
+            foreach (var classDecl in tree.GetRoot().DescendantNodes()
+                         .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax>())
+            {
+                if (model.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol classSymbol) continue;
+                foreach (var iface in classSymbol.AllInterfaces)
+                {
+                    if (iface.DeclaringSyntaxReferences.Length > 0)
+                        classImplementedInterfaces.Add(iface);
+                }
+            }
+        }
+
         foreach (var (file, tree) in outputTrees)
         {
             var model = outputCompilation.GetSemanticModel(tree);
@@ -2166,6 +2244,8 @@ internal static class ProjectReadOnlyStructPreprocessor
                 {
                     if (iface.DeclaringSyntaxReferences.Length == 0)
                         continue; // external interface — cannot rewrite
+                    if (classImplementedInterfaces.Contains(iface))
+                        continue; // interface also implemented by classes — do not transform
                     foreach (var member in iface.GetMembers())
                     {
                         if (member is not IMethodSymbol ifaceMethod ||

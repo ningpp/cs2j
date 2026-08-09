@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -14,13 +14,34 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 /// </summary>
 public sealed class CallSiteUpdater : CSharpSyntaxRewriter
 {
-    private readonly Dictionary<string, string> _migratedMethodToStruct;
+    // Method name -> structs with a migrated overload of that name. Keyed by name
+    // only; multiple structs may share a method name (e.g. Pop on ReadStack and
+    // BitStack), so per-call receiver-type resolution picks the right struct.
+    private readonly Dictionary<string, HashSet<string>> _migratedMethodToStruct;
     private readonly Dictionary<string, List<string>> _structFieldNames;
-    private readonly Dictionary<string, string> _outMigratedMethodToStruct;
+    private readonly Dictionary<string, HashSet<string>> _outMigratedMethodToStruct;
     private readonly Dictionary<string, HashSet<int>> _migratedArities; // "Struct.Method" -> arities of migrated overloads
     private readonly Dictionary<string, HashSet<int>> _allMethodArities; // "Struct.Method" -> arities of ALL overloads
     private readonly HashSet<IMethodSymbol> _migratedSymbols;
     private readonly SemanticModel _model;
+
+    public CallSiteUpdater(Dictionary<string, HashSet<string>> migratedMethodToStruct, SemanticModel model,
+        Dictionary<string, List<string>>? structFieldNames = null,
+        Dictionary<string, HashSet<string>>? outMigratedMethodToStruct = null,
+        Dictionary<string, HashSet<int>>? migratedArities = null,
+        Dictionary<string, HashSet<int>>? allMethodArities = null,
+        IEnumerable<IMethodSymbol>? migratedSymbols = null)
+    {
+        _migratedMethodToStruct = migratedMethodToStruct ?? new Dictionary<string, HashSet<string>>();
+        _structFieldNames = structFieldNames ?? new Dictionary<string, List<string>>();
+        _outMigratedMethodToStruct = outMigratedMethodToStruct ?? new Dictionary<string, HashSet<string>>();
+        _migratedArities = migratedArities ?? new Dictionary<string, HashSet<int>>();
+        _allMethodArities = allMethodArities ?? new Dictionary<string, HashSet<int>>();
+        _migratedSymbols = migratedSymbols != null
+            ? new HashSet<IMethodSymbol>(migratedSymbols, SymbolEqualityComparer.Default)
+            : new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        _model = model;
+    }
 
     public CallSiteUpdater(Dictionary<string, string> migratedMethodToStruct, SemanticModel model,
         Dictionary<string, List<string>>? structFieldNames = null,
@@ -28,16 +49,22 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         Dictionary<string, HashSet<int>>? migratedArities = null,
         Dictionary<string, HashSet<int>>? allMethodArities = null,
         IEnumerable<IMethodSymbol>? migratedSymbols = null)
+        : this(ToStructSets(migratedMethodToStruct), model, structFieldNames,
+              ToStructSets(outMigratedMethodToStruct), migratedArities, allMethodArities, migratedSymbols)
     {
-        _migratedMethodToStruct = migratedMethodToStruct;
-        _structFieldNames = structFieldNames ?? new Dictionary<string, List<string>>();
-        _outMigratedMethodToStruct = outMigratedMethodToStruct ?? new Dictionary<string, string>();
-        _migratedArities = migratedArities ?? new Dictionary<string, HashSet<int>>();
-        _allMethodArities = allMethodArities ?? new Dictionary<string, HashSet<int>>();
-        _migratedSymbols = migratedSymbols != null
-            ? new HashSet<IMethodSymbol>(migratedSymbols, SymbolEqualityComparer.Default)
-            : new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
-        _model = model;
+    }
+
+    private static Dictionary<string, HashSet<string>> ToStructSets(Dictionary<string, string>? map)
+    {
+        var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        if (map == null) return result;
+        foreach (var kvp in map)
+        {
+            if (!result.TryGetValue(kvp.Key, out var set))
+                result[kvp.Key] = set = new HashSet<string>(StringComparer.Ordinal);
+            set.Add(kvp.Value);
+        }
+        return result;
     }
 
     /// <summary>
@@ -48,19 +75,62 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         if (_outMigratedMethodToStruct.Count > 0 &&
-            node.Expression is MemberAccessExpressionSyntax memberAccess &&
             !node.ArgumentList.Arguments.Any(a => a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)))
         {
-            var methodName = memberAccess.Name.Identifier.Text;
-            if (_outMigratedMethodToStruct.TryGetValue(methodName, out var structName) &&
-                IsMigratedCallTarget(node, methodName, structName) &&
-                IsModifiableOutTarget(memberAccess.Expression) &&
-                IsReceiverOfStructType(memberAccess.Expression, structName))
+            if (node.Expression is MemberAccessExpressionSyntax memberAccess)
             {
-                var outArgument = SyntaxFactory.Argument(memberAccess.Expression.WithoutTrivia())
-                    .WithRefKindKeyword(
-                        SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space));
-                node = node.AddArgumentListArguments(outArgument);
+                var methodName = memberAccess.Name.Identifier.Text;
+                if (_outMigratedMethodToStruct.TryGetValue(methodName, out var structs) &&
+                    structs.Any(s => IsMigratedCallTarget(node, methodName, s) &&
+                                     IsReceiverOfStructType(memberAccess.Expression, s)))
+                {
+                    if (IsModifiableOutTarget(memberAccess.Expression))
+                    {
+                        var outArgument = SyntaxFactory.Argument(memberAccess.Expression.WithoutTrivia())
+                            .WithRefKindKeyword(
+                                SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space));
+                        node = node.AddArgumentListArguments(outArgument);
+                    }
+                    else
+                    {
+                        // The receiver is a temporary (method-call chain) — the new
+                        // status cannot be written back, so it is discarded:
+                        // tmp.GetEnumerator() → tmp.GetEnumerator(out var _).
+                        var outArgument = SyntaxFactory.Argument(
+                                SyntaxFactory.DeclarationExpression(
+                                    SyntaxFactory.IdentifierName("var").WithTrailingTrivia(SyntaxFactory.Space),
+                                    SyntaxFactory.DiscardDesignation(
+                                        SyntaxFactory.Token(SyntaxKind.UnderscoreToken))))
+                            .WithRefKindKeyword(
+                                SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space));
+                        node = node.AddArgumentListArguments(outArgument);
+                    }
+                }
+            }
+            else if (node.Expression is IdentifierNameSyntax id)
+            {
+                // Bare implicit-this call of an out-migrated method INSIDE the
+                // struct's own members (e.g. explicit interface implementations:
+                // `IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();`).
+                // The receiver is `this`, which cannot be an out argument, so the
+                // new status is discarded: GetEnumerator() → GetEnumerator(out var _).
+                var methodName = id.Identifier.Text;
+                var containingStruct = node.Ancestors().OfType<StructDeclarationSyntax>()
+                    .FirstOrDefault()?.Identifier.Text;
+                if (_outMigratedMethodToStruct.TryGetValue(methodName, out var structs) &&
+                    containingStruct != null &&
+                    structs.Contains(containingStruct) &&
+                    IsMigratedCallTarget(node, methodName, containingStruct))
+                {
+                    var outArgument = SyntaxFactory.Argument(
+                            SyntaxFactory.DeclarationExpression(
+                                SyntaxFactory.IdentifierName("var").WithTrailingTrivia(SyntaxFactory.Space),
+                                SyntaxFactory.DiscardDesignation(
+                                    SyntaxFactory.Token(SyntaxKind.UnderscoreToken))))
+                        .WithRefKindKeyword(
+                            SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space));
+                    node = node.AddArgumentListArguments(outArgument);
+                }
             }
         }
 
@@ -143,13 +213,15 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         }
 
         // Fallback: rewrite only when every overload of this name was migrated
-        // (no unmigrated overload exists that could share the call).
+        // (no unmigrated overload exists that could share the call). Out-migrated
+        // methods gained a parameter, so a call with `arity` arguments may target a
+        // migrated method that now takes `arity + 1`.
         var arity = invocation.ArgumentList.Arguments.Count;
         var key = structName + "." + methodName;
         if (_migratedArities.TryGetValue(key, out var migrated) &&
             _allMethodArities.TryGetValue(key, out var all))
         {
-            return migrated.Contains(arity) && migrated.SetEquals(all);
+            return (migrated.Contains(arity) || migrated.Contains(arity + 1)) && migrated.SetEquals(all);
         }
         return true;
     }
@@ -173,11 +245,13 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
             invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
             var methodName = memberAccess.Name.Identifier.Text;
-            if (_migratedMethodToStruct.TryGetValue(methodName, out var structName))
+            if (_migratedMethodToStruct.TryGetValue(methodName, out var structNames))
             {
                 var receiver = memberAccess.Expression;
-                if (IsMigratedCallTarget(invocation, methodName, structName) &&
-                    IsReceiverOfStructType(receiver, structName))
+                var structName = structNames.FirstOrDefault(s =>
+                    IsMigratedCallTarget(invocation, methodName, s) &&
+                    IsReceiverOfStructType(receiver, s));
+                if (structName != null)
                 {
                     // s.Method(args) → s = s.Method(args)
                     var assignment = SyntaxFactory.AssignmentExpression(
@@ -210,11 +284,12 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
             bareInvocation.Expression is IdentifierNameSyntax bareMethodName)
         {
             var name = bareMethodName.Identifier.Text;
-            if (_migratedMethodToStruct.TryGetValue(name, out var structName2))
+            if (_migratedMethodToStruct.TryGetValue(name, out var structNames2))
             {
                 var containingStruct = node.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
-                if (containingStruct != null && containingStruct.Identifier.Text == structName2)
+                if (containingStruct != null && structNames2.Contains(containingStruct.Identifier.Text))
                 {
+                    var structName2 = containingStruct.Identifier.Text;
                     // We're inside the struct itself — replace bare call with field assignments
                     var containingCtor = node.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
                     var containingMethod = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
@@ -355,7 +430,9 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         {
             var typeInfo = _model.GetTypeInfo(receiver);
             if (typeInfo.Type != null)
-                return typeInfo.Type.Name == structName;
+                // Require an actual struct — a same-named class must not match.
+                return typeInfo.Type.TypeKind == TypeKind.Struct &&
+                       typeInfo.Type.Name == structName;
         }
         catch (ArgumentException)
         {

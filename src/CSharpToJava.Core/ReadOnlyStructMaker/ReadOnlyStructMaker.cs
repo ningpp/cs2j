@@ -75,8 +75,8 @@ public sealed class ReadOnlyStructMaker
         // Update call sites for L5 migrated void methods
         if (options.UpdateCallSites)
         {
-            var migratedVoidMethods = new Dictionary<string, string>(); // methodName -> structName
-            var outMigratedMethods = new Dictionary<string, string>(); // methodName -> structName (out param added)
+            var migratedVoidMethods = new Dictionary<string, HashSet<string>>(); // methodName -> structs
+            var outMigratedMethods = new Dictionary<string, HashSet<string>>(); // methodName -> structs (out param added)
             var structFieldNames = new Dictionary<string, List<string>>(); // structName -> field names
             var migratedArities = new Dictionary<string, HashSet<int>>(); // "Struct.Method" -> migrated arities
             var allMethodArities = new Dictionary<string, HashSet<int>>(); // "Struct.Method" -> all overload arities
@@ -87,7 +87,9 @@ public sealed class ReadOnlyStructMaker
                 var structName = structSyntax.Identifier.Text;
                 foreach (var migration in result.MethodMigrations.Where(m => m.Type == MigrationType.VoidToStruct))
                 {
-                    migratedVoidMethods[migration.Method.Name] = structName;
+                    if (!migratedVoidMethods.TryGetValue(migration.Method.Name, out var s))
+                        migratedVoidMethods[migration.Method.Name] = s = new HashSet<string>(StringComparer.Ordinal);
+                    s.Add(structName);
                     migratedSymbols.Add(migration.Method);
                     var key = structName + "." + migration.Method.Name;
                     if (!migratedArities.TryGetValue(key, out var set))
@@ -96,15 +98,20 @@ public sealed class ReadOnlyStructMaker
                 }
                 foreach (var migration in result.MethodMigrations.Where(m => m.Type == MigrationType.OtherReturnToOut))
                 {
-                    outMigratedMethods[migration.Method.Name] = structName;
+                    if (!outMigratedMethods.TryGetValue(migration.Method.Name, out var s))
+                        outMigratedMethods[migration.Method.Name] = s = new HashSet<string>(StringComparer.Ordinal);
+                    s.Add(structName);
                     migratedSymbols.Add(migration.Method);
                 }
 
                 // Record arities of ALL instance overloads per method name so call-site
                 // rewriting can skip names that still have unmigrated overloads.
+                // Explicit interface implementations are not callable by name at
+                // ordinary call sites and must not pollute the arity sets.
                 foreach (var method in structSyntax.Members.OfType<MethodDeclarationSyntax>())
                 {
                     if (method.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
+                    if (method.ExplicitInterfaceSpecifier != null) continue;
                     var key = structName + "." + method.Identifier.Text;
                     if (!allMethodArities.TryGetValue(key, out var aset))
                         allMethodArities[key] = aset = new HashSet<int>();

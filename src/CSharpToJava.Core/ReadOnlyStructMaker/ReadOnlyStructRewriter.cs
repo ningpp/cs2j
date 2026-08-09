@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -191,6 +191,11 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     {
         // L3: convert get/set properties to get-only, fields to properties, generate ctor
         var structName = node.Identifier.Text;
+        // The generated constructor is the ONLY way external callers can set state
+        // after the setters are removed, so it must mirror the struct's accessibility:
+        // a public struct gets a public constructor (internal would break cross-assembly
+        // callers such as test projects that construct the struct via object initializers).
+        var isPublicStruct = node.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword));
         var membersForCtor = new List<(string Name, TypeSyntax Type, bool IsPublic)>();
         var newMembers = new SyntaxList<MemberDeclarationSyntax>();
 
@@ -201,6 +206,13 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             {
                 // Convert get/set → get-only
                 var getter = prop.AccessorList.Accessors.First(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+                // Accessor modifiers (`readonly`, `private`, `internal`, ...) are only
+                // valid when the property has BOTH get and set accessors (CS8664/CS0276).
+                // A get-only property's getter must be modifier-free.
+                if (getter.Modifiers.Count > 0)
+                {
+                    getter = getter.WithModifiers(SyntaxFactory.TokenList());
+                }
                 var newProp = prop.WithAccessorList(
                     SyntaxFactory.AccessorList(SyntaxFactory.SingletonList(getter)));
                 newMembers = newMembers.Add(newProp);
@@ -213,13 +225,14 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 // colliding with field "a" → param "a").
                 if (getter.Body == null && getter.ExpressionBody == null)
                 {
-                    membersForCtor.Add((prop.Identifier.Text, prop.Type,
-                        prop.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))));
+                    membersForCtor.Add((prop.Identifier.Text, prop.Type, isPublicStruct));
                 }
             }
             else if (member is FieldDeclarationSyntax field &&
                      !field.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)) &&
-                     !field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+                     !field.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)) &&
+                     !field.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)) &&
+                     !field.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
             {
                 // Convert internal/private fields → get-only properties
                 foreach (var variable in field.Declaration.Variables)
@@ -232,7 +245,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                                     .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))))
                         .WithTrailingTrivia(variable.Identifier.TrailingTrivia);
                     newMembers = newMembers.Add(fieldProp);
-                    membersForCtor.Add((variable.Identifier.Text, field.Declaration.Type, false));
+                    membersForCtor.Add((variable.Identifier.Text, field.Declaration.Type, isPublicStruct));
                 }
             }
             else
@@ -422,7 +435,30 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         // 6. Generate WithXxx methods using constructor
         // Include ALL non-private fields (public + internal) so external assignments
         // to internal fields are also rewritable via WithXxx.
-        var ctor = result.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+        // Use the generated full constructor (or an existing constructor whose
+        // parameters map 1:1 onto every field). The FIRST member constructor is NOT
+        // a safe choice: e.g. an original `S(JsonReaderOptions options = default)`
+        // assigns only `_readerOptions` from a parameter, so the WithXxx calls would
+        // use its parameter names (`options:`) against the full constructor's
+        // signature (CS1739).
+        var ctor = fullCtor;
+        if (ctor != null &&
+            !result.Members.OfType<ConstructorDeclarationSyntax>().Contains(ctor))
+        {
+            // The full constructor was not added because an equivalent already
+            // exists; find a constructor whose parameters assign every field, or
+            // the exact equivalent (same parameter types), whichever maps all fields.
+            ctor = result.Members.OfType<ConstructorDeclarationSyntax>()
+                    .FirstOrDefault(c =>
+                    {
+                        var map = ExtractConstructorParamToFieldMap(c);
+                        return map.Count == allNonPrivateFieldTypes.Count &&
+                               allNonPrivateFieldTypes.Keys.All(map.ContainsValue);
+                    })
+                ?? result.Members.OfType<ConstructorDeclarationSyntax>()
+                    .FirstOrDefault(c => SameParameterTypes(c, fullCtor))
+                ?? fullCtor;
+        }
         foreach (var fieldName in allNonPrivateFieldTypes.Keys)
         {
             var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allNonPrivateFieldTypes, ctor,
@@ -647,6 +683,11 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                     autoStorageProps.Any(a => a.PropName == prop.Identifier.Text))
                 {
                     var getterOnly = prop.AccessorList!.Accessors.First(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+                    // Get-only properties cannot carry accessor modifiers (CS0276).
+                    if (getterOnly.Modifiers.Count > 0)
+                    {
+                        getterOnly = getterOnly.WithModifiers(SyntaxFactory.TokenList());
+                    }
                     newMembers = newMembers.Add(prop.WithAccessorList(
                         SyntaxFactory.AccessorList(SyntaxFactory.SingletonList(getterOnly))));
                 }
@@ -718,6 +759,11 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             }
 
             var getterOnly = prop.AccessorList.Accessors.First(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+            // Get-only properties cannot carry accessor modifiers (CS0276).
+            if (getterOnly.Modifiers.Count > 0)
+            {
+                getterOnly = getterOnly.WithModifiers(SyntaxFactory.TokenList());
+            }
             var currentProp = rewritten.Members.OfType<PropertyDeclarationSyntax>()
                 .First(p => p.Identifier.Text == prop.Identifier.Text);
             rewritten = rewritten.ReplaceNode(currentProp,
@@ -971,9 +1017,9 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 // (CS1604), so it is discarded via a `_` designation.
                 var outArgument = SyntaxFactory.Argument(
                         SyntaxFactory.DeclarationExpression(
-                            SyntaxFactory.IdentifierName("var"),
+                            SyntaxFactory.IdentifierName("var").WithTrailingTrivia(SyntaxFactory.Space),
                             SyntaxFactory.DiscardDesignation(
-                                SyntaxFactory.Identifier("_"))))
+                                SyntaxFactory.Token(SyntaxKind.UnderscoreToken))))
                     .WithRefKindKeyword(
                         SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space));
                 var callArguments = arguments.Append(outArgument).ToList();
@@ -1081,23 +1127,40 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     private static bool HasEquivalentCtor(StructDeclarationSyntax node, ConstructorDeclarationSyntax newCtor)
     {
         var newParams = newCtor.ParameterList.Parameters;
-        return node.Members.OfType<ConstructorDeclarationSyntax>().Any(existing =>
-        {
-            var ep = existing.ParameterList.Parameters;
-            if (ep.Count != newParams.Count) return false;
-            for (int i = 0; i < ep.Count; i++)
-                if (ep[i].Type?.ToString() != newParams[i].Type?.ToString()) return false;
-            return true;
-        });
+        return node.Members.OfType<ConstructorDeclarationSyntax>().Any(existing => SameParameterTypes(existing, newCtor));
+    }
+
+    private static bool SameParameterTypes(ConstructorDeclarationSyntax a, ConstructorDeclarationSyntax b)
+    {
+        var ap = a.ParameterList.Parameters;
+        var bp = b.ParameterList.Parameters;
+        if (ap.Count != bp.Count) return false;
+        for (int i = 0; i < ap.Count; i++)
+            if (ap[i].Type?.ToString() != bp[i].Type?.ToString()) return false;
+        return true;
     }
 
     private sealed class PrivateSetRemover : CSharpSyntaxRewriter
     {
         public override SyntaxNode? VisitAccessorList(AccessorListSyntax node)
         {
+            // Remove private set accessors.
             var accessors = node.Accessors.Where(a =>
                 !(a.IsKind(SyntaxKind.SetAccessorDeclaration) &&
-                  a.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword))));
+                  a.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)))).ToList();
+
+            // A `readonly` modifier on an accessor is only valid when the property
+            // has both a get and a set accessor (CS8664). If the property became
+            // get-only after removing the private setter, strip `readonly`.
+            if (!accessors.Any(a => a.IsKind(SyntaxKind.SetAccessorDeclaration)))
+            {
+                accessors = accessors.Select(a =>
+                    a.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword))
+                        ? a.WithModifiers(SyntaxFactory.TokenList(
+                            a.Modifiers.Where(m => !m.IsKind(SyntaxKind.ReadOnlyKeyword))))
+                        : a).ToList();
+            }
+
             return node.WithAccessors(SyntaxFactory.List(accessors));
         }
     }

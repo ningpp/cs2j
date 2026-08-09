@@ -27,12 +27,19 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     // Structs that actually have WithXxx methods — only these may be targets of
     // object-initializer-to-With-chain rewrites.
     private readonly HashSet<string> _withChainStructs = new();
+    // L3 data-container structs (no WithXxx methods): external writes to their
+    // get-only properties are reconstructed through the generated constructor:
+    //   x.Prop = v  →  x = new S(p1: x.P1, ..., pj: v)
+    // Key: struct name; value: public get-only property names and the constructor's
+    // parameter names (in order).
+    private readonly Dictionary<string, (HashSet<string> Props, List<string> CtorParams)> _l3Structs = new();
 
     public AssignmentRewriter(
         Dictionary<string, HashSet<string>> structFields,
         SemanticModel? semanticModel,
         IReadOnlySet<string>? propertyAccessStructs = null,
-        IReadOnlySet<string>? withChainStructs = null)
+        IReadOnlySet<string>? withChainStructs = null,
+        IReadOnlyDictionary<string, (HashSet<string> Props, List<string> CtorParams)>? l3Structs = null)
     {
         _structFields = structFields;
         _semanticModel = semanticModel;
@@ -42,6 +49,11 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             _withChainStructs.UnionWith(withChainStructs);
         else
             _withChainStructs.UnionWith(structFields.Keys); // legacy behavior: assume all have With methods
+        if (l3Structs != null)
+        {
+            foreach (var kvp in l3Structs)
+                _l3Structs[kvp.Key] = kvp.Value;
+        }
         // Collect all field names for quick lookup
         foreach (var fields in structFields.Values)
         {
@@ -104,6 +116,34 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         return string.Empty;
     }
 
+    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    {
+        // Tuple assignment to struct members: (a.b, c.d) = (x, y) — split into
+        // sequential single assignments so each member write gets With-ified.
+        if (node.Expression is AssignmentExpressionSyntax
+            {
+                Left: TupleExpressionSyntax tupleLeft,
+                Right: TupleExpressionSyntax tupleRight
+            } tupleAssign &&
+            tupleLeft.Arguments.Count == tupleRight.Arguments.Count)
+        {
+            var statements = new List<StatementSyntax>();
+            for (var i = 0; i < tupleLeft.Arguments.Count; i++)
+            {
+                var rightExpr = (ExpressionSyntax)Visit(tupleRight.Arguments[i].Expression)!;
+                var single = SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    tupleLeft.Arguments[i].Expression,
+                    rightExpr);
+                var rewritten = (ExpressionSyntax)(VisitAssignmentExpression(single) ?? single);
+                statements.Add(SyntaxFactory.ExpressionStatement(rewritten));
+            }
+            return SyntaxFactory.Block(statements).WithTriviaFrom(node);
+        }
+
+        return base.VisitExpressionStatement(node);
+    }
+
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         if (node.Left is not MemberAccessExpressionSyntax memberAccess)
@@ -138,7 +178,14 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         // Don't convert inside non-static members of the struct itself (WithXxx method
         // bodies and migrated methods manage their own writes). STATIC members take
         // struct-typed parameters/locals and must be rewritten like external code.
-        if (InsideOwnInstanceMember(node, structName))
+        // Exception: writes through LOCAL variables (e.g. the `result` accumulator of
+        // migrated L5 methods, or other struct-typed locals like `ArrayEnumerator ator`)
+        // behave exactly like external writes and MUST be rewritten — the struct's own
+        // migration only handles writes through `this`/`result` receiver chains, not
+        // through arbitrary locals. `this.X = v` inside the struct's own members
+        // (constructors, WithXxx helpers) stays untouched.
+        if (memberAccess.Expression is not IdentifierNameSyntax &&
+            InsideOwnInstanceMember(node, structName))
             return base.VisitAssignmentExpression(node);
 
         // A `this.X = ...` write inside a type that is NOT one of the target structs
@@ -149,7 +196,6 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             !InsideTargetType(node, structName))
             return base.VisitAssignmentExpression(node);
 
-        var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
 
         // For compound assignments, the read of obj.Field should use the getter method.
@@ -209,19 +255,146 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         }
 
         // Generate: receiver = receiver.WithField(newValue)
-        var withCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                receiver.WithoutTrivia(),
-                SyntaxFactory.IdentifierName(withMethodName)),
-            SyntaxFactory.ArgumentList(
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Argument(newValue))));
+        //   or, for L3 data-container structs: receiver = new S(p1: receiver.P1, ..., pj: newValue)
+        // Then lift through member-access receivers (receiver is a.b → a = a.WithB(...))
+        // so the full chain a.b.c = v becomes a = a.WithB(a.b.WithC(v)).
+        return BuildWriteAssignment(memberAccess.Expression, fieldNameText, structName, newValue, node);
+    }
+
+    /// <summary>
+    /// Builds the rewritten assignment for <c>receiver.Member = value</c>. Handles the
+    /// single-level write and then lifts through member-access receivers so nested
+    /// writes (<c>a.b.c = v</c>) become a = a.WithB(a.b.WithC(v)) — the innermost
+    /// WithXxx call is produced first and each outer level wraps it.
+    /// </summary>
+    private AssignmentExpressionSyntax BuildWriteAssignment(
+        ExpressionSyntax receiver,
+        string memberName,
+        string structName,
+        ExpressionSyntax value,
+        SyntaxNode triviaFrom)
+    {
+        ExpressionSyntax valueExpr;
+        if (_withChainStructs.Contains(structName))
+        {
+            valueExpr = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    receiver.WithoutTrivia(),
+                    SyntaxFactory.IdentifierName("With" + memberName)),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Argument(value))));
+        }
+        else if (_l3Structs.TryGetValue(structName, out var l3Info))
+        {
+            valueExpr = BuildL3Reconstruction(receiver, memberName, value, structName, l3Info);
+            if (valueExpr == null)
+                return (AssignmentExpressionSyntax)base.VisitAssignmentExpression(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression, receiver, value));
+        }
+        else
+        {
+            // Unknown struct shape — leave the assignment untouched.
+            return (AssignmentExpressionSyntax)base.VisitAssignmentExpression(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression, receiver, value));
+        }
+
+        // Lift through member-access receivers.
+        var currentReceiver = receiver;
+        while (currentReceiver is MemberAccessExpressionSyntax outerMa &&
+               outerMa.Name is IdentifierNameSyntax outerId &&
+               _targetFieldNames.Contains(outerId.Identifier.Text) &&
+               IsModifiableLValue(outerMa.Expression))
+        {
+            var outerStruct = TryGetTargetStructName(outerMa.Expression);
+            if (outerStruct == null || outerStruct == string.Empty)
+                break;
+            if (_withChainStructs.Contains(outerStruct))
+            {
+                valueExpr = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        outerMa.Expression.WithoutTrivia(),
+                        SyntaxFactory.IdentifierName("With" + outerId.Identifier.Text)),
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.Argument(valueExpr))));
+            }
+            else if (_l3Structs.TryGetValue(outerStruct, out var outerL3))
+            {
+                var reconstructed = BuildL3Reconstruction(outerMa.Expression, outerId.Identifier.Text, valueExpr, outerStruct, outerL3);
+                if (reconstructed == null)
+                    break;
+                valueExpr = reconstructed;
+            }
+            else
+            {
+                break;
+            }
+            currentReceiver = outerMa.Expression;
+        }
 
         return SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
-            receiver.WithoutTrivia(),
-            withCall).WithTriviaFrom(node);
+            currentReceiver.WithoutTrivia(),
+            valueExpr).WithTriviaFrom(triviaFrom);
+    }
+
+    /// <summary>
+    /// Rebuilds an L3 struct instance through its constructor:
+    /// <c>x = new S(p1: x.P1, ..., pj: value, ...)</c>. Every constructor parameter is
+    /// mapped to the matching public property (case-insensitive, leading underscores
+    /// stripped); the written member's parameter receives the new value. Returns null
+    /// when any parameter has no readable property.
+    /// </summary>
+    private ExpressionSyntax? BuildL3Reconstruction(
+        ExpressionSyntax receiver,
+        string memberName,
+        ExpressionSyntax value,
+        string structName,
+        (HashSet<string> Props, List<string> CtorParams) info)
+    {
+        var arguments = new List<ArgumentSyntax>();
+        foreach (var param in info.CtorParams)
+        {
+            var normalizedParam = param.TrimStart('_');
+            string? readProp = null;
+            foreach (var prop in info.Props)
+            {
+                if (string.Equals(prop.TrimStart('_'), normalizedParam, StringComparison.OrdinalIgnoreCase))
+                {
+                    readProp = prop;
+                    break;
+                }
+            }
+            if (readProp == null)
+                return null;
+
+            ExpressionSyntax argValue;
+            if (readProp == memberName)
+            {
+                argValue = value;
+            }
+            else
+            {
+                argValue = SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    receiver.WithoutTrivia(),
+                    SyntaxFactory.IdentifierName(readProp));
+            }
+            arguments.Add(SyntaxFactory.Argument(argValue)
+                .WithNameColon(SyntaxFactory.NameColon(
+                    SyntaxFactory.IdentifierName(param))));
+        }
+
+        return SyntaxFactory.ObjectCreationExpression(
+                SyntaxFactory.Token(SyntaxKind.NewKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.IdentifierName(structName),
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)),
+                initializer: null);
     }
 
     public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
@@ -395,7 +568,10 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         }
 
         // Skip non-static members of the struct itself (see VisitAssignmentExpression).
-        if (InsideOwnInstanceMember(originalNode, structName))
+        // Writes through local receivers (result/ator) inside migrated methods are
+        // still rewritten — same rationale as above.
+        if (memberAccess.Expression is not IdentifierNameSyntax &&
+            InsideOwnInstanceMember(originalNode, structName))
             return null;
 
         // `this.X` inside a non-target type is never a struct field write.
@@ -403,7 +579,6 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             !InsideTargetType(originalNode, structName))
             return null;
 
-        var withMethodName = "With" + fieldNameText;
         var receiver = memberAccess.Expression;
 
         // obj.Field++ → obj = obj.WithField(obj.getField() + 1)
@@ -419,19 +594,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             getterAccess,
             increment);
 
-        var withCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                receiver.WithoutTrivia(),
-                SyntaxFactory.IdentifierName(withMethodName)),
-            SyntaxFactory.ArgumentList(
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Argument(newValue))));
-
-        return SyntaxFactory.AssignmentExpression(
-            SyntaxKind.SimpleAssignmentExpression,
-            receiver.WithoutTrivia(),
-            withCall).WithTriviaFrom(originalNode);
+        return BuildWriteAssignment(receiver, fieldNameText, structName, newValue, originalNode);
     }
 
     public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
@@ -439,18 +602,51 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (node.Initializer == null || !node.Initializer.Expressions.Any())
             return base.VisitObjectCreationExpression(node);
 
-        // Check if the type name matches one of our target structs
         var typeName = GetTypeName(node.Type);
         if (!_structFields.ContainsKey(typeName))
             return base.VisitObjectCreationExpression(node);
 
+        return RewriteObjectInitializer(typeName, node.Initializer, node)
+            ?? base.VisitObjectCreationExpression(node);
+    }
+
+    /// <summary>
+    /// Handles target-typed `new() { F = v }` initializers. The target type is
+    /// resolved semantically; when unresolvable the initializer is left untouched.
+    /// </summary>
+    public override SyntaxNode? VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
+    {
+        if (node.Initializer == null || !node.Initializer.Expressions.Any())
+            return base.VisitImplicitObjectCreationExpression(node);
+
+        string? typeName = null;
+        try
+        {
+            typeName = _semanticModel?.GetTypeInfo(node).Type?.Name;
+        }
+        catch (ArgumentException)
+        {
+            // Node synthesized by an earlier pass — not in the modeled tree.
+        }
+        if (typeName == null || !_structFields.ContainsKey(typeName))
+            return base.VisitImplicitObjectCreationExpression(node);
+
+        var rewritten = RewriteObjectInitializer(typeName, node.Initializer, node);
+        return rewritten == null ? base.VisitImplicitObjectCreationExpression(node) : rewritten;
+    }
+
+    private ExpressionSyntax? RewriteObjectInitializer(
+        string typeName,
+        InitializerExpressionSyntax initializer,
+        ExpressionSyntax node)
+    {
         var fields = _structFields[typeName];
-        var initAssignments = node.Initializer.Expressions
+        var initAssignments = initializer.Expressions
             .OfType<AssignmentExpressionSyntax>()
             .Where(a => a.Left is IdentifierNameSyntax id && fields.Contains(id.Identifier.Text))
             .ToList();
         if (initAssignments.Count == 0)
-            return base.VisitObjectCreationExpression(node);
+            return null;
 
         // Only rewrite initializers whose members ALL have a matching entry; partial
         // initializers rely on default values and are handled by the default ctor + With chain.
@@ -461,8 +657,13 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         // Only for structs that actually have WithXxx methods.
         if (_withChainStructs.Contains(typeName) && _propertyAccessStructs.Contains(typeName))
         {
-            ExpressionSyntax expr = node.WithInitializer(null).WithArgumentList(
-                SyntaxFactory.ArgumentList());
+            ExpressionSyntax expr = node is ObjectCreationExpressionSyntax oc
+                ? oc.WithInitializer(null).WithArgumentList(SyntaxFactory.ArgumentList())
+                : SyntaxFactory.ObjectCreationExpression(
+                    SyntaxFactory.Token(SyntaxKind.NewKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+                    SyntaxFactory.IdentifierName(typeName),
+                    SyntaxFactory.ArgumentList(),
+                    initializer: null);
             foreach (var assignment in initAssignments)
             {
                 var memberName = ((IdentifierNameSyntax)assignment.Left).Identifier.Text;
@@ -478,21 +679,54 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             return expr.WithTriviaFrom(node);
         }
 
-        // Legacy path (L4 getXxx structs): convert to named-argument constructor call.
+        // Legacy path (L3/L4 structs without WithXxx methods): convert to a
+        // named-argument constructor call. PARTIAL initializers (members omitted)
+        // are completed with `param: default` — the generated L3 constructors
+        // require every storage parameter, and unmentioned members keep their
+        // default (zero) values, matching the struct initializer semantics.
         var arguments = new List<ArgumentSyntax>();
-        foreach (var expr in node.Initializer.Expressions.OfType<AssignmentExpressionSyntax>())
+        var mentioned = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var expr in initializer.Expressions.OfType<AssignmentExpressionSyntax>())
         {
             if (expr.Left is IdentifierNameSyntax id && fields.Contains(id.Identifier.Text))
             {
+                mentioned.Add(id.Identifier.Text);
                 var paramName = ToCamelCase(id.Identifier.Text);
-                arguments.Add(SyntaxFactory.Argument(expr.Right)
+                // Visit the value so NESTED object initializers of other converted
+                // structs (e.g. new JobStruct { Title = ... } inside EmployeeStruct)
+                // are rewritten recursively.
+                arguments.Add(SyntaxFactory.Argument((ExpressionSyntax)Visit(expr.Right)!)
                     .WithNameColon(SyntaxFactory.NameColon(
                         SyntaxFactory.IdentifierName(paramName))));
             }
         }
 
-        return node.WithInitializer(null)
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
+        // Complete partial initializers with defaults for every other storage member.
+        foreach (var field in fields)
+        {
+            if (mentioned.Contains(field)) continue;
+            var paramName = ToCamelCase(field);
+            if (arguments.Any(a => a.NameColon?.Name.Identifier.Text == paramName)) continue;
+            arguments.Add(SyntaxFactory.Argument(
+                    SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression))
+                .WithNameColon(SyntaxFactory.NameColon(
+                    SyntaxFactory.IdentifierName(paramName))));
+        }
+
+        var argumentList = SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments));
+        if (node is ObjectCreationExpressionSyntax objectCreation)
+        {
+            return objectCreation.WithInitializer(null)
+                .WithArgumentList(argumentList);
+        }
+        // Implicit object creation: new() { ... } — rebuild as an explicit creation
+        // so the constructor arguments are applied.
+        return SyntaxFactory.ObjectCreationExpression(
+                SyntaxFactory.Token(SyntaxKind.NewKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.IdentifierName(typeName),
+                argumentList,
+                initializer: null)
+            .WithTriviaFrom(node);
     }
 
     /// <summary>
@@ -590,6 +824,11 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 
                 if (type != null && type.TypeKind != TypeKind.Error)
                 {
+                    // Require an actual struct — a class with the same name as a
+                    // converted struct (e.g. a test helper `Person` class next to a
+                    // `Person` struct) must never be rewritten.
+                    if (type.TypeKind != TypeKind.Struct)
+                        return null;
                     if (_structFields.ContainsKey(type.Name))
                         return type.Name;
                     return null; // Resolved to non-target type

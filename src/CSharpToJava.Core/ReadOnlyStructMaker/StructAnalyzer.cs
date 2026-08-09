@@ -285,6 +285,16 @@ internal sealed class StructAnalyzer
                 return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
                     "field assigned multiple times in constructor", name);
 
+            // Guard: non-private setters on properties whose getter derives state from
+            // multiple storages (e.g. Indented => (_optionsMask & IndentBit) != 0). The
+            // L3 conversion turns the property get-only, but the derived state cannot be
+            // reconstructed from constructor parameters, so external writes to it would
+            // break (CS0200). Direct backing-field getters (get => _field) are fine —
+            // the backing storage has a constructor parameter.
+            if (HasUnrecoverableSetterProps(syntax))
+                return new(ConversionLevel.NotConvertible, StructPattern.DataContainer, false,
+                    "property with custom derived getter and public setter (state not recoverable via constructor)", name);
+
             if (_options.EnableDtoConversion)
             {
                 return new(ConversionLevel.DataContainer, StructPattern.DataContainer, true,
@@ -350,7 +360,6 @@ internal sealed class StructAnalyzer
                 interfaceMigrations, nonPrivateFields.Count > 0);
         }
     }
-
     /// <summary>
     /// True for methods eligible to join the migration set transitively: void
     /// delegating methods and methods that return the containing struct via
@@ -430,6 +439,37 @@ internal sealed class StructAnalyzer
     }
 
     /// <summary>
+    /// True when the struct has a non-private setter on a property whose getter is a
+    /// custom body deriving state from storage (not a direct backing-field return).
+    /// Such properties cannot be reconstructed from constructor parameters after the
+    /// L3 conversion removes their setters.
+    /// </summary>
+    private static bool HasUnrecoverableSetterProps(StructDeclarationSyntax syntax)
+    {
+        foreach (var prop in syntax.Members.OfType<PropertyDeclarationSyntax>())
+        {
+            if (prop.AccessorList == null) continue;
+            var setter = prop.AccessorList.Accessors
+                .FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
+            if (setter == null) continue;
+            if (setter.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword))) continue;
+            var getter = prop.AccessorList.Accessors
+                .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+            if (getter == null) continue;
+            // Auto-property getter — the property itself is the storage: recoverable.
+            if (getter.Body == null && getter.ExpressionBody == null) continue;
+
+            // Custom getter: recoverable only when it directly returns a single
+            // backing identifier (get => _field; / get { return _field; }).
+            var returnExpr = getter.ExpressionBody?.Expression
+                ?? getter.Body?.DescendantNodes().OfType<ReturnStatementSyntax>().SingleOrDefault()?.Expression;
+            if (returnExpr is not IdentifierNameSyntax)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// True when the method body contains a statement-level invocation of a known
     /// mutating method via implicit this (<c>Add(x);</c>) or explicit this (<c>this.Add(x);</c>).
     /// Truly recursive calls (resolving to the method itself) are ignored; calls to
@@ -494,9 +534,14 @@ internal sealed class StructAnalyzer
             return false;
         });
 
-        // Check prefix/postfix ++/-- on instance fields of the containing type
+        // Check prefix/postfix ++/-- on instance fields of the containing type.
+        // NOTE: the null-forgiving operator (x!) is also a PostfixUnaryExpressionSyntax
+        // (SuppressNullableWarningExpression) but is NOT a mutation — only the
+        // increment/decrement kinds qualify.
         var hasUnaryMutation = method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>().Any(u =>
         {
+            if (u.Kind() is not (SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression))
+                return false;
             var s = _model.GetSymbolInfo(u.Operand).Symbol;
             if (s is IFieldSymbol { IsStatic: false } f)
                 return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
@@ -527,9 +572,24 @@ internal sealed class StructAnalyzer
             return false;
         });
 
-        return hasAssignment || hasUnaryMutation || hasCompoundAssignment;
-    }
+        // ref/out argument targets a field/property of the containing type
+        // (e.g. Array.Resize(ref _array, n)) — the callee mutates the field, so the
+        // method mutates the struct state and must be migrated.
+        var hasRefOutFieldMutation = method.DescendantNodes().OfType<ArgumentSyntax>().Any(a =>
+        {
+            if (!a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) &&
+                !a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                return false;
+            var targetSymbol = _model.GetSymbolInfo(a.Expression).Symbol;
+            if (targetSymbol is IFieldSymbol { IsStatic: false } f)
+                return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
+            if (targetSymbol is IPropertySymbol { IsStatic: false } p)
+                return SymbolEqualityComparer.Default.Equals(p.ContainingType, containingType);
+            return false;
+        });
 
+        return hasAssignment || hasUnaryMutation || hasCompoundAssignment || hasRefOutFieldMutation;
+    }
     private static bool AllFieldsOnlyAssignedInCtor(IReadOnlyList<IFieldSymbol> fields, StructDeclarationSyntax syntax)
     {
         if (fields.Count == 0) return true;
@@ -555,11 +615,14 @@ internal sealed class StructAnalyzer
             if (assignments.Any(a => IsFieldAccess(a.Left, fields)))
                 return false;
 
-            // Check ++/-- on fields
+            // Check ++/-- on fields (null-forgiving `x!` is also a postfix unary
+            // node but is not a mutation)
             if (method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
+                .Where(u => u.Kind() is SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression)
                 .Any(u => IsFieldAccess(u.Operand, fields)))
                 return false;
             if (method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                .Where(u => u.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression)
                 .Any(u => IsFieldAccess(u.Operand, fields)))
                 return false;
         }
@@ -608,8 +671,10 @@ internal sealed class StructAnalyzer
             }
 
             foreach (var operand in ctor.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()
+                .Where(u => u.Kind() is SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression)
                 .Select(u => u.Operand)
                 .Concat(ctor.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                    .Where(u => u.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression)
                     .Select(u => u.Operand)))
             {
                 var name = operand switch

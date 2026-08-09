@@ -43,8 +43,18 @@ internal static class ConstructorGenerator
             .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, SyntaxFactory.Space, SyntaxFactory.Space, SyntaxFactory.Space, SyntaxFactory.Space);
     }
 
+    /// <summary>
+    /// Camel-cases a storage member name for use as a constructor parameter. Leading
+    /// underscores are stripped so a field `_maxDepth` maps to parameter `maxDepth` —
+    /// object-initializer rewrites pass property names (`MaxDepth`) as named arguments
+    /// and must match case-insensitively (CS1739 otherwise).
+    /// </summary>
     private static string ToCamelCase(string name)
-        => name.Length > 0 && char.IsUpper(name[0])
-            ? char.ToLowerInvariant(name[0]) + name[1..]
-            : name;
+    {
+        var trimmed = name.TrimStart('_');
+        if (trimmed.Length == 0) return name;
+        return char.IsUpper(trimmed[0])
+            ? char.ToLowerInvariant(trimmed[0]) + trimmed[1..]
+            : trimmed;
+    }
 }

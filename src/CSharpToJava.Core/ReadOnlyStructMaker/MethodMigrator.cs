@@ -84,8 +84,24 @@ internal sealed class MethodMigrator
             // Insert `newStatus = result;` before each return statement
             newBody = (BlockSyntax)new InsertOutAssignmentRewriter().Visit(newBody)!;
 
+            // The out parameter is required and must not appear after any optional
+            // parameters (CS1737). Insert it before the first optional parameter.
+            var parameters = method.ParameterList.Parameters;
+            var firstOptional = parameters
+                .Select((p, i) => (p, i))
+                .FirstOrDefault(x => x.p.Default != null);
+            if (firstOptional.p == null)
+            {
+                return method
+                    .AddParameterListParameters(outParam)
+                    .WithBody(newBody);
+            }
+            var newParameters = new List<ParameterSyntax>();
+            newParameters.AddRange(parameters.Take(firstOptional.i));
+            newParameters.Add(outParam);
+            newParameters.AddRange(parameters.Skip(firstOptional.i));
             return method
-                .AddParameterListParameters(outParam)
+                .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParameters)))
                 .WithBody(newBody);
         }
         else
@@ -299,44 +315,30 @@ internal sealed class MethodMigrator
     {
         public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
         {
+            // Skip returns inside lambdas / local functions / query expressions: the
+            // method's out parameter is not capturable there (CS1628).
+            if (node.Ancestors().Any(a =>
+                    a is AnonymousFunctionExpressionSyntax || a is LocalFunctionStatementSyntax))
+            {
+                return base.VisitReturnStatement(node);
+            }
+
+            // Wrap EVERY return in a block that assigns the out parameter first:
+            //   { newStatus = result; return X; }
+            // This covers top-level returns, returns inside nested blocks
+            // (if/for/while bodies), and returns in switch sections, so the out
+            // parameter is definitely assigned on every exit path (CS0177).
             var assignment = SyntaxFactory.ExpressionStatement(
                 SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
                     SyntaxFactory.IdentifierName("newStatus"),
-                    SyntaxFactory.IdentifierName("result")));
+                    SyntaxFactory.IdentifierName("result")))
+                .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
 
-            // Return a block containing the assignment + original return
-            // We use a trick: wrap in a block if inside a block, otherwise just prepend
-            return node.WithLeadingTrivia(
-                node.GetLeadingTrivia()
-                    .Add(SyntaxFactory.CarriageReturnLineFeed)
-                    .Add(SyntaxFactory.Whitespace("        ")));
-        }
-
-        public override SyntaxNode? VisitBlock(BlockSyntax node)
-        {
-            var newStatements = new SyntaxList<StatementSyntax>();
-            foreach (var statement in node.Statements)
-            {
-                if (statement is ReturnStatementSyntax)
-                {
-                    // Insert `newStatus = result;` before the return
-                    var assignment = SyntaxFactory.ExpressionStatement(
-                        SyntaxFactory.AssignmentExpression(
-                            SyntaxKind.SimpleAssignmentExpression,
-                            SyntaxFactory.IdentifierName("newStatus"),
-                            SyntaxFactory.IdentifierName("result")))
-                        .WithLeadingTrivia(statement.GetLeadingTrivia())
-                        .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
-                    newStatements = newStatements.Add(assignment);
-                    newStatements = newStatements.Add(statement.WithLeadingTrivia(SyntaxFactory.Whitespace("        ")));
-                }
-                else
-                {
-                    newStatements = newStatements.Add(statement);
-                }
-            }
-            return node.WithStatements(newStatements);
+            return SyntaxFactory.Block(
+                    assignment,
+                    node.WithLeadingTrivia(SyntaxFactory.Whitespace("            ")))
+                .WithLeadingTrivia(node.GetLeadingTrivia());
         }
     }
 }
