@@ -390,5 +390,37 @@
   at dotnet.text.regularexpressions.RegexCache.getOrAdd(RegexCache.java:136)
   at dotnet.text.regularexpressions.Tests.AttRegexTests.test(AttRegexTests.java:117)
   ```
-- **根因分类**: 待分析（怀疑 compat TypeHelper.getMethod 对泛型方法/实例方法查找规则不匹配，或转换器发射的 getMethod 参数不对）
-- **状态**: 待修复
+- **对应 C# 文件**: d:\csharp-RegularExpressions\src\System\Text\RegularExpressions\RegexCompiler.cs（第 59-65 行反射元数据）
+- **根因分类**: 语义模型信息丢失（compat API 缺口）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java、MemoryExtensions.java（泛型重载）
+- **分析**: 转换器对 `typeof(ReadOnlySpan<>)`/`MemoryExtensions.IndexOf` 等泛型方法的反射查找发射 `TypeHelper.getMethod(class, name, Class[])`；compat TypeHelper 按擦除匹配方法参数（`ReadOnlySpan.class`、`Object.class`），而 MemoryExtensions 缺乏与擦除形态对应的泛型重载（如 `(ReadOnlySpan, Object)`），查找返回 null。修复：为 MemoryExtensions 补充泛型擦除重载（`(ReadOnlySpan, Object)` 等），使 getMethod 能命中。
+- **状态**: ✅ Fixed（随迭代 23-24 的后续转换一并验证：本轮 mvn 全量 7089 测试通过）
+
+## Iteration 23 — 集合/枚举器与调试器属性集群（RegexReductionTests 282 失败 + Capture/Group/Match 集合测试）
+
+- **Java 文件**: RegexReductionTests.java、CaptureCollectionTests.java、GroupCollectionTests.java、MatchCollectionTests.java 等
+- **根因分类**: Transformer 逻辑缺陷 + 语义模型信息丢失（compat API 缺口）+ 类型映射缺失
+- **涉及组件**:
+  - src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（object.ToString → ObjectHelper.objectToString；IEnumerator.Reset → .reset()；TryGetValue 重写；CopyTo → getValues().toArray()；GetEnumerator → getValues().iterator()；ToLowerInvariant/ToUpperInvariant → StringHelper 路由；StringComparison 文化比较常量）
+  - src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs（as T[] → CSharpArray.tryAsArray；枚举 cast 空值守卫；(IList<T>) 转换用 getValues() 包装）
+  - src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs（case when 条件括号）
+  - src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs（非泛型 IList foreach → getValues()）
+  - src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs（字典冲突匿名枚举器委托 reset()）
+  - compat：CSharpEnumerator/CSharpGenericEnumerator（委托 + IllegalStateException）、Assert.equal（数组 vs Iterable 深度比较）、Activator（灵活构造器匹配 + ReadOnlyDict values 适配 + TargetInvocationException）、CSharpArray（多维检查、IndexOutOfBoundsException、tryAsArray）、CSharpList（可 reset 索引式迭代器）、CSharpICollection.copyTo 校验、StringHelper.split 尾部空串、ObjectHelper
+- **分析**: 六类问题：(1) object.ToString() 在 Java 输出 @hash；(2) Reset() 被注释掉；(3) 数组 as-cast 在擦除后失效；(4) GroupCollection 字典冲突解析丢失 Group 迭代契约；(5) case-when 的 || 优先级；(6) 调试器代理构造/数组包装。
+- **状态**: ✅ Fixed（7089 测试通过）
+
+## Iteration 24 — 正则引擎语义集群（文化/大小写/无符号比较/代理对）
+
+- **Java 文件**: RegexCultureTests.java、RegexGroupTests.java、RegexKnownPatternTests.java、RegexMatchTests.java、RegexCharacterSetTests.java、RegexParserTests.java、RegexConstructorTests.java、RegexCompilationInfoTests.java、RegexMultipleMatchTests.java
+- **根因分类**: 语义模型信息丢失（compat 文化语义）+ Transformer 逻辑缺陷（无符号比较、字符串转义、插值字符串、表达式体构造器）
+- **涉及组件**:
+  - compat TextInfo/CultureInfo/ThreadHelper/MemoryExtensions（.NET 文化大小写：İ/ı 仅不变量文化不变、tr/az 特殊映射、CurrentCulture 静态、ToLowerInvariant 语义）
+  - compat StringHelper（NFD + 忽略 Cf 的文化比较、toLowerCaseInvariant/toUpperCaseInvariant）
+  - compat IdnMapping（方括号 IP 字面量）、CSharpDateTime（标准格式 "d" 等映射）、DebuggerBrowsable 注解机制
+  - src/CSharpToJava.Core/Utilities/StringEscapeHelper.cs（\u0000 替代 \0 防八进制吞数字；代理对 \uXXXX 转义）
+  - LiteralExpressionTransformer.cs / FieldTransformer.cs / StringExpressionTransformer.cs（代理对、插值字符串引号）
+  - BinaryExpressionTransformer.cs（uint/ulong 无符号比较 compareUnsigned 覆盖 UInt64）
+  - ConstructorTransformer.cs（表达式体 throw 构造器）
+- **分析**: 六类问题：(1) 不变量文化 ToLower('İ') 语义；(2) ToLowerInvariant 用 JVM 默认语言环境；(3) 正则引擎匹配用运行期文化；(4) (ulong) 比较丢失无符号语义；(5) \0 后接数字被 Java 八进制转义吞掉、代理对写文件变 U+FFFD；(6) 表达式体 throw 构造器被 TODO 注释。
+- **状态**: ✅ Fixed（`mvn clean package -e` BUILD SUCCESS，7089 测试 0 失败 0 错误）
