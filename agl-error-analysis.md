@@ -307,3 +307,5 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **根因分类**: Transformer
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs:3430-3436 (AddIRectangleBridgeMethods)
 - **分析**: bd189ff3 曾基于"readonly 迁移会把 IRectangle.add 返回类型扩大为接口类型"的错误假设，将桥接方法返回类型从 void 改成 IRectangle<P>；但 C# 中 IRectangle.Add(P) 始终返回 void（readonly 迁移的显式接口实现也是 void），导致生成的桥接方法无法实现接口方法。已改回 void。
+
+✅ Fixed (2026-08-09) — AddIRectangleBridgeMethods 桥接 add(BoxedType) 改回 void 返回。验证: mvn clean package -e → BUILD SUCCESS (EXIT=0)。
