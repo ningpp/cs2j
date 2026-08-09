@@ -297,7 +297,7 @@ public partial class ReadOnlyStructMakerTests
     public void DataContainer_GetSetProperties_ConvertsToGetOnly()
     {
         var src = """
-        struct EdgeConstraints {
+        public struct EdgeConstraints {
             public int Direction { get; set; }
             public double Separation { get; set; }
         }
@@ -306,6 +306,8 @@ public partial class ReadOnlyStructMakerTests
         Assert.True(result.Changed);
         Assert.Contains("readonly struct EdgeConstraints", result.OutputCode);
         Assert.DoesNotContain("set;", result.OutputCode);
+        // The generated constructor mirrors the struct's accessibility: a public
+        // struct gets a public constructor (see ReadOnlyStructRewriter L3 path).
         Assert.Contains("public EdgeConstraints(", result.OutputCode);
     }
 
