@@ -277,3 +277,17 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 
 
 > **状态**: ✅ Fixed (2026-08-06) — VerifyBuildAndTestsAsync 现在以 -c Release 运行验证构建/测试，Debug.Assert 被编译掉，flaky 断言不再阻断转换。验证: 全量单测 2421 通过；mvn clean package -e BUILD SUCCESS。
+## Iteration N — base.ToString 生成非法 super 参数 + const double.PositiveInfinity 渲染为 Infinity.0
+
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Layout/Node.java:114; .../ProximityOverlapRemoval/MinimumSpanningTree/GTreeOverlapRemoval.java:276
+- **行号**: Node.java:114; GTreeOverlapRemoval.java:276-277
+- **错误信息**: 需要'.' / 需要')'或',' / 不是语句
+- **代码片段**:
+  `java
+  return ObjectHelper.objectToString(super);          // Node.java:114
+  t = Math.min(Infinity.0, t);                        // GTreeOverlapRemoval.java:276
+  `
+- **对应 C# 文件**: Core\Layout\Node.cs:81 (return base.ToString();); Core\Layout\ProximityOverlapRemoval\MST\GTreeOverlapRemoval.cs:281,293 (const double expandMax = double.PositiveInfinity; t = Math.Min(expandMax, t);)
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs:6512-6518; src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs:576-614 (RenderConstLocalValue)
+- **分析**: (1) base.ToString() 解析到 System.Object.ToString() 时命中 ObjectHelper.objectToString 分支，receiver "base" 被 facade 渲染为 "super"，而 super 不能作为方法参数；(2) const 局部变量 double.PositiveInfinity 经 RenderConstLocalValue 用 d.ToString(InvariantCulture) 得到 "Infinity"，因无小数点追加 ".0" 成为非法字面量 "Infinity.0"。

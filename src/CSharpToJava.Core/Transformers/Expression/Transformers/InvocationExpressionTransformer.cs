@@ -6513,6 +6513,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && node.ArgumentList.Arguments.Count == argStartIndex
             && methodSymbol?.ContainingType?.SpecialType == SpecialType.System_Object)
         {
+            // C# base.ToString() resolving to System.Object.ToString() — Java's super
+            // cannot be passed as a method argument, so emit a direct super.toString()
+            // (Object.toString semantics match the base call exactly).
+            if (memberAccess.Expression is BaseExpressionSyntax)
+            {
+                return "super.toString()";
+            }
+
             context.AddImport("io.github.ningpp.compat.ObjectHelper");
             return $"ObjectHelper.objectToString({receiver})";
         }

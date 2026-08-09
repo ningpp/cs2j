@@ -609,6 +609,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         if (value is double d)
         {
+            // double.PositiveInfinity/NegativeInfinity/NaN render as "Infinity"/
+            // "NaN" under InvariantCulture; as bare identifiers they are not valid
+            // Java literals (and "Infinity.0" is not a number at all), so emit the
+            // Double wrapper constants instead.
+            if (double.IsPositiveInfinity(d))
+                return "Double.POSITIVE_INFINITY";
+            if (double.IsNegativeInfinity(d))
+                return "Double.NEGATIVE_INFINITY";
+            if (double.IsNaN(d))
+                return "Double.NaN";
+
             var text = d.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return text.Contains('.') || text.Contains('E') || text.Contains('e') ? text : text + ".0";
         }

@@ -65,6 +65,22 @@ class Baz {
     }
 
     [Fact]
+    public void BaseToString_EmitsSuperToString()
+    {
+        var result = Convert("""
+class GeometryObject { }
+class Node : GeometryObject {
+    public override string ToString() => base.ToString();
+}
+""");
+
+        _ = result.GeneratedCode ?? "";
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("super.toString()", result.GeneratedCode);
+        Assert.DoesNotContain("objectToString(super)", result.GeneratedCode);
+    }
+
+    [Fact]
     public void IEnumeratorReset_EmitsResetCall()
     {
         var result = Convert("""
