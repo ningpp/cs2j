@@ -86,4 +86,58 @@ class Sample
         Assert.True(result.Success);
         Assert.Contains("return \"A\";", result.GeneratedCode);
     }
+
+    [Fact]
+    public void Const_Local_PositiveInfinity_Emits_Valid_Ts()
+    {
+        var result = Convert("""
+class Sample
+{
+    double GetT()
+    {
+        const double expandMax = double.PositiveInfinity;
+        double t = 1.5;
+        return Math.Min(expandMax, t);
+    }
+}
+""");
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Infinity.0", result.GeneratedCode);
+        Assert.DoesNotContain("Infinityf", result.GeneratedCode);
+        Assert.Contains("let expandMax: number = Infinity;", result.GeneratedCode);
+        Assert.Contains("Math.min(Infinity, t);", result.GeneratedCode);
+        AssertCompiles(result.GeneratedCode);
+    }
+
+    [Fact]
+    public void Const_Local_Special_Double_Values_Emits_Valid_Ts()
+    {
+        var result = Convert("""
+class Sample
+{
+    double GetNeg()
+    {
+        const double neg = double.NegativeInfinity;
+        return neg;
+    }
+    double GetNaN()
+    {
+        const double nan = double.NaN;
+        return nan;
+    }
+    float GetFloatInf()
+    {
+        const float inf = float.PositiveInfinity;
+        return inf;
+    }
+}
+""");
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Infinity.0", result.GeneratedCode);
+        Assert.DoesNotContain("Infinityf", result.GeneratedCode);
+        Assert.Contains("return -Infinity;", result.GeneratedCode);
+        Assert.Contains("return NaN;", result.GeneratedCode);
+        Assert.Contains("return Infinity;", result.GeneratedCode);
+        AssertCompiles(result.GeneratedCode);
+    }
 }

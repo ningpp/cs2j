@@ -575,7 +575,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // (e.g. RegexCompiler's HasCapturesFlag referenced from a hoisted function).
         if (context.GetSymbolInfo(node).Symbol is ILocalSymbol { HasConstantValue: true } constLocal)
         {
-            return RenderConstLocalValue(constLocal.ConstantValue);
+            return RenderConstLocalValue(constLocal.ConstantValue, context.Options.TargetLanguage);
         }
 
         // Locals renamed due to cross-lambda shadowing (C# allows a local declared
@@ -590,7 +590,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         return ConversionContext.EscapeJavaKeyword(name);
     }
 
-    private static string RenderConstLocalValue(object? value)
+    private static string RenderConstLocalValue(object? value, TargetLanguage targetLanguage)
     {
         if (value == null)
             return "null";
@@ -605,21 +605,40 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return "'" + (c == '\'' ? "\\'" : c.ToString()) + "'";
 
         if (value is float f)
+        {
+            // double/float special constants fold to ±Infinity/NaN, which are not valid
+            // literal syntax. Java renders the wrapper constants (Float.POSITIVE_INFINITY);
+            // under the TS target the wrapper names are type aliases (type Float = number)
+            // with no value side, so the JS globals are emitted instead.
+            if (targetLanguage == TargetLanguage.TypeScript)
+            {
+                if (float.IsPositiveInfinity(f)) return "Infinity";
+                if (float.IsNegativeInfinity(f)) return "-Infinity";
+                if (float.IsNaN(f)) return "NaN";
+            }
+            else
+            {
+                if (float.IsPositiveInfinity(f)) return "Float.POSITIVE_INFINITY";
+                if (float.IsNegativeInfinity(f)) return "Float.NEGATIVE_INFINITY";
+                if (float.IsNaN(f)) return "Float.NaN";
+            }
             return f.ToString(System.Globalization.CultureInfo.InvariantCulture) + "f";
+        }
 
         if (value is double d)
         {
-            // double.PositiveInfinity/NegativeInfinity/NaN render as "Infinity"/
-            // "NaN" under InvariantCulture; as bare identifiers they are not valid
-            // Java literals (and "Infinity.0" is not a number at all), so emit the
-            // Double wrapper constants instead.
-            if (double.IsPositiveInfinity(d))
-                return "Double.POSITIVE_INFINITY";
-            if (double.IsNegativeInfinity(d))
-                return "Double.NEGATIVE_INFINITY";
-            if (double.IsNaN(d))
-                return "Double.NaN";
-
+            if (targetLanguage == TargetLanguage.TypeScript)
+            {
+                if (double.IsPositiveInfinity(d)) return "Infinity";
+                if (double.IsNegativeInfinity(d)) return "-Infinity";
+                if (double.IsNaN(d)) return "NaN";
+            }
+            else
+            {
+                if (double.IsPositiveInfinity(d)) return "Double.POSITIVE_INFINITY";
+                if (double.IsNegativeInfinity(d)) return "Double.NEGATIVE_INFINITY";
+                if (double.IsNaN(d)) return "Double.NaN";
+            }
             var text = d.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return text.Contains('.') || text.Contains('E') || text.Contains('e') ? text : text + ".0";
         }
@@ -920,12 +939,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
             if (primTypeSyntax.Keyword.Text == "decimal")
                 context.AddImport("io.github.ningpp.compat.Decimal");
-            // If the mapping already produced a self-contained expression (e.g. "(-Double.MAX_VALUE)")
-            // don't prefix it with the boxed type name — that would create "Double.(-Double.MAX_VALUE)".
-            if (mappedMember.StartsWith("(") || mappedMember.StartsWith("-")
-                || char.IsDigit(mappedMember[0]))
-                return mappedMember;
-            return $"{boxedName}.{mappedMember}";
+            return RenderPrimitiveStaticConstant(primTypeSyntax.Keyword.Text, mappedMember, boxedName, context);
         }
 
         if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
@@ -979,10 +993,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             var primKeyword = ExpressionTransformerHelpers.UnboxJavaPrimitiveType(target);
             if (primKeyword == "decimal")
                 context.AddImport("io.github.ningpp.compat.Decimal");
-            if (_primMapped.StartsWith("(") || _primMapped.StartsWith("-")
-                || char.IsDigit(_primMapped[0]))
-                return _primMapped;
-            return $"{boxedTarget}.{_primMapped}";
+            return RenderPrimitiveStaticConstant(primKeyword, _primMapped, boxedTarget, context);
         }
 
         if (target == "String" && memberName == "Empty")
@@ -2817,6 +2828,36 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             ? mappedMember
             : memberName;
 
+    /// <summary>
+    /// Renders a C# primitive static constant (MaxValue/POSITIVE_INFINITY/NaN/...) for
+    /// the target language. Java uses wrapper-class members (Double.POSITIVE_INFINITY);
+    /// under the TS target the wrapper names are type aliases (type Double = number) with
+    /// no value side, so the special double/float constants map to the JS globals
+    /// Infinity / -Infinity / NaN.
+    /// </summary>
+    private static string RenderPrimitiveStaticConstant(
+        string primitiveKeyword,
+        string mappedMember,
+        string javaWrapper,
+        ConversionContext context)
+    {
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+        {
+            switch ((primitiveKeyword, mappedMember))
+            {
+                case ("double" or "float", "POSITIVE_INFINITY"):
+                    return "Infinity";
+                case ("double" or "float", "NEGATIVE_INFINITY"):
+                    return "-Infinity";
+                case ("double" or "float", "NaN"):
+                    return "NaN";
+            }
+        }
+        return IsSelfContainedPrimitiveStaticMapping(mappedMember)
+            ? mappedMember
+            : $"{javaWrapper}.{mappedMember}";
+    }
+
     private static bool TryMapPrimitiveStaticFieldAccess(
         IFieldSymbol field,
         ConversionContext context,
@@ -2836,9 +2877,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (primitiveKeyword == "decimal")
             context.AddImport("io.github.ningpp.compat.Decimal");
 
-        var code = IsSelfContainedPrimitiveStaticMapping(mappedMember)
-            ? mappedMember
-            : $"{javaWrapper}.{mappedMember}";
+        var code = RenderPrimitiveStaticConstant(primitiveKeyword, mappedMember, javaWrapper, context);
         expression = new JavaRawExpression(code, context.MapType(field.Type));
         return true;
     }
@@ -2891,9 +2930,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (primitiveInfo.keyword == "decimal")
             context.AddImport("io.github.ningpp.compat.Decimal");
 
-        mappedAccess = IsSelfContainedPrimitiveStaticMapping(mappedMember)
-            ? mappedMember
-            : $"{primitiveInfo.javaWrapper}.{mappedMember}";
+        mappedAccess = RenderPrimitiveStaticConstant(primitiveInfo.keyword, mappedMember, primitiveInfo.javaWrapper, context);
         return true;
     }
 
