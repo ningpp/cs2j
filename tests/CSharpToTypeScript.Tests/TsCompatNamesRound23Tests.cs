@@ -68,7 +68,7 @@ public class TsCompatNamesRound23Tests : TsConversionTestBase
         type CSharpGenericIDictionary<K, V> = { put(key: K, value: V): void; get(key: K): V; containsKey(key: K): boolean; remove(key: K): boolean; size(): number; [Symbol.iterator](): Iterator<CSharpKeyValuePair<K, V>> };
         type CSharpGenericIterable<T> = Iterable<T>;
         type CSharpArray = { setValue(value: unknown, index: number): void; getValue(index: number): unknown };
-        declare const CSharpArray: { of(inner: unknown[]): CSharpArray };
+        declare const CSharpArray: { of(inner: unknown[]): CSharpArray; copyTo(sourceArray: unknown, sourceIndex: number, destinationArray: unknown, destinationIndex: number, length: number): void };
         type CSharpObjQueue = CSharpQueue<unknown>;
         declare const CSharpObjQueue: { new(): CSharpObjQueue };
         declare namespace System { function arraycopy(src: unknown, srcPos: number, dest: unknown, destPos: number, length: number): void; }

@@ -88,7 +88,7 @@ class Test {
     }
 
     [Fact]
-    public void InlineData_ControlCharacters_EscapedInCsv()
+    public void InlineData_ControlCharacters_RouteToMethodSourceDataMethod()
     {
         var result = Convert(@"
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -100,10 +100,13 @@ class Test {
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Raw newlines inside the literal would terminate the Java string — they must
-        // be escaped as \\n inside the @CsvSource annotation.
-        Assert.Contains("'\\n'", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("'\\na'", result.GeneratedCode, StringComparison.Ordinal);
+        // Strings with control characters are invalid CSV (a raw newline would
+        // terminate the record), so the rows route to a synthetic @MethodSource
+        // data method that emits the strings with Java escapes.
+        Assert.Contains("MethodSource(\"m_data1\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import org.junit.jupiter.params.provider.MethodSource;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("\"\\n\", \"\\na\"", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

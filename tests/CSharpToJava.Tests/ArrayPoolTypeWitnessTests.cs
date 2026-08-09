@@ -4,17 +4,19 @@ using CSharpToJava.Core.Pipeline;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests that ArrayPool&lt;T&gt;.Shared.Rent/Return emits a Java generic type witness
-/// (ArrayPool.&lt;T&gt;getShared()) so rent()'s return type flows to the assignment
-/// target. Without the witness, chained inference yields Object[] and javac reports
-/// "不兼容的类型: java.lang.Object[]无法转换为T[]". Primitive char routes to the
-/// shared char[] pool because Java generics cannot express ArrayPool&lt;char&gt;.
+/// Tests that ArrayPool&lt;T&gt;.Shared.Rent/Return map to the compat ArrayPool class.
+/// Rent emits a runtime component Class (ArrayPool.rentShared(T.class, n)) so the
+/// allocated array is properly typed and the caller's assignment to T[] does not
+/// throw ClassCastException at runtime — bare ArrayPool.getShared().rent(n) can only
+/// produce Object[] because Java erases the generic type argument. Return keeps the
+/// typed-pool form (ArrayPool.&lt;T&gt;getShared().returnValue(...)). Primitive char
+/// routes to the shared char[] pool because Java generics cannot express ArrayPool&lt;char&gt;.
 /// Reproduces ValueListBuilder/ValueStringBuilder errors.
 /// </summary>
 public class ArrayPoolTypeWitnessTests
 {
     [Fact]
-    public void ArrayPoolRent_EmitsTypeWitness_ForReferenceElement()
+    public void ArrayPoolRent_EmitsRuntimeComponentClass_ForReferenceElement()
     {
         var result = Convert(@"
 class Pool
@@ -32,12 +34,12 @@ class Pool
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ArrayPool.<String>getShared().rent(16)", code);
+        Assert.Contains("ArrayPool.rentShared(String.class, 16)", code);
         Assert.Contains("ArrayPool.<String>getShared().returnValue(_arrayFromPool)", code);
     }
 
     [Fact]
-    public void ArrayPoolRent_EmitsTypeWitness_ForTypeParameter()
+    public void ArrayPoolRent_EmitsRuntimeComponentClass_ForTypeParameter()
     {
         var result = Convert(@"
 class Builder<T>
@@ -54,7 +56,7 @@ class Builder<T>
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ArrayPool.<T>getShared().rent(size * 2)", code);
+        Assert.Contains("ArrayPool.rentShared(T.class, size * 2)", code);
     }
 
     [Fact]

@@ -59,10 +59,11 @@ class C {
     }
 
     [Fact]
-    public void CapturingLocalFunction_KeepsTodoFallback()
+    public void CapturingLocalFunction_IsHoistedWithCapturedVariablesAsParameters()
     {
-        // Local functions that capture enclosing locals cannot be hoisted without
-        // closure conversion.
+        // Local functions that capture enclosing locals are hoisted to private
+        // class-level methods with the captured variables appended as trailing
+        // _cs2j_cap_ parameters, and call sites pass the captured arguments.
         var result = Convert("""
 class C {
     int M(int x) {
@@ -73,11 +74,9 @@ class C {
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The declaration stays un-hoisted (closure conversion is not implemented yet),
-        // and the call site becomes a visible TODO comment instead of a broken method call.
-        Assert.Contains("TODO: call to capturing local function Twice", result.GeneratedCode ?? "", StringComparison.Ordinal);
-        Assert.DoesNotContain("private int twice", result.GeneratedCode ?? "", StringComparison.Ordinal);
-        Assert.DoesNotContain("twice()", result.GeneratedCode ?? "", StringComparison.Ordinal);
+        Assert.Contains("private int twice(int _cs2j_cap_x)", result.GeneratedCode ?? "", StringComparison.Ordinal);
+        Assert.Contains("twice(x)", result.GeneratedCode ?? "", StringComparison.Ordinal);
+        Assert.DoesNotContain("TODO: call to capturing local function", result.GeneratedCode ?? "", StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

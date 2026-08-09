@@ -10087,7 +10087,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             else
             {
-                rewritten.Add(part);
+                rewritten.Add(trimmed);
             }
         }
         return string.Join(", ", rewritten);

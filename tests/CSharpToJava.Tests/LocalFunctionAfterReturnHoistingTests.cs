@@ -72,7 +72,7 @@ class C
     }
 
     [Fact]
-    public void CallToCapturingLocalFunction_BecomesTodoComment()
+    public void CallToCapturingLocalFunction_IsHoistedWithCapturedVariables()
     {
         var result = Convert(@"
 class C
@@ -92,8 +92,9 @@ class C
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("TODO: call to capturing local function Helper", code);
-        Assert.DoesNotContain("helper()", code);
+        Assert.Contains("private int helper(int _cs2j_cap_baseValue)", code);
+        Assert.Contains("helper(baseValue)", code);
+        Assert.DoesNotContain("TODO: call to capturing local function", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

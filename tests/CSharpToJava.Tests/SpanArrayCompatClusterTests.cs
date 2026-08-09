@@ -60,7 +60,7 @@ class Pool
         var code = result.GeneratedCode ?? "";
 
         Assert.Contains("import io.github.ningpp.compat.ArrayPool", code);
-        Assert.Contains("ArrayPool.<String>getShared().rent(16)", code);
+        Assert.Contains("ArrayPool.rentShared(String.class, 16)", code);
     }
 
     [Fact]
