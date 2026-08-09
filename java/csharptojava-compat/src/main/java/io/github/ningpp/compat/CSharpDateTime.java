@@ -274,7 +274,30 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
             };
         }
 
-        return ldt.format(DateTimeFormatter.ofPattern(format));
+        // Standard .NET format specifiers map to invariant-culture patterns; a single
+        // letter like "d" must NOT reach DateTimeFormatter (Java "d" = unpadded day).
+        String javaPattern = mapStandardFormat(format);
+        return ldt.format(DateTimeFormatter.ofPattern(javaPattern));
+    }
+
+    private static String mapStandardFormat(String format) {
+        return switch (format) {
+            case "d" -> "MM/dd/yyyy";
+            case "D" -> "EEEE, dd MMMM yyyy";
+            case "f" -> "EEEE, dd MMMM yyyy HH:mm";
+            case "F" -> "EEEE, dd MMMM yyyy HH:mm:ss";
+            case "g" -> "MM/dd/yyyy HH:mm";
+            case "G" -> "MM/dd/yyyy HH:mm:ss";
+            case "m", "M" -> "MMMM dd";
+            case "y", "Y" -> "yyyy MMMM";
+            case "t" -> "HH:mm";
+            case "T" -> "HH:mm:ss";
+            case "s" -> "yyyy-MM-dd'T'HH:mm:ss";
+            case "u" -> "yyyy-MM-dd HH:mm:ss'Z'";
+            case "U" -> "EEEE, dd MMMM yyyy HH:mm:ss";
+            case "R", "r" -> "EEE, dd MMM yyyy HH:mm:ss 'GMT'";
+            default -> format;
+        };
     }
 
     public String toString(String format, IFormatProvider provider) {

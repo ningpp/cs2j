@@ -22,20 +22,26 @@ public class CultureInfo implements IFormatProvider, Cloneable {
 
     // --- Static properties ---
 
+    private static volatile CultureInfo s_currentCulture;
+
     public static CultureInfo getCurrentCulture() {
+        CultureInfo current = s_currentCulture;
+        if (current != null) {
+            return current;
+        }
         return new CultureInfo(Locale.getDefault(), false);
     }
 
     public static void setCurrentCulture(CultureInfo cultureInfo) {
-        // no-op: JVM locale is JVM-wide setting, not thread-local
+        s_currentCulture = cultureInfo;
     }
 
     public static CultureInfo getCurrentUICulture() {
-        return new CultureInfo(Locale.getDefault(), false);
+        return getCurrentCulture();
     }
 
     public static void setCurrentUICulture(CultureInfo cultureInfo) {
-        // no-op: JVM locale is JVM-wide setting, not thread-local
+        s_currentCulture = cultureInfo;
     }
 
     public static CultureInfo getDefaultThreadCurrentCulture() {
@@ -141,7 +147,7 @@ public class CultureInfo implements IFormatProvider, Cloneable {
     }
 
     public TextInfo getTextInfo() {
-        return new TextInfo(locale);
+        return new TextInfo(locale, readOnly);
     }
 
     public NumberFormatInfo getNumberFormat() {

@@ -208,6 +208,18 @@ public class StringHelper {
         }
         return s1.equals(s2);
     }
+    /** Mirrors C# String.ToLowerInvariant() — .NET invariant lowercase rules. */
+    public static String toLowerCaseInvariant(String s) {
+        if (s == null) return null;
+        return CultureInfo.getInvariantCulture().getTextInfo().toLower(s);
+    }
+
+    /** Mirrors C# String.ToUpperInvariant() — .NET invariant uppercase rules. */
+    public static String toUpperCaseInvariant(String s) {
+        if (s == null) return null;
+        return CultureInfo.getInvariantCulture().getTextInfo().toUpper(s);
+    }
+
     /** Mirrors C# String.Equals(a, b, StringComparison) via ignoreCase semantics. */
     public static boolean equals(String s1, String s2, boolean ignoreCase) {
         if (s1 == null || s2 == null) {
@@ -222,6 +234,44 @@ public class StringHelper {
     /** Mirrors C# String.Equals(a, b, StringComparison) */
     public static boolean equals(String s1, String s2, int comparison) {
         return equals(s1, s2, comparison == 1 || comparison == 3 || comparison == 5);
+    }
+
+    /** C# String.Equals(a, b, StringComparison) with culture-aware semantics:
+     *  invariant/current culture comparisons canonicalize to NFD and drop default-ignorable
+     *  format chars (the .NET invariant sort considers "Ö" (U+00D6) equal to
+     *  "O" + combining diaeresis, and U+200D/U+200C as ignorable). */
+    public static boolean equals(String s1, String s2, StringComparison comparison) {
+        if (s1 == null || s2 == null) {
+            return s1 == s2;
+        }
+        switch (comparison) {
+            case Ordinal:
+                return s1.equals(s2);
+            case OrdinalIgnoreCase:
+                return s1.equalsIgnoreCase(s2);
+            case InvariantCulture:
+            case CurrentCulture:
+                return invariantNormalize(s1).equals(invariantNormalize(s2));
+            case InvariantCultureIgnoreCase:
+            case CurrentCultureIgnoreCase:
+                return invariantNormalize(s1).toLowerCase()
+                    .equals(invariantNormalize(s2).toLowerCase());
+        }
+        return s1.equals(s2);
+    }
+
+    /** NFD canonical decomposition with default-ignorable format chars (Cf) removed. */
+    private static String invariantNormalize(String s) {
+        String nfd = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD);
+        StringBuilder sb = new StringBuilder(nfd.length());
+        for (int i = 0; i < nfd.length(); i++) {
+            char c = nfd.charAt(i);
+            if (Character.getType(c) == Character.FORMAT) {
+                continue;
+            }
+            sb.append(c);
+        }
+        return sb.toString();
     }
     /** Mirrors C# String.StartsWith(value, StringComparison) */
     public static boolean startsWith(String s, String prefix, boolean ignoreCase) {
@@ -238,6 +288,26 @@ public class StringHelper {
     /** Mirrors C# String.StartsWith(value, StringComparison) */
     public static boolean startsWith(String s, String prefix, int comparison) {
         return startsWith(s, prefix, comparison == 1 || comparison == 3 || comparison == 5);
+    }
+    /** C# String.StartsWith(value, StringComparison) — culture comparisons use NFD. */
+    public static boolean startsWith(String s, String prefix, StringComparison comparison) {
+        if (s == null || prefix == null) {
+            return s == prefix;
+        }
+        switch (comparison) {
+            case Ordinal:
+                return s.startsWith(prefix);
+            case OrdinalIgnoreCase:
+                return s.regionMatches(true, 0, prefix, 0, prefix.length());
+            case InvariantCulture:
+            case CurrentCulture:
+                return invariantNormalize(s).startsWith(invariantNormalize(prefix));
+            case InvariantCultureIgnoreCase:
+            case CurrentCultureIgnoreCase:
+                return invariantNormalize(s).toLowerCase()
+                    .startsWith(invariantNormalize(prefix).toLowerCase());
+        }
+        return s.startsWith(prefix);
     }
     /** Mirrors C# String.EndsWith(value, StringComparison) */
     public static boolean endsWith(String s, String suffix, boolean ignoreCase) {
@@ -256,6 +326,29 @@ public class StringHelper {
     public static boolean endsWith(String s, String suffix, int comparison) {
         return endsWith(s, suffix, comparison == 1 || comparison == 3 || comparison == 5);
     }
+    /** C# String.EndsWith(value, StringComparison) — culture comparisons use NFD. */
+    public static boolean endsWith(String s, String suffix, StringComparison comparison) {
+        if (s == null || suffix == null) {
+            return s == suffix;
+        }
+        if (suffix.length() > s.length()) {
+            return false;
+        }
+        switch (comparison) {
+            case Ordinal:
+                return s.endsWith(suffix);
+            case OrdinalIgnoreCase:
+                return s.regionMatches(true, s.length() - suffix.length(), suffix, 0, suffix.length());
+            case InvariantCulture:
+            case CurrentCulture:
+                return invariantNormalize(s).endsWith(invariantNormalize(suffix));
+            case InvariantCultureIgnoreCase:
+            case CurrentCultureIgnoreCase:
+                return invariantNormalize(s).toLowerCase()
+                    .endsWith(invariantNormalize(suffix).toLowerCase());
+        }
+        return s.endsWith(suffix);
+    }
     /** Mirrors C# String.Contains(value, StringComparison) */
     public static boolean contains(String s, String value, boolean ignoreCase) {
         return indexOf(s, value, ignoreCase) >= 0;
@@ -263,6 +356,26 @@ public class StringHelper {
     /** Mirrors C# String.Contains(value, StringComparison) */
     public static boolean contains(String s, String value, int comparison) {
         return contains(s, value, comparison == 1 || comparison == 3 || comparison == 5);
+    }
+    /** C# String.Contains(value, StringComparison) — culture comparisons use NFD. */
+    public static boolean contains(String s, String value, StringComparison comparison) {
+        if (s == null || value == null) {
+            return s == value;
+        }
+        switch (comparison) {
+            case Ordinal:
+                return s.contains(value);
+            case OrdinalIgnoreCase:
+                return indexOf(s, value, true) >= 0;
+            case InvariantCulture:
+            case CurrentCulture:
+                return invariantNormalize(s).contains(invariantNormalize(value));
+            case InvariantCultureIgnoreCase:
+            case CurrentCultureIgnoreCase:
+                return invariantNormalize(s).toLowerCase()
+                    .contains(invariantNormalize(value).toLowerCase());
+        }
+        return s.contains(value);
     }
 
     // ==================== StringBuilder helpers ====================
@@ -550,7 +663,8 @@ public class StringHelper {
     /** Mirrors C# String.Split(char[]) — converts char array to regex at runtime */
     public static String[] split(String s, char[] separators) {
         if (s == null) return null;
-        return s.split(charArrayToRegex(separators));
+        // Negative limit keeps trailing empty entries, matching C# String.Split(char[]).
+        return s.split(charArrayToRegex(separators), -1);
     }
 
     /** Mirrors C# String.Split(char[], StringSplitOptions) — with RemoveEmptyEntries support */

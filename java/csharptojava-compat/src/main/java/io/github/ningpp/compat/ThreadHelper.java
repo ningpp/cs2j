@@ -19,10 +19,10 @@ public class ThreadHelper {
     public CultureInfo getCurrentUICulture() { return CultureInfo.getCurrentUICulture(); }
 
     /** Mirrors Thread.CurrentThread.CurrentCulture setter with CultureInfo. */
-    public void setCurrentCulture(CultureInfo culture) { /* locale-setting is global in JVM */ }
+    public void setCurrentCulture(CultureInfo culture) { CultureInfo.setCurrentCulture(culture); }
 
     /** Mirrors Thread.CurrentThread.CurrentUICulture setter with CultureInfo. */
-    public void setCurrentUICulture(CultureInfo culture) { /* locale-setting is global in JVM */ }
+    public void setCurrentUICulture(CultureInfo culture) { CultureInfo.setCurrentUICulture(culture); }
 
     /** Mirrors Thread.CurrentThread.CurrentCulture setter with Locale. */
     public void setCurrentCulture(Locale locale) { Locale.setDefault(locale); }

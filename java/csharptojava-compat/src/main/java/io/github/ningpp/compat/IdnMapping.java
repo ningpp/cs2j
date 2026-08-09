@@ -110,6 +110,12 @@ public class IdnMapping {
 
         String substring = unicode.substring(index, index + count);
 
+        // .NET accepts bracketed IP literals (e.g. "[129.126.118.1]", "[2001:db8::1]")
+        // and returns them unchanged.
+        if (substring.length() >= 2 && substring.charAt(0) == '[' && substring.charAt(substring.length() - 1) == ']') {
+            return substring;
+        }
+
         // Java's IDN.toASCII() behavior:
         // - Always allows unassigned code points (Java doesn't have a flag for this)
         // - STD3 rules are not enforced by the Java IDN class

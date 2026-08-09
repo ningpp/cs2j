@@ -166,9 +166,10 @@ public class MemoryExtensions {
      */
     public static int toLowerCase(ReadOnlySpan<Character> source, Span<Character> destination, CultureInfo culture) {
         int count = 0;
+        TextInfo textInfo = culture != null ? culture.getTextInfo() : CultureInfo.getInvariantCulture().getTextInfo();
         for (int i = 0; i < source.length(); i++) {
             char c = source.get(i);
-            char lowered = Character.toLowerCase(c);
+            char lowered = textInfo.toLowerCase(c);
             destination.set(count, lowered);
             count++;
         }

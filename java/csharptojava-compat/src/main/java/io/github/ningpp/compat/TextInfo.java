@@ -8,9 +8,15 @@ import java.util.Locale;
  */
 public class TextInfo {
     private final Locale locale;
+    private final boolean invariant;
 
     public TextInfo(Locale locale) {
+        this(locale, false);
+    }
+
+    public TextInfo(Locale locale, boolean invariant) {
         this.locale = locale != null ? locale : Locale.ROOT;
+        this.invariant = invariant;
     }
 
     public String getCultureName() {
@@ -48,16 +54,41 @@ public class TextInfo {
     // --- Case conversion ---
 
     public char toLower(char c) {
+        // .NET ICU: only the INVARIANT culture leaves U+0130 (İ) unchanged (its full
+        // lowercase is "i" + combining dot); regular cultures use the simple mapping
+        // (İ → i). Turkish/Azeri additionally map 'I' to 'ı'.
+        if (c == '\u0130') {
+            if (invariant) {
+                return '\u0130';
+            }
+            if (isTurkishLike()) {
+                return 'i';
+            }
+            return Character.toLowerCase(c);
+        }
+        if (isTurkishLike() && c == 'I') {
+            return '\u0131';
+        }
         return Character.toLowerCase(c);
     }
 
     public String toLower(String str) {
         if (str == null) return null;
+        // Invariant culture: Java's String.toLowerCase(ROOT/"en") applies the full Unicode
+        // lowercase mapping (U+0130 → "i" + combining dot), while .NET invariant leaves
+        // U+0130 unchanged. Apply the char-level rules so the pattern/text stay aligned.
+        if (invariant) {
+            StringBuilder sb = new StringBuilder(str.length());
+            for (int i = 0; i < str.length(); i++) {
+                sb.append(toLower(str.charAt(i)));
+            }
+            return sb.toString();
+        }
         return str.toLowerCase(locale);
     }
 
     public char toLowerCase(char c) {
-        return Character.toLowerCase(c);
+        return toLower(c);
     }
 
     public String toLowerCase(String str) {
@@ -65,20 +96,42 @@ public class TextInfo {
     }
 
     public char toUpper(char c) {
+        // .NET ICU: only the INVARIANT culture leaves U+0131 (ı) unchanged; regular
+        // cultures map it to 'I'. Turkish additionally maps 'i' to U+0130 (İ).
+        if (c == '\u0131') {
+            return invariant ? c : 'I';
+        }
+        if (isTurkishLike() && c == 'i') {
+            return '\u0130';
+        }
         return Character.toUpperCase(c);
     }
 
     public String toUpper(String str) {
         if (str == null) return null;
+        // Invariant: .NET invariant leaves U+0131 (ı) unchanged; Java's full uppercase
+        // mapping would produce 'I'. Apply the char-level rules.
+        if (invariant) {
+            StringBuilder sb = new StringBuilder(str.length());
+            for (int i = 0; i < str.length(); i++) {
+                sb.append(toUpper(str.charAt(i)));
+            }
+            return sb.toString();
+        }
         return str.toUpperCase(locale);
     }
 
     public char toUpperCase(char c) {
-        return Character.toUpperCase(c);
+        return toUpper(c);
     }
 
     public String toUpperCase(String str) {
         return toUpper(str);
+    }
+
+    private boolean isTurkishLike() {
+        String lang = locale.getLanguage();
+        return lang.equals("tr") || lang.equals("az");
     }
 
     public String toTitleCase(String str) {
