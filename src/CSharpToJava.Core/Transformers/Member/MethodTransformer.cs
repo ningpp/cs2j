@@ -125,6 +125,28 @@ public class MethodTransformer : IMemberTransformer
         javaMethod.LeadingComment = context.GetDeclarationComments(methodDecl, methodInfo).ToCombinedComment();
         var extraTestMembers = ApplyTestMethodAnnotations(methodDecl, javaMethod, context);
 
+        // C# [DebuggerBrowsable(state)] (typically on a property) → runtime annotation on
+        // the getter so compat PropertyInfo.getCustomAttributes() can surface it to
+        // reflection-based debugger tests (DebuggerAttributes.ValidateDebuggerTypeProxyProperties).
+        if (methodInfo != null)
+        {
+            var browsableAttrs = methodInfo.GetAttributes()
+                .Where(a => a.AttributeClass?.Name == "DebuggerBrowsableAttribute");
+            if (methodInfo.AssociatedSymbol is IPropertySymbol associatedProperty)
+            {
+                browsableAttrs = browsableAttrs.Concat(associatedProperty.GetAttributes()
+                    .Where(a => a.AttributeClass?.Name == "DebuggerBrowsableAttribute"));
+            }
+            foreach (var attr in browsableAttrs)
+            {
+                if (attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value is int browsableState)
+                {
+                    javaMethod.Annotations.Add(new JavaAnnotation($"DebuggerBrowsable({browsableState})"));
+                    context.AddImport("io.github.ningpp.compat.DebuggerBrowsable");
+                }
+            }
+        }
+
         // Explicit interface implementations (e.g., ICurve ICurve.Clone()) have no access modifier in C#,
         // but interface implementations in Java MUST be public.
         if (methodDecl.ExplicitInterfaceSpecifier != null && !javaMethod.Modifiers.HasFlag(JavaModifiers.Public))

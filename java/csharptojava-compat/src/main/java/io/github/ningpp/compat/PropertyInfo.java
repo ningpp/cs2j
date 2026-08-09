@@ -67,6 +67,29 @@ public final class PropertyInfo implements MemberInfo {
         return method == null ? null : method.getDeclaringClass();
     }
 
+    @Override
+    public Object[] getCustomAttributes(boolean inherit) {
+        if (getter == null) {
+            return new Object[0];
+        }
+        DebuggerBrowsable browsable = getter.getAnnotation(DebuggerBrowsable.class);
+        if (browsable == null) {
+            return new Object[0];
+        }
+        return new Object[] { new DebuggerBrowsableAttribute(browsable.value()) };
+    }
+
+    /**
+     * getValue() wraps array results so their toString() matches C# array semantics;
+     * consumers that need the raw array (casts, deep comparisons) unwrap via this helper.
+     */
+    public static Object unwrapArrayValue(Object value) {
+        if (value instanceof ArrayPropertyWrapper wrapper) {
+            return wrapper.array;
+        }
+        return value;
+    }
+
     public Object getValue(Object obj, Object[] index) {
         try {
             Object value = getter.invoke(obj, index != null ? index : new Object[0]);

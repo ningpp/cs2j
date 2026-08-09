@@ -197,6 +197,22 @@ public class PropertyTransformer : IMemberTransformer
                 IsExplicitInterfaceImplementation = isExplicitInterfaceImplementation
             };
 
+            // C# [DebuggerBrowsable(state)] on the property → runtime annotation on the
+            // getter so compat PropertyInfo.getCustomAttributes() can surface it to
+            // reflection-based debugger tests (DebuggerAttributes.ValidateDebuggerTypeProxyProperties).
+            if (context.SemanticModel != null)
+            {
+                var propSymbol = context.GetDeclaredSymbol(propDecl);
+                var browsableAttr = propSymbol?.GetAttributes()
+                    .FirstOrDefault(a => a.AttributeClass?.Name == "DebuggerBrowsableAttribute");
+                if (browsableAttr?.ConstructorArguments.Length > 0
+                    && browsableAttr.ConstructorArguments[0].Value is int browsableState)
+                {
+                    getter.Annotations.Add(new JavaAnnotation($"DebuggerBrowsable({browsableState})"));
+                    context.AddImport("io.github.ningpp.compat.DebuggerBrowsable");
+                }
+            }
+
             // Expression-bodied property getters skip TransformReturnStatement, so
             // Stream/Array wrapping for Iterable/Collection/List return types must be done here.
             if (getter.IsBodyExpression && getter.Body != null)

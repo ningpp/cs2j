@@ -2,19 +2,29 @@ package io.github.ningpp.compat;
 
 /**
  * Stub for System.Diagnostics.DebuggerBrowsableState.
- * Members are declared in .NET ordinal order so values()[] and fromValue() map correctly.
+ * Values mirror .NET 10: Never=0, Collapsed=2, RootHidden=3 (1 is reserved/unused).
  */
 public enum DebuggerBrowsableState {
-    Never,
-    Collapsed,
-    RootHidden;
+    Never(0),
+    Collapsed(2),
+    RootHidden(3);
+
+    private final int value;
+
+    DebuggerBrowsableState(int value) {
+        this.value = value;
+    }
 
     public int getValue() {
-        return ordinal();
+        return value;
     }
 
     public static DebuggerBrowsableState fromValue(int value) {
-        DebuggerBrowsableState[] values = values();
-        return (value >= 0 && value < values.length) ? values[value] : Never;
+        for (DebuggerBrowsableState state : values()) {
+            if (state.value == value) {
+                return state;
+            }
+        }
+        return Never;
     }
 }
