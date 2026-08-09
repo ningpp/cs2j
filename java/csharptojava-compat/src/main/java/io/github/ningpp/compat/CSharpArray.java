@@ -78,11 +78,40 @@ public final class CSharpArray {
     }
 
     public Object getValue(int index) {
-        return Array.get(array, offsetIndex(index));
+        checkSingleDimensional();
+        try {
+            return Array.get(array, offsetIndex(index));
+        } catch (ArrayIndexOutOfBoundsException e) {
+            // .NET throws IndexOutOfRangeException (mapped to java.lang.IndexOutOfBoundsException);
+            // Java's ArrayIndexOutOfBoundsException is a subclass that breaks exact-match asserts.
+            throw new IndexOutOfBoundsException(e.getMessage());
+        }
     }
 
     public void setValue(Object value, int index) {
-        Array.set(array, offsetIndex(index), value);
+        checkSingleDimensional();
+        try {
+            Array.set(array, offsetIndex(index), value);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            throw new IndexOutOfBoundsException(e.getMessage());
+        }
+    }
+
+    /**
+     * C# Array.SetValue on a multi-dimensional array throws ArgumentException
+     * ("Only single dimensional arrays are supported"). Java nested arrays would
+     * otherwise fail with an unrelated IllegalArgumentException from Array.set.
+     */
+    private void checkSingleDimensional() {
+        if (array.getClass().getComponentType() != null
+            && array.getClass().getComponentType().isArray()) {
+            throw new ArgumentException("Only single dimensional arrays are supported.");
+        }
+    }
+
+    /** C# Array.GetLowerBound(0) != 0 — arrays with a non-zero lower bound. */
+    public boolean hasNonZeroLowerBound() {
+        return lowerBounds != null && lowerBounds.length > 0 && lowerBounds[0] != 0;
     }
 
     public Object unwrap() {
@@ -139,6 +168,43 @@ public final class CSharpArray {
     /** C# Array.Fill(int[], int) — fills the whole array with a value. */
     public static void fill(int[] array, int value) {
         java.util.Arrays.fill(array, value);
+    }
+
+    /**
+     * C#-style "obj as T[]" for values whose runtime array type may have been
+     * widened to Object[] by Java generics erasure (e.g. a debugger proxy's T[]
+     * property). Returns the value as-is when its runtime component type matches,
+     * materializes a typed T[] copy for an Object[] whose elements are all T,
+     * and returns null otherwise.
+     */
+    public static <T> T[] tryAsArray(Object value, Class<T> componentType) {
+        if (value == null) {
+            return null;
+        }
+        // PropertyInfo.getValue wraps arrays for C#-style toString; unwrap for casts.
+        value = PropertyInfo.unwrapArrayValue(value);
+        Class<?> valueClass = value.getClass();
+        if (!valueClass.isArray()) {
+            return null;
+        }
+        if (valueClass.getComponentType() == componentType) {
+            @SuppressWarnings("unchecked")
+            T[] typed = (T[]) value;
+            return typed;
+        }
+        if (valueClass.getComponentType() == Object.class) {
+            Object[] source = (Object[]) value;
+            @SuppressWarnings("unchecked")
+            T[] result = (T[]) Array.newInstance(componentType, source.length);
+            for (int i = 0; i < source.length; i++) {
+                if (source[i] != null && !componentType.isInstance(source[i])) {
+                    return null;
+                }
+                result[i] = componentType.cast(source[i]);
+            }
+            return result;
+        }
+        return null;
     }
 
     /** C# Array.Fill(char[], char) — fills the whole array with a value. */

@@ -27,6 +27,13 @@ public interface CSharpGenericEnumerator<T> extends Iterator<T> {
 
         @Override
         public boolean moveNext() {
+            // The wrapped iterator may itself be a .NET-style enumerator; delegate to
+            // its moveNext so index semantics and reset() survive the wrapping.
+            if (iterator instanceof CSharpGenericEnumerator<?>) {
+                @SuppressWarnings("unchecked")
+                CSharpGenericEnumerator<T> cs2j = (CSharpGenericEnumerator<T>) iterator;
+                return cs2j.moveNext();
+            }
             if (!iterator.hasNext()) {
                 current = null;
                 hasCurrent = false;
@@ -39,8 +46,26 @@ public interface CSharpGenericEnumerator<T> extends Iterator<T> {
 
         @Override
         public T getCurrent() {
-            if (!hasCurrent) throw new NoSuchElementException();
+            if (iterator instanceof CSharpGenericEnumerator<?>) {
+                @SuppressWarnings("unchecked")
+                CSharpGenericEnumerator<T> cs2j = (CSharpGenericEnumerator<T>) iterator;
+                return cs2j.getCurrent();
+            }
+            // .NET IEnumerator.Current before first MoveNext / after the end throws
+            // InvalidOperationException (mapped to IllegalStateException).
+            if (!hasCurrent) throw new IllegalStateException("Enumeration has not started or has already finished.");
             return current;
+        }
+
+        @Override
+        public void reset() {
+            if (iterator instanceof CSharpGenericEnumerator<?>) {
+                @SuppressWarnings("unchecked")
+                CSharpGenericEnumerator<T> cs2j = (CSharpGenericEnumerator<T>) iterator;
+                cs2j.reset();
+                return;
+            }
+            throw new UnsupportedOperationException("Reset is not supported");
         }
 
         @Override

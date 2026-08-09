@@ -25,6 +25,12 @@ public interface CSharpEnumerator extends CSharpGenericEnumerator<Object> {
         }
 
         @Override public boolean moveNext() {
+            // The wrapped iterator may itself be a .NET-style enumerator
+            // (CSharpGenericEnumerator) converted by the generator; delegate to its
+            // moveNext so index-based semantics and reset() survive the wrapping.
+            if (iterator instanceof CSharpGenericEnumerator<?> cs2j) {
+                return cs2j.moveNext();
+            }
             if (!iterator.hasNext()) { current = null; hasCurrent = false; return false; }
             current = iterator.next();
             hasCurrent = true;
@@ -32,8 +38,21 @@ public interface CSharpEnumerator extends CSharpGenericEnumerator<Object> {
         }
 
         @Override public Object getCurrent() {
-            if (!hasCurrent) throw new NoSuchElementException();
+            if (iterator instanceof CSharpGenericEnumerator<?> cs2j) {
+                return cs2j.getCurrent();
+            }
+            // .NET IEnumerator.Current before first MoveNext / after the end throws
+            // InvalidOperationException (mapped to IllegalStateException).
+            if (!hasCurrent) throw new IllegalStateException("Enumeration has not started or has already finished.");
             return current;
+        }
+
+        @Override public void reset() {
+            if (iterator instanceof CSharpGenericEnumerator<?> cs2j) {
+                cs2j.reset();
+                return;
+            }
+            throw new UnsupportedOperationException("Reset is not supported");
         }
 
         @Override public boolean hasNext() { return iterator.hasNext(); }

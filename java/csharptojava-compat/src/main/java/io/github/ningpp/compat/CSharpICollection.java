@@ -151,6 +151,21 @@ public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
 
     // CSharpCollection-compatible methods (non-generic ICollection surface)
     default void copyTo(CSharpArray array, int index) {
+        if (array == null) {
+            throw new ArgumentNullException("array");
+        }
+        // .NET List<T>.ICollection.CopyTo validates through Array.Copy:
+        // non-zero lower bound or a negative index → ArgumentOutOfRangeException,
+        // range overflow → ArgumentException.
+        if (array.hasNonZeroLowerBound()) {
+            throw new ArgumentOutOfRangeException("destinationIndex");
+        }
+        if (index < 0) {
+            throw new ArgumentOutOfRangeException("destinationIndex");
+        }
+        if (index > array.getLength() - getCount()) {
+            throw new ArgumentException("Destination array was not long enough.");
+        }
         int i = 0;
         for (T elem : this) {
             array.setValue(elem, index + i);

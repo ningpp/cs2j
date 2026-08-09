@@ -17,6 +17,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import io.github.ningpp.compat.StringComparison;
+import io.github.ningpp.compat.StringHelper;
 
 /**
  * Xunit.Assert compatibility layer for Java.
@@ -890,6 +891,23 @@ public final class Assert {
     }
 
     public static void startsWith(String expectedStartString, String actualString, StringComparison comparisonType) {
+        if (actualString == null) {
+            throw new AssertionError("Assert.startsWith() failure: Actual string was null");
+        }
+        // Culture comparisons (InvariantCulture/CurrentCulture and their IgnoreCase
+        // variants) canonicalize via NFD — .NET invariant sort treats "Ö" (U+00D6)
+        // as equivalent to "O" + combining diaeresis.
+        if (comparisonType == StringComparison.InvariantCulture
+            || comparisonType == StringComparison.CurrentCulture
+            || comparisonType == StringComparison.InvariantCultureIgnoreCase
+            || comparisonType == StringComparison.CurrentCultureIgnoreCase) {
+            if (!StringHelper.startsWith(actualString, expectedStartString, comparisonType)) {
+                throw new AssertionError("Assert.startsWith() failure\n"
+                    + "Expected start: " + expectedStartString + "\n"
+                    + "Actual: " + actualString);
+            }
+            return;
+        }
         startsWith(expectedStartString, actualString, isIgnoreCase(comparisonType));
     }
 
@@ -1091,7 +1109,31 @@ public final class Assert {
         if (a != null && b != null && a.getClass().isArray() && b.getClass().isArray()) {
             return deepArraysEqual(a, b);
         }
+        // C# Assert.Equal<T>(IEnumerable<T>, T[]) compares element-wise; Java LINQ
+        // results are Iterables while expected values are often arrays.
+        if (a != null && b != null && a.getClass().isArray() && b instanceof Iterable<?>) {
+            return arrayAndIterableEqual(a, (Iterable<?>) b);
+        }
+        if (a != null && b != null && b.getClass().isArray() && a instanceof Iterable<?>) {
+            return arrayAndIterableEqual(b, (Iterable<?>) a);
+        }
         return false;
+    }
+
+    private static boolean arrayAndIterableEqual(Object array, Iterable<?> iterable) {
+        int length = java.lang.reflect.Array.getLength(array);
+        Iterator<?> it = iterable.iterator();
+        int i = 0;
+        while (it.hasNext()) {
+            if (i >= length) {
+                return false;
+            }
+            if (!objectsEqual(java.lang.reflect.Array.get(array, i), it.next())) {
+                return false;
+            }
+            i++;
+        }
+        return i == length;
     }
 
     private static boolean deepArraysEqual(Object a, Object b) {

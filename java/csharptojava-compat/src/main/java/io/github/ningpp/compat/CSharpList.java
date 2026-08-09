@@ -60,7 +60,57 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
 
     @Override
     public CSharpGenericEnumerator<T> iterator() {
-        return CSharpGenericEnumerator.from(super.iterator());
+        // Index-based enumerator instead of wrapping the ArrayList iterator so that
+        // reset() restarts the enumeration (C# List<T>.GetEnumerator().Reset()).
+        return new CSharpGenericEnumerator<T>() {
+            private int index = -1;
+
+            @Override
+            public boolean moveNext() {
+                int size = size();
+                if (index >= size) {
+                    return false;
+                }
+                index++;
+                return index < size;
+            }
+
+            @Override
+            public T getCurrent() {
+                if (index < 0 || index >= size()) {
+                    throw new IllegalStateException("Enumeration has not started or has already finished.");
+                }
+                return get(index);
+            }
+
+            @Override
+            public boolean hasNext() {
+                return index + 1 < size();
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new java.util.NoSuchElementException();
+                }
+                index++;
+                return get(index);
+            }
+
+            @Override
+            public void reset() {
+                index = -1;
+            }
+
+            @Override
+            public void remove() {
+                if (index < 0 || index >= size()) {
+                    throw new IllegalStateException();
+                }
+                CSharpList.this.remove(index);
+                index--;
+            }
+        };
     }
 
     // List-specific methods
