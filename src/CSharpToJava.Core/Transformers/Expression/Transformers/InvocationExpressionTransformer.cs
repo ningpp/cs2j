@@ -1293,7 +1293,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-
         // System.Reflection.MethodBase.Invoke(object, object[]): the compat MethodInfo
         // declares invoke(Object, Object...) AND invoke(Object, List<?>) — a bare null
         // args argument is ambiguous. C# binds Invoke(obj, null) to the object[] overload;
@@ -2544,7 +2543,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         {
                             context.RequireClassTypeParam(
                                 currentMethod.ContainingType?.MetadataName ?? "",
-                                currentMethod.MetadataName,
+                                currentMethod.ToDisplayString(),
                                 typeParam.Name);
                         }
                         // GetClassLiteral now handles ITypeParameterSymbol via TryGetRuntimeClassParameter.
@@ -2569,7 +2568,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                             {
                                 context.RequireClassTypeParam(
                                     currentMethod.ContainingType?.MetadataName ?? "",
-                                    currentMethod.MetadataName,
+                                    currentMethod.ToDisplayString(),
                                     typeParam.Name);
                             }
                         }
@@ -9896,14 +9895,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var containingTypeMetadataName = containingType.MetadataName;
         var methodMetadataName = originalDef.MetadataName;
+        var methodDisplayName = originalDef.ToDisplayString();
 
         // First check the pre-registered set (populated when the method was processed
         // before the call site). If not found, scan the method body directly — the
         // method may be declared after the call site in the source file.
         IReadOnlyList<string>? typeParamNames = null;
-        if (context.MethodHasClassParams(containingTypeMetadataName, methodMetadataName))
+        // NOTE: lookups must use ToDisplayString, never MetadataName. Roslyn's
+        // IMethodSymbol.MetadataName does NOT include the generic arity marker
+        // (only types do), so two overloads such as CrossRectangleNodes<TA, TB, P>
+        // and CrossRectangleNodes<TA, P> share the MetadataName "CrossRectangleNodes".
+        // A MetadataName-keyed lookup then returns the wrong overload's Class-token
+        // set (RectangleNodeUtils bug). The display string includes the type
+        // parameter list and discriminates overloads correctly.
+        if (context.MethodHasClassParams(containingTypeMetadataName, methodDisplayName))
         {
-            typeParamNames = context.GetMethodClassTypeParamNames(containingTypeMetadataName, methodMetadataName);
+            typeParamNames = context.GetMethodClassTypeParamNames(containingTypeMetadataName, methodDisplayName);
         }
         else
         {
@@ -9916,7 +9923,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // Register on-the-fly so subsequent call sites find it in the set.
                 foreach (var tpName in typeParamNames)
                 {
-                    context.RequireClassTypeParam(containingTypeMetadataName, methodMetadataName, tpName);
+                    context.RequireClassTypeParam(containingTypeMetadataName, methodDisplayName, tpName);
                 }
                 // Drain immediately — the method's signature will be patched when
                 // ApplyPendingClassTypeParams runs after the method is processed.

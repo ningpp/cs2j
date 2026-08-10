@@ -1731,24 +1731,16 @@ public class MethodTransformer : IMemberTransformer
 
         IEnumerable<ITypeParameterSymbol> neededTypeParameters = RuntimeClassParameterHelper.GetRequiredTypeParameters(context.CurrentMethod, context);
 
-        // Static methods cannot access instance fields (such as the runtime Class<?> tokens
-        // added for class-level type parameters). If the body needs a class-level type
-        // parameter, promote it to a Class<?> parameter on the static method itself.
-        if (currentMethod.IsStatic)
-        {
-            var containingType = currentMethod.ContainingType?.OriginalDefinition;
-            neededTypeParameters = neededTypeParameters.Where(tp =>
-                SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod)
-                || (tp.DeclaringMethod == null
-                    && containingType != null
-                    && SymbolEqualityComparer.Default.Equals(tp.DeclaringType, containingType)));
-        }
-        else
-        {
-            neededTypeParameters = neededTypeParameters.Where(tp =>
-                SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod));
-        }
-
+        // Static methods cannot access instance fields, but the converter emits
+        // class-level runtime Class fields as STATIC fields (AddRuntimeClassFields),
+        // so class-level type parameters remain reachable from static members
+        // (typeof(T) -> TypeHelper.toWrapperType(tClass), default(T) -> null,
+        // new T[0] -> GetClassLiteral resolves the field). Promoting them to
+        // Class<?> parameters on the static method made declarations and call
+        // sites disagree: call sites never passed the token, producing arity
+        // mismatches. Only method-level type parameters need promotion here.
+        neededTypeParameters = neededTypeParameters.Where(tp =>
+            SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod));
         foreach (var typeParameterName in neededTypeParameters.Select(tp => tp.Name))
         {
             var parameterName = AllocateRuntimeClassParameterName(typeParameterName, javaMethod);
@@ -1762,31 +1754,47 @@ public class MethodTransformer : IMemberTransformer
         ConversionContext context)
     {
         var sym = context.CurrentMethod;
-        var pendingTypeParameters = sym != null
-            ? (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(sym.ContainingType?.MetadataName ?? "", sym.ToDisplayString())
-            : context.DrainClassTypeParams();
+        if (sym == null)
+        {
+            // No current method symbol (e.g. interface members whose declaring syntax
+            // node cannot be resolved back to the compilation). The global pending set
+            // is unowned ? it was registered by some other method's body. Discard it
+            // instead of injecting it into an unrelated method signature.
+            context.DrainClassTypeParams();
+            return;
+        }
+        var pendingTypeParameters = (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(sym.ContainingType?.MetadataName ?? "", sym.ToDisplayString());
         if (pendingTypeParameters == null || pendingTypeParameters.Count == 0)
             return;
 
-        foreach (var typeParameterName in pendingTypeParameters.OrderBy(name => name, StringComparer.Ordinal))
+        // Insert at index 0 in reverse order so the final parameter order matches the
+        // order in which the requirements were registered (which is also the order
+        // GetClassTypeTokensForCall emits tokens at call sites).
+        for (var i = pendingTypeParameters.Count - 1; i >= 0; i--)
         {
+            var typeParameterName = pendingTypeParameters.ElementAt(i);
             var parameterName = $"_cs2j_{typeParameterName}";
             if (javaMethod.Parameters.Any(p => p.Name == parameterName))
                 continue;
 
             javaMethod.Parameters.Insert(0, new JavaParameter($"Class<{typeParameterName}>", parameterName));
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
-            // The injected Class<T> parameter references the type parameter — make sure
+            // The injected Class<T> parameter references the type parameter ? make sure
             // the method declares it (stripped when the body never used it before).
             if (!javaMethod.TypeParameters.Any(tp => tp.Name == typeParameterName))
                 javaMethod.TypeParameters.Add(new Java.JavaTypeParameter(typeParameterName));
-            // Keep the method-level requirement table in sync so call sites can emit
-            // the matching Class token.
-            context.RegisterMethodClassTypeParam(
-                sym?.ContainingType?.MetadataName ?? "",
-                sym?.ToDisplayString() ?? "",
-                typeParameterName);
         }
+
+        // Rebuild the call-site token map from the final parameter order so call
+        // sites emit Class tokens in exactly the order the signature declares them.
+        var orderedNames = javaMethod.Parameters
+            .Where(p => p.Name.StartsWith("_cs2j_", StringComparison.Ordinal))
+            .Select(p => p.Name.Substring("_cs2j_".Length))
+            .ToList();
+        context.SetMethodClassTypeParamNames(
+            sym?.ContainingType?.MetadataName ?? "",
+            sym?.ToDisplayString() ?? "",
+            orderedNames);
     }
 
     private static string AllocateRuntimeClassParameterName(string typeParameterName, JavaMethodDeclaration javaMethod)

@@ -363,6 +363,24 @@ public class ConversionContext
         return _methodClassTypeParamNames.TryGetValue(key, out var list) ? list : null;
     }
 
+    /// <summary>
+    /// Replaces the registered Class&lt;T&gt; token order for a method with the given
+    /// names. Called after a method signature is patched so call sites emit tokens
+    /// in exactly the order the signature declares the parameters.
+    /// </summary>
+    public void SetMethodClassTypeParamNames(string containingTypeMetadataName, string methodMetadataName, IEnumerable<string> typeParameterNames)
+    {
+        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
+        var list = new List<string>();
+        foreach (var name in typeParameterNames)
+        {
+            if (!list.Contains(name))
+                list.Add(name);
+        }
+        _methodClassTypeParamNames[key] = list;
+        _methodsWithClassParams.Add(key);
+    }
+
     public IReadOnlySet<string>? DrainClassTypeParams()
     {
         var result = _pendingClassTypeParams;
