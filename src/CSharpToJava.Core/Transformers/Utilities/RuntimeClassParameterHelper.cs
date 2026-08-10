@@ -212,12 +212,14 @@ internal static class RuntimeClassParameterHelper
                     AddFrameworkToArrayRequirements(methodDeclaration, semanticModel, originalMethod, required);
                     AddForwardedInvocationRequirements(methodDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(methodDeclaration, semanticModel, originalMethod, context, required);
+                    AddTypeOfDefaultRequirements(methodDeclaration, semanticModel, originalMethod, required);
                     break;
                 case ConstructorDeclarationSyntax constructorDeclaration:
                     AddDirectArrayRequirements(constructorDeclaration, semanticModel, originalMethod, required);
                     AddFrameworkToArrayRequirements(constructorDeclaration, semanticModel, originalMethod, required);
                     AddForwardedInvocationRequirements(constructorDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(constructorDeclaration, semanticModel, originalMethod, context, required);
+                    AddTypeOfDefaultRequirements(constructorDeclaration, semanticModel, originalMethod, required);
                     break;
             }
 
@@ -304,6 +306,56 @@ internal static class RuntimeClassParameterHelper
             var arrayType = typeInfo.Type as IArrayTypeSymbol
                 ?? typeInfo.ConvertedType as IArrayTypeSymbol;
             if (arrayType?.ElementType is ITypeParameterSymbol typeParameter
+                && IsOwnedByMethodOrType(typeParameter, originalMethod))
+            {
+                AddUnique(required, typeParameter);
+            }
+        }
+    }
+
+    private static void AddTypeOfDefaultRequirements(
+        MethodDeclarationSyntax declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        AddTypeOfDefaultRequirements((SyntaxNode)declaration, semanticModel, originalMethod, required);
+    }
+
+    private static void AddTypeOfDefaultRequirements(
+        ConstructorDeclarationSyntax declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        AddTypeOfDefaultRequirements((SyntaxNode)declaration, semanticModel, originalMethod, required);
+    }
+
+    /// <summary>
+    /// Scans for typeof(T) and default(T) where T is a class-level type parameter.
+    /// These usages require a runtime Class field on the declaring type so that
+    /// instance methods can reference it without adding a method-level Class&lt;T&gt; parameter.
+    /// </summary>
+    private static void AddTypeOfDefaultRequirements(
+        SyntaxNode declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        foreach (var typeOf in declaration.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+        {
+            if (semanticModel.GetTypeInfo(typeOf.Type).Type is ITypeParameterSymbol typeParameter
+                && typeParameter.DeclaringMethod == null
+                && IsOwnedByMethodOrType(typeParameter, originalMethod))
+            {
+                AddUnique(required, typeParameter);
+            }
+        }
+
+        foreach (var defaultExpr in declaration.DescendantNodes().OfType<DefaultExpressionSyntax>())
+        {
+            if (semanticModel.GetTypeInfo(defaultExpr.Type).Type is ITypeParameterSymbol typeParameter
+                && typeParameter.DeclaringMethod == null
                 && IsOwnedByMethodOrType(typeParameter, originalMethod))
             {
                 AddUnique(required, typeParameter);

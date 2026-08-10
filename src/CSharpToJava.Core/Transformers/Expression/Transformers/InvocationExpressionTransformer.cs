@@ -2650,6 +2650,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && methodSymbol is { IsExtensionMethod: false }
             && methodSymbol.ReturnType is IArrayTypeSymbol instanceArrayType)
         {
+            // ReadOnlyMemory<T>/ReadOnlySpan<T>.ToArray() maps to toXxxArray() for
+            // primitive element types (byte→toByteArray, char→toCharArray, etc.)
+            // because the compat library provides typed accessors instead of toArray().
+            if (methodSymbol.ContainingType is INamedTypeSymbol toArrContainingType
+                && toArrContainingType.OriginalDefinition?.ToDisplayString()
+                    is "System.ReadOnlyMemory<T>" or "System.ReadOnlySpan<T>"
+                && instanceArrayType.ElementType is ITypeSymbol toArrElemType
+                && TryGetPrimitiveArrayHelper(toArrElemType.SpecialType, out var spanHelper))
+            {
+                return $"{receiver}.{spanHelper}()";
+            }
             if (!IsFrameworkCollectionToArray(methodSymbol))
                 return $"{receiver}.toArray()";
             return TransformInstanceCollectionToArray(receiver, instanceArrayType.ElementType, context);
@@ -4813,6 +4824,52 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return "new Object[0]";
         }
 
+        // System.Runtime.CompilerServices.Unsafe.As<TFrom, TTo>(ref TFrom value) → T
+        // The compat Unsafe.as() returns the raw value; for unsigned primitive types
+        // the boxing chain must include the wrapper cast so (T)(Object) can succeed.
+        //   uint  → (T)(Object)(Integer)(Unsafe.as(value))
+        //   ushort → (T)(Object)(Short)(((short)(Unsafe.as(value))))
+        //   byte  → (T)(Object)(Byte)(((byte)(Unsafe.as(value))))
+        if (methodSymbol is { IsStatic: true, Name: "As" }
+            && methodSymbol.ContainingType?.ToDisplayString() == "System.Runtime.CompilerServices.Unsafe"
+            && methodSymbol.TypeArguments.Length == 2
+            && node.ArgumentList.Arguments.Count >= 1)
+        {
+            context.AddImport("io.github.ningpp.compat.Unsafe");
+            var asArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var innerExpr = $"Unsafe.as({asArg})";
+            var fromType = methodSymbol.TypeArguments[0];
+            var toType = methodSymbol.TypeArguments[1];
+            var toJavaType = context.MapType(toType);
+
+            // Determine the wrapper and narrowing cast for the source type.
+            var (wrapper, narrowCast) = fromType.SpecialType switch
+            {
+                SpecialType.System_UInt32 => ("Integer", ""),
+                SpecialType.System_UInt16 => ("Short", "(short)"),
+                SpecialType.System_Byte => ("Byte", "(byte)"),
+                SpecialType.System_SByte => ("Byte", "(byte)"),
+                SpecialType.System_UInt64 => ("Long", ""),
+                SpecialType.System_Int32 => ("Integer", ""),
+                SpecialType.System_Int16 => ("Short", "(short)"),
+                SpecialType.System_Int64 => ("Long", ""),
+                _ => ("", "")
+            };
+
+            if (string.IsNullOrEmpty(wrapper))
+            {
+                // No boxing wrapper needed for non-primitive or unknown types.
+                return $"({toJavaType}) {innerExpr}";
+            }
+
+            // Build the boxing chain: (T)(Object)(Wrapper)([(narrowCast)(]Unsafe.as(arg)[)])
+            var boxedExpr = string.IsNullOrEmpty(narrowCast)
+                ? $"({wrapper})({innerExpr})"
+                : $"({wrapper})(({narrowCast}({innerExpr})))";
+
+            return $"({toJavaType})(Object){boxedExpr}";
+        }
+
         // System.Buffers.ArrayPool<T>.Shared.Rent/Return: emit a Java type witness
         // (ArrayPool.<T>getShared()) so rent()'s return type flows from the call
         // chain to the assignment target — bare ArrayPool.getShared().rent(n)
@@ -4844,7 +4901,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     if (lt >= 0) classToken = classToken.Substring(0, lt).Trim();
                     var dot = classToken.LastIndexOf('.');
                     if (dot >= 0) classToken = classToken.Substring(dot + 1);
-                    return $"ArrayPool.rentShared({classToken}.class, {poolArgsStr})";
+                    return $"({javaElem}[]) ArrayPool.rentShared({classToken}.class, {poolArgsStr})";
                 }
                 var sharedPool = $"ArrayPool.<{javaElem}>getShared()";
                 return $"{sharedPool}.returnValue({poolArgsStr})";
@@ -9972,6 +10029,44 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     if (isTypeNames.Contains(tp.Name))
                         AddTypeParamName(tp, ref result);
+                }
+            }
+
+            // Collect type param names used in typeof(T) expressions, which
+            // require a Class<T> token at the method signature.
+            foreach (var typeOf in scanRoot.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeOfExpressionSyntax>())
+            {
+                if (typeOf.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeOfId)
+                {
+                    foreach (var tp in typeParams)
+                    {
+                        if (tp.Name == typeOfId.Identifier.Text)
+                            AddTypeParamName(tp, ref result);
+                    }
+                }
+            }
+
+            // Detect explicit generic call forwarding a type parameter (e.g.
+            // Deserialize<TValue>(...)) — the callee likely needs the Class token,
+            // so this method's signature must carry it too.
+            foreach (var inv in scanRoot.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>())
+            {
+                if (inv.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax invGeneric
+                    && invGeneric.TypeArgumentList.Arguments.Count > 0)
+                {
+                    foreach (var typeArg in invGeneric.TypeArgumentList.Arguments)
+                    {
+                        if (typeArg is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeArgId)
+                        {
+                            foreach (var tp in typeParams)
+                            {
+                                if (tp.Name == typeArgId.Identifier.Text)
+                                    AddTypeParamName(tp, ref result);
+                            }
+                        }
+                    }
                 }
             }
         }
