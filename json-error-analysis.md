@@ -273,3 +273,20 @@
 - **分析**: Unsafe.As<uint/ushort/ulong/sbyte, T> 的装箱链 switch 只有有符号类型；System.Enum.GetNames 无方法映射（解析到 java.lang.Enum）；compat TypeCode 无显式值，转换器按显式值枚举发出 getValue()。
 - **测试**: 	ests/CSharpToJava.Tests/UnsafeAsUnsignedBoxingTests.cs（RED→GREEN）、java/csharptojava-compat/.../EnumHelperNamesTypeCodeTest.java（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 16 — 不兼容的类型: int无法转换为Byte (Unsafe.As 装箱链未先收窄映射基本类型)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/EnumConverter.java:[157,38][183,39]
+- **行号**: EnumConverter.java:157
+- **错误信息**: 不兼容的类型: int无法转换为java.lang.Byte
+- **代码片段**:
+  `java
+  // C#: Unsafe.As<byte, T>(ref ubyte8Value) — byte 映射 int → ref 降级为 IntHolder
+  var _ret = ((T)(Object)(Byte)(Unsafe.as(_ubyte8ValueRef)));   // (Byte)(int) 非法
+  // 修复后: (T)(Object)(Byte)(((byte)(Unsafe.as(...))))          // 先收窄再装箱
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Value\EnumConverter.cs
+- **根因分类**: Transformer（Unsafe.As 装箱链缺少映射基本类型收窄）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（两处 Unsafe.As 装箱链）
+- **分析**: 源类型映射后的基本类型（byte→int、ushort 等）与装箱目标的 primitive 不一致时，(Byte)(int) 强转非法；需先 ((byte)(expr)) 收窄再装箱。
+- **测试**: 	ests/CSharpToJava.Tests/UnsafeAsUnsignedBoxingTests.cs（扩展 byte/ushort 用例）
+- **状态**: ✅ Fixed

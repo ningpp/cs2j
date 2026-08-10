@@ -2,11 +2,11 @@ package io.github.ningpp.compat;
 
 public class EnumHelper {
     @SuppressWarnings("unchecked")
-    public static <T> boolean tryParse(String name, boolean ignoreCase, ObjectHolder<T> result, Class<T> enumClass) {
+    public static <T> boolean tryParse(String name, boolean ignoreCase, ObjectHolder<T> result, Class<?> enumClass) {
         if (name == null || enumClass == null || !enumClass.isEnum()) {
             return false;
         }
-        for (T constant : enumClass.getEnumConstants()) {
+        for (T constant : (T[]) enumClass.getEnumConstants()) {
             String constName = ((Enum<?>) constant).name();
             if (ignoreCase ? constName.equalsIgnoreCase(name) : constName.equals(name)) {
                 result.value = constant;
@@ -17,7 +17,7 @@ public class EnumHelper {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> boolean tryParse(String name, ObjectHolder<T> result, Class<T> enumClass) {
+    public static <T> boolean tryParse(String name, ObjectHolder<T> result, Class<?> enumClass) {
         return tryParse(name, false, result, enumClass);
     }
 
