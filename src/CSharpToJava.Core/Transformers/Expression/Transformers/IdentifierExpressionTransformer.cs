@@ -3169,6 +3169,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     {
         for (var current = type; current != null; current = current.BaseType)
         {
+            // SpecialType.System_Exception is not available in all .NET versions,
+            // so we check by comparing the display string.
             if (current.ToDisplayString() == "System.Exception")
                 return true;
         }
