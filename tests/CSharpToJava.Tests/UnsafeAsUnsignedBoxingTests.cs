@@ -48,7 +48,27 @@ class Holder<T>
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("(T)(Object)(Short)(Unsafe.as(", code);
+        Assert.Contains("(T)(Object)(Short)(((short)(Unsafe.as(", code);
+    }
+
+    [Fact]
+    public void UnsafeAsByteToTypeParam_NarrowsThroughPrimitiveByte()
+    {
+        var result = Convert(@"
+using System.Runtime.CompilerServices;
+class Holder<T>
+{
+    public T M(ref byte value)
+    {
+        return Unsafe.As<byte, T>(ref value);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        // byte maps to int (IntHolder), so the box chain must narrow: (Byte)((byte)(intExpr)).
+        Assert.Contains("(T)(Object)(Byte)(((byte)(Unsafe.as(", code);
     }
 
     [Fact]

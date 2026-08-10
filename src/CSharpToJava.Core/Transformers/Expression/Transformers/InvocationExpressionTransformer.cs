@@ -284,7 +284,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         _ => null
                     };
                     if (boxType != null)
-                        return $"({targetType})(Object)({boxType})({genericCallText})";
+                    {
+                        // The compat holder carries the MAPPED primitive (e.g. byte→int via
+                        // IntHolder), so when the box target's primitive differs from the
+                        // mapped source primitive, narrow first: (Byte)((byte)(intExpr)).
+                        var boxPrimitive = boxType switch
+                        {
+                            "Integer" => "int",
+                            "Long" => "long",
+                            "Short" => "short",
+                            "Byte" => "byte",
+                            "Character" => "char",
+                            "Float" => "float",
+                            "Double" => "double",
+                            "Boolean" => "boolean",
+                            _ => null
+                        };
+                        string inner = genericCallText;
+                        if (boxPrimitive != null && fromSym != null)
+                        {
+                            var mappedFrom = context.MapType(fromSym);
+                            if (mappedFrom != boxPrimitive)
+                                inner = $"(({boxPrimitive})({inner}))";
+                        }
+                        return $"({targetType})(Object)({boxType})({inner})";
+                    }
                 }
                 return $"({targetType})({genericCallText})";
             }
@@ -1462,7 +1486,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         _ => null
                     };
                     if (asBoxType != null)
-                        return $"(({asTargetType})(Object)({asBoxType})(Unsafe.as({asArgs})))";
+                    {
+                        // The compat holder carries the MAPPED primitive (e.g. byte→int via
+                        // IntHolder), so when the box target's primitive differs from the
+                        // mapped source primitive, narrow first: (Byte)((byte)(intExpr)).
+                        var asBoxPrimitive = asBoxType switch
+                        {
+                            "Integer" => "int",
+                            "Long" => "long",
+                            "Short" => "short",
+                            "Byte" => "byte",
+                            "Character" => "char",
+                            "Float" => "float",
+                            "Double" => "double",
+                            "Boolean" => "boolean",
+                            _ => null
+                        };
+                        string asInner = $"Unsafe.as({asArgs})";
+                        if (asBoxPrimitive != null && asFromSym != null)
+                        {
+                            var mappedFrom = context.MapType(asFromSym);
+                            if (mappedFrom != asBoxPrimitive)
+                                asInner = $"(({asBoxPrimitive})({asInner}))";
+                        }
+                        return $"(({asTargetType})(Object)({asBoxType})({asInner}))";
+                    }
                 }
                 return $"(({asTargetType})(Unsafe.as({asArgs})))";
             }

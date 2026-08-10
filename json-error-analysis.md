@@ -253,3 +253,23 @@
 - **分析**: 嵌套类型引用的"外层参数扫描"跑在已构造符号上（实参已被替换为 string/int），扫描不到 TKey/TValue；且即使扫描到，追加的也是参数符号而非外层实参。改为在 OriginalDefinition 上扫描、并追加外层映射后的类型实参：CSharpDictionary.Enumerator<TKey, TValue>。
 - **测试**: 	ests/CSharpToJava.Tests/DictionaryNestedEnumeratorMappingTests.cs（扩展）
 - **状态**: ✅ Fixed
+
+## Iteration 15 — EnumConverter: Unsafe.As 无符号装箱链缺失 + Enum.GetNames 映射缺失 + TypeCode 无显式值
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/EnumConverter.java:[38,62][56,30][107,24][119,24][144,24][157,38]
+- **行号**: EnumConverter.java:107
+- **错误信息**: 不兼容的类型: int无法转换为T；找不到符号 getValue()；找不到符号 getNames(java.lang.Class) 位置: java.lang.Enum
+- **代码片段**:
+  `java
+  // C#: return Unsafe.As<uint, T>(ref uint32);
+  var _ret = ((T)(Unsafe.as(_uint32Ref)));           // 缺少 (T)(Object)(Integer)(...) 装箱链
+  // C#: (int)s_enumTypeCode
+  private static final String s_negativeSign = ((s_enumTypeCode.getValue() % 2) == 0 ? ...);  // TypeCode 无 getValue
+  // C#: Enum.GetNames(...)
+  String[] names = Enum.getNames(getTypeToConvert());  // java.lang.Enum 无 getNames
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Value\EnumConverter.cs
+- **根因分类**: Transformer（Unsafe.As 装箱开关缺无符号类型）+ 类型映射缺失（Enum.GetNames）+ compat API 缺口（TypeCode 显式值）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（两处 Unsafe.As 装箱 switch）、config/TypeMappings.json、java/csharptojava-compat/.../TypeCode.java、EnumHelper.java
+- **分析**: Unsafe.As<uint/ushort/ulong/sbyte, T> 的装箱链 switch 只有有符号类型；System.Enum.GetNames 无方法映射（解析到 java.lang.Enum）；compat TypeCode 无显式值，转换器按显式值枚举发出 getValue()。
+- **测试**: 	ests/CSharpToJava.Tests/UnsafeAsUnsignedBoxingTests.cs（RED→GREEN）、java/csharptojava-compat/.../EnumHelperNamesTypeCodeTest.java（RED→GREEN）
+- **状态**: ✅ Fixed
