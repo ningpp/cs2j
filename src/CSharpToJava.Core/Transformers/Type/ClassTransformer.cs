@@ -887,14 +887,17 @@ public class ClassTransformer : ITypeTransformer
             {
                 javaClass.Fields.Add(new JavaFieldDeclaration
                 {
-                    // Java: static so that static field initializers (e.g. a static
-                    // readonly enum lookup using TypeToConvert) can reference the
-                    // runtime class token; instance semantics approximated per-class
-                    // (not final — the constructor still assigns it per instance).
-                    // TypeScript keeps the instance field.
+                    // INSTANCE field: the token is per-instance. A static field would
+                    // be shared by every instantiation of the generic class, so two
+                    // instances with different type arguments (e.g. PushdownPrefixState
+                    // of ValueType vs LexLocation) clobber each other's token and the
+                    // wrong-typed array growth throws ArrayStoreException ("arraycopy:
+                    // type mismatch"). Java has no per-closed-type statics, so static
+                    // members that need the token must take it as a parameter instead.
+                    // TypeScript keeps the instance field as final.
                     Modifiers = context.Options.TargetLanguage == TargetLanguage.TypeScript
                         ? JavaModifiers.Private | JavaModifiers.Final
-                        : JavaModifiers.Private | JavaModifiers.Static,
+                        : JavaModifiers.Private,
                     Type = "Class<?>",
                     Name = fieldName
                 });

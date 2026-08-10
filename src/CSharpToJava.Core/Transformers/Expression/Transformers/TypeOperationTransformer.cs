@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -506,9 +506,28 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     "System.Collections.IEnumerable" or
                     "System.Collections.Generic.IEnumerable<T>")
                 {
-                    return $"({targetType}) (Object) ({expression})";
-                }
+                    // Type-parameter element: no runtime class literal is available for
+                    // toArray(new T[0]), so keep the identity hop through Object — the C#
+                    // cast is a reference cast and the runtime object is already the array.
+                    if (targetArrayType.ElementType is ITypeParameterSymbol)
+                    {
+                        return $"({targetType}) (Object) ({expression})";
+                    }
 
+                    // Concrete element type: the runtime value may be a collection wrapper
+                    // (e.g. an IEnumerable<T> property lowers to CSharpGenericIterable), so
+                    // a plain (T[])(Object)x cast throws ClassCastException even though the
+                    // C# cast is a reference cast. If the value really is a T[] keep it;
+                    // otherwise materialize a fresh array with toArray(new T[0]).
+                    var concreteArrayCreation = ExpressionTransformerHelpers.BuildJavaArrayCreationForElement(
+                        targetArrayType.ElementType, context, "0");
+                    // javac rejects "p instanceof T[]" when p statically is an interface
+                    // (an interface can never be cast to an array type), so hop through
+                    // Object first. The (T[]) casts are kept as identity hops through
+                    // Object; the toArray branch materializes a fresh array from the
+                    // collection wrapper.
+                    return $"((Object) ({expression})) instanceof {ToRuntimeTypeForInstanceOf(targetType)} ? ({targetType}) (Object) ({expression}) : ({targetType}) ({expression}).toArray({concreteArrayCreation})";
+                }
                 bool isEnumerableLike = sourceType.AllInterfaces.Any(i =>
                     i.OriginalDefinition?.ToDisplayString() is
                         "System.Collections.Generic.IEnumerable<T>" or

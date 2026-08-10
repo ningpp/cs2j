@@ -401,3 +401,86 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - mvn: D:\cs-msagl-0810 ? mvn clean package -e ? BUILD SUCCESS (EXIT=0)??? D:\cs-msagl-0810\mvn-build.log?
 
 ? Fixed (2026-08-10)
+
+---
+
+## Iteration 9 — append 方法签名与调用点 Class token 数量不一致（arity mismatch）
+- **Java 文件**: dot2graph/src/main/java/Dot2Graph/Parser.java
+- **行号**: 265, 271
+- **错误信息**: `[ERROR] /D:/agl-java-0810/dot2graph/src/main/java/Dot2Graph/Parser.java:[265,63] 无法将类 Dot2Graph.Parser中的方法 append应用到给定类型; 需要: java.lang.Class<T>,Dot2Graph.Parser.Cell<T>,Dot2Graph.Parser.Cell<T>,java.lang.Class<?> 找到: Dot2Graph.Parser.Cell<java.lang.String>,Dot2Graph.Parser.Cell<java.lang.String>,java.lang.Class<java.lang.String> 原因: 无法推断类型变量 T (实际参数列表和形式参数列表长度不同)`
+- **代码片段**:
+  ```java
+  <T> Cell<T> append(Class<T> _cs2j_T, Cell<T> x, Cell<T> y, Class<?> clazz) {   // 声明：4 个参数
+      return new Cell<T>(x, (T) DefaultValue.ofClass(clazz), y, clazz);
+  }
+  ...
+  CurrentSemanticValue = CurrentSemanticValue.withsList(append(getValueStack().get(...).getSList(),
+      getValueStack().get(...).getSList(), String.class));   // 调用点：只传 3 个参数
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\tools\Dot2Graph\Dot.cs（`Cell<T> Append<T>(Cell<T> x, Cell<T> y)`，第 441-444 行）
+- **根因分类**: Transformer
+- **涉及组件**:
+  - src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs (`AddPendingRuntimeClassParameters`)
+  - src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs (`GetClassTypeTokensForCall` / `DetectDefaultUsageInMethod` 调用点回退注册)
+  - src/CSharpToJava.Core/Context/ConversionContext.cs (`GetClassLiteral` 的 RequireClassTypeParam 路径)
+- **分析**: `Append<T>` 的 T 同时被 `default(T)`（走调用点回退检测 → 注册 leading `Class<T> _cs2j_T`）和 `new Cell<T>(...)` 对象创建（走 trailing `Class<?> clazz` 机制）覆盖。两个机制都被触发 → 签名同时插入 leading `_cs2j_T` 和 trailing `clazz`，而调用点只补 trailing token，导致形参/实参数量不一致。修复：`AddPendingRuntimeClassParameters` 应跳过已被 trailing 运行时 Class 参数机制覆盖（`RuntimeClassParameterHelper.GetRequiredTypeParameters` 含该方法级类型参数）的 TP；`GetClassLiteral` 找到已注册的运行时 Class 参数时无需再 RequireClassTypeParam（注册表按方法重置，参数必在当前方法签名中）。
+- **状态**: ✅ Fixed (2026-08-11) — `AddPendingRuntimeClassParameters` 跳过被 trailing `Class<?> clazz` 覆盖的 TP；`GetClassLiteral` 找到已注册 runtime class param 时不再 `RequireClassTypeParam`。验证: `GenericMethodWithDefaultTAndObjectCreation_NoDuplicateLeadingClassParam` 红→绿，全量 dotnet test 通过，mvn clean package -e → BUILD SUCCESS。
+
+---
+
+## Iteration 10 — 嵌套类型引用双重限定包名（Demo.Layout.Demo.Layout.Label）
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Demo/Layout/...（嵌套类型限定名重复包前缀）
+- **行号**: 生成的嵌套类型限定引用处
+- **错误信息**: 找不到符号/类 `Demo.Layout.Demo.Layout.Label`（包名重复）
+- **代码片段**:
+  ```java
+  // 修复前: Demo.Layout.Demo.Layout.Label  —— 外层类型名被当作命名空间再次限定
+  // 修复后: Demo.Layout.Label
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\...（含嵌套枚举/类型的文件，如 LayoutDirection 等嵌套声明）
+- **根因分类**: 类型映射（Transformer 逻辑缺陷）
+- **涉及组件**: src/CSharpToJava.Core/Context/TypeMappingService.cs (`QualifyTypeReferenceIfNeeded`)
+- **分析**: `TryMapNestedType` 返回的简单类型名（如 `Label`）与另一命名空间的类型重名时，`QualifyTypeReferenceIfNeeded` 会再次拼上包名；而该简单名可能已带包前缀（如 `Demo.Layout.Label`），导致双重限定。
+- **修复**: `QualifyTypeReferenceIfNeeded` 增加幂等保护——若 `simpleTypeName` 已以自身 package 开头则直接返回，禁止 `Demo.Layout.Demo.Layout.Label`。
+- **测试**: `NestedEnumMemberAccess_DoesNotDoubleQualifyNamespace`（先红后绿）
+- **状态**: ✅ Fixed (2026-08-11) — 全量 dotnet test 通过，mvn clean package -e → BUILD SUCCESS。
+
+---
+
+## Iteration 11 — 泛型类运行时 Class token 字段 static → instance（arraycopy 类型错配）
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/...（PushdownPrefixState 等泛型类运行时字段）
+- **行号**: `private static Class<?> tClass;` 字段声明及 arraycopy 报错点
+- **错误信息**: `java.lang.ArrayStoreException: arraycopy: type mismatch: can not copy ValueType[] into LexLocation[]`（两个不同类型参数的实例共享 static token）
+- **代码片段**:
+  ```java
+  // 修复前: private static Class<?> tClass;   ← 所有实例共享，互相覆盖
+  // 修复后: private Class<?> tClass;          ← 每实例持有自己的 token
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\...（泛型类中 `typeof(T)`/`default(T)` 生成运行时 Class token 的类）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs (`AddRuntimeClassFields`)
+- **分析**: Java 没有 per-closed-type 的静态字段：两个不同类型参数的实例（如 `PushdownPrefixState<ValueType>` 与 `PushdownPrefixState<LexLocation>`）会共享同一个 static `Class<?>` 字段，后写者覆盖先写者，导致先实例的数组扩容走错类型引发 ArrayStoreException。token 是实例相关的，应为实例字段。
+- **修复**: `AddRuntimeClassFields` 字段修饰符从 `Private | Static` 改为 `Private`（TypeScript 路径保持 `Final`）；同步更新 4 个既有测试断言。
+- **测试**: `RuntimeClassField_IsInstanceField_NotStatic`（先红后绿）
+- **状态**: ✅ Fixed (2026-08-11) — 全量 dotnet test 通过（2638+691+7），mvn 运行期错误从 12 个降至 2 个（进入 Iteration 12）。
+
+---
+
+## Iteration 12 — IEnumerable 接口强制转换为数组：instanceof 静态检查 + 包装器 toArray
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Routing/Rectilinear/Nudging/StaircaseRemover.java
+- **行号**: 112（processPath）、233（insertPathSegs）
+- **错误信息**: 运行时 `ClassCastException: CSharpList cannot be cast to [LMicrosoft.Msagl.Core.Geometry.Point;`（修复前）；编译期 `不兼容的类型: CSharpGenericIterable<Point>无法转换为Point[]`（中间态）
+- **代码片段**:
+  ```java
+  // C#: (Point[])path.PathPoints  其中 PathPoints 是 IEnumerable<Point>
+  // 最终生成:
+  insertSegs(((Object) (path.getPathPoints())) instanceof Point[]
+      ? (Point[]) (Object) (path.getPathPoints())
+      : (Point[]) (path.getPathPoints()).toArray(new Point[0]));
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Routing\Rectilinear\Nudging\StaircaseRemover.cs（`InsertPathSegs`: `n((Point[])path.PathPoints)`）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs (`TransformCastExpression` 的 IEnumerable→数组分支，约 492-545 行)
+- **分析**: 转换器对 `(T[])expr` 且 expr 静态类型是 IEnumerable 接口时，统一发射 `(T[]) (Object) (expr)` 身份跳转——C# 语义是引用转换（运行时对象 IS T[]）。但 C# 属性 `IEnumerable<Point>` 在 Java 侧被映射为 `CSharpGenericIterable<Point>` 包装器（List），运行时对象根本不是数组 → 身份跳转必然 ClassCastException。修复：具体元素类型时生成运行时检查三元——`(Object)` 跳转绕过 javac 对"接口 instanceof 数组"的静态拒绝（接口到数组的 casting conversion 不允许），真数组时保持零拷贝引用转换，包装器时 `toArray(new T[0])` 物化新数组；类型参数元素（无 class literal）保留原身份跳转语义。
+- **测试**: `CastConcreteIEnumerablePropertyToArray_ConvertsViaToArray`（先红后绿，另用 javac 最小复现验证三元可编译）
+- **状态**: ✅ Fixed (2026-08-11) — 全量 dotnet test 通过，mvn clean package -e → BUILD SUCCESS（用户手动验证）。

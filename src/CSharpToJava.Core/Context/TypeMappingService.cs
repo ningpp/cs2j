@@ -903,6 +903,19 @@ public class TypeMappingService
         if (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>")
             return simpleTypeName;
 
+        // Idempotency: when the caller passes a name that is already package-qualified
+        // (e.g. MapType(outerType) in TryMapNestedType returns "Demo.Layout.Label"
+        // because the simple name collides with another namespace's type), re-qualifying
+        // would double the package prefix ("Demo.Layout.Demo.Layout.Label"). Type
+        // names cannot contain dots, so any dotted name starting with this type's own
+        // package is already fully qualified.
+        var ownPackage = NamespaceToPackage(ns);
+        if (!string.IsNullOrEmpty(ownPackage)
+            && simpleTypeName.StartsWith(ownPackage + ".", StringComparison.Ordinal))
+        {
+            return simpleTypeName;
+        }
+
         // When the type has an explicit configured mapping (e.g. System.Decimal → Decimal
         // with import io.github.ningpp.compat.Decimal), the configured import already
         // resolves any ambiguity — skip namespace qualification.

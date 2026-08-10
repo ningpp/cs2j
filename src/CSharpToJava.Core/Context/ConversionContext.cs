@@ -432,17 +432,15 @@ public class ConversionContext
             }
             if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
             {
-                // The runtime class parameter may belong to another method (global
-                // name-based registry). Ensure the CURRENT method's signature carries
-                // the matching parameter so the emitted _cs2j_{T} reference resolves.
-                var currentMethod2 = context.CurrentMethod;
-                if (currentMethod2 != null)
-                {
-                    context.RequireClassTypeParam(
-                        currentMethod2.ContainingType?.MetadataName ?? "",
-                        currentMethod2.ToDisplayString(),
-                        typeParam.Name);
-                }
+                // The runtime-class-parameter registry is per-method (MethodState is
+                // reset in EnterMethod), so a found parameter is always declared by the
+                // current method's own signature — either the trailing Class<?> clazz
+                // parameter (AddRuntimeClassParametersForTypeParameterArrays) or a
+                // leading Class<T> _cs2j_ parameter (AddPendingRuntimeClassParameters).
+                // Re-registering a pending requirement here would inject a DUPLICATE
+                // leading parameter on top of the trailing one, making the signature
+                // arity mismatch the call sites (which only emit the trailing token
+                // for runtime-class-parameter-covered type parameters).
                 return runtimeClassParam;
             }
             // Register a Class<T> parameter requirement for the current method so that

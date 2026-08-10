@@ -1767,6 +1767,24 @@ public class MethodTransformer : IMemberTransformer
         if (pendingTypeParameters == null || pendingTypeParameters.Count == 0)
             return;
 
+        // Type parameters already covered by the trailing Class<?> clazz parameter
+        // (AddRuntimeClassParametersForTypeParameterArrays) must NOT also get a
+        // leading Class<T> _cs2j_ parameter: call sites only emit the trailing token
+        // for them (GetClassTypeTokensForCall skips runtime-array type params), so
+        // injecting both yields a signature the call sites cannot satisfy. This
+        // happens when the call-site fallback detection (DetectDefaultUsageInMethod)
+        // registered a pending requirement before the method itself was converted.
+        var trailingCoveredTypeParameters = RuntimeClassParameterHelper
+            .GetRequiredTypeParameters(sym, context)
+            .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, sym.OriginalDefinition))
+            .Select(tp => tp.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        pendingTypeParameters = pendingTypeParameters
+            .Where(name => !trailingCoveredTypeParameters.Contains(name))
+            .ToList();
+        if (pendingTypeParameters.Count == 0)
+            return;
+
         // Insert at index 0 in reverse order so the final parameter order matches the
         // order in which the requirements were registered (which is also the order
         // GetClassTypeTokensForCall emits tokens at call sites).

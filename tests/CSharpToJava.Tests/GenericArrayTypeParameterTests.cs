@@ -1,4 +1,4 @@
-using CSharpToJava.Core.Context;
+﻿using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -163,8 +163,8 @@ class UseDemo {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("private static Class<?> kClass;", code);
-        Assert.Contains("private static Class<?> vClass;", code);
+        Assert.Contains("private Class<?> kClass;", code);
+        Assert.Contains("private Class<?> vClass;", code);
         Assert.Contains("public Demo(Class<?> kClass, Class<?> vClass)", code);
         Assert.Contains("this.kClass = kClass;", code);
         Assert.Contains("this.vClass = vClass;", code);
@@ -225,7 +225,7 @@ class Demo<K, V> {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("private static Class<?> tClass;", code);
+        Assert.Contains("private Class<?> tClass;", code);
         Assert.Contains("public Box(Class<?> tClass)", code);
         Assert.Contains("new Box<CSharpList<CSharpDictionary<K, V>>>(CSharpList.class).make(1)", code);
         Assert.DoesNotContain("Class<CSharpList<Map<K, V>>>", code);
@@ -452,7 +452,7 @@ class Tree<T> {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("private static Class<?> tClass;", code);
+        Assert.Contains("private Class<?> tClass;", code);
         Assert.Contains("public Tree(Class<?> tClass)", code);
         Assert.Contains("TypeHelper.newArrayInstance(tClass, size)", code);
         Assert.DoesNotContain("new Object[size]", code);
@@ -575,7 +575,7 @@ struct ArrayBuilder<T> {
         var code = result.GeneratedCode!;
 
         // Struct should get Class<?> field and constructor parameter
-        Assert.Contains("private static Class<?> tClass;", code);
+        Assert.Contains("private Class<?> tClass;", code);
         Assert.Contains("public ArrayBuilder(int capacity, Class<?> tClass)", code);
         // Array creation should use tClass
         Assert.Contains("TypeHelper.newArrayInstance(tClass", code);

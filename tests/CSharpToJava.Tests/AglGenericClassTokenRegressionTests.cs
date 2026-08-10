@@ -1,4 +1,4 @@
-using CSharpToJava.Core.Context;
+﻿using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 
 namespace CSharpToJava.Tests;
@@ -257,6 +257,157 @@ public class AglGenericClassTokenRegressionTests
         Assert.DoesNotContain("crossRectangleNodes(a, b,", callSite.GeneratedCode);
     }
 
+
+    [Fact]
+    public async Task GenericMethodWithDefaultTAndObjectCreation_NoDuplicateLeadingClassParam()
+    {
+        // Regression for agl-master Dot2Graph.Parser.Append: a method-level type
+        // parameter used BOTH by default(T) and by forwarding a Class token to a
+        // generic object creation (new Cell<T>). The call-site fallback detection
+        // registers a pending leading Class<T> _cs2j_ parameter while the trailing
+        // Class<?> clazz parameter (from the object-creation requirement) already
+        // covers the same type parameter. Both were injected, producing a signature
+        // that call sites (which only pass the trailing token) cannot satisfy.
+        var results = await ConvertAsync(new[]
+        {
+            new SourceFile { FilePath = "Cell.cs", Content = """
+                namespace Demo
+                {
+                    public class Cell<T>
+                    {
+                        public Cell<T> left, right;
+                        public T value;
+                        public Cell() { }
+                        public Cell(Cell<T> l, T v, Cell<T> r) { left = l; right = r; value = v; }
+                        public T[] ToArray() { return new T[0]; }
+                    }
+                }
+                """ },
+            new SourceFile { FilePath = "Parser.cs", Content = """
+                namespace Demo
+                {
+                    public class Parser
+                    {
+                        public Cell<string> Foo(Cell<string> a, Cell<string> b)
+                        {
+                            return Append(a, b);
+                        }
+
+                        public Cell<T> Append<T>(Cell<T> x, Cell<T> y)
+                        {
+                            return new Cell<T>(x, default(T), y);
+                        }
+                    }
+                }
+                """ },
+        });
+
+        var parser = Assert.Single(results, r => r.FileName == "Parser.java");
+        Assert.True(parser.Success, string.Join("\n", parser.Diagnostics));
+        // Only the trailing Class<?> clazz parameter may be added — no duplicate
+        // leading Class<T> _cs2j_T parameter.
+        Assert.Contains("<T> Cell<T> append(Cell<T> x, Cell<T> y, Class<?> clazz) {", parser.GeneratedCode);
+        Assert.DoesNotContain("append(Class<T> _cs2j_T,", parser.GeneratedCode);
+        Assert.DoesNotContain("_cs2j_T", parser.GeneratedCode);
+        // The call site passes exactly the trailing token, matching the signature.
+        Assert.Contains("append(a, b, String.class);", parser.GeneratedCode);
+        // The body routes default(T) through the trailing clazz parameter.
+        Assert.Contains("DefaultValue.ofClass(clazz)", parser.GeneratedCode);
+    }
+
+
+    [Fact]
+    public async Task NestedEnumMemberAccess_DoesNotDoubleQualifyNamespace()
+    {
+        // Regression for agl-master msagltests EdgeLabelPlacementTest: `Label.PlacementSide.Top`
+        // (Label from a using'd namespace) was emitted as
+        // `Microsoft.Msagl.Core.Layout.Microsoft.Msagl.Core.Layout.Label.PlacementSide.Top`
+        // — the namespace package was prepended to an already fully-qualified reference.
+        var results = await ConvertAsync(new[]
+        {
+            new SourceFile { FilePath = "Label.cs", Content = """
+                namespace Demo.Layout
+                {
+                    public class Label
+                    {
+                        public enum PlacementSide { Top, Bottom }
+                    }
+                }
+                """ },
+            new SourceFile { FilePath = "Foo.cs", Content = """
+                using Demo.Layout;
+                namespace Demo.UnitTests
+                {
+                    public class Foo
+                    {
+                        public int GetPossibleSides(Label.PlacementSide side) { return 0; }
+
+                        public void Bar()
+                        {
+                            GetPossibleSides(Label.PlacementSide.Top);
+                        }
+                    }
+                }
+                """ },
+        });
+
+        var foo = Assert.Single(results, r => r.FileName == "Foo.java");
+        Assert.True(foo.Success, string.Join("\n", foo.Diagnostics));
+        Assert.DoesNotContain("Demo.Layout.Demo.Layout", foo.GeneratedCode);
+        Assert.DoesNotContain("Layout.Demo", foo.GeneratedCode);
+        // The reference must be qualified at most once.
+        Assert.Contains("Label.PlacementSide.Top", foo.GeneratedCode);
+        Assert.Contains("Label.PlacementSide side", foo.GeneratedCode);
+    }
+
+    [Fact]
+    public async Task RuntimeClassField_IsInstanceField_NotStatic()
+    {
+        // Regression for agl-master QUT.Gppg.PushdownPrefixState<T>: the runtime
+        // Class token field for a class-level type parameter was emitted as STATIC,
+        // so instantiating the generic class twice with different type arguments
+        // clobbered the shared token. In ShiftReduceParser, valueStack<ValueType>
+        // and locationStack<LexLocation> then both grew with the LAST-created
+        // class token, producing
+        //   "arraycopy: type mismatch: can not copy ValueType[] into LexLocation[]".
+        // The field must be per-instance.
+        var results = await ConvertAsync(new[]
+        {
+            new SourceFile { FilePath = "Box.cs", Content = """
+                namespace Demo
+                {
+                    public class Box<T>
+                    {
+                        public T[] Empty() { return new T[0]; }
+                        public Box() { }
+                        public Box(int seed) { }
+                    }
+                }
+                """ },
+            new SourceFile { FilePath = "Use.cs", Content = """
+                namespace Demo
+                {
+                    public class Use
+                    {
+                        public void Go()
+                        {
+                            var a = new Box<Integer>(1);
+                            var b = new Box<String>(2);
+                            a.Empty();
+                            b.Empty();
+                        }
+                    }
+                }
+                """ },
+        });
+
+        var box = Assert.Single(results, r => r.FileName == "Box.java");
+        Assert.True(box.Success, string.Join("\n", box.Diagnostics));
+        Assert.DoesNotContain("static Class<?>", box.GeneratedCode);
+        Assert.Contains("private Class<?> tClass;", box.GeneratedCode);
+        // Every constructor must receive and store the token per instance.
+        Assert.Contains("this.tClass = tClass;", box.GeneratedCode);
+    }
     private static async Task<List<ConversionResult>> ConvertAsync(SourceFile[] files)
     {
         var pipeline = new ProjectConversionPipeline(new ConversionOptions());
