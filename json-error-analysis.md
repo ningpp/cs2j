@@ -63,3 +63,55 @@
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs:346`（`seenMemberKeys` 的 `ParamKey` 去重键只含参数语法类型，不含泛型 arity）
 - **分析**: JsonSerializer 是跨 ~15 文件的 partial 类，成员去重键 `m:{iface}:{name}:{paramTypes}` 对 `Deserialize<TValue>(string, Type, options)`（private, 1 个类型参数）与 `Deserialize(string, Type, options)`（public, 0 个类型参数）产生完全相同键，后者先被处理 → 前者作为"重复"被丢弃。但调用点仍按"泛型方法调用前置 Class 令牌"约定生成 `deserialize(Class<TValue>, String, Class, options)` 4 参调用，与输出中的任何方法都不匹配 → 编译失败。
 - **状态**: 🔴 待修复
+
+## Iteration 4 — 类型变量数目错误 (嵌套委托同名不同 arity)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/MemberAccessor.java:[31,99], Serialization/ReflectionEmitMemberAccessor.java:[86,90], Serialization/ReflectionMemberAccessor.java:[81,90]
+- **行号**: MemberAccessor.java:31
+- **错误信息**: `类型变量数目错误; 需要1`
+- **代码片段**:
+  ```java
+  public abstract <T, TArg0, TArg1, TArg2, TArg3> JsonClassInfo.ParameterizedConstructorDelegate<T, TArg0, TArg1, TArg2, TArg3> createParameterizedConstructor(ConstructorInfo constructor);
+  // 但 JsonClassInfo.java:800 只声明了: @FunctionalInterface public interface ParameterizedConstructorDelegate<T>
+  ```
+- **对应 C# 文件**: `d:\csharpjson\src\System\Text\Json\Serialization\JsonClassInfo.cs`（第 17/19 行两个同名不同 arity 的 delegate）
+- **根因分类**: Transformer（partial 成员去重键 + 嵌套类型重命名缺失）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs:353`（`del:` 键）、`Transformers/Type/DelegateTransformer.cs`、`Context/TypeMappingService.cs:744`（`TryMapNestedType` 引用映射）
+- **分析**: 同一去重键缺陷——`del:{name}` 不含类型参数个数，6-arity 的 `ParameterizedConstructorDelegate<T, TArg0..3>` 被当作 1-arity 的重复而丢弃；且即使保留，Java 也不允许两个同名嵌套类型，必须对非最小 arity 重命名为 `Name_arity`，并保证定义点（DelegateTransformer）与所有引用点（TryMapNestedType）一致。
+- **状态**: ✅ Fixed
+
+## Iteration 5 — 找不到符号 toByteArray() + 无法推断 ReadOnlyMemory<> 类型参数 (ReadOnlyMemory<byte> 缺 compat API)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java:[598,99]、JsonSerializer.java:[1199,45]
+- **行号**: JsonDocument.java:598
+- **错误信息**: `找不到符号 方法 toByteArray() 位置: 类 io.github.ningpp.compat.ReadOnlyMemory<java.lang.Integer>`
+- **代码片段**:
+  ```java
+  // JsonDocument.CloneElement — C# ReadOnlyMemory<byte> segmentCopy = GetRawValue(...).ToArray();
+  ReadOnlyMemory<Integer> segmentCopy = new ReadOnlyMemory<Integer>(getRawValue(index, true).toByteArray());
+  // JsonSerializer — C# return output.WrittenMemory.ToArray();   (byte[] 返回)
+  return output.getWrittenMemory().toByteArray();
+  ```
+- **对应 C# 文件**: `d:\csharpjson\src\System\Text\Json\Document\JsonDocument.cs:772`、`d:\csharpjson\src\System\Text\Json\Serialization\JsonSerializer.Write.Stream.cs`（`WrittenMemory.ToArray()`）
+- **根因分类**: 类型映射缺失（compat 库 API 缺口，非转换器输出错误）
+- **涉及组件**: `java/csharptojava-compat/.../ReadOnlyMemory.java`（缺 `byte[]` 构造器与 `toByteArray()`）；转换器侧 `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs:2943-2955`（`ReadOnlyMemory<byte>.ToArray()` → `.toByteArray()`，与 `ExpressionTransformerHelpers.cs:348-352`（隐式 `byte[]`→`ReadOnlyMemory<byte>` 包 `new ReadOnlyMemory<Integer>(...)`）
+- **分析**: 转换器按设计约定 `byte` 泛型实参装箱为 `Integer`，`ToArray()` 输出 `toByteArray()`；但 compat `ReadOnlyMemory<T>` 只有 `toArray()`/`T[]` 构造器，缺少 `byte[]` 构造器与 `toByteArray()`（`ReadOnlySpan`/`Span` 已有）。compat 补齐后生成代码可直接编译。
+- **测试**: `java/csharptojava-compat/.../ReadOnlyMemoryByteCtorTest.java`（RED→GREEN）、`tests/CSharpToJava.Tests/ReadOnlyMemoryToByteArrayTests.cs`
+- **状态**: ✅ Fixed
+
+## Iteration 6 — 无法取消引用 int/long (指针强转非法追加 .address())
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonReaderHelper.java:[116,60][236,62][237,48][251,27][257,24][258,47][275-296]
+- **行号**: JsonReaderHelper.java:116
+- **错误信息**: `无法取消引用int`；`无法取消引用long`
+- **代码片段**:
+  ```java
+  // C#: int unaligned = (int)Unsafe.AsPointer(ref searchSpace) & (Vector<byte>.Count - 1);
+  int unaligned = (int)(Unsafe.asPointer(searchSpace).address()) & (Vector.getCount() - 1);  // asPointer 返回 int
+  // C#: if (((int)(byte*)index < length)) { ... return (int)(byte*)index; }
+  if ((int)(index.address()) < length) { ... }   // index 是 long（IntPtr 映射）
+  return (int)((index + 1).address());
+  ```
+- **对应 C# 文件**: `d:\csharpjson\src\System\Text\Json\Reader\JsonReaderHelper.cs`（`IndexOfOrLessThan`）
+- **根因分类**: Transformer（指针→整型强转规则无条件追加 `.address()`）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs:278-285`
+- **分析**: `(int)ptr` 规则假设指针操作数在 Java 中必为 MemorySegment；但对 IntPtr→long 的整数值、数字字面量指针 `(byte*)8`、以及 compat 返回 int 的 `Unsafe.asPointer(...)`，值本身就是裸地址，追加 `.address()` 生成非法 Java。修复：解析嵌套指针强转链到叶子（整型/IntPtr → 裸值）并识别 `Unsafe.AsPointer` 调用，仅对真实 MemorySegment 追加 `.address()`（与 BinaryExpressionTransformer.TransformPointerComparisonOperand 的既有约定一致）。
+- **测试**: `tests/CSharpToJava.Tests/PointerCastToIntegralTests.cs`（RED→GREEN，含真实指针仍追加 `.address()` 的防回归用例）
+- **状态**: ✅ Fixed

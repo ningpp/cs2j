@@ -272,6 +272,27 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return expression;
         }
 
+        // C# (int)ptr / (long)ptr: casting a pointer to an integral type. Java's
+        // MemorySegment cannot be cast to int/long directly — the numeric value of
+        // a pointer is its address (long), so narrow the address to the target type.
+        // Pointer casts of integral values (IntPtr/UIntPtr → long, numeric literals
+        // like (byte*)8) and Unsafe.AsPointer(...) results are already raw numeric
+        // addresses in Java — appending .address() to them would produce invalid
+        // Java (8.address(), index.address() on a long).
+        if (context.GetTypeInfo(node.Expression).Type is IPointerTypeSymbol
+            && targetSymbol?.SpecialType is SpecialType.System_Int32 or SpecialType.System_UInt32
+                or SpecialType.System_Int64 or SpecialType.System_UInt64)
+        {
+            bool rawValue = PointerOperandIsRawNumericValue(node.Expression, context);
+            if (rawValue)
+            {
+                return $"({targetType})({expression})";
+            }
+            return targetType == "long"
+                ? $"{expression}.address()"
+                : $"({targetType})({expression}.address())";
+        }
+
         // C# enum -> enum cast: convert through the underlying value.
         // Java enum casts only work within an inheritance hierarchy, which enums do not have.
         if (targetSymbolForEnumCheck?.TypeKind == TypeKind.Enum
@@ -1614,6 +1635,39 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             ("boolean", "Boolean") or ("char", "Character") => true,
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Determines whether a pointer-typed operand renders as a raw numeric value
+    /// in Java rather than a MemorySegment. Real segment pointers expose
+    /// .address(); pointer casts of integral values (IntPtr/UIntPtr → long,
+    /// numeric literals like (byte*)8) and Unsafe.AsPointer(...) results are
+    /// already raw numeric addresses, so .address() must not be appended.
+    /// </summary>
+    private static bool PointerOperandIsRawNumericValue(ExpressionSyntax operand, ConversionContext context)
+    {
+        var inner = operand;
+        while (inner is CastExpressionSyntax cast)
+        {
+            inner = cast.Expression;
+        }
+
+        if (inner is InvocationExpressionSyntax invocation)
+        {
+            var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (method?.Name == "AsPointer" && method.ContainingType?.Name == "Unsafe")
+                return true;
+        }
+
+        var type = context.GetTypeInfo(inner).Type;
+        if (type == null)
+            return false;
+
+        return type.SpecialType is
+            SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Int16 or
+            SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UInt16 or
+            SpecialType.System_Byte or SpecialType.System_SByte or SpecialType.System_Char or
+            SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
     }
 
     private static string targetNameOf(string wrapperType)

@@ -34,6 +34,36 @@ public final class ReadOnlyMemory<T> {
         this(array, 0, array == null ? 0 : array.length);
     }
 
+    /** Primitive byte[] backing — mirrors C# byte[] → ReadOnlyMemory&lt;byte&gt;. */
+    public ReadOnlyMemory(byte[] array) {
+        this(array, 0, array == null ? 0 : array.length);
+    }
+
+    /** Primitive byte[] slice backing — mirrors C# new ReadOnlyMemory&lt;byte&gt;(byte[], start, length). */
+    @SuppressWarnings("unchecked")
+    public ReadOnlyMemory(byte[] array, int start, int length) {
+        if (array == null) {
+            if (start != 0 || length != 0) {
+                throw new IndexOutOfBoundsException("start=" + start + ", length=" + length);
+            }
+            this.backing = null;
+            this.start = 0;
+            this.length = 0;
+            return;
+        }
+        if (start < 0 || length < 0 || start + length > array.length) {
+            throw new IndexOutOfBoundsException(
+                "start=" + start + ", length=" + length + ", arrayLength=" + array.length);
+        }
+        T[] converted = (T[]) new Integer[length];
+        for (int i = 0; i < length; i++) {
+            converted[i] = (T) Integer.valueOf(array[start + i] & 0xFF);
+        }
+        this.backing = converted;
+        this.start = 0;
+        this.length = length;
+    }
+
     /** Copy constructor — allows re-wrapping a ReadOnlyMemory without type inference issues. */
     public ReadOnlyMemory(ReadOnlyMemory<T> other) {
         this.backing = other.backing;
@@ -161,6 +191,25 @@ public final class ReadOnlyMemory<T> {
         @SuppressWarnings("unchecked")
         T[] array = (T[]) backing;
         return Arrays.copyOfRange(array, start, start + length);
+    }
+
+    /**
+     * Materializes the byte-typed memory as a primitive byte[] (elements
+     * narrowed from the boxed representation). Mirrors C# ReadOnlyMemory&lt;byte&gt;
+     * .ToArray() / the ReadOnlySpan.toByteArray() convention.
+     */
+    public byte[] toByteArray() {
+        if (backing == null) {
+            return new byte[0];
+        }
+        if (backing instanceof Integer[] array) {
+            byte[] result = new byte[length];
+            for (int i = 0; i < length; i++) {
+                result[i] = (byte) (array[start + i].intValue() & 0xFF);
+            }
+            return result;
+        }
+        throw new IllegalStateException("toByteArray() requires a byte-backed memory");
     }
 
     @Override
