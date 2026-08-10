@@ -101,6 +101,34 @@ internal static class StructCloneHelper
         => IsRefParamReadOnlyCore(parameter, null, null);
 
     /// <summary>
+    /// Hierarchy-aware variant of <see cref="IsRefParamEffectivelyReadOnly"/>: the
+    /// ref param of an overriding method skips ObjectHolder wrapping only when every
+    /// method in the override chain also qualifies. Abstract base declarations have
+    /// no body (analysis is conservative → not read-only → holder), so overrides
+    /// must render the holder signature too or javac reports "does not override
+    /// abstract method" (e.g. ArrayConverter.createCollection vs its abstract base).
+    /// </summary>
+    public static bool IsRefParamEffectivelyReadOnlyInHierarchy(IParameterSymbol parameter)
+    {
+        if (!IsRefParamEffectivelyReadOnly(parameter))
+            return false;
+
+        var method = parameter.ContainingSymbol as IMethodSymbol;
+        if (method == null)
+            return false;
+
+        int index = method.Parameters.IndexOf(parameter);
+        var overridden = method.OverriddenMethod;
+        while (overridden != null && index >= 0 && index < overridden.Parameters.Length)
+        {
+            if (!IsRefParamEffectivelyReadOnly(overridden.Parameters[index]))
+                return false;
+            overridden = overridden.OverriddenMethod;
+        }
+        return true;
+    }
+
+    /// <summary>
     /// Checks whether a <b>value</b> parameter of a user-defined struct type is
     /// "effectively read-only" in the method body — i.e., the method never modifies
     /// the parameter variable itself, its fields, or forwards it via ref/out to a

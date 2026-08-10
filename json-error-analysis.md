@@ -115,3 +115,19 @@
 - **分析**: `(int)ptr` 规则假设指针操作数在 Java 中必为 MemorySegment；但对 IntPtr→long 的整数值、数字字面量指针 `(byte*)8`、以及 compat 返回 int 的 `Unsafe.asPointer(...)`，值本身就是裸地址，追加 `.address()` 生成非法 Java。修复：解析嵌套指针强转链到叶子（整型/IntPtr → 裸值）并识别 `Unsafe.AsPointer` 调用，仅对真实 MemorySegment 追加 `.address()`（与 BinaryExpressionTransformer.TransformPointerComparisonOperand 的既有约定一致）。
 - **测试**: `tests/CSharpToJava.Tests/PointerCastToIntegralTests.cs`（RED→GREEN，含真实指针仍追加 `.address()` 的防回归用例）
 - **状态**: ✅ Fixed
+
+## Iteration 7 — 找不到符号: 变量 converters (hoisted 局部函数捕获注册泄漏)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/IEnumerableDefaultConverter.java:[70,29][83,29][147,29]、DictionaryDefaultConverter.java:[96,43][115,43][192,43]
+- **行号**: IEnumerableDefaultConverter.java:70
+- **错误信息**: 找不到符号 符号: 变量 converters
+- **代码片段**:
+  `java
+  // C#: Add(element!, ref state);        → 生成:
+  add(element, state, converters);        // converters 是幽灵实参（C# 中不存在）
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\JsonSerializerOptions.Converters.cs（GetDefaultSimpleConverters 内局部函数 oid Add(JsonConverter converter) => converters.Add(...) 捕获了局部变量 converters）
+- **根因分类**: 语义丢失（MethodState 按名称登记的捕获表跨方法/跨文件泄漏）
+- **涉及组件**: src/CSharpToJava.Core/Context/MethodConversionState.cs（Reset() 漏清 _hoistedLocalFunctionCaptures/_hoistedLocalFunctionDefaults）
+- **分析**: 局部函数提升机制把"Add→捕获 converters"登记在 per-context 的 MethodState 中；EnterMethod→Reset() 清除了局部函数列表却漏掉捕获表。后续任何文件/方法中名为 Add 的裸调用都会命中捕获表，把陈旧的 converters 追加为实参（JsonSerializerOptions 自己因巧合"正确"，其他类全部报错）。
+- **测试**: 	ests/CSharpToJava.Tests/HoistedLocalFunctionCaptureScopeTests.cs（RED→GREEN）
+- **状态**: ✅ Fixed

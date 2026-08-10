@@ -633,7 +633,7 @@ public class ConversionContext
         IsInAsyncContext = false;
         ReturnsCSharpGenericIterable = false;
         var readOnlyParams = method?.Parameters
-            .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnly(p))
+            .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(p))
             .Select(p => p.Name);
         MethodState.Reset(readOnlyParams);
         _addressOfScratchSegments.Clear();
