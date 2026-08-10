@@ -25,8 +25,9 @@ class Test
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode;
-        // CSharpKeyValuePair has getValue() directly, no cast needed
-        Assert.Contains("new CSharpKeyValuePair(a, b).getValue()", code);
+        // CSharpKeyValuePair has getValue() directly, no cast needed; the new-expression
+        // receiver keeps its type arguments.
+        Assert.Contains("new CSharpKeyValuePair<String, Integer>(a, b).getValue()", code);
     }
 
     [Fact]

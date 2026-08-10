@@ -950,7 +950,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var transformedExpr = instanceReceiverTarget ?? facade.Transform(node.Expression, context);
         var target = staticTypeTarget ?? transformedExpr;
         // Strip type arguments from type qualifiers — Java forbids Type<T>.member().
-        target = ExpressionTransformerHelpers.StripTypeArguments(target);
+        // Only STATIC type receivers need this. Instance receivers must keep their type
+        // arguments: ((JsonParameterInfo1<TArg0>)x).getTypedDefaultValue() needs the args
+        // so the getter returns TArg0 instead of Object on the raw type.
+        if (staticTypeTarget != null)
+            target = ExpressionTransformerHelpers.StripTypeArguments(target);
 
         // Fix: When the receiver resolved to a Java primitive keyword (double, int, float, etc.)
         // but the member is a primitive static constant (MaxValue, NaN, etc.), the receiver must

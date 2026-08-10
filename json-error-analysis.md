@@ -305,3 +305,19 @@
 - **分析**: 转换器传入运行时 Class 字段（Class<?>），compat 	ryParse(String, ObjectHolder<T>, Class<T>) 的泛型推断得到捕获类型而无法匹配。改为 Class<?>（T 从 ObjectHolder 推断）。
 - **测试**: java/csharptojava-compat/.../EnumHelperTryParseWildcardClassTest.java（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 18 — 不兼容的类型: Object[] 无法转换为 Tuple5<...>[] (ArrayPool.Rent 结果未强转)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/ObjectWithParameterizedConstructorConverter.java:[178,41][302,46]
+- **行号**: ObjectWithParameterizedConstructorConverter.java:178
+- **错误信息**: 不兼容的类型: java.lang.Object[]无法转换为Tuple5<...>[]
+- **代码片段**:
+  `java
+  var newCache = ArrayPool.rentShared(Tuple5.class, len * 2);   // 推断出 raw/Object[]
+  argumentState.FoundProperties = newCache;                     // Tuple5<...>[] = Object[] 非法
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Object\ObjectWithParameterizedConstructorConverter.cs（ArrayPool<FoundProperty>.Shared.Rent(...)，FoundProperty = ValueTuple<5>）
+- **根因分类**: Transformer（ArrayPool.Rent 调用未带目标数组类型强转）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（ArrayPool.Rent 路径）
+- **分析**: entShared(T.class, n) 只能推断出 raw 元素类型，ar 承接后赋值给参数化 T[] 失败。生成 ({javaElem}[]) ArrayPool.rentShared(...) 显式强转。
+- **测试**: 	ests/CSharpToJava.Tests/ArrayPoolRentTypedCastTests.cs（RED→GREEN；既有 ArrayPoolTypeWitnessTests 子串断言兼容）
+- **状态**: ✅ Fixed

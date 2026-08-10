@@ -272,6 +272,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return expression;
         }
 
+        if (targetType.Contains("JsonParameterInfo"))
+        {
+            System.Console.WriteLine($"[CS2J-TRACE-CAST] cast target='{node.Type}' targetType='{targetType}' targetSym='{targetSymbol?.ToDisplayString()}'");
+        }
+
         // C# (int)ptr / (long)ptr: casting a pointer to an integral type. Java's
         // MemorySegment cannot be cast to int/long directly — the numeric value of
         // a pointer is its address (long), so narrow the address to the target type.
