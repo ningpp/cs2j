@@ -321,3 +321,20 @@
 - **分析**: entShared(T.class, n) 只能推断出 raw 元素类型，ar 承接后赋值给参数化 T[] 失败。生成 ({javaElem}[]) ArrayPool.rentShared(...) 显式强转。
 - **测试**: 	ests/CSharpToJava.Tests/ArrayPoolRentTypedCastTests.cs（RED→GREEN；既有 ArrayPoolTypeWitnessTests 子串断言兼容）
 - **状态**: ✅ Fixed
+
+## Iteration 19 — 不兼容的类型: Object 无法转换为 TArg0 (成员访问接收者泛型实参被剥离)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/SmallObjectWithParameterizedConstructorConverter.java:[99,84][103,84][107,84][111,84]
+- **行号**: SmallObjectWithParameterizedConstructorConverter.java:99
+- **错误信息**: 不兼容的类型: java.lang.Object无法转换为TArg0
+- **代码片段**:
+  `java
+  // C#: arguments.Arg0 = ((JsonParameterInfo<TArg0>)parameterInfo).TypedDefaultValue!;
+  arguments.Arg0 = ((JsonParameterInfo1)(parameterInfo)).getTypedDefaultValue();   // raw → Object
+  // 同文件另一处裸强转保留实参: var info = (JsonParameterInfo1<TArg>)(jsonParameterInfo);
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Object\ObjectWithParameterizedConstructorConverter.Small.cs
+- **根因分类**: Transformer（成员访问对实例接收者误剥泛型实参）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs（TransformMemberAccess 的 StripTypeArguments）
+- **分析**: Type<T>.member() 的静态类型限定符剥离逻辑被应用到所有接收者：强转接收者 ((JsonParameterInfo1<TArg0>)x).getTypedDefaultValue() 被剥成 raw 类型 → getter 返回 Object。改为仅对静态类型接收者剥离。
+- **测试**: 	ests/CSharpToJava.Tests/CastReceiverTypeArgsTests.cs（RED→GREEN，含静态接收者仍剥离的防回归）；既有 KeyValuePairMemberAccessPrecedenceTests 断言同步为带实参形态
+- **状态**: ✅ Fixed

@@ -12,6 +12,12 @@ public final class CSharpKeyValuePair<K, V> implements Map.Entry<K, V> {
         this.value = value;
     }
 
+    /** Mirrors default(KeyValuePair&lt;K,V&gt;) — zero key/value. */
+    public CSharpKeyValuePair() {
+        this.key = null;
+        this.value = null;
+    }
+
     @Override
     public K getKey() {
         return key;
