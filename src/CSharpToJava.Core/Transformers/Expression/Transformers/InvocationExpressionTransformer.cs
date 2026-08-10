@@ -49,11 +49,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ["Char"]    = "char",
     };
 
-    public string Transform(ExpressionSyntax node, ConversionContext context) => node.Kind() switch
+    public string Transform(ExpressionSyntax node, ConversionContext context)
     {
-        SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
-        _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
-    };
+        return node.Kind() switch
+        {
+            SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
+            _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
+        };
+    }
 
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)

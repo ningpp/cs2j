@@ -704,6 +704,11 @@ public class MethodConversionState
         LambdaCapturePreScanDone = false;
         _hoistedLocalFunctions.Clear();
         _nonHoistedLocalFunctions.Clear();
+        // Captures/defaults of one method's local functions must not leak into
+        // later methods (e.g. a local function "Add" capturing "converters"
+        // appended converters to every later Add(...) call site).
+        _hoistedLocalFunctionCaptures.Clear();
+        _hoistedLocalFunctionDefaults.Clear();
         Labels.Clear();
         GotoAnalyzer = null;
         _postLoopGotoLabels.Clear();
