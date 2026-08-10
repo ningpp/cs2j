@@ -146,6 +146,22 @@ public final class Utf8Parser {
         return tryParseInt64(source, value, bytesConsumed);
     }
 
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out bool, out int). */
+    public static boolean tryParse(ReadOnlySpan<Integer> source, BoolHolder value, IntHolder bytesConsumed) {
+        String text = spanToString(source).trim();
+        if (text.equalsIgnoreCase("true")) {
+            value.value = true;
+            bytesConsumed.value = text.length();
+            return true;
+        }
+        if (text.equalsIgnoreCase("false")) {
+            value.value = false;
+            bytesConsumed.value = text.length();
+            return true;
+        }
+        return false;
+    }
+
     /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out UUID, out int, char standardFormat). */
     public static boolean tryParseUuid(ReadOnlySpan<Integer> source, ObjectHolder<UUID> value, IntHolder bytesConsumed, char standardFormat) {
         String text = spanToString(source).trim();

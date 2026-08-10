@@ -1542,12 +1542,39 @@ public class MethodTransformer : IMemberTransformer
                 return "CompletableFuture";
             }
 
-            return context.MapType(typeInfo.Type);
+            var mappedReturnType = context.MapType(typeInfo.Type);
+            // Override of a generic base method: a position where the base renders
+            // its type parameter (T=Boolean etc.) must use the boxed wrapper —
+            // boolean read() does not override Boolean read().
+            if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.OverrideKeyword))
+                && (context.GetDeclaredSymbol(methodDecl) as IMethodSymbol)?.OverriddenMethod is IMethodSymbol overriddenReturn
+                && overriddenReturn.OriginalDefinition.ReturnType is ITypeParameterSymbol)
+            {
+                return BoxJavaPrimitive(mappedReturnType);
+            }
+            return mappedReturnType;
         }
 
         // Semantic model failed to resolve the type — fall back to the syntax text
         return context.MapTypeFromSyntax(actualReturnType);
     }
+
+    /// <summary>
+    /// Boxes a Java primitive type name to its wrapper for generic signature
+    /// positions (e.g. boolean → Boolean to match an overridden abstract T slot).
+    /// </summary>
+    private static string BoxJavaPrimitive(string javaType) => javaType switch
+    {
+        "int" => "Integer",
+        "long" => "Long",
+        "short" => "Short",
+        "byte" => "Byte",
+        "float" => "Float",
+        "double" => "Double",
+        "boolean" => "Boolean",
+        "char" => "Character",
+        _ => javaType
+    };
 
     /// <summary>
     /// Returns true when the method body calls members ON the __suppress__-typed parameters
@@ -1624,6 +1651,23 @@ public class MethodTransformer : IMemberTransformer
                 && !MethodReferencesSuppressedParams(suppressedMethodDecl, context)))
         {
             return null;
+        }
+
+        // Override of a generic base method: a parameter position where the base
+        // renders its type parameter (T=Boolean etc.) must use the boxed wrapper —
+        // write(boolean) does not override write(Boolean). Applied to javaType so
+        // the ref/out holder wrapping below also sees the boxed type.
+        if (param.Parent is ParameterListSyntax paramList
+            && paramList.Parent is MethodDeclarationSyntax paramMethodDecl
+            && paramMethodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.OverrideKeyword))
+            && (context.GetDeclaredSymbol(paramMethodDecl) as IMethodSymbol)?.OverriddenMethod is IMethodSymbol overriddenParams)
+        {
+            int paramIndex = paramList.Parameters.IndexOf(param);
+            if (paramIndex >= 0 && paramIndex < overriddenParams.Parameters.Length
+                && overriddenParams.Parameters[paramIndex].OriginalDefinition.Type is ITypeParameterSymbol)
+            {
+                javaType = BoxJavaPrimitive(javaType);
+            }
         }
 
         var paramName = ConversionContext.EscapeJavaKeyword(param.Identifier.Text);

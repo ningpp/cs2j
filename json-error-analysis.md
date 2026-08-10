@@ -149,3 +149,19 @@
 - **分析**: "ref 结构体参数从不重赋值 → 跳过 ObjectHolder"的分析对每个方法独立计算：抽象基类无方法体 → 保守 → 包 Holder；覆写有方法体且不重赋值 → 裸参数。同一 C# 签名渲染成两个 Java 签名，javac 报"未覆盖抽象方法"。修复：IsRefParamEffectivelyReadOnlyInHierarchy 要求整条覆写链都满足才跳过 Holder。
 - **测试**: 	ests/CSharpToJava.Tests/RefHolderOverrideConsistencyTests.cs（RED→GREEN，含非抽象基类走自身分析的防回归用例）
 - **状态**: ✅ Fixed
+
+## Iteration 9 — 不兼容的类型: CSharpGenericIterable 无法转换为 TElement[] ((T[])(IEnumerable) 双重强转)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/ArrayConverter.java:[48,33]
+- **行号**: ArrayConverter.java:48
+- **错误信息**: 不兼容的类型: io.github.ningpp.compat.CSharpGenericIterable<capture#1, 共 ?>无法转换为TElement[]
+- **代码片段**:
+  `java
+  // C#: TElement[] array = (TElement[])(IEnumerable)value;
+  var array = (TElement[])((CSharpGenericIterable<?>)(value));   // 接口类型不能强转为数组
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Collection\ArrayConverter.cs（OnWriteResume）
+- **根因分类**: Transformer（枚举接口→数组强转漏判）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs（数组强转规则只查 AllInterfaces，未覆盖"源类型本身是 IEnumerable"）
+- **分析**: System.Collections.IEnumerable 映射为 CSharpGenericIterable<?>；随后 (TElement[]) 强转该接口类型在 Java 非法。C# 语义是引用强转（运行时对象就是 TElement[]），应经 Object 中转：(TElement[]) (Object) (expr)。
+- **测试**: 	ests/CSharpToJava.Tests/EnumerableInterfaceToArrayCastTests.cs（RED→GREEN）
+- **状态**: ✅ Fixed
