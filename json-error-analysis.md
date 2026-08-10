@@ -131,3 +131,21 @@
 - **分析**: 局部函数提升机制把"Add→捕获 converters"登记在 per-context 的 MethodState 中；EnterMethod→Reset() 清除了局部函数列表却漏掉捕获表。后续任何文件/方法中名为 Add 的裸调用都会命中捕获表，把陈旧的 converters 追加为实参（JsonSerializerOptions 自己因巧合"正确"，其他类全部报错）。
 - **测试**: 	ests/CSharpToJava.Tests/HoistedLocalFunctionCaptureScopeTests.cs（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 8 — 不是抽象的, 并且未覆盖抽象方法 createCollection (ref 参数 Holder 包裹不一致)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/ArrayConverter.java:[26,14]（同族：ListOfTConverter、QueueOfTConverter、StackOfTConverter、ConcurrentQueue/StackOfTConverter、ImmutableEnumerableOfTConverter）
+- **行号**: ArrayConverter.java:26
+- **错误信息**: ArrayConverter不是抽象的, 并且未覆盖IEnumerableDefaultConverter中的抽象方法createCollection(ObjectHolder<Utf8JsonReader>,ObjectHolder<ReadStack>,JsonSerializerOptions)
+- **代码片段**:
+  `java
+  // 基类抽象（无方法体 → 保守判定 → ref 参数包 Holder）:
+  protected abstract void createCollection(ObjectHolder<Utf8JsonReader> reader, ObjectHolder<ReadStack> state, JsonSerializerOptions options);
+  // 子类覆写（有方法体且未重赋值 → 判定只读 → 裸参数）:
+  protected void createCollection(Utf8JsonReader reader, ReadStack state, JsonSerializerOptions options) { ... }
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Collection\ArrayConverter.cs（CreateCollection(ref Utf8JsonReader reader, ref ReadStack state, ...) override）
+- **根因分类**: Transformer（ref 参数只读分析未沿覆写链对齐）
+- **涉及组件**: src/CSharpToJava.Core/Context/ConversionContext.cs（EnterMethod 的 readOnlyParams 计算）、src/CSharpToJava.Core/Transformers/StructCloneHelper.cs（IsRefParamEffectivelyReadOnly）
+- **分析**: "ref 结构体参数从不重赋值 → 跳过 ObjectHolder"的分析对每个方法独立计算：抽象基类无方法体 → 保守 → 包 Holder；覆写有方法体且不重赋值 → 裸参数。同一 C# 签名渲染成两个 Java 签名，javac 报"未覆盖抽象方法"。修复：IsRefParamEffectivelyReadOnlyInHierarchy 要求整条覆写链都满足才跳过 Holder。
+- **测试**: 	ests/CSharpToJava.Tests/RefHolderOverrideConsistencyTests.cs（RED→GREEN，含非抽象基类走自身分析的防回归用例）
+- **状态**: ✅ Fixed

@@ -493,6 +493,17 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             var sourceType = context.GetTypeInfo(node.Expression).Type as INamedTypeSymbol;
             if (sourceType != null && sourceType.SpecialType != SpecialType.System_Array)
             {
+                // Source is an IEnumerable interface itself (e.g. (TElement[])(IEnumerable)x):
+                // the value's runtime type is the array, so the C# cast is a reference cast —
+                // hop through Object instead of converting (CSharpGenericIterable<?> cannot be
+                // cast to an array type in Java).
+                if (sourceType.OriginalDefinition?.ToDisplayString() is
+                    "System.Collections.IEnumerable" or
+                    "System.Collections.Generic.IEnumerable<T>")
+                {
+                    return $"({targetType}) (Object) ({expression})";
+                }
+
                 bool isEnumerableLike = sourceType.AllInterfaces.Any(i =>
                     i.OriginalDefinition?.ToDisplayString() is
                         "System.Collections.Generic.IEnumerable<T>" or
