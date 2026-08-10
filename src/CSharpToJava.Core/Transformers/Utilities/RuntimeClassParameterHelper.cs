@@ -51,6 +51,18 @@ internal static class RuntimeClassParameterHelper
                 if (semanticModel.GetDeclaredSymbol(ctor) is IMethodSymbol ctorSymbol)
                     AddClassOwnedRequirements(ctorSymbol.OriginalDefinition, context, visiting, required);
             }
+
+            // Field initializers run inside the constructor in C#; their typeof(T)
+            // references class-level type parameters that need runtime Class fields.
+            foreach (var field in declaration.Members.OfType<FieldDeclarationSyntax>())
+            {
+                foreach (var typeOf in field.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+                {
+                    if (semanticModel.GetTypeInfo(typeOf.Type).Type is ITypeParameterSymbol tp
+                        && tp.DeclaringMethod == null)
+                        AddUnique(required, tp);
+                }
+            }
         }
 
         AddBaseClassForwardingRequirements(originalType, context, required);

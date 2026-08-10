@@ -1267,6 +1267,11 @@ public partial class StatementTransformer
                     {
                         var operandExpr = ExpressionTransformerFacade.Instance.Transform(addrOf.Operand, context);
                         var arrayType = FfmHelper.GetScratchArrayType(info.CSharpElementTypeName);
+                        // ref element values (e.g. MemoryMarshal.getReference) surface as
+                        // boxed Integers — narrow to the scratch array's element type.
+                        if (arrayType is "byte" or "sbyte" or "short"
+                            && (operandExpr.Contains("getReference(") || operandExpr.Contains(".get(")))
+                            operandExpr = $"(byte)({operandExpr})";
                         sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
                     }
                 }

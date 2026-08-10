@@ -625,6 +625,15 @@ public class MathHelper {
         return writeFormattedToSpan(formatValue(format, value), dest, charsWritten);
     }
 
+    public static boolean tryFormatInt(int value, Span<Character> dest, IntHolder charsWritten, ReadOnlySpan<Character> format) {
+        Character[] boxed = format.toArray();
+        char[] str = new char[boxed.length];
+        for (int i = 0; i < boxed.length; i++) {
+            str[i] = boxed[i];
+        }
+        return tryFormatInt(value, dest, charsWritten, new String(str));
+    }
+
     public static boolean tryFormatUInt(long value, Span<Character> dest, IntHolder charsWritten, String format) {
         return writeFormattedToSpan(formatValue(format, Long.toUnsignedString(value)), dest, charsWritten);
     }

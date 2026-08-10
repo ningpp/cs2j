@@ -98,11 +98,12 @@ public class JavaScriptEncoder {
 
     /**
      * Mirrors JavaScriptEncoder.Encode(ReadOnlySpan&lt;char&gt;, Span&lt;byte&gt;, out int, out int).
-     * Encodes UTF-16 characters to escaped UTF-8 bytes.
+     * Encodes UTF-16 characters to escaped UTF-8 bytes. The destination is a raw Span
+     * so both byte-span and char-span call sites erase to the same Java signature.
      */
-    public OperationStatus encode(ReadOnlySpan<Character> source, Span<Integer> destination,
-                                  IntHolder charsConsumed, IntHolder bytesWritten) {        int written = 0;        int consumed = 0;
-        while (consumed < source.length()) {
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public OperationStatus encode(ReadOnlySpan<Character> source, Span destination,
+                                  IntHolder charsConsumed, IntHolder bytesWritten) {        int written = 0;        int consumed = 0;        while (consumed < source.length()) {
             int ch = source.get(consumed);
             if (needsEscapingUtf16(ch)) {
                 if (written + 6 > destination.length()) {
@@ -129,7 +130,8 @@ public class JavaScriptEncoder {
         return OperationStatus.Done;
     }
 
-    public OperationStatus encode(Span<Character> source, Span<Integer> destination,
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public OperationStatus encode(Span<Character> source, Span destination,
                                   IntHolder charsConsumed, IntHolder bytesWritten) {
         return encode(new ReadOnlySpan<>(source.toArray(), 0, source.getLength()),
             destination, charsConsumed, bytesWritten);

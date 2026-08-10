@@ -229,6 +229,15 @@ public final class ReadOnlySpan<T> {
         return result;
     }
 
+    /** Materializes the slice as a primitive char[]. Used for MemorySegment.ofArray. */
+    public char[] toCharArray() {
+        char[] result = new char[length];
+        for (int i = 0; i < length; i++) {
+            result[i] = (char)((Character) get(i)).charValue();
+        }
+        return result;
+    }
+
     /**
      * Rebuilds a ReadOnlySpan&lt;Integer&gt; (the converter's byte-span shape) from a
      * pinned MemorySegment, mirroring C# new ReadOnlySpan&lt;byte&gt;((byte*)ptr, length).

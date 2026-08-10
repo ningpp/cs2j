@@ -335,7 +335,7 @@ class MathHelperTest {
         Character[] arr = new Character[20];
         Span<Character> dest = new Span<>(arr);
         IntHolder written = new IntHolder();
-        assertTrue(MathHelper.tryFormatInt(42, dest, written, null));
+        assertTrue(MathHelper.tryFormatInt(42, dest, written, (String) null));
         assertEquals(2, written.value);
         assertEquals('4', dest.get(0));
         assertEquals('2', dest.get(1));
@@ -357,7 +357,7 @@ class MathHelperTest {
         Character[] arr = new Character[20];
         Span<Character> dest = new Span<>(arr);
         IntHolder written = new IntHolder();
-        assertTrue(MathHelper.tryFormatInt(-1, dest, written, null));
+        assertTrue(MathHelper.tryFormatInt(-1, dest, written, (String) null));
         assertEquals(2, written.value);
         assertEquals('-', dest.get(0));
         assertEquals('1', dest.get(1));

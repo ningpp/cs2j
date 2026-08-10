@@ -405,6 +405,13 @@ public class ConversionContext
         // Handle type parameters (e.g., T from a generic method) — cannot use T.class in Java.
         if (typeSymbol is ITypeParameterSymbol typeParam)
         {
+            // Class-level type parameters map to runtime Class fields (added by
+            // AddRuntimeClassFields); prefer those so field initializers and other
+            // members reference the field instead of an undeclared _cs2j_{T}.
+            if (context.TryGetRuntimeClassField(typeParam.Name, out var runtimeClassFieldName))
+            {
+                return runtimeClassFieldName;
+            }
             if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
             {
                 // The runtime class parameter may belong to another method (global
@@ -527,6 +534,18 @@ public class ConversionContext
         }
 
         parameterName = string.Empty;
+        return false;
+    }
+
+    public bool TryGetRuntimeClassField(string typeParameterName, out string fieldName)
+    {
+        foreach (var fields in _runtimeClassFieldsStack)
+        {
+            if (fields.TryGetValue(typeParameterName, out fieldName!))
+                return true;
+        }
+
+        fieldName = string.Empty;
         return false;
     }
 

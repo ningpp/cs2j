@@ -1612,6 +1612,17 @@ public class ClassTransformer : ITypeTransformer
             return;
         }
 
+        // C# overloads that erase to the same Java signature but differ in generic
+        // arity (e.g. Deserialize<TValue>(string, Type, options) vs
+        // Deserialize(string, Type, options)) must both survive — rename the
+        // incoming one with the arity suffix.
+        if (existing.TypeParameters.Count != javaMethod.TypeParameters.Count)
+        {
+            javaMethod.Name += $"_{javaMethod.TypeParameters.Count}tp";
+            javaClass.Methods.Add(javaMethod);
+            return;
+        }
+
 
         // Explicit interface property accessors may conflict with class property accessors
         // of the same name but different return types. Keep both so post-processing can
