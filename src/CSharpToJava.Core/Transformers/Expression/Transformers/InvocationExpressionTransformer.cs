@@ -5250,7 +5250,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     if (lt >= 0) classToken = classToken.Substring(0, lt).Trim();
                     var dot = classToken.LastIndexOf('.');
                     if (dot >= 0) classToken = classToken.Substring(dot + 1);
-                    return $"ArrayPool.rentShared({classToken}.class, {poolArgsStr})";
+                    // rentShared(T.class, n) infers the RAW element type (T = raw class),
+                    // so assignments to parameterized T[] fail — cast to the typed array:
+                    // (Tuple5<...>[]) ArrayPool.rentShared(Tuple5.class, n).
+                    return $"({javaElem}[]) ArrayPool.rentShared({classToken}.class, {poolArgsStr})";
                 }
                 var sharedPool = $"ArrayPool.<{witnessElem}>getShared()";
                 return $"{sharedPool}.returnValue({poolArgsStr})";

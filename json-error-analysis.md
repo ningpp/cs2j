@@ -290,3 +290,18 @@
 - **分析**: 源类型映射后的基本类型（byte→int、ushort 等）与装箱目标的 primitive 不一致时，(Byte)(int) 强转非法；需先 ((byte)(expr)) 收窄再装箱。
 - **测试**: 	ests/CSharpToJava.Tests/UnsafeAsUnsignedBoxingTests.cs（扩展 byte/ushort 用例）
 - **状态**: ✅ Fixed
+
+## Iteration 17 — 找不到合适的方法 tryParse (EnumHelper.tryParse 需接受 Class<?>)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/EnumConverter.java:[322,37][322,96]
+- **行号**: EnumConverter.java:322
+- **错误信息**: 对于tryParse(String, ObjectHolder<T>, Class<capture#1, 共 ?>), 找不到合适的方法
+- **代码片段**:
+  `java
+  var _ifCond125 = !EnumHelper.tryParse(enumString, _valueHolder1, tClass) && ...;   // tClass 是 Class<?>
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Value\EnumConverter.cs（ReadWithQuotes）
+- **根因分类**: 类型映射缺失（compat EnumHelper.tryParse 签名过严）
+- **涉及组件**: java/csharptojava-compat/.../EnumHelper.java
+- **分析**: 转换器传入运行时 Class 字段（Class<?>），compat 	ryParse(String, ObjectHolder<T>, Class<T>) 的泛型推断得到捕获类型而无法匹配。改为 Class<?>（T 从 ObjectHolder 推断）。
+- **测试**: java/csharptojava-compat/.../EnumHelperTryParseWildcardClassTest.java（RED→GREEN）
+- **状态**: ✅ Fixed
