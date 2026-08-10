@@ -1,4 +1,4 @@
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 using CSharpToJava.Core.Workspace;
 
 namespace CSharpToJava.CLI;
@@ -19,12 +19,12 @@ internal static class ProjectConversionExclusionPlanner
     /// against the csproj <c>AssemblyName</c> property — never against disk paths.
     /// </summary>
     private static readonly IReadOnlySet<string> HARD_CODE_ASSEMBLE_NAMES = new HashSet<string>(
-        new[]
+        new string[]
         {
-            "Microsoft.Msagl.WpfGraphControl",
-            "Microsoft.Msagl.GraphmapsWpfControl",
-            "Microsoft.Msagl.GraphViewerGdi",
-            "TestGraphmaps",
+            // "Microsoft.Msagl.WpfGraphControl",
+            // "Microsoft.Msagl.GraphmapsWpfControl",
+            // "Microsoft.Msagl.GraphViewerGdi",
+            // "TestGraphmaps",
         },
         StringComparer.Ordinal);
 
