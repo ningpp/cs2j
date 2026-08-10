@@ -745,9 +745,16 @@ public class TypeMappingService
             && typeSymbol is INamedTypeSymbol nestedDelegateSymbol
                 ? CSharpToJava.Core.Context.JavaNaming.GetNestedDelegateJavaName(nestedDelegateSymbol, name)
                 : name);
+        // Map the outer type through the mapping table so configured renames apply
+        // (e.g. Dictionary<K,V> → CSharpDictionary: Dictionary<K,V>.Enumerator must
+        // reference CSharpDictionary.Enumerator, which javac can resolve).
+        var mappedOuter = MapType(outerType);
+        var angleIndex = mappedOuter.IndexOf('<');
+        if (angleIndex > 0)
+            mappedOuter = mappedOuter[..angleIndex];
         var outerName = isSameEnclosingType
             ? null  // No outer class prefix needed when inside the same class
-            : QualifyTypeReferenceIfNeeded(outerType, MapSimpleTypeName(outerType.Name));
+            : QualifyTypeReferenceIfNeeded(outerType, mappedOuter);
         var nestedStr = outerName != null ? $"{outerName}.{innerName}" : innerName;
 
         if (typeSymbol is INamedTypeSymbol namedNested && namedNested.TypeArguments.Length > 0)

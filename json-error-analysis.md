@@ -203,3 +203,19 @@
 - **分析**: (1) ref 实参转发优化按目标方法"自身"只读分析决定解包，覆写自抽象槽位（槽位渲染为 Holder）时误把 eader 解包为 eader.value；(2) CreateSpan(ref char, 1) 的 ref 降级把 char 包进 CharHolder，compat createSpan 泛型版本推断为 Span<CharHolder>，writeStringValue/writePropertyName 不接受。
 - **测试**: 	ests/CSharpToJava.Tests/RefHolderForwardingToAbstractSlotTests.cs（RED→GREEN）、java/csharptojava-compat/.../MemoryMarshalCharHolderTest.java（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 12 — 找不到符号 enqueue (ConcurrentQueue<T> 映射到无 enqueue 的 Java 类型)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/ConcurrentQueueOfTConverter.java:[38,62]
+- **行号**: ConcurrentQueueOfTConverter.java:38
+- **错误信息**: 找不到符号（enqueue 不存在于 ConcurrentLinkedQueue）
+- **代码片段**:
+  `java
+  // 类声明约束: TCollection extends ConcurrentLinkedQueue<TElement>   ← java.util 队列无 enqueue
+  ((TCollection)(state.value.Current.getReturnValue())).enqueue(value);
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Collection\ConcurrentQueueOfTConverter.cs
+- **根因分类**: 类型映射缺失（System.Collections.Concurrent.ConcurrentQueue1 → ConcurrentLinkedQueue，缺 C# 队列 API）
+- **涉及组件**: config/TypeMappings.json
+- **分析**: ConcurrentQueue<T> 曾映射为 java.util.concurrent.ConcurrentLinkedQueue，该类型无 enqueue/dequeue/tryDequeue；compat CSharpQueue（Queue<T> 的映射）提供完整 C# 队列 API。改映射为 CSharpQueue。
+- **测试**: 	ests/CSharpToJava.Tests/ConcurrentQueueMappingTests.cs（RED→GREEN）
+- **状态**: ✅ Fixed
