@@ -17,9 +17,12 @@ public class DelegateTransformer : IDelegateTransformer
     public JavaTypeDeclaration? TransformDelegate(DelegateDeclarationSyntax node, ConversionContext context)
     {
         var sym = context.GetDeclaredSymbol(node) as INamedTypeSymbol;
+        var javaName = sym != null ? context.GetJavaTopLevelTypeName(sym) : node.Identifier.Text;
+        if (sym != null)
+            javaName = JavaNaming.GetNestedDelegateJavaName(sym, javaName);
         var javaInterface = new JavaInterfaceDeclaration
         {
-            Name = sym != null ? context.GetJavaTopLevelTypeName(sym) : node.Identifier.Text,
+            Name = javaName,
             Modifiers = ConvertModifiers(node.Modifiers),
         };
 

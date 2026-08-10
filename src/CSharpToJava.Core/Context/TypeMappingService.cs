@@ -741,7 +741,10 @@ public class TypeMappingService
                     && SymbolEqualityComparer.Default.Equals(currentEnclosing, outerType))
                 || SymbolEqualityComparer.Default.Equals(currentEnclosingDef, typeSymbolDef));
 
-        var innerName = MapSimpleTypeName(name);
+        var innerName = MapSimpleTypeName(typeSymbol.TypeKind == TypeKind.Delegate
+            && typeSymbol is INamedTypeSymbol nestedDelegateSymbol
+                ? CSharpToJava.Core.Context.JavaNaming.GetNestedDelegateJavaName(nestedDelegateSymbol, name)
+                : name);
         var outerName = isSameEnclosingType
             ? null  // No outer class prefix needed when inside the same class
             : QualifyTypeReferenceIfNeeded(outerType, MapSimpleTypeName(outerType.Name));

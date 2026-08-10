@@ -287,17 +287,17 @@ public class ClassTransformer : ITypeTransformer
                 {
                     var preSym = preModel.GetDeclaredSymbol(preMethod);
                     var preTypeParamNames = DetectTypeOfDefaultUsage(preMethod, preModel);
-                    if (preSym != null && preTypeParamNames != null)
-                    {
-                        foreach (var tpName in preTypeParamNames)
-                        {
-                            if (preSym.TypeParameters.Any(tp => tp.Name == tpName))
-                                context.RequireClassTypeParam(
-                                    preSym.ContainingType?.MetadataName ?? "",
-                                    preSym.ToDisplayString(),
-                                    tpName);
-                        }
-                    }
+            if (preSym != null && preTypeParamNames != null)
+            {
+                foreach (var tpName in preTypeParamNames)
+                {
+                    if (preSym.TypeParameters.Any(tp => tp.Name == tpName))
+                        context.RequireClassTypeParam(
+                            preSym.ContainingType?.MetadataName ?? "",
+                            preSym.ToDisplayString(),
+                            tpName);
+                }
+            }
                 }
             }
         }
@@ -343,14 +343,14 @@ public class ClassTransformer : ITypeTransformer
                 {
                     key = member switch
                     {
-                        MethodDeclarationSyntax m => $"m:{m.ExplicitInterfaceSpecifier?.Name}.:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
+                        MethodDeclarationSyntax m => $"m:{m.ExplicitInterfaceSpecifier?.Name}.:{m.Identifier.Text}:{m.TypeParameterList?.Parameters.Count ?? 0}:{string.Join(",", m.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
                         PropertyDeclarationSyntax p => $"p:{p.ExplicitInterfaceSpecifier?.Name}.:{p.Identifier.Text}",
                         FieldDeclarationSyntax f => $"f:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
                         ConstructorDeclarationSyntax c => c.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
                             ? "cctor"
                             : $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
                         EventDeclarationSyntax e => $"ev:{e.Identifier.Text}",
-                        DelegateDeclarationSyntax d => $"del:{d.Identifier.Text}",
+                        DelegateDeclarationSyntax d => $"del:{d.Identifier.Text}:{d.TypeParameterList?.Parameters.Count ?? 0}",
                         _ => $"other:{member.GetHashCode()}"
                     };
                 }

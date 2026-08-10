@@ -39,3 +39,27 @@
 - **分析**: `ref\System.Text.Json.cs` 是 ref 程序集桩（`AssemblyName=dotnet.text.json.Ref`，`EnableDefaultCompileItems=false`，仅含 API 表面与 `throw null` 实现）。预处理器将其纳入语义编译后，`JsonElement.ArrayEnumerator.Dispose` 的合并符号把 ref 桩声明列为第一个 `DeclaringSyntaxReference`；`AnalyzeCore` 取其语法节点传给 `IsMutating`，而 `_model` 绑定的是 src 文件树 → `GetDeclaredSymbol` 抛 "Syntax node is not within syntax tree"，转换进程崩溃。若放任不管，ref 桩文件还会被转换成重复的 Java 类型（重复类错误）。
 
 - **状态**: ✅ Fixed
+
+## Iteration 3 — 无法找到合适的方法 / 不兼容的类型 (deserialize 重载被丢弃)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonSerializer.java
+- **行号**: 762, 807, 1172, 1391
+- **错误信息**:
+  - `[762,16] 对于deserialize(java.lang.Class<TValue>,java.lang.String,java.lang.Class<?>,dotnet.text.json.JsonSerializerOptions), 找不到合适的方法`
+  - `[807,24] 对于deserialize(java.lang.Class<java.lang.Object>,java.lang.String,java.lang.Class,dotnet.text.json.JsonSerializerOptions), 找不到合适的方法`
+- **代码片段**:
+  ```java
+  public static <TValue> TValue deserialize(Class<TValue> _cs2j_TValue, String json, JsonSerializerOptions options) {
+      if (json == null) { throw new ArgumentNullException("json"); }
+      return deserialize(_cs2j_TValue, json, TypeHelper.toWrapperType(_cs2j_TValue), options);   // ← 引用不存在的 4 参方法
+  }
+  public static Object deserialize_0tp(String json, Class returnType, JsonSerializerOptions options) {
+      ...
+      Object value = deserialize(Object.class, json, returnType, options);   // ← 同样引用不存在的 4 参方法
+      return value;
+  }
+  ```
+- **对应 C# 文件**: `d:\csharpjson\src\System\Text\Json\Serialization\JsonSerializer.Read.String.cs`
+- **根因分类**: Transformer（partial 成员去重键缺陷）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs:346`（`seenMemberKeys` 的 `ParamKey` 去重键只含参数语法类型，不含泛型 arity）
+- **分析**: JsonSerializer 是跨 ~15 文件的 partial 类，成员去重键 `m:{iface}:{name}:{paramTypes}` 对 `Deserialize<TValue>(string, Type, options)`（private, 1 个类型参数）与 `Deserialize(string, Type, options)`（public, 0 个类型参数）产生完全相同键，后者先被处理 → 前者作为"重复"被丢弃。但调用点仍按"泛型方法调用前置 Class 令牌"约定生成 `deserialize(Class<TValue>, String, Class, options)` 4 参调用，与输出中的任何方法都不匹配 → 编译失败。
+- **状态**: 🔴 待修复

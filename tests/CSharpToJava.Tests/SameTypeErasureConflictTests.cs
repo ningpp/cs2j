@@ -132,6 +132,113 @@ class Sample
     }
 
     [Fact]
+    public async Task SameSyntaxParams_DifferentGenericArity_AllOverloadsSurvive()
+    {
+        // JsonSerializer has three Deserialize(string, ...) overloads where the
+        // public non-generic (string, Type, options) and the private generic
+        // Deserialize<TValue>(string, Type, options) share identical parameter
+        // SYNTAX types. The partial-type member dedup key must include the
+        // type-parameter count, otherwise the later overload is dropped while
+        // call sites still reference it (prepending the Class token).
+        var tempDir = Path.Combine(Path.GetTempPath(), $"cs2j-arity-dedup-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "Sample.cs"), @"
+class Sample
+{
+    public static TValue Deserialize<TValue>(string json, object options = null)
+    {
+        return default(TValue);
+    }
+
+    public static object Deserialize(string json, object returnType, object options = null)
+    {
+        return Deserialize<object>(json, returnType, options);
+    }
+
+    private static TValue Deserialize<TValue>(string json, object returnType, object options)
+    {
+        return Deserialize<TValue>(json, returnType, options);
+    }
+}
+");
+
+            var options = new ConversionOptions
+            {
+                TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
+            };
+
+            var pipeline = new ConversionPipeline();
+            var results = await pipeline.ConvertProjectWithPartialMergeAsync(tempDir, options);
+            var sample = Assert.Single(results);
+            Assert.True(sample.Success, string.Join("\n", sample.Diagnostics));
+
+            var code = sample.GeneratedCode;
+
+            // All three overloads must survive.
+            Assert.Contains("public static <TValue> TValue deserialize(Class<TValue> _cs2j_TValue, String json, Object options)", code);
+            Assert.Contains("public static Object deserialize_0tp(String json, Object returnType, Object options)", code);
+            Assert.Contains("private static <TValue> TValue deserialize(Class<TValue> _cs2j_TValue, String json, Object returnType, Object options)", code);
+
+            // Call sites must match the surviving private definition (Class token first).
+            Assert.Contains("return deserialize(Object.class, json, returnType, options);", code);
+            Assert.Contains("return deserialize(_cs2j_TValue, json, returnType, options);", code);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SameNameNestedDelegates_DifferentArity_BothSurviveWithRename()
+    {
+        // JsonClassInfo declares two delegates named ParameterizedConstructorDelegate
+        // with different type-parameter counts. Java forbids two nested types with
+        // the same simple name, so the later arity must be renamed (Name_arity) at
+        // both the declaration and all reference sites.
+        var tempDir = Path.Combine(Path.GetTempPath(), $"cs2j-delegate-arity-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "Sample.cs"), @"
+class Sample
+{
+    public delegate T Del<T>(object[] args);
+    public delegate T Del<T, TArg0, TArg1>(TArg0 arg0, TArg1 arg1);
+
+    public Del<T> Create<T>() => null;
+    public Del<T, TArg0, TArg1> Create2<T, TArg0, TArg1>() => null;
+}
+");
+
+            var options = new ConversionOptions
+            {
+                TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json"),
+            };
+
+            var pipeline = new ConversionPipeline();
+            var results = await pipeline.ConvertProjectWithPartialMergeAsync(tempDir, options);
+            var sample = Assert.Single(results);
+            Assert.True(sample.Success, string.Join("\n", sample.Diagnostics));
+
+            var code = sample.GeneratedCode;
+
+            // Both delegate interfaces must be emitted with distinct names.
+            Assert.Contains("interface Del<T>", code);
+            Assert.Contains("interface Del_3<T, TArg0, TArg1>", code);
+
+            // The renamed delegate must be referenced under its Java name.
+            Assert.Contains("Del_3<T, TArg0, TArg1> create2", code);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ConstructorErasureFactory_PreservesOriginalConstructorBody()
     {
         var pipeline = new ConversionPipeline();

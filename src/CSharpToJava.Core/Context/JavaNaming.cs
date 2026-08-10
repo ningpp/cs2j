@@ -177,6 +177,33 @@ public static class JavaNaming
         return true;
     }
 
+    /// <summary>
+    /// Renames a nested delegate when its containing type declares another delegate
+    /// with the same simple name but a different type-parameter count. C# allows
+    /// same-name nested types with different arity, but Java forbids duplicate
+    /// nested type names entirely. The smallest arity keeps the plain name; every
+    /// other arity gets a "{name}_{arity}" suffix so the declaration and all
+    /// reference sites agree on the Java name. Returns the (possibly unchanged) name.
+    /// </summary>
+    public static string GetNestedDelegateJavaName(INamedTypeSymbol delegateSymbol, string fallbackName)
+    {
+        var containingType = delegateSymbol.ContainingType;
+        if (containingType == null)
+            return fallbackName;
+
+        var arities = containingType.GetTypeMembers(delegateSymbol.Name)
+            .Where(t => t.TypeKind == TypeKind.Delegate)
+            .Select(t => t.Arity)
+            .Distinct()
+            .ToList();
+        if (arities.Count <= 1)
+            return fallbackName;
+
+        return arities.Min() == delegateSymbol.Arity
+            ? fallbackName
+            : fallbackName + "_" + delegateSymbol.Arity;
+    }
+
     private static string GetErasedTypeName(IParameterSymbol parameter)
     {
         // ref/out parameters are wrapped in a holder class (ObjectHolder<T>, IntHolder,
