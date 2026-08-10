@@ -12,6 +12,22 @@ internal sealed class ProjectConversionExclusion
 
 internal static class ProjectConversionExclusionPlanner
 {
+    /// <summary>
+    /// AssemblyNames that are explicitly allowed to be converted even though they
+    /// would otherwise be excluded by the platform rules (e.g. a WPF control that
+    /// has a working cs2j WPF compatibility layer). Matched exactly (case-sensitive)
+    /// against the csproj <c>AssemblyName</c> property — never against disk paths.
+    /// </summary>
+    private static readonly IReadOnlySet<string> HARD_CODE_ASSEMBLE_NAMES = new HashSet<string>(
+        new[]
+        {
+            "Microsoft.Msagl.WpfGraphControl",
+            "Microsoft.Msagl.GraphmapsWpfControl",
+            "Microsoft.Msagl.GraphViewerGdi",
+            "TestGraphmaps",
+        },
+        StringComparer.Ordinal);
+
     public static IReadOnlyDictionary<string, ProjectConversionExclusion> Plan(ProjectGraph graph)
     {
         ArgumentNullException.ThrowIfNull(graph);
@@ -170,6 +186,14 @@ internal static class ProjectConversionExclusionPlanner
             }
 
             if (reasons.Count == 0)
+            {
+                return ProjectSupportEvaluation.Supported;
+            }
+
+            // Explicit allow-list: specific projects (e.g. a WPF control backed by the
+            // cs2j WPF compatibility layer) are converted even though they match the
+            // Windows-only heuristics above. Matched purely by AssemblyName, never by path.
+            if (!string.IsNullOrWhiteSpace(assemblyName) && HARD_CODE_ASSEMBLE_NAMES.Contains(assemblyName))
             {
                 return ProjectSupportEvaluation.Supported;
             }
