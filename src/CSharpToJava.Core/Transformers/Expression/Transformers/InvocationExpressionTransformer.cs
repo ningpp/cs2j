@@ -270,8 +270,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var boxType = fromSym?.SpecialType switch
                     {
                         SpecialType.System_Int32 => "Integer",
+                        SpecialType.System_UInt32 => "Integer",
                         SpecialType.System_Int64 => "Long",
+                        SpecialType.System_UInt64 => "Long",
+                        SpecialType.System_Int16 => "Short",
+                        SpecialType.System_UInt16 => "Short",
                         SpecialType.System_Byte => "Byte",
+                        SpecialType.System_SByte => "Byte",
                         SpecialType.System_Char => "Character",
                         SpecialType.System_Single => "Float",
                         SpecialType.System_Double => "Double",
@@ -1443,8 +1448,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var asBoxType = asFromSym?.SpecialType switch
                     {
                         SpecialType.System_Int32 => "Integer",
+                        SpecialType.System_UInt32 => "Integer",
                         SpecialType.System_Int64 => "Long",
+                        SpecialType.System_UInt64 => "Long",
+                        SpecialType.System_Int16 => "Short",
+                        SpecialType.System_UInt16 => "Short",
                         SpecialType.System_Byte => "Byte",
+                        SpecialType.System_SByte => "Byte",
                         SpecialType.System_Char => "Character",
                         SpecialType.System_Single => "Float",
                         SpecialType.System_Double => "Double",

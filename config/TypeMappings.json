@@ -5326,6 +5326,11 @@
         },
         {
             "type": "System.Enum",
+            "method": "GetNames",
+            "javaMethod": "EnumHelper.getNames"
+        },
+        {
+            "type": "System.Enum",
             "method": "Format",
             "javaMethod": "EnumHelper.format"
         },

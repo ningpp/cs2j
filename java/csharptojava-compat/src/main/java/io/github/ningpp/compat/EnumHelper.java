@@ -46,6 +46,19 @@ public class EnumHelper {
         return CSharpArray.of(enumType.getEnumConstants());
     }
 
+    /** Mirrors System.Enum.GetNames(Type) — constant names in declaration order. */
+    public static String[] getNames(Class<?> enumType) {
+        if (enumType == null || !enumType.isEnum()) {
+            throw new IllegalArgumentException("Type must be an enum: " + enumType);
+        }
+        Object[] constants = enumType.getEnumConstants();
+        String[] names = new String[constants.length];
+        for (int i = 0; i < constants.length; i++) {
+            names[i] = ((Enum<?>) constants[i]).name();
+        }
+        return names;
+    }
+
     /** Object[]-typed variant for call sites that consume values as an array. */
     public static Object[] getValuesArray(Class<?> enumType) {
         return enumType.getEnumConstants();

@@ -236,3 +236,20 @@
 - **分析**: Dictionary<K,V>.Enumerator 的 Java 形式应为 CSharpDictionary.Enumerator（compat 静态嵌套类），但外层名只做了简单名映射，丢掉了 Dictionary2 → CSharpDictionary 的配置映射。
 - **测试**: 	ests/CSharpToJava.Tests/DictionaryNestedEnumeratorMappingTests.cs（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 14 — 不兼容的类型: Object 无法转换为 TKey (嵌套泛型类引用丢失外层类型实参)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/DictionaryOfTKeyTValueConverter.java:[66,46][67,70][78,46][80,58]
+- **行号**: DictionaryOfTKeyTValueConverter.java:66
+- **错误信息**: 不兼容的类型: java.lang.Object无法转换为TKey（raw CSharpDictionary.Enumerator 的 getKey() 返回 Object）
+- **代码片段**:
+  `java
+  // C#: Dictionary<TKey, TValue>.Enumerator enumerator; ... key = enumerator.Current.Key;
+  CSharpDictionary.Enumerator enumerator;          // raw → getCurrent().getKey() 返回 Object
+  var key = enumerator.getCurrent().getKey();      // Object 传给 writeWithQuotes(..., TKey, ...) 报错
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Collection\DictionaryOfTKeyTValueConverter.cs
+- **根因分类**: Transformer（嵌套泛型类型引用未携带外层类型实参）
+- **涉及组件**: src/CSharpToJava.Core/Context/TypeMappingService.cs（TryMapNestedType）
+- **分析**: 嵌套类型引用的"外层参数扫描"跑在已构造符号上（实参已被替换为 string/int），扫描不到 TKey/TValue；且即使扫描到，追加的也是参数符号而非外层实参。改为在 OriginalDefinition 上扫描、并追加外层映射后的类型实参：CSharpDictionary.Enumerator<TKey, TValue>。
+- **测试**: 	ests/CSharpToJava.Tests/DictionaryNestedEnumeratorMappingTests.cs（扩展）
+- **状态**: ✅ Fixed
