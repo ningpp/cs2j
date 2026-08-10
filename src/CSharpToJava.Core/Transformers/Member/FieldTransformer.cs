@@ -165,8 +165,11 @@ public class FieldTransformer : IMemberTransformer
                     // A field/property with the same name as the enum type
                     // (e.g. `public ClassType ClassType = ...`) makes the simple
                     // reference self-referencing in Java — qualify with the package.
+                    // Only fields and properties can shadow a type name; nested types
+                    // returned by GetMembers do not cause shadowing.
                     if (context.CurrentEnclosingRoslynType != null
-                        && context.CurrentEnclosingRoslynType.GetMembers(enumTypeRef).Length > 0)
+                        && context.CurrentEnclosingRoslynType.GetMembers(enumTypeRef)
+                            .Any(m => m is IFieldSymbol or IPropertySymbol))
                     {
                         var enumNs = enumType.ContainingNamespace?.ToDisplayString();
                         if (!string.IsNullOrEmpty(enumNs) && enumNs != "<global namespace>")

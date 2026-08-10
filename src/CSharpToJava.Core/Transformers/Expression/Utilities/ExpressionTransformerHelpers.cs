@@ -1663,11 +1663,14 @@ public static class ExpressionTransformerHelpers
             result = BuildNestedTypeReference(typeSymbol, context);
         }
 
-        // When a member of the current type shadows the type name (e.g.
+        // When a field or property of the current type shadows the type name (e.g.
         // `public ClassType ClassType = ClassType.None;`), Java resolves the
         // simple name to the field — qualify with the package instead.
+        // Only fields and properties can shadow a type name in Java; nested types
+        // (which are also returned by GetMembers) do not cause shadowing.
         if (context.CurrentEnclosingRoslynType != null
-            && context.CurrentEnclosingRoslynType.GetMembers(result).Length > 0)
+            && context.CurrentEnclosingRoslynType.GetMembers(result)
+                .Any(m => m is IFieldSymbol or IPropertySymbol))
         {
             var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
             if (!string.IsNullOrEmpty(ns) && ns != "<global namespace>")
