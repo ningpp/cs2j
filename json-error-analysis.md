@@ -184,3 +184,22 @@
 - **分析**: 基类 JsonConverter<T> 的抽象方法槽位是类型参数 T，Java 在派生类视角代入为包装类型（Boolean/Integer/...），覆写必须声明包装类型；此前按 C# 具体类型映射为基本类型（boolean）导致整批值类型 converter 未覆盖抽象方法。另 compat Utf8Parser 缺 	ryParse(ReadOnlySpan<Integer>, BoolHolder, IntHolder)。
 - **测试**: 	ests/CSharpToJava.Tests/GenericOverrideBoxingTests.cs（RED→GREEN）、java/csharptojava-compat/.../Utf8ParserBoolTest.java（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 11 — writeStringValue 找不到合适方法 + Utf8JsonReader无法转换为ObjectHolder (CreateSpan(ref char) + ref 转发)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/CharConverter.java:[41,15][44,135][47,15]
+- **行号**: CharConverter.java:41
+- **错误信息**: 对于writeStringValue(ReadOnlySpan<CharHolder>), 找不到合适的方法；Utf8JsonReader无法转换为ObjectHolder<Utf8JsonReader>
+- **代码片段**:
+  `java
+  // C#: writer.WriteStringValue(MemoryMarshal.CreateSpan(ref value, 1));
+  io.github.ningpp.compat.CharHolder _valueRef = new io.github.ningpp.compat.CharHolder(value);
+  writer.writeStringValue(new ReadOnlySpan<>(MemoryMarshal.createSpan(_valueRef, 1)));   // Span<CharHolder>
+  // C#: ReadWithQuotes(ref reader) => Read(ref reader, ...);
+  public Character readWithQuotes(ObjectHolder<Utf8JsonReader> reader) { return read(reader.value, null, null); }  // 应传 holder 本身
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Value\CharConverter.cs
+- **根因分类**: Transformer（ref 实参转发优化未用层次化只读分析）+ 类型映射缺失（compat MemoryMarshal 缺 CharHolder 重载）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs:410、java/csharptojava-compat/.../MemoryMarshal.java
+- **分析**: (1) ref 实参转发优化按目标方法"自身"只读分析决定解包，覆写自抽象槽位（槽位渲染为 Holder）时误把 eader 解包为 eader.value；(2) CreateSpan(ref char, 1) 的 ref 降级把 char 包进 CharHolder，compat createSpan 泛型版本推断为 Span<CharHolder>，writeStringValue/writePropertyName 不接受。
+- **测试**: 	ests/CSharpToJava.Tests/RefHolderForwardingToAbstractSlotTests.cs（RED→GREEN）、java/csharptojava-compat/.../MemoryMarshalCharHolderTest.java（RED→GREEN）
+- **状态**: ✅ Fixed

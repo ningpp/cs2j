@@ -775,9 +775,9 @@
         },
         {
             "csharp": "System.Collections.Concurrent.ConcurrentQueue`1",
-            "java": "ConcurrentLinkedQueue",
+            "java": "CSharpQueue",
             "imports": [
-                "java.util.concurrent.ConcurrentLinkedQueue"
+                "io.github.ningpp.compat.CSharpQueue"
             ]
         },
         {
