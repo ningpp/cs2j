@@ -219,3 +219,20 @@
 - **分析**: ConcurrentQueue<T> 曾映射为 java.util.concurrent.ConcurrentLinkedQueue，该类型无 enqueue/dequeue/tryDequeue；compat CSharpQueue（Queue<T> 的映射）提供完整 C# 队列 API。改映射为 CSharpQueue。
 - **测试**: 	ests/CSharpToJava.Tests/ConcurrentQueueMappingTests.cs（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 13 — 找不到符号 Dictionary.Enumerator (嵌套类型外层名未走映射表)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/DictionaryOfTKeyTValueConverter.java:[48,19][50,33][55,33]
+- **行号**: DictionaryOfTKeyTValueConverter.java:48
+- **错误信息**: 找不到符号（Dictionary — 无此类型/导入）
+- **代码片段**:
+  `java
+  // C#: Dictionary<TKey, TValue>.Enumerator enumerator;
+  Dictionary.Enumerator enumerator;                       // 应为 CSharpDictionary.Enumerator
+  enumerator = (Dictionary.Enumerator) value.iterator();
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Collection\DictionaryOfTKeyTValueConverter.cs
+- **根因分类**: Transformer（嵌套类型引用未将外层类型走映射表）
+- **涉及组件**: src/CSharpToJava.Core/Context/TypeMappingService.cs（TryMapNestedType 外层名用 MapSimpleTypeName 而非 MapType）
+- **分析**: Dictionary<K,V>.Enumerator 的 Java 形式应为 CSharpDictionary.Enumerator（compat 静态嵌套类），但外层名只做了简单名映射，丢掉了 Dictionary2 → CSharpDictionary 的配置映射。
+- **测试**: 	ests/CSharpToJava.Tests/DictionaryNestedEnumeratorMappingTests.cs（RED→GREEN）
+- **状态**: ✅ Fixed

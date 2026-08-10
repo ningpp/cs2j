@@ -780,10 +780,16 @@ public class TypeMappingService
             // C# nested classes that use the outer class's type parameters are made
             // static in Java with those type parameters added as their own.
             // When referencing such a nested type, we must include the type parameters.
-            var usedParams = GetOuterTypeParamsReferencedByNested(nestedClass, outerType);
+            var usedParams = GetOuterTypeParamsReferencedByNested(
+                nestedClass.OriginalDefinition,
+                outerType.OriginalDefinition);
             if (usedParams.Count > 0)
             {
-                nestedStr += "<" + string.Join(", ", usedParams.Select(p => MapTypeForGeneric(p, referenceContext))) + ">";
+                // The reference's type arguments are the OUTER's type arguments at this
+                // usage site (mapped + boxed), not the parameter symbols — e.g.
+                // Dictionary<TKey,TValue>.Enumerator → CSharpDictionary.Enumerator<TKey, TValue>
+                // so getCurrent().getKey() returns TKey instead of Object on the raw type.
+                nestedStr += "<" + string.Join(", ", outerType.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext))) + ">";
             }
         }
 
@@ -825,6 +831,11 @@ public class TypeMappingService
 
     private static bool NestedTypeReferencesTypeParam(INamedTypeSymbol nestedSymbol, ITypeParameterSymbol typeParam)
     {
+        foreach (var iface in nestedSymbol.Interfaces)
+        {
+            if (TypeReferencesTypeParam(iface, typeParam))
+                return true;
+        }
         foreach (var member in nestedSymbol.GetMembers())
         {
             if (member.IsStatic)
@@ -839,12 +850,6 @@ public class TypeMappingService
 
         if (nestedSymbol.BaseType != null && TypeReferencesTypeParam(nestedSymbol.BaseType, typeParam))
             return true;
-
-        foreach (var iface in nestedSymbol.Interfaces)
-        {
-            if (TypeReferencesTypeParam(iface, typeParam))
-                return true;
-        }
 
         return false;
     }
