@@ -1174,6 +1174,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
             if (rhsType is IArrayTypeSymbol && lhsType is INamedTypeSymbol lhsNamed
                 && lhsNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
             {
+                // Target-typed conditionals are branch-adapted by the conditional
+                // transformer — the ternary is already span-typed, and wrapping it
+                // again would emit new Span<>(Span<>) which has no compat constructor.
+                if (rightNode is ConditionalExpressionSyntax
+                    && context.GetTypeInfo(rightNode).ConvertedType is INamedTypeSymbol rhsCondNamed
+                    && rhsCondNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
+                {
+                    return $"{left} = {facade.Transform(rightNode, context)}";
+                }
                 var right = facade.Transform(rightNode, context);
                 var spanName = lhsNamed.Name == "Span" ? "Span" : "ReadOnlySpan";
                 context.AddImport($"io.github.ningpp.compat.{spanName}");

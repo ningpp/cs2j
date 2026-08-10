@@ -2940,19 +2940,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"StringHelper.createString({lengthArg}, {stateArg}, {actionArg})";
         }
 
-        // ReadOnlySpan<byte>.ToArray() / Span<byte>.ToArray(): Java represents byte
-        // spans as ReadOnlySpan<Integer>, whose toArray() yields Integer[] — the
-        // byte[] result must come from toByteArray().
+        // ReadOnlySpan<byte>.ToArray() / Span<byte>.ToArray() / ReadOnlyMemory<byte>
+        // .ToArray(): Java represents byte spans as ReadOnlySpan<Integer>, whose
+        // toArray() yields Integer[] — the byte[] result must come from toByteArray().
         if (originalMethodName == "ToArray"
             && node.ArgumentList.Arguments.Count == 0
             && methodSymbol?.ReturnType is IArrayTypeSymbol spanToArrayReturn
             && spanToArrayReturn.ElementType.SpecialType == SpecialType.System_Byte
             && methodSymbol.ContainingType?.OriginalDefinition?.ToDisplayString()
-                is "System.ReadOnlySpan<T>" or "System.Span<T>")
+                is "System.ReadOnlySpan<T>" or "System.Span<T>"
+                    or "System.ReadOnlyMemory<T>" or "System.Memory<T>")
         {
             return $"{receiver}.toByteArray()";
         }
-
         // Instance collection ToArray() should produce a typed array, not Object[].
         if (originalMethodName == "ToArray"
             && node.ArgumentList.Arguments.Count == 0

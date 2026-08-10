@@ -167,6 +167,15 @@ public static class ExpressionTransformerHelpers
         if (sourceType is IArrayTypeSymbol spanSourceArray && targetType is INamedTypeSymbol spanTargetNamed
             && spanTargetNamed.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
         {
+            // Target-typed conditionals are branch-adapted by the conditional
+            // transformer, so the whole ternary is already span-typed; wrapping it
+            // again would emit new Span<>(Span<>) which has no compat constructor.
+            if (expression is ConditionalExpressionSyntax
+                && context.GetTypeInfo(expression).ConvertedType is INamedTypeSymbol condConverted
+                && condConverted.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
+            {
+                return transformedExpression;
+            }
             var spanTargetJavaName = spanTargetNamed.Name == "Span" ? "Span" : "ReadOnlySpan";
             context.AddImport($"io.github.ningpp.compat.{spanTargetJavaName}");
             // byte[].AsSpan(...) already routed through MemoryExtensions.asSpan (ReadOnlySpan):

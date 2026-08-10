@@ -1529,6 +1529,19 @@ public class MethodTransformer : IMemberTransformer
                 return returnType.StartsWith("CompletableFuture") ? returnType : $"CompletableFuture<{returnType}>";
             }
 
+            // Non-async C# ValueTask (non-generic) returns map to the underlying
+            // CompletableFuture: callers await such methods with .join(), and the
+            // compat ValueTask is an opaque marker with no join(). Task and
+            // ValueTask<T> already map to CompletableFuture this way.
+            if (typeInfo.Type is INamedTypeSymbol valueTaskNamed
+                && valueTaskNamed.Name == "ValueTask"
+                && valueTaskNamed.TypeArguments.Length == 0
+                && valueTaskNamed.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks")
+            {
+                context.AddImport("java.util.concurrent.CompletableFuture");
+                return "CompletableFuture";
+            }
+
             return context.MapType(typeInfo.Type);
         }
 

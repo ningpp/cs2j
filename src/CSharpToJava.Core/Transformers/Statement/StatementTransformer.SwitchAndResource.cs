@@ -1265,13 +1265,43 @@ public partial class StatementTransformer
                     }
                     else
                     {
+                        // &MemoryMarshal.GetReference(span) pins the span's memory:
+                        // the compat span exposes boxed elements and cannot be pinned
+                        // in place, so materialize the whole backing byte[]/char[] —
+                        // the fixed pointer then covers the entire span, keeping
+                        // pointer arithmetic (p + span.Length) in bounds.
+                        if (addrOf.Operand is InvocationExpressionSyntax refInv
+                            && refInv.Expression is MemberAccessExpressionSyntax refMember
+                            && refMember.Name.Identifier.Text == "GetReference"
+                            && refInv.ArgumentList.Arguments.Count == 1)
+                        {
+                            var spanExpr = ExpressionTransformerFacade.Instance.Transform(refInv.ArgumentList.Arguments[0].Expression, context);
+                            var spanType = context.GetTypeInfo(refInv.ArgumentList.Arguments[0].Expression).Type;
+                            var spanElement = (spanType as INamedTypeSymbol)?.TypeArguments.FirstOrDefault();
+                            if (spanElement?.SpecialType == SpecialType.System_Byte)
+                            {
+                                sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray({spanExpr}.toByteArray());");
+                                context.RegisterPointerBase(varName, varName);
+                                continue;
+                            }
+                            if (spanElement?.SpecialType == SpecialType.System_Char)
+                            {
+                                sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray({spanExpr}.toCharArray());");
+                                context.RegisterPointerBase(varName, varName);
+                                continue;
+                            }
+                        }
+
                         var operandExpr = ExpressionTransformerFacade.Instance.Transform(addrOf.Operand, context);
                         var arrayType = FfmHelper.GetScratchArrayType(info.CSharpElementTypeName);
                         // ref element values (e.g. MemoryMarshal.getReference) surface as
-                        // boxed Integers — narrow to the scratch array's element type.
+                        // boxed Integers — narrow through Number (a direct (byte) cast of
+                        // Integer is an incompatible type in Java).
                         if (arrayType is "byte" or "sbyte" or "short"
                             && (operandExpr.Contains("getReference(") || operandExpr.Contains(".get(")))
-                            operandExpr = $"(byte)({operandExpr})";
+                            operandExpr = arrayType == "short"
+                                ? $"((Number)({operandExpr})).shortValue()"
+                                : $"((Number)({operandExpr})).byteValue()";
                         sb.AppendLine($"MemorySegment {varName} = MemorySegment.ofArray(new {arrayType}[] {{ {operandExpr} }});");
                     }
                 }
