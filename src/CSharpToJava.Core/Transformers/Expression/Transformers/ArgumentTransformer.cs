@@ -407,7 +407,9 @@ public class ArgumentTransformer
             // Optimization: if the called method's ref parameter is effectively read-only for a struct type,
             // skip ObjectHolder wrapping — Java passes the class instance by reference, so field reads/writes
             // are visible to both caller and callee without a holder object.
-            if (parameterSymbol != null && StructCloneHelper.IsRefParamEffectivelyReadOnly(parameterSymbol))
+            // Hierarchy-aware: an override of an abstract base slot must not unwrap — the target renders a
+            // holder signature there, so the argument must stay a holder (e.g. ReadWithQuotes → Read).
+            if (parameterSymbol != null && StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(parameterSymbol))
             {
                 // Hoisted local functions generate holder-typed ref parameters
                 // (ObjectHolder<DateTimeParseData> etc.). For those, an argument that

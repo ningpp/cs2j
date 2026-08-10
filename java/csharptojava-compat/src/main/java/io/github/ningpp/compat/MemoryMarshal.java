@@ -71,6 +71,20 @@ public class MemoryMarshal {
     }
 
     /**
+     * Mirrors C# MemoryMarshal.CreateSpan&lt;char&gt;(ref char reference, int length):
+     * the converter lowers the ref char argument into a CharHolder, so unwrap the
+     * holder's value to seed a char-typed span (CharConverter.Write/WriteWithQuotes
+     * call Utf8JsonWriter.writeStringValue/writePropertyName with it).
+     */
+    public static Span<Character> createSpan(CharHolder first, int length) {
+        Character[] arr = new Character[length];
+        if (length > 0 && first != null) {
+            arr[0] = first.value;
+        }
+        return new Span<>(arr);
+    }
+
+    /**
      * Mirrors C# MemoryMarshal.CreateSpan&lt;T&gt;(ref T reference, int length):
      * creates a Span of {@code length} elements seeded from the first field of a
      * generated struct/class (e.g. FourStackStrings.Item1). Subsequent fields are

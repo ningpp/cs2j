@@ -165,3 +165,22 @@
 - **分析**: System.Collections.IEnumerable 映射为 CSharpGenericIterable<?>；随后 (TElement[]) 强转该接口类型在 Java 非法。C# 语义是引用强转（运行时对象就是 TElement[]），应经 Object 中转：(TElement[]) (Object) (expr)。
 - **测试**: 	ests/CSharpToJava.Tests/EnumerableInterfaceToArrayCastTests.cs（RED→GREEN）
 - **状态**: ✅ Fixed
+
+## Iteration 10 — 不是抽象的, 并且未覆盖抽象方法 write/read + Utf8Parser 找不到合适方法 (泛型基类覆写未装箱 + compat bool 解析缺失)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/BooleanConverter.java:[24,14][29,20][35,20][39,36]（同族：ByteConverter、CharConverter、DateTimeConverter 等全部值类型 converter）
+- **行号**: BooleanConverter.java:24
+- **错误信息**: BooleanConverter不是抽象的, 并且未覆盖JsonConverter1中的抽象方法write(Utf8JsonWriter,java.lang.Boolean,JsonSerializerOptions)；eadWithQuotes(Utf8JsonReader)无法覆盖；对于tryParse(ReadOnlySpan<Integer>,BoolHolder,IntHolder), 找不到合适的方法
+- **代码片段**:
+  `java
+  // 基类泛型槽位（T=Boolean 代入）: abstract T read(...); abstract void write(writer, T value, ...);
+  // 覆写却渲染基本类型:
+  public boolean read(...) { ... }        // 不匹配 Boolean read(...)
+  public void write(writer, boolean value, ...) { ... }   // 不匹配 write(writer, Boolean, ...)
+  // C#: Utf8Parser.TryParse(propertyName, out bool value, out int bytesConsumed) → compat 无 BoolHolder 重载
+  `
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Value\BooleanConverter.cs
+- **根因分类**: Transformer（覆写签名未按泛型基类槽位装箱）+ 类型映射缺失（compat Utf8Parser bool 重载）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs（GetReturnType/ConvertParameter — 注意 OverriddenMethod 已代入类型实参，需查 OriginalDefinition）、java/csharptojava-compat/.../Utf8Parser.java
+- **分析**: 基类 JsonConverter<T> 的抽象方法槽位是类型参数 T，Java 在派生类视角代入为包装类型（Boolean/Integer/...），覆写必须声明包装类型；此前按 C# 具体类型映射为基本类型（boolean）导致整批值类型 converter 未覆盖抽象方法。另 compat Utf8Parser 缺 	ryParse(ReadOnlySpan<Integer>, BoolHolder, IntHolder)。
+- **测试**: 	ests/CSharpToJava.Tests/GenericOverrideBoxingTests.cs（RED→GREEN）、java/csharptojava-compat/.../Utf8ParserBoolTest.java（RED→GREEN）
+- **状态**: ✅ Fixed
