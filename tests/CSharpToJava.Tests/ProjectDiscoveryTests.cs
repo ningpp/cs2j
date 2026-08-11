@@ -165,6 +165,41 @@ public class ProjectDiscoveryTests
         }
     }
 
+    [Fact]
+    public void ProjectConversionExclusionPlanner_ExcludesWinFormsProject_WithoutCompatLayer()
+    {
+        // Regression: Microsoft.Msagl.GraphViewerGdi is a WinForms project with no
+        // cs2j compat layer (unlike the WPF controls backed by dotnet.wpf.swing). It must
+        // be excluded from conversion; otherwise its files fail the unsupported-domain
+        // check (System.Windows.Forms) while sibling files referencing GViewer are still
+        // emitted, producing a Maven module that does not compile.
+        var root = CreateTempDirectory();
+        try
+        {
+            var gdiProject = CreateProject(
+                root,
+                "GraphViewerGDI",
+                isTest: false,
+                sdk: "Microsoft.NET.Sdk.WindowsDesktop",
+                targetFramework: "net6.0-windows",
+                useWindowsForms: true,
+                assemblyName: "Microsoft.Msagl.GraphViewerGdi");
+            var consumerProject = CreateProject(root, "Dot2Svg", isTest: false, projectReferences: [gdiProject]);
+            var solutionPath = CreateSolution(root, "GraphLayout.sln", [gdiProject, consumerProject]);
+
+            var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+
+            Assert.Contains(Path.GetFullPath(gdiProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+
     private static string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "cs2j-project-discovery-" + Guid.NewGuid().ToString("N"));

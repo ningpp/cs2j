@@ -23,7 +23,7 @@ internal static class ProjectConversionExclusionPlanner
         {
             "Microsoft.Msagl.WpfGraphControl",
             "Microsoft.Msagl.GraphmapsWpfControl",
-            "Microsoft.Msagl.GraphViewerGdi",
+            // "Microsoft.Msagl.GraphViewerGdi", // WinForms: no compat layer, cannot convert
             "TestGraphmaps",
         },
         StringComparer.Ordinal);

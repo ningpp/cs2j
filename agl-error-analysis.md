@@ -1,4 +1,4 @@
-﻿# AGL Error Analysis
+# AGL Error Analysis
 
 ## Iteration 1 — EventArgs/EventHandler 找不到符号
 
@@ -484,3 +484,27 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **分析**: 转换器对 `(T[])expr` 且 expr 静态类型是 IEnumerable 接口时，统一发射 `(T[]) (Object) (expr)` 身份跳转——C# 语义是引用转换（运行时对象 IS T[]）。但 C# 属性 `IEnumerable<Point>` 在 Java 侧被映射为 `CSharpGenericIterable<Point>` 包装器（List），运行时对象根本不是数组 → 身份跳转必然 ClassCastException。修复：具体元素类型时生成运行时检查三元——`(Object)` 跳转绕过 javac 对"接口 instanceof 数组"的静态拒绝（接口到数组的 casting conversion 不允许），真数组时保持零拷贝引用转换，包装器时 `toArray(new T[0])` 物化新数组；类型参数元素（无 class literal）保留原身份跳转语义。
 - **测试**: `CastConcreteIEnumerablePropertyToArray_ConvertsViaToArray`（先红后绿，另用 javac 最小复现验证三元可编译）
 - **状态**: ✅ Fixed (2026-08-11) — 全量 dotnet test 通过，mvn clean package -e → BUILD SUCCESS（用户手动验证）。
+## Iteration AGL-1 — graphviewergdi: GViewer 找不到符号（WinForms 项目误放行） — ✅ Fixed
+
+- **Java 文件**: graphviewergdi-net472/src/main/java/Microsoft/Msagl/GraphViewerGdi/DObject.java
+- **行号**: 58, 63, 136, 139
+- **错误信息**: 找不到符号 — 类 GViewer（位置: 类 Microsoft.Msagl.GraphViewerGdi.DObject）
+- **代码片段**:
+  ```java
+  private GViewer viewer;
+
+  protected DObject(GViewer viewer) {
+      setViewer(viewer);
+  }
+  ...
+  public GViewer getViewer() {
+      return viewer;
+  }
+  public void setViewer(GViewer value) {
+      this.viewer = value;
+  }
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\tools\GraphViewerGDI\GViewer.cs（以及同项目 DObject.cs 等）
+- **根因分类**: 项目排除规划（ProjectConversionExclusionPlanner）
+- **涉及组件**: src/CSharpToJava.CLI/ProjectConversionExclusionPlanner.cs（HARD_CODE_ASSEMBLE_NAMES allow-list）
+- **分析**: b7ded9ca 把 `Microsoft.Msagl.GraphViewerGdi` 硬编码进 allow-list，强制放行 WinForms 项目。但 WinForms 没有 compat 层（compat 库只有 dotnet.wpf.swing），GViewer.cs 等 6 个文件因 CS2J3001 unsupported-domain（System.Windows.Forms）转换失败、不生成 Java；同包 DObject/DEdge/DNode 等仍生成并引用 GViewer，导致 mvn 报 cannot find symbol。正确行为：GraphViewerGDI（WinForms）应从 allow-list 移除，按 Windows-only 规则排除，其依赖者 Dot2Svg 级联排除。
