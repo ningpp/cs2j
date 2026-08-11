@@ -1,22 +1,16 @@
 package dotnet.wpf.swing.media.imaging;
 
 /**
- * System.Windows.Media.Imaging.BitmapCreateOptions compatibility enum.
+ * System.Windows.Media.Imaging.BitmapCreateOptions compatibility flags (mapped to int by the converter).
  */
-public enum BitmapCreateOptions {
-    None(0),
-    PreservePixelFormat(1),
-    DelayCreation(2),
-    IgnoreColorProfile(4),
-    IgnoreImageCache(8);
+public final class BitmapCreateOptions {
 
-    private final int value;
-
-    BitmapCreateOptions(int value) {
-        this.value = value;
+    private BitmapCreateOptions() {
     }
 
-    public int getValue() {
-        return value;
-    }
+    public static final int None = 0;
+    public static final int PreservePixelFormat = 1;
+    public static final int DelayCreation = 2;
+    public static final int IgnoreColorProfile = 4;
+    public static final int IgnoreImageCache = 8;
 }

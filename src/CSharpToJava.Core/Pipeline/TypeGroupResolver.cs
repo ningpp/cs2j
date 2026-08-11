@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Comments;
@@ -462,11 +462,18 @@ public static class TypeGroupResolver
                             }
                         }
                     }
-                    // Register the alias so downstream type mapping can resolve it
                     if (aliasTargetSymbol is ITypeSymbol aliasType)
                     {
                         var aliasName = usingDirective.Alias.Name.Identifier.Text;
                         context.RegisterUsingAlias(aliasName, aliasType, usingDirective.Alias.GetLocation());
+                    }
+                    else
+                    {
+                        // Alias target could not be bound (e.g. missing framework
+                        // reference): still record the alias NAME so the syntax
+                        // fallback honors file-scoped alias precedence over
+                        // same-named project types.
+                        context.RegisterUnresolvedUsingAlias(usingDirective.Alias.Name.Identifier.Text);
                     }
 
                     continue;

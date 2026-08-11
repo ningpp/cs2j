@@ -18,4 +18,22 @@ public enum BitmapCacheOption {
     public int getValue() {
         return value;
     }
+
+    public static BitmapCacheOption fromValue(int value) {
+        for (BitmapCacheOption e : values()) {
+            if (e.value == value) {
+                return e;
+            }
+        }
+        return values()[0];
+    }
+
+    public static BitmapCacheOption fromValueUnchecked(int value) {
+        for (BitmapCacheOption e : values()) {
+            if (e.value == value) {
+                return e;
+            }
+        }
+        return values()[0];
+    }
 }

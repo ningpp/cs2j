@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 
 namespace CSharpToJava.Core.Context;
 
@@ -11,6 +11,13 @@ public class UsingAliasRegistry
 {
     private Dictionary<string, UsingAliasInfo> _usingAliases = new();
 
+    /// <summary>
+    /// Alias names declared in the current file whose target type could not be
+    /// bound (e.g. System.Drawing types when the reference is absent). They are
+    /// tracked by name so syntax fallback still honors file-scoped alias precedence
+    /// over same-named project types.
+    /// </summary>
+    private readonly HashSet<string> _unresolvedAliasNames = new(StringComparer.Ordinal);
     public IReadOnlyDictionary<string, UsingAliasInfo> Aliases => _usingAliases;
 
     /// <summary>
@@ -74,12 +81,18 @@ public class UsingAliasRegistry
         return true;
     }
 
-    public bool IsAlias(string identifier) => _usingAliases.ContainsKey(identifier);
-
+    public bool IsAlias(string identifier)
+        => _usingAliases.ContainsKey(identifier) || _unresolvedAliasNames.Contains(identifier);
     public ITypeSymbol? Resolve(string aliasName)
         => _usingAliases.GetValueOrDefault(aliasName)?.TargetType;
 
-    public void Clear() => _usingAliases.Clear();
+    public void RegisterUnresolved(string aliasName) => _unresolvedAliasNames.Add(aliasName);
+
+    public void Clear()
+    {
+        _usingAliases.Clear();
+        _unresolvedAliasNames.Clear();
+    }
 
     /// <summary>
     /// C# using alias information.

@@ -273,9 +273,9 @@
         },
         {
             "csharp": "System.Threading.Tasks.Task",
-            "java": "CompletableFuture",
+            "java": "Task",
             "imports": [
-                "java.util.concurrent.CompletableFuture"
+                "io.github.ningpp.compat.Task"
             ]
         },
         {
@@ -388,8 +388,38 @@
         },
         {
             "csharp": "System.EventArgs",
-            "java": "Object",
-            "imports": []
+            "java": "EventArgs",
+            "imports": [
+                "io.github.ningpp.compat.EventArgs"
+            ]
+        },
+        {
+            "csharp": "System.ComponentModel.HandledEventArgs",
+            "java": "HandledEventArgs",
+            "imports": [
+                "io.github.ningpp.compat.HandledEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Threading.EventResetMode",
+            "java": "EventResetMode",
+            "imports": [
+                "io.github.ningpp.compat.EventResetMode"
+            ]
+        },
+        {
+            "csharp": "System.Threading.EventWaitHandle",
+            "java": "EventWaitHandle",
+            "imports": [
+                "io.github.ningpp.compat.EventWaitHandle"
+            ]
+        },
+        {
+            "csharp": "System.Threading.ThreadStart",
+            "java": "ThreadStart",
+            "imports": [
+                "io.github.ningpp.compat.ThreadStart"
+            ]
         },
         {
             "csharp": "System.ICloneable",
@@ -404,7 +434,9 @@
         {
             "csharp": "System.Diagnostics.Process",
             "java": "Process",
-            "imports": []
+            "imports": [
+                "io.github.ningpp.compat.Process"
+            ]
         },
         {
             "csharp": "System.Diagnostics.ProcessStartInfo",
@@ -1240,6 +1272,48 @@
             "java": "TaskSchedulerException",
             "imports": [
                 "io.github.ningpp.compat.TaskSchedulerException"
+            ]
+        },
+        {
+            "csharp": "System.Threading.Tasks.TaskScheduler",
+            "java": "TaskScheduler",
+            "imports": [
+                "io.github.ningpp.compat.TaskScheduler"
+            ]
+        },
+        {
+            "csharp": "System.Threading.Tasks.TaskCreationOptions",
+            "java": "TaskCreationOptions",
+            "imports": [
+                "io.github.ningpp.compat.TaskCreationOptions"
+            ]
+        },
+        {
+            "csharp": "System.Threading.Tasks.TaskContinuationOptions",
+            "java": "TaskContinuationOptions",
+            "imports": [
+                "io.github.ningpp.compat.TaskContinuationOptions"
+            ]
+        },
+        {
+            "csharp": "System.Net.Cache.RequestCacheLevel",
+            "java": "RequestCacheLevel",
+            "imports": [
+                "io.github.ningpp.compat.RequestCacheLevel"
+            ]
+        },
+        {
+            "csharp": "System.ComponentModel.BackgroundWorker",
+            "java": "BackgroundWorker",
+            "imports": [
+                "io.github.ningpp.compat.BackgroundWorker"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.HitTestResultCallback",
+            "java": "HitTestResultCallback",
+            "imports": [
+                "dotnet.wpf.swing.media.HitTestResultCallback"
             ]
         },
         {
@@ -3069,13 +3143,17 @@
         },
         {
             "csharp": "System.Net.Cache.RequestCachePolicy",
-            "java": "Object",
-            "imports": []
+            "java": "RequestCachePolicy",
+            "imports": [
+                "io.github.ningpp.compat.RequestCachePolicy"
+            ]
         },
         {
             "csharp": "RequestCachePolicy",
-            "java": "Object",
-            "imports": []
+            "java": "RequestCachePolicy",
+            "imports": [
+                "io.github.ningpp.compat.RequestCachePolicy"
+            ]
         },
         {
             "csharp": "System.Net.WebRequest",
@@ -3521,16 +3599,16 @@
         },
         {
             "csharp": "System.EventHandler",
-            "java": "Consumer",
+            "java": "BiConsumer",
             "imports": [
-                "java.util.function.Consumer"
+                "java.util.function.BiConsumer"
             ]
         },
         {
             "csharp": "System.EventHandler`1",
-            "java": "Consumer",
+            "java": "BiConsumer",
             "imports": [
-                "java.util.function.Consumer"
+                "java.util.function.BiConsumer"
             ]
         },
         {
@@ -4299,14 +4377,16 @@
         },
         {
             "csharp": "System.Threading.CancellationToken",
-            "java": "boolean",
-            "imports": []
+            "java": "CancellationToken",
+            "imports": [
+                "io.github.ningpp.compat.CancellationToken"
+            ]
         },
         {
             "csharp": "System.Threading.CancellationTokenSource",
-            "java": "java.util.concurrent.atomic.AtomicBoolean",
+            "java": "CancellationTokenSource",
             "imports": [
-                "java.util.concurrent.atomic.AtomicBoolean"
+                "io.github.ningpp.compat.CancellationTokenSource"
             ]
         },
         {
@@ -4725,6 +4805,1651 @@
             "java": "XmlException",
             "imports": [
                 "io.github.ningpp.compat.XmlException"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Bitmap",
+            "java": "Bitmap",
+            "imports": [
+                "dotnet.drawing.swing.Bitmap"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Brush",
+            "java": "Brush",
+            "imports": [
+                "dotnet.drawing.swing.Brush"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Brushes",
+            "java": "Brushes",
+            "imports": [
+                "dotnet.drawing.swing.Brushes"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D.CompositingQuality",
+            "java": "CompositingQuality",
+            "imports": [
+                "dotnet.drawing.swing.drawing2d.CompositingQuality"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D.DashStyle",
+            "java": "DashStyle",
+            "imports": [
+                "dotnet.drawing.swing.drawing2d.DashStyle"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Imaging.EmfType",
+            "java": "EmfType",
+            "imports": [
+                "dotnet.drawing.swing.imaging.EmfType"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Font",
+            "java": "Font",
+            "imports": [
+                "dotnet.drawing.swing.Font"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.FontFamily",
+            "java": "FontFamily",
+            "imports": [
+                "dotnet.drawing.swing.FontFamily"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.FontStyle",
+            "java": "FontStyle",
+            "imports": [
+                "dotnet.drawing.swing.FontStyle"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Graphics",
+            "java": "Graphics",
+            "imports": [
+                "dotnet.drawing.swing.Graphics"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D.GraphicsPath",
+            "java": "GraphicsPath",
+            "imports": [
+                "dotnet.drawing.swing.drawing2d.GraphicsPath"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Icon",
+            "java": "Icon",
+            "imports": [
+                "dotnet.drawing.swing.Icon"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Image",
+            "java": "Image",
+            "imports": [
+                "dotnet.drawing.swing.Image"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D.InterpolationMode",
+            "java": "InterpolationMode",
+            "imports": [
+                "dotnet.drawing.swing.drawing2d.InterpolationMode"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D.LineCap",
+            "java": "LineCap",
+            "imports": [
+                "dotnet.drawing.swing.drawing2d.LineCap"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D.Matrix",
+            "java": "Matrix",
+            "imports": [
+                "dotnet.drawing.swing.drawing2d.Matrix"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Imaging.Metafile",
+            "java": "Metafile",
+            "imports": [
+                "dotnet.drawing.swing.imaging.Metafile"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Pen",
+            "java": "Pen",
+            "imports": [
+                "dotnet.drawing.swing.Pen"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Imaging.PixelFormat",
+            "java": "PixelFormat",
+            "imports": [
+                "dotnet.drawing.swing.imaging.PixelFormat"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Point",
+            "java": "Point",
+            "imports": [
+                "dotnet.drawing.swing.Point"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.PointF",
+            "java": "PointF",
+            "imports": [
+                "dotnet.drawing.swing.PointF"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Printing.PrintDocument",
+            "java": "PrintDocument",
+            "imports": [
+                "dotnet.drawing.swing.printing.PrintDocument"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Printing.PrintPageEventArgs",
+            "java": "PrintPageEventArgs",
+            "imports": [
+                "dotnet.drawing.swing.printing.PrintPageEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Rectangle",
+            "java": "Rectangle",
+            "imports": [
+                "dotnet.drawing.swing.Rectangle"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.RectangleF",
+            "java": "RectangleF",
+            "imports": [
+                "dotnet.drawing.swing.RectangleF"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Region",
+            "java": "Region",
+            "imports": [
+                "dotnet.drawing.swing.Region"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Size",
+            "java": "Size",
+            "imports": [
+                "dotnet.drawing.swing.Size"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.SizeF",
+            "java": "SizeF",
+            "imports": [
+                "dotnet.drawing.swing.SizeF"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D.SmoothingMode",
+            "java": "SmoothingMode",
+            "imports": [
+                "dotnet.drawing.swing.drawing2d.SmoothingMode"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.SolidBrush",
+            "java": "SolidBrush",
+            "imports": [
+                "dotnet.drawing.swing.SolidBrush"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.StringFormat",
+            "java": "StringFormat",
+            "imports": [
+                "dotnet.drawing.swing.StringFormat"
+            ]
+        },
+        {
+            "csharp": "System.Drawing.Text.TextRenderingHint",
+            "java": "TextRenderingHint",
+            "imports": [
+                "dotnet.drawing.swing.text.TextRenderingHint"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.AnchorStyles",
+            "java": "AnchorStyles",
+            "imports": [
+                "dotnet.winforms.swing.AnchorStyles"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.AutoScaleMode",
+            "java": "AutoScaleMode",
+            "imports": [
+                "dotnet.winforms.swing.AutoScaleMode"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Button",
+            "java": "Button",
+            "imports": [
+                "dotnet.winforms.swing.Button"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ButtonBase",
+            "java": "ButtonBase",
+            "imports": [
+                "dotnet.winforms.swing.ButtonBase"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.CommonDialog",
+            "java": "CommonDialog",
+            "imports": [
+                "dotnet.winforms.swing.CommonDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ComponentResourceManager",
+            "java": "ComponentResourceManager",
+            "imports": [
+                "dotnet.winforms.swing.ComponentResourceManager"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Container",
+            "java": "Container",
+            "imports": [
+                "dotnet.winforms.swing.Container"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ContainerControl",
+            "java": "ContainerControl",
+            "imports": [
+                "dotnet.winforms.swing.ContainerControl"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ContextMenuStrip",
+            "java": "ContextMenuStrip",
+            "imports": [
+                "dotnet.winforms.swing.ContextMenuStrip"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Control",
+            "java": "Control",
+            "imports": [
+                "dotnet.winforms.swing.Control"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ControlStyles",
+            "java": "ControlStyles",
+            "imports": [
+                "dotnet.winforms.swing.ControlStyles"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Cursor",
+            "java": "Cursor",
+            "imports": [
+                "dotnet.winforms.swing.Cursor"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Cursors",
+            "java": "Cursors",
+            "imports": [
+                "dotnet.winforms.swing.Cursors"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.DialogResult",
+            "java": "DialogResult",
+            "imports": [
+                "dotnet.winforms.swing.DialogResult"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.DockStyle",
+            "java": "DockStyle",
+            "imports": [
+                "dotnet.winforms.swing.DockStyle"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.FileDialog",
+            "java": "FileDialog",
+            "imports": [
+                "dotnet.winforms.swing.FileDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Form",
+            "java": "Form",
+            "imports": [
+                "dotnet.winforms.swing.Form"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.FormStartPosition",
+            "java": "FormStartPosition",
+            "imports": [
+                "dotnet.winforms.swing.FormStartPosition"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.IButtonControl",
+            "java": "IButtonControl",
+            "imports": [
+                "dotnet.winforms.swing.IButtonControl"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.IContainer",
+            "java": "IContainer",
+            "imports": [
+                "dotnet.winforms.swing.IContainer"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ISupportInitialize",
+            "java": "ISupportInitialize",
+            "imports": [
+                "dotnet.winforms.swing.ISupportInitialize"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ImageList",
+            "java": "ImageList",
+            "imports": [
+                "dotnet.winforms.swing.ImageList"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ImageListStreamer",
+            "java": "ImageListStreamer",
+            "imports": [
+                "dotnet.winforms.swing.ImageListStreamer"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.KeyEventArgs",
+            "java": "KeyEventArgs",
+            "imports": [
+                "dotnet.winforms.swing.KeyEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.KeyPressEventArgs",
+            "java": "KeyPressEventArgs",
+            "imports": [
+                "dotnet.winforms.swing.KeyPressEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Keys",
+            "java": "Keys",
+            "imports": [
+                "dotnet.winforms.swing.Keys"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Label",
+            "java": "Label",
+            "imports": [
+                "dotnet.winforms.swing.Label"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.MessageBox",
+            "java": "MessageBox",
+            "imports": [
+                "dotnet.winforms.swing.MessageBox"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.MouseButtons",
+            "java": "MouseButtons",
+            "imports": [
+                "dotnet.winforms.swing.MouseButtons"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.MouseEventArgs",
+            "java": "MouseEventArgs",
+            "imports": [
+                "dotnet.winforms.swing.MouseEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.MouseEventHandler",
+            "java": "MouseEventHandler",
+            "imports": [
+                "dotnet.winforms.swing.MouseEventHandler"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.OpenFileDialog",
+            "java": "OpenFileDialog",
+            "imports": [
+                "dotnet.winforms.swing.OpenFileDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Padding",
+            "java": "Padding",
+            "imports": [
+                "dotnet.winforms.swing.Padding"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.PaintEventArgs",
+            "java": "PaintEventArgs",
+            "imports": [
+                "dotnet.winforms.swing.PaintEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Panel",
+            "java": "Panel",
+            "imports": [
+                "dotnet.winforms.swing.Panel"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.PrintDialog",
+            "java": "PrintDialog",
+            "imports": [
+                "dotnet.winforms.swing.PrintDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.PropertyGrid",
+            "java": "PropertyGrid",
+            "imports": [
+                "dotnet.winforms.swing.PropertyGrid"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.PropertySort",
+            "java": "PropertySort",
+            "imports": [
+                "dotnet.winforms.swing.PropertySort"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.RadioButton",
+            "java": "RadioButton",
+            "imports": [
+                "dotnet.winforms.swing.RadioButton"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.SaveFileDialog",
+            "java": "SaveFileDialog",
+            "imports": [
+                "dotnet.winforms.swing.SaveFileDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.Screen",
+            "java": "Screen",
+            "imports": [
+                "dotnet.winforms.swing.Screen"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ScrollableControl",
+            "java": "ScrollableControl",
+            "imports": [
+                "dotnet.winforms.swing.ScrollableControl"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.StatusStrip",
+            "java": "StatusStrip",
+            "imports": [
+                "dotnet.winforms.swing.StatusStrip"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.TextBox",
+            "java": "TextBox",
+            "imports": [
+                "dotnet.winforms.swing.TextBox"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.TickStyle",
+            "java": "TickStyle",
+            "imports": [
+                "dotnet.winforms.swing.TickStyle"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStrip",
+            "java": "ToolStrip",
+            "imports": [
+                "dotnet.winforms.swing.ToolStrip"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripButton",
+            "java": "ToolStripButton",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripButton"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripDropDown",
+            "java": "ToolStripDropDown",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripDropDown"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripDropDownDirection",
+            "java": "ToolStripDropDownDirection",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripDropDownDirection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripItem",
+            "java": "ToolStripItem",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripItem"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripItemClickedEventArgs",
+            "java": "ToolStripItemClickedEventArgs",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripItemClickedEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripItemClickedEventHandler",
+            "java": "ToolStripItemClickedEventHandler",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripItemClickedEventHandler"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripItemDisplayStyle",
+            "java": "ToolStripItemDisplayStyle",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripItemDisplayStyle"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripMenuItem",
+            "java": "ToolStripMenuItem",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripMenuItem"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolStripStatusLabel",
+            "java": "ToolStripStatusLabel",
+            "imports": [
+                "dotnet.winforms.swing.ToolStripStatusLabel"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.ToolTip",
+            "java": "ToolTip",
+            "imports": [
+                "dotnet.winforms.swing.ToolTip"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.TrackBar",
+            "java": "TrackBar",
+            "imports": [
+                "dotnet.winforms.swing.TrackBar"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Forms.UserControl",
+            "java": "UserControl",
+            "imports": [
+                "dotnet.winforms.swing.UserControl"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Application",
+            "java": "Application",
+            "imports": [
+                "dotnet.wpf.swing.Application"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.ArcSegment",
+            "java": "ArcSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.ArcSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.BezierSegment",
+            "java": "BezierSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.BezierSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Data.Binding",
+            "java": "Binding",
+            "imports": [
+                "dotnet.wpf.swing.data.Binding"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.BitmapCacheOption",
+            "java": "BitmapCacheOption",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.BitmapCacheOption"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.BitmapCreateOptions",
+            "java": "BitmapCreateOptions",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.BitmapCreateOptions"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.BitmapDecoder",
+            "java": "BitmapDecoder",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.BitmapDecoder"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.BitmapEncoder",
+            "java": "BitmapEncoder",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.BitmapEncoder"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.BitmapFrame",
+            "java": "BitmapFrame",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.BitmapFrame"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.BitmapImage",
+            "java": "BitmapImage",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.BitmapImage"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.BitmapSource",
+            "java": "BitmapSource",
+            "imports": [
+                "dotnet.wpf.swing.media.BitmapSource"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.BmpBitmapEncoder",
+            "java": "BmpBitmapEncoder",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.BmpBitmapEncoder"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.Border",
+            "java": "Border",
+            "imports": [
+                "dotnet.wpf.swing.controls.Border"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Brush",
+            "java": "Brush",
+            "imports": [
+                "dotnet.wpf.swing.media.Brush"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.BrushConverter",
+            "java": "BrushConverter",
+            "imports": [
+                "dotnet.wpf.swing.media.BrushConverter"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Brushes",
+            "java": "Brushes",
+            "imports": [
+                "dotnet.wpf.swing.media.Brushes"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.CanExecuteRoutedEventHandler",
+            "java": "CanExecuteRoutedEventHandler",
+            "imports": [
+                "dotnet.wpf.swing.input.CanExecuteRoutedEventHandler"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.Canvas",
+            "java": "Canvas",
+            "imports": [
+                "dotnet.wpf.swing.controls.Canvas"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Color",
+            "java": "Color",
+            "imports": [
+                "dotnet.wpf.swing.media.Color"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.CommandBinding",
+            "java": "CommandBinding",
+            "imports": [
+                "dotnet.wpf.swing.input.CommandBinding"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.CommandBindingCollection",
+            "java": "CommandBindingCollection",
+            "imports": [
+                "dotnet.wpf.swing.input.CommandBindingCollection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.ContentControl",
+            "java": "ContentControl",
+            "imports": [
+                "dotnet.wpf.swing.ContentControl"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.ContextMenu",
+            "java": "ContextMenu",
+            "imports": [
+                "dotnet.wpf.swing.controls.ContextMenu"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.ContextMenuService",
+            "java": "ContextMenuService",
+            "imports": [
+                "dotnet.wpf.swing.controls.ContextMenuService"
+            ]
+        },
+        {
+            "csharp": "System.Windows.CornerRadius",
+            "java": "CornerRadius",
+            "imports": [
+                "dotnet.wpf.swing.CornerRadius"
+            ]
+        },
+        {
+            "csharp": "System.Windows.DependencyProperty",
+            "java": "DependencyProperty",
+            "imports": [
+                "dotnet.wpf.swing.DependencyProperty"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Threading.Dispatcher",
+            "java": "Dispatcher",
+            "imports": [
+                "dotnet.wpf.swing.threading.Dispatcher"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Threading.DispatcherTimer",
+            "java": "DispatcherTimer",
+            "imports": [
+                "dotnet.wpf.swing.threading.DispatcherTimer"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.DockPanel",
+            "java": "DockPanel",
+            "imports": [
+                "dotnet.wpf.swing.controls.DockPanel"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.DoubleCollection",
+            "java": "DoubleCollection",
+            "imports": [
+                "dotnet.wpf.swing.media.DoubleCollection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.DpiScale",
+            "java": "DpiScale",
+            "imports": [
+                "dotnet.wpf.swing.DpiScale"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Drawing",
+            "java": "Drawing",
+            "imports": [
+                "dotnet.wpf.swing.media.Drawing"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.DrawingContext",
+            "java": "DrawingContext",
+            "imports": [
+                "dotnet.wpf.swing.media.DrawingContext"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.DrawingVisual",
+            "java": "DrawingVisual",
+            "imports": [
+                "dotnet.wpf.swing.media.DrawingVisual"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Shapes.Ellipse",
+            "java": "Ellipse",
+            "imports": [
+                "dotnet.wpf.swing.shapes.Ellipse"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.EllipseGeometry",
+            "java": "EllipseGeometry",
+            "imports": [
+                "dotnet.wpf.swing.media.EllipseGeometry"
+            ]
+        },
+        {
+            "csharp": "System.Windows.EventManager",
+            "java": "EventManager",
+            "imports": [
+                "dotnet.wpf.swing.EventManager"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.ExecutedRoutedEventArgs",
+            "java": "ExecutedRoutedEventArgs",
+            "imports": [
+                "dotnet.wpf.swing.input.ExecutedRoutedEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.ExecutedRoutedEventHandler",
+            "java": "ExecutedRoutedEventHandler",
+            "imports": [
+                "dotnet.wpf.swing.input.ExecutedRoutedEventHandler"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.FillRule",
+            "java": "FillRule",
+            "imports": [
+                "dotnet.wpf.swing.media.FillRule"
+            ]
+        },
+        {
+            "csharp": "System.Windows.FlowDirection",
+            "java": "FlowDirection",
+            "imports": [
+                "dotnet.wpf.swing.FlowDirection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.FontFamily",
+            "java": "FontFamily",
+            "imports": [
+                "dotnet.wpf.swing.media.FontFamily"
+            ]
+        },
+        {
+            "csharp": "System.Windows.FontStretch",
+            "java": "FontStretch",
+            "imports": [
+                "dotnet.wpf.swing.FontStretch"
+            ]
+        },
+        {
+            "csharp": "System.Windows.FontStretches",
+            "java": "FontStretches",
+            "imports": [
+                "dotnet.wpf.swing.FontStretches"
+            ]
+        },
+        {
+            "csharp": "System.Windows.FontStyle",
+            "java": "FontStyle",
+            "imports": [
+                "dotnet.wpf.swing.FontStyle"
+            ]
+        },
+        {
+            "csharp": "System.Windows.FontWeight",
+            "java": "FontWeight",
+            "imports": [
+                "dotnet.wpf.swing.FontWeight"
+            ]
+        },
+        {
+            "csharp": "System.Windows.FontWeights",
+            "java": "FontWeights",
+            "imports": [
+                "dotnet.wpf.swing.FontWeights"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.FormattedText",
+            "java": "FormattedText",
+            "imports": [
+                "dotnet.wpf.swing.media.FormattedText"
+            ]
+        },
+        {
+            "csharp": "System.Windows.FrameworkElement",
+            "java": "FrameworkElement",
+            "imports": [
+                "dotnet.wpf.swing.FrameworkElement"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.GeneralTransform",
+            "java": "GeneralTransform",
+            "imports": [
+                "dotnet.wpf.swing.media.GeneralTransform"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Geometry",
+            "java": "Geometry",
+            "imports": [
+                "dotnet.wpf.swing.media.Geometry"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.GeometryHitTestParameters",
+            "java": "GeometryHitTestParameters",
+            "imports": [
+                "dotnet.wpf.swing.media.GeometryHitTestParameters"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.HitTestParameters",
+            "java": "HitTestParameters",
+            "imports": [
+                "dotnet.wpf.swing.media.HitTestParameters"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.HitTestResult",
+            "java": "HitTestResult",
+            "imports": [
+                "dotnet.wpf.swing.media.HitTestResult"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.HitTestResultBehavior",
+            "java": "HitTestResultBehavior",
+            "imports": [
+                "dotnet.wpf.swing.media.HitTestResultBehavior"
+            ]
+        },
+        {
+            "csharp": "System.Windows.HorizontalAlignment",
+            "java": "HorizontalAlignment",
+            "imports": [
+                "dotnet.wpf.swing.HorizontalAlignment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.IInputElement",
+            "java": "IInputElement",
+            "imports": [
+                "dotnet.wpf.swing.input.IInputElement"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Data.IValueConverter",
+            "java": "IValueConverter",
+            "imports": [
+                "dotnet.wpf.swing.data.IValueConverter"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.Image",
+            "java": "Image",
+            "imports": [
+                "dotnet.wpf.swing.controls.Image"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.ImageSource",
+            "java": "ImageSource",
+            "imports": [
+                "dotnet.wpf.swing.media.ImageSource"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.InputBinding",
+            "java": "InputBinding",
+            "imports": [
+                "dotnet.wpf.swing.input.InputBinding"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.InputBindingCollection",
+            "java": "InputBindingCollection",
+            "imports": [
+                "dotnet.wpf.swing.input.InputBindingCollection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.ItemCollection",
+            "java": "ItemCollection",
+            "imports": [
+                "dotnet.wpf.swing.controls.ItemCollection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.ItemsControl",
+            "java": "ItemsControl",
+            "imports": [
+                "dotnet.wpf.swing.controls.ItemsControl"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.Key",
+            "java": "Key",
+            "imports": [
+                "dotnet.wpf.swing.input.Key"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.KeyEventArgs",
+            "java": "KeyEventArgs",
+            "imports": [
+                "dotnet.wpf.swing.input.KeyEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.KeyGesture",
+            "java": "KeyGesture",
+            "imports": [
+                "dotnet.wpf.swing.input.KeyGesture"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.Keyboard",
+            "java": "Keyboard",
+            "imports": [
+                "dotnet.wpf.swing.input.Keyboard"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Shapes.Line",
+            "java": "Line",
+            "imports": [
+                "dotnet.wpf.swing.shapes.Line"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.LineSegment",
+            "java": "LineSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.LineSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Matrix",
+            "java": "Matrix",
+            "imports": [
+                "dotnet.wpf.swing.media.Matrix"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.MatrixTransform",
+            "java": "MatrixTransform",
+            "imports": [
+                "dotnet.wpf.swing.media.MatrixTransform"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.MenuItem",
+            "java": "MenuItem",
+            "imports": [
+                "dotnet.wpf.swing.controls.MenuItem"
+            ]
+        },
+        {
+            "csharp": "System.Windows.MessageBox",
+            "java": "MessageBox",
+            "imports": [
+                "dotnet.wpf.swing.MessageBox"
+            ]
+        },
+        {
+            "csharp": "System.Windows.MessageBoxButton",
+            "java": "MessageBoxButton",
+            "imports": [
+                "dotnet.wpf.swing.MessageBoxButton"
+            ]
+        },
+        {
+            "csharp": "System.Windows.MessageBoxImage",
+            "java": "MessageBoxImage",
+            "imports": [
+                "dotnet.wpf.swing.MessageBoxImage"
+            ]
+        },
+        {
+            "csharp": "System.Windows.MessageBoxResult",
+            "java": "MessageBoxResult",
+            "imports": [
+                "dotnet.wpf.swing.MessageBoxResult"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.ModifierKeys",
+            "java": "ModifierKeys",
+            "imports": [
+                "dotnet.wpf.swing.input.ModifierKeys"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.Mouse",
+            "java": "Mouse",
+            "imports": [
+                "dotnet.wpf.swing.input.Mouse"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.MouseButton",
+            "java": "MouseButton",
+            "imports": [
+                "dotnet.wpf.swing.input.MouseButton"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.MouseButtonEventArgs",
+            "java": "MouseButtonEventArgs",
+            "imports": [
+                "dotnet.wpf.swing.input.MouseButtonEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.MouseButtonState",
+            "java": "MouseButtonState",
+            "imports": [
+                "dotnet.wpf.swing.input.MouseButtonState"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.MouseEventArgs",
+            "java": "MouseEventArgs",
+            "imports": [
+                "dotnet.wpf.swing.input.MouseEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.MouseWheelEventArgs",
+            "java": "MouseWheelEventArgs",
+            "imports": [
+                "dotnet.wpf.swing.input.MouseWheelEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.NetFormat",
+            "java": "NetFormat",
+            "imports": [
+                "dotnet.wpf.swing.NetFormat"
+            ]
+        },
+        {
+            "csharp": "Microsoft.Win32.OpenFileDialog",
+            "java": "OpenFileDialog",
+            "imports": [
+                "dotnet.wpf.swing.dialogs.OpenFileDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.Panel",
+            "java": "Panel",
+            "imports": [
+                "dotnet.wpf.swing.controls.Panel"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Shapes.Path",
+            "java": "Path",
+            "imports": [
+                "dotnet.wpf.swing.shapes.Path"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PathFigure",
+            "java": "PathFigure",
+            "imports": [
+                "dotnet.wpf.swing.media.PathFigure"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PathFigureCollection",
+            "java": "PathFigureCollection",
+            "imports": [
+                "dotnet.wpf.swing.media.PathFigureCollection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PathGeometry",
+            "java": "PathGeometry",
+            "imports": [
+                "dotnet.wpf.swing.media.PathGeometry"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PathSegment",
+            "java": "PathSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.PathSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PathSegmentCollection",
+            "java": "PathSegmentCollection",
+            "imports": [
+                "dotnet.wpf.swing.media.PathSegmentCollection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PenLineCap",
+            "java": "PenLineCap",
+            "imports": [
+                "dotnet.wpf.swing.media.PenLineCap"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PixelFormat",
+            "java": "PixelFormat",
+            "imports": [
+                "dotnet.wpf.swing.media.PixelFormat"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PixelFormats",
+            "java": "PixelFormats",
+            "imports": [
+                "dotnet.wpf.swing.media.PixelFormats"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.PngBitmapEncoder",
+            "java": "PngBitmapEncoder",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.PngBitmapEncoder"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Point",
+            "java": "Point",
+            "imports": [
+                "dotnet.wpf.swing.Point"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PointCollection",
+            "java": "PointCollection",
+            "imports": [
+                "dotnet.wpf.swing.media.PointCollection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PolyBezierSegment",
+            "java": "PolyBezierSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.PolyBezierSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PolyLineSegment",
+            "java": "PolyLineSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.PolyLineSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.PolyQuadraticBezierSegment",
+            "java": "PolyQuadraticBezierSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.PolyQuadraticBezierSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Shapes.Polyline",
+            "java": "Polyline",
+            "imports": [
+                "dotnet.wpf.swing.shapes.Polyline"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.QuadraticBezierSegment",
+            "java": "QuadraticBezierSegment",
+            "imports": [
+                "dotnet.wpf.swing.media.QuadraticBezierSegment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Rect",
+            "java": "Rect",
+            "imports": [
+                "dotnet.wpf.swing.Rect"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Shapes.Rectangle",
+            "java": "Rectangle",
+            "imports": [
+                "dotnet.wpf.swing.shapes.Rectangle"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.RectangleGeometry",
+            "java": "RectangleGeometry",
+            "imports": [
+                "dotnet.wpf.swing.media.RectangleGeometry"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging.RenderTargetBitmap",
+            "java": "RenderTargetBitmap",
+            "imports": [
+                "dotnet.wpf.swing.media.imaging.RenderTargetBitmap"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.RichTextBox",
+            "java": "RichTextBox",
+            "imports": [
+                "dotnet.wpf.swing.controls.RichTextBox"
+            ]
+        },
+        {
+            "csharp": "System.Windows.RoutedEvent",
+            "java": "RoutedEvent",
+            "imports": [
+                "dotnet.wpf.swing.RoutedEvent"
+            ]
+        },
+        {
+            "csharp": "System.Windows.RoutedEventArgs",
+            "java": "RoutedEventArgs",
+            "imports": [
+                "dotnet.wpf.swing.RoutedEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.RoutedEventHandler",
+            "java": "RoutedEventHandler",
+            "imports": [
+                "dotnet.wpf.swing.RoutedEventHandler"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.RoutedUICommand",
+            "java": "RoutedUICommand",
+            "imports": [
+                "dotnet.wpf.swing.input.RoutedUICommand"
+            ]
+        },
+        {
+            "csharp": "Microsoft.Win32.SaveFileDialog",
+            "java": "SaveFileDialog",
+            "imports": [
+                "dotnet.wpf.swing.dialogs.SaveFileDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Shapes.Shape",
+            "java": "Shape",
+            "imports": [
+                "dotnet.wpf.swing.shapes.Shape"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Size",
+            "java": "Size",
+            "imports": [
+                "dotnet.wpf.swing.Size"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.SolidColorBrush",
+            "java": "SolidColorBrush",
+            "imports": [
+                "dotnet.wpf.swing.media.SolidColorBrush"
+            ]
+        },
+        {
+            "csharp": "System.Windows.StartupEventArgs",
+            "java": "StartupEventArgs",
+            "imports": [
+                "dotnet.wpf.swing.StartupEventArgs"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.StreamGeometry",
+            "java": "StreamGeometry",
+            "imports": [
+                "dotnet.wpf.swing.media.StreamGeometry"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.StreamGeometryContext",
+            "java": "StreamGeometryContext",
+            "imports": [
+                "dotnet.wpf.swing.media.StreamGeometryContext"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Stretch",
+            "java": "Stretch",
+            "imports": [
+                "dotnet.wpf.swing.media.Stretch"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.SweepDirection",
+            "java": "SweepDirection",
+            "imports": [
+                "dotnet.wpf.swing.media.SweepDirection"
+            ]
+        },
+        {
+            "csharp": "System.Windows.SystemParameters",
+            "java": "SystemParameters",
+            "imports": [
+                "dotnet.wpf.swing.SystemParameters"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.TextBlock",
+            "java": "TextBlock",
+            "imports": [
+                "dotnet.wpf.swing.controls.TextBlock"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.TextBox",
+            "java": "TextBox",
+            "imports": [
+                "dotnet.wpf.swing.controls.TextBox"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.TextBoxBase",
+            "java": "TextBoxBase",
+            "imports": [
+                "dotnet.wpf.swing.controls.TextBoxBase"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Thickness",
+            "java": "Thickness",
+            "imports": [
+                "dotnet.wpf.swing.Thickness"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.ToolTip",
+            "java": "ToolTip",
+            "imports": [
+                "dotnet.wpf.swing.controls.ToolTip"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.ToolTipService",
+            "java": "ToolTipService",
+            "imports": [
+                "dotnet.wpf.swing.controls.ToolTipService"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Transform",
+            "java": "Transform",
+            "imports": [
+                "dotnet.wpf.swing.media.Transform"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Typeface",
+            "java": "Typeface",
+            "imports": [
+                "dotnet.wpf.swing.media.Typeface"
+            ]
+        },
+        {
+            "csharp": "System.Windows.UIElement",
+            "java": "UIElement",
+            "imports": [
+                "dotnet.wpf.swing.UIElement"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Vector",
+            "java": "Vector",
+            "imports": [
+                "dotnet.wpf.swing.Vector"
+            ]
+        },
+        {
+            "csharp": "System.Windows.VerticalAlignment",
+            "java": "VerticalAlignment",
+            "imports": [
+                "dotnet.wpf.swing.VerticalAlignment"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Controls.Viewbox",
+            "java": "Viewbox",
+            "imports": [
+                "dotnet.wpf.swing.controls.Viewbox"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Visibility",
+            "java": "Visibility",
+            "imports": [
+                "dotnet.wpf.swing.Visibility"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.Visual",
+            "java": "Visual",
+            "imports": [
+                "dotnet.wpf.swing.media.Visual"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Media.VisualTreeHelper",
+            "java": "VisualTreeHelper",
+            "imports": [
+                "dotnet.wpf.swing.media.VisualTreeHelper"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Window",
+            "java": "Window",
+            "imports": [
+                "dotnet.wpf.swing.Window"
+            ]
+        },
+        {
+            "csharp": "Microsoft.Win32.CommonDialog",
+            "java": "CommonDialog",
+            "imports": [
+                "dotnet.wpf.swing.dialogs.CommonDialog"
+            ]
+        },
+        {
+            "csharp": "Microsoft.Win32.CommonItemDialog",
+            "java": "CommonItemDialog",
+            "imports": [
+                "dotnet.wpf.swing.dialogs.CommonItemDialog"
+            ]
+        },
+        {
+            "csharp": "Microsoft.Win32.FileDialog",
+            "java": "FileDialog",
+            "imports": [
+                "dotnet.wpf.swing.dialogs.FileDialog"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.KeyEventHandler",
+            "java": "KeyEventHandler",
+            "imports": [
+                "dotnet.wpf.swing.input.KeyEventHandler"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Input.MouseButtonEventHandler",
+            "java": "MouseButtonEventHandler",
+            "imports": [
+                "dotnet.wpf.swing.input.MouseButtonEventHandler"
+            ]
+        },
+        {
+            "csharp": "System.Windows.Markup.IComponentConnector",
+            "java": "IComponentConnector",
+            "imports": [
+                "dotnet.wpf.swing.IComponentConnector"
             ]
         }
     ],
@@ -5496,16 +7221,6 @@
         },
         {
             "type": "System.Threading.Tasks.Task",
-            "method": "Wait",
-            "javaMethod": "join"
-        },
-        {
-            "type": "System.Threading.Tasks.Task`1",
-            "method": "Wait",
-            "javaMethod": "join"
-        },
-        {
-            "type": "System.Threading.Tasks.Task",
             "method": "Run",
             "javaMethod": "runAsync"
         },
@@ -5603,6 +7318,16 @@
             "type": "System.Threading.Tasks.Task`1",
             "method": "ContinueWith",
             "javaMethod": "thenApply"
+        },
+        {
+            "type": "System.Threading.Tasks.Task",
+            "method": "Wait",
+            "javaMethod": "waitTask"
+        },
+        {
+            "type": "System.Threading.Tasks.Task`1",
+            "method": "Wait",
+            "javaMethod": "waitTask"
         },
         {
             "type": "System.Threading.Tasks.Task",
@@ -6594,6 +8319,31 @@
             "type": "System.Drawing.Color",
             "method": "Black",
             "javaMethod": "DrawingColor.getBlack"
+        },
+        {
+            "type": "System.Drawing.Color",
+            "method": "Blue",
+            "javaMethod": "DrawingColor.getBlue"
+        },
+        {
+            "type": "System.Drawing.Color",
+            "method": "Green",
+            "javaMethod": "DrawingColor.getGreen"
+        },
+        {
+            "type": "System.Drawing.Color",
+            "method": "Brown",
+            "javaMethod": "DrawingColor.getBrown"
+        },
+        {
+            "type": "System.Drawing.Color",
+            "method": "Transparent",
+            "javaMethod": "DrawingColor.getTransparent"
+        },
+        {
+            "type": "System.Windows.Forms.Control",
+            "method": "ModifierKeys",
+            "javaMethod": "Control.getModifierKeysStatic"
         },
         {
             "type": "System.Collections.Generic.Dictionary`2",
@@ -7715,6 +9465,62 @@
         {
             "csharp": "System.Reflection.Emit",
             "java": "io.github.ningpp.compat"
+        },
+        {
+            "csharp": "System.Windows.Forms",
+            "java": "dotnet.winforms.swing"
+        },
+        {
+            "csharp": "System.Drawing",
+            "java": "dotnet.drawing.swing"
+        },
+        {
+            "csharp": "System.Drawing.Drawing2D",
+            "java": "dotnet.drawing.swing.drawing2d"
+        },
+        {
+            "csharp": "System.Drawing.Imaging",
+            "java": "dotnet.drawing.swing.imaging"
+        },
+        {
+            "csharp": "System.Drawing.Printing",
+            "java": "dotnet.drawing.swing.printing"
+        },
+        {
+            "csharp": "System.Drawing.Text",
+            "java": "dotnet.drawing.swing.text"
+        },
+        {
+            "csharp": "System.Windows",
+            "java": "dotnet.wpf.swing"
+        },
+        {
+            "csharp": "System.Windows.Controls",
+            "java": "dotnet.wpf.swing.controls"
+        },
+        {
+            "csharp": "System.Windows.Data",
+            "java": "dotnet.wpf.swing.data"
+        },
+        {
+            "csharp": "System.Windows.Input",
+            "java": "dotnet.wpf.swing.input"
+        },
+        {
+            "csharp": "System.Windows.Media",
+            "java": "dotnet.wpf.swing.media"
+        },
+        {
+            "csharp": "System.Windows.Media.Imaging",
+            "java": "dotnet.wpf.swing.media.imaging"
+        },
+        {
+            "csharp": "System.Windows.Shapes",
+            "java": "dotnet.wpf.swing.shapes"
+        },
+        {
+            "csharp": "System.Windows.Threading",
+            "java": "dotnet.wpf.swing.threading"
         }
     ]
 }

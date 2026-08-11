@@ -638,8 +638,13 @@ public class StringHelper {
         return s.substring(0, end + 1);
     }
 
-    /** Mirrors C# String.Trim(trimChars) - trims characters in the array from both ends */
-    public static String trim(String s, char[] trimChars) {
+    /** Mirrors C# String.Trim(trimChar) - trims the character from both ends */
+    public static String trim(String s, char trimChar) {
+        return trim(s, new char[] { trimChar });
+    }
+
+    /** Mirrors C# String.Trim(params char[]) - trims any character in the array from both ends */
+    public static String trim(String s, char... trimChars) {
         if (s == null) return null;
         int start = 0, end = s.length() - 1;
         while (start <= end && contains(trimChars, s.charAt(start))) {

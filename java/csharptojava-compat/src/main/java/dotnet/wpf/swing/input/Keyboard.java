@@ -10,7 +10,7 @@ public final class Keyboard {
 
     private static Object focusedElement;
 
-    public static ModifierKeys getModifiers() {
+    public static int getModifiers() {
         // Swing has no reliable global modifier state; return None for the compat layer.
         return ModifierKeys.None;
     }

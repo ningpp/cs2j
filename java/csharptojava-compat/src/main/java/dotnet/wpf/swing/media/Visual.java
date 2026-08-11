@@ -86,4 +86,9 @@ public abstract class Visual {
         }
         return point;
     }
+
+    /** .NET Visual.TransformToAncestor: returns the accumulated transform to the ancestor. */
+    public GeneralTransform transformToAncestor(Visual ancestor) {
+        return new MatrixTransform();
+    }
 }

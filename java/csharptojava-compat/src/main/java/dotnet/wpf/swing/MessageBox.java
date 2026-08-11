@@ -18,6 +18,14 @@ public final class MessageBox {
         return showMessageBox(messageBoxText, caption);
     }
 
+    public static int show(String messageBoxText, String caption, MessageBoxButton button) {
+        return showMessageBox(messageBoxText, caption);
+    }
+
+    public static int show(String messageBoxText, String caption, MessageBoxButton button, MessageBoxImage icon) {
+        return showMessageBox(messageBoxText, caption);
+    }
+
     private static int showMessageBox(String text, String caption) {
         try {
             if (java.awt.GraphicsEnvironment.isHeadless()) {

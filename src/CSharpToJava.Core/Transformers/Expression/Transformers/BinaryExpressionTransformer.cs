@@ -417,7 +417,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 if (eventName != null && currentTypeName != null &&
                     actualEventSym?.ContainingType?.Name == currentTypeName)
                 {
-                    var fieldName = $"_{char.ToLower(eventName[0])}{eventName.Substring(1)}Listeners";
+                    var fieldName = Transformers.Member.EventListenerNaming.GetFieldName(
+                        Transformers.Member.EventListenerNaming.GetInterfaceQualifier(actualEventSym!), eventName);
                     if (op == "!=")
                         return $"!{fieldName}.isEmpty()";
                     else

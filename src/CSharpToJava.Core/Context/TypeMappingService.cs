@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.TypeMapping.JavaModel;
 
@@ -24,6 +24,7 @@ public class TypeMappingService
     private readonly Func<INamespaceSymbol?> _getGlobalNamespace;
     private readonly Func<string, bool> _tryGetSynthesizedRecordMatch;
     private readonly Func<INamedTypeSymbol, string?> _getAssemblyScopedTypeName;
+    private readonly Func<string, bool> _isUsingAlias;
     private readonly Func<INamedTypeSymbol?> _getCurrentEnclosingType;
 
     /// <summary>
@@ -32,6 +33,102 @@ public class TypeMappingService
     public Dictionary<ITypeSymbol, TypeMappingCacheEntry> TypeCache { get; } = new();
 
     public sealed record TypeMappingCacheEntry(string JavaType, IReadOnlyList<string> Imports);
+    /// <summary>
+    /// Simple name → project type (defined in the current compilation's source)
+    /// resolution cache. Keyed by the global namespace symbol so multi-project
+    /// conversions (shared TypeMappingService) never leak types across modules.
+    /// A null value means "no source-defined type with this simple name".
+    /// </summary>
+    private readonly Dictionary<(INamespaceSymbol GlobalNamespace, string SimpleName), INamedTypeSymbol?> _projectSimpleNameTypes = new();
+
+    /// <summary>
+    /// When the semantic model cannot resolve a simple name (e.g. members of
+    /// merged partial-type syntax trees are detached from the compilation tree
+    /// and GetTypeInfo returns null), the syntax fallback must not let a compat
+    /// config entry shadow a type the project itself defines in source
+    /// (e.g. Microsoft.Msagl.Core.Geometry.Rectangle vs System.Drawing.Rectangle).
+    /// Returns true when the simple name resolves unambiguously to a source-defined
+    /// project type (exactly one match, or a match in the current namespace).
+    /// </summary>
+    private bool TryResolveProjectTypeBySimpleName(string simpleName, out INamedTypeSymbol? projectType)
+    {
+        projectType = null;
+        var globalNs = _getGlobalNamespace();
+        if (globalNs == null || string.IsNullOrWhiteSpace(simpleName))
+            return false;
+
+        var key = (globalNs, simpleName);
+        if (_projectSimpleNameTypes.TryGetValue(key, out var cached))
+        {
+            projectType = cached;
+            return cached != null;
+        }
+
+        var matches = new List<INamedTypeSymbol>();
+        CollectSourceTypesByName(globalNs, simpleName, matches);
+
+        if (matches.Count == 1)
+        {
+            projectType = matches[0];
+        }
+        else if (matches.Count > 1)
+        {
+            // Multiple project types share the simple name: prefer a type in the
+            // current namespace (C# simple-name resolution prefers the enclosing
+            // namespace). Otherwise the reference is ambiguous — keep the compat
+            // mapping instead of guessing.
+            var curNs = _getCurrentNamespace();
+            projectType = matches.FirstOrDefault(m =>
+                string.Equals(m.ContainingNamespace?.ToDisplayString(), curNs, StringComparison.Ordinal));
+            if (projectType == null)
+            {
+                _projectSimpleNameTypes[key] = null;
+                return false;
+            }
+        }
+        else
+        {
+            _projectSimpleNameTypes[key] = null;
+            return false;
+        }
+
+        _projectSimpleNameTypes[key] = projectType;
+        return true;
+    }
+
+    private static void CollectSourceTypesByName(
+        INamespaceSymbol namespaceSymbol,
+        string typeName,
+        List<INamedTypeSymbol> matches)
+    {
+        foreach (var typeMember in namespaceSymbol.GetTypeMembers(typeName))
+        {
+            if (typeMember.Locations.Any(loc => loc.IsInSource))
+                matches.Add(typeMember);
+        }
+
+        foreach (var childNamespace in namespaceSymbol.GetNamespaceMembers())
+        {
+            CollectSourceTypesByName(childNamespace, typeName, matches);
+        }
+    }
+
+    /// <summary>
+    /// Registers the import needed to reference a source-defined project type from
+    /// the current namespace and returns its Java type name. Types in the current
+    /// namespace need no import.
+    /// </summary>
+    private string MapProjectTypeFromSimpleName(INamedTypeSymbol projectType)
+    {
+        var projectNs = projectType.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+        var currentNs = _getCurrentNamespace();
+        if (!string.IsNullOrEmpty(projectNs)
+            && !string.Equals(projectNs, currentNs, StringComparison.Ordinal))
+        {
+            AddImport($"{NamespaceToPackage(projectNs)}.{projectType.Name}");
+        }
+        return MapSimpleTypeName(projectType.Name);
+    }
 
     /// <summary>
     /// [Flags] enum names mapped to int/long in Java. Scoped to this conversion context.
@@ -58,7 +155,8 @@ public class TypeMappingService
         Func<string, bool> tryGetSynthesizedRecordMatch,
         Func<INamedTypeSymbol, string?>? getAssemblyScopedTypeName = null,
         Func<string, ITypeSymbol?>? resolveAlias = null,
-        Func<INamedTypeSymbol?>? getCurrentEnclosingType = null)
+        Func<INamedTypeSymbol?>? getCurrentEnclosingType = null,
+        Func<string, bool>? isUsingAlias = null)
     {
         _options = options;
         _typeMappings = typeMappings;
@@ -70,6 +168,7 @@ public class TypeMappingService
         _tryGetSynthesizedRecordMatch = tryGetSynthesizedRecordMatch;
         _getAssemblyScopedTypeName = getAssemblyScopedTypeName ?? (_ => null);
         _getCurrentEnclosingType = getCurrentEnclosingType ?? (() => null);
+        _isUsingAlias = isUsingAlias ?? (_ => false);
     }
 
     public void RegisterFlagsEnum(string enumName) => RegisterFlagsEnum(enumName, "int");
@@ -105,6 +204,13 @@ public class TypeMappingService
 
     // ─── Public mapping methods ───
 
+    /// <summary>
+    /// Namespace prefixes that have explicit namespaceMappings entries in TypeMappings.json
+    /// (e.g. System.Windows.Forms → dotnet.winforms.swing). Used by the unsupported-domain
+    /// check to allow namespaces that are backed by a compatibility package.
+    /// </summary>
+    public IReadOnlyList<string> GetExplicitNamespaceMappings()
+        => _typeMappings.GetExplicitNamespaceMappings();
     public string MapType(ITypeSymbol typeSymbol)
     {
         if (TypeCache.TryGetValue(typeSymbol, out var cached))
@@ -257,6 +363,13 @@ public class TypeMappingService
             var simpleConfigKey = _typeMappings.FindConfigKeyBySimpleName(errorName);
             if (simpleConfigKey != null)
             {
+                // Same project-type guard as the syntax fallback: an error type
+                // whose simple name matches a source-defined project type must
+                // resolve to the project type, not a compat mapping.
+                if (TryResolveProjectTypeBySimpleName(errorName, out var projectType)
+                    && !_isUsingAlias(errorName))
+                    return MapProjectTypeFromSimpleName(projectType!);
+
                 AddImportsForType(simpleConfigKey);
                 return MapSimpleTypeName(simpleMapped);
             }
@@ -489,13 +602,16 @@ public class TypeMappingService
 
             var currentNamespace = _getCurrentNamespace();
             if (!string.IsNullOrEmpty(genericTypeNamespace)
-                && genericTypeNamespace.StartsWith("Microsoft.", StringComparison.Ordinal)
+                && (genericTypeNamespace.StartsWith("Microsoft.", StringComparison.Ordinal) || IsDefinedInSource(namedType))
                 && !string.Equals(currentNamespace, genericTypeNamespace, StringComparison.Ordinal)
                 && namedType.ContainingType == null
                 && (!string.IsNullOrWhiteSpace(currentNamespace) ? !NamespaceContainsType(currentNamespace, baseType) : true))
             {
                 var javaPackage = NamespaceToPackage(genericTypeNamespace);
-                AddImport($"{javaPackage}.{baseType}");
+                if (!string.IsNullOrEmpty(javaPackage))
+                {
+                    AddImport($"{javaPackage}.{baseType}");
+                }
             }
 
             if (baseType == "Object")
@@ -529,6 +645,15 @@ public class TypeMappingService
                     return "Supplier<CompletableFuture<?>>";
             }
 
+            // EventHandler<T> is a (object sender, T args) delegate -> BiConsumer<Object, T>.
+            if ((fullQualifiedName == "System.EventHandler`1" || configKey == "System.EventHandler`1")
+                && namedType.TypeArguments.Length == 1)
+            {
+                var eventArgType = MapTypeForGeneric(namedType.TypeArguments[0], referenceContext);
+                AddImport("java.util.function.BiConsumer");
+                return $"BiConsumer<Object, {eventArgType}>";
+            }
+
             return $"{baseType}<{typeArgs}>";
         }
 
@@ -558,6 +683,25 @@ public class TypeMappingService
                 return GetFlagsEnumValueType(displayName);
             if (IsFlagsEnum(fullyQualifiedName))
                 return GetFlagsEnumValueType(fullyQualifiedName);
+        }
+
+        // C# EventHandler is a (object sender, T args) delegate -> BiConsumer<Object, T>.
+        // Non-generic EventHandler -> BiConsumer<Object, Object>.
+        if (typeSymbol is INamedTypeSymbol namedEventHandler
+            && namedEventHandler.Name == "EventHandler"
+            && namedEventHandler.ContainingNamespace?.ToDisplayString() == "System")
+        {
+            AddImport("java.util.function.BiConsumer");
+            if (namedEventHandler.TypeArguments.Length == 1)
+            {
+                var eventArgType = MapTypeForGeneric(namedEventHandler.TypeArguments[0], referenceContext);
+                return $"BiConsumer<Object, {eventArgType}>";
+            }
+            // Non-generic EventHandler is (object sender, EventArgs e): the second
+            // parameter must be EventArgs so handler methods with an EventArgs
+            // parameter are lambda-compatible with the mapped listener type.
+            AddImport("io.github.ningpp.compat.EventArgs");
+            return "BiConsumer<Object, EventArgs>";
         }
 
         // Non-generic named types — check config mapping
@@ -628,14 +772,18 @@ public class TypeMappingService
             return MapSimpleTypeName(mapped);
 
         // Cross-namespace imports for project types
-            if (!string.IsNullOrEmpty(ns) && ns.StartsWith("Microsoft."))
+            if (!string.IsNullOrEmpty(ns)
+                && (ns.StartsWith("Microsoft.", StringComparison.Ordinal) || IsDefinedInSource(typeSymbol)))
             {
                 if (!string.Equals(curNs, ns, StringComparison.Ordinal)
                     && typeSymbol.ContainingType == null
                     && (!string.IsNullOrWhiteSpace(curNs) ? !NamespaceContainsType(curNs, name) : true))
             {
                 var javaPackage = NamespaceToPackage(ns);
-                AddImport($"{javaPackage}.{name}");
+                if (!string.IsNullOrEmpty(javaPackage))
+                {
+                    AddImport($"{javaPackage}.{name}");
+                }
             }
         }
 
@@ -1162,6 +1310,7 @@ public class TypeMappingService
 
     private void AddImport(string typeName)
     {
+
         if (IsImplicitJavaLangType(typeName)) return;
         _importedTypes.Add(typeName);
     }
@@ -1274,6 +1423,13 @@ public class TypeMappingService
                 mappedArgsString = $"{mappedInnerArgs[0]}, List<{mappedInnerArgs[1]}>";
             }
 
+            // EventHandler<T> is a (object sender, T args) delegate -> BiConsumer<Object, T>.
+            if (arity == 1
+                && (configKey == "System.EventHandler`1" || simpleBaseTypeName == "EventHandler"))
+            {
+                return $"BiConsumer<Object, {mappedInnerArgs[0]}>";
+            }
+
             return $"{mappedBase}<{mappedArgsString}>";
         }
 
@@ -1291,7 +1447,22 @@ public class TypeMappingService
         var simpleConfigKey = _typeMappings.FindConfigKeyBySimpleName(typeName);
         if (simpleConfigKey != null)
         {
+            // A compat simple-name mapping must never shadow a type the project
+            // itself defines in source (e.g. the project Rectangle vs
+            // System.Drawing.Rectangle). Semantic lookups on merged partial-type
+            // syntax trees fail (the merged node is detached from the compilation
+            // tree), so this syntax fallback is the last line of defense.
+            if (TryResolveProjectTypeBySimpleName(typeName, out var projectType)
+                && !_isUsingAlias(typeName))
+                return MapProjectTypeFromSimpleName(projectType!);
+
             AddImportsForType(simpleConfigKey);
+            if (simpleConfigKey == "System.EventHandler")
+            {
+                // Non-generic EventHandler is (object sender, EventArgs e).
+                AddImport("io.github.ningpp.compat.EventArgs");
+                return "BiConsumer<Object, EventArgs>";
+            }
             return MapSimpleTypeName(_typeMappings.MapTypeBySimpleName(typeName));
         }
 
@@ -1501,3 +1672,5 @@ public class TypeMappingService
         return result;
     }
 }
+
+

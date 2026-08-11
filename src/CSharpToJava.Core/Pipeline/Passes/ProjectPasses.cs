@@ -527,7 +527,9 @@ public sealed class ProjectUnsupportedDomainCheckPass : ICs2jPass<ProjectPassSta
             state.Context.Options.EnableParallelProjectPasses,
             syntaxTree => new ProjectSyntaxTreeDiagnosticsResult(
                 syntaxTree.FilePath,
-                UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(syntaxTree)));
+                UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(
+                    syntaxTree,
+                    state.Context.TypeMapper.GetExplicitNamespaceMappings())));
 
         foreach (var analysisResult in analysisResults)
         {
@@ -557,6 +559,7 @@ public sealed class ProjectPlatformBoundaryCheckPass : ICs2jPass<ProjectPassStat
         var isTestProject = state.Library.Projects.FirstOrDefault()?.IsTestProject == true;
         var syntaxTrees = state.Compilation.SyntaxTrees
             .Where(syntaxTree => !string.IsNullOrWhiteSpace(syntaxTree.FilePath) && !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            .Where(syntaxTree => !BoundaryAnalysisHelpers.IsGeneratedAssemblyInfoFile(syntaxTree.FilePath))
             .ToList();
 
         var analysisResults = ProjectPassParallelism.RunDeterministic(
@@ -611,6 +614,7 @@ public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
         var isTsTarget = state.Context.Options.TargetLanguage == TargetLanguage.TypeScript;
         var syntaxTrees = state.Compilation.SyntaxTrees
             .Where(syntaxTree => !string.IsNullOrWhiteSpace(syntaxTree.FilePath) && !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+            .Where(syntaxTree => !BoundaryAnalysisHelpers.IsPInvokeContainerFile(syntaxTree.FilePath))
             .ToList();
 
         var analysisResults = ProjectPassParallelism.RunDeterministic(
@@ -1113,4 +1117,5 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         result.GeneratedCode = code;
     }
 }
+
 

@@ -449,6 +449,26 @@ public partial class StatementTransformer
         // Task 27：TS 事件触发 —— Click?.Invoke(args) → this.Click.Invoke(args)
         // （spec §4.3.7：CsEvent.Invoke 空事件安全，无需 null 守卫；事件字段由
         //  EventFieldTransformer TS 分叉生成 CsEvent<T>）
+        // Java event trigger: Click?.Invoke(args) -> if (!_clickListeners.isEmpty()) { fireClick(args); }
+        // Events have no nullable Java field; the null check falls to the listener list and
+        // the invocation falls to the fire method.
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && context.SemanticModel != null
+            && condAccess.Expression is ExpressionSyntax condJavaEventExpr
+            && context.GetSymbolInfo(condJavaEventExpr).Symbol is IEventSymbol condJavaEvent
+            && condAccess.WhenNotNull is InvocationExpressionSyntax condJavaInvocation
+            && condJavaInvocation.Expression is MemberBindingExpressionSyntax condJavaBinding
+            && condJavaBinding.Name.Identifier.Text == "Invoke")
+        {
+            var javaQualifier = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(condJavaEvent);
+            var javaField = Transformers.Member.EventListenerNaming.GetFieldName(javaQualifier, condJavaEvent.Name);
+            var javaFire = Transformers.Member.EventListenerNaming.GetFireMethodName(javaQualifier, condJavaEvent.Name);
+            var javaArgs = string.Join(", ", condJavaInvocation.ArgumentList.Arguments.Select(
+                a => exprTransformer.Transform(a.Expression, context)));
+            return $"if (!{javaField}.isEmpty()) {{ {javaFire}({javaArgs}); }}";
+        }
+
+
         if (context.Options.TargetLanguage == TargetLanguage.TypeScript
             && context.SemanticModel != null
             && condAccess.Expression is ExpressionSyntax condEventExpr

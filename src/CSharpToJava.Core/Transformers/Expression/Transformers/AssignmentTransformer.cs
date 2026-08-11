@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Linq;
@@ -341,9 +341,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     return $"{receiver}.{evt.Name}.{evtMethod}({handler})";
                 }
                 handler = EnsureValidEventHandler(handler, rightNode, context);
+                var evtQualifier = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(evt);
                 string method = op == "+="
-                    ? $"add{evt.Name}Listener"
-                    : $"remove{evt.Name}Listener";
+                    ? Transformers.Member.EventListenerNaming.GetAddMethodName(evtQualifier, evt.Name)
+                    : Transformers.Member.EventListenerNaming.GetRemoveMethodName(evtQualifier, evt.Name);
                 return $"{receiver}.{method}({handler})";
             }
 
@@ -382,7 +383,26 @@ public class AssignmentTransformer : IIRExpressionTransformer
         {
             if (context.GetSymbolInfo(leftNode).Symbol is IEventSymbol evt)
             {
-                var listenerField = $"_{char.ToLowerInvariant(evt.Name[0])}{evt.Name[1..]}Listeners";
+                // Events inherited from a base class (e.g. Control.MouseClick) have no
+                // listener field in this class: subscribe through the add/remove listener
+                // method instead (addMouseClickListener / removeMouseClickListener).
+                bool isInheritedEvent = context.CurrentEnclosingRoslynType != null
+                    && !SymbolEqualityComparer.Default.Equals(evt.ContainingType, context.CurrentEnclosingRoslynType);
+                if (isInheritedEvent)
+                {
+                    var inheritedHandler = rightNode is IdentifierNameSyntax { Identifier.Text: "value" }
+                        ? "handler"
+                        : facade.Transform(rightNode, context);
+                    inheritedHandler = EnsureValidEventHandler(inheritedHandler, rightNode, context);
+                    var evtQualifier = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(evt);
+                    string evtMethod = op == "+="
+                        ? Transformers.Member.EventListenerNaming.GetAddMethodName(evtQualifier, evt.Name)
+                        : Transformers.Member.EventListenerNaming.GetRemoveMethodName(evtQualifier, evt.Name);
+                    return $"{evtMethod}({inheritedHandler})";
+                }
+
+                var listenerField = Transformers.Member.EventListenerNaming.GetFieldName(
+                    Transformers.Member.EventListenerNaming.GetInterfaceQualifier(evt), evt.Name);
                 string handler;
                 if (rightNode is IdentifierNameSyntax { Identifier.Text: "value" }
                     && context.CurrentMethod?.Parameters.Length == 1)
@@ -773,22 +793,22 @@ public class AssignmentTransformer : IIRExpressionTransformer
         {
             var compoundElaContainerType = context.GetTypeInfo(compoundEla.Expression).Type;
             bool isCompoundArray = compoundElaContainerType is IArrayTypeSymbol;
-            if (!isCompoundArray && compoundEla.ArgumentList.Arguments.Count == 1)
+            if (!isCompoundArray && compoundEla.ArgumentList.Arguments.Count >= 1)
             {
                 var target = facade.Transform(compoundEla.Expression, context);
-                var arg0 = facade.Transform(compoundEla.ArgumentList.Arguments[0].Expression, context);
+                var indexArgs = string.Join(", ", compoundEla.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
                 var rhs = facade.Transform(rightNode, context);
                 string baseOp = op[..^1]; // "+=" → "+", "-=" → "-", "*=" → "*", etc.
 
                 bool isDictLike = compoundElaContainerType is INamedTypeSymbol cn && IsDictionaryLikeContainer(cn);
                 if (isDictLike)
                 {
-                    return $"{target}.put({arg0}, {target}.get({arg0}) {baseOp} {rhs})";
+                    return $"{target}.put({indexArgs}, {target}.get({indexArgs}) {baseOp} {rhs})";
                 }
                 else
                 {
                     // List-like: set(idx, get(idx) op rhs)
-                    var compoundCombined = $"{target}.get({arg0}) {baseOp} {rhs}";
+                    var compoundCombined = $"{target}.get({indexArgs}) {baseOp} {rhs}";
                     // C# char elements (Java Character): char op char widens to int in
                     // Java, but set(T) expects Character — cast back to char.
                     if (compoundElaContainerType is INamedTypeSymbol compoundElemNamed
@@ -797,7 +817,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     {
                         compoundCombined = $"(char)({compoundCombined})";
                     }
-                    return $"{target}.set({arg0}, {compoundCombined})";
+                    return $"{target}.set({indexArgs}, {compoundCombined})";
                 }
             }
         }

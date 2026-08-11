@@ -166,13 +166,12 @@ public class ProjectDiscoveryTests
     }
 
     [Fact]
-    public void ProjectConversionExclusionPlanner_ExcludesWinFormsProject_WithoutCompatLayer()
+    public void ProjectConversionExclusionPlanner_AllowsWinFormsProject_WithCompatLayer()
     {
-        // Regression: Microsoft.Msagl.GraphViewerGdi is a WinForms project with no
-        // cs2j compat layer (unlike the WPF controls backed by dotnet.wpf.swing). It must
-        // be excluded from conversion; otherwise its files fail the unsupported-domain
-        // check (System.Windows.Forms) while sibling files referencing GViewer are still
-        // emitted, producing a Maven module that does not compile.
+        // Microsoft.Msagl.GraphViewerGdi is a WinForms project backed by the
+        // dotnet.winforms.swing + dotnet.drawing.swing compat layer (System.Windows.Forms
+        // and System.Drawing now have namespace mappings), so it and its dependents
+        // (e.g. Dot2Svg) must be allowed through the planner.
         var root = CreateTempDirectory();
         try
         {
@@ -190,8 +189,8 @@ public class ProjectDiscoveryTests
             var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
             var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
 
-            Assert.Contains(Path.GetFullPath(gdiProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
-            Assert.Contains(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.DoesNotContain(Path.GetFullPath(gdiProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.DoesNotContain(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
         }
         finally
         {
@@ -199,6 +198,18 @@ public class ProjectDiscoveryTests
         }
     }
 
+
+    [Theory]
+    [InlineData("GraphViewerGDI (net472)", 472)]
+    [InlineData("GraphViewerGDI (net6.0-windows)", 1600)]
+    [InlineData("GraphViewerGDI (net8.0-windows)", 1800)]
+    [InlineData("GraphmapsWpfControl (net472)", 472)]
+    [InlineData("GraphmapsWpfControl (net6.0-windows)", 1600)]
+    [InlineData("WpfGraphControl", 0)]
+    public void TargetFrameworkRank_PrefersWindowsDesktopTfms(string projectName, int expectedRank)
+    {
+        Assert.Equal(expectedRank, Program.TargetFrameworkRank(projectName));
+    }
 
     private static string CreateTempDirectory()
     {

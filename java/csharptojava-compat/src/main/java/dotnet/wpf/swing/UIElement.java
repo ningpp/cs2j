@@ -1,6 +1,8 @@
 package dotnet.wpf.swing;
 
+import dotnet.wpf.swing.input.CommandBindingCollection;
 import dotnet.wpf.swing.input.IInputElement;
+import dotnet.wpf.swing.input.InputBindingCollection;
 import dotnet.wpf.swing.input.KeyEventArgs;
 import dotnet.wpf.swing.input.MouseButtonEventArgs;
 import dotnet.wpf.swing.input.MouseEventArgs;
@@ -18,10 +20,14 @@ import java.util.function.BiConsumer;
  */
 public class UIElement extends Visual implements IInputElement {
 
+    public static final RoutedEvent GotKeyboardFocusEvent = new RoutedEvent("GotKeyboardFocus");
+    public static final RoutedEvent PreviewMouseLeftButtonDownEvent = new RoutedEvent("PreviewMouseLeftButtonDown");
+
     private Visibility visibility = Visibility.Visible;
     private boolean isHitTestVisible = true;
     private boolean isEnabled = true;
     private boolean focusable;
+    private boolean isKeyboardFocusWithin;
     private boolean isMouseCaptured;
     private boolean isMouseDirectlyOver;
     private boolean isVisible = true;
@@ -30,6 +36,8 @@ public class UIElement extends Visual implements IInputElement {
     private Size renderSize = new Size();
     private Object focusVisualStyle;
     private final Dispatcher dispatcher = Dispatcher.getCurrentDispatcher();
+    private CommandBindingCollection commandBindings;
+    private InputBindingCollection inputBindings;
 
     private final List<BiConsumer<Object, MouseButtonEventArgs>> mouseLeftButtonDown = new ArrayList<>();
     private final List<BiConsumer<Object, MouseButtonEventArgs>> mouseLeftButtonUp = new ArrayList<>();
@@ -178,12 +186,33 @@ public class UIElement extends Visual implements IInputElement {
     }
 
     public boolean focus() {
+        isKeyboardFocusWithin = true;
         return true;
+    }
+
+    public boolean getIsKeyboardFocusWithin() {
+        return isKeyboardFocusWithin;
     }
 
     public void raiseEvent(RoutedEventArgs e) {
         if (e == null) return;
         e.setHandled(false);
+    }
+
+    // ---- command/input bindings ----
+
+    public CommandBindingCollection getCommandBindings() {
+        if (commandBindings == null) {
+            commandBindings = new CommandBindingCollection();
+        }
+        return commandBindings;
+    }
+
+    public InputBindingCollection getInputBindings() {
+        if (inputBindings == null) {
+            inputBindings = new InputBindingCollection();
+        }
+        return inputBindings;
     }
 
     // ---- event subscription (converter emits addXxxListener / removeXxxListener) ----
@@ -266,6 +295,86 @@ public class UIElement extends Visual implements IInputElement {
 
     public void removeKeyUpListener(BiConsumer<Object, KeyEventArgs> handler) {
         keyUp.remove(handler);
+    }
+
+    // ---- IInputElement-qualified aliases ----
+    // The converter prefixes listener names with the interface name when an event
+    // implements an interface event (e.g. UIElement.MouseEnter implements
+    // IInputElement.MouseEnter -> addIInputElementMouseEnterListener).
+
+    public void addIInputElementKeyDownListener(dotnet.wpf.swing.input.KeyEventHandler handler) {
+        if (handler != null) keyDown.add(handler::accept);
+    }
+
+    public void removeIInputElementKeyDownListener(dotnet.wpf.swing.input.KeyEventHandler handler) {
+        if (handler != null) {
+            java.util.function.BiConsumer<Object, KeyEventArgs> consumer = handler::accept;
+            keyDown.remove(consumer);
+        }
+    }
+
+    public void addIInputElementMouseEnterListener(BiConsumer<Object, MouseEventArgs> handler) {
+        mouseEnter.add(handler);
+    }
+
+    public void removeIInputElementMouseEnterListener(BiConsumer<Object, MouseEventArgs> handler) {
+        mouseEnter.remove(handler);
+    }
+
+    public void addIInputElementMouseLeaveListener(BiConsumer<Object, MouseEventArgs> handler) {
+        mouseLeave.add(handler);
+    }
+
+    public void removeIInputElementMouseLeaveListener(BiConsumer<Object, MouseEventArgs> handler) {
+        mouseLeave.remove(handler);
+    }
+
+    public void addIInputElementMouseLeftButtonDownListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseLeftButtonDown.add(handler);
+    }
+
+    public void removeIInputElementMouseLeftButtonDownListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseLeftButtonDown.remove(handler);
+    }
+
+    public void addIInputElementMouseLeftButtonUpListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseLeftButtonUp.add(handler);
+    }
+
+    public void removeIInputElementMouseLeftButtonUpListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseLeftButtonUp.remove(handler);
+    }
+
+    public void addIInputElementMouseRightButtonDownListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseRightButtonDown.add(handler);
+    }
+
+    public void removeIInputElementMouseRightButtonDownListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseRightButtonDown.remove(handler);
+    }
+
+    public void addIInputElementMouseRightButtonUpListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseRightButtonUp.add(handler);
+    }
+
+    public void removeIInputElementMouseRightButtonUpListener(BiConsumer<Object, MouseButtonEventArgs> handler) {
+        mouseRightButtonUp.remove(handler);
+    }
+
+    public void addIInputElementMouseMoveListener(BiConsumer<Object, MouseEventArgs> handler) {
+        mouseMove.add(handler);
+    }
+
+    public void removeIInputElementMouseMoveListener(BiConsumer<Object, MouseEventArgs> handler) {
+        mouseMove.remove(handler);
+    }
+
+    public void addIInputElementMouseWheelListener(BiConsumer<Object, MouseWheelEventArgs> handler) {
+        mouseWheel.add(handler);
+    }
+
+    public void removeIInputElementMouseWheelListener(BiConsumer<Object, MouseWheelEventArgs> handler) {
+        mouseWheel.remove(handler);
     }
 
     // ---- raising (used by tests or to simulate input) ----

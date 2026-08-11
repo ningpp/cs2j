@@ -17,11 +17,6 @@ public final class VisualTreeHelper {
     private VisualTreeHelper() {
     }
 
-    @FunctionalInterface
-    public interface HitTestResultCallback {
-        HitTestResultBehavior invoke(HitTestResult result);
-    }
-
     public static DpiScale getDpi(Visual visual) {
         java.awt.Toolkit tk = java.awt.Toolkit.getDefaultToolkit();
         try {

@@ -135,6 +135,487 @@ public final class Brushes {
     public static final SolidColorBrush MediumPurple = named(255, 147, 112, 219);
     public static final SolidColorBrush MediumSeaGreen = named(255, 60, 179, 113);
 
+    public static SolidColorBrush getTransparent() {
+        return Transparent;
+    }
+
+    public static SolidColorBrush getBlack() {
+        return Black;
+    }
+
+    public static SolidColorBrush getWhite() {
+        return White;
+    }
+
+    public static SolidColorBrush getGray() {
+        return Gray;
+    }
+
+    public static SolidColorBrush getDarkGray() {
+        return DarkGray;
+    }
+
+    public static SolidColorBrush getLightGray() {
+        return LightGray;
+    }
+
+    public static SolidColorBrush getWhiteSmoke() {
+        return WhiteSmoke;
+    }
+
+    public static SolidColorBrush getRed() {
+        return Red;
+    }
+
+    public static SolidColorBrush getDarkRed() {
+        return DarkRed;
+    }
+
+    public static SolidColorBrush getGreen() {
+        return Green;
+    }
+
+    public static SolidColorBrush getBlue() {
+        return Blue;
+    }
+
+    public static SolidColorBrush getDarkBlue() {
+        return DarkBlue;
+    }
+
+    public static SolidColorBrush getBlueViolet() {
+        return BlueViolet;
+    }
+
+    public static SolidColorBrush getCornflowerBlue() {
+        return CornflowerBlue;
+    }
+
+    public static SolidColorBrush getLightSkyBlue() {
+        return LightSkyBlue;
+    }
+
+    public static SolidColorBrush getLightSteelBlue() {
+        return LightSteelBlue;
+    }
+
+    public static SolidColorBrush getSkyBlue() {
+        return SkyBlue;
+    }
+
+    public static SolidColorBrush getYellow() {
+        return Yellow;
+    }
+
+    public static SolidColorBrush getGold() {
+        return Gold;
+    }
+
+    public static SolidColorBrush getGoldenrod() {
+        return Goldenrod;
+    }
+
+    public static SolidColorBrush getLightGoldenrodYellow() {
+        return LightGoldenrodYellow;
+    }
+
+    public static SolidColorBrush getDarkGoldenrod() {
+        return DarkGoldenrod;
+    }
+
+    public static SolidColorBrush getCoral() {
+        return Coral;
+    }
+
+    public static SolidColorBrush getAqua() {
+        return Aqua;
+    }
+
+    public static SolidColorBrush getCyan() {
+        return Cyan;
+    }
+
+    public static SolidColorBrush getMagenta() {
+        return Magenta;
+    }
+
+    public static SolidColorBrush getFuchsia() {
+        return Fuchsia;
+    }
+
+    public static SolidColorBrush getHotPink() {
+        return HotPink;
+    }
+
+    public static SolidColorBrush getPaleVioletRed() {
+        return PaleVioletRed;
+    }
+
+    public static SolidColorBrush getViolet() {
+        return Violet;
+    }
+
+    public static SolidColorBrush getTomato() {
+        return Tomato;
+    }
+
+    public static SolidColorBrush getBrown() {
+        return Brown;
+    }
+
+    public static SolidColorBrush getSlateGray() {
+        return SlateGray;
+    }
+
+    public static SolidColorBrush getSilver() {
+        return Silver;
+    }
+
+    public static SolidColorBrush getSeaGreen() {
+        return SeaGreen;
+    }
+
+    public static SolidColorBrush getLawnGreen() {
+        return LawnGreen;
+    }
+
+    public static SolidColorBrush getGreenYellow() {
+        return GreenYellow;
+    }
+
+    public static SolidColorBrush getLightGreen() {
+        return LightGreen;
+    }
+
+    public static SolidColorBrush getLightYellow() {
+        return LightYellow;
+    }
+
+    public static SolidColorBrush getLightBlue() {
+        return LightBlue;
+    }
+
+    public static SolidColorBrush getPaleGoldenrod() {
+        return PaleGoldenrod;
+    }
+
+    public static SolidColorBrush getOrange() {
+        return Orange;
+    }
+
+    public static SolidColorBrush getOrangeRed() {
+        return OrangeRed;
+    }
+
+    public static SolidColorBrush getIndianRed() {
+        return IndianRed;
+    }
+
+    public static SolidColorBrush getLime() {
+        return Lime;
+    }
+
+    public static SolidColorBrush getLimeGreen() {
+        return LimeGreen;
+    }
+
+    public static SolidColorBrush getOlive() {
+        return Olive;
+    }
+
+    public static SolidColorBrush getOliveDrab() {
+        return OliveDrab;
+    }
+
+    public static SolidColorBrush getOrchid() {
+        return Orchid;
+    }
+
+    public static SolidColorBrush getPink() {
+        return Pink;
+    }
+
+    public static SolidColorBrush getPlum() {
+        return Plum;
+    }
+
+    public static SolidColorBrush getPurple() {
+        return Purple;
+    }
+
+    public static SolidColorBrush getSalmon() {
+        return Salmon;
+    }
+
+    public static SolidColorBrush getSeaShell() {
+        return SeaShell;
+    }
+
+    public static SolidColorBrush getTeal() {
+        return Teal;
+    }
+
+    public static SolidColorBrush getTurquoise() {
+        return Turquoise;
+    }
+
+    public static SolidColorBrush getWheat() {
+        return Wheat;
+    }
+
+    public static SolidColorBrush getFirebrick() {
+        return Firebrick;
+    }
+
+    public static SolidColorBrush getMaroon() {
+        return Maroon;
+    }
+
+    public static SolidColorBrush getNavy() {
+        return Navy;
+    }
+
+    public static SolidColorBrush getAliceBlue() {
+        return AliceBlue;
+    }
+
+    public static SolidColorBrush getAntiqueWhite() {
+        return AntiqueWhite;
+    }
+
+    public static SolidColorBrush getAquamarine() {
+        return Aquamarine;
+    }
+
+    public static SolidColorBrush getAzure() {
+        return Azure;
+    }
+
+    public static SolidColorBrush getBeige() {
+        return Beige;
+    }
+
+    public static SolidColorBrush getBisque() {
+        return Bisque;
+    }
+
+    public static SolidColorBrush getBlanchedAlmond() {
+        return BlanchedAlmond;
+    }
+
+    public static SolidColorBrush getBurlyWood() {
+        return BurlyWood;
+    }
+
+    public static SolidColorBrush getCadetBlue() {
+        return CadetBlue;
+    }
+
+    public static SolidColorBrush getChartreuse() {
+        return Chartreuse;
+    }
+
+    public static SolidColorBrush getChocolate() {
+        return Chocolate;
+    }
+
+    public static SolidColorBrush getCrimson() {
+        return Crimson;
+    }
+
+    public static SolidColorBrush getDarkCyan() {
+        return DarkCyan;
+    }
+
+    public static SolidColorBrush getDarkGreen() {
+        return DarkGreen;
+    }
+
+    public static SolidColorBrush getDarkKhaki() {
+        return DarkKhaki;
+    }
+
+    public static SolidColorBrush getDarkMagenta() {
+        return DarkMagenta;
+    }
+
+    public static SolidColorBrush getDarkOliveGreen() {
+        return DarkOliveGreen;
+    }
+
+    public static SolidColorBrush getDarkOrange() {
+        return DarkOrange;
+    }
+
+    public static SolidColorBrush getDarkOrchid() {
+        return DarkOrchid;
+    }
+
+    public static SolidColorBrush getDarkSalmon() {
+        return DarkSalmon;
+    }
+
+    public static SolidColorBrush getDarkSeaGreen() {
+        return DarkSeaGreen;
+    }
+
+    public static SolidColorBrush getDarkSlateBlue() {
+        return DarkSlateBlue;
+    }
+
+    public static SolidColorBrush getDarkSlateGray() {
+        return DarkSlateGray;
+    }
+
+    public static SolidColorBrush getDarkTurquoise() {
+        return DarkTurquoise;
+    }
+
+    public static SolidColorBrush getDarkViolet() {
+        return DarkViolet;
+    }
+
+    public static SolidColorBrush getDeepPink() {
+        return DeepPink;
+    }
+
+    public static SolidColorBrush getDeepSkyBlue() {
+        return DeepSkyBlue;
+    }
+
+    public static SolidColorBrush getDimGray() {
+        return DimGray;
+    }
+
+    public static SolidColorBrush getDodgerBlue() {
+        return DodgerBlue;
+    }
+
+    public static SolidColorBrush getGainsboro() {
+        return Gainsboro;
+    }
+
+    public static SolidColorBrush getGhostWhite() {
+        return GhostWhite;
+    }
+
+    public static SolidColorBrush getHoneydew() {
+        return Honeydew;
+    }
+
+    public static SolidColorBrush getIvory() {
+        return Ivory;
+    }
+
+    public static SolidColorBrush getKhaki() {
+        return Khaki;
+    }
+
+    public static SolidColorBrush getLavender() {
+        return Lavender;
+    }
+
+    public static SolidColorBrush getLavenderBlush() {
+        return LavenderBlush;
+    }
+
+    public static SolidColorBrush getLightCoral() {
+        return LightCoral;
+    }
+
+    public static SolidColorBrush getLightCyan() {
+        return LightCyan;
+    }
+
+    public static SolidColorBrush getLightPink() {
+        return LightPink;
+    }
+
+    public static SolidColorBrush getLightSalmon() {
+        return LightSalmon;
+    }
+
+    public static SolidColorBrush getLightSeaGreen() {
+        return LightSeaGreen;
+    }
+
+    public static SolidColorBrush getLightSlateGray() {
+        return LightSlateGray;
+    }
+
+    public static SolidColorBrush getMidnightBlue() {
+        return MidnightBlue;
+    }
+
+    public static SolidColorBrush getMistyRose() {
+        return MistyRose;
+    }
+
+    public static SolidColorBrush getMoccasin() {
+        return Moccasin;
+    }
+
+    public static SolidColorBrush getOldLace() {
+        return OldLace;
+    }
+
+    public static SolidColorBrush getPaleGreen() {
+        return PaleGreen;
+    }
+
+    public static SolidColorBrush getPaleTurquoise() {
+        return PaleTurquoise;
+    }
+
+    public static SolidColorBrush getPeachPuff() {
+        return PeachPuff;
+    }
+
+    public static SolidColorBrush getPeru() {
+        return Peru;
+    }
+
+    public static SolidColorBrush getPowderBlue() {
+        return PowderBlue;
+    }
+
+    public static SolidColorBrush getRoyalBlue() {
+        return RoyalBlue;
+    }
+
+    public static SolidColorBrush getSaddleBrown() {
+        return SaddleBrown;
+    }
+
+    public static SolidColorBrush getSandyBrown() {
+        return SandyBrown;
+    }
+
+    public static SolidColorBrush getSnow() {
+        return Snow;
+    }
+
+    public static SolidColorBrush getSpringGreen() {
+        return SpringGreen;
+    }
+
+    public static SolidColorBrush getSteelBlue() {
+        return SteelBlue;
+    }
+
+    public static SolidColorBrush getTan() {
+        return Tan;
+    }
+
+    public static SolidColorBrush getMediumPurple() {
+        return MediumPurple;
+    }
+
+    public static SolidColorBrush getMediumSeaGreen() {
+        return MediumSeaGreen;
+    }
+
+
     private static SolidColorBrush named(int a, int r, int g, int b) {
         return new SolidColorBrush(Color.fromArgb(a, r, g, b));
     }

@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Comments;
@@ -208,6 +208,9 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
                 $"Could not resolve alias '{aliasName}' to a type",
                 location
             );
+            // Record the alias NAME anyway: syntax fallback must honor
+            // file-scoped alias precedence over same-named project types.
+            _context.RegisterUnresolvedUsingAlias(aliasName);
             return;
         }
 
@@ -228,6 +231,7 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
                 $"Alias '{aliasName}' must refer to a type, not a {aliasSymbol.Kind}",
                 location
             );
+            _context.RegisterUnresolvedUsingAlias(aliasName);
             return;
         }
 

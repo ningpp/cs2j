@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -390,15 +390,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             var javaType = context.MapAliasToJavaType(name);
             if (javaType != null)
             {
-                // When the alias name collides with an instance property on the
-                // enclosing type (e.g. "using Label = X;" + "public Label Label {…}"),
-                // treat it as an instance member access, not a type reference.
-                if (context.CurrentEnclosingRoslynType?.GetMembers(name)
-                        .Any(m => m is IPropertySymbol) == true)
-                {
-                    var getter = "get" + char.ToUpperInvariant(name[0]) + name[1..];
-                    return $"{getter}()";
-                }
+                // When the alias name collides with a member (property or field,
+                // declared or inherited) on the enclosing type (e.g. "using
+                // MouseButtons = ...;" while Control.MouseButtons is an inherited
+                // static property), treat the identifier as a member access, not a
+                // type reference — C# member lookup shadows using aliases.
+                if (TryGetShadowingMemberAccess(context, name, out var memberAccess))
+                    return memberAccess;
 
                 // If MapAliasToJavaType returned a simple (unqualified) name, apply a
                 // secondary type-registry lookup to pick up any package-mapping entries.
@@ -418,6 +416,40 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (!isLhsOfAssignment)
             {
                 var getter = GetPropertyGetterName(identProp);
+                // Static properties referenced by bare identifier (e.g. ModifierKeys inside a
+                // Control subclass) must be qualified with the declaring Java type; Java does
+                // not allow an unqualified static member access, and an instance method with
+                // the same name may exist on the current class (explicit interface impls).
+                if (identProp.IsStatic)
+                {
+                    var staticTypeName = identProp.ContainingType.ToDisplayString();
+                    var staticMapped = context.TypeMappings.MapMethod(staticTypeName, identProp.Name)
+                        ?? context.TypeMappings.MapMethod(
+                            $"{identProp.ContainingType.ContainingNamespace}.{identProp.ContainingType.Name}", identProp.Name);
+                    if (staticMapped != null)
+                    {
+                        ExpressionTransformerHelpers.AddImportForMappedHelperMethod(staticMapped, context);
+                        return $"{staticMapped}()";
+                    }
+                    // Static members declared on the current type or one of its bases can be
+                    // called unqualified in Java. Only qualify when the declaring type is not
+                    // in the current inheritance chain (e.g. mapped compat types referenced
+                    // from unrelated classes), where Java requires a qualifying receiver.
+                    if (IsSameOrBaseType(identProp.ContainingType, context.CurrentEnclosingRoslynType))
+                    {
+                        return $"{getter}()";
+                    }
+                    var staticJavaType = context.TypeMappings.MapType(staticTypeName);
+                    if (string.IsNullOrEmpty(staticJavaType) || staticJavaType == staticTypeName)
+                    {
+                        staticJavaType = context.MapType(identProp.ContainingType);
+                    }
+                    if (string.IsNullOrEmpty(staticJavaType) || staticJavaType == staticTypeName)
+                    {
+                        staticJavaType = identProp.ContainingType.Name;
+                    }
+                    return $"{staticJavaType}.{getter}()";
+                }
                 return $"{getter}()";
             }
             // LHS: return camelCase so AssignmentTransformer can build setXxx(rhs)
@@ -441,8 +473,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // C#: ProgressChanged(...)    → Java: fireProgressChanged(...)
         if (context.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
         {
-            var fieldName = $"_{char.ToLower(name[0])}{name.Substring(1)}Listeners";
-            var fireMethodName = GetFireMethodName(name);
+            var eventQualifier = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(eventSym);
+            var fieldName = Transformers.Member.EventListenerNaming.GetFieldName(eventQualifier, name);
+            var fireMethodName = Transformers.Member.EventListenerNaming.GetFireMethodName(eventQualifier, name);
 
             // For null comparisons (ProgressChanged != null or ProgressChanged == null)
             if (node.Parent is BinaryExpressionSyntax binaryExpr)
@@ -483,9 +516,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return fireMethodName;
             }
 
-            // For direct invocation (ProgressChanged(sender, args)) or member access
+            // For direct invocation (ProgressChanged(sender, args))
             // Return the fire method name - the invocation will be handled by the parent
-            return fireMethodName;
+            if (node.Parent is InvocationExpressionSyntax eventInvNode && eventInvNode.Expression == node)
+            {
+                return fireMethodName;
+            }
+
+            // Event used as a value (delegate read), e.g. `EventHandler<EventArgs> handler = Elapsed;`.
+            // Java has no event field; expose the fire method as a method reference so the
+            // assignment type-checks against BiConsumer<Object, T>.
+            return eventSym.IsStatic
+                ? $"{context.CurrentType?.Name ?? eventSym.ContainingType.Name}::{fireMethodName}"
+                : $"this::{fireMethodName}";
         }
 
         // Fix: Bare identifier method group used as value (not invoked) → Java method reference.
@@ -531,10 +574,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (firstIsObject && (secondIsEventArgs || secondIsNamedType))
                 {
                     // Generate explicit lambda: (sender, args) -> methodName(sender, args)
-                    // For instance methods, omit the "this." prefix since it's optional in Java
-                    var secondParamName = char.ToLowerInvariant(secondParam.Name[0]) + secondParam.Name[1..];
+                    // For instance methods, omit the "this." prefix since it's optional in Java.
+                    // Lambda parameter names must not collide with names visible in the enclosing
+                    // scope (e.g. a method parameter named e), since Java forbids shadowing.
+                    var blocked = LambdaTransformer.CollectVisibleEnclosingNames(node);
+                    var senderName = UniqueEventHandlerLambdaParamName("sender", blocked);
+                    var argsName = UniqueEventHandlerLambdaParamName(
+                        char.ToLowerInvariant(secondParam.Name[0]) + secondParam.Name[1..], blocked);
                     var methodPrefix = bareMethodGroup.IsStatic ? bareMethodGroup.ContainingType.Name + "." : "";
-                    return $"(sender, {secondParamName}) -> {methodPrefix}{ConversionContext.EscapeJavaKeyword(javaName)}(sender, {secondParamName})";
+                    return $"({senderName}, {argsName}) -> {methodPrefix}{ConversionContext.EscapeJavaKeyword(javaName)}({senderName}, {argsName})";
                 }
             }
 
@@ -1041,7 +1089,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // C#: this.ProgressChanged(...)    → Java: fireProgressChanged(...)
         if (context.GetSymbolInfo(node).Symbol is IEventSymbol eventSym)
         {
-            var fieldName = $"_{char.ToLower(memberName[0])}{memberName.Substring(1)}Listeners";
+            var eventQualifier = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(eventSym);
+            var fieldName = Transformers.Member.EventListenerNaming.GetFieldName(eventQualifier, memberName);
             var currentTypeName = context.CurrentType?.Name;
 
             // Only convert to listener access within the same class
@@ -1069,7 +1118,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
 
                 // For invocation or direct access, use the fire method name
-                return GetFireMethodName(memberName);
+                return Transformers.Member.EventListenerNaming.GetFireMethodName(eventQualifier, memberName);
             }
         }
 
@@ -1127,8 +1176,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 if (firstIsObject && (secondIsEventArgs || secondIsNamedType))
                 {
                     // Generate explicit lambda: (sender, args) -> receiver.methodName(sender, args)
-                    var secondParamName = char.ToLowerInvariant(secondParam.Name[0]) + secondParam.Name[1..];
-                    return $"(sender, {secondParamName}) -> {target}.{ConversionContext.EscapeJavaKeyword(javaMethodName)}(sender, {secondParamName})";
+                    // Lambda parameter names must not collide with names visible in the enclosing
+                    // scope (e.g. a method parameter named e), since Java forbids shadowing.
+                    var blocked = LambdaTransformer.CollectVisibleEnclosingNames(node);
+                    var senderName = UniqueEventHandlerLambdaParamName("sender", blocked);
+                    var argsName = UniqueEventHandlerLambdaParamName(
+                        char.ToLowerInvariant(secondParam.Name[0]) + secondParam.Name[1..], blocked);
+                    return $"({senderName}, {argsName}) -> {target}.{ConversionContext.EscapeJavaKeyword(javaMethodName)}({senderName}, {argsName})";
                 }
             }
 
@@ -1811,11 +1865,64 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         return $"{target}.{member}";
     }
 
-    /// <summary>
     /// Resolves a simple identifier when it is used as the receiver in a member
+    /// <summary>
     /// access. This is the central tie-breaker for identifiers that may be both a
     /// type name and an instance property/field on the enclosing type.
     /// </summary>
+    /// <summary>
+    /// C# member lookup shadows using aliases: when the enclosing type (or any
+    /// base type) declares a property or field with the alias name, the identifier
+    /// refers to that member, not to the alias target type (e.g. Control.MouseButtons
+    /// inherited static property vs "using MouseButtons = System.Windows.Forms.MouseButtons;").
+    /// </summary>
+    private static bool TryGetShadowingMemberAccess(
+        ConversionContext context,
+        string name,
+        out string memberAccess)
+    {
+        memberAccess = string.Empty;
+        var type = context.CurrentEnclosingRoslynType;
+        while (type != null)
+        {
+            foreach (var member in type.GetMembers(name))
+            {
+                if (member is IPropertySymbol prop)
+                {
+                    memberAccess = $"{GetPropertyGetterName(prop)}()";
+                    return true;
+                }
+                if (member is IFieldSymbol field && !field.IsImplicitlyDeclared)
+                {
+                    var fieldName = ConversionContext.EscapeJavaKeyword(
+                        char.IsUpper(field.Name[0]) ? char.ToLower(field.Name[0]) + field.Name[1..] : field.Name);
+                    memberAccess = fieldName;
+                    return true;
+                }
+            }
+            type = type.BaseType;
+        }
+        return false;
+    }
+
+    private static bool IsSameOrBaseType(INamedTypeSymbol? type, INamedTypeSymbol? candidate)
+    {
+        if (type == null || candidate == null)
+        {
+            return false;
+        }
+
+        for (var current = candidate; current != null; current = current.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(type, current))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool TryTransformSimpleIdentifierReceiver(
         IdentifierNameSyntax receiver,
         MemberAccessExpressionSyntax memberAccess,
@@ -2472,7 +2579,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         return false;
     }
-
 
     /// <summary>
     /// When an identifier is a lambda parameter that shadows an outer local with the
@@ -3176,4 +3282,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
         return false;
     }
+
+    /// <summary>
+    /// Returns a Java lambda parameter name based on <paramref name="preferred"/> that does
+    /// not collide with any name in <paramref name="blocked"/> (names visible from outside
+    /// the lambda). The chosen name is added to <paramref name="blocked"/> so subsequent
+    /// parameters cannot reuse it.
+    /// </summary>
+    private static string UniqueEventHandlerLambdaParamName(string preferred, HashSet<string> blocked)
+    {
+        var name = preferred;
+        while (blocked.Contains(name))
+            name = "_" + name;
+        blocked.Add(name);
+        return name;
+    }
+
 }

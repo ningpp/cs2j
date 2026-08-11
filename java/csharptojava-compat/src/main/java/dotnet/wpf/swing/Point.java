@@ -57,8 +57,9 @@ public final class Point {
         return new Point(point.x + vector.x, point.y + vector.y);
     }
 
-    public static Point subtract(Point point, Point vector) {
-        return new Point(point.x - vector.x, point.y - vector.y);
+    /** .NET: Point - Point => Vector */
+    public static Vector subtract(Point point1, Point point2) {
+        return Vector.subtract(point1, point2);
     }
 
     // .NET overloads using Vector operands

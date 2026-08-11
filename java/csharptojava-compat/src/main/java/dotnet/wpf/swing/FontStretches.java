@@ -18,4 +18,15 @@ public final class FontStretches {
     public static final FontStretch Expanded = new FontStretch(7);
     public static final FontStretch ExtraExpanded = new FontStretch(8);
     public static final FontStretch UltraExpanded = new FontStretch(9);
+
+    public static FontStretch getUltraCondensed() { return UltraCondensed; }
+    public static FontStretch getExtraCondensed() { return ExtraCondensed; }
+    public static FontStretch getCondensed() { return Condensed; }
+    public static FontStretch getSemiCondensed() { return SemiCondensed; }
+    public static FontStretch getNormal() { return Normal; }
+    public static FontStretch getMedium() { return Medium; }
+    public static FontStretch getSemiExpanded() { return SemiExpanded; }
+    public static FontStretch getExpanded() { return Expanded; }
+    public static FontStretch getExtraExpanded() { return ExtraExpanded; }
+    public static FontStretch getUltraExpanded() { return UltraExpanded; }
 }

@@ -7,6 +7,8 @@ import java.util.Locale;
  * Provides getCurrentCulture()/setCurrentCulture() used in C# thread-locale patterns.
  */
 public class ThreadHelper {
+
+    private final ThreadStart action;
     private static final ThreadHelper INSTANCE = new ThreadHelper();
 
     /** Mirrors Thread.CurrentThread (returns a ThreadHelper proxy). */
@@ -37,7 +39,18 @@ public class ThreadHelper {
     public void join() throws InterruptedException { }
 
     /** Start (stub — not a real Thread). */
-    public void start() { }
+    /** Singleton instance holder. */
+
+    private ThreadHelper() { this(null); }
+    public ThreadHelper(ThreadStart action) {
+        this.action = action;
+    }
+
+    public void start() {
+        if (action != null) {
+            new java.lang.Thread(action::run).start();
+        }
+    }
 
     /** Mirrors C# Thread.MemoryBarrier() using VarHandle.fullFence */
     public static void memoryBarrier() {

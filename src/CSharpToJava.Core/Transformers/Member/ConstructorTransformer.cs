@@ -7,6 +7,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
 using CSharpToJava.Core.Transformers.Utilities;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -29,7 +30,21 @@ public class ConstructorTransformer : IMemberTransformer
             if (ctorDecl.Body != null)
             {
                 var statementTransformer = new Transformers.Statement.StatementTransformer();
-                staticBlock.Statements.AddRange(statementTransformer.TransformStatements(ctorDecl.Body.Statements, context));
+                var statements = statementTransformer.TransformStatements(ctorDecl.Body.Statements, context);
+                foreach (var rawStatement in statements)
+                {
+                    // A C# static constructor may contain bare `return;` statements
+                    // (e.g. early-exit guards), which are legal in C# constructors but
+                    // illegal inside a Java `static { }` block ("return outside method").
+                    // They are almost always the last statement of a guard branch, so
+                    // dropping them preserves the guard semantics for the common case.
+                    var statement = rawStatement;
+                    if (statement != null && Regex.IsMatch(statement, @"^\s*return\s*;\s*$"))
+                        continue;
+                    if (statement != null && statement.Contains("return;", StringComparison.Ordinal))
+                        statement = Regex.Replace(statement, @"\breturn\s*;", "");
+                    staticBlock.Statements.Add(statement);
+                }
             }
             return staticBlock;
         }

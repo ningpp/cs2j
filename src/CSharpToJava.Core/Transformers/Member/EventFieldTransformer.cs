@@ -14,21 +14,107 @@ public class EventFieldTransformer : IEventFieldTransformer
     {
         var result = new List<JavaSyntaxNode>();
 
+        // A field-like event that is referenced by an explicit event's accessor is the
+        // backing store of that explicit event (e.g. `event MouseEventHandler mouseMove;`
+        // + `public new event MouseEventHandler MouseMove { add { mouseMove += value; } }`).
+        // Generating a second listener list/add/remove/fire set would collide with the
+        // explicit event's members, so skip it entirely for the Java target.
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && IsBackingStoreOfExplicitEvent(node, context))
+        {
+            return result;
+        }
+
         foreach (var variable in node.Declaration.Variables)
         {
             var eventName = variable.Identifier.Text;
             var sig = DetermineListenerSignature(node.Declaration.Type, context);
+            string? qualifier = GetInterfaceQualifier(node, variable, eventName, context);
             // Fix 3: pass original modifiers so static is propagated
-            result.AddRange(GenerateEventMembers(eventName, sig, node.Modifiers, context));
+            result.AddRange(GenerateEventMembers(eventName, sig, node.Modifiers, context, qualifier: qualifier));
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// True when another explicit event in the same syntax tree uses this field-like
+    /// event inside its add/remove accessor bodies (the backing-store pattern).
+    /// </summary>
+    private static bool IsBackingStoreOfExplicitEvent(EventFieldDeclarationSyntax node, ConversionContext context)
+    {
+        var eventName = node.Declaration.Variables.FirstOrDefault()?.Identifier.Text;
+        if (string.IsNullOrEmpty(eventName)) return false;
+
+        var tree = node.SyntaxTree;
+        foreach (var evDecl in tree.GetRoot().DescendantNodes().OfType<EventDeclarationSyntax>())
+        {
+            if (evDecl.AccessorList == null) continue;
+            foreach (var acc in evDecl.AccessorList.Accessors)
+            {
+                if (acc.Body != null
+                    && acc.Body.DescendantNodes().OfType<IdentifierNameSyntax>()
+                        .Any(id => id.Identifier.Text == eventName))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Computes the interface qualifier for the event:
+    /// events declared in an interface, or class events that implicitly implement an
+    /// interface event with the same name and delegate type, get interface-prefixed
+    /// listener member names.
+    /// </summary>
+    private static string? GetInterfaceQualifier(
+        EventFieldDeclarationSyntax node,
+        VariableDeclaratorSyntax variable,
+        string eventName,
+        ConversionContext context)
+    {
+        // Prefer the declared symbol: this resolves both events declared inside an
+        // interface body and class events that implicitly implement an interface event
+        // of the same name and delegate type.
+        if (context.SemanticModel != null)
+        {
+            IEventSymbol? evt = context.GetDeclaredSymbol(node) as IEventSymbol
+                ?? context.GetDeclaredSymbol(variable) as IEventSymbol
+                ?? context.GetSymbolInfo(variable).Symbol as IEventSymbol;
+            if (evt != null)
+            {
+                var qualifier = EventListenerNaming.GetInterfaceQualifier(evt);
+                if (qualifier != null) return qualifier;
+            }
+        }
+        // Syntactic fallback: the event is declared directly inside an interface body
+        // (the interface transformer does not push the interface onto the type stack,
+        // so context.IsInInterfaceBody is false while members are being transformed).
+        if (node.FirstAncestorOrSelf<TypeDeclarationSyntax>() is InterfaceDeclarationSyntax ifaceDecl)
+        {
+            return context.CurrentType is Java.JavaInterfaceDeclaration ji ? ji.Name : ifaceDecl.Identifier.Text;
+        }
+        return null;
     }
 
     public List<JavaSyntaxNode> TransformExplicitEvent(EventDeclarationSyntax node, ConversionContext context)
     {
         var eventName = node.Identifier.Text;
         var sig = DetermineListenerSignature(node.Type, context);
+
+        // Explicit interface implementations (`event EventHandler<T> IViewer.MouseDown`)
+        // must use interface-qualified listener member names so they do not collide with
+        // same-named class events or with base-class listener methods of the same erasure.
+        string? qualifier = null;
+        if (node.ExplicitInterfaceSpecifier != null
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        {
+            var name = node.ExplicitInterfaceSpecifier.Name.ToString();
+            var dotIdx = name.LastIndexOf('.');
+            qualifier = name[(dotIdx + 1)..].Trim();
+        }
 
         // Fix 1: translate explicit accessor bodies instead of silently discarding them
         string? addBody = null;
@@ -48,7 +134,7 @@ public class EventFieldTransformer : IEventFieldTransformer
                 removeBody = NormalizeExplicitAccessorBody(statementTransformer.TransformBlock(removeAccessor.Body, context));
         }
 
-        return GenerateEventMembers(eventName, sig, node.Modifiers, context, addBody, removeBody);
+        return GenerateEventMembers(eventName, sig, node.Modifiers, context, addBody, removeBody, qualifier);
     }
 
     private static string NormalizeExplicitAccessorBody(string body)
@@ -110,7 +196,8 @@ public class EventFieldTransformer : IEventFieldTransformer
         SyntaxTokenList originalModifiers,
         ConversionContext context,
         string? addBody = null,
-        string? removeBody = null)
+        string? removeBody = null,
+        string? qualifier = null)
     {
         var result = new List<JavaSyntaxNode>();
 
@@ -135,11 +222,10 @@ public class EventFieldTransformer : IEventFieldTransformer
             return result;
         }
 
-        var fieldName = "_" + char.ToLower(eventName[0]) + eventName.Substring(1) + "Listeners";
-        var baseName = char.ToUpper(eventName[0]) + eventName.Substring(1);
-        var addMethodName = "add" + baseName + "Listener";
-        var removeMethodName = "remove" + baseName + "Listener";
-        var fireMethodName = "fire" + baseName;
+        var fieldName = EventListenerNaming.GetFieldName(qualifier, eventName);
+        var addMethodName = EventListenerNaming.GetAddMethodName(qualifier, eventName);
+        var removeMethodName = EventListenerNaming.GetRemoveMethodName(qualifier, eventName);
+        var fireMethodName = EventListenerNaming.GetFireMethodName(qualifier, eventName);
 
         // Fix 3: propagate static modifier from the event declaration
         bool isStatic = originalModifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
@@ -270,9 +356,10 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (origName == "EventHandler" && isBclDelegate && namedType.TypeArguments.Length == 0)
             {
                 context.AddImport("java.util.function.BiConsumer");
-                sig.ListenerType = "BiConsumer<Object, Object>";
+                context.AddImport("io.github.ningpp.compat.EventArgs");
+                sig.ListenerType = "BiConsumer<Object, EventArgs>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
-                sig.Parameters.Add(new JavaParameter("Object", "args"));
+                sig.Parameters.Add(new JavaParameter("EventArgs", "args"));
                 sig.InvokeCallArguments = "sender, args";
                 sig.InvokeMethodName = "accept";
                 return sig;
@@ -344,11 +431,13 @@ public class EventFieldTransformer : IEventFieldTransformer
             else
             {
                 // No resolvable invoke signature: most C# events are (sender, args) 2-parameter
-                // void delegates, so default to BiConsumer to stay consistent with the fire body.
-                sig.ListenerType = "BiConsumer<Object, Object>";
+                // void delegates, so default to BiConsumer<Object, EventArgs> to stay consistent
+                // with the fire body (the dominant C# event pattern is (object, EventArgs)).
                 context.AddImport("java.util.function.BiConsumer");
+                context.AddImport("io.github.ningpp.compat.EventArgs");
+                sig.ListenerType = "BiConsumer<Object, EventArgs>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
-                sig.Parameters.Add(new JavaParameter("Object", "args"));
+                sig.Parameters.Add(new JavaParameter("EventArgs", "args"));
                 sig.InvokeCallArguments = "sender, args";
                 sig.InvokeMethodName = "accept";
             }
@@ -398,9 +487,10 @@ public class EventFieldTransformer : IEventFieldTransformer
             if (ident.Identifier.Text == "EventHandler")
             {
                 context.AddImport("java.util.function.BiConsumer");
-                sig.ListenerType = "BiConsumer<Object, Object>";
+                context.AddImport("io.github.ningpp.compat.EventArgs");
+                sig.ListenerType = "BiConsumer<Object, EventArgs>";
                 sig.Parameters.Add(new JavaParameter("Object", "sender"));
-                sig.Parameters.Add(new JavaParameter("Object", "args"));
+                sig.Parameters.Add(new JavaParameter("EventArgs", "args"));
                 sig.InvokeCallArguments = "sender, args";
                 sig.InvokeMethodName = "accept";
                 return sig;

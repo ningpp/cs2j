@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using CSharpToJava.TypeMapping.JavaModel;
 
@@ -604,6 +604,15 @@ public class TypeMappingRegistry
     /// to "dotnet.xml", while "System.IO" only has a derived mapping from the
     /// "System" → "dotnet.system" catch-all.
     /// </summary>
+    /// <summary>
+    /// All namespace prefixes that have an explicit namespaceMappings entry.
+    /// Used by the unsupported-domain check to allow namespaces backed by a
+    /// compatibility package (e.g. System.Windows.Forms → dotnet.winforms.swing).
+    /// </summary>
+    public IReadOnlyList<string> GetExplicitNamespaceMappings()
+    {
+        return _namespaceMappings.Keys.ToList();
+    }
     public bool HasExplicitNamespaceMapping(string ns)
     {
         return _namespaceMappings.ContainsKey(ns);
@@ -680,3 +689,4 @@ public class TypeMappingRegistry
         File.WriteAllText(configPath, json);
     }
 }
+

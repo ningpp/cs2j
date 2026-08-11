@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Analysis;
@@ -614,7 +614,8 @@ public class ConversionContext
             key => TryGetSynthesizedRecord(key, out _),
             typeSymbol => TryGetCustomJavaTopLevelTypeName(typeSymbol, out var javaName) ? javaName : null,
             resolveAlias: name => ResolveAlias(name),
-            getCurrentEnclosingType: () => CurrentEnclosingRoslynType);
+            getCurrentEnclosingType: () => CurrentEnclosingRoslynType,
+            isUsingAlias: name => IsAlias(name));
         TypeMapper.SetSynthesizedRecordNameResolver(key =>
             TryGetSynthesizedRecord(key, out var rec) && rec != null ? rec.RecordName : "Object");
     }
@@ -695,6 +696,7 @@ public class ConversionContext
 
     public void AddImport(string typeName)
     {
+
         if (IsImplicitJavaLangType(typeName)) return;
         // Reject bare package names (e.g. "java.util.stream") — Java requires class-level
         // or wildcard imports ("java.util.stream.Collectors" or "java.util.stream.*").
@@ -1272,6 +1274,14 @@ public class ConversionContext
 
     // ─── Facade properties/methods delegating to AliasRegistry ───
     public IReadOnlyDictionary<string, UsingAliasRegistry.UsingAliasInfo> UsingAliases => AliasRegistry.Aliases;
+
+    /// <summary>
+    /// Records a file-scoped using alias whose target type could not be bound
+    /// (e.g. missing framework reference). Syntax fallback uses this to honor
+    /// alias precedence over same-named project types.
+    /// </summary>
+    public void RegisterUnresolvedUsingAlias(string aliasName) => AliasRegistry.RegisterUnresolved(aliasName);
+
     public bool RegisterUsingAlias(string aliasName, ITypeSymbol targetType, Location? location)
     {
         var typeCacheView = new Dictionary<ITypeSymbol, string>(SymbolEqualityComparer.Default);

@@ -277,7 +277,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                                 var evtReceiver = eventSym.IsStatic ? currentTypeName : "this";
                                 return $"{evtReceiver}.{eventName}.Invoke({eventArgs})";
                             }
-                            var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+                            var fireMethodName = Transformers.Member.EventListenerNaming.GetFireMethodName(
+                                Transformers.Member.EventListenerNaming.GetInterfaceQualifier(eventSym), eventName);
                             var eventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                             return $"{fireMethodName}({eventArgs2})";
                         }
@@ -304,7 +305,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                                 var evtReceiver = enclosingEvent.IsStatic ? context.CurrentType.Name : "this";
                                 return $"{evtReceiver}.{eventName}.Invoke({eventArgs})";
                             }
-                            var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+                            var fireMethodName = Transformers.Member.EventListenerNaming.GetFireMethodName(
+                                Transformers.Member.EventListenerNaming.GetInterfaceQualifier(enclosingEvent), eventName);
                             var eventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                             return $"{fireMethodName}({eventArgs2})";
                         }
@@ -389,7 +391,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var evtReceiver = lastResortEvent.IsStatic ? context.CurrentType.Name : "this";
                     return $"{evtReceiver}.{lastResortEventName}.Invoke({lastResortEventArgs})";
                 }
-                var fireMethodName = $"fire{char.ToUpperInvariant(lastResortEventName[0])}{lastResortEventName.Substring(1)}";
+                var fireMethodName = Transformers.Member.EventListenerNaming.GetFireMethodName(
+                    Transformers.Member.EventListenerNaming.GetInterfaceQualifier(lastResortEvent), lastResortEventName);
                 var lastResortEventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                 return $"{fireMethodName}({lastResortEventArgs2})";
             }
@@ -2147,7 +2150,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                             var eventArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                             return $"{receiver}.{eventName}.Invoke({eventArgs})";
                         }
-                        var fireMethodName = $"fire{char.ToUpperInvariant(eventName[0])}{eventName.Substring(1)}";
+                        var fireMethodName = Transformers.Member.EventListenerNaming.GetFireMethodName(
+                            Transformers.Member.EventListenerNaming.GetInterfaceQualifier(eventSym), eventName);
                         var eventArgs2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
                         return $"{fireMethodName}({eventArgs2})";
                     }
@@ -2358,7 +2362,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
             }
 
-            var boxedReceiver = ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
+            // byte maps to Java int, but the Parse method lives on Byte (Byte.parseByte),
+            // not Integer. C# byte.Parse ? Byte.parseByte.
+            var boxedReceiver = primTypeSyntax.Keyword.Text == "byte" && originalMethodName == "Parse"
+                ? "Byte"
+                : ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
             var mappedMethod  = MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, originalMethodName);
             var primArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             // char.ConvertFromUtf32 returns string in C# but Character.toChars returns char[] in Java.
@@ -8088,6 +8096,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "float"  => "parseFloat",
                 "short"  => "parseShort",
                 "byte"   => "parseByte",
+                "sbyte"  => "parseByte",
                 "uint"   => "parseUnsignedInt",
                 "ulong"  => "parseUnsignedLong",
                 "ushort" => "parseUnsignedInt",

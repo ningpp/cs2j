@@ -18,7 +18,7 @@ import javax.imageio.ImageIO;
 public final class BitmapImage extends BitmapSource {
 
     private boolean initializing;
-    private BitmapCreateOptions createOptions = BitmapCreateOptions.None;
+    private int createOptions = BitmapCreateOptions.None;
     private BitmapCacheOption cacheOption = BitmapCacheOption.Default;
     private Object uriSource;
     private Object uriCachePolicy;
@@ -49,12 +49,12 @@ public final class BitmapImage extends BitmapSource {
         }
     }
 
-    public BitmapCreateOptions getCreateOptions() {
+    public int getCreateOptions() {
         return createOptions;
     }
 
-    public void setCreateOptions(BitmapCreateOptions value) {
-        createOptions = value == null ? BitmapCreateOptions.None : value;
+    public void setCreateOptions(int value) {
+        createOptions = value;
     }
 
     public BitmapCacheOption getCacheOption() {

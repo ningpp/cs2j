@@ -35,7 +35,7 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
     private readonly Stack<bool> _asyncStack = new();
 
     private static readonly Regex ReturnCompletedFuturePattern = new(
-        @"return\s+CompletableFuture\.completedFuture\((?<inner>.*?)\);",
+        @"return\s+(?:CompletableFuture|Task)\.completedFuture\((?<inner>.*?)\);",
         RegexOptions.Compiled);
 
     public TsAsyncRewriter(ConversionContext? context = null)
@@ -93,7 +93,7 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 }
             }
             // ③ CompletableFuture.* 静态调用形态（Task 27，spec §1.4.5）
-            if (call.Target is JavaIdentifierExpression { Name: "CompletableFuture" })
+            if (call.Target is JavaIdentifierExpression { Name: "CompletableFuture" or "Task" })
             {
                 switch (call.MethodName)
                 {
@@ -135,7 +135,7 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
     {
         if (node.Expression != null && _asyncStack.Count > 0 && _asyncStack.Peek()
             && node.Expression is JavaMethodCallExpression { MethodName: "completedFuture" } call
-            && call.Target is JavaIdentifierExpression { Name: "CompletableFuture" }
+            && call.Target is JavaIdentifierExpression { Name: "CompletableFuture" or "Task" }
             && (call.Arguments.Count == 0
                 || (call.Arguments.Count == 1 && call.Arguments[0].ToInlineString().Trim() == "null")))
         {
@@ -175,9 +175,13 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
     {
         keepExpressionBody = true;
         const string prefix = "CompletableFuture.completedFuture(";
-        if (body != null && body.StartsWith(prefix, StringComparison.Ordinal) && body.EndsWith(")", StringComparison.Ordinal))
+        const string taskPrefix = "Task.completedFuture(";
+        var effectivePrefix = body != null && body.StartsWith(taskPrefix, StringComparison.Ordinal)
+            ? taskPrefix
+            : prefix;
+        if (body != null && body.StartsWith(effectivePrefix, StringComparison.Ordinal) && body.EndsWith(")", StringComparison.Ordinal))
         {
-            var inner = body[prefix.Length..^1].Trim();
+            var inner = body[effectivePrefix.Length..^1].Trim();
             if (inner == "null")
             {
                 keepExpressionBody = false;
@@ -263,11 +267,17 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
     private string RewriteCompletableFuture(string text)
     {
         const string completedNeedle = "CompletableFuture.completedFuture(";
+        const string completedNeedleTask = "Task.completedFuture(";
         const string delayedNeedle = "CompletableFuture.delayedExecutor(";
+        const string delayedNeedleTask = "Task.delayedExecutor(";
         const string allOfNeedle = "CompletableFuture.allOf(";
+        const string allOfNeedleTask = "Task.allOf(";
         const string runAsyncNeedle = "CompletableFuture.runAsync(";
+        const string runAsyncNeedleTask = "Task.runAsync(";
         const string supplyAsyncNeedle = "CompletableFuture.supplyAsync(";
+        const string supplyAsyncNeedleTask = "Task.supplyAsync(";
         const string yieldNeedle = "CompletableFuture.yield()";
+        const string yieldNeedleTask = "Task.yield()";
 
         var sb = new StringBuilder(text.Length);
         var i = 0;
@@ -282,9 +292,13 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 continue;
             }
             if (AtIdentifierBoundary(text, i)
-                && text.AsSpan(i).StartsWith(completedNeedle, StringComparison.Ordinal))
+                && (text.AsSpan(i).StartsWith(completedNeedle, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(completedNeedleTask, StringComparison.Ordinal)))
             {
-                if (TryReadCallArgs(text, i, i + completedNeedle.Length - 1, out var inner, out var consumed))
+                var completedOpen = text.AsSpan(i).StartsWith(completedNeedle, StringComparison.Ordinal)
+                    ? i + completedNeedle.Length - 1
+                    : i + completedNeedleTask.Length - 1;
+                if (TryReadCallArgs(text, i, completedOpen, out var inner, out var consumed))
                 {
                     var innerRewritten = RewriteCfArgs(inner);
                     sb.Append(innerRewritten.Trim() == "null"
@@ -295,9 +309,13 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 }
             }
             else if (AtIdentifierBoundary(text, i)
-                && text.AsSpan(i).StartsWith(delayedNeedle, StringComparison.Ordinal))
+                && (text.AsSpan(i).StartsWith(delayedNeedle, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(delayedNeedleTask, StringComparison.Ordinal)))
             {
-                if (TryReadCallArgs(text, i, i + delayedNeedle.Length - 1, out var delayArgs, out var consumed2))
+                var delayedOpen = text.AsSpan(i).StartsWith(delayedNeedle, StringComparison.Ordinal)
+                    ? i + delayedNeedle.Length - 1
+                    : i + delayedNeedleTask.Length - 1;
+                if (TryReadCallArgs(text, i, delayedOpen, out var delayArgs, out var consumed2))
                 {
                     sb.Append($"new Promise<void>(resolve => setTimeout(resolve, {RewriteCfArgs(delayArgs).Trim()}))");
                     i += consumed2;
@@ -305,9 +323,13 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 }
             }
             else if (AtIdentifierBoundary(text, i)
-                && text.AsSpan(i).StartsWith(allOfNeedle, StringComparison.Ordinal))
+                && (text.AsSpan(i).StartsWith(allOfNeedle, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(allOfNeedleTask, StringComparison.Ordinal)))
             {
-                if (TryReadCallArgs(text, i, i + allOfNeedle.Length - 1, out var allArgs, out var consumed3))
+                var allOfOpen = text.AsSpan(i).StartsWith(allOfNeedle, StringComparison.Ordinal)
+                    ? i + allOfNeedle.Length - 1
+                    : i + allOfNeedleTask.Length - 1;
+                if (TryReadCallArgs(text, i, allOfOpen, out var allArgs, out var consumed3))
                 {
                     sb.Append($"Promise.all([{RewriteCfArgs(allArgs).Trim()}])");
                     i += consumed3;
@@ -315,9 +337,13 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 }
             }
             else if (AtIdentifierBoundary(text, i)
-                && text.AsSpan(i).StartsWith(runAsyncNeedle, StringComparison.Ordinal))
+                && (text.AsSpan(i).StartsWith(runAsyncNeedle, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(runAsyncNeedleTask, StringComparison.Ordinal)))
             {
-                if (TryReadCallArgs(text, i, i + runAsyncNeedle.Length - 1, out var fn, out var consumed4))
+                var runAsyncOpen = text.AsSpan(i).StartsWith(runAsyncNeedle, StringComparison.Ordinal)
+                    ? i + runAsyncNeedle.Length - 1
+                    : i + runAsyncNeedleTask.Length - 1;
+                if (TryReadCallArgs(text, i, runAsyncOpen, out var fn, out var consumed4))
                 {
                     WarnTaskRun();
                     sb.Append($"Promise.resolve(({RewriteCfArgs(fn).Trim()})())");
@@ -326,9 +352,13 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 }
             }
             else if (AtIdentifierBoundary(text, i)
-                && text.AsSpan(i).StartsWith(supplyAsyncNeedle, StringComparison.Ordinal))
+                && (text.AsSpan(i).StartsWith(supplyAsyncNeedle, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(supplyAsyncNeedleTask, StringComparison.Ordinal)))
             {
-                if (TryReadCallArgs(text, i, i + supplyAsyncNeedle.Length - 1, out var fn2, out var consumed5))
+                var supplyAsyncOpen = text.AsSpan(i).StartsWith(supplyAsyncNeedle, StringComparison.Ordinal)
+                    ? i + supplyAsyncNeedle.Length - 1
+                    : i + supplyAsyncNeedleTask.Length - 1;
+                if (TryReadCallArgs(text, i, supplyAsyncOpen, out var fn2, out var consumed5))
                 {
                     WarnTaskRun();
                     sb.Append($"Promise.resolve(({RewriteCfArgs(fn2).Trim()})())");
@@ -337,10 +367,14 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                 }
             }
             else if (AtIdentifierBoundary(text, i)
-                && text.AsSpan(i).StartsWith(yieldNeedle, StringComparison.Ordinal))
+                && (text.AsSpan(i).StartsWith(yieldNeedle, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(yieldNeedleTask, StringComparison.Ordinal)))
             {
                 sb.Append("Promise.resolve()");
-                i += yieldNeedle.Length;
+                var matchedNeedle = text.AsSpan(i).StartsWith(yieldNeedle, StringComparison.Ordinal)
+                    ? yieldNeedle
+                    : yieldNeedleTask;
+                i += matchedNeedle.Length;
                 continue;
             }
             sb.Append(ch);
@@ -354,6 +388,12 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
     private string RewriteCfArgs(string args)
     {
         return args.Contains("CompletableFuture.", StringComparison.Ordinal)
+            || args.Contains("Task.completedFuture(", StringComparison.Ordinal)
+            || args.Contains("Task.delayedExecutor(", StringComparison.Ordinal)
+            || args.Contains("Task.allOf(", StringComparison.Ordinal)
+            || args.Contains("Task.runAsync(", StringComparison.Ordinal)
+            || args.Contains("Task.supplyAsync(", StringComparison.Ordinal)
+            || args.Contains("Task.yield()", StringComparison.Ordinal)
             ? RewriteCompletableFuture(args)
             : args;
     }

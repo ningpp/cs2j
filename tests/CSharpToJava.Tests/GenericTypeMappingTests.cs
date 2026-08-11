@@ -74,7 +74,7 @@ class Test {
     }
 
     [Fact]
-    public void FuncTaskField_MapsTaskResultToWildcardCompletableFuture()
+    public void FuncTaskField_MapsTaskToCompatTask()
     {
         var result = Convert(@"
 using System;
@@ -84,8 +84,9 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("Supplier<CompletableFuture<?>>", code);
-        Assert.DoesNotContain("Supplier<CompletableFuture> supplier", code);
+        // System.Threading.Tasks.Task now maps to io.github.ningpp.compat.Task
+        Assert.Contains("Supplier<Task> supplier", code);
+        Assert.DoesNotContain("CompletableFuture", code);
     }
 
     [Fact]
@@ -147,7 +148,7 @@ class Test {
     }
 
     [Fact]
-    public void EventHandlerField_MapsToConsumer()
+    public void EventHandlerField_MapsToBiConsumer()
     {
         var result = Convert(@"
 using System;
@@ -157,8 +158,8 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        Assert.Contains("Consumer handler", code);
-        Assert.Contains("Consumer<String>", code);
+        Assert.Contains("BiConsumer<Object, EventArgs> handler", code);
+        Assert.Contains("BiConsumer<Object, String>", code);
         Assert.DoesNotContain("EventHandler", code);
     }
 

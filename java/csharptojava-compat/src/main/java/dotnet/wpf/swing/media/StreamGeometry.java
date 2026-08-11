@@ -23,6 +23,13 @@ public final class StreamGeometry extends Geometry {
         return new StreamGeometryContext(this);
     }
 
+    public void freeze() {
+    }
+
+    public boolean isFrozen() {
+        return false;
+    }
+
     public FillRule getFillRule() {
         return fillRule;
     }

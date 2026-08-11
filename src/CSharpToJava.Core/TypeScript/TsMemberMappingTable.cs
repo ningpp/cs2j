@@ -76,6 +76,10 @@ public sealed class TsMemberMappingTable
         // 泛型约束 bound（Task 14）：C# IComparable/IDisposable 在 IR 中为 Java 风味名，
         // TS 无对应内建类型，约束降级为最宽松对象类型 object（spec §1.4.3 约束仅部分表达）
         { "Comparable", "object" }, { "AutoCloseable", "object" },
+        // System.EventArgs: Java 化后为 compat EventArgs（io.github.ningpp.compat.EventArgs），
+        // TS 无对应类型，按 object 语义映射为 any（EventArgs.Empty 由
+        // TsRawStatementNormalizer 归一化为 null）。
+        { "EventArgs", "any" },
     };
 
     // 内置属性/字段映射

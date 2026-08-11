@@ -743,7 +743,38 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return expression;
         }
 
+        // C# casts to delegate types (e.g. Invoke((Invoker)delegate {...})): Java has no
+        // delegate types, so the cast is a no-op. The generated delegate interface is not
+        // a functional-interface subtype of the parameter type (e.g. Runnable), so keeping
+        // the cast would break compilation. Lambdas / anonymous methods / method groups
+        // are target-typed in Java, so the plain expression is the correct emission.
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && targetSymbol?.TypeKind == TypeKind.Delegate
+            && IsDelegateCastableExpression(node.Expression, context))
+        {
+            return expression;
+        }
+
         return $"({targetType})({expression})";
+    }
+
+    private static bool IsDelegateCastableExpression(ExpressionSyntax expression, ConversionContext context)
+    {
+        var current = expression;
+        while (current is ParenthesizedExpressionSyntax parenthesized)
+        {
+            current = parenthesized.Expression;
+        }
+        if (current is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)
+        {
+            return true;
+        }
+        // Method groups (e.g. (Invoker)FixUndoRedoButtons) are target-typed in Java too.
+        if (current is IdentifierNameSyntax or MemberAccessExpressionSyntax)
+        {
+            return context.GetSymbolInfo(current).Symbol is IMethodSymbol;
+        }
+        return false;
     }
 
     private static bool IsJavaNumericType(string javaType)

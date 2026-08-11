@@ -17,7 +17,9 @@ internal static class UnsupportedDomainAnalyzer
         "System.Xaml",
     ];
 
-    public static IReadOnlyList<DiagnosticMessage> AnalyzeSyntaxTree(SyntaxTree syntaxTree)
+    public static IReadOnlyList<DiagnosticMessage> AnalyzeSyntaxTree(
+        SyntaxTree syntaxTree,
+        IReadOnlyCollection<string>? compatNamespacePrefixes = null)
     {
         if (syntaxTree.GetRoot() is not CompilationUnitSyntax root)
         {
@@ -33,7 +35,8 @@ internal static class UnsupportedDomainAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(usingDirective.Name.ToString(), UnsupportedNamespacePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(usingDirective.Name.ToString(), UnsupportedNamespacePrefixes)
+                && !HasCompatNamespacePrefix(usingDirective.Name.ToString(), compatNamespacePrefixes))
             {
                 collector.Add(
                     code: "CS2J3001",
@@ -45,7 +48,8 @@ internal static class UnsupportedDomainAnalyzer
 
         foreach (var qualifiedName in root.DescendantNodes().OfType<QualifiedNameSyntax>())
         {
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(qualifiedName.ToString(), UnsupportedNamespacePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(qualifiedName.ToString(), UnsupportedNamespacePrefixes)
+                && !HasCompatNamespacePrefix(qualifiedName.ToString(), compatNamespacePrefixes))
             {
                 collector.Add(
                     code: "CS2J3001",
@@ -57,7 +61,8 @@ internal static class UnsupportedDomainAnalyzer
 
         foreach (var memberAccess in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
         {
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(memberAccess.ToString(), UnsupportedNamespacePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(memberAccess.ToString(), UnsupportedNamespacePrefixes)
+                && !HasCompatNamespacePrefix(memberAccess.ToString(), compatNamespacePrefixes))
             {
                 collector.Add(
                     code: "CS2J3001",
@@ -68,6 +73,31 @@ internal static class UnsupportedDomainAnalyzer
         }
 
         return collector.Diagnostics;
+    }
+
+    /// <summary>
+    /// Namespaces that have an explicit TypeMappings namespace mapping are backed by a
+    /// compatibility package (e.g. System.Windows.Forms → dotnet.winforms.swing), so they
+    /// are allowed through the unsupported-domain check. Any sub-namespace of an allowed
+    /// prefix is mapped by the same namespace mapping, so a StartsWith check is sufficient.
+    /// </summary>
+    private static bool HasCompatNamespacePrefix(string name, IReadOnlyCollection<string>? compatNamespacePrefixes)
+    {
+        if (compatNamespacePrefixes == null || compatNamespacePrefixes.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var prefix in compatNamespacePrefixes)
+        {
+            if (name.Equals(prefix, StringComparison.Ordinal)
+                || name.StartsWith(prefix + ".", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -330,6 +360,26 @@ internal static class NativeInteropAnalyzer
 
 internal static class BoundaryAnalysisHelpers
 {
+    /// <summary>
+    /// MSBuild-generated AssemblyInfo files (obj\...\AssemblyInfo.cs) carry
+    /// [assembly: SupportedOSPlatform(...)] attributes that are not part of the
+    /// hand-written source. The platform-boundary check skips these files; the
+    /// generated Java ignores assembly-level attributes anyway.
+    /// </summary>
+    public static bool IsGeneratedAssemblyInfoFile(string? filePath)
+        => !string.IsNullOrWhiteSpace(filePath)
+            && Path.GetFileName(filePath).EndsWith(".AssemblyInfo.cs", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// NativeMethods.cs is the conventional .NET container for P/Invoke extern
+    /// declarations. The class transformer already emits stub bodies (throwing
+    /// UnsupportedOperationException) for extern/DllImport methods, so the
+    /// native-interop check skips these files instead of blocking the project.
+    /// </summary>
+    public static bool IsPInvokeContainerFile(string? filePath)
+        => !string.IsNullOrWhiteSpace(filePath)
+            && string.Equals(Path.GetFileName(filePath), "NativeMethods.cs", StringComparison.OrdinalIgnoreCase);
+
     public static bool MatchesAnyPrefix(string value, IEnumerable<string> prefixes)
     {
         foreach (var prefix in prefixes)
@@ -443,3 +493,4 @@ internal sealed class BoundaryDiagnosticCollector
         _diagnostics.Add(new DiagnosticMessage(severity, message, location, code, category));
     }
 }
+

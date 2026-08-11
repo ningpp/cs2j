@@ -2,6 +2,10 @@ package dotnet.wpf.swing;
 
 import dotnet.wpf.swing.media.Transform;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiConsumer;
+
 /**
  * System.Windows.FrameworkElement compatibility base class.
  */
@@ -23,6 +27,7 @@ public class FrameworkElement extends UIElement {
     private Transform layoutTransform;
     private HorizontalAlignment horizontalAlignment = HorizontalAlignment.Stretch;
     private VerticalAlignment verticalAlignment = VerticalAlignment.Stretch;
+    private final List<BiConsumer<Object, RoutedEventArgs>> loadedListeners = new ArrayList<>();
 
     public double getWidth() {
         return width;
@@ -144,6 +149,23 @@ public class FrameworkElement extends UIElement {
 
     public void setVerticalAlignment(VerticalAlignment value) {
         verticalAlignment = value;
+    }
+
+    // ---- Loaded event ----
+
+    public void addLoadedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        loadedListeners.add(handler);
+    }
+
+    public void removeLoadedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        loadedListeners.remove(handler);
+    }
+
+    public void raiseLoaded() {
+        RoutedEventArgs e = new RoutedEventArgs();
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(loadedListeners)) {
+            h.accept(this, e);
+        }
     }
 
     public boolean applyTemplate() {

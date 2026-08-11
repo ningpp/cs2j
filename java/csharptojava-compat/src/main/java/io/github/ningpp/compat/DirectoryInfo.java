@@ -15,6 +15,50 @@ public class DirectoryInfo {
         this.path = Paths.get(path);
     }
 
+    public static boolean exists(String path) {
+        return Files.exists(Paths.get(path));
+    }
+
+    public FileSystemInfo[] getFiles() {
+        ArrayList<FileSystemInfo> result = new ArrayList<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+            for (Path child : stream) {
+                if (Files.isRegularFile(child)) {
+                    result.add(new FileSystemInfo(child));
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return result.toArray(FileSystemInfo[]::new);
+    }
+
+    public DirectoryInfo[] getDirectories() {
+        ArrayList<DirectoryInfo> result = new ArrayList<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+            for (Path child : stream) {
+                if (Files.isDirectory(child)) {
+                    result.add(new DirectoryInfo(child.toString()));
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return result.toArray(DirectoryInfo[]::new);
+    }
+
+    public void delete(boolean recursive) {
+        try {
+            if (recursive) {
+                deleteRecursively(path);
+            } else {
+                Files.deleteIfExists(path);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     public FileSystemInfo[] getFileSystemInfos(String searchPattern) {
         String glob = searchPattern == null || searchPattern.isEmpty() ? "*" : searchPattern;
         ArrayList<FileSystemInfo> result = new ArrayList<>();

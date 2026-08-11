@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
@@ -1524,6 +1524,20 @@ public class MethodTransformer : IMemberTransformer
             if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
             {
                 context.IsInAsyncContext = true;
+
+                // C# `async Task` (non-generic) always lowers to bare CompletableFuture in
+                // this converter. The System.Threading.Tasks.Task type mapping may target
+                // the compat Task class for non-async usage (Task.Factory.StartNew etc.),
+                // but async methods await via .join(), which only CompletableFuture has.
+                if (typeInfo.Type is INamedTypeSymbol asyncTaskNamed
+                    && asyncTaskNamed.Name == "Task"
+                    && asyncTaskNamed.TypeArguments.Length == 0
+                    && asyncTaskNamed.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks")
+                {
+                    context.AddImport("java.util.concurrent.CompletableFuture");
+                    return "CompletableFuture";
+                }
+
                 var returnType = context.MapType(typeInfo.Type);
 
                 return returnType.StartsWith("CompletableFuture") ? returnType : $"CompletableFuture<{returnType}>";

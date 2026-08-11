@@ -1,5 +1,8 @@
 package io.github.ningpp.compat;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class FileSystemInfo {
@@ -16,5 +19,13 @@ public class FileSystemInfo {
     public String getName() {
         Path name = path.getFileName();
         return name == null ? getFullName() : name.toString();
+    }
+
+    public void delete() {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

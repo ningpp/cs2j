@@ -1,5 +1,7 @@
 package dotnet.wpf.swing.threading;
 
+import io.github.ningpp.compat.EventArgs;
+
 /**
  * System.Windows.Threading.DispatcherTimer compatibility class.
  * Backed by java.util.Timer (Swing event dispatch is not required for the plain
@@ -16,7 +18,7 @@ public final class DispatcherTimer {
 
     @FunctionalInterface
     public interface EventHandlerLike {
-        void handle(Object sender, Object e);
+        void handle(Object sender, EventArgs e);
     }
 
     public Dispatcher getDispatcher() {

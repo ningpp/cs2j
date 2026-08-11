@@ -4,7 +4,7 @@ package dotnet.wpf.swing.input;
  * System.Windows.Input.Key compatibility enum (subset of virtual keys used by WPF apps).
  */
 public enum Key {
-    None(0),
+    None(0x00),
     End(0x23),
     Home(0x24),
     Space(0x20),
@@ -31,6 +31,7 @@ public enum Key {
     NumPad9(0x69),
     PrintScreen(0x2C),
     Enter(0x0D),
+    Return(0x0D),
     Escape(0x1B),
     Tab(0x09),
     A(0x41),
@@ -53,7 +54,20 @@ public enum Key {
     W(0x57),
     X(0x58),
     Y(0x59),
-    Z(0x5A);
+    Z(0x5A),
+    F1(0x70),
+    F2(0x71),
+    F3(0x72),
+    F4(0x73),
+    F5(0x74),
+    F6(0x75),
+    F7(0x76),
+    F8(0x77),
+    F9(0x78),
+    F10(0x79),
+    F11(0x7A),
+    F12(0x7B),
+    OemMinus(0xBD);
 
     private final int virtualKey;
 
@@ -64,4 +78,27 @@ public enum Key {
     public int getVirtualKey() {
         return virtualKey;
     }
+
+    public int getValue() {
+        return virtualKey;
+    }
+
+    public static Key fromValue(int value) {
+        for (Key e : values()) {
+            if (e.virtualKey == value) {
+                return e;
+            }
+        }
+        return values()[0];
+    }
+
+    public static Key fromValueUnchecked(int value) {
+        for (Key e : values()) {
+            if (e.virtualKey == value) {
+                return e;
+            }
+        }
+        return values()[0];
+    }
 }
+

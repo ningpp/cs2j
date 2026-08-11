@@ -119,6 +119,15 @@ public class FileHelper {
         return open(path, fileMode, fileAccess);
     }
 
+    /** Mirrors File.OpenWrite(path). */
+    public static StreamWrapper openWrite(String path) {
+        try {
+            return StreamWrapper.of(new FileOutputStream(path, false), path);
+        } catch (FileNotFoundException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** Mirrors File.Create(path). */
     public static OutputStream create(String path) {
         try { return new FileOutputStream(path); }

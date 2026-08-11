@@ -1,22 +1,16 @@
 package dotnet.wpf.swing.input;
 
 /**
- * System.Windows.Input.ModifierKeys compatibility enum (flags).
+ * System.Windows.Input.ModifierKeys compatibility flags (mapped to int by the converter).
  */
-public enum ModifierKeys {
-    None(0),
-    Alt(1),
-    Control(2),
-    Shift(4),
-    Windows(8);
+public final class ModifierKeys {
 
-    private final int value;
-
-    ModifierKeys(int value) {
-        this.value = value;
+    private ModifierKeys() {
     }
 
-    public int getValue() {
-        return value;
-    }
+    public static final int None = 0;
+    public static final int Alt = 1;
+    public static final int Control = 2;
+    public static final int Shift = 4;
+    public static final int Windows = 8;
 }

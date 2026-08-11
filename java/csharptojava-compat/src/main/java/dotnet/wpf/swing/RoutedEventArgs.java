@@ -1,9 +1,12 @@
 package dotnet.wpf.swing;
 
+import io.github.ningpp.compat.EventArgs;
+
 /**
  * System.Windows.RoutedEventArgs compatibility base class.
+ * Mirrors the .NET hierarchy: RoutedEventArgs derives from EventArgs.
  */
-public class RoutedEventArgs {
+public class RoutedEventArgs extends EventArgs {
 
     private Object source;
     private boolean handled;

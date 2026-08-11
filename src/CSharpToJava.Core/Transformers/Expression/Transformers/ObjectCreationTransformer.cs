@@ -2268,6 +2268,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (isBareInitializer && !string.IsNullOrWhiteSpace(javaElementType))
         {
             var brackets = string.Concat(Enumerable.Repeat("[]", rankCount));
+            // Java forbids creating arrays of generic types (e.g. new Pair<T>[] is a
+            // compile error). Use the raw component type in the new-expression plus an
+            // unchecked cast, mirroring the pattern TransformArrayCreation already emits
+            // for `new Pair<T>[n]` and `new Pair<T>[] { ... }`.
+            var genericArgStart = javaElementType.IndexOf('<');
+            if (genericArgStart > 0)
+            {
+                var rawElementType = javaElementType.Substring(0, genericArgStart);
+                return $"({javaElementType}{brackets}) new {rawElementType}{brackets} {{ {items} }}";
+            }
             return $"new {javaElementType}{brackets} {{ {items} }}";
         }
         return $" {{ {items} }}";

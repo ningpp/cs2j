@@ -121,12 +121,18 @@ public class AssemblyCompat {
 
     /** Mirrors C# Assembly.GetManifestResourceStream(name) — returns StreamWrapper
      *  so the result is directly assignable to the Java mapping of System.IO.Stream. */
-    public StreamWrapper getManifestResourceStream(String name) {
+        /** Mirrors C# Assembly.GetManifestResourceNames(). */
+    public String[] getManifestResourceNames() {
+        return new String[0];
+    }
+
+    /** Mirrors C# Assembly.GetManifestResourceStream(name). */
+    public java.io.InputStream getManifestResourceStream(String name) {
         java.io.InputStream stream = classLoader.getResourceAsStream(name);
         if (stream == null) {
             stream = AssemblyCompat.class.getClassLoader().getResourceAsStream(name);
         }
-        return stream != null ? StreamWrapper.of(stream) : null;
+        return stream;
     }
 
     /** Nested type for AssemblyName compat */

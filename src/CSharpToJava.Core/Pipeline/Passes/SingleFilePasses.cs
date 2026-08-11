@@ -190,7 +190,9 @@ public sealed class SingleFileUnsupportedDomainCheckPass : ICs2jPass<SingleFileP
 
     public void Execute(SingleFilePassState state)
     {
-        var diagnostics = UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(state.SyntaxTree);
+        var diagnostics = UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(
+            state.SyntaxTree,
+            state.Context.TypeMapper.GetExplicitNamespaceMappings());
         foreach (var diagnostic in diagnostics)
         {
             state.Context.Diagnostics.Error(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
@@ -210,6 +212,11 @@ public sealed class SingleFilePlatformBoundaryCheckPass : ICs2jPass<SingleFilePa
 
     public void Execute(SingleFilePassState state)
     {
+        if (BoundaryAnalysisHelpers.IsGeneratedAssemblyInfoFile(state.SyntaxTree.FilePath))
+        {
+            return;
+        }
+
         var semanticModel = state.Context.SemanticModel ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
         var diagnostics = PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(state.SyntaxTree, semanticModel);
         foreach (var diagnostic in diagnostics)
@@ -231,6 +238,11 @@ public sealed class SingleFileNativeInteropCheckPass : ICs2jPass<SingleFilePassS
 
     public void Execute(SingleFilePassState state)
     {
+        if (BoundaryAnalysisHelpers.IsPInvokeContainerFile(state.SyntaxTree.FilePath))
+        {
+            return;
+        }
+
         var semanticModel = state.Context.SemanticModel ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
         var diagnostics = NativeInteropAnalyzer.AnalyzeSyntaxTree(state.SyntaxTree, semanticModel);
         foreach (var diagnostic in diagnostics)
@@ -634,3 +646,4 @@ public sealed class SingleFileTsEmitPass : ICs2jPass<SingleFilePassState>
 
 
 }
+

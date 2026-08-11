@@ -71,6 +71,22 @@ public final class DrawingColor {
         return Color.BLACK;
     }
 
+    public static Color getBlue() {
+        return Color.BLUE;
+    }
+
+    public static Color getGreen() {
+        return Color.GREEN;
+    }
+
+    public static Color getBrown() {
+        return new Color(165, 42, 42);
+    }
+
+    public static Color getTransparent() {
+        return new Color(0, 0, 0, 0);
+    }
+
     private static int clamp(int value) {
         return Math.max(0, Math.min(255, value));
     }

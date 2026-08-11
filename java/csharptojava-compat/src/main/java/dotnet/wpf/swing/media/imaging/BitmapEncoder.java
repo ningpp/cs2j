@@ -41,6 +41,13 @@ public abstract class BitmapEncoder {
         }
     }
 
+    public void save(io.github.ningpp.compat.StreamWrapper stream) throws IOException {
+        if (stream == null) {
+            throw new IOException("Stream is null.");
+        }
+        save(stream.outputStream());
+    }
+
     public void save(String fileName) throws IOException {
         save(new File(fileName));
     }

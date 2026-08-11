@@ -53,7 +53,8 @@ class PointTest {
     @Test
     void addSubtract_produceNewPoints() {
         assertEquals(new Point(4, 6), Point.add(new Point(1, 2), new Point(3, 4)));
-        assertEquals(new Point(-2, -2), Point.subtract(new Point(1, 2), new Point(3, 4)));
+        // .NET semantics: Point - Point => Vector (Length lives on Vector).
+        assertEquals(new Vector(-2, -2), Point.subtract(new Point(1, 2), new Point(3, 4)));
     }
 
     @Test

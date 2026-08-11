@@ -44,6 +44,24 @@ public class PathHelper {
         return dot >= 0 ? name.substring(dot) : "";
     }
 
+    /** Mirrors Path.ChangeExtension — replaces (or removes) the extension of a path. */
+    public static String changeExtension(String path, String extension) {
+        if (path == null) {
+            return null;
+        }
+        String baseName = path;
+        int lastSeparator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+        int dot = path.lastIndexOf('.');
+        if (dot > lastSeparator) {
+            baseName = path.substring(0, dot);
+        }
+        if (extension == null || extension.isEmpty()) {
+            return baseName;
+        }
+        String ext = extension.startsWith(".") ? extension : "." + extension;
+        return baseName + ext;
+    }
+
     /** Mirrors Path.GetRandomFileName() — an 8.3-style random file name. */
     public static String getRandomFileName() {
         return UUID.randomUUID().toString("N").substring(0, 8) + ".tmp";

@@ -21,11 +21,11 @@ public final class DoubleCollection implements List<Double> {
         items = new ArrayList<>(capacity);
     }
 
-    public DoubleCollection(Iterable<Double> collection) {
+    public DoubleCollection(Iterable<? extends Number> collection) {
         items = new ArrayList<>();
         if (collection != null) {
-            for (Double d : collection) {
-                items.add(d);
+            for (Number d : collection) {
+                items.add(d == null ? null : d.doubleValue());
             }
         }
     }

@@ -27,4 +27,20 @@ public final class FontWeights {
     public static FontWeight fromOpenTypeWeight(int weight) {
         return new FontWeight(weight);
     }
+
+    public static FontWeight getThin() { return Thin; }
+    public static FontWeight getExtraLight() { return ExtraLight; }
+    public static FontWeight getUltraLight() { return UltraLight; }
+    public static FontWeight getLight() { return Light; }
+    public static FontWeight getNormal() { return Normal; }
+    public static FontWeight getRegular() { return Regular; }
+    public static FontWeight getMedium() { return Medium; }
+    public static FontWeight getDemiBold() { return DemiBold; }
+    public static FontWeight getSemiBold() { return SemiBold; }
+    public static FontWeight getBold() { return Bold; }
+    public static FontWeight getUltraBold() { return UltraBold; }
+    public static FontWeight getExtraBold() { return ExtraBold; }
+    public static FontWeight getHeavy() { return Heavy; }
+    public static FontWeight getBlack() { return Black; }
+    public static FontWeight getExtraBlack() { return ExtraBlack; }
 }

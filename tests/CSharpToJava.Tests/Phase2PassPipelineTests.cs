@@ -93,12 +93,27 @@ public class Phase2PassPipelineTests
     }
 
     [Fact]
-    public void ConversionPipeline_FailsUnsupportedDomainCheck_ForWinFormsInput()
+    public void ConversionPipeline_AllowsWinFormsInput_WhenCompatNamespaceMappingConfigured()
     {
         var pipeline = new ConversionPipeline();
         var result = pipeline.Convert(new ConversionRequest
         {
             SourceCode = "using System.Windows.Forms; class Sample : Form { }",
+            FileName = "Sample.cs",
+            Options = CreateOptions(),
+        });
+
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == "CS2J3001" && diagnostic.Category == "unsupported-domain");
+        Assert.Contains("SingleFileUnsupportedDomainCheckPass", result.PassMetrics.Select(metric => metric.Name));
+    }
+
+    [Fact]
+    public void ConversionPipeline_FailsUnsupportedDomainCheck_ForMauiInput()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = "using Microsoft.Maui.Controls; class Sample : ContentPage { }",
             FileName = "Sample.cs",
             Options = CreateOptions(),
         });
@@ -212,7 +227,7 @@ public class Phase2PassPipelineTests
             new SourceFile
             {
                 FilePath = "Unsupported.cs",
-                Content = "using System.Windows.Forms; class Unsupported : Form { }",
+                Content = "using Microsoft.Maui.Controls; class Unsupported : ContentPage { }",
             }
         });
 
@@ -306,6 +321,43 @@ public class Phase2PassPipelineTests
         Assert.Empty(failureResult.GeneratedCode);
         Assert.Contains(failureResult.Diagnostics, diagnostic => diagnostic.Code == "CS2J3201" && diagnostic.Category == "native-interop");
         Assert.Contains("ProjectNativeInteropCheckPass", failureResult.PassMetrics.Select(metric => metric.Name));
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_AllowsNativeMethodsFile_WithStubEmit()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "NativeMethods.cs",
+                Content = "using System.Runtime.InteropServices; class NativeMethods { [DllImport(\"kernel32.dll\")] private static extern bool Beep(uint frequency, uint duration); }",
+            }
+        });
+
+        var result = Assert.Single(results);
+        Assert.True(result.Success);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == "CS2J3201" || diagnostic.Code == "CS2J3203");
+        Assert.Contains("UnsupportedOperationException", result.GeneratedCode);
+    }
+
+    [Fact]
+    public async Task ProjectConversionPipeline_AllowsGeneratedAssemblyInfoFile()
+    {
+        var pipeline = new ProjectConversionPipeline(CreateOptions());
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile
+            {
+                FilePath = "obj/Debug/net8.0-windows/Test.AssemblyInfo.cs",
+                Content = "using System.Runtime.Versioning; [assembly: SupportedOSPlatform(\"windows\")] class Test { }",
+            }
+        });
+
+        var result = Assert.Single(results);
+        Assert.True(result.Success);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == "CS2J3101");
     }
 
     [Fact]

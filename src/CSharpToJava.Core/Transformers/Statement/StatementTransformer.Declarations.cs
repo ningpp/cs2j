@@ -1214,12 +1214,38 @@ public partial class StatementTransformer
         return false;
     }
 
+    /// <summary>
+    /// C# implicitly converts an integer literal in a `yield return 1;` statement to the
+    /// iterator's element type (e.g. IEnumerable&lt;double&gt;). Java's generics do not
+    /// auto-box int into Double, so integer literals yielded into a Double-typed list must
+    /// be emitted as double literals.
+    /// </summary>
+    private static string AdaptYieldExpressionToElementType(
+        ExpressionSyntax exprSyntax,
+        string expr,
+        ConversionContext context)
+    {
+        var converted = context.GetTypeInfo(exprSyntax).ConvertedType;
+        if (converted == null || converted.TypeKind == TypeKind.Error)
+            return expr;
+        if (converted.SpecialType is not (SpecialType.System_Double or SpecialType.System_Single))
+            return expr;
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(expr, @"^-?\d+$"))
+        {
+            var suffix = converted.SpecialType == SpecialType.System_Single ? "f" : ".0";
+            return expr + suffix;
+        }
+        return expr;
+    }
+
     private JavaSyntaxNode TransformYieldReturn(YieldStatementSyntax? stmt, ConversionContext context)
     {
         if (stmt?.Expression == null)
             return new JavaStatementNode("// yield return (empty)");
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var expr = exprTransformer.Transform(stmt.Expression, context);
+        expr = AdaptYieldExpressionToElementType(stmt.Expression, expr, context);
 
         // Drain any pre/post-statements emitted during expression transformation
         // (e.g., ref argument holder declarations and value write-backs).

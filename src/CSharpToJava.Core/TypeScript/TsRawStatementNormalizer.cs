@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -2550,6 +2550,7 @@ public static class TsRawStatementNormalizer
     private static string NormalizeObjectEmpty(string code)
     {
         const string needle = "Object.Empty";
+        const string eventArgsNeedle = "EventArgs.Empty";
         var sb = new StringBuilder(code.Length);
         var i = 0;
         while (i < code.Length)
@@ -2572,6 +2573,12 @@ public static class TsRawStatementNormalizer
             {
                 sb.Append("null");
                 i += needle.Length;
+                continue;
+            }
+            if (AtIdentifierBoundary(code, i) && code.AsSpan(i).StartsWith(eventArgsNeedle, StringComparison.Ordinal))
+            {
+                sb.Append("null");
+                i += eventArgsNeedle.Length;
                 continue;
             }
             sb.Append(ch);

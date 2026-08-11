@@ -349,7 +349,7 @@ public class ClassTransformer : ITypeTransformer
                         ConstructorDeclarationSyntax c => c.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
                             ? "cctor"
                             : $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => ParamKey(p)) ?? Enumerable.Empty<string>())}",
-                        EventDeclarationSyntax e => $"ev:{e.Identifier.Text}",
+                        EventDeclarationSyntax e => $"ev:{e.ExplicitInterfaceSpecifier?.Name}.:{e.Identifier.Text}",
                         DelegateDeclarationSyntax d => $"del:{d.Identifier.Text}:{d.TypeParameterList?.Parameters.Count ?? 0}",
                         _ => $"other:{member.GetHashCode()}"
                     };
@@ -421,6 +421,7 @@ public class ClassTransformer : ITypeTransformer
         AddIRectangleBridgeMethods(javaClass);
         ResolveReadOnlyDictListConflict(javaClass, context);
         InjectMSTestExtensionIfNeeded(javaClass, context);
+        ReorderStaticFieldsByDependency(javaClass);
         ReorderStaticFieldInitializers(javaClass);
         AddDebuggerAnnotations(javaClass, mergedType.TypeSymbol, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
@@ -530,6 +531,61 @@ public class ClassTransformer : ITypeTransformer
     /// method call whose body references one (e.g. <c>X = populate()</c> where populate
     /// reads s_definedCategories).
     /// </summary>
+    /// <summary>
+    /// Reorders static fields so that a field whose initializer reads another static
+    /// field (declared later in C# text order) is emitted AFTER its dependency.
+    /// Java rejects such references with "illegal forward reference" when the use is
+    /// not a constant expression (e.g. <c>static final double A = Math.tan(B * 2);</c>
+    /// followed by <c>static final double B = 30.0;</c>). C# allows this because
+    /// <c>const</c>/<c>static readonly</c> initializers are evaluated in text order.
+    /// </summary>
+    internal static void ReorderStaticFieldsByDependency(JavaClassDeclaration javaClass)
+    {
+        var staticFieldNames = javaClass.Fields
+            .Where(f => f.Modifiers.HasFlag(JavaModifiers.Static))
+            .Select(f => f.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        if (staticFieldNames.Count < 2)
+            return;
+
+        var order = javaClass.Fields.ToList();
+        bool changed = true;
+        int guard = 0;
+        while (changed && guard++ < 200)
+        {
+            changed = false;
+            for (int i = 0; i < order.Count; i++)
+            {
+                var field = order[i];
+                if (!field.Modifiers.HasFlag(JavaModifiers.Static) || string.IsNullOrWhiteSpace(field.Initializer))
+                    continue;
+                // Find the latest referenced static field that currently appears after
+                // this field and move it just before this field (stable insertion).
+                int moveFrom = -1;
+                for (int j = i + 1; j < order.Count; j++)
+                {
+                    var candidate = order[j];
+                    if (candidate.Modifiers.HasFlag(JavaModifiers.Static)
+                        && ContainsIdentifier(field.Initializer, candidate.Name))
+                    {
+                        moveFrom = j;
+                    }
+                }
+                if (moveFrom > i)
+                {
+                    var dependency = order[moveFrom];
+                    order.RemoveAt(moveFrom);
+                    order.Insert(i, dependency);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        javaClass.Fields.Clear();
+        javaClass.Fields.AddRange(order);
+    }
+
     private static bool InitializerDependsOnStaticBlock(
         string initializer,
         HashSet<string> staticBlockNames,

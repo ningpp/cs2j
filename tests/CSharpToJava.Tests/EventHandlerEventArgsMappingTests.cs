@@ -6,16 +6,16 @@ namespace CSharpToJava.Tests;
 
 /// <summary>
 /// Tests that System.EventArgs and System.EventHandler are properly mapped
-/// when used in event declarations. EventArgs should map to Object, and
-/// non-generic EventHandler should map to BiConsumer&lt;Object, Object&gt;.
+/// when used in event declarations. EventArgs maps to the compat EventArgs
+/// class, and EventHandler maps to BiConsumer&lt;Object, T&gt;.
 /// </summary>
 public class EventHandlerEventArgsMappingTests
 {
     [Fact]
-    public void EventHandlerOfEventArgs_MapsEventArgsToObject()
+    public void EventHandlerOfEventArgs_MapsEventArgsToCompatEventArgs()
     {
-        // event EventHandler<EventArgs> should produce BiConsumer<Object, Object>
-        // (EventArgs maps to Object per TypeMappings.json)
+        // event EventHandler<EventArgs> should produce BiConsumer<Object, EventArgs>
+        // (EventArgs maps to io.github.ningpp.compat.EventArgs per TypeMappings.json)
         var source = @"
 using System;
 interface IViewer {
@@ -23,15 +23,14 @@ interface IViewer {
 }";
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        // The listener type should be BiConsumer<Object, Object>, not BiConsumer<Object, EventArgs>
-        Assert.Contains("BiConsumer<Object, Object>", result.GeneratedCode);
-        Assert.DoesNotContain("EventArgs", result.GeneratedCode);
+        Assert.Contains("BiConsumer<Object, EventArgs>", result.GeneratedCode);
+        Assert.Contains("import io.github.ningpp.compat.EventArgs;", result.GeneratedCode);
     }
 
     [Fact]
-    public void NonGenericEventHandler_MapsToBiConsumerObjectObject()
+    public void NonGenericEventHandler_MapsToBiConsumerObjectEventArgs()
     {
-        // event EventHandler (non-generic) should produce BiConsumer<Object, Object>
+        // event EventHandler (non-generic) should produce BiConsumer<Object, EventArgs>
         var source = @"
 using System;
 interface IViewerObject {
@@ -39,8 +38,8 @@ interface IViewerObject {
 }";
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        // The listener type should be BiConsumer<Object, Object>, not EventHandler
-        Assert.Contains("BiConsumer<Object, Object>", result.GeneratedCode);
+        // The listener type should be BiConsumer<Object, EventArgs>, not EventHandler
+        Assert.Contains("BiConsumer<Object, EventArgs>", result.GeneratedCode);
         Assert.DoesNotContain("EventHandler", result.GeneratedCode);
     }
 

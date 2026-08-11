@@ -2192,7 +2192,17 @@ public class Program
         var normalizedProjects = new List<WorkspaceProject>(groupedProjects.Count);
         foreach (var group in groupedProjects)
         {
-            var selectedProject = group.First();
+            // Multi-targeted projects (e.g. net472;net6.0-windows) appear once per TFM.
+            // MSBuildWorkspace does not guarantee a stable TFM order, so pick the
+            // highest-ranked TFM deterministically. Windows desktop TFMs are preferred
+            // because their reference assemblies (WindowsDesktop shared framework)
+            // resolve System.Drawing/Windows.Forms types to the cs2j compat surface,
+            // while net4xx resolves them to the real framework assemblies whose
+            // TypeMappings entries (e.g. System.Drawing.Color -> java.awt.Color) do
+            // not match the compat types.
+            var selectedProject = group
+                .OrderByDescending(project => TargetFrameworkRank(project.Name))
+                .First();
             normalizedProjects.Add(selectedProject);
 
             if (verbose && group.Count() > 1)
@@ -2203,6 +2213,63 @@ public class Program
         }
 
         return normalizedProjects;
+    }
+
+    /// <summary>
+    /// Deterministic preference rank for a TFM-suffixed Roslyn project name
+    /// (e.g. "GraphViewerGDI (net6.0-windows)"). Windows variants rank above
+    /// plain framework TFMs of the same version; higher versions rank higher.
+    /// Unknown names rank 0 and keep their original (stable) order.
+    /// </summary>
+    internal static int TargetFrameworkRank(string projectName)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            projectName,
+            @"\((?<tfm>net(?:coreapp)?\d+(?:\.\d+)?(?:-windows)?)\)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return 0;
+        }
+
+        var tfm = match.Groups["tfm"].Value;
+        var versionText = tfm
+            .Replace("netcoreapp", "net", StringComparison.OrdinalIgnoreCase)
+            .TrimStart("net".ToCharArray());
+        var versionEnd = versionText.IndexOf('-');
+        if (versionEnd >= 0)
+        {
+            versionText = versionText[..versionEnd];
+        }
+
+        // Normalize the digit part to a comparable value: "6.0" -> 6.0, "472" -> 4.72,
+        // "48" -> 4.8, "2.0" -> 2.0. .NET Framework TFMs (net4xx) are written without
+        // a dot in the TFM name but represent 4.<xx>.
+        double value;
+        if (versionText.Contains('.', StringComparison.Ordinal))
+        {
+            if (!double.TryParse(versionText, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value))
+            {
+                return 0;
+            }
+        }
+        else if (versionText.Length > 1 && versionText[0] == '4'
+                 && int.TryParse(versionText[1..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var frameworkMinor))
+        {
+            value = 4 + frameworkMinor / Math.Pow(10, versionText.Length - 1);
+        }
+        else if (!double.TryParse(versionText, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value))
+        {
+            return 0;
+        }
+
+        var rank = (int)(value * 100);
+        if (tfm.EndsWith("-windows", StringComparison.OrdinalIgnoreCase))
+        {
+            rank += 1000;
+        }
+
+        return rank;
     }
 
     private static IReadOnlyList<WorkspaceProject> FilterUnsupportedWorkspaceProjects(
