@@ -315,6 +315,7 @@ internal static class ProjectReadOnlyStructPreprocessor
     private static List<MetadataReference> GetBasicReferences()
     {
         var references = new List<MetadataReference>();
+        var addedSimpleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Add core runtime references
         var trustedAssemblies = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))?.Split(Path.PathSeparator);
@@ -325,20 +326,76 @@ internal static class ProjectReadOnlyStructPreprocessor
                 if (File.Exists(assembly))
                 {
                     references.Add(MetadataReference.CreateFromFile(assembly));
+                    addedSimpleNames.Add(Path.GetFileNameWithoutExtension(assembly));
                 }
             }
         }
         else
         {
             // Fallback: add basic references
-            references.Add(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
-            var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+            var coreAssembly = typeof(object).Assembly;
+            references.Add(MetadataReference.CreateFromFile(coreAssembly.Location));
+            addedSimpleNames.Add(coreAssembly.GetName().Name ?? "System.Private.CoreLib");
+            var runtimeDir = Path.GetDirectoryName(coreAssembly.Location)!;
             var runtimeAssembly = Path.Combine(runtimeDir, "System.Runtime.dll");
             if (File.Exists(runtimeAssembly))
                 references.Add(MetadataReference.CreateFromFile(runtimeAssembly));
         }
 
+        AddWindowsDesktopReferences(references, addedSimpleNames);
+
         return references;
+    }
+
+    /// <summary>
+    /// Adds the Windows Desktop framework (WinForms/WPF) assemblies that sit next to the
+    /// running runtime so external UI types (TrackBar, Ellipse, ...) bind to real class
+    /// symbols in the preprocessing compilation. Without them those types resolve to error
+    /// types, which makes AssignmentRewriter's unresolvable-type fallback misrewrite their
+    /// property assignments (e.g. trackBar.Value = ... → trackBar = trackBar.WithValue(...)).
+    /// </summary>
+    private static void AddWindowsDesktopReferences(List<MetadataReference> references, HashSet<string> addedSimpleNames)
+    {
+        var coreRuntimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        if (string.IsNullOrEmpty(coreRuntimeDir))
+            return;
+
+        // Microsoft.NETCore.App\<version> → ..\..\Microsoft.WindowsDesktop.App
+        var windowsDesktopRoot = Path.GetFullPath(Path.Combine(coreRuntimeDir, "..", "..", "Microsoft.WindowsDesktop.App"));
+        if (!Directory.Exists(windowsDesktopRoot))
+            return;
+
+        // Prefer the version matching the running runtime (e.g. 10.0.8), otherwise the
+        // highest installed version.
+        var currentVersion = Environment.Version.ToString(3);
+        var versions = Directory.EnumerateDirectories(windowsDesktopRoot)
+            .Select(Path.GetFileName)
+            .Where(v => !string.IsNullOrEmpty(v) && Version.TryParse(v, out _))
+            .OrderByDescending(v => Version.Parse(v!))
+            .ToList();
+        var bestVersion = versions.FirstOrDefault(v => string.Equals(v, currentVersion, StringComparison.OrdinalIgnoreCase))
+                          ?? versions.FirstOrDefault();
+        if (bestVersion == null)
+            return;
+
+        foreach (var assembly in Directory.EnumerateFiles(Path.Combine(windowsDesktopRoot, bestVersion), "*.dll"))
+        {
+            var simpleName = Path.GetFileNameWithoutExtension(assembly);
+            if (string.IsNullOrEmpty(simpleName) || !addedSimpleNames.Add(simpleName))
+                continue;
+            try
+            {
+                references.Add(MetadataReference.CreateFromFile(assembly));
+            }
+            catch (IOException)
+            {
+                // Ignore assemblies that disappear between enumeration and load.
+            }
+            catch (BadImageFormatException)
+            {
+                // Native DLLs and other non-managed files carry no metadata.
+            }
+        }
     }
 
     private static IEnumerable<string> EnumerateSourceFiles(string sourceRoot, string destinationRoot)

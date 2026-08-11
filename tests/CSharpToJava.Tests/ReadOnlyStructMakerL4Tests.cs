@@ -702,4 +702,46 @@ class User {
         Assert.Contains("c.X / (2.0 * (mb - ma))", output);
         Assert.DoesNotContain("c.X / 2.0 * (mb - ma)", output);
     }
+
+    [Fact]
+    public void ExternalClassPropertyAssignment_NotRewritten_WhenReceiverTypeUnresolvable()
+    {
+        // Regression: a class field whose type is an external class (missing reference,
+        // e.g. WinForms TrackBar) must not be rewritten into a WithValue call just
+        // because a converted struct happens to have a field with the same name.
+        var src = @"
+struct Widget {
+    public int Value;
+}
+class User {
+    System.Windows.Forms.TrackBar imageScale;
+    void M() {
+        this.imageScale.Value = 1;
+        imageScale.Value = 2;
+        var w = new Widget();
+        w.Value = 3;
+    }
+}";
+        var tree = CSharpSyntaxTree.ParseText(src);
+        var compilation = CSharpCompilation.Create("test",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var publicFieldStructs = new Dictionary<string, HashSet<string>>
+        {
+            ["Widget"] = new HashSet<string> { "Value" }
+        };
+        var rewriter = new AssignmentRewriter(publicFieldStructs, model);
+        rewriter.BuildVariableTypeMap(tree.GetRoot());
+        var newRoot = rewriter.Visit(tree.GetRoot());
+        var output = newRoot!.ToFullString();
+        // External class property writes stay untouched...
+        Assert.Contains("this.imageScale.Value = 1", output);
+        Assert.Contains("imageScale.Value = 2", output);
+        Assert.DoesNotContain("imageScale.WithValue", output);
+        Assert.DoesNotContain("this.imageScale.WithValue", output);
+        // ...while real converted-struct writes are still rewritten.
+        Assert.Contains("w=w.WithValue(3)", output);
+    }
 }

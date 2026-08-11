@@ -822,8 +822,18 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 var typeInfo = _semanticModel.GetTypeInfo(expression);
                 var type = typeInfo.Type;
 
-                if (type != null && type.TypeKind != TypeKind.Error)
+                if (type != null)
                 {
+                    // An error type means the receiver's type failed to bind, typically an
+                    // external class (TrackBar, Ellipse, ...) whose assembly is not part of
+                    // the preprocessing compilation. Converted structs are always declared
+                    // in this same compilation, so an error type can never be a target
+                    // struct. Treat it as resolved-to-non-target instead of falling back to
+                    // field-name guessing, which would wrongly rewrite e.g.
+                    // `trackBar.Value = ...` into `trackBar = trackBar.WithValue(...)`.
+                    if (type.TypeKind == TypeKind.Error)
+                        return null;
+
                     // Require an actual struct — a class with the same name as a
                     // converted struct (e.g. a test helper `Person` class next to a
                     // `Person` struct) must never be rewritten.
