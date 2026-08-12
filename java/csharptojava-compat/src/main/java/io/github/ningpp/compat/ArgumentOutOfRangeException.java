@@ -30,6 +30,11 @@ public class ArgumentOutOfRangeException extends ArgumentException {
         super(paramName, message);
     }
 
+    /** Mirrors C# ArgumentOutOfRangeException(string paramName, object? actualValue, string? message). */
+    public ArgumentOutOfRangeException(String paramName, Object actualValue, String message) {
+        super(paramName, message);
+    }
+
     /** Mirrors C# ArgumentOutOfRangeException(string paramName, string? message, Exception? innerException). */
     public ArgumentOutOfRangeException(String paramName, String message, Throwable cause) {
         super(paramName, message, cause);

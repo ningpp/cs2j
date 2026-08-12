@@ -40,6 +40,54 @@ public class MyUri : ISerializable
     }
 
     [Fact]
+    public void GetObjectData_BaseForwarding_StripsSuperCall()
+    {
+        // A GetObjectData whose body only forwards to base (base.GetObjectData(info, context))
+        // must not emit super.getObjectData(...) — the compat base class has no such method.
+        var result = Convert(@"
+using System.Runtime.Serialization;
+
+public class MyFormatException : FormatException, ISerializable
+{
+    void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+    {
+        base.GetObjectData(info, context);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("getObjectData(__suppress__ info, __suppress__ context)", result.GeneratedCode);
+        Assert.DoesNotContain("super.getObjectData", result.GeneratedCode);
+    }
+
+    [Fact]
+    public void GetObjectData_SelfForwarding_StripsRecursiveCall()
+    {
+        // ISerializable.GetObjectData forwarding to a protected GetObjectData that was
+        // omitted (uses the suppressed params) must not emit a self-recursive call.
+        var result = Convert(@"
+using System.Runtime.Serialization;
+
+public class MyUri : ISerializable
+{
+    void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+    {
+        GetObjectData(info, context);
+    }
+
+    protected void GetObjectData(SerializationInfo info, StreamingContext context)
+    {
+        info.AddValue(""x"", 1);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("super.getObjectData", result.GeneratedCode);
+        Assert.DoesNotContain("getObjectData(info, context)", result.GeneratedCode);
+        Assert.Contains("getObjectData(__suppress__ info, __suppress__ context)", result.GeneratedCode);
+    }
+
+    [Fact]
     public void GetObjectData_UsingSuppressedParams_IsSkipped()
     {
         // A GetObjectData whose body calls members ON the suppressed params (e.g. info.GetString)

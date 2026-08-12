@@ -50,3 +50,36 @@
 - **测试**: `GenericMigratedStruct_VoidCallSite_UpdatedToAssignment`（先红后绿；跨文件 pass 输出无空格 `pathSegments=pathSegments.Add(`）
 - **验证**: 全量 dotnet test 2684+691+7 = 3382 通过，0 失败；`make-readonly` Release 自检 build+test 全部成功（686 测试 0 失败）
 - **状态**: ✅ Fixed
+
+## Iteration 3 — ArgumentOutOfRangeException ctor + getObjectData super 调用 [build]
+- **Java 文件**: system-private-uri/src/main/java/dotnet/system/UriParser.java:220、Uri.java:4693、UriFormatException.java:34
+- **行号**: 220 / 4693 / 34
+- **错误信息**:
+  1. ` 对于ArgumentOutOfRangeException(java.lang.String,int,java.lang.String), 找不到合适的构造器 `（构造器 io.github.ningpp.compat.ArgumentOutOfRangeException(String,String,Object) 不适用; int无法转换为java.lang.String）
+  2. ` UriFormatException.java: 找不到符号 方法 getObjectData(io.github.ningpp.compat.__suppress__,io.github.ningpp.compat.__suppress__) `
+- **代码片段**:
+  `java
+  // UriParser.java:220
+  throw new ArgumentOutOfRangeException("components", components, SystemPrivateUriSR.getNet_uri_NotJustSerialization());
+  // UriFormatException.java:33-35
+  public void getObjectData(__suppress__ serializationInfo, __suppress__ streamingContext) {
+      super.getObjectData(serializationInfo, streamingContext);
+  }
+  // Uri.java:340-341（ISerializable.GetObjectData 自转发，无限递归）
+  public void getObjectData(__suppress__ serializationInfo, __suppress__ streamingContext) {
+      getObjectData(serializationInfo, streamingContext);
+  }
+  `
+- **对应 C# 文件**: src/System/UriExt.cs:331、src/System/UriScheme.cs:121、src/System/Uri.cs:430-433、src/System/UriFormatException.cs:33-36
+- **根因分类**: 类型映射缺失（compat 构造器顺序）+ Transformer（__suppress__ 方法体转发调用未剥离）
+- **涉及组件**:
+  - java/csharptojava-compat/.../ArgumentOutOfRangeException.java（缺 C# 顺序 3 参构造器 (paramName, actualValue, message)）
+  - src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs（suppressed-param 方法体保留 super.getObjectData/自递归调用）
+- **分析**: C# 
+ew ArgumentOutOfRangeException(paramName, actualValue, message) 保持参数顺序映射到 Java，但 compat 只声明了 (paramName, message, actualValue) 顺序的构造器，int 无法转 String 导致编译失败；同时带 __suppress__ 参数的方法体中的 ase.GetObjectData(info,ctx) 转发被原样输出为 super.getObjectData(...)，而 compat 基类（FormatException 等）没有该方法；自转发调用则生成无限递归（可编译但行为错误）。
+- **修复**:
+  1. compat ArgumentOutOfRangeException 新增构造器 (String paramName, Object actualValue, String message)
+  2. MethodTransformer 对带 __suppress__ 参数的方法：剥离把 suppressed 参数作为实参透传的调用语句（super.getObjectData/自递归 getObjectData），结构化语句与 raw 语句均处理，嵌套 block 递归处理；表达式体则退化为空块
+- **测试**: GetObjectData_BaseForwarding_StripsSuperCall、GetObjectData_SelfForwarding_StripsRecursiveCall（先红后绿，SuppressTypeTests）
+- **验证**: 全量 dotnet test 2686+691 = 3377 通过；compat mvn install（1286 测试通过）
+- **状态**: ✅ Fixed

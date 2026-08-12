@@ -68,15 +68,9 @@ public class MethodTransformer : IMemberTransformer
         // omit them when the body calls members ON the suppressed params (cannot compile against the
         // __suppress__ placeholder). Trivial bodies (throw, base forwarding) are emitted with
         // __suppress__-typed parameters so call sites still compile and runtime behavior is preserved.
-        bool hasSuppressedParam = methodDecl.ParameterList?.Parameters.Any(p =>
-        {
-            var ti = context.GetTypeInfo(p.Type!);
-            var jt = ti.Type != null && ti.Type is not IErrorTypeSymbol
-                ? context.MapType(ti.Type)
-                : context.MapTypeFromSyntax(p.Type!);
-            return jt == "__suppress__";
-        }) == true;
-        if (hasSuppressedParam && MethodReferencesSuppressedParams(methodDecl, context))
+        HashSet<string> suppressedParamNames = GetSuppressedParamNames(methodDecl, context);
+        bool hasSuppressedParam = suppressedParamNames.Count > 0;
+        if (hasSuppressedParam && MethodReferencesSuppressedParams(methodDecl, context, suppressedParamNames))
             return null!;
 
         var methodInfo = context.GetDeclaredSymbol(methodDecl) as IMethodSymbol;
@@ -493,6 +487,13 @@ public class MethodTransformer : IMemberTransformer
                 // 抽象方法没有主体
                 javaMethod.Body = null;
             }
+        }
+        // Methods with __suppress__-typed parameters must not forward calls (super.getObjectData(...)
+        // or a self-recursive getObjectData(...)) — the compat base classes do not declare such
+        // methods, and a self-recursive call would be an infinite loop. Strip those invocations.
+        if (suppressedParamNames.Count > 0)
+        {
+            StripSuppressedParamForwardingCalls(javaMethod, suppressedParamNames);
         }
         // Checked exceptions from try-with-resources (close()) or Dispose→close
         // are handled by JavaExceptionCheckRewriter which wraps method bodies
@@ -1591,6 +1592,27 @@ public class MethodTransformer : IMemberTransformer
     };
 
     /// <summary>
+    /// Returns the names of parameters whose type is mapped to the __suppress__ placeholder
+    /// (e.g. SerializationInfo, StreamingContext).
+    /// </summary>
+    private static HashSet<string> GetSuppressedParamNames(
+        MethodDeclarationSyntax methodDecl,
+        ConversionContext context)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var p in methodDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
+        {
+            var ti = context.GetTypeInfo(p.Type!);
+            var jt = ti.Type != null && ti.Type is not IErrorTypeSymbol
+                ? context.MapType(ti.Type)
+                : context.MapTypeFromSyntax(p.Type!);
+            if (jt == "__suppress__")
+                names.Add(p.Identifier.Text);
+        }
+        return names;
+    }
+
+    /// <summary>
     /// Returns true when the method body calls members ON the __suppress__-typed parameters
     /// (e.g. info.GetString(...)). Such bodies cannot compile against the __suppress__
     /// placeholder and the method must be omitted. Plain references (throw, base forwarding
@@ -1600,20 +1622,18 @@ public class MethodTransformer : IMemberTransformer
         MethodDeclarationSyntax methodDecl,
         ConversionContext context)
     {
+        return MethodReferencesSuppressedParams(methodDecl, context, null);
+    }
+
+    private static bool MethodReferencesSuppressedParams(
+        MethodDeclarationSyntax methodDecl,
+        ConversionContext context,
+        HashSet<string>? suppressedParamNames)
+    {
         if (context.SemanticModel == null)
             return true;
 
-        var suppressedParams = (methodDecl.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
-            .Where(p =>
-            {
-                var ti = context.GetTypeInfo(p.Type!);
-                var jt = ti.Type != null && ti.Type is not IErrorTypeSymbol
-                    ? context.MapType(ti.Type)
-                    : context.MapTypeFromSyntax(p.Type!);
-                return jt == "__suppress__";
-            })
-            .Select(p => p.Identifier.Text)
-            .ToHashSet(StringComparer.Ordinal);
+        var suppressedParams = suppressedParamNames ?? GetSuppressedParamNames(methodDecl, context);
         if (suppressedParams.Count == 0)
             return false;
 
@@ -1632,6 +1652,81 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Removes invocation statements that pass a __suppress__-typed parameter as an argument
+    /// (e.g. super.getObjectData(info, context) or a self-recursive getObjectData(info, context)).
+    /// Such calls cannot resolve in Java: the compat base classes declare no getObjectData
+    /// method, and a self-recursive call would loop forever. The suppressed params may only
+    /// be used as pass-through arguments here — any member access on them already caused the
+    /// whole method to be omitted by <see cref="MethodReferencesSuppressedParams"/>.
+    /// </summary>
+    private static void StripSuppressedParamForwardingCalls(
+        JavaMethodDeclaration javaMethod,
+        HashSet<string> suppressedParamNames)
+    {
+        if (javaMethod.StructuredBody != null)
+        {
+            StripFromStatementList(javaMethod.StructuredBody.Statements, suppressedParamNames);
+        }
+        if (javaMethod.Body != null && !javaMethod.IsBodyExpression)
+        {
+            var lines = javaMethod.Body.Split('\n');
+            var kept = lines.Where(l => !IsSuppressedParamForwardingLine(l, suppressedParamNames)).ToArray();
+            javaMethod.Body = string.Join("\n", kept);
+        }
+        else if (javaMethod.Body != null && javaMethod.IsBodyExpression
+            && IsSuppressedParamForwardingLine(javaMethod.Body, suppressedParamNames))
+        {
+            // Expression-bodied forwarding (e.g. => base.GetObjectData(info, context)):
+            // no meaningful body remains — emit an empty block instead.
+            javaMethod.Body = null;
+            javaMethod.IsBodyExpression = false;
+        }
+    }
+
+    private static void StripFromStatementList(
+        List<JavaStatement> statements,
+        HashSet<string> suppressedParamNames)
+    {
+        statements.RemoveAll(s => IsSuppressedParamForwardingStatement(s, suppressedParamNames));
+        foreach (var nested in statements.OfType<JavaBlockStatement>())
+        {
+            StripFromStatementList(nested.Statements, suppressedParamNames);
+        }
+    }
+
+    private static bool IsSuppressedParamForwardingStatement(
+        JavaStatement statement,
+        HashSet<string> suppressedParamNames)
+    {
+        if (statement is JavaRawStatement raw)
+            return IsSuppressedParamForwardingLine(raw.Code, suppressedParamNames);
+        if (statement is JavaExpressionStatement { Expression: JavaMethodCallExpression call })
+        {
+            return call.Arguments.Any(a =>
+                a is JavaIdentifierExpression id && suppressedParamNames.Contains(id.Name));
+        }
+        return false;
+    }
+
+    private static bool IsSuppressedParamForwardingLine(
+        string line,
+        HashSet<string> suppressedParamNames)
+    {
+        var text = line.Trim().TrimEnd(';').Trim();
+        if (text.Length == 0 || text.Contains('\n'))
+            return false;
+        int openParen = text.IndexOf('(');
+        if (openParen <= 0 || !text.EndsWith(")", StringComparison.Ordinal))
+            return false;
+        var callee = text.Substring(0, openParen).Trim();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(callee,
+                @"^(?:(super|this)\.)?[A-Za-z_$][A-Za-z0-9_$]*$"))
+            return false;
+        var args = text.Substring(openParen + 1, text.Length - openParen - 2);
+        return args.Split(',').Any(a => suppressedParamNames.Contains(a.Trim()));
     }
 
     private static bool ShouldReturnObjectForRuntimeTypeParameterArray(
