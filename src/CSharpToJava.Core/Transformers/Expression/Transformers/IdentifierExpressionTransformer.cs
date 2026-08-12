@@ -1334,6 +1334,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (prop.Name == "Current" && IsEnumeratorCurrentProperty(prop))
                 return $"{target}.{GetPropertyGetterName(prop)}()";
 
+            // C# Task.Factory → compat Task.getFactory().
+            // System.Threading.Tasks.Task maps to CompletableFuture for async usage,
+            // but the static Factory property only exists on the compat Task class.
+            if (prop.Name == "Factory" && prop.IsStatic && IsSystemThreadingTaskType(prop.ContainingType))
+            {
+                context.AddImport("io.github.ningpp.compat.Task");
+                return "Task.getFactory()";
+            }
+
             var propertyTarget = prop.IsStatic
                 ? MapStaticTypeReceiver(prop.ContainingType, context)
                 : target;
@@ -2427,6 +2436,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return true;
         }
         return false;
+    }
+
+    private static bool IsSystemThreadingTaskType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol namedType)
+            return false;
+        var original = namedType.OriginalDefinition;
+        return original.Name == "Task"
+            && original.TypeArguments.Length == 0
+            && original.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
     }
 
     private static bool IsSystemStringType(ITypeSymbol? type)

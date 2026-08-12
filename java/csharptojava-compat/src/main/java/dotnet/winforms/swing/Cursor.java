@@ -1,19 +1,19 @@
 package dotnet.winforms.swing;
 
-import java.io.InputStream;
+import io.github.ningpp.compat.StreamWrapper;
 
 /**
  * System.Windows.Forms.Cursor compatibility class.
  */
 public final class Cursor implements AutoCloseable {
 
-    private final InputStream stream;
+    private final StreamWrapper stream;
 
-    public Cursor(InputStream stream) {
+    public Cursor(StreamWrapper stream) {
         this.stream = stream;
     }
 
-    public InputStream getStream() {
+    public StreamWrapper getStream() {
         return stream;
     }
 

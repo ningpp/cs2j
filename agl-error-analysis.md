@@ -570,3 +570,39 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **??**: `BareGenericArrayInitializerTests`?2 ????????
 
 - **??**: ? Fixed (2026-08-12) ? ?? dotnet test ???CSharpToJava 2681 + TypeScript 691 + ProjectTests 7??compat `mvn clean install` 1286 Java ?????`mvn clean package -e` ? **BUILD SUCCESS**?13/13 ???? graphviewergdi / dot2svg / testgraphmaps??
+
+## Iteration 8 — StreamWrapper 无法转换为 java.io.InputStream
+- **Java 文件**: graphviewergdi-net6-0-windows/src/main/java/Microsoft/Msagl/GraphViewerGdi/GViewer.java
+- **行号**: 269, 272
+- **错误信息**: 不兼容的类型: io.github.ningpp.compat.StreamWrapper无法转换为java.io.InputStream
+- **代码片段**:
+  ```java
+  for (String r : a.getManifestResourceNames()) {
+      if (r.contains("hmove.cur")) {
+          panGrabCursor = new Cursor(a.getManifestResourceStream(r));
+      }
+  }
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\tools\GraphViewerGDI\ScrollGViewer.cs
+- **根因分类**: compat 库 API 签名不匹配
+- **涉及组件**: java/csharptojava-compat/src/main/java/dotnet/winforms/swing/Cursor.java
+- **分析**: C# `System.Windows.Forms.Cursor(Stream)` 中 `Stream` 被映射为 compat 的 `StreamWrapper`，而 compat `Cursor` 构造器接受 `java.io.InputStream`，导致生成的 Java 代码类型不匹配。
+
+✅ Fixed — compat Cursor 构造器改为接受 StreamWrapper
+
+## Iteration 9 — CompletableFuture.getFactory() 找不到符号
+- **Java 文件**: graphmapswpfcontrol-net6-0-windows/src/main/java/Microsoft/Msagl/GraphmapsWpfControl/TileFetcher.java
+- **行号**: 122
+- **错误信息**: 找不到符号 方法 getFactory() 位置 类 java.util.concurrent.CompletableFuture
+- **代码片段**:
+  ```java
+  CompletableFuture.getFactory().startNew((Runnable) () -> {
+      ...
+  }, _cancellationTokenSource.getToken(), TaskCreationOptions.None, TaskScheduler.getDefault()).thenApply(...)
+  ```
+- **对应 C# 文件**: E:\agl-master\GraphLayout\tools\GraphmapsWpfControl\TileFetcher.cs:85
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs (TransformMemberAccess)
+- **分析**: C# `Task.Factory.StartNew(...)` 中 `Task` 类型被映射为 `CompletableFuture`，静态属性 `Factory` 被转换为 `CompletableFuture.getFactory()`，但 `getFactory()` 只存在于 compat `io.github.ningpp.compat.Task` 类中；非 async 的 Task.Factory 用法应引用 compat Task 类。
+
+✅ Fixed — mvn clean package -e BUILD SUCCESS
