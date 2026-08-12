@@ -351,7 +351,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             foreach (var fieldName in allNonPrivateFieldTypes.Keys)
             {
                 var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allFieldTypes, existingCtor,
-                    isInternal: internalFieldNames.Contains(fieldName));
+                    isInternal: internalFieldNames.Contains(fieldName), structType: StructTypeSyntax(node));
                 readonlyNode = readonlyNode.AddMembers(withMethod);
             }
 
@@ -472,7 +472,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         foreach (var fieldName in allNonPrivateFieldTypes.Keys)
         {
             var withMethod = GenerateWithMethodUsingConstructor(structName, fieldName, allFieldTypes, ctor,
-                isInternal: internalFieldNames.Contains(fieldName));
+                isInternal: internalFieldNames.Contains(fieldName), structType: StructTypeSyntax(node));
             result = result.AddMembers(withMethod);
         }
 
@@ -541,11 +541,13 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         Dictionary<string, TypeSyntax> fieldTypes,
         ConstructorDeclarationSyntax? ctor,
         bool isInternal = false,
-        string? storageFieldName = null)
+        string? storageFieldName = null,
+        TypeSyntax? structType = null)
     {
         var withMethodName = "With" + fieldName;
         var paramName = ToCamelCase(fieldName);
         var storageName = storageFieldName ?? fieldName;
+        var selfType = structType ?? SyntaxFactory.IdentifierName(structName);
 
         // Extract parameter -> field mapping from constructor
         var paramToFieldMap = ExtractConstructorParamToFieldMap(ctor);
@@ -599,15 +601,31 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier(paramName))
             .WithType(fieldTypes[storageName]);
 
-        return SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName(structName), withMethodName)
+        return SyntaxFactory.MethodDeclaration(selfType, withMethodName)
             .AddModifiers(SyntaxFactory.Token(isInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space))
             .AddParameterListParameters(param)
             .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(
-                SyntaxFactory.ObjectCreationExpression(SyntaxFactory.IdentifierName(structName))
+                SyntaxFactory.ObjectCreationExpression(selfType)
                     .WithArgumentList(SyntaxFactory.ArgumentList(
                         SyntaxFactory.SeparatedList(arguments)))))
             .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
             .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, SyntaxFactory.Whitespace("        "));
+    }
+
+    /// <summary>
+    /// Builds the struct's type syntax, including generic type parameters when the
+    /// struct is generic (e.g. <c>ArrayBuilder&lt;T&gt;</c>), for use in generated
+    /// return types and object creations. Using the bare identifier for a generic
+    /// struct would produce CS0305.
+    /// </summary>
+    private static TypeSyntax StructTypeSyntax(StructDeclarationSyntax node)
+    {
+        if (node.TypeParameterList == null)
+            return SyntaxFactory.IdentifierName(node.Identifier.Text);
+        return SyntaxFactory.GenericName(SyntaxFactory.Identifier(node.Identifier.Text),
+            SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+                node.TypeParameterList.Parameters
+                    .Select(p => (TypeSyntax)SyntaxFactory.IdentifierName(p.Identifier.Text)))));
     }
 
     private static string ToCamelCase(string name)
@@ -659,7 +677,8 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 .Where(m => !m.Modifiers.Any(md => md.IsKind(SyntaxKind.StaticKeyword)))
                 .Select(m => m.Identifier.Text)
                 .ToHashSet();
-            var migrator = new MethodMigrator(structName, fieldNames, propertyNames, migratedMethodNames, instanceMethodNames);
+            var migrator = new MethodMigrator(structName, fieldNames, propertyNames, migratedMethodNames,
+                instanceMethodNames, structType: StructTypeSyntax(node));
             foreach (var migration in result.MethodMigrations)
             {
                 var migrated = migrator.Migrate(migration.Syntax);
@@ -779,7 +798,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                         .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
 
                 withMethods.Add(SyntaxFactory.MethodDeclaration(
-                        SyntaxFactory.IdentifierName(structName), withMethodName)
+                        StructTypeSyntax(node), withMethodName)
                     .AddModifiers(SyntaxFactory.Token(withAccessibility).WithTrailingTrivia(SyntaxFactory.Space))
                     .AddParameterListParameters(
                         SyntaxFactory.Parameter(SyntaxFactory.Identifier("value")).WithType(prop.Type))
@@ -869,7 +888,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                     if (existingWith.Contains("With" + v.Identifier.Text)) continue;
                     withMethods.Add(GenerateWithMethodUsingConstructor(
                         structName, v.Identifier.Text, instanceFieldTypes, composeCtor,
-                        isInternal: !isPrivate));
+                        isInternal: !isPrivate, structType: StructTypeSyntax(node)));
                 }
             }
 
@@ -878,7 +897,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 if (existingWith.Contains("With" + backing.PropName)) continue;
                 withMethods.Add(GenerateWithMethodUsingConstructor(
                     structName, backing.PropName, instanceFieldTypes, composeCtor,
-                    isInternal: false));
+                    isInternal: false, structType: StructTypeSyntax(node)));
             }
         }
 

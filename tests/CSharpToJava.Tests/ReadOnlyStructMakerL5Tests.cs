@@ -622,4 +622,48 @@ public class ReadOnlyStructMakerL5Tests
         Assert.True(result.Changed);
         Assert.Contains("readonly struct Opts2", result.OutputCode);
     }
+
+    [Fact]
+    public void GenericStruct_MigratedMethodsKeepTypeParameter()
+    {
+        // Reproduces: ArrayBuilder<T> — void Add() migration emitted a bare
+        // `ArrayBuilder` return type / object creation instead of `ArrayBuilder<T>`
+        // (CS0305). The WithXxx methods generated from the compose constructor must
+        // also carry the type parameter.
+        var src = """
+        struct ArrayBuilder<T> {
+            private T[] _array;
+            private int _count;
+            public void Add(T item) { _count++; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("ArrayBuilder<T> Add(", result.OutputCode);
+        Assert.Contains("ArrayBuilder<T> With_array(", result.OutputCode);
+        Assert.Contains("new ArrayBuilder<T>(", result.OutputCode);
+        Assert.DoesNotContain("ArrayBuilder Add(", result.OutputCode);
+        Assert.DoesNotContain("new ArrayBuilder(", result.OutputCode);
+    }
+
+    [Fact]
+    public void GenericStruct_SetterWithMethod_KeepsTypeParameter()
+    {
+        // Body-based WithXxx generated from a property setter must use the full
+        // generic struct type (ArrayBuilder<T>), not the bare name.
+        var src = """
+        struct Box<T> {
+            private T _value;
+            public T Value {
+                get { return _value; }
+                set { _value = value; }
+            }
+            public void Set(T v) { _value = v; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("Box<T> WithValue(", result.OutputCode);
+        Assert.DoesNotContain("Box WithValue(", result.OutputCode);
+    }
 }

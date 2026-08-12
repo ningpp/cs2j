@@ -22,6 +22,7 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     private readonly Dictionary<string, HashSet<string>> _outMigratedMethodToStruct;
     private readonly Dictionary<string, HashSet<int>> _migratedArities; // "Struct.Method" -> arities of migrated overloads
     private readonly Dictionary<string, HashSet<int>> _allMethodArities; // "Struct.Method" -> arities of ALL overloads
+    private readonly Dictionary<string, List<string>> _structTypeParams; // structName -> type parameter names
     private readonly HashSet<IMethodSymbol> _migratedSymbols;
     private readonly SemanticModel _model;
 
@@ -30,13 +31,15 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         Dictionary<string, HashSet<string>>? outMigratedMethodToStruct = null,
         Dictionary<string, HashSet<int>>? migratedArities = null,
         Dictionary<string, HashSet<int>>? allMethodArities = null,
-        IEnumerable<IMethodSymbol>? migratedSymbols = null)
+        IEnumerable<IMethodSymbol>? migratedSymbols = null,
+        Dictionary<string, List<string>>? structTypeParams = null)
     {
         _migratedMethodToStruct = migratedMethodToStruct ?? new Dictionary<string, HashSet<string>>();
         _structFieldNames = structFieldNames ?? new Dictionary<string, List<string>>();
         _outMigratedMethodToStruct = outMigratedMethodToStruct ?? new Dictionary<string, HashSet<string>>();
         _migratedArities = migratedArities ?? new Dictionary<string, HashSet<int>>();
         _allMethodArities = allMethodArities ?? new Dictionary<string, HashSet<int>>();
+        _structTypeParams = structTypeParams ?? new Dictionary<string, List<string>>();
         _migratedSymbols = migratedSymbols != null
             ? new HashSet<IMethodSymbol>(migratedSymbols, SymbolEqualityComparer.Default)
             : new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
@@ -48,9 +51,11 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         Dictionary<string, string>? outMigratedMethodToStruct = null,
         Dictionary<string, HashSet<int>>? migratedArities = null,
         Dictionary<string, HashSet<int>>? allMethodArities = null,
-        IEnumerable<IMethodSymbol>? migratedSymbols = null)
+        IEnumerable<IMethodSymbol>? migratedSymbols = null,
+        Dictionary<string, List<string>>? structTypeParams = null)
         : this(ToStructSets(migratedMethodToStruct), model, structFieldNames,
-              ToStructSets(outMigratedMethodToStruct), migratedArities, allMethodArities, migratedSymbols)
+              ToStructSets(outMigratedMethodToStruct), migratedArities, allMethodArities, migratedSymbols,
+              structTypeParams)
     {
     }
 
@@ -380,7 +385,7 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
 
         var receiver = allAssignedBefore
             ? (ExpressionSyntax)SyntaxFactory.ThisExpression()
-            : SyntaxFactory.DefaultExpression(SyntaxFactory.IdentifierName(structName));
+            : SyntaxFactory.DefaultExpression(StructTypeSyntax(structName));
 
         var call = SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
@@ -395,6 +400,22 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
                     SyntaxFactory.ThisExpression(),
                     call))
             .WithTriviaFrom(originalNode);
+    }
+
+    /// <summary>
+    /// Builds the struct's type syntax, including generic type parameters when the
+    /// struct is generic (e.g. <c>ArrayBuilder&lt;T&gt;</c>). Using the bare name for
+    /// a generic struct would produce CS0305 in generated <c>default(...)</c> expressions.
+    /// </summary>
+    private TypeSyntax StructTypeSyntax(string structName)
+    {
+        if (_structTypeParams.TryGetValue(structName, out var typeParams) && typeParams.Count > 0)
+        {
+            return SyntaxFactory.GenericName(SyntaxFactory.Identifier(structName),
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+                    typeParams.Select(p => (TypeSyntax)SyntaxFactory.IdentifierName(p)))));
+        }
+        return SyntaxFactory.IdentifierName(structName);
     }
 
     /// <summary>

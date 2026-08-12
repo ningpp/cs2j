@@ -126,10 +126,20 @@ public sealed class ReadOnlyStructMaker
                 structFieldNames[structName] = fields;
             }
 
+            // Collect generic type parameter names so generated default(...) and
+            // WithXxx types keep their type arguments (CS0305 otherwise).
+            var structTypeParams = new Dictionary<string, List<string>>();
+            foreach (var (structSyntax, _) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
+            {
+                if (structSyntax.TypeParameterList == null) continue;
+                structTypeParams[structSyntax.Identifier.Text] = structSyntax.TypeParameterList.Parameters
+                    .Select(p => p.Identifier.Text).ToList();
+            }
+
             if (migratedVoidMethods.Count > 0 || outMigratedMethods.Count > 0)
             {
                 var callSiteUpdater = new CallSiteUpdater(migratedVoidMethods, semanticModel, structFieldNames, outMigratedMethods,
-                    migratedArities, allMethodArities, migratedSymbols);
+                    migratedArities, allMethodArities, migratedSymbols, structTypeParams);
                 newRoot = (CompilationUnitSyntax)callSiteUpdater.Visit(newRoot)!;
                 stats.CallSitesUpdated = migratedVoidMethods.Count; // approximate
             }
@@ -154,8 +164,8 @@ public sealed class ReadOnlyStructMaker
                 var withMethodProps = rewrittenStruct.Members.OfType<MethodDeclarationSyntax>()
                     .Where(m => m.Identifier.Text.StartsWith("With", StringComparison.Ordinal)
                                 && m.ParameterList.Parameters.Count == 1
-                                && m.ReturnType is IdentifierNameSyntax rt
-                                && rt.Identifier.Text == structName)
+                                && ((m.ReturnType is IdentifierNameSyntax rt && rt.Identifier.Text == structName)
+                                    || (m.ReturnType is GenericNameSyntax gns && gns.Identifier.Text == structName)))
                     .Select(m => m.Identifier.Text.Substring(4))
                     .ToHashSet();
 

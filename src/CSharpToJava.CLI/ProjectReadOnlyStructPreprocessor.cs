@@ -192,8 +192,14 @@ internal static class ProjectReadOnlyStructPreprocessor
             {
                 if (diagnostic.Level == ConversionLevel.MethodMigrate && diagnostic.StructName != null)
                 {
+                    // The diagnostic name comes from ToDisplayString and carries type
+                    // parameters for generic structs ("ArrayBuilder<T>"); the scan in
+                    // UpdateCrossFileCallSites matches against the bare identifier.
+                    var structKey = diagnostic.StructName;
+                    var genericIdx = structKey.IndexOf('<');
+                    if (genericIdx > 0) structKey = structKey.Substring(0, genericIdx);
                     // We'll detect method names from the output code in the second pass
-                    globalMigratedMethods[diagnostic.StructName] = diagnostic.StructName;
+                    globalMigratedMethods[structKey] = structKey;
                 }
             }
 
@@ -871,7 +877,7 @@ internal static class ProjectReadOnlyStructPreprocessor
     /// <summary>
     /// Second pass: updates call sites of migrated void→struct methods across all files.
     /// </summary>
-    private static async Task UpdateCrossFileCallSites(
+    internal static async Task UpdateCrossFileCallSites(
         string intermediateRoot, string sourceRoot, List<string> sourceFiles,
         Dictionary<string, string> migratedStructs, ProjectReadOnlyPreprocessRequest request)
     {
@@ -905,7 +911,17 @@ internal static class ProjectReadOnlyStructPreprocessor
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
                 var structName = structDecl.Identifier.Text;
-                if (!migratedStructs.ContainsKey(structName)) continue;
+                if (!migratedStructs.ContainsKey(structName))
+                {
+                    // Diagnostic StructName values carry type parameters for generic
+                    // structs ("ArrayBuilder<T>") while the syntax identifier is bare;
+                    // accept those keys too.
+                    var matchesGeneric = migratedStructs.Keys.Any(k =>
+                        k.Length > structName.Length &&
+                        k.StartsWith(structName, StringComparison.Ordinal) &&
+                        k[structName.Length] == '<');
+                    if (!matchesGeneric) continue;
+                }
 
                 // Find methods that return the struct type (migrated from void)
                 foreach (var method in structDecl.Members.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>())
@@ -930,8 +946,15 @@ internal static class ProjectReadOnlyStructPreprocessor
                         aset.Add(arity);
                     }
 
-                    if (method.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax returnTypeId &&
-                        returnTypeId.Identifier.Text == structName)
+                    // Generic structs (e.g. ArrayBuilder<T>) return `ArrayBuilder<T>`
+                    // (GenericNameSyntax), not a bare IdentifierNameSyntax.
+                    var returnName = method.ReturnType switch
+                    {
+                        Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id => id.Identifier.Text,
+                        Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax gn => gn.Identifier.Text,
+                        _ => null
+                    };
+                    if (returnName == structName)
                     {
                         if (!migratedMethodToStruct.TryGetValue(name, out var ms))
                             migratedMethodToStruct[name] = ms = new HashSet<string>(StringComparer.Ordinal);
@@ -945,9 +968,14 @@ internal static class ProjectReadOnlyStructPreprocessor
                     // they carry `out <StructName> newStatus`.
                     foreach (var parameter in method.ParameterList.Parameters)
                     {
+                        var outParamTypeName = parameter.Type switch
+                        {
+                            Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id => id.Identifier.Text,
+                            Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax gn => gn.Identifier.Text,
+                            _ => null
+                        };
                         if (parameter.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.OutKeyword)) &&
-                            parameter.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax outType &&
-                            outType.Identifier.Text == structName)
+                            outParamTypeName == structName)
                         {
                             if (!outMigratedMethodToStruct.TryGetValue(name, out var os))
                                 outMigratedMethodToStruct[name] = os = new HashSet<string>(StringComparer.Ordinal);
@@ -1092,8 +1120,10 @@ internal static class ProjectReadOnlyStructPreprocessor
                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>()
                     .Where(m => m.Identifier.Text.StartsWith("With", StringComparison.Ordinal)
                                 && m.ParameterList.Parameters.Count == 1
-                                && m.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax rt
-                                && rt.Identifier.Text == structName)
+                                && ((m.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax rt
+                                        && rt.Identifier.Text == structName)
+                                    || (m.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax grt
+                                        && grt.Identifier.Text == structName)))
                     .Select(m => m.Identifier.Text.Substring(4)) // strip "With" prefix
                     .ToHashSet();
 

@@ -1,87 +1,52 @@
-# CS2J Error Analysis - System.Private.Uri Conversion
+# URI ReadOnly 迭代修复分析记录
 
-## Iteration 1 — with* methods missing on classes (should be on structs only)
-
-- **Java 文件**: system-private-uri/src/main/java/dotnet/system/Uri.java
-- **行号**: 492, 752, 769, 1955, 2078
-- **错误信息**: 
-  - `[ERROR] 找不到符号: 方法 withPath(java.lang.String), 位置: 类型为dotnet.system.Uri.MoreInfo的变量 MoreInfo`
-  - `[ERROR] 找不到符号: 方法 withQuery(java.lang.String), 位置: 类型为dotnet.system.Uri.MoreInfo的变量 MoreInfo`
-  - `[ERROR] 找不到符号: 方法 withFragment(java.lang.String), 位置: 类型为dotnet.system.Uri.MoreInfo的变量 MoreInfo`
-  - `[ERROR] 找不到符号: 方法 withHost(java.lang.String), 位置: 类型为dotnet.system.Uri.UriInfo的变量 _info`
-  - `[ERROR] 找不到符号: 方法 withHost(java.lang.String), 位置: 类型为dotnet.system.Uri.UriInfo的变量 _info`
+## Iteration 1 — CS0305 泛型缺参 [build]
+- **C# 文件**: d:\cs-uri-812\.cs2j-readonly-src\src\Common\System\Collections\Generic\ArrayBuilder.cs
+- **行号**: 68, 140, 151, 182, 183
+- **错误信息**: error CS0305: 使用泛型 类型"ArrayBuilder<T>"需要 1 个类型参数
 - **代码片段**:
-  ```java
-  // Line 492
-  info.MoreInfo = info.MoreInfo.withPath(result);
-  
-  // Line 752
-  info.MoreInfo = info.MoreInfo.withQuery(result);
-  
-  // Line 769
-  info.MoreInfo = info.MoreInfo.withFragment(result);
-  
-  // Line 1955
-  _info = _info.withHost(host);
-  
-  // Line 2078
-  _info = _info.withHost(host);
+  ```csharp
+  public ArrayBuilder Add(T item)          // ← 应为 ArrayBuilder<T>
+  ...
+  public ArrayBuilder With_array(T[] _array) => new ArrayBuilder(_array: _array, _count: this._count);
   ```
-
-- **对应 C# 文件**: `d:\csharpuri\src\System\Uri.cs`
-- **根因分类**: Lowering (AssignmentRewriter)
-- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/AssignmentRewriter.cs`
-- **分析**: 
-  `AssignmentRewriter` 只做了语法层面的字段名匹配，将任何匹配到 struct 字段名的成员赋值都转换为 `With*` 方法调用。但 `MoreInfo` 和 `UriInfo` 是普通 class，不是 struct，它们的字段赋值不应该被转换。
-  
-  C# 源码中的 `info.MoreInfo.Path = result;` 应该是简单的字段赋值，不应被重写为 `info.MoreInfo = info.MoreInfo.withPath(result);`，因为 `MoreInfo` 类没有 `withPath` 方法。
-  
-  根因：`AssignmentRewriter` 使用 `_targetFieldNames`（所有 struct 字段名的集合）进行快速检查，但没有验证接收者对象的类型是否确实是 struct。当一个 class 类型的对象碰巧有与 struct 同名的字段时，会被错误地转换。
-
+- **对应原始 C# 文件**: src\Common\System\Collections\Generic\ArrayBuilder.cs
+- **根因分类**: 方法迁移
+- **涉及组件**:
+  - src\CSharpToJava.Core\ReadOnlyStructMaker\MethodMigrator.cs (83, 93 行生成裸 struct 名)
+  - src\CSharpToJava.Core\ReadOnlyStructMaker\ReadOnlyStructRewriter.cs (602, 606, 782 行)
+  - src\CSharpToJava.Core\ReadOnlyStructMaker\ReadOnlyStructMaker.cs (With_ 检测)
+  - src\CSharpToJava.Core\ReadOnlyStructMaker\CallSiteUpdater.cs (383 行 default())
+- **分析**: 泛型 struct `ArrayBuilder<T>` 的 void 方法迁移/WithXxx 生成把返回类型与对象创建写成裸 `ArrayBuilder`（缺 `<T>`），产生 CS0305。所有生成类型处需携带类型参数。
 - **修复**:
-  - 在 `AssignmentRewriter` 中新增 `BuildVariableTypeMap` 方法，从原始语法树构建变量名到类型名的映射（包括局部变量和字段声明）。
-  - 在 `IsTargetStructType` 方法中，首先检查变量类型映射来确认接收者类型是否为目标 struct，避免对 class 类型进行错误转换。
-  - 在 `ReadOnlyStructMaker.MakeReadOnly` 中，在 `AssignmentRewriter` 运行前调用 `BuildVariableTypeMap`。
-- **验证**:
-  - 新增测试 `PublicFields_ClassWithSameFieldNameAsStruct_NotConverted` 红→绿通过。
-  - 全量 `dotnet test` 2399 个测试全部通过（无回归）。
+  1. `MethodMigrator` 新增 `TypeSyntax? structType` 参数，替代裸 `IdentifierName(structName)`
+  2. `ReadOnlyStructRewriter` 新增 `StructTypeSyntax(node)` helper（有 TypeParameterList 时生成 `GenericName`），用于 WithXxx 返回类型、`new ArrayBuilder<T>(...)`、setter 版 WithXxx
+  3. `ReadOnlyStructMaker` With_ 方法检测同时接受 `GenericNameSyntax`（并修复 `&&`/`||` 优先级引入的匹配错误）
+  4. `CallSiteUpdater` 新增 `_structTypeParams` 字典，`default(...)` 生成完整泛型类型
+- **测试**: `GenericStruct_MigratedMethodsKeepTypeParameter`、`GenericStruct_SetterWithMethod_KeepsTypeParameter`（先红后绿）
+- **验证**: 全量 dotnet test 2683+691+7 = 3381 通过，0 失败
 - **状态**: ✅ Fixed
 
-## Iteration 2 — cannot dereference int (primitive .toString())
-
-- **Java 文件**: system-private-uri/src/main/java/dotnet/system/Uri.java
-- **行号**: 2258, 2267, 2391, 2476, 2527, 5094
-- **错误信息**: `[ERROR] 无法取消引用int`
+## Iteration 2 — Segments 空数组 [test]
+- **C# 文件**: d:\cs-uri-812\.cs2j-readonly-src\tests\ExtendedFunctionalTests\UriTests.cs
+- **行号**: 88（`Assert.Equal<int>(ss.Length, 3)`，Expected 0 / Actual 3）
+- **错误信息**: Assert.Equal() Failure: Values differ — Expected: 0, Actual: 3（uri.Segments 返回空数组）
 - **代码片段**:
-  ```java
-  // Line 2258
-  stemp = _info.Offset.PortValue.toString();
-  
-  // Line 2391
-  return StringHelper.substring(...) + ':' + _info.Offset.PortValue.toString();
-  
-  // Line 5094
-  return _info.Offset.PortValue.toString();
+  ```csharp
+  var pathSegments = new ArrayBuilder<string>();
+  ...
+  pathSegments.Add(path.Substring(current, (next - current) + 1));  // ← 未被改写为赋值
+  ...
+  segments = pathSegments.ToArray();
   ```
-
-- **对应 C# 文件**: `d:\csharpuri\src\System\Uri.cs` (lines 2944, 2954, 3119, 3219) 和 `UriExt.cs` (line 824)
-- **根因分类**: Transformer (InvocationExpressionTransformer)
-- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
-- **分析**: 
-  C# `ushort` 字段 `PortValue` 的 `.ToString(CultureInfo.InvariantCulture)` 调用在 Java 中生成了 `.toString()`，
-  但 `PortValue` 在 Java 中是 `int` 原始类型，不能调用实例方法。
-  
-  根因：`Uri` 是 partial class（分布在 4 个文件中），`MergedTypeDeclaration.FromPartialTypeGroup` 使用 `WithMembers`
-  创建合并语法树。合并后的节点不属于编译中的任何原始树，导致所有语义模型操作（GetTypeInfo、GetSymbolInfo）
-  失败并返回 null。现有的原始类型检测逻辑（semantic model + Java type mapping fallback）都无法工作。
-
+- **对应原始 C# 文件**: src\System\Uri.cs（Segments getter）
+- **根因分类**: CallSite
+- **涉及组件**: src\CSharpToJava.CLI\ProjectReadOnlyStructPreprocessor.cs (933-950, 1095 行)
+- **分析**: 项目级 `UpdateCrossFileCallSites` 扫描重写后树时只识别 `IdentifierNameSyntax` 返回类型；Iteration 1 修复后泛型 struct 的迁移方法返回 `ArrayBuilder<T>`（GenericNameSyntax），Add 未被登记为已迁移方法 → `migratedMethodToStruct.Count == 0` → 整个调用点更新 pass 直接 return → `pathSegments.Add(...)` 结果被丢弃，Segments 恒为空。且诊断 StructName 为 "ArrayBuilder<T>"（ToDisplayString 带泛型参数），与扫描端裸标识符 "ArrayBuilder" 不匹配导致门禁失配，整轮扫描被跳过。
 - **修复**:
-  - 将 `context.SemanticModel.GetTypeInfo()` 改为 `context.GetTypeInfo()`（使用有错误处理的包装器）。
-  - 新增 `methodSymbol.ContainingType` 后备检测（当方法符号可用时）。
-  - 新增语法后备 `TryDetectPrimitiveByFieldDeclaration`：当所有语义方法失败时，
-    搜索编译的语法树中的字段声明来确定接收器是否为原始类型。
-- **验证**:
-  - 新增测试 `ToStringUShortStructField_ConvertsToValueOf` 和 `ToStringUShortNestedStructField_WithFormatProvider_ConvertsToValueOf` 通过。
-  - 全量 `dotnet test` 2397/2398 通过（1 个预先存在的失败）。
-  - `mvn clean package -e` → BUILD SUCCESS。
+  1. `UpdateCrossFileCallSites` 改为 internal 可测试
+  2. 返回类型/out 参数类型/WithXxx 检测同时接受 `GenericNameSyntax`
+  3. 门禁容忍带泛型参数的 key（"ArrayBuilder<T>"），并在构建 `globalMigratedMethods` 时规范化 key（剥离 `<...>`）
+- **测试**: `GenericMigratedStruct_VoidCallSite_UpdatedToAssignment`（先红后绿；跨文件 pass 输出无空格 `pathSegments=pathSegments.Add(`）
+- **验证**: 全量 dotnet test 2684+691+7 = 3382 通过，0 失败；`make-readonly` Release 自检 build+test 全部成功（686 测试 0 失败）
 - **状态**: ✅ Fixed

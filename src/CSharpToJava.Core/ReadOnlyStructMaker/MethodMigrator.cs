@@ -6,7 +6,7 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 
 internal sealed class MethodMigrator
 {
-    private readonly string _structName;
+    private readonly TypeSyntax _structType;
     private readonly HashSet<string> _fieldNames;
     private readonly HashSet<string> _propertyNames;
     private readonly HashSet<string> _migratedMethodNames;
@@ -14,9 +14,9 @@ internal sealed class MethodMigrator
 
     public MethodMigrator(string structName, HashSet<string>? fieldNames = null,
         HashSet<string>? propertyNames = null, HashSet<string>? migratedMethodNames = null,
-        HashSet<string>? instanceMethodNames = null)
+        HashSet<string>? instanceMethodNames = null, TypeSyntax? structType = null)
     {
-        _structName = structName;
+        _structType = structType ?? SyntaxFactory.IdentifierName(structName);
         _fieldNames = fieldNames ?? new HashSet<string>();
         _propertyNames = propertyNames ?? new HashSet<string>();
         _migratedMethodNames = migratedMethodNames ?? new HashSet<string>();
@@ -80,17 +80,16 @@ internal sealed class MethodMigrator
         {
             // void → struct return: change return type, replace bare returns with return result, add final return
             newBody = (BlockSyntax)new BareReturnRewriter().Visit(newBody)!;
-            var returnType = (TypeSyntax)SyntaxFactory.IdentifierName(_structName);
             var returnStatement = SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName("result"))
                 .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed);
             newBody = newBody.AddStatements(returnStatement);
-            return method.WithReturnType(returnType).WithBody(newBody);
+            return method.WithReturnType(_structType).WithBody(newBody);
         }
         else if (isOtherReturn)
         {
             // Other return → add out parameter, insert `newStatus = result;` before returns
             var outParam = SyntaxFactory.Parameter(SyntaxFactory.Identifier("newStatus"))
-                .WithType(SyntaxFactory.IdentifierName(_structName))
+                .WithType(_structType)
                 .AddModifiers(SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
             // Insert `newStatus = result;` before each return statement
