@@ -83,3 +83,65 @@ ew ArgumentOutOfRangeException(paramName, actualValue, message) 保持参数顺�
 - **测试**: GetObjectData_BaseForwarding_StripsSuperCall、GetObjectData_SelfForwarding_StripsRecursiveCall（先红后绿，SuppressTypeTests）
 - **验证**: 全量 dotnet test 2686+691 = 3377 通过；compat mvn install（1286 测试通过）
 - **状态**: ✅ Fixed
+
+## Iteration 4 — compat dotnet.system.Uri 类路径冲突 + WebSockets 测试 getAbsoluteUri 找不到符号 [build]
+- **Java 文件**: system-private-uri-functional-tests/.../WebSocketsUriParserTest.java（36-59 行等，找不到符号 getAbsoluteUri/getScheme/...）
+- **行号**: 36 起批量
+- **错误信息**: 找不到符号 方法 getAbsoluteUri() 位置: 类型为dotnet.system.Uri的变量 uri
+- **代码片段**:
+  `java
+  dotnet.system.Uri uri = new dotnet.system.Uri(input);
+  Assert.equal(input, uri.getAbsoluteUri());   // ← 符号解析到 compat 桩类
+  `
+- **对应 C# 文件**: tests/FunctionalTests/WebSocketsUriParserTest.cs
+- **根因分类**: 类型映射缺失（compat 库同名类遮蔽）
+- **涉及组件**: java/csharptojava-compat/src/main/java/dotnet/system/Uri.java、UriKind.java（WPF 用最小桩）；生成的测试模块 pom 中 csharptojava-compat 依赖排在 system-private-uri 之前
+- **分析**: compat jar 内含 dotnet/system/Uri.class（XAML 生成代码用最小桩，仅有 toString/getOriginalString），与转换生成的完整 dotnet.system.Uri 类路径相同；javac 按 classpath 顺序先命中 compat 桩类，导致所有属性 getter 找不到符号。删除 compat 中 dotnet.system 包下的 Uri/UriKind 桩类（Application.loadComponent 参数改为 Object）后冲突消除。
+- **修复**: 删除 compat 的 dotnet/system/Uri.java 与 UriKind.java（含 package-info），Application.loadComponent(Window, Object)
+- **验证**: compat mvn install 1286+2 测试通过；converter 全量 dotnet test 3377 通过
+- **状态**: ✅ Fixed
+
+## Iteration 5 — 单标签域名 HostNameType 返回 Basic [test]
+- **Java 文件**: WebSocketsUriParserTest/IdnHostNameValidationTest 等（Expected: Dns, Actual: Basic/Unknown）
+- **行号**: WebSocketsUriParserTest.java:40 等
+- **错误信息**: Assert.equal() failure: Values differ — Expected: Dns, Actual: Basic
+- **代码片段**:
+  `java
+  // DomainNameHelper.isValidByIri 的 label 内容检查被双倍递增破坏
+  MemorySegment _ptrPost5 = curPos;
+  curPos = (advance(curPos));
+  MemorySegment _ptrPost6 = curPos;
+  curPos = (advance(curPos));          // ← curPos++ 被执行两次
+  `
+- **对应 C# 文件**: src/System/DomainNameHelper.cs（IsValidByIri 的 (*curPos++ < 0xA0) && !IsValidDomainLabelCharacter(*(curPos - 1), ...)）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs (522-538 行)
+- **分析**: 比较运算符（<,>,<=,>=）的 uint 掩码检测用字符串 Contains("& 0xFFFFFFFFL") 判断，先对操作数做了一次完整 Transform 再在标准路径再次 Transform —— 含 *ptr++ 的操作数被物化两次（两个 _ptrPost 临时变量 + 两次 curPos 递增）。isValidByIri 的 label 检查中 curPos 跳过偶数位字符并读到标签终止符（':' 等），单标签域名校验失败 → 落入 BasicHostType。
+- **修复**: 掩码检测改为语法级 ContainsUIntCast（子树含 (uint) 转换），不再对操作数重复 Transform；语义级 uint/ulong 分支保留
+- **测试**: PostIncrementInsideComparisonWithReadBack_AdvancesExactlyOnce（先红后绿，PointerPostIncrementShortCircuitTests）
+- **验证**: 全量 dotnet test 2687+691 通过；trace 副本运行确认 ws/http 单标签 host → Dns
+- **状态**: ✅ Fixed
+
+## Iteration 6 — ArgumentException ParamName 顺序 + IRI 扩展超长不抛 [test]
+- **Java 文件**: UriBuilderTests.java（Expected: value/uri/uriString, Actual: 消息文本/null）、IriTest.java:435（Expected UriFormatException, 未抛）
+- **行号**: UriBuilderTests.java:125 等、IriTest.java:435
+- **错误信息**:
+  1. Assert.equal() failure: Expected: value, Actual: Invalid URI: The URI scheme is not valid.（paramName 与 message 颠倒）
+  2. Assert.throws() failure: No exception thrown — Expected: dotnet.system.UriFormatException（IRI 扩展长度检查未触发）
+- **代码片段**:
+  `java
+  // UriBuilder.java:217 — C# 参数顺序 (message, paramName) 保持原样
+  throw new ArgumentException(SystemPrivateUriSR.getNet_uri_BadScheme(), "value");
+  // compat 原构造器把第一个字符串当 paramName → 颠倒
+  `
+- **对应 C# 文件**: src/System/UriBuilder.cs、src/System/IriHelper.cs（EscapeUnescapeIri）
+- **根因分类**: 类型映射缺失（compat 构造器顺序）+ compat 语义（Encoding 替换字符）
+- **涉及组件**:
+  - java/csharptojava-compat/.../ArgumentException.java（构造器应为 (message, paramName)）
+  - java/csharptojava-compat/.../ArgumentNullException.java、ArgumentOutOfRangeException.java（super 调用顺序跟随修正）
+  - java/csharptojava-compat/.../Encoding.java（默认 encoder 替换字符应为 U+FFFD）
+- **分析**: (1) .NET ArgumentException(string message, string paramName) —— compat 写成了 (paramName, message)，ParamName 取到消息文本；(2) Java CharsetEncoder 默认替换为 '?'（1 字节），.NET 默认 EncoderReplacementFallback 为 U+FFFD（UTF-8 下 3 字节 EF BF BD）；IriHelper 中孤立代理项按 9 字符转义（3 字节），compat 只产出 1 字节 → 扩展后长度不足 65535 → SizeLimit 不抛。
+- **修复**: ArgumentException 构造器顺序改为 (message, paramName) 并同步修正子类 super 调用与单参构造器；Encoding 默认 encoderReplacement 改为可编码时用 "\uFFFD"（ASCII 等自动回退 '?'），getBytes(String)/getByteCount(String) 统一走 encoder 路径
+- **测试**: compat EncodingSurrogateTest（孤立代理项 → EF BF BD 3 字节；合法代理对 → 4 字节）
+- **验证**: compat mvn install 全部通过；mvn clean install -e → BUILD SUCCESS（functional 608 + unit 28 + extended 49 测试 0 失败）
+- **状态**: ✅ Fixed

@@ -37,7 +37,7 @@ public class Application {
         return current;
     }
 
-    public static void loadComponent(Window window, dotnet.system.Uri resourceLocator) {
+    public static void loadComponent(Window window, Object resourceLocator) {
         // no-op in the Swing-backed compat layer
     }
 }

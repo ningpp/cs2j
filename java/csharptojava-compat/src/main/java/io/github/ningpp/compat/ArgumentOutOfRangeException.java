@@ -13,7 +13,7 @@ public class ArgumentOutOfRangeException extends ArgumentException {
     }
 
     public ArgumentOutOfRangeException(String paramName) {
-        super(paramName, (String) null);
+        super((String) null, paramName);
     }
 
     public ArgumentOutOfRangeException(String message, Throwable cause) {
@@ -22,22 +22,22 @@ public class ArgumentOutOfRangeException extends ArgumentException {
 
     /** Mirrors C# ArgumentOutOfRangeException(string paramName, string? message). */
     public ArgumentOutOfRangeException(String paramName, String message) {
-        super(paramName, message);
+        super(message, paramName);
     }
 
     /** Mirrors C# ArgumentOutOfRangeException(string paramName, string? message, object? actualValue). */
     public ArgumentOutOfRangeException(String paramName, String message, Object actualValue) {
-        super(paramName, message);
+        super(message, paramName);
     }
 
     /** Mirrors C# ArgumentOutOfRangeException(string paramName, object? actualValue, string? message). */
     public ArgumentOutOfRangeException(String paramName, Object actualValue, String message) {
-        super(paramName, message);
+        super(message, paramName);
     }
 
     /** Mirrors C# ArgumentOutOfRangeException(string paramName, string? message, Exception? innerException). */
     public ArgumentOutOfRangeException(String paramName, String message, Throwable cause) {
-        super(paramName, message, cause);
+        super(message, paramName, cause);
     }
 
     public Object getActualValue() {

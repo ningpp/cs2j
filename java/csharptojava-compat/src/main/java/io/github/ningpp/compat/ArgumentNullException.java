@@ -14,16 +14,16 @@ public class ArgumentNullException extends ArgumentException {
     }
 
     public ArgumentNullException(String paramName) {
-        super(paramName, (String) null);
+        super((String) null, paramName);
     }
 
     /** Mirrors C# ArgumentNullException(string paramName, string? message). */
     public ArgumentNullException(String paramName, String message) {
-        super(paramName, message);
+        super(message, paramName);
     }
 
     /** Mirrors C# ArgumentNullException(string paramName, string? message, Exception? innerException). */
     public ArgumentNullException(String paramName, String message, Throwable cause) {
-        super(paramName, message, cause);
+        super(message, paramName, cause);
     }
 }

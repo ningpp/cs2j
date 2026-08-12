@@ -519,11 +519,14 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 };
                 return string.Format(cmpOp, leftExpr, rightExpr);
             }
-            var leftExprMasked = facade.Transform(node.Left, context);
-            var rightExprMasked = facade.Transform(node.Right, context);
-            if (leftExprMasked.Contains("& 0xFFFFFFFFL", StringComparison.Ordinal)
-                || rightExprMasked.Contains("& 0xFFFFFFFFL", StringComparison.Ordinal))
+            // Fallback for the (uint)ch - 'A' promotion case: detect the uint cast at the
+            // syntax level. Transforming the operands here just to string-check for the
+            // mask would duplicate all their side effects (e.g. a *ptr++ post-increment
+            // would be materialized and advanced twice).
+            if (ContainsUIntCast(node.Left) || ContainsUIntCast(node.Right))
             {
+                var leftExprMasked = facade.Transform(node.Left, context);
+                var rightExprMasked = facade.Transform(node.Right, context);
                 var cmpOpMasked = op switch
                 {
                     "<" => "Integer.compareUnsigned({0}, {1}) < 0",
@@ -745,6 +748,19 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UInt16 or
             SpecialType.System_Byte or SpecialType.System_SByte or SpecialType.System_Char or
             SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
+    }
+
+    /// <summary>
+    /// True when the expression subtree contains a C# (uint) cast. The uint-cast
+    /// transformer emits the (int)((expr) &amp; 0xFFFFFFFFL) mask, so a comparison
+    /// involving such a subtree needs unsigned comparison semantics even when the
+    /// semantic model reports a promoted type (e.g. uint op char → long).
+    /// </summary>
+    private static bool ContainsUIntCast(ExpressionSyntax node)
+    {
+        return node.DescendantNodesAndSelf().Any(n =>
+            n is CastExpressionSyntax { Type: PredefinedTypeSyntax pts }
+            && pts.Keyword.IsKind(SyntaxKind.UIntKeyword));
     }
 
     /// <summary>

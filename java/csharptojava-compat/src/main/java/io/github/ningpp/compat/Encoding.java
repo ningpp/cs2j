@@ -28,11 +28,11 @@ public class Encoding {
     private final String encoderReplacement;
 
     private Encoding(Charset charset, int codePage) {
-        this(charset, codePage, true, "\uFFFD", "?");
+        this(charset, codePage, true, "\uFFFD", defaultEncoderReplacement(charset));
     }
 
     private Encoding(Charset charset, int codePage, boolean isReadOnly) {
-        this(charset, codePage, isReadOnly, "\uFFFD", "?");
+        this(charset, codePage, isReadOnly, "\uFFFD", defaultEncoderReplacement(charset));
     }
 
     private Encoding(Charset charset, int codePage, boolean isReadOnly,
@@ -42,6 +42,25 @@ public class Encoding {
         this.isReadOnly = isReadOnly;
         this.decoderReplacement = decoderReplacement;
         this.encoderReplacement = encoderReplacement;
+    }
+
+    /**
+     * .NET's default encoder replacement fallback is "\uFFFD" (U+FFFD REPLACEMENT CHARACTER).
+     * Java's CharsetEncoder default replacement is "?" — a lone surrogate then encodes as a
+     * single '?' byte instead of .NET's 3-byte UTF-8 (EF BF BD). Use "\uFFFD" whenever the
+     * charset can encode it; otherwise fall back to "?" (matches .NET behavior for code pages
+     * that cannot represent U+FFFD, e.g. ASCII which best-fits to '?').
+     */
+    private static String defaultEncoderReplacement(Charset charset) {
+        try {
+            byte[] replacementBytes = "\uFFFD".getBytes(charset);
+            if (replacementBytes.length > 0) {
+                return "\uFFFD";
+            }
+        } catch (Exception e) {
+            // fall through to "?"
+        }
+        return "?";
     }
 
     /**
@@ -259,7 +278,7 @@ public class Encoding {
     }
 
     public int getByteCount(String s) {
-        return s.getBytes(charset).length;
+        return getByteCount(s.toCharArray(), 0, s.length());
     }
 
     public int getByteCount(String s, int index, int count) {
@@ -308,7 +327,7 @@ public class Encoding {
     }
 
     public byte[] getBytes(String s) {
-        return s.getBytes(charset);
+        return getBytes(s.toCharArray(), 0, s.length());
     }
 
     public byte[] getBytes(String s, int index, int count) {

@@ -160,6 +160,45 @@ unsafe class Test {
             "in fixed context.\n---Generated---\n" + result.GeneratedCode);
     }
 
+    [Fact]
+    public void PostIncrementInsideComparisonWithReadBack_AdvancesExactlyOnce()
+    {
+        // *ptr++ inside a comparison (e.g. *ptr++ < 0xA0) must materialize and advance
+        // the pointer EXACTLY once, even when the comparison also reads back *(ptr - 1)
+        // in the && right operand (the DomainNameHelper.IsValidByIri pattern).
+        // Bug: the uint-mask string check re-transformed the comparison operands,
+        // doubling the post-increment (two temp declarations + two advances).
+        var result = Convert(@"
+public static unsafe class DomainNameHelper
+{
+    public static bool IsValid(char* curPos, char* newPos, ref bool notCanonical)
+    {
+        while (curPos < newPos)
+        {
+            if ((*curPos++ < 0xA0) && !IsValidDomainLabelCharacter(*(curPos - 1), ref notCanonical))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static bool IsValidDomainLabelCharacter(char character, ref bool notCanonical)
+    {
+        return character != ':';
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+
+        // The pointer must be advanced exactly once (the single *curPos++ post-increment).
+        var advances = Regex.Matches(result.GeneratedCode, @"curPos\s*=\s*\(").Count;
+        Assert.Equal(1, advances);
+
+        // The dereferenced value for the < comparison must come from the pre-increment temp.
+        Assert.Matches(@"_ptrPost\d+\.get\(ValueLayout\.JAVA_CHAR, 0\) < 0xA0", result.GeneratedCode);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
