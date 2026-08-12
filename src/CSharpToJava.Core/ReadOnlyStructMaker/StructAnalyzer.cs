@@ -428,7 +428,7 @@ internal sealed class StructAnalyzer
                     "has mutating methods (method migration disabled)", name);
 
             // Check for non-migratable conditions
-            var nonMigratableReason = CheckNonMigratable(symbol, syntax, fields);
+            var nonMigratableReason = CheckNonMigratable(symbol, syntax, fields, mutatingMethods, methodSyntaxMap);
             if (nonMigratableReason != null)
                 return new(ConversionLevel.NotConvertible, StructPattern.MutableMethodsNonMigratable, false,
                     nonMigratableReason, name);
@@ -862,7 +862,9 @@ internal sealed class StructAnalyzer
     }
 
     private string? CheckNonMigratable(INamedTypeSymbol symbol, StructDeclarationSyntax syntax,
-        IReadOnlyList<IFieldSymbol> fields)
+        IReadOnlyList<IFieldSymbol> fields,
+        List<IMethodSymbol>? mutatingMethods = null,
+        Dictionary<IMethodSymbol, MethodDeclarationSyntax>? methodSyntaxMap = null)
     {
         // NOTE: array fields are allowed — a readonly array field keeps the reference
         // immutable while element mutation remains legal (same as Java final arrays).
@@ -870,6 +872,76 @@ internal sealed class StructAnalyzer
         // properties with WithXxx methods during L5 rewriting.
         // NOTE: interfaces with mutating methods are allowed — explicit interface
         // implementations delegating to the migrated methods are generated.
+
+        // OtherReturnToOut migration returns the mutated state through an out
+        // parameter that every call site must capture. When the struct's OWN members
+        // consume those mutations internally — bare implicit-this calls (the out
+        // status gets discarded) or own fields passed as ref/out arguments (the
+        // ref-hoisting writes back after the whole statement, so reads in the same
+        // expression still see the old value) — the state is silently lost. Keep
+        // such structs mutable instead of generating broken code.
+        if (mutatingMethods != null && mutatingMethods.Count > 0)
+        {
+            var otherReturnNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var method in mutatingMethods)
+            {
+                if (method.ReturnsVoid) continue;
+                if (methodSyntaxMap != null && methodSyntaxMap.TryGetValue(method, out var decl) &&
+                    decl.Body?.DescendantNodes().OfType<ReturnStatementSyntax>()
+                        .Any(r => r.Expression is ThisExpressionSyntax) == true)
+                    continue; // returns this — signature unchanged, safe
+                otherReturnNames.Add(method.Name);
+            }
+
+            if (mutatingMethods.Count > 0)
+            {
+                var fieldNames = fields.Select(f => f.Name).ToHashSet(StringComparer.Ordinal);
+                foreach (var member in syntax.Members.OfType<MethodDeclarationSyntax>())
+                {
+                    if (member.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
+                    foreach (var invocation in member.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                    {
+                        // Bare/this-receiver call to an other-return mutating method:
+                        // the internal call site cannot capture the out status.
+                        if (otherReturnNames.Count > 0)
+                        {
+                            switch (invocation.Expression)
+                            {
+                                case IdentifierNameSyntax id when otherReturnNames.Contains(id.Identifier.Text):
+                                    return "other-return mutating methods called internally (mutation state cannot be preserved)";
+                                case MemberAccessExpressionSyntax
+                                {
+                                    Expression: ThisExpressionSyntax
+                                } ma when otherReturnNames.Contains(ma.Name.Identifier.Text):
+                                    return "other-return mutating methods called internally (mutation state cannot be preserved)";
+                            }
+                        }
+
+                        // Own fields passed as ref/out arguments inside a larger
+                        // expression (not a statement-root call): the ref-hoisting
+                        // write-back lands after the whole statement, too late for
+                        // reads in the same expression.
+                        foreach (var arg in invocation.ArgumentList.Arguments)
+                        {
+                            if (!arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) &&
+                                !arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                                continue;
+                            var argName = arg.Expression switch
+                            {
+                                IdentifierNameSyntax id => id.Identifier.Text,
+                                MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } ma => ma.Name.Identifier.Text,
+                                _ => null
+                            };
+                            if (argName != null && fieldNames.Contains(argName) &&
+                                invocation.Parent is not ExpressionStatementSyntax)
+                            {
+                                return "own fields passed as ref/out args inside expressions (mutation state cannot be preserved)";
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Has virtual/override/abstract methods that are NOT merely overriding
         // System.Object members (ToString/Equals/GetHashCode). Overriding object

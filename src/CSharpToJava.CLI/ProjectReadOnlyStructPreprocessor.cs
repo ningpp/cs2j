@@ -1074,6 +1074,18 @@ internal static class ProjectReadOnlyStructPreprocessor
 
         // Find L4-converted structs: those with private fields + getXxx() getter methods
         var publicFieldStructs = new Dictionary<string, HashSet<string>>();
+        // struct NAME -> qualified names (namespace + containing-type chain). Same-named
+        // structs inside different types (e.g. XmlTextWriter.Namespace vs the non-converted
+        // XmlWellFormedWriter.Namespace) are distinguished so receivers resolving to the
+        // wrong struct are never rewritten (CS1061 WithXxx on a non-converted struct).
+        var qualifiedNames = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        void RegisterQualified(string structName, Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax structDecl)
+        {
+            if (!qualifiedNames.TryGetValue(structName, out var set))
+                qualifiedNames[structName] = set = new HashSet<string>(StringComparer.Ordinal);
+            set.Add(CSharpToJava.Core.ReadOnlyStructMaker.AssignmentRewriter.GetQualifiedStructName(structDecl));
+        }
+
         foreach (var (_, tree) in outputTrees)
         {
             var root = tree.GetRoot();
@@ -1099,6 +1111,7 @@ internal static class ProjectReadOnlyStructPreprocessor
                 if (convertedFields.Count > 0)
                 {
                     publicFieldStructs[structName] = convertedFields;
+                    RegisterQualified(structName, structDecl);
                 }
             }
         }
@@ -1130,6 +1143,7 @@ internal static class ProjectReadOnlyStructPreprocessor
                 if (withMethodProps.Count > 0)
                 {
                     withChainStructs.Add(structName);
+                    RegisterQualified(structName, structDecl);
                     // Only treat as L4 (getXxx read rewriting) when the struct truly has
                     // getXxx() getter methods for its PRIVATE fields. Methods merely named
                     // GetXxx (e.g. Rectangle.GetIntersection) must not trigger this.
@@ -1218,6 +1232,7 @@ internal static class ProjectReadOnlyStructPreprocessor
                     publicFieldStructs[structName] = publicProps;
                     l5StructNames.Add(structName);
                     l3Structs[structName] = (publicProps, ctorParams);
+                    RegisterQualified(structName, structDecl);
                 }
             }
         }
@@ -1237,7 +1252,8 @@ internal static class ProjectReadOnlyStructPreprocessor
         {
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
-            var rewriter = new AssignmentRewriter(publicFieldStructs, model, l5StructNames, withChainStructs, l3Structs);
+            var rewriter = new AssignmentRewriter(publicFieldStructs, model, l5StructNames, withChainStructs, l3Structs,
+                qualifiedNames: qualifiedNames);
             rewriter.BuildVariableTypeMap(root);
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && newRoot.ToFullString() != root.ToFullString())

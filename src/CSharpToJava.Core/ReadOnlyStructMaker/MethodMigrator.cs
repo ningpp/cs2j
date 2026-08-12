@@ -50,7 +50,8 @@ internal sealed class MethodMigrator
         // 3. Replace implicit field/property accesses with result.field/result.property
         if (_fieldNames.Count > 0 || _propertyNames.Count > 0)
         {
-            newBody = (BlockSyntax)new ImplicitFieldToResultRewriter(_fieldNames, _propertyNames).Visit(newBody)!;
+            newBody = (BlockSyntax)new ImplicitFieldToResultRewriter(_fieldNames, _propertyNames,
+                method.ParameterList.Parameters.Select(p => p.Identifier.Text)).Visit(newBody)!;
         }
 
         // 3b. Replace bare calls to migrated methods with result = result.Method(args)
@@ -143,10 +144,18 @@ internal sealed class MethodMigrator
         private readonly HashSet<string> _propertyNames;
         private readonly HashSet<string> _localNames = new();
 
-        public ImplicitFieldToResultRewriter(HashSet<string> fieldNames, HashSet<string> propertyNames)
+        public ImplicitFieldToResultRewriter(HashSet<string> fieldNames, HashSet<string> propertyNames,
+            IEnumerable<string>? parameterNames = null)
         {
             _fieldNames = fieldNames;
             _propertyNames = propertyNames;
+            // Parameters of the containing method are in scope in the body but are NOT
+            // part of the visited block (the rewriter runs on the body only), so their
+            // names must be seeded explicitly — otherwise a parameter that shadows a
+            // field/property (e.g. `void Set(string prefix, ...)` with field `prefix`)
+            // gets rewritten into a field read, silently dropping the parameter value.
+            if (parameterNames != null)
+                _localNames.UnionWith(parameterNames);
         }
 
         public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)

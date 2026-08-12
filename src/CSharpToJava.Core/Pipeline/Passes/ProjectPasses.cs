@@ -749,6 +749,17 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
                 continue;
             }
 
+            // Cs2jTestUiCultureShim.cs is injected by the make-readonly preprocessing
+            // to pin the C# test-run thread culture (a .NET Framework concern). Its
+            // types extend xunit framework classes (XunitTestFrameworkExecutor & co.)
+            // from the NuGet package, which are never converted — emitting them would
+            // produce unresolvable base classes. The shim has no Java equivalent.
+            if (candidatePaths.Any(path =>
+                    path.EndsWith("Cs2jTestUiCultureShim.cs", StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
             if (!ShouldEmitTypeGroup(candidatePaths, state.EmitFilePaths))
             {
                 continue;

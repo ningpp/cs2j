@@ -1567,6 +1567,24 @@ public class MethodTransformer : IMemberTransformer
             {
                 return BoxJavaPrimitive(mappedReturnType);
             }
+            // Override of a base GetEnumerator/iterator() where the base class
+            // implements IEnumerable: the class transformer upgrades the base's
+            // iterator() to CSharpGenericEnumerator<T>, so the override must match.
+            if (methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.OverrideKeyword))
+                && (context.GetDeclaredSymbol(methodDecl) as IMethodSymbol)?.OverriddenMethod is IMethodSymbol overriddenEnum
+                && overriddenEnum.Name == "GetEnumerator"
+                && overriddenEnum.ContainingType != null
+                && overriddenEnum.ContainingType.AllInterfaces.Any(i =>
+                    i.OriginalDefinition.SpecialType is SpecialType.System_Collections_IEnumerable
+                        or SpecialType.System_Collections_Generic_IEnumerable_T))
+            {
+                var baseElemType = overriddenEnum.ReturnType is INamedTypeSymbol enumReturn
+                        && enumReturn.TypeArguments.Length == 1
+                    ? context.MapType(enumReturn.TypeArguments[0])
+                    : "Object";
+                context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+                return $"CSharpGenericEnumerator<{baseElemType}>";
+            }
             return mappedReturnType;
         }
 

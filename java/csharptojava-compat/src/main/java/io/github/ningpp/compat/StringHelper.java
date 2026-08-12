@@ -453,16 +453,16 @@ public class StringHelper {
 
     private static void validateStringBuilderOffset(StringBuilder builder, int offset) {
         if (offset < 0 || offset > builder.length()) {
-            throw new IllegalArgumentException("offset");
+            throw new ArgumentOutOfRangeException("offset");
         }
     }
 
     private static void validateRange(int length, int startIndex, int count) {
         if (startIndex < 0 || startIndex > length) {
-            throw new IllegalArgumentException("startIndex");
+            throw new ArgumentOutOfRangeException("startIndex");
         }
         if (count < 0 || startIndex + count > length) {
-            throw new IllegalArgumentException("count");
+            throw new ArgumentOutOfRangeException("count");
         }
     }
 

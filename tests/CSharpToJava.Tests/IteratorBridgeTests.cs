@@ -504,8 +504,11 @@ class MyNamespaceManager : IEnumerable
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
 
-        // Must use CSharpGenericEnumerator.from() to match iterator() return type
-        Assert.Contains("CSharpGenericEnumerator.from(", code);
+        // Must use the generic enumerator adapter (CSharpGenericEnumerator.fromEnumerator)
+        // to match the iterator() return type. The adapter accepts both Iterator and
+        // non-generic CSharpEnumerator arguments (passing a generic enumerator returns
+        // it as-is), so a blanket CSharpEnumerator.from() replacement is avoided.
+        Assert.Contains("CSharpGenericEnumerator.fromEnumerator(", code);
         Assert.DoesNotContain("CSharpEnumerator.from(", code);
     }
 

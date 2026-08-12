@@ -407,6 +407,31 @@ public class StructTransformer : ITypeTransformer
     }
 
     /// <summary>
+    /// Counts chain arguments that are simple identifiers matching the target
+    /// constructor's parameter names at the same position. A chain that forwards
+    /// its own parameters (this(dateTimeOffset, kinds)) aligns 2:2 with its
+    /// intended target and 0:2 with an unrelated same-arity overload.
+    /// </summary>
+    private static int CountMatchingParamNames(JavaConstructorDeclaration ctor, List<string> chainArgs)
+    {
+        var matches = 0;
+        for (var i = 0; i < ctor.Parameters.Count && i < chainArgs.Count; i++)
+        {
+            var arg = chainArgs[i].Trim();
+            if (arg.Length > 0 && IsSimpleIdentifier(arg) &&
+                string.Equals(arg, ctor.Parameters[i].Name, StringComparison.Ordinal))
+            {
+                matches++;
+            }
+        }
+        return matches;
+    }
+
+    private static bool IsSimpleIdentifier(string text)
+        => text.All(ch => char.IsLetterOrDigit(ch) || ch == '_') &&
+           (char.IsLetter(text[0]) || text[0] == '_');
+
+    /// <summary>
     /// Splits a comma-separated argument list at top-level commas (parentheses,
     /// brackets, braces, and string literals are respected).
     /// </summary>
@@ -1362,8 +1387,16 @@ public class StructTransformer : ITypeTransformer
 
                 var innerArgs = ctor.Initializer.Substring("this(".Length, ctor.Initializer.Length - "this(".Length - 1);
                 var chainArgs = SplitTopLevelArgs(innerArgs);
-                var target = javaClass.Constructors.FirstOrDefault(c =>
-                    c != ctor && c.Parameters.Count == chainArgs.Count && c.Initializer == null);
+                // Matching by parameter count alone is ambiguous when overloads share
+                // the arity (e.g. XsdDateTime(string, XsdDateTimeFlags) vs
+                // XsdDateTime(DateTimeOffset, XsdDateTimeFlags) — both take 2 params).
+                // Prefer the target whose parameter names align with the chain
+                // arguments (a chain almost always forwards its own parameter names,
+                // e.g. this(dateTimeOffset, kinds)); fall back to the first match.
+                var target = javaClass.Constructors
+                    .Where(c => c != ctor && c.Parameters.Count == chainArgs.Count && c.Initializer == null)
+                    .OrderByDescending(c => CountMatchingParamNames(c, chainArgs))
+                    .FirstOrDefault();
                 ctor.Initializer = null;
                 if (target != null)
                 {

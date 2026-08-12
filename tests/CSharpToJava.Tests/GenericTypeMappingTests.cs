@@ -74,7 +74,7 @@ class Test {
     }
 
     [Fact]
-    public void FuncTaskField_MapsTaskToCompatTask()
+    public void FuncTaskField_MapsTaskToCompletableFuture()
     {
         var result = Convert(@"
 using System;
@@ -84,9 +84,11 @@ class Test {
 }");
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
-        // System.Threading.Tasks.Task now maps to io.github.ningpp.compat.Task
-        Assert.Contains("Supplier<Task> supplier", code);
-        Assert.DoesNotContain("CompletableFuture", code);
+        // System.Threading.Tasks.Task maps to java.util.concurrent.CompletableFuture:
+        // the async SDK code calls isDone()/join()/completedFuture on it, which the
+        // synchronous compat Task class does not provide.
+        Assert.Contains("Supplier<CompletableFuture<?>> supplier", code);
+        Assert.DoesNotContain("Supplier<Task>", code);
     }
 
     [Fact]

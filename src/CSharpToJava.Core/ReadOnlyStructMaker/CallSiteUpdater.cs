@@ -259,13 +259,7 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
                 if (structName != null)
                 {
                     // s.Method(args) → s = s.Method(args)
-                    var assignment = SyntaxFactory.AssignmentExpression(
-                        SyntaxKind.SimpleAssignmentExpression,
-                        receiver.WithoutTrivia(),
-                        invocation.WithoutTrivia())
-                        .WithTriviaFrom(node.Expression);
-
-                    return node.WithExpression(assignment);
+                    return BuildStructReturningStatement(node, invocation, memberAccess, receiver);
                 }
             }
 
@@ -274,13 +268,7 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
             // the update. Rewrite `s.M(args);` → `s = s.M(args);` for those too.
             if (IsStructReturningCall(invocation, memberAccess))
             {
-                var receiver2 = memberAccess.Expression;
-                var assignment2 = SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    receiver2.WithoutTrivia(),
-                    invocation.WithoutTrivia())
-                    .WithTriviaFrom(node.Expression);
-                return node.WithExpression(assignment2);
+                return BuildStructReturningStatement(node, invocation, memberAccess, memberAccess.Expression);
             }
         }
 
@@ -339,6 +327,121 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         }
 
         return base.VisitExpressionStatement(node);
+    }
+
+    /// <summary>
+    /// Builds <c>receiver = receiver.Method(args);</c> for a migrated struct-returning
+    /// call. When the receiver expression contains side effects (e.g.
+    /// <c>_nsdecls[++_lastDecl].Set(...)</c>), naively duplicating it would evaluate
+    /// them twice and write the result into a different location. The side-effecting
+    /// subexpressions are hoisted into temps first:
+    /// <code>
+    /// arr[++i].M(x);  →  var __cs2jExpr0 = ++i;
+    ///                     arr[__cs2jExpr0] = arr[__cs2jExpr0].M(x);
+    /// </code>
+    /// </summary>
+    private SyntaxNode BuildStructReturningStatement(
+        ExpressionStatementSyntax node,
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        ExpressionSyntax receiver)
+    {
+        var sideEffecting = FindTopMostSideEffecting(receiver);
+        if (sideEffecting.Count == 0)
+        {
+            var simple = SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                receiver.WithoutTrivia(),
+                invocation.WithoutTrivia())
+                .WithTriviaFrom(node.Expression);
+            return node.WithExpression(simple);
+        }
+
+        var prelude = new List<StatementSyntax>();
+        var pureReceiver = (ExpressionSyntax)new SideEffectHoister(sideEffecting, prelude, this).Visit(receiver)!;
+        var pureInvocation = invocation.WithExpression(memberAccess.WithExpression(pureReceiver.WithoutTrivia()));
+        var assignment = SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            pureReceiver.WithoutTrivia(),
+            pureInvocation.WithoutTrivia())
+            .WithTriviaFrom(node.Expression);
+        return SyntaxFactory.Block(
+                prelude.Concat(new[] { SyntaxFactory.ExpressionStatement(assignment) }))
+            .WithTriviaFrom(node);
+    }
+
+    private int _sideEffectCounter;
+
+    /// <summary>
+    /// Returns the top-most side-effecting descendant expressions of the receiver
+    /// (each hoisted into its own temp, preserving single evaluation).
+    /// </summary>
+    private static List<ExpressionSyntax> FindTopMostSideEffecting(ExpressionSyntax receiver)
+    {
+        var result = new List<ExpressionSyntax>();
+        foreach (var node in receiver.DescendantNodesAndSelf())
+        {
+            if (node is not ExpressionSyntax expr)
+                continue;
+            if (!IsSideEffecting(expr))
+                continue;
+            // Skip nodes whose ancestor is already side-effecting (the ancestor
+            // hoist covers the whole subtree).
+            if (expr.Ancestors().TakeWhile(n => n != receiver).Any(IsSideEffecting))
+                continue;
+            result.Add(expr);
+        }
+        return result;
+    }
+
+    private static bool IsSideEffecting(SyntaxNode node) => node switch
+    {
+        PrefixUnaryExpressionSyntax p =>
+            p.IsKind(SyntaxKind.PreIncrementExpression) || p.IsKind(SyntaxKind.PreDecrementExpression),
+        PostfixUnaryExpressionSyntax p =>
+            p.IsKind(SyntaxKind.PostIncrementExpression) || p.IsKind(SyntaxKind.PostDecrementExpression),
+        AssignmentExpressionSyntax or InvocationExpressionSyntax or ObjectCreationExpressionSyntax
+            or ImplicitObjectCreationExpressionSyntax or AwaitExpressionSyntax or ConditionalAccessExpressionSyntax
+            or InterpolatedStringExpressionSyntax or StackAllocArrayCreationExpressionSyntax
+            or ImplicitStackAllocArrayCreationExpressionSyntax => true,
+        _ => false
+    };
+
+    /// <summary>
+    /// Replaces the given side-effecting expressions with fresh temp identifiers,
+    /// prepending <c>var __cs2jExprN = &lt;expr&gt;;</c> declarations to the prelude.
+    /// </summary>
+    private sealed class SideEffectHoister : CSharpSyntaxRewriter
+    {
+        private readonly Dictionary<ExpressionSyntax, string> _map;
+        private readonly List<StatementSyntax> _prelude;
+        private readonly CallSiteUpdater _parent;
+
+        public SideEffectHoister(List<ExpressionSyntax> targets, List<StatementSyntax> prelude, CallSiteUpdater parent)
+        {
+            _map = targets.ToDictionary(t => t, _ => "");
+            _prelude = prelude;
+            _parent = parent;
+        }
+
+        public override SyntaxNode? Visit(SyntaxNode? node)
+        {
+            if (node is ExpressionSyntax expr && _map.ContainsKey(expr))
+            {
+                if (_map[expr].Length == 0)
+                {
+                    var tempName = "__cs2jExpr" + (_parent._sideEffectCounter++);
+                    _map[expr] = tempName;
+                    _prelude.Add(SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                            .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.VariableDeclarator(tempName)
+                                    .WithInitializer(SyntaxFactory.EqualsValueClause(expr.WithoutTrivia()))))));
+                }
+                return SyntaxFactory.IdentifierName(_map[expr]).WithTriviaFrom(expr);
+            }
+            return base.Visit(node);
+        }
     }
 
     /// <summary>

@@ -666,4 +666,58 @@ public class ReadOnlyStructMakerL5Tests
         Assert.Contains("Box<T> WithValue(", result.OutputCode);
         Assert.DoesNotContain("Box WithValue(", result.OutputCode);
     }
+
+    [Fact]
+    public void NestedStruct_InsideMigratedStruct_IsMigratedToo()
+    {
+        // Regression: rewriting the OUTER struct (method migration, WithXxx
+        // generation) recreates the red syntax nodes of untouched nested structs,
+        // so the analysisResults lookup by node identity failed and the nested
+        // struct was skipped — yet its call sites were still updated with out
+        // arguments, producing C# that does not compile (CS1501). The nested
+        // struct must be migrated together with the outer one.
+        var src = """
+        struct Outer {
+            private int _v;
+            public Outer(int seed) : this() {
+                Inner parser = new Inner();
+                if (!parser.Parse("x")) { throw new System.Exception(); }
+                Init(parser);
+            }
+            private void Init(Inner parser) { _v = parser.year; }
+            private struct Inner {
+                private string _text;
+                public int year;
+                public bool Parse(string text) { _text = text; year = 1; return true; }
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // The nested struct must be migrated (readonly, out newStatus signature).
+        Assert.Contains("readonly struct Inner", result.OutputCode);
+        Assert.Contains("bool Parse(string text, out Inner newStatus)", result.OutputCode);
+        // The call site must match the migrated signature.
+        Assert.Contains("parser.Parse(\"x\", out parser)", result.OutputCode);
+        // The rewritten source must compile.
+        var errors = Compile(result.OutputCode);
+        Assert.True(errors.Length == 0, "Rewritten source must compile without errors:\n" + string.Join("\n", errors));
+    }
+
+    private static string[] Compile(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("readonly-output",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Exception).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        return compilation.GetDiagnostics()
+            .Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)
+            .Select(d => d.ToString())
+            .ToArray();
+    }
 }

@@ -21,6 +21,11 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     private readonly HashSet<string> _targetFieldNames = new(); // all field names across all target structs
     private readonly SemanticModel? _semanticModel;
     private readonly Dictionary<string, string> _variableTypes = new(); // variableName -> typeName
+    // struct NAME -> qualified names (namespace + containing-type chain). Same-named
+    // structs declared inside different types (e.g. XmlTextWriter.Namespace vs
+    // XmlWellFormedWriter.Namespace) must not be conflated: a receiver whose resolved
+    // symbol is not one of the registered qualified names is NOT a target.
+    private readonly Dictionary<string, HashSet<string>> _qualifiedNames = new(StringComparer.Ordinal);
     // L5 structs: properties are public get-only (not private fields with getXxx() getters).
     // Reads from these structs should use property access (obj.Prop), not getXxx().
     private readonly HashSet<string> _propertyAccessStructs = new();
@@ -39,10 +44,16 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         SemanticModel? semanticModel,
         IReadOnlySet<string>? propertyAccessStructs = null,
         IReadOnlySet<string>? withChainStructs = null,
-        IReadOnlyDictionary<string, (HashSet<string> Props, List<string> CtorParams)>? l3Structs = null)
+        IReadOnlyDictionary<string, (HashSet<string> Props, List<string> CtorParams)>? l3Structs = null,
+        IReadOnlyDictionary<string, HashSet<string>>? qualifiedNames = null)
     {
         _structFields = structFields;
         _semanticModel = semanticModel;
+        if (qualifiedNames != null)
+        {
+            foreach (var kvp in qualifiedNames)
+                _qualifiedNames[kvp.Key] = new HashSet<string>(kvp.Value, StringComparer.Ordinal);
+        }
         if (propertyAccessStructs != null)
             _propertyAccessStructs.UnionWith(propertyAccessStructs);
         if (withChainStructs != null)
@@ -405,9 +416,18 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (node.Operand is not MemberAccessExpressionSyntax memberAccess)
             return base.VisitPrefixUnaryExpression(node);
 
-        var result = HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PreIncrementExpression);
-        // HandleUnaryMutation returns null when checks fail; fall back to base visit to avoid null nodes
-        return result ?? base.VisitPrefixUnaryExpression(node);
+        // Statement-level mutation: rewrite in place to a WithXxx write-back.
+        if (node.Parent is ExpressionStatementSyntax)
+        {
+            var result = HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PreIncrementExpression);
+            // HandleUnaryMutation returns null when checks fail; fall back to base visit to avoid null nodes
+            return result ?? base.VisitPrefixUnaryExpression(node);
+        }
+
+        // Nested in a larger expression (initializer, argument, condition, ...):
+        // a bare assignment cannot substitute the unary's VALUE semantics, so the
+        // block-level hoister rewrites these into temps + a WithXxx statement.
+        return node;
     }
 
     public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
@@ -418,10 +438,162 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         if (node.Operand is not MemberAccessExpressionSyntax memberAccess)
             return base.VisitPostfixUnaryExpression(node);
 
-        var result = HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PostIncrementExpression);
-        // HandleUnaryMutation returns null when checks fail; fall back to base visit to avoid null nodes
-        return result ?? base.VisitPostfixUnaryExpression(node);
+        // Statement-level mutation: rewrite in place to a WithXxx write-back.
+        if (node.Parent is ExpressionStatementSyntax)
+        {
+            var result = HandleUnaryMutation(memberAccess, node, node.Kind() == SyntaxKind.PostIncrementExpression);
+            // HandleUnaryMutation returns null when checks fail; fall back to base visit to avoid null nodes
+            return result ?? base.VisitPostfixUnaryExpression(node);
+        }
+
+        // Nested in a larger expression — handled by the block-level hoister.
+        return node;
     }
+
+    /// <summary>
+    /// Hoists target-struct unary mutations nested inside larger expressions
+    /// (<c>int t = x.f++;</c>, <c>M(x.f++)</c>) into temps plus a WithXxx write-back
+    /// statement, preserving the unary's VALUE semantics:
+    /// <code>
+    /// var __cs2jOldf_0 = x.f;
+    /// x = x.Withf(__cs2jOldf_0 + 1);
+    /// int t = __cs2jOldf_0 + 1;   // postfix value = old
+    /// </code>
+    /// </summary>
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
+    {
+        node = (BlockSyntax)base.VisitBlock(node)!;
+
+        var newStatements = new List<StatementSyntax>();
+        var changed = false;
+        foreach (var statement in node.Statements)
+        {
+            var hoister = new UnaryHoister(this);
+            var rewrittenStatement = (StatementSyntax)hoister.Visit(statement)!;
+            if (!ReferenceEquals(rewrittenStatement, statement) || hoister.Hoisted.Count > 0)
+                changed = true;
+            newStatements.AddRange(hoister.Hoisted);
+            newStatements.Add(rewrittenStatement);
+        }
+        return changed ? node.WithStatements(SyntaxFactory.List(newStatements)) : node;
+    }
+
+    /// <summary>
+    /// Finds target-struct unary mutations that need the block-level hoist. Skips
+    /// statement-root mutations (handled in place) and mutations inside loop headers
+    /// (evaluated per iteration — cannot be hoisted before the loop).
+    /// </summary>
+    private sealed class UnaryHoister : CSharpSyntaxRewriter
+    {
+        private readonly AssignmentRewriter _parent;
+        internal readonly List<StatementSyntax> Hoisted = new();
+
+        public UnaryHoister(AssignmentRewriter parent)
+        {
+            _parent = parent;
+        }
+
+        public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+        {
+            if (node.Kind() is not (SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression))
+                return base.VisitPostfixUnaryExpression(node);
+            if (node.Parent is ExpressionStatementSyntax)
+                return node;
+            if (!CanHoist(node))
+                return base.VisitPostfixUnaryExpression(node);
+            var hoisted = TryHoist(node, node.Operand, node.Kind() == SyntaxKind.PostIncrementExpression, isPrefix: false);
+            return hoisted ?? base.VisitPostfixUnaryExpression(node);
+        }
+
+        public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
+        {
+            if (node.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
+                return base.VisitPrefixUnaryExpression(node);
+            if (node.Parent is ExpressionStatementSyntax)
+                return node;
+            if (!CanHoist(node))
+                return base.VisitPrefixUnaryExpression(node);
+            var hoisted = TryHoist(node, node.Operand, node.Kind() == SyntaxKind.PreIncrementExpression, isPrefix: true);
+            return hoisted ?? base.VisitPrefixUnaryExpression(node);
+        }
+
+        /// <summary>
+        /// The unary must not sit inside a loop header (condition/declaration/
+        /// incrementor — evaluated repeatedly) or an anonymous function (the hoisted
+        /// statements would land outside the closure's scope).
+        /// </summary>
+        private static bool CanHoist(SyntaxNode node)
+        {
+            for (var n = node.Parent; n != null; n = n.Parent)
+            {
+                switch (n)
+                {
+                    case ExpressionStatementSyntax or BlockSyntax:
+                        return true;
+                    case ForStatementSyntax or ForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax:
+                        return false;
+                    case AnonymousFunctionExpressionSyntax or QueryExpressionSyntax:
+                        return false;
+                    case StatementSyntax or MemberDeclarationSyntax:
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Hoists a single unary mutation into a temp + WithXxx write-back. The unary
+        /// node is replaced by the temp (postfix: old value) or a parenthesized
+        /// <c>temp ± 1</c> (prefix: new value). Returns null when the target does not
+        /// resolve — the caller falls back to plain visitation.
+        /// </summary>
+        private SyntaxNode? TryHoist(ExpressionSyntax unaryNode, ExpressionSyntax operand,
+            bool isIncrement, bool isPrefix)
+        {
+            if (operand is not MemberAccessExpressionSyntax memberAccess)
+                return null;
+            if (!_parent.TryResolveUnaryTarget(memberAccess, unaryNode, out var structName, out var fieldName))
+                return null;
+
+            var tempName = "__cs2jOld" + char.ToUpperInvariant(fieldName[0]) + fieldName.Substring(1) + "_" + _parent.NextUnaryTempName();
+
+            // var __cs2jOldf_0 = x.f;  (L4: x.getf(); L5: x.f)
+            Hoisted.Add(SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var")
+                        .WithTrailingTrivia(SyntaxFactory.Space))
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(tempName)
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                _parent.CreateReadAccess(memberAccess.Expression, fieldName, structName)))))));
+
+            // x = x.Withf(__cs2jOldf_0 + 1);
+            var write = _parent.BuildWriteAssignment(memberAccess.Expression, fieldName, structName,
+                SyntaxFactory.BinaryExpression(
+                    isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
+                    SyntaxFactory.IdentifierName(tempName),
+                    SyntaxFactory.LiteralExpression(
+                        SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1))),
+                unaryNode);
+            Hoisted.Add(SyntaxFactory.ExpressionStatement(write));
+
+            if (isPrefix)
+            {
+                return SyntaxFactory.ParenthesizedExpression(
+                    SyntaxFactory.BinaryExpression(
+                        isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
+                        SyntaxFactory.IdentifierName(tempName),
+                        SyntaxFactory.LiteralExpression(
+                            SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1))));
+            }
+
+            // Postfix: the unary's value is the OLD field value.
+            return SyntaxFactory.IdentifierName(tempName);
+        }
+    }
+
+    private int _unaryTempCounter;
+
+    internal int NextUnaryTempName() => _unaryTempCounter++;
 
     /// <summary>
     /// Converts read accesses to converted struct fields: obj.Field → obj.getField().
@@ -539,44 +711,58 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             SyntaxFactory.ArgumentList());
     }
 
-    private SyntaxNode? HandleUnaryMutation(MemberAccessExpressionSyntax memberAccess,
-        ExpressionSyntax originalNode, bool isIncrement)
+    /// <summary>
+    /// Shared target resolution for unary mutations on struct fields. Returns the
+    /// struct name and field name when the mutation targets a converted struct.
+    /// </summary>
+    private bool TryResolveUnaryTarget(MemberAccessExpressionSyntax memberAccess, SyntaxNode originalNode,
+        out string structName, out string fieldName)
     {
-        if (memberAccess.Name is not IdentifierNameSyntax fieldName)
-            return null;
+        structName = null!;
+        fieldName = null!;
 
-        var fieldNameText = fieldName.Identifier.Text;
+        if (memberAccess.Name is not IdentifierNameSyntax fieldNameNode)
+            return false;
+        fieldName = fieldNameNode.Identifier.Text;
 
         // Quick check: field name must be in our target fields
-        if (!_targetFieldNames.Contains(fieldNameText))
-            return null;
+        if (!_targetFieldNames.Contains(fieldName))
+            return false;
 
         // Syntactic check: receiver must be a simple identifier or element access
         if (!IsModifiableLValue(memberAccess.Expression))
-            return null;
+            return false;
 
         // Semantic check: verify the receiver's type is actually one of our target structs
-        var structName = TryGetTargetStructName(memberAccess.Expression);
-        if (structName == null)
-            return null; // Resolved to non-target type - don't rewrite
-        if (structName == string.Empty)
+        var resolved = TryGetTargetStructName(memberAccess.Expression);
+        if (resolved == null)
+            return false; // Resolved to non-target type - don't rewrite
+        if (resolved == string.Empty)
         {
             // Type unresolvable. Use field-name fallback.
-            structName = TryGetStructNameByFieldNameAny(fieldNameText);
-            if (structName == null)
-                return null;
+            resolved = TryGetStructNameByFieldNameAny(fieldName);
+            if (resolved == null)
+                return false;
         }
+        structName = resolved;
 
         // Skip non-static members of the struct itself (see VisitAssignmentExpression).
-        // Writes through local receivers (result/ator) inside migrated methods are
-        // still rewritten — same rationale as above.
         if (memberAccess.Expression is not IdentifierNameSyntax &&
             InsideOwnInstanceMember(originalNode, structName))
-            return null;
+            return false;
 
         // `this.X` inside a non-target type is never a struct field write.
         if (memberAccess.Expression is ThisExpressionSyntax &&
             !InsideTargetType(originalNode, structName))
+            return false;
+
+        return true;
+    }
+
+    private SyntaxNode? HandleUnaryMutation(MemberAccessExpressionSyntax memberAccess,
+        ExpressionSyntax originalNode, bool isIncrement)
+    {
+        if (!TryResolveUnaryTarget(memberAccess, originalNode, out var structName, out var fieldNameText))
             return null;
 
         var receiver = memberAccess.Expression;
@@ -800,6 +986,41 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         };
     }
 
+    /// <summary>
+    /// Qualified name of a struct from its resolved symbol: namespace + containing-type
+    /// chain + own name (e.g. "dotnet.xml.core.XmlTextWriter.Namespace"). Used to
+    /// disambiguate same-named structs declared inside different types.
+    /// </summary>
+    private static string GetQualifiedTypeName(INamedTypeSymbol type)
+    {
+        var parts = new List<string>();
+        for (var t = (ITypeSymbol?)type; t is INamedTypeSymbol nts; t = nts.ContainingType)
+            parts.Add(nts.Name);
+        for (var ns = type.ContainingNamespace; ns != null && !ns.IsGlobalNamespace; ns = ns.ContainingNamespace)
+            parts.Add(ns.Name);
+        parts.Reverse();
+        return string.Join(".", parts);
+    }
+
+    /// <summary>
+    /// Qualified name of a struct declaration from its syntax: namespace (file-scoped
+    /// or block-scoped) + containing-type chain + own name. Mirrors
+    /// <see cref="GetQualifiedTypeName(INamedTypeSymbol)"/> for the syntax side.
+    /// </summary>
+    public static string GetQualifiedStructName(StructDeclarationSyntax node)
+    {
+        var parts = new List<string>();
+        for (var n = (SyntaxNode?)node; n != null; n = n.Parent)
+        {
+            if (n is TypeDeclarationSyntax t)
+                parts.Add(t.Identifier.Text);
+            else if (n is BaseNamespaceDeclarationSyntax ns)
+                parts.Add(ns.Name.ToString());
+        }
+        parts.Reverse();
+        return string.Join(".", parts);
+    }
+
     private static string ToCamelCase(string name)
     {
         if (string.IsNullOrEmpty(name)) return name;
@@ -839,6 +1060,18 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                     // `Person` struct) must never be rewritten.
                     if (type.TypeKind != TypeKind.Struct)
                         return null;
+                    // Qualified-name check: when the targets were registered with
+                    // their namespace/containing-type chain, a receiver resolving to a
+                    // DIFFERENT same-named struct (e.g. XmlWellFormedWriter.Namespace
+                    // vs the converted XmlTextWriter.Namespace) must not be rewritten.
+                    if (_qualifiedNames.Count > 0)
+                    {
+                        if (type is INamedTypeSymbol namedType &&
+                            _qualifiedNames.TryGetValue(type.Name, out var names) &&
+                            names.Contains(GetQualifiedTypeName(namedType)))
+                            return type.Name;
+                        return null;
+                    }
                     if (_structFields.ContainsKey(type.Name))
                         return type.Name;
                     return null; // Resolved to non-target type

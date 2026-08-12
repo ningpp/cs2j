@@ -41,16 +41,18 @@ class Sample {
 
         var repoRoot = FindRepoRoot();
         var compatDir = Path.Combine(repoRoot, "java", "csharptojava-compat", "src", "main", "java", "io", "github", "ningpp", "compat");
-        var compatSources = new[]
-        {
-            "CSharpDateTimeOffset.java",
-            "CSharpDateTime.java",
-            "CSharpTimeSpan.java",
-            "DateTimeKind.java",
-            "DayOfWeek.java",
-            "IFormatProvider.java",
-            "ObjectHolder.java",
-        }.Select(name => Path.Combine(compatDir, name)).ToArray();
+          var compatSources = new[]
+          {
+              "CSharpDateTimeOffset.java",
+              "CSharpDateTime.java",
+              "CSharpTimeSpan.java",
+              "DateTimeKind.java",
+              "DayOfWeek.java",
+              "IFormatProvider.java",
+              "ObjectHolder.java",
+              "ArgumentException.java",
+              "ArgumentOutOfRangeException.java",
+          }.Select(name => Path.Combine(compatDir, name)).ToArray();
 
         foreach (var source in compatSources)
             Assert.True(File.Exists(source), $"Missing compat source: {source}");

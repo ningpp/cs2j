@@ -227,7 +227,18 @@ public static class Cs2jLibraryFactory
             return false;
         }
 
-        return !syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal);
+        if (syntaxTree.FilePath.StartsWith("<", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // Cs2jTestUiCultureShim.cs is injected by the make-readonly preprocessing to
+        // pin the C# test-run thread culture to en-US (a .NET Framework concern).
+        // Its classes extend xunit's framework types (XunitTestFrameworkExecutor &
+        // co.), which ship in the xunit NuGet package and are never part of the
+        // converted compilation — emitting them would produce unresolvable base
+        // classes. The shim has no Java equivalent; skip it entirely.
+        return !syntaxTree.FilePath.EndsWith("Cs2jTestUiCultureShim.cs", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeOptionalProjectFilePath(string? projectFilePath)

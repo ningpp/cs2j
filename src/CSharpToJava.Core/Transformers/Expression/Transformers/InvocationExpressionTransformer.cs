@@ -819,6 +819,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"{factoryReceiver}.{memberAccess.Name.Identifier.Text}({factoryArgs})";
         }
 
+        // C# Task.FromResult(value) → CompletableFuture.completedFuture(value).
+        // The non-generic System.Threading.Tasks.Task type maps to the compat `Task`
+        // class, which has no static completedFuture — the static receiver is dropped
+        // and the result is created directly on CompletableFuture.
+        if (memberAccess.Name.Identifier.Text == "FromResult"
+            && node.ArgumentList.Arguments.Count == 1
+            && IsSystemThreadingTaskTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("java.util.concurrent.CompletableFuture");
+            var resultValue = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"CompletableFuture.completedFuture({resultValue})";
+        }
+
         // Note: Enqueue/Dequeue methods are handled via TypeMappings (e.g. Queue<T>.Enqueue→add,
         // Queue<T>.Dequeue→remove). Custom heap types (GenericBinaryHeapPriorityQueue, EventQueue,
         // etc.) go through normal camelCase so that call sites and declarations stay consistent.
@@ -2357,8 +2370,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var primitiveParseHelper = MapPrimitiveParseHelper(primTypeSyntax.Keyword.Text);
                 if (primitiveParseHelper != null)
                 {
-                    var parseArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
-                    return $"{primitiveParseHelper}({parseArgs})";
+                    // byte/sbyte/short are new MathHelper routes: their provider/style
+                    // overloads (Parse(s, styles, IFormatProvider)) do not exist on the
+                    // Java wrappers (Byte.parseByte only takes a radix). The single-arg
+                    // form stays on the Java wrapper (Byte.parseByte(s)) — a valid,
+                    // simpler call.
+                    var isNewHelperType = primTypeSyntax.Keyword.Text is "byte" or "sbyte" or "short";
+                    if (!isNewHelperType || node.ArgumentList.Arguments.Count > 1)
+                    {
+                        var parseArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                        return $"{primitiveParseHelper}({parseArgs})";
+                    }
                 }
             }
 
@@ -8117,6 +8139,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "uint" => "MathHelper.parseUInt",
             "ulong" => "MathHelper.parseULong",
             "ushort" => "MathHelper.parseUShort",
+            "short" => "MathHelper.parseShort",
+            "byte" => "MathHelper.parseByte",
+            "sbyte" => "MathHelper.parseByte",
             _ => null
         };
 
@@ -10327,6 +10352,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var original = namedType.OriginalDefinition;
         return original.Name == "ValueTask"
+            && original.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
+    }
+
+    /// <summary>
+    /// True when the receiver expression is a STATIC reference to the non-generic
+    /// <c>System.Threading.Tasks.Task</c> type (e.g. the <c>Task</c> in
+    /// <c>Task.FromResult(...)</c>).
+    /// </summary>
+    private static bool IsSystemThreadingTaskTypeReceiver(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (context.GetSymbolInfo(expression).Symbol is not INamedTypeSymbol type)
+            return false;
+        var original = type.OriginalDefinition;
+        return original.Name == "Task"
             && original.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
     }
 

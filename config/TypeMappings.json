@@ -273,9 +273,9 @@
         },
         {
             "csharp": "System.Threading.Tasks.Task",
-            "java": "Task",
+            "java": "CompletableFuture",
             "imports": [
-                "io.github.ningpp.compat.Task"
+                "java.util.concurrent.CompletableFuture"
             ]
         },
         {

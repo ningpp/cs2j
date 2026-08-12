@@ -82,21 +82,21 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
 
         long offsetTicks = offset.getTicks();
         if (Math.abs(offsetTicks) > MAX_OFFSET_TICKS) {
-            throw new IllegalArgumentException("Offset must be within plus or minus 14 hours.");
+            throw new ArgumentOutOfRangeException("offset", "Offset must be within plus or minus 14 hours.");
         }
         if (offsetTicks % CSharpTimeSpan.TICKS_PER_MINUTE != 0) {
-            throw new IllegalArgumentException("Offset must be specified in whole minutes.");
+            throw new ArgumentOutOfRangeException("offset", "Offset must be specified in whole minutes.");
         }
 
         long utcTicks;
         try {
             utcTicks = Math.subtractExact(dateTime.getTicks(), offsetTicks);
         } catch (ArithmeticException ex) {
-            throw new IllegalArgumentException("The UTC time represented by dateTime and offset is out of range.", ex);
+            throw new ArgumentOutOfRangeException("offset", "The UTC time represented by dateTime and offset is out of range.", ex);
         }
 
         if (utcTicks < CSharpDateTime.MIN_VALUE.getTicks() || utcTicks > CSharpDateTime.MAX_VALUE.getTicks()) {
-            throw new IllegalArgumentException("The UTC time represented by dateTime and offset is out of range.");
+            throw new ArgumentOutOfRangeException("offset", "The UTC time represented by dateTime and offset is out of range.");
         }
     }
 

@@ -8,23 +8,55 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 {
     private readonly Dictionary<StructDeclarationSyntax, AnalyzeResult> _results;
     private readonly ReadOnlyStructMakerOptions _options;
+    private readonly Microsoft.CodeAnalysis.SemanticModel? _semanticModel;
+
+    /// <summary>
+    /// Looks up the analysis result for a struct declaration. The primary lookup uses
+    /// red-node reference identity, which only holds for nodes that were never rebuilt.
+    /// Rewriting an enclosing struct (ReplaceNode/AddMembers/... recreate the whole
+    /// subtree's red nodes) leaves nested struct nodes with fresh red instances, so a
+    /// fallback matches by name + declaration text — stable for untouched nested
+    /// structs (spans shift when earlier code changes length, so text, not position,
+    /// is the reliable key).
+    /// </summary>
+    private bool TryGetResult(StructDeclarationSyntax node, out AnalyzeResult result)
+    {
+        if (_results.TryGetValue(node, out result!))
+            return true;
+
+        var name = node.Identifier.Text;
+        var text = node.ToString();
+        foreach (var (key, value) in _results)
+        {
+            if (key.Identifier.Text == name && key.ToString() == text)
+            {
+                result = value;
+                return true;
+            }
+        }
+
+        result = null!;
+        return false;
+    }
 
     public ReadOnlyStructRewriter(Dictionary<StructDeclarationSyntax, AnalyzeResult> results,
-        ReadOnlyStructMakerOptions options)
+        ReadOnlyStructMakerOptions options,
+        Microsoft.CodeAnalysis.SemanticModel? semanticModel = null)
     {
         _results = results;
         _options = options;
+        _semanticModel = semanticModel;
     }
 
     public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
     {
-        if (!_results.TryGetValue(node, out var result) || !result.ShouldRewrite)
+        if (!TryGetResult(node, out var result) || !result.ShouldRewrite)
             return base.VisitStructDeclaration(node);
 
         var rewritten = result.Level switch
         {
             ConversionLevel.DirectAdd => result.NeedsWithMethods
-                ? AddCtorBasedWithMethods(ApplyDirectAdd(node))
+                ? AddCtorBasedWithMethods(ApplyDirectAdd(node), _semanticModel)
                 : ApplyDirectAdd(node),
             ConversionLevel.PropertyConvert => ApplyPropertyConvert(node),
             ConversionLevel.DataContainer => ApplyDataContainer(node),
@@ -128,7 +160,8 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     /// ref/out arguments elsewhere: the hoisting pass rewrites such sites into
     /// temp + WithXxx write-back (CS0192).
     /// </summary>
-    private static StructDeclarationSyntax AddCtorBasedWithMethods(StructDeclarationSyntax node)
+    private static StructDeclarationSyntax AddCtorBasedWithMethods(StructDeclarationSyntax node,
+        Microsoft.CodeAnalysis.SemanticModel? semanticModel = null)
     {
         var structName = node.Identifier.Text;
         var instanceFieldTypes = new Dictionary<string, TypeSyntax>(StringComparer.Ordinal);
@@ -143,7 +176,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         var composeCtor = FindPureConstructor(node, instanceFieldTypes.Keys);
         if (composeCtor == null)
         {
-            var generated = GenerateComposeConstructor(structName, instanceFieldTypes, node);
+            var generated = GenerateComposeConstructor(structName, instanceFieldTypes, node, node, semanticModel);
             if (generated == null) return node;
             node = node.AddMembers(generated);
             composeCtor = generated;
@@ -782,7 +815,10 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 var newBody = setterBody.WithStatements(setterBody.Statements.Insert(0, resultDecl));
                 if (fieldNames.Count > 0 || propertyNames.Count > 0)
                 {
-                    newBody = (BlockSyntax)new MethodMigrator.ImplicitFieldToResultRewriter(fieldNames, propertyNames).Visit(newBody)!;
+                    // Seed the setter's `value` parameter so it never collides with a
+                    // same-named field/property.
+                    newBody = (BlockSyntax)new MethodMigrator.ImplicitFieldToResultRewriter(
+                        fieldNames, propertyNames, new[] { "value" }).Visit(newBody)!;
                 }
                 var instanceMethodNames = node.Members.OfType<MethodDeclarationSyntax>()
                     .Where(m => !m.Modifiers.Any(md => md.IsKind(SyntaxKind.StaticKeyword)))
@@ -858,7 +894,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             composeCtor = FindPureConstructor(rewritten, instanceFieldTypes.Keys);
             if (composeCtor == null)
             {
-                var generated = GenerateComposeConstructor(structName, instanceFieldTypes, rewritten);
+                var generated = GenerateComposeConstructor(structName, instanceFieldTypes, rewritten, node, _semanticModel);
                 if (generated != null)
                 {
                     rewritten = rewritten.AddMembers(generated);
@@ -956,21 +992,54 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// Generates a private constructor assigning every instance field directly. When the
-    /// parameter-type list collides with an existing constructor, an extra
+    /// parameter-type list collides with an existing constructor — at the C# level OR
+    /// after Java type erasure (e.g. <c>(DateTime, uint)</c> vs <c>(DateTime,
+    /// XsdDateTimeFlags)</c> both erase to <c>(CSharpDateTime, int)</c>) — an extra
     /// <c>int __cs2jTag</c> parameter disambiguates the overload (callers use named
     /// arguments and pass <c>__cs2jTag: 0</c>).
     /// </summary>
+    /// <param name="node">The struct declaration to attach the constructor to (possibly
+    /// a rewritten node).</param>
+    /// <param name="originalNode">The ORIGINAL struct declaration from the modeled tree —
+    /// its field and constructor syntax nodes resolve in the semantic model, which
+    /// rewritten nodes do not.</param>
     private static ConstructorDeclarationSyntax? GenerateComposeConstructor(
         string structName,
         Dictionary<string, TypeSyntax> instanceFieldTypes,
-        StructDeclarationSyntax node)
+        StructDeclarationSyntax node,
+        StructDeclarationSyntax? originalNode,
+        Microsoft.CodeAnalysis.SemanticModel? semanticModel)
     {
         if (instanceFieldTypes.Count == 0) return null;
 
-        var needsTag = node.Members.OfType<ConstructorDeclarationSyntax>().Any(c =>
-            c.ParameterList.Parameters.Count == instanceFieldTypes.Count &&
-            c.ParameterList.Parameters.Select(p => p.Type?.ToString())
-                .SequenceEqual(instanceFieldTypes.Values.Select(t => t.ToString())));
+        var needsTag = false;
+        if (originalNode != null && semanticModel != null)
+        {
+            // Resolve the erased keys from the ORIGINAL field declarations (the rewritten
+            // struct's syntax nodes are not part of the semantic model's tree).
+            var originalFieldTypes = originalNode.Members.OfType<FieldDeclarationSyntax>()
+                .SelectMany(f => f.Declaration.Variables.Select(v => (v.Identifier.Text, f.Declaration.Type)))
+                .ToDictionary(x => x.Text, x => x.Type, StringComparer.Ordinal);
+            var fieldKeys = instanceFieldTypes.Keys
+                .Select(name => JavaErasedTypeKey(
+                    originalFieldTypes.GetValueOrDefault(name) ?? instanceFieldTypes[name], semanticModel))
+                .ToList();
+
+            needsTag = originalNode.Members.OfType<ConstructorDeclarationSyntax>().Any(c =>
+                c.ParameterList.Parameters.Count == fieldKeys.Count &&
+                c.ParameterList.Parameters
+                    .Select(p => JavaErasedTypeKey(p.Type, semanticModel))
+                    .SequenceEqual(fieldKeys));
+        }
+        else
+        {
+            // No semantic model: compare C#-level signatures only (previous behavior).
+            var fieldTypeList = instanceFieldTypes.Values.ToList();
+            needsTag = node.Members.OfType<ConstructorDeclarationSyntax>().Any(c =>
+                c.ParameterList.Parameters.Count == fieldTypeList.Count &&
+                c.ParameterList.Parameters.Select(p => p.Type?.ToString())
+                    .SequenceEqual(fieldTypeList.Select(t => t.ToString())));
+        }
 
         var parameters = instanceFieldTypes
             .Select(kvp => SyntaxFactory.Parameter(SyntaxFactory.Identifier(ToCamelCase(kvp.Key)))
@@ -1002,6 +1071,90 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             .AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(SyntaxFactory.Space))
             .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)))
             .WithBody(SyntaxFactory.Block(statements));
+    }
+
+    /// <summary>
+    /// Java-erased signature key for a type: the Java type the converter maps the C# type
+    /// to, with generic arguments stripped. Two constructors collide in Java when these
+    /// keys match — even when the C# signatures are distinct (enums → int, uint/ushort/
+    /// byte/sbyte → int, ulong → long, DateTime → CSharpDateTime, ...).
+    /// </summary>
+    private static string JavaErasedTypeKey(TypeSyntax? type, Microsoft.CodeAnalysis.SemanticModel? semanticModel)
+    {
+        if (type == null) return "?";
+
+        if (semanticModel != null)
+        {
+            try
+            {
+                var symbol = semanticModel.GetTypeInfo(type).Type;
+                if (symbol != null)
+                {
+                    if (symbol.TypeKind == TypeKind.Enum) return "int";
+                    if (symbol.TypeKind == TypeKind.TypeParameter) return symbol.Name;
+                    switch (symbol.SpecialType)
+                    {
+                        case SpecialType.System_Byte:
+                        case SpecialType.System_SByte:
+                        case SpecialType.System_Int16:
+                        case SpecialType.System_UInt16:
+                        case SpecialType.System_Int32:
+                        case SpecialType.System_UInt32:
+                            return "int";
+                        case SpecialType.System_Int64:
+                        case SpecialType.System_UInt64:
+                            return "long";
+                        case SpecialType.System_Boolean: return "boolean";
+                        case SpecialType.System_Char: return "char";
+                        case SpecialType.System_Single: return "float";
+                        case SpecialType.System_Double: return "double";
+                        case SpecialType.System_String: return "String";
+                        case SpecialType.System_DateTime: return "CSharpDateTime";
+                        case SpecialType.System_Object: return "Object";
+                    }
+                    if (symbol is INamedTypeSymbol named)
+                    {
+                        return named.Name switch
+                        {
+                            "DateTimeOffset" => "CSharpDateTimeOffset",
+                            "TimeSpan" => "CSharpTimeSpan",
+                            "DateOnly" => "CSharpDateOnly",
+                            "TimeOnly" => "CSharpTimeOnly",
+                            _ => named.Arity > 0 ? named.Name : named.Name
+                        };
+                    }
+                    return symbol.Name;
+                }
+            }
+            catch (ArgumentException)
+            {
+                // Fall through to the syntax-based key.
+            }
+        }
+
+        return type switch
+        {
+            PredefinedTypeSyntax pts => pts.Keyword.Text switch
+            {
+                "byte" or "sbyte" or "short" or "ushort" or "int" or "uint" => "int",
+                "long" or "ulong" => "long",
+                _ => pts.Keyword.Text
+            },
+            QualifiedNameSyntax qn => JavaErasedTypeKey(qn.Right, semanticModel),
+            GenericNameSyntax gn => gn.Identifier.Text,
+            ArrayTypeSyntax at => JavaErasedTypeKey(at.ElementType, semanticModel) + "[]",
+            NullableTypeSyntax nt => JavaErasedTypeKey(nt.ElementType, semanticModel),
+            IdentifierNameSyntax id => id.Identifier.Text switch
+            {
+                "DateTime" => "CSharpDateTime",
+                "DateTimeOffset" => "CSharpDateTimeOffset",
+                "TimeSpan" => "CSharpTimeSpan",
+                "DateOnly" => "CSharpDateOnly",
+                "TimeOnly" => "CSharpTimeOnly",
+                _ => id.Identifier.Text
+            },
+            _ => type.ToString()
+        };
     }
 
     /// <summary>
@@ -1301,16 +1454,24 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             node = (BlockSyntax)base.VisitBlock(node)!;
 
             // Then hoist inline result.f++/-- occurrences (e.g. inside element-access
-            // indices) into temps at this block level.
+            // indices) into temps at this block level. Rebuild only when something
+            // actually changed: unconditional WithStatements would replace every block
+            // in the tree, recreating all ancestor struct nodes and breaking the
+            // analysisResults lookup for nested structs that still await migration.
             var newStatements = new List<StatementSyntax>();
+            var changed = false;
             foreach (var statement in node.Statements)
             {
                 var hoister = new InlineUnaryHoister(this);
                 var rewrittenStatement = (StatementSyntax)hoister.Visit(statement)!;
+                if (!ReferenceEquals(rewrittenStatement, statement) || hoister.Hoisted.Count > 0)
+                    changed = true;
                 newStatements.AddRange(hoister.Hoisted);
                 newStatements.Add(rewrittenStatement);
             }
-            return node.WithStatements(SyntaxFactory.List(newStatements));
+            return changed
+                ? node.WithStatements(SyntaxFactory.List(newStatements))
+                : node;
         }
 
         public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)

@@ -410,6 +410,7 @@ public class ClassTransformer : ITypeTransformer
         RemoveCompareToBridgeConflicts(javaClass);
         RemoveCloneBridgeConflicts(javaClass);
         RemoveConflictingNonGenericEnumeratorInterface(javaClass);
+        UpgradeNonGenericEnumeratorClass(javaClass, context);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, mergedType.TypeSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass, mergedType.TypeSymbol);
@@ -2538,6 +2539,25 @@ public class ClassTransformer : ITypeTransformer
     }
 
     /// <summary>
+    /// A C# class implementing the NON-generic IEnumerator maps to CSharpEnumerator.
+    /// Such instances are returned by iterator() methods that were upgraded to
+    /// CSharpGenericEnumerator&lt;Object&gt; (when the class or its base implements
+    /// IEnumerable), so the class must also implement the generic interface to be
+    /// assignable there. The class already provides moveNext()/getCurrent() and
+    /// inherits the hasNext()/next() defaults from CSharpGenericEnumerator.
+    /// </summary>
+    private static void UpgradeNonGenericEnumeratorClass(JavaClassDeclaration javaClass, ConversionContext context)
+    {
+        if (!javaClass.ImplementedTypes.Contains("CSharpEnumerator"))
+            return;
+        if (TryGetGenericEnumeratorElementType(javaClass) != null)
+            return; // already implements a typed enumerator interface
+
+        javaClass.ImplementedTypes.Add("CSharpGenericEnumerator<Object>");
+        context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+    }
+
+    /// <summary>
     /// Downgrades an iterator() method that returns CSharpGenericEnumerator&lt;T&gt; to the
     /// non-generic CSharpEnumerator return type and wraps the returned expression with
     /// CSharpEnumerator.from(...) so the value is compatible with the new return type.
@@ -2590,12 +2610,12 @@ public class ClassTransformer : ITypeTransformer
 
         if (iteratorMethod.Body != null)
         {
-            iteratorMethod.Body = iteratorMethod.Body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.from(");
+            iteratorMethod.Body = iteratorMethod.Body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.fromEnumerator(");
         }
         else if (iteratorMethod.StructuredBody != null)
         {
             string body = iteratorMethod.StructuredBody.ToBodyString();
-            body = body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.from(");
+            body = body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.fromEnumerator(");
             iteratorMethod.Body = body;
             iteratorMethod.StructuredBody = null;
         }

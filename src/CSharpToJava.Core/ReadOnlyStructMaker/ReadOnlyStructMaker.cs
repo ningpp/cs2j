@@ -26,6 +26,14 @@ public sealed class ReadOnlyStructMaker
         return cached;
     }
 
+    private static void AddQualifiedName(
+        Dictionary<string, HashSet<string>> qualifiedNames, string name, string qualifiedName)
+    {
+        if (!qualifiedNames.TryGetValue(name, out var set))
+            qualifiedNames[name] = set = new HashSet<string>(StringComparer.Ordinal);
+        set.Add(qualifiedName);
+    }
+
     /// <summary>单文件入口（用于测试）：分析单个文件中的 struct。</summary>
     public ReadOnlyStructMakerResult MakeReadOnly(
         SyntaxTree tree,
@@ -69,7 +77,7 @@ public sealed class ReadOnlyStructMaker
         }
 
         // Rewrite eligible structs
-        var rewriter = new ReadOnlyStructRewriter(analysisResults, options);
+        var rewriter = new ReadOnlyStructRewriter(analysisResults, options, semanticModel);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         // Update call sites for L5 migrated void methods
@@ -152,6 +160,7 @@ public sealed class ReadOnlyStructMaker
         if (options.UpdateCallSites)
         {
             var l5WithMethodStructs = new Dictionary<string, HashSet<string>>();
+            var l5QualifiedNames = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 
             foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.MethodMigrate))
             {
@@ -170,7 +179,10 @@ public sealed class ReadOnlyStructMaker
                     .ToHashSet();
 
                 if (withMethodProps.Count > 0)
+                {
                     l5WithMethodStructs[structName] = withMethodProps;
+                    AddQualifiedName(l5QualifiedNames, structName, AssignmentRewriter.GetQualifiedStructName(structSyntax));
+                }
             }
 
             if (l5WithMethodStructs.Count > 0)
@@ -180,7 +192,7 @@ public sealed class ReadOnlyStructMaker
                 // object-initializer rewriting.
                 var l5PropertyAccess = new HashSet<string>(l5WithMethodStructs.Keys, StringComparer.Ordinal);
                 var l5AssignmentRewriter = new AssignmentRewriter(l5WithMethodStructs, semanticModel,
-                    l5PropertyAccess, l5PropertyAccess);
+                    l5PropertyAccess, l5PropertyAccess, qualifiedNames: l5QualifiedNames);
                 l5AssignmentRewriter.BuildVariableTypeMap(root);
                 newRoot = (CompilationUnitSyntax)l5AssignmentRewriter.Visit(newRoot)!;
             }
@@ -191,6 +203,7 @@ public sealed class ReadOnlyStructMaker
         {
             var publicFieldStructs = new Dictionary<string, HashSet<string>>();
             var propertyAccessStructs = new HashSet<string>(); // L4 structs use property access for reads
+            var qualifiedNames = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 
             foreach (var (structSyntax, result) in analysisResults.Where(kv => kv.Value.Level == ConversionLevel.PublicFieldToProperty))
             {
@@ -204,12 +217,14 @@ public sealed class ReadOnlyStructMaker
                     .ToHashSet();
                 publicFieldStructs[structName] = nonPrivateFields;
                 propertyAccessStructs.Add(structName); // L4 structs: reads use property/field access
+                AddQualifiedName(qualifiedNames, structName, AssignmentRewriter.GetQualifiedStructName(structSyntax));
             }
 
             if (publicFieldStructs.Count > 0)
             {
                 var assignmentRewriter = new AssignmentRewriter(publicFieldStructs, semanticModel, propertyAccessStructs,
-                    new HashSet<string>(publicFieldStructs.Keys, StringComparer.Ordinal));
+                    new HashSet<string>(publicFieldStructs.Keys, StringComparer.Ordinal),
+                    qualifiedNames: qualifiedNames);
                 // Build variable type map from the ORIGINAL tree (before ReadOnlyStructRewriter modified it)
                 // This allows us to verify that field assignment receivers are actually target structs
                 assignmentRewriter.BuildVariableTypeMap(root);

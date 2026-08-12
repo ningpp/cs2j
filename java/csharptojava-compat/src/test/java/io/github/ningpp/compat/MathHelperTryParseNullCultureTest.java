@@ -12,14 +12,14 @@ class MathHelperTryParseNullCultureTest {
     @Test
     void tryParseUIntWithNullCultureIsUnambiguous() {
         IntHolder holder = new IntHolder();
-        boolean ok = MathHelper.tryParseUInt("123", NumberStyles.Integer, null, holder);
+        boolean ok = MathHelper.tryParseUInt("123", NumberStyles.Integer, (CultureInfo) null, holder);
         assertTrue(ok);
     }
 
     @Test
     void tryParseULongWithNullCultureIsUnambiguous() {
         LongHolder holder = new LongHolder();
-        boolean ok = MathHelper.tryParseULong("123", NumberStyles.Integer, null, holder);
+        boolean ok = MathHelper.tryParseULong("123", NumberStyles.Integer, (CultureInfo) null, holder);
         assertTrue(ok);
     }
 }

@@ -13,6 +13,21 @@ public interface CSharpGenericEnumerator<T> extends CSharpEnumerator, Iterator<T
     @Override
     T getCurrent();
 
+    /**
+     * Adapts a non-generic CSharpEnumerator into a CSharpGenericEnumerator&lt;T&gt;.
+     * Used when a GetEnumerator() implementation (returning System.Collections.IEnumerator
+     * in C#) is returned from an iterator() method whose Java return type was upgraded
+     * to CSharpGenericEnumerator&lt;Object&gt;. A CSharpEnumerator is NOT a java.util.Iterator,
+     * so the from(Iterator) overload cannot accept it.
+     */
+    @SuppressWarnings("unchecked")
+    static <T> CSharpGenericEnumerator<T> fromEnumerator(CSharpEnumerator enumerator) {
+        if (enumerator instanceof CSharpGenericEnumerator<?>) {
+            return (CSharpGenericEnumerator<T>) enumerator;
+        }
+        return new EnumeratorBackedCSharpEnumerator<T>(enumerator);
+    }
+
     /** Iterator bridge — hasNext() delegates to moveNext(). */
     @Override
     default boolean hasNext() {
@@ -94,6 +109,45 @@ public interface CSharpGenericEnumerator<T> extends CSharpEnumerator, Iterator<T
         @Override
         public void remove() {
             iterator.remove();
+        }
+    }
+
+    /**
+     * Wraps a non-generic CSharpEnumerator, delegating the .NET-style enumeration
+     * protocol (moveNext/getCurrent/reset) so the value satisfies the generic
+     * CSharpGenericEnumerator contract.
+     */
+    final class EnumeratorBackedCSharpEnumerator<T> implements CSharpGenericEnumerator<T> {
+        private final CSharpEnumerator enumerator;
+
+        EnumeratorBackedCSharpEnumerator(CSharpEnumerator enumerator) {
+            this.enumerator = enumerator;
+        }
+
+        @Override
+        public boolean moveNext() {
+            return enumerator.moveNext();
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public T getCurrent() {
+            return (T) enumerator.getCurrent();
+        }
+
+        @Override
+        public void reset() {
+            enumerator.reset();
+        }
+
+        @Override
+        public boolean hasNext() {
+            return moveNext();
+        }
+
+        @Override
+        public T next() {
+            return getCurrent();
         }
     }
 }
