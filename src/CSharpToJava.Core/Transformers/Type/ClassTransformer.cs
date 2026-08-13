@@ -1626,7 +1626,14 @@ public class ClassTransformer : ITypeTransformer
             if (thisArity == 0)
                 continue;
             var renamedName = $"{nestedClass.Name}_1tp";
+            var originalNestedName = nestedClass.Name;
             nestedClass.Name = renamedName;
+            // Java constructors must carry the class name — rename them in lockstep.
+            foreach (var ctor in nestedClass.Constructors)
+            {
+                if (ctor.ClassName == originalNestedName)
+                    ctor.ClassName = renamedName;
+            }
         }
     }
 
