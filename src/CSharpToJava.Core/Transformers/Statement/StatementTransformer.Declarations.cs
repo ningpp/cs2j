@@ -652,6 +652,46 @@ public partial class StatementTransformer
             }
         }
 
+        // Struct array default value fill: C# new UserStruct[n] zero-initializes every
+        // element (all fields default), but in Java the backing class array starts out
+        // null. The assignment path (TryGetStructArrayFillStatement) already fills for
+        // `x = new T[n]`; local declarations like `T[] x = new T[n]` need the same fill,
+        // otherwise reading a fresh element for the struct mutation write-back (e.g.
+        // `_attrStack[top] = _attrStack[top].set(...)`) throws NPE. Mirror the enum fill
+        // by appending the statement to the post code emitted right after the declaration.
+        if (stmt.Declaration.Variables.Count == 1 && context.SemanticModel != null)
+        {
+            var singleVarCheck = stmt.Declaration.Variables[0];
+            if (singleVarCheck.Initializer?.Value is ArrayCreationExpressionSyntax structArrCreation
+                && structArrCreation.Initializer == null
+                && structArrCreation.Type.RankSpecifiers.Count == 1)
+            {
+                var firstRank = structArrCreation.Type.RankSpecifiers[0];
+                if (firstRank.Sizes.Count == 1
+                    && !firstRank.Sizes[0].IsKind(SyntaxKind.OmittedArraySizeExpression))
+                {
+                    var structArrayType = context.GetTypeInfo(stmt.Declaration.Type).Type as IArrayTypeSymbol;
+                    if (structArrayType != null
+                        && StructCloneHelper.IsUserDefinedStruct(structArrayType.ElementType))
+                    {
+                        var structElementType = context.MapType(structArrayType.ElementType);
+                        if (!string.IsNullOrWhiteSpace(structElementType)
+                            && !structElementType.EndsWith("[]", StringComparison.Ordinal))
+                        {
+                            var varNameFill = context.MethodState.GetEffectiveLocalJavaName(
+                                context.GetDeclaredSymbol(singleVarCheck),
+                                ConversionContext.EscapeJavaKeyword(singleVarCheck.Identifier.Text));
+                            context.AddImport("java.util.Arrays");
+                            var structFillStmt = $"Arrays.setAll({varNameFill}, _i -> new {structElementType}());";
+                            localDeclPostCode = string.IsNullOrEmpty(localDeclPostCode)
+                                ? "\n" + structFillStmt
+                                : localDeclPostCode + "\n" + structFillStmt;
+                        }
+                    }
+                }
+            }
+        }
+
         // Produce structured JavaVariableDeclarationStatement for simple single-variable cases.
         // This enables downstream IR rewriters (e.g. ImplicitCastCompletionRewriter) to inspect
         // declared types and initializer types without string parsing.

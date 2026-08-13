@@ -606,3 +606,15 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **分析**: C# `Task.Factory.StartNew(...)` 中 `Task` 类型被映射为 `CompletableFuture`，静态属性 `Factory` 被转换为 `CompletableFuture.getFactory()`，但 `getFactory()` 只存在于 compat `io.github.ningpp.compat.Task` 类中；非 async 的 Task.Factory 用法应引用 compat Task 类。
 
 ✅ Fixed — mvn clean package -e BUILD SUCCESS
+
+## Iteration 10 — 结构体数组扩容读新槽 NPE（运行时，WriteToSvgSample 触发）
+- **Java 文件**: d:\agl-java-81319 运行 `WriteToSvgSample.Program` 报 `java.lang.NullPointerException ... "this._attrStack[top]" is null at dotnet.xml.XmlWellFormedWriter.addAttribute`（system-private-xml 依赖，SDK 转换产物）
+- **行号**: XmlWellFormedWriter.java:1748
+- **错误信息**: 扩容后 `_attrStack[top]`（`AttrName[] newStack = new AttrName[top * 2]` 的新槽）为 null
+- **对应 C# 文件**: D:\csharp-sdk\xml\src\System\Xml\Core\XmlWellFormedWriter.cs:2206-2212（`_attrStack[top].Set(...)` 结构体原地修改）
+- **根因分类**: Transformer（局部变量声明路径缺失结构体数组零值填充，与赋值路径 `TryGetStructArrayFillStatement` 不对称）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs
+- **分析**: C# `new UserStruct[n]` 零初始化元素；Java 类数组初始 null。`T[] x = new T[n]` 局部声明不触发 setAll 填充，扩容后立即读新槽做写回 → NPE。SvgGraphWriter 写节点属性超 8 个时命中。
+- **修复**: `TransformLocalDeclaration` 对用户自定义结构体数组的无初始化器创建追加 `Arrays.setAll(var, _i -> new T());`。
+- **测试**: `StructArray_LocalDeclaration_FillsElementsWithDefaultInstances`（先红后绿）
+- **状态**: ✅ Fixed (2026-08-13) — SDK/AGL 重新转换，两处 mvn BUILD SUCCESS，`WriteToSvgSample.Program` 运行成功输出 SVG；全量 dotnet test 3392 通过。

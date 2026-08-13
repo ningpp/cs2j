@@ -236,3 +236,26 @@
 - 修复涉及：`InvocationExpressionTransformer.cs`、`ArgumentTransformer.cs`、`ConstructorTransformer.cs`
 - 回归测试：新增 3 个（Red→Green）；全量 `dotnet test -c Release` 3391 通过（CSharpToJava 2693 + CSharpToTypeScript 691 + ProjectTests 7）
 - 最终验证：`mvn clean install -e` 在 `d:\cs-java-81319` **BUILD SUCCESS（EXIT=0）**，日志 `d:\cs-java-81319\mvn-build.log`
+
+---
+
+# 第三轮（运行期发现：结构体数组扩容未填充元素）
+
+## Iteration 1 — NPE：_attrStack[top] 为 null（XmlWellFormedWriter.addAttribute 扩容后读新槽）
+- **Java 文件**: `d:\cs-java-81319\system-private-xml\src\main\java\dotnet\xml\XmlWellFormedWriter.java:1748`；由 `d:\agl-java-81319` 的 WriteToSvgSample 运行触发（`: java.lang.NullPointerException: Cannot invoke "dotnet.xml.XmlWellFormedWriter$AttrName.set(String,String,String)" because "this._attrStack[top]" is null`）
+- **行号**: 1748（`_attrStack[top] = _attrStack[top].set(prefix, localName, namespaceName);`）
+- **错误信息**: NPE — 扩容后 `_attrStack[top]` 为 null
+- **代码片段**:
+  ```java
+  AttrName[] newStack = new AttrName[top * 2];
+  System.arraycopy(_attrStack, 0, newStack, 0, top);
+  _attrStack = newStack;
+  _attrStack[top] = _attrStack[top].set(prefix, localName, namespaceName);  // newStack[top] 是 null
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\xml\src\System\Xml\Core\XmlWellFormedWriter.cs:2206-2212`（`AttrName[] newStack = new AttrName[top * 2]; ... _attrStack[top].Set(...)`）
+- **根因分类**: Transformer（局部变量声明路径缺失结构体数组零值填充）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs`（`TransformLocalDeclaration`）
+- **分析**: C# `new UserStruct[n]` 零初始化每个元素；Java 中结构体转成的类数组初始全 null。赋值路径（`TryGetStructArrayFillStatement` → `Arrays.setAll`，见 `AssignmentTransformer.cs:1595`）已处理 `x = new T[n]`，但局部声明 `T[] x = new T[n]` 未填充；`addAttribute` 扩容后立刻读取新槽做结构体写回（`arr[i] = arr[i].set(...)`）→ NPE。首次 8 个槽由构造器填充所以 SDK 单测未暴露，超过 8 个属性/命名空间才触发（SvgGraphWriter 写节点属性时命中）。
+- **修复**: 在 `TransformLocalDeclaration` 增加与枚举数组填充（`Arrays.fill`）平行的结构体数组填充：单变量、无初始化器的 `new T[size]` 且元素为用户自定义结构体时，声明后追加 `Arrays.setAll(var, _i -> new T());`（复用 `StructCloneHelper.IsUserDefinedStruct` 判定，排除枚举/元组/基元类型）。
+- **回归测试**: `StructTransformerTests.StructArray_LocalDeclaration_FillsElementsWithDefaultInstances`（Red→Green 验证）
+- **状态**: ✅ Fixed（2026-08-13）— 全量 `dotnet test -c Release` **3392 通过**；SDK 重新转换 + `mvn clean install -e` BUILD SUCCESS；AGL 重新转换 + `mvn clean package -e` BUILD SUCCESS；`WriteToSvgSample.Program` 运行成功输出 SVG（NPE 消除，`XmlWellFormedWriter` 4 处扩容均生成 setAll 填充）

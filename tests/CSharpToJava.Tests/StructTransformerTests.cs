@@ -748,6 +748,42 @@ public class NamespaceTable
         Assert.DoesNotContain("entries[0].set", code[..code.IndexOf("Arrays.setAll", StringComparison.Ordinal)], StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void StructArray_LocalDeclaration_FillsElementsWithDefaultInstances()
+    {
+        var result = Convert(@"
+public class Writer
+{
+    private struct AttrName
+    {
+        public string Prefix;
+        public void Set(string prefix) { Prefix = prefix; }
+    }
+
+    private AttrName[] stack = new AttrName[8];
+
+    public void AddAttribute(string prefix)
+    {
+        int top = count++;
+        if (top == stack.Length)
+        {
+            AttrName[] newStack = new AttrName[top * 2];
+            System.Array.Copy(stack, newStack, top);
+            stack = newStack;
+        }
+        stack[top].Set(prefix);
+    }
+
+    private int count;
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        // The freshly-grown local array must be filled with default instances:
+        // reading newStack[top] for the in-place mutation write-back would NPE otherwise.
+        Assert.Contains("Arrays.setAll(newStack, _i -> new AttrName());", code, StringComparison.Ordinal);
+    }
+
     // ── Generic type parameter struct binding tests ──────────────────────────
 
     [Fact]
