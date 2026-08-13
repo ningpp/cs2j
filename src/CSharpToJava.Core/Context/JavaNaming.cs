@@ -18,6 +18,29 @@ public enum ErasureConflictKind
 /// </summary>
 public static class JavaNaming
 {
+    /// <summary>
+    /// Computes the synthesized backing-field name for an auto-property, escaping
+    /// Java keywords and disambiguating when a sibling property maps to the same
+    /// camelCased name (e.g. `age` vs `Age` both yield "age").
+    /// </summary>
+    public static string GetAutoPropertyBackingFieldName(IPropertySymbol prop)
+    {
+        var camelCase = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+        var fieldName = EscapeJavaKeyword(camelCase);
+
+        var containingType = prop.ContainingType;
+        if (containingType == null)
+            return fieldName;
+
+        bool collides = containingType.GetMembers().OfType<IPropertySymbol>().Any(p =>
+            !SymbolEqualityComparer.Default.Equals(p, prop)
+            && string.Equals(ToCamelCase(p.Name), ToCamelCase(prop.Name), StringComparison.Ordinal));
+        return collides ? fieldName + "Value" : fieldName;
+    }
+
+    private static string ToCamelCase(string name)
+        => name.Length > 0 ? char.ToLowerInvariant(name[0]) + name[1..] : name;
+
     public static bool IsJavaKeyword(string word)
     {
         return word switch

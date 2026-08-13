@@ -31,13 +31,15 @@ public class PropertyTransformer : IMemberTransformer
             ? context.MapType(typeInfo.Type)
             : context.MapTypeFromSyntax(propDecl.Type);
         var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
-        var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
+        var propertySymbol = context.GetDeclaredSymbol(propDecl) as IPropertySymbol;
+        var fieldName = propertySymbol != null
+            ? CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(propertySymbol)
+            : ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
         var isStatic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
         var modifiers = ConvertModifiers(propDecl.Modifiers, isStatic);
         var previousStaticContext = context.IsInStaticMember;
         if (isStatic)
             context.IsInStaticMember = true;
-        var propertySymbol = context.GetDeclaredSymbol(propDecl);
         var isExplicitInterfaceImplementation = propertySymbol is IPropertySymbol { ExplicitInterfaceImplementations.Length: > 0 };
         var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
 

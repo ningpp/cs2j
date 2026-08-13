@@ -38,8 +38,14 @@ public class RecordTransformer : ITypeTransformer
         }
 
         // 如果目标 Java 版本支持 record (Java 14+)，使用 record
+        // Records with additional properties/fields cannot be Java records —
+        // Java record components are the only instance fields allowed. Fall back
+        // to the immutable-class shape so the extra members keep instance state.
+        bool hasExtraInstanceMembers = recordDecl.Members.Any(m =>
+            m is PropertyDeclarationSyntax or FieldDeclarationSyntax);
         var useRecord = context.Options.UseRecords &&
-                       context.Options.TargetJavaVersion >= JavaVersion.Java25;
+                       context.Options.TargetJavaVersion >= JavaVersion.Java25 &&
+                       !hasExtraInstanceMembers;
 
         if (useRecord)
         {
