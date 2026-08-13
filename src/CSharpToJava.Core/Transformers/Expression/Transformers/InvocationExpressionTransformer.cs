@@ -5039,8 +5039,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // System.Runtime.InteropServices.MemoryMarshal.Read<T>(ReadOnlySpan<byte>):
+        // the compat library exposes read(ReadOnlySpan<Integer>) for int and
+        // read(ReadOnlySpan<Integer>, Class<T>) for struct targets. Non-primitive
+        // type arguments must pass their Class so the struct overload is selected.
+        if (originalMethodName == "Read"
+            && methodSymbol?.ContainingType.ToDisplayString() == "System.Runtime.InteropServices.MemoryMarshal"
+            && methodSymbol.TypeArguments.Length == 1
+            && node.ArgumentList.Arguments.Count >= 1)
+        {
+            var mmReadType = methodSymbol.TypeArguments[0];
+            if (mmReadType.SpecialType
+                is not (SpecialType.System_Int32 or SpecialType.System_Int64
+                    or SpecialType.System_UInt32 or SpecialType.System_UInt64))
+            {
+                var mmSpanArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var mmReadJavaType = context.MapType(mmReadType);
+                context.AddImport("io.github.ningpp.compat.MemoryMarshal");
+                return $"MemoryMarshal.read({mmSpanArg}, {mmReadJavaType}.class)";
+            }
+        }
+
         // AsQueryable/AsEnumerable → identity transform: strip the wrapper and return the receiver.
-        // In Java, IEnumerable<T> and IQueryable<T> both map to Stream/collection operations;
         // subsequent LINQ calls on the result are handled identically via the same Stream API path.
         // Use name-based detection as a fallback when System.Linq.Queryable.dll is not fully
         // resolved by Roslyn (e.g. when methodSymbol is null due to missing assembly reference).

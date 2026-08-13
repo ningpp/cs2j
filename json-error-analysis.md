@@ -480,6 +480,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 13 - 不兼容的类型 (MemoryMarshal.Read<T> 结构体目标未附加 Class 实参)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
+- **行号**: 1867（另见 1878、1996；JsonElement.java 264/297 为 tryGetValue 另一问题）
+- **错误信息**: `不兼容的类型: int无法转换为dotnet.text.json.JsonDocument.DbRow`
+- **代码片段**:
+  ```java
+  DbRow row = MemoryMarshal.read(new ReadOnlySpan<>(data.slice(i)));  // 匹配到 int 重载 read(ReadOnlySpan<Integer>)
+  // 应为 MemoryMarshal.read(new ReadOnlySpan<>(data.slice(i)), DbRow.class)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Document\JsonDocument.MetadataDb.cs（`MemoryMarshal.Read<DbRow>(data.Slice(i))`、`MemoryMarshal.Read<DbRow>(_data.AsSpan(index))`；`Read<int>/<uint>/<long>` 走 int/long 重载）
+- **根因分类**: Transformer（MemoryMarshal.Read 泛型结构体目标缺少 Class 参数）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（无 MemoryMarshal 特例，走通用静态路径）
+- **分析**: compat MemoryMarshal 有 `read(ReadOnlySpan<Integer>)`（int）与 `read(ReadOnlySpan<Integer>, Class<T>)`（结构体）两个重载。转换器把 `Read<T>` 一律生成 `MemoryMarshal.read(span)`，T=DbRow 时匹配到 int 重载 → 类型错误。修复：MemoryMarshal.Read 特例——T 为非 int/long 等基本类型时附加 `, T.class` 实参。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756
