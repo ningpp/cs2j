@@ -45,6 +45,14 @@ public class ImmutableSortedSet<T> implements IImmutableSet<T> {
         return items.iterator();
     }
 
+    public java.util.stream.Stream<T> stream() {
+        return items.stream();
+    }
+
+    public java.util.Spliterator<T> spliterator() {
+        return items.spliterator();
+    }
+
     @Override
     public String toString() {
         return items.toString();

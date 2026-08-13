@@ -27,6 +27,14 @@ public class ImmutableSortedDictionary<K, V> implements IImmutableDictionary<K, 
         return new ImmutableSortedDictionary<>(map);
     }
 
+    public static <K, V> ImmutableSortedDictionary<K, V> createRange(CSharpGenericIDictionary<K, V> source) {
+        TreeMap<K, V> map = new TreeMap<>();
+        for (Map.Entry<K, V> entry : source.entrySet()) {
+            map.put(entry.getKey(), entry.getValue());
+        }
+        return new ImmutableSortedDictionary<>(map);
+    }
+
     public int size() {
         return items.size();
     }

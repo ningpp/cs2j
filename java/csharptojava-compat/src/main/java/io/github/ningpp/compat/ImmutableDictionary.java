@@ -35,6 +35,14 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
         return new ImmutableDictionary<>(map);
     }
 
+    public static <K, V> ImmutableDictionary<K, V> createRange(CSharpGenericIDictionary<K, V> source) {
+        Map<K, V> map = new LinkedHashMap<>();
+        for (Map.Entry<K, V> entry : source.entrySet()) {
+            map.put(entry.getKey(), entry.getValue());
+        }
+        return new ImmutableDictionary<>(map);
+    }
+
     public int size() {
         return items.size();
     }

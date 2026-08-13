@@ -1171,9 +1171,9 @@
         },
         {
             "csharp": "System.Collections.Concurrent.ConcurrentStack`1",
-            "java": "ConcurrentLinkedDeque",
+            "java": "ConcurrentStack",
             "imports": [
-                "java.util.concurrent.ConcurrentLinkedDeque"
+                "io.github.ningpp.compat.ConcurrentStack"
             ]
         },
         {
@@ -1185,9 +1185,9 @@
         },
         {
             "csharp": "System.Collections.Concurrent.BlockingCollection`1",
-            "java": "BlockingQueue",
+            "java": "BlockingCollection",
             "imports": [
-                "java.util.concurrent.BlockingQueue"
+                "io.github.ningpp.compat.BlockingCollection"
             ]
         },
         {

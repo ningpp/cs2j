@@ -53,6 +53,14 @@ public class ImmutableHashSet<T> implements IImmutableSet<T> {
         return new LinkedHashSet<>(items);
     }
 
+    public java.util.stream.Stream<T> stream() {
+        return items.stream();
+    }
+
+    public java.util.Spliterator<T> spliterator() {
+        return items.spliterator();
+    }
+
     @Override
     public java.util.Iterator<T> iterator() {
         return items.iterator();

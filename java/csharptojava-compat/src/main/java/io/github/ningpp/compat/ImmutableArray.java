@@ -8,7 +8,7 @@ import java.util.List;
  * Compat for System.Collections.Immutable.ImmutableArray&lt;T&gt; — minimal
  * immutable array wrapper used by the converted tests.
  */
-public final class ImmutableArray<T> {
+public final class ImmutableArray<T> implements Iterable<T> {
     private final List<T> items;
     private final boolean isDefault;
 
@@ -64,6 +64,19 @@ public final class ImmutableArray<T> {
 
     public List<T> toList() {
         return new ArrayList<>(items);
+    }
+
+    @Override
+    public java.util.Iterator<T> iterator() {
+        return items.iterator();
+    }
+
+    public java.util.stream.Stream<T> stream() {
+        return items.stream();
+    }
+
+    public java.util.Spliterator<T> spliterator() {
+        return items.spliterator();
     }
 
     @Override

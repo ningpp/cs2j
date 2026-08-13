@@ -72,6 +72,7 @@ public partial class StatementTransformer
         bool hasNullEmittingInitializer = stmt.Declaration.Variables.Any(v =>
             v.Initializer?.Value is { } initValue && InitializerEmitsNull(initValue, context));
         if (!hasNullEmittingInitializer
+            && !javaType.EndsWith("[]", StringComparison.Ordinal)
             && (javaType is "Iterable" or "CSharpGenericIterable" or "CSharpICollection" or "CSharpGenericIList"
                   or "CSharpReadOnlyCollection" or "CSharpReadOnlyList"
                 || javaType.StartsWith("Iterable<") || javaType.StartsWith("CSharpGenericIterable<")

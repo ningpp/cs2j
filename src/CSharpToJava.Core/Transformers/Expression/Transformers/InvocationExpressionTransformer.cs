@@ -4628,7 +4628,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // The converted JsonSerializer signature leads with the runtime Class
                 // (deserialize(Class<TValue>, String)), so the class comes first.
                 var deserializeClassLiteral = ConversionContext.GetClassLiteral(deserializeTargetType, context);
-                return $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg})";
+                var deserializeCall = $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg})";
+                // Java cannot infer the return type from a Class literal, so every call
+                // resolves to Object. Cast to the mapped target type so `var` declarations
+                // and direct uses keep the generic element type (e.g. foreach over
+                // CSharpGenericIterable<CSharpGenericIterable<Integer>>).
+                var mappedReturnType = context.MapType(deserializeTargetType);
+                if (!string.IsNullOrWhiteSpace(mappedReturnType)
+                    && mappedReturnType != "Object"
+                    && !deserializeCall.StartsWith("(", StringComparison.Ordinal))
+                {
+                    return $"({mappedReturnType}) {deserializeCall}";
+                }
+                return deserializeCall;
             }
         }
 
@@ -5513,7 +5525,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && arr.ElementType.SpecialType is not SpecialType.System_Object;
                 if (isPrimitiveArraySource)
                 {
-                    return $"{receiver}.boxed().collect(Collectors.toSet()).contains({valArg})";
+                    // receiver is a primitive array (e.g. int[]), not a stream —
+                    // wrap in Arrays.stream(...) before boxed()/collect().
+                    context.AddImport("java.util.Arrays");
+                    return $"Arrays.stream({receiver}).boxed().collect(Collectors.toSet()).contains({valArg})";
                 }
                 // Inside loops, use collect+contains to avoid effectively-final capture issues
                 bool insideLoop = node.Ancestors().Any(a => a is ForStatementSyntax

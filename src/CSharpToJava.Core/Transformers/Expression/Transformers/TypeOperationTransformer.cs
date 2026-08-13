@@ -755,6 +755,24 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return expression;
         }
 
+        // Generic-interface reference casts between unrelated generic types
+        // (e.g. (ISet<string>)(ISet<int>)): C# has no such conversion (the source
+        // test code is itself erroneous), and the mapped Java interfaces are disjoint
+        // generic types, so a direct cast is a compile error. Hop through Object —
+        // the unchecked cast compiles and mirrors the C# reference-cast semantics.
+        if (context.SemanticModel != null
+            && targetSymbol is INamedTypeSymbol castTargetNamed
+            && castTargetNamed.TypeArguments.Length > 0
+            && context.GetTypeInfo(node.Expression).Type is INamedTypeSymbol castSourceNamed
+            && castSourceNamed.TypeArguments.Length > 0)
+        {
+            var castConversion = context.SemanticModel.ClassifyConversion(node.Expression, targetSymbol);
+            if (!castConversion.IsImplicit && !castConversion.IsIdentity && !castConversion.IsUserDefined)
+            {
+                return $"({targetType}) (Object) ({expression})";
+            }
+        }
+
         return $"({targetType})({expression})";
     }
 
@@ -1445,6 +1463,17 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
                 return $"TypeHelper.toWrapperType({runtimeClassParam})";
             return $"TypeHelper.toWrapperType({ConversionContext.GetClassLiteral(typeParam, context)})";
+        }
+
+        // C# typeof(T[]) where T is a type parameter: Java forbids T[].class literals.
+        // Materialize a zero-length array reflectively and take its class.
+        if (typeInfo.Type is IArrayTypeSymbol { Rank: 1, ElementType: ITypeParameterSymbol arrayElemParam } arrayTpType)
+        {
+            context.AddImport("java.lang.reflect.Array");
+            var arrayElemClass = context.TryGetRuntimeClassParameter(arrayElemParam.Name, out var arrayRcp)
+                ? arrayRcp
+                : "Object.class";
+            return $"(({context.MapType(arrayTpType)}) Array.newInstance({arrayElemClass}, 0)).getClass()";
         }
         return $"{ToRuntimeTypeForClassLiteral(typeName)}.class";
     }

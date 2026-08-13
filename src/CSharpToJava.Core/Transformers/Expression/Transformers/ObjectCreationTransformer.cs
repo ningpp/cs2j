@@ -2495,6 +2495,22 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         // Default: List-like
+        // Framework collection types (System.Collections.*) expose a compat Iterable
+        // constructor, so a single constructor call is fine. User-defined collection
+        // types (e.g. a test class implementing IList<T>) only have Add — C# collection
+        // initializers mean `new T(); Add(item)...`, so emit those via pre-statements.
+        var containingNs = namedCreatedType?.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+        bool isFrameworkCollectionType = containingNs.StartsWith("System.Collections", StringComparison.Ordinal);
+        if (!isFrameworkCollectionType)
+        {
+            string tmpVar = context.GenerateSyntheticName("_obj");
+            context.AddPreStatement($"var {tmpVar} = new {typeName}();");
+            foreach (var item in items)
+            {
+                context.AddPreStatement($"{tmpVar}.add({item});");
+            }
+            return tmpVar;
+        }
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
         return $"new {typeName}(ArrayHelper.toList({itemsStr}))";
     }

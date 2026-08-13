@@ -92,6 +92,22 @@ public class CSharpQueue<T> implements CSharpGenericIterable<T>, Cloneable {
         return queue.peekFirst();
     }
 
+    public boolean tryPeek(ObjectHolder<T> outResult) {
+        if (queue.isEmpty()) {
+            return false;
+        }
+        outResult.value = queue.peekFirst();
+        return true;
+    }
+
+    public boolean tryDequeue(ObjectHolder<T> outResult) {
+        if (queue.isEmpty()) {
+            return false;
+        }
+        outResult.value = queue.removeFirst();
+        return true;
+    }
+
     public int getCount() {
         return queue.size();
     }
