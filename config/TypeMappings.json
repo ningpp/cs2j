@@ -4603,9 +4603,9 @@
         },
         {
             "csharp": "System.Collections.ObjectModel.ObservableCollection`1",
-            "java": "ObservableList",
+            "java": "ObservableCollection",
             "imports": [
-                "javafx.collections.ObservableList"
+                "io.github.ningpp.compat.ObservableCollection"
             ]
         },
         {

@@ -2904,7 +2904,10 @@ public class ClassTransformer : ITypeTransformer
         context.AddImport("io.github.ningpp.compat.CSharpKeyValuePair");
 
         // 3. containsKey(Object) overload delegating to the C#-typed containsKey(K).
-        if (!javaClass.Methods.Any(m => m.Name == "containsKey" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
+        // Skip when the key type erases to Object (unbounded type parameter) — the
+        // bridge would collide with the C#-typed overload after erasure.
+        if (keyType != "Object"
+            && !javaClass.Methods.Any(m => m.Name == "containsKey" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
             && javaClass.Methods.Any(m => m.Name == "containsKey" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
         {
             javaClass.Methods.Add(new JavaMethodDeclaration
@@ -2918,7 +2921,8 @@ public class ClassTransformer : ITypeTransformer
         }
 
         // 4. get(Object) overload delegating to the C#-typed get(K).
-        if (!javaClass.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
+        if (keyType != "Object"
+            && !javaClass.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
             && javaClass.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
         {
             javaClass.Methods.Add(new JavaMethodDeclaration

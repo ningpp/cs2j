@@ -32,9 +32,14 @@ public static class JavaNaming
         if (containingType == null)
             return fieldName;
 
+        // The FIRST-declared property keeps the plain camelCased name; later siblings
+        // with the same camelCase get a Value suffix (consistent at declaration and
+        // assignment sites).
+        var thisStart = prop.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? int.MaxValue;
         bool collides = containingType.GetMembers().OfType<IPropertySymbol>().Any(p =>
             !SymbolEqualityComparer.Default.Equals(p, prop)
-            && string.Equals(ToCamelCase(p.Name), ToCamelCase(prop.Name), StringComparison.Ordinal));
+            && string.Equals(ToCamelCase(p.Name), ToCamelCase(prop.Name), StringComparison.Ordinal)
+            && (p.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? int.MaxValue) < thisStart);
         return collides ? fieldName + "Value" : fieldName;
     }
 
