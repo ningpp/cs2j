@@ -3696,6 +3696,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Late fallback: receivers assembled later from the raw C# namespace (e.g.
+        // System.Collections.Immutable.ImmutableDictionary for static factories that
+        // failed semantic resolution) — remap through the configured mappings.
+        if (methodName == originalMethodName
+            && receiver.StartsWith("System.", StringComparison.Ordinal)
+            && receiver.Contains('.', StringComparison.Ordinal))
+        {
+            receiver = RemapConfiguredStaticReceiver(receiver, context);
+        }
+
         // Track whether Convert.ToString had its IFormatProvider argument stripped early,
         // so the later parseStripCount logic doesn't double-strip.
         bool toStringFormatProviderStripped = false;
