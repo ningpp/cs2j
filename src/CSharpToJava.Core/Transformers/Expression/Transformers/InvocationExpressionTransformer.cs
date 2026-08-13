@@ -4887,7 +4887,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (methodSymbol.TypeArguments.Length == 1)
             {
                 var toJavaType = context.MapType(methodSymbol.TypeArguments[0]);
-                return $"({toJavaType})(Object){innerExpr}";
+                // Parenthesize the cast expression so member access chained by the
+                // caller binds to the cast result, not to Unsafe.as(...) itself:
+                // ((FieldInfo)(Object)Unsafe.as(m)).getFieldType()
+                return $"(({toJavaType})(Object){innerExpr})";
             }
 
             if (methodSymbol.TypeArguments.Length != 2)
@@ -4939,10 +4942,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.ArrayPool");
                 var poolArgsStr = string.Join(", ", node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
-                if (poolArgs[0].SpecialType == SpecialType.System_Char)
+                // Primitive elements cannot be Java generic type arguments, and rentShared()
+                // infers T=Object for them (Object[] is inconvertible to e.g. int[]), so route
+                // primitive pools to the shared primitive-array helpers. C# byte[] stays Java
+                // byte[] (TypeMappingService keeps byte arrays as Java byte[]), so ArrayPool<byte>
+                // must use the byte[] helpers even though System.Byte maps to int.
+                if (poolArgs[0].SpecialType is SpecialType.System_Char
+                    or SpecialType.System_Byte
+                    or SpecialType.System_SByte)
                 {
-                    var charMethod = originalMethodName == "Rent" ? "rentSharedCharArray" : "returnSharedCharArray";
-                    return $"ArrayPool.{charMethod}({poolArgsStr})";
+                    var helperMethod = poolArgs[0].SpecialType == SpecialType.System_Char
+                        ? (originalMethodName == "Rent" ? "rentSharedCharArray" : "returnSharedCharArray")
+                        : (originalMethodName == "Rent" ? "rentSharedByteArray" : "returnSharedByteArray");
+                    return $"ArrayPool.{helperMethod}({poolArgsStr})";
                 }
                 var javaElem = context.MapType(poolArgs[0]);
                 if (originalMethodName == "Rent")

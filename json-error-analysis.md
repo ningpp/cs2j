@@ -409,3 +409,22 @@
 - **测试**: tests/CSharpToJava.Tests/UnsafeAsSingleTypeArgTests.cs（RED→GREEN）
 
 - **状态**: ✅ Fixed
+
+## Iteration 8 - 不兼容的类型 / 显式类型参数无效 (ArrayPool<byte> 生成 int 类型见证与 int[] 强转)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Utf8JsonReader.java
+- **行号**: 613（另见 640；Utf8JsonWriter.java 538/544/920/926；JsonDocument.java 多处）
+- **错误信息**:
+  - `[613,58] 不兼容的类型: java.lang.Object[]无法转换为int[]`
+  - `[640,18] 无法将 ArrayPool<T> 显式类型参数int不符合声明的范围java.lang.Object 中的方法 getShared 应用于给定类型`
+- **代码片段**:
+  ```java
+  byte[] otherUtf8TextArray = null;
+  ...
+  otherUtf8TextArray = (int[]) ArrayPool.rentShared(int.class, length);   // rentShared 推断 T=Object → Object[] → int[] 不可强转
+  ...
+  ArrayPool.<int>getShared().returnValue(otherUtf8TextArray);            // int 不能作为泛型类型实参
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Reader\Utf8JsonReader.cs（`ArrayPool<byte>.Shared.Rent(length)` / `Return(array)`，全库 108 处 byte 池 + 40 处 char 池）
+- **根因分类**: Transformer（ArrayPool 特殊分支只处理 char，未处理 byte/sbyte）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（ArrayPool Rent/Return 分支，第 4936 行）
+- **分析**: `System.Byte` 类型映射为 Java `int`，但 `byte[]` 特意保留 Java `byte[]`（TypeMappingService.cs:496 注释 "C# byte[] stays Java byte[] for API compatibility"）。ArrayPool 分支仅对 char 路由到 `rentSharedCharArray`，byte 池走通用路径：`rentShared(int.class, ...)` 的 T 从调用点推断失败回退 Object → 返回 Object[]，强转 `(int[])` 属不可转换；`ArrayPool.<int>getShared()` 中 int 不是合法类型实参。修复：仿 char，将 byte/sbyte 路由到 compat 已有的 `rentSharedByteArray`/`returnSharedByteArray`（含 clearArray 重载）。
