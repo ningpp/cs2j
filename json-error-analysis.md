@@ -718,6 +718,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 28 - 已在类中定义了类 (嵌套类型同名不同泛型元数冲突)
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/CustomConverterTests.java
+- **行号**: 3916
+- **错误信息**: `已在类 dotnet.text.json.Serialization.Tests.CustomConverterTests中定义了类 ... ListConverter`（`ListConverter : JsonConverterFactory` 与 `ListConverter<T> : JsonConverter<List<T>>` 同名）
+- **代码片段**:
+  ```java
+  private static class ListConverter extends ...JsonConverterFactory { ... }
+  private static class ListConverter<T> extends JsonConverter1<CSharpList<T>> { ... }  // 重名
+  ```
+- **对应 C# 文件**: d:\csharpjson\tests\Serialization\CustomConverterTests\CustomConverterTests.List.cs（`private class ListConverter : JsonConverterFactory` 与 `private class ListConverter<T> : JsonConverter<List<T>>`）
+- **根因分类**: Transformer（嵌套类型无同名/元数冲突重命名）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs（RenameConflictingNestedTypes / PreRegisterNestedTypeArityRenames）；src/CSharpToJava.Core/Context/TypeMappingService.cs（TryMapNestedType 覆盖查询）
+- **分析**: Java 类名不按泛型元数重载，两个同名嵌套类型（一个泛型一个非泛型）必然冲突。方法级已有 erasure 冲突后缀机制，类级缺失。修复：成员处理前预扫描语法（PreRegisterNestedTypeArityRenames 按符号注册 `_1tp` 重命名，保证方法体引用一致），处理后在 IR 层重命名嵌套类声明（RenameConflictingNestedTypes）；TryMapNestedType 查询覆盖名（含构造类型按 OriginalDefinition 回退）并保留泛型实参。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

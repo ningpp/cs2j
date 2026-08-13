@@ -308,6 +308,11 @@ public class ClassTransformer : ITypeTransformer
         // For nested partial types (inner types split across files), we need special handling:
         // - First occurrence is processed normally via ProcessMember → creates Java nested type
         // - Subsequent occurrences have their members added to the already-created nested type
+        foreach (var originalNode in mergedType.OriginalSyntaxNodes)
+        {
+            PreRegisterNestedTypeArityRenames(originalNode, mergedType.TypeSymbol, context);
+        }
+
         // We track partial nested types by their semantic symbol key.
         var nestedPartialTypeJavaClasses = new Dictionary<string, JavaClassDeclaration>();
         var seenMemberKeys = new HashSet<string>();
@@ -391,6 +396,11 @@ public class ClassTransformer : ITypeTransformer
 
         UpgradeIteratorReturnTypeForGenericIterable(javaClass, mergedType.TypeSymbol, context);
         ResolveExplicitInterfacePropertyConflicts(javaClass);
+
+        // Nested types with the same simple name but different generic arity collide in
+        // Java (no per-arity class names). Rename the generic one and register the
+        // override so reference sites resolve to the renamed name.
+        RenameConflictingNestedTypes(javaClass, mergedType.TypeSymbol, context);
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, mergedType.TypeSymbol, context);
         AddDefaultFactoryMethods(javaClass, mergedType.TypeSymbol, context);
@@ -795,6 +805,10 @@ public class ClassTransformer : ITypeTransformer
             }
         }
 
+        // Pre-register nested-type name/arity collision renames BEFORE members are
+        // processed so method-body references resolve to the renamed name.
+        PreRegisterNestedTypeArityRenames(classDecl, classSymbol, context);
+
         // 处理成员
         foreach (var member in classDecl.Members)
         {
@@ -803,6 +817,8 @@ public class ClassTransformer : ITypeTransformer
 
         UpgradeIteratorReturnTypeForGenericIterable(javaClass, classSymbol, context);
         ResolveExplicitInterfacePropertyConflicts(javaClass);
+
+        RenameConflictingNestedTypes(javaClass, classSymbol, context);
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, classSymbol, context);
         AddDefaultFactoryMethods(javaClass, classSymbol, context);
@@ -1574,6 +1590,78 @@ public class ClassTransformer : ITypeTransformer
         javaClass.Annotations.Add(annotation);
         context.AddImport("org.junit.jupiter.api.extension.ExtendWith");
         context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.MSTestExtension");
+    }
+
+    /// <summary>
+    /// Nested types with the same simple name but different generic arity cannot both
+    /// exist in Java (classes do not overload on arity). The generic one is renamed with
+    /// an arity suffix and the rename is registered for reference-site resolution.
+    /// </summary>
+    private static void RenameConflictingNestedTypes(
+        JavaClassDeclaration javaClass,
+        INamedTypeSymbol? enclosingTypeSymbol,
+        ConversionContext context)
+    {
+        if (enclosingTypeSymbol == null || javaClass.NestedTypes.Count < 2)
+            return;
+
+        var seenNames = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var nested in javaClass.NestedTypes)
+        {
+            if (nested is not JavaClassDeclaration nestedClass)
+                continue;
+
+            if (!seenNames.TryGetValue(nestedClass.Name, out var existingArity))
+            {
+                seenNames[nestedClass.Name] = nestedClass.TypeParameters.Count;
+                continue;
+            }
+
+            var thisArity = nestedClass.TypeParameters.Count;
+            if (existingArity == thisArity)
+                continue;
+
+            // Keep the non-generic name; rename the generic sibling with an arity suffix.
+            if (thisArity == 0)
+                continue;
+            var renamedName = $"{nestedClass.Name}_1tp";
+            nestedClass.Name = renamedName;
+        }
+    }
+
+    /// <summary>
+    /// Scans the nested type declarations of a class and pre-registers renames for
+    /// siblings sharing a name with different generic arity, BEFORE member bodies are
+    /// transformed so references resolve to the renamed name.
+    /// </summary>
+    private static void PreRegisterNestedTypeArityRenames(
+        TypeDeclarationSyntax classDecl,
+        INamedTypeSymbol? classSymbol,
+        ConversionContext context)
+    {
+        if (classSymbol == null)
+            return;
+
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var member in classDecl.Members.OfType<TypeDeclarationSyntax>())
+        {
+            var name = member.Identifier.Text;
+            var arity = member.TypeParameterList?.Parameters.Count ?? 0;
+            if (!seen.TryGetValue(name, out var existingArity))
+            {
+                seen[name] = arity;
+                continue;
+            }
+            if (existingArity == arity || arity == 0)
+                continue;
+
+            var renamedName = $"{name}_1tp";
+            var matchingSymbol = classSymbol.GetTypeMembers(name)
+                .FirstOrDefault(t => t.TypeParameters.Length == arity);
+            if (matchingSymbol != null)
+                context.NestedTypeNameOverrides[matchingSymbol.ToDisplayString()] = renamedName;
+        }
     }
 
     /// <summary>

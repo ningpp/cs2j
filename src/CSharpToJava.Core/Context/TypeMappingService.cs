@@ -144,32 +144,35 @@ public class TypeMappingService
     private readonly Dictionary<string, string> _explicitValueEnumValueTypes = new(StringComparer.Ordinal);
 
     private readonly Func<string, ITypeSymbol?> _resolveAlias;
+    private readonly Func<string, string?> _getNestedTypeNameOverride;
 
     public TypeMappingService(
-        ConversionOptions options,
-        TypeMapping.TypeMappingRegistry typeMappings,
-        DiagnosticCollector diagnostics,
-        HashSet<string> importedTypes,
-        Func<string> getCurrentNamespace,
-        Func<INamespaceSymbol?> getGlobalNamespace,
-        Func<string, bool> tryGetSynthesizedRecordMatch,
-        Func<INamedTypeSymbol, string?>? getAssemblyScopedTypeName = null,
-        Func<string, ITypeSymbol?>? resolveAlias = null,
-        Func<INamedTypeSymbol?>? getCurrentEnclosingType = null,
-        Func<string, bool>? isUsingAlias = null)
-    {
-        _options = options;
-        _typeMappings = typeMappings;
-        _diagnostics = diagnostics;
-        _importedTypes = importedTypes;
-        _resolveAlias = resolveAlias ?? (_ => null);
-        _getCurrentNamespace = getCurrentNamespace;
-        _getGlobalNamespace = getGlobalNamespace;
-        _tryGetSynthesizedRecordMatch = tryGetSynthesizedRecordMatch;
-        _getAssemblyScopedTypeName = getAssemblyScopedTypeName ?? (_ => null);
-        _getCurrentEnclosingType = getCurrentEnclosingType ?? (() => null);
-        _isUsingAlias = isUsingAlias ?? (_ => false);
-    }
+          ConversionOptions options,
+          TypeMapping.TypeMappingRegistry typeMappings,
+          DiagnosticCollector diagnostics,
+          HashSet<string> importedTypes,
+          Func<string> getCurrentNamespace,
+          Func<INamespaceSymbol?> getGlobalNamespace,
+          Func<string, bool> tryGetSynthesizedRecordMatch,
+          Func<INamedTypeSymbol, string?>? getAssemblyScopedTypeName = null,
+          Func<string, ITypeSymbol?>? resolveAlias = null,
+          Func<INamedTypeSymbol?>? getCurrentEnclosingType = null,
+          Func<string, bool>? isUsingAlias = null,
+          Func<string, string?>? getNestedTypeNameOverride = null)
+      {
+          _options = options;
+          _typeMappings = typeMappings;
+          _diagnostics = diagnostics;
+          _importedTypes = importedTypes;
+          _resolveAlias = resolveAlias ?? (_ => null);
+          _getCurrentNamespace = getCurrentNamespace;
+          _getGlobalNamespace = getGlobalNamespace;
+          _tryGetSynthesizedRecordMatch = tryGetSynthesizedRecordMatch;
+          _getAssemblyScopedTypeName = getAssemblyScopedTypeName ?? (_ => null);
+          _getCurrentEnclosingType = getCurrentEnclosingType ?? (() => null);
+          _isUsingAlias = isUsingAlias ?? (_ => false);
+          _getNestedTypeNameOverride = getNestedTypeNameOverride ?? (_ => null);
+      }
 
     public void RegisterFlagsEnum(string enumName) => RegisterFlagsEnum(enumName, "int");
     public void RegisterFlagsEnum(string enumName, string valueType)
@@ -827,6 +830,26 @@ public class TypeMappingService
         string name,
         TypeReferenceContext referenceContext)
     {
+        // Nested types renamed for sibling name/arity collisions (Java cannot have
+        // two nested classes with the same name) must resolve to the renamed name
+        // at every reference site. The override is keyed by the definition symbol's
+        // display string; references may be constructed types (ListConverter<int>),
+        // so fall back to the OriginalDefinition display string.
+        var nestedOverride = _getNestedTypeNameOverride(typeSymbol.ToDisplayString());
+        if (string.IsNullOrEmpty(nestedOverride)
+            && typeSymbol is INamedTypeSymbol nestedConstructed
+            && !SymbolEqualityComparer.Default.Equals(nestedConstructed, nestedConstructed.OriginalDefinition))
+        {
+            nestedOverride = _getNestedTypeNameOverride(nestedConstructed.OriginalDefinition.ToDisplayString());
+        }
+        if (!string.IsNullOrEmpty(nestedOverride))
+        {
+            if (typeSymbol is INamedTypeSymbol namedOverridden && namedOverridden.TypeArguments.Length > 0)
+            {
+                return nestedOverride + "<" + string.Join(", ", namedOverridden.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext))) + ">";
+            }
+            return nestedOverride;
+        }
         // [Flags] enums are mapped to their underlying value type (int/long),
         // not to a nested class reference. Check before constructing the
         // "OuterType.InnerType" string which would produce invalid Java

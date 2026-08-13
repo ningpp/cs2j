@@ -137,6 +137,14 @@ public class ConversionContext
     /// </summary>
     public Dictionary<string, ITypeSymbol> LocalTypeOverrides { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Renames for nested types whose simple name collides with a sibling nested type
+    /// of a different generic arity (Java has no per-arity class names). Keyed by the
+    /// type symbol's ToDisplayString(); consulted by TypeMappingService.TryMapNestedType
+    /// so declarations and reference sites agree.
+    /// </summary>
+    public Dictionary<string, string> NestedTypeNameOverrides { get; } = new(StringComparer.Ordinal);
+
     internal ConvertedCommentSet GetDeclarationComments(SyntaxNode node, ISymbol? symbol = null)
     {
         return CommentConversion.ExtractDeclarationComments(node, symbol, this);
@@ -652,7 +660,8 @@ public class ConversionContext
             typeSymbol => TryGetCustomJavaTopLevelTypeName(typeSymbol, out var javaName) ? javaName : null,
             resolveAlias: name => ResolveAlias(name),
             getCurrentEnclosingType: () => CurrentEnclosingRoslynType,
-            isUsingAlias: name => IsAlias(name));
+            isUsingAlias: name => IsAlias(name),
+            getNestedTypeNameOverride: key => NestedTypeNameOverrides.TryGetValue(key, out var nestedName) ? nestedName : null);
         TypeMapper.SetSynthesizedRecordNameResolver(key =>
             TryGetSynthesizedRecord(key, out var rec) && rec != null ? rec.RecordName : "Object");
     }
