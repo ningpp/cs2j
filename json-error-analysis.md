@@ -574,6 +574,21 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 19 - 无法将 Object.getClass 应用到给定类型 (Type.GetType(name, bool) 两参重载未处理)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/IEnumerableConverterFactoryHelpers.java
+- **行号**: 229
+- **错误信息**: `无法将类 java.lang.Object中的方法 getClass应用到给定类型`（`Class.getClass(name, false)`）
+- **代码片段**:
+  ```java
+  private static Class getTypeIfExists(String name) { return Class.getClass(name, false); }  // java.lang.Class 无静态 getClass
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Collection\IEnumerableConverterFactoryHelpers.cs（`private static Type? GetTypeIfExists(string name) => Type.GetType(name, false);`）
+- **根因分类**: Transformer（Type.GetType 两参重载无特例，方法名被映射为 getClass）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（GetType 特例只覆盖 1 参，第 3054 行）
+- **分析**: `Type.GetType(string)`（1 参）→ `Class.forName(...)` 有特例；`Type.GetType(name, false)`（throwOnError 重载）落入通用路径，方法名映射 `GetType→getClass` 产生 `Class.getClass(name, false)`。修复：2 参重载路由到 compat 新增的 `TypeHelper.getType(name, throwOnError)`（catch ClassNotFoundException，throwOnError=false 时返回 null，匹配 C# 语义）。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

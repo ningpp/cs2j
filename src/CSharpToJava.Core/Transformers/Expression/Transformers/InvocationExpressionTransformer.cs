@@ -3052,14 +3052,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         // System.Type.GetType(string) → Class.forName(string)
+        // System.Type.GetType(string, bool throwOnError) → TypeHelper.getType(name, throwOnError)
+        // (the compat helper catches ClassNotFoundException and returns null when
+        // throwOnError is false, matching the C# contract).
         if (originalMethodName == "GetType"
-            && node.ArgumentList.Arguments.Count == 1
+            && node.ArgumentList.Arguments.Count is 1 or 2
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Type"
                 || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
                     memberAccess.Expression, context, "Type", "System.Type")))
             && (methodSymbol?.IsStatic ?? true))
         {
             var typeNameArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            if (node.ArgumentList.Arguments.Count == 2)
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                var throwOnErrorArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"TypeHelper.getType({typeNameArg}, {throwOnErrorArg})";
+            }
             return $"Class.forName({typeNameArg})";
         }
 

@@ -71,8 +71,25 @@ public final class TypeHelper {
         return type;
     }
 
-    public static Class<?> getDeclaringType(Class<?> type) {
-        return type == null ? null : type.getDeclaringClass();
+    /**
+     * Mirrors Type.GetType(string, bool throwOnError) — loads a type by name,
+     * returning null instead of throwing when throwOnError is false.
+     */
+    public static Class<?> getType(String name, boolean throwOnError) {
+        if (name == null) {
+            throw new NullPointerException("name");
+        }
+        try {
+            return Class.forName(name);
+        } catch (ClassNotFoundException e) {
+            if (throwOnError) {
+                throw new RuntimeException(e);
+            }
+            return null;
+        }
+    }
+
+    public static Class<?> getDeclaringType(Class<?> type) {        return type == null ? null : type.getDeclaringClass();
     }
 
     /**
