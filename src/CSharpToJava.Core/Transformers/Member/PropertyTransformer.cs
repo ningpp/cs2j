@@ -32,7 +32,10 @@ public class PropertyTransformer : IMemberTransformer
             : context.MapTypeFromSyntax(propDecl.Type);
         var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
         var propertySymbol = context.GetDeclaredSymbol(propDecl) as IPropertySymbol;
-        var fieldName = propertySymbol != null
+        // Java targets disambiguate colliding auto-property backing names (e.g. explicit
+        // field `myString` + property `MyString`) with a Value suffix; the TypeScript
+        // property-reconstruction pass relies on the plain camelCase backing name.
+        var fieldName = propertySymbol != null && context.Options.TargetLanguage != TargetLanguage.TypeScript
             ? CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(propertySymbol)
             : ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
         var isStatic = propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));

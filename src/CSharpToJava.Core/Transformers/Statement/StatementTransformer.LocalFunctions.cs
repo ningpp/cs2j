@@ -210,8 +210,19 @@ public partial class StatementTransformer
                         : "Object";
                     if (string.IsNullOrWhiteSpace(javaType))
                         javaType = "Object";
+                    // Distinct captured locals may share a name (different scopes, e.g.
+                    // two lambda-locals both named "reader") — the synthetic parameter
+                    // names must stay unique.
+                    var capName = "_cs2j_cap_" + name;
+                    if (captures.Any(c => c.ParamName == capName))
+                    {
+                        var capSuffix = 2;
+                        while (captures.Any(c => c.ParamName == $"{capName}_{capSuffix}"))
+                            capSuffix++;
+                        capName = $"{capName}_{capSuffix}";
+                    }
                     captures.Add(new MethodConversionState.CapturedLocal(
-                        symbol, name, javaType, "_cs2j_cap_" + name));
+                        symbol, name, javaType, capName));
                     break;
             }
         }

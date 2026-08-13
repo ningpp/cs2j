@@ -571,7 +571,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 if (inExplicitSetter || isReadOnlyViaThis)
                 {
                     string fieldName = TryGetBackingFieldName(prop)
-                        ?? CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(prop);
+                        ?? GetAutoPropertyBackingFieldNameForTarget(prop, context);
                     return $"this.{fieldName} = {right}";
                 }
 
@@ -586,7 +586,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 if (useDirectFieldAccess && prop.Locations.Any(l => l.IsInSource))
                 {
                     string fieldName = TryGetBackingFieldName(prop)
-                        ?? CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(prop);
+                        ?? GetAutoPropertyBackingFieldNameForTarget(prop, context);
                     return $"{receiver}.{fieldName} = {right}";
                 }
 
@@ -881,7 +881,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 if (bareInExplicitSetter || bareIdentProp.SetMethod == null)
                 {
                     string fieldName = TryGetBackingFieldName(bareIdentProp)
-                        ?? CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(bareIdentProp);
+                        ?? GetAutoPropertyBackingFieldNameForTarget(bareIdentProp, context);
                     return $"this.{fieldName} = {right}";
                 }
 
@@ -2763,6 +2763,11 @@ public class AssignmentTransformer : IIRExpressionTransformer
         return context.IsExplicitValueEnum(displayName)
             || context.IsExplicitValueEnum(fullyQualifiedName);
     }
+
+    private static string GetAutoPropertyBackingFieldNameForTarget(IPropertySymbol prop, ConversionContext context)
+        => context.Options.TargetLanguage != TargetLanguage.TypeScript
+            ? CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(prop)
+            : ConversionContext.EscapeJavaKeyword(char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..]);
 
     private static bool IsOrInheritsFromException(ITypeSymbol? type)
     {

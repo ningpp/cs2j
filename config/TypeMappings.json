@@ -953,6 +953,13 @@
             ]
         },
         {
+            "csharp": "Newtonsoft.Json.PreserveReferencesHandling",
+            "java": "PreserveReferencesHandling",
+            "imports": [
+                "io.github.ningpp.compat.PreserveReferencesHandling"
+            ]
+        },
+        {
             "csharp": "System.Collections.Specialized.StringCollection",
             "java": "CSharpList<String>",
             "imports": [
@@ -3720,7 +3727,7 @@
             "csharp": "System.Action`3",
             "java": "Procedure3",
             "imports": [
-                "org.eclipse.collections.api.block.procedure.Procedure3"
+                "io.github.ningpp.compat.Procedure3"
             ]
         },
         {

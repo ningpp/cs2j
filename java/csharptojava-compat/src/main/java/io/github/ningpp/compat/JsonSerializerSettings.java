@@ -11,6 +11,7 @@ public class JsonSerializerSettings {
     public Object contractResolver;
     public Object nullValueHandling;
     public Object referenceLoopHandling;
+    public PreserveReferencesHandling preserveReferencesHandling = PreserveReferencesHandling.None;
 
     public void setStringEscapeHandling(StringEscapeHandling handling) {
         this.stringEscapeHandling = handling;
@@ -18,5 +19,13 @@ public class JsonSerializerSettings {
 
     public StringEscapeHandling getStringEscapeHandling() {
         return stringEscapeHandling;
+    }
+
+    public void setPreserveReferencesHandling(PreserveReferencesHandling handling) {
+        this.preserveReferencesHandling = handling;
+    }
+
+    public PreserveReferencesHandling getPreserveReferencesHandling() {
+        return preserveReferencesHandling;
     }
 }

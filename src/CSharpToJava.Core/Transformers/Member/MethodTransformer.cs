@@ -777,7 +777,7 @@ public class MethodTransformer : IMemberTransformer
 
         if (attributeNames.Contains("TestMethod"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation("Test"));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "Test", "org.junit.jupiter.api.Test")));
             context.AddImport("org.junit.jupiter.api.Test");
             // Add a timeout to prevent tests from hanging indefinitely
             javaMethod.Annotations.Add(new JavaAnnotation("Timeout(120)"));
@@ -789,7 +789,7 @@ public class MethodTransformer : IMemberTransformer
         // Xunit [Fact] → JUnit 5 @Test
         if (attributeNames.Contains("Fact"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation("Test"));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "Test", "org.junit.jupiter.api.Test")));
             context.AddImport("org.junit.jupiter.api.Test");
             // JUnit @Test methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
@@ -798,7 +798,7 @@ public class MethodTransformer : IMemberTransformer
         // Xunit [Theory] → JUnit 5 @ParameterizedTest
         if (attributeNames.Contains("Theory"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation("ParameterizedTest"));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "ParameterizedTest", "org.junit.jupiter.params.ParameterizedTest")));
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
             // JUnit @ParameterizedTest methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
@@ -806,7 +806,7 @@ public class MethodTransformer : IMemberTransformer
 
         if (attributeNames.Contains("DataTestMethod"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation("ParameterizedTest"));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "ParameterizedTest", "org.junit.jupiter.params.ParameterizedTest")));
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
             // JUnit @ParameterizedTest methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
@@ -1313,6 +1313,16 @@ public class MethodTransformer : IMemberTransformer
             return lit.Token.ValueText;
         }
         return null;
+    }
+
+    private static string TestAnnotationName(ConversionContext context, string simpleName, string fqn)
+    {
+        // A nested type sharing the annotation's simple name (e.g. a private class
+        // Test<T>) shadows the single-type import — emit the annotation qualified.
+        var enclosingType = context.CurrentEnclosingRoslynType;
+        if (enclosingType != null && enclosingType.GetTypeMembers(simpleName).Any())
+            return fqn;
+        return simpleName;
     }
 
     private static string NormalizeAttributeName(string rawName)

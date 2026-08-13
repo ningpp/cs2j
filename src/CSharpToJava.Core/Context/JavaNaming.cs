@@ -33,13 +33,23 @@ public static class JavaNaming
             return fieldName;
 
         // The FIRST-declared property keeps the plain camelCased name; later siblings
-        // with the same camelCase get a Value suffix (consistent at declaration and
-        // assignment sites).
+        // with the same camelCase — or any explicit field with that name — get a Value
+        // suffix (consistent at declaration and assignment sites).
         var thisStart = prop.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? int.MaxValue;
-        bool collides = containingType.GetMembers().OfType<IPropertySymbol>().Any(p =>
-            !SymbolEqualityComparer.Default.Equals(p, prop)
-            && string.Equals(ToCamelCase(p.Name), ToCamelCase(prop.Name), StringComparison.Ordinal)
-            && (p.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? int.MaxValue) < thisStart);
+        bool collides = containingType.GetMembers().Any(m =>
+        {
+            if (SymbolEqualityComparer.Default.Equals(m, prop))
+                return false;
+            if (m is IPropertySymbol siblingProp
+                && string.Equals(ToCamelCase(siblingProp.Name), ToCamelCase(prop.Name), StringComparison.Ordinal)
+                && (siblingProp.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? int.MaxValue) < thisStart)
+            {
+                return true;
+            }
+            return m is IFieldSymbol siblingField
+                && !siblingField.IsImplicitlyDeclared
+                && string.Equals(siblingField.Name, ToCamelCase(prop.Name), StringComparison.Ordinal);
+        });
         return collides ? fieldName + "Value" : fieldName;
     }
 
