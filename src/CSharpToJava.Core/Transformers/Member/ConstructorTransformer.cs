@@ -49,12 +49,14 @@ public class ConstructorTransformer : IMemberTransformer
             return staticBlock;
         }
 
+        var isSerializationShapedCtor = IsSerializationShapedConstructor(ctorDecl, context);
+
         // .NET serialization constructors take (SerializationInfo, StreamingContext).
         // Java has no equivalent: java.io.Serializable does not use such a constructor,
         // and emitting it cannot work because the mapped base (Exception -> RuntimeException)
         // has no matching (Object, Object) constructor, so even a pure base-forwarding
         // ctor would produce uncompilable super(...) calls. Omit it unconditionally.
-        if (IsDotNetSerializationConstructor(ctorDecl, context))
+        if (isSerializationShapedCtor && !IsPublicSerializationConstructor(ctorDecl))
         {
             context.Diagnostics.Info(
                 ".NET serialization constructor omitted; Java serialization does not use SerializationInfo/StreamingContext constructors.",
@@ -103,7 +105,18 @@ public class ConstructorTransformer : IMemberTransformer
         {
             var args = GetInitializerArguments(ctorDecl.Initializer, context);
 
-            if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
+            if (isSerializationShapedCtor
+                && ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
+            {
+                // Public serialization-shaped ctors must survive for call sites, but the
+                // generated Java base never declares a (SerializationInfo, StreamingContext)
+                // ctor, so base(info, context) has no super() target. Skip the forwarding
+                // and emit a body that mirrors the C# behavior instead (see below).
+                context.Diagnostics.Info(
+                    "Base-forwarding dropped for .NET serialization constructor; emitting PlatformNotSupportedException body instead.",
+                    ctorDecl.GetLocation());
+            }
+            else if (ctorDecl.Initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.ThisKeyword))
             {
                 javaCtor.Initializer = $"this({string.Join(", ", args)})";
             }
@@ -142,6 +155,13 @@ public class ConstructorTransformer : IMemberTransformer
         }
 
         // 组合初始值设定项和主体
+        if (isSerializationShapedCtor && bodyStatements.Count == 0)
+        {
+            // No forwardable base ctor exists; reproduce the .NET behavior (the base
+            // serialization ctor throws PlatformNotSupportedException) directly.
+            bodyStatements.Add("throw new PlatformNotSupportedException();");
+        }
+
         if (bodyStatements.Count > 0)
         {
             javaCtor.StructuredBody = new Java.JavaMethodBody(
@@ -309,11 +329,21 @@ public class ConstructorTransformer : IMemberTransformer
         ConstructorDeclarationSyntax ctorDecl,
         ConversionContext context)
     {
-        var parameters = ctorDecl.ParameterList?.Parameters;
-        if (parameters == null || parameters.Value.Count != 2)
+        if (IsPublicSerializationConstructor(ctorDecl))
             return false;
 
-        if (ctorDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+        return IsSerializationShapedConstructor(ctorDecl, context);
+    }
+
+    private static bool IsPublicSerializationConstructor(ConstructorDeclarationSyntax ctorDecl)
+        => ctorDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword));
+
+    private static bool IsSerializationShapedConstructor(
+        ConstructorDeclarationSyntax ctorDecl,
+        ConversionContext context)
+    {
+        var parameters = ctorDecl.ParameterList?.Parameters;
+        if (parameters == null || parameters.Value.Count != 2)
             return false;
 
         return IsSerializationType(parameters.Value[0].Type, context, "SerializationInfo")
