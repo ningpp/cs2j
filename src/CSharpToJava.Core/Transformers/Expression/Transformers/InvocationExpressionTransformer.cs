@@ -3616,7 +3616,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Fallback: receivers that failed semantic resolution but whose simple name
         // matches a configured type mapping (e.g. fully-qualified static calls on
         // compat classes like ImmutableDictionary.CreateRange) — remap the receiver.
-        if (methodName == originalMethodName && receiver.Contains('.', StringComparison.Ordinal))
+        // Only applies to System.*-qualified receivers: converted project types
+        // (dotnet.* packages) must keep their receivers untouched.
+        if (methodName == originalMethodName
+            && receiver.StartsWith("System.", StringComparison.Ordinal)
+            && receiver.Contains('.', StringComparison.Ordinal))
         {
             receiver = RemapConfiguredStaticReceiver(receiver, context);
         }
