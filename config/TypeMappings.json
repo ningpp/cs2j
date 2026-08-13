@@ -757,7 +757,21 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.ImmutableArray",
+            "java": "ImmutableArray",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableArray"
+            ]
+        },
+        {
             "csharp": "System.Collections.Immutable.ImmutableList`1",
+            "java": "ImmutableList",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableList",
             "java": "ImmutableList",
             "imports": [
                 "io.github.ningpp.compat.ImmutableList"

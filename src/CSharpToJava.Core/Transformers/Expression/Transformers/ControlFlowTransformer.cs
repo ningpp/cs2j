@@ -138,8 +138,18 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                     && mappedConverted.StartsWith("CSharpGenericIterable", StringComparison.Ordinal);
                 trueExpr = CollectIfStreamLike(trueExpr, context);
                 falseExpr = CollectIfStreamLike(falseExpr, context);
-                trueExpr = AdaptZeroArrayToEmptyIterable(trueExpr, context, needsCSharpGenericIterable);
-                falseExpr = AdaptZeroArrayToEmptyIterable(falseExpr, context, needsCSharpGenericIterable);
+                // When BOTH branches are arrays (e.g. cond ? s?.Split(',') : new string[0]),
+                // keep them as arrays so the ternary has a common type — adapting only the
+                // zero-array branch to an empty iterable would produce a mixed ternary.
+                var whenTrueType = context.GetTypeInfo(node.WhenTrue).Type;
+                var whenFalseType = context.GetTypeInfo(node.WhenFalse).Type;
+                bool trueIsArray = whenTrueType is IArrayTypeSymbol;
+                bool falseIsArray = whenFalseType is IArrayTypeSymbol;
+                if (!(trueIsArray && falseIsArray))
+                {
+                    trueExpr = AdaptZeroArrayToEmptyIterable(trueExpr, context, needsCSharpGenericIterable);
+                    falseExpr = AdaptZeroArrayToEmptyIterable(falseExpr, context, needsCSharpGenericIterable);
+                }
             }
         }
 
