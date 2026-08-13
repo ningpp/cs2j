@@ -2326,8 +2326,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
             and not "IReadOnlyCollection" and not "IReadOnlyList")
             return false;
         // Check namespace - should be from System.Collections.Generic
-        var ns = type.ContainingNamespace?.ToDisplayString() ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
-        return ns != null && ns.StartsWith("System.Collections.Generic");
+        var ns = type.ContainingNamespace?.ToDisplayString()
+            ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
+        return ns != null && (ns.StartsWith("System.Collections.Generic")
+            || ns.StartsWith("System.Collections"));
     }
 
     /// <summary>
