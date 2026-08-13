@@ -2360,7 +2360,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 string? tryParseHelper = MapPrimitiveTryParseHelper(primTypeSyntax.Keyword.Text);
                 if (tryParseHelper != null)
                 {
-                    var helperArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                    var tryParseSymbol = context.SemanticModel != null
+                        ? context.GetSymbolInfo(node).Symbol as IMethodSymbol
+                        : null;
+                    var helperArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: tryParseSymbol);
                     return $"{tryParseHelper}({helperArgs})";
                 }
             }
@@ -2378,7 +2381,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var isNewHelperType = primTypeSyntax.Keyword.Text is "byte" or "sbyte" or "short";
                     if (!isNewHelperType || node.ArgumentList.Arguments.Count > 1)
                     {
-                        var parseArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                        var parseSymbol = context.SemanticModel != null
+                            ? context.GetSymbolInfo(node).Symbol as IMethodSymbol
+                            : null;
+                        var parseArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: parseSymbol);
                         return $"{primitiveParseHelper}({parseArgs})";
                     }
                 }

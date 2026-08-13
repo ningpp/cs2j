@@ -686,11 +686,21 @@ public class ArgumentTransformer
         // overloads have DIFFERENT reference-type parameters at the same position (e.g.
         // CopyTo(Array, int) vs CopyTo(Capture[], int)): C# resolves to the more specific one,
         // but Java sees a bare null as applicable to both and reports an ambiguous call.
+        //
+        // IFormatProvider-typed parameters (numeric Parse/TryParse provider args) are a special
+        // case: C# binds the null to the single IFormatProvider parameter, but the compat
+        // MathHelper exposes sibling overloads taking CultureInfo / NumberFormatInfo at that
+        // position, so a bare null is ambiguous in Java. Cast to CultureInfo, the default
+        // .NET provider type.
+        bool isFormatProviderParam = targetParam.Type is INamedTypeSymbol namedFormatProviderParam
+            && namedFormatProviderParam.Name == "IFormatProvider"
+            && namedFormatProviderParam.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
         if (IsNullEmittingArgument(arg, context))
         {
             var javaTargetType = context.MapType(targetParam.Type);
             if (!string.IsNullOrWhiteSpace(javaTargetType)
-                && (HasValueTypeOverloadAtSamePosition(targetParam, GetReceiverTypeOfInvocation(arg, context))
+                && ((isFormatProviderParam && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+                    || HasValueTypeOverloadAtSamePosition(targetParam, GetReceiverTypeOfInvocation(arg, context))
                     || HasReferenceTypeOverloadAtSamePosition(targetParam, GetReceiverTypeOfInvocation(arg, context), context)
                     || (context.Options.TargetLanguage != TargetLanguage.TypeScript
                         && (IsSystemCollectionsInterfaceReceiver(arg, context)
@@ -700,7 +710,9 @@ public class ArgumentTransformer
                 // System.Object. The concrete Java receiver may lack an Object overload
                 // entirely (e.g. GroupCollection has add(Group) / add(KeyValuePair) but no
                 // add(Object)), so cast to the receiver's element type instead.
-                var castType = javaTargetType;
+                var castType = isFormatProviderParam ? "CultureInfo" : javaTargetType;
+                if (isFormatProviderParam)
+                    context.AddImport("io.github.ningpp.compat.CultureInfo");
                 if (castType == "Object")
                 {
                     var elemJava = MapReceiverElementType(GetReceiverTypeOfInvocation(arg, context), context);
