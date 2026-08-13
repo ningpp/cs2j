@@ -4070,6 +4070,18 @@ public class ClassTransformer : ITypeTransformer
                 }
                 break;
 
+            case RecordDeclarationSyntax nestedRecord:
+                // C# nested records → Java nested classes via the record transformer.
+                var recordTransformer = new Transformers.Type.RecordTransformer();
+                var nestedRecordResult = recordTransformer.Transform(nestedRecord, context);
+                if (nestedRecordResult is JavaClassDeclaration jcRecord)
+                {
+                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedRecord, context))
+                        jcRecord.Modifiers |= JavaModifiers.Static;
+                    javaClass.NestedTypes.Add(jcRecord);
+                }
+                break;
+
             case EnumDeclarationSyntax nestedEnum:
                 // EnumTransformer 需要 EnumDeclarationSyntax
                 var enumTransformer = new Transformers.Type.EnumTransformer();

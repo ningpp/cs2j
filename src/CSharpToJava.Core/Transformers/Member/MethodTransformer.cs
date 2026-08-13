@@ -606,6 +606,20 @@ public class MethodTransformer : IMemberTransformer
             javaMethod.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
         }
 
+        // Local functions that reference the ENCLOSING method's type parameters (e.g.
+        // local helpers inside VerifyIgnore<T> taking T arguments) must declare them —
+        // the hoisted method is a standalone Java method.
+        var enclosingLocalFnMethod = context.GetDeclaredSymbol(localFn)?.ContainingSymbol as IMethodSymbol;
+        if (enclosingLocalFnMethod != null)
+        {
+            foreach (var enclosingTp in enclosingLocalFnMethod.TypeParameters)
+            {
+                if (javaMethod.TypeParameters.Any(tp => tp.Name == enclosingTp.Name))
+                    continue;
+                javaMethod.TypeParameters.Add(new JavaTypeParameter(enclosingTp.Name));
+            }
+        }
+
         if (localFn.ConstraintClauses.Count > 0)
         {
             ClassTransformer.ApplyTypeParameterConstraints(localFn.ConstraintClauses, javaMethod.TypeParameters, context);
