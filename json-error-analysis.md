@@ -428,3 +428,19 @@
 - **根因分类**: Transformer（ArrayPool 特殊分支只处理 char，未处理 byte/sbyte）
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（ArrayPool Rent/Return 分支，第 4936 行）
 - **分析**: `System.Byte` 类型映射为 Java `int`，但 `byte[]` 特意保留 Java `byte[]`（TypeMappingService.cs:496 注释 "C# byte[] stays Java byte[] for API compatibility"）。ArrayPool 分支仅对 char 路由到 `rentSharedCharArray`，byte 池走通用路径：`rentShared(int.class, ...)` 的 T 从调用点推断失败回退 Object → 返回 Object[]，强转 `(int[])` 属不可转换；`ArrayPool.<int>getShared()` 中 int 不是合法类型实参。修复：仿 char，将 byte/sbyte 路由到 compat 已有的 `rentSharedByteArray`/`returnSharedByteArray`（含 clearArray 重载）。
+
+- **状态**: ✅ Fixed
+
+## Iteration 9 - 找不到合适的方法 (Utf8Parser.TryParse 未按 out 参数类型选择专用 helper)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Utf8JsonReader.java
+- **行号**: 5594（另见 5995、6144；Utf8JsonWriter.java 318/322；JsonDocument.java 500/579）
+- **错误信息**: `对于tryParse(io.github.ningpp.compat.ReadOnlySpan<java.lang.Integer>,io.github.ningpp.compat.ObjectHolder<io.github.ningpp.compat.Decimal>,io.github.ningpp.compat.IntHolder,char), 找不到合适的方法`
+- **代码片段**:
+  ```java
+  var _ifCond85 = Utf8Parser.tryParse(span, _valueHolder1, _bytesConsumedHolder1, numberFormat) && ...
+  // ObjectHolder<Decimal> 参数应调用 tryParseDecimal（compat 无 tryParse(ObjectHolder<Decimal>,...) 重载）
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Reader\Utf8JsonReader.TryGet.cs（`Utf8Parser.TryParse(span, out decimal value, out int bytesConsumed, numberFormat)`；out 类型含 decimal/Guid/byte/sbyte/short/int/long/uint/ulong/float/double/bool）
+- **根因分类**: Transformer（Utf8Parser.TryParse 未按 out 实参类型选择 helper 名）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（方法名 camelCase 后统一为 tryParse，第 4390 行附近）
+- **分析**: compat Utf8Parser 的 helper 按 out 类型命名：`tryParseDecimal`（ObjectHolder<Decimal>）、`tryParseUuid`（ObjectHolder<UUID>）、`tryParseDateTime`/`tryParseDateTimeOffset`；裸 `tryParse` 只接受 IntHolder/LongHolder/ShortHolder/ByteHolder/BoolHolder/FloatHolder/DoubleHolder。转换器把所有 TryParse 一律 camelCase 成 `tryParse`，导致 decimal/Guid 调用无匹配重载。修复：对 System.Buffers.Text.Utf8Parser.TryParse 按 out 参数类型选择专用 helper 名。

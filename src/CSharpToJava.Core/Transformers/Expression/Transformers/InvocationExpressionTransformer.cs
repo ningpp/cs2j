@@ -4389,6 +4389,27 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // System.Buffers.Text.Utf8Parser.TryParse(span, out T value, out int bytesConsumed[, char]):
+        // the compat helper names are typed by the out argument. Bare tryParse only accepts
+        // the primitive holders (int/long/short/byte/sbyte/bool/float/double/uint/ulong);
+        // decimal/Guid/DateTime/DateTimeOffset need their dedicated helpers
+        // (tryParseDecimal / tryParseUuid / tryParseDateTime / tryParseDateTimeOffset).
+        if (methodName == "tryParse"
+            && methodSymbol is { IsStatic: true, Name: "TryParse" }
+            && methodSymbol.ContainingType.ToDisplayString() == "System.Buffers.Text.Utf8Parser"
+            && methodSymbol.Parameters.FirstOrDefault(p => p.RefKind == RefKind.Out) is { } utf8OutParam)
+        {
+            var utf8OutType = utf8OutParam.Type;
+            if (utf8OutType.SpecialType == SpecialType.System_Decimal)
+                methodName = "tryParseDecimal";
+            else if (utf8OutType.ToDisplayString() == "System.Guid")
+                methodName = "tryParseUuid";
+            else if (utf8OutType.SpecialType == SpecialType.System_DateTime)
+                methodName = "tryParseDateTime";
+            else if (utf8OutType.ToDisplayString() == "System.DateTimeOffset")
+                methodName = "tryParseDateTimeOffset";
+        }
+
         methodName = ConversionContext.EscapeJavaKeyword(methodName);
 
         // Type-erasure rename: when the resolved overload is the one with fewer type parameters,
