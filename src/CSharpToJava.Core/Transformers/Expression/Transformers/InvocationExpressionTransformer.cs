@@ -2690,23 +2690,37 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Instance collection ToArray() should produce a typed array, not Object[].
         if (originalMethodName == "ToArray"
             && node.ArgumentList.Arguments.Count == 0
-            && methodSymbol is { IsExtensionMethod: false }
-            && methodSymbol.ReturnType is IArrayTypeSymbol instanceArrayType)
+            && methodSymbol?.ReturnType is IArrayTypeSymbol instanceArrayType)
         {
             // ReadOnlyMemory<T>/ReadOnlySpan<T>.ToArray() maps to toXxxArray() for
             // primitive element types (byte→toByteArray, char→toCharArray, etc.)
             // because the compat library provides typed accessors instead of toArray().
-            if (methodSymbol.ContainingType is INamedTypeSymbol toArrContainingType
+            // Span<T> has an instance ToArray in the reference assemblies too, and
+            // C# Span<T> receivers can also bind the MemoryExtensions extension form,
+            // so accept those shapes as well (first parameter is the span).
+            bool isSpanToArray = methodSymbol.ContainingType is INamedTypeSymbol toArrContainingType
                 && toArrContainingType.OriginalDefinition?.ToDisplayString()
-                    is "System.ReadOnlyMemory<T>" or "System.ReadOnlySpan<T>"
-                && instanceArrayType.ElementType is ITypeSymbol toArrElemType
-                && TryGetPrimitiveArrayHelper(toArrElemType.SpecialType, out var spanHelper))
+                    is "System.ReadOnlyMemory<T>" or "System.ReadOnlySpan<T>" or "System.Span<T>"
+                || (methodSymbol.IsExtensionMethod
+                    && methodSymbol.Parameters.Length >= 1
+                    && methodSymbol.Parameters[0].Type is INamedTypeSymbol toArrExtParamType
+                    && toArrExtParamType.OriginalDefinition?.ToDisplayString()
+                        is "System.ReadOnlyMemory<T>" or "System.ReadOnlySpan<T>" or "System.Span<T>");
+            if (isSpanToArray)
             {
-                return $"{receiver}.{spanHelper}()";
-            }
-            if (!IsFrameworkCollectionToArray(methodSymbol))
+                if (instanceArrayType.ElementType is ITypeSymbol toArrElemType
+                    && TryGetPrimitiveArrayHelper(toArrElemType.SpecialType, out var spanHelper))
+                {
+                    return $"{receiver}.{spanHelper}()";
+                }
                 return $"{receiver}.toArray()";
-            return TransformInstanceCollectionToArray(receiver, instanceArrayType.ElementType, context);
+            }
+            if (!methodSymbol.IsExtensionMethod)
+            {
+                if (!IsFrameworkCollectionToArray(methodSymbol))
+                    return $"{receiver}.toArray()";
+                return TransformInstanceCollectionToArray(receiver, instanceArrayType.ElementType, context);
+            }
         }
 
         // Primitive CompareTo: C# int.CompareTo(int) → Java Integer.compare(int, int)

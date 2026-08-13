@@ -477,3 +477,18 @@
 - **根因分类**: Transformer（AdaptExpressionToTargetType 的 asSpan→Span 重包装在 IArrayTypeSymbol 守卫内，未覆盖 AsSpan() 调用结果）
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（AdaptExpressionToTargetTypeCore，第 167-216 行）
 - **分析**: `rented.AsSpan(0, length)` 表达式的 C# 类型是 `Span<byte>`（AsSpan 的返回值），不是 `byte[]`，所以数组→Span 适配分支的 `sourceType is IArrayTypeSymbol` 守卫未命中，`MemoryExtensions.asSpan(...)`（compat 返回 ReadOnlySpan<Integer>）原样赋给 `Span<Integer>` 声明。修复：在守卫外补充——目标为 System.Span<T> 且表达式以 `MemoryExtensions.asSpan(` 开头时用 `new Span<>(...)` 重包装（Span(ReadOnlySpan) 构造器）。
+
+- **状态**: ✅ Fixed
+
+## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
+- **行号**: 1756
+- **错误信息**: `不兼容的类型: java.lang.Integer[]无法转换为byte[]`
+- **代码片段**:
+  ```java
+  _data = MemoryExtensions.asSpan(source._data, 0, getLength()).toArray();  // 应为 .toByteArray()
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Document\JsonDocument.MetadataDb.cs（`_data = source._data.AsSpan(0, Length).ToArray();`，_data 为 byte[]）
+- **根因分类**: Transformer（Span ToArray 的 toXxxArray 映射只覆盖实例方法，未覆盖扩展方法绑定）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（第 2691-2710 行）
+- **分析**: C# 的 `Span<byte>` 没有实例 ToArray，`.ToArray()` 绑定到 `MemoryExtensions.ToArray<T>(this ReadOnlySpan<T>)` 扩展方法（隐式转换）。转换器 2691 行的 span→toXxxArray 分支要求 `IsExtensionMethod: false`，扩展形式落入 6409 行的通用回退 `{receiver}.toArray()` → compat 的 `ReadOnlySpan<Integer>.toArray()` 返回 Integer[]，赋给 byte[] 失败。修复：同一分支接受"首参数为 ReadOnlySpan<T>/ReadOnlyMemory<T> 的扩展方法"形态，按元素类型发射 `toByteArray()` 等。
