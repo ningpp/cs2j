@@ -43,6 +43,21 @@ public final class ExceptionCompat {
     }
 
     /**
+     * Mirrors {@code Exception.Data} — a dictionary of caller-supplied key/value
+     * pairs. The Data property of ArgumentException carries "ParamName".
+     */
+    public static java.util.Map<String, Object> getData(RuntimeException e) {
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        if (e instanceof ArgumentException argEx) {
+            String paramName = argEx.getParamName();
+            if (paramName != null) {
+                data.put("ParamName", paramName);
+            }
+        }
+        return data;
+    }
+
+    /**
      * Returns the stack trace of {@code e} as a {@link String}, mirroring .NET's
      * {@code Exception.StackTrace} property.
      *

@@ -1225,7 +1225,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax asgn && asgn.Left == node;
             if (!isLhsOfAssignment
                 && IsOrInheritsFromException(receiverType)
-                && prop.Name is "InnerException" or "Source" or "StackTrace")
+                && prop.Name is "InnerException" or "Source" or "StackTrace" or "Data")
             {
                 context.AddImport("io.github.ningpp.compat.ExceptionCompat");
                 var helperName = prop.Name switch
@@ -1233,6 +1233,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     "InnerException" => "getInnerException",
                     "Source" => "getSource",
                     "StackTrace" => "getStackTrace",
+                    "Data" => "getData",
                     _ => throw new InvalidOperationException($"Unhandled exception property {prop.Name}")
                 };
                 return $"ExceptionCompat.{helperName}({target})";
@@ -3321,6 +3322,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (current.ToDisplayString() == "System.Exception")
                 return true;
         }
+
+        // Type parameters: a constraint of System.Exception makes the member resolvable.
+        if (type is ITypeParameterSymbol tp)
+        {
+            return tp.ConstraintTypes.Any(IsOrInheritsFromException);
+        }
+
         return false;
     }
 

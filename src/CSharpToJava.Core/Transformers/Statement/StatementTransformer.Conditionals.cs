@@ -180,6 +180,28 @@ public partial class StatementTransformer
         {
             var tvOutArg2 = tvIfInvoc2.ArgumentList.Arguments[1];
 
+            // Case 0: out _ (discard) — presence check only; the caller ignores the value.
+            if (tvOutArg2.Expression is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax }
+                || (tvOutArg2.Expression is IdentifierNameSyntax tvDiscardId2 && tvDiscardId2.Identifier.Text == "_"))
+            {
+                var tvTarget0 = exprTransformer.Transform(tvIfMa2.Expression, context);
+                var tvKey0 = exprTransformer.Transform(tvIfInvoc2.ArgumentList.Arguments[0].Expression, context);
+                var tvStmtTransformer0 = new StatementTransformer();
+                string thenBody0 = stmt.Statement is BlockSyntax block0
+                    ? TransformBlock(block0, context)
+                    : tvStmtTransformer0.Transform(stmt.Statement, context).ToString("");
+                var ifSb0 = new System.Text.StringBuilder();
+                ifSb0.Append($"if ({tvTarget0}.containsKey({tvKey0})) {{ {thenBody0} }}");
+                if (stmt.Else != null)
+                {
+                    string elseBody0 = stmt.Else.Statement is BlockSyntax elseBlock0
+                        ? TransformBlock(elseBlock0, context)
+                        : tvStmtTransformer0.Transform(stmt.Else.Statement, context).ToString("");
+                    ifSb0.Append($" else {{ {elseBody0} }}");
+                }
+                return new JavaStatementNode(ifSb0.ToString());
+            }
+
             // Case A: out var v  (declaration)
             if (tvOutArg2.Expression is DeclarationExpressionSyntax tvIfDeclExpr2
                 && tvIfDeclExpr2.Designation is SingleVariableDesignationSyntax tvIfSvd2)
