@@ -4589,6 +4589,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (deserializeTargetType != null)
             {
                 var jsonArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+                // The converted JsonSerializer takes the JSON as ReadOnlySpan<Integer>;
+                // a byte[] argument must be wrapped in a span view.
+                if (context.SemanticModel != null
+                    && context.GetTypeInfo(node.ArgumentList.Arguments[argStartIndex].Expression).Type is IArrayTypeSymbol
+                    {
+                        ElementType.SpecialType: SpecialType.System_Byte
+                    })
+                {
+                    context.AddImport("io.github.ningpp.compat.ReadOnlySpan");
+                    jsonArg = $"new ReadOnlySpan<Integer>({jsonArg})";
+                }
                 // Use GetClassLiteral so generic targets emit the raw class literal
                 // (CSharpList.class, not the illegal CSharpList<Integer>.class) and
                 // type parameters resolve through the runtime Class token machinery.
