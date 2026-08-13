@@ -4765,14 +4765,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return textWriterAsyncInvocation;
         }
 
-        // System.IO.Stream.WriteAsync/FlushAsync: the compat StreamWrapper models the
-        // trailing CancellationToken parameter as boolean (the implementation ignores
-        // the value), and the byte[] overload drops the token entirely:
+        // System.IO.Stream.WriteAsync/FlushAsync/ReadAsync: the compat StreamWrapper
+        // models the trailing CancellationToken parameter as boolean (the implementation
+        // ignores the value), and the byte[] overloads drop the token entirely:
         //   writeAsync(ReadOnlyMemory<Integer>, boolean) / writeAsync(byte[], int, int)
+        //   readAsync(ReadOnlyMemory<Integer>, boolean)  / readAsync(byte[], int, int)
         //   flushAsync(boolean)
         if (methodSymbol is { Parameters.Length: > 0 }
             && methodSymbol.ContainingType.ToDisplayString() == "System.IO.Stream"
-            && originalMethodName is "WriteAsync" or "FlushAsync"
+            && originalMethodName is "WriteAsync" or "FlushAsync" or "ReadAsync"
             && methodSymbol.Parameters[^1].Type.ToDisplayString() == "System.Threading.CancellationToken")
         {
             if (originalMethodName == "FlushAsync")
@@ -4787,9 +4788,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 ElementType.SpecialType: SpecialType.System_Byte
             };
+            var streamAsyncMethod = originalMethodName == "ReadAsync" ? "readAsync" : "writeAsync";
             return isByteArrayOverload
-                ? $"{receiver}.writeAsync({streamAsyncArgs})"
-                : $"{receiver}.writeAsync({streamAsyncArgs}, false)";
+                ? $"{receiver}.{streamAsyncMethod}({streamAsyncArgs})"
+                : $"{receiver}.{streamAsyncMethod}({streamAsyncArgs}, false)";
         }
 
         // Console.Write/WriteLine(format, args...) and TextWriter/PrintWriter print/println(format, args...)

@@ -72,6 +72,29 @@ public class Sample
         Assert.Contains("writeAsync(new ReadOnlyMemory<Integer>(buf), false)", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void StreamReadAsync_MemoryOverload_ConvertsTokenToBoolean()
+    {
+        var result = Convert(@"
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+
+public class Sample
+{
+    public static void M(Stream s, byte[] buf, CancellationToken ct)
+    {
+        s.ReadAsync(new System.Memory<byte>(buf), ct);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("readAsync(", code, StringComparison.Ordinal);
+        Assert.Contains(", false)", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
