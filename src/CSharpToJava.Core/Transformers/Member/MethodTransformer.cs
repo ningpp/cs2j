@@ -777,7 +777,7 @@ public class MethodTransformer : IMemberTransformer
 
         if (attributeNames.Contains("TestMethod"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "Test", "org.junit.jupiter.api.Test")));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, methodDecl, "Test", "org.junit.jupiter.api.Test")));
             context.AddImport("org.junit.jupiter.api.Test");
             // Add a timeout to prevent tests from hanging indefinitely
             javaMethod.Annotations.Add(new JavaAnnotation("Timeout(120)"));
@@ -789,7 +789,7 @@ public class MethodTransformer : IMemberTransformer
         // Xunit [Fact] → JUnit 5 @Test
         if (attributeNames.Contains("Fact"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "Test", "org.junit.jupiter.api.Test")));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, methodDecl, "Test", "org.junit.jupiter.api.Test")));
             context.AddImport("org.junit.jupiter.api.Test");
             // JUnit @Test methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
@@ -798,7 +798,7 @@ public class MethodTransformer : IMemberTransformer
         // Xunit [Theory] → JUnit 5 @ParameterizedTest
         if (attributeNames.Contains("Theory"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "ParameterizedTest", "org.junit.jupiter.params.ParameterizedTest")));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, methodDecl, "ParameterizedTest", "org.junit.jupiter.params.ParameterizedTest")));
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
             // JUnit @ParameterizedTest methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
@@ -806,7 +806,7 @@ public class MethodTransformer : IMemberTransformer
 
         if (attributeNames.Contains("DataTestMethod"))
         {
-            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, "ParameterizedTest", "org.junit.jupiter.params.ParameterizedTest")));
+            javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, methodDecl, "ParameterizedTest", "org.junit.jupiter.params.ParameterizedTest")));
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
             // JUnit @ParameterizedTest methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
@@ -1315,14 +1315,21 @@ public class MethodTransformer : IMemberTransformer
         return null;
     }
 
-    private static string TestAnnotationName(ConversionContext context, string simpleName, string fqn)
+    private static string TestAnnotationName(ConversionContext context, MethodDeclarationSyntax methodDecl, string simpleName, string fqn)
     {
         // A nested type sharing the annotation's simple name (e.g. a private class
-        // Test<T>) shadows the single-type import — emit the annotation qualified.
+        // Test<T> or record Test) shadows the single-type import — emit the annotation
+        // qualified. Check both the semantic symbol and the enclosing syntax (partial
+        // types may declare the nested type in another file).
         var enclosingType = context.CurrentEnclosingRoslynType;
-        if (enclosingType != null && enclosingType.GetTypeMembers(simpleName).Any())
-            return fqn;
-        return simpleName;
+        bool shadowed = enclosingType != null && enclosingType.GetTypeMembers(simpleName).Any();
+        if (!shadowed)
+        {
+            var enclosingDecl = methodDecl.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+            shadowed = enclosingDecl != null
+                && enclosingDecl.Members.OfType<TypeDeclarationSyntax>().Any(m => m.Identifier.Text == simpleName);
+        }
+        return shadowed ? fqn : simpleName;
     }
 
     private static string NormalizeAttributeName(string rawName)
