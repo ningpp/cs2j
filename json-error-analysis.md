@@ -512,6 +512,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 15 - 推论变量 T 具有不兼容的上限 (ref MemoryMarshal.GetReference 未包装回 holder)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonReaderHelper.cs
+- **行号**: 94
+- **错误信息**: `不兼容的类型: 推论变量 T 具有不兼容的上限`（`indexOfOrLessThan(MemoryMarshal.getReference(span), ...)` 参数应为 IntHolder）
+- **代码片段**:
+  ```java
+  return indexOfOrLessThan(MemoryMarshal.getReference(span), JsonConstants.Quote & 0xFF, ...);
+  // 应为 indexOfOrLessThan(new IntHolder(MemoryMarshal.getReference(span)), ...)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Reader\JsonReaderHelper.cs（`return IndexOfOrLessThan(ref MemoryMarshal.GetReference(span), ...)`，参数为 `ref byte searchSpace`）
+- **根因分类**: Transformer（ref 复杂表达式回退路径缺少 getReference→holder 重包装）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs（TransformSingleArgument ref 分支第 531 行；CoerceArgumentType 第 674-676 行对 ref 参数整体跳过）
+- **分析**: compat `MemoryMarshal.getReference(span)` 返回元素值（Integer），而 ref 参数在 Java 侧渲染为 holder（IntHolder）。CoerceArgumentType 的 getReference→holder 重包装（第 1100-1106 行）因开头对 ref/out/in 参数的跳过守卫永远不执行；`ref <invocation>` 落入"复杂表达式按值传递"回退。修复：回退路径中检测 `getReference(` 并包成参数类型的 holder。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

@@ -529,8 +529,18 @@ public class ArgumentTransformer
             }
 
             // Complex expression (e.g. ref field, ref array element) — no holder support; pass by value.
+            // ref MemoryMarshal.GetReference(span): the compat getReference yields the
+            // element VALUE, but the ref parameter renders as a holder — re-wrap it so
+            // the call signature matches (e.g. IndexOfOrLessThan(ref byte, ...)).
+            var complexRefExpr = transformer.Transform(arg.Expression, context);
+            if (parameterSymbol != null
+                && complexRefExpr.Contains("getReference(", StringComparison.Ordinal))
+            {
+                var refHolderJavaType = HolderTypeResolver.GetHolderType(context.MapType(parameterSymbol.Type));
+                return HolderTypeResolver.GetHolderInstantiationWithValue(refHolderJavaType, complexRefExpr);
+            }
             context.Diagnostics.Warning("ref argument with complex expression has no direct Java equivalent; passing by value", arg.GetLocation());
-            return transformer.Transform(arg.Expression, context);
+            return complexRefExpr;
         }
 
         if (refKind == SyntaxKind.InKeyword)
