@@ -590,6 +590,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     return $"{receiver}.{fieldName} = {right}";
                 }
 
+                // .NET Exception.Source has no Java setter — route through ExceptionCompat
+                // (mirrors the getter mapping in IdentifierExpressionTransformer).
+                if (prop.Name == "Source"
+                    && IsOrInheritsFromException(prop.ContainingType))
+                {
+                    context.AddImport("io.github.ningpp.compat.ExceptionCompat");
+                    return $"ExceptionCompat.setSource({receiver}, {right})";
+                }
+
                 string setter = "set" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
                 return $"{receiver}.{setter}({right})";
             }
@@ -2753,5 +2762,15 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         return context.IsExplicitValueEnum(displayName)
             || context.IsExplicitValueEnum(fullyQualifiedName);
+    }
+
+    private static bool IsOrInheritsFromException(ITypeSymbol? type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.Exception")
+                return true;
+        }
+        return false;
     }
 }

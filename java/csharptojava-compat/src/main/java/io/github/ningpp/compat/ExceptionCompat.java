@@ -35,6 +35,14 @@ public final class ExceptionCompat {
     }
 
     /**
+     * Mirrors .NET {@code Exception.Source = value}. Java exceptions have no Source
+     * property; the value is discarded (the ThrowHelper rethrow marker is not
+     * representable in the Java exception model).
+     */
+    public static void setSource(RuntimeException e, String value) {
+    }
+
+    /**
      * Returns the stack trace of {@code e} as a {@link String}, mirroring .NET's
      * {@code Exception.StackTrace} property.
      *

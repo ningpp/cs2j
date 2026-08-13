@@ -620,6 +620,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 22 - 找不到符号 (ex.Source = 赋值生成不存在的 setSource)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/ThrowHelper.java
+- **行号**: 130（另见 400/406/451/506/537）
+- **错误信息**: `找不到符号`（`ex.setSource(ExceptionSourceValueToRethrowAsJsonException);`）
+- **代码片段**:
+  ```java
+  var ex = new IllegalStateException(message);
+  ex.setSource(ExceptionSourceValueToRethrowAsJsonException);  // 应为 ExceptionCompat.setSource(ex, ...)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\ThrowHelper.cs（`ex.Source = ExceptionSourceValueToRethrowAsJsonException;`）
+- **根因分类**: Transformer（异常 Source 属性的读侧有映射，写侧缺失）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs（属性 setter 发射，第 593 行）
+- **分析**: IdentifierExpressionTransformer 已把 `ex.Source`（读）映射为 `ExceptionCompat.getSource(ex)`，但赋值路径（AssignmentTransformer）按通用 setter 约定发射 `ex.setSource(...)`，compat 异常类无此方法。修复：异常派生类型的 Source 赋值映射为 `ExceptionCompat.setSource(receiver, value)`，compat 新增 no-op setSource（Java 异常无 Source 语义，值丢弃）。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756
