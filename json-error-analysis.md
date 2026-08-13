@@ -558,6 +558,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 18 - 无法从类型变量中进行选择 (基类实参 T? 未解包导致 super(T.class))
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/NullableConverter.java
+- **行号**: 38
+- **错误信息**: `无法从类型变量中进行选择`（`super(T.class);`）
+- **代码片段**:
+  ```java
+  public NullableConverter(JsonConverter1<T> converter, Class<?> tClass) {
+      super(T.class);   // 应为 super(tClass)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\Value\NullableConverter.cs（`internal class NullableConverter<T> : JsonConverter<T?> where T : struct`）
+- **根因分类**: Transformer（ResolveRuntimeTypeArgument 未解包 Nullable 实参）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Utilities/RuntimeClassParameterHelper.cs（ResolveRuntimeTypeArgument(ITypeParameterSymbol, INamedTypeSymbol)）
+- **分析**: 基类 `JsonConverter<T?>` 的类型实参是 `Nullable<T>`。基类运行时 Class 参数解析把实参原样交给 ToClassArgument：非类型参数 → 映射为 `T.class` 字面量（T 无界类型变量不可 .class）。EnumConverter 的基类实参是裸 T（类型参数）→ 命中 `TryGetRuntimeClassParameter("T")` → 用 tClass 参数。修复：解析基类类型实参时解包 Nullable，得到裸 T 后走 tClass 参数路径。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

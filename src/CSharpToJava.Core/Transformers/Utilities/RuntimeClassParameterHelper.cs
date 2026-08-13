@@ -749,11 +749,30 @@ internal static class RuntimeClassParameterHelper
             for (var i = 0; i < typeParameters.Length && i < typeSymbol.TypeArguments.Length; i++)
             {
                 if (SymbolEqualityComparer.Default.Equals(typeParameters[i], typeParameter))
-                    return typeSymbol.TypeArguments[i];
+                    return UnwrapNullableTypeArgument(typeSymbol.TypeArguments[i]);
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// C# base types like JsonConverter&lt;T?&gt; pass the class's own type parameter
+    /// wrapped in Nullable&lt;T&gt;. The runtime Class token is that of the underlying
+    /// type argument, so unwrap Nullable before converting to a class argument.
+    /// </summary>
+    private static ITypeSymbol UnwrapNullableTypeArgument(ITypeSymbol typeArgument)
+    {
+        if (typeArgument is INamedTypeSymbol
+            {
+                OriginalDefinition.SpecialType: SpecialType.System_Nullable_T,
+                TypeArguments.Length: 1
+            } nullableArg)
+        {
+            return nullableArg.TypeArguments[0];
+        }
+
+        return typeArgument;
     }
 
     private static ITypeSymbol? ResolveRegisteredRuntimeTypeArgument(
