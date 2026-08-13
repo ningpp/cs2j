@@ -500,7 +500,18 @@ internal static class RuntimeClassParameterHelper
         {
             var createdType = semanticModel.GetTypeInfo(creation).Type as INamedTypeSymbol;
             if (createdType == null)
+            {
+                // new T() where T is the class/method's own new()-constrained type
+                // parameter: instantiation needs the runtime Class token so the Java
+                // output can call Activator.createInstance(tClass).
+                if (semanticModel.GetTypeInfo(creation).Type is ITypeParameterSymbol createdTypeParameter
+                    && createdTypeParameter.HasConstructorConstraint
+                    && IsOwnedByMethodOrType(createdTypeParameter, originalMethod))
+                {
+                    AddUnique(required, createdTypeParameter);
+                }
                 continue;
+            }
 
             foreach (var createdRequirement in GetRequiredTypeParameters(createdType, context))
             {

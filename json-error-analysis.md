@@ -589,6 +589,21 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 20 - 不兼容的类型 (new T() 降级为 new Object() 无法转 ReferenceResolver)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/ReferenceHandler1.java
+- **行号**: 28
+- **错误信息**: `不兼容的类型: java.lang.Object无法转换为dotnet.text.json.Serialization.ReferenceResolver`（`public ReferenceResolver createResolver() { return new Object(); }`）
+- **代码片段**:
+  ```java
+  public ReferenceResolver createResolver() { return new Object(); }  // 应为 (T) Activator.createInstance(tClass)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\ReferenceHandlerOfT.cs（`public override ReferenceResolver CreateResolver() => new T();`，`where T : ReferenceResolver, new()`）
+- **根因分类**: Transformer（new() 约束类型参数实例化无运行时 Class 支持）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs（第 293 行）；src/CSharpToJava.Core/Transformers/Utilities/RuntimeClassParameterHelper.cs（AddObjectCreationRequirements）
+- **分析**: `new T()`（new() 约束）在 Java 无法直接实例化类型参数，原实现降级为 `new Object()`，而方法返回类型是 ReferenceResolver → 赋值失败。修复：AddObjectCreationRequirements 把 new() 约束类型参数的 new T() 记为运行时 Class 需求（生成 tClass 字段/构造参数）；ObjectCreationTransformer 在有 tClass 时发射 `(T) Activator.createInstance(tClass)`（compat Activator 已有 (Class<T>) 重载）。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

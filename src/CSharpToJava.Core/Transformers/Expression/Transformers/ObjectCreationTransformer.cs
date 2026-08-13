@@ -291,7 +291,17 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
 
             if (typeParameter.HasConstructorConstraint)
+            {
+                // new T() where T has a new() constraint: Java cannot instantiate a type
+                // parameter, but the runtime Class token (tClass) lets us reflectively
+                // create an instance of the concrete type argument.
+                if (context.TryGetRuntimeClassParameter(typeParameter.Name, out var newConstraintClassParam))
+                {
+                    context.AddImport("io.github.ningpp.compat.Activator");
+                    return $"({typeName}) io.github.ningpp.compat.Activator.createInstance({newConstraintClassParam})";
+                }
                 return "new Object()";
+            }
         }
 
         // Check if there's an object initializer
