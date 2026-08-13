@@ -20,6 +20,10 @@ public class StreamWrapper implements AutoCloseable {
     private final OutputStream outputStream;
     private final String name;
 
+    public StreamWrapper() {
+        this(null, null, null);
+    }
+
     protected StreamWrapper(InputStream in, OutputStream out) {
         this(in, out, null);
     }

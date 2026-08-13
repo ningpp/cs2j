@@ -165,6 +165,20 @@ public class MemoryStream extends StreamWrapper {
     public void close() {
     }
 
+    /** Mirrors Stream.Seek(offset, SeekOrigin) — the in-memory buffer can only seek within bounds. */
+    public long seek(long offset, SeekOrigin origin) {
+        long newPos = switch (origin) {
+            case Begin -> offset;
+            case Current -> position + offset;
+            case End -> buffer.length + offset;
+        };
+        if (newPos < 0) {
+            newPos = 0;
+        }
+        position = (int) newPos;
+        return position;
+    }
+
     private void ensureCapacity(int capacity) {
         if (capacity <= buffer.length) return;
         int next = Math.max(capacity, Math.max(256, buffer.length * 2));
