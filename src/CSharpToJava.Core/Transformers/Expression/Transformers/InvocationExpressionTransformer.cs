@@ -9267,7 +9267,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
 
         var typeName = containingType.OriginalDefinition.ToDisplayString();
-        return typeName is "System.Collections.Generic.List<T>"
+        if (typeName is "System.Collections.Generic.List<T>"
             or "System.Collections.Generic.HashSet<T>"
             or "System.Collections.Generic.SortedSet<T>"
             or "System.Collections.Generic.Queue<T>"
@@ -9278,7 +9278,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             or "System.Collections.Generic.IList<T>"
             or "System.Collections.Generic.ISet<T>"
             or "System.Collections.ICollection"
-            or "System.Collections.IList";
+            or "System.Collections.IList")
+        {
+            return true;
+        }
+
+        // Nested collection views (Dictionary<,>.ValueCollection / KeyCollection,
+        // SortedDictionary<,>.*, SortedList<,>.*, ReadOnlyCollection<T>, ...) expose
+        // ICollection<T>.CopyTo(T[], int) with the same array-copy contract.
+        // Match through the implemented interfaces so any framework collection with
+        // CopyTo(T[], int) is rewritten, not just the enumerated concrete types.
+        return containingType.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString()
+            is "System.Collections.Generic.ICollection<T>"
+            or "System.Collections.ICollection");
     }
 
     private static bool IsSystemStringMethod(

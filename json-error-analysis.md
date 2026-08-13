@@ -338,3 +338,49 @@
 - **分析**: Type<T>.member() 的静态类型限定符剥离逻辑被应用到所有接收者：强转接收者 ((JsonParameterInfo1<TArg0>)x).getTypedDefaultValue() 被剥成 raw 类型 → getter 返回 Object。改为仅对静态类型接收者剥离。
 - **测试**: 	ests/CSharpToJava.Tests/CastReceiverTypeArgsTests.cs（RED→GREEN，含静态接收者仍剥离的防回归）；既有 KeyValuePairMemberAccessPrecedenceTests 断言同步为带实参形态
 - **状态**: ✅ Fixed
+
+## Iteration 4 - 找不到符号 (Nullable.GetUnderlyingType 映射为 Object.getUnderlyingType)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonSerializerOptions.java
+- **行号**: 383（另见 672; JsonClassInfo.java 156/349/361/365; Utf8JsonWriter.java 538/544/920/926; Utf8JsonReader.java 613/640; TypeExtensions.java 33; JsonConverter1.java 64/151; NullableConverterFactory.java 32）
+- **错误信息**: `[ERROR] [383,42] 找不到符号 / 符号: 方法 getUnderlyingType(java.lang.Class) / 位置: 类 java.lang.Object`
+- **代码片段**:
+  ```java
+  if (!converter.canConvert(typeToConvert)) {
+      Class underlyingType = Object.getUnderlyingType(typeToConvert);   // 应为 TypeHelper.getUnderlyingType(...)
+      if (underlyingType != null && converter.canConvert(underlyingType)) {
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\JsonSerializerOptions.Converters.cs（另见 TypeExtensions.cs、JsonConverterOfT.cs、JsonConverterOfT.WriteCore.cs、Converters\Value\NullableConverterFactory.cs）
+- **根因分类**: 类型映射缺失（TypeMappings.json 缺 `System.Nullable.GetUnderlyingType` 方法映射）
+- **涉及组件**: `config/TypeMappings.json`（方法映射）、`src/CSharpToJava.Core/Context/TypeMappingService.cs:437-443`（无类型实参的 Nullable 降级为 Object）
+- **分析**: `Nullable.GetUnderlyingType(type)` 是 System.Nullable 静态类的调用。InvocationExpressionTransformer 的静态接收者方法映射查不到 `(System.Nullable, GetUnderlyingType)` 条目，方法名保持原样；同时静态接收者 `System.Nullable` 经 MapType 时因 `TypeArguments.Length == 0` 被降级为 `Object`，最终产出 `Object.getUnderlyingType(...)`。compat 库的 `TypeHelper.getUnderlyingType` 已有镜像方法但为 stub。修复：TypeMappings.json 增加方法映射到 `TypeHelper.getUnderlyingType`（复用 TypeHelper 兼容 helper 机制，自动导入），并在 compat 库实现该方法（boxed wrapper → 对应 primitive，其余返回 null）。
+
+- **状态**: ✅ Fixed
+
+## Iteration 5 - 找不到符号 (ConcurrentDictionary.GetOrAdd 未映射到 ConcurrentHashMapHelper)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonSerializerOptions.java
+- **行号**: 672
+- **错误信息**: `[ERROR] [672,26] 找不到符号 / 符号: 方法 getOrAdd(java.lang.Class,dotnet.text.json.JsonClassInfo) / 位置: 类型为java.util.concurrent.ConcurrentHashMap<java.lang.Class,dotnet.text.json.JsonClassInfo>的变量 _classes`
+- **代码片段**:
+  ```java
+  JsonClassInfo result = _classes.get(type);
+  if (result == null) {
+      result = _classes.getOrAdd(type, new JsonClassInfo(type, this));   // 应为 ConcurrentHashMapHelper.getOrAdd(_classes, type, ...)
+  }
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\JsonSerializerOptions.cs（GetOrAddClass，_classes 为 ConcurrentDictionary<Type, JsonClassInfo>）
+- **根因分类**: 类型映射缺失（TypeMappings.json 缺 `ConcurrentDictionary`2.GetOrAdd` 方法映射）
+- **涉及组件**: `config/TypeMappings.json`（methodMappings）
+- **分析**: `TryAdd → ConcurrentHashMapHelper.tryAdd` 已有映射先例（实例方法 + receiver 前置，经 IsMappedCompatibilityHelperMethod 路径输出静态调用），但 `GetOrAdd` 无映射，生成 `_classes.getOrAdd(...)` 实例调用而 ConcurrentHashMap 无此方法。修复：按 TryAdd 模式添加 `GetOrAdd → ConcurrentHashMapHelper.getOrAdd` 映射（compat 库已有两个重载：value 与 valueFactory）。
+- **测试**: tests/CSharpToJava.Tests/ConcurrentDictionaryGetOrAddTests.cs（RED→GREEN）
+
+- **状态**: ✅ Fixed
+
+## Iteration 6 - 找不到符号 (Dictionary.Values.CopyTo 未重写为 CSharpArray.copyTo)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonClassInfo.java
+- **行号**: 156（另见 Utf8JsonReader.java/Utf8JsonWriter.java 的 ArrayPool 泛型错误、tryParse 重载错误等）
+- **错误信息**: `[ERROR] [156,23] 找不到符号 / 符号: 方法 copyTo(dotnet.text.json.JsonPropertyInfo[],int) / 位置: 接口 java.util.Collection<dotnet.text.json.JsonPropertyInfo>`
+- **代码片段**:
+  ```java
+  // Copy the dictionary cache to the array cache.
+  cache.values().copyTo(cacheArray, 0);   // 应为 CSharpArray.copyTo(cache.values().toArray(), 0, cacheArray, 0, cache.size())
+  ```

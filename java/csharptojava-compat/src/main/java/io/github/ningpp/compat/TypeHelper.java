@@ -75,9 +75,15 @@ public final class TypeHelper {
         return type == null ? null : type.getDeclaringClass();
     }
 
-    /** Mirrors Nullable.GetUnderlyingType(Type) — null unless the type is a boxed nullable wrapper. */
+    /**
+     * Mirrors Nullable.GetUnderlyingType(Type) — in the converted model C# value
+     * types map to their boxed wrapper classes (typeof(int) → Integer.class), so a
+     * boxed primitive wrapper represents Nullable&lt;T&gt; and its underlying type is
+     * the wrapper of the primitive (matching typeof(int) → Integer.class).
+     * Returns null for non-wrapper inputs.
+     */
     public static Class<?> getUnderlyingType(Class<?> type) {
-        return null;
+        return type != null && toPrimitiveType(type) != null ? type : null;
     }
 
     public static boolean getIsGenericType(Class<?> type) {

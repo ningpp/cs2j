@@ -7210,6 +7210,11 @@
             "javaMethod": "ConcurrentHashMapHelper.tryAdd"
         },
         {
+            "type": "System.Collections.Concurrent.ConcurrentDictionary`2",
+            "method": "GetOrAdd",
+            "javaMethod": "ConcurrentHashMapHelper.getOrAdd"
+        },
+        {
             "type": "System.Collections.Generic.Dictionary`2",
             "method": "TryGetValue",
             "javaMethod": "tryGetValue"
@@ -9427,6 +9432,14 @@
             "type": "System.Type",
             "method": "GetElementType",
             "javaMethod": "TypeHelper.getElementType"
+        },
+        {
+            "type": "System.Nullable",
+            "method": "GetUnderlyingType",
+            "javaMethod": "TypeHelper.getUnderlyingType",
+            "imports": [
+                "io.github.ningpp.compat.TypeHelper"
+            ]
         }
     ],
     "namespaceMappings": [
