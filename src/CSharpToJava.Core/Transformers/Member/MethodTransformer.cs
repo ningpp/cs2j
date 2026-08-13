@@ -1319,16 +1319,22 @@ public class MethodTransformer : IMemberTransformer
     {
         // A nested type sharing the annotation's simple name (e.g. a private class
         // Test<T> or record Test) shadows the single-type import — emit the annotation
-        // qualified. Check both the semantic symbol and the enclosing syntax (partial
-        // types may declare the nested type in another file).
+        // qualified. The nested type may live in ANY partial declaration of the class.
         var enclosingType = context.CurrentEnclosingRoslynType;
-        bool shadowed = enclosingType != null && enclosingType.GetTypeMembers(simpleName).Any();
+        bool shadowed = enclosingType != null
+            && (enclosingType.GetTypeMembers(simpleName).Any()
+                || enclosingType.DeclaringSyntaxReferences
+                    .Select(r => r.GetSyntax())
+                    .OfType<TypeDeclarationSyntax>()
+                    .Any(d => d.Members.OfType<TypeDeclarationSyntax>().Any(m => m.Identifier.Text == simpleName)));
         if (!shadowed)
         {
             var enclosingDecl = methodDecl.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
             shadowed = enclosingDecl != null
                 && enclosingDecl.Members.OfType<TypeDeclarationSyntax>().Any(m => m.Identifier.Text == simpleName);
         }
+        if (shadowed)
+            System.Console.Error.WriteLine($"[DBG-Anno] {enclosingType?.Name ?? "?"}.{simpleName} shadowed -> {fqn} (method {methodDecl.Identifier.Text})");
         return shadowed ? fqn : simpleName;
     }
 

@@ -73,6 +73,7 @@ public static class AnonymousTypeRecordSynthesizer
 
         // Derive a name heuristic from the enclosing variable declaration
         var recordName = DeriveRecordName(node, context);
+        recordName = EnsureUniqueRecordName(recordName, node, context);
         var record = new SynthesizedRecordInfo(recordName, fields, structuralKey);
         context.RegisterSynthesizedRecord(record);
 
@@ -186,6 +187,38 @@ public static class AnonymousTypeRecordSynthesizer
         }
 
         return context.GenerateSyntheticName("AnonymousRecord");
+    }
+
+    /// <summary>
+    /// Renames the derived record name when it collides with the enclosing class's
+    /// members/nested types or with the JUnit annotation names emitted in the same
+    /// file (e.g. `var test = new { name = ... }` would produce record "Test" and
+    /// shadow the @Test annotation import).
+    /// </summary>
+    private static string EnsureUniqueRecordName(string recordName, AnonymousObjectCreationExpressionSyntax node, ConversionContext context)
+    {
+        var enclosingType = context.CurrentEnclosingRoslynType;
+        bool collides = enclosingType != null
+            && (enclosingType.GetMembers(recordName).Any()
+                || enclosingType.GetTypeMembers(recordName).Any());
+        if (!collides)
+        {
+            collides = recordName is "Test" or "ParameterizedTest" or "Timeout";
+        }
+        if (!collides)
+            return recordName;
+
+        int suffix = 2;
+        string candidate;
+        do
+        {
+            candidate = recordName + suffix++;
+            bool stillCollides = enclosingType != null
+                && (enclosingType.GetMembers(candidate).Any()
+                    || enclosingType.GetTypeMembers(candidate).Any());
+            collides = stillCollides || candidate is "Test" or "ParameterizedTest" or "Timeout";
+        } while (collides);
+        return candidate;
     }
 
     /// <summary>
