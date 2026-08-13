@@ -5053,10 +5053,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 is not (SpecialType.System_Int32 or SpecialType.System_Int64
                     or SpecialType.System_UInt32 or SpecialType.System_UInt64))
             {
-                var mmSpanArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var mmReadArgs = ArgumentTransformer.TransformArgumentList(
+                    node.ArgumentList, context, facade, 0, methodSymbol);
                 var mmReadJavaType = context.MapType(mmReadType);
                 context.AddImport("io.github.ningpp.compat.MemoryMarshal");
-                return $"MemoryMarshal.read({mmSpanArg}, {mmReadJavaType}.class)";
+                return $"MemoryMarshal.read({mmReadArgs}, {mmReadJavaType}.class)";
             }
         }
 
