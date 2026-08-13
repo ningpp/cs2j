@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
-public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, Cloneable {
+public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, CSharpReadOnlyDict<K, V>, Cloneable {
     private final LinkedHashMap<K, V> map;
     private final CSharpGenericEqualityComparer<K> comparer;
 
@@ -357,3 +357,4 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         }
     }
 }
+

@@ -2,7 +2,7 @@ package io.github.ningpp.compat;
 
 import java.util.*;
 
-public interface CSharpICollection<T> extends CSharpGenericIterable<T> {
+public interface CSharpICollection<T> extends CSharpReadOnlyCollection<T> {
     /**
      * Adapts a CSharpCollection (non-generic ICollection) or passes through an existing
      * CSharpICollection as CSharpICollection<Object>. Used by the converter when the

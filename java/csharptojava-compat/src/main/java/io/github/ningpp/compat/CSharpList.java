@@ -11,7 +11,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
-public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>, Cloneable {
+public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>, CSharpReadOnlyList<T>, Cloneable {
 
     public static <T> Collector<T, ?, CSharpList<T>> toCSharpList() {
         return Collectors.toCollection(() -> new CSharpList<>());
@@ -344,3 +344,4 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         return get(0);
     }
 }
+
