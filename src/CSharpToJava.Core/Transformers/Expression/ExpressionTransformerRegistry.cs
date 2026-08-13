@@ -104,23 +104,41 @@ public static class ExpressionTransformerRegistry
             }));
 
         Register(new[] { SyntaxKind.CollectionExpression },
+              new DelegateExpressionTransformer((node, ctx) =>
+              {
+                  var coll = (CollectionExpressionSyntax)node;
+                  var elements = string.Join(", ", coll.Elements.OfType<ExpressionElementSyntax>()
+                      .Select(e => ExpressionTransformerFacade.Instance.Transform(e.Expression, ctx)));
+
+                  // Check if the target type is an array; if so, generate array initializer.
+                  var typeInfo = ctx.GetTypeInfo(node);
+                  if (typeInfo.ConvertedType is IArrayTypeSymbol convArr)
+                  {
+                      var elementType = ctx.MapType(convArr.ElementType);
+                      return $"new {elementType}[]{{ {elements} }}";
+                  }
+
+                  return $"java.util.List.of({elements})";
+              }));
+
+        // global::Namespace.Type used in expression position (e.g. static member
+        // receivers like global::dotnet.text.json.JsonCommentHandling.Disallow):
+        // map to the Java type name so the member access chain resolves.
+        Register(new[] { SyntaxKind.AliasQualifiedName },
             new DelegateExpressionTransformer((node, ctx) =>
             {
-                var coll = (CollectionExpressionSyntax)node;
-                var elements = string.Join(", ", coll.Elements.OfType<ExpressionElementSyntax>()
-                    .Select(e => ExpressionTransformerFacade.Instance.Transform(e.Expression, ctx)));
-
-                // Check if the target type is an array; if so, generate array initializer.
-                var typeInfo = ctx.GetTypeInfo(node);
-                if (typeInfo.ConvertedType is IArrayTypeSymbol convArr)
+                var aqn = (AliasQualifiedNameSyntax)node;
+                var typeInfo = ctx.GetTypeInfo(aqn);
+                var symbol = typeInfo.Type ?? typeInfo.ConvertedType;
+                if (symbol != null && symbol.TypeKind != TypeKind.Error)
                 {
-                    var elementType = ctx.MapType(convArr.ElementType);
-                    return $"new {elementType}[]{{ {elements} }}";
+                    var mapped = ctx.MapType(symbol);
+                    if (!string.IsNullOrWhiteSpace(mapped))
+                        return mapped;
                 }
-
-                return $"java.util.List.of({elements})";
+                return ctx.MapTypeFromSyntax(aqn.Name) ?? aqn.Name.ToString();
             }));
-    }
+      }
 
     /// <summary>
     /// Register a transformer for the specified SyntaxKind values.

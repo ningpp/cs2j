@@ -123,6 +123,7 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
                         // 如 `return Task.Run(...)` 也不破坏 Promise<X> 返回类型）
                         return new JavaRawExpression($"Promise.resolve(({fn.Trim()})())");
                     case "yield":
+                    case "yieldValue":
                         return new JavaRawExpression("Promise.resolve()");
                 }
             }
@@ -278,6 +279,8 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
         const string supplyAsyncNeedleTask = "Task.supplyAsync(";
         const string yieldNeedle = "CompletableFuture.yield()";
         const string yieldNeedleTask = "Task.yield()";
+        const string yieldNeedleEscaped = "CompletableFuture.yieldValue()";
+        const string yieldNeedleTaskEscaped = "Task.yieldValue()";
 
         var sb = new StringBuilder(text.Length);
         var i = 0;
@@ -368,12 +371,18 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
             }
             else if (AtIdentifierBoundary(text, i)
                 && (text.AsSpan(i).StartsWith(yieldNeedle, StringComparison.Ordinal)
-                    || text.AsSpan(i).StartsWith(yieldNeedleTask, StringComparison.Ordinal)))
+                    || text.AsSpan(i).StartsWith(yieldNeedleTask, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(yieldNeedleEscaped, StringComparison.Ordinal)
+                    || text.AsSpan(i).StartsWith(yieldNeedleTaskEscaped, StringComparison.Ordinal)))
             {
                 sb.Append("Promise.resolve()");
                 var matchedNeedle = text.AsSpan(i).StartsWith(yieldNeedle, StringComparison.Ordinal)
                     ? yieldNeedle
-                    : yieldNeedleTask;
+                    : text.AsSpan(i).StartsWith(yieldNeedleTask, StringComparison.Ordinal)
+                        ? yieldNeedleTask
+                        : text.AsSpan(i).StartsWith(yieldNeedleEscaped, StringComparison.Ordinal)
+                            ? yieldNeedleEscaped
+                            : yieldNeedleTaskEscaped;
                 i += matchedNeedle.Length;
                 continue;
             }
@@ -394,6 +403,8 @@ public sealed class TsAsyncRewriter : JavaSyntaxRewriter
             || args.Contains("Task.runAsync(", StringComparison.Ordinal)
             || args.Contains("Task.supplyAsync(", StringComparison.Ordinal)
             || args.Contains("Task.yield()", StringComparison.Ordinal)
+            || args.Contains("Task.yieldValue()", StringComparison.Ordinal)
+            || args.Contains("CompletableFuture.yieldValue()", StringComparison.Ordinal)
             ? RewriteCompletableFuture(args)
             : args;
     }

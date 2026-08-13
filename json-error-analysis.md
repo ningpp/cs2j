@@ -687,6 +687,21 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 26 - 受限标识符 yield / 非法的表达式开始 (yield 方法名 + global:: 别名限定名)
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/StreamTests.java（510-514）；Tests/Utf8JsonReaderTests.java（1239）
+- **错误信息**: `受限标识符 'yield' 的用法无效`（`for (Object[] testData : yield(100, 6601))`）；`非法的表达式开始`（`/* TODO: AliasQualifiedName – global::dotnet */.text.json.JsonCommentHandling.Disallow`）
+- **代码片段**:
+  ```java
+  for (Object[] testData : yield(100, 6601)) { _yieldResult.add(testData); }  // yield 是 Java 受限标识符
+  byte[] result = JsonTestHelper.returnBytesHelper(dataUtf8, _outputLengthHolder1, /* TODO: AliasQualifiedName */ .text.json.JsonCommentHandling.Disallow, 256);
+  ```
+- **对应 C# 文件**: d:\csharpjson\tests\Serialization\Stream.ReadTests.cs（局部函数 `IEnumerable<object[]> Yield(int count, ...)`）；tests\Utf8JsonReaderTests.cs（`global::dotnet.text.json.JsonCommentHandling.Disallow`）
+- **根因分类**: Transformer（JavaNaming 未含受限标识符；AliasQualifiedName 表达式无处理器）
+- **涉及组件**: src/CSharpToJava.Core/Context/JavaNaming.cs（IsJavaKeyword）；src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs
+- **分析**: （1）C# 局部函数 `Yield` camelCase 后为 `yield`，Java 受限标识符在语句表达式位置非法（yield(x) 与 yield 语句歧义）→ 加入关键字表转义为 yieldValue。（2）`global::X.Y` 的 AliasQualifiedName 表达式无注册处理器 → TODO 注释内联破坏成员访问链。修复：注册处理器，按语义类型映射为 Java 类型名。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

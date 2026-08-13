@@ -29,10 +29,14 @@ public static class JavaNaming
             "interface" or "long" or "native" or "new" or "package" or "private" or
             "protected" or "public" or "return" or "short" or "static" or "strictfp" or
             "super" or "switch" or "synchronized" or "this" or "throw" or "throws" or
-            "transient" or "try" or "void" or "volatile" or "while"
-            or "true" or "false" or "null"
-            or "_" => true,
-            _ => false
+              "transient" or "try" or "void" or "volatile" or "while"
+              or "true" or "false" or "null"
+              or "_"
+              // Restricted identifiers that cannot be used as method names in
+              // statement-expression positions (e.g. yield(...) — ambiguous with
+              // the yield statement).
+              or "yield" => true,
+              _ => false
         };
     }
 
