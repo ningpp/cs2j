@@ -148,4 +148,5 @@ public final class OpCodes {
     public static final OpCode Tailcall = new OpCode("Tailcall");
     public static final OpCode Throw = new OpCode("Throw");
     public static final OpCode Unbox = new OpCode("Unbox");
+    public static final OpCode Unbox_Any = new OpCode("Unbox_Any");
 }

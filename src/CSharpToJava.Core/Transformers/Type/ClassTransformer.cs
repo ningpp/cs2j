@@ -1604,6 +1604,12 @@ public class ClassTransformer : ITypeTransformer
                     if (typeInfo.Type != null)
                     {
                         var bound = context.MapType(typeInfo.Type);
+                        // C# 'where T : Delegate' has no Java equivalent: compat
+                        // Delegate and the java.util.function functional interfaces
+                        // used for Action/Func targets are unrelated, so the bound
+                        // would reject BiConsumer/Function arguments.
+                        if (bound == "Delegate" || bound.StartsWith("Delegate<", StringComparison.Ordinal))
+                            continue;
                         if (!string.IsNullOrEmpty(bound) && bound != "Object")
                             jtp.Bounds.Add(bound);
                     }
