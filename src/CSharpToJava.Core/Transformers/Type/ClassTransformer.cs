@@ -424,6 +424,7 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, mergedType.TypeSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass, mergedType.TypeSymbol);
+        AddJavaCollectionBaseConstructors(javaClass);
         RemoveNonGenericClashingMembers(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
@@ -829,6 +830,7 @@ public class ClassTransformer : ITypeTransformer
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, classSymbol);
         AddCollectionInterfaceBridgeMethods(javaClass, classSymbol);
+        AddJavaCollectionBaseConstructors(javaClass);
         RemoveNonGenericClashingMembers(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
         AddCloneableBridgeMethods(javaClass);
@@ -3497,6 +3499,48 @@ public class ClassTransformer : ITypeTransformer
         if (paramType.EndsWith("." + elemType))
             return true;
         return false;
+    }
+
+    /// <summary>
+    /// Synthesizes a Collection-arg constructor for classes extending the compat
+    /// concrete collections (CSharpList etc.) when the class declares none — the
+    /// collection-initializer path emits new Subclass(ArrayHelper.toList(...)).
+    /// </summary>
+    private static void AddJavaCollectionBaseConstructors(JavaClassDeclaration javaClass)
+    {
+        if (javaClass.Constructors.Count > 0 || javaClass.ExtendedType == null)
+            return;
+
+        foreach (var compat in new[]
+                 {
+                     "CSharpList", "CSharpHashSet", "CSharpLinkedList", "CSharpQueue",
+                     "CSharpStack", "CSharpSortedSet", "CSharpCollection", "CSharpArrayList",
+                 })
+        {
+            if (javaClass.ExtendedType != compat
+                && !javaClass.ExtendedType.StartsWith(compat + "<", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var elemType = "Object";
+            if (javaClass.ExtendedType.StartsWith(compat + "<", StringComparison.Ordinal)
+                && javaClass.ExtendedType.EndsWith(">"))
+            {
+                elemType = javaClass.ExtendedType.Substring(
+                    compat.Length + 1, javaClass.ExtendedType.Length - compat.Length - 2);
+            }
+
+            javaClass.Constructors.Add(new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Public,
+                Initializer = "super(c)",
+                Parameters = { new JavaParameter($"java.util.Collection<{elemType}>", "c") },
+                Body = ""
+            });
+            return;
+        }
     }
 
     private static void AddJavaCollectionBridgeMethods(JavaClassDeclaration javaClass, string collectionType)

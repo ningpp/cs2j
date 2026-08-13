@@ -296,7 +296,22 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 }
 
                 var invokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
-                var invArgs = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => Transform(a.Expression, context)));
+                // Split(char) inside ?. chains must convert the char separator to a
+                // String regex argument (Java split(String) — e.g. s?.Split(',') →
+                // s.split(",")), matching the InvocationExpressionTransformer handling.
+                var invArgs = string.Join(", ", invocation.ArgumentList.Arguments.Select(a =>
+                {
+                    if (invocation.Expression is MemberBindingExpressionSyntax invBinding
+                        && invBinding.Name.Identifier.Text == "Split"
+                        && a.Expression is LiteralExpressionSyntax invCharLit
+                        && invCharLit.IsKind(SyntaxKind.CharacterLiteralExpression))
+                    {
+                        var ch = invCharLit.Token.ValueText;
+                        return "\"" + ch.Replace("\\", "\\\\", StringComparison.Ordinal)
+                                     .Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+                    }
+                    return Transform(a.Expression, context);
+                }));
                 return $"{invokedTarget}({invArgs})";
 
             case MemberAccessExpressionSyntax memberAccess:
