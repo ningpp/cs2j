@@ -37,6 +37,15 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         this.traversalIndex = 0;
     }
 
+    /** Wraps a single ReadOnlyMemory as a one-segment sequence. */
+    public ReadOnlySequence(ReadOnlyMemory<T> memory) {
+        ReadOnlySpan<T> span = memory.getSpan();
+        this.data = span.toArray();
+        this.start = 0;
+        this.length = span.length();
+        this.traversalIndex = 0;
+    }
+
     /**
      * Mirrors the segment-chain constructor
      * ReadOnlySequence(ReadOnlySequenceSegment&lt;T&gt;, int, ReadOnlySequenceSegment&lt;T&gt;, int) —

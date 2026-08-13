@@ -2311,7 +2311,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 var result = TryResolvePropertyByType(memberName, target, constraint, context);
                 if (result != null)
-                    return result;
+                {
+                    // The member lives on a constraint type; the Java receiver is the
+                    // bare type parameter, so cast it (e.g. ex.getData() where T extends
+                    // RuntimeException → ((RuntimeException)(ex)).getData()).
+                    var constraintJavaType = context.MapType(constraint);
+                    if (string.IsNullOrWhiteSpace(constraintJavaType) || constraintJavaType == "Object")
+                        return result;
+                    return result.Replace($"{target}.", $"(({constraintJavaType})({target})).", StringComparison.Ordinal);
+                }
             }
             return null;
         }

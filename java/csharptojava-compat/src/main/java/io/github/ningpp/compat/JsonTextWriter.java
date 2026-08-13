@@ -80,6 +80,61 @@ public class JsonTextWriter implements AutoCloseable {
         writer.print(rawJson);
     }
 
+    /** Mirrors Newtonsoft.Json.Formatting. */
+    public enum Formatting {
+        None,
+        Indented
+    }
+
+    private Formatting formatting = Formatting.None;
+
+    public void setFormatting(Formatting value) {
+        this.formatting = value;
+    }
+
+    public Formatting getFormatting() {
+        return formatting;
+    }
+
+    /** Mirrors JsonWriter.WriteToken(JsonReader) — drains the reader into this writer. */
+    public void writeToken(JsonTextReader reader, boolean writeChildren) {
+        while (reader.read()) {
+            JsonToken token = reader.getTokenType();
+            Object value = reader.getValue();
+            switch (token) {
+                case StartObject:
+                    writeStartObject();
+                    break;
+                case EndObject:
+                    writeEndObject();
+                    break;
+                case StartArray:
+                    writeStartArray();
+                    break;
+                case EndArray:
+                    writeEndArray();
+                    break;
+                case PropertyName:
+                    writePropertyName(value == null ? "" : value.toString());
+                    break;
+                case String:
+                    writeValue(value == null ? "" : value.toString());
+                    break;
+                case Integer:
+                case Float:
+                case Raw:
+                case Boolean:
+                    writeValue(value);
+                    break;
+                case Null:
+                    writeNull();
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
     public void flush() {
         writer.flush();
     }
