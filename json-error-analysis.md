@@ -444,3 +444,21 @@
 - **根因分类**: Transformer（Utf8Parser.TryParse 未按 out 实参类型选择 helper 名）
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（方法名 camelCase 后统一为 tryParse，第 4390 行附近）
 - **分析**: compat Utf8Parser 的 helper 按 out 类型命名：`tryParseDecimal`（ObjectHolder<Decimal>）、`tryParseUuid`（ObjectHolder<UUID>）、`tryParseDateTime`/`tryParseDateTimeOffset`；裸 `tryParse` 只接受 IntHolder/LongHolder/ShortHolder/ByteHolder/BoolHolder/FloatHolder/DoubleHolder。转换器把所有 TryParse 一律 camelCase 成 `tryParse`，导致 decimal/Guid 调用无匹配重载。修复：对 System.Buffers.Text.Utf8Parser.TryParse 按 out 参数类型选择专用 helper 名。
+
+- **状态**: ✅ Fixed
+
+## Iteration 10 - 找不到合适的方法 / 类型不兼容 (Stream.WriteAsync/FlushAsync 的 CancellationToken 未映射为 boolean)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Utf8JsonWriter.java
+- **行号**: 318、322（另见 JsonDocument.java 1407/1422；PooledByteBufferWriterExtensions.java 32）
+- **错误信息**:
+  - `对于writeAsync(io.github.ningpp.compat.ReadOnlyMemory<java.lang.Integer>,io.github.ningpp.compat.CancellationToken), 找不到合适的方法`
+  - `不兼容的类型: io.github.ningpp.compat.CancellationToken无法转换为boolean`
+- **代码片段**:
+  ```java
+  _stream.writeAsync(_arrayBufferWriter.getWrittenMemory(), cancellationToken).join();  // compat 签名为 (ReadOnlyMemory<Integer>, boolean)
+  _stream.flushAsync(cancellationToken).join();                                        // compat 签名为 (boolean)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Writer\Utf8JsonWriter.cs（`await _stream.WriteAsync(_arrayBufferWriter.WrittenMemory, cancellationToken)`；同模式出现在 JsonDocument.cs、JsonSerializer.Write.Stream.cs 等）
+- **根因分类**: Transformer（Stream 异步方法未映射 compat 的 boolean 型 CancellationToken 参数）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（TextWriter 异步特例存在但 Stream 无对应处理）
+- **分析**: compat StreamWrapper 把 CancellationToken 参数建模为 boolean（实现中忽略该值）：`writeAsync(ReadOnlyMemory<Integer>, boolean)`、`writeAsync(ReadOnlySpan<Integer>, boolean)`、`flushAsync(boolean)`，而 byte[] 重载 `writeAsync(byte[], int, int)` 直接无 token 参数。转换器只对 TextWriter 有异步特例，Stream 走通用路径原样传 CancellationToken 对象 → 无匹配重载。修复：为 System.IO.Stream 的 WriteAsync/FlushAsync 加特例——丢弃/转译尾部 CancellationToken：byte[] 重载去掉 token，Memory/Span 重载与 FlushAsync 传 `false`（compat 忽略该值）。

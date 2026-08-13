@@ -4765,6 +4765,33 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return textWriterAsyncInvocation;
         }
 
+        // System.IO.Stream.WriteAsync/FlushAsync: the compat StreamWrapper models the
+        // trailing CancellationToken parameter as boolean (the implementation ignores
+        // the value), and the byte[] overload drops the token entirely:
+        //   writeAsync(ReadOnlyMemory<Integer>, boolean) / writeAsync(byte[], int, int)
+        //   flushAsync(boolean)
+        if (methodSymbol is { Parameters.Length: > 0 }
+            && methodSymbol.ContainingType.ToDisplayString() == "System.IO.Stream"
+            && originalMethodName is "WriteAsync" or "FlushAsync"
+            && methodSymbol.Parameters[^1].Type.ToDisplayString() == "System.Threading.CancellationToken")
+        {
+            if (originalMethodName == "FlushAsync")
+            {
+                return $"{receiver}.flushAsync(false)";
+            }
+
+            var nonTokenArgCount = methodSymbol.Parameters.Length - 1;
+            var streamAsyncArgs = ArgumentTransformer.TransformArgumentList(
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol, maxArgCount: nonTokenArgCount);
+            bool isByteArrayOverload = methodSymbol.Parameters[0].Type is IArrayTypeSymbol
+            {
+                ElementType.SpecialType: SpecialType.System_Byte
+            };
+            return isByteArrayOverload
+                ? $"{receiver}.writeAsync({streamAsyncArgs})"
+                : $"{receiver}.writeAsync({streamAsyncArgs}, false)";
+        }
+
         // Console.Write/WriteLine(format, args...) and TextWriter/PrintWriter print/println(format, args...)
         // only accept a single argument in Java; multi-arg C# overloads are formatting calls.
         bool isJavaPrintln = methodName == "println"
