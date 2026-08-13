@@ -253,8 +253,7 @@ public class RecordTransformer : ITypeTransformer
                 Name = "get" + char.ToUpper(field.Name[0]) + field.Name.Substring(1),
                 ReturnType = field.Type,
                 Modifiers = JavaModifiers.Public,
-                Body = $"return {field.Name};",
-                IsBodyExpression = true
+                Body = $"return {field.Name};"
             });
         }
 
