@@ -470,13 +470,17 @@ public static class ExpressionTransformerHelpers
 
             // C# uint maps to Java int, but constants like uint.MaxValue are emitted as long
             // literals (e.g., 4294967295L). Add an explicit (int) cast so assignment to uint
-            // variables remains compilable in Java.
+            // variables remains compilable in Java. Plain uint literals beyond int.MaxValue
+            // (e.g. 3294967295) get the same treatment.
             if (sourceType.SpecialType == SpecialType.System_UInt32
-                && transformedExpression.Trim() is string uintExpr
-                && uintExpr.EndsWith("L", StringComparison.Ordinal)
-                && long.TryParse(uintExpr.TrimEnd('L'), out _))
+                && transformedExpression.Trim() is string uintExpr)
             {
-                return $"(int) {transformedExpression}";
+                var uintTrimmed = uintExpr.TrimEnd('L');
+                if (long.TryParse(uintTrimmed, out var uintLongValue) && uintLongValue > int.MaxValue)
+                {
+                    return $"(int) {uintLongValue}L";
+                }
+                return transformedExpression;
             }
 
             return transformedExpression;

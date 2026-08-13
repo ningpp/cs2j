@@ -702,6 +702,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 27 - 整数太大 (uint 普通字面量超出 int 范围未回绕)
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Tests/Utf8JsonWriterTests.java
+- **行号**: 4213
+- **错误信息**: `整数太大`（`uints[2] = 3294967295;`）
+- **代码片段**:
+  ```java
+  uints[0] = (int) 4294967295L;   // uint.MaxValue 已处理
+  uints[2] = 3294967295;          // 普通 uint 字面量超 int 范围 → 报错
+  ```
+- **对应 C# 文件**: d:\csharpjson\tests\Utf8JsonWriterTests.cs（`uints[2] = 3294967295;`，uint[] 元素赋值）
+- **根因分类**: Transformer（uint 字面量适配只处理带 L 后缀的常量）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（AdaptExpressionToTargetTypeCore，第 474 行）
+- **分析**: uint→Java int 的适配只对以 L 结尾的表达式（uint.MaxValue → 4294967295L）加 `(int)` 强转；普通 uint 字面量 3294967295 无后缀直接发射，超出 Java int 字面量范围。修复：源为 System_UInt32 且解析值超过 int.MaxValue 时统一发射 `(int) <值>L`。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756
