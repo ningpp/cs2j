@@ -1248,13 +1248,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // Count() with no args → size() (Collection) or count() (Iterable fallback)
         // Any() with no args → length>0 (array) or iterator().hasNext() (Iterable/Collection)
+        // NOTE: the receiver must only be transformed when the method actually is Count/Any.
+        // Transforming it as an unconditional probe and discarding the result leaves the
+        // probe's side-effect pre-statements (e.g. object-initializer extraction) queued,
+        // so the fall-through path below transforms the same receiver a second time and
+        // the initializer statements are emitted twice.
         if (node.ArgumentList.Arguments.Count == 0)
         {
-            var cReceiver = facade.Transform(memberAccess.Expression, context);
             if (memberAccess.Name.Identifier.Text == "Count")
+            {
+                var cReceiver = facade.Transform(memberAccess.Expression, context);
                 return $"{cReceiver}.size()";
+            }
             if (memberAccess.Name.Identifier.Text == "Any")
             {
+                var cReceiver = facade.Transform(memberAccess.Expression, context);
                 var anyType = context.SemanticModel != null
                     ? context.GetTypeInfo(memberAccess.Expression).Type : null;
                 if (anyType?.TypeKind == TypeKind.Array || anyType is IArrayTypeSymbol)
