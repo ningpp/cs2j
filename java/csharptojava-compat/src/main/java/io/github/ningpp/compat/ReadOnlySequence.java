@@ -37,6 +37,47 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         this.traversalIndex = 0;
     }
 
+    /**
+     * Mirrors the segment-chain constructor
+     * ReadOnlySequence(ReadOnlySequenceSegment&lt;T&gt;, int, ReadOnlySequenceSegment&lt;T&gt;, int) —
+     * materializes the segment chain into the array-backed storage.
+     */
+    @SuppressWarnings("unchecked")
+    public ReadOnlySequence(ReadOnlySequenceSegment<T> startSegment, int startIndex,
+                            ReadOnlySequenceSegment<T> endSegment, int endIndex) {
+        if (startSegment == null || endSegment == null) {
+            this.data = null;
+            this.start = 0;
+            this.length = 0;
+            this.traversalIndex = 0;
+            return;
+        }
+        int total = 0;
+        for (ReadOnlySequenceSegment<T> seg = startSegment; seg != null; seg = seg.getNext()) {
+            total += seg.getMemory().getLength();
+            if (seg == endSegment) {
+                break;
+            }
+        }
+        T[] merged = (T[]) new Object[total];
+        int pos = 0;
+        for (ReadOnlySequenceSegment<T> seg = startSegment; seg != null; seg = seg.getNext()) {
+            ReadOnlySpan<T> span = seg.getMemory().getSpan();
+            int segLen = span.length();
+            for (int i = 0; i < segLen; i++) {
+                merged[pos++] = span.get(i);
+            }
+            if (seg == endSegment) {
+                break;
+            }
+        }
+        this.data = merged;
+        this.start = startIndex;
+        int computedLength = total - startIndex - (total - endIndex > 0 ? total - endIndex : 0);
+        this.length = Math.max(computedLength, 0);
+        this.traversalIndex = 0;
+    }
+
     /** Mirrors ReadOnlySequence&lt;T&gt;.Start — the starting position. */
     public SequencePosition getStart() {
         return new SequencePosition();

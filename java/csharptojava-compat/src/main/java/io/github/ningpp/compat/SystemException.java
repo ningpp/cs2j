@@ -10,4 +10,21 @@ public class SystemException extends RuntimeException {
 
     public int getHResult() { return hresult; }
     public void setHResult(int value) { this.hresult = value; }
+
+    /** Mirrors Exception.Data — a dictionary of caller-supplied key/value pairs. */
+    public java.util.Map<String, Object> getData() {
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("ParamName", getParamName());
+        return data;
+    }
+
+    /** Mirrors Exception.Data[key] — returns the value or null when absent. */
+    public Object getData(String key) {
+        return getData().get(key);
+    }
+
+    /** The argument name carried by ArgumentException subclasses (mirrors ParamName). */
+    public String getParamName() {
+        return null;
+    }
 }

@@ -1072,6 +1072,19 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"{expression} == null";
         }
 
+        // C#: obj is true / is false against a boxed Object → Java Boolean.equals
+        // (== between Object and a primitive boolean literal does not compile).
+        if (pattern.Expression is LiteralExpressionSyntax boolLit
+            && boolLit.IsKind(SyntaxKind.TrueLiteralExpression))
+        {
+            return $"Boolean.TRUE.equals({expression})";
+        }
+        if (pattern.Expression is LiteralExpressionSyntax falseLit
+            && falseLit.IsKind(SyntaxKind.FalseLiteralExpression))
+        {
+            return $"Boolean.FALSE.equals({expression})";
+        }
+
         // Other constant patterns
         return $"{expression} == {constant}";
     }
@@ -1120,6 +1133,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             ConstantPatternSyntax constPat when constPat.Expression is LiteralExpressionSyntax lit
                 && lit.IsKind(SyntaxKind.NullLiteralExpression)
                 => $"{subject} == null",
+            ConstantPatternSyntax constPatBool when constPatBool.Expression is LiteralExpressionSyntax constBoolLit
+                && constBoolLit.IsKind(SyntaxKind.TrueLiteralExpression)
+                => $"Boolean.TRUE.equals({subject})",
+            ConstantPatternSyntax constPatBoolF when constPatBoolF.Expression is LiteralExpressionSyntax constBoolFaLit
+                && constBoolFaLit.IsKind(SyntaxKind.FalseLiteralExpression)
+                => $"Boolean.FALSE.equals({subject})",
             ConstantPatternSyntax constPat
                 => $"{subject} == {facade.Transform(constPat.Expression, context)}",
             RelationalPatternSyntax relPat
