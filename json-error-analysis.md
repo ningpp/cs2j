@@ -528,6 +528,21 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 16 - 不兼容的类型 (Unsafe.ReadUnaligned<Vector<byte>> 未走 readUnalignedVector)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonReaderHelper.java
+- **行号**: 244
+- **错误信息**: `不兼容的类型: int无法转换为io.github.ningpp.compat.Vector<java.lang.Integer>`
+- **代码片段**:
+  ```java
+  Vector<Integer> vData = Unsafe.readUnaligned(Unsafe.addByteOffset(searchSpace, index));  // 应为 Unsafe.readUnalignedVector(...)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Reader\JsonReaderHelper.cs（`Vector<byte> vData = Unsafe.ReadUnaligned<Vector<byte>>(ref Unsafe.AddByteOffset(ref searchSpace, index));`）
+- **根因分类**: Transformer（Unsafe.ReadUnaligned<Vector<T>> 无特例，走通用路径）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（Unsafe 特例区，第 4870 行附近）
+- **分析**: compat Unsafe 的 `readUnaligned(IntHolder)` 返回 int；`readUnaligned<Vector<byte>>` 的语义由 compat `readUnalignedVector(int)`（标量回退，返回 Vector<Integer>）承担。转换器无 ReadUnaligned 特例 → 生成 `readUnaligned(...)` 赋值给 Vector<Integer>。修复：T 为 Vector 时路由到 `Unsafe.readUnalignedVector(arg)`。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

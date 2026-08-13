@@ -5076,6 +5076,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // System.Runtime.CompilerServices.Unsafe.ReadUnaligned<Vector<byte>>(ref byte):
+        // the compat Vector is a scalar fallback seeded from the first byte —
+        // route to Unsafe.readUnalignedVector(int) which returns Vector<Integer>,
+        // instead of the int-returning readUnaligned(IntHolder).
+        if (methodSymbol is { IsStatic: true, Name: "ReadUnaligned" }
+            && methodSymbol.ContainingType?.ToDisplayString() == "System.Runtime.CompilerServices.Unsafe"
+            && methodSymbol.TypeArguments.Length == 1
+            && methodSymbol.TypeArguments[0] is INamedTypeSymbol { Name: "Vector" }
+            && node.ArgumentList.Arguments.Count >= 1)
+        {
+            context.AddImport("io.github.ningpp.compat.Unsafe");
+            var unalignedArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            return $"Unsafe.readUnalignedVector({unalignedArg})";
+        }
+
         // AsQueryable/AsEnumerable → identity transform: strip the wrapper and return the receiver.
         // subsequent LINQ calls on the result are handled identically via the same Stream API path.
         // Use name-based detection as a fallback when System.Linq.Queryable.dll is not fully
