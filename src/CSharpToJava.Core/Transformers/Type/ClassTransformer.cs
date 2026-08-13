@@ -1274,10 +1274,18 @@ public class ClassTransformer : ITypeTransformer
         {
             if (string.IsNullOrWhiteSpace(field.Initializer))
                 continue;
-            if (field.Modifiers.HasFlag(JavaModifiers.Static))
-                continue;
             if (!runtimeClassFieldNames.Any(name => ContainsIdentifier(field.Initializer, name)))
                 continue;
+
+            if (field.Modifiers.HasFlag(JavaModifiers.Static))
+            {
+                // Static fields whose initializer depends on a type-argument token have
+                // no Java equivalent — statics are per-class, not per-closed-type. Demote
+                // to an instance field initialized in the constructor (the lift below),
+                // mirroring the instance-field strategy. 'final' stays legal: the
+                // constructor performs the single definite assignment.
+                field.Modifiers &= ~JavaModifiers.Static;
+            }
 
             initializers.Add($"this.{field.Name} = {field.Initializer};");
             field.Initializer = null;

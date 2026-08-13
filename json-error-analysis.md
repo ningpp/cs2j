@@ -543,6 +543,21 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 17 - 无法从静态上下文中引用非静态变量 (静态字段初始化器引用运行时 Class 令牌字段)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/DictionaryDefaultConverter.java
+- **行号**: 51（另见 EnumConverter.java 46/48、KeyValuePairConverter.java 46）
+- **错误信息**: `无法从静态上下文中引用非静态 变量 tValueClass`（`private static Class s_valueType = TypeHelper.toWrapperType(tValueClass);`）
+- **代码片段**:
+  ```java
+  private static Class s_valueType = TypeHelper.toWrapperType(tValueClass);  // 静态初始化器引用实例字段 tValueClass
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\Converters\DictionaryDefaultConverter.cs（`private static Type s_valueType = typeof(TValue);`；EnumConverter.cs `s_enumTypeCode = Type.GetTypeCode(typeof(T))` 等）
+- **根因分类**: Transformer（运行时 Class 令牌字段提升机制未处理静态字段）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs（LiftRuntimeClassFieldInitializers，第 1273-1287 行）
+- **分析**: `typeof(T)` 生成对实例运行时 Class 字段 `tClass` 的引用（`TypeHelper.toWrapperType(tClass)`），但 C# 的 `static readonly` 字段初始化器保持 static 修饰，Java 静态初始化器不能引用实例字段。Java 没有 per-closed-type 静态，修复：静态字段若初始化器引用运行时 Class 令牌字段，降级为实例字段并把初始化提升进构造器（委托构造器 this(...) 链已在现有逻辑中跳过提升）。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756
