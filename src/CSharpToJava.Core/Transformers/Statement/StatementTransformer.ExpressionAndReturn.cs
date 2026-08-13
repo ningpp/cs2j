@@ -378,6 +378,27 @@ public partial class StatementTransformer
             }
         }
 
+        // Fix 4c: Tuple assignment to expressions — (X, Y) = (x, y);
+        // LHS elements are ordinary expressions (auto-properties, fields, locals), not declarations.
+        // Split into sequential single assignments so each element follows the normal
+        // assignment path (auto-property writes map to backing fields, etc.).
+        // NOTE: elements are resolved via the ORIGINAL syntax nodes (they carry source
+        // positions); synthesized nodes have no tree/location so GetSymbolInfo fails.
+        if (stmt.Expression is AssignmentExpressionSyntax exprTupleAssign
+            && exprTupleAssign.Left is TupleExpressionSyntax exprTupleLeft
+            && exprTupleLeft.Arguments.Count > 0)
+        {
+            var lhsArgs = exprTupleLeft.Arguments
+                .Select(a => a.Expression)
+                .ToList();
+            if (lhsArgs.All(a => a is not DeclarationExpressionSyntax)
+                && exprTupleAssign.Right is TupleExpressionSyntax exprTupleRight
+                && exprTupleRight.Arguments.Count == lhsArgs.Count)
+            {
+                return new JavaStatementNode(TupleAssignmentSplitters.SplitTupleAssignment(exprTupleAssign, context));
+            }
+        }
+
         var expr = exprTransformer.Transform(stmt.Expression, context);
 
         // Drain any pre-statements emitted by the expression transformer
@@ -929,5 +950,110 @@ private static bool IsArrayAccessSegment(string segment)
             LocalFunctionStatementSyntax localFunction => context.GetTypeInfo(localFunction.ReturnType).Type,
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Splits a C# tuple assignment — (X, Y) = (x, y) — into sequential single
+    /// assignments, resolving each element via its ORIGINAL syntax node (semantic
+    /// lookups require nodes that still belong to a tree with their parent chain).
+    /// Shared by ExpressionStatement conversion and constructor expression bodies.
+    /// </summary>
+    internal static class TupleAssignmentSplitters
+    {
+        internal static string SplitTupleAssignment(AssignmentExpressionSyntax assign, ConversionContext context)
+        {
+            var tupleLeft = (TupleExpressionSyntax)assign.Left;
+            var tupleRight = (TupleExpressionSyntax)assign.Right;
+            var lhsArgs = tupleLeft.Arguments
+                .Select(a => a.Expression)
+                .ToList();
+            var exprTransformer = ExpressionTransformerFacade.Instance;
+            var sbTuple = new System.Text.StringBuilder();
+            for (int i = 0; i < lhsArgs.Count; i++)
+            {
+                var leftExpr = lhsArgs[i];
+                var rightExpr = tupleRight.Arguments[i].Expression;
+                var rightText = exprTransformer.Transform(rightExpr, context);
+                string assignText;
+                var leftSymbol = GetSymbolInfoSafely(leftExpr, context);
+                if (leftSymbol is IPropertySymbol tupleProp)
+                {
+                    rightText = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        rightExpr, rightText, tupleProp.Type, context);
+                    if (tupleProp.SetMethod == null)
+                    {
+                        var fieldName = CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(tupleProp);
+                        assignText = $"this.{fieldName} = {rightText}";
+                    }
+                    else
+                    {
+                        string setter = "set" + char.ToUpperInvariant(tupleProp.Name[0]) + tupleProp.Name[1..];
+                        assignText = $"{setter}({rightText})";
+                    }
+                }
+                else if (leftExpr is IdentifierNameSyntax bareIdent
+                         && TryGetEnclosingProperty(bareIdent, context, out var enclosingProp))
+                {
+                    // Semantic model unavailable (e.g. struct members merged from a synthetic
+                    // syntax tree) — fall back to symbol-level lookup: a bare identifier matching
+                    // a property of the enclosing type maps to its backing field (auto-property pattern).
+                    string fieldName = CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(enclosingProp);
+                    assignText = $"this.{fieldName} = {rightText}";
+                }
+                else
+                {
+                    assignText = $"{exprTransformer.Transform(leftExpr, context)} = {rightText}";
+                }
+                if (i < lhsArgs.Count - 1)
+                    sbTuple.AppendLine(assignText.TrimEnd(';') + ";");
+                else
+                    sbTuple.Append(assignText.TrimEnd(';') + ";");
+            }
+            return sbTuple.ToString();
+        }
+
+        /// <summary>
+        /// Safe GetSymbolInfo: nodes from synthetic/merged syntax trees (e.g. struct members
+        /// processed via a different tree) throw ArgumentException on semantic lookup.
+        /// </summary>
+        private static ISymbol? GetSymbolInfoSafely(ExpressionSyntax expr, ConversionContext context)
+        {
+            if (context.SemanticModel == null)
+                return null;
+            try
+            {
+                return context.GetSymbolInfo(expr).Symbol;
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Symbol-level fallback for tuple-assignment elements: reports whether the bare
+        /// identifier names an auto-property on the enclosing type. Works even when the
+        /// element comes from a synthetic/merged syntax tree (no usable semantic model).
+        /// </summary>
+        private static bool TryGetEnclosingProperty(
+            IdentifierNameSyntax identifier,
+            ConversionContext context,
+            out IPropertySymbol property)
+        {
+            property = null!;
+            var enclosingType = context.CurrentEnclosingRoslynType;
+            if (enclosingType == null)
+                return false;
+            foreach (var member in enclosingType.GetMembers())
+            {
+                if (member is IPropertySymbol prop
+                    && prop.Name == identifier.Identifier.Text)
+                {
+                    property = prop;
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

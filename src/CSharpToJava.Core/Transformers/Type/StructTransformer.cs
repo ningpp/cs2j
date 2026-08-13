@@ -69,7 +69,9 @@ public class StructTransformer : ITypeTransformer
             // Mark as value class if UseValueClass option is enabled and struct is readonly
             IsValueClass = context.Options.UseValueClass && isReadOnly
         };
-        var structSymbol = mergedStructSymbol ?? context.GetDeclaredSymbol(structDecl);
+        var structSymbol = mergedStructSymbol ?? context.GetDeclaredSymbol(structDecl) as INamedTypeSymbol;
+        var previousEnclosingRoslynType = context.CurrentEnclosingRoslynType;
+        context.CurrentEnclosingRoslynType = structSymbol;
         var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();
 
         // Fix 3: ref struct — emit a leading comment since Java has no stack-only equivalent.
@@ -308,6 +310,7 @@ public class StructTransformer : ITypeTransformer
             DropFinalFromRepeatedlyAssignedFields(javaClass);
         }
 
+        context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         return javaClass;
     }
     /// <summary>

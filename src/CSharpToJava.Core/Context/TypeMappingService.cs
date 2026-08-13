@@ -523,9 +523,12 @@ public class TypeMappingService
             return $"Tuple{mappedElements.Count}<{string.Join(", ", mappedElements)}>";
         }
 
-        // Generic types
+        // Generic types (constructed, unbound type syntax, or bare generic definitions
+        // used as static receivers — e.g. System.Collections.Immutable.ImmutableDictionary.CreateRange)
         if (typeSymbol is INamedTypeSymbol namedType
-            && (namedType.TypeArguments.Length > 0 || namedType.IsUnboundGenericType))
+            && (namedType.TypeArguments.Length > 0
+                || namedType.IsUnboundGenericType
+                || (namedType.TypeArguments.Length == 0 && namedType.TypeParameters.Length > 0)))
         {
             var baseType = namedType.Name;
             var genericTypeNamespace = namedType.ContainingNamespace?.ToDisplayString();

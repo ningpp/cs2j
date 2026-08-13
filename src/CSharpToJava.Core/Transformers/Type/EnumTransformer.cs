@@ -549,11 +549,27 @@ public class EnumTransformer : ITypeTransformer
             return value;
 
         var trimmed = value.Trim();
+        if (!IsNumericLiteralText(trimmed))
+            return trimmed;
         if (trimmed.EndsWith("L", StringComparison.OrdinalIgnoreCase))
             return trimmed.TrimEnd('l') + "L";
         if (trimmed.EndsWith("u", StringComparison.OrdinalIgnoreCase))
             trimmed = trimmed.TrimEnd('u', 'U');
         return trimmed + "L";
+    }
+
+    private static bool IsNumericLiteralText(string text)
+    {
+        if (text.StartsWith("+", StringComparison.Ordinal) || text.StartsWith("-", StringComparison.Ordinal))
+            text = text[1..];
+        if (text.Length == 0)
+            return false;
+        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            var hex = text[2..].TrimEnd('u', 'U', 'l', 'L');
+            return hex.Length > 0 && hex.All(c => Uri.IsHexDigit(c));
+        }
+        return text.All(c => char.IsDigit(c));
     }
 
     private static bool TryConvertUnsignedLiteral(string literalText, int fromBase, out ulong value)

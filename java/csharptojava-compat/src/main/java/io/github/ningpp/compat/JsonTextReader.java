@@ -169,6 +169,32 @@ public class JsonTextReader implements AutoCloseable {
         return tokenType;
     }
 
+    /**
+     * Mirrors JsonReader.Skip() — advances the reader past the current value
+     * (including nested objects/arrays).
+     */
+    public void skip() {
+        int depth = 0;
+        do {
+            if (!read()) {
+                return;
+            }
+            JsonToken t = getTokenType();
+            switch (t) {
+                case StartObject:
+                case StartArray:
+                    depth++;
+                    break;
+                case EndObject:
+                case EndArray:
+                    depth--;
+                    break;
+                default:
+                    break;
+            }
+        } while (depth > 0);
+    }
+
     public Object getValue() {
         return value;
     }

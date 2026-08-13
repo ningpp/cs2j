@@ -188,6 +188,11 @@ public class ConversionPipeline
                     // System.Linq.Expressions is in a separate assembly. Without this, Roslyn
                     // cannot resolve Expression<TDelegate> so the type-strip logic never fires.
                     MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
+                    // System.Buffers / Memory (ReadOnlySequence, BuffersExtensions, ArrayPool
+                    // extension resolution) live in System.Private.CoreLib on modern .NET;
+                    // referencing the type keeps BuffersExtensions.ToArray etc. resolvable
+                    // in single-file conversions.
+                    MetadataReference.CreateFromFile(typeof(System.Buffers.BuffersExtensions).Assembly.Location),
                     // System.Net.IPAddress is in System.Net.Primitives on .NET Core.
                     // Without this, Roslyn cannot resolve IPAddress.Loopback/IPv6Loopback
                     // so MapMethod never fires for IPAddress property mappings.

@@ -59,6 +59,45 @@ public class Sample
         Assert.DoesNotContain("var _obj", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LongEnumMinMaxValue_NoSpuriousLongSuffix()
+    {
+        var result = Convert(@"
+public enum SampleEnumInt64 : long
+{
+    MinNegative = long.MinValue,
+    Zero = 0,
+    One = 1,
+    Two = 2,
+    Max = long.MaxValue
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("MinNegative(Long.MIN_VALUE)", code, StringComparison.Ordinal);
+        Assert.Contains("Max(Long.MAX_VALUE)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("MIN_VALUEL", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("MAX_VALUEL", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LongEnumNegativeLiteral_KeepsLongSuffix()
+    {
+        var result = Convert(@"
+public enum SampleEnumInt64 : long
+{
+    MinNegative = -9223372036854775808,
+    Max = 9223372036854775807
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("MinNegative(-9223372036854775808L)", code, StringComparison.Ordinal);
+        Assert.Contains("Max(9223372036854775807L)", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

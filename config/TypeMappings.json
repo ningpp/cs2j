@@ -785,7 +785,21 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.ImmutableDictionary",
+            "java": "ImmutableDictionary",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableDictionary"
+            ]
+        },
+        {
             "csharp": "System.Collections.Immutable.ImmutableHashSet`1",
+            "java": "ImmutableHashSet",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableHashSet"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableHashSet",
             "java": "ImmutableHashSet",
             "imports": [
                 "io.github.ningpp.compat.ImmutableHashSet"
@@ -799,7 +813,21 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.ImmutableQueue",
+            "java": "ImmutableQueue",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableQueue"
+            ]
+        },
+        {
             "csharp": "System.Collections.Immutable.ImmutableStack`1",
+            "java": "ImmutableStack",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableStack"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableStack",
             "java": "ImmutableStack",
             "imports": [
                 "io.github.ningpp.compat.ImmutableStack"
@@ -813,7 +841,21 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.ImmutableSortedDictionary",
+            "java": "ImmutableSortedDictionary",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableSortedDictionary"
+            ]
+        },
+        {
             "csharp": "System.Collections.Immutable.ImmutableSortedSet`1",
+            "java": "ImmutableSortedSet",
+            "imports": [
+                "io.github.ningpp.compat.ImmutableSortedSet"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableSortedSet",
             "java": "ImmutableSortedSet",
             "imports": [
                 "io.github.ningpp.compat.ImmutableSortedSet"
@@ -827,7 +869,21 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.IImmutableList",
+            "java": "IImmutableList",
+            "imports": [
+                "io.github.ningpp.compat.IImmutableList"
+            ]
+        },
+        {
             "csharp": "System.Collections.Immutable.IImmutableDictionary`2",
+            "java": "IImmutableDictionary",
+            "imports": [
+                "io.github.ningpp.compat.IImmutableDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Immutable.IImmutableDictionary",
             "java": "IImmutableDictionary",
             "imports": [
                 "io.github.ningpp.compat.IImmutableDictionary"
@@ -841,6 +897,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.IImmutableSet",
+            "java": "IImmutableSet",
+            "imports": [
+                "io.github.ningpp.compat.IImmutableSet"
+            ]
+        },
+        {
             "csharp": "System.Collections.Immutable.IImmutableQueue`1",
             "java": "IImmutableQueue",
             "imports": [
@@ -848,7 +911,21 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.IImmutableQueue",
+            "java": "IImmutableQueue",
+            "imports": [
+                "io.github.ningpp.compat.IImmutableQueue"
+            ]
+        },
+        {
             "csharp": "System.Collections.Immutable.IImmutableStack`1",
+            "java": "IImmutableStack",
+            "imports": [
+                "io.github.ningpp.compat.IImmutableStack"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Immutable.IImmutableStack",
             "java": "IImmutableStack",
             "imports": [
                 "io.github.ningpp.compat.IImmutableStack"
@@ -891,6 +968,13 @@
         },
         {
             "csharp": "System.Buffers.ReadOnlySequenceSegment`1",
+            "java": "ReadOnlySequenceSegment",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlySequenceSegment"
+            ]
+        },
+        {
+            "csharp": "System.Buffers.ReadOnlySequenceSegment",
             "java": "ReadOnlySequenceSegment",
             "imports": [
                 "io.github.ningpp.compat.ReadOnlySequenceSegment"

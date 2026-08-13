@@ -1661,13 +1661,13 @@ public static class ExpressionTransformerHelpers
             var javaType = StripPackageQualifier(StripTypeArguments(mappedType));
             result = !string.IsNullOrWhiteSpace(javaType) ? javaType : BuildNestedTypeReference(typeSymbol, context);
         }
-        else if (!preserveEnumType)
-        {
-            var mappedType = context.MapType(typeSymbol);
-            if (string.IsNullOrWhiteSpace(mappedType))
-                return BuildNestedTypeReference(typeSymbol, context);
-            result = BoxJavaPrimitiveType(mappedType);
-        }
+          else if (!preserveEnumType)
+          {
+              var mappedType = context.MapType(typeSymbol);
+              if (string.IsNullOrWhiteSpace(mappedType))
+                  return BuildNestedTypeReference(typeSymbol, context);
+              result = BoxJavaPrimitiveType(mappedType);
+          }
         else if (typeSymbol.TypeKind == TypeKind.Enum && IsFlagsEnum(typeSymbol, context))
         {
             AddImportForTopLevelType(typeSymbol, context);

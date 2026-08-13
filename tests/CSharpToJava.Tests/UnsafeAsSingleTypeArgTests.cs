@@ -25,7 +25,6 @@ public class Sample
         Assert.Contains("import io.github.ningpp.compat.Unsafe", code, StringComparison.Ordinal);
         Assert.Contains("(String)(Object)Unsafe.as(o)", code, StringComparison.Ordinal);
     }
-
     [Fact]
     public void UnsafeAs_FieldInfo_MemberAccessOnResultResolves()
     {
@@ -44,7 +43,7 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("(FieldInfo)(Object)Unsafe.as(memberInfo).getFieldType()", code, StringComparison.Ordinal);
+        Assert.Contains("((FieldInfo)(Object)Unsafe.as(memberInfo)).getFieldType()", code, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

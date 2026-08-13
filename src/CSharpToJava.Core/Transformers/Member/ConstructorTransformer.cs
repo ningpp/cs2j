@@ -139,19 +139,35 @@ public class ConstructorTransformer : IMemberTransformer
         }
         else if (ctorDecl.ExpressionBody != null)
         {
-            // Issue 4: Validate that the expression is void-compatible before emitting as a statement.
             var expr = ctorDecl.ExpressionBody.Expression;
-            var exprTransformer = ExpressionTransformerFacade.Instance;
-            var transformed = exprTransformer.Transform(expr, context);
-            bool isVoidCompatible = expr is ThrowExpressionSyntax
-                || expr is AssignmentExpressionSyntax
-                || expr is InvocationExpressionSyntax
-                || expr is PostfixUnaryExpressionSyntax
-                || expr is PrefixUnaryExpressionSyntax;
-            if (isVoidCompatible)
-                bodyStatements.Add(transformed + ";");
+            // Tuple assignments in expression bodies — (X, Y) = (x, y) — must go through
+            // the statement transformer so each element follows the normal assignment path
+            // (auto-property writes map to backing fields, etc.).
+            if (expr is AssignmentExpressionSyntax assignExpr
+                && assignExpr.Left is TupleExpressionSyntax assignTupleLeft
+                && assignTupleLeft.Arguments.Count > 0
+                && assignExpr.Right is TupleExpressionSyntax assignTupleRight
+                && assignTupleRight.Arguments.Count == assignTupleLeft.Arguments.Count
+                && assignTupleLeft.Arguments.All(a => a.Expression is not DeclarationExpressionSyntax))
+            {
+                bodyStatements.Add(Transformers.Statement.StatementTransformer.TupleAssignmentSplitters
+                    .SplitTupleAssignment(assignExpr, context));
+            }
             else
-                bodyStatements.Add($"// TODO: verify expression body semantics: {transformed};");
+            {
+                // Issue 4: Validate that the expression is void-compatible before emitting as a statement.
+                var exprTransformer = ExpressionTransformerFacade.Instance;
+                var transformed = exprTransformer.Transform(expr, context);
+                bool isVoidCompatible = expr is ThrowExpressionSyntax
+                    || expr is AssignmentExpressionSyntax
+                    || expr is InvocationExpressionSyntax
+                    || expr is PostfixUnaryExpressionSyntax
+                    || expr is PrefixUnaryExpressionSyntax;
+                if (isVoidCompatible)
+                    bodyStatements.Add(transformed + ";");
+                else
+                    bodyStatements.Add($"// TODO: verify expression body semantics: {transformed};");
+            }
         }
 
         // 组合初始值设定项和主体
