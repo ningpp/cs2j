@@ -4592,8 +4592,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // Use GetClassLiteral so generic targets emit the raw class literal
                 // (CSharpList.class, not the illegal CSharpList<Integer>.class) and
                 // type parameters resolve through the runtime Class token machinery.
+                // The converted JsonSerializer signature leads with the runtime Class
+                // (deserialize(Class<TValue>, String)), so the class comes first.
                 var deserializeClassLiteral = ConversionContext.GetClassLiteral(deserializeTargetType, context);
-                return $"{receiver}.{methodName}({jsonArg}, {deserializeClassLiteral})";
+                return $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg})";
             }
         }
 

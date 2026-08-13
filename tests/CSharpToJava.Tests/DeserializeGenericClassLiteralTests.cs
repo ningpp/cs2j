@@ -30,7 +30,7 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("deserialize(json, CSharpList.class)", code, StringComparison.Ordinal);
+        Assert.Contains("deserialize(CSharpList.class, json)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("CSharpList<Integer>.class", code, StringComparison.Ordinal);
     }
 
