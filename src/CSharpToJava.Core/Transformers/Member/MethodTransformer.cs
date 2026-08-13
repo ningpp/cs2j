@@ -1898,6 +1898,19 @@ public class MethodTransformer : IMemberTransformer
             context.DrainClassTypeParams();
             return;
         }
+
+        // Overrides and interface implementations must keep the base slot's erasure
+        // signature: adding leading Class<T> _cs2j_ parameters would break the Java
+        // override check (the abstract base declares the plain erasure form). The
+        // body's typeof(T) for method-level type parameters degrades to null in that
+        // case (see ConversionContext.GetClassLiteral). Class-level type parameters
+        // are unaffected — they map to the tClass instance field.
+        if (ConversionContext.IsOverrideOrImplementation(sym))
+        {
+            context.DrainClassTypeParamsForMethod(sym.ContainingType?.MetadataName ?? "", sym.ToDisplayString());
+            return;
+        }
+
         var pendingTypeParameters = (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(sym.ContainingType?.MetadataName ?? "", sym.ToDisplayString());
         if (pendingTypeParameters == null || pendingTypeParameters.Count == 0)
             return;

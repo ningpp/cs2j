@@ -604,6 +604,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 21 - 未覆盖抽象方法 + createDelegate 约束 + OpCodes 缺失 (ReflectionEmitMemberAccessor 覆盖签名带运行时 Class 参数)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/ReflectionEmitMemberAccessor.java
+- **行号**: 37（另见 62/83/89/111/124/134/144/171/188/194/213/227）
+- **错误信息**: `ReflectionEmitMemberAccessor不是抽象的, 并且未覆盖MemberAccessor中的抽象方法<TProperty>createFieldSetter(FieldInfo)`；`无法将...createDelegate应用到给定类型`；`找不到符号`（Unbox_Any）
+- **代码片段**:
+  ```java
+  public <TProperty> BiConsumer<Object, TProperty> createFieldSetter(Class<TProperty> _cs2j_TProperty, FieldInfo fieldInfo) { ... }
+  // 抽象基类声明为 <TProperty> ... createFieldSetter(FieldInfo) — 擦除不匹配 → 未覆盖
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\ReflectionEmitMemberAccessor.cs（override 方法体使用 typeof(TProperty) 传给 private static 助手）
+- **根因分类**: Transformer（override 方法被注入前导 Class<T> 运行时参数，破坏 Java 擦除覆盖匹配）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs（AddPendingRuntimeClassParameters）、src/CSharpToJava.Core/Context/ConversionContext.cs（GetClassLiteral）
+- **分析**: 方法级 typeof(TProperty) 会为方法注入前导 `Class<T> _cs2j_T` 参数（AddPendingRuntimeClassParameters）。抽象基类 MemberAccessor 的声明无此参数（基类方法体无 typeof(T)），派生 override 带参数后擦除签名不匹配 → "未覆盖抽象方法"。修复：override/接口实现方法（OverriddenMethod/ExplicitInterfaceImplementations/AllInterfaces 命中）不再注入前导 Class 参数，方法体中的 typeof(T)（方法级 T）降级为 null（反射发射路径本就是 compat stub）。类级 T 不受影响（走 tClass 字段）。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

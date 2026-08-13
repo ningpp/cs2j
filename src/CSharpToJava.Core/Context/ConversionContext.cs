@@ -448,6 +448,14 @@ public class ConversionContext
             var currentMethod = context.CurrentMethod;
             if (currentMethod != null)
             {
+                if (IsOverrideOrImplementation(currentMethod))
+                {
+                    // Override/interface-implementation slots must keep the base's
+                    // erasure signature — no leading Class<T> parameter can be added.
+                    // The body's typeof(T) degrades to null (reflection-emit stubs
+                    // accept it; the token is unavailable at runtime in this shape).
+                    return "null";
+                }
                 context.RequireClassTypeParam(
                     currentMethod.ContainingType?.MetadataName ?? "",
                     currentMethod.ToDisplayString(),
@@ -498,6 +506,35 @@ public class ConversionContext
     /// that is no longer in the current ProjectCompilation.
     /// </summary>
     public CSharpCompilation? PreDesugarCompilation { get; set; }
+
+    /// <summary>
+    /// True when the method overrides a base-class slot or implements an interface
+    /// member. Such methods must keep the base slot's Java erasure signature —
+    /// synthetic leading Class&lt;T&gt; parameters would break the override check.
+    /// </summary>
+    public static bool IsOverrideOrImplementation(IMethodSymbol method)
+    {
+        if (method.OverriddenMethod != null)
+            return true;
+        if (method.ExplicitInterfaceImplementations.Length > 0)
+            return true;
+
+        var containingType = method.ContainingType;
+        if (containingType == null)
+            return false;
+
+        foreach (var iface in containingType.AllInterfaces)
+        {
+            foreach (var ifaceMember in iface.GetMembers(method.Name).OfType<IMethodSymbol>())
+            {
+                var implementation = containingType.FindImplementationForInterfaceMember(ifaceMember);
+                if (SymbolEqualityComparer.Default.Equals(implementation, method))
+                    return true;
+            }
+        }
+
+        return false;
+    }
 
     public void RegisterFlagsEnum(string enumName) => TypeMapper.RegisterFlagsEnum(enumName);
     public void RegisterFlagsEnum(string enumName, string valueType) => TypeMapper.RegisterFlagsEnum(enumName, valueType);
