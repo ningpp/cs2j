@@ -271,14 +271,17 @@ public class EnumTransformer : ITypeTransformer
             var member = memberAccess.Name.Identifier.Text;
             var mapped = (primType.Keyword.Text, member) switch
             {
-                ("byte", "MaxValue") => "255",
-                ("byte", "MinValue") => "0",
-                ("uint", "MaxValue") => "4294967295L",
-                ("uint", "MinValue") => "0",
-                ("ushort", "MaxValue") => "65535",
-                ("ushort", "MinValue") => "0",
-                ("ulong", "MaxValue") => "0xFFFFFFFFFFFFFFFFL",
-                ("ulong", "MinValue") => "0",
+                  ("byte", "MaxValue") => "255",
+                  ("byte", "MinValue") => "0",
+                  // C# uint/ulong extremes exceed the Java signed ranges of the
+                  // int/long backing fields — emit the wrapped signed values
+                  // (EnsureLongSuffix appends the L for long-typed enums).
+                  ("uint", "MaxValue") => "-1",
+                  ("uint", "MinValue") => "0",
+                  ("ushort", "MaxValue") => "65535",
+                  ("ushort", "MinValue") => "0",
+                  ("ulong", "MaxValue") => "-1",
+                  ("ulong", "MinValue") => "0",
                 ("double" or "float", "MinValue") => $"(-{(primType.Keyword.Text == "double" ? "Double" : "Float")}.MAX_VALUE)",
                 (_, "MaxValue")          => "MAX_VALUE",
                 (_, "MinValue")          => "MIN_VALUE",
@@ -500,15 +503,22 @@ public class EnumTransformer : ITypeTransformer
             case int value:
                 result = FormatIntegralValue(value, javaValueType);
                 return true;
-            case uint value:
-                result = FormatIntegralValue(value, javaValueType);
-                return true;
-            case long value:
-                result = FormatIntegralValue(value, javaValueType);
-                return true;
-            case ulong value when value <= long.MaxValue:
-                result = FormatIntegralValue((long)value, javaValueType);
-                return true;
+              case uint value:
+                  // Narrow to the Java int backing field's signed range.
+                  result = FormatIntegralValue(
+                      javaValueType == "long" ? value : unchecked((int)value),
+                      javaValueType);
+                  return true;
+              case long value:
+                  result = FormatIntegralValue(
+                      javaValueType == "long" ? value : unchecked((int)value),
+                      javaValueType);
+                  return true;
+              case ulong value when value <= long.MaxValue:
+                  result = FormatIntegralValue(
+                      javaValueType == "long" ? (long)value : unchecked((int)value),
+                      javaValueType);
+                  return true;
             case ulong value:
                 result = javaValueType == "long"
                     ? unchecked((long)value).ToString(CultureInfo.InvariantCulture) + "L"

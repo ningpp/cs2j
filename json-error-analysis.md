@@ -668,6 +668,25 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 25 - 需要';' / 整数太大 (空集合初始化器生成非法字段初始化语句 + uint/ulong 枚举极值溢出)
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/PropertyVisibilityTests.java（2401）；SampleEnumUInt32.java（29）；SampleEnumUInt64.java（29）
+- **错误信息**: `需要';'`（字段初始化器内混入 var 语句）；`整数太大`（Max(4294967295)）；`需要')'或','`（Max(0xFFFFFFFFFFFFFFFFLL)）
+- **代码片段**:
+  ```java
+  private CSharpList<Integer> _myIntList = /* Object initializer — consider moving to constructor. */
+  var _obj299 = new CSharpList<Integer>();
+  _obj299;
+  ...
+  Max(4294967295),        // int 字面量超出范围
+  Max(0xFFFFFFFFFFFFFFFFLL),  // long 字面量超出范围
+  ```
+- **对应 C# 文件**: d:\csharpjson\tests\Serialization\PropertyVisibilityTests.cs（`List<int> _myIntList = new List<int> { };`）；TestClasses\TestClasses.cs（`SampleEnumUInt32 : UInt32`/`SampleEnumUInt64 : ulong` 枚举）
+- **根因分类**: Transformer（空对象初始化器无快速路径；枚举极值未转有符号表示）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs（TransformObjectCreationWithInitializer）；src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs（TransformEnumValueExpression / TryFormatConstantValue）
+- **分析**: （1）`new List<int> { }` 空初始化器走对象初始化器路径，无条件生成 `var _objN = ...` 前置语句并返回临时变量，字段初始化器位置无法容纳多语句 → 非法 Java。修复：表达式数为 0 时直接发射 `new T(args)`。（2）`uint.MaxValue`/`ulong.MaxValue` 枚举成员按无符号字面量输出，超出 Java int/long 范围。修复：映射为有符号回绕值（uint.Max→-1，ulong.Max→-1L），TryFormatConstantValue 对 int 目标字段做窄化。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

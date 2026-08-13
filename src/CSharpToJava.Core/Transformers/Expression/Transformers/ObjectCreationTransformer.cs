@@ -1620,6 +1620,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"new {typeName}({string.Join(", ", ctorArgList)})";
         }
 
+        // Empty initializer ({ }) needs no temp-variable pre-statements — emit the
+        // plain constructor call so field initializers stay valid single expressions
+        // (Java has no multi-statement field initializers).
+        if (initializer.Expressions.Count == 0)
+        {
+            return $"new {typeName}({ctorArgs})";
+        }
+
         // Emit the object creation and setter calls as pre-statements, then return the temp var.
         // This avoids the double-brace anonymous-subclass anti-pattern which leaks memory,
         // prevents the type from being final, and breaks equals() checks.
