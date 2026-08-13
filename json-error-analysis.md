@@ -384,3 +384,10 @@
   // Copy the dictionary cache to the array cache.
   cache.values().copyTo(cacheArray, 0);   // 应为 CSharpArray.copyTo(cache.values().toArray(), 0, cacheArray, 0, cache.size())
   ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\JsonClassInfo.cs（cache.Values.CopyTo(cacheArray, 0)，cache 为 Dictionary<string, JsonPropertyInfo>）
+- **根因分类**: Transformer（IsFrameworkCollectionCopyTo 白名单未覆盖 Dictionary 嵌套集合视图）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（IsFrameworkCollectionCopyTo，第 9260 行）
+- **分析**: `cache.Values` 的类型是 `Dictionary<TKey,TValue>.ValueCollection`（嵌套 struct），`IsFrameworkCollectionCopyTo` 的显式类型白名单只含 List/HashSet/Queue/Stack/ICollection 等，未命中 → CopyTo 重写被跳过，生成 Java Collection 上不存在的 `copyTo(...)` 实例调用。修复：命中白名单后追加接口检查——实现 `ICollection<T>`/`ICollection` 的类型的 CopyTo 同样走 CSharpArray.copyTo 重写（`{receiver}.toArray()` + size 参数，语义与 .NET CopyTo 一致）。
+- **测试**: tests/CSharpToJava.Tests/DictionaryValueCollectionCopyToTests.cs（RED→GREEN）
+
+- **状态**: ✅ Fixed
