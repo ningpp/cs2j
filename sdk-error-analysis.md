@@ -190,3 +190,49 @@
 - 修复涉及：`ReadOnlyStructMaker/`（Rewriter、Analyzer、MethodMigrator、CallSiteUpdater、AssignmentRewriter）、`StructTransformer.cs`、`MethodTransformer.cs`、`ClassTransformer.cs`、`InvocationExpressionTransformer.cs`、`Cs2jLibrary.cs`、`ProjectPasses.cs`、`config/TypeMappings.json`、compat 库（`CSharpGenericEnumerator`、`MathHelper`、`AssemblyCompat`、`CSharpDateTimeOffset`、`StringHelper`）
 - 回归测试：新增 `NestedStruct_InsideMigratedStruct_IsMigratedToo`（Red→Green）；更新 5 个旧行为断言测试
 - 最终验证：`dotnet test -c Release` 全量 3386 通过；`mvn clean install -e` 在 `d:\cs-java-812` 与 `d:\cs-java-813` 均 BUILD SUCCESS（EXIT=0）
+
+---
+
+# 第二轮（目标目录 `d:\cs-java-81319`，迭代直至 BUILD SUCCESS）
+
+## Iteration 1 — MathHelper.tryParseUInt null provider 重载歧义（ambiguous reference）
+- **Java 文件**: `dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/Regex.java:299`
+- **错误信息**: `对tryParseUInt的引用不明确` — `tryParseUInt(String,int,CultureInfo,IntHolder)` 与 `tryParseUInt(String,int,NumberFormatInfo,IntHolder)` 都匹配
+- **代码片段**:
+  ```java
+  var _ret = (MathHelper.tryParseUInt(name, NumberStyles.None, null, _resultHolder1) && ...);
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\regular-expressions\src\System\Text\RegularExpressions\Regex.cs:364`（`uint.TryParse(name, NumberStyles.None, provider: null, out uint result)`）
+- **根因分类**: Transformer（参数类型化强制转换缺失）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`、`ArgumentTransformer.cs`
+- **分析**: 数值 Parse/TryParse 静态调用映射到 `MathHelper.tryParseXxx` 时，`IFormatProvider` 位置的 `null` 字面量按裸 `null` 发射；compat MathHelper 在该位置声明 `CultureInfo` 与 `NumberFormatInfo` 两个互不相关的重载，Java 无法消歧（C# 只有一个 IFormatProvider 参数，无兄弟重载，既有 null 强制转换机制不触发）。
+- **修复**: ① Parse/TryParse 辅助路径将解析出的 `methodSymbol` 传入 `TransformArgumentList`，使参数类型化强制转换生效；② `CoerceArgumentType` 的 null 强制转换块新增 `System.IFormatProvider` 参数识别：发射 `(CultureInfo) null`（compat 默认 provider 类型）并补充 compat import。
+- **回归测试**: `PrimitiveStaticParseMappingTests.UIntTryParse_NullProvider_EmitsDisambiguatedCultureInfoNull`、`DoubleParse_NullProvider_EmitsDisambiguatedCultureInfoNull`（Red→Green 验证）。
+- **状态**: ✅ Fixed
+
+---
+
+## Iteration 2 — 公共序列化构造器 base(info, context) 无 super 目标（找不到合适的构造器）
+- **Java 文件**: `dotnet-text-regularexpressions-tests/src/test/java/dotnet/text/regularexpressions/Tests/RegexConstructorTests.java:217`
+- **错误信息**: `对于Regex(__suppress__,__suppress__), 找不到合适的构造器`（`super(info, context)` 无目标）
+- **代码片段**:
+  ```java
+  public SerializableDerivedRegex(__suppress__ info, __suppress__ context) {
+      super(info, context);
+  }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\regular-expressions\tests\Regex.Ctor.Tests.cs:189`（`public SerializableDerivedRegex(SerializationInfo info, StreamingContext context) : base(info, context)`）
+- **根因分类**: Transformer（序列化构造器检测遗漏 public）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/ConstructorTransformer.cs`
+- **分析**: 基类序列化构造器（protected/private `(SerializationInfo, StreamingContext)`）被转换器整体省略（Java 无对应 ctor），但 `IsDotNetSerializationConstructor` 显式排除 `public` 构造器，导致派生类的 public 序列化构造器未被识别、仍发射 `super(info, context)` 转发到已省略的基类 ctor。
+- **修复**: 抽出 `IsSerializationShapedConstructor`（不限可见性，含语法名回退）；非 public 序列化构造器保持省略；public 序列化构造器正常发射但丢弃 `base(...)` 转发，并补充 `throw new PlatformNotSupportedException();` 体（与 C# 基类行为一致，测试断言可运行时通过）。
+- **回归测试**: `SerializationConstructorForwardingTests.DerivedPublicSerializationCtor_DoesNotForwardToMissingBaseCtor`（Red→Green 验证）。
+- **状态**: ✅ Fixed
+
+---
+
+## 汇总（第二轮）
+- 迭代轮次：2 类根因
+- 修复涉及：`InvocationExpressionTransformer.cs`、`ArgumentTransformer.cs`、`ConstructorTransformer.cs`
+- 回归测试：新增 3 个（Red→Green）；全量 `dotnet test -c Release` 3391 通过（CSharpToJava 2693 + CSharpToTypeScript 691 + ProjectTests 7）
+- 最终验证：`mvn clean install -e` 在 `d:\cs-java-81319` **BUILD SUCCESS（EXIT=0）**，日志 `d:\cs-java-81319\mvn-build.log`
