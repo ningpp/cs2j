@@ -462,3 +462,18 @@
 - **根因分类**: Transformer（Stream 异步方法未映射 compat 的 boolean 型 CancellationToken 参数）
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（TextWriter 异步特例存在但 Stream 无对应处理）
 - **分析**: compat StreamWrapper 把 CancellationToken 参数建模为 boolean（实现中忽略该值）：`writeAsync(ReadOnlyMemory<Integer>, boolean)`、`writeAsync(ReadOnlySpan<Integer>, boolean)`、`flushAsync(boolean)`，而 byte[] 重载 `writeAsync(byte[], int, int)` 直接无 token 参数。转换器只对 TextWriter 有异步特例，Stream 走通用路径原样传 CancellationToken 对象 → 无匹配重载。修复：为 System.IO.Stream 的 WriteAsync/FlushAsync 加特例——丢弃/转译尾部 CancellationToken：byte[] 重载去掉 token，Memory/Span 重载与 FlushAsync 传 `false`（compat 忽略该值）。
+
+- **状态**: ✅ Fixed
+
+## Iteration 11 - 不兼容的类型 (byte[].AsSpan() 结果赋给可变 Span<T> 未包装)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
+- **行号**: 1303（另见 1483/1832/1841/1852；JsonSerializer.Read.Utf8JsonReader 等）
+- **错误信息**: `不兼容的类型: io.github.ningpp.compat.ReadOnlySpan<java.lang.Integer>无法转换为io.github.ningpp.compat.Span<java.lang.Integer>`
+- **代码片段**:
+  ```java
+  Span<Integer> rentedSpan = MemoryExtensions.asSpan(rented, 0, length);  // asSpan(byte[],int,int) 返回 ReadOnlySpan<Integer>
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Document\JsonDocument.Parse.cs（`Span<byte> rentedSpan = rented.AsSpan(0, length);`；同模式 JsonDocument.MetadataDb.cs、JsonSerializer.Read.Utf8JsonReader.cs）
+- **根因分类**: Transformer（AdaptExpressionToTargetType 的 asSpan→Span 重包装在 IArrayTypeSymbol 守卫内，未覆盖 AsSpan() 调用结果）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（AdaptExpressionToTargetTypeCore，第 167-216 行）
+- **分析**: `rented.AsSpan(0, length)` 表达式的 C# 类型是 `Span<byte>`（AsSpan 的返回值），不是 `byte[]`，所以数组→Span 适配分支的 `sourceType is IArrayTypeSymbol` 守卫未命中，`MemoryExtensions.asSpan(...)`（compat 返回 ReadOnlySpan<Integer>）原样赋给 `Span<Integer>` 声明。修复：在守卫外补充——目标为 System.Span<T> 且表达式以 `MemoryExtensions.asSpan(` 开头时用 `new Span<>(...)` 重包装（Span(ReadOnlySpan) 构造器）。

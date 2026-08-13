@@ -215,6 +215,18 @@ public static class ExpressionTransformerHelpers
             return $"new {spanJavaName}{explicitTypeArg}({transformedExpression})";
         }
 
+        // C# Span<T> target fed by byte[]/char[]/string .AsSpan(...): the compat
+        // AsSpan routes produce ReadOnlySpan (e.g. MemoryExtensions.asSpan(byte[], int, int)),
+        // while the C# expression type is the mutable Span<T>. Re-wrap via the
+        // Span(ReadOnlySpan) constructor so the declaration type matches.
+        if (targetType is INamedTypeSymbol mutableSpanTarget
+            && mutableSpanTarget.OriginalDefinition?.ToDisplayString() == "System.Span<T>"
+            && transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.Span");
+            return $"new Span<>({transformedExpression})";
+        }
+
         // C# Memory<T>.Span returns Span<T>; the compat Memory maps to ReadOnlyMemory,
         // whose getSpan() yields ReadOnlySpan<T> — wrap for a mutable Span target.
         if (targetType is INamedTypeSymbol spanTargetNamed2
