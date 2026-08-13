@@ -496,6 +496,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 14 - 无法将方法应用到给定类型 (JsonDocument.TryGetValue 被误当自定义字典 1 参 tryGetValue)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonElement.java
+- **行号**: 264（另见 297/328/361 等，共 15+ 处）
+- **错误信息**: `无法将类 dotnet.text.json.JsonDocument中的方法 tryGetValue应用到给定类型`（`tryGetValue(int)` 单参调用，但重载都是 `tryGetValue(int, holder)`）
+- **代码片段**:
+  ```java
+  return (_parent.tryGetValue(_idx) != null ? ... : ...);   // JsonDocument.tryGetValue 无单参重载
+  // 应为 _parent.tryGetValue(_idx, value)（out holder 直传）
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Document\JsonElement.cs（`return _parent.TryGetValue(_idx, out value);`）
+- **根因分类**: Transformer（TryGetValue 重写的 useGeneratedTryGetValue 守卫过宽）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（第 3269-3277 行）
+- **分析**: 自定义字典（实现 IDictionary/IReadOnlyDictionary 接口）在 ClassTransformer 中会被合成 1 参 `tryGetValue(K)` 委托方法，因此调用点可以改写为 `tryGetValue(key) != null` 形态。原守卫只检查"接收者声明了 2 参 TryGetValue 且 Java 类型非 Map"，JsonDocument.TryGetValue(int, out byte[]) 恰好也满足 → 被错误改写成单参调用。修复：追加 `IsDictionaryInterfaceImplementer`（接收者实现字典接口）守卫，JsonDocument 走标准 out-holder 调用路径。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

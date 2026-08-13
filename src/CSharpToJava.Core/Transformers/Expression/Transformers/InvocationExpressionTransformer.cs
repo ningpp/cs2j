@@ -3267,15 +3267,30 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // GroupCollection.ContainsKey dereferences _match._regex), so the generated
             // tryGetValue is the null-safe presence check.
             var receiverTypeForTryGet = context.GetTypeInfo(memberAccess.Expression).Type;
+            // The generated 1-arg tryGetValue(key) delegator is synthesized only for
+            // classes implementing the C# dictionary interfaces (ClassTransformer
+            // section 5). Custom types with a 2-param TryGetValue that are NOT
+            // dictionary-backed (e.g. JsonDocument.TryGetValue(int, out byte[]))
+            // keep the standard out-holder call shape.
             bool useGeneratedTryGetValue = receiverTypeForTryGet != null
                 && receiverTypeForTryGet.GetMembers("TryGetValue").Any(m => m is IMethodSymbol { Parameters.Length: 2 })
-                && !IsJavaMapMappedType(context.MapType(receiverTypeForTryGet));
+                && !IsJavaMapMappedType(context.MapType(receiverTypeForTryGet))
+                && IsDictionaryInterfaceImplementer(receiverTypeForTryGet);
             if (useGeneratedTryGetValue)
             {
                 return $"({receiver}.tryGetValue({keyArg}) != null ? {successAssign} : {missAssign})";
             }
+            // Non-dictionary receivers (e.g. JsonDocument.TryGetValue(int, out byte[])):
+            // the containsKey/get rewrite does not apply — fall through to the normal
+            // invocation path with the out-holder arguments.
+            if (receiverTypeForTryGet == null
+                || !IsJavaMapMappedType(context.MapType(receiverTypeForTryGet)))
+            {
+                goto skipTryGetValueRewrite;
+            }
             return $"({receiver}.containsKey({keyArg}) ? {successAssign} : {missAssign})";
         }
+        skipTryGetValueRewrite:
 
         // Fix: Array.GetLength(dim) → Java dimensional length access.
         // Java represents multi-dimensional arrays as jagged arrays (arrays of arrays).
@@ -7825,6 +7840,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return bare.StartsWith("java.util.", StringComparison.Ordinal)
             || bare is "Map" or "HashMap" or "LinkedHashMap" or "TreeMap" or "ConcurrentHashMap"
                 or "CSharpDictionary" or "CSharpGenericIDictionary" or "CSharpHashtable";
+    }
+
+    /// <summary>
+    /// True when the receiver implements the C# dictionary interfaces — the types for
+    /// which ClassTransformer synthesizes the 1-arg tryGetValue(key) delegator.
+    /// </summary>
+    private static bool IsDictionaryInterfaceImplementer(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+        if (named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+            && named.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or "IReadOnlyDictionary")
+        {
+            return true;
+        }
+        if (named.ContainingNamespace?.ToDisplayString() == "System.Collections"
+            && named.Name is "Hashtable" or "SortedList" or "IDictionary")
+        {
+            return true;
+        }
+        return named.AllInterfaces.Any(i =>
+            i.Name is "IDictionary" or "IReadOnlyDictionary");
     }
 
     private static string GetTryGetValueOutDefault(ExpressionSyntax outExpression, ConversionContext context)
