@@ -4589,8 +4589,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (deserializeTargetType != null)
             {
                 var jsonArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
-                var javaType = context.MapType(deserializeTargetType);
-                return $"{receiver}.{methodName}({jsonArg}, {javaType}.class)";
+                // Use GetClassLiteral so generic targets emit the raw class literal
+                // (CSharpList.class, not the illegal CSharpList<Integer>.class) and
+                // type parameters resolve through the runtime Class token machinery.
+                var deserializeClassLiteral = ConversionContext.GetClassLiteral(deserializeTargetType, context);
+                return $"{receiver}.{methodName}({jsonArg}, {deserializeClassLiteral})";
             }
         }
 
