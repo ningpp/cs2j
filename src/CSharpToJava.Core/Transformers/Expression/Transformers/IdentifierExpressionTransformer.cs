@@ -1525,6 +1525,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var getter = GetPropertyGetterName(prop);
+                // Member resolved on a CONSTRAINT type of a type-parameter receiver
+                // (e.g. ex.Data where T extends RuntimeException): cast the receiver
+                // so the member call resolves.
+                if (receiverType is ITypeParameterSymbol constrainedTp
+                    && prop.ContainingType != null
+                    && !SymbolEqualityComparer.Default.Equals(prop.ContainingType, constrainedTp)
+                    && constrainedTp.ConstraintTypes.Any(ct =>
+                        SymbolEqualityComparer.Default.Equals(ct.OriginalDefinition, prop.ContainingType.OriginalDefinition)
+                        || SymbolEqualityComparer.Default.Equals(ct, prop.ContainingType)))
+                {
+                    var constraintJavaType = context.MapType(prop.ContainingType);
+                    if (!string.IsNullOrWhiteSpace(constraintJavaType) && constraintJavaType != "Object")
+                        return $"(({constraintJavaType})({propertyTarget})).{getter}()";
+                }
                 return $"{propertyTarget}.{getter}()";
             }
         }
