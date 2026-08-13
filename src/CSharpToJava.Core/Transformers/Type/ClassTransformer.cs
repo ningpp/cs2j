@@ -1269,26 +1269,56 @@ public class ClassTransformer : ITypeTransformer
             .Select(field => field.FieldName)
             .ToHashSet(StringComparer.Ordinal);
         var initializers = new List<string>();
+        var demotedFieldNames = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var field in javaClass.Fields)
+        // Demotion is transitive: a static field whose initializer references a
+        // type-argument token (or another demoted field) cannot stay static — Java
+        // has no per-closed-type statics. Iterate to a fixpoint so chains like
+        // s_enumTypeCode = f(tClass) → s_negativeSign = f(s_enumTypeCode) both demote.
+        // Instance fields keep the original behavior: lift only when their
+        // initializer directly references a runtime class field.
+        bool changed;
+        do
         {
-            if (string.IsNullOrWhiteSpace(field.Initializer))
-                continue;
-            if (!runtimeClassFieldNames.Any(name => ContainsIdentifier(field.Initializer, name)))
-                continue;
-
-            if (field.Modifiers.HasFlag(JavaModifiers.Static))
+            changed = false;
+            foreach (var field in javaClass.Fields)
             {
-                // Static fields whose initializer depends on a type-argument token have
-                // no Java equivalent — statics are per-class, not per-closed-type. Demote
-                // to an instance field initialized in the constructor (the lift below),
-                // mirroring the instance-field strategy. 'final' stays legal: the
-                // constructor performs the single definite assignment.
-                field.Modifiers &= ~JavaModifiers.Static;
-            }
+                if (string.IsNullOrWhiteSpace(field.Initializer))
+                    continue;
+                if (field.Modifiers.HasFlag(JavaModifiers.Static))
+                {
+                    if (!runtimeClassFieldNames.Any(name => ContainsIdentifier(field.Initializer, name))
+                        && !demotedFieldNames.Any(name => ContainsIdentifier(field.Initializer, name)))
+                    {
+                        continue;
+                    }
+                    // 'final' stays legal: the constructor performs the single definite assignment.
+                    field.Modifiers &= ~JavaModifiers.Static;
+                    demotedFieldNames.Add(field.Name);
+                }
+                else if (!runtimeClassFieldNames.Any(name => ContainsIdentifier(field.Initializer, name)))
+                {
+                    continue;
+                }
 
-            initializers.Add($"this.{field.Name} = {field.Initializer};");
-            field.Initializer = null;
+                initializers.Add($"this.{field.Name} = {field.Initializer};");
+                field.Initializer = null;
+                changed = true;
+            }
+        } while (changed);
+
+        // Private static helpers that read a demoted field can no longer stay static;
+        // demote them as well so the token-derived value remains reachable.
+        if (demotedFieldNames.Count > 0)
+        {
+            foreach (var method in javaClass.Methods)
+            {
+                if (!method.Modifiers.HasFlag(JavaModifiers.Static))
+                    continue;
+                var methodBody = method.Body ?? method.StructuredBody?.ToBodyString() ?? string.Empty;
+                if (demotedFieldNames.Any(name => ContainsIdentifier(methodBody, name)))
+                    method.Modifiers &= ~JavaModifiers.Static;
+            }
         }
 
         return initializers;

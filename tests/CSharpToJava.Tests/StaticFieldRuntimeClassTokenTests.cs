@@ -30,6 +30,36 @@ public class EnumConverter<T> where T : Enum
         Assert.Contains("this.s_enumTypeCode = ", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void StaticFieldChainAndStaticHelper_AreDemotedTransitively()
+    {
+        var result = Convert(@"
+using System;
+
+public class EnumConverter<T> where T : Enum
+{
+    private static readonly Type s_enumTypeCode = Type.GetTypeCode(typeof(T));
+    private static readonly string s_negativeSign = ((int)s_enumTypeCode.GetHashCode() % 2) == 0 ? null : ""-"";
+
+    public static long ConvertToUInt64(object value)
+    {
+        return s_enumTypeCode.GetHashCode() + (s_negativeSign == null ? 0 : 1);
+    }
+
+    public int Use()
+    {
+        return (int)ConvertToUInt64(null);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.DoesNotContain("static", code, StringComparison.Ordinal);
+        Assert.Contains("this.s_enumTypeCode = ", code, StringComparison.Ordinal);
+        Assert.Contains("this.s_negativeSign = ", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
