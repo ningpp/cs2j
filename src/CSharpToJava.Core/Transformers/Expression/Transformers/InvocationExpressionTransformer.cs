@@ -4873,17 +4873,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         //   uint  → (T)(Object)(Integer)(Unsafe.as(value))
         //   ushort → (T)(Object)(Short)(((short)(Unsafe.as(value))))
         //   byte  → (T)(Object)(Byte)(((byte)(Unsafe.as(value))))
+        // The single-type-argument overload Unsafe.As<T>(object value) is a plain
+        // reference cast: emit (T)(Object)Unsafe.as(value) so member access on the
+        // result resolves to T (e.g. Unsafe.As<FieldInfo>(m).FieldType).
         if (methodSymbol is { IsStatic: true, Name: "As" }
             && methodSymbol.ContainingType?.ToDisplayString() == "System.Runtime.CompilerServices.Unsafe"
-            && methodSymbol.TypeArguments.Length == 2
             && node.ArgumentList.Arguments.Count >= 1)
         {
             context.AddImport("io.github.ningpp.compat.Unsafe");
             var asArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var innerExpr = $"Unsafe.as({asArg})";
+
+            if (methodSymbol.TypeArguments.Length == 1)
+            {
+                var toJavaType = context.MapType(methodSymbol.TypeArguments[0]);
+                return $"({toJavaType})(Object){innerExpr}";
+            }
+
+            if (methodSymbol.TypeArguments.Length != 2)
+                return innerExpr;
+
             var fromType = methodSymbol.TypeArguments[0];
             var toType = methodSymbol.TypeArguments[1];
-            var toJavaType = context.MapType(toType);
+            var toJavaType2 = context.MapType(toType);
 
             // Determine the wrapper and narrowing cast for the source type.
             var (wrapper, narrowCast) = fromType.SpecialType switch
@@ -4902,7 +4914,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (string.IsNullOrEmpty(wrapper))
             {
                 // No boxing wrapper needed for non-primitive or unknown types.
-                return $"({toJavaType}) {innerExpr}";
+                return $"({toJavaType2}) {innerExpr}";
             }
 
             // Build the boxing chain: (T)(Object)(Wrapper)([(narrowCast)(]Unsafe.as(arg)[)])
@@ -4910,7 +4922,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 ? $"({wrapper})({innerExpr})"
                 : $"({wrapper})(({narrowCast}({innerExpr})))";
 
-            return $"({toJavaType})(Object){boxedExpr}";
+            return $"({toJavaType2})(Object){boxedExpr}";
         }
 
         // System.Buffers.ArrayPool<T>.Shared.Rent/Return: emit a Java type witness

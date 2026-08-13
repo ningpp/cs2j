@@ -391,3 +391,21 @@
 - **测试**: tests/CSharpToJava.Tests/DictionaryValueCollectionCopyToTests.cs（RED→GREEN）
 
 - **状态**: ✅ Fixed
+
+## Iteration 7 - 找不到符号 (Unsafe.As<T>(object) 单类型实参重载未加目标类型强转)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonClassInfo.java
+- **行号**: 350（另见 362、366）
+- **错误信息**: `[ERROR] [350,121] 找不到符号 / 符号: 方法 getFieldType() / 位置: 类 java.lang.Object`
+- **代码片段**:
+  ```java
+  return (memberInfo instanceof PropertyInfo propertyInfo ? propertyInfo.getPropertyType() : Unsafe.as(memberInfo).getFieldType());
+  //                                                                              ^^^^^^^^ Unsafe.as 返回 Object，getFieldType 解析失败
+  // 应为 (FieldInfo)(Object)Unsafe.as(memberInfo)
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\Serialization\JsonClassInfo.cs（GetMemberType 等：`Unsafe.As<FieldInfo>(memberInfo)!.FieldType`）
+- **根因分类**: Transformer（Unsafe.As 单类型实参重载未处理）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（Unsafe.As 特殊分支，第 4876 行）
+- **分析**: 转换器只处理 `Unsafe.As<TFrom,TTo>(ref TFrom)`（TypeArguments.Length == 2）的装箱链；`Unsafe.As<T>(object)`（Length == 1，普通引用强转重载）走通用路径生成 `Unsafe.as(arg)`，Java 无法从调用点推断 T → T=Object，后续成员访问 `getFieldType()` 解析失败。修复：Length == 1 时生成 `(T)(Object)Unsafe.as(arg)`，使接收者类型具体化。
+- **测试**: tests/CSharpToJava.Tests/UnsafeAsSingleTypeArgTests.cs（RED→GREEN）
+
+- **状态**: ✅ Fixed
