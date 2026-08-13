@@ -652,6 +652,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 24 - 需要<标识符> (属性 Int 的后备字段赋值未转义 Java 关键字)
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/ClassWrapper_For_Int_String.java
+- **行号**: 30（另见 NullArgTester.java 33 等）
+- **错误信息**: `需要<标识符>`（`this.int = intValue;`）
+- **代码片段**:
+  ```java
+  public ClassWrapper_For_Int_String(int intValue, String string) {
+      this.int = intValue;   // 字段声明为 intValue（已转义），赋值用未转义的 this.int
+  ```
+- **对应 C# 文件**: d:\csharpjson\tests\Serialization\TestClasses\TestClasses.Constructor.cs（`public int Int { get; }` + `Int = @int;`，属性名 Int → 后备字段 camelCase 为 Java 关键字 int）
+- **根因分类**: Transformer（后备字段赋值路径漏掉关键字转义）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs（第 573/588/883 行的 fieldName 回退）
+- **分析**: 属性声明侧生成后备字段时经 `EscapeJavaKeyword(ToCamelCase(name))` 转义（Int→int→intValue）；赋值侧 `TryGetBackingFieldName(prop) ?? camelCase(name)` 的 fallback 未转义（int），产生 `this.int = ...` 语法错误。修复：三处 fallback 补 EscapeJavaKeyword。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756

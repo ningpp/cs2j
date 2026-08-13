@@ -571,7 +571,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 if (inExplicitSetter || isReadOnlyViaThis)
                 {
                     string fieldName = TryGetBackingFieldName(prop)
-                        ?? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+                        ?? ConversionContext.EscapeJavaKeyword(char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..]);
                     return $"this.{fieldName} = {right}";
                 }
 
@@ -586,7 +586,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 if (useDirectFieldAccess && prop.Locations.Any(l => l.IsInSource))
                 {
                     string fieldName = TryGetBackingFieldName(prop)
-                        ?? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+                        ?? ConversionContext.EscapeJavaKeyword(char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..]);
                     return $"{receiver}.{fieldName} = {right}";
                 }
 
@@ -881,7 +881,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 if (bareInExplicitSetter || bareIdentProp.SetMethod == null)
                 {
                     string fieldName = TryGetBackingFieldName(bareIdentProp)
-                        ?? char.ToLowerInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
+                        ?? ConversionContext.EscapeJavaKeyword(char.ToLowerInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..]);
                     return $"this.{fieldName} = {right}";
                 }
 
