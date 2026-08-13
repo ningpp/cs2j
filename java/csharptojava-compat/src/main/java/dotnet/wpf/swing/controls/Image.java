@@ -18,6 +18,7 @@ public class Image extends FrameworkElement {
 
     public void setSource(ImageSource value) {
         source = value;
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public Stretch getStretch() {
@@ -26,5 +27,6 @@ public class Image extends FrameworkElement {
 
     public void setStretch(Stretch value) {
         stretch = value;
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 }

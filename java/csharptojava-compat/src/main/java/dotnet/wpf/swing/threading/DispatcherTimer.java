@@ -4,15 +4,15 @@ import io.github.ningpp.compat.EventArgs;
 
 /**
  * System.Windows.Threading.DispatcherTimer compatibility class.
- * Backed by java.util.Timer (Swing event dispatch is not required for the plain
- * compatibility surface; Tick is invoked on a background timer thread).
+ * Backed by a {@link javax.swing.Timer} so Tick callbacks run on the
+ * Swing event-dispatch thread (safe for UI updates).
  */
 public final class DispatcherTimer {
 
     private boolean isEnabled;
     private Object tag;
     private long intervalMilliseconds = 100;
-    private java.util.Timer timer;
+    private javax.swing.Timer timer;
     private final java.util.List<EventHandlerLike> tickListeners = new java.util.ArrayList<>();
     private final Object sync = new Object();
 
@@ -31,6 +31,11 @@ public final class DispatcherTimer {
 
     public void setIntervalMilliseconds(long value) {
         intervalMilliseconds = value;
+        synchronized (sync) {
+            if (timer != null) {
+                timer.setDelay((int) Math.max(1, intervalMilliseconds));
+            }
+        }
     }
 
     public void setInterval(io.github.ningpp.compat.CSharpTimeSpan value) {
@@ -75,16 +80,12 @@ public final class DispatcherTimer {
 
     public void start() {
         synchronized (sync) {
-            if (timer != null) {
-                timer.cancel();
+            if (timer == null) {
+                timer = new javax.swing.Timer((int) Math.max(1, intervalMilliseconds),
+                        e -> fireTick());
             }
-            timer = new java.util.Timer("DispatcherTimer", true);
-            timer.scheduleAtFixedRate(new java.util.TimerTask() {
-                @Override
-                public void run() {
-                    fireTick();
-                }
-            }, intervalMilliseconds, intervalMilliseconds);
+            timer.setDelay((int) Math.max(1, intervalMilliseconds));
+            timer.start();
             isEnabled = true;
         }
     }
@@ -92,14 +93,18 @@ public final class DispatcherTimer {
     public void stop() {
         synchronized (sync) {
             if (timer != null) {
-                timer.cancel();
-                timer = null;
+                timer.stop();
             }
             isEnabled = false;
         }
     }
 
     private void fireTick() {
+        synchronized (sync) {
+            if (!isEnabled) {
+                return; // an event may still be in flight after stop()
+            }
+        }
         java.util.List<EventHandlerLike> copy;
         synchronized (sync) {
             copy = new java.util.ArrayList<>(tickListeners);

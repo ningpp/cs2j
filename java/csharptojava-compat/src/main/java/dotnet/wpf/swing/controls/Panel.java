@@ -36,6 +36,7 @@ public abstract class Panel extends FrameworkElement {
         if (child != null) {
             addVisualChild(child);
         }
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public void removeChild(UIElement child) {
@@ -43,11 +44,13 @@ public abstract class Panel extends FrameworkElement {
         if (child != null) {
             removeVisualChild(child);
         }
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public void clearChildren() {
         clearVisualChildren();
         children.clear();
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     // ---- attached ZIndex (Panel.SetZIndex / Panel.GetZIndex) ----

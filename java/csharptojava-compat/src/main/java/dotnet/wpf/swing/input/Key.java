@@ -67,7 +67,8 @@ public enum Key {
     F10(0x79),
     F11(0x7A),
     F12(0x7B),
-    OemMinus(0xBD);
+    OemMinus(0xBD),
+    Back(0x08);
 
     private final int virtualKey;
 
@@ -99,6 +100,39 @@ public enum Key {
             }
         }
         return values()[0];
+    }
+
+    /**
+     * Maps an AWT key code ({@link java.awt.event.KeyEvent#getKeyCode()})
+     * to the closest WPF Key. Special keys that use different VK codes are
+     * mapped explicitly; letters, digits, F-keys, arrows and numpad keys
+     * already share VK values with WPF.
+     */
+    public static Key fromAwtKeyCode(int keyCode) {
+        switch (keyCode) {
+            case java.awt.event.KeyEvent.VK_ENTER:
+                return Enter;
+            case java.awt.event.KeyEvent.VK_BACK_SPACE:
+                return Back;
+            case java.awt.event.KeyEvent.VK_DELETE:
+                return Delete;
+            case java.awt.event.KeyEvent.VK_INSERT:
+                return Insert;
+            case java.awt.event.KeyEvent.VK_MINUS:
+                return OemMinus;
+            case java.awt.event.KeyEvent.VK_SPACE:
+                return Space;
+            case java.awt.event.KeyEvent.VK_ESCAPE:
+                return Escape;
+            case java.awt.event.KeyEvent.VK_TAB:
+                return Tab;
+            case java.awt.event.KeyEvent.VK_HOME:
+                return Home;
+            case java.awt.event.KeyEvent.VK_END:
+                return End;
+            default:
+                return fromValue(keyCode);
+        }
     }
 }
 

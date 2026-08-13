@@ -16,5 +16,6 @@ public class ContentControl extends FrameworkElement {
         if (value instanceof UIElement) {
             addVisualChild((UIElement) value);
         }
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 }

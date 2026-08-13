@@ -8,6 +8,11 @@ import dotnet.wpf.swing.FrameworkElement;
 public class TextBoxBase extends FrameworkElement {
 
     public void selectAll() {
-        // no-op
+        if (this instanceof TextBox) {
+            TextBox box = (TextBox) this;
+            String text = box.getText();
+            box.setSelectionStart(0);
+            box.setSelectionLength(text == null ? 0 : text.length());
+        }
     }
 }

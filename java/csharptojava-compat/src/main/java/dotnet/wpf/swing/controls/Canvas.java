@@ -14,6 +14,7 @@ public class Canvas extends Panel {
 
     public static void setLeft(UIElement element, double length) {
         LEFT.put(element, length);
+        dotnet.wpf.swing.internal.ScenePanel.refresh(element);
     }
 
     public static double getLeft(UIElement element) {
@@ -23,6 +24,7 @@ public class Canvas extends Panel {
 
     public static void setTop(UIElement element, double length) {
         TOP.put(element, length);
+        dotnet.wpf.swing.internal.ScenePanel.refresh(element);
     }
 
     public static double getTop(UIElement element) {

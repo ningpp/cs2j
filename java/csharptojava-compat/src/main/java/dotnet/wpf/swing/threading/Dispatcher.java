@@ -1,14 +1,18 @@
 package dotnet.wpf.swing.threading;
 
+import dotnet.wpf.swing.internal.UiLoop;
+
 /**
  * System.Windows.Threading.Dispatcher compatibility class.
- * Swing-backed: Invoke/RunLater merely run the callback (on the caller's thread in a test
- * environment, or queued on the EDT in a headful one).
+ *
+ * <p>Swing-backed: the UI thread is the Swing event-dispatch thread (EDT).
+ * {@link #invoke(Runnable)} runs the callback directly when already on the
+ * EDT and blocks the caller while executing it on the EDT otherwise.
+ * {@link #run()} blocks until the application requests shutdown.</p>
  */
 public final class Dispatcher {
 
     private static final Dispatcher CURRENT = new Dispatcher();
-    private static final Thread MAIN_THREAD = Thread.currentThread();
 
     public static Dispatcher getCurrentDispatcher() {
         return CURRENT;
@@ -18,13 +22,21 @@ public final class Dispatcher {
         return CURRENT;
     }
 
+    private static volatile Thread uiThread;
+
     public Thread getThread() {
-        return MAIN_THREAD;
+        if (uiThread == null && UiLoop.get().isUiThread()) {
+            uiThread = Thread.currentThread();
+        }
+        return uiThread == null ? Thread.currentThread() : uiThread;
     }
 
     public boolean checkAccess() {
-        return Thread.currentThread() == MAIN_THREAD
-                || (java.awt.EventQueue.isDispatchThread() && MAIN_THREAD == Thread.currentThread());
+        if (UiLoop.get().isUiThread()) {
+            uiThread = Thread.currentThread();
+            return true;
+        }
+        return false;
     }
 
     public void verifyAccess() {
@@ -32,43 +44,28 @@ public final class Dispatcher {
     }
 
     public void invoke(Runnable callback) {
-        if (callback == null) return;
-        if (checkAccess()) {
-            callback.run();
-        } else {
-            try {
-                javax.swing.SwingUtilities.invokeAndWait(callback);
-            } catch (Exception e) {
-                callback.run();
-            }
+        if (callback == null) {
+            return;
         }
+        UiLoop.get().invokeAndWait(callback);
     }
 
     public <T> T invoke(java.util.function.Supplier<T> callback) {
-        if (callback == null) return null;
-        if (checkAccess()) {
+        if (callback == null) {
+            return null;
+        }
+        if (UiLoop.get().isUiThread()) {
             return callback.get();
         }
-        final Object lock = new Object();
         final Object[] box = new Object[1];
         final Throwable[] err = new Throwable[1];
-        javax.swing.SwingUtilities.invokeLater(() -> {
+        UiLoop.get().invokeAndWait(() -> {
             try {
                 box[0] = callback.get();
             } catch (Throwable t) {
                 err[0] = t;
-            } finally {
-                synchronized (lock) {
-                    lock.notifyAll();
-                }
             }
         });
-        synchronized (lock) {
-            try {
-                lock.wait();
-            } catch (InterruptedException ignored) {
-            }
-        }
         if (err[0] != null) {
             throw new RuntimeException(err[0]);
         }
@@ -76,7 +73,11 @@ public final class Dispatcher {
         return (T) box[0];
     }
 
+    /**
+     * Blocks the calling thread and pumps the UI event loop until the
+     * application requests shutdown.
+     */
     public static void run() {
-        // no-op: no message loop needed for Swing-backed testing.
+        UiLoop.get().awaitShutdown();
     }
 }

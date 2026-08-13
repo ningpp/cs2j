@@ -57,6 +57,7 @@ public class UIElement extends Visual implements IInputElement {
     public void setVisibility(Visibility value) {
         this.visibility = value;
         this.isVisible = value == Visibility.Visible;
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public boolean getIsVisible() {
@@ -187,10 +188,16 @@ public class UIElement extends Visual implements IInputElement {
 
     public boolean focus() {
         isKeyboardFocusWithin = true;
+        dotnet.wpf.swing.internal.ScenePanel.requestFocusOn(this);
         return true;
     }
 
     public boolean getIsKeyboardFocusWithin() {
+        return isKeyboardFocusWithin;
+    }
+
+    @Override
+    public boolean isKeyboardFocusWithin() {
         return isKeyboardFocusWithin;
     }
 
@@ -448,12 +455,7 @@ public class UIElement extends Visual implements IInputElement {
 
     @Override
     public boolean isKeyboardFocused() {
-        return false;
-    }
-
-    @Override
-    public boolean isKeyboardFocusWithin() {
-        return false;
+        return isKeyboardFocusWithin;
     }
 
     @Override

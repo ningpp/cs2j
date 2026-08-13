@@ -30,6 +30,7 @@ public class TextBlock extends FrameworkElement {
 
     public void setText(String value) {
         this.text = value == null ? "" : value;
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public FontFamily getFontFamily() {

@@ -36,6 +36,7 @@ public class FrameworkElement extends UIElement {
     public void setWidth(double value) {
         width = value;
         actualWidth = Double.isNaN(value) ? 0 : value;
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public double getHeight() {
@@ -45,6 +46,7 @@ public class FrameworkElement extends UIElement {
     public void setHeight(double value) {
         height = value;
         actualHeight = Double.isNaN(value) ? 0 : value;
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public double getMinWidth() {
@@ -85,6 +87,16 @@ public class FrameworkElement extends UIElement {
 
     public double getActualHeight() {
         return actualHeight;
+    }
+
+    /** Internal: set by the Swing renderer during layout. */
+    public void setActualWidth(double value) {
+        actualWidth = value;
+    }
+
+    /** Internal: set by the Swing renderer during layout. */
+    public void setActualHeight(double value) {
+        actualHeight = value;
     }
 
     public Object getTag() {

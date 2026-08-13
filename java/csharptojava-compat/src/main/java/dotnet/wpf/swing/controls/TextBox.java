@@ -16,6 +16,10 @@ public class TextBox extends TextBoxBase {
 
     public void setText(String value) {
         text = value == null ? "" : value;
+        if (caretIndex > text.length()) {
+            caretIndex = text.length();
+        }
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public int getCaretIndex() {
