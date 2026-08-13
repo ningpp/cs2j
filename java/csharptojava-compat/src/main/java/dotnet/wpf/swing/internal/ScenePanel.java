@@ -34,6 +34,7 @@ import dotnet.wpf.swing.media.ArcSegment;
 import dotnet.wpf.swing.media.BezierSegment;
 import dotnet.wpf.swing.media.Brush;
 import dotnet.wpf.swing.media.BitmapSource;
+import dotnet.wpf.swing.media.DrawingContext;
 import dotnet.wpf.swing.media.EllipseGeometry;
 import dotnet.wpf.swing.media.FillRule;
 import dotnet.wpf.swing.FontStyle;
@@ -208,6 +209,13 @@ public final class ScenePanel extends JComponent {
     // ------------------------------------------------------------------
 
     public void setFocusedElement(UIElement element) {
+        if (element == this.focusedElement) {
+            if (element != null && isDisplayable()) {
+                requestFocusInWindow();
+            }
+            repaint();
+            return;
+        }
         this.focusedElement = element;
         Keyboard.focus(element);
         if (isDisplayable()) {
@@ -218,6 +226,35 @@ public final class ScenePanel extends JComponent {
 
     public UIElement getFocusedElement() {
         return focusedElement;
+    }
+
+    /**
+     * Unloads the element tree: raises {@code Unloaded} once per element,
+     * clears the loaded bookkeeping (a later show re-raises {@code Loaded})
+     * and drops focus/hover state.
+     */
+    public void unloadTree() {
+        if (root != null) {
+            unloadRecursive(root);
+        }
+        loadedRaised.clear();
+        if (focusedElement != null) {
+            Keyboard.clearFocus();
+            focusedElement = null;
+        }
+        hoverElement = null;
+    }
+
+    private void unloadRecursive(UIElement e) {
+        if (e == null) {
+            return;
+        }
+        if (e instanceof FrameworkElement) {
+            ((FrameworkElement) e).raiseUnloaded();
+        }
+        for (UIElement child : visualChildrenOf(e)) {
+            unloadRecursive(child);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -236,6 +273,7 @@ public final class ScenePanel extends JComponent {
         double h = Math.max(0, getHeight());
         if (root != null && root.getIsVisible()) {
             layoutElement(root, 0, 0, w, h);
+            raiseLayoutUpdated();
             drawElement(root, 0, 0, w, h, g2);
         }
         raiseLoadedOnce();
@@ -244,6 +282,12 @@ public final class ScenePanel extends JComponent {
             if (owner != null) {
                 owner.raiseContentRendered();
             }
+        }
+    }
+
+    private void raiseLayoutUpdated() {
+        for (UIElement e : new ArrayList<>(hitOrder)) {
+            e.raiseLayoutUpdated();
         }
     }
 
@@ -269,7 +313,62 @@ public final class ScenePanel extends JComponent {
         }
     }
 
-    private List<UIElement> visualChildrenOf(UIElement e) {
+    /**
+     * Raises {@code Loaded} on a tree without host bookkeeping (used by the
+     * headless window lifecycle). Elements already loaded are skipped.
+     */
+    public static void raiseLoadedTree(UIElement root) {
+        if (root == null || !root.getIsVisible()) {
+            return;
+        }
+        if (root instanceof FrameworkElement) {
+            FrameworkElement fe = (FrameworkElement) root;
+            if (!fe.getIsLoaded()) {
+                fe.raiseLoaded();
+            }
+        }
+        for (UIElement child : visualChildrenOf(root)) {
+            raiseLoadedTree(child);
+        }
+    }
+
+    /**
+     * Raises {@code Unloaded} on a tree without host bookkeeping (used by the
+     * headless window lifecycle).
+     */
+    public static void raiseUnloadedTree(UIElement root) {
+        if (root == null) {
+            return;
+        }
+        if (root instanceof FrameworkElement) {
+            ((FrameworkElement) root).raiseUnloaded();
+        }
+        for (UIElement child : visualChildrenOf(root)) {
+            raiseUnloadedTree(child);
+        }
+    }
+
+    /** Finds a named FrameworkElement in the visual tree rooted at {@code root}. */
+    public static UIElement findByName(UIElement root, String name) {
+        if (root == null || name == null || name.isEmpty()) {
+            return null;
+        }
+        for (UIElement child : visualChildrenOf(root)) {
+            if (child instanceof FrameworkElement) {
+                FrameworkElement fe = (FrameworkElement) child;
+                if (name.equals(fe.getName())) {
+                    return fe;
+                }
+            }
+            UIElement found = findByName(child, name);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private static List<UIElement> visualChildrenOf(UIElement e) {
         List<UIElement> list = new ArrayList<>();
         if (e instanceof Panel) {
             list.addAll(((Panel) e).getChildren());
@@ -489,6 +588,32 @@ public final class ScenePanel extends JComponent {
             drawImage((Image) e, w, h, g);
         } else if (e instanceof Shape) {
             drawShape((Shape) e, g);
+        }
+        replayOnRender(e, g);
+    }
+
+    /** Replays the element's {@code OnRender} drawing operations onto the canvas. */
+    private static void replayOnRender(UIElement e, Graphics2D g) {
+        DrawingContext ctx = new DrawingContext();
+        try {
+            e.onRender(ctx);
+        } catch (Throwable ignored) {
+            // custom render code must not crash the paint pass
+        }
+        for (Object op : ctx.getOperations()) {
+            if (op instanceof DrawingContext.RectOp) {
+                DrawingContext.RectOp r = (DrawingContext.RectOp) op;
+                if (r.brush != null) {
+                    g.setColor(r.brush.toAwtColor());
+                    g.fillRect((int) Math.rint(r.rect.getX()), (int) Math.rint(r.rect.getY()),
+                            (int) Math.ceil(r.rect.getWidth()), (int) Math.ceil(r.rect.getHeight()));
+                }
+            } else if (op instanceof DrawingContext.LineOp) {
+                DrawingContext.LineOp l = (DrawingContext.LineOp) op;
+                g.setColor(DEFAULT_FOREGROUND);
+                g.drawLine((int) Math.rint(l.point0.getX()), (int) Math.rint(l.point0.getY()),
+                        (int) Math.rint(l.point1.getX()), (int) Math.rint(l.point1.getY()));
+            }
         }
     }
 

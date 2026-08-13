@@ -7,6 +7,10 @@ public class ContentControl extends FrameworkElement {
 
     private Object content;
 
+    public boolean getHasContent() {
+        return content != null;
+    }
+
     public Object getContent() {
         return content;
     }

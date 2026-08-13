@@ -7,11 +7,14 @@ import dotnet.wpf.swing.input.KeyEventArgs;
 import dotnet.wpf.swing.input.MouseButtonEventArgs;
 import dotnet.wpf.swing.input.MouseEventArgs;
 import dotnet.wpf.swing.input.MouseWheelEventArgs;
+import dotnet.wpf.swing.media.DrawingContext;
 import dotnet.wpf.swing.media.Visual;
 import dotnet.wpf.swing.threading.Dispatcher;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 /**
@@ -21,6 +24,7 @@ import java.util.function.BiConsumer;
 public class UIElement extends Visual implements IInputElement {
 
     public static final RoutedEvent GotKeyboardFocusEvent = new RoutedEvent("GotKeyboardFocus");
+    public static final RoutedEvent LostKeyboardFocusEvent = new RoutedEvent("LostKeyboardFocus");
     public static final RoutedEvent PreviewMouseLeftButtonDownEvent = new RoutedEvent("PreviewMouseLeftButtonDown");
 
     private Visibility visibility = Visibility.Visible;
@@ -28,6 +32,7 @@ public class UIElement extends Visual implements IInputElement {
     private boolean isEnabled = true;
     private boolean focusable;
     private boolean isKeyboardFocusWithin;
+    private boolean isKeyboardFocused;
     private boolean isMouseCaptured;
     private boolean isMouseDirectlyOver;
     private boolean isVisible = true;
@@ -49,14 +54,32 @@ public class UIElement extends Visual implements IInputElement {
     private final List<BiConsumer<Object, MouseEventArgs>> mouseLeave = new ArrayList<>();
     private final List<BiConsumer<Object, KeyEventArgs>> keyDown = new ArrayList<>();
     private final List<BiConsumer<Object, KeyEventArgs>> keyUp = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> gotFocusListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> lostFocusListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> gotMouseCaptureListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> lostMouseCaptureListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> layoutUpdatedListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> isVisibleChangedListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> isEnabledChangedListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> focusableChangedListeners = new ArrayList<>();
+    private final List<BiConsumer<Object, RoutedEventArgs>> isHitTestVisibleChangedListeners = new ArrayList<>();
+    private final Map<RoutedEvent, List<Object>> routedHandlers = new HashMap<>();
 
     public Visibility getVisibility() {
         return visibility;
     }
 
     public void setVisibility(Visibility value) {
+        Visibility old = this.visibility;
+        if (old == value) {
+            return;
+        }
         this.visibility = value;
         this.isVisible = value == Visibility.Visible;
+        RoutedEventArgs e = new RoutedEventArgs();
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(isVisibleChangedListeners)) {
+            h.accept(this, e);
+        }
         dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
@@ -69,7 +92,14 @@ public class UIElement extends Visual implements IInputElement {
     }
 
     public void setIsHitTestVisible(boolean value) {
+        if (isHitTestVisible == value) {
+            return;
+        }
         isHitTestVisible = value;
+        RoutedEventArgs e = new RoutedEventArgs();
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(isHitTestVisibleChangedListeners)) {
+            h.accept(this, e);
+        }
     }
 
     public boolean getIsEnabled() {
@@ -77,7 +107,14 @@ public class UIElement extends Visual implements IInputElement {
     }
 
     public void setIsEnabled(boolean value) {
+        if (isEnabled == value) {
+            return;
+        }
         isEnabled = value;
+        RoutedEventArgs e = new RoutedEventArgs();
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(isEnabledChangedListeners)) {
+            h.accept(this, e);
+        }
     }
 
     @Override
@@ -87,7 +124,14 @@ public class UIElement extends Visual implements IInputElement {
 
     @Override
     public void setFocusable(boolean value) {
+        if (focusable == value) {
+            return;
+        }
         this.focusable = value;
+        RoutedEventArgs e = new RoutedEventArgs();
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(focusableChangedListeners)) {
+            h.accept(this, e);
+        }
     }
 
     public boolean getFocusable() {
@@ -168,26 +212,41 @@ public class UIElement extends Visual implements IInputElement {
     }
 
     public void invalidateVisual() {
-        // no-op: Swing repaints on its own schedule
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public void invalidateMeasure() {
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public void invalidateArrange() {
+        dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public boolean captureMouse() {
+        if (isMouseCaptured) {
+            return true;
+        }
         isMouseCaptured = true;
+        RoutedEventArgs e = new RoutedEventArgs();
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(gotMouseCaptureListeners)) {
+            h.accept(this, e);
+        }
         return true;
     }
 
     public void releaseMouseCapture() {
+        if (!isMouseCaptured) {
+            return;
+        }
         isMouseCaptured = false;
+        RoutedEventArgs e = new RoutedEventArgs();
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(lostMouseCaptureListeners)) {
+            h.accept(this, e);
+        }
     }
 
     public boolean focus() {
-        isKeyboardFocusWithin = true;
         dotnet.wpf.swing.internal.ScenePanel.requestFocusOn(this);
         return true;
     }
@@ -196,14 +255,200 @@ public class UIElement extends Visual implements IInputElement {
         return isKeyboardFocusWithin;
     }
 
+    /** True when this element holds keyboard focus (System.Windows.UIElement.IsKeyboardFocused). */
+    public boolean getIsKeyboardFocused() {
+        return isKeyboardFocused;
+    }
+
+    /** True when this element holds keyboard focus (alias of IsKeyboardFocused). */
+    public boolean getIsFocused() {
+        return isKeyboardFocused;
+    }
+
+    /** Internal: updated by the ScenePanel / Keyboard focus routing. */
+    public void setIsKeyboardFocused(boolean value) {
+        isKeyboardFocused = value;
+    }
+
     @Override
     public boolean isKeyboardFocusWithin() {
         return isKeyboardFocusWithin;
     }
 
     public void raiseEvent(RoutedEventArgs e) {
-        if (e == null) return;
-        e.setHandled(false);
+        if (e == null) {
+            return;
+        }
+        if (e.getSource() == null) {
+            e.setSource(this);
+        }
+        if (e.getRoutedEvent() instanceof RoutedEvent) {
+            invokeRoutedHandlers((RoutedEvent) e.getRoutedEvent(), e);
+        }
+        if (!e.getHandled()) {
+            UIElement parent = getParent();
+            if (parent != null) {
+                parent.raiseEvent(e);
+            }
+        }
+    }
+
+    private void invokeRoutedHandlers(RoutedEvent routedEvent, RoutedEventArgs e) {
+        List<Object> handlers = routedHandlers.get(routedEvent);
+        if (handlers == null) {
+            return;
+        }
+        for (Object handler : new ArrayList<>(handlers)) {
+            if (handler instanceof BiConsumer) {
+                //noinspection unchecked
+                ((BiConsumer<Object, RoutedEventArgs>) handler).accept(this, e);
+            } else if (handler instanceof dotnet.wpf.swing.RoutedEventHandler) {
+                ((dotnet.wpf.swing.RoutedEventHandler) handler).accept(this, e);
+            }
+            if (e.getHandled()) {
+                return;
+            }
+        }
+    }
+
+    // ---- routed event registration (AddHandler/RemoveHandler) ----
+
+    public void addHandler(RoutedEvent routedEvent, Object handler) {
+        if (routedEvent == null || handler == null) {
+            return;
+        }
+        routedHandlers.computeIfAbsent(routedEvent, k -> new ArrayList<>()).add(handler);
+    }
+
+    public void removeHandler(RoutedEvent routedEvent, Object handler) {
+        List<Object> handlers = routedHandlers.get(routedEvent);
+        if (handlers != null) {
+            handlers.remove(handler);
+        }
+    }
+
+    // ---- render hook (System.Windows.UIElement.OnRender; public in the compat layer) ----
+
+    /** Custom-draw hook called by the renderer each paint pass. */
+    public void onRender(DrawingContext drawingContext) {
+        // overridable hook
+    }
+
+    // ---- layout lifecycle ----
+
+    public void raiseLayoutUpdated() {
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(layoutUpdatedListeners)) {
+            h.accept(this, new RoutedEventArgs());
+        }
+    }
+
+    public void addLayoutUpdatedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        layoutUpdatedListeners.add(handler);
+    }
+
+    public void removeLayoutUpdatedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        layoutUpdatedListeners.remove(handler);
+    }
+
+    // ---- changed-event subscription ----
+
+    public void addIsVisibleChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        isVisibleChangedListeners.add(handler);
+    }
+
+    public void removeIsVisibleChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        isVisibleChangedListeners.remove(handler);
+    }
+
+    public void addIsEnabledChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        isEnabledChangedListeners.add(handler);
+    }
+
+    public void removeIsEnabledChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        isEnabledChangedListeners.remove(handler);
+    }
+
+    public void addFocusableChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        focusableChangedListeners.add(handler);
+    }
+
+    public void removeFocusableChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        focusableChangedListeners.remove(handler);
+    }
+
+    public void addIsHitTestVisibleChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        isHitTestVisibleChangedListeners.add(handler);
+    }
+
+    public void removeIsHitTestVisibleChangedListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        isHitTestVisibleChangedListeners.remove(handler);
+    }
+
+    // ---- focus-event subscription ----
+
+    public void addGotFocusListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        gotFocusListeners.add(handler);
+    }
+
+    public void removeGotFocusListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        gotFocusListeners.remove(handler);
+    }
+
+    public void addLostFocusListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        lostFocusListeners.add(handler);
+    }
+
+    public void removeLostFocusListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        lostFocusListeners.remove(handler);
+    }
+
+    /** Internal: raised by the focus routing when this element gains keyboard focus. */
+    public void raiseGotFocus() {
+        isKeyboardFocused = true;
+        isKeyboardFocusWithin = true;
+        RoutedEventArgs e = new RoutedEventArgs();
+        e.setSource(this);
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(gotFocusListeners)) {
+            h.accept(this, e);
+        }
+        raiseEvent(GotKeyboardFocusEvent, this);
+    }
+
+    /** Internal: raised by the focus routing when this element loses keyboard focus. */
+    public void raiseLostFocus() {
+        isKeyboardFocused = false;
+        RoutedEventArgs e = new RoutedEventArgs();
+        e.setSource(this);
+        for (BiConsumer<Object, RoutedEventArgs> h : new ArrayList<>(lostFocusListeners)) {
+            h.accept(this, e);
+        }
+        raiseEvent(LostKeyboardFocusEvent, this);
+    }
+
+    /** Raises a bubbling routed event through this element's handler table. */
+    public void raiseEvent(RoutedEvent routedEvent, Object source) {
+        RoutedEventArgs e = new RoutedEventArgs();
+        e.setRoutedEvent(routedEvent);
+        e.setSource(source == null ? this : source);
+        raiseEvent(e);
+    }
+
+    // ---- capture-event subscription ----
+
+    public void addGotMouseCaptureListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        gotMouseCaptureListeners.add(handler);
+    }
+
+    public void removeGotMouseCaptureListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        gotMouseCaptureListeners.remove(handler);
+    }
+
+    public void addLostMouseCaptureListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        lostMouseCaptureListeners.add(handler);
+    }
+
+    public void removeLostMouseCaptureListener(BiConsumer<Object, RoutedEventArgs> handler) {
+        lostMouseCaptureListeners.remove(handler);
     }
 
     // ---- command/input bindings ----

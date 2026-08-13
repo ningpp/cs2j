@@ -47,18 +47,31 @@ public final class UiLoop {
     /**
      * Runs the task on the EDT, blocking the caller until it completes.
      * If already on the EDT the task runs directly. In headless mode the
-     * task runs on the caller's thread.
+     * task runs on the caller's thread. Unhandled exceptions are routed to
+     * {@code Application.DispatcherUnhandledException} and rethrown.
      */
     public void invokeAndWait(Runnable task) {
         if (task == null) {
             return;
         }
         if (isHeadless() || isUiThread()) {
-            task.run();
+            try {
+                task.run();
+            } catch (Throwable t) {
+                routeUnhandled(t);
+                throw t;
+            }
             return;
         }
         try {
-            javax.swing.SwingUtilities.invokeAndWait(task);
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                try {
+                    task.run();
+                } catch (Throwable t) {
+                    routeUnhandled(t);
+                    throw t;
+                }
+            });
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for the UI thread", e);
@@ -76,17 +89,39 @@ public final class UiLoop {
 
     /**
      * Schedules the task on the EDT without blocking. In headless mode the
-     * task is run on the caller's thread.
+     * task is run on the caller's thread. Unhandled exceptions are routed to
+     * {@code Application.DispatcherUnhandledException}.
      */
     public void invokeLater(Runnable task) {
         if (task == null) {
             return;
         }
         if (isHeadless() || isUiThread()) {
-            task.run();
+            try {
+                task.run();
+            } catch (Throwable t) {
+                routeUnhandled(t);
+            }
             return;
         }
-        javax.swing.SwingUtilities.invokeLater(task);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            try {
+                task.run();
+            } catch (Throwable t) {
+                routeUnhandled(t);
+            }
+        });
+    }
+
+    private void routeUnhandled(Throwable t) {
+        try {
+            dotnet.wpf.swing.Application app = dotnet.wpf.swing.Application.getCurrent();
+            if (app != null) {
+                app.raiseDispatcherUnhandledException(t);
+            }
+        } catch (Throwable ignored) {
+            // routing must never mask the original exception
+        }
     }
 
     /**
