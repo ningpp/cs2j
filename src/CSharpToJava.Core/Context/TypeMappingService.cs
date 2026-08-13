@@ -524,7 +524,8 @@ public class TypeMappingService
         }
 
         // Generic types
-        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
+        if (typeSymbol is INamedTypeSymbol namedType
+            && (namedType.TypeArguments.Length > 0 || namedType.IsUnboundGenericType))
         {
             var baseType = namedType.Name;
             var genericTypeNamespace = namedType.ContainingNamespace?.ToDisplayString();
@@ -539,17 +540,24 @@ public class TypeMappingService
 
             var originalDefinition = namedType.OriginalDefinition ?? namedType.ConstructedFrom;
 
+            // Unbound static receivers (e.g. System.Collections.Immutable.ImmutableDictionary
+            // as the receiver of CreateRange) have no type arguments — use the declaring
+            // definition's arity for the config lookup.
+            var genericArity = namedType.TypeArguments.Length > 0
+                ? namedType.TypeArguments.Length
+                : originalDefinition?.TypeParameters.Length ?? 0;
+
             string fullQualifiedName;
             if (originalDefinition != null)
             {
                 var namespaceStr = originalDefinition.ContainingNamespace?.ToDisplayString() ?? "";
                 fullQualifiedName = !string.IsNullOrEmpty(namespaceStr)
-                    ? namespaceStr + "." + baseType + "`" + namedType.TypeArguments.Length
-                    : baseType + "`" + namedType.TypeArguments.Length;
+                    ? namespaceStr + "." + baseType + "`" + genericArity
+                    : baseType + "`" + genericArity;
             }
             else
             {
-                fullQualifiedName = baseType + "`" + namedType.TypeArguments.Length;
+                fullQualifiedName = baseType + "`" + genericArity;
             }
 
             if (fullQualifiedName.StartsWith("global::"))
@@ -577,7 +585,9 @@ public class TypeMappingService
                     AddImportsForType(configKey);
             }
 
-            var typeArgs = string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext)));
+            var typeArgs = namedType.TypeArguments.Length > 0
+                ? string.Join(", ", namedType.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext)))
+                : "";
 
             // IGrouping<K, V> maps to Map.Entry<K, CSharpList<V>>. Both GroupBy translation
             // strategies must agree on this concrete value type:
