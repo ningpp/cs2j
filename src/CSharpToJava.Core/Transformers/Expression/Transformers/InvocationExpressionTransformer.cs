@@ -2702,8 +2702,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && toArrContainingType.OriginalDefinition?.ToDisplayString()
                     is "System.ReadOnlyMemory<T>" or "System.ReadOnlySpan<T>" or "System.Span<T>"
                 || (methodSymbol.IsExtensionMethod
-                    && methodSymbol.Parameters.Length >= 1
-                    && methodSymbol.Parameters[0].Type is INamedTypeSymbol toArrExtParamType
+                    && (methodSymbol.ReducedFrom ?? methodSymbol) is { Parameters.Length: >= 1 } toArrExtFull
+                    && toArrExtFull.Parameters[0].Type is INamedTypeSymbol toArrExtParamType
                     && toArrExtParamType.OriginalDefinition?.ToDisplayString()
                         is "System.ReadOnlyMemory<T>" or "System.ReadOnlySpan<T>" or "System.Span<T>");
             if (isSpanToArray)
@@ -2714,6 +2714,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return $"{receiver}.{spanHelper}()";
                 }
                 return $"{receiver}.toArray()";
+            }
+            // BuffersExtensions.ToArray(this ReadOnlySequence<T>): the compat static
+            // helper is generic (T[]), but C# byte sequences must produce byte[] —
+            // route through the typed toByteArray overload so ternaries/assignments
+            // against byte[] (e.g. ValueSpan.ToArray() branches) unify.
+            if (methodSymbol.IsExtensionMethod
+                && (methodSymbol.ReducedFrom ?? methodSymbol) is { Parameters.Length: >= 1 } toArrSeqFull
+                && toArrSeqFull.Parameters[0].Type is INamedTypeSymbol toArrSeqParamType
+                && toArrSeqParamType.OriginalDefinition?.ToDisplayString() == "System.Buffers.ReadOnlySequence<T>")
+            {
+                context.AddImport("io.github.ningpp.compat.BuffersExtensions");
+                if (instanceArrayType.ElementType is ITypeSymbol seqElem
+                    && seqElem.SpecialType is SpecialType.System_Byte or SpecialType.System_SByte)
+                {
+                    return $"BuffersExtensions.toByteArray({receiver})";
+                }
+                return $"BuffersExtensions.toArray({receiver})";
             }
             if (!methodSymbol.IsExtensionMethod)
             {

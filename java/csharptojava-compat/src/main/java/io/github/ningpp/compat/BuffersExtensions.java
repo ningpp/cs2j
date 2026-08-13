@@ -31,4 +31,9 @@ public final class BuffersExtensions {
     public static <T> T[] toArray(ReadOnlySequence<T> sequence) {
         return sequence.getFirst().toArray();
     }
+
+    /** Mirrors BuffersExtensions.ToArray(ReadOnlySequence&lt;byte&gt;) — byte[] per the C# contract. */
+    public static byte[] toByteArray(ReadOnlySequence<Integer> sequence) {
+        return sequence.getFirst().toByteArray();
+    }
 }

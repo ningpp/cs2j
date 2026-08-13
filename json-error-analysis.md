@@ -636,6 +636,22 @@
 
 - **状态**: ✅ Fixed
 
+## Iteration 23 - 推论变量 T 具有不兼容的上限 (ReadOnlySequence<byte>.ToArray() 返回 Integer[] 与 byte[] 分支冲突)
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/ThrowHelper.java
+- **行号**: 840
+- **错误信息**: `不兼容的类型: 条件表达式中的类型错误 / 推论变量 T 具有不兼容的上限 / 等式约束条件：java.lang.Integer / 上限：byte,java.lang.Object`
+- **代码片段**:
+  ```java
+  state.Current = state.Current.withJsonPropertyName((reader.getHasValueSequence() ? BuffersExtensions.toArray(reader.getValueSequence()) : reader.getValueSpan().toByteArray()));
+  // toArray(ReadOnlySequence<T>) 推断 T=Integer → Integer[]，与 byte[] 分支类型冲突
+  ```
+- **对应 C# 文件**: d:\csharpjson\src\System\Text\Json\ThrowHelper.Serialization.cs（`reader.ValueSequence.ToArray()`，ReadOnlySequence<byte> → byte[]）
+- **根因分类**: Transformer（ReadOnlySequence<byte> 的 ToArray 未路由到 byte[] 访问器）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（ToArray 特例区，第 2691 行）
+- **分析**: compat `BuffersExtensions.toArray(ReadOnlySequence<T>)` 是泛型 T[]，byte 序列推断为 Integer[]，而 C# 契约是 byte[]（另一分支 valueSpan.toByteArray() 为 byte[]）→ 条件表达式公共类型冲突。修复：扩展方法 p0 为 ReadOnlySequence<T> 时按元素类型路由到 `BuffersExtensions.toByteArray(...)`（compat 新增 byte 重载），其余元素保持 toArray。
+
+- **状态**: ✅ Fixed
+
 ## Iteration 12 - 不兼容的类型 (Span<byte>.ToArray() 扩展方法形式未走 toByteArray)
 - **Java 文件**: system-text-json/src/main/java/dotnet/text/json/JsonDocument.java
 - **行号**: 1756
