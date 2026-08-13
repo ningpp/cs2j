@@ -47,9 +47,19 @@ public final class Regex {
         return new Regex(pattern).match(input);
     }
 
-    public static boolean isMatch(String input, String pattern) {
-        return new Regex(pattern).isMatch(input);
+    public static boolean isMatch(String input, String pattern) {        return new Regex(pattern).isMatch(input);
+      }
+
+    /** Mirrors Regex.Replace(input, replacement). */
+    public String replace(String input, String replacement) {
+        return pattern.matcher(input == null ? "" : input).replaceAll(replacement);
     }
+
+    /** Mirrors Regex.Replace(input, replacement) — static form. */
+    public static String replace(String input, String pattern, String replacement) {
+        return new Regex(pattern).replace(input, replacement);
+    }
+
 
     public static String[] split(String input, String pattern) {
         return Pattern.compile(pattern).split(input == null ? "" : input);

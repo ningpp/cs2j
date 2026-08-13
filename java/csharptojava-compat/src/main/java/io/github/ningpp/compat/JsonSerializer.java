@@ -30,4 +30,15 @@ public class JsonSerializer {
         try { return MAPPER.readValue(json, Object.class); }
         catch (Exception e) { throw new RuntimeException(e); }
     }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T deserialize(byte[] json, Class<T> clazz) {
+        try { return MAPPER.readValue(json, clazz); }
+        catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    public static Object deserialize(byte[] json) {
+        try { return MAPPER.readValue(json, Object.class); }
+        catch (Exception e) { throw new RuntimeException(e); }
+    }
 }

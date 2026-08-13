@@ -918,6 +918,13 @@
             ]
         },
         {
+            "csharp": "Newtonsoft.Json.Formatting",
+            "java": "JsonTextWriter.Formatting",
+            "imports": [
+                "io.github.ningpp.compat.JsonTextWriter"
+            ]
+        },
+        {
             "csharp": "Newtonsoft.Json.JsonWriter",
             "java": "JsonTextWriter",
             "imports": [
