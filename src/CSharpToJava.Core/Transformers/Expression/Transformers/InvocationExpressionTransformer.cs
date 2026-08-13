@@ -3613,6 +3613,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Fallback: receivers that failed semantic resolution but whose simple name
+        // matches a configured type mapping (e.g. fully-qualified static calls on
+        // compat classes like ImmutableDictionary.CreateRange) — remap the receiver.
+        if (methodName == originalMethodName && receiver.Contains('.', StringComparison.Ordinal))
+        {
+            receiver = RemapConfiguredStaticReceiver(receiver, context);
+        }
+
         if (!ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(methodName)
             && ExpressionTransformerHelpers.TryGetStaticReceiverType(
                 memberAccess.Expression,
@@ -9515,6 +9523,38 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "String",
             "System.String",
             "string");
+    }
+
+    /// <summary>
+    /// Rewrites a syntactically-derived static receiver (e.g. the raw C# qualified name
+    /// System.Collections.Immutable.ImmutableDictionary) to the configured Java name when
+    /// the trailing simple name matches a TypeMappings entry.
+    /// </summary>
+    private static string RemapConfiguredStaticReceiver(string receiver, ConversionContext context)
+    {
+        var lastDot = receiver.LastIndexOf('.');
+        if (lastDot <= 0)
+            return receiver;
+
+        var simple = receiver[(lastDot + 1)..];
+        var lt = simple.IndexOf('<');
+        if (lt >= 0)
+            simple = simple[..lt];
+
+        var configKey = context.TypeMappings.FindConfigKeyBySimpleName(simple);
+        if (configKey == null)
+            return receiver;
+
+        var mapped = context.TypeMappings.MapType(configKey);
+        var bare = mapped.Contains('<') ? mapped[..mapped.IndexOf('<')] : mapped;
+        var dot = bare.LastIndexOf('.');
+        if (dot >= 0)
+            bare = bare[(dot + 1)..];
+
+        foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
+            context.AddImport(import);
+
+        return bare;
     }
 
     private static string? GetTryParseHelperMethod(ExpressionSyntax receiverExpression, ConversionContext context)
