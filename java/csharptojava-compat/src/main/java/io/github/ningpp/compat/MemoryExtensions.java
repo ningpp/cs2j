@@ -56,6 +56,31 @@ public class MemoryExtensions {
         return new ReadOnlyMemory<>(arr, 0, length);
     }
 
+    /** C# char[].AsMemory(start) → Java ReadOnlyMemory<Character> (slice from start to end). */
+    public static ReadOnlyMemory<Character> asMemory(char[] data, int start) {
+        return asMemory(data, start, data.length - start);
+    }
+
+    /** C# byte[].AsMemory() → Java ReadOnlyMemory<Integer> (matches converter's byte→Integer mapping). */
+    public static ReadOnlyMemory<Integer> asMemory(byte[] data) {
+        return new ReadOnlyMemory<>(data);
+    }
+
+    /** C# T[].AsMemory() → Java ReadOnlyMemory<T> for reference-type arrays. */
+    public static <T> ReadOnlyMemory<T> asMemory(T[] data) {
+        return new ReadOnlyMemory<>(data);
+    }
+
+    /** C# T[].AsMemory(start) → Java ReadOnlyMemory<T> (slice from start to end). */
+    public static <T> ReadOnlyMemory<T> asMemory(T[] data, int start) {
+        return new ReadOnlyMemory<>(data, start, data.length - start);
+    }
+
+    /** C# T[].AsMemory(start, length) → Java ReadOnlyMemory<T>. */
+    public static <T> ReadOnlyMemory<T> asMemory(T[] data, int start, int length) {
+        return new ReadOnlyMemory<>(data, start, length);
+    }
+
     /** C# Span<byte> → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
     public static ReadOnlySpan<Integer> asSpan(byte[] data) {
         if (data == null) return new ReadOnlySpan<>(new Integer[0]);
@@ -104,6 +129,18 @@ public class MemoryExtensions {
     @SuppressWarnings("unchecked")
     public static <T> Span<T> asSpan(T[] data) {
         return new Span<>(data == null ? (T[]) new Object[0] : data);
+    }
+
+    /** C# T[].AsSpan(start) → Span&lt;T&gt; (slice from start to end). */
+    @SuppressWarnings("unchecked")
+    public static <T> Span<T> asSpan(T[] data, int start) {
+        return new Span<>(data == null ? (T[]) new Object[0] : data, start, data.length - start);
+    }
+
+    /** C# T[].AsSpan(start, length) → Span&lt;T&gt;. */
+    @SuppressWarnings("unchecked")
+    public static <T> Span<T> asSpan(T[] data, int start, int length) {
+        return new Span<>(data == null ? (T[]) new Object[0] : data, start, length);
     }
 
     /** C# ArraySegment&lt;byte&gt;.AsSpan() — element view over the byte array. */
@@ -330,6 +367,340 @@ public class MemoryExtensions {
             if (java.util.Objects.equals(span.get(i), value)) return true;
         }
         return false;
+    }
+
+    // ------------------------------------------------------------------
+    // Additional System.MemoryExtensions members (reflected from .NET 10)
+    // ------------------------------------------------------------------
+
+    /** C# MemoryExtensions.EndsWith&lt;T&gt;(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;). */
+    public static <T> boolean endsWith(ReadOnlySpan<T> span, ReadOnlySpan<T> value) {
+        if (span == null || value == null) return false;
+        if (value.length() > span.length()) return false;
+        int offset = span.length() - value.length();
+        for (int i = 0; i < value.length(); i++) {
+            if (!java.util.Objects.equals(span.get(offset + i), value.get(i))) return false;
+        }
+        return true;
+    }
+
+    public static <T> boolean endsWith(Span<T> span, ReadOnlySpan<T> value) {
+        if (span == null || value == null) return false;
+        if (value.length() > span.length()) return false;
+        int offset = span.length() - value.length();
+        for (int i = 0; i < value.length(); i++) {
+            if (!java.util.Objects.equals(span.get(offset + i), value.get(i))) return false;
+        }
+        return true;
+    }
+
+    /** C# MemoryExtensions.LastIndexOf&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T) — last index or -1. */
+    public static <T> int lastIndexOf(ReadOnlySpan<T> span, T value) {
+        if (span == null || value == null) return -1;
+        for (int i = span.length() - 1; i >= 0; i--) {
+            if (java.util.Objects.equals(span.get(i), value)) return i;
+        }
+        return -1;
+    }
+
+    public static <T> int lastIndexOf(Span<T> span, T value) {
+        if (span == null || value == null) return -1;
+        for (int i = span.length() - 1; i >= 0; i--) {
+            if (java.util.Objects.equals(span.get(i), value)) return i;
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.LastIndexOf&lt;T&gt;(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;) — last subsequence or -1. */
+    public static <T> int lastIndexOf(ReadOnlySpan<T> span, ReadOnlySpan<T> value) {
+        if (span == null || value == null || value.length() == 0) return -1;
+        int lastStart = span.length() - value.length();
+        for (int i = lastStart; i >= 0; i--) {
+            boolean matched = true;
+            for (int j = 0; j < value.length(); j++) {
+                if (!java.util.Objects.equals(span.get(i + j), value.get(j))) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) return i;
+        }
+        return -1;
+    }
+
+    public static <T> int lastIndexOf(Span<T> span, ReadOnlySpan<T> value) {
+        if (span == null || value == null || value.length() == 0) return -1;
+        int lastStart = span.length() - value.length();
+        for (int i = lastStart; i >= 0; i--) {
+            boolean matched = true;
+            for (int j = 0; j < value.length(); j++) {
+                if (!java.util.Objects.equals(span.get(i + j), value.get(j))) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) return i;
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.ContainsAny&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T, T). */
+    public static <T> boolean containsAny(ReadOnlySpan<T> span, T value0, T value1) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0) || java.util.Objects.equals(element, value1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** C# MemoryExtensions.ContainsAny&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T, T, T). */
+    public static <T> boolean containsAny(ReadOnlySpan<T> span, T value0, T value1, T value2) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0)
+                    || java.util.Objects.equals(element, value1)
+                    || java.util.Objects.equals(element, value2)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** C# MemoryExtensions.ContainsAny&lt;T&gt;(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;). */
+    public static <T> boolean containsAny(ReadOnlySpan<T> span, ReadOnlySpan<T> values) {
+        if (span == null || values == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            if (indexOf(values, span.get(i)) >= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static <T> boolean containsAny(Span<T> span, T value0, T value1) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0) || java.util.Objects.equals(element, value1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static <T> boolean containsAny(Span<T> span, T value0, T value1, T value2) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0)
+                    || java.util.Objects.equals(element, value1)
+                    || java.util.Objects.equals(element, value2)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static <T> boolean containsAny(Span<T> span, ReadOnlySpan<T> values) {
+        if (span == null || values == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            if (indexOf(values, span.get(i)) >= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** C# MemoryExtensions.IndexOfAny&lt;T&gt;(Span&lt;T&gt;, T, T). */
+    public static <T> int indexOfAny(Span<T> span, T value0, T value1) {
+        if (span == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0) || java.util.Objects.equals(element, value1)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.IndexOfAny&lt;T&gt;(Span&lt;T&gt;, T, T, T). */
+    public static <T> int indexOfAny(Span<T> span, T value0, T value1, T value2) {
+        if (span == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            T element = span.get(i);
+            if (java.util.Objects.equals(element, value0)
+                    || java.util.Objects.equals(element, value1)
+                    || java.util.Objects.equals(element, value2)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.IndexOfAny&lt;T&gt;(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;). */
+    public static <T> int indexOfAny(ReadOnlySpan<T> span, ReadOnlySpan<T> values) {
+        if (span == null || values == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            if (indexOf(values, span.get(i)) >= 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    public static <T> int indexOfAny(Span<T> span, ReadOnlySpan<T> values) {
+        if (span == null || values == null) return -1;
+        for (int i = 0; i < span.length(); i++) {
+            if (indexOf(values, span.get(i)) >= 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** C# MemoryExtensions.Count&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T) — occurrences of value. */
+    public static <T> int count(ReadOnlySpan<T> span, T value) {
+        if (span == null) return 0;
+        int total = 0;
+        for (int i = 0; i < span.length(); i++) {
+            if (java.util.Objects.equals(span.get(i), value)) total++;
+        }
+        return total;
+    }
+
+    public static <T> int count(Span<T> span, T value) {
+        if (span == null) return 0;
+        int total = 0;
+        for (int i = 0; i < span.length(); i++) {
+            if (java.util.Objects.equals(span.get(i), value)) total++;
+        }
+        return total;
+    }
+
+    /**
+     * C# MemoryExtensions.ToUpper(ReadOnlySpan&lt;char&gt;, Span&lt;char&gt;, CultureInfo):
+     * uppercases each source char into the destination span and returns the number
+     * of chars written.
+     */
+    public static int toUpperCase(ReadOnlySpan<Character> source, Span<Character> destination, CultureInfo culture) {
+        int count = 0;
+        TextInfo textInfo = culture != null ? culture.getTextInfo() : CultureInfo.getInvariantCulture().getTextInfo();
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.get(i);
+            destination.set(count, textInfo.toUpperCase(c));
+            count++;
+        }
+        return count;
+    }
+
+    /** C# MemoryExtensions.ToLowerInvariant(ReadOnlySpan&lt;char&gt;, Span&lt;char&gt;). */
+    public static int toLowerCaseInvariant(ReadOnlySpan<Character> source, Span<Character> destination) {
+        int count = 0;
+        TextInfo textInfo = CultureInfo.getInvariantCulture().getTextInfo();
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.get(i);
+            destination.set(count, textInfo.toLowerCase(c));
+            count++;
+        }
+        return count;
+    }
+
+    /** C# MemoryExtensions.ToUpperInvariant(ReadOnlySpan&lt;char&gt;, Span&lt;char&gt;). */
+    public static int toUpperCaseInvariant(ReadOnlySpan<Character> source, Span<Character> destination) {
+        int count = 0;
+        TextInfo textInfo = CultureInfo.getInvariantCulture().getTextInfo();
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.get(i);
+            destination.set(count, textInfo.toUpperCase(c));
+            count++;
+        }
+        return count;
+    }
+
+    /**
+     * C# MemoryExtensions.CompareTo(ReadOnlySpan&lt;char&gt;, ReadOnlySpan&lt;char&gt;, StringComparison)
+     * — ordinal/ignore-case comparison, negative / zero / positive.
+     */
+    public static int compareTo(ReadOnlySpan<Character> span, ReadOnlySpan<Character> other, StringComparison comparisonType) {
+        if (span == null || other == null) return span == other ? 0 : (span == null ? -1 : 1);
+        boolean ignoreCase = comparisonType == StringComparison.OrdinalIgnoreCase
+                || comparisonType == StringComparison.CurrentCultureIgnoreCase
+                || comparisonType == StringComparison.InvariantCultureIgnoreCase;
+        int n = Math.min(span.length(), other.length());
+        for (int i = 0; i < n; i++) {
+            char a = span.get(i);
+            char b = other.get(i);
+            if (ignoreCase) {
+                a = Character.toLowerCase(a);
+                b = Character.toLowerCase(b);
+            }
+            if (a != b) {
+                return a - b;
+            }
+        }
+        return span.length() - other.length();
+    }
+
+    /**
+     * C# MemoryExtensions.Equals(ReadOnlySpan&lt;char&gt;, ReadOnlySpan&lt;char&gt;, StringComparison).
+     */
+    public static boolean equals(ReadOnlySpan<Character> span, ReadOnlySpan<Character> other, StringComparison comparisonType) {
+        return compareTo(span, other, comparisonType) == 0;
+    }
+
+    /** C# MemoryExtensions.IsWhiteSpace(ReadOnlySpan&lt;char&gt;) — true when all chars are whitespace. */
+    public static boolean isWhitespace(ReadOnlySpan<Character> span) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            if (!Character.isWhitespace(span.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** C# MemoryExtensions.SequenceCompareTo&lt;T&gt;(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;). */
+    public static <T extends Comparable<? super T>> int sequenceCompareTo(ReadOnlySpan<T> span, ReadOnlySpan<T> other) {
+        if (span == null || other == null) return span == other ? 0 : (span == null ? -1 : 1);
+        int n = Math.min(span.length(), other.length());
+        for (int i = 0; i < n; i++) {
+            int cmp = span.get(i).compareTo(other.get(i));
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return span.length() - other.length();
+    }
+
+    public static <T extends Comparable<? super T>> int sequenceCompareTo(Span<T> span, ReadOnlySpan<T> other) {
+        if (span == null || other == null) {
+            if (span == null && other == null) return 0;
+            return span == null ? -1 : 1;
+        }
+        int n = Math.min(span.length(), other.length());
+        for (int i = 0; i < n; i++) {
+            int cmp = span.get(i).compareTo(other.get(i));
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return span.length() - other.length();
+    }
+
+    /** C# MemoryExtensions.CommonPrefixLength&lt;T&gt;(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;) — shared prefix length. */
+    public static <T> int commonPrefixLength(ReadOnlySpan<T> span, ReadOnlySpan<T> other) {
+        if (span == null || other == null) return 0;
+        int n = Math.min(span.length(), other.length());
+        for (int i = 0; i < n; i++) {
+            if (!java.util.Objects.equals(span.get(i), other.get(i))) {
+                return i;
+            }
+        }
+        return n;
     }
 
 }

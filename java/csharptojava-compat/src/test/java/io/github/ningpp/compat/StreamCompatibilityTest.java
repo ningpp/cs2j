@@ -23,6 +23,44 @@ class StreamCompatibilityTest {
     }
 
     @Test
+    void streamWriter_fullConstructor_encodingBufferSizeLeaveOpen() {
+        MemoryStream ms = new MemoryStream();
+
+        StreamWriter writer = new StreamWriter(ms, Encoding.getUTF8(), 1024, true);
+        writer.print("hello");
+        writer.flush();
+        writer.close();
+
+        assertEquals(5, ms.getPosition());
+        assertSame(ms, writer.getBaseStream());
+    }
+
+    @Test
+    void streamWriter_bufferSizeConstructor_writesThrough() {
+        MemoryStream ms = new MemoryStream();
+
+        StreamWriter writer = new StreamWriter(ms, Encoding.getUTF8(), 1024);
+        writer.print("world");
+        writer.close();
+
+        ms.setPosition(0);
+        StreamReader reader = new StreamReader(ms);
+        assertEquals("world", reader.readToEnd());
+    }
+
+    @Test
+    void streamWriter_pathAppendEncodingConstructor_writesFile() throws Exception {
+        java.io.File file = java.io.File.createTempFile("streamwriter", ".txt");
+        file.deleteOnExit();
+
+        StreamWriter writer = new StreamWriter(file.getPath(), true, Encoding.getUTF8());
+        writer.print("hello");
+        writer.close();
+
+        assertEquals("hello", java.nio.file.Files.readString(file.toPath()));
+    }
+
+    @Test
     void streamWrapper_ofMemoryStream_preservesThePositionableStream() {
         MemoryStream ms = new MemoryStream();
 
