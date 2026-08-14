@@ -156,10 +156,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
     {
-        var shouldRewrite = _options.EnableOperatorRewrite
-            && _semanticModel != null
-            && IsBinaryOperatorRewriteKind(node.Kind())
-            && (IsUnsignedExpression(node.Left) || IsUnsignedExpression(node.Right));
+        var shouldRewrite = ShouldRewriteBinary(node);
 
         var rewritten = (BinaryExpressionSyntax)base.VisitBinaryExpression(node)!;
         if (!shouldRewrite)
@@ -182,6 +179,32 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                     LiteralZero()),
             _ => Invoke(rewritten.Left, BinaryOpToMethod[rewritten.Kind()], rewritten.Right),
         };
+    }
+
+    private bool ShouldRewriteBinary(BinaryExpressionSyntax node)
+    {
+        if (_semanticModel == null
+            || !_options.EnableOperatorRewrite
+            || !IsBinaryOperatorRewriteKind(node.Kind()))
+        {
+            return false;
+        }
+
+        var leftType = _semanticModel.GetTypeInfo(node.Left).Type;
+        if (!IsUnsignedType(leftType))
+        {
+            return false;
+        }
+
+        // The extension method takes the same unsigned type as the receiver.
+        // A numeric literal on the right is fine (it converts like `a + 1`).
+        var rightType = _semanticModel.GetTypeInfo(node.Right).Type;
+        if (IsUnsignedType(rightType))
+        {
+            return rightType!.SpecialType == leftType!.SpecialType;
+        }
+
+        return node.Right is LiteralExpressionSyntax;
     }
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
