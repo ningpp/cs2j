@@ -41,4 +41,28 @@ public class JsonSerializer {
         try { return MAPPER.readValue(json, Object.class); }
         catch (Exception e) { throw new RuntimeException(e); }
     }
+
+    /** Overload for C# Deserialize&lt;T&gt;(ref Utf8JsonReader) call sites: the reader is a
+     * converter-generated Utf8JsonReader whose underlying span is extracted reflectively. */
+    @SuppressWarnings("unchecked")
+    public static <T> T deserialize(Class<T> clazz, Object reader) {
+        try {
+            Object span = reader.getClass().getMethod("getOriginalSpan").invoke(reader);
+            Object arr = span.getClass().getMethod("toArray").invoke(span);
+            byte[] bytes;
+            if (arr instanceof byte[]) {
+                bytes = (byte[]) arr;
+            } else {
+                Object[] objs = (Object[]) arr;
+                bytes = new byte[objs.length];
+                for (int i = 0; i < objs.length; i++) {
+                    bytes[i] = ((Number) objs[i]).byteValue();
+                }
+            }
+            return MAPPER.readValue(bytes, clazz);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

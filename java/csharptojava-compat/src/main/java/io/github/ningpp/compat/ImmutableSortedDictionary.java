@@ -55,17 +55,52 @@ public class ImmutableSortedDictionary<K, V> implements IImmutableDictionary<K, 
         return items.get(key);
     }
 
-    public Set<K> keySet() {
-        return items.keySet();
+    public CSharpGenericIterable<K> keySet() {
+        return CSharpGenericIterable.from(items.keySet());
+    }
+
+    public CSharpGenericIterable<K> getKeys() {
+        return CSharpGenericIterable.from(items.keySet());
     }
 
     public Set<Map.Entry<K, V>> entrySet() {
         return items.entrySet();
     }
 
+    public CSharpGenericIterable<V> values() {
+        return CSharpGenericIterable.from(items.values());
+    }
+
+    public CSharpGenericIterable<V> getValues() {
+        return CSharpGenericIterable.from(items.values());
+    }
+
     @Override
-    public java.util.Iterator<Map.Entry<K, V>> iterator() {
-        return items.entrySet().iterator();
+    public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> iterator() {
+        CSharpList<CSharpKeyValuePair<K, V>> list = new CSharpList<>();
+        for (Map.Entry<K, V> entry : items.entrySet()) {
+            list.add(new CSharpKeyValuePair<>(entry.getKey(), entry.getValue()));
+        }
+        return CSharpGenericEnumerator.from(list.iterator());
+    }
+
+    @Override
+    public ImmutableSortedDictionary<K, V> add(K key, V value) {
+        TreeMap<K, V> copy = new TreeMap<>(items);
+        copy.put(key, value);
+        return new ImmutableSortedDictionary<>(copy);
+    }
+
+    @Override
+    public ImmutableSortedDictionary<K, V> clear() {
+        return new ImmutableSortedDictionary<>();
+    }
+
+    @Override
+    public ImmutableSortedDictionary<K, V> removeCSharp(K key) {
+        TreeMap<K, V> copy = new TreeMap<>(items);
+        copy.remove(key);
+        return new ImmutableSortedDictionary<>(copy);
     }
 
     @Override

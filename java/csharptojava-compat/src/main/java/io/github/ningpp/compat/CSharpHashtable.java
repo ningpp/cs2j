@@ -36,8 +36,8 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     public boolean containsValue(Object value) { return map.containsValue(value); }
     @Override public boolean getIsFixedSize() { return false; }
     @Override public boolean getIsReadOnly() { return false; }
-    @Override public CSharpCollection getKeys() { return new CSharpKeyCollection(map.keySet()); }
-    @Override public CSharpCollection getValues() { return new CSharpValueCollection(map.values()); }
+    @Override public CSharpICollection<?> getKeys() { return CSharpICollection.from(new CSharpKeyCollection(map.keySet())); }
+    @Override public CSharpICollection<?> getValues() { return CSharpICollection.from(new CSharpValueCollection(map.values())); }
     @Override public void remove(Object key) { map.remove(key); }
     @Override public Object get(Object key) { return map.get(key); }
     @Override public Object put(Object key, Object value) { return map.put(key, value); }
@@ -110,8 +110,8 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         @Override public int getCount() { synchronized (syncRoot) { return inner.getCount(); } }
         @Override public void copyTo(CSharpArray array, int index) { synchronized (syncRoot) { inner.copyTo(array, index); } }
         @Override public CSharpGenericEnumerator<Object> iterator() { synchronized (syncRoot) { return inner.iterator(); } }
-        @Override public CSharpCollection getKeys() { synchronized (syncRoot) { return inner.getKeys(); } }
-        @Override public CSharpCollection getValues() { synchronized (syncRoot) { return inner.getValues(); } }
+        @Override public CSharpICollection<?> getKeys() { synchronized (syncRoot) { return inner.getKeys(); } }
+        @Override public CSharpICollection<?> getValues() { synchronized (syncRoot) { return inner.getValues(); } }
         @Override public boolean getIsSynchronized() { return true; }
         @Override public Object getSyncRoot() { return syncRoot; }
         @Override public CSharpHashtable clone() { synchronized (syncRoot) { return inner.clone(); } }

@@ -16,7 +16,7 @@ public class ReadOnlyDictionary<K, V> implements CSharpReadOnlyDict<K, V> {
     }
 
     @Override
-    public boolean containsKey(Object key) {
+    public boolean containsKey(K key) {
         return items.containsKey(key);
     }
 
@@ -30,12 +30,10 @@ public class ReadOnlyDictionary<K, V> implements CSharpReadOnlyDict<K, V> {
         return items.tryGetValue(key);
     }
 
-    @Override
     public CSharpReadOnlyCollection<K> getKeys() {
         return items.getKeys();
     }
 
-    @Override
     public CSharpReadOnlyCollection<V> getValues() {
         return items.getValues();
     }

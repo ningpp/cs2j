@@ -1826,6 +1826,20 @@ public class MethodTransformer : IMemberTransformer
             ? context.MapType(typeInfo.Type)
             : context.MapTypeFromSyntax(param.Type!);
 
+        // Implementations of System.Collections.Generic.ISet<T> emit Contains(T)/
+        // Remove(T) with a type-variable parameter; the compat CSharpISet interface
+        // (via java.util.Collection) declares contains(Object)/remove(Object), and a
+        // type-variable parameter would neither override those nor compile. Emit
+        // Object so the generated member matches the compat signature.
+        if (typeInfo.Type is ITypeParameterSymbol
+            && (param.Parent?.Parent as MethodDeclarationSyntax)?.Identifier.Text is "Contains" or "Remove"
+            && param.Parent?.Parent is MethodDeclarationSyntax setMethodDecl
+            && (context.GetDeclaredSymbol(setMethodDecl) as IMethodSymbol)?.ContainingType?.Interfaces
+                .Any(i => i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ISet<T>") == true)
+        {
+            javaType = "Object";
+        }
+
         // Skip parameters whose type is mapped to __suppress__ (e.g. SerializationInfo, StreamingContext),
         // unless the containing method is emitted with suppressed params (trivial serialization members
         // like GetObjectData whose body only throws or forwards to base).
@@ -1981,12 +1995,16 @@ public class MethodTransformer : IMemberTransformer
         if (pendingTypeParameters.Count == 0)
             return;
 
-        // Insert at index 0 in reverse order so the final parameter order matches the
-        // order in which the requirements were registered (which is also the order
-        // GetClassTypeTokensForCall emits tokens at call sites).
-        for (var i = pendingTypeParameters.Count - 1; i >= 0; i--)
+        // Insert at index 0 in alphabetical order so the final parameter order
+        // matches call sites emitting explicit type arguments in declaration order
+        // (GetClassTokensFromExplicitTypeArguments) — registration order depends on
+        // typeof(T) occurrence order in the body and is not observable at call sites.
+        var orderedPending = pendingTypeParameters
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+        for (var i = orderedPending.Count - 1; i >= 0; i--)
         {
-            var typeParameterName = pendingTypeParameters.ElementAt(i);
+            var typeParameterName = orderedPending.ElementAt(i);
             var parameterName = $"_cs2j_{typeParameterName}";
             if (javaMethod.Parameters.Any(p => p.Name == parameterName))
                 continue;

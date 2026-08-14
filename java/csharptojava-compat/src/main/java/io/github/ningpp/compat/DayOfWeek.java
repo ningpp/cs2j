@@ -16,6 +16,10 @@ public enum DayOfWeek {
 
     public int getValue() { return value; }
 
+    public static DayOfWeek fromValue(int v) {
+        return values()[v % 7];
+    }
+
     public static DayOfWeek fromJava(java.time.DayOfWeek dow) {
         return values()[dow.getValue() % 7];
     }

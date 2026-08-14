@@ -19,6 +19,10 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
     public static final CSharpDateTimeOffset MAX_VALUE =
         new CSharpDateTimeOffset(CSharpDateTime.MAX_VALUE, CSharpTimeSpan.ZERO);
 
+    /** PascalCase aliases for converter output (C# DateTimeOffset.MaxValue). */
+    public static final CSharpDateTimeOffset MinValue = MIN_VALUE;
+    public static final CSharpDateTimeOffset MaxValue = MAX_VALUE;
+
     /** Default (unix epoch) offset — mirrors default(DateTimeOffset). */
     public CSharpDateTimeOffset() {
         this.dateTime = CSharpDateTime.MIN_VALUE;

@@ -109,6 +109,56 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
+            // Class<T> tokens for registered generic methods (e.g. hoisted local
+            // functions with typeof(T) in their body) must be prepended so the
+            // signature's leading Class<T> parameters are satisfied.
+            var irTokens = bareMethodSym != null
+                ? GetClassTypeTokensForCall(bareMethodSym, context)
+                : null;
+            if (irTokens == null && bareMethodSym?.IsGenericMethod == true
+                && bareMethodSym.TypeArguments.Length > 0
+                && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+            {
+                irTokens = new List<string>();
+                foreach (var typeArg in bareMethodSym.TypeArguments)
+                {
+                    if (typeArg is IArrayTypeSymbol)
+                    {
+                        irTokens = null;
+                        break;
+                    }
+                    if (typeArg is ITypeParameterSymbol tpArg)
+                    {
+                        irTokens.Add($"_cs2j_{tpArg.Name}");
+                        continue;
+                    }
+                    irTokens.Add(ConversionContext.GetClassLiteral(typeArg, context));
+                }
+            }
+            if (irTokens != null && bareMethodSym != null)
+            {
+                var csharpParamCount = bareMethodSym.Parameters.Length;
+                int registeredClassParams = 0;
+                var origType = bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "";
+                var origMethod = bareMethodSym.OriginalDefinition.ToDisplayString();
+                if (context.MethodHasClassParams(origType, origMethod))
+                {
+                    registeredClassParams = context.GetMethodClassTypeParamNames(origType, origMethod)?.Count
+                        ?? irTokens.Count;
+                }
+                if (invocation.ArgumentList.Arguments.Count + irTokens.Count
+                    > csharpParamCount + registeredClassParams)
+                {
+                    irTokens = null;
+                }
+            }
+            if (irTokens != null)
+            {
+                foreach (var token in irTokens)
+                {
+                    call.Arguments.Insert(0, new JavaRawExpression(token));
+                }
+            }
             return call;
         }
 
@@ -223,20 +273,115 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, node, context);
             var bareMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+
+            // Overload disambiguation: when the argument count matches a non-generic
+            // overload of the same name (e.g. JsonSerializer.Serialize<T>(T, Type,
+            // options) vs Serialize(object, Type, options)), prefer the non-generic
+            // one so no spurious Class token is injected and the erasure-conflict
+            // suffix resolves to the emitted overload. Explicit type arguments at
+            // the call site keep the generic binding when that method registered
+            // Class<T> parameters (e.g. hoisted RunTestAsync<T> local functions).
+            bool keepGenericBinding = bareMethodSym?.IsGenericMethod == true
+                && genericMethodName.TypeArgumentList.Arguments.Count > 0
+                && context.MethodHasClassParams(
+                    bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "",
+                    bareMethodSym.OriginalDefinition.ToDisplayString());
+            if (bareMethodSym?.IsGenericMethod == true && !keepGenericBinding)
+            {
+                var overloadArgCount = node.ArgumentList.Arguments.Count;
+                var nonGenericOverload = bareMethodSym.ContainingType?.GetMembers(bareMethodSym.Name)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(m => !m.IsGenericMethod
+                        && m.Parameters.Length == overloadArgCount
+                        && !SymbolEqualityComparer.Default.Equals(m, bareMethodSym));
+                if (nonGenericOverload != null)
+                    bareMethodSym = nonGenericOverload;
+            }
+
             if (bareMethodSym != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
+
+            // JsonSerializer.Deserialize<TValue>(string json, Type, options) call
+            // sites: prefer the (String, Class, options) overload — the span overload
+            // expects ReadOnlySpan<Integer> (byte) while a string argument adapts to
+            // ReadOnlySpan<Character>, which would not match. The private
+            // Deserialize(string, Type, options) helper carries the 0tp erasure
+            // suffix; the semantic model may fail to resolve it when the call site
+            // precedes the declaration, so fall back to the known suffix.
+            if (genericMethodName.Identifier.Text is "Deserialize" or "deserialize"
+                && node.ArgumentList.Arguments.Count >= 2
+                && context.SemanticModel != null
+                && context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+                    == SpecialType.System_String)
+            {
+                var stringJsonArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var typeArg2 = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var optionsArg3 = node.ArgumentList.Arguments.Count >= 3
+                    ? facade.Transform(node.ArgumentList.Arguments[2].Expression, context)
+                    : "null";
+                string callName = methodName;
+                if (node.ArgumentList.Arguments.Count >= 3
+                    && genericMethodName.Identifier.Text == "Deserialize")
+                {
+                    // The private Deserialize(string, Type, options) helper is emitted
+                    // as deserialize_0tp while GetErasureConflictSuffix may not report
+                    // the suffix for it; pin the emitted name.
+                    callName = "deserialize_0tp";
+                }
+                string deserializeCall = $"{callName}({stringJsonArg}, {typeArg2}, {optionsArg3})";
+                // deserialize_0tp returns Object; cast to the explicit type argument
+                // so var declarations and returns keep the generic element type.
+                if (genericMethodName.TypeArgumentList.Arguments.Count >= 1
+                    && context.SemanticModel != null
+                    && context.GetTypeInfo(genericMethodName.TypeArgumentList.Arguments[0]).Type
+                        is { } deserializeStringTarget
+                    && deserializeStringTarget is not IErrorTypeSymbol)
+                {
+                    var mappedTarget = context.MapType(deserializeStringTarget);
+                    if (!string.IsNullOrWhiteSpace(mappedTarget) && mappedTarget != "Object")
+                        deserializeCall = $"(({mappedTarget}) {deserializeCall})";
+                }
+                return deserializeCall;
+            }
             var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context) : null;
             // Syntactic fallback: when the semantic model cannot resolve the call (e.g. the
             // argument lambda references unresolved types), a hoisted local function's
             // Class<T> tokens can still be derived from the explicit type arguments and the
             // local function's own `is T` usage scan.
-            classTokens ??= GetClassTokensForLocalFunctionCallSyntax(genericMethodName, context);
+            if (bareMethodSym?.IsGenericMethod != false)
+                classTokens ??= GetClassTokensForLocalFunctionCallSyntax(genericMethodName, context);
             // Second fallback: forward-referenced generic methods (declaration converted
             // after this call site). Concrete reference-type arguments still need their
             // token — e.g. ReadCore<TValue>(...) / VerifyIgnore<T>(...) called before the
             // declaration is converted. Primitives/arrays are excluded (runtime-array
             // Class parameter machinery covers them).
-            classTokens ??= GetClassTokensFromExplicitTypeArguments(genericMethodName, context);
+            if (bareMethodSym?.IsGenericMethod != false)
+                classTokens ??= GetClassTokensFromExplicitTypeArguments(genericMethodName, context);
+            if (genericMethodName.Identifier.Text is "runTestAsync" or "RunTestAsync")
+            {
+                System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg2.txt",
+                    $"[DBG-222] sym={(bareMethodSym?.ToDisplayString() ?? "null")} isGen={bareMethodSym?.IsGenericMethod} args={node.ArgumentList.Arguments.Count} tokens={(classTokens != null ? string.Join("|", classTokens) : "null")}\n");
+            }
+            // Guard: the Java-side signature must have token slots for every Class
+            // token. Registered Class<T> parameters widen the slot count; without
+            // them (forward-referenced helpers whose signature never gained a
+            // parameter), drop the tokens instead of emitting a mismatched list.
+            if (classTokens != null && bareMethodSym != null)
+            {
+                var csharpParamCount = bareMethodSym.Parameters.Length;
+                int registeredClassParams = 0;
+                var origType = bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "";
+                var origMethod = bareMethodSym.OriginalDefinition.ToDisplayString();
+                if (context.MethodHasClassParams(origType, origMethod))
+                {
+                    registeredClassParams = context.GetMethodClassTypeParamNames(origType, origMethod)?.Count
+                        ?? classTokens.Count;
+                }
+                if (node.ArgumentList.Arguments.Count + classTokens.Count > csharpParamCount + registeredClassParams)
+                {
+                    classTokens = null;
+                }
+            }
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
             args = PrependClassTypeTokens(args, classTokens);
             return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
@@ -405,6 +550,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
             var bareMethodSym2 = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+
+            // Overload disambiguation: when the argument count matches a non-generic
+            // overload of the same name (e.g. JsonSerializer.Serialize(object, Type,
+            // options) vs Serialize<T>(T, options)), prefer it so no spurious Class
+            // token is injected and the erasure-conflict suffix resolves correctly.
+            if (bareMethodSym2?.IsGenericMethod == true)
+            {
+                var overloadArgCount = node.ArgumentList.Arguments.Count;
+                var nonGenericOverload = bareMethodSym2.ContainingType?.GetMembers(bareMethodSym2.Name)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(m => !m.IsGenericMethod
+                        && m.Parameters.Length == overloadArgCount
+                        && !SymbolEqualityComparer.Default.Equals(m, bareMethodSym2));
+                if (nonGenericOverload != null)
+                    bareMethodSym2 = nonGenericOverload;
+            }
+
             if (bareMethodSym2 != null)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
 
@@ -412,6 +574,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // passed as trailing arguments (declaration and call site share the capture
             // order registered by MethodConversionState).
             var captures = context.MethodState.GetHoistedLocalFunctionCaptures(bareIdent.Identifier.Text);
+            if (bareIdent.Identifier.Text is "runTestAsync" or "RunTestAsync")
+            {
+                System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg2.txt",
+                    $"[DBG-407] name={bareIdent.Identifier.Text} sym={(bareMethodSym2?.ToDisplayString() ?? "null")} captures={(captures != null)} args={node.ArgumentList.Arguments.Count}\n");
+            }
             if (captures != null)
             {
                 // Capture arguments are synthetic identifiers without symbols; inside
@@ -445,6 +612,33 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (!string.IsNullOrEmpty(captureArgs) && captureArgs.Trim().Length > 0)
                     captureArgs += ", ";
                 captureArgs += string.Join(", ", capArgs);
+                // Class<T> tokens for hoisted local functions (e.g. RunTestAsync<T>
+                // with typeof(T) in its body) must be prepended like regular calls.
+                var hoistTokens = bareMethodSym2 != null
+                    ? GetClassTypeTokensForCall(bareMethodSym2, context)
+                    : null;
+                if (hoistTokens == null && bareMethodSym2?.IsGenericMethod == true
+                    && bareMethodSym2.TypeArguments.Length > 0
+                    && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+                {
+                    hoistTokens = new List<string>();
+                    foreach (var typeArg in bareMethodSym2.TypeArguments)
+                    {
+                        if (typeArg is IArrayTypeSymbol)
+                        {
+                            hoistTokens = null;
+                            break;
+                        }
+                        if (typeArg is ITypeParameterSymbol tpArg)
+                        {
+                            hoistTokens.Add($"_cs2j_{tpArg.Name}");
+                            continue;
+                        }
+                        hoistTokens.Add(ConversionContext.GetClassLiteral(typeArg, context));
+                    }
+                }
+                if (hoistTokens != null && hoistTokens.Count > 0)
+                    captureArgs = $"{string.Join(", ", hoistTokens)}, {captureArgs}";
                 return $"{methodName}({captureArgs})";
             }
 
@@ -460,6 +654,55 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
 
             var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
+            // Fallback for local-function/forward-referenced generic calls: derive the
+            // tokens from the resolved method symbol's type arguments (concrete
+            // reference types, primitives, or registered runtime type-parameter names).
+            if (classTokens == null && bareMethodSym2?.IsGenericMethod == true
+                && bareMethodSym2.TypeArguments.Length > 0
+                && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+            {
+                classTokens = new List<string>();
+                foreach (var typeArg in bareMethodSym2.TypeArguments)
+                {
+                    if (typeArg is IArrayTypeSymbol)
+                    {
+                        classTokens = null;
+                        break;
+                    }
+                    if (typeArg is ITypeParameterSymbol tpArg)
+                    {
+                        classTokens.Add($"_cs2j_{tpArg.Name}");
+                        continue;
+                    }
+                    var argLiteral = ConversionContext.GetClassLiteral(typeArg, context);
+                    if (typeArg is INamedTypeSymbol namedArg2 && namedArg2.IsGenericType)
+                    {
+                        var javaArgType2 = context.MapType(typeArg);
+                        argLiteral = $"((Class<{javaArgType2}>) (Class<?>) {argLiteral})";
+                    }
+                    classTokens.Add(argLiteral);
+                }
+            }
+            // Guard: the Java-side signature must have token slots for every Class
+            // token. Registered Class<T> parameters widen the slot count; without
+            // them (forward-referenced helpers whose signature never gained a
+            // parameter), drop the tokens instead of emitting a mismatched list.
+            if (classTokens != null && bareMethodSym2 != null)
+            {
+                var csharpParamCount = bareMethodSym2.Parameters.Length;
+                int registeredClassParams = 0;
+                var origType = bareMethodSym2.OriginalDefinition.ContainingType?.MetadataName ?? "";
+                var origMethod = bareMethodSym2.OriginalDefinition.ToDisplayString();
+                if (context.MethodHasClassParams(origType, origMethod))
+                {
+                    registeredClassParams = context.GetMethodClassTypeParamNames(origType, origMethod)?.Count
+                        ?? classTokens.Count;
+                }
+                if (node.ArgumentList.Arguments.Count + classTokens.Count > csharpParamCount + registeredClassParams)
+                {
+                    classTokens = null;
+                }
+            }
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
             args = PrependClassTypeTokens(args, classTokens);
             var bareCall = CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym2, context);
@@ -1284,7 +1527,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var dlgReceiver = facade.Transform(memberAccess.Expression, context);
             var dlgMemberName = memberAccess.Name.Identifier.Text;
-            var dlgGetter = "get" + char.ToUpperInvariant(dlgMemberName[0]) + dlgMemberName[1..];
+            var dlgGetter = JavaNaming.GetPropertyGetterName(dlgMemberName);
             var dlgArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             return $"{dlgReceiver}.{dlgGetter}().accept({dlgArgs})";
         }
@@ -4654,23 +4897,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 // ref Utf8JsonReader overload — Deserialize<T>(ref reader, options):
                 // pass the reader holder itself (not .value) plus the options argument.
+                // The reader may be a ref parameter (already an ObjectHolder), a local
+                // variable, or a lambda parameter — wrap non-ref forms in a holder.
                 if (context.SemanticModel != null
                     && context.GetTypeInfo(node.ArgumentList.Arguments[argStartIndex].Expression).Type
                         is { } firstArgType
-                    && firstArgType.ToDisplayString().EndsWith(".Utf8JsonReader", StringComparison.Ordinal)
-                    && node.ArgumentList.Arguments[argStartIndex].Expression is IdentifierNameSyntax refReaderId
-                    && context.GetSymbolInfo(refReaderId).Symbol is IParameterSymbol
-                    {
-                        RefKind: RefKind.Ref or RefKind.Out
-                    } refReaderParam)
+                    && firstArgType.ToDisplayString().EndsWith(".Utf8JsonReader", StringComparison.Ordinal))
                 {
-                    var refReaderHolder = ConversionContext.EscapeJavaKeyword(refReaderParam.Name);
                     var refReaderOptions = argStartIndex + 1 < node.ArgumentList.Arguments.Count
                         ? facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context)
                         : "null";
                     var refReaderClassLiteral = ConversionContext.GetClassLiteral(deserializeTargetType, context);
-                    System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg.txt",
-                        $"[DBG-refreader] target={deserializeTargetType?.ToDisplayString()} isTp={deserializeTargetType is ITypeParameterSymbol} literal={refReaderClassLiteral}\n");
+                    string refReaderHolder;
+                    if (node.ArgumentList.Arguments[argStartIndex].Expression is IdentifierNameSyntax refReaderId
+                        && context.GetSymbolInfo(refReaderId).Symbol is IParameterSymbol
+                        {
+                            RefKind: RefKind.Ref or RefKind.Out
+                        } refReaderParam)
+                    {
+                        refReaderHolder = ConversionContext.EscapeJavaKeyword(refReaderParam.Name);
+                    }
+                    else
+                    {
+                        var readerExpr = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
+                        refReaderHolder = $"new io.github.ningpp.compat.ObjectHolder<>({readerExpr})";
+                    }
                     // Bare type-parameter reference (cached Class<?> field) cannot bind
                     // Class<TValue> — widen through Class<?> with a typed cast.
                     if (deserializeTargetType is ITypeParameterSymbol refReaderTypeParam
@@ -10462,6 +10713,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
             }
 
+            // typeof(T) also triggers a Class<T> parameter requirement (the body's
+            // GetClassLiteral registers it), so call sites before the declaration must
+            // emit the token too.
+            foreach (var typeOfNode in scanRoot.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeOfExpressionSyntax>())
+            {
+                if (typeOfNode.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeofId)
+                {
+                    foreach (var tp in typeParams)
+                    {
+                        if (tp.Name == typeofId.Identifier.Text)
+                            AddTypeParamName(tp, ref result);
+                    }
+                }
+            }
+
             // Collect type param names used in `x is T` checks (BinaryExpression IsExpression
             // or TypePattern), which the converter emits as Class-token isInstance calls.
             var isTypeNames = new HashSet<string>(StringComparer.Ordinal);
@@ -10786,14 +11053,27 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             if (typeArgSymbol == null || typeArgSymbol is IErrorTypeSymbol)
                 return null;
-            if (typeArgSymbol is IArrayTypeSymbol
-                || typeArgSymbol is ITypeParameterSymbol)
+            if (typeArgSymbol is IArrayTypeSymbol)
             {
                 return null;
             }
-            if (typeArgSymbol.SpecialType is not SpecialType.None)
-                return null;
-            tokens.Add(ConversionContext.GetClassLiteral(typeArgSymbol, context));
+            if (typeArgSymbol is ITypeParameterSymbol typeParamArg)
+            {
+                // Type-parameter argument: the registered runtime Class<T> parameter
+                // supplies the token (the MethodHasClassParams guard validates it).
+                tokens.Add($"_cs2j_{typeParamArg.Name}");
+                continue;
+            }
+            var literal = ConversionContext.GetClassLiteral(typeArgSymbol, context);
+            // A generic concrete type (e.g. Dictionary<string, float?> → CSharpDictionary)
+            // strips to a raw Class literal; cast through Class<?> so the call site's
+            // type inference binds the explicit type argument correctly.
+            if (typeArgSymbol is INamedTypeSymbol namedArg && namedArg.IsGenericType)
+            {
+                var javaArgType = context.MapType(typeArgSymbol);
+                literal = $"((Class<{javaArgType}>) (Class<?>) {literal})";
+            }
+            tokens.Add(literal);
         }
         return tokens;
     }

@@ -1634,6 +1634,43 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         string tmpVar = context.GenerateSyntheticName("_obj");
         var pendingAssignments = new List<string>();
 
+        // Field/property initializers cannot reference pre-statement temporaries;
+        // inline indexer-style dictionary initializers ({ [key] = value }) via
+        // MapHelper.mapOf so the field keeps a single valid expression.
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && IsFieldOrPropertyInitializerContext(initializer)
+            && initializer.Expressions.Count > 0
+            && initializer.Expressions.All(e => e is AssignmentExpressionSyntax { Left: ImplicitElementAccessSyntax }))
+        {
+            var inlinePairs = new List<string>();
+            foreach (var expr in initializer.Expressions)
+            {
+                if (expr is AssignmentExpressionSyntax assignExpr
+                    && assignExpr.Left is ImplicitElementAccessSyntax elemAccess
+                    && elemAccess.ArgumentList.Arguments.Count == 1)
+                {
+                    var key = facade.Transform(elemAccess.ArgumentList.Arguments[0].Expression, context);
+                    var value = facade.Transform(assignExpr.Right, context);
+                    ITypeSymbol? kt = createdType is INamedTypeSymbol nt && nt.TypeArguments.Length >= 2
+                        ? nt.TypeArguments[0] : null;
+                    ITypeSymbol? vt = createdType is INamedTypeSymbol nt2 && nt2.TypeArguments.Length >= 2
+                        ? nt2.TypeArguments[1] : null;
+                    key = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        elemAccess.ArgumentList.Arguments[0].Expression, key, kt, context);
+                    value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        assignExpr.Right, value, vt, context);
+                    inlinePairs.Add(key);
+                    inlinePairs.Add(value);
+                }
+            }
+            if (inlinePairs.Count > 0)
+            {
+                context.AddImport("io.github.ningpp.compat.MapHelper");
+                return $"new {typeName}(MapHelper.mapOf({string.Join(", ", inlinePairs)}))";
+            }
+            return $"new {typeName}({ctorArgs})";
+        }
+
         foreach (var expr in initializer.Expressions)
         {
             if (expr is AssignmentExpressionSyntax assignExpr)
@@ -1828,7 +1865,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // If already starts with "get", return as is
         if (propertyName.StartsWith("get", StringComparison.Ordinal)) return propertyName;
 
-        return "get" + char.ToUpper(propertyName[0]) + propertyName.Substring(1);
+        return JavaNaming.GetPropertyGetterName(propertyName);
     }
 
     private string TransformAnonymousObjectCreation(AnonymousObjectCreationExpressionSyntax node, ConversionContext context)
@@ -2408,6 +2445,41 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         ITypeSymbol? elementType = namedCreatedType?.TypeArguments.Length >= 1
             ? namedCreatedType.TypeArguments[0]
             : null;
+        // Non-generic user type inheriting List<T> (e.g. class StringListWrapper :
+        // List<string>): infer the element type from the base chain so collection
+        // initializers emit the boxed element array instead of Object[].
+        if (elementType == null && namedCreatedType != null)
+        {
+            for (var baseType = namedCreatedType.BaseType; baseType != null; baseType = baseType.BaseType)
+            {
+                if (baseType is INamedTypeSymbol baseNamed
+                    && baseNamed.TypeArguments.Length >= 1)
+                {
+                    var baseDisplay = baseNamed.OriginalDefinition.ToDisplayString();
+                    if (baseDisplay == "System.Collections.Generic.List<T>"
+                        || baseDisplay == "System.Collections.ObjectModel.KeyedCollection<TKey, TItem>"
+                        || baseDisplay == "System.Collections.Generic.Collection<T>"
+                        || baseDisplay == "System.Collections.Generic.HashSet<T>"
+                        || baseDisplay == "System.Collections.Generic.LinkedList<T>")
+                    {
+                        elementType = baseNamed.TypeArguments[^1];
+                        break;
+                    }
+                }
+            }
+        }
+        // Last resort: derive the element type from the first initializer expression
+        // (e.g. new List<string> { "1", "2" } with an unresolved created type).
+        if (elementType == null && initializer.Expressions.Count > 0)
+        {
+            var firstElemType = context.GetTypeInfo(initializer.Expressions[0]).Type;
+            if (firstElemType != null
+                && firstElemType is not IErrorTypeSymbol
+                && firstElemType.SpecialType != SpecialType.System_Void)
+            {
+                elementType = firstElemType;
+            }
+        }
         ITypeSymbol? keyType = namedCreatedType?.TypeArguments.Length >= 2
             ? namedCreatedType.TypeArguments[0]
             : null;
@@ -2521,7 +2593,18 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 return $"new {typeName}(Set.of({itemsStr}))";
             }
             context.AddImport("io.github.ningpp.compat.ArrayHelper");
-            return $"new {typeName}(ArrayHelper.toList({itemsStr}))";
+            var setElemJavaType = elementType != null ? context.MapType(elementType) : "Object";
+            string setListArg;
+            if (setElemJavaType.Contains('<'))
+            {
+                setListArg = $"ArrayHelper.toList({itemsStr})";
+            }
+            else
+            {
+                var boxedSetElemType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(setElemJavaType);
+                setListArg = $"ArrayHelper.toList(new {boxedSetElemType}[] {{ {itemsStr} }})";
+            }
+            return $"new {typeName}({setListArg})";
         }
 
         // Default: List-like
@@ -2557,7 +2640,19 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
-        return $"new {typeName}(ArrayHelper.toList({itemsStr}))";
+        var elemJavaType = elementType != null ? context.MapType(elementType) : "Object";
+        string listArg;
+        if (elemJavaType.Contains('<'))
+        {
+            // Generic element type: varargs form avoids illegal generic array creation.
+            listArg = $"ArrayHelper.toList({itemsStr})";
+        }
+        else
+        {
+            var boxedElemType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(elemJavaType);
+            listArg = $"ArrayHelper.toList(new {boxedElemType}[] {{ {itemsStr} }})";
+        }
+        return $"new {typeName}({listArg})";
     }
 
     /// <summary>

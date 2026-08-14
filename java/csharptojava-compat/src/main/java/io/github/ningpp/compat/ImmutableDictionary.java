@@ -11,6 +11,10 @@ import java.util.Set;
 public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
     private final Map<K, V> items;
 
+    /** C# ImmutableDictionary.Empty — the empty singleton. */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static final ImmutableDictionary Empty = new ImmutableDictionary();
+
     public ImmutableDictionary() {
         this.items = new LinkedHashMap<>();
     }
@@ -21,12 +25,6 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
     }
 
     /** C# ImmutableDictionary<K,V>.Add(key, value) — returns a new dictionary. */
-    public ImmutableDictionary<K, V> add(K key, V value) {
-        Map<K, V> copy = new LinkedHashMap<>(items);
-        copy.put(key, value);
-        return new ImmutableDictionary<>(copy);
-    }
-
     private ImmutableDictionary(Map<K, V> items) {
         this.items = items;
     }
@@ -75,8 +73,20 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
         return items.get(key);
     }
 
-    public Set<K> keySet() {
-        return items.keySet();
+    public CSharpGenericIterable<K> keySet() {
+        return CSharpGenericIterable.from(items.keySet());
+    }
+
+    public CSharpGenericIterable<K> getKeys() {
+        return CSharpGenericIterable.from(items.keySet());
+    }
+
+    public CSharpGenericIterable<V> values() {
+        return CSharpGenericIterable.from(items.values());
+    }
+
+    public CSharpGenericIterable<V> getValues() {
+        return CSharpGenericIterable.from(items.values());
     }
 
     public Set<Map.Entry<K, V>> entrySet() {
@@ -88,8 +98,72 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
     }
 
     @Override
-    public java.util.Iterator<Map.Entry<K, V>> iterator() {
-        return items.entrySet().iterator();
+    public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> iterator() {
+        CSharpList<CSharpKeyValuePair<K, V>> list = new CSharpList<>();
+        for (Map.Entry<K, V> entry : items.entrySet()) {
+            list.add(new CSharpKeyValuePair<>(entry.getKey(), entry.getValue()));
+        }
+        return CSharpGenericEnumerator.from(list.iterator());
+    }
+
+    public boolean contains(CSharpKeyValuePair<K, V> pair) {
+        return items.containsKey(pair.getKey());
+    }
+
+    public V tryGetValue(K key) {
+        return items.get(key);
+    }
+
+    public boolean tryGetKey(K equalKey, ObjectHolder<K> actualKey) {
+        for (K key : items.keySet()) {
+            if (java.util.Objects.equals(key, equalKey)) {
+                actualKey.value = key;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public ImmutableDictionary<K, V> add(K key, V value) {
+        Map<K, V> copy = new LinkedHashMap<>(items);
+        copy.put(key, value);
+        return new ImmutableDictionary<>(copy);
+    }
+
+    @Override
+    public ImmutableDictionary<K, V> clear() {
+        return new ImmutableDictionary<>();
+    }
+
+    @Override
+    public ImmutableDictionary<K, V> removeCSharp(K key) {
+        Map<K, V> copy = new LinkedHashMap<>(items);
+        copy.remove(key);
+        return new ImmutableDictionary<>(copy);
+    }
+
+    @Override
+    public ImmutableDictionary<K, V> removeRange(CSharpGenericIterable<K> keys) {
+        Map<K, V> copy = new LinkedHashMap<>(items);
+        for (K key : keys) {
+            copy.remove(key);
+        }
+        return new ImmutableDictionary<>(copy);
+    }
+
+    @Override
+    public ImmutableDictionary<K, V> setItem(K key, V value) {
+        return add(key, value);
+    }
+
+    @Override
+    public ImmutableDictionary<K, V> setItems(CSharpGenericIterable<CSharpKeyValuePair<K, V>> items) {
+        Map<K, V> copy = new LinkedHashMap<>(this.items);
+        for (CSharpKeyValuePair<K, V> pair : items) {
+            copy.put(pair.getKey(), pair.getValue());
+        }
+        return new ImmutableDictionary<>(copy);
     }
 
     @Override

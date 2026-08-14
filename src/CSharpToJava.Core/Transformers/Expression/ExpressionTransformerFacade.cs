@@ -267,7 +267,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 // getters in Java.
                 if (memberName.Length > 0 && char.IsUpper(memberName[0]))
                 {
-                    var getter = "get" + memberName;
+                    var getter = JavaNaming.GetPropertyGetterName(memberName);
                     return $"{objExpr}.{getter}()";
                 }
                 return $"{objExpr}.{ConversionContext.EscapeJavaKeyword(memberName)}";

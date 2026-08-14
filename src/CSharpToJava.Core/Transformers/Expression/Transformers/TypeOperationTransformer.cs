@@ -1336,8 +1336,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 {
                     if (m is IPropertySymbol)
                     {
-                        var getter = "get" + char.ToUpperInvariant(memberName[0]) + memberName[1..];
-                        return $"{receiver}.{getter}()";
+                var getter = JavaNaming.GetPropertyGetterName(memberName);
+                return $"{receiver}.{getter}()";
                     }
                     if (m is IFieldSymbol { IsStatic: false })
                         break;
@@ -1421,27 +1421,37 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (typeInfo.Type is INamedTypeSymbol namedType
             && IsUnboundGenericType(namedType))
         {
-            // Unbound generics such as typeof(Nullable<>) or typeof(ArraySegment<>)
-            // are represented as constructed types whose type arguments are the
-            // definition's own type parameters (or error types in some semantic
-            // models). They must map to the configured Java generic definition
-            // (e.g. Optional.class or ArraySegment.class), not to the unwrapped
-            // type parameter.
-            var ns = namedType.ContainingNamespace?.ToDisplayString() ?? "";
-            if (ns == "<global namespace>")
-                ns = "";
-            var configKey = (string.IsNullOrEmpty(ns) ? "" : ns + ".") + namedType.Name + "`" + namedType.TypeArguments.Length;
-            if (context.TypeMappings.HasTypeMapping(configKey))
+            // Unbound nested generics (typeof(ListConverter<>)) must still be
+            // referenced as Outer.Nested in Java class literals.
+            if (namedType.ContainingType is INamedTypeSymbol unboundNestedParent
+                && namedType.TypeKind != TypeKind.Enum)
             {
-                typeName = context.TypeMappings.MapType(configKey);
-                context.AddImportsForTypePublic(configKey);
+                typeName = BuildNestedJavaTypeReference(namedType, context);
             }
             else
             {
-                // No explicit mapping (e.g. a project type or an unconfigured BCL
-                // type): MapType(configKey) would return the bare simple name with
-                // the arity marker (Generic`1), so resolve through the symbol.
-                typeName = context.MapType(typeInfo.Type);
+                // Unbound generics such as typeof(Nullable<>) or typeof(ArraySegment<>)
+                // are represented as constructed types whose type arguments are the
+                // definition's own type parameters (or error types in some semantic
+                // models). They must map to the configured Java generic definition
+                // (e.g. Optional.class or ArraySegment.class), not to the unwrapped
+                // type parameter.
+                var ns = namedType.ContainingNamespace?.ToDisplayString() ?? "";
+                if (ns == "<global namespace>")
+                    ns = "";
+                var configKey = (string.IsNullOrEmpty(ns) ? "" : ns + ".") + namedType.Name + "`" + namedType.TypeArguments.Length;
+                if (context.TypeMappings.HasTypeMapping(configKey))
+                {
+                    typeName = context.TypeMappings.MapType(configKey);
+                    context.AddImportsForTypePublic(configKey);
+                }
+                else
+                {
+                    // No explicit mapping (e.g. a project type or an unconfigured BCL
+                    // type): MapType(configKey) would return the bare simple name with
+                    // the arity marker (Generic`1), so resolve through the symbol.
+                    typeName = context.MapType(typeInfo.Type);
+                }
             }
         }
         else if (typeInfo.Type is INamedTypeSymbol nestedRefType

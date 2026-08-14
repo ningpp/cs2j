@@ -11,24 +11,24 @@ public interface CSharpIDictionary extends CSharpCollection {
     boolean getIsFixedSize();
     boolean getIsReadOnly();
     /** Default implementations so converter-generated classes that emit getKeys()/
-     * getValues() returning a different collection shape still compile. */
-    default CSharpCollection getKeys() {
+     * getValues() returning CSharpICollection&lt;?&gt; still compile. */
+    default CSharpICollection<?> getKeys() {
         CSharpArrayList list = new CSharpArrayList();
         for (Object item : this) {
             if (item instanceof Map.Entry<?, ?> entry) {
                 list.add(entry.getKey());
             }
         }
-        return list;
+        return CSharpICollection.from(list);
     }
-    default CSharpCollection getValues() {
+    default CSharpICollection<?> getValues() {
         CSharpArrayList list = new CSharpArrayList();
         for (Object item : this) {
             if (item instanceof Map.Entry<?, ?> entry) {
                 list.add(entry.getValue());
             }
         }
-        return list;
+        return CSharpICollection.from(list);
     }
     void remove(Object key);
     Object get(Object key);
@@ -70,7 +70,7 @@ public interface CSharpIDictionary extends CSharpCollection {
             }
             @Override
             public boolean contains(Object key) {
-                return dict.containsKey(key);
+                return ((CSharpGenericIDictionary) dict).containsKey(key);
             }
             @Override
             public boolean getIsFixedSize() {
@@ -89,20 +89,20 @@ public interface CSharpIDictionary extends CSharpCollection {
                 return dict;
             }
             @Override
-            public CSharpCollection getKeys() {
+            public CSharpICollection<?> getKeys() {
                 CSharpList<Object> keys = new CSharpList<>();
                 for (CSharpKeyValuePair<?, ?> pair : dict) {
                     keys.add(pair.getKey());
                 }
-                return asCollection(keys);
+                return CSharpICollection.from(asCollection(keys));
             }
             @Override
-            public CSharpCollection getValues() {
+            public CSharpICollection<?> getValues() {
                 CSharpList<Object> values = new CSharpList<>();
                 for (CSharpKeyValuePair<?, ?> pair : dict) {
                     values.add(pair.getValue());
                 }
-                return asCollection(values);
+                return CSharpICollection.from(asCollection(values));
             }
             @Override
             public void remove(Object key) {

@@ -59,13 +59,13 @@ public abstract class CSharpDictionaryBase implements CSharpIDictionary {
     }
 
     @Override
-    public CSharpCollection getKeys() {
-        return innerHashtable.getKeys();
+    public CSharpICollection<?> getKeys() {
+        return CSharpICollection.from(innerHashtable.getKeys());
     }
 
     @Override
-    public CSharpCollection getValues() {
-        return innerHashtable.getValues();
+    public CSharpICollection<?> getValues() {
+        return CSharpICollection.from(innerHashtable.getValues());
     }
 
     @Override

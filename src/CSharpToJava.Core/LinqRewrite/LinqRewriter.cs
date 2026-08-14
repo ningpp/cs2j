@@ -149,6 +149,20 @@ namespace CSharpToJava.Core.LinqRewrite
                 else if (owner is LocalFunctionStatementSyntax localFunc)
                 {
                     currentMethodIsStatic = localFunc.Modifiers.Any(SyntaxKind.StaticKeyword);
+                    // A local function declared inside a static method (or a static local
+                    // function) is itself in a static context even without the static
+                    // keyword, so extracted helpers must be static too.
+                    if (!currentMethodIsStatic)
+                    {
+                        var outerMethod = localFunc.Ancestors()
+                            .OfType<MethodDeclarationSyntax>()
+                            .FirstOrDefault();
+                        if (outerMethod != null)
+                        {
+                            currentMethodIsStatic =
+                                semantic.GetDeclaredSymbol(outerMethod)?.IsStatic ?? false;
+                        }
+                    }
                     currentMethodName = localFunc.Identifier.ValueText;
                     currentMethodTypeParameters = localFunc.TypeParameterList;
                     currentMethodConstraintClauses = localFunc.ConstraintClauses;

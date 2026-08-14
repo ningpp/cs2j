@@ -516,6 +516,14 @@ public final class Assert {
         return (T) object;
     }
 
+    /** One-argument form emitted when the generic type argument could not be resolved. */
+    public static Object isAssignableFrom(Object object) {
+        if (object == null) {
+            throw new AssertionError("Assert.isAssignableFrom() failure: Value was null");
+        }
+        return object;
+    }
+
     // ── IsNotAssignableFrom ──────────────────────────────────────────
     // Reflection: void IsNotAssignableFrom<T>(object object)
     //            void IsNotAssignableFrom(Type expectedType, object object)
@@ -1049,6 +1057,13 @@ public final class Assert {
             }
             return assertExactThrowable(exceptionType, thrown, "throwsAsync");
         });
+    }
+
+    /** Overload for converter output that already materialized the CompletableFuture. */
+    public static <T extends Throwable> CompletableFuture<T> throwsAsync(
+        Class<T> exceptionType,
+        CompletableFuture<?> future) {
+        return throwsAsync(exceptionType, (Supplier<? extends CompletableFuture<?>>) () -> future);
     }
 
     // ── True ─────────────────────────────────────────────────────────

@@ -1274,7 +1274,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         {
             var recv = facade.Transform(ma.Expression, context);
             var propName = symbol.Name;
-            var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
+            var getter = JavaNaming.GetPropertyGetterName(propName);
             var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
             rewritten = $"{recv}.{setter}({recv}.{getter}() {delta})";
             return true;

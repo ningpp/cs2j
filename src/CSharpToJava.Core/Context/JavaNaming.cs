@@ -19,6 +19,17 @@ public enum ErasureConflictKind
 public static class JavaNaming
 {
     /// <summary>
+    /// Computes the Java getter method name for a C# property, avoiding the clash
+    /// with Object.getClass() (which is final) by renaming the getter of a property
+    /// literally named "Class" to getClassValue(). Setter/setClass is unaffected.
+    /// </summary>
+    public static string GetPropertyGetterName(string propertyName)
+    {
+        string baseName = "get" + char.ToUpperInvariant(propertyName[0]) + propertyName[1..];
+        return baseName == "getClass" ? "getClassValue" : baseName;
+    }
+
+    /// <summary>
     /// Computes the synthesized backing-field name for an auto-property, escaping
     /// Java keywords and disambiguating when a sibling property maps to the same
     /// camelCased name (e.g. `age` vs `Age` both yield "age").

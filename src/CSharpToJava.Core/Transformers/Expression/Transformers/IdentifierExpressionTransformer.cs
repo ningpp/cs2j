@@ -70,7 +70,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static string GetPropertyGetterName(IPropertySymbol propSymbol)
     {
-        string baseName = "get" + char.ToUpperInvariant(propSymbol.Name[0]) + propSymbol.Name[1..];
+        string baseName = JavaNaming.GetPropertyGetterName(propSymbol.Name);
 
         // If this is the class property and the containing type has an explicit interface
         // implementation of the same property with a different return type, the class

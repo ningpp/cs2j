@@ -153,7 +153,7 @@ class CSharpSortedSetTest {
     @Test
     void exceptWith_removesElements() {
         CSharpSortedSet<Integer> set = new CSharpSortedSet<>(Arrays.asList(1, 2, 3));
-        set.exceptWith(Arrays.asList(2, 4));
+        set.exceptWith(CSharpGenericIterable.from(Arrays.asList(2, 4)));
         assertEquals(2, set.getCount());
         assertFalse(set.contains(2));
     }
@@ -161,7 +161,7 @@ class CSharpSortedSetTest {
     @Test
     void intersectWith_retainsCommon() {
         CSharpSortedSet<Integer> set = new CSharpSortedSet<>(Arrays.asList(1, 2, 3));
-        set.intersectWith(Arrays.asList(2, 3, 4));
+        set.intersectWith(CSharpGenericIterable.from(Arrays.asList(2, 3, 4)));
         assertEquals(2, set.getCount());
         assertTrue(set.contains(2));
     }
@@ -169,32 +169,32 @@ class CSharpSortedSetTest {
     @Test
     void unionWith_addsMissing() {
         CSharpSortedSet<Integer> set = new CSharpSortedSet<>(Arrays.asList(1, 2));
-        set.unionWith(Arrays.asList(2, 3));
+        set.unionWith(CSharpGenericIterable.from(Arrays.asList(2, 3)));
         assertEquals(3, set.getCount());
     }
 
     @Test
     void setEquals_sameElements() {
         CSharpSortedSet<Integer> set = new CSharpSortedSet<>(Arrays.asList(1, 2, 3));
-        assertTrue(set.setEquals(Arrays.asList(3, 2, 1)));
+        assertTrue(set.setEquals(CSharpGenericIterable.from(Arrays.asList(3, 2, 1))));
     }
 
     @Test
     void overlaps_hasCommonElements() {
         CSharpSortedSet<Integer> set = new CSharpSortedSet<>(Arrays.asList(1, 2, 3));
-        assertTrue(set.overlaps(Arrays.asList(3, 4)));
+        assertTrue(set.overlaps(CSharpGenericIterable.from(Arrays.asList(3, 4))));
     }
 
     @Test
     void isSubsetOf_true() {
         CSharpSortedSet<Integer> set = new CSharpSortedSet<>(Arrays.asList(1, 2));
-        assertTrue(set.isSubsetOf(Arrays.asList(1, 2, 3)));
+        assertTrue(set.isSubsetOf(CSharpGenericIterable.from(Arrays.asList(1, 2, 3))));
     }
 
     @Test
     void isSupersetOf_true() {
         CSharpSortedSet<Integer> set = new CSharpSortedSet<>(Arrays.asList(1, 2, 3));
-        assertTrue(set.isSupersetOf(Arrays.asList(1, 2)));
+        assertTrue(set.isSupersetOf(CSharpGenericIterable.from(Arrays.asList(1, 2))));
     }
 
     // ---- Clear ----

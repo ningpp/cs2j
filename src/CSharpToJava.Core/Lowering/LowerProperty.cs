@@ -165,10 +165,13 @@ public class LowerProperty : ILoweringPass
 
         // Default: getter/setter pattern
         var javaName = char.ToUpper(prop.PropertyName[0]) + prop.PropertyName.Substring(1);
+        var methodName = (prop.IsSetter ? "set" : "get") + javaName;
+        if (!prop.IsSetter && methodName == "getClass")
+            methodName = "getClassValue";
         return new IrInvocationExpression
         {
             Target = loweredTarget,
-            MethodName = (prop.IsSetter ? "set" : "get") + javaName,
+            MethodName = methodName,
             Symbol = prop.Symbol,
             JavaType = prop.JavaType,
         };

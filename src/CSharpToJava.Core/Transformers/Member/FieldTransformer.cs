@@ -355,7 +355,7 @@ public class FieldTransformer : IMemberTransformer
                 var propertyName = escapedName.Length > 0
                     ? char.ToUpperInvariant(escapedName[0]) + escapedName[1..]
                     : escapedName;
-                var getterName = "get" + propertyName;
+                var getterName = JavaNaming.GetPropertyGetterName(propertyName);
                 var setterName = "set" + propertyName;
 
                 // Task 27：TS 目标下字段可空（T | null），访问器体补 this. 前缀

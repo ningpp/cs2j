@@ -20,8 +20,8 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
     public boolean containsValue(Object value) { return map.containsValue(value); }
     @Override public boolean getIsFixedSize() { return false; }
     @Override public boolean getIsReadOnly() { return false; }
-    @Override public CSharpCollection getKeys() {
-        return new CSharpCollection() {
+    @Override public CSharpICollection<?> getKeys() {
+        CSharpCollection coll = new CSharpCollection() {
             @Override public int size() { return map.size(); }
             @Override public int getCount() { return map.size(); }
             @Override public void copyTo(CSharpArray array, int index) {
@@ -31,9 +31,10 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
             @Override public Object getSyncRoot() { return syncRoot; }
             @Override public CSharpGenericEnumerator<Object> iterator() { return CSharpGenericEnumerator.<Object>from(map.keySet().iterator()); }
         };
+        return CSharpICollection.from(coll);
     }
-    @Override public CSharpCollection getValues() {
-        return new CSharpCollection() {
+    @Override public CSharpICollection<?> getValues() {
+        CSharpCollection coll = new CSharpCollection() {
             @Override public int size() { return map.size(); }
             @Override public int getCount() { return map.size(); }
             @Override public void copyTo(CSharpArray array, int index) {
@@ -43,6 +44,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
             @Override public Object getSyncRoot() { return syncRoot; }
             @Override public CSharpGenericEnumerator<Object> iterator() { return CSharpGenericEnumerator.<Object>from(map.values().iterator()); }
         };
+        return CSharpICollection.from(coll);
     }
     @Override public void remove(Object key) { map.remove(key); }
     @Override public Object get(Object key) { return map.get(key); }

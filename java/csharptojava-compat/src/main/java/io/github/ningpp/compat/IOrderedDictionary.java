@@ -6,8 +6,10 @@ import java.util.Set;
 
 /**
  * Compat for System.Collections.Specialized.IOrderedDictionary.
+ * Intentionally NOT Iterable — OrderedDictionary implements CSharpIDictionary
+ * whose CSharpIterable<Object> inheritance would clash with a Map.Entry iteration.
  */
-public interface IOrderedDictionary extends Iterable<Map.Entry<Object, Object>> {
+public interface IOrderedDictionary {
     int size();
 
     boolean isEmpty();

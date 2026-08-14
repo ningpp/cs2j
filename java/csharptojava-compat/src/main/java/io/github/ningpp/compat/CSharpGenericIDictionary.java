@@ -3,11 +3,11 @@ package io.github.ningpp.compat;
 import java.util.*;
 import java.util.Map.Entry;
 
-public interface CSharpGenericIDictionary<K, V> extends CSharpICollection<CSharpKeyValuePair<K, V>> {
+public interface CSharpGenericIDictionary<K, V> extends CSharpIterable<CSharpKeyValuePair<K, V>> {
     void add(K key, V value);
     /** Default implementation so converter-generated classes that emit containsKey(K)
      * (erasing to a different signature) still compile. */
-    default boolean containsKey(Object key) {
+    default boolean containsKey(K key) {
         for (CSharpKeyValuePair<K, V> pair : this) {
             if (java.util.Objects.equals(pair.getKey(), key)) {
                 return true;
@@ -27,7 +27,7 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpICollection<CSharp
     }
     /** Default implementation: converter-generated classes emit remove(TKey) which
      * erases to a different signature; the default keeps them compilable. */
-    default boolean remove(Object key) {
+    default boolean remove(K key) {
         return false;
     }
     V get(K key);
@@ -55,6 +55,58 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpICollection<CSharp
     }
     boolean getIsReadOnly();
     int getCount();
+
+    default void clear() {
+    }
+
+    default boolean getIsFixedSize() {
+        return false;
+    }
+
+    default boolean getIsSynchronized() {
+        return false;
+    }
+
+    default Object getSyncRoot() {
+        return this;
+    }
+
+    default void copyTo(CSharpArray array, int index) {
+    }
+
+    default void copyTo(CSharpKeyValuePair<K, V>[] array, int index) {
+    }
+
+    default Object[] toArray() {
+        java.util.List<CSharpKeyValuePair<K, V>> list = new java.util.ArrayList<>();
+        for (CSharpKeyValuePair<K, V> pair : this) {
+            list.add(pair);
+        }
+        return list.toArray();
+    }
+
+    default int size() {
+        return getCount();
+    }
+
+    default boolean isEmpty() {
+        return getCount() == 0;
+    }
+
+    /** KeyValuePair-shaped members that were previously inherited from the
+     * CSharpICollection chain. */
+    default boolean add(CSharpKeyValuePair<K, V> item) {
+        add(item.getKey(), item.getValue());
+        return true;
+    }
+
+    default boolean remove(CSharpKeyValuePair<K, V> item) {
+        return remove(item.getKey());
+    }
+
+    default boolean contains(CSharpKeyValuePair<K, V> item) {
+        return containsKey(item.getKey());
+    }
 
     default Set<K> keySet() {
         Set<K> keys = new LinkedHashSet<>();

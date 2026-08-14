@@ -83,42 +83,42 @@ public class CSharpSortedSet<T> implements CSharpISet<T>, Cloneable {
     // CSharpISet<T> methods
 
     @Override
-    public void exceptWith(Collection<? extends T> other) {
+    public void exceptWith(CSharpGenericIterable<T> other) {
         set.removeAll(other);
     }
 
     @Override
-    public void intersectWith(Collection<? extends T> other) {
+    public void intersectWith(CSharpGenericIterable<T> other) {
         set.retainAll(other);
     }
 
     @Override
-    public boolean isProperSubsetOf(Collection<? extends T> other) {
+    public boolean isProperSubsetOf(CSharpGenericIterable<T> other) {
         Set<T> otherSet = toSet(other);
         if (set.size() >= otherSet.size()) return false;
         return otherSet.containsAll(set);
     }
 
     @Override
-    public boolean isProperSupersetOf(Collection<? extends T> other) {
+    public boolean isProperSupersetOf(CSharpGenericIterable<T> other) {
         Set<T> otherSet = toSet(other);
         if (otherSet.size() >= set.size()) return false;
         return set.containsAll(otherSet);
     }
 
     @Override
-    public boolean isSubsetOf(Collection<? extends T> other) {
+    public boolean isSubsetOf(CSharpGenericIterable<T> other) {
         Set<T> otherSet = toSet(other);
         return otherSet.containsAll(set);
     }
 
     @Override
-    public boolean isSupersetOf(Collection<? extends T> other) {
+    public boolean isSupersetOf(CSharpGenericIterable<T> other) {
         return set.containsAll(other);
     }
 
     @Override
-    public boolean overlaps(Collection<? extends T> other) {
+    public boolean overlaps(CSharpGenericIterable<T> other) {
         for (T item : other) {
             if (set.contains(item)) return true;
         }
@@ -126,13 +126,13 @@ public class CSharpSortedSet<T> implements CSharpISet<T>, Cloneable {
     }
 
     @Override
-    public boolean setEquals(Collection<? extends T> other) {
+    public boolean setEquals(CSharpGenericIterable<T> other) {
         Set<T> otherSet = toSet(other);
         return set.size() == otherSet.size() && set.containsAll(otherSet);
     }
 
     @Override
-    public void symmetricExceptWith(Collection<? extends T> other) {
+    public void symmetricExceptWith(CSharpGenericIterable<T> other) {
         for (T item : other) {
             if (!set.add(item)) {
                 set.remove(item);
@@ -141,7 +141,7 @@ public class CSharpSortedSet<T> implements CSharpISet<T>, Cloneable {
     }
 
     @Override
-    public void unionWith(Collection<? extends T> other) {
+    public void unionWith(CSharpGenericIterable<T> other) {
         set.addAll(other);
     }
 
@@ -206,7 +206,7 @@ public class CSharpSortedSet<T> implements CSharpISet<T>, Cloneable {
 
     // Helper
 
-    private Set<T> toSet(Collection<? extends T> other) {
+    private Set<T> toSet(CSharpGenericIterable<T> other) {
         if (other instanceof Set) {
             @SuppressWarnings("unchecked")
             Set<T> s = (Set<T>) other;

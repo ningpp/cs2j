@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Context;
 
 namespace CSharpToJava.Core.ReadOnlyStructMaker;
 
@@ -635,7 +636,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             return base.VisitMemberAccessExpression(node);
 
         // L4 structs: convert obj.Field → obj.getField()
-        var getterName = "get" + fieldNameText;
+        var getterName = JavaNaming.GetPropertyGetterName(fieldNameText);
         var getterCall = SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,

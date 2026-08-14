@@ -315,4 +315,21 @@ public class MemoryExtensions {
         return true;
     }
 
+    /** C# MemoryExtensions.Contains&lt;T&gt;(ReadOnlySpan&lt;T&gt;, T) — erasure-friendly overload. */
+    public static <T> boolean contains(ReadOnlySpan<T> span, T value) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            if (java.util.Objects.equals(span.get(i), value)) return true;
+        }
+        return false;
+    }
+
+    public static <T> boolean contains(Span<T> span, T value) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            if (java.util.Objects.equals(span.get(i), value)) return true;
+        }
+        return false;
+    }
+
 }

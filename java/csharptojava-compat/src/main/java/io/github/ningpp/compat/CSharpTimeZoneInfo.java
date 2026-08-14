@@ -10,6 +10,8 @@ public final class CSharpTimeZoneInfo {
 
     public static final CSharpTimeZoneInfo LOCAL = new CSharpTimeZoneInfo(ZoneId.systemDefault());
 
+    public static final CSharpTimeZoneInfo UTC = new CSharpTimeZoneInfo(ZoneOffset.UTC);
+
     private final ZoneId zoneId;
 
     public CSharpTimeZoneInfo(ZoneId zoneId) {
@@ -18,6 +20,18 @@ public final class CSharpTimeZoneInfo {
 
     public static CSharpTimeZoneInfo getLocal() {
         return LOCAL;
+    }
+
+    public static CSharpTimeZoneInfo getUtc() {
+        return UTC;
+    }
+
+    public String getDisplayName() {
+        return zoneId.toString();
+    }
+
+    public String getStandardName() {
+        return zoneId.toString();
     }
 
     public CSharpTimeSpan getUtcOffset(CSharpDateTime dateTime) {

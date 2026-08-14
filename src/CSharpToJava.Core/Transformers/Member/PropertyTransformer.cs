@@ -186,8 +186,8 @@ public class PropertyTransformer : IMemberTransformer
 
             var getter = new JavaMethodDeclaration
             {
-                Name = isEncodingPreambleProperty ? "getPreambleSpan" : "get" + ToPascalCase(propName),
-                ReturnType = propType,
+                Name = isEncodingPreambleProperty ? "getPreambleSpan" : JavaNaming.GetPropertyGetterName(propName),
+                ReturnType = GetOverrideAwarePropertyType(propDecl, propType, context),
                 Modifiers = getterModifiers,
                 LeadingComment = propertyComments,
                 Body = isExpressionBodiedProperty
@@ -203,8 +203,6 @@ public class PropertyTransformer : IMemberTransformer
             };
 
             // C# [DebuggerBrowsable(state)] on the property → runtime annotation on the
-            // getter so compat PropertyInfo.getCustomAttributes() can surface it to
-            // reflection-based debugger tests (DebuggerAttributes.ValidateDebuggerTypeProxyProperties).
             if (context.SemanticModel != null)
             {
                 var propSymbol = context.GetDeclaredSymbol(propDecl);
@@ -695,6 +693,25 @@ public class PropertyTransformer : IMemberTransformer
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Overrides of generic base properties (e.g. bool Key over TKey Key in
+    /// DictionaryKeyTestsBase&lt;TKey, TValue&gt;) must return the boxed wrapper —
+    /// boolean getKey() does not override Object/TKey getKey().
+    /// </summary>
+    private static string GetOverrideAwarePropertyType(
+        PropertyDeclarationSyntax propDecl,
+        string propType,
+        ConversionContext context)
+    {
+        if (propDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.OverrideKeyword))
+            && (context.GetDeclaredSymbol(propDecl) as IPropertySymbol)?.OverriddenProperty is IPropertySymbol overriddenProp
+            && overriddenProp.OriginalDefinition.Type is ITypeParameterSymbol)
+        {
+            return ExpressionTransformerHelpers.BoxJavaPrimitiveType(propType);
+        }
+        return propType;
     }
 }
 

@@ -82,7 +82,7 @@ class CSharpHashSetTest {
     @Test
     void exceptWith_removesElements() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b", "c"));
-        set.exceptWith(Arrays.asList("b", "d"));
+        set.exceptWith(CSharpGenericIterable.from(Arrays.asList("b", "d")));
         assertEquals(2, set.getCount());
         assertTrue(set.contains("a"));
         assertFalse(set.contains("b"));
@@ -94,7 +94,7 @@ class CSharpHashSetTest {
     @Test
     void intersectWith_retainsCommonElements() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b", "c"));
-        set.intersectWith(Arrays.asList("b", "c", "d"));
+        set.intersectWith(CSharpGenericIterable.from(Arrays.asList("b", "c", "d")));
         assertEquals(2, set.getCount());
         assertFalse(set.contains("a"));
         assertTrue(set.contains("b"));
@@ -106,7 +106,7 @@ class CSharpHashSetTest {
     @Test
     void unionWith_addsMissingElements() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        set.unionWith(Arrays.asList("b", "c"));
+        set.unionWith(CSharpGenericIterable.from(Arrays.asList("b", "c")));
         assertEquals(3, set.getCount());
         assertTrue(set.contains("a"));
         assertTrue(set.contains("b"));
@@ -118,7 +118,7 @@ class CSharpHashSetTest {
     @Test
     void symmetricExceptWith_keepsOnlyDifferences() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        set.symmetricExceptWith(Arrays.asList("b", "c"));
+        set.symmetricExceptWith(CSharpGenericIterable.from(Arrays.asList("b", "c")));
         assertEquals(2, set.getCount());
         assertTrue(set.contains("a"));
         assertFalse(set.contains("b"));
@@ -130,13 +130,13 @@ class CSharpHashSetTest {
     @Test
     void isSubsetOf_true() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertTrue(set.isSubsetOf(Arrays.asList("a", "b", "c")));
+        assertTrue(set.isSubsetOf(CSharpGenericIterable.from(Arrays.asList("a", "b", "c"))));
     }
 
     @Test
     void isSubsetOf_false() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b", "c"));
-        assertFalse(set.isSubsetOf(Arrays.asList("a", "b")));
+        assertFalse(set.isSubsetOf(CSharpGenericIterable.from(Arrays.asList("a", "b"))));
     }
 
     // ---- IsSupersetOf ----
@@ -144,13 +144,13 @@ class CSharpHashSetTest {
     @Test
     void isSupersetOf_true() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b", "c"));
-        assertTrue(set.isSupersetOf(Arrays.asList("a", "b")));
+        assertTrue(set.isSupersetOf(CSharpGenericIterable.from(Arrays.asList("a", "b"))));
     }
 
     @Test
     void isSupersetOf_false() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertFalse(set.isSupersetOf(Arrays.asList("a", "b", "c")));
+        assertFalse(set.isSupersetOf(CSharpGenericIterable.from(Arrays.asList("a", "b", "c"))));
     }
 
     // ---- IsProperSubsetOf ----
@@ -158,13 +158,13 @@ class CSharpHashSetTest {
     @Test
     void isProperSubsetOf_true() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertTrue(set.isProperSubsetOf(Arrays.asList("a", "b", "c")));
+        assertTrue(set.isProperSubsetOf(CSharpGenericIterable.from(Arrays.asList("a", "b", "c"))));
     }
 
     @Test
     void isProperSubsetOf_sameSet_returnsFalse() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertFalse(set.isProperSubsetOf(Arrays.asList("a", "b")));
+        assertFalse(set.isProperSubsetOf(CSharpGenericIterable.from(Arrays.asList("a", "b"))));
     }
 
     // ---- IsProperSupersetOf ----
@@ -172,13 +172,13 @@ class CSharpHashSetTest {
     @Test
     void isProperSupersetOf_true() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b", "c"));
-        assertTrue(set.isProperSupersetOf(Arrays.asList("a", "b")));
+        assertTrue(set.isProperSupersetOf(CSharpGenericIterable.from(Arrays.asList("a", "b"))));
     }
 
     @Test
     void isProperSupersetOf_sameSet_returnsFalse() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertFalse(set.isProperSupersetOf(Arrays.asList("a", "b")));
+        assertFalse(set.isProperSupersetOf(CSharpGenericIterable.from(Arrays.asList("a", "b"))));
     }
 
     // ---- SetEquals ----
@@ -186,13 +186,13 @@ class CSharpHashSetTest {
     @Test
     void setEquals_sameElements() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertTrue(set.setEquals(Arrays.asList("b", "a")));
+        assertTrue(set.setEquals(CSharpGenericIterable.from(Arrays.asList("b", "a"))));
     }
 
     @Test
     void setEquals_differentElements() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertFalse(set.setEquals(Arrays.asList("a")));
+        assertFalse(set.setEquals(CSharpGenericIterable.from(Arrays.asList("a"))));
     }
 
     // ---- Overlaps ----
@@ -200,13 +200,13 @@ class CSharpHashSetTest {
     @Test
     void overlaps_hasCommonElements() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertTrue(set.overlaps(Arrays.asList("b", "c")));
+        assertTrue(set.overlaps(CSharpGenericIterable.from(Arrays.asList("b", "c"))));
     }
 
     @Test
     void overlaps_noCommonElements() {
         CSharpHashSet<String> set = new CSharpHashSet<>(Arrays.asList("a", "b"));
-        assertFalse(set.overlaps(Arrays.asList("c", "d")));
+        assertFalse(set.overlaps(CSharpGenericIterable.from(Arrays.asList("c", "d"))));
     }
 
     // ---- CopyTo ----

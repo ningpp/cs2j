@@ -102,7 +102,7 @@ class CSharpObjSortedListTest {
         sl.add("b", 2);
         sl.add("a", 1);
         sl.add("c", 3);
-        CSharpCollection keys = sl.getKeys();
+        CSharpICollection<?> keys = sl.getKeys();
         assertEquals(3, keys.getCount());
         // Verify keys by iterating
         java.util.List<Object> keyList = new java.util.ArrayList<>();
@@ -119,7 +119,7 @@ class CSharpObjSortedListTest {
         sl.add("b", 20);
         sl.add("a", 10);
         sl.add("c", 30);
-        CSharpCollection values = sl.getValues();
+        CSharpICollection<?> values = sl.getValues();
         assertEquals(3, values.getCount());
         java.util.List<Object> valueList = new java.util.ArrayList<>();
         var en = values.iterator();
@@ -170,3 +170,4 @@ class CSharpObjSortedListTest {
         assertEquals(2, sl.getCount());
     }
 }
+

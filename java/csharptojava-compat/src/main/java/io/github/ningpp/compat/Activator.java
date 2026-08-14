@@ -119,7 +119,7 @@ public final class Activator {
         if (args.length != 1 || !(args[0] instanceof CSharpReadOnlyDict<?, ?> dict)) {
             return null;
         }
-        Object values = dict.getValues();
+        Object values = dict.values();
         if (values == null) {
             return null;
         }

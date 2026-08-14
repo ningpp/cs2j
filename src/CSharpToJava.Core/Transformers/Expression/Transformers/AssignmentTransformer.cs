@@ -514,7 +514,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                             .OfType<PropertyDeclarationSyntax>()
                             .Any(p => p.Identifier.Text == recvName))
                     {
-                        receiver = "get" + char.ToUpperInvariant(recvName[0]) + recvName[1..] + "()";
+                        receiver = JavaNaming.GetPropertyGetterName(recvName) + "()";
                     }
                 }
                 if (prop.Name == "Capacity"

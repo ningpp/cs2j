@@ -22,17 +22,21 @@ public final class ArraySegment<T> {
         this(array, 0, array == null ? 0 : array.length);
     }
 
-    public ArraySegment(T[] array, int offset, int count) {
-        this.array = array;
-        this.byteArray = null;
+    /** byte[]-backed segment (C# ArraySegment&lt;byte&gt; maps byte to Integer). */
+    public ArraySegment(byte[] array) {
+        this(array, 0, array == null ? 0 : array.length);
+    }
+
+    public ArraySegment(byte[] array, int offset, int count) {
+        this.array = null;
+        this.byteArray = array;
         this.offset = offset;
         this.count = count;
     }
 
-    /** Primitive byte[] backing — mirrors C# ArraySegment&lt;byte&gt;. */
-    public ArraySegment(byte[] array, int offset, int count) {
-        this.array = null;
-        this.byteArray = array;
+    public ArraySegment(T[] array, int offset, int count) {
+        this.array = array;
+        this.byteArray = null;
         this.offset = offset;
         this.count = count;
     }

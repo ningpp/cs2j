@@ -219,6 +219,40 @@ public class HIRExpressionGenerator
             JavaType = symbol != null ? _ctx.MapType(symbol.ReturnType) : null,
         };
         invocation.Arguments.AddRange(args);
+        // Class<T> tokens for generic methods whose Java signature gained leading
+        // Class<T> parameters (registered via typeof(T)/default(T) in the body).
+        // The HIR path (async lambdas, await chains) bypasses the string-based
+        // InvocationExpressionTransformer's token prepending, so inject them here.
+        if (symbol?.IsGenericMethod == true && symbol.TypeArguments.Length > 0
+            && _ctx.Options.TargetLanguage != TargetLanguage.TypeScript)
+        {
+            // Hoisted local functions and forward-referenced helpers register their
+            // Class<T> requirements with keys that may not match the resolved symbol,
+            // so gate on the arity check alone: the Java-side signature gains one
+            // leading Class<T> parameter per method type parameter.
+            if (node.ArgumentList.Arguments.Count + symbol.TypeArguments.Length
+                <= symbol.Parameters.Length + symbol.TypeArguments.Length)
+            {
+                for (int i = symbol.TypeArguments.Length - 1; i >= 0; i--)
+                {
+                    var typeArg = symbol.TypeArguments[i];
+                    string token;
+                    if (typeArg is ITypeParameterSymbol tpArg)
+                    {
+                        token = $"_cs2j_{tpArg.Name}";
+                    }
+                    else
+                    {
+                        token = ConversionContext.GetClassLiteral(typeArg, _ctx);
+                        if (typeArg is INamedTypeSymbol namedArg && namedArg.IsGenericType)
+                        {
+                            token = $"((Class<{_ctx.MapType(typeArg)}>) (Class<?>) {token})";
+                        }
+                    }
+                    invocation.Arguments.Insert(0, new IrLiteralExpression { Value = token });
+                }
+            }
+        }
         return invocation;
     }
 

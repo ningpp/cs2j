@@ -1135,13 +1135,17 @@ public class ClassTransformer : ITypeTransformer
         if (target == null)
             return;
 
-        foreach (var tpName in typeParams)
+        // Stable alphabetical order keeps the emitted signature aligned with call
+        // sites (which emit explicit type arguments in declaration order); a
+        // reverse-insertion order would depend on typeof(T) occurrence order.
+        var ordered = typeParams.OrderBy(name => name, StringComparer.Ordinal).ToList();
+        foreach (var tpName in ordered)
         {
             var paramName = $"_cs2j_{tpName}";
             // Avoid duplicates if the param was already added (e.g., default-param overloads)
             if (target.Parameters.Any(p => p.Name == paramName))
                 continue;
-            target.Parameters.Insert(0, new JavaParameter($"Class<{tpName}>", paramName));
+            target.Parameters.Add(new JavaParameter($"Class<{tpName}>", paramName));
         }
     }
 
@@ -2833,7 +2837,8 @@ public class ClassTransformer : ITypeTransformer
                 return true;
             }
 
-            if (type is "CSharpGenericIterable" or "CSharpIterable" or "CSharpICollection")
+            if (type is "CSharpGenericIterable" or "CSharpIterable" or "CSharpICollection"
+                or "CSharpIDictionary")
             {
                 elementType = "Object";
                 return true;
@@ -3590,8 +3595,16 @@ public class ClassTransformer : ITypeTransformer
             {
                 ClassName = javaClass.Name,
                 Modifiers = JavaModifiers.Public,
-                Initializer = "super(c)",
                 Parameters = { new JavaParameter($"java.util.Collection<{elemType}>", "c") },
+                Initializer = "super(c)",
+                Body = ""
+            });
+            // C# implicit constructors are parameterless (base()): keep a no-arg
+            // constructor too so derived classes' implicit super() calls compile.
+            javaClass.Constructors.Add(new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Public,
                 Body = ""
             });
             return;

@@ -26,6 +26,56 @@ public class ArrayHelper {
         return list;
     }
 
+    // Primitive varargs overloads: C# collection initializers like `new List<object> { 1 }`
+    // emit toList(1) and a primitive argument can't bind to the generic T... signature.
+    public static CSharpList<Integer> toList(int... items) {
+        var list = new CSharpList<Integer>(items.length);
+        for (int item : items) list.add(item);
+        return list;
+    }
+
+    public static CSharpList<Long> toList(long... items) {
+        var list = new CSharpList<Long>(items.length);
+        for (long item : items) list.add(item);
+        return list;
+    }
+
+    public static CSharpList<Double> toList(double... items) {
+        var list = new CSharpList<Double>(items.length);
+        for (double item : items) list.add(item);
+        return list;
+    }
+
+    public static CSharpList<Float> toList(float... items) {
+        var list = new CSharpList<Float>(items.length);
+        for (float item : items) list.add(item);
+        return list;
+    }
+
+    public static CSharpList<Boolean> toList(boolean... items) {
+        var list = new CSharpList<Boolean>(items.length);
+        for (boolean item : items) list.add(item);
+        return list;
+    }
+
+    public static CSharpList<Byte> toList(byte... items) {
+        var list = new CSharpList<Byte>(items.length);
+        for (byte item : items) list.add(item);
+        return list;
+    }
+
+    public static CSharpList<Short> toList(short... items) {
+        var list = new CSharpList<Short>(items.length);
+        for (short item : items) list.add(item);
+        return list;
+    }
+
+    public static CSharpList<Character> toList(char... items) {
+        var list = new CSharpList<Character>(items.length);
+        for (char item : items) list.add(item);
+        return list;
+    }
+
     /**
      * Null-preserving, fixed-size list view backed by the source array.
      * Mirrors C# arrays exposed as IList<T>: indexed set writes through to the

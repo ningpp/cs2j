@@ -103,7 +103,7 @@ class CSharpHashtableTest {
         CSharpHashtable ht = new CSharpHashtable();
         ht.add("name", "Alice");
         ht.add("age", 30);
-        CSharpCollection keys = ht.getKeys();
+        CSharpICollection<?> keys = ht.getKeys();
         assertEquals(2, keys.getCount());
         // Verify keys by iterating
         java.util.List<Object> keyList = new java.util.ArrayList<>();
@@ -118,7 +118,7 @@ class CSharpHashtableTest {
         CSharpHashtable ht = new CSharpHashtable();
         ht.add("name", "Alice");
         ht.add("age", 30);
-        CSharpCollection values = ht.getValues();
+        CSharpICollection<?> values = ht.getValues();
         assertEquals(2, values.getCount());
         java.util.List<Object> valueList = new java.util.ArrayList<>();
         var en = values.iterator();
@@ -198,3 +198,4 @@ class CSharpHashtableTest {
         assertEquals(1, ht.getCount());
     }
 }
+

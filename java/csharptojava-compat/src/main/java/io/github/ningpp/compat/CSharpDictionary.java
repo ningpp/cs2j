@@ -34,6 +34,14 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         this.comparer = null;
     }
 
+    public CSharpDictionary(CSharpGenericIDictionary<? extends K, ? extends V> items) {
+        this.map = new LinkedHashMap<>();
+        for (CSharpKeyValuePair<? extends K, ? extends V> pair : items) {
+            this.map.put(pair.getKey(), pair.getValue());
+        }
+        this.comparer = null;
+    }
+
     public CSharpDictionary(CSharpGenericEqualityComparer<K> comparer) {
         this.map = new LinkedHashMap<>();
         this.comparer = comparer;
@@ -55,7 +63,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
-    public boolean containsKey(Object key) {
+    public boolean containsKey(K key) {
         return map.containsKey(key);
     }
 
@@ -112,6 +120,34 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         return map.size();
     }
 
+    @Override
+    public int size() {
+        return map.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return map.isEmpty();
+    }
+
+    @Override
+    public Object[] toArray() {
+        java.util.List<CSharpKeyValuePair<K, V>> list = new java.util.ArrayList<>();
+        for (CSharpKeyValuePair<K, V> pair : this) {
+            list.add(pair);
+        }
+        return list.toArray();
+    }
+
+    @Override
+    public <E> E[] toArray(E[] a) {
+        java.util.List<CSharpKeyValuePair<K, V>> list = new java.util.ArrayList<>();
+        for (CSharpKeyValuePair<K, V> pair : this) {
+            list.add(pair);
+        }
+        return list.toArray(a);
+    }
+
     // CSharpICollection<CSharpKeyValuePair<K, V>> methods
 
     @Override
@@ -156,8 +192,8 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         return new CSharpGenericIterableSet<>(map.keySet());
     }
 
-    public java.util.Collection<V> values() {
-        return map.values();
+    public CSharpGenericIterable<V> values() {
+        return CSharpGenericIterable.from(map.values());
     }
 
     /** Mirrors Dictionary&lt;TKey, TValue&gt;.Values.CopyTo(T[], int) — used by generated code. */
@@ -274,7 +310,9 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
         @Override
         public boolean contains(Object o) {
-            return dict.containsKey(o);
+            @SuppressWarnings("unchecked")
+            K key = (K) o;
+            return dict.containsKey(key);
         }
 
         @Override
