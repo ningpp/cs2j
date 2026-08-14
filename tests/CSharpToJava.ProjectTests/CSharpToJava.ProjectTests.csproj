@@ -56,4 +56,12 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Include SampleUnsignedSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleUnsignedSolution\**\*.*">
+      <Link>SampleUnsignedSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
