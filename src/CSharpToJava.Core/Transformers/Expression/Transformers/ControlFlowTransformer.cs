@@ -651,6 +651,14 @@ public class ControlFlowTransformer : IIRExpressionTransformer
     private static string ToRuntimeTypeForInstanceOf(string mappedType)
     {
         var stripped = ExpressionTransformerHelpers.StripTypeArguments(mappedType);
-        return ExpressionTransformerHelpers.BoxJavaPrimitiveType(stripped);
+        // Box floating-point patterns (instanceof double/float is a Java preview
+        // feature); keep other primitives as-is to preserve existing switch-pattern
+        // output (e.g. `o instanceof int i`).
+        return stripped switch
+        {
+            "double" => "Double",
+            "float" => "Float",
+            _ => stripped
+        };
     }
 }

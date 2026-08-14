@@ -34,7 +34,12 @@ public class PropertyTransformer : IMemberTransformer
         // Prefer the semantic symbol name: source text may contain an escape
         // sequence (e.g. `\u0467`) that must NOT leak into the Java identifier —
         // getter/setter call sites are built from the symbol's real characters.
-        var propName = ConversionContext.EscapeJavaKeyword(propertySymbol?.Name ?? propDecl.Identifier.Text);
+        // Explicit interface implementations report a qualified symbol name
+        // (e.g. IEntity.Name), so their Java accessor must use the syntax name.
+        var propName = ConversionContext.EscapeJavaKeyword(
+            propertySymbol is { ExplicitInterfaceImplementations.Length: > 0 }
+                ? propDecl.Identifier.Text
+                : (propertySymbol?.Name ?? propDecl.Identifier.Text));
         // Java targets disambiguate colliding auto-property backing names (e.g. explicit
         // field `myString` + property `MyString`) with a Value suffix; the TypeScript
         // property-reconstruction pass relies on the plain camelCase backing name.

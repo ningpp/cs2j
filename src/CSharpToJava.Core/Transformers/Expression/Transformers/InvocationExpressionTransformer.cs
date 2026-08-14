@@ -8049,7 +8049,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         }
         if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16)
         {
-            return $"{receiver}.mapToInt(Number::intValue).toArray()";
+            return $"{receiver}.mapToInt(Integer::intValue).toArray()";
         }
         if (specialType is SpecialType.System_Int64)
         {
@@ -8104,7 +8104,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"ArrayHelper.toByteArray({receiver}.stream().map(i -> (byte)((Number) i).intValue()).toArray(Byte[]::new))";
         }
         if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16)
-            return $"{receiver}.stream().mapToInt(Number::intValue).toArray()";
+            return $"{receiver}.stream().mapToInt(Integer::intValue).toArray()";
         if (specialType is SpecialType.System_Int64)
             return $"{receiver}.stream().mapToLong(Long::longValue).toArray()";
         if (specialType is SpecialType.System_Double or SpecialType.System_Single)
@@ -10996,15 +10996,25 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         HashSet<string>? activeChain)
     {
         var original = method.OriginalDefinition;
+        if (context.MethodClassTokenNeedCache.TryGetValue(original, out var cached))
+            return cached;
         if (ConversionContext.IsOverrideOrImplementation(original))
+        {
+            context.MethodClassTokenNeedCache[original] = false;
             return false;
+        }
         if (context.MethodHasClassParams(original))
+        {
+            context.MethodClassTokenNeedCache[original] = true;
             return true;
+        }
         var chain = activeChain != null
             ? new HashSet<string>(activeChain, StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);
         var detected = DetectDefaultUsageInMethod(original, context, chain);
-        return detected is { Count: > 0 };
+        var result = detected is { Count: > 0 };
+        context.MethodClassTokenNeedCache[original] = result;
+        return result;
     }
 
     private static bool TypeContainsTypeParameter(ITypeSymbol type, ITypeParameterSymbol typeParameter)

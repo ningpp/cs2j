@@ -145,6 +145,13 @@ public class ConversionContext
     /// </summary>
     public Dictionary<string, string> NestedTypeNameOverrides { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Memoizes MethodLikelyNeedsClassTokens results so dense generic call graphs
+    /// do not re-scan the same method bodies exponentially.
+    /// </summary>
+    public Dictionary<IMethodSymbol, bool> MethodClassTokenNeedCache { get; } =
+        new(SymbolEqualityComparer.Default);
+
     // ─── Hoisted Local Function Names ────────────────────────────────
 
     /// <summary>
