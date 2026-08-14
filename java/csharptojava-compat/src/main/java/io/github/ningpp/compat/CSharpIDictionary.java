@@ -10,8 +10,26 @@ public interface CSharpIDictionary extends CSharpCollection {
     boolean contains(Object key);
     boolean getIsFixedSize();
     boolean getIsReadOnly();
-    CSharpCollection getKeys();
-    CSharpCollection getValues();
+    /** Default implementations so converter-generated classes that emit getKeys()/
+     * getValues() returning a different collection shape still compile. */
+    default CSharpCollection getKeys() {
+        CSharpArrayList list = new CSharpArrayList();
+        for (Object item : this) {
+            if (item instanceof Map.Entry<?, ?> entry) {
+                list.add(entry.getKey());
+            }
+        }
+        return list;
+    }
+    default CSharpCollection getValues() {
+        CSharpArrayList list = new CSharpArrayList();
+        for (Object item : this) {
+            if (item instanceof Map.Entry<?, ?> entry) {
+                list.add(entry.getValue());
+            }
+        }
+        return list;
+    }
     void remove(Object key);
     Object get(Object key);
     Object put(Object key, Object value);

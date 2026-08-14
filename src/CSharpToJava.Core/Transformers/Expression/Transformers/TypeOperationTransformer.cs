@@ -1444,6 +1444,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 typeName = context.MapType(typeInfo.Type);
             }
         }
+        else if (typeInfo.Type is INamedTypeSymbol nestedRefType
+                 && nestedRefType.ContainingType is INamedTypeSymbol nestedRefParent
+                 && nestedRefType.TypeKind != TypeKind.Enum)
+        {
+            // Nested types must be referenced as Outer.Nested in Java class literals.
+            // The mapped name may carry the arity rename (_1tp) and/or a package
+            // prefix — strip both and rebuild the qualified reference.
+            typeName = BuildNestedJavaTypeReference(nestedRefType, context);
+        }
         else if (typeInfo.Type != null)
         {
             typeName = context.MapType(typeInfo.Type);
@@ -1782,6 +1791,25 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UInt16 or
             SpecialType.System_Byte or SpecialType.System_SByte or SpecialType.System_Char or
             SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
+    }
+
+    /// <summary>
+    /// Builds an Outer.Nested Java type reference for a C# nested type, honoring
+    /// arity renames (_1tp) by reading the mapped simple name at each level.
+    /// </summary>
+    private static string BuildNestedJavaTypeReference(INamedTypeSymbol type, ConversionContext context)
+    {
+        if (type.ContainingType is INamedTypeSymbol parent)
+        {
+            var mappedNested = context.MapType(type);
+            var dot = mappedNested.LastIndexOf('.');
+            var open = mappedNested.IndexOf('<');
+            var nestedSimple = open >= 0 ? mappedNested[..open] : mappedNested;
+            if (dot >= 0)
+                nestedSimple = nestedSimple[(dot + 1)..];
+            return $"{BuildNestedJavaTypeReference(parent, context)}.{nestedSimple}";
+        }
+        return context.GetJavaTopLevelTypeName(type);
     }
 
     private static string targetNameOf(string wrapperType)

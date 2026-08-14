@@ -28,6 +28,15 @@ public final class Activator {
     }
 
     public static Object createInstance(Class<?> type, Object... args) {
+        return createInstanceWithArgs(type, args);
+    }
+
+    /** C# Activator.CreateInstance(type, bindingAttr, binder, args, culture) — flags ignored. */
+    public static Object createInstance(Class<?> type, Object bindingAttr, Object binder, Object[] args, Object culture) {
+        return createInstanceWithArgs(type, args);
+    }
+
+    private static Object createInstanceWithArgs(Class<?> type, Object... args) {
         if (type == null) {
             throw new NullPointerException("type");
         }

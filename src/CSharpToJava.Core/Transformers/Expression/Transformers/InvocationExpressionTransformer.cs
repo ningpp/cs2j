@@ -231,6 +231,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Class<T> tokens can still be derived from the explicit type arguments and the
             // local function's own `is T` usage scan.
             classTokens ??= GetClassTokensForLocalFunctionCallSyntax(genericMethodName, context);
+            // Second fallback: forward-referenced generic methods (declaration converted
+            // after this call site). Concrete reference-type arguments still need their
+            // token — e.g. ReadCore<TValue>(...) / VerifyIgnore<T>(...) called before the
+            // declaration is converted. Primitives/arrays are excluded (runtime-array
+            // Class parameter machinery covers them).
+            classTokens ??= GetClassTokensFromExplicitTypeArguments(genericMethodName, context);
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
             args = PrependClassTypeTokens(args, classTokens);
             return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
@@ -4293,12 +4299,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         if (originalMethodName == "Insert"
-            && node.ArgumentList.Arguments.Count == 2
+            && node.ArgumentList.Arguments.Count is 2 or 3
             && methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"
             && IsSystemStringType(context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type))
         {
             var offsetArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            // C# Insert(int index, string value, int count) repeats the value count times.
+            if (node.ArgumentList.Arguments.Count == 3)
+            {
+                var countArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+                return $"{receiver}.insert({offsetArg}, {valueArg}.repeat({countArg}))";
+            }
             context.AddImport("io.github.ningpp.compat.StringHelper");
             return $"StringHelper.insert({receiver}, {offsetArg}, {valueArg})";
         }
@@ -4657,6 +4669,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         ? facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context)
                         : "null";
                     var refReaderClassLiteral = ConversionContext.GetClassLiteral(deserializeTargetType, context);
+                    System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg.txt",
+                        $"[DBG-refreader] target={deserializeTargetType?.ToDisplayString()} isTp={deserializeTargetType is ITypeParameterSymbol} literal={refReaderClassLiteral}\n");
+                    // Bare type-parameter reference (cached Class<?> field) cannot bind
+                    // Class<TValue> — widen through Class<?> with a typed cast.
+                    if (deserializeTargetType is ITypeParameterSymbol refReaderTypeParam
+                        && !refReaderClassLiteral.Contains('.')
+                        && !refReaderClassLiteral.EndsWith(".class", StringComparison.Ordinal)
+                        && !refReaderClassLiteral.EndsWith(")", StringComparison.Ordinal))
+                    {
+                        var refReaderTpJava = context.MapType(refReaderTypeParam);
+                        refReaderClassLiteral = $"((Class<{refReaderTpJava}>) (Class<?>) {refReaderClassLiteral})";
+                    }
                     return $"{receiver}.{methodName}({refReaderClassLiteral}, {refReaderHolder}, {refReaderOptions})";
                 }
 
@@ -4678,6 +4702,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // The converted JsonSerializer signature leads with the runtime Class
                 // (deserialize(Class<TValue>, String)), so the class comes first.
                 var deserializeClassLiteral = ConversionContext.GetClassLiteral(deserializeTargetType, context);
+                // A bare type-parameter reference (e.g. a cached Class<?> field) cannot
+                // bind Class<TValue> — widen through Class<?> with a typed cast so
+                // TValue inference succeeds at the call site.
+                if (deserializeTargetType is ITypeParameterSymbol deserializeTypeParam
+                    && !deserializeClassLiteral.Contains('.')
+                    && !deserializeClassLiteral.EndsWith(".class", StringComparison.Ordinal)
+                    && !deserializeClassLiteral.EndsWith(")", StringComparison.Ordinal))
+                {
+                    var deserializeTpJava = context.MapType(deserializeTypeParam);
+                    deserializeClassLiteral = $"((Class<{deserializeTpJava}>) (Class<?>) {deserializeClassLiteral})";
+                }
                 var deserializeCall = $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg})";
                 // Java cannot infer the return type from a Class literal, so every call
                 // resolves to Object. Cast to the mapped target type so `var` declarations
@@ -10503,10 +10538,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // A "null" Class token (type parameter degraded in override contexts) breaks
         // generic inference — cast it so the call compiles with an Object witness.
+        // A bare type-parameter reference (e.g. a cached Class<?> field) cannot bind
+        // Class<TValue> either; widen it through Class<?> the same way.
         var normalized = classTypeTokens
-            .Select(t => t == "null" ? "(Class<Object>) null" : t)
+            .Select(t => t == "null"
+                    ? "(Class<Object>) null"
+                    : (!t.Contains('.')
+                        && !t.EndsWith(".class", StringComparison.Ordinal)
+                        && !t.EndsWith(")", StringComparison.Ordinal)
+                        && !t.StartsWith("_cs2j_", StringComparison.Ordinal))
+                        ? $"((Class<Object>) (Class<?>) {t})"
+                        : t)
             .ToList();
         var prefix = string.Join(", ", normalized);
+        // Guard against double-prepend: some conversion paths transform the same
+        // call node twice, which would duplicate every token. Only match when the
+        // args START with the token list — substrings inside other arguments
+        // (e.g. TypeHelper.toWrapperType(_cs2j_TValue)) must not suppress the prepend.
+        if (!string.IsNullOrEmpty(args)
+            && (args == prefix || args.StartsWith(prefix + ", ", StringComparison.Ordinal)))
+        {
+            return args;
+        }
         return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
     }
 
@@ -10709,15 +10762,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
-    /// Fallback: derive runtime Class tokens directly from the call site's explicit
-    /// type arguments (e.g. RunTestAsync&lt;Parameterized_IndexViewModel_Immutable&gt;(...)
-    /// → Parameterized_IndexViewModel_Immutable.class). Used when the method's Class&lt;T&gt;
-    /// registration never reached this call site (e.g. hoisted local functions).
+    /// Fallback: derive runtime Class tokens from the call site's explicit type
+    /// arguments (e.g. ReadCore&lt;TValue&gt;(...) / VerifyIgnore&lt;T&gt;(...)).
+    /// Only concrete reference types qualify — primitives and arrays are covered by
+    /// the runtime-array Class parameter machinery and must not get a token here.
     /// </summary>
     private static List<string>? GetClassTokensFromExplicitTypeArguments(
         GenericNameSyntax genericName,
         ConversionContext context)
     {
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            return null;
         if (genericName.TypeArgumentList.Arguments.Count == 0)
             return null;
 
@@ -10730,6 +10785,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 typeArgSymbol = context.GetTypeInfo(typeArgSyntax).Type;
             }
             if (typeArgSymbol == null || typeArgSymbol is IErrorTypeSymbol)
+                return null;
+            if (typeArgSymbol is IArrayTypeSymbol
+                || typeArgSymbol is ITypeParameterSymbol)
+            {
+                return null;
+            }
+            if (typeArgSymbol.SpecialType is not SpecialType.None)
                 return null;
             tokens.Add(ConversionContext.GetClassLiteral(typeArgSymbol, context));
         }

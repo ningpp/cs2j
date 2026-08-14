@@ -14,4 +14,9 @@ public final class Activator {
     public static Object createInstance(Class<?> type, Object... args) {
         return io.github.ningpp.compat.Activator.createInstance(type, args);
     }
+
+    /** C# Activator.CreateInstance(type, bindingAttr, binder, args, culture) — flags ignored. */
+    public static Object createInstance(Class<?> type, Object bindingAttr, Object binder, Object[] args, Object culture) {
+        return io.github.ningpp.compat.Activator.createInstance(type, args);
+    }
 }

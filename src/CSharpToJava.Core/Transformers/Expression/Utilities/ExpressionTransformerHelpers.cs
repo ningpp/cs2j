@@ -146,6 +146,17 @@ public static class ExpressionTransformerHelpers
         var sourceJavaType = context.MapType(sourceType);
         var targetJavaType = context.MapType(targetType);
 
+        // java.util.Set/Collection results (e.g. dict.keySet()) assigned to a
+        // CSharpICollection target need the compat adapter wrapper.
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && targetJavaType.StartsWith("CSharpICollection", StringComparison.Ordinal)
+            && (transformedExpression.Trim().EndsWith(".keySet()", StringComparison.Ordinal)
+                || transformedExpression.Trim().EndsWith(".values()", StringComparison.Ordinal)))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpICollection");
+            return $"(({targetJavaType}) (CSharpICollection<?>) CSharpICollection.from({transformedExpression}))";
+        }
+
         // Generic-method results lose their type argument in Java (e.g. a C# generic
         // helper returning T resolves to Object at the call site). When the semantic
         // source is System.Object but the assignment/argument target is a concrete

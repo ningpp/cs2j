@@ -15,6 +15,18 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
         this.items = new LinkedHashMap<>();
     }
 
+    /** C# ImmutableDictionary.Create<K,V>() — an empty dictionary. */
+    public static <K, V> ImmutableDictionary<K, V> create() {
+        return new ImmutableDictionary<>();
+    }
+
+    /** C# ImmutableDictionary<K,V>.Add(key, value) — returns a new dictionary. */
+    public ImmutableDictionary<K, V> add(K key, V value) {
+        Map<K, V> copy = new LinkedHashMap<>(items);
+        copy.put(key, value);
+        return new ImmutableDictionary<>(copy);
+    }
+
     private ImmutableDictionary(Map<K, V> items) {
         this.items = items;
     }

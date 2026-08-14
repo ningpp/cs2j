@@ -313,7 +313,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Check if there's a collection initializer
         if (node.Initializer != null && node.Initializer.Kind() == SyntaxKind.CollectionInitializerExpression)
         {
-            return TransformCollectionCreationWithInitializer(typeName, node.Initializer, createdTypeSymbol, context);
+            return TransformCollectionCreationWithInitializer(typeName, node.Initializer, createdTypeSymbol, context, node);
         }
 
         // Delegate construction (new D(expr)) should become a functional value in Java,
@@ -2400,7 +2400,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         string typeName,
         InitializerExpressionSyntax initializer,
         ITypeSymbol? createdTypeSymbol,
-        ConversionContext context)
+        ConversionContext context,
+        ObjectCreationExpressionSyntax? ownerNode = null)
     {
         var facade = ExpressionTransformerFacade.Instance;
         INamedTypeSymbol? namedCreatedType = createdTypeSymbol as INamedTypeSymbol;
@@ -2420,6 +2421,34 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         if (isDictionaryLike)
         {
+            // Field/property initializers have no statement list to drain pre-statements
+            // into (and project-mode constructors may already be converted), so inline
+            // the map construction via MapHelper.mapOf(key, value, ...).
+            ExpressionSyntax inlineCtxExpr = ownerNode != null ? ownerNode : (ExpressionSyntax)initializer;
+            if (IsFieldOrPropertyInitializerContext(inlineCtxExpr)
+                && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+            {
+                var inlinePairs = new List<string>();
+                foreach (var element in initializer.Expressions)
+                {
+                    if (element is InitializerExpressionSyntax complexInit && complexInit.Expressions.Count == 2)
+                    {
+                        var key = facade.Transform(complexInit.Expressions[0], context);
+                        var value = facade.Transform(complexInit.Expressions[1], context);
+                        key = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[0], key, keyType, context);
+                        value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[1], value, valueType, context);
+                        inlinePairs.Add(key);
+                        inlinePairs.Add(value);
+                    }
+                }
+                if (inlinePairs.Count > 0)
+                {
+                    context.AddImport("io.github.ningpp.compat.MapHelper");
+                    return $"new {typeName}(MapHelper.mapOf({string.Join(", ", inlinePairs)}))";
+                }
+                return $"new {typeName}()";
+            }
+
             string tmpVar = context.GenerateSyntheticName("_map");
             if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
             {
@@ -2679,5 +2708,37 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         return elementSymbol?.SpecialType == SpecialType.System_Byte
             ? "byte"
             : context.MapTypeFromSyntax(elementTypeSyntax);
+    }
+
+    /// <summary>
+    /// True when the node sits in a field or property initializer (EqualsValueClause
+    /// directly under a field/property declaration), where pre-statement machinery
+    /// cannot run.
+    /// </summary>
+    private static bool IsFieldOrPropertyInitializerContext(ExpressionSyntax node)
+    {
+        var current = node.Parent;
+        while (current != null)
+        {
+            if (current is EqualsValueClauseSyntax)
+            {
+                // Property initializer: EqualsValueClause hangs directly off the property.
+                if (current.Parent is PropertyDeclarationSyntax)
+                    return true;
+                return current.Parent is VariableDeclaratorSyntax varDecl
+                    && (varDecl.Parent is FieldDeclarationSyntax
+                        || varDecl.Parent is PropertyDeclarationSyntax);
+            }
+            if (current is StatementSyntax
+                or MethodDeclarationSyntax
+                or ConstructorDeclarationSyntax
+                or AccessorDeclarationSyntax
+                or LocalFunctionStatementSyntax)
+            {
+                return false;
+            }
+            current = current.Parent;
+        }
+        return false;
     }
 }

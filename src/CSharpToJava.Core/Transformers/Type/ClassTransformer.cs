@@ -431,6 +431,7 @@ public class ClassTransformer : ITypeTransformer
         AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
+        FixCollectionAddReturnType(javaClass);
         ResolveReadOnlyDictListConflict(javaClass, context);
         InjectMSTestExtensionIfNeeded(javaClass, context);
         ReorderStaticFieldsByDependency(javaClass);
@@ -440,6 +441,46 @@ public class ClassTransformer : ITypeTransformer
         context.LeaveType();
 
         return javaClass;
+    }
+
+    /// <summary>
+    /// C# ICollection&lt;T&gt;.Add returns void, but the compat CSharpICollection
+    /// (extending java.util.Collection) requires boolean add(T). Converter-generated
+    /// classes implementing the dictionary/collection interfaces emit void add(T),
+    /// which cannot override the interface default — flip the return type to boolean
+    /// and append a trailing return true.
+    /// </summary>
+    private static void FixCollectionAddReturnType(JavaClassDeclaration javaClass)
+    {
+        bool implementsCollection = javaClass.ImplementedTypes.Any(t =>
+            t == "CSharpICollection"
+            || t.StartsWith("CSharpICollection<", StringComparison.Ordinal)
+            || t.StartsWith("CSharpGenericIDictionary<", StringComparison.Ordinal)
+            || t.StartsWith("CSharpIDictionary", StringComparison.Ordinal));
+        if (!implementsCollection)
+            return;
+
+        foreach (var method in javaClass.Methods)
+        {
+            if (method.Name != "add" || method.ReturnType != "void" || method.Parameters.Count != 1)
+                continue;
+            System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg.txt",
+                $"[DBG-addfix] class={javaClass.Name} impl={string.Join(",", javaClass.ImplementedTypes)}\n");
+            method.ReturnType = "boolean";
+            if (method.StructuredBody != null)
+            {
+                method.StructuredBody.Statements.Add(new Java.JavaRawStatement("return true;"));
+            }
+            else if (!string.IsNullOrWhiteSpace(method.Body)
+                && !method.Body.Trim().StartsWith("return ", StringComparison.Ordinal))
+            {
+                method.Body = method.Body.TrimEnd(';', ' ', '\t', '\r', '\n') + ";\nreturn true;";
+            }
+            else if (string.IsNullOrWhiteSpace(method.Body))
+            {
+                method.Body = "return true;";
+            }
+        }
     }
 
     /// <summary>
@@ -837,6 +878,7 @@ public class ClassTransformer : ITypeTransformer
         AddComparableBridgeMethods(javaClass);
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
+        FixCollectionAddReturnType(javaClass);
         ResolveReadOnlyDictListConflict(javaClass, context);
 
         // static class → private no-arg constructor to prevent instantiation (Java has no static class keyword)
@@ -1208,7 +1250,15 @@ public class ClassTransformer : ITypeTransformer
                             var methodName = $"_cs2jDefault_{typeParam.Name}";
                             var javaType = context.MapType(namedArg);
                             if (!factoryOverrides.Any(f => f.MethodName == methodName))
-                                factoryOverrides.Add((methodName, javaType, $"return new {javaType}();"));
+                            {
+                                // vavr TupleN has no no-arg constructor — null compiles
+                                // and preserves the reference-default semantics.
+                                var factoryBody = javaType.StartsWith("Tuple", StringComparison.Ordinal)
+                                    && javaType.Contains('<')
+                                    ? "return null;"
+                                    : $"return new {javaType}();";
+                                factoryOverrides.Add((methodName, javaType, factoryBody));
+                            }
                         }
                     }
                 }
@@ -4004,6 +4054,9 @@ public class ClassTransformer : ITypeTransformer
                 else if (props is JavaFieldDeclaration jf)
                 {
                     javaClass.Fields.Add(jf);
+                    // Drain pre-statements from the property initializer (backing field
+                    // initializer may lower to a temp + field reference, e.g. _map6).
+                    StructTransformer.DrainFieldPreStatementsPublic(jf, javaClass, context);
                 }
                 else if (props is JavaMethodDeclaration jm)
                 {

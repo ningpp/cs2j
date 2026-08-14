@@ -805,10 +805,16 @@ internal static class RuntimeClassParameterHelper
         ConversionContext context,
         bool preferPrimitiveClassLiteral)
     {
-        if (runtimeType is ITypeParameterSymbol typeParameter
-            && context.TryGetRuntimeClassParameter(typeParameter.Name, out var runtimeClassParameter))
+        if (runtimeType is ITypeParameterSymbol typeParameter)
         {
-            return runtimeClassParameter;
+            if (context.TryGetRuntimeClassParameter(typeParameter.Name, out var runtimeClassParameter))
+            {
+                return runtimeClassParameter;
+            }
+            // No runtime Class token available (e.g. the type parameter only feeds a
+            // base constructor) — widen through null so super(...) still compiles.
+            // T.class is illegal Java.
+            return $"((Class<{typeParameter.Name}>) (Class<?>) null)";
         }
 
         if (preferPrimitiveClassLiteral)

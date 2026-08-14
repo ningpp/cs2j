@@ -661,6 +661,13 @@ public final class Assert {
         }
     }
 
+    // xunit Assert.NotEmpty(string)
+    public static void notEmpty(String value) {
+        if (value == null || value.length() == 0) {
+            throw new AssertionError("Assert.notEmpty() failure: String was empty");
+        }
+    }
+
     // ── NotEqual ─────────────────────────────────────────────────────
     // Reflection: void NotEqual<T>(T expected, T actual)
     //            void NotEqual<T>(T expected, T actual, IEqualityComparer<T> comparer)

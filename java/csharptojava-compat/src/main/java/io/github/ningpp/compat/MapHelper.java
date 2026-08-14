@@ -17,8 +17,20 @@ public class MapHelper {
      * Put a key-value pair into the map and return the <em>inserted</em> value,
      * matching C# {@code dict[key] = value} expression semantics.
      */
-    public static <K, V> V putValue(Map<K, V> map, K key, V value) {
-        map.put(key, value);
+    /** Builds a LinkedHashMap from alternating key/value pairs (field-initializer use). */
+    public static <K, V> java.util.LinkedHashMap<K, V> mapOf(Object... keyValues) {
+        java.util.LinkedHashMap<K, V> map = new java.util.LinkedHashMap<>();
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            @SuppressWarnings("unchecked")
+            K key = (K) keyValues[i];
+            @SuppressWarnings("unchecked")
+            V value = (V) keyValues[i + 1];
+            map.put(key, value);
+        }
+        return map;
+    }
+
+    public static <K, V> V putValue(Map<K, V> map, K key, V value) {        map.put(key, value);
         return value;
     }
 
