@@ -489,11 +489,16 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             bool rightIsUInt = rightType?.SpecialType == SpecialType.System_UInt32;
             bool leftIsULong = leftType?.SpecialType == SpecialType.System_UInt64;
             bool rightIsULong = rightType?.SpecialType == SpecialType.System_UInt64;
+            bool leftIsInt64 = leftType?.SpecialType == SpecialType.System_Int64;
+            bool rightIsInt64 = rightType?.SpecialType == SpecialType.System_Int64;
             // C# (uint)ch - 'A' promotes to long (uint op char), hiding the UInt32 type
             // from the semantic model — but the emitted chain still carries the uint mask
             // (e.g. RegexCharClass.IsECMAWordChar's letter check). The wrap-around happens
             // inside the uint subtraction, so the comparison must stay unsigned.
-            if (leftIsUInt || rightIsUInt || leftIsULong || rightIsULong)
+            // A long operand mixed with uint promotes to SIGNED long in C#, so the
+            // plain comparison applies there, not compareUnsigned.
+            bool mixedSignedLong = (leftIsUInt && rightIsInt64) || (rightIsUInt && leftIsInt64);
+            if ((leftIsUInt || rightIsUInt || leftIsULong || rightIsULong) && !mixedSignedLong)
             {
                 var leftExpr = facade.Transform(node.Left, context);
                 var rightExpr = facade.Transform(node.Right, context);

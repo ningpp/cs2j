@@ -36,6 +36,64 @@ public class JavaScriptEncoder {
         return new JavaScriptEncoder(true, allowedRanges);
     }
 
+    /** Mirrors JavaScriptEncoder.Create(TextEncoderSettings settings). */
+    public static JavaScriptEncoder create(TextEncoderSettings settings) {
+        if (settings == null) {
+            throw new NullPointerException("settings");
+        }
+        return new JavaScriptEncoder(true, null);
+    }
+
+    /** Protected no-arg constructor for test subclasses (e.g. CustomEncoderAllowingPlusSign). */
+    protected JavaScriptEncoder() {
+        this(true, null);
+    }
+
+    /** C# JavaScriptEncoder.WillEncode(int) — whether the given Unicode scalar requires escaping. */
+    public boolean willEncode(int unicodeScalar) {
+        if (unicodeScalar < 0x20 || unicodeScalar == '"' || unicodeScalar == '\\') {
+            return true;
+        }
+        if (escapeNonAscii && unicodeScalar >= 0x7F) {
+            if (allowedRanges != null) {
+                for (UnicodeRange range : allowedRanges) {
+                    if (range != null && range.contains(unicodeScalar)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /** C# JavaScriptEncoder.MaxOutputCharactersPerInputCharacter. */
+    public int getMaxOutputCharactersPerInputCharacter() {
+        return 6;
+    }
+
+    /**
+     * C# JavaScriptEncoder.TryEncodeUnicodeScalar(int, Span&lt;byte&gt;, out int) —
+     * writes the escaped UTF-16 text into the buffer segment.
+     */
+    public boolean tryEncodeUnicodeScalar(int unicodeScalar, MemorySegment buffer, int bufferLength,
+                                          IntHolder numberOfCharactersWritten) {
+        String text;
+        if (willEncode(unicodeScalar)) {
+            text = "\\u" + String.format("%04x", unicodeScalar);
+        } else {
+            text = String.valueOf(Character.toChars(unicodeScalar));
+        }
+        if (bufferLength < text.length()) {
+            return false;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            buffer.set(ValueLayout.JAVA_CHAR, (long) i * 2, text.charAt(i));
+        }
+        numberOfCharactersWritten.value = text.length();
+        return true;
+    }
+
     /**
      * Mirrors JavaScriptEncoder.FindFirstCharacterToEncodeUtf8(ReadOnlySpan&lt;byte&gt;).
      * Returns the index of the first byte that requires escaping, or -1.

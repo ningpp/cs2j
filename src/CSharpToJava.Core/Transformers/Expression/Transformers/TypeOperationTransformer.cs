@@ -230,6 +230,47 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             targetType = context.MapTypeFromSyntax(node.Type);
         }
 
+        // Casts to the non-generic System.Collections.IList surface must use
+        // CSharpIList (int Add/void Remove), not CSharpGenericIList (boolean
+        // add/remove); generic lists are bridged through CSharpIList.from below.
+        if (targetSymbol?.ToDisplayString() == "System.Collections.IList")
+        {
+            targetType = "CSharpIList";
+        }
+
+        // Non-generic collection-interface casts: CSharpDictionary /
+        // CSharpGenericIDictionary do not implement CSharpIDictionary, and
+        // CSharpList / CSharpGenericIList do not implement CSharpIList. C# permits
+        // these casts (List<T> → IList, Dictionary<K,V> → IDictionary), so bridge
+        // through the compat adapters instead of emitting an invalid direct cast.
+        if (targetType == "CSharpIDictionary")
+        {
+            var sourceJavaType = context.GetTypeInfo(node.Expression).Type is { } dictSrcSym
+                ? context.MapType(dictSrcSym)
+                : null;
+            if (sourceJavaType != null
+                && (sourceJavaType.StartsWith("CSharpDictionary", StringComparison.Ordinal)
+                    || sourceJavaType.StartsWith("CSharpGenericIDictionary", StringComparison.Ordinal)))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+                return $"CSharpIDictionary.from({expression})";
+            }
+        }
+        if (targetType == "CSharpIList")
+        {
+            var sourceJavaType = context.GetTypeInfo(node.Expression).Type is { } listSrcSym
+                ? context.MapType(listSrcSym)
+                : null;
+            if (sourceJavaType != null
+                && (sourceJavaType.StartsWith("CSharpList", StringComparison.Ordinal)
+                    || sourceJavaType.StartsWith("CSharpGenericIList", StringComparison.Ordinal)
+                    || sourceJavaType.StartsWith("CSharpArrayList", StringComparison.Ordinal)))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpIList");
+                return $"CSharpIList.from({expression})";
+            }
+        }
+
         if (targetSymbol?.SpecialType == SpecialType.System_Decimal)
         {
             context.AddImport("io.github.ningpp.compat.Decimal");
@@ -667,6 +708,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 if (javaTargetType.Contains('<')
                     && ExpressionTransformerHelpers.IsCompatMemorySpanFamily(javaTargetType))
                 {
+                    if (expression.Trim() == "null")
+                    {
+                        var spanElemType = javaTargetType[(javaTargetType.IndexOf('<') + 1)..^1];
+                        return $"new {javaTargetType}(({spanElemType}[]) null)";
+                    }
                     return $"new {javaTargetType}({expression})";
                 }
 
@@ -1696,10 +1742,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     }
 
                     var method = typeParam.DeclaringMethod;
-                    context.RequireClassTypeParam(
-                        containingType.MetadataName,
-                        method.ToDisplayString(),
-                        typeParam.Name);
+                    context.RequireClassTypeParam(method, typeParam.Name);
                     context.AddImport("io.github.ningpp.compat.DefaultValue");
                     return $"DefaultValue.of(_cs2j_{typeParam.Name})";
                 }

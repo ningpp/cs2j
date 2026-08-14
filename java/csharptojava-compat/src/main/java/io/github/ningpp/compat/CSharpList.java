@@ -123,6 +123,15 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         for (T item : arr) add(item);
     }
 
+    /** C# List&lt;byte&gt;.AddRange(byte[]) — boxes each byte as Integer. */
+    public void addRange(byte[] arr) {
+        for (byte item : arr) {
+            @SuppressWarnings("unchecked")
+            T boxed = (T) Integer.valueOf(item & 0xFF);
+            add(boxed);
+        }
+    }
+
     public CSharpReadOnlyList<T> asReadOnly() {
         return new CSharpReadOnlyList<T>() {
             private final CSharpList<T> source = CSharpList.this;

@@ -433,7 +433,7 @@ public static class ExpressionTransformerHelpers
             {
                 return transformedExpression.Replace(
                     ".toArray()",
-                    ".stream().mapToInt(Integer::intValue).toArray()",
+                    ".stream().mapToInt(Number::intValue).toArray()",
                     StringComparison.Ordinal);
             }
             if (elementType.SpecialType == SpecialType.System_Int64)
@@ -531,7 +531,25 @@ public static class ExpressionTransformerHelpers
                 && transformedExpression.Trim() is string uintExpr)
             {
                 var uintTrimmed = uintExpr.TrimEnd('L');
-                if (long.TryParse(uintTrimmed, out var uintLongValue) && uintLongValue > int.MaxValue)
+                var uintNormalized = uintTrimmed.Replace("_", "", System.StringComparison.Ordinal);
+                if (uintNormalized.StartsWith("0x", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    if (long.TryParse(
+                            uintNormalized[2..],
+                            System.Globalization.NumberStyles.HexNumber,
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            out var uintHexValue)
+                        && uintHexValue > int.MaxValue)
+                    {
+                        return $"(int) {uintTrimmed}L";
+                    }
+                }
+                else if (long.TryParse(
+                             uintNormalized,
+                             System.Globalization.NumberStyles.Integer,
+                             System.Globalization.CultureInfo.InvariantCulture,
+                             out var uintLongValue)
+                         && uintLongValue > int.MaxValue)
                 {
                     return $"(int) {uintLongValue}L";
                 }
@@ -615,6 +633,22 @@ public static class ExpressionTransformerHelpers
                 return $"Number({transformedExpression})";
             }
             return transformedExpression;
+        }
+
+        // C# int/byte/short/char → long widening: Java requires an explicit L suffix
+        // for integer literals or a cast for general expressions.
+        if (targetSpecial is SpecialType.System_Int64 or SpecialType.System_UInt64
+            && sourceSpecial is SpecialType.System_Int32 or SpecialType.System_Int16
+                or SpecialType.System_Byte or SpecialType.System_SByte
+                or SpecialType.System_Char)
+        {
+            var widenedTrim = transformedExpression.Trim().TrimEnd('L');
+            if (System.Text.RegularExpressions.Regex.IsMatch(
+                    widenedTrim, @"^-?\d+$|^0[xX][0-9a-fA-F]+$"))
+            {
+                return widenedTrim + "L";
+            }
+            return $"(long)({transformedExpression})";
         }
 
         // Both source and target are C# byte: source may originate from a Java byte[]
@@ -1159,6 +1193,35 @@ public static class ExpressionTransformerHelpers
             "decimal" => "Decimal",
             _ => javaType
         };
+    }
+
+    /// <summary>
+    /// Wraps a Java array expression for an IEnumerable / IEnumerable&lt;T&gt;
+    /// target (CSharpGenericIterable): Java arrays do not implement the compat
+    /// iterable. Used by field/property initializers and field/property
+    /// assignments (NOT method arguments, where the argument transformer has its
+    /// own, narrower rules).
+    /// </summary>
+    public static string WrapArrayForIterableTarget(
+        INamedTypeSymbol targetType,
+        string rhs,
+        ConversionContext context)
+    {
+        var display = targetType.OriginalDefinition?.ToDisplayString();
+        if (display != "System.Collections.Generic.IEnumerable<T>"
+            && targetType.ToDisplayString() != "System.Collections.IEnumerable")
+        {
+            return rhs;
+        }
+
+        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+        if (targetType.TypeArguments.Length == 1)
+        {
+            var elemJava = context.MapType(targetType.TypeArguments[0]);
+            context.AddImport("io.github.ningpp.compat.CSharpList");
+            return $"new CSharpList<{elemJava}>(ArrayHelper.toList({rhs}))";
+        }
+        return $"ArrayHelper.toList({rhs})";
     }
 
     /// <summary>

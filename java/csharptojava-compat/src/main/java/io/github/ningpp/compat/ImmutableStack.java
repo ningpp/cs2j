@@ -64,6 +64,11 @@ public class ImmutableStack<T> implements IImmutableStack<T> {
         return items.isEmpty();
     }
 
+    /** C# ImmutableStack&lt;T&gt;.IsEmpty. */
+    public boolean getIsEmpty() {
+        return items.isEmpty();
+    }
+
     public T peek() {
         return items.peekFirst();
     }

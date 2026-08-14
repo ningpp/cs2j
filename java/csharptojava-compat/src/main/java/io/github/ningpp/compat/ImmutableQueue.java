@@ -17,6 +17,11 @@ public class ImmutableQueue<T> implements IImmutableQueue<T> {
         this.items = items;
     }
 
+    /** C# ImmutableQueue.Create&lt;T&gt;() — an empty immutable queue. */
+    public static <T> ImmutableQueue<T> create() {
+        return new ImmutableQueue<>();
+    }
+
     public static <T> ImmutableQueue<T> createRange(Iterable<T> source) {
         Deque<T> queue = new ArrayDeque<>();
         for (T item : source) {
@@ -45,8 +50,18 @@ public class ImmutableQueue<T> implements IImmutableQueue<T> {
         return items.isEmpty();
     }
 
+    /** C# ImmutableQueue&lt;T&gt;.IsEmpty. */
+    public boolean getIsEmpty() {
+        return items.isEmpty();
+    }
+
     public T peek() {
         return items.peekFirst();
+    }
+
+    /** C# ImmutableQueue&lt;T&gt;.Clear() — returns an empty queue. */
+    public ImmutableQueue<T> clear() {
+        return new ImmutableQueue<>();
     }
 
     public ImmutableQueue<T> dequeue() {

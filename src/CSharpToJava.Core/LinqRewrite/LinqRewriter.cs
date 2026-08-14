@@ -186,7 +186,10 @@ namespace CSharpToJava.Core.LinqRewrite
                 }
                 else if (owner is ConstructorDeclarationSyntax ctorDecl)
                 {
-                    currentMethodIsStatic = false;
+                    // C# static constructors have no separate syntax node — the
+                    // constructor declaration carries the static modifier. Helpers
+                    // extracted from their bodies must still be static.
+                    currentMethodIsStatic = ctorDecl.Modifiers.Any(SyntaxKind.StaticKeyword);
                     currentMethodName = ctorDecl.Identifier.Text;
                 }
                 else if (owner is AccessorDeclarationSyntax accessor)

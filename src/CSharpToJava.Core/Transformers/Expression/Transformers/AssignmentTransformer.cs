@@ -599,7 +599,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     return $"ExceptionCompat.setSource({receiver}, {right})";
                 }
 
-                string setter = "set" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
+                string setter = GetPropertySetterName(prop);
                 return $"{receiver}.{setter}({right})";
             }
         }
@@ -885,7 +885,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     return $"this.{fieldName} = {right}";
                 }
 
-                string setter = "set" + char.ToUpperInvariant(bareIdentProp.Name[0]) + bareIdentProp.Name[1..];
+                string setter = GetPropertySetterName(bareIdentProp);
                 return $"{setter}({right})";
             }
         }
@@ -934,7 +934,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
             if (!fix5IsUserDefined && context.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundProp)
             {
                 var getter = "get" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
-                var setter = "set" + char.ToUpperInvariant(compoundProp.Name[0]) + compoundProp.Name[1..];
+                var setter = GetPropertySetterName(compoundProp);
                 // StringBuilder.Length: getter is length(), setter is setLength()
                 if (compoundProp.Name == "Length"
                     && compoundProp.ContainingType?.ToDisplayString() == "System.Text.StringBuilder")
@@ -996,7 +996,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
             if (!fix6IsUserDefined && context.GetSymbolInfo(leftNode).Symbol is IPropertySymbol compoundIdentProp)
             {
                 var getter = "get" + char.ToUpperInvariant(compoundIdentProp.Name[0]) + compoundIdentProp.Name[1..];
-                var setter = "set" + char.ToUpperInvariant(compoundIdentProp.Name[0]) + compoundIdentProp.Name[1..];
+                var setter = GetPropertySetterName(compoundIdentProp);
                 var rhs = facade.Transform(rightNode, context);
                 string baseOp = op[..^1];
                 if (ExpressionTransformerHelpers.IsDecimalType(compoundIdentProp.Type)
@@ -1321,6 +1321,28 @@ public class AssignmentTransformer : IIRExpressionTransformer
                         else
                             return $"{left} = CSharpICollection.from({rightStr})";
                     }
+                }
+            }
+        }
+
+        // Wrap array RHS assigned to IEnumerable / IEnumerable<T> fields, locals,
+        // and parameters (CSharpGenericIterable): Java arrays are not iterables.
+        if (op == "=" && context.SemanticModel != null)
+        {
+            var iterableLeftSymbol = context.GetSymbolInfo(leftNode).Symbol;
+            if (iterableLeftSymbol is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            {
+                var iterableLeftType = context.GetTypeInfo(leftNode).ConvertedType
+                    ?? context.GetTypeInfo(leftNode).Type;
+                if (iterableLeftType is INamedTypeSymbol iterableLeftNamed
+                    && (iterableLeftNamed.OriginalDefinition?.ToDisplayString()
+                            == "System.Collections.Generic.IEnumerable<T>"
+                        || iterableLeftNamed.ToDisplayString() == "System.Collections.IEnumerable")
+                    && context.GetTypeInfo(rightNode).Type is IArrayTypeSymbol)
+                {
+                    rightStr = ExpressionTransformerHelpers.WrapArrayForIterableTarget(
+                        iterableLeftNamed, rightStr, context);
+                    return $"{left} = {rightStr}";
                 }
             }
         }
@@ -1723,6 +1745,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
         return HasInstanceProperty(receiverType, propertyName);
     }
 
+    private static string GetPropertySetterName(IPropertySymbol prop)
+    {
+        var name = "set" + char.ToUpperInvariant(prop.Name[0]) + prop.Name[1..];
+        if (JavaNaming.IsIncompatibleTypeHidingProperty(prop))
+            name += "_newSlot";
+        return name;
+    }
+
     private static bool HasInstanceProperty(ITypeSymbol type, string name)
         => EnumerateTypeHierarchy(type)
             .SelectMany(t => t.GetMembers(name))
@@ -1995,7 +2025,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
             {
                 var tmpName = HoistChainedPropertyAssignment(assign.Right, context);
                 var receiver = facade.Transform(ma.Expression, context);
-                string setter = "set" + char.ToUpperInvariant(maProp.Name[0]) + maProp.Name[1..];
+                string setter = GetPropertySetterName(maProp);
                 context.AddPreStatement($"{receiver}.{setter}({tmpName})");
                 return tmpName;
             }

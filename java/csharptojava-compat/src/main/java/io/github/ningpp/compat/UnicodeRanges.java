@@ -12,6 +12,11 @@ public final class UnicodeRanges {
         return UnicodeRange.create('\u0080', '\u00FF');
     }
 
+    /** Mirrors UnicodeRanges.BasicLatin. */
+    public static UnicodeRange getBasicLatin() {
+        return UnicodeRange.create('\u0000', '\u007F');
+    }
+
     /** Mirrors UnicodeRanges.All — the full range of code points. */
     public static UnicodeRange[] getAll() {
         return new UnicodeRange[] { UnicodeRange.create('\u0000', '\uFFFF') };

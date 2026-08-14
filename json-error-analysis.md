@@ -746,3 +746,18 @@
 - **根因分类**: Transformer（Span ToArray 的 toXxxArray 映射只覆盖实例方法，未覆盖扩展方法绑定）
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（第 2691-2710 行）
 - **分析**: C# 的 `Span<byte>` 没有实例 ToArray，`.ToArray()` 绑定到 `MemoryExtensions.ToArray<T>(this ReadOnlySpan<T>)` 扩展方法（隐式转换）。转换器 2691 行的 span→toXxxArray 分支要求 `IsExtensionMethod: false`，扩展形式落入 6409 行的通用回退 `{receiver}.toArray()` → compat 的 `ReadOnlySpan<Integer>.toArray()` 返回 Integer[]，赋给 byte[] 失败。修复：同一分支接受"首参数为 ReadOnlySpan<T>/ReadOnlyMemory<T> 的扩展方法"形态，按元素类型发射 `toByteArray()` 等。
+
+## Iteration 29-57 — json814 编译错误清零（1280 → 0 javac 错误）
+- **范围**: `d:\csharpjson` → `d:\cs-json-814` 全部编译错误（原 123 个 issue / 1280 条，随修复动态变化至 674 → 380 → 350 → 290 → 168 → 98 → 22 → 0）
+- **根因分类**: 转换器 + compat 库混合修复。主要修复点：
+  1. 局部函数调用点名称查注册表未归一化构造符号（`OriginalDefinition`）——同名泛型局部函数提升名在调用点丢失。
+  2. 局部函数 Class<T> 令牌注册键未区分同名局部函数（改为按提升后唯一 Java 名键控）；前向引用令牌按声明顺序排序；override/接口实现不注入 Class 参数；泛型实参令牌在实参 Java 类型精确匹配时用参数化强转。
+  3. 非泛型 IList/IDictionary 实现映射到非泛型 CSharpIList/CSharpIDictionary，并新增 `CSharpIList.from(...)` 适配器与强转桥接；迭代器返回类型升级覆盖 CSharpDictEnumerator。
+  4. 属性 getter/setter 优先使用语义符号名（转义标识符 \u0467）；`new` 隐藏属性返回类型不兼容时重命名 `_newSlot` 并注解 `@CompatPropertyName`。
+  5. 字段/属性初始化器多语句提升到构造器/静态块；using 资源与对象初始化器预语句顺序修正；属性 getter 内局部函数提升。
+  6. 静态构造函数中 LINQ 辅助方法生成 static；数组→IEnumerable 字段/赋值包装；byte 流 ToArray 产出 byte[]；uint 十六进制/下划线字面量窄化；int→long/ulong 宽化加 L。
+  7. `_ = expr;` 丢弃赋值保留副作用；非泛型 JsonSerializer 重载（DeserializeAsync/SerializeAsync/SerializeToUtf8Bytes）加 `_0tp` 后缀消歧；`Task(Action,state)`→`runAsync`、`Task.Start()` 空操作；`Type.GetEnumValues()`→`EnumHelper.getValues`；`Activator.CreateInstance(Type)`→compat 包装；EndOfStreamException 改 compat RuntimeException。
+  8. compat 补齐：ImmutableArray.create/toImmutableArray、ConcurrentHashMapHelper.create、MapHelper.putValue(CSharpIDictionary)、Assert.throwsAny(Supplier)、Assert.equal 对未覆写 equals 的对象按 toString 结构化比较、JsonSerializerSettings.setReferenceLoopHandling。
+- **验证**: `mvn clean package -e` 已通过 testCompile（0 javac 错误）并进入 surefire 测试执行阶段；运行时测试仍有失败（约 504 失败 + 1810 错误），需继续修复运行时语义。
+
+- **状态**: ✅ 编译已修复（运行时代码语义待继续）

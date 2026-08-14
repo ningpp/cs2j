@@ -368,7 +368,7 @@ public partial class StatementTransformer
                             context.AddImport("java.util.Arrays");
                         initExpr = javaType switch
                         {
-                            "int[]" => $"Arrays.stream({initExpr}).mapToInt(Integer::intValue).toArray()",
+                            "int[]" => $"Arrays.stream({initExpr}).mapToInt(Number::intValue).toArray()",
                             "long[]" => $"Arrays.stream({initExpr}).mapToLong(Long::longValue).toArray()",
                             "double[]" => $"Arrays.stream({initExpr}).mapToDouble(Double::doubleValue).toArray()",
                             _ => initExpr

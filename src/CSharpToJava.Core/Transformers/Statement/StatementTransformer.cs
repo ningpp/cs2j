@@ -187,6 +187,22 @@ public partial class StatementTransformer : IStatementTransformer
                 && IsUsingDeclaration(usingDeclaration))
             {
                 var resources = CollectConsecutiveUsingDeclarationResources(statements, ref i, context);
+                // Later resource initializers may emit pre-statements that reference
+                // the first resource variable (e.g. new JsonTextWriter(stringWriter)).
+                // Hoist the first resource declaration before those pre-statements.
+                var usingPre = context.DrainPreStatements().ToList();
+                if (usingPre.Count > 0 && resources.Count > 1)
+                {
+                    var firstResource = resources[0];
+                    var firstEq = firstResource.IndexOf(" = ", System.StringComparison.Ordinal);
+                    if (firstEq > 0)
+                    {
+                        results.Add(firstResource + ";");
+                        resources.RemoveAt(0);
+                    }
+                }
+                foreach (var pre in usingPre)
+                    results.Add(pre.TrimEnd(';') + ";");
                 var bodyStatements = TransformStatementsFrom(statements, i + 1, context);
                 var body = string.Join("\n        ", bodyStatements);
                 results.Add($"try ({string.Join("; ", resources)}) {{\n        {body}\n    }}");

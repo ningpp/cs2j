@@ -1,5 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CSharp;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 
@@ -202,6 +203,12 @@ public partial class StatementTransformer
         LocalFunctionStatementSyntax localFn,
         ConversionContext context)
     {
+        // C# static local functions cannot capture enclosing variables — their
+        // bodies may contain lambdas whose own locals share names with the outer
+        // method, but those bind to the lambda scope, not the enclosing method.
+        if (localFn.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            return new List<MethodConversionState.CapturedLocal>();
+
         var captures = new List<MethodConversionState.CapturedLocal>();
         var localFnSymbol = context.GetDeclaredSymbol(localFn) as IMethodSymbol;
         var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;

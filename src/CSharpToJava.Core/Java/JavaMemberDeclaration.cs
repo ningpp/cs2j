@@ -23,6 +23,13 @@ public class JavaFieldDeclaration : JavaSyntaxNode
     public string Name { get; set; } = string.Empty;
     public string? Initializer { get; set; }
     /// <summary>
+    /// Statements that must run before the field's value is usable (e.g. object
+    /// initializer pre-statements). When set, the field has no inline initializer
+    /// and the statements are injected into constructors / the static block.
+    /// The final entry is the field assignment itself.
+    /// </summary>
+    public List<string>? InitializerStatements { get; set; }
+    /// <summary>
     /// Optional comment emitted on the line immediately before this field declaration.
     /// </summary>
     public string? LeadingComment { get; set; }

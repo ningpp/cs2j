@@ -38,6 +38,37 @@ public final class ImmutableArray<T> implements Iterable<T> {
         return new ImmutableArray<>(list);
     }
 
+    @SafeVarargs
+    public static <T> ImmutableArray<T> create(T... items) {
+        List<T> list = new ArrayList<>();
+        for (T item : items) {
+            list.add(item);
+        }
+        return new ImmutableArray<>(list);
+    }
+
+    public static <T> ImmutableArray<T> toImmutableArray(CSharpList<T> source) {
+        List<T> list = new ArrayList<>();
+        list.addAll(source);
+        return new ImmutableArray<>(list);
+    }
+
+    public static <T> ImmutableArray<T> toImmutableArray(CSharpGenericIterable<T> source) {
+        List<T> list = new ArrayList<>();
+        for (T item : source) {
+            list.add(item);
+        }
+        return new ImmutableArray<>(list);
+    }
+
+    public static <T> ImmutableArray<T> toImmutableArray(Iterable<T> source) {
+        List<T> list = new ArrayList<>();
+        for (T item : source) {
+            list.add(item);
+        }
+        return new ImmutableArray<>(list);
+    }
+
     public boolean getIsDefault() {
         return isDefault;
     }

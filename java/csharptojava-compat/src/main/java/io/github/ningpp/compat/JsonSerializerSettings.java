@@ -10,7 +10,7 @@ public class JsonSerializerSettings {
     public String dateFormatString;
     public Object contractResolver;
     public Object nullValueHandling;
-    public Object referenceLoopHandling;
+    public ReferenceLoopHandling referenceLoopHandling = ReferenceLoopHandling.Error;
     public PreserveReferencesHandling preserveReferencesHandling = PreserveReferencesHandling.None;
 
     public void setStringEscapeHandling(StringEscapeHandling handling) {
@@ -27,5 +27,13 @@ public class JsonSerializerSettings {
 
     public PreserveReferencesHandling getPreserveReferencesHandling() {
         return preserveReferencesHandling;
+    }
+
+    public void setReferenceLoopHandling(ReferenceLoopHandling handling) {
+        this.referenceLoopHandling = handling;
+    }
+
+    public ReferenceLoopHandling getReferenceLoopHandling() {
+        return referenceLoopHandling;
     }
 }

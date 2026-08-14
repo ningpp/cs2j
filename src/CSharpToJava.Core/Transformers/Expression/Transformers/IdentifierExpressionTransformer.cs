@@ -109,6 +109,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return baseName;
         }
 
+        if (JavaNaming.IsIncompatibleTypeHidingProperty(propSymbol))
+            return baseName + "_newSlot";
         return baseName;
     }
 

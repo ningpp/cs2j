@@ -24,9 +24,11 @@ public final class ReadOnlySpan<T> {
     @SuppressWarnings("rawtypes")
     public static final ReadOnlySpan Empty = new ReadOnlySpan<>();
 
-    /** Mirrors ReadOnlySpan&lt;T&gt;.Empty as a static method call (generated getter form). */
-    @SuppressWarnings("unchecked")
-    public static <T> ReadOnlySpan<T> getEmpty() {
+    /** Mirrors ReadOnlySpan&lt;T&gt;.Empty as a static method call (generated getter form).
+     *  Raw return type keeps casts like (ReadOnlySpan&lt;Integer&gt;) ReadOnlySpan.getEmpty()
+     *  compilable — Java does not use the cast target type for generic method inference. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public static ReadOnlySpan getEmpty() {
         return Empty;
     }
 
@@ -263,6 +265,18 @@ public final class ReadOnlySpan<T> {
         int copyLength = Math.min(length, destination.length());
         for (int i = 0; i < copyLength; i++) {
             destination.set(i, get(i));
+        }
+    }
+
+    /** C# ReadOnlySpan&lt;T&gt;.CopyTo(Span&lt;T&gt;) overload for char[] destinations. */
+    public void copyTo(char[] destination) {
+        copyTo(new Span<>(destination));
+    }
+
+    /** C# ReadOnlySpan&lt;T&gt;.Fill(T) — sets every element to the given value. */
+    public void fill(T value) {
+        for (int i = 0; i < length; i++) {
+            set(i, value);
         }
     }
 

@@ -29,11 +29,11 @@ public class ArrayBufferWriter<T> implements IBufferWriter<T> {
         return new ReadOnlyMemory<>(copy);
     }
 
-    /** Mirrors ArrayBufferWriter&lt;T&gt;.WrittenSpan. */
-    public Span<T> getWrittenSpan() {
+    /** Mirrors ArrayBufferWriter&lt;T&gt;.WrittenSpan — ReadOnlySpan, matching C# semantics. */
+    public ReadOnlySpan<T> getWrittenSpan() {
         @SuppressWarnings("unchecked")
         T[] copy = (T[]) Arrays.copyOfRange(buffer, 0, written);
-        return new Span<>(copy);
+        return new ReadOnlySpan<>(copy);
     }
 
     /** Mirrors ArrayBufferWriter&lt;T&gt;.WrittenCount. */

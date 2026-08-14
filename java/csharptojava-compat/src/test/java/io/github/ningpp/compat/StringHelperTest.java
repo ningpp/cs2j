@@ -643,4 +643,21 @@ class StringHelperTest {
         // % in format string should be treated as literal
         assertEquals("100%", StringHelper.formatCs(java.util.Locale.ROOT, "{0}%", 100));
     }
+
+    // ---- newString (C# String(char, int) constructor) ----
+
+    @Test
+    void newString_repeatsChar() {
+        assertEquals("AAA", StringHelper.newString('A', 3));
+    }
+
+    @Test
+    void newString_zeroCount_returnsEmpty() {
+        assertEquals("", StringHelper.newString('A', 0));
+    }
+
+    @Test
+    void newString_negativeCount_throws() {
+        assertThrows(ArgumentOutOfRangeException.class, () -> StringHelper.newString('A', -1));
+    }
 }

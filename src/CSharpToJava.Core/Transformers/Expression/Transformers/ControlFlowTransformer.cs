@@ -481,7 +481,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             DeclarationPatternSyntax dp
                 => BuildDeclarationPatternCondition(expr, dp, context),
             TypePatternSyntax tp
-                => $"({expr} instanceof {context.MapTypeFromSyntax(tp.Type)})",
+                => $"({expr} instanceof {ToRuntimeTypeForInstanceOf(context.MapTypeFromSyntax(tp.Type))})",
             DiscardPatternSyntax
                 => "true",
             UnaryPatternSyntax np when np.OperatorToken.IsKind(SyntaxKind.NotKeyword)
@@ -513,7 +513,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             DiscardDesignationSyntax => "_unused",
             _ => "_unused"
         };
-        return $"({expr} instanceof {mappedType} {designation})";
+        return $"({expr} instanceof {ToRuntimeTypeForInstanceOf(mappedType)} {designation})";
     }
 
     private string BuildRecursivePatternCondition(string expr, RecursivePatternSyntax pattern, ConversionContext context)
@@ -530,7 +530,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
 
         var conditions = new List<string>();
         if (typeName != null)
-            conditions.Add($"{expr} instanceof {typeName}");
+            conditions.Add($"{expr} instanceof {ToRuntimeTypeForInstanceOf(typeName)}");
 
         if (pattern.PropertyPatternClause != null && typeName != null)
         {
@@ -646,5 +646,11 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         string hi = node.RightOperand != null ? facade.Transform(node.RightOperand, context) : "/* length */";
         context.AddImport("java.util.Arrays");
         return $"Arrays.copyOfRange(/* array */, {lo}, {hi})";
+    }
+
+    private static string ToRuntimeTypeForInstanceOf(string mappedType)
+    {
+        var stripped = ExpressionTransformerHelpers.StripTypeArguments(mappedType);
+        return ExpressionTransformerHelpers.BoxJavaPrimitiveType(stripped);
     }
 }

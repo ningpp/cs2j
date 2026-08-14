@@ -22,6 +22,10 @@ public class TextEncoderSettings {
     public void allowCharacter(int character) {
     }
 
+    /** C# TextEncoderSettings.ForbidCharacters(char...). */
+    public void forbidCharacters(char... characters) {
+    }
+
     public void clear() {
     }
 }

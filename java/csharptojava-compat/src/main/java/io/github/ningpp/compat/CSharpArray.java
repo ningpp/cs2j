@@ -8,7 +8,7 @@ import java.util.Objects;
 /**
  * Compact mapping for System.Array.
  */
-public final class CSharpArray {
+public final class CSharpArray implements Iterable<Object> {
     private final Object array;
     private final int[] lowerBounds;
 
@@ -68,6 +68,30 @@ public final class CSharpArray {
 
     public int getLength() {
         return Array.getLength(array);
+    }
+
+    /**
+     * C# arrays are IEnumerable — lets foreach loops (and the converter's
+     * (Iterable&lt;?&gt;) casts on System.Array values) iterate the elements.
+     */
+    @Override
+    public java.util.Iterator<Object> iterator() {
+        return new java.util.Iterator<Object>() {
+            private int index = 0;
+
+            @Override
+            public boolean hasNext() {
+                return index < getLength();
+            }
+
+            @Override
+            public Object next() {
+                if (index >= getLength()) {
+                    throw new java.util.NoSuchElementException();
+                }
+                return getValue(index++);
+            }
+        };
     }
 
     private int offsetIndex(int index) {

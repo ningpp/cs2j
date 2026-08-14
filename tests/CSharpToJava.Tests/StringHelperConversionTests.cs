@@ -774,10 +774,10 @@ class Sample
         Assert.Contains("StringHelper.copyTo(s, 0, dest, 0, 5)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    // ==================== String constructor: new string(char, int) → String.valueOf(char).repeat(int) ====================
+    // ==================== String constructor: new string(char, int) → StringHelper.newString(char, int) ====================
 
     [Fact]
-    public void String_Ctor_CharInt_ConvertsToValueOfRepeat()
+    public void String_Ctor_CharInt_ConvertsToStringHelperNewString()
     {
         var result = Convert(@"
 class Sample
@@ -789,12 +789,12 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("String.valueOf(c).repeat(count)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.newString(c, count)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("new String(c, count)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void String_Ctor_CharLiteralInt_ConvertsToValueOfRepeat()
+    public void String_Ctor_CharLiteralInt_ConvertsToStringHelperNewString()
     {
         var result = Convert(@"
 class Sample
@@ -806,8 +806,27 @@ class Sample
 }");
 
         Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("String.valueOf('a').repeat(5)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.newString('a', 5)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("new String('a', 5)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void String_Ctor_BracketCharLiteralInt_ConvertsToStringHelperNewString()
+    {
+        var result = Convert(@"
+class Sample
+{
+    public string MakeString()
+    {
+        return new string('[', 65) + ""2"" + new string(']', 65);
+    }
+}");
+
+        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
+        Assert.Contains("StringHelper.newString('[', 65)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StringHelper.newString(']', 65)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new String('[', 65)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("new String(']', 65)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ==================== Import verification ====================

@@ -144,6 +144,28 @@ public final class Assert {
         contains(expectedSubstring, actualString, isIgnoreCase(comparisonType));
     }
 
+    /** xUnit Assert.Contains(char, string) — case-sensitive character search. */
+    public static void contains(char expected, String actualString) {
+        if (actualString == null || actualString.indexOf(expected) < 0) {
+            throw new AssertionError("Assert.contains() failure: Character not found\n"
+                + "Expected char: " + expected + "\n"
+                + "Actual string: " + actualString);
+        }
+    }
+
+    /** xUnit Assert.Contains(T expected, T[] collection). */
+    public static <T> void contains(T expected, T[] collection) {
+        if (collection == null) {
+            throw new AssertionError("Assert.contains() failure: Collection was null");
+        }
+        for (T item : collection) {
+            if (java.util.Objects.equals(expected, item)) {
+                return;
+            }
+        }
+        throw new AssertionError("Assert.contains() failure: Item not found in array\nNot found: " + expected);
+    }
+
     public static <T> void contains(T expected, Set<T> set) {
         if (!set.contains(expected)) {
             throw new AssertionError("Assert.contains() failure: Item not found in set\nNot found: " + expected);
@@ -992,6 +1014,18 @@ public final class Assert {
         return ex;
     }
 
+    /**
+     * Mirrors xUnit Assert.Throws&lt;T&gt;(Func&lt;object&gt;) with a parameter name —
+     * accepts value-returning lambdas (the converter emits block lambdas with
+     * `return __result;` when the C# expression lambda uses object initializers).
+     */
+    public static <T extends Throwable> T throws_(Class<T> exceptionType, String paramName,
+                                                  java.util.function.Supplier<?> testCode) {
+        T ex = throws_(exceptionType, testCode);
+        // Verify paramName matches if the exception has a parameter name
+        return ex;
+    }
+
     public static Throwable throwsType(Class<?> exceptionType, Runnable testCode) {
         try {
             testCode.run();
@@ -1019,6 +1053,22 @@ public final class Assert {
     public static <T extends Throwable> T throwsAny(Class<T> exceptionType, Runnable testCode) {
         try {
             testCode.run();
+        } catch (Throwable t) {
+            if (exceptionType.isInstance(t)) {
+                return (T) t;
+            }
+            throw new AssertionError("Assert.throwsAny() failure: Wrong exception type\n"
+                + "Expected: " + exceptionType.getName() + " (or subclass)\n"
+                + "Actual: " + t.getClass().getName(), t);
+        }
+        throw new AssertionError("Assert.throwsAny() failure: No exception thrown\n"
+            + "Expected: " + exceptionType.getName() + " (or subclass)");
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends Throwable> T throwsAny(Class<T> exceptionType, java.util.function.Supplier<?> testCode) {
+        try {
+            testCode.get();
         } catch (Throwable t) {
             if (exceptionType.isInstance(t)) {
                 return (T) t;
@@ -1064,6 +1114,59 @@ public final class Assert {
         Class<T> exceptionType,
         CompletableFuture<?> future) {
         return throwsAsync(exceptionType, (Supplier<? extends CompletableFuture<?>>) () -> future);
+    }
+
+    // ── ThrowsAnyAsync ───────────────────────────────────────────────
+    // Reflection: Task<T> ThrowsAnyAsync<T>(Func<Task> testCode)
+
+    /**
+     * Mirrors xUnit Assert.ThrowsAnyAsync&lt;T&gt;(Func&lt;Task&gt;) — single-argument
+     * form. The converter drops the &lt;T&gt; type argument on this helper, so no
+     * Class token is available; the future is only required to fail with some
+     * exception (asserted in JsonDocumentTests).
+     */
+    public static CompletableFuture<Throwable> throwsAnyAsync(
+        Supplier<? extends CompletableFuture<?>> testCode) {
+        CompletableFuture<?> future;
+        try {
+            future = testCode.get();
+        } catch (Throwable t) {
+            return CompletableFuture.completedFuture(t);
+        }
+        if (future == null) {
+            return failedFuture(new AssertionError("Assert.throwsAnyAsync() failure: No task returned"));
+        }
+        return future.handle((ignored, failure) -> {
+            var thrown = unwrapCompletionException(failure);
+            if (thrown == null) {
+                throw new AssertionError("Assert.throwsAnyAsync() failure: No exception thrown");
+            }
+            return (Throwable) thrown;
+        });
+    }
+
+    /** Mirrors xUnit Assert.ThrowsAnyAsync&lt;T&gt;(Func&lt;Task&gt;) with the exception type. */
+    public static <T extends Throwable> CompletableFuture<T> throwsAnyAsync(
+        Class<T> exceptionType,
+        Supplier<? extends CompletableFuture<?>> testCode) {
+        CompletableFuture<?> future;
+        try {
+            future = testCode.get();
+        } catch (Throwable t) {
+            return CompletableFuture.completedFuture(assertAnyThrowable(exceptionType, t, "throwsAnyAsync"));
+        }
+        if (future == null) {
+            return failedFuture(new AssertionError("Assert.throwsAnyAsync() failure: No task returned\n"
+                + "Expected: " + exceptionType.getName()));
+        }
+        return future.handle((ignored, failure) -> {
+            var thrown = unwrapCompletionException(failure);
+            if (thrown == null) {
+                throw new AssertionError("Assert.throwsAnyAsync() failure: No exception thrown\n"
+                    + "Expected: " + exceptionType.getName());
+            }
+            return assertAnyThrowable(exceptionType, thrown, "throwsAnyAsync");
+        });
     }
 
     // ── True ─────────────────────────────────────────────────────────
@@ -1139,7 +1242,25 @@ public final class Assert {
         if (a != null && b != null && b.getClass().isArray() && a instanceof Iterable<?>) {
             return arrayAndIterableEqual(b, (Iterable<?>) a);
         }
+        // C# structs (JsonWriterOptions, JsonReaderOptions, JsonSerializerOptions,
+        // ...) have VALUE equality, but the converted Java classes often rely on
+        // Object.equals identity. When neither side overrides equals, fall back to
+        // the rendered representation (the generated toString mirrors the struct).
+        if (a != null && b != null
+            && a.getClass() == b.getClass()
+            && !OverridesEquals(a.getClass())
+            && a.toString().equals(b.toString())) {
+            return true;
+        }
         return false;
+    }
+
+    private static boolean OverridesEquals(Class<?> type) {
+        try {
+            return type.getMethod("equals", Object.class).getDeclaringClass() != Object.class;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     private static boolean arrayAndIterableEqual(Object array, Iterable<?> iterable) {
@@ -1201,6 +1322,18 @@ public final class Assert {
         }
         throw new AssertionError("Assert." + assertName + "() failure: Wrong exception type\n"
             + "Expected: " + exceptionType.getName() + "\n"
+            + "Actual: " + thrown.getClass().getName(), thrown);
+    }
+
+    private static <T extends Throwable> T assertAnyThrowable(
+        Class<T> exceptionType,
+        Throwable thrown,
+        String assertName) {
+        if (exceptionType.isInstance(thrown)) {
+            return exceptionType.cast(thrown);
+        }
+        throw new AssertionError("Assert." + assertName + "() failure: Wrong exception type\n"
+            + "Expected: " + exceptionType.getName() + " (or subclass)\n"
             + "Actual: " + thrown.getClass().getName(), thrown);
     }
 

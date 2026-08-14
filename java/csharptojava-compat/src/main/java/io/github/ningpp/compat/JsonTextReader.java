@@ -199,6 +199,23 @@ public class JsonTextReader implements AutoCloseable {
         return value;
     }
 
+    private int maxDepth = 64;
+    private int depth;
+
+    /** C# JsonReader.MaxDepth — setter used by the converted tests. */
+    public void setMaxDepth(int maxDepth) {
+        this.maxDepth = maxDepth;
+    }
+
+    public int getMaxDepth() {
+        return maxDepth;
+    }
+
+    /** C# JsonReader.Depth — current nesting depth. */
+    public int getDepth() {
+        return depth;
+    }
+
     public void setFloatParseHandling(FloatParseHandling handling) {
         floatParseHandling = handling;
     }

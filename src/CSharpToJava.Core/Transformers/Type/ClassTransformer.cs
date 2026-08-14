@@ -138,6 +138,14 @@ public class ClassTransformer : ITypeTransformer
                         continue;
                     if (ShouldUseIterableForImplementedCollectionInterface(iface, hasICollectionImpl))
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
+                    // Non-generic System.Collections.IList implements int
+                    // Add(object)/void Remove(object), which conflict with
+                    // CSharpGenericIList's boolean add/remove.
+                    if (iface.ToDisplayString() == "System.Collections.IList")
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpIList");
+                        mappedIface = "CSharpIList";
+                    }
 
                     // Check for Java type-erasure conflict: if a base class already implements the same
                     // generic interface with different type arguments (e.g. Comparator<String> in parent,
@@ -227,6 +235,14 @@ public class ClassTransformer : ITypeTransformer
                         || (resolvedType.TypeKind == TypeKind.Error && IsLikelyInterface(resolvedType.Name)))
                     {
                         var mapped = context.MapTypeForDeclarationHeader(resolvedType);
+                        // Non-generic System.Collections.IList implements int
+                        // Add(object)/void Remove(object), which conflict with
+                        // CSharpGenericIList's boolean add/remove.
+                        if (resolvedType.ToDisplayString() == "System.Collections.IList")
+                        {
+                            context.AddImport("io.github.ningpp.compat.CSharpIList");
+                            mapped = "CSharpIList";
+                        }
                         if (mapped != "__suppress__")
                             javaClass.ImplementedTypes.Add(mapped);
                     }
@@ -292,10 +308,7 @@ public class ClassTransformer : ITypeTransformer
                 foreach (var tpName in preTypeParamNames)
                 {
                     if (preSym.TypeParameters.Any(tp => tp.Name == tpName))
-                        context.RequireClassTypeParam(
-                            preSym.ContainingType?.MetadataName ?? "",
-                            preSym.ToDisplayString(),
-                            tpName);
+                        context.RequireClassTypeParam(preSym, tpName);
                 }
             }
                 }
@@ -403,6 +416,7 @@ public class ClassTransformer : ITypeTransformer
         RenameConflictingNestedTypes(javaClass, mergedType.TypeSymbol, context);
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, mergedType.TypeSymbol, context);
+        LiftFieldInitializerStatements(javaClass);
         AddDefaultFactoryMethods(javaClass, mergedType.TypeSymbol, context);
         AddInheritedStructFieldInitializers(javaClass, mergedType.TypeSymbol, context);
 
@@ -535,6 +549,70 @@ public class ClassTransformer : ITypeTransformer
     /// (a dictionary initializer drained into a static block). Move such initializers
     /// into the trailing static block so they run after their dependencies.
     /// </summary>
+    internal static void LiftFieldInitializerStatements(JavaClassDeclaration javaClass)
+    {
+        var pending = javaClass.Fields
+            .Where(f => f.InitializerStatements is { Count: > 0 })
+            .ToList();
+        if (pending.Count == 0)
+            return;
+
+        foreach (var field in pending)
+        {
+            var statements = field.InitializerStatements!;
+            field.InitializerStatements = null;
+            field.Initializer = null;
+
+            if (field.Modifiers.HasFlag(JavaModifiers.Static))
+            {
+                var block = javaClass.StaticInitializers.LastOrDefault();
+                if (block == null)
+                {
+                    block = new JavaStaticInitializerBlock();
+                    javaClass.StaticInitializers.Add(block);
+                }
+                foreach (var stmt in statements)
+                    block.Statements.Add(stmt.TrimEnd(';') + ";");
+                continue;
+            }
+
+            if (javaClass.Constructors.Count == 0)
+            {
+                var ctor = new JavaConstructorDeclaration
+                {
+                    ClassName = javaClass.Name,
+                    Modifiers = javaClass.Modifiers.HasFlag(JavaModifiers.Abstract)
+                        ? JavaModifiers.Protected
+                        : JavaModifiers.Public,
+                    StructuredBody = new JavaMethodBody()
+                };
+                foreach (var stmt in statements)
+                    ctor.StructuredBody.Statements.Add(new JavaRawStatement(stmt.TrimEnd(';') + ";"));
+                javaClass.Constructors.Add(ctor);
+                continue;
+            }
+
+            foreach (var ctor in javaClass.Constructors)
+            {
+                // this(...) delegating constructors forward to another constructor,
+                // which receives the field initialization statements.
+                if (!string.IsNullOrWhiteSpace(ctor.Initializer)
+                    && ctor.Initializer.TrimStart().StartsWith("this(", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                EnsureStructuredBody(ctor);
+                for (var i = statements.Count - 1; i >= 0; i--)
+                {
+                    var stmt = statements[i].TrimEnd(';') + ";";
+                    if (!ConstructorBodyContains(ctor, stmt))
+                        ctor.StructuredBody!.Statements.Insert(0, new JavaRawStatement(stmt));
+                }
+            }
+        }
+    }
+
     internal static void ReorderStaticFieldInitializers(JavaClassDeclaration javaClass)
     {
         var staticBlockNames = new HashSet<string>(StringComparer.Ordinal);
@@ -743,6 +821,16 @@ public class ClassTransformer : ITypeTransformer
                     if (resolvedType is INamedTypeSymbol namedIface &&
                         ShouldUseIterableForImplementedCollectionInterface(namedIface, hasICollectionImpl))
                         mappedIface = mappedIface.Replace("Collection", "Iterable");
+                    // Non-generic System.Collections.IList declares int Add(object) and
+                    // void Remove(object), which cannot implement CSharpGenericIList's
+                    // boolean add(T)/remove(Object). Implement the non-generic
+                    // CSharpIList surface instead; casts/assignments from generic lists
+                    // are bridged through CSharpIList.from(...) at the call site.
+                    if (resolvedType.ToDisplayString() == "System.Collections.IList")
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpIList");
+                        mappedIface = "CSharpIList";
+                    }
 
                     // Check for Java type-erasure conflict: if a base class already implements the same
                     // generic interface with different type arguments, extract to a helper method instead.
@@ -863,6 +951,7 @@ public class ClassTransformer : ITypeTransformer
         RenameConflictingNestedTypes(javaClass, classSymbol, context);
 
         AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, classSymbol, context);
+        LiftFieldInitializerStatements(javaClass);
         AddDefaultFactoryMethods(javaClass, classSymbol, context);
         AddInheritedStructFieldInitializers(javaClass, classSymbol, context);
 
@@ -2351,6 +2440,17 @@ public class ClassTransformer : ITypeTransformer
             @"(?<![\w.])([A-Z][A-Za-z0-9_]*)\s*=",
             "__inst.$1 =");
 
+        // C# backing fields commonly start with an underscore (e.g. _list).
+        // Qualify bare field assignments and member accesses in the factory body.
+        rewritten = System.Text.RegularExpressions.Regex.Replace(
+            rewritten,
+            @"(?<![\w.])(_[A-Za-z][A-Za-z0-9_]*)\s*=",
+            "__inst.$1 =");
+        rewritten = System.Text.RegularExpressions.Regex.Replace(
+            rewritten,
+            @"(?<![\w.])(_[A-Za-z][A-Za-z0-9_]*)\s*\.",
+            "__inst.$1.");
+
         rewritten = System.Text.RegularExpressions.Regex.Replace(
             rewritten,
             @"(?<![\w.])([A-Za-z_][A-Za-z0-9_]*)\+\+",
@@ -2815,6 +2915,23 @@ public class ClassTransformer : ITypeTransformer
             iteratorMethod.StructuredBody = null;
         }
 
+        // CSharpDictEnumerator (non-generic IDictionaryEnumerator) is not a
+        // CSharpGenericEnumerator; wrap the produced enumerator when the upgraded
+        // iterator return type requires the generic surface.
+        if (iteratorMethod.Body != null
+            && iteratorMethod.Body.Contains("CSharpDictEnumerator.from(", StringComparison.Ordinal))
+        {
+            iteratorMethod.Body = iteratorMethod.Body.Replace(
+                "CSharpDictEnumerator.from(",
+                "CSharpGenericEnumerator.fromEnumerator(CSharpDictEnumerator.from(",
+                StringComparison.Ordinal);
+            var trimmed = iteratorMethod.Body.TrimEnd();
+            if (trimmed.EndsWith(");", StringComparison.Ordinal))
+            {
+                iteratorMethod.Body = trimmed[..^1] + ");";
+            }
+        }
+
         context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
 
         foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
@@ -2838,7 +2955,7 @@ public class ClassTransformer : ITypeTransformer
             }
 
             if (type is "CSharpGenericIterable" or "CSharpIterable" or "CSharpICollection"
-                or "CSharpIDictionary")
+                or "CSharpIDictionary" or "CSharpIList")
             {
                 elementType = "Object";
                 return true;

@@ -39,6 +39,11 @@ public class MapHelper {
         return value;
     }
 
+    public static Object putValue(CSharpIDictionary dict, Object key, Object value) {
+        dict.put(key, value);
+        return value;
+    }
+
     /**
      * Set an element at the given index and return the <em>inserted</em> value,
      * matching C# {@code list[index] = value} expression semantics.

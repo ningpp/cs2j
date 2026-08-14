@@ -117,7 +117,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // functions with typeof(T) in their body) must be prepended so the
             // signature's leading Class<T> parameters are satisfied.
             var irTokens = bareMethodSym != null
-                ? GetClassTypeTokensForCall(bareMethodSym, context)
+                ? GetClassTypeTokensForCall(bareMethodSym, context, invocation)
                 : null;
             if (irTokens == null && bareMethodSym?.IsGenericMethod == true
                 && bareMethodSym.TypeArguments.Length > 0
@@ -143,11 +143,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 var csharpParamCount = bareMethodSym.Parameters.Length;
                 int registeredClassParams = 0;
-                var origType = bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "";
-                var origMethod = bareMethodSym.OriginalDefinition.ToDisplayString();
-                if (context.MethodHasClassParams(origType, origMethod))
+                if (context.MethodHasClassParams(bareMethodSym.OriginalDefinition))
                 {
-                    registeredClassParams = context.GetMethodClassTypeParamNames(origType, origMethod)?.Count
+                    registeredClassParams = context.GetMethodClassTypeParamNames(bareMethodSym.OriginalDefinition)?.Count
                         ?? irTokens.Count;
                 }
                 if (invocation.ArgumentList.Arguments.Count + irTokens.Count
@@ -355,7 +353,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 }
                 return deserializeCall;
             }
-            var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context) : null;
+            var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context, node) : null;
             // Second fallback: forward-referenced generic methods (declaration converted
             // after this call site). Concrete reference-type arguments still need their
             // token — e.g. ReadCore<TValue>(...) / VerifyIgnore<T>(...) called before the
@@ -366,9 +364,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // covers the type parameters), so the fallback only fires for methods whose
             // token status is still unknown.
             var knownClassParams = bareMethodSym != null
-                && context.MethodHasClassParams(
-                    bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "",
-                    bareMethodSym.OriginalDefinition.ToDisplayString());
+                && context.MethodHasClassParams(bareMethodSym.OriginalDefinition);
             if (bareMethodSym?.IsGenericMethod != false && !knownClassParams)
                 classTokens ??= GetClassTokensFromExplicitTypeArguments(genericMethodName, context, bareMethodSym);
             // Guard: the Java-side signature must have token slots for every Class
@@ -379,11 +375,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 var csharpParamCount = bareMethodSym.Parameters.Length;
                 int registeredClassParams = 0;
-                var origType = bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "";
-                var origMethod = bareMethodSym.OriginalDefinition.ToDisplayString();
-                if (context.MethodHasClassParams(origType, origMethod))
+                if (context.MethodHasClassParams(bareMethodSym.OriginalDefinition))
                 {
-                    registeredClassParams = context.GetMethodClassTypeParamNames(origType, origMethod)?.Count
+                    registeredClassParams = context.GetMethodClassTypeParamNames(bareMethodSym.OriginalDefinition)?.Count
                         ?? classTokens.Count;
                 }
                 if (node.ArgumentList.Arguments.Count + classTokens.Count > csharpParamCount + registeredClassParams)
@@ -623,7 +617,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // Class<T> tokens for hoisted local functions (e.g. RunTestAsync<T>
                 // with typeof(T) in its body) must be prepended like regular calls.
                 var hoistTokens = bareMethodSym2 != null
-                    ? GetClassTypeTokensForCall(bareMethodSym2, context)
+                    ? GetClassTypeTokensForCall(bareMethodSym2, context, node)
                     : null;
                 if (hoistTokens == null && bareMethodSym2?.IsGenericMethod == true
                     && bareMethodSym2.TypeArguments.Length > 0
@@ -661,7 +655,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     : $"/* TODO: call to capturing local function {bareIdent.Identifier.Text}(...) */";
             }
 
-            var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context) : null;
+            var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context, node) : null;
             // Fallback for local-function/forward-referenced generic calls: derive the
             // tokens from the resolved method symbol's type arguments (concrete
             // reference types, primitives, or registered runtime type-parameter names).
@@ -670,9 +664,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // trailing Class<?> clazz parameter covers the type parameters), so the
             // fallback only fires for methods whose token status is still unknown.
             var knownClassParams2 = bareMethodSym2 != null
-                && context.MethodHasClassParams(
-                    bareMethodSym2.OriginalDefinition.ContainingType?.MetadataName ?? "",
-                    bareMethodSym2.OriginalDefinition.ToDisplayString());
+                && context.MethodHasClassParams(bareMethodSym2.OriginalDefinition);
             if (classTokens == null && !knownClassParams2
                 && bareMethodSym2?.IsGenericMethod == true
                 && bareMethodSym2.TypeArguments.Length > 0
@@ -728,11 +720,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 var csharpParamCount = bareMethodSym2.Parameters.Length;
                 int registeredClassParams = 0;
-                var origType = bareMethodSym2.OriginalDefinition.ContainingType?.MetadataName ?? "";
-                var origMethod = bareMethodSym2.OriginalDefinition.ToDisplayString();
-                if (context.MethodHasClassParams(origType, origMethod))
+                if (context.MethodHasClassParams(bareMethodSym2.OriginalDefinition))
                 {
-                    registeredClassParams = context.GetMethodClassTypeParamNames(origType, origMethod)?.Count
+                    registeredClassParams = context.GetMethodClassTypeParamNames(bareMethodSym2.OriginalDefinition)?.Count
                         ?? classTokens.Count;
                 }
                 if (node.ArgumentList.Arguments.Count + classTokens.Count > csharpParamCount + registeredClassParams)
@@ -850,7 +840,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
         var target = facade.Transform(node.Expression, context);
         var fallbackMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
-        var classTokenList = fallbackMethodSym != null ? GetClassTypeTokensForCall(fallbackMethodSym, context) : null;
+        var classTokenList = fallbackMethodSym != null ? GetClassTypeTokensForCall(fallbackMethodSym, context, node) : null;
         var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: fallbackMethodSym);
         args2 = PrependClassTypeTokens(args2, classTokenList);
         return $"{target}({args2})";
@@ -970,7 +960,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// </summary>
     private static string GetLocalFunctionCallSiteName(string csName, IMethodSymbol? symbol, ConversionContext context)
     {
-        if (symbol != null && context.TryGetHoistedLocalFunctionName(symbol, out var registered))
+        // Generic call sites bind to CONSTRUCTED method symbols, while the hoisted
+        // name registry is keyed by the local function's original (unconstructed)
+        // definition. Normalize before lookup so same-named generic local functions
+        // in different methods get their renamed hoisted method (f2, f3, ...) at
+        // call sites too, not just in the hoisted declarations.
+        var lookupSymbol = symbol?.OriginalDefinition;
+        if (lookupSymbol != null && context.TryGetHoistedLocalFunctionName(lookupSymbol, out var registered))
             return registered;
         var camelName = csName.Length > 0 ? char.ToLowerInvariant(csName[0]) + csName[1..] : csName;
         return ConversionContext.EscapeJavaKeyword(camelName);
@@ -1135,6 +1131,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"CompletableFuture.completedFuture({resultValue})";
         }
 
+        // C# Task.Start() — the converted Task is a CompletableFuture that already
+        // runs eagerly; Start() is a no-op.
+        if (memberAccess.Name.Identifier.Text == "Start"
+            && node.ArgumentList.Arguments.Count == 0
+            && (IsSystemThreadingTaskTypeReceiver(memberAccess.Expression, context)
+                || context.GetTypeInfo(memberAccess.Expression).Type?.ToDisplayString()
+                    is "System.Threading.Tasks.Task" or "System.Threading.Tasks.Task<TResult>"))
+        {
+            return "";
+        }
+
         // Note: Enqueue/Dequeue methods are handled via TypeMappings (e.g. Queue<T>.Enqueue→add,
         // Queue<T>.Dequeue→remove). Custom heap types (GenericBinaryHeapPriorityQueue, EventQueue,
         // etc.) go through normal camelCase so that call sites and declarations stay consistent.
@@ -1230,6 +1237,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             context.AddImport("io.github.ningpp.compat.TypeHelper");
             var typeReceiver = facade.Transform(memberAccess.Expression, context);
             return $"TypeHelper.getFields({typeReceiver})";
+        }
+
+        // C# Type.GetEnumValues() → EnumHelper.getValues(Class) (returns a
+        // CSharpArray, which implements Iterable so foreach/iterable casts work).
+        if (memberAccess.Name.Identifier.Text == "GetEnumValues"
+            && node.ArgumentList.Arguments.Count == 0
+            && IsSystemTypeReceiver(memberAccess.Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.EnumHelper");
+            var enumTypeReceiver = facade.Transform(memberAccess.Expression, context);
+            return $"EnumHelper.getValues({enumTypeReceiver})";
         }
 
         // C# Type.GetConstructors(BindingFlags) → TypeHelper.getConstructors(Class, int)
@@ -1620,6 +1638,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             : facade.Transform(memberAccess.Expression, context);
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+
         // System.Reflection.MethodBase.Invoke(object, object[]): the compat MethodInfo
         // declares invoke(Object, Object...) AND invoke(Object, List<?>) — a bare null
         // args argument is ambiguous. C# binds Invoke(obj, null) to the object[] overload;
@@ -2904,10 +2923,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         var currentMethod = context.CurrentMethod;
                         if (currentMethod != null)
                         {
-                            context.RequireClassTypeParam(
-                                currentMethod.ContainingType?.MetadataName ?? "",
-                                currentMethod.ToDisplayString(),
-                                typeParam.Name);
+                            context.RequireClassTypeParam(currentMethod, typeParam.Name);
                         }
                         // GetClassLiteral now handles ITypeParameterSymbol via TryGetRuntimeClassParameter.
                         classLiteral = ConversionContext.GetClassLiteral(typeArg, context);
@@ -2929,10 +2945,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                             var currentMethod = context.CurrentMethod;
                             if (currentMethod != null)
                             {
-                                context.RequireClassTypeParam(
-                                    currentMethod.ContainingType?.MetadataName ?? "",
-                                    currentMethod.ToDisplayString(),
-                                    typeParam.Name);
+                                context.RequireClassTypeParam(currentMethod, typeParam.Name);
                             }
                         }
                         classLiteral = ConversionContext.GetClassLiteral(typeArgSymbol, context);
@@ -3390,7 +3403,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"CSharpArray.of(java.lang.reflect.Array.newInstance({typeArg}, {lengthArg}))";
         }
 
-        // System.Activator.CreateInstance(type) → type.getDeclaredConstructor().newInstance()
+        // System.Activator.CreateInstance(type) → Activator.createInstance(type)
+        // (the compat helper wraps checked reflection exceptions so generated call
+        // sites do not need try/catch around NoSuchMethodException etc.)
         if (originalMethodName == "CreateInstance"
             && node.ArgumentList.Arguments.Count == 1
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Activator"
@@ -3398,7 +3413,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     memberAccess.Expression, context, "Activator", "System.Activator"))))
         {
             var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            return $"{typeArg}.getDeclaredConstructor().newInstance()";
+            context.AddImport("io.github.ningpp.compat.Activator");
+            return $"Activator.createInstance({typeArg})";
         }
 
         // System.Type.GetType(string) → Class.forName(string)
@@ -4803,6 +4819,19 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     _ => methodName
                 };
             }
+        }
+
+        // Non-generic JsonSerializer overloads taking System.Type (DeserializeAsync(
+        // Stream, Type, ...), SerializeAsync(Stream, Object, Type, ...)) coexist with
+        // generic overloads whose Java signatures lead with a Class<T> token. Bare-null
+        // call sites are ambiguous in Java; rename the non-generic overloads with the
+        // _0tp suffix (mirroring deserialize_0tp) on both declarations and call sites.
+        if (methodSymbol is { IsGenericMethod: false } jsonNgSym
+            && jsonNgSym.ContainingType.ToDisplayString() is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer"
+            && originalMethodName is "DeserializeAsync" or "SerializeAsync" or "SerializeToUtf8Bytes"
+            && jsonNgSym.Parameters.Any(p => p.Type.ToDisplayString() == "System.Type"))
+        {
+            methodName += "_0tp";
         }
 
         // System.Buffers.Text.Utf8Parser.TryParse(span, out T value, out int bytesConsumed[, char]):
@@ -7046,7 +7075,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         }
 
         args = PrependClassTypeTokens(args,
-            methodSymbol != null ? GetClassTypeTokensForCall(methodSymbol, context) : null);
+            methodSymbol != null ? GetClassTypeTokensForCall(methodSymbol, context, node) : null);
 
         if ((originalMethodName == "Parse" || originalMethodName == "TryParse")
             && methodName.StartsWith("MathHelper.", StringComparison.Ordinal))
@@ -8013,9 +8042,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (toArrReceiverCat == toArrTargetCat)
                 return $"{receiver}.toArray()";
         }
-        if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte)
+        if (specialType == SpecialType.System_Byte)
         {
-            return $"{receiver}.mapToInt(Integer::intValue).toArray()";
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            return $"ArrayHelper.toByteArray({receiver}.map(i -> (byte)((Number) i).intValue()).toArray(Byte[]::new))";
+        }
+        if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16)
+        {
+            return $"{receiver}.mapToInt(Number::intValue).toArray()";
         }
         if (specialType is SpecialType.System_Int64)
         {
@@ -8064,8 +8098,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         ConversionContext context)
     {
         var specialType = elementType.SpecialType;
-        if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte)
-            return $"{receiver}.stream().mapToInt(Integer::intValue).toArray()";
+        if (specialType == SpecialType.System_Byte)
+        {
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            return $"ArrayHelper.toByteArray({receiver}.stream().map(i -> (byte)((Number) i).intValue()).toArray(Byte[]::new))";
+        }
+        if (specialType is SpecialType.System_Int32 or SpecialType.System_Int16)
+            return $"{receiver}.stream().mapToInt(Number::intValue).toArray()";
         if (specialType is SpecialType.System_Int64)
             return $"{receiver}.stream().mapToLong(Long::longValue).toArray()";
         if (specialType is SpecialType.System_Double or SpecialType.System_Single)
@@ -10638,16 +10677,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// .class literal tokens to prepend at the call site. Returns null when the
     /// method needs no type tokens.
     /// </summary>
-    private static List<string>? GetClassTypeTokensForCall(IMethodSymbol methodSymbol, ConversionContext context)
+    private static List<string>? GetClassTypeTokensForCall(
+        IMethodSymbol methodSymbol,
+        ConversionContext context,
+        InvocationExpressionSyntax? invocation = null)
     {
         var originalDef = methodSymbol.OriginalDefinition;
         var containingType = originalDef.ContainingType;
         if (containingType == null)
             return null;
-
-        var containingTypeMetadataName = containingType.MetadataName;
-        var methodMetadataName = originalDef.MetadataName;
-        var methodDisplayName = originalDef.ToDisplayString();
 
         // First check the pre-registered set (populated when the method was processed
         // before the call site). If not found, scan the method body directly — the
@@ -10660,22 +10698,22 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // A MetadataName-keyed lookup then returns the wrong overload's Class-token
         // set (RectangleNodeUtils bug). The display string includes the type
         // parameter list and discriminates overloads correctly.
-        if (context.MethodHasClassParams(containingTypeMetadataName, methodDisplayName))
+        if (context.MethodHasClassParams(originalDef))
         {
-            typeParamNames = context.GetMethodClassTypeParamNames(containingTypeMetadataName, methodDisplayName);
+            typeParamNames = context.GetMethodClassTypeParamNames(originalDef);
         }
         else
         {
             // Fallback: scan the method's own syntax to detect method-level type
             // parameters that have default(T) usage. The method's body hasn't been
             // transformed yet, but we can check the C# syntax tree directly.
-            typeParamNames = DetectDefaultUsageInMethod(originalDef);
+            typeParamNames = DetectDefaultUsageInMethod(originalDef, context);
             if (typeParamNames != null && typeParamNames.Count > 0)
             {
                 // Register on-the-fly so subsequent call sites find it in the set.
                 foreach (var tpName in typeParamNames)
                 {
-                    context.RequireClassTypeParam(containingTypeMetadataName, methodDisplayName, tpName);
+                    context.RequireClassTypeParam(originalDef, tpName);
                 }
                 // Drain immediately — the method's signature will be patched when
                 // ApplyPendingClassTypeParams runs after the method is processed.
@@ -10699,7 +10737,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         var typeArgs = methodSymbol.TypeArguments;
 
         var tokens = new List<string>();
-        foreach (var tpName in typeParamNames)
+        // Forward-referenced methods register their Class-token requirements in the
+        // body's usage order (e.g. TValue may be used before TDict), but the hoisted/
+        // processed signature declares the leading Class<T> parameters in the C#
+        // type-parameter declaration order. Emit tokens in declaration order so the
+        // call site always matches the final signature.
+        var orderedTypeParamNames = typeParamNames
+            .OrderBy(name => typeParamMap.TryGetValue(name, out var index) ? index : int.MaxValue)
+            .ToList();
+        foreach (var tpName in orderedTypeParamNames)
         {
             if (runtimeArrayTypeParameterNames.Contains(tpName))
                 continue;
@@ -10707,7 +10753,34 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (typeParamMap.TryGetValue(tpName, out var index) && index < typeArgs.Length)
             {
                 var concreteType = typeArgs[index];
-                tokens.Add(ConversionContext.GetClassLiteral(concreteType, context));
+                var token = ConversionContext.GetClassLiteral(concreteType, context);
+                // A raw Class literal for a parameterized type (e.g. CSharpList.class)
+                // pins type inference to the RAW type, failing when the remaining
+                // arguments carry the parameterized type (CSharpList<Integer>). When
+                // an argument's mapped Java type EXACTLY matches the parameterized
+                // token type, cast through Class<?> to the parameterized type so
+                // inference binds TValue correctly. When the argument is a different
+                // (e.g. invariant-subtype) type, keep the raw literal, which javac
+                // accepts via unchecked conversion.
+                if (concreteType is INamedTypeSymbol tokenNamed
+                    && tokenNamed.IsGenericType
+                    && invocation != null
+                    && invocation.ArgumentList.Arguments.Any(a =>
+                    {
+                        // Method-call arguments may translate to a different Java
+                        // return type (e.g. Tuple.Create(...) → vavr Tuple.of(...)),
+                        // so their C# static type cannot predict the Java value type.
+                        if (a.Expression is InvocationExpressionSyntax)
+                            return false;
+                        var argType = context.GetTypeInfo(a.Expression).Type;
+                        return argType != null
+                            && argType is INamedTypeSymbol { TypeKind: not TypeKind.Interface }
+                            && context.MapType(argType) == context.MapType(concreteType);
+                    }))
+                {
+                    token = $"((Class<{context.MapType(concreteType)}>) (Class<?>) {token})";
+                }
+                tokens.Add(token);
             }
         }
 
@@ -10721,10 +10794,22 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// hasn't been processed yet (declared after the call site, or hoisted local
     /// functions whose bodies are converted after the enclosing method body).
     /// </summary>
-    private static List<string>? DetectDefaultUsageInMethod(IMethodSymbol methodSymbol)
+    private static List<string>? DetectDefaultUsageInMethod(
+        IMethodSymbol methodSymbol,
+        ConversionContext context,
+        HashSet<string>? activeChain = null)
     {
         var typeParams = methodSymbol.TypeParameters;
         if (typeParams.Length == 0)
+            return null;
+
+        var originalDef = methodSymbol.OriginalDefinition;
+        // Overrides/interface implementations never gain leading Class<T> slots
+        // (they must keep the base erasure signature), so their bodies' apparent
+        // Class-token requirements must not be projected back onto call sites.
+        if (ConversionContext.IsOverrideOrImplementation(originalDef))
+            return null;
+        if (activeChain != null && !activeChain.Add(originalDef.ToDisplayString()))
             return null;
 
         void AddTypeParamName(ITypeParameterSymbol tp, ref List<string>? result)
@@ -10824,16 +10909,38 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 }
             }
 
-            // Detect explicit generic call forwarding a type parameter (e.g.
-            // Deserialize<TValue>(...)) — the callee likely needs the Class token,
-            // so this method's signature must carry it too.
+            // Detect calls forwarding a type parameter (e.g. Deserialize<TValue>(...)
+            // or JsonSerializer.Serialize(obj1) with inferred T) — the callee likely
+            // needs the Class token, so this method's signature must carry it too.
             foreach (var inv in scanRoot.DescendantNodes()
                 .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>())
             {
-                if (inv.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax invGeneric
-                    && invGeneric.TypeArgumentList.Arguments.Count > 0)
+                List<Microsoft.CodeAnalysis.CSharp.Syntax.TypeSyntax> explicitTypeArgs = new();
+                if (inv.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax invGeneric)
                 {
-                    foreach (var typeArg in invGeneric.TypeArgumentList.Arguments)
+                    explicitTypeArgs.AddRange(invGeneric.TypeArgumentList.Arguments);
+                }
+                else if (inv.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax invMember
+                    && invMember.Name is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax memberGeneric)
+                {
+                    explicitTypeArgs.AddRange(memberGeneric.TypeArgumentList.Arguments);
+                }
+
+                if (explicitTypeArgs.Count > 0)
+                {
+                    // Only forward the callee's explicit type argument when the callee
+                    // actually exposes Class<T> slots in its Java signature. Abstract
+                    // helpers whose overrides suppress Class tokens (e.g.
+                    // DeserializeWrapper<T>) must NOT cause the caller to gain a
+                    // spurious Class<T> parameter — the hoisted declaration would not
+                    // add one either.
+                    var explicitCallee = context.GetSymbolInfo(inv).Symbol as IMethodSymbol;
+                    bool calleeNeedsTokens = explicitCallee == null
+                        || MethodLikelyNeedsClassTokens(explicitCallee, context, activeChain);
+                    if (!calleeNeedsTokens)
+                        continue;
+
+                    foreach (var typeArg in explicitTypeArgs)
                     {
                         if (typeArg is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeArgId)
                         {
@@ -10845,9 +10952,80 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         }
                     }
                 }
+
+                // Inferred type arguments: when a generic callee receives an argument
+                // whose type is (or contains) one of this method's type parameters,
+                // the callee's Class-token machinery will map back to that type
+                // parameter (e.g. JsonSerializer.Serialize(obj1) where obj1 is T).
+                var callee = context.GetSymbolInfo(inv).Symbol as IMethodSymbol;
+                if (callee is { TypeParameters.Length: > 0 }
+                    && inv.ArgumentList.Arguments.Count > 0
+                    && MethodLikelyNeedsClassTokens(callee, context, activeChain))
+                {
+                    foreach (var tp in typeParams)
+                    {
+                        bool referenced = false;
+                        foreach (var arg in inv.ArgumentList.Arguments)
+                        {
+                            var argType = context.GetTypeInfo(arg.Expression).Type;
+                            if (argType != null && TypeContainsTypeParameter(argType, tp))
+                            {
+                                referenced = true;
+                                break;
+                            }
+                        }
+                        if (referenced)
+                            AddTypeParamName(tp, ref result);
+                    }
+                }
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// True when the method's Java signature exposes leading Class&lt;T&gt; slots
+    /// (or will, once its declaration is converted). Overrides/interface
+    /// implementations never gain such slots (they must keep the base erasure
+    /// signature), so they are treated as token-free even when their body text
+    /// would otherwise suggest a token requirement.
+    /// </summary>
+    private static bool MethodLikelyNeedsClassTokens(
+        IMethodSymbol method,
+        ConversionContext context,
+        HashSet<string>? activeChain)
+    {
+        var original = method.OriginalDefinition;
+        if (ConversionContext.IsOverrideOrImplementation(original))
+            return false;
+        if (context.MethodHasClassParams(original))
+            return true;
+        var chain = activeChain != null
+            ? new HashSet<string>(activeChain, StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+        var detected = DetectDefaultUsageInMethod(original, context, chain);
+        return detected is { Count: > 0 };
+    }
+
+    private static bool TypeContainsTypeParameter(ITypeSymbol type, ITypeParameterSymbol typeParameter)
+    {
+        if (type is ITypeParameterSymbol typeParam)
+        {
+            return SymbolEqualityComparer.Default.Equals(typeParam, typeParameter);
+        }
+        if (type is IArrayTypeSymbol arrayType)
+        {
+            return TypeContainsTypeParameter(arrayType.ElementType, typeParameter);
+        }
+        if (type is INamedTypeSymbol namedType)
+        {
+            foreach (var arg in namedType.TypeArguments)
+            {
+                if (TypeContainsTypeParameter(arg, typeParameter))
+                    return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>

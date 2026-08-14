@@ -17,6 +17,31 @@ public partial class StatementTransformer
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
 
+        // C# discard assignment `_ = expr;` — keep the RHS side effects but drop
+        // the (undeclared) discard target.
+        if (stmt.Expression is AssignmentExpressionSyntax discardAssign
+            && discardAssign.Left is IdentifierNameSyntax { Identifier.ValueText: "_" })
+        {
+            var rhs = exprTransformer.Transform(discardAssign.Right, context);
+            var trimmed = rhs.Trim().TrimEnd(';');
+            bool isStatementExpression = trimmed.Contains('(')
+                || trimmed.StartsWith("new ", StringComparison.Ordinal)
+                || trimmed.Contains('=');
+            return new JavaStatementNode(isStatementExpression ? trimmed + ";" : "");
+        }
+
+        // Terminal `await X;` inside a non-void async lambda body: the lambda is
+        // wrapped in CompletableFuture.supplyAsync and must RETURN the future
+        // (e.g. Assert.ThrowsAsync(async () => { await X; })).
+        if (context.MethodState.InAsyncLambdaReturnPosition
+            && stmt.Expression is AwaitExpressionSyntax terminalAwait
+            && stmt.Parent is BlockSyntax terminalBlock
+            && terminalBlock.Statements.LastOrDefault() == stmt)
+        {
+            var operand = exprTransformer.Transform(terminalAwait.Expression, context);
+            return new JavaStatementNode($"return {operand};");
+        }
+
         // ConditionalAccessExpression (obj?.Method()) as a statement cannot be a ternary expression in Java.
         // Java only allows method calls, assignments, and new as expression statements.
         // Convert to: if (obj != null) { obj.Method(); }

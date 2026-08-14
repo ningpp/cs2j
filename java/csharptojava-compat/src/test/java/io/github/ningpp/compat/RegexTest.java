@@ -215,4 +215,97 @@ class RegexTest {
         String[] parts = Regex.split("one1two2three", "\\d+");
         assertArrayEquals(new String[]{"one", "two", "three"}, parts);
     }
+
+    // ---- Static Regex.escape / Regex.unescape ----
+
+    @Test
+    void escape_plainText_unchanged() {
+        assertEquals("Hello", Regex.escape("Hello"));
+    }
+
+    @Test
+    void escape_metacharacters() {
+        assertEquals("\\#\\$\\^\\*\\+\\(\\)\\{}<>\\\\\\|\\.\\ ",
+            Regex.escape("#$^*+(){}<>\\|. "));
+    }
+
+    @Test
+    void escape_controlCharacters() {
+        assertEquals("\\n\\r\\t\\f", Regex.escape("\n\r\t\f"));
+    }
+
+    @Test
+    void escape_backslash() {
+        assertEquals("\\\\", Regex.escape("\\"));
+    }
+
+    @Test
+    void escape_emptyString() {
+        assertEquals("", Regex.escape(""));
+    }
+
+    @Test
+    void escape_null_throwsArgumentNullException() {
+        ArgumentNullException ex = assertThrows(ArgumentNullException.class, () -> Regex.escape(null));
+        assertEquals("str", ex.getParamName());
+    }
+
+    @Test
+    void unescape_plainText_unchanged() {
+        assertEquals("Hello", Regex.unescape("Hello"));
+    }
+
+    @Test
+    void unescape_metacharacters() {
+        assertEquals("#$^*+(){}<>\\|. ",
+            Regex.unescape("\\#\\$\\^\\*\\+\\(\\)\\{}<>\\\\\\|\\.\\ "));
+    }
+
+    @Test
+    void unescape_controlCharacters() {
+        assertEquals("\n\r\t\f", Regex.unescape("\\n\\r\\t\\f"));
+    }
+
+    @Test
+    void unescape_backslash() {
+        assertEquals("\\", Regex.unescape("\\\\"));
+    }
+
+    @Test
+    void unescape_loneTrailingBackslash() {
+        assertEquals("", Regex.unescape("\\"));
+    }
+
+    @Test
+    void unescape_emptyString() {
+        assertEquals("", Regex.unescape(""));
+    }
+
+    @Test
+    void unescape_null_throwsArgumentNullException() {
+        ArgumentNullException ex = assertThrows(ArgumentNullException.class, () -> Regex.unescape(null));
+        assertEquals("str", ex.getParamName());
+    }
+
+    @Test
+    void escapeAndUnescape_roundTrip() {
+        String input = "a # $ ^ * + ( ) { } < > \\ | . \n\r\t\f 123";
+        assertEquals(input, Regex.unescape(Regex.escape(input)));
+    }
+
+    @Test
+    void unescape_hexOctalAndControlEscapes() {
+        assertEquals("A", Regex.unescape("\\x41"));
+        assertEquals("A", Regex.unescape("\\u0041"));
+        assertEquals("A", Regex.unescape("\\101"));
+        assertEquals("\u0007\b\u001B\f\n\r\t\u000B",
+            Regex.unescape("\\a\\b\\e\\f\\n\\r\\t\\v"));
+        assertEquals("\u0001", Regex.unescape("\\cA"));
+        assertEquals("!", Regex.unescape("\\!"));
+    }
+
+    @Test
+    void unescape_unrecognizedWordEscape_throws() {
+        assertThrows(ArgumentException.class, () -> Regex.unescape("\\m"));
+    }
 }

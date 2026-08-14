@@ -411,6 +411,16 @@ public class ConversionContext
     }
 
     /// <summary>
+    /// Registers a Class&lt;T&gt; requirement for a method (regular or hoisted local
+    /// function) using the method's canonical Class-parameter key.
+    /// </summary>
+    public void RequireClassTypeParam(IMethodSymbol method, string typeParamName)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        RequireClassTypeParam(typeName, methodKey, typeParamName);
+    }
+
+    /// <summary>
     /// Records a method-level Class&lt;T&gt; requirement without enqueuing another
     /// pending drain (used when the signature was already patched).
     /// </summary>
@@ -428,6 +438,12 @@ public class ConversionContext
             nameList.Add(typeParamName);
     }
 
+    public void RegisterMethodClassTypeParam(IMethodSymbol method, string typeParamName)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        RegisterMethodClassTypeParam(typeName, methodKey, typeParamName);
+    }
+
     /// <summary>
     /// Returns the ordered list of type parameter names that need Class&lt;T&gt;
     /// tokens for a method, or null if the method has none.
@@ -436,6 +452,12 @@ public class ConversionContext
     {
         var key = $"{containingTypeMetadataName}|{methodMetadataName}";
         return _methodClassTypeParamNames.TryGetValue(key, out var list) ? list : null;
+    }
+
+    public IReadOnlyList<string>? GetMethodClassTypeParamNames(IMethodSymbol method)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        return GetMethodClassTypeParamNames(typeName, methodKey);
     }
 
     /// <summary>
@@ -454,6 +476,12 @@ public class ConversionContext
         }
         _methodClassTypeParamNames[key] = list;
         _methodsWithClassParams.Add(key);
+    }
+
+    public void SetMethodClassTypeParamNames(IMethodSymbol method, IEnumerable<string> typeParameterNames)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        SetMethodClassTypeParamNames(typeName, methodKey, typeParameterNames);
     }
 
     public IReadOnlySet<string>? DrainClassTypeParams()
@@ -482,9 +510,42 @@ public class ConversionContext
         return null;
     }
 
+    public IReadOnlyList<string>? DrainClassTypeParamsForMethod(IMethodSymbol method)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        return DrainClassTypeParamsForMethod(typeName, methodKey);
+    }
+
     public bool MethodHasClassParams(string containingTypeMetadataName, string methodMetadataName)
     {
         return _methodsWithClassParams.Contains($"{containingTypeMetadataName}|{methodMetadataName}");
+    }
+
+    public bool MethodHasClassParams(IMethodSymbol method)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        return MethodHasClassParams(typeName, methodKey);
+    }
+
+    /// <summary>
+    /// Returns the canonical Class&lt;T&gt;-parameter key parts for a method.
+    /// Hoisted local functions must NOT share a key merely because their C# names
+    /// (and therefore ToDisplayString signatures) collide — two methods can each
+    /// declare <c>RunTestAsync&lt;T&gt;()</c>. They are keyed by their unique
+    /// hoisted Java name (runTestAsync, runTestAsync2, ...) so Class-parameter
+    /// requirements never leak between same-named local functions. Regular methods
+    /// keep the display-string key (their signatures include parameter lists).
+    /// </summary>
+    public (string ContainingTypeName, string MethodKey) GetMethodClassParamsKeyParts(IMethodSymbol method)
+    {
+        var original = method.OriginalDefinition;
+        var typeName = original.ContainingType?.MetadataName ?? "";
+        if (original.MethodKind == MethodKind.LocalFunction
+            && TryGetHoistedLocalFunctionName(original, out var hoistedName))
+        {
+            return (typeName, $"local:{hoistedName}");
+        }
+        return (typeName, original.ToDisplayString());
     }
 
     /// <summary>
@@ -531,10 +592,7 @@ public class ConversionContext
                     // accept it; the token is unavailable at runtime in this shape).
                     return "null";
                 }
-                context.RequireClassTypeParam(
-                    currentMethod.ContainingType?.MetadataName ?? "",
-                    currentMethod.ToDisplayString(),
-                    typeParam.Name);
+                context.RequireClassTypeParam(currentMethod, typeParam.Name);
             }
             // The parameter naming convention is _cs2j_{typeParamName}.
             return $"_cs2j_{typeParam.Name}";
@@ -542,7 +600,6 @@ public class ConversionContext
         if (typeSymbol.SpecialType == SpecialType.System_Int32) return "int.class";
         if (typeSymbol.SpecialType == SpecialType.System_Int64) return "long.class";
         if (typeSymbol.SpecialType == SpecialType.System_Int16) return "short.class";
-        if (typeSymbol.SpecialType == SpecialType.System_Byte) return "byte.class";
         if (typeSymbol.SpecialType == SpecialType.System_Single) return "float.class";
         if (typeSymbol.SpecialType == SpecialType.System_Double) return "double.class";
         if (typeSymbol.SpecialType == SpecialType.System_Boolean) return "boolean.class";

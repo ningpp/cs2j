@@ -20,4 +20,13 @@ public class ConcurrentHashMapHelper {
     public static <K, V> V getOrAdd(ConcurrentHashMap<K, V> map, K key, java.util.function.Function<K, V> valueFactory) {
         return map.computeIfAbsent(key, valueFactory);
     }
+
+    /** Mirrors ConcurrentDictionary(IDictionary<K,V>) — copies entries into a new map. */
+    public static <K, V> ConcurrentHashMap<K, V> create(CSharpGenericIDictionary<K, V> dictionary) {
+        ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();
+        for (CSharpKeyValuePair<K, V> pair : dictionary) {
+            map.put(pair.getKey(), pair.getValue());
+        }
+        return map;
+    }
 }

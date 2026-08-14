@@ -36,6 +36,11 @@ public final class Environment {
         return System.currentTimeMillis();
     }
 
+    /** Mirrors Environment.Is64BitProcess. */
+    public static boolean getIs64BitProcess() {
+        return true;
+    }
+
     public static int getProcessorCount() {
         return Runtime.getRuntime().availableProcessors();
     }

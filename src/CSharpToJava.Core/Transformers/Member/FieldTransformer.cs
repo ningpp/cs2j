@@ -298,6 +298,17 @@ public class FieldTransformer : IMemberTransformer
                         javaField.Initializer = ObjectCreationTransformer.WrapArrayForCollectionArg(javaField.Initializer, arrayType, context);
                 }
 
+                if (context.SemanticModel != null
+                    && fieldTypeSymbol is INamedTypeSymbol fieldIterable
+                    && (fieldIterable.OriginalDefinition?.ToDisplayString()
+                            == "System.Collections.Generic.IEnumerable<T>"
+                        || fieldIterable.ToDisplayString() == "System.Collections.IEnumerable")
+                    && context.GetTypeInfo(variable.Initializer.Value).Type is IArrayTypeSymbol)
+                {
+                    javaField.Initializer = ExpressionTransformerHelpers.WrapArrayForIterableTarget(
+                        fieldIterable, javaField.Initializer!, context);
+                }
+
                 if (IsEnumerableOrCollectionTypeSyntax(fieldDecl.Declaration.Type)
                     && variable.Initializer.Value is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax)
                 {

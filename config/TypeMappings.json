@@ -1079,6 +1079,13 @@
             ]
         },
         {
+            "csharp": "Newtonsoft.Json.ReferenceLoopHandling",
+            "java": "ReferenceLoopHandling",
+            "imports": [
+                "io.github.ningpp.compat.ReferenceLoopHandling"
+            ]
+        },
+        {
             "csharp": "System.Collections.Specialized.StringCollection",
             "java": "CSharpList<String>",
             "imports": [
@@ -3234,9 +3241,9 @@
         },
         {
             "csharp": "System.IO.EndOfStreamException",
-            "java": "EOFException",
+            "java": "EndOfStreamException",
             "imports": [
-                "java.io.EOFException"
+                "io.github.ningpp.compat.EndOfStreamException"
             ]
         },
         {
@@ -4575,9 +4582,9 @@
         },
         {
             "csharp": "System.BitConverter",
-            "java": "ByteBuffer",
+            "java": "BitConverter",
             "imports": [
-                "java.nio.ByteBuffer"
+                "io.github.ningpp.compat.BitConverter"
             ]
         },
         {
@@ -9115,6 +9122,11 @@
             "type": "System.Text.Encoding",
             "method": "GetEncoding",
             "javaMethod": "Encoding.getEncoding"
+        },
+        {
+            "type": "System.Text.Encoding",
+            "method": "GetPreamble",
+            "javaMethod": "getPreamble"
         },
         {
             "type": "System.Text.Encoding",

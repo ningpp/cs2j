@@ -45,6 +45,13 @@ public final class PropertyInfo implements MemberInfo {
         }
         // Derive property name from getter: "getFoo" → "Foo", "isBar" → "Bar"
         String methodName = getter != null ? getter.getName() : setter.getName();
+        CompatPropertyName compatName = getter != null
+            ? getter.getAnnotation(CompatPropertyName.class)
+            : null;
+        if (compatName != null) {
+            this.name = compatName.value();
+            return;
+        }
         if (methodName.startsWith("get") && methodName.length() > 3) {
             this.name = methodName.substring(3);
         } else if (methodName.startsWith("is") && methodName.length() > 2) {

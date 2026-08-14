@@ -1114,6 +1114,41 @@ public class ArgumentTransformer
             return $"CSharpIDictionary.from({transformedExpr})";
         }
 
+        // Overload families (e.g. JsonSerializer's <T>deserialize(Class<T>, ...)
+        // vs deserialize(..., Class, ...)) make a bare null literal applicable to
+        // several overloads in Java, while C# resolved it through type inference.
+        // Pin null arguments to the bound parameter's mapped Java type so the
+        // javac overload selection matches the C# binding.
+        if (transformedExpr.Trim() == "null" && paramType != null)
+        {
+            var javaParamType = context.MapType(paramType);
+            if (!string.IsNullOrWhiteSpace(javaParamType)
+                && !ExpressionTransformerHelpers.IsJavaPrimitiveType(javaParamType)
+                && !javaParamType.EndsWith("[]", StringComparison.Ordinal))
+            {
+                return $"({javaParamType}) null";
+            }
+        }
+
+        // Lambda arguments are often cast to Supplier<T>/Function<T,R> using the
+        // lambda's own inferred return type, which may differ from the delegate
+        // parameter's type argument after C# implicit widening (e.g. an int-returning
+        // lambda bound to Func<long>). Re-cast the lambda to the parameter type.
+        if (paramType is INamedTypeSymbol { TypeKind: TypeKind.Delegate, TypeArguments.Length: 1 } delegateParam
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        {
+            var mappedDelegate = context.MapType(delegateParam);
+            if (mappedDelegate.StartsWith("Supplier<", StringComparison.Ordinal)
+                && System.Text.RegularExpressions.Regex.IsMatch(
+                    transformedExpr, @"^\(Supplier<[^>]+>\)\s*\(\)\s*->"))
+            {
+                transformedExpr = System.Text.RegularExpressions.Regex.Replace(
+                    transformedExpr,
+                    @"^\(Supplier<[^>]+>\)\s*\(\)\s*->",
+                    $"({mappedDelegate}) () ->");
+            }
+        }
+
         var result = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
             arg.Expression,
             transformedExpr,

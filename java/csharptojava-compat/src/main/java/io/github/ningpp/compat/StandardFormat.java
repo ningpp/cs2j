@@ -27,6 +27,19 @@ public final class StandardFormat {
         this(symbol, (byte) precision);
     }
 
+    /** Mirrors StandardFormat.Parse(string) — e.g. "D6" → ('D', 6), "G" → default. */
+    public static StandardFormat parse(String format) {
+        if (format == null || format.isEmpty()) {
+            return new StandardFormat();
+        }
+        char symbol = format.charAt(0);
+        if (format.length() == 1) {
+            return new StandardFormat(symbol);
+        }
+        int precision = Integer.parseInt(format.substring(1));
+        return new StandardFormat(symbol, (byte) precision);
+    }
+
     public char getSymbol() {
         return symbol;
     }

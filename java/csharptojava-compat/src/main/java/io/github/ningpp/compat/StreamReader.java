@@ -24,6 +24,18 @@ public class StreamReader extends TextReader {
         this(stream.inputStream(), encoding);
     }
 
+    /** C# new StreamReader(Stream, Encoding, bool detectEncodingFromByteOrderMarks, int bufferSize, bool leaveOpen). */
+    public StreamReader(StreamWrapper stream, Encoding encoding, boolean detectEncodingFromByteOrderMarks,
+                        int bufferSize, boolean leaveOpen) {
+        this(stream.inputStream(), encoding);
+    }
+
+    /** C# overload with a MemoryStream argument (MemoryStream is a StreamWrapper). */
+    public StreamReader(MemoryStream stream, Encoding encoding, boolean detectEncodingFromByteOrderMarks,
+                        int bufferSize, boolean leaveOpen) {
+        this((StreamWrapper) stream, encoding, detectEncodingFromByteOrderMarks, bufferSize, leaveOpen);
+    }
+
     public StreamReader(InputStream stream) {
         this(stream, Encoding.getUTF8());
     }

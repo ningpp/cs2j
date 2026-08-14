@@ -85,6 +85,23 @@ class StreamCompatibilityTest {
     }
 
     @Test
+    void streamWrapperReference_memoryStream_seekResetsPosition() {
+        StreamWrapper stream = new MemoryStream(new byte[] {1, 2, 3});
+        byte[] buffer = new byte[3];
+
+        assertEquals(3, stream.read(buffer, 0, 3));
+        assertEquals(0L, stream.seek(0L, SeekOrigin.Begin));
+        assertEquals(0L, stream.getPosition());
+    }
+
+    @Test
+    void streamWrapper_seekOnNonSeekableStream_throws() {
+        StreamWrapper stream = StreamWrapper.of(new java.io.ByteArrayInputStream(new byte[0]));
+
+        assertThrows(UnsupportedOperationException.class, () -> stream.seek(0L, SeekOrigin.Begin));
+    }
+
+    @Test
     void memoryStream_readByteArray_emptyStream_returnsZero() {
         MemoryStream ms = new MemoryStream();
         byte[] buf = new byte[10];

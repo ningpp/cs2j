@@ -48,6 +48,12 @@ public class MemoryStream extends StreamWrapper {
         this.buffer = new byte[0];
     }
 
+    /** C# new MemoryStream(int capacity). */
+    public MemoryStream(int capacity) {
+        super(null, null);
+        this.buffer = new byte[capacity];
+    }
+
     public MemoryStream(byte[] buffer) {
         super(null, null);
         this.buffer = Arrays.copyOf(buffer, buffer.length);

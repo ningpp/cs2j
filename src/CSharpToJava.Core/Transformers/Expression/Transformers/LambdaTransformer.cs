@@ -235,7 +235,19 @@ public class LambdaTransformer : IIRExpressionTransformer
                 : new List<string>();
 
             var stmtTransformer = new StatementTransformer();
-            string body = stmtTransformer.TransformBlock(node.Block, context);
+            // Non-void async lambdas are wrapped in supplyAsync and must return the
+            // CompletableFuture; terminal `await X;` statements become `return X;`.
+            bool asyncReturnBody = isAsync && !IsVoidAsyncLambda(node, context);
+            context.MethodState.InAsyncLambdaReturnPosition = asyncReturnBody;
+            string body;
+            try
+            {
+                body = stmtTransformer.TransformBlock(node.Block, context);
+            }
+            finally
+            {
+                context.MethodState.InAsyncLambdaReturnPosition = false;
+            }
 
             // Restore saved pre-statements for the enclosing scope
             foreach (var ps in savedPre)
@@ -913,34 +925,34 @@ public class LambdaTransformer : IIRExpressionTransformer
             {
                 case MethodDeclarationSyntax method:
                     AddParameterNames(method.ParameterList.Parameters, names);
-                    CollectLocalNamesExcludingScope(method.Body ?? (SyntaxNode?)method.ExpressionBody, lambdaNode, names);
+                    CollectVisibleLocalNames(method.Body ?? (SyntaxNode?)method.ExpressionBody, lambdaNode, names);
                     return names;
                 case ConstructorDeclarationSyntax ctor:
                     AddParameterNames(ctor.ParameterList.Parameters, names);
-                    CollectLocalNamesExcludingScope(ctor.Body ?? (SyntaxNode?)ctor.ExpressionBody, lambdaNode, names);
+                    CollectVisibleLocalNames(ctor.Body ?? (SyntaxNode?)ctor.ExpressionBody, lambdaNode, names);
                     return names;
                 case OperatorDeclarationSyntax op:
                     AddParameterNames(op.ParameterList.Parameters, names);
-                    CollectLocalNamesExcludingScope(op.Body ?? (SyntaxNode?)op.ExpressionBody, lambdaNode, names);
+                    CollectVisibleLocalNames(op.Body ?? (SyntaxNode?)op.ExpressionBody, lambdaNode, names);
                     return names;
                 case ConversionOperatorDeclarationSyntax conv:
                     AddParameterNames(conv.ParameterList.Parameters, names);
-                    CollectLocalNamesExcludingScope(conv.Body ?? (SyntaxNode?)conv.ExpressionBody, lambdaNode, names);
+                    CollectVisibleLocalNames(conv.Body ?? (SyntaxNode?)conv.ExpressionBody, lambdaNode, names);
                     return names;
                 case DestructorDeclarationSyntax destructor:
-                    CollectLocalNamesExcludingScope(destructor.Body, lambdaNode, names);
+                    CollectVisibleLocalNames(destructor.Body, lambdaNode, names);
                     return names;
                 case IndexerDeclarationSyntax indexer:
                     AddParameterNames(indexer.ParameterList.Parameters, names);
                     // Accessor bodies are visited as AccessorDeclarationSyntax.
-                    CollectLocalNamesExcludingScope(indexer.ExpressionBody, lambdaNode, names);
+                    CollectVisibleLocalNames(indexer.ExpressionBody, lambdaNode, names);
                     break;
                 case LocalFunctionStatementSyntax localFn:
                     AddParameterNames(localFn.ParameterList.Parameters, names);
-                    CollectLocalNamesExcludingScope(localFn.Body ?? (SyntaxNode?)localFn.ExpressionBody, lambdaNode, names);
+                    CollectVisibleLocalNames(localFn.Body ?? (SyntaxNode?)localFn.ExpressionBody, lambdaNode, names);
                     return names;
                 case AccessorDeclarationSyntax accessor:
-                    CollectLocalNamesExcludingScope(accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody, lambdaNode, names);
+                    CollectVisibleLocalNames(accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody, lambdaNode, names);
                     return names;
                 case ArrowExpressionClauseSyntax:
                     // Transparent — the owning member contributes its names above/below.
@@ -1005,6 +1017,67 @@ public class LambdaTransformer : IIRExpressionTransformer
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// Collects local names declared in <paramref name="scope"/> that are actually
+    /// visible at <paramref name="lambdaNode"/>. Locals inside sibling blocks (which
+    /// do not contain the lambda) are NOT visible in C# and must not force a rename
+    /// of the lambda's own locals.
+    /// </summary>
+    private static void CollectVisibleLocalNames(
+        SyntaxNode? scope, SyntaxNode lambdaNode, HashSet<string> names)
+    {
+        if (scope == null) return;
+        foreach (var n in scope.DescendantNodes(
+                     descendIntoChildren: c =>
+                         c is not (LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)))
+        {
+            if (lambdaNode.Span.Contains(n.Span)) continue;
+            if (!IsLocalVisibleTo(n, lambdaNode)) continue;
+            switch (n)
+            {
+                case VariableDeclarationSyntax vd:
+                    foreach (var v in vd.Variables)
+                        if (v.Identifier.ValueText.Length > 0)
+                            names.Add(v.Identifier.ValueText);
+                    break;
+                case ForEachStatementSyntax fe:
+                    if (fe.Identifier.ValueText.Length > 0)
+                        names.Add(fe.Identifier.ValueText);
+                    break;
+                case CatchDeclarationSyntax cd:
+                    if (cd.Identifier.ValueText.Length > 0)
+                        names.Add(cd.Identifier.ValueText);
+                    break;
+                case SingleVariableDesignationSyntax svd:
+                    names.Add(svd.Identifier.ValueText);
+                    break;
+            }
+        }
+    }
+
+    private static bool IsLocalVisibleTo(SyntaxNode declaration, SyntaxNode lambdaNode)
+    {
+        var current = declaration.Parent;
+        while (current != null)
+        {
+            if (current is BlockSyntax block)
+            {
+                if (!block.Contains(lambdaNode))
+                    return false;
+            }
+            if (current is MethodDeclarationSyntax
+                or ConstructorDeclarationSyntax
+                or LocalFunctionStatementSyntax
+                or LambdaExpressionSyntax
+                or AnonymousMethodExpressionSyntax)
+            {
+                break;
+            }
+            current = current.Parent;
+        }
+        return true;
     }
 
     /// <summary>
@@ -1187,4 +1260,3 @@ public class LambdaTransformer : IIRExpressionTransformer
         return result;
     }
 }
-

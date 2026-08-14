@@ -762,6 +762,23 @@ public class StringHelper {
         return new String(str); // Create a new String instance
     }
 
+    /**
+     * Mirrors C# String(char c, int count) — creates a string by repeating c count times.
+     * <p>
+     * Reflection on System.String shows the public instance constructors are:
+     * String(char[]), String(char[], int, int), String(char, int), String(char*),
+     * String(char*, int, int), String(sbyte*), String(sbyte*, int, int),
+     * String(sbyte*, int, int, Encoding), and (on modern .NET) String(ReadOnlySpan&lt;char&gt;).
+     * Java already covers the char[] overloads natively; this helper fills the
+     * String(char, int) gap. Pointer/span overloads are rewritten by the converter.
+     */
+    public static String newString(char c, int count) {
+        if (count < 0) {
+            throw new ArgumentOutOfRangeException("count");
+        }
+        return String.valueOf(c).repeat(count);
+    }
+
     // ==================== IndexOfAny / LastIndexOfAny ====================
     /** Mirrors C# String.IndexOfAny(anyOf) */
     public static int indexOfAny(String s, char[] anyOf) {

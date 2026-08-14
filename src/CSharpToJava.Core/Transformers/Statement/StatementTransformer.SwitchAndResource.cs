@@ -972,11 +972,29 @@ public partial class StatementTransformer
 
         // currentStmt is the innermost using; its Statement is the actual body.
         var stmtTransformer = new StatementTransformer();
+        // Object initializers in resource expressions emit pre-statements
+        // (var _objN = ...; _objN.setX(...);) that must run BEFORE the try.
+        var resourcePre = context.DrainPreStatements().ToList();
+        // The pre-statements may reference the first resource variable (e.g.
+        // new JsonTextWriter(stringWriter)); hoist that declaration first.
+        if (resourcePre.Count > 0 && resources.Count > 1)
+        {
+            var firstResource = resources[0];
+            var firstEq = firstResource.IndexOf(" = ", System.StringComparison.Ordinal);
+            if (firstEq > 0)
+            {
+                resourcePre.Insert(0, firstResource + ";");
+                resources.RemoveAt(0);
+            }
+        }
         var body = currentStmt!.Statement is BlockSyntax block
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
             : $"{{ {stmtTransformer.Transform(currentStmt.Statement, context).ToString("")} }}";
 
-        return new JavaStatementNode($"try ({string.Join("; ", resources)}) {body}");
+        var prefix = resourcePre.Count > 0
+            ? string.Join("\n", resourcePre.Select(s => s.TrimEnd(';') + ";")) + "\n"
+            : "";
+        return new JavaStatementNode($"{prefix}try ({string.Join("; ", resources)}) {body}");
     }
 
     private static List<string> BuildUsingDeclarationResources(

@@ -7,6 +7,11 @@ public interface CSharpGenericIList<T> extends CSharpICollection<T> {
     T get(int index);
     T set(int index, T value);
 
+    /** C# IList.IsFixedSize — non-generic lists report false; generic lists have no such member. */
+    default boolean getIsFixedSize() {
+        return false;
+    }
+
     /**
      * Adapts a concrete generic list (CSharpList&lt;T&gt; / CSharpGenericIList&lt;T&gt;)
      * or a non-generic CSharpIList / CSharpArrayList to CSharpGenericIList&lt;Object&gt;.

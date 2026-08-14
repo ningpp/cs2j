@@ -555,6 +555,54 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var args = ArgumentTransformer.TransformArgumentList(
             argumentList, context, ExpressionTransformerFacade.Instance, methodSymbol: ctorSymbol);
 
+        // new ReadOnlySpan<T>(null) / new Span<T>(null): the compat classes expose
+        // several single-argument constructors (T[], ReadOnlySpan<T>, Span<T>), and
+        // a bare null is ambiguous. Pin it to the array constructor.
+        if ((bareTypeName == "ReadOnlySpan" || bareTypeName == "Span")
+            && args.Trim() == "null")
+        {
+            var spanElem = typeName.Contains('<')
+                ? typeName[(typeName.IndexOf('<') + 1)..^1]
+                : "Object";
+            return $"new {typeName}(({spanElem}[]) null)";
+        }
+
+        // C# new Task(Action<object> action, object state) → CompletableFuture.runAsync.
+        if (bareTypeName == "CompletableFuture"
+            && argumentList.Arguments.Count == 2
+            && context.SemanticModel != null
+            && context.GetTypeInfo(argumentList.Arguments[0].Expression).Type is { TypeKind: TypeKind.Delegate })
+        {
+            var taskAction = ExpressionTransformerFacade.Instance
+                .Transform(argumentList.Arguments[0].Expression, context);
+            var taskState = ExpressionTransformerFacade.Instance
+                .Transform(argumentList.Arguments[1].Expression, context);
+            context.AddImport("java.util.concurrent.CompletableFuture");
+            return $"CompletableFuture.runAsync(() -> {taskAction}.accept({taskState}))";
+        }
+
+        // C# ConcurrentDictionary<K,V>(IDictionary<K,V>) → Java ConcurrentHashMap
+        // has no constructor accepting CSharpDictionary; copy entries through the
+        // compat helper (C# allows passing a Dictionary where IDictionary is expected).
+        if (bareTypeName == "ConcurrentHashMap"
+            && argumentList.Arguments.Count == 1
+            && context.SemanticModel != null)
+        {
+            var argType = context.GetTypeInfo(argumentList.Arguments[0].Expression).Type;
+            if (argType != null)
+            {
+                var argJavaType = context.MapType(argType);
+                if (argJavaType.StartsWith("CSharpDictionary", StringComparison.Ordinal)
+                    || argJavaType.StartsWith("CSharpGenericIDictionary", StringComparison.Ordinal))
+                {
+                    var argExpr = ExpressionTransformerFacade.Instance
+                        .Transform(argumentList.Arguments[0].Expression, context);
+                    context.AddImport("io.github.ningpp.compat.ConcurrentHashMapHelper");
+                    return $"ConcurrentHashMapHelper.create({argExpr})";
+                }
+            }
+        }
+
         if (ctorSymbol == null)
             AppendRuntimeClassArguments(createdTypeSymbol, context, ref args);
 
@@ -765,7 +813,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             }
         }
 
-        // C# new string(char c, int count) → Java String.valueOf(c).repeat(count)
+        // C# new string(char c, int count) → StringHelper.newString(c, count)
         // Java String has no (char, int) constructor; C# creates a string by repeating the character.
         if (bareType == "String" && argumentList.Arguments.Count == 2)
         {
@@ -793,7 +841,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 var parts = SplitTopLevelArgs(args);
                 if (parts.Count == 2)
                 {
-                    return $"String.valueOf({parts[0]}).repeat({parts[1]})";
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    return $"StringHelper.newString({parts[0]}, {parts[1]})";
                 }
             }
         }
@@ -1540,9 +1589,39 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var result = new List<string>();
         int depth = 0;
         int start = 0;
+        char quote = '\0';
+        bool escaped = false;
         for (int i = 0; i < args.Length; i++)
         {
-            switch (args[i])
+            char ch = args[i];
+
+            // Ignore everything inside char/string literals, including escapes.
+            // Without this, a char literal like '[' or ']' would be miscounted as
+            // nesting brackets and the surrounding comma would not split correctly.
+            if (quote != '\0')
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                }
+                else if (ch == '\\')
+                {
+                    escaped = true;
+                }
+                else if (ch == quote)
+                {
+                    quote = '\0';
+                }
+                continue;
+            }
+
+            if (ch is '\'' or '"')
+            {
+                quote = ch;
+                continue;
+            }
+
+            switch (ch)
             {
                 case '<': case '(': case '[': depth++; break;
                 case '>': case ')': case ']': depth--; break;
@@ -1695,8 +1774,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     if (assignExpr.Right is InitializerExpressionSyntax collInit
                         && collInit.Kind() == SyntaxKind.CollectionInitializerExpression)
                     {
-                        var propName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
                         bool isFieldMember = memberSymbol is IFieldSymbol;
+                        var propName = ConversionContext.EscapeJavaKeyword(
+                            memberSymbol is IPropertySymbol propSym
+                                ? propSym.Name
+                                : idName.Identifier.Text);
                         var getterName = isFieldMember
                             ? propName
                             : ConvertToGetter(propName) + "()";
@@ -1716,7 +1798,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     {
                         var propertyType = memberSymbol is IPropertySymbol propertySymbol ? propertySymbol.Type : null;
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
-                        var propertyName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
+                        var propertyName = ConversionContext.EscapeJavaKeyword(
+                            memberSymbol is IPropertySymbol propSym2
+                                ? propSym2.Name
+                                : idName.Identifier.Text);
 
                         // If the property has no setter (get-only), use direct field assignment.
                         // This happens for readonly structs where fields were converted to get-only properties.
@@ -1756,7 +1841,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     {
                         var propertyType = memberSymbol2 is IPropertySymbol propertySymbol2 ? propertySymbol2.Type : null;
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
-                        var propertyName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text);
+                        var propertyName = ConversionContext.EscapeJavaKeyword(
+                            memberSymbol2 is IPropertySymbol propSym3
+                                ? propSym3.Name
+                                : memberAccess.Name.Identifier.Text);
                         var setterName = ConvertToSetter(propertyName);
                         pendingAssignments.Add($"{tmpVar}.{setterName}({value});");
                     }
@@ -2312,6 +2400,19 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             {
                 transformed = $"(byte){transformed}";
             }
+            else if (javaElementType is "Long" or "Float" or "Double" or "Short" or "Byte"
+                && System.Text.RegularExpressions.Regex.IsMatch(transformed.Trim(), @"^-?\d+$"))
+            {
+                transformed = javaElementType switch
+                {
+                    "Long" => transformed.Trim() + "L",
+                    "Float" => transformed.Trim() + "f",
+                    "Double" => transformed.Trim() + ".0",
+                    "Short" => $"(short) ({transformed.Trim()})",
+                    "Byte" => $"(byte) ({transformed.Trim()})",
+                    _ => transformed
+                };
+            }
 
             values.Add(transformed);
         }
@@ -2545,7 +2646,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 return tmpVar;
             }
 
-            context.AddPreStatement($"var {tmpVar} = new {typeName}();");
+            context.AddBranchScopedPreStatement($"var {tmpVar} = new {typeName}();");
             foreach (var element in initializer.Expressions)
             {
                 if (element is InitializerExpressionSyntax complexInit && complexInit.Expressions.Count == 2)
@@ -2554,7 +2655,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     var value = facade.Transform(complexInit.Expressions[1], context);
                     key = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[0], key, keyType, context);
                     value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(complexInit.Expressions[1], value, valueType, context);
-                    context.AddPreStatement($"{tmpVar}.put({key}, {value});");
+                    context.AddBranchScopedPreStatement($"{tmpVar}.put({key}, {value});");
                 }
             }
             return tmpVar;
@@ -2568,6 +2669,30 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 elementType,
                 context))
             .ToList();
+        // Numeric literals in boxed-array initializers need explicit suffixes
+        // (e.g. CSharpList<Long> { 0, ... } → new Long[] { 0L, ... }).
+        if (elementType != null)
+        {
+            var boxedItemsElem = ExpressionTransformerHelpers.BoxJavaPrimitiveType(
+                context.MapType(elementType));
+            for (var itemIndex = 0; itemIndex < items.Count; itemIndex++)
+            {
+                var itemTrimmed = items[itemIndex].Trim();
+                if (boxedItemsElem is "Long" or "Float" or "Double" or "Short" or "Byte"
+                    && System.Text.RegularExpressions.Regex.IsMatch(itemTrimmed, @"^-?\d+$"))
+                {
+                    items[itemIndex] = boxedItemsElem switch
+                    {
+                        "Long" => itemTrimmed + "L",
+                        "Float" => itemTrimmed + "f",
+                        "Double" => itemTrimmed + ".0",
+                        "Short" => $"(short) ({itemTrimmed})",
+                        "Byte" => $"(byte) ({itemTrimmed})",
+                        _ => items[itemIndex]
+                    };
+                }
+            }
+        }
         var itemsStr = string.Join(", ", items);
 
         // Task 41（TS 专属）：集合初始化器 → TS 数组字面量。List/HashSet 在 TS 均以

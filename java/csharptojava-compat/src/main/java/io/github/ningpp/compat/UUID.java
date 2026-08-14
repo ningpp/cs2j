@@ -93,6 +93,11 @@ public final class UUID implements Comparable<UUID> {
         return value.toString();
     }
 
+    /** C# Guid.ToString(format, provider) — provider (CultureInfo) is ignored. */
+    public String toString(String format, CultureInfo provider) {
+        return toString(format);
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof UUID && value.equals(((UUID) obj).value);

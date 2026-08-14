@@ -63,6 +63,61 @@ class MemoryExtensionsTest {
     }
 
     @Test
+    void copyTo_charArray_copiesIntoCharacterSpan() {
+        char[] source = { 'a', 'b', 'c' };
+        Span<Character> destination = new Span<>(new Character[source.length]);
+
+        MemoryExtensions.copyTo(source, destination);
+
+        assertEquals(3, destination.length());
+        assertEquals(Character.valueOf('a'), destination.get(0));
+        assertEquals(Character.valueOf('c'), destination.get(2));
+    }
+
+    @Test
+    void copyTo_byteArray_copiesIntoIntegerSpan() {
+        byte[] source = { 1, 2, (byte) 0xFF };
+        Span<Integer> destination = new Span<>(new Integer[source.length]);
+
+        MemoryExtensions.copyTo(source, destination);
+
+        assertEquals(3, destination.length());
+        assertEquals(Integer.valueOf(1), destination.get(0));
+        assertEquals(Integer.valueOf(255), destination.get(2));
+    }
+
+    @Test
+    void copyTo_genericArray_copiesIntoObjectSpan() {
+        String[] source = { "a", "b", "c" };
+        Span<String> destination = new Span<>(new String[source.length]);
+
+        MemoryExtensions.copyTo(source, destination);
+
+        assertArrayEquals(source, destination.toArray());
+    }
+
+    @Test
+    void copyTo_readOnlySpan_copiesIntoMutableSpan() {
+        ReadOnlySpan<Character> source = MemoryExtensions.asSpan("xyz");
+        Span<Character> destination = new Span<>(new Character[source.length()]);
+
+        MemoryExtensions.copyTo(source, destination);
+
+        assertEquals("xyz", new String(destination.toCharArray()));
+    }
+
+    @Test
+    void copyTo_throwsWhenDestinationTooShort() {
+        char[] chars = { 'a', 'b', 'c' };
+        byte[] bytes = { 1, 2, 3 };
+
+        assertThrows(IllegalArgumentException.class,
+            () -> MemoryExtensions.copyTo(chars, new Span<>(new Character[2])));
+        assertThrows(IllegalArgumentException.class,
+            () -> MemoryExtensions.copyTo(bytes, new Span<>(new Integer[2])));
+    }
+
+    @Test
     void endsWith_matchesSuffix() {
         ReadOnlySpan<Character> span = MemoryExtensions.asSpan("hello");
         ReadOnlySpan<Character> suffix = MemoryExtensions.asSpan("llo");

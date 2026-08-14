@@ -108,6 +108,13 @@ public class MethodConversionState
 
     public bool HasPendingPostStatements => _pendingPostStatements.Count > 0;
 
+    /// <summary>
+    /// True while transforming an async lambda block body whose Java shape must
+    /// RETURN a CompletableFuture (supplyAsync). Terminal `await X;` statements
+    /// then emit `return X;` instead of `X.join();`.
+    /// </summary>
+    public bool InAsyncLambdaReturnPosition { get; set; }
+
     // ─── Ref/Out Holder Management ───────────────────────────────────
 
     private readonly Dictionary<string, string> _activeRefHolders = new(StringComparer.Ordinal);

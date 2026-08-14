@@ -541,6 +541,14 @@ public class MethodTransformer : IMemberTransformer
 
         // Generate overloads for C# default parameters (Java doesn't support default parameter values)
         var allMethodParams = methodDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
+        // Stream overrides that throw checked IO exceptions (e.g. EOFException from
+        // C# EndOfStreamException) must declare throws IOException to compile.
+        var emittedBodyText = javaMethod.Body ?? javaMethod.StructuredBody?.ToBodyString() ?? "";
+        if (emittedBodyText.Contains("EOFException", StringComparison.Ordinal)
+            && methodInfo?.OverriddenMethod != null)
+        {
+            javaMethod.ThrownExceptions.Add("java.io.IOException");
+        }
         bool isAbstractMethod = methodDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword));
         var overloads = Utilities.DefaultParameterHelper.GenerateMethodOverloads(
             allMethodParams,
@@ -586,7 +594,7 @@ public class MethodTransformer : IMemberTransformer
             : javaMethod;
     }
 
-    private JavaMethodDeclaration TransformLocalFunction(LocalFunctionStatementSyntax localFn, ConversionContext context)
+    internal static JavaMethodDeclaration TransformLocalFunction(LocalFunctionStatementSyntax localFn, ConversionContext context)
     {
         var javaMethod = new JavaMethodDeclaration
         {
@@ -671,6 +679,27 @@ public class MethodTransformer : IMemberTransformer
                     javaMethod.StructuredBody.Statements.Add(
                         new Java.JavaRawStatement("return CompletableFuture.completedFuture(null);"));
                 }
+                // Iterator local functions (yield return inside a local function) are
+                // transformed with IsInYieldMethod set by the enclosing member: the
+                // body's `yield return` statements already emit _yieldResult.add(...).
+                // Hoisted local functions must declare and return their own accumulator,
+                // exactly like regular iterator methods.
+                if (localFn.Body?.DescendantNodes()
+                        .OfType<YieldStatementSyntax>()
+                        .Any(y => y.IsKind(SyntaxKind.YieldReturnStatement)) == true
+                    && javaMethod.ReturnType.StartsWith("CSharpGenericIterable<", StringComparison.Ordinal)
+                    && javaMethod.ReturnType.EndsWith(">", StringComparison.Ordinal))
+                {
+                    var yieldElemType = javaMethod.ReturnType[
+                        "CSharpGenericIterable<".Length..^1];
+                    javaMethod.StructuredBody.Statements.Insert(0, new Java.JavaRawStatement(
+                        $"CSharpList<{yieldElemType}> _yieldResult = new CSharpList<{yieldElemType}>();"));
+                    if (StructuredBodyCanFallThrough(javaMethod.StructuredBody))
+                    {
+                        javaMethod.StructuredBody.Statements.Add(
+                            new Java.JavaRawStatement("return _yieldResult;"));
+                    }
+                }
             }
             else if (localFn.ExpressionBody != null)
             {
@@ -706,7 +735,7 @@ public class MethodTransformer : IMemberTransformer
         // The parameter order must match the call-site token order (registration order),
         // otherwise the Class tokens would be bound to the wrong type parameters.
         var pendingClassTypeParams = localFnSymbol != null
-            ? (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(localFnSymbol.ContainingType?.MetadataName ?? "", localFnSymbol.ToDisplayString())
+            ? (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(localFnSymbol)
             : context.DrainClassTypeParams();
         if (pendingClassTypeParams != null && pendingClassTypeParams.Count > 0)
         {
@@ -716,15 +745,16 @@ public class MethodTransformer : IMemberTransformer
                 .ToHashSet(StringComparer.Ordinal);
             // Registration order lives in the ordered per-method list; fall back to the
             // drained set (unorderd) sorted deterministically when the key is unknown.
-            var containingTypeMetadataName = localFnSymbol?.ContainingType?.MetadataName ?? "";
-            var methodMetadataName = localFnSymbol?.ToDisplayString() ?? "";
-            List<string> orderedNames = context.GetMethodClassTypeParamNames(
-                    containingTypeMetadataName, methodMetadataName)?
+            var typeParameterIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < (localFn.TypeParameterList?.Parameters.Count ?? 0); i++)
+            {
+                var name = localFn.TypeParameterList!.Parameters[i].Identifier.Text;
+                typeParameterIndex[name] = i;
+            }
+            var orderedNames = pendingClassTypeParams
                 .Where(ownTypeParamNames.Contains)
-                .ToList()
-                ?? pendingClassTypeParams.Where(ownTypeParamNames.Contains)
-                    .OrderBy(name => name, StringComparer.Ordinal)
-                    .ToList();
+                .OrderBy(name => typeParameterIndex.TryGetValue(name, out var index) ? index : int.MaxValue)
+                .ToList();
             var classTypeParams = new List<JavaParameter>();
             foreach (var typeParameterName in orderedNames)
             {
@@ -739,11 +769,15 @@ public class MethodTransformer : IMemberTransformer
             // so the signature must expose them first, in the same order.
             if (classTypeParams.Count > 0)
                 javaMethod.Parameters.InsertRange(0, classTypeParams);
+            // Persist the final declaration-order token map so later call sites emit
+            // tokens in exactly the order the signature declares them.
+            if (localFnSymbol != null)
+                context.SetMethodClassTypeParamNames(localFnSymbol, orderedNames);
         }
         return javaMethod;
     }
 
-    private string GetLocalFunctionReturnType(LocalFunctionStatementSyntax localFn, ConversionContext context)
+    private static string GetLocalFunctionReturnType(LocalFunctionStatementSyntax localFn, ConversionContext context)
     {
         var actualReturnType = localFn.ReturnType;
         if (actualReturnType is RefTypeSyntax refTypeSyntax)
@@ -1557,6 +1591,17 @@ public class MethodTransformer : IMemberTransformer
         if (name == "ToUpper" || name == "ToUpperInvariant") return "toUpperCase";
 
         var camelName = name.Length > 0 ? char.ToLower(name[0]) + name.Substring(1) : name;
+        // Non-generic JsonSerializer overloads taking System.Type (DeserializeAsync(
+        // Stream, Type, ...), SerializeAsync(Stream, Object, Type, ...)) are renamed
+        // with the _0tp suffix so bare-null call sites are not ambiguous against the
+        // generic Class<T>-leading overloads (mirrors deserialize_0tp).
+        if (methodInfo is { IsGenericMethod: false } jsonNg
+            && jsonNg.ContainingType.ToDisplayString() is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer"
+            && name is "DeserializeAsync" or "SerializeAsync" or "SerializeToUtf8Bytes"
+            && jsonNg.Parameters.Any(p => p.Type.ToDisplayString() == "System.Type"))
+        {
+            return camelName + "_0tp";
+        }
         // Escape Java keywords (e.g. Assert → assert → assertValue)
         return ConversionContext.EscapeJavaKeyword(camelName);
     }
@@ -1892,7 +1937,7 @@ public class MethodTransformer : IMemberTransformer
             .Any(tp => SymbolEqualityComparer.Default.Equals(tp, typeParameter));
     }
 
-    private JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
+    private static JavaParameter? ConvertParameter(ParameterSyntax param, ConversionContext context)
     {
         var typeInfo = context.GetTypeInfo(param.Type!);
         var javaType = typeInfo.Type != null && typeInfo.Type is not IErrorTypeSymbol
@@ -2042,11 +2087,11 @@ public class MethodTransformer : IMemberTransformer
         // are unaffected — they map to the tClass instance field.
         if (ConversionContext.IsOverrideOrImplementation(sym))
         {
-            context.DrainClassTypeParamsForMethod(sym.ContainingType?.MetadataName ?? "", sym.ToDisplayString());
+            context.DrainClassTypeParamsForMethod(sym);
             return;
         }
 
-        var pendingTypeParameters = (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(sym.ContainingType?.MetadataName ?? "", sym.ToDisplayString());
+        var pendingTypeParameters = (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(sym);
         if (pendingTypeParameters == null || pendingTypeParameters.Count == 0)
             return;
 
@@ -2070,10 +2115,7 @@ public class MethodTransformer : IMemberTransformer
             // Record the final (empty) token map so call sites know the signature has
             // no leading Class<T> slots (the trailing Class<?> clazz parameter covers
             // everything) and do not prepend spurious leading tokens.
-            context.SetMethodClassTypeParamNames(
-                sym.ContainingType?.MetadataName ?? "",
-                sym.ToDisplayString(),
-                Array.Empty<string>());
+            context.SetMethodClassTypeParamNames(sym, Array.Empty<string>());
             return;
         }
 
@@ -2109,10 +2151,8 @@ public class MethodTransformer : IMemberTransformer
             .Where(p => p.Name.StartsWith("_cs2j_", StringComparison.Ordinal))
             .Select(p => p.Name.Substring("_cs2j_".Length))
             .ToList();
-        context.SetMethodClassTypeParamNames(
-            sym?.ContainingType?.MetadataName ?? "",
-            sym?.ToDisplayString() ?? "",
-            orderedNames);
+        if (sym != null)
+            context.SetMethodClassTypeParamNames(sym, orderedNames);
     }
 
     private static string AllocateRuntimeClassParameterName(string typeParameterName, JavaMethodDeclaration javaMethod)

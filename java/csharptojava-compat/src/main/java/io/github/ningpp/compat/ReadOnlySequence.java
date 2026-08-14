@@ -30,6 +30,23 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         this(data, 0, data == null ? 0 : data.length);
     }
 
+    /** C# ReadOnlySequence&lt;byte&gt;(byte[]) — boxes each byte as Integer. */
+    @SuppressWarnings("unchecked")
+    public ReadOnlySequence(byte[] data) {
+        this((T[]) boxBytes(data), 0, data == null ? 0 : data.length);
+    }
+
+    private static Integer[] boxBytes(byte[] data) {
+        if (data == null) {
+            return null;
+        }
+        Integer[] boxed = new Integer[data.length];
+        for (int i = 0; i < data.length; i++) {
+            boxed[i] = data[i] & 0xFF;
+        }
+        return boxed;
+    }
+
     public ReadOnlySequence(T[] data, int start, int length) {
         this.data = data;
         this.start = start;
@@ -158,6 +175,22 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
     /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(SequencePosition, SequencePosition) — single-segment pass-through. */
     public ReadOnlySequence<T> slice(SequencePosition start, SequencePosition end) {
         return this;
+    }
+
+    /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(SequencePosition) — single-segment pass-through. */
+    public ReadOnlySequence<T> slice(SequencePosition start) {
+        if (start == null || start.getInteger() == 0) {
+            return this;
+        }
+        return slice(start.getInteger());
+    }
+
+    /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(int, SequencePosition) — single-segment pass-through. */
+    public ReadOnlySequence<T> slice(int start, SequencePosition end) {
+        if (end == null || end.getInteger() == 0) {
+            return this;
+        }
+        return slice(start);
     }
 
     /** Iterates the single segment — mirrors C# foreach over a ReadOnlySequence. */

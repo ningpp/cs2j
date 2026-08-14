@@ -30,6 +30,68 @@ public static class JavaNaming
     }
 
     /// <summary>
+    /// True when the property hides a base-class property with a Java-incompatible
+    /// return type (C# `new`, no covariant override possible). Java forbids two
+    /// same-name methods with unrelated return types in a hierarchy, so the derived
+    /// getter/setter must be emitted under a disambiguated name and annotated with
+    /// <c>@CompatPropertyName</c> to keep reflection/serialization metadata intact.
+    /// </summary>
+    public static bool IsIncompatibleTypeHidingProperty(IPropertySymbol prop)
+    {
+        if (prop.IsOverride || prop.IsStatic)
+            return false;
+
+        var baseType = prop.ContainingType?.BaseType;
+        while (baseType != null)
+        {
+            foreach (var member in baseType.GetMembers(prop.Name))
+            {
+                if (member is IPropertySymbol baseProp
+                    && member.DeclaredAccessibility != Accessibility.Private
+                    && !SymbolEqualityComparer.Default.Equals(prop.Type, baseProp.Type)
+                    && !IsCsSubtypeOf(prop.Type, baseProp.Type))
+                {
+                    return true;
+                }
+            }
+            baseType = baseType.BaseType;
+        }
+        return false;
+    }
+
+    private static bool IsCsSubtypeOf(ITypeSymbol derived, ITypeSymbol baseType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(derived, baseType))
+            return true;
+        if (derived is ITypeParameterSymbol)
+            return false;
+
+        var current = derived.BaseType;
+        while (current != null)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, baseType)
+                || SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, baseType.OriginalDefinition))
+            {
+                return true;
+            }
+            current = current.BaseType;
+        }
+
+        if (derived is INamedTypeSymbol namedDerived)
+        {
+            foreach (var iface in namedDerived.AllInterfaces)
+            {
+                if (SymbolEqualityComparer.Default.Equals(iface, baseType)
+                    || SymbolEqualityComparer.Default.Equals(iface.OriginalDefinition, baseType.OriginalDefinition))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Computes the synthesized backing-field name for an auto-property, escaping
     /// Java keywords and disambiguating when a sibling property maps to the same
     /// camelCased name (e.g. `age` vs `Age` both yield "age").

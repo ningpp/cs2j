@@ -183,6 +183,66 @@ public class MemoryExtensions {
         return asSpan(data, start, data.length - start);
     }
 
+    // ------------------------------------------------------------------
+    // C# MemoryExtensions.CopyTo overloads.
+    // The converter lowers `MemoryExtensions.CopyTo(array, span)` to a static
+    // `MemoryExtensions.copyTo(array, span)` call.  Primitive char[] and byte[]
+    // arrays need explicit overloads because Java primitive arrays are not
+    // assignable to T[].
+    // ------------------------------------------------------------------
+
+    /** C# MemoryExtensions.CopyTo&lt;T&gt;(T[] source, Span&lt;T&gt; destination). */
+    public static <T> void copyTo(T[] source, Span<T> destination) {
+        if (source == null) throw new NullPointerException("source");
+        if (destination == null) throw new NullPointerException("destination");
+        if (destination.length() < source.length) {
+            throw new IllegalArgumentException(
+                "destination too short: " + destination.length() + " < " + source.length);
+        }
+        for (int i = 0; i < source.length; i++) {
+            destination.set(i, source[i]);
+        }
+    }
+
+    /** C# MemoryExtensions.CopyTo&lt;char&gt;(char[] source, Span&lt;char&gt; destination). */
+    public static void copyTo(char[] source, Span<Character> destination) {
+        if (source == null) throw new NullPointerException("source");
+        if (destination == null) throw new NullPointerException("destination");
+        if (destination.length() < source.length) {
+            throw new IllegalArgumentException(
+                "destination too short: " + destination.length() + " < " + source.length);
+        }
+        for (int i = 0; i < source.length; i++) {
+            destination.set(i, source[i]);
+        }
+    }
+
+    /** C# MemoryExtensions.CopyTo&lt;byte&gt;(byte[] source, Span&lt;byte&gt; destination). */
+    public static void copyTo(byte[] source, Span<Integer> destination) {
+        if (source == null) throw new NullPointerException("source");
+        if (destination == null) throw new NullPointerException("destination");
+        if (destination.length() < source.length) {
+            throw new IllegalArgumentException(
+                "destination too short: " + destination.length() + " < " + source.length);
+        }
+        for (int i = 0; i < source.length; i++) {
+            destination.set(i, source[i] & 0xFF);
+        }
+    }
+
+    /** C# MemoryExtensions.CopyTo&lt;T&gt;(ReadOnlySpan&lt;T&gt; source, Span&lt;T&gt; destination). */
+    public static <T> void copyTo(ReadOnlySpan<T> source, Span<T> destination) {
+        if (source == null) throw new NullPointerException("source");
+        if (destination == null) throw new NullPointerException("destination");
+        if (destination.length() < source.length()) {
+            throw new IllegalArgumentException(
+                "destination too short: " + destination.length() + " < " + source.length());
+        }
+        for (int i = 0; i < source.length(); i++) {
+            destination.set(i, source.get(i));
+        }
+    }
+
     /** C# Span<T>.Reverse() / MemoryExtensions.Reverse(Span<T>) — reverses in place. */
     public static <T> void reverse(Span<T> span) {
         int i = 0;

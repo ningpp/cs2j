@@ -181,6 +181,11 @@ public class StreamWrapper implements AutoCloseable {
         return CompletableFuture.runAsync(() -> write(buffer, offset, count));
     }
 
+    /** C# Stream.WriteAsync(byte[], int, int, CancellationToken). */
+    public CompletableFuture<Void> writeAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) {
+        return CompletableFuture.runAsync(() -> write(buffer, offset, count));
+    }
+
     public CompletableFuture<Void> writeAsync(ReadOnlySpan<Integer> span, boolean cancellationToken) {
         return CompletableFuture.runAsync(() -> write(span));
     }
@@ -207,6 +212,11 @@ public class StreamWrapper implements AutoCloseable {
 
     public void setLength(long value) {
         throw new UnsupportedOperationException("This stream does not support SetLength");
+    }
+
+    /** Mirrors C# Stream.Seek(offset, SeekOrigin) — non-seekable base streams throw. */
+    public long seek(long offset, SeekOrigin origin) {
+        throw new UnsupportedOperationException("This stream does not support Seek");
     }
 
     public CompletableFuture<Void> copyToAsync(StreamWrapper destination) {

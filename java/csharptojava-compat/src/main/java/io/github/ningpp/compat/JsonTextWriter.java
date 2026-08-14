@@ -7,6 +7,8 @@ package io.github.ningpp.compat;
  */
 public class JsonTextWriter implements AutoCloseable {
     private final CSharpTextWriter writer;
+    private final java.util.ArrayDeque<Character> containerStack = new java.util.ArrayDeque<>();
+    private StringEscapeHandling stringEscapeHandling = StringEscapeHandling.Default;
 
     public JsonTextWriter(CSharpTextWriter writer) {
         this.writer = writer;
@@ -14,24 +16,54 @@ public class JsonTextWriter implements AutoCloseable {
 
     public void writeStartObject() {
         writer.print('{');
+        containerStack.push('{');
     }
 
     public void writeEndObject() {
         writer.print('}');
+        if (!containerStack.isEmpty() && containerStack.peek() == '{') {
+            containerStack.pop();
+        }
     }
 
     public void writeStartArray() {
         writer.print('[');
+        containerStack.push('[');
     }
 
     public void writeEndArray() {
         writer.print(']');
+        if (!containerStack.isEmpty() && containerStack.peek() == '[') {
+            containerStack.pop();
+        }
+    }
+
+    /** C# JsonWriter.WriteEnd() — closes the current container. */
+    public void writeEnd() {
+        if (!containerStack.isEmpty()) {
+            char open = containerStack.pop();
+            writer.print(open == '{' ? '}' : ']');
+        }
     }
 
     public void writePropertyName(String name) {
         writer.print('"');
         writer.print(name);
         writer.print("\":");
+    }
+
+    /** C# JsonWriter.WritePropertyName(string, bool escape). */
+    public void writePropertyName(String name, boolean escape) {
+        writePropertyName(name);
+    }
+
+    /** C# JsonWriter.StringEscapeHandling. */
+    public void setStringEscapeHandling(StringEscapeHandling value) {
+        this.stringEscapeHandling = value;
+    }
+
+    public StringEscapeHandling getStringEscapeHandling() {
+        return stringEscapeHandling;
     }
 
     public void writeValue(String value) {

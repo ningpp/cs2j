@@ -27,6 +27,15 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         };
     }
 
+    /** C# string is IEnumerable<char> — LINQ rewrites call Select/Where on strings. */
+    static CSharpGenericIterable<Character> from(String s) {
+        java.util.ArrayList<Character> chars = new java.util.ArrayList<>(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            chars.add(s.charAt(i));
+        }
+        return fromCollection(chars);
+    }
+
     @SuppressWarnings("unchecked")
     static <T> CSharpGenericIterable<T> fromCollection(Collection<? extends T> collection) {
         return new CSharpGenericIterable<>() {

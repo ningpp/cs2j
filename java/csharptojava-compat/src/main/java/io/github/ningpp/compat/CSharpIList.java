@@ -12,4 +12,88 @@ public interface CSharpIList extends CSharpCollection {
     void removeAt(int index);
     Object get(int index);
     Object set(int index, Object value);
+
+    /**
+     * Adapts a generic list (CSharpList / CSharpGenericIList) to the non-generic
+     * C# IList surface. C# allows passing a List&lt;T&gt; where IList is expected;
+     * the Java interfaces are unrelated, so the converter wraps the argument or
+     * cast with this bridge. add(Object) returns the insertion position like C#
+     * IList.Add.
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    static CSharpIList from(CSharpGenericIList<?> list) {
+        if (list == null) {
+            return null;
+        }
+        return new CSharpIList() {
+            @Override
+            public int add(Object value) {
+                int count = ((CSharpGenericIList) list).getCount();
+                if (((CSharpGenericIList) list).add(value)) {
+                    return count;
+                }
+                return -1;
+            }
+            @Override
+            public void clear() {
+                list.clear();
+            }
+            @Override
+            public boolean contains(Object value) {
+                return list.contains(value);
+            }
+            @Override
+            public int indexOf(Object value) {
+                return list.indexOf(value);
+            }
+            @Override
+            public void insert(int index, Object value) {
+                ((CSharpGenericIList) list).insert(index, value);
+            }
+            @Override
+            public boolean getIsFixedSize() {
+                return false;
+            }
+            @Override
+            public boolean getIsReadOnly() {
+                return list.getIsReadOnly();
+            }
+            @Override
+            public void remove(Object value) {
+                ((CSharpGenericIList) list).remove(value);
+            }
+            @Override
+            public void removeAt(int index) {
+                list.removeAt(index);
+            }
+            @Override
+            public Object get(int index) {
+                return list.get(index);
+            }
+            @Override
+            public Object set(int index, Object value) {
+                return ((CSharpGenericIList) list).set(index, value);
+            }
+            @Override
+            public void copyTo(CSharpArray array, int index) {
+                list.copyTo(array, index);
+            }
+            @Override
+            public boolean getIsSynchronized() {
+                return false;
+            }
+            @Override
+            public Object getSyncRoot() {
+                return list;
+            }
+            @Override
+            public int getCount() {
+                return list.getCount();
+            }
+            @Override
+            public CSharpGenericEnumerator<Object> iterator() {
+                return CSharpGenericEnumerator.from((java.util.Iterator) list.iterator());
+            }
+        };
+    }
 }
