@@ -1659,9 +1659,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                         && collInit.Kind() == SyntaxKind.CollectionInitializerExpression)
                     {
                         var propName = ConversionContext.EscapeJavaKeyword(idName.Identifier.Text);
-                        var getterName = memberSymbol is IFieldSymbol
+                        bool isFieldMember = memberSymbol is IFieldSymbol;
+                        var getterName = isFieldMember
                             ? propName
-                            : ConvertToGetter(propName);
+                            : ConvertToGetter(propName) + "()";
                         foreach (var initExpr in collInit.Expressions)
                         {
                             var item = facade.Transform(initExpr, context);

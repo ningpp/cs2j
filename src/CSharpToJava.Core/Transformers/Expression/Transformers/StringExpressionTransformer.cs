@@ -162,6 +162,16 @@ public class StringExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var expr = facade.Transform(interpolation.Expression, context);
+                // Parenthesize non-atomic interpolation expressions (binary/conditional/
+                // cast) so string-concatenation precedence doesn't corrupt them:
+                // $"{x - offset}" must stay (x - offset), not x - offset + "...".
+                if (interpolation.Expression is BinaryExpressionSyntax
+                    or ConditionalExpressionSyntax
+                    or AssignmentExpressionSyntax
+                    or CastExpressionSyntax)
+                {
+                    expr = $"({expr})";
+                }
                 var exprType = context.GetTypeInfo(interpolation.Expression);
                 if (exprType.Type != null)
                 {

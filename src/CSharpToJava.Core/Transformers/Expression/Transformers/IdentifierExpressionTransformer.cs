@@ -1555,9 +1555,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 var getter = GetPropertyGetterName(prop);
                 // System.Tuple`N.ItemN (mapped to io.vavr.TupleN) — the ItemN members
                 // are PROPERTIES on the BCL type; route them to the vavr accessors.
+                // ValueTuple (C# tuple) ItemN members resolve through the same path.
                 if (IsTupleItemName(prop.Name, out var tupleIdxProp)
                     && prop.ContainingType is INamedTypeSymbol tupleContainingType
-                    && IsVavrTupleType(tupleContainingType))
+                    && (tupleContainingType.IsTupleType || IsVavrTupleType(tupleContainingType)))
                 {
                     return $"{propertyTarget}._{tupleIdxProp}()";
                 }
@@ -1841,8 +1842,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return memberName == "Item1" ? $"{target}.getKey()" : $"{target}.getValue()";
         }
         // C# tuple Item1/Item2/... → vavr Tuple._1()/_2()/...
+        // A Nullable<(int, int)> receiver unwraps to the tuple type for this check.
+        var tupleCheckType = receiverType is INamedTypeSymbol
+            {
+                OriginalDefinition.SpecialType: SpecialType.System_Nullable_T
+            } nullableTupleType
+            && nullableTupleType.TypeArguments.Length > 0
+                ? nullableTupleType.TypeArguments[0]
+                : receiverType;
         if (IsTupleItemName(memberName, out var tupleIdx)
-            && receiverType is INamedTypeSymbol nts
+            && tupleCheckType is INamedTypeSymbol nts
             && (nts.IsTupleType || IsVavrTupleType(nts)))
         {
             return $"{target}._{tupleIdx}()";

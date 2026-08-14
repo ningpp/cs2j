@@ -260,6 +260,17 @@ public class RecordTransformer : ITypeTransformer
         // 生成 equals, hashCode, toString
         GenerateObjectMethods(javaClass, context);
 
+        // Process extra members (properties/methods beyond the positional components).
+        // Positional component properties are skipped here — their getters were already
+        // generated from the component fields above.
+        var immutablePositionalNames = new HashSet<string>(
+            recordDecl.ParameterList?.Parameters.Select(p => p.Identifier.Text)
+            ?? Enumerable.Empty<string>());
+        foreach (var member in recordDecl.Members)
+        {
+            ProcessRecordMember(member, javaClass, context, immutablePositionalNames);
+        }
+
         return javaClass;
     }
 

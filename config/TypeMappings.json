@@ -1009,6 +1009,13 @@
             ]
         },
         {
+            "csharp": "Newtonsoft.Json.JsonConvert",
+            "java": "JsonConvert",
+            "imports": [
+                "io.github.ningpp.compat.JsonConvert"
+            ]
+        },
+        {
             "csharp": "Newtonsoft.Json.JsonTextReader",
             "java": "JsonTextReader",
             "imports": [

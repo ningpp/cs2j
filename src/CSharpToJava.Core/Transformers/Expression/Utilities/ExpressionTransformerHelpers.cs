@@ -477,18 +477,24 @@ public static class ExpressionTransformerHelpers
         // restore the type with an explicit cast so assignments and member access compile.
         if (context.SemanticModel != null
             && context.Options.TargetLanguage != TargetLanguage.TypeScript
-            && SymbolEqualityComparer.Default.Equals(sourceType, targetType)
+            && (SymbolEqualityComparer.Default.Equals(sourceType, targetType)
+                || sourceType is ITypeParameterSymbol)
             && targetType.TypeKind is not (TypeKind.Enum or TypeKind.Interface or TypeKind.Delegate)
             && targetType.SpecialType is not (SpecialType.System_Object or SpecialType.System_String)
-            && IsAwaitResultChain(transformedExpression)
-            && !string.IsNullOrWhiteSpace(targetJavaType)
-            && targetJavaType != "Object"
-            && !IsJavaPrimitiveType(targetJavaType))
+            && IsAwaitResultChain(transformedExpression))
         {
-            context.AddImportsForTypePublic(targetType.ToDisplayString());
-            // Parenthesize so postfix operations (array index, member access) bind
-            // to the cast result, not the await call.
-            return $"(({targetJavaType}) {transformedExpression})";
+            // For type-parameter sources the cast target is the type parameter itself
+            // (e.g. (T) x.join()); otherwise it is the mapped target type.
+            var awaitCastType = sourceType is ITypeParameterSymbol ? sourceJavaType : targetJavaType;
+            if (!string.IsNullOrWhiteSpace(awaitCastType)
+                && awaitCastType != "Object"
+                && !IsJavaPrimitiveType(awaitCastType))
+            {
+                context.AddImportsForTypePublic(targetType.ToDisplayString());
+                // Parenthesize so postfix operations (array index, member access) bind
+                // to the cast result, not the await call.
+                return $"(({awaitCastType}) {transformedExpression})";
+            }
         }
 
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))

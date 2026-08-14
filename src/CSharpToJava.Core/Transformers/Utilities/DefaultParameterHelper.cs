@@ -1,3 +1,5 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
@@ -61,11 +63,17 @@ public static class DefaultParameterHelper
                 }
                 else
                 {
-                    var defaultVal = allParams[i].Default?.Value != null
-                        ? exprXf.Transform(allParams[i].Default!.Value, context)
-                        : "null";
-                    callArgs.Add(defaultVal);
-                }
+                    // Cast the null default to the parameter's Java type so overload
+                    // resolution is unambiguous when sibling optional-parameter
+                    // overloads differ in type (e.g. (String, JsonSerializerOptions)
+                    // vs (String, Class) both accept a bare null).
+                    var defaultValueExpr = allParams[i].Default?.Value;
+                    var isNullLiteral = defaultValueExpr is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax litExpr
+                        && litExpr.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.NullLiteralExpression);
+                    var defaultVal = isNullLiteral
+                        ? $"({context.MapTypeFromSyntax(allParams[i].Type)}) null"
+                        : exprXf.Transform(defaultValueExpr!, context);
+                    callArgs.Add(defaultVal);                }
             }
 
             // Abstract methods cannot have bodies; the overload is abstract too and

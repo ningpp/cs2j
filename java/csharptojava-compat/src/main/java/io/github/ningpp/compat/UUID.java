@@ -56,6 +56,26 @@ public final class UUID implements Comparable<UUID> {
         return new UUID(java.util.UUID.fromString(name));
     }
 
+    /** C# Guid.TryParseExact(input, format, out result) — "D"/"N" formats. */
+    public static boolean tryParseExact(String input, String format, ObjectHolder<UUID> outResult) {
+        try {
+            String s = input == null ? "" : input.trim();
+            if ("N".equalsIgnoreCase(format)) {
+                s = s.replace("-", "");
+                if (s.length() != 32) {
+                    return false;
+                }
+            } else if (s.length() != 36) {
+                return false;
+            }
+            java.util.UUID parsed = java.util.UUID.fromString(s);
+            outResult.value = new UUID(parsed);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     private UUID(java.util.UUID value) {
         this.value = value;
     }

@@ -37,8 +37,21 @@ public class Convert {
     }
 
     /** Mirrors C# Convert.ToInt32(String) */
-    public static int toInt32(String value) {
-        return java.lang.Integer.parseInt(value);
+    public static char toChar(Object value) {
+        if (value == null) {
+            return '\0';
+        }
+        if (value instanceof Character) {
+            return (Character) value;
+        }
+        if (value instanceof Number) {
+            return (char) ((Number) value).intValue();
+        }
+        String s = value.toString();
+        return s.length() > 0 ? s.charAt(0) : '\0';
+    }
+
+    public static int toInt32(String value) {        return java.lang.Integer.parseInt(value);
     }
 
     /** Mirrors C# Convert.ToBoolean(String) */

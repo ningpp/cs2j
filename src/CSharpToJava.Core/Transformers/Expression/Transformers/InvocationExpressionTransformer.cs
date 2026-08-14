@@ -2562,6 +2562,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"Assert.equal({assertExpectedExpr}.getValues(), {assertActualExpr})";
             }
 
+            // Xunit Assert.Collection(array, consumer...) — the first argument may be a
+            // primitive array (int[] etc.), which is not Iterable in Java. Wrap it.
+            if (xunitAssertName == "collection"
+                && node.ArgumentList.Arguments.Count >= 1
+                && context.SemanticModel != null
+                && context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type is IArrayTypeSymbol collArrayType)
+            {
+                var collFirst = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                collFirst = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(collFirst, collArrayType, context);
+                var collRest = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex: 1);
+                context.AddImport("csharp.xunit.Assert");
+                return string.IsNullOrEmpty(collRest)
+                    ? $"Assert.collection({collFirst})"
+                    : $"Assert.collection({collFirst}, {collRest})";
+            }
+
             var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
             context.AddImport("csharp.xunit.Assert");
 
@@ -2624,6 +2640,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         var mappedType = facade.Transform(typeArgSyntax, context);
                         classLiteral = $"{mappedType}.class";
                     }
+                }
+
+                // A Class<T> argument that is a bare type-parameter reference (e.g.
+                // tExceptionClass) cannot bind T in throws_(Class<T>, ...) — javac
+                // infers a capture type and rejects it. Widen through Class<?>.
+                // Runtime Class parameters (_cs2j_T) already carry the exact type.
+                if (classLiteral != null
+                    && !classLiteral.StartsWith("_cs2j_", StringComparison.Ordinal)
+                    && !classLiteral.Contains('.')
+                    && !classLiteral.EndsWith(".class", StringComparison.Ordinal)
+                    && !classLiteral.EndsWith(")", StringComparison.Ordinal))
+                {
+                    context.AddImport("java.lang.Throwable");
+                    classLiteral = $"((Class<Throwable>) (Class<?>) {classLiteral})";
                 }
 
                 assertArgs = string.IsNullOrEmpty(assertArgs)
@@ -4610,6 +4640,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             if (deserializeTargetType != null)
             {
+                // ref Utf8JsonReader overload — Deserialize<T>(ref reader, options):
+                // pass the reader holder itself (not .value) plus the options argument.
+                if (context.SemanticModel != null
+                    && context.GetTypeInfo(node.ArgumentList.Arguments[argStartIndex].Expression).Type
+                        is { } firstArgType
+                    && firstArgType.ToDisplayString().EndsWith(".Utf8JsonReader", StringComparison.Ordinal)
+                    && node.ArgumentList.Arguments[argStartIndex].Expression is IdentifierNameSyntax refReaderId
+                    && context.GetSymbolInfo(refReaderId).Symbol is IParameterSymbol
+                    {
+                        RefKind: RefKind.Ref or RefKind.Out
+                    } refReaderParam)
+                {
+                    var refReaderHolder = ConversionContext.EscapeJavaKeyword(refReaderParam.Name);
+                    var refReaderOptions = argStartIndex + 1 < node.ArgumentList.Arguments.Count
+                        ? facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context)
+                        : "null";
+                    var refReaderClassLiteral = ConversionContext.GetClassLiteral(deserializeTargetType, context);
+                    return $"{receiver}.{methodName}({refReaderClassLiteral}, {refReaderHolder}, {refReaderOptions})";
+                }
+
                 var jsonArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
                 // The converted JsonSerializer takes the JSON as ReadOnlySpan<Integer>;
                 // a byte[] argument must be wrapped in a span view.
@@ -7161,10 +7211,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         for (int i = argStartIndex; i < arguments.Count; i++)
         {
             var arg = arguments[i];
+            // String.Split(new[] { "sep" }, StringSplitOptions) → split("sep")
+            // Java's split(String) has no options parameter; None can be dropped.
             if (arg.Expression is LiteralExpressionSyntax charLit
                 && charLit.IsKind(SyntaxKind.CharacterLiteralExpression))
             {
                 parts.Add($"\"{EscapeRegexChar(charLit.Token.ValueText)}\"");
+            }
+            else if (arg.Expression is ArrayCreationExpressionSyntax splitArrCreate
+                && splitArrCreate.Initializer is InitializerExpressionSyntax splitArrInit
+                && splitArrInit.Expressions.Count == 1
+                && splitArrInit.Expressions[0] is LiteralExpressionSyntax splitSepLit
+                && splitSepLit.IsKind(SyntaxKind.StringLiteralExpression))
+            {
+                parts.Add($"\"{EscapeRegexChar(splitSepLit.Token.ValueText)}\"");
+            }
+            else if (arg.Expression is ImplicitArrayCreationExpressionSyntax implicitSplitArr
+                && implicitSplitArr.Initializer.Expressions.Count == 1
+                && implicitSplitArr.Initializer.Expressions[0] is LiteralExpressionSyntax implicitSplitSep
+                && implicitSplitSep.IsKind(SyntaxKind.StringLiteralExpression))
+            {
+                parts.Add($"\"{EscapeRegexChar(implicitSplitSep.Token.ValueText)}\"");
+            }
+            else if (IsStringSplitOptionsArgument(arg.Expression, context))
+            {
+                // StringSplitOptions.None adds no behavior in Java's split(String).
+                continue;
             }
             else
             {
@@ -10429,7 +10501,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (classTypeTokens == null || classTypeTokens.Count == 0)
             return args;
 
-        var prefix = string.Join(", ", classTypeTokens);
+        // A "null" Class token (type parameter degraded in override contexts) breaks
+        // generic inference — cast it so the call compiles with an Object witness.
+        var normalized = classTypeTokens
+            .Select(t => t == "null" ? "(Class<Object>) null" : t)
+            .ToList();
+        var prefix = string.Join(", ", normalized);
         return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
     }
 
@@ -10607,7 +10684,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && typeParamNames.Contains(isRight.Identifier.Text))
             || (n is TypePatternSyntax typePattern
                 && typePattern.Type is IdentifierNameSyntax tpName
-                && typeParamNames.Contains(tpName.Identifier.Text)));
+                && typeParamNames.Contains(tpName.Identifier.Text))
+            // JsonSerializer.Deserialize<T>/DeserializeAsync<T> inside the local function
+            // require the runtime Class token at call sites.
+            || (n is InvocationExpressionSyntax genericInv
+                && genericInv.Expression is MemberAccessExpressionSyntax genericMa
+                && (genericMa.Expression.ToString() is "JsonSerializer" or "System.Text.Json.JsonSerializer")
+                && genericMa.Name is GenericNameSyntax gn
+                && gn.TypeArgumentList.Arguments
+                    .OfType<IdentifierNameSyntax>()
+                    .Any(id => typeParamNames.Contains(id.Identifier.Text))));
         if (!usesIsTypeParamCheck)
             return null;
 
@@ -10615,6 +10701,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         for (int i = 0; i < typeParamNames.Count; i++)
         {
             var typeArgSymbol = context.GetTypeInfo(genericName.TypeArgumentList.Arguments[i]).Type;
+            if (typeArgSymbol == null || typeArgSymbol is IErrorTypeSymbol)
+                return null;
+            tokens.Add(ConversionContext.GetClassLiteral(typeArgSymbol, context));
+        }
+        return tokens;
+    }
+
+    /// <summary>
+    /// Fallback: derive runtime Class tokens directly from the call site's explicit
+    /// type arguments (e.g. RunTestAsync&lt;Parameterized_IndexViewModel_Immutable&gt;(...)
+    /// → Parameterized_IndexViewModel_Immutable.class). Used when the method's Class&lt;T&gt;
+    /// registration never reached this call site (e.g. hoisted local functions).
+    /// </summary>
+    private static List<string>? GetClassTokensFromExplicitTypeArguments(
+        GenericNameSyntax genericName,
+        ConversionContext context)
+    {
+        if (genericName.TypeArgumentList.Arguments.Count == 0)
+            return null;
+
+        var tokens = new List<string>();
+        foreach (var typeArgSyntax in genericName.TypeArgumentList.Arguments)
+        {
+            ITypeSymbol? typeArgSymbol = null;
+            if (context.SemanticModel != null)
+            {
+                typeArgSymbol = context.GetTypeInfo(typeArgSyntax).Type;
+            }
             if (typeArgSymbol == null || typeArgSymbol is IErrorTypeSymbol)
                 return null;
             tokens.Add(ConversionContext.GetClassLiteral(typeArgSymbol, context));

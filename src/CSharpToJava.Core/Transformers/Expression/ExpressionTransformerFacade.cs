@@ -104,6 +104,47 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 var memberName = binding.Name.Identifier.Text;
                 var prop = context.GetSymbolInfo(binding).Symbol as IPropertySymbol;
 
+                // C# tuple ItemN on a (possibly nullable) tuple receiver via ?. —
+                // map to the vavr accessor (_1(), _2(), ...).
+                if (memberName.StartsWith("Item", StringComparison.Ordinal)
+                    && int.TryParse(memberName["Item".Length..], out var mbTupleIdx))
+                {
+                    bool mbIsTuple = prop?.ContainingType is INamedTypeSymbol mbTupleCt
+                        && (mbTupleCt.IsTupleType
+                            || mbTupleCt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal));
+                    if (!mbIsTuple && context.SemanticModel != null)
+                    {
+                        // Semantic resolution of the binding may fail (nullable lifted member);
+                        // fall back to the conditional-access receiver's type.
+                        ConditionalAccessExpressionSyntax? mbOwner = null;
+                        var mbAncestor = binding.Parent;
+                        while (mbAncestor != null)
+                        {
+                            if (mbAncestor is ConditionalAccessExpressionSyntax ca) { mbOwner = ca; break; }
+                            mbAncestor = mbAncestor.Parent;
+                        }
+                        if (mbOwner != null)
+                        {
+                            var mbRecvType = context.GetTypeInfo(mbOwner.Expression).Type
+                                ?? context.GetTypeInfo(mbOwner.Expression).ConvertedType;
+                            var mbCheckType = mbRecvType is INamedTypeSymbol
+                                {
+                                    OriginalDefinition.SpecialType: SpecialType.System_Nullable_T
+                                } mbNullable
+                                && mbNullable.TypeArguments.Length > 0
+                                    ? mbNullable.TypeArguments[0]
+                                    : mbRecvType;
+                            mbIsTuple = mbCheckType is INamedTypeSymbol mbCt
+                                && (mbCt.IsTupleType
+                                    || mbCt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal));
+                        }
+                    }
+                    if (mbIsTuple)
+                    {
+                        return $"{objExpr}._{mbTupleIdx}()";
+                    }
+                }
+
                 // Check method binding via semantic model (e.g., ?.ToString(), ?.GetHashCode())
                 if (context.GetSymbolInfo(binding).Symbol is IMethodSymbol method)
                 {

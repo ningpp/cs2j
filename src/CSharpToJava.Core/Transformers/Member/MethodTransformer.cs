@@ -660,6 +660,17 @@ public class MethodTransformer : IMemberTransformer
             {
                 javaMethod.StructuredBody = new Transformers.Statement.StatementTransformer()
                     .TransformBlockToStructuredBody(localFn.Body, context);
+                // C# async Task local functions implicitly return a completed Task when
+                // execution falls through the end. IsInAsyncContext is false for local
+                // functions, so the regular async fall-through return is not added —
+                // add it here.
+                if (javaMethod.ReturnType == "CompletableFuture"
+                    && javaMethod.StructuredBody.Statements.Count > 0
+                    && StructuredBodyCanFallThrough(javaMethod.StructuredBody))
+                {
+                    javaMethod.StructuredBody.Statements.Add(
+                        new Java.JavaRawStatement("return CompletableFuture.completedFuture(null);"));
+                }
             }
             else if (localFn.ExpressionBody != null)
             {

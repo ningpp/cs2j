@@ -143,7 +143,7 @@ public static class Test
         Assert.True(result.Success);
         Assert.Contains("void run(Class<T> _cs2j_T, String xml, String testExpression, String startingNodePath)", result.GeneratedCode);
         Assert.Contains("void run(Class<T> _cs2j_T, String xml, String testExpression)", result.GeneratedCode);
-        Assert.Contains("run(_cs2j_T, xml, testExpression, null);", result.GeneratedCode);
+        Assert.Contains("run(_cs2j_T, xml, testExpression, (String) null);", result.GeneratedCode);
     }
 
     [Fact]
