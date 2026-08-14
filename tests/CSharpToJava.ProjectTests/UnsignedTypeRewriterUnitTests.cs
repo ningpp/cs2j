@@ -255,6 +255,94 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
+    public void ByteArithmetic_PromotedToInt_NotRewritten()
+    {
+        var src = "public class C { public int Add(byte a, byte b) { return a + b; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("a + b", result.OutputCode);
+        Assert.DoesNotContain("a.Add(b)", result.OutputCode);
+    }
+
+    [Fact]
+    public void ByteShift_NotRewritten()
+    {
+        var src = "public class C { public int Shift(byte a, int n) { return a << n; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("a.LeftShift(n)", result.OutputCode);
+    }
+
+    [Fact]
+    public void ByteBitwiseNot_NotRewritten()
+    {
+        var src = "public class C { public int Not(byte a) { return ~a; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("a.Not()", result.OutputCode);
+    }
+
+    [Fact]
+    public void MixedTypeOperation_LongLiteral_NotRewritten()
+    {
+        var src = "public class C { public long Add(uint a) { return a + 1L; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("a.Add(", result.OutputCode);
+        Assert.Contains("a + 1L", result.OutputCode);
+    }
+
+    [Fact]
+    public void CheckedIncrement_NotRewritten()
+    {
+        var src = "public class C { public void M(uint a) { checked { a++; } } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("a.Add(1)", result.OutputCode);
+        Assert.Contains("a++", result.OutputCode);
+    }
+
+    [Fact]
+    public void PostIncrementInExpression_HoistedToTemp()
+    {
+        var src = "public class C { public uint M(uint a) { uint r = a++; return r; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("a++", result.OutputCode);
+        Assert.Contains("a = a.Add(1)", result.OutputCode);
+        Assert.Contains("__cs2j_unsigned", result.OutputCode);
+    }
+
+    [Fact]
+    public void PropertyCompoundAssignment_NotRewritten()
+    {
+        var src = "public class C { public uint P { get; set; } public void M() { P += 1; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("P = P.Add(1)", result.OutputCode);
+        Assert.Contains("P += 1", result.OutputCode);
+    }
+
+    [Fact]
+    public void IndexerPostIncrement_NotRewritten()
+    {
+        var src = "public class C { public uint[] A = new uint[1]; public void M(int i) { A[i]++; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("A[i] = A[i].Add(1)", result.OutputCode);
+        Assert.Contains("A[i]++", result.OutputCode);
+    }
+
+    [Fact]
+    public void FieldPostIncrement_StillRewritten()
+    {
+        var src = "public class C { public uint F; public void M() { F++; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("F = F.Add(1)", result.OutputCode);
+    }
+
+    [Fact]
     public void AllOperators_Covered()
     {
         var src = @"public class C {

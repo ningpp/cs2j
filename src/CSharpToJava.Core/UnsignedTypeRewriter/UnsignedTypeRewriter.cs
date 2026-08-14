@@ -39,6 +39,15 @@ public sealed class UnsignedTypeRewriter
             newRoot = InjectUsing(newRoot);
         }
 
+        var postfixRewriter = new UnsignedPostfixRewriter(stats);
+        var postfixRoot = (CompilationUnitSyntax)postfixRewriter.Visit(newRoot)!;
+        if (postfixRewriter.UsedExtensions)
+        {
+            postfixRoot = InjectUsing(postfixRoot);
+        }
+
+        newRoot = postfixRoot;
+
         using var workspace = new AdhocWorkspace();
         newRoot = (CompilationUnitSyntax)Formatter.Format(newRoot, workspace);
 
