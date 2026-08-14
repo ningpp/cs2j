@@ -9,4 +9,16 @@ public interface IImmutableStack<T> extends Iterable<T> {
     boolean isEmpty();
 
     T peek();
+
+    default IImmutableStack<T> clear() {
+        return this;
+    }
+
+    default IImmutableStack<T> pop() {
+        return this;
+    }
+
+    default IImmutableStack<T> push(T value) {
+        return this;
+    }
 }
