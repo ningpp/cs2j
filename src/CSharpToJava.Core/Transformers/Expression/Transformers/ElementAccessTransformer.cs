@@ -148,6 +148,27 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         }
 
         var expr = facade.Transform(node.Expression, context);
+        // Await receivers ((await helper.Load<T[]>(...))[0]) lose their generic type in
+        // Java (join() → Object). Cast the receiver back to the array type so indexing
+        // compiles: ((Point_3D[]) x.join())[0]. The await may be wrapped in parens.
+        {
+            var unwrapped = node.Expression;
+            while (unwrapped is ParenthesizedExpressionSyntax parenExpr)
+                unwrapped = parenExpr.Expression;
+            if (unwrapped is AwaitExpressionSyntax
+                && context.SemanticModel != null
+                && context.GetTypeInfo(unwrapped).Type is IArrayTypeSymbol awaitArrayType
+                && (expr.Trim().EndsWith(".join()", StringComparison.Ordinal)
+                    || expr.Trim().EndsWith(".join())", StringComparison.Ordinal)))
+            {
+                var mappedAwaitArray = context.MapType(awaitArrayType);
+                if (!string.IsNullOrWhiteSpace(mappedAwaitArray) && mappedAwaitArray != "Object")
+                {
+                    context.AddImportsForTypePublic(awaitArrayType.ToDisplayString());
+                    expr = $"(({mappedAwaitArray}) {expr})";
+                }
+            }
+        }
         var indexerSymbol = context.GetSymbolInfo(node).Symbol as IPropertySymbol;
 
         // Determine collection type via semantic model

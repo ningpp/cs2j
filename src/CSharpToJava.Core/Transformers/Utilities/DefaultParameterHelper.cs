@@ -21,8 +21,7 @@ public static class DefaultParameterHelper
     {
         int firstDefaultIdx = allParams.FindIndex(p => p.Default != null);
         if (firstDefaultIdx < 0
-            || !allParams.Skip(firstDefaultIdx).All(p => p.Default != null)
-            || isAbstract)
+            || !allParams.Skip(firstDefaultIdx).All(p => p.Default != null))
         {
             return new List<JavaSyntaxNode>();
         }
@@ -69,8 +68,14 @@ public static class DefaultParameterHelper
                 }
             }
 
-            string callPrefix = fullMethod.ReturnType == "void" ? "" : "return ";
-            overload.Body = $"{callPrefix}{fullMethod.Name}({string.Join(", ", callArgs)});";
+            // Abstract methods cannot have bodies; the overload is abstract too and
+            // relies on the implementing subclass (which gets its own overloads via
+            // the override path). Concrete methods forward to the full method.
+            if (!isAbstract)
+            {
+                string callPrefix = fullMethod.ReturnType == "void" ? "" : "return ";
+                overload.Body = $"{callPrefix}{fullMethod.Name}({string.Join(", ", callArgs)});";
+            }
             overloads.Add(overload);
         }
 

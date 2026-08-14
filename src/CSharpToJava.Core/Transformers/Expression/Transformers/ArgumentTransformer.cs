@@ -813,7 +813,21 @@ public class ArgumentTransformer
                 && javaFuncType != "Object"
                 && javaFuncType != "var")
             {
-                transformedExpr = $"({javaFuncType}) {transformedExpr}";
+                // Task.Run(Func<Task>) → CompletableFuture.runAsync(Runnable): the lambda
+                // returns a CompletableFuture, so it must be cast to Runnable — the mapped
+                // Supplier cast would not match runAsync's Runnable parameter.
+                if (javaFuncType.StartsWith("Supplier<", StringComparison.Ordinal)
+                    && targetParam.ContainingSymbol is IMethodSymbol runAsyncMethod
+                    && runAsyncMethod.Name == "Run"
+                    && runAsyncMethod.ContainingType?.ToDisplayString() == "System.Threading.Tasks.Task")
+                {
+                    context.AddImport("java.lang.Runnable");
+                    transformedExpr = $"(Runnable) {transformedExpr}";
+                }
+                else
+                {
+                    transformedExpr = $"({javaFuncType}) {transformedExpr}";
+                }
             }
         }
 
@@ -1013,7 +1027,9 @@ public class ArgumentTransformer
             && paramNamed3.Name is "IEnumerable"
             && paramNamed3.ContainingNamespace?.ToDisplayString().StartsWith("System") == true
             && argType is INamedTypeSymbol argNamed3
-            && IsCollectionType(argType)
+            && (IsCollectionType(argType)
+                || argNamed3.AllInterfaces.Any(i =>
+                    i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>"))
             && !(argNamed3.Name is "Dictionary" or "SortedDictionary" or "IDictionary"
                 || argNamed3.AllInterfaces.Any(i => i.Name == "IDictionary"))
             && !IsJavaMethodRequiringCollection(targetParam.ContainingSymbol as IMethodSymbol, context)

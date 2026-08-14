@@ -261,6 +261,31 @@ public partial class StatementTransformer
                     ? refInit.Expression
                     : v.Initializer.Value;
                 var initExpr = exprTransformer.Transform(initValueExpr, context);
+                // Generic-method results (e.g. await DeserializeWrapper<T>(...)) lose their
+                // type argument in Java and surface as Object. When the declared local type
+                // is concrete but the initializer chain ends with a method call (whose result
+                // Java infers as Object), restore the C# type with an explicit cast so `var`
+                // declares the intended type and member access compiles.
+                if (javaType == "var"
+                    && context.Options.TargetLanguage != TargetLanguage.TypeScript
+                    && localTargetType is { } localConcreteType
+                    && IsUsableLocalOverrideType(localConcreteType)
+                    && localConcreteType.SpecialType is not (SpecialType.System_Object or SpecialType.System_String)
+                    && localConcreteType.TypeKind is not (TypeKind.Enum or TypeKind.Interface or TypeKind.Delegate)
+                    && initExpr.Trim().EndsWith(")", StringComparison.Ordinal)
+                    && !initExpr.Trim().StartsWith("new ", StringComparison.Ordinal)
+                    && !HasCastPrefix(initExpr)
+                    && context.SemanticModel != null)
+                {
+                    var mappedLocalType = context.MapType(localConcreteType);
+                    if (!string.IsNullOrWhiteSpace(mappedLocalType)
+                        && mappedLocalType != "Object"
+                        && !ExpressionTransformerHelpers.IsJavaPrimitiveType(mappedLocalType))
+                    {
+                        context.AddImportsForTypePublic(localConcreteType.ToDisplayString());
+                        initExpr = $"({mappedLocalType}) {initExpr}";
+                    }
+                }
                 if (!IsUsableLocalOverrideType(localTargetType) && context.SemanticModel != null)
                 {
                     var initTypeInfoForOverride = context.GetTypeInfo(v.Initializer.Value);
@@ -484,7 +509,8 @@ public partial class StatementTransformer
 
                 // Task 4: Wrap local variable declarations of ICollection/ICollection<T>
                 // when the initializer is not already a CSharpICollection/CSharpCollection compatible type.
-                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null)
+                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null
+                    && localTargetType is not IArrayTypeSymbol)
                 {
                     var localDisplay = localTargetType.ToDisplayString();
                     if (localDisplay == "System.Collections.ICollection"
@@ -504,7 +530,10 @@ public partial class StatementTransformer
 
                 // Task 5: Wrap local variable declarations of IList/IList<T>
                 // when the initializer is not already a CSharpGenericIList/CSharpIList compatible type.
-                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null)
+                // Array-typed locals (e.g. IList<int>[]) are excluded — the declared Java type
+                // stays an array and fromTyped() would produce a mismatched generic view.
+                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null
+                    && localTargetType is not IArrayTypeSymbol)
                 {
                     var localDisplay = localTargetType.ToDisplayString();
                     if (localDisplay == "System.Collections.IList"
@@ -838,7 +867,51 @@ public partial class StatementTransformer
             return new JavaMemberCollection(decl, new JavaStatementNode(lambdaCaptureHolderCode));
         }
 
-        return new JavaStatementNode($"{localDeclPreCode}{effectiveJavaType} {declarations};{localDeclPostCode}");
+        // When the declaration carries pre-statements (e.g. object initializer chains),
+        // the lambda capture holder must still be emitted after the declaration —
+        // dropping it leaves later references replaced with holder access (_var[0])
+        // but no holder declaration, which fails to compile.
+        string lambdaCaptureSuffix = lambdaCaptureHolderCode != null
+            ? "\n" + lambdaCaptureHolderCode
+            : "";
+        return new JavaStatementNode($"{localDeclPreCode}{effectiveJavaType} {declarations};{localDeclPostCode}{lambdaCaptureSuffix}");
+    }
+
+    /// <summary>
+    /// True when the expression already starts with a Java cast prefix, e.g. "(T) expr"
+    /// or "(CSharpList&lt;String&gt;) expr" — such expressions must not be cast again.
+    /// </summary>
+    private static bool HasCastPrefix(string expression)
+    {
+        var trimmed = expression.TrimStart();
+        if (!trimmed.StartsWith("(", StringComparison.Ordinal))
+            return false;
+        int depth = 0;
+        for (int i = 0; i < trimmed.Length; i++)
+        {
+            char c = trimmed[i];
+            if (c == '(') depth++;
+            else if (c == ')')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    // Closing paren must be followed by whitespace + an operand
+                    // (cast), not directly by a member/chain (parenthesized expr).
+                    return i + 1 < trimmed.Length
+                        && char.IsWhiteSpace(trimmed[i + 1])
+                        && i > 1;
+                }
+            }
+            else if (c == '<' && depth == 1)
+            {
+                // Generic type argument — skip to matching '>' to avoid counting
+                // inner parens (e.g. Supplier<...>) as cast boundaries.
+                int gt = trimmed.IndexOf('>', i);
+                if (gt > 0) i = gt;
+            }
+        }
+        return false;
     }
 
     /// <summary>

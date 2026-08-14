@@ -146,6 +146,24 @@ public static class ExpressionTransformerHelpers
         var sourceJavaType = context.MapType(sourceType);
         var targetJavaType = context.MapType(targetType);
 
+        // Generic-method results lose their type argument in Java (e.g. a C# generic
+        // helper returning T resolves to Object at the call site). When the semantic
+        // source is System.Object but the assignment/argument target is a concrete
+        // reference type, restore the C# cast so the code compiles.
+        if (sourceType.SpecialType == SpecialType.System_Object
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && targetType.TypeKind is not (TypeKind.Enum or TypeKind.Struct or TypeKind.Interface or TypeKind.Delegate)
+            && targetType.SpecialType is not (SpecialType.System_String or SpecialType.System_Object)
+            && !string.IsNullOrWhiteSpace(targetJavaType)
+            && targetJavaType != "Object"
+            && !IsJavaPrimitiveType(targetJavaType)
+            && !transformedExpression.Trim().StartsWith("(", StringComparison.Ordinal)
+            && !transformedExpression.Trim().StartsWith("new ", StringComparison.Ordinal))
+        {
+            context.AddImportsForTypePublic(targetType.ToDisplayString());
+            return $"({targetJavaType}) {transformedExpression}";
+        }
+
         // C# implicit Dictionary<K,V> → IDictionary (non-generic): the Java mappings
         // CSharpDictionary/CSharpGenericIDictionary are unrelated to the non-generic
         // CSharpIDictionary, so bridge the argument via CSharpIDictionary.from().
@@ -453,6 +471,26 @@ public static class ExpressionTransformerHelpers
             }
         }
 
+        // Await results: C# `await helper.Load<T>(...)` is emitted as `helper.load(...).join()`,
+        // whose Java type is Object (the generic T is lost). When the semantic source and
+        // target types match (both T) but the expression chain ends with a join/get call,
+        // restore the type with an explicit cast so assignments and member access compile.
+        if (context.SemanticModel != null
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && SymbolEqualityComparer.Default.Equals(sourceType, targetType)
+            && targetType.TypeKind is not (TypeKind.Enum or TypeKind.Interface or TypeKind.Delegate)
+            && targetType.SpecialType is not (SpecialType.System_Object or SpecialType.System_String)
+            && IsAwaitResultChain(transformedExpression)
+            && !string.IsNullOrWhiteSpace(targetJavaType)
+            && targetJavaType != "Object"
+            && !IsJavaPrimitiveType(targetJavaType))
+        {
+            context.AddImportsForTypePublic(targetType.ToDisplayString());
+            // Parenthesize so postfix operations (array index, member access) bind
+            // to the cast result, not the await call.
+            return $"(({targetJavaType}) {transformedExpression})";
+        }
+
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
         {
             // Task 19：TS 目标同型直接透传——byte 掩码与 uint 常量 (int) cast 均为 Java
@@ -700,6 +738,22 @@ public static class ExpressionTransformerHelpers
         return castKeyword == null
             ? transformedExpression
             : $"({castKeyword}) ({transformedExpression})";
+    }
+
+    /// <summary>
+    /// True when the transformed expression ends with an await-style call chain
+    /// (.join()/get()/waitTask()) whose Java result type is Object due to generic loss.
+    /// </summary>
+    private static bool IsAwaitResultChain(string transformedExpression)
+    {
+        var trimmed = transformedExpression.Trim();
+        return trimmed.EndsWith(".join()", StringComparison.Ordinal)
+            || trimmed.EndsWith(".join())", StringComparison.Ordinal)
+            || trimmed.EndsWith(".get()", StringComparison.Ordinal)
+            || trimmed.EndsWith(".waitTask()", StringComparison.Ordinal)
+            // await result followed by a struct clone: ((x.join())).clone()
+            || (trimmed.EndsWith(".clone()", StringComparison.Ordinal)
+                && trimmed.Contains(".join()", StringComparison.Ordinal));
     }
 
     /// <summary>

@@ -3515,6 +3515,7 @@ public class ClassTransformer : ITypeTransformer
                  {
                      "CSharpList", "CSharpHashSet", "CSharpLinkedList", "CSharpQueue",
                      "CSharpStack", "CSharpSortedSet", "CSharpCollection", "CSharpArrayList",
+                     "KeyedCollection", "ObservableCollection",
                  })
         {
             if (javaClass.ExtendedType != compat
@@ -3527,8 +3528,12 @@ public class ClassTransformer : ITypeTransformer
             if (javaClass.ExtendedType.StartsWith(compat + "<", StringComparison.Ordinal)
                 && javaClass.ExtendedType.EndsWith(">"))
             {
-                elemType = javaClass.ExtendedType.Substring(
-                    compat.Length + 1, javaClass.ExtendedType.Length - compat.Length - 2);
+                // Multi-type-parameter bases (KeyedCollection<K, T>) only expose the
+                // element type as the Collection constructor parameter. Parse top-level
+                // type arguments with angle-bracket depth tracking so nested generics
+                // (e.g. CSharpList<CSharpDictionary<String, T>>) don't split on inner commas.
+                var topLevelArgs = ExtractTopLevelTypeArguments(javaClass.ExtendedType, compat);
+                elemType = topLevelArgs.Count > 0 ? topLevelArgs[^1] : "Object";
             }
 
             javaClass.Constructors.Add(new JavaConstructorDeclaration
@@ -3541,6 +3546,40 @@ public class ClassTransformer : ITypeTransformer
             });
             return;
         }
+    }
+
+    /// <summary>
+    /// Splits the type arguments of <c>BareName&lt;...&gt;</c> at the top level,
+    /// tracking angle-bracket depth so nested generics are not split on inner commas.
+    /// </summary>
+    private static List<string> ExtractTopLevelTypeArguments(string extendedType, string compatName)
+    {
+        var result = new List<string>();
+        var start = extendedType.IndexOf('<');
+        if (start < 0 || !extendedType.EndsWith(">"))
+            return result;
+        int depth = 0;
+        int segmentStart = start + 1;
+        for (int i = start + 1; i < extendedType.Length; i++)
+        {
+            char c = extendedType[i];
+            if (c == '<') depth++;
+            else if (c == '>')
+            {
+                depth--;
+                if (depth < 0)
+                {
+                    result.Add(extendedType[segmentStart..i].Trim());
+                    break;
+                }
+            }
+            else if (c == ',' && depth == 0)
+            {
+                result.Add(extendedType[segmentStart..i].Trim());
+                segmentStart = i + 1;
+            }
+        }
+        return result;
     }
 
     private static void AddJavaCollectionBridgeMethods(JavaClassDeclaration javaClass, string collectionType)

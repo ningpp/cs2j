@@ -12,6 +12,15 @@ public abstract class KeyedCollection<TKey, TItem> implements Iterable<TItem> {
 
     protected abstract TKey getKeyForItem(TItem item);
 
+    public KeyedCollection() {
+    }
+
+    protected KeyedCollection(java.util.Collection<? extends TItem> c) {
+        for (TItem item : c) {
+            add(item);
+        }
+    }
+
     public boolean add(TItem item) {
         TKey key = getKeyForItem(item);
         if (byKey.containsKey(key)) {

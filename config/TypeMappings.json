@@ -506,16 +506,16 @@
         },
         {
             "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
-            "java": "CSharpReadOnlyCollection",
+            "java": "ReadOnlyCollection",
             "imports": [
-                "io.github.ningpp.compat.CSharpReadOnlyCollection"
+                "io.github.ningpp.compat.ReadOnlyCollection"
             ]
         },
         {
             "csharp": "System.Collections.ObjectModel.ReadOnlyDictionary`2",
-            "java": "CSharpReadOnlyDict",
+            "java": "ReadOnlyDictionary",
             "imports": [
-                "io.github.ningpp.compat.CSharpReadOnlyDict"
+                "io.github.ningpp.compat.ReadOnlyDictionary"
             ]
         },
         {
@@ -936,6 +936,13 @@
             "java": "ReadOnlyObservableCollection",
             "imports": [
                 "io.github.ningpp.compat.ReadOnlyObservableCollection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.Collection`1",
+            "java": "CSharpList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpList"
             ]
         },
         {
@@ -4774,9 +4781,9 @@
         },
         {
             "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
-            "java": "CSharpReadOnlyCollection",
+            "java": "ReadOnlyCollection",
             "imports": [
-                "io.github.ningpp.compat.CSharpReadOnlyCollection"
+                "io.github.ningpp.compat.ReadOnlyCollection"
             ]
         },
         {

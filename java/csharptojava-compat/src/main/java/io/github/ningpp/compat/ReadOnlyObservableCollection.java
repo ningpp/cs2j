@@ -14,6 +14,14 @@ public class ReadOnlyObservableCollection<T> implements Iterable<T> {
         this.items = new ArrayList<>(source);
     }
 
+    public ReadOnlyObservableCollection(ObservableCollection<T> source) {
+        List<T> copied = new ArrayList<>();
+        for (T item : source) {
+            copied.add(item);
+        }
+        this.items = copied;
+    }
+
     public int size() {
         return items.size();
     }

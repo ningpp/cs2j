@@ -1011,6 +1011,33 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         var transformedExpr = instanceReceiverTarget ?? facade.Transform(node.Expression, context);
         var target = staticTypeTarget ?? transformedExpr;
+        // Await receivers ((await helper.Load<T>(...)).Prop) lose their generic type in
+        // Java (join() → Object). Restore the receiver's C# type with a cast so the
+        // member access resolves on the intended type. The await may be wrapped in parens.
+        {
+            var unwrappedReceiver = node.Expression;
+            while (unwrappedReceiver is ParenthesizedExpressionSyntax parenReceiver)
+                unwrappedReceiver = parenReceiver.Expression;
+            if (staticTypeTarget == null
+                && unwrappedReceiver is AwaitExpressionSyntax
+                && receiverType is { } awaitReceiverType
+                && awaitReceiverType.SpecialType is not (SpecialType.System_Object or SpecialType.System_String)
+                && awaitReceiverType.TypeKind is not (TypeKind.Enum or TypeKind.Interface or TypeKind.Delegate)
+                && (target.Trim().EndsWith(".join()", StringComparison.Ordinal)
+                    || target.Trim().EndsWith(".join())", StringComparison.Ordinal)))
+            {
+                var mappedAwaitReceiver = context.MapType(awaitReceiverType);
+                if (!string.IsNullOrWhiteSpace(mappedAwaitReceiver)
+                    && mappedAwaitReceiver != "Object"
+                    && !ExpressionTransformerHelpers.IsJavaPrimitiveType(mappedAwaitReceiver))
+                {
+                    context.AddImportsForTypePublic(awaitReceiverType.ToDisplayString());
+                    // Parenthesize so the trailing member access binds to the cast
+                    // result: ((WrapperForPoint_3D) x.join()).getPoint_3D()
+                    target = $"(({mappedAwaitReceiver}) {target})";
+                }
+            }
+        }
         // Strip type arguments from type qualifiers — Java forbids Type<T>.member().
         // Only STATIC type receivers need this. Instance receivers must keep their type
         // arguments: ((JsonParameterInfo1<TArg0>)x).getTypedDefaultValue() needs the args
@@ -1526,6 +1553,26 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var getter = GetPropertyGetterName(prop);
+                // System.Tuple`N.ItemN (mapped to io.vavr.TupleN) — the ItemN members
+                // are PROPERTIES on the BCL type; route them to the vavr accessors.
+                if (IsTupleItemName(prop.Name, out var tupleIdxProp)
+                    && prop.ContainingType is INamedTypeSymbol tupleContainingType
+                    && IsVavrTupleType(tupleContainingType))
+                {
+                    return $"{propertyTarget}._{tupleIdxProp}()";
+                }
+                // C# record positional properties (e.g. record MyRecord(int prop) → Prop)
+                // become Java record components: the accessor is the component name
+                // (lowercase prop()), not getProp(). Records with additional instance
+                // members fall back to a plain class (getXxx()) — only pure records
+                // get the lowercase accessor.
+                if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+                    && context.Options.UseRecords
+                    && prop.ContainingType is INamedTypeSymbol { IsRecord: true } recordContaining
+                    && !RecordFallsBackToClass(recordContaining))
+                {
+                    return $"{propertyTarget}.{char.ToLowerInvariant(prop.Name[0])}{prop.Name[1..]}()";
+                }
                 // Member resolved on a CONSTRAINT type of a type-parameter receiver
                 // (e.g. ex.Data where T extends RuntimeException): cast the receiver
                 // so the member call resolves.
@@ -2413,6 +2460,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     if (memberName == "Length" && IsSystemIoStreamType(foundProp.ContainingType))
                         return $"{propertyTarget}.getLength()";
 
+                    // System.Tuple`N.ItemN (mapped to io.vavr.TupleN) — the ItemN members
+                    // are PROPERTIES on the BCL type; route them to the vavr accessors.
+                    if (IsTupleItemName(memberName, out var tuplePropIdx)
+                        && foundProp.ContainingType is INamedTypeSymbol tuplePropType
+                        && IsVavrTupleType(tuplePropType))
+                    {
+                        return $"{propertyTarget}._{tuplePropIdx}()";
+                    }
+
                     // Default: generate getXxx() getter
                     var getter = GetPropertyGetterName(foundProp);
                     return $"{propertyTarget}.{getter}()";
@@ -2459,6 +2515,52 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// True when the C# record falls back to a plain Java class (any additional
+    /// instance members beyond the positional components), so its accessors are
+    /// getXxx() instead of the record component names.
+    /// </summary>
+    private static bool RecordFallsBackToClass(INamedTypeSymbol recordType)
+    {
+        foreach (var member in recordType.GetMembers())
+        {
+            if (member is IPropertySymbol p)
+            {
+                // Compiler-generated EqualityContract and positional components are fine.
+                if (p.Name == "EqualityContract" || IsRecordComponentProperty(p, recordType))
+                    continue;
+                return true;
+            }
+            else if (member is IMethodSymbol { MethodKind: MethodKind.Ordinary } m
+                && m.Name is not ("Equals" or "GetHashCode" or "ToString"
+                    or "PrintMembers" or "Deconstruct" or "op_Equality" or "op_Inequality"
+                    or "<Clone>$" or "Clone"))
+            {
+                return true;
+            }
+            else if (member is IFieldSymbol { IsStatic: false, IsImplicitlyDeclared: false } f
+                && !f.Name.StartsWith("<", StringComparison.Ordinal))
+            {
+                // Compiler-generated backing fields (<Prop>k__BackingField) belong to the
+                // positional components — only explicit user fields force the class fallback.
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when the property is a C# record positional component (its value comes
+    /// from the primary constructor parameter) rather than a regular property.
+    /// </summary>
+    private static bool IsRecordComponentProperty(IPropertySymbol prop, INamedTypeSymbol recordType)
+    {
+        // Record positional parameters live on the primary constructor, not in
+        // GetMembers(). Match the property name against constructor parameters.
+        var primaryCtor = recordType.InstanceConstructors.FirstOrDefault();
+        return primaryCtor?.Parameters.Any(p => p.Name == prop.Name) == true;
     }
 
     private static bool IsSystemThreadingTaskType(ITypeSymbol? type)
@@ -3307,7 +3409,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     private static bool IsVavrTupleType(INamedTypeSymbol type)
     {
         var display = type.ToDisplayString();
-        return display.StartsWith("io.vavr.Tuple") && display.Contains("<");
+        // System.Tuple`N maps to io.vavr.TupleN via TypeMappings, so its ItemN
+        // members must resolve to the vavr accessors (_1(), _2(), ...).
+        return (display.StartsWith("io.vavr.Tuple") && display.Contains("<"))
+            || (display.StartsWith("System.Tuple", StringComparison.Ordinal) && display.Contains("<"))
+            || type.OriginalDefinition.ToDisplayString().StartsWith("System.Tuple`", StringComparison.Ordinal);
     }
 
     /// <summary>

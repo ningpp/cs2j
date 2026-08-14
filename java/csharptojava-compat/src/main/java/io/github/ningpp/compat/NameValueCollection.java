@@ -46,7 +46,10 @@ public class NameValueCollection {
         items.put(name, value);
     }
 
-    public void set(String name, String value) {
+    public void set(String name, String value) {        items.put(name, value);
+    }
+
+    public void put(String name, String value) {
         items.put(name, value);
     }
 

@@ -4633,12 +4633,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // resolves to Object. Cast to the mapped target type so `var` declarations
                 // and direct uses keep the generic element type (e.g. foreach over
                 // CSharpGenericIterable<CSharpGenericIterable<Integer>>).
+                // Exception: when the call is a standalone statement (or the body of a
+                // void arrow-expression method), the C# result is discarded — a cast
+                // expression is not a valid Java statement.
+                bool isStandaloneStatement = node.Parent is ExpressionStatementSyntax
+                    || node.Parent is ArrowExpressionClauseSyntax;
                 var mappedReturnType = context.MapType(deserializeTargetType);
-                if (!string.IsNullOrWhiteSpace(mappedReturnType)
+                if (!isStandaloneStatement
+                    && !string.IsNullOrWhiteSpace(mappedReturnType)
                     && mappedReturnType != "Object"
                     && !deserializeCall.StartsWith("(", StringComparison.Ordinal))
                 {
-                    return $"({mappedReturnType}) {deserializeCall}";
+                    // Parenthesize the cast so postfix operations (index access, member
+                    // access, method chains) bind to the cast result, not the call.
+                    return $"(({mappedReturnType}) {deserializeCall})";
                 }
                 return deserializeCall;
             }

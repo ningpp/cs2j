@@ -2499,17 +2499,32 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // constructor, so a single constructor call is fine. User-defined collection
         // types (e.g. a test class implementing IList<T>) only have Add — C# collection
         // initializers mean `new T(); Add(item)...`, so emit those via pre-statements.
+        // Exception: user types inheriting a framework collection (e.g. class StringList
+        // : List<T>) get a compat Collection constructor, so the constructor form works.
         var containingNs = namedCreatedType?.ContainingNamespace?.ToDisplayString() ?? string.Empty;
         bool isFrameworkCollectionType = containingNs.StartsWith("System.Collections", StringComparison.Ordinal);
         if (!isFrameworkCollectionType)
         {
-            string tmpVar = context.GenerateSyntheticName("_obj");
-            context.AddPreStatement($"var {tmpVar} = new {typeName}();");
-            foreach (var item in items)
+            var baseType = namedCreatedType?.BaseType;
+            bool inheritsFrameworkCollection = false;
+            for (var current = baseType; current != null; current = current.BaseType)
             {
-                context.AddPreStatement($"{tmpVar}.add({item});");
+                if (current.ToDisplayString().StartsWith("System.Collections", StringComparison.Ordinal))
+                {
+                    inheritsFrameworkCollection = true;
+                    break;
+                }
             }
-            return tmpVar;
+            if (!inheritsFrameworkCollection)
+            {
+                string tmpVar = context.GenerateSyntheticName("_obj");
+                context.AddPreStatement($"var {tmpVar} = new {typeName}();");
+                foreach (var item in items)
+                {
+                    context.AddPreStatement($"{tmpVar}.add({item});");
+                }
+                return tmpVar;
+            }
         }
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
         return $"new {typeName}(ArrayHelper.toList({itemsStr}))";
