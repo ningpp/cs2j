@@ -246,6 +246,15 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
+    public void ShiftOperator_WithIntVariable_Rewritten()
+    {
+        var src = "public class C { public uint Shift(uint a, int n) { return a << n; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("a.LeftShift(n)", result.OutputCode);
+    }
+
+    [Fact]
     public void AllOperators_Covered()
     {
         var src = @"public class C {

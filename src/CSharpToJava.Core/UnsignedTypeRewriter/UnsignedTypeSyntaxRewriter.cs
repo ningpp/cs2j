@@ -196,6 +196,12 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             return false;
         }
 
+        // Shift extension methods intentionally take an int shift count.
+        if (node.Kind() is SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression)
+        {
+            return true;
+        }
+
         // The extension method takes the same unsigned type as the receiver.
         // A numeric literal on the right is fine (it converts like `a + 1`).
         var rightType = _semanticModel.GetTypeInfo(node.Right).Type;
