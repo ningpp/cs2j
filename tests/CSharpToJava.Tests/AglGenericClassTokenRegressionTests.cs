@@ -150,7 +150,6 @@ public class AglGenericClassTokenRegressionTests
         });
 
         var rTree = Assert.Single(results, r => r.FileName == "RTree.java");
-        System.IO.File.WriteAllText(@"D:\code\cs2j\.scratch-a3\test-out\rtree.java", rTree.GeneratedCode);
         Assert.True(rTree.Success, string.Join("\n", rTree.Diagnostics));
         Assert.DoesNotContain("Class<?> clazz", rTree.GeneratedCode);
         Assert.Contains("addNodeToTreeRecursive(newNode, existingNode.Left);", rTree.GeneratedCode);
@@ -238,8 +237,6 @@ public class AglGenericClassTokenRegressionTests
         });
 
         var utils = Assert.Single(results, r => r.FileName == "RectangleNodeUtils.java");
-        System.IO.File.WriteAllText(@"D:\code\cs2j\.scratch-a3\test-out\utils.java", utils.GeneratedCode);
-        System.IO.File.WriteAllText(@"D:\code\cs2j\.scratch-a3\test-out\useit.java", Assert.Single(results, r => r.FileName == "UseIt.java").GeneratedCode);
         Assert.True(utils.Success, "UTILS:\n" + utils.GeneratedCode + "\n" + string.Join("\n", utils.Diagnostics));
         Assert.Contains("crossRectangleNodes_2tp", utils.GeneratedCode);
         // Both overloads got _cs2j_ params; the 3tp declaration keeps the base name,

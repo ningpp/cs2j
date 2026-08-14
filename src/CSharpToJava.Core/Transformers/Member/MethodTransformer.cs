@@ -2066,14 +2066,27 @@ public class MethodTransformer : IMemberTransformer
             .Where(name => !trailingCoveredTypeParameters.Contains(name))
             .ToList();
         if (pendingTypeParameters.Count == 0)
+        {
+            // Record the final (empty) token map so call sites know the signature has
+            // no leading Class<T> slots (the trailing Class<?> clazz parameter covers
+            // everything) and do not prepend spurious leading tokens.
+            context.SetMethodClassTypeParamNames(
+                sym.ContainingType?.MetadataName ?? "",
+                sym.ToDisplayString(),
+                Array.Empty<string>());
             return;
+        }
 
-        // Insert at index 0 in alphabetical order so the final parameter order
-        // matches call sites emitting explicit type arguments in declaration order
-        // (GetClassTokensFromExplicitTypeArguments) — registration order depends on
-        // typeof(T) occurrence order in the body and is not observable at call sites.
+        // Insert at index 0 in the method's type-parameter declaration order so the
+        // final parameter order matches call sites emitting explicit type arguments
+        // (C# requires explicit type arguments in declaration order) and the
+        // pre-scan registration order — registration order depends on typeof(T)
+        // occurrence order in the body and is not observable at call sites.
+        var typeParameterIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < sym.TypeParameters.Length; i++)
+            typeParameterIndex[sym.TypeParameters[i].Name] = i;
         var orderedPending = pendingTypeParameters
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .OrderBy(name => typeParameterIndex.TryGetValue(name, out var index) ? index : int.MaxValue)
             .ToList();
         for (var i = orderedPending.Count - 1; i >= 0; i--)
         {

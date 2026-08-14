@@ -55,7 +55,7 @@ class Test {
         var code = result.GeneratedCode;
         Assert.Contains("CSharpHashSet", code, StringComparison.Ordinal);
         // CSharpHashSet handles deduplication at runtime; all elements are passed to constructor
-        Assert.Contains("ArrayHelper.toList(1, 1, 1)", code, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.toList(new Integer[] { 1, 1, 1 })", code, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

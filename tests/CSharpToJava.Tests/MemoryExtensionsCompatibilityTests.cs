@@ -59,6 +59,7 @@ class C {
             "DateTimeFormatInfo.java",
             "CompareInfo.java",
             "CultureTypes.java",
+            "StringComparison.java",
         }.Select(name => Path.Combine(compatDir, name)).ToArray();
 
         foreach (var source in compatSources)

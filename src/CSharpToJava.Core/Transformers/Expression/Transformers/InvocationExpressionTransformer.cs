@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
@@ -287,15 +288,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // overload of the same name (e.g. JsonSerializer.Serialize(object, Type,
             // options) vs Serialize<T>(T, options)), prefer the non-generic one so no
             // spurious Class token is injected and the erasure-conflict suffix resolves
-            // to the emitted overload. Explicit type arguments at the call site keep the
-            // generic binding when that method registered Class<T> parameters (e.g.
-            // hoisted RunTestAsync<T> local functions). Local functions are not class
-            // members, so neither disambiguation nor erasure suffixes apply to them.
+            // to the emitted overload. Explicit type arguments at the call site bind to
+            // a generic method by construction (C# never resolves <T> to a non-generic
+            // overload), so the semantic binding is authoritative there. Local functions
+            // are not class members, so neither disambiguation nor erasure suffixes
+            // apply to them.
             bool keepGenericBinding = bareMethodSym?.IsGenericMethod == true
-                && genericMethodName.TypeArgumentList.Arguments.Count > 0
-                && context.MethodHasClassParams(
-                    bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "",
-                    bareMethodSym.OriginalDefinition.ToDisplayString());
+                && genericMethodName.TypeArgumentList.Arguments.Count > 0;
             if (bareMethodSym?.IsGenericMethod == true && !keepGenericBinding && !isLocalFunctionCall)
             {
                 var overloadArgCount = node.ArgumentList.Arguments.Count;
@@ -317,8 +316,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // ReadOnlySpan<Character>, which would not match. The private
             // Deserialize(string, Type, options) helper carries the 0tp erasure
             // suffix; the semantic model may fail to resolve it when the call site
-            // precedes the declaration, so fall back to the known suffix.
+            // precedes the declaration, so fall back to the known suffix. A generic
+            // resolved target (explicit <T> call) is authoritative and must keep its
+            // Class-token binding instead of being pinned to the non-generic helper.
             if (genericMethodName.Identifier.Text is "Deserialize" or "deserialize"
+                && bareMethodSym is not { IsGenericMethod: true }
                 && node.ArgumentList.Arguments.Count >= 2
                 && context.SemanticModel != null
                 && context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type?.SpecialType
@@ -358,9 +360,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // after this call site). Concrete reference-type arguments still need their
             // token — e.g. ReadCore<TValue>(...) / VerifyIgnore<T>(...) called before the
             // declaration is converted. Primitives/arrays are excluded (runtime-array
-            // Class parameter machinery covers them).
-            if (bareMethodSym?.IsGenericMethod != false)
-                classTokens ??= GetClassTokensFromExplicitTypeArguments(genericMethodName, context);
+            // Class parameter machinery covers them). The registered Class-token map is
+            // authoritative once present (even when empty — the final signature has no
+            // leading Class<T> slots, e.g. when the trailing Class<?> clazz parameter
+            // covers the type parameters), so the fallback only fires for methods whose
+            // token status is still unknown.
+            var knownClassParams = bareMethodSym != null
+                && context.MethodHasClassParams(
+                    bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "",
+                    bareMethodSym.OriginalDefinition.ToDisplayString());
+            if (bareMethodSym?.IsGenericMethod != false && !knownClassParams)
+                classTokens ??= GetClassTokensFromExplicitTypeArguments(genericMethodName, context, bareMethodSym);
             // Guard: the Java-side signature must have token slots for every Class
             // token. Registered Class<T> parameters widen the slot count; without
             // them (forward-referenced helpers whose signature never gained a
@@ -655,13 +665,42 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // Fallback for local-function/forward-referenced generic calls: derive the
             // tokens from the resolved method symbol's type arguments (concrete
             // reference types, primitives, or registered runtime type-parameter names).
-            if (classTokens == null && bareMethodSym2?.IsGenericMethod == true
+            // The registered Class-token map is authoritative once present (even when
+            // empty — the final signature has no leading Class<T> slots, e.g. when the
+            // trailing Class<?> clazz parameter covers the type parameters), so the
+            // fallback only fires for methods whose token status is still unknown.
+            var knownClassParams2 = bareMethodSym2 != null
+                && context.MethodHasClassParams(
+                    bareMethodSym2.OriginalDefinition.ContainingType?.MetadataName ?? "",
+                    bareMethodSym2.OriginalDefinition.ToDisplayString());
+            if (classTokens == null && !knownClassParams2
+                && bareMethodSym2?.IsGenericMethod == true
                 && bareMethodSym2.TypeArguments.Length > 0
                 && context.Options.TargetLanguage != TargetLanguage.TypeScript)
             {
+                var methodTypeParameters2 = bareMethodSym2.OriginalDefinition.TypeParameters;
+                var trailingCoveredTypeParameters2 = RuntimeClassParameterHelper
+                    .GetRequiredTypeParameters(bareMethodSym2, context)
+                    .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, bareMethodSym2.OriginalDefinition))
+                    .Select(tp => tp.Name)
+                    .ToHashSet(StringComparer.Ordinal);
+
                 classTokens = new List<string>();
-                foreach (var typeArg in bareMethodSym2.TypeArguments)
+                for (int i = 0; i < bareMethodSym2.TypeArguments.Length; i++)
                 {
+                    var typeArg = bareMethodSym2.TypeArguments[i];
+                    var methodTypeParameterName = i < methodTypeParameters2.Length
+                        ? methodTypeParameters2[i].Name
+                        : null;
+                    // Type parameters covered by the trailing Class<?> clazz parameter
+                    // must not get a leading token, and their requirement is already
+                    // satisfied — registering them would inject a duplicate leading
+                    // parameter on top of the trailing one.
+                    if (methodTypeParameterName != null
+                        && trailingCoveredTypeParameters2.Contains(methodTypeParameterName))
+                    {
+                        continue;
+                    }
                     if (typeArg is IArrayTypeSymbol)
                     {
                         classTokens = null;
@@ -11051,19 +11090,51 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// arguments (e.g. ReadCore&lt;TValue&gt;(...) / VerifyIgnore&lt;T&gt;(...)).
     /// Only concrete reference types qualify — primitives and arrays are covered by
     /// the runtime-array Class parameter machinery and must not get a token here.
+    /// When the target method symbol is available, the corresponding method type
+    /// parameters are registered as Class-token requirements (so the target's
+    /// signature gains the leading Class&lt;T&gt; slots and the slot-count guard keeps
+    /// the tokens), unless the trailing Class&lt;?&gt; clazz machinery already covers
+    /// them.
     /// </summary>
     private static List<string>? GetClassTokensFromExplicitTypeArguments(
         GenericNameSyntax genericName,
-        ConversionContext context)
+        ConversionContext context,
+        IMethodSymbol? targetMethod = null)
     {
         if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
             return null;
         if (genericName.TypeArgumentList.Arguments.Count == 0)
             return null;
 
+        var methodTypeParameters = targetMethod != null
+            ? targetMethod.OriginalDefinition.TypeParameters
+            : ImmutableArray<ITypeParameterSymbol>.Empty;
+        var trailingCoveredTypeParameters = targetMethod != null
+            ? RuntimeClassParameterHelper
+                .GetRequiredTypeParameters(targetMethod, context)
+                .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, targetMethod.OriginalDefinition))
+                .Select(tp => tp.Name)
+                .ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+
         var tokens = new List<string>();
+        int argIndex = 0;
         foreach (var typeArgSyntax in genericName.TypeArgumentList.Arguments)
         {
+            var methodTypeParameterName = argIndex < methodTypeParameters.Length
+                ? methodTypeParameters[argIndex].Name
+                : null;
+            argIndex++;
+
+            // Type parameters covered by the trailing Class<?> clazz parameter must
+            // not get a leading token, and their requirement is already satisfied —
+            // registering them would inject a duplicate leading parameter.
+            if (methodTypeParameterName != null
+                && trailingCoveredTypeParameters.Contains(methodTypeParameterName))
+            {
+                continue;
+            }
+
             ITypeSymbol? typeArgSymbol = null;
             if (context.SemanticModel != null)
             {
