@@ -103,9 +103,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (invocation.Expression is GenericNameSyntax genericMethodName
             && !HasComplexArguments(invocation.ArgumentList))
         {
-            var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, invocation, context);
             var bareMethodSym = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-            if (bareMethodSym != null)
+            bool isLocalFunctionCall = bareMethodSym?.MethodKind == MethodKind.LocalFunction;
+            var methodName = isLocalFunctionCall
+                ? GetLocalFunctionCallSiteName(genericMethodName.Identifier.Text, bareMethodSym, context)
+                : ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, invocation, context);
+            if (bareMethodSym != null && !isLocalFunctionCall)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
@@ -183,9 +186,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(Transform(node, context));
             }
 
-            var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, invocation, context);
             var bareMethodSym2 = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-            if (bareMethodSym2 != null)
+            bool isLocalFunctionCall = bareMethodSym2?.MethodKind == MethodKind.LocalFunction;
+            var methodName = isLocalFunctionCall
+                ? GetLocalFunctionCallSiteName(bareIdent.Identifier.Text, bareMethodSym2, context)
+                : ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, invocation, context);
+            if (bareMethodSym2 != null && !isLocalFunctionCall)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
@@ -269,24 +275,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // Fix: Explicit generic method call — C# Method<T, U>(args) → Java Method(args).
         // Java does not support specifying type arguments at the call site in statement position;
         // type inference is used instead.  Strip the type arguments from the method name.
-        if (node.Expression is GenericNameSyntax genericMethodName)
+if (node.Expression is GenericNameSyntax genericMethodName)
         {
-            var methodName = ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, node, context);
             var bareMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            bool isLocalFunctionCall = bareMethodSym?.MethodKind == MethodKind.LocalFunction;
+            var methodName = isLocalFunctionCall
+                ? GetLocalFunctionCallSiteName(genericMethodName.Identifier.Text, bareMethodSym, context)
+                : ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, node, context);
 
             // Overload disambiguation: when the argument count matches a non-generic
-            // overload of the same name (e.g. JsonSerializer.Serialize<T>(T, Type,
-            // options) vs Serialize(object, Type, options)), prefer the non-generic
-            // one so no spurious Class token is injected and the erasure-conflict
-            // suffix resolves to the emitted overload. Explicit type arguments at
-            // the call site keep the generic binding when that method registered
-            // Class<T> parameters (e.g. hoisted RunTestAsync<T> local functions).
+            // overload of the same name (e.g. JsonSerializer.Serialize(object, Type,
+            // options) vs Serialize<T>(T, options)), prefer the non-generic one so no
+            // spurious Class token is injected and the erasure-conflict suffix resolves
+            // to the emitted overload. Explicit type arguments at the call site keep the
+            // generic binding when that method registered Class<T> parameters (e.g.
+            // hoisted RunTestAsync<T> local functions). Local functions are not class
+            // members, so neither disambiguation nor erasure suffixes apply to them.
             bool keepGenericBinding = bareMethodSym?.IsGenericMethod == true
                 && genericMethodName.TypeArgumentList.Arguments.Count > 0
                 && context.MethodHasClassParams(
                     bareMethodSym.OriginalDefinition.ContainingType?.MetadataName ?? "",
                     bareMethodSym.OriginalDefinition.ToDisplayString());
-            if (bareMethodSym?.IsGenericMethod == true && !keepGenericBinding)
+            if (bareMethodSym?.IsGenericMethod == true && !keepGenericBinding && !isLocalFunctionCall)
             {
                 var overloadArgCount = node.ArgumentList.Arguments.Count;
                 var nonGenericOverload = bareMethodSym.ContainingType?.GetMembers(bareMethodSym.Name)
@@ -298,7 +308,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     bareMethodSym = nonGenericOverload;
             }
 
-            if (bareMethodSym != null)
+            if (bareMethodSym != null && !isLocalFunctionCall)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
 
             // JsonSerializer.Deserialize<TValue>(string json, Type, options) call
@@ -344,12 +354,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return deserializeCall;
             }
             var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context) : null;
-            // Syntactic fallback: when the semantic model cannot resolve the call (e.g. the
-            // argument lambda references unresolved types), a hoisted local function's
-            // Class<T> tokens can still be derived from the explicit type arguments and the
-            // local function's own `is T` usage scan.
-            if (bareMethodSym?.IsGenericMethod != false)
-                classTokens ??= GetClassTokensForLocalFunctionCallSyntax(genericMethodName, context);
             // Second fallback: forward-referenced generic methods (declaration converted
             // after this call site). Concrete reference-type arguments still need their
             // token — e.g. ReadCore<TValue>(...) / VerifyIgnore<T>(...) called before the
@@ -357,11 +361,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Class parameter machinery covers them).
             if (bareMethodSym?.IsGenericMethod != false)
                 classTokens ??= GetClassTokensFromExplicitTypeArguments(genericMethodName, context);
-            if (genericMethodName.Identifier.Text is "runTestAsync" or "RunTestAsync")
-            {
-                System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg2.txt",
-                    $"[DBG-222] sym={(bareMethodSym?.ToDisplayString() ?? "null")} isGen={bareMethodSym?.IsGenericMethod} args={node.ArgumentList.Arguments.Count} tokens={(classTokens != null ? string.Join("|", classTokens) : "null")}\n");
-            }
             // Guard: the Java-side signature must have token slots for every Class
             // token. Registered Class<T> parameters widen the slot count; without
             // them (forward-referenced helpers whose signature never gained a
@@ -548,14 +547,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"{fireMethodName}({lastResortEventArgs2})";
             }
 
-            var methodName = ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
             var bareMethodSym2 = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            bool isLocalFunctionCall = bareMethodSym2?.MethodKind == MethodKind.LocalFunction;
+            var methodName = isLocalFunctionCall
+                ? GetLocalFunctionCallSiteName(bareIdent.Identifier.Text, bareMethodSym2, context)
+                : ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, node, context);
 
             // Overload disambiguation: when the argument count matches a non-generic
             // overload of the same name (e.g. JsonSerializer.Serialize(object, Type,
             // options) vs Serialize<T>(T, options)), prefer it so no spurious Class
             // token is injected and the erasure-conflict suffix resolves correctly.
-            if (bareMethodSym2?.IsGenericMethod == true)
+            // Local functions are not class members and never carry an erasure suffix.
+            if (bareMethodSym2?.IsGenericMethod == true && !isLocalFunctionCall)
             {
                 var overloadArgCount = node.ArgumentList.Arguments.Count;
                 var nonGenericOverload = bareMethodSym2.ContainingType?.GetMembers(bareMethodSym2.Name)
@@ -567,18 +570,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     bareMethodSym2 = nonGenericOverload;
             }
 
-            if (bareMethodSym2 != null)
+            if (bareMethodSym2 != null && !isLocalFunctionCall)
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
 
             // Calls to capturing local functions are hoisted with the captured variables
             // passed as trailing arguments (declaration and call site share the capture
             // order registered by MethodConversionState).
             var captures = context.MethodState.GetHoistedLocalFunctionCaptures(bareIdent.Identifier.Text);
-            if (bareIdent.Identifier.Text is "runTestAsync" or "RunTestAsync")
-            {
-                System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg2.txt",
-                    $"[DBG-407] name={bareIdent.Identifier.Text} sym={(bareMethodSym2?.ToDisplayString() ?? "null")} captures={(captures != null)} args={node.ArgumentList.Arguments.Count}\n");
-            }
             if (captures != null)
             {
                 // Capture arguments are synthetic identifiers without symbols; inside
@@ -922,6 +920,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// Applies TypeMappings lookup then camelCase conversion to a bare (unqualified) method name.
     /// Used for calls without a receiver: Foo(...) and Foo&lt;T&gt;(...).
     /// </summary>
+    /// <summary>
+    /// Java name for a local-function call site. The hoisted declaration uses the
+    /// name registered by the pre-scan (which also avoids collisions with class
+    /// members and other hoisted functions); when no registration exists (degraded
+    /// semantic model), fall back to the plain camelCase name the declaration
+    /// would produce. Regular method renames (TypeMappings, GetHashCode→hashCode,
+    /// operator-collision PascalCase retention) do NOT apply to local functions —
+    /// the hoisted declaration is always emitted with plain camelCase.
+    /// </summary>
+    private static string GetLocalFunctionCallSiteName(string csName, IMethodSymbol? symbol, ConversionContext context)
+    {
+        if (symbol != null && context.TryGetHoistedLocalFunctionName(symbol, out var registered))
+            return registered;
+        var camelName = csName.Length > 0 ? char.ToLowerInvariant(csName[0]) + csName[1..] : csName;
+        return ConversionContext.EscapeJavaKeyword(camelName);
+    }
+
     private static string ApplyCamelCaseAndMappings(string originalName, InvocationExpressionSyntax node, ConversionContext context)
     {
         var methodName = originalName;
@@ -10685,13 +10700,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             var syntax = syntaxRef.GetSyntax();
             // Hoisted local functions declare via LocalFunctionStatementSyntax, not
-            // MethodDeclarationSyntax; scan their bodies the same way.
+            // MethodDeclarationSyntax; scan their bodies the same way. Expression
+            // bodies (T F<T>() => default(T)) have no BlockSyntax — scan the
+            // arrow-expression clause instead.
             SyntaxNode scanRoot = syntax;
             if (syntax is Microsoft.CodeAnalysis.CSharp.Syntax.LocalFunctionStatementSyntax localFnDecl)
             {
-                if (localFnDecl.Body == null)
+                if (localFnDecl.Body == null && localFnDecl.ExpressionBody == null)
                     continue;
-                scanRoot = localFnDecl.Body;
+                scanRoot = (SyntaxNode?)localFnDecl.Body ?? localFnDecl.ExpressionBody!;
             }
             else if (syntax is not Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax)
             {
@@ -10987,7 +11004,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var localFn = enclosingMethod.Body.DescendantNodes()
             .OfType<LocalFunctionStatementSyntax>()
             .FirstOrDefault(lf => lf.Identifier.Text == genericName.Identifier.Text);
-        if (localFn == null || localFn.Body == null)
+        if (localFn == null || (localFn.Body == null && localFn.ExpressionBody == null))
             return null;
 
         var typeParamNames = (localFn.TypeParameterList?.Parameters
@@ -10997,7 +11014,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (typeParamNames.Count == 0 || typeParamNames.Count > genericName.TypeArgumentList.Arguments.Count)
             return null;
 
-        bool usesIsTypeParamCheck = localFn.Body.DescendantNodes().Any(n =>
+        var localFnBody = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody!;
+        bool usesIsTypeParamCheck = localFnBody.DescendantNodes().Any(n =>
             (n is BinaryExpressionSyntax isExpr
                 && isExpr.IsKind(SyntaxKind.IsExpression)
                 && isExpr.Right is IdentifierNameSyntax isRight

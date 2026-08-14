@@ -38,8 +38,10 @@ class Holder
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        // Seed's call passes the capture variable.
-        Assert.Contains("add(5, converters)", code);
+        // Seed's call passes the capture variable. The hoisted local function is
+        // renamed to add2 because its camelCase name collides with the class's
+        // Add(int) member (emitted as add).
+        Assert.Contains("add2(5, converters)", code);
         // Use's call to the unrelated Add(int) method must NOT get the stale capture appended.
         var useBody = ExtractMethodBody(code, "use");
         Assert.Contains("add(5);", useBody);

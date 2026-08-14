@@ -79,6 +79,135 @@ class C {
         Assert.DoesNotContain("TODO: call to capturing local function", result.GeneratedCode ?? "", StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ExpressionBodiedGenericLocalFunction_GetsClassTokenAtCallSite()
+    {
+        // T F<T>() => default(T) has no block body; the Class<T> token detection
+        // must scan the expression body so the call site emits the token that the
+        // hoisted signature requires (previously f() vs f(Class<T>) — javac error).
+        var result = Convert("""
+class C {
+    int M() {
+        return F<int>();
+        T F<T>() => default(T);
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("f(int.class)", code, StringComparison.Ordinal);
+        Assert.Contains("private <T> T f(Class<T> _cs2j_T)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericLocalFunctionWithIsTypeParamCheck_GetsClassTokenAtCallSite()
+    {
+        // Expression-bodied `e is T` checks also register Class<T> token requirements;
+        // the syntactic fallback must not skip the expression body.
+        var result = Convert("""
+class C {
+    bool M(object o) {
+        return F<string>(o);
+        bool F<T>(object e) => e is T;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("f(String.class, o)", code, StringComparison.Ordinal);
+        Assert.Contains("private <T> boolean f(Class<T> _cs2j_T", code, StringComparison.Ordinal);
+        CompileJava(code);
+    }
+
+    [Fact]
+    public void LocalFunctionCollidingWithClassMember_IsRenamedAndCallSiteUpdated()
+    {
+        // The class method Square and the local function square both camelCase to
+        // "square". Previously the hoisted function was silently dropped by the
+        // erased-signature dedup, rebinding M() to the class method. Now the local
+        // function gets a unique name and the call site follows it.
+        var result = Convert("""
+class C {
+    int Square(int x) => x * x;
+    int M() {
+        return square(3);
+        int square(int x) => x * 2;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("int square(int x) { return x * x; }", code, StringComparison.Ordinal);
+        Assert.Contains("return square2(3);", code, StringComparison.Ordinal);
+        Assert.Contains("private int square2(int x) { return x * 2; }", code, StringComparison.Ordinal);
+        CompileJava(code);
+    }
+
+    [Fact]
+    public void SameNameLocalFunctionsInDifferentMethods_GetDistinctHoistedNames()
+    {
+        // Two methods each declaring a local function named Twice previously collided
+        // at class level: only the first was hoisted and the second call site bound
+        // to the first function (v * 2 instead of v * 3). Both must be hoisted with
+        // unique names and each call site must bind to its own.
+        var result = Convert("""
+class C {
+    int A(int x) {
+        return Twice(x);
+        int Twice(int v) => v * 2;
+    }
+    int B(int x) {
+        return Twice(x + 1);
+        int Twice(int v) => v * 3;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("private int twice(int v) { return v * 2; }", code, StringComparison.Ordinal);
+        Assert.Contains("private int twice2(int v) { return v * 3; }", code, StringComparison.Ordinal);
+        var aBody = ExtractMethodBody(code, "int a(int x)");
+        var bBody = ExtractMethodBody(code, "int b(int x)");
+        Assert.Contains("return twice(x);", aBody, StringComparison.Ordinal);
+        Assert.Contains("return twice2(x + 1);", bBody, StringComparison.Ordinal);
+        CompileJava(code);
+    }
+
+    [Fact]
+    public void LocalFunctionNamedGetHashCode_CallSiteMatchesHoistedDeclaration()
+    {
+        // Regular method renames (GetHashCode → hashCode) must not apply to local
+        // functions — the hoisted declaration is plain camelCase (getHashCode) and
+        // the call site must emit the same name.
+        var result = Convert("""
+class C {
+    int M(int x) {
+        return GetHashCode(x);
+        int GetHashCode(int v) => v * 7;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("return getHashCode(x);", code, StringComparison.Ordinal);
+        Assert.Contains("private int getHashCode(int v) { return v * 7; }", code, StringComparison.Ordinal);
+        CompileJava(code);
+    }
+
+    private static string ExtractMethodBody(string code, string methodSignaturePrefix)
+    {
+        int idx = code.IndexOf(methodSignaturePrefix, System.StringComparison.Ordinal);
+        Assert.True(idx >= 0, $"method {methodSignaturePrefix} not found in:\n{code}");
+        int open = code.IndexOf('{', idx);
+        int close = code.IndexOf('}', open);
+        return code.Substring(open, close - open);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -145,6 +145,73 @@ public class ConversionContext
     /// </summary>
     public Dictionary<string, string> NestedTypeNameOverrides { get; } = new(StringComparer.Ordinal);
 
+    // ─── Hoisted Local Function Names ────────────────────────────────
+
+    /// <summary>
+    /// Java names assigned to hoisted local functions, keyed by the local function's
+    /// method symbol. Assigned during the pre-scan so the hoisted declaration and
+    /// every call site (which may be converted before the declaration is hoisted)
+    /// emit the same name. When a local function's camelCase name would collide
+    /// with a class member or another hoisted local function, a numeric suffix is
+    /// appended to keep Java signatures unique.
+    /// </summary>
+    private readonly Dictionary<ISymbol, string> _hoistedLocalFunctionJavaNames = new(SymbolEqualityComparer.Default);
+
+    private readonly Dictionary<string, HashSet<string>> _hoistedLocalFunctionNameSets = new(StringComparer.Ordinal);
+
+    private readonly Dictionary<string, HashSet<string>> _classMethodJavaNameCache = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Registers the Java name of a hoisted local function. The first registration
+    /// for a symbol wins so repeated pre-scans stay deterministic.
+    /// </summary>
+    public void RegisterHoistedLocalFunctionName(ISymbol symbol, string javaName)
+    {
+        if (!_hoistedLocalFunctionJavaNames.ContainsKey(symbol))
+            _hoistedLocalFunctionJavaNames[symbol] = javaName;
+    }
+
+    /// <summary>
+    /// Looks up the registered Java name for a hoisted local function symbol.
+    /// </summary>
+    public bool TryGetHoistedLocalFunctionName(ISymbol? symbol, out string javaName)
+    {
+        if (symbol != null && _hoistedLocalFunctionJavaNames.TryGetValue(symbol, out javaName!))
+            return true;
+        javaName = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    /// Gets (creating if needed) the set of Java names already assigned to hoisted
+    /// local functions of the class identified by <paramref name="classKey"/>, so
+    /// same-named local functions in different methods stay unique.
+    /// </summary>
+    internal HashSet<string> GetOrCreateHoistedLocalFunctionNameSet(string classKey)
+    {
+        if (!_hoistedLocalFunctionNameSets.TryGetValue(classKey, out var set))
+        {
+            set = new HashSet<string>(StringComparer.Ordinal);
+            _hoistedLocalFunctionNameSets[classKey] = set;
+        }
+        return set;
+    }
+
+    /// <summary>
+    /// Gets (creating if needed) the cached set of Java method names the class
+    /// identified by <paramref name="classKey"/> will emit for its declared
+    /// methods, so hoisted local functions avoid colliding with real members.
+    /// </summary>
+    internal HashSet<string> GetOrCreateClassMethodJavaNames(string classKey, Func<HashSet<string>> factory)
+    {
+        if (!_classMethodJavaNameCache.TryGetValue(classKey, out var set))
+        {
+            set = factory();
+            _classMethodJavaNameCache[classKey] = set;
+        }
+        return set;
+    }
+
     internal ConvertedCommentSet GetDeclarationComments(SyntaxNode node, ISymbol? symbol = null)
     {
         return CommentConversion.ExtractDeclarationComments(node, symbol, this);

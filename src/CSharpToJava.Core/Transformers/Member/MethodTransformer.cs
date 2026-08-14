@@ -590,7 +590,7 @@ public class MethodTransformer : IMemberTransformer
     {
         var javaMethod = new JavaMethodDeclaration
         {
-            Name = GetLocalFunctionJavaName(localFn),
+            Name = GetHoistedLocalFunctionJavaName(localFn, context),
             // Static when the local function is declared static OR its enclosing method
             // is static (a local function inside a static method can only capture locals).
             Modifiers = JavaModifiers.Private
@@ -766,11 +766,84 @@ public class MethodTransformer : IMemberTransformer
         return context.MapTypeFromSyntax(actualReturnType);
     }
 
-    private static string GetLocalFunctionJavaName(LocalFunctionStatementSyntax localFn)
+    internal static string GetLocalFunctionJavaName(LocalFunctionStatementSyntax localFn)
     {
         var name = localFn.Identifier.Text;
         var camelName = name.Length > 0 ? char.ToLowerInvariant(name[0]) + name[1..] : name;
         return ConversionContext.EscapeJavaKeyword(camelName);
+    }
+
+    /// <summary>
+    /// Returns the Java name for a hoisted local function declaration. Prefers the
+    /// name registered during the pre-scan (which call sites also use), falling back
+    /// to the plain camelCase name when no pre-scan ran.
+    /// </summary>
+    private static string GetHoistedLocalFunctionJavaName(LocalFunctionStatementSyntax localFn, ConversionContext context)
+    {
+        if (context.GetDeclaredSymbol(localFn) is IMethodSymbol symbol
+            && context.TryGetHoistedLocalFunctionName(symbol, out var registered))
+        {
+            return registered;
+        }
+        return GetLocalFunctionJavaName(localFn);
+    }
+
+    /// <summary>
+    /// Computes the set of Java method names the enclosing class will emit for its
+    /// declared methods (mirroring <see cref="GetJavaMethodName"/>: type mappings,
+    /// well-known renames, camelCase, keyword escaping). Hoisted local functions use
+    /// this set (via the pre-scan) to pick non-colliding names — Java forbids two
+    /// methods with the same name and erased parameters, and a duplicate would be
+    /// silently dropped by RemoveAllErasedSignatureDuplicates, corrupting call sites.
+    /// </summary>
+    internal static HashSet<string> GetClassMethodJavaNames(INamedTypeSymbol typeSymbol, ConversionContext context)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var member in typeSymbol.GetMembers().OfType<IMethodSymbol>())
+        {
+            var name = member.Name;
+            if (member.MethodKind == MethodKind.UserDefinedOperator)
+            {
+                set.Add(ConvertOperatorName(name));
+                continue;
+            }
+            if (name.StartsWith("get_") || name.StartsWith("set_"))
+            {
+                set.Add(char.ToUpper(name[4]) + name.Substring(5));
+                continue;
+            }
+
+            var mapped = context.TypeMappings.MapMethod(typeSymbol.ToDisplayString(), name);
+            if (string.IsNullOrEmpty(mapped))
+            {
+                foreach (var iface in typeSymbol.AllInterfaces)
+                {
+                    var ifaceType = iface.ConstructedFrom.ToDisplayString();
+                    mapped = context.TypeMappings.MapMethod(ifaceType, name);
+                    if (!string.IsNullOrEmpty(mapped) && MethodSignatureMatchesInterface(member, iface, name))
+                        break;
+                    mapped = null;
+                }
+            }
+            if (!string.IsNullOrEmpty(mapped))
+            {
+                set.Add(mapped);
+                continue;
+            }
+
+            set.Add(ConversionContext.EscapeJavaKeyword(name switch
+            {
+                "GetHashCode" => "hashCode",
+                "GetEnumerator" => "iterator",
+                "GetType" => "getClass",
+                "Dispose" => "close",
+                "ToLower" or "ToLowerInvariant" => "toLowerCase",
+                "ToUpper" or "ToUpperInvariant" => "toUpperCase",
+                _ when name.Length > 0 => char.ToLowerInvariant(name[0]) + name[1..],
+                _ => name
+            }));
+        }
+        return set;
     }
 
     private static JavaMemberCollection? ApplyTestMethodAnnotations(
@@ -1528,7 +1601,7 @@ public class MethodTransformer : IMemberTransformer
         return methodInfo.ExplicitInterfaceImplementations.Any(i => IsEnumeratorInterface(i.ContainingType.OriginalDefinition));
     }
 
-    private string ConvertOperatorName(string csharpOperator)
+    private static string ConvertOperatorName(string csharpOperator)
     {
         return csharpOperator switch
         {

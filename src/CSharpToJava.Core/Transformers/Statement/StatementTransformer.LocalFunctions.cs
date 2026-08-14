@@ -33,6 +33,40 @@ public partial class StatementTransformer
     private static void PrescanLocalFunctions(BlockSyntax block, ConversionContext context)
     {
         var localFns = block.DescendantNodes().OfType<LocalFunctionStatementSyntax>().ToList();
+
+        // Assign each local function a deterministic hoisted Java name BEFORE any call
+        // site is converted. The name must match what the hoisted declaration emits and
+        // must not collide with class members (Java forbids same-name same-erasure
+        // methods, and RemoveAllErasedSignatureDuplicates would silently drop a
+        // duplicate, rebinding call sites to the wrong method) or with another hoisted
+        // local function of the same C# name from a different method.
+        var enclosingType = context.CurrentEnclosingRoslynType;
+        if (enclosingType != null)
+        {
+            var classKey = enclosingType.ToDisplayString();
+            var memberNames = context.GetOrCreateClassMethodJavaNames(
+                classKey,
+                () => Member.MethodTransformer.GetClassMethodJavaNames(enclosingType, context));
+            var usedNames = context.GetOrCreateHoistedLocalFunctionNameSet(classKey);
+            foreach (var localFn in localFns)
+            {
+                var symbol = context.GetDeclaredSymbol(localFn) as IMethodSymbol;
+                if (symbol != null && context.TryGetHoistedLocalFunctionName(symbol, out _))
+                    continue;
+                var baseName = Member.MethodTransformer.GetLocalFunctionJavaName(localFn);
+                var javaName = baseName;
+                int suffix = 2;
+                while (memberNames.Contains(javaName) || usedNames.Contains(javaName))
+                {
+                    javaName = baseName + suffix;
+                    suffix++;
+                }
+                usedNames.Add(javaName);
+                if (symbol != null)
+                    context.RegisterHoistedLocalFunctionName(symbol, javaName);
+            }
+        }
+
         foreach (var localFn in localFns)
         {
             context.MethodState.RegisterHoistedLocalFunction(localFn);
