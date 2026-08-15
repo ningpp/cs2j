@@ -31,9 +31,13 @@ public class Convert {
         return Base64.getEncoder().encodeToString(inArray);
     }
 
-    /** Mirrors C# Convert.FromBase64String(String) */
+    /** Mirrors C# Convert.FromBase64String(String) — invalid input throws FormatException in .NET. */
     public static byte[] fromBase64String(String s) {
-        return Base64.getDecoder().decode(s);
+        try {
+            return Base64.getDecoder().decode(s);
+        } catch (IllegalArgumentException e) {
+            throw new FormatException(e.getMessage());
+        }
     }
 
     /** Mirrors C# Convert.ToInt32(String) */

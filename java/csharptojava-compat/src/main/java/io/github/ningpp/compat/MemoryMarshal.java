@@ -116,15 +116,71 @@ public class MemoryMarshal {
         return new Span<>((T[]) arr);
     }
 
-    /** Mirrors MemoryMarshal.Read&lt;T&gt;(ReadOnlySpan&lt;byte&gt;) for struct targets — default instance. */
+    /** Mirrors MemoryMarshal.Read&lt;T&gt;(ReadOnlySpan&lt;byte&gt;) for struct targets — reads fields back little-endian. */
     public static <T> T read(ReadOnlySpan<Integer> span, Class<T> type) {
         try {
             var ctor = type.getDeclaredConstructor();
             ctor.setAccessible(true);
-            return ctor.newInstance();
+            T instance = ctor.newInstance();
+            readFields(instance, span);
+            return instance;
         } catch (ReflectiveOperationException e) {
             return null;
         }
+    }
+
+    private static void readFields(Object instance, ReadOnlySpan<Integer> span) {
+        int offset = 0;
+        for (java.lang.reflect.Field f : instance.getClass().getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                continue;
+            }
+            try {
+                f.setAccessible(true);
+                Class<?> t = f.getType();
+                if (t == int.class) {
+                    f.setInt(instance, readInt(span, offset));
+                    offset += 4;
+                } else if (t == long.class) {
+                    long v = 0;
+                    for (int i = 0; i < 8 && offset + i < span.length(); i++) {
+                        v |= (long) (span.get(offset + i) & 0xFF) << (i * 8);
+                    }
+                    f.setLong(instance, v);
+                    offset += 8;
+                } else if (t == short.class) {
+                    int v = 0;
+                    for (int i = 0; i < 2 && offset + i < span.length(); i++) {
+                        v |= (span.get(offset + i) & 0xFF) << (i * 8);
+                    }
+                    f.setShort(instance, (short) v);
+                    offset += 2;
+                } else if (t == byte.class) {
+                    f.setByte(instance, (byte) (span.get(offset) & 0xFF));
+                    offset += 1;
+                } else if (t == char.class) {
+                    char v = (char) ((span.get(offset) & 0xFF) | ((span.get(offset + 1) & 0xFF) << 8));
+                    f.setChar(instance, v);
+                    offset += 2;
+                } else if (t == boolean.class) {
+                    f.setBoolean(instance, span.get(offset) != 0);
+                    offset += 1;
+                } else {
+                    offset += 4;
+                }
+            } catch (Exception e) {
+                offset += 4;
+            }
+        }
+    }
+
+    private static int readInt(ReadOnlySpan<Integer> span, int offset) {
+        int value = 0;
+        int count = Math.min(4, span.length() - offset);
+        for (int i = 0; i < count; i++) {
+            value |= (span.get(offset + i) & 0xFF) << (i * 8);
+        }
+        return value;
     }
 
     /** Mirrors MemoryMarshal.Cast&lt;TFrom, TTo&gt;(Span&lt;TFrom&gt;) — element reinterpretation is a no-op. */
@@ -150,13 +206,85 @@ public class MemoryMarshal {
     private static void writeValue(Span<Integer> span, Object value) {
         if (value instanceof Number n) {
             long lv = n.longValue();
-            for (int i = 0; i < span.length() && i < 8; i++) {
+            int size = 8;
+            if (value instanceof Integer || value instanceof Float) {
+                size = 4;
+            } else if (value instanceof Short) {
+                size = 2;
+            } else if (value instanceof Byte) {
+                size = 1;
+            }
+            for (int i = 0; i < size && i < span.length(); i++) {
                 span.set(i, (int) ((lv >>> (i * 8)) & 0xFF));
             }
             return;
         }
+        if (value != null) {
+            writeFields(value, span);
+            return;
+        }
         for (int i = 0; i < span.length(); i++) {
             span.set(i, 0);
+        }
+    }
+
+    /** Writes a struct's fields (declaration order) as little-endian bytes, mirroring C# MemoryMarshal.Write&lt;T&gt;. */
+    private static void writeFields(Object value, Span<Integer> span) {
+        int offset = 0;
+        for (java.lang.reflect.Field f : value.getClass().getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                continue;
+            }
+            try {
+                f.setAccessible(true);
+                Class<?> t = f.getType();
+                if (t == int.class) {
+                    int v = f.getInt(value);
+                    for (int i = 0; i < 4 && offset + i < span.length(); i++) {
+                        span.set(offset + i, (v >>> (i * 8)) & 0xFF);
+                    }
+                    offset += 4;
+                } else if (t == long.class) {
+                    long v = f.getLong(value);
+                    for (int i = 0; i < 8 && offset + i < span.length(); i++) {
+                        span.set(offset + i, (int) ((v >>> (i * 8)) & 0xFF));
+                    }
+                    offset += 8;
+                } else if (t == short.class) {
+                    short v = f.getShort(value);
+                    for (int i = 0; i < 2 && offset + i < span.length(); i++) {
+                        span.set(offset + i, (v >>> (i * 8)) & 0xFF);
+                    }
+                    offset += 2;
+                } else if (t == byte.class) {
+                    span.set(offset, f.getByte(value) & 0xFF);
+                    offset += 1;
+                } else if (t == char.class) {
+                    char v = f.getChar(value);
+                    span.set(offset, v & 0xFF);
+                    span.set(offset + 1, (v >>> 8) & 0xFF);
+                    offset += 2;
+                } else if (t == boolean.class) {
+                    span.set(offset, f.getBoolean(value) ? 1 : 0);
+                    offset += 1;
+                } else if (t == Integer.class) {
+                    int v = f.getInt(value);
+                    for (int i = 0; i < 4 && offset + i < span.length(); i++) {
+                        span.set(offset + i, (v >>> (i * 8)) & 0xFF);
+                    }
+                    offset += 4;
+                } else if (t == Long.class) {
+                    long v = f.getLong(value);
+                    for (int i = 0; i < 8 && offset + i < span.length(); i++) {
+                        span.set(offset + i, (int) ((v >>> (i * 8)) & 0xFF));
+                    }
+                    offset += 8;
+                } else {
+                    offset += 4;
+                }
+            } catch (IllegalAccessException e) {
+                offset += 4;
+            }
         }
     }
 }

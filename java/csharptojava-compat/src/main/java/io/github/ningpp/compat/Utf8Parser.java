@@ -209,8 +209,20 @@ public final class Utf8Parser {
             value.value = Decimal.parse(text);
             bytesConsumed.value = text.length();
             return true;
-        } catch (NumberFormatException e) {
-            return false;
+        } catch (IllegalArgumentException e) {
+            // JSON numbers may use exponent notation (e.g. 1e-10), which .NET's
+            // Utf8Parser.TryParseDecimal accepts even though decimal.Parse does not.
+            if (text.indexOf('e') < 0 && text.indexOf('E') < 0) {
+                return false;
+            }
+            try {
+                value.value = Decimal.parseExponent(text);
+                bytesConsumed.value = text.length();
+                return true;
+            } catch (IllegalArgumentException ex) {
+                // Malformed exponent or overflow — .NET returns false.
+                return false;
+            }
         }
     }
 }

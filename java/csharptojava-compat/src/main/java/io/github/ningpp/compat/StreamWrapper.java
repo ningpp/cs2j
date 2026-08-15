@@ -19,6 +19,7 @@ public class StreamWrapper implements AutoCloseable {
     private final InputStream inputStream;
     private final OutputStream outputStream;
     private final String name;
+    protected boolean disposed;
 
     public StreamWrapper() {
         this(null, null, null);
@@ -199,11 +200,11 @@ public class StreamWrapper implements AutoCloseable {
     }
 
     public boolean getCanWrite() {
-        return outputStream != null;
+        return outputStream != null && !disposed;
     }
 
     public boolean getCanRead() {
-        return inputStream != null;
+        return inputStream != null && !disposed;
     }
 
     public boolean getCanTimeout() {
@@ -247,6 +248,7 @@ public class StreamWrapper implements AutoCloseable {
 
     @Override
     public void close() {
+        disposed = true;
         try {
             if (inputStream != null) inputStream.close();
             if (outputStream != null) outputStream.close();

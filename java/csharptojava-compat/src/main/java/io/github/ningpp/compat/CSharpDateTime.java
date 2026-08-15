@@ -304,10 +304,19 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
         // Standard .NET format specifiers map to invariant-culture patterns; a single
         // letter like "d" must NOT reach DateTimeFormatter (Java "d" = unpadded day).
         String javaPattern = mapStandardFormat(format);
-        // C# custom formats treat uppercase 'T' as a literal separator; Java treats
+// C# custom formats treat uppercase 'T' as a literal separator; Java treats
         // 'T' as a pattern letter (time), so quote it unless already quoted.
         if (javaPattern.indexOf('T') >= 0 && !javaPattern.contains("'T'")) {
             javaPattern = javaPattern.replace("T", "'T'");
+        }
+        // C# 'K' depends on DateTimeKind: Utc -> 'Z', Local -> offset, Unspecified -> empty.
+        // Java's 'K' means clock-hour-of-am-pm, so emit the literal text instead.
+        if (javaPattern.indexOf('K') >= 0) {
+            javaPattern = switch (kind) {
+                case Utc -> javaPattern.replace("K", "'Z'");
+                case Local -> javaPattern.replace("K", "'" + getLocalOffsetText() + "'");
+                default -> javaPattern.replace("K", "");
+            };
         }
         return ldt.format(DateTimeFormatter.ofPattern(javaPattern));
     }

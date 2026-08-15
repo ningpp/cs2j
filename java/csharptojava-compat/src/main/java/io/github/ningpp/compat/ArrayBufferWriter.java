@@ -50,10 +50,9 @@ public class ArrayBufferWriter<T> implements IBufferWriter<T> {
     @Override
     public ReadOnlyMemory<T> getMemory(int sizeHint) {
         EnsureCapacity(written + sizeHint);
-        // Return a view of the internal buffer, not a copy: callers (Utf8JsonWriter)
-        // write through the returned span and then Advance, so the writes must be
-        // visible to WrittenMemory/WrittenSpan.
-        return new ReadOnlyMemory<>(buffer, 0, buffer.length);
+        // Return a view starting at the written offset, matching C# semantics:
+        // the caller writes relative to WrittenCount and then calls Advance(count).
+        return new ReadOnlyMemory<>(buffer, written, buffer.length - written);
     }
 
     /** Mirrors ArrayBufferWriter&lt;T&gt;.Advance(int count). */
@@ -70,12 +69,16 @@ public class ArrayBufferWriter<T> implements IBufferWriter<T> {
         written = 0;
     }
 
+    private static final int DEFAULT_BUFFER_SIZE = 4096;
+
     @SuppressWarnings("unchecked")
     private void EnsureCapacity(int needed) {
         if (needed > buffer.length) {
-            int newSize = buffer.length;
-            while (newSize < needed) {
-                newSize *= 2;
+            // Mirrors ArrayBufferWriter<T>.Grow: capacity grows by DefaultBufferSize
+            // (4096), or to the requested size when that is larger.
+            int newSize = buffer.length + DEFAULT_BUFFER_SIZE;
+            if (newSize < needed) {
+                newSize = needed;
             }
             buffer = (T[]) Arrays.copyOf(buffer, newSize);
         }

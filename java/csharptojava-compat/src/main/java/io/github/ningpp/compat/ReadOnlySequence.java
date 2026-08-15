@@ -187,11 +187,13 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         return new SequencePosition(this, base + (int) offset);
     }
 
-    /** Mirrors ReadOnlySequence&lt;T&gt;.First — the first segment (this single segment). */
+    /** Mirrors ReadOnlySequence&lt;T&gt;.First — the memory at the start position.
+     *  C# returns the FIRST segment even when it is empty (the reader's constructor
+     *  and GetNextSpan skip empty segments themselves); findSegment(0) would
+     *  silently skip a leading empty segment and break position bookkeeping. */
     public ReadOnlyMemory<T> getFirst() {
         if (segments != null && segments.length > 0) {
-            int idx = findSegment(0);
-            return idx < segments.length ? segments[idx] : new ReadOnlyMemory<>();
+            return segments[0];
         }
         if (length == 0) {
             return new ReadOnlyMemory<>();

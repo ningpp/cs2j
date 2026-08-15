@@ -14,7 +14,7 @@ public class JavaScriptEncoder {
     private final UnicodeRange[] allowedRanges;
 
     private static final JavaScriptEncoder DEFAULT = new JavaScriptEncoder(true, null);
-    private static final JavaScriptEncoder UNSAFE_RELAXED = new JavaScriptEncoder(false, null);
+    private static final JavaScriptEncoder UNSAFE_RELAXED = new JavaScriptEncoder(false, UnicodeRanges.getUnsafeRelaxedRanges());
 
     private JavaScriptEncoder(boolean escapeNonAscii, UnicodeRange[] allowedRanges) {
         this.escapeNonAscii = escapeNonAscii;
@@ -54,7 +54,14 @@ public class JavaScriptEncoder {
         if (unicodeScalar < 0x20 || unicodeScalar == '"' || unicodeScalar == '\\') {
             return true;
         }
-        if (escapeNonAscii && unicodeScalar >= 0x7F) {
+        if (unicodeScalar < 0x7F) {
+            // HTML-sensitive ASCII characters are always escaped by the default encoder.
+            if (escapeNonAscii) {
+                return isHtmlSensitiveAscii(unicodeScalar);
+            }
+            return false;
+        }
+        if (escapeNonAscii) {
             if (allowedRanges != null) {
                 for (UnicodeRange range : allowedRanges) {
                     if (range != null && range.contains(unicodeScalar)) {
@@ -64,7 +71,19 @@ public class JavaScriptEncoder {
             }
             return true;
         }
+        if (allowedRanges != null) {
+            for (UnicodeRange range : allowedRanges) {
+                if (range != null && range.contains(unicodeScalar)) {
+                    return false;
+                }
+            }
+            return true;
+        }
         return false;
+    }
+
+    private static boolean isHtmlSensitiveAscii(int ch) {
+        return ch == '<' || ch == '>' || ch == '&' || ch == '\'' || ch == '+' || ch == '`';
     }
 
     /** C# JavaScriptEncoder.MaxOutputCharactersPerInputCharacter. */
@@ -80,7 +99,7 @@ public class JavaScriptEncoder {
                                           IntHolder numberOfCharactersWritten) {
         String text;
         if (willEncode(unicodeScalar)) {
-            text = "\\u" + String.format("%04x", unicodeScalar);
+            text = "\\u" + String.format("%04X", unicodeScalar);
         } else {
             text = String.valueOf(Character.toChars(unicodeScalar));
         }
@@ -99,9 +118,20 @@ public class JavaScriptEncoder {
      * Returns the index of the first byte that requires escaping, or -1.
      */
     public int findFirstCharacterToEncodeUtf8(ReadOnlySpan<Integer> utf8Text) {
-        for (int i = 0; i < utf8Text.length(); i++) {
-            if (needsEscaping(utf8Text.get(i) & 0xFF)) {
-                return i;
+        int i = 0;
+        while (i < utf8Text.length()) {
+            int b = utf8Text.get(i) & 0xFF;
+            if (b < 0x80) {
+                if (needsEscaping(b)) {
+                    return i;
+                }
+                i++;
+            } else {
+                int[] decoded = decodeUtf8Scalar(utf8Text, i);
+                if (willEncode(decoded[0])) {
+                    return i;
+                }
+                i += decoded[1];
             }
         }
         return -1;
@@ -131,27 +161,107 @@ public class JavaScriptEncoder {
         int consumed = 0;
         while (consumed < source.length()) {
             int b = source.get(consumed) & 0xFF;
-            if (!needsEscaping(b)) {
-                if (written >= destination.length()) {
+            if (b < 0x80) {
+                if (!needsEscaping(b)) {
+                    if (written >= destination.length()) {
+                        return OperationStatus.DestinationTooSmall;
+                    }
+                    destination.set(written++, b);
+                    consumed++;
+                    continue;
+                }
+                String escaped = asciiEscape(b);
+                if (written + escaped.length() > destination.length()) {
                     return OperationStatus.DestinationTooSmall;
                 }
-                destination.set(written++, b);
+                byte[] escBytes = escaped.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                for (byte e : escBytes) {
+                    destination.set(written++, e & 0xFF);
+                }
                 consumed++;
                 continue;
             }
-            int escapeLen = 6; // Unicode escape (backslash-u-XXXX)
-            if (written + escapeLen > destination.length()) {
-                return OperationStatus.DestinationTooSmall;
+            // Non-ASCII: decode the full UTF-8 scalar before deciding to escape.
+            int[] decoded = decodeUtf8Scalar(source, consumed);
+            int scalar = decoded[0];
+            int byteLen = decoded[1];
+            if (willEncode(scalar)) {
+                String escaped;
+                if (scalar <= 0xFFFF) {
+                    escaped = "\\u" + String.format("%04X", scalar);
+                } else {
+                    char[] pair = Character.toChars(scalar);
+                    escaped = "\\u" + String.format("%04X", (int) pair[0])
+                        + "\\u" + String.format("%04X", (int) pair[1]);
+                }
+                if (written + escaped.length() > destination.length()) {
+                    return OperationStatus.DestinationTooSmall;
+                }
+                byte[] escBytes = escaped.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                for (byte e : escBytes) {
+                    destination.set(written++, e & 0xFF);
+                }
+            } else {
+                if (written + byteLen > destination.length()) {
+                    return OperationStatus.DestinationTooSmall;
+                }
+                for (int k = 0; k < byteLen; k++) {
+                    destination.set(written++, source.get(consumed + k) & 0xFF);
+                }
             }
-            byte[] escaped = ("\\u" + String.format("%04x", b)).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-            for (byte e : escaped) {
-                destination.set(written++, e & 0xFF);
-            }
-            consumed++;
+            consumed += byteLen;
         }
         bytesConsumed.value = consumed;
         bytesWritten.value = written;
         return OperationStatus.Done;
+    }
+
+    private static String asciiEscape(int b) {
+        return switch (b) {
+            case 0x08 -> "\\b";
+            case 0x09 -> "\\t";
+            case 0x0A -> "\\n";
+            case 0x0C -> "\\f";
+            case 0x0D -> "\\r";
+            case 0x5C -> "\\\\";
+            default -> "\\u" + String.format("%04X", b);
+        };
+    }
+
+    /** Decodes one UTF-8 scalar starting at index; returns {codePoint, byteLength} (invalid input -> {0xFFFD, 1}). */
+    private static int[] decodeUtf8Scalar(ReadOnlySpan<Integer> source, int index) {
+        int b0 = source.get(index) & 0xFF;
+        int length;
+        if ((b0 & 0xE0) == 0xC0) {
+            length = 2;
+        } else if ((b0 & 0xF0) == 0xE0) {
+            length = 3;
+        } else if ((b0 & 0xF8) == 0xF0) {
+            length = 4;
+        } else {
+            return new int[] { 0xFFFD, 1 };
+        }
+        if (index + length > source.length()) {
+            return new int[] { 0xFFFD, 1 };
+        }
+        int cp = b0 & (0xFF >> (length + 1));
+        for (int k = 1; k < length; k++) {
+            int bk = source.get(index + k) & 0xFF;
+            if ((bk & 0xC0) != 0x80) {
+                return new int[] { 0xFFFD, 1 };
+            }
+            cp = (cp << 6) | (bk & 0x3F);
+        }
+        // Reject overlong/surrogate/out-of-range encodings.
+        int min = switch (length) {
+            case 2 -> 0x80;
+            case 3 -> 0x800;
+            default -> 0x10000;
+        };
+        if (cp < min || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
+            return new int[] { 0xFFFD, 1 };
+        }
+        return new int[] { cp, length };
     }
 
     /**
@@ -161,25 +271,59 @@ public class JavaScriptEncoder {
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public OperationStatus encode(ReadOnlySpan<Character> source, Span destination,
-                                  IntHolder charsConsumed, IntHolder bytesWritten) {        int written = 0;        int consumed = 0;        while (consumed < source.length()) {
+                                  IntHolder charsConsumed, IntHolder bytesWritten) {
+        boolean charBacked = destination.getBackingArray() instanceof char[]
+            || destination.getBackingArray() instanceof Character[];
+        int written = 0;
+        int consumed = 0;
+        while (consumed < source.length()) {
             int ch = source.get(consumed);
             if (needsEscapingUtf16(ch)) {
-                if (written + 6 > destination.length()) {
+                String shortEsc = (ch < 0x80) ? asciiEscape(ch) : null;
+                int escapeLen = shortEsc != null ? shortEsc.length() : 6;
+                if (written + escapeLen > destination.length()) {
                     return OperationStatus.DestinationTooSmall;
                 }
-                byte[] escaped = ("\\u" + String.format("%04x", ch)).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-                for (byte e : escaped) {
-                    destination.set(written++, e & 0xFF);
+                if (shortEsc != null) {
+                    if (charBacked) {
+                        for (int k = 0; k < shortEsc.length(); k++) {
+                            destination.set(written++, shortEsc.charAt(k));
+                        }
+                    } else {
+                        byte[] escBytes = shortEsc.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                        for (byte e : escBytes) {
+                            destination.set(written++, e & 0xFF);
+                        }
+                    }
+                } else if (charBacked) {
+                    destination.set(written++, '\\');
+                    destination.set(written++, 'u');
+                    destination.set(written++, Character.forDigit((ch >> 12) & 0xF, 16));
+                    destination.set(written++, Character.forDigit((ch >> 8) & 0xF, 16));
+                    destination.set(written++, Character.forDigit((ch >> 4) & 0xF, 16));
+                    destination.set(written++, Character.forDigit(ch & 0xF, 16));
+                } else {
+                    byte[] escaped = ("\\u" + String.format("%04X", ch)).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                    for (byte e : escaped) {
+                        destination.set(written++, e & 0xFF);
+                    }
                 }
                 consumed++;
                 continue;
             }
-            byte[] utf8 = new String(Character.toChars(ch)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            if (written + utf8.length > destination.length()) {
-                return OperationStatus.DestinationTooSmall;
-            }
-            for (byte e : utf8) {
-                destination.set(written++, e & 0xFF);
+            if (charBacked) {
+                if (written >= destination.length()) {
+                    return OperationStatus.DestinationTooSmall;
+                }
+                destination.set(written++, (char) ch);
+            } else {
+                byte[] utf8 = new String(Character.toChars(ch)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                if (written + utf8.length > destination.length()) {
+                    return OperationStatus.DestinationTooSmall;
+                }
+                for (byte e : utf8) {
+                    destination.set(written++, e & 0xFF);
+                }
             }
             consumed++;
         }
@@ -200,10 +344,20 @@ public class JavaScriptEncoder {
             return true;
         }
         if (b < 0x80) {
+            if (escapeNonAscii) {
+                return isHtmlSensitiveAscii(b);
+            }
             return false;
         }
         if (!escapeNonAscii && allowedRanges == null) {
             return false;
+        }
+        if (allowedRanges != null) {
+            for (UnicodeRange range : allowedRanges) {
+                if (range != null && range.contains(b)) {
+                    return false;
+                }
+            }
         }
         return true;
     }
@@ -213,6 +367,9 @@ public class JavaScriptEncoder {
             return true;
         }
         if (ch < 0x80) {
+            if (escapeNonAscii) {
+                return isHtmlSensitiveAscii(ch);
+            }
             return false;
         }
         if (!escapeNonAscii && allowedRanges == null) {
@@ -220,7 +377,7 @@ public class JavaScriptEncoder {
         }
         if (allowedRanges != null) {
             for (UnicodeRange range : allowedRanges) {
-                if (range.contains(ch)) {
+                if (range != null && range.contains(ch)) {
                     return false;
                 }
             }

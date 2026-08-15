@@ -461,7 +461,8 @@ public class Encoding {
     /** Mirrors Encoding.GetString(ReadOnlySpan&lt;byte&gt;) — element view decode. */
     public String getString(ReadOnlySpan<Integer> bytes) {        byte[] arr = new byte[bytes.length()];
           for (int i = 0; i < bytes.length(); i++) {
-              arr[i] = (byte) (bytes.get(i) & 0xFF);
+              Integer v = bytes.get(i);
+              arr[i] = (byte) ((v == null ? 0 : v) & 0xFF);
           }
           return getString(arr, 0, arr.length);
       }
@@ -470,7 +471,8 @@ public class Encoding {
     public String getString(Span<Integer> bytes) {
         byte[] arr = new byte[bytes.length()];
         for (int i = 0; i < bytes.length(); i++) {
-            arr[i] = (byte) (bytes.get(i) & 0xFF);
+            Integer v = bytes.get(i);
+            arr[i] = (byte) ((v == null ? 0 : v) & 0xFF);
         }
         return getString(arr, 0, arr.length);
     }

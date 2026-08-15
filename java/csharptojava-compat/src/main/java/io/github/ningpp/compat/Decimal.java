@@ -231,6 +231,23 @@ public final class Decimal implements Comparable<Decimal> {
         }
     }
 
+    /**
+     * Parses exponent notation such as "1e-10" with full decimal range
+     * validation. .NET's Utf8Parser.TryParseDecimal accepts exponents for
+     * JSON numbers although decimal.Parse (NumberStyles.Number) does not, so
+     * this is the entry point used by Utf8Parser only.
+     */
+    public static Decimal parseExponent(String value) {
+        if (value == null) {
+            throw new FormatException("null");
+        }
+        try {
+            return new Decimal(new BigDecimal(value.trim()), true);
+        } catch (NumberFormatException ex) {
+            throw new FormatException(ex.getMessage(), ex);
+        }
+    }
+
     public Decimal add(Decimal other) {
         return checked(value.add(require(other).value));
     }

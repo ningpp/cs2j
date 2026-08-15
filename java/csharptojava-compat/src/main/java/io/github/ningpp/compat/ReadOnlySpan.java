@@ -283,6 +283,14 @@ public final class ReadOnlySpan<T> {
     }
 
     public T[] toArray() {
+        if (stringBacking != null) {
+            @SuppressWarnings("unchecked")
+            T[] copy = (T[]) new Character[length];
+            for (int i = 0; i < length; i++) {
+                copy[i] = (T) java.lang.Character.valueOf(stringBacking.charAt(offset + i));
+            }
+            return copy;
+        }
         if (array instanceof byte[] bytes) {
             return (T[]) toIntegerArray(bytes, offset, length);
         }

@@ -270,11 +270,17 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
             return odt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX"));
         }
 
-        String javaPattern = format;
+String javaPattern = format;
         // C# custom formats treat uppercase 'T' as a literal separator; Java treats
         // 'T' as a pattern letter (time), so quote it unless already quoted.
         if (javaPattern.indexOf('T') >= 0 && !javaPattern.contains("'T'")) {
             javaPattern = javaPattern.replace("T", "'T'");
+        }
+        // C# 'K' for DateTimeOffset always emits the offset (e.g. +08:00); Java's
+        // 'K' means clock-hour-of-am-pm, so emit the literal offset instead.
+        if (javaPattern.indexOf('K') >= 0) {
+            ZoneOffset zoneOffset = ZoneOffset.ofTotalSeconds((int) (offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND));
+            javaPattern = javaPattern.replace("K", "'" + zoneOffset + "'");
         }
         return ticksToLocalDateTime(dateTime.getTicks()).format(DateTimeFormatter.ofPattern(javaPattern));
     }

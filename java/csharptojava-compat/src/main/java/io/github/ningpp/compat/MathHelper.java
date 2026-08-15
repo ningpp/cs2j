@@ -711,7 +711,9 @@ public class MathHelper {
         Character[] boxed = format.toArray();
         char[] str = new char[boxed.length];
         for (int i = 0; i < boxed.length; i++) {
-            str[i] = boxed[i];
+            // Boxed span elements may be null after clear()/fill — treat as 0
+            // (consistent with ReadOnlySpan.toByteArray).
+            str[i] = boxed[i] == null ? '\0' : boxed[i];
         }
         return tryFormatInt(value, dest, charsWritten, new String(str));
     }

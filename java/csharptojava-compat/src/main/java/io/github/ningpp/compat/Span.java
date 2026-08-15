@@ -121,6 +121,11 @@ public final class Span<T> {
         return true;
     }
 
+    /** Raw backing array (byte[], char[], or T[]) — lets erased call sites adapt writes. */
+    public Object getBackingArray() {
+        return array;
+    }
+
     public T get(int index) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);

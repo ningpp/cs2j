@@ -35,9 +35,8 @@ public final class Utf8Formatter {
             int precision = format.getPrecision() & 0xFF;
             String hex = Integer.toHexString(value);
             if (precision != 0xFF && precision > hex.length()) {
-                hex = String.format("%0" + precision + "d", 0).replace('0', '0') + hex;
                 StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < precision - hex.length() + (precision > hex.length() ? 0 : 0); i++) sb.append('0');
+                for (int i = 0; i < precision - hex.length(); i++) sb.append('0');
                 sb.append(hex);
                 text = sb.toString();
             } else {

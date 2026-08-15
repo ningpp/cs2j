@@ -93,12 +93,12 @@ public class MemoryStream extends StreamWrapper {
     // was constructed with null input/output streams.
     @Override
     public boolean getCanWrite() {
-        return true;
+        return !disposed;
     }
 
     @Override
     public boolean getCanRead() {
-        return true;
+        return !disposed;
     }
 
     @Override
@@ -182,6 +182,7 @@ public class MemoryStream extends StreamWrapper {
 
     @Override
     public void close() {
+        disposed = true;
     }
 
     /** Mirrors Stream.Seek(offset, SeekOrigin) — the in-memory buffer can only seek within bounds. */
