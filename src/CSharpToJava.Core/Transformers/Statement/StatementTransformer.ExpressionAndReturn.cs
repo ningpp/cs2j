@@ -873,7 +873,12 @@ private static bool IsArrayAccessSegment(string segment)
         // Struct value copy: when returning a user-defined struct expression that is not a temporary,
         // clone it to preserve C# value-copy semantics (C# return always copies structs).
         // Skip inside property getters where the consumption site handles cloning.
-        if (stmt.Expression != null && context.SemanticModel != null && !context.SuppressReturnClone)
+        // Also skip `return this;` inside the struct's own parameterless Clone() method:
+        // that method is mapped to Java clone(), so `return this.clone()` would recurse
+        // into itself forever (e.g. JsonElement.Clone()).
+        bool isSelfReturnInCloneMethod = stmt.Expression is ThisExpressionSyntax
+            && context.CurrentMethod is { Name: "Clone", Parameters.Length: 0, IsStatic: false };
+        if (stmt.Expression != null && context.SemanticModel != null && !context.SuppressReturnClone && !isSelfReturnInCloneMethod)
         {
             var retExprTypeForClone = context.GetTypeInfo(stmt.Expression).Type;
             expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr, retExprTypeForClone, context);

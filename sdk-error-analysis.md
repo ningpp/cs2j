@@ -509,6 +509,46 @@
 
 ---
 
+## Iteration 14 — JsonElement.Clone 被生成成 `return this.clone()`，clone() 无限自递归
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonElement.java:942`
+- **行号**: 942（`clone()` 内 `if (!_parent.getIsDisposable()) { return this.clone(); }`）
+- **错误信息**: `StackOverflowError`（大量 `at JsonElement.clone(JsonElement.java:942)` 重复栈帧）
+- **代码片段**:
+  ```java
+  public JsonElement clone() {
+      checkValidInstance();
+      if (!_parent.getIsDisposable()) {
+      return this.clone();   // 应为 return this;
+      }
+      return _parent.cloneElement(_idx);
+  }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Document\JsonElement.cs:1433-1444`（`Clone()` 中 `return this;`）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs`
+- **分析**: struct 值复制规则对所有 `return this;` 追加 `.clone()`，但 C# `Clone()` 已被映射为 Java `clone()`，于是 `return this.clone()` 变成 clone() 调用自身。修复为：当前方法是无参实例 `Clone()` 且返回 `this` 时不再追加 `.clone()`（普通方法的 `return this` 仍保留 `.clone()` 值复制语义）。
+- **状态**: ✅ Fixed（Red→Green：`StructCloneReturnThisTests.CloneMethod_ReturnThis_StaysThis_NotRecursive` / `NonCloneMethod_ReturnThis_StillClones`）
+
+---
+
+## Iteration 15 — 枚举反装箱与 GetValues：`_UNMAPPED` 哨兵泄漏 + `(int)boxedEnum` 生成 Java 强转
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\Serialization\Converters\EnumConverter.java:255`
+- **行号**: 255（`convertToUInt64` 内 `(Integer)(value)` / `(byte)(value)` / `(Number)(value)` 等反装箱）
+- **错误信息**: `ClassCastException: class ...SampleEnum cannot be cast to class java.lang.Integer`（约 119 处 `ExceptionInInitializerError`/`TargetInvocationException` 链，并连带 `ObjectDefaultConverter not compatible with boolean` 等大量序列化错误）
+- **代码片段**:
+  ```java
+  long result = (Objects.equals(s_enumTypeCode, TypeCode.Int32)
+      ? (long)((int)(value))          // value 是枚举常量时 ClassCastException
+      : ...);
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Value\EnumConverter.cs:242-260`（`ConvertToUInt64(object value)` 中 `(ulong)(int)value` 等反装箱）
+- **根因分类**: compat + Transformer
+- **涉及组件**: `java/csharptojava-compat/.../EnumHelper.java`；`src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`
+- **分析**: ① C# `(int)boxedEnum` 反装箱被生成成 Java `(Integer)value` 强转，而 Java 枚举常量不是 `Number`；② 转换器为未命名数值生成的 `_UNMAPPED` 哨兵被 `Enum.GetValues/GetNames` 泄漏出去。修复：`EnumHelper.getValues/getValuesArray/getNames` 过滤 `_UNMAPPED`；新增 `EnumHelper.toInt32/toInt64`（Number 直接取值，枚举经反射调用生成的 `getValue()`）；转换器对 `object → int/long/sbyte/short/byte/ushort/uint` 反装箱改为 `EnumHelper.toInt32/toInt64` 调用（byte/ushort/uint 保留原有掩码语义）。
+- **状态**: ✅ Fixed（Red→Green：`EnumHelperTest.toInt32_toInt64_handlesEnumConstantsAndBoxedNumbers`、`EnumCastFromObjectTests` 2 例；314 个 enum/cast 相关转换器测试无回归）
+
+---
+
 ## Iteration 14 — ObjectDefaultConverter 对 boolean/int 等基本类型报 not compatible（约 820 个错误）
 - **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonClassInfo.java:487`（`addProperty` → `getConverter` 失败）
 - **行号**: `JsonSerializerOptions.java:354`（`throwInvalidOperationException_SerializationConverterNotCompatible`）
