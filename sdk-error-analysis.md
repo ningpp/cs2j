@@ -506,3 +506,20 @@
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs`
 - **分析**: C# `span == default`/`span1 == span2` 是长度+内容比较；Java 端类对象 `==` 是引用比较。检测 `System.ReadOnlySpan<T>`/`System.Span<T>` 操作数后改为 `MemoryExtensions.sequenceEqual(...)`。
 - **状态**: ✅ Fixed（Red→Green：`SpanEqualityOperator_UsesSequenceEqual`）
+
+---
+
+## Iteration 14 — ObjectDefaultConverter 对 boolean/int 等基本类型报 not compatible（约 820 个错误）
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonClassInfo.java:487`（`addProperty` → `getConverter` 失败）
+- **行号**: `JsonSerializerOptions.java:354`（`throwInvalidOperationException_SerializationConverterNotCompatible`）
+- **错误信息**: `The converter 'class ...ObjectDefaultConverter' is not compatible with the type 'boolean'/'int'`
+- **代码片段**:
+  ```java
+  Class currentMemberType = propertyInfo.getPropertyType(); // boolean.class / int.class
+  ... getConverter(memberType, ...) // s_defaultSimpleConverters 键是 Boolean.class / Integer.class
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Serialization\JsonClassInfo.cs`（`AddProperty`）、`JsonSerializerOptions.cs`
+- **根因分类**: compat（反射成员类型未装箱）
+- **涉及组件**: `java/csharptojava-compat/.../PropertyInfo.java`（`getPropertyType`）、`FieldInfo.java`（`getFieldType`）
+- **分析**: Java 反射对基本类型属性返回 `boolean.class`/`int.class`，而转换器把 C# `typeof(bool)`/`typeof(int)` 映射为 `Boolean.class`/`Integer.class`；`s_defaultSimpleConverters` 用包装类做键，基本类型查不到后落入 `ObjectConverterFactory`，其产物 `ObjectDefaultConverter` 与基本类型不兼容而抛异常。修复为 `PropertyInfo.getPropertyType()`/`FieldInfo.getFieldType()` 经 `TypeHelper.toWrapperType` 装箱。
+- **状态**: ✅ Fixed（Red→Green：`ReflectionMemberTypeTest`；生成项目 `ObjectDefaultConverter ... not compatible` 归零）

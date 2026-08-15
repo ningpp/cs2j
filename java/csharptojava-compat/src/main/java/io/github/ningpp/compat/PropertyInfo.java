@@ -169,10 +169,10 @@ public final class PropertyInfo implements MemberInfo {
 
     public Class<?> getPropertyType() {
         if (getter != null) {
-            return getter.getReturnType();
+            return TypeHelper.toWrapperType(getter.getReturnType());
         }
         if (setter != null && setter.getParameterCount() > 0) {
-            return setter.getParameterTypes()[0];
+            return TypeHelper.toWrapperType(setter.getParameterTypes()[0]);
         }
         return null;
     }

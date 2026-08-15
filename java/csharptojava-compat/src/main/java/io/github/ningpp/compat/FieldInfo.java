@@ -26,7 +26,7 @@ public final class FieldInfo implements MemberInfo {
     }
 
     public Class<?> getFieldType() {
-        return field.getType();
+        return TypeHelper.toWrapperType(field.getType());
     }
 
     public boolean getIsStatic() {
