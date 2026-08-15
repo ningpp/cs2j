@@ -214,4 +214,52 @@ class EnumHelperTest {
         Object[] values = EnumHelper.getValuesArray(Status.class);
         assertArrayEquals(new Object[]{Status.Open, Status.Closed, Status.Pending}, values);
     }
+
+    enum WithUnmapped {
+        A,
+        B,
+        _UNMAPPED
+    }
+
+    @Test
+    void getValues_excludesSyntheticUnmappedConstant() {
+        // The converter adds a synthetic _UNMAPPED constant to enums so numeric
+        // values that have no named member can round-trip. C# Enum.GetValues does
+        // not contain it, so compat must filter it out (JsonReaderOptions
+        // validates CommentHandling against GetValues and rejects _UNMAPPED).
+        CSharpArray values = EnumHelper.getValues(WithUnmapped.class);
+        assertEquals(2, values.getLength());
+        assertEquals(WithUnmapped.A, values.getValue(0));
+        assertEquals(WithUnmapped.B, values.getValue(1));
+        assertArrayEquals(new Object[]{WithUnmapped.A, WithUnmapped.B},
+            EnumHelper.getValuesArray(WithUnmapped.class));
+        assertArrayEquals(new String[]{"A", "B"},
+            EnumHelper.getNames(WithUnmapped.class));
+    }
+
+    enum WithExplicitValue {
+        A(10),
+        B(20);
+
+        private final int value;
+
+        WithExplicitValue(int v) {
+            this.value = v;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
+
+    @Test
+    void toInt32_toInt64_handlesEnumConstantsAndBoxedNumbers() {
+        // C# unboxing casts like (int)boxedEnum work on enum constants; Java
+        // enum constants are not Numbers, so EnumHelper must read getValue().
+        assertEquals(10, EnumHelper.toInt32(WithExplicitValue.A));
+        assertEquals(20L, EnumHelper.toInt64(WithExplicitValue.B));
+        assertEquals(42, EnumHelper.toInt32(Integer.valueOf(42)));
+        assertEquals(7L, EnumHelper.toInt64(Integer.valueOf(7)));
+        assertEquals((byte) 10, EnumHelper.toInt32(WithExplicitValue.A));
+    }
 }

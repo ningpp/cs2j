@@ -488,6 +488,33 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# unboxing casts from object to integral types: (int)boxedEnum, (long)boxedEnum.
+        // Java enum constants are not Numbers, so route through EnumHelper which reads
+        // the generated enum getValue() when the runtime object is an enum constant and
+        // unboxes normally when it is a plain boxed number.
+        if (context.SemanticModel != null)
+        {
+            var sourceType = context.GetTypeInfo(node.Expression).Type;
+            if (sourceType?.SpecialType == SpecialType.System_Object
+                && targetSymbol?.SpecialType is
+                    SpecialType.System_Int32 or SpecialType.System_Int64
+                    or SpecialType.System_UInt64 or SpecialType.System_Int16
+                    or SpecialType.System_SByte)
+            {
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                if (targetSymbol.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64)
+                {
+                    return $"EnumHelper.toInt64({expression})";
+                }
+                if (targetSymbol.SpecialType is SpecialType.System_Int32)
+                {
+                    return $"EnumHelper.toInt32({expression})";
+                }
+                // Int16/SByte have no dedicated object-source branch.
+                return $"({targetType})(EnumHelper.toInt32({expression}))";
+            }
+        }
+
         // Java cast syntax: (Type)expression
         // For primitives to wrapper types, use valueOf
         if (IsPrimitiveToWrapperCast(node.Expression, targetType, context))
@@ -637,12 +664,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             var sourceType = context.GetTypeInfo(node.Expression).Type;
             // When casting from object, Java cannot use Object as a bitwise operand.
-            // Unbox to int first; the runtime type check (e.g. value instanceof Byte)
-            // in the surrounding C# code guarantees the cast is safe.
+            // Unbox through EnumHelper so converter-generated enum constants
+            // (which expose getValue() rather than implementing Number) work too.
             if (sourceType?.SpecialType == SpecialType.System_Object)
+            {
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
                 return IsDirectByteArrayInitializerElement(node)
-                    ? $"(byte)(((Number)({expression})).intValue() & 0xFF)"
-                    : $"(((Number)({expression})).intValue() & 0xFF)";
+                    ? $"(byte)((EnumHelper.toInt32({expression})) & 0xFF)"
+                    : $"(EnumHelper.toInt32({expression}) & 0xFF)";
+            }
             return IsDirectByteArrayInitializerElement(node)
                 ? $"(byte)({expression} & 0xFF)"
                 : $"({expression} & 0xFF)";
@@ -661,10 +691,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             var sourceType = context.GetTypeInfo(node.Expression).Type;
             // When casting from object, Java cannot cast Object directly to int.
-            // Unbox to Integer first; the runtime instanceof check (e.g. value instanceof Integer)
-            // guarantees the cast is safe.
+            // Unbox through EnumHelper so converter-generated enum constants work.
             if (sourceType?.SpecialType == SpecialType.System_Object)
-                return $"(((int)(((Integer)({expression})) & 0xFFFF)))";
+            {
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"(EnumHelper.toInt32({expression}) & 0xFFFF)";
+            }
             return $"(((int)({expression})) & 0xFFFF)";
         }
 
@@ -682,10 +714,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             var sourceType = context.GetTypeInfo(node.Expression).Type;
             // When casting from object, Java cannot use Object as a bitwise operand.
-            // Unbox to Integer first; the runtime instanceof check (e.g. value instanceof Integer)
-            // guarantees the cast is safe.
+            // Unbox through EnumHelper so converter-generated enum constants work.
             if (sourceType?.SpecialType == SpecialType.System_Object)
-                return $"(int)(((Integer)({expression})) & 0xFFFFFFFFL)";
+            {
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"(int)((EnumHelper.toInt32({expression})) & 0xFFFFFFFFL)";
+            }
             return $"(int)(({expression}) & 0xFFFFFFFFL)";
         }
 

@@ -41,12 +41,13 @@ public class EnumHelper {
         throw new IllegalArgumentException("No enum constant: " + name);
     }
 
-    @SuppressWarnings("unchecked")
     public static CSharpArray getValues(Class<?> enumType) {
         // C# Enum.GetValues returns an enum-typed array. Converted foreach loops
         // cast the returned CSharpArray to Iterable<T>, so elements must be the
         // enum constants themselves (callers read the numeric value via getValue()).
-        return CSharpArray.of(enumType.getEnumConstants());
+        // The converter adds a synthetic _UNMAPPED constant for unnamed numeric
+        // values; C# Enum.GetValues does not contain it, so it must be filtered out.
+        return CSharpArray.of(getValuesArray(enumType));
     }
 
     /** Mirrors System.Enum.GetNames(Type) — constant names in declaration order. */
@@ -54,7 +55,7 @@ public class EnumHelper {
         if (enumType == null || !enumType.isEnum()) {
             throw new IllegalArgumentException("Type must be an enum: " + enumType);
         }
-        Object[] constants = enumType.getEnumConstants();
+        Object[] constants = getValuesArray(enumType);
         String[] names = new String[constants.length];
         for (int i = 0; i < constants.length; i++) {
             names[i] = ((Enum<?>) constants[i]).name();
@@ -64,7 +65,62 @@ public class EnumHelper {
 
     /** Object[]-typed variant for call sites that consume values as an array. */
     public static Object[] getValuesArray(Class<?> enumType) {
-        return enumType.getEnumConstants();
+        if (enumType == null || !enumType.isEnum()) {
+            throw new IllegalArgumentException("Type must be an enum: " + enumType);
+        }
+        Object[] constants = enumType.getEnumConstants();
+        int unmappedCount = 0;
+        for (Object constant : constants) {
+            if (isSyntheticUnmapped(constant)) {
+                unmappedCount++;
+            }
+        }
+        if (unmappedCount == 0) {
+            return constants;
+        }
+        Object[] filtered = new Object[constants.length - unmappedCount];
+        int index = 0;
+        for (Object constant : constants) {
+            if (!isSyntheticUnmapped(constant)) {
+                filtered[index++] = constant;
+            }
+        }
+        return filtered;
+    }
+
+    private static boolean isSyntheticUnmapped(Object constant) {
+        return constant instanceof Enum<?> e && "_UNMAPPED".equals(e.name());
+    }
+
+    /**
+     * Unboxes an Object to an int, handling both plain boxed Numbers and
+     * converter-generated enum constants (which expose their underlying value
+     * through getValue()).
+     */
+    public static int toInt32(Object value) {
+        return (int) toInt64(value);
+    }
+
+    /**
+     * Unboxes an Object to a long, handling both plain boxed Numbers and
+     * converter-generated enum constants (which expose their underlying value
+     * through getValue()).
+     */
+    public static long toInt64(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof Enum<?> enumValue) {
+            try {
+                Object raw = enumValue.getClass().getMethod("getValue").invoke(enumValue);
+                if (raw instanceof Number number) {
+                    return number.longValue();
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new ClassCastException("Cannot cast " + enumValue.getClass().getName() + " to a numeric value");
+            }
+        }
+        throw new ClassCastException("Cannot cast " + (value == null ? "null" : value.getClass().getName()) + " to a numeric value");
     }
 
     @SuppressWarnings("unchecked")
