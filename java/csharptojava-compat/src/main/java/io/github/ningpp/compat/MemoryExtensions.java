@@ -84,21 +84,13 @@ public class MemoryExtensions {
     /** C# Span<byte> → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
     public static ReadOnlySpan<Integer> asSpan(byte[] data) {
         if (data == null) return new ReadOnlySpan<>(new Integer[0]);
-        Integer[] arr = new Integer[data.length];
-        for (int i = 0; i < data.length; i++) {
-            arr[i] = data[i] & 0xFF;
-        }
-        return new ReadOnlySpan<>(arr);
+        return new ReadOnlySpan<Integer>(data);
     }
 
     /** C# ReadOnlySpan<byte> slice → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
     public static ReadOnlySpan<Integer> asSpan(byte[] data, int start, int length) {
         if (data == null) return new ReadOnlySpan<>(new Integer[0]);
-        Integer[] arr = new Integer[length];
-        for (int i = 0; i < length; i++) {
-            arr[i] = data[start + i] & 0xFF;
-        }
-        return new ReadOnlySpan<>(arr);
+        return new ReadOnlySpan<Integer>(data, start, length);
     }
 
     /** C# ReadOnlyMemory&lt;byte&gt; slice → Java ReadOnlyMemory&lt;Integer&gt;. */

@@ -37,4 +37,27 @@ class EncodingGetBytesSpanTest {
         assertEquals(108, dest.get(3));
         assertEquals(111, dest.get(4));
     }
+
+    @Test
+    void getBytesFromStringReturnsExpectedBytes() {
+        Encoding utf8 = Encoding.getUTF8();
+        byte[] bytes = utf8.getBytes("NetworkCodeList");
+
+        assertEquals(15, bytes.length);
+        assertEquals(78, bytes[0] & 0xFF);
+        assertEquals(101, bytes[1] & 0xFF);
+        assertEquals(116, bytes[2] & 0xFF);
+    }
+
+    @Test
+    void asSpanOverByteSliceIsAView() {
+        byte[] array = new byte[] { 1, 2, 3, 4, 5 };
+        ReadOnlySpan<Integer> span = MemoryExtensions.asSpan(array, 1, 3);
+
+        new Span<>(span).set(0, 99);
+
+        assertEquals(99, array[1]);
+        assertEquals(3, array[2]);
+        assertEquals(4, array[3]);
+    }
 }
