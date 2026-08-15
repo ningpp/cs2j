@@ -266,7 +266,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                         string deltaBytesExpr = pointerInfo.ElementSize == 1
                             ? rightExpr
                             : $"(long)({rightExpr}) * {pointerInfo.ElementSize}";
-                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({leftExpr}.address() + {deltaBytesExpr}))";
+                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({leftExpr}, {deltaBytesExpr}))";
                     }
                     return FfmHelper.GeneratePointerArithmetic(leftExpr.Trim(), pointerInfo, rightExpr);
                 }
@@ -324,12 +324,12 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                         string deltaBytesExpr = pointerInfo.ElementSize == 1
                             ? $"-{rightExpr}"
                             : $"-(long)({rightExpr}) * {pointerInfo.ElementSize}";
-                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({leftExpr}.address() + {deltaBytesExpr}))";
+                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({leftExpr}, {deltaBytesExpr}))";
                     }
                     // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
                     if (pointerInfo.ElementSize == 1)
-                        return $"MemorySegment.ofAddress({leftExpr}.address() - {rightExpr})";
-                    return $"MemorySegment.ofAddress({leftExpr}.address() - (long)({rightExpr}) * {pointerInfo.ElementSize})";
+                        return $"MemorySegmentHelper.advance({leftExpr}, -{rightExpr})";
+                    return $"MemorySegmentHelper.advance({leftExpr}, -(long)({rightExpr}) * {pointerInfo.ElementSize})";
                 }
             }
         }

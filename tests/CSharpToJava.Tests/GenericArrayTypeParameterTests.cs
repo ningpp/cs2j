@@ -762,7 +762,7 @@ class Demo {
         Assert.DoesNotContain("(MemorySegment)", code);
         // Should contain MemorySegment.get() calls
         Assert.Contains("(char) MemorySegmentHelper.getChar(", code);
-        Assert.Contains("get(ValueLayout.JAVA_INT", code);
+        Assert.Contains("MemorySegmentHelper.getInt(", code);
     }
 
     [Fact]

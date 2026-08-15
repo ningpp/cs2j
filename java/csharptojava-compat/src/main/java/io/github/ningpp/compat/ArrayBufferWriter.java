@@ -50,9 +50,10 @@ public class ArrayBufferWriter<T> implements IBufferWriter<T> {
     @Override
     public ReadOnlyMemory<T> getMemory(int sizeHint) {
         EnsureCapacity(written + sizeHint);
-        @SuppressWarnings("unchecked")
-        T[] copy = (T[]) Arrays.copyOf(buffer, buffer.length);
-        return new ReadOnlyMemory<>(copy, 0, buffer.length);
+        // Return a view of the internal buffer, not a copy: callers (Utf8JsonWriter)
+        // write through the returned span and then Advance, so the writes must be
+        // visible to WrittenMemory/WrittenSpan.
+        return new ReadOnlyMemory<>(buffer, 0, buffer.length);
     }
 
     /** Mirrors ArrayBufferWriter&lt;T&gt;.Advance(int count). */

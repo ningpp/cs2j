@@ -265,7 +265,7 @@ unsafe class Test {
 }");
         Assert.True(result.Success);
         Assert.Matches(
-            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_INT,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*0\)",
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*MemorySegmentHelper\.getInt\(__base\d+,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*0\)",
             result.GeneratedCode);
     }
 
@@ -382,7 +382,7 @@ unsafe class Test {
 }");
         Assert.True(result.Success);
         Assert.Matches(
-            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(i\)\s*\*\s*4\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_INT,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(i\)\s*\*\s*4\)\)\)\s*:\s*0\)",
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(i\)\s*\*\s*4\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*MemorySegmentHelper\.getInt\(__base\d+,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(i\)\s*\*\s*4\)\)\)\s*:\s*0\)",
             result.GeneratedCode);
     }
 
@@ -409,7 +409,7 @@ unsafe class Test {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("p.set(ValueLayout.JAVA_INT, (long)(i) * 4", result.GeneratedCode);
+        Assert.Contains("MemorySegmentHelper.setInt(p, (long)(i) * 4", result.GeneratedCode);
     }
 
     [Fact]

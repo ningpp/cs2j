@@ -290,7 +290,7 @@ unsafe class Test {
         Assert.True(result.Success);
         Assert.Contains("__base1.asSlice(p.address() - __base1.address() + 1)", result.GeneratedCode);
         Assert.Contains("byteSize()", result.GeneratedCode);
-        Assert.Contains("MemorySegment.ofAddress", result.GeneratedCode);
+        Assert.Contains("MemorySegmentHelper.advance(", result.GeneratedCode);
     }
 
     [Fact]
@@ -325,7 +325,7 @@ unsafe class Test {
         // pChars + startPos generates a conditional expression with bounds check,
         // then + len chains .asSlice((long)(len) * 2) on the result.
         Assert.Matches(
-            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(pChars\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(len\)\s*\*\s*2\)",
+            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegmentHelper\.advance\(pChars,\s*\(long\)\(startPos\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(len\)\s*\*\s*2\)",
             result.GeneratedCode);
     }
 
@@ -346,11 +346,11 @@ unsafe class Test {
         Assert.True(result.Success);
         // pChars + startPos generates a conditional expression with bounds check
         Assert.Matches(
-            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(pChars\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\)",
+            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegmentHelper\.advance\(pChars,\s*\(long\)\(startPos\)\s*\*\s*2\)\)",
             result.GeneratedCode);
         // pChars + startPos + len chains .asSlice((long)(len) * 2) on the conditional result
         Assert.Matches(
-            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(pChars\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(len\)\s*\*\s*2\)",
+            @"pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(pChars\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(startPos\)\s*\*\s*2\)\s*:\s*MemorySegmentHelper\.advance\(pChars,\s*\(long\)\(startPos\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(len\)\s*\*\s*2\)",
             result.GeneratedCode);
     }
 
@@ -367,7 +367,7 @@ unsafe class Test {
 }");
         Assert.True(result.Success);
         Assert.Matches(
-            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(2\)\s*\*\s*4\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_INT,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(2\)\s*\*\s*4\)\)\)\s*:\s*0\)",
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(2\)\s*\*\s*4\)\)\s*\+\s*4\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*MemorySegmentHelper\.getInt\(__base\d+,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(\(long\)\(2\)\s*\*\s*4\)\)\)\s*:\s*0\)",
             result.GeneratedCode);
     }
 
@@ -620,7 +620,7 @@ unsafe class Test {
         Assert.True(result.Success);
         Assert.Contains("__base1.asSlice(p.address() - __base1.address() + 4)", result.GeneratedCode);
         Assert.Contains("byteSize()", result.GeneratedCode);
-        Assert.Contains("MemorySegment.ofAddress", result.GeneratedCode);
+        Assert.Contains("MemorySegmentHelper.advance(", result.GeneratedCode);
     }
 
     [Fact]
@@ -763,7 +763,7 @@ unsafe class Test {
         // p + next generates a conditional expression with bounds check,
         // then + 1 chains .asSlice((long)(1) * 2) on the result.
         Assert.Matches(
-            @"p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\)\s*:\s*MemorySegment\.ofAddress\(p\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(1\)\s*\*\s*2\)",
+            @"p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.asSlice\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(long\)\(next\)\s*\*\s*2\)\s*:\s*MemorySegmentHelper\.advance\(p,\s*\(long\)\(next\)\s*\*\s*2\)\)\.asSlice\(\(long\)\(1\)\s*\*\s*2\)",
             result.GeneratedCode);
     }
 
@@ -983,7 +983,7 @@ unsafe class Test {
         // should include out-of-bounds protection: a conditional expression that
         // uses asSlice when offset <= byteSize, otherwise falls back to
         // MemorySegment.ofAddress() to create a zero-length segment for address comparison.
-        Assert.Contains("MemorySegment.ofAddress", result.GeneratedCode);
+        Assert.Contains("MemorySegmentHelper.advance(", result.GeneratedCode);
         Assert.Contains("byteSize()", result.GeneratedCode);
     }
 

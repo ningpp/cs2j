@@ -155,10 +155,16 @@ public static class FfmHelper
 
     public static string GeneratePointerRead(string segmentExpr, FixedPointerInfo info, string offsetExpr)
     {
-        if (info.ValueLayoutName == "JAVA_CHAR")
+        string helper = info.ValueLayoutName switch
         {
-            return $"(char) MemorySegmentHelper.getChar({segmentExpr}, {offsetExpr})";
-        }
+            "JAVA_CHAR" => $"(char) MemorySegmentHelper.getChar({segmentExpr}, {offsetExpr})",
+            "JAVA_SHORT" => $"MemorySegmentHelper.getShort({segmentExpr}, {offsetExpr})",
+            "JAVA_INT" => $"MemorySegmentHelper.getInt({segmentExpr}, {offsetExpr})",
+            "JAVA_LONG" => $"MemorySegmentHelper.getLong({segmentExpr}, {offsetExpr})",
+            _ => null
+        };
+        if (helper != null)
+            return helper;
         string read = $"{segmentExpr}.get(ValueLayout.{info.ValueLayoutName}, {offsetExpr})";
         return info.NeedsUnsignedMask ? $"({read} {info.MaskSuffix})" : read;
     }
@@ -191,9 +197,14 @@ public static class FfmHelper
             safeOffsetExpr = offsetVar;
         }
 
-        string read = info.ValueLayoutName == "JAVA_CHAR"
-            ? $"(char) MemorySegmentHelper.getChar({baseSegmentExpr}, {safeOffsetExpr})"
-            : $"{baseSegmentExpr}.get(ValueLayout.{info.ValueLayoutName}, {safeOffsetExpr})";
+        string read = info.ValueLayoutName switch
+        {
+            "JAVA_CHAR" => $"(char) MemorySegmentHelper.getChar({baseSegmentExpr}, {safeOffsetExpr})",
+            "JAVA_SHORT" => $"MemorySegmentHelper.getShort({baseSegmentExpr}, {safeOffsetExpr})",
+            "JAVA_INT" => $"MemorySegmentHelper.getInt({baseSegmentExpr}, {safeOffsetExpr})",
+            "JAVA_LONG" => $"MemorySegmentHelper.getLong({baseSegmentExpr}, {safeOffsetExpr})",
+            _ => $"{baseSegmentExpr}.get(ValueLayout.{info.ValueLayoutName}, {safeOffsetExpr})"
+        };
         if (info.NeedsUnsignedMask)
             read = $"({read} {info.MaskSuffix})";
 
@@ -225,11 +236,14 @@ public static class FfmHelper
     public static string GeneratePointerWrite(string segmentExpr, FixedPointerInfo info, string offsetExpr, string valueExpr)
     {
         string castValue = info.WriteCast.Length > 0 ? $"({info.WriteCast}({valueExpr}))" : valueExpr;
-        if (info.ValueLayoutName == "JAVA_CHAR")
+        return info.ValueLayoutName switch
         {
-            return $"MemorySegmentHelper.setChar({segmentExpr}, {offsetExpr}, {castValue})";
-        }
-        return $"{segmentExpr}.set(ValueLayout.{info.ValueLayoutName}, {offsetExpr}, {castValue})";
+            "JAVA_CHAR" => $"MemorySegmentHelper.setChar({segmentExpr}, {offsetExpr}, {castValue})",
+            "JAVA_SHORT" => $"MemorySegmentHelper.setShort({segmentExpr}, {offsetExpr}, {castValue})",
+            "JAVA_INT" => $"MemorySegmentHelper.setInt({segmentExpr}, {offsetExpr}, {castValue})",
+            "JAVA_LONG" => $"MemorySegmentHelper.setLong({segmentExpr}, {offsetExpr}, {castValue})",
+            _ => $"{segmentExpr}.set(ValueLayout.{info.ValueLayoutName}, {offsetExpr}, {castValue})"
+        };
     }
 
     public static string GeneratePointerArithmetic(string segmentExpr, FixedPointerInfo info, string offsetExpr)

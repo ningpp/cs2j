@@ -1429,19 +1429,19 @@ public class AssignmentTransformer : IIRExpressionTransformer
                                 deltaBytesExpr = $"(long)({rightExpr}) * {pointerInfo.ElementSize}";
                             }
                         }
-                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({leftExpr}.address() + {deltaBytesExpr}))";
+                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({leftExpr}, {deltaBytesExpr}))";
                     }
                     else if (pointerInfo.ElementSize == 1)
                     {
                         // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
                         sliceExpr = op == "+="
-                            ? $"MemorySegment.ofAddress({leftExpr}.address() + {rightExpr})"
-                            : $"MemorySegment.ofAddress({leftExpr}.address() - {rightExpr})";
+                            ? $"MemorySegmentHelper.advance({leftExpr}, {rightExpr})"
+                            : $"MemorySegmentHelper.advance({leftExpr}, -{rightExpr})";
                     }
                     else
                     {
                         var sign = op == "+=" ? "+" : "-";
-                        sliceExpr = $"MemorySegment.ofAddress({leftExpr}.address() {sign} (long)({rightExpr}) * {pointerInfo.ElementSize})";
+                        sliceExpr = $"MemorySegmentHelper.advance({leftExpr}, {sign}(long)({rightExpr}) * {pointerInfo.ElementSize})";
                     }
                     context.InvalidatePointerBacktrackVars(leftExpr.Trim());
                     return $"{leftExpr} = {sliceExpr}";

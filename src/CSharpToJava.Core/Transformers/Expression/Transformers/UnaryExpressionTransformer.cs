@@ -655,12 +655,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                         // When the offset exceeds the base segment size or goes negative,
                         // create a zero-length address-only segment via MemorySegment.ofAddress().
                         var offsetExpr = $"{operandExpr}.address() - {baseVar}.address() + {delta}";
-                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({operandExpr}.address() + {delta}))";
+                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({operandExpr}, {delta}))";
                     }
                     else
                     {
                         // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
-                        sliceExpr = $"MemorySegment.ofAddress({operandExpr}.address() + {delta})";
+                        sliceExpr = $"MemorySegmentHelper.advance({operandExpr}, {delta})";
                     }
 
                     if (IsDiscardedValueContext(node, context))
@@ -860,12 +860,12 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                         // C# allows one-past-end pointers (used only for address comparison),
                         // but Java's MemorySegment.asSlice throws if offset > byteSize or offset < 0.
                         var offsetExpr = $"{operandExpr}.address() - {baseVar}.address() + {delta}";
-                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegment.ofAddress({operandExpr}.address() + {delta}))";
+                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({operandExpr}, {delta}))";
                     }
                     else
                     {
                         // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
-                        sliceExpr = $"MemorySegment.ofAddress({operandExpr}.address() + {delta})";
+                        sliceExpr = $"MemorySegmentHelper.advance({operandExpr}, {delta})";
                     }
 
                     if (IsDiscardedValueContext(node, context))
