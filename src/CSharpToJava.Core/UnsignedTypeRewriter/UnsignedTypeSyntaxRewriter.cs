@@ -77,6 +77,20 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         => type is INamedTypeSymbol named
            && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
 
+    private static bool IsEnumType(ITypeSymbol? type)
+        => type?.TypeKind == TypeKind.Enum;
+
+    private static bool IsIntegralSpecial(SpecialType type) => type is
+        SpecialType.System_SByte
+        or SpecialType.System_Byte
+        or SpecialType.System_Int16
+        or SpecialType.System_UInt16
+        or SpecialType.System_Int32
+        or SpecialType.System_UInt32
+        or SpecialType.System_Int64
+        or SpecialType.System_UInt64
+        or SpecialType.System_Char;
+
     private bool IsUnsignedExpression(ExpressionSyntax expression)
         => _semanticModel != null && IsUnsignedType(GetEffectiveType(expression));
 
@@ -145,6 +159,13 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                     return true;
                 case PropertyDeclarationSyntax propertyDeclaration
                     when propertyDeclaration.Initializer?.Span.Contains(node.Span) == true:
+                    return true;
+                case ArrayCreationExpressionSyntax arrayCreation
+                    when arrayCreation.Initializer != null
+                         && arrayCreation.Type.RankSpecifiers
+                             .SelectMany(rank => rank.Sizes)
+                             .Any(size => size.Span.Contains(node.Span)):
+                    // 带初始化器的数组创建要求长度是常量表达式。
                     return true;
             }
         }
@@ -431,6 +452,12 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             return UnsignedDomain.Native;
         }
 
+        if (IsEnumType(GetEffectiveType(node.Left))
+            || IsEnumType(GetEffectiveType(node.Right)))
+        {
+            return UnsignedDomain.Native;
+        }
+
         if (isShift)
         {
             // 移位只由左操作数（提升后）类型决定；int/long 左操作数不重写。
@@ -479,7 +506,9 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         var leftType = GetEffectiveType(node.Left);
-        if (!IsUnsignedType(leftType) || IsNullableValueType(leftType))
+        if (!IsUnsignedType(leftType)
+            || IsNullableValueType(leftType)
+            || IsEnumType(leftType))
         {
             return rewritten;
         }
@@ -526,6 +555,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             && !IsInCheckedContext(node)
             && !IsInRepeatedEvaluationContext(node)
             && !IsNullableValueType(GetEffectiveType(node.Operand))
+            && !IsEnumType(GetEffectiveType(node.Operand))
             && IsUnsignedSpecial(GetNaturalSpecial(node.Operand) ?? SpecialType.None)
             && IsSafeAssignmentTarget(node.Operand))
         {
@@ -585,6 +615,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             || IsInCheckedContext(node)
             || IsInConstantExpressionContext(node)
             || IsNullableValueType(GetEffectiveType(node.Operand))
+            || IsEnumType(GetEffectiveType(node.Operand))
             || !IsUnsignedSpecial(GetNaturalSpecial(node.Operand) ?? SpecialType.None)
             || !IsSafeAssignmentTarget(node.Operand))
         {
@@ -628,10 +659,23 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             return FixQualifiedCastParens(rewritten);
         }
 
-        var sourceType = GetEffectiveType(node.Expression);
-        var targetType = GetEffectiveType(node);
+        var sourceType = _semanticModel.GetTypeInfo(node.Expression).Type;
+        var targetType = _semanticModel.GetTypeInfo(node).Type;
+        if (sourceType == null || targetType == null)
+        {
+            return FixQualifiedCastParens(rewritten);
+        }
         if (IsNullableValueType(sourceType) || IsNullableValueType(targetType))
         {
+            return FixQualifiedCastParens(rewritten);
+        }
+        if (IsEnumType(sourceType) || IsEnumType(targetType))
+        {
+            return FixQualifiedCastParens(rewritten);
+        }
+        if (!IsIntegralSpecial(sourceType.SpecialType))
+        {
+            // object/字符串等非整型源（如拆箱 (byte)objectValue）保持原生转换。
             return FixQualifiedCastParens(rewritten);
         }
         var replacement = GetCastReplacement(targetType, sourceType, rewritten);
