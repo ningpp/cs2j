@@ -38,8 +38,8 @@ public final class Span<T> {
 
     /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
     public Span(ReadOnlySpan<T> other) {
-        this.array = other.toArray();
-        this.offset = 0;
+        this.array = other.getArray() != null ? other.getArray() : other.toArray();
+        this.offset = other.getArray() != null ? other.getOffset() : 0;
         this.length = other.getLength();
     }
 

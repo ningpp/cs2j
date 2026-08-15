@@ -191,6 +191,14 @@ public final class ReadOnlySpan<T> {
         return value;
     }
 
+    Object getArray() {
+        return array;
+    }
+
+    int getOffset() {
+        return offset;
+    }
+
     public ReadOnlySpan<T> slice(int start) {
         return slice(start, length - start);
     }
