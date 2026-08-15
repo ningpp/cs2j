@@ -148,6 +148,35 @@ public class MyTests {
         Assert.Contains("MethodSource(\"myMethodData\"", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConditionalTheory_UnsupportedRemoteExecutor_IsDisabled()
+    {
+        // C# tests guarded by RemoteExecutor.IsSupported are skipped when the
+        // remote executor is unavailable (compat reports false). Running them
+        // in-process breaks AppDomain-default-timeout tests (RegexMatchTests
+        // match_DefaultTimeout_Throws hangs forever because Regex's static
+        // default timeout was already initialized).
+        var result = Convert(@"
+using System.Collections.Generic;
+using Xunit;
+
+public static class RemoteExecutor
+{
+    public static bool IsSupported => false;
+}
+
+public class MyTests {
+    [ConditionalTheory(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+    [InlineData(""x"")]
+    public void TestSomething(string input) {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("org.junit.jupiter.api.Disabled", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

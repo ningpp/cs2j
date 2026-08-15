@@ -563,6 +563,18 @@
 
 ---
 
+## Iteration 19 — RegexMatchTests 卡死最终根因：RemoteExecutor 条件测试在进程内执行
+- **Java 文件**: `d:\cs-java-81512\dotnet-text-regularexpressions-tests\src\test\java\dotnet\text\regularexpressions\Tests\RegexMatchTests.java`（`match_DefaultTimeout_Throws`）
+- **行号**: `RegexInterpreter.go(RegexInterpreter.java:995)` 无限回溯；`Regex.java:745` 的 `s_defaultMatchTimeout` 静态初始化缓存
+- **错误信息**: `mvn clean install -e` 停在 `Running ...RegexMatchTests`（约 3 分钟无返回）
+- **对应 C# 文件**: `D:\csharp-sdk\regular-expressions\tests\Regex.Match.Tests.cs`（`[ConditionalTheory(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]`）
+- **根因分类**: Transformer（条件测试属性）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`
+- **分析**: xUnit 在 `RemoteExecutor.IsSupported == false` 时跳过该测试；compat 的 RemoteExecutor 报告 false，但转换器把 `ConditionalTheory` 一律启用，导致 `AppDomain.SetData` 设置的默认超时对已静态初始化的 `Regex.s_defaultMatchTimeout` 无效，病态表达式无限回溯。修复：`ConditionalTheory/ConditionalFact` 条件引用 `RemoteExecutor.IsSupported` 时生成 `@Disabled`（与 .NET 行为一致）。
+- **状态**: ✅ Fixed（Red→Green：`ConditionalTheory_UnsupportedRemoteExecutor_IsDisabled`；regex 模块 7106 测试 BUILD SUCCESS，RegexMatchTests 319 测试 10.34s 完成不再卡死）
+
+---
+
 ## Iteration 14 — JsonElement.Clone 被生成成 `return this.clone()`，clone() 无限自递归
 - **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonElement.java:942`
 - **行号**: 942（`clone()` 内 `if (!_parent.getIsDisposable()) { return this.clone(); }`）

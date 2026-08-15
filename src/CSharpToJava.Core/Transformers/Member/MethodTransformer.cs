@@ -938,6 +938,26 @@ public class MethodTransformer : IMemberTransformer
             javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
 
+        // [ConditionalTheory(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        // is skipped by xUnit when the remote executor is unavailable. The compat
+        // RemoteExecutor reports IsSupported=false, so these tests must be disabled:
+        // running them in-process breaks AppDomain-default-timeout tests (Regex's
+        // static default timeout is already initialized and the match loops forever).
+        bool isUnsupportedRemoteExecutorCondition = allAttributes.Any(a =>
+        {
+            var condName = NormalizeAttributeName(a.Name.ToString());
+            if (condName is not ("ConditionalTheory" or "ConditionalFact"))
+                return false;
+            var attrText = a.ToString();
+            return attrText.Contains("RemoteExecutor", StringComparison.Ordinal)
+                && attrText.Contains("IsSupported", StringComparison.Ordinal);
+        });
+        if (isUnsupportedRemoteExecutorCondition)
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("Disabled"));
+            context.AddImport("org.junit.jupiter.api.Disabled");
+        }
+
         // Handle [InlineData] attributes → @CsvSource annotation
         var inlineDataAttrs = allAttributes
             .Where(a => NormalizeAttributeName(a.Name.ToString()).Equals("InlineData", StringComparison.OrdinalIgnoreCase))
