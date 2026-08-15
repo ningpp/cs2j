@@ -27,7 +27,7 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("new io.github.ningpp.compat.IntHolder(MemoryMarshal.getReference(span))", code, StringComparison.Ordinal);
+        Assert.Contains("new io.github.ningpp.compat.ObjectHolder<>(MemoryMarshal.getReference(span))", code, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

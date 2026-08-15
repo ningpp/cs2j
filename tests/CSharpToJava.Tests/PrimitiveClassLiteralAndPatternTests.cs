@@ -13,7 +13,7 @@ namespace CSharpToJava.Tests;
 public class PrimitiveClassLiteralAndPatternTests
 {
     [Fact]
-    public void GenericTypeArgumentByte_EmitsIntClassLiteral()
+    public void GenericTypeArgumentByte_EmitsUByteClassLiteral()
     {
         var result = Convert("""
 class C {
@@ -27,10 +27,10 @@ class C {
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
-        // C# byte maps to Java int (sbyte maps to byte), so generic tokens follow
-        // the mapped Java type even though typeof(byte) keeps a distinct CSharpByte
-        // marker at runtime.
-        Assert.Contains("run(int.class, new CSharpList<Integer>())", code, StringComparison.Ordinal);
+        // C# byte maps to io.github.ningpp.compat.UByte (sbyte maps to byte), so
+        // generic tokens follow the mapped Java type even though typeof(byte) keeps
+        // a distinct CSharpByte marker at runtime.
+        Assert.Contains("run(io.github.ningpp.compat.UByte.class, new CSharpList<io.github.ningpp.compat.UByte>())", code, StringComparison.Ordinal);
         Assert.Contains("run(byte.class, new CSharpList<Byte>())", code, StringComparison.Ordinal);
     }
 

@@ -6,11 +6,11 @@ namespace CSharpToJava.Tests;
 public class ByteSByteConversionTests
 {
     [Fact]
-    public void ByteDeclaration_MapsToInt()
+    public void ByteDeclaration_MapsToUByte()
     {
         var result = Convert("class Test { byte x = 200; }");
         Assert.True(result.Success);
-        Assert.Contains("int x =", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
+        Assert.Contains("io.github.ningpp.compat.UByte x =", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
         Assert.Contains("200", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -55,7 +55,7 @@ class Test {
     {
         var result = Convert("class Test { byte x = 42; }");
         Assert.True(result.Success);
-        Assert.Contains("int x =", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
+        Assert.Contains("io.github.ningpp.compat.UByte x =", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
         Assert.Contains("42", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -152,11 +152,11 @@ class Test {
     }
 
     [Fact]
-    public void ByteMethodParameter_BecomesInt()
+    public void ByteMethodParameter_BecomesUByte()
     {
         var result = Convert("class Test { void Foo(byte b) { } }");
         Assert.True(result.Success);
-        Assert.Contains("void foo(int b)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("void foo(io.github.ningpp.compat.UByte b)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ class Test {
     {
         var result = Convert("class Test { byte x = default; }");
         Assert.True(result.Success);
-        Assert.Contains("int x = 0", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
+        Assert.Contains("io.github.ningpp.compat.UByte x = 0", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -205,11 +205,11 @@ class Test {
     }
 
     [Fact]
-    public void NullableByte_MapsToInteger()
+    public void NullableByte_MapsToUByte()
     {
         var result = Convert("class Test { byte? x = null; }");
         Assert.True(result.Success);
-        Assert.Contains("Integer x = null", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
+        Assert.Contains("io.github.ningpp.compat.UByte x = null", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
     }
 
     [Fact]

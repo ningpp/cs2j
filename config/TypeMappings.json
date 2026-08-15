@@ -22,8 +22,8 @@
         },
         {
             "csharp": "System.Byte",
-            "java": "int",
-            "imports": []
+            "java": "io.github.ningpp.compat.UByte",
+            "imports": ["io.github.ningpp.compat"]
         },
         {
             "csharp": "System.SByte",
@@ -32,18 +32,18 @@
         },
         {
             "csharp": "System.UInt32",
-            "java": "int",
-            "imports": []
+            "java": "io.github.ningpp.compat.UInt",
+            "imports": ["io.github.ningpp.compat"]
         },
         {
             "csharp": "System.UInt64",
-            "java": "long",
-            "imports": []
+            "java": "io.github.ningpp.compat.ULong",
+            "imports": ["io.github.ningpp.compat"]
         },
         {
             "csharp": "System.UInt16",
-            "java": "short",
-            "imports": []
+            "java": "io.github.ningpp.compat.UShort",
+            "imports": ["io.github.ningpp.compat"]
         },
         {
             "csharp": "System.Single",

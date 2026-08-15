@@ -25,9 +25,9 @@ public class Sample
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("new ReadOnlyMemory<Integer>(data)", result.GeneratedCode);
+        Assert.Contains("new ReadOnlyMemory<io.github.ningpp.compat.UByte>(data)", result.GeneratedCode);
         Assert.DoesNotContain("toReadOnlyMemory", result.GeneratedCode);
-        Assert.DoesNotContain("ReadOnlyMemory<Integer>.ReadOnlyMemory", result.GeneratedCode);
+        Assert.DoesNotContain("ReadOnlyMemory<io.github.ningpp.compat.UByte>.ReadOnlyMemory", result.GeneratedCode);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class Sample
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("new ReadOnlySpan<Integer>(data)", result.GeneratedCode);
+        Assert.Contains("new ReadOnlySpan<io.github.ningpp.compat.UByte>(data)", result.GeneratedCode);
         Assert.DoesNotContain("toReadOnlySpan", result.GeneratedCode);
     }
 

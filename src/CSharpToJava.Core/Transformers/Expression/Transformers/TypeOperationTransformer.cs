@@ -1627,6 +1627,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"Tuple.of({string.Join(", ", elementDefaults)})";
         }
 
+        // 无符号类型映射到 compat 类（UByte/UShort/UInt/ULong）后，default 仍应
+        // 生成位模式的零值，而不是 new UByte() 之类的构造调用。
+        if (typeSymbol?.SpecialType is SpecialType.System_Byte
+            or SpecialType.System_UInt16
+            or SpecialType.System_UInt32)
+        {
+            return "0";
+        }
+
+        if (typeSymbol?.SpecialType == SpecialType.System_UInt64)
+        {
+            return "0L";
+        }
+
         var defaultValue = typeName switch
         {
             "int" => "0",

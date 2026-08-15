@@ -654,7 +654,7 @@ namespace Demo {
     }
         }");
         Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("Span<Integer> numbers = new Span<>(new Integer[NumberOfLabels])", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Span<io.github.ningpp.compat.UShort> numbers = new Span<>(new io.github.ningpp.compat.UShort[NumberOfLabels])", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("numbers.clear()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("new short[NumberOfLabels]", result.GeneratedCode, StringComparison.Ordinal);
     }

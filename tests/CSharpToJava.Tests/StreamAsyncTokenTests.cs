@@ -69,7 +69,7 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("writeAsync(new ReadOnlyMemory<Integer>(buf), false)", code, StringComparison.Ordinal);
+        Assert.Contains("writeAsync(new ReadOnlyMemory<io.github.ningpp.compat.UByte>(buf), false)", code, StringComparison.Ordinal);
     }
 
     [Fact]

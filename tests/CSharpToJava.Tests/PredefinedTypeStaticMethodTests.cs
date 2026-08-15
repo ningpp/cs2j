@@ -135,7 +135,7 @@ class Sample
     }
 
     [Fact]
-    public void ConversionPipeline_ByteTryParseWithNumberStyles_UsesIntHolderCompatibleHelper()
+    public void ConversionPipeline_ByteTryParseWithNumberStyles_UsesObjectHolderCompatibleHelper()
     {
         var result = Convert(@"
 using System;
@@ -151,7 +151,7 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("IntHolder", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("io.github.ningpp.compat.ObjectHolder<io.github.ningpp.compat.UByte>", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("MathHelper.tryParseByte(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("ByteHolder", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("Byte.tryParse(", result.GeneratedCode, StringComparison.Ordinal);
