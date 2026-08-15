@@ -658,13 +658,9 @@ internal static class ProjectUnsignedTypePreprocessor
     }
 
     /// <summary>
-    /// 扩展方法辅助文件只需在至少一个文件发生运算符/cast 重写时写入一次。
-    /// 写入每个实际编译了被重写源文件的项目目录。扩展类为 internal，每个程序集
-    /// 自包含一份，避免跨程序集解析（例如框架程序集名 System.Private.Uri 在运行时
-    /// 无法被本地版本遮蔽）以及两个同名 UnsignedExtensions 类型造成的 CS0121 二义性。
-    /// SDK 风格 .csproj 默认 glob 会自动包含项目目录中的 .cs；对关闭默认编译项的
-    /// 项目（EnableDefaultCompileItems=false 或非 SDK 风格），同时把扩展文件追加到
-    /// csproj 的 Compile Include。中间根目录始终保留一份。
+    /// 数学辅助文件只写一份到中间根目录；每个实际编译被重写源文件的项目通过
+    /// Compile Include + Link 引用同一物理文件，不复制本地副本。扩展类为
+    /// internal，每个程序集自包含一份。
     /// </summary>
     private static async Task WriteExtensionFilesAsync(
         string intermediateRoot,
@@ -675,27 +671,12 @@ internal static class ProjectUnsignedTypePreprocessor
         ProjectGraph? projectGraph)
     {
         var content = UnsignedMathFileContent.Generate();
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            Path.Combine(intermediateRoot, UnsignedMathFileContent.FileName),
-        };
+        var rootPath = Path.Combine(intermediateRoot, UnsignedMathFileContent.FileName);
+        Directory.CreateDirectory(intermediateRoot);
+        await File.WriteAllTextAsync(rootPath, content, new System.Text.UTF8Encoding(false));
 
         var hostProjectDirectories = ComputeAllExtensionHostProjectDirectories(
             layout, exclusionInfo, rewrittenFiles, projectGraph);
-        foreach (var projectDirectory in hostProjectDirectories)
-        {
-            paths.Add(Path.Combine(
-                intermediateRoot,
-                Path.GetRelativePath(sourceRoot, projectDirectory),
-                UnsignedMathFileContent.FileName));
-        }
-
-        foreach (var path in paths)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            await File.WriteAllTextAsync(path, content, new System.Text.UTF8Encoding(false));
-        }
-
         EnsureExtensionCompileItems(sourceRoot, intermediateRoot, layout, exclusionInfo, hostProjectDirectories);
     }
 
@@ -794,8 +775,8 @@ internal static class ProjectUnsignedTypePreprocessor
     }
 
     /// <summary>
-    /// 对关闭默认编译项的宿主项目，把扩展方法文件追加到 csproj 的 Compile Include，
-    /// 否则重写后的 using Cs2jUnsigned; 无法解析。
+    /// 对每个编译被重写源文件的项目，把共享辅助文件追加到 csproj 的
+    /// Compile Include（带 Link），并先清理旧的同名条目。
     /// </summary>
     private static void EnsureExtensionCompileItems(
         string sourceRoot,
@@ -804,6 +785,8 @@ internal static class ProjectUnsignedTypePreprocessor
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlySet<string> hostProjectDirectories)
     {
+        var sharedFilePath = Path.Combine(intermediateRoot, UnsignedMathFileContent.FileName);
+
         foreach (var projectFile in layout.ProjectFiles
                      .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
@@ -821,11 +804,19 @@ internal static class ProjectUnsignedTypePreprocessor
             var destinationProjectFile = Path.Combine(
                 intermediateRoot,
                 Path.GetRelativePath(sourceRoot, projectFile));
-            EnsureExtensionCompileItem(destinationProjectFile, UnsignedMathFileContent.FileName);
+            EnsureExtensionCompileItem(
+                destinationProjectFile,
+                UnsignedMathFileContent.FileName,
+                projectDirectory,
+                sharedFilePath);
         }
     }
 
-    private static void EnsureExtensionCompileItem(string projectFilePath, string fileName)
+    private static void EnsureExtensionCompileItem(
+        string projectFilePath,
+        string fileName,
+        string projectDirectory,
+        string sharedFilePath)
     {
         if (!File.Exists(projectFilePath))
         {
@@ -851,36 +842,52 @@ internal static class ProjectUnsignedTypePreprocessor
         var isSdkProject = root.Attribute("Sdk") != null;
         var enableDefaultCompileItems = GetPropertyValue(root, "EnableDefaultCompileItems");
         if (isSdkProject
-            && !string.Equals(enableDefaultCompileItems?.Trim(), "false", StringComparison.OrdinalIgnoreCase))
+            && !string.Equals(enableDefaultCompileItems?.Trim(), "false", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(
+                Path.GetFullPath(projectDirectory).TrimEnd('\\', '/'),
+                Path.GetFullPath(Path.GetDirectoryName(sharedFilePath)!).TrimEnd('\\', '/'),
+                StringComparison.OrdinalIgnoreCase))
         {
-            // SDK 默认 glob 已包含项目目录中的 .cs 文件。
+            // 项目根目录就是辅助文件所在根目录且使用 SDK 默认 glob：
+            // 文件已被默认编译项包含，追加显式条目会造成重复编译。
             return;
         }
 
         var normalizedFileName = fileName.Replace('\\', '/');
-        foreach (var compileElement in root.Descendants().Where(e => e.Name.LocalName == "Compile"))
+        foreach (var compileElement in root.Descendants().Where(e => e.Name.LocalName == "Compile").ToList())
         {
             var include = (string?)compileElement.Attribute("Include");
-            if (string.IsNullOrWhiteSpace(include))
+            var link = (string?)compileElement.Attribute("Link");
+            if (MatchesHelperFile(include, normalizedFileName)
+                || MatchesHelperFile(link, normalizedFileName))
             {
-                continue;
-            }
-
-            var normalizedInclude = include!.Replace('\\', '/');
-            if (normalizedInclude.Equals(normalizedFileName, StringComparison.OrdinalIgnoreCase)
-                || normalizedInclude.EndsWith("/" + normalizedFileName, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
+                compileElement.Remove();
             }
         }
 
-        var compileItem = new XElement("Compile", new XAttribute("Include", fileName));
+        var relativeInclude = Path.GetRelativePath(projectDirectory, sharedFilePath);
+        var compileItem = new XElement(
+            "Compile",
+            new XAttribute("Include", relativeInclude),
+            new XAttribute("Link", fileName));
         root.Add(
             new XText(Environment.NewLine + "  "),
             new XElement("ItemGroup", compileItem),
             new XText(Environment.NewLine));
 
         document.Save(projectFilePath, SaveOptions.DisableFormatting);
+    }
+
+    private static bool MatchesHelperFile(string? value, string normalizedFileName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var normalized = value!.Replace('\\', '/');
+        return normalized.Equals(normalizedFileName, StringComparison.OrdinalIgnoreCase)
+               || normalized.EndsWith("/" + normalizedFileName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? GetPropertyValue(XElement root, string propertyName)

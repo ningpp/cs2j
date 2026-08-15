@@ -39,16 +39,16 @@ public class UnsignedTypeProjectTests
 
             var opsContent = await File.ReadAllTextAsync(
                 Path.Combine(intermediateDir, "UnsignedOperators.cs"));
-            Assert.Contains(".Add(", opsContent);
-            Assert.Contains(".Subtract(", opsContent);
-            Assert.Contains(".Multiply(", opsContent);
-            Assert.Contains(".Equals(", opsContent);
-            Assert.Contains(".CompareTo(", opsContent);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.AddUInt32(", opsContent);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.SubtractUInt32(", opsContent);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.MultiplyUInt32(", opsContent);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.CompareUInt32(", opsContent);
 
             var castsContent = await File.ReadAllTextAsync(
                 Path.Combine(intermediateDir, "UnsignedCasts.cs"));
             Assert.Contains("(System.UInt32)", castsContent);
-            Assert.Contains(".ToInt32()", castsContent);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.ToInt64UInt32(unchecked((int)x))", castsContent);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.ToByteInt32(x)", castsContent);
 
             var arraysContent = await File.ReadAllTextAsync(
                 Path.Combine(intermediateDir, "UnsignedArrays.cs"));
@@ -61,10 +61,12 @@ public class UnsignedTypeProjectTests
             Assert.Contains("List<System.UInt32>", genericsContent);
             Assert.Contains("Dictionary<System.UInt32, System.UInt64>", genericsContent);
 
-            Assert.True(File.Exists(Path.Combine(intermediateDir, "_Cs2jUnsignedExtensions.cs")),
-                "Extension methods file not generated");
-
-            Assert.Contains("using Cs2jUnsigned;", opsContent);
+            Assert.True(File.Exists(Path.Combine(intermediateDir, "_Cs2jUnsignedMath.cs")),
+                "Unsigned math helper file not generated");
+            Assert.False(File.Exists(Path.Combine(intermediateDir, "_Cs2jUnsignedExtensions.cs")),
+                "Old extension file must not be generated");
+            Assert.DoesNotContain("using Cs2jUnsigned;", opsContent);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath", opsContent);
         }
         finally
         {
@@ -153,7 +155,8 @@ public class UnsignedTypeProjectTests
 
             var csprojPath = Path.Combine(result.IntermediateRoot, "SampleExplicitCompileLib.csproj");
             var csprojContent = await File.ReadAllTextAsync(csprojPath);
-            Assert.Contains("_Cs2jUnsignedExtensions.cs", csprojContent);
+            Assert.Contains("_Cs2jUnsignedMath.cs", csprojContent);
+            Assert.Contains("Link=\"_Cs2jUnsignedMath.cs\"", csprojContent);
         }
         finally
         {
@@ -188,12 +191,46 @@ public class UnsignedTypeProjectTests
             var testsCsproj = Path.Combine(result.IntermediateRoot, "Tests", "SampleCrossCompile.Tests.csproj");
             var srcContent = await File.ReadAllTextAsync(srcCsproj);
             var testsContent = await File.ReadAllTextAsync(testsCsproj);
-            Assert.Contains("_Cs2jUnsignedExtensions.cs", srcContent);
-            Assert.Contains("_Cs2jUnsignedExtensions.cs", testsContent);
-            Assert.True(File.Exists(Path.Combine(result.IntermediateRoot, "Tests", "_Cs2jUnsignedExtensions.cs")),
-                "Extension file not copied into the cross-directory compiling project");
-            Assert.True(File.Exists(Path.Combine(result.IntermediateRoot, "Src", "_Cs2jUnsignedExtensions.cs")),
-                "Extension file not copied into the referenced compiling project");
+            Assert.Contains("_Cs2jUnsignedMath.cs", srcContent);
+            Assert.Contains("_Cs2jUnsignedMath.cs", testsContent);
+            Assert.True(File.Exists(Path.Combine(result.IntermediateRoot, "_Cs2jUnsignedMath.cs")),
+                "Shared helper file not generated at intermediate root");
+            Assert.False(File.Exists(Path.Combine(result.IntermediateRoot, "Tests", "_Cs2jUnsignedMath.cs")),
+                "Helper file must not be copied into project directories");
+            Assert.False(File.Exists(Path.Combine(result.IntermediateRoot, "Src", "_Cs2jUnsignedMath.cs")),
+                "Helper file must not be copied into project directories");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Rerun_DoesNotLeaveOldExtensionArtifacts()
+    {
+        var libDir = Path.Combine(FixtureDir, "SampleUnsignedLib");
+        var outputDir = Path.Combine(libDir, "..", ".test-output-rerun");
+
+        try
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                var result = await ProjectUnsignedTypePreprocessor.PreprocessAsync(
+                    new ProjectUnsignedTypePreprocessRequest
+                    {
+                        SourcePath = libDir,
+                        DestinationRoot = outputDir,
+                        Verbose = false,
+                    });
+                Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+                Assert.False(Directory
+                    .EnumerateFiles(result.IntermediateRoot, "_Cs2jUnsignedExtensions.cs", SearchOption.AllDirectories)
+                    .Any(), "stale extension file after rerun");
+            }
         }
         finally
         {
