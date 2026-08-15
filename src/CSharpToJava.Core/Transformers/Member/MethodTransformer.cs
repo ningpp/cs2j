@@ -1302,7 +1302,10 @@ public class MethodTransformer : IMemberTransformer
             }
         }
 
-        if (attributeNames.Contains("Ignore"))
+        // xUnit [Ignore] and [OuterLoop] tests must not run in the Java/JUnit
+        // suite: [OuterLoop] tests (e.g. writing 125 MB of base64) are huge and
+        // can hang the surefire fork for minutes.
+        if (attributeNames.Contains("Ignore") || attributeNames.Contains("OuterLoop"))
         {
             javaMethod.Annotations.Add(new JavaAnnotation("Disabled"));
             context.AddImport("org.junit.jupiter.api.Disabled");

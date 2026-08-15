@@ -713,3 +713,15 @@
 - **分析**: 只有存在尾部默认参数时才生成 MemberData 适配器，行内枚举实例/盒装 Number 与目标数值参数类型不匹配，JUnit 无法转换。修复：任何含数值参数（int/long/short/byte/float/double）的测试方法都生成适配器，逐参数用 `EnumHelper.toInt32/toInt64` 或 Number 转换解包；无默认参数时 `firstDefaultIdx` 不再为 -1。
 - **验证**: 新增 `MemberDataPropertySourceTests.MemberData_EnumValueToNumericParameter_UsesEnumHelperAdapter`；全量 `dotnet test` 2808 通过；重新转换 1080/1080 成功；`mvn test` 后 surefire 报告中 `No built-in converter` / `Failed to convert String` 全部归零（BitStackTests、ValueTests、JsonReaderStateAndOptionsTests、ExtensionDataTests、PropertyVisibilityTests、EnumTests 的参数转换错误消失）。
 - **状态**: ✅ Fixed（参数转换集群；EnumTests 其余 52 fail/112 err 属枚举语义/序列化行为，留待枚举集群）
+
+---
+
+## Agent1 — Utf8JsonWriterTests 卡死：OuterLoop 巨型 base64 测试未禁用（Span.copyTo 长时间拷贝）
+- **Java 文件**: `d:\cs-java-81319-8\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonWriterTests.java`（`writingLargestPossibleBase64Bytes`）
+- **线程转储证据**: `D:\cs-java-81512\system-text-json-tests\target\surefire-reports\2026-08-15T21-31-23_579-jvmRun1.dump`：main 线程 RUNNABLE 于 `Span.copyTo(Span.java:168)` ← `Utf8JsonWriter.base64EncodeAndWrite` ← `writeBase64String` ← `writingLargestPossibleBase64Bytes`（125_000_000 字节 base64，约 1.67 亿次元素拷贝导致 surefire fork 超时）
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\Utf8JsonWriterTests.cs:3035`（`[OuterLoop]` + `[ConditionalTheory(nameof(IsX64))]`）
+- **根因分类**: Transformer（xUnit 属性映射缺失）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`（`[OuterLoop]` 未映射为 JUnit `@Disabled`）
+- **分析**: `[OuterLoop]` 是 xUnit 的巨型集成测试标记，转换器只处理了 `[Ignore]`；125MB base64 测试在 Java 里逐元素装箱拷贝，数分钟内无法完成，表现为“死循环”。
+- **验证**: 新增 `MemberDataPropertySourceTests.OuterLoop_GeneratesDisabled`；全量 `dotnet test` 通过；重新转换后 `writingLargestPossibleBase64Bytes` 前出现 `@Disabled`。
+- **状态**: ✅ Fixed

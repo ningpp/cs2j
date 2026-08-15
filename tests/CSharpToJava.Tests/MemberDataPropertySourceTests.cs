@@ -207,6 +207,27 @@ public class MyTests {
         Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void OuterLoop_GeneratesDisabled()
+    {
+        // xUnit [OuterLoop] tests are huge integration tests (e.g. writing 125 MB
+        // of base64); they must be @Disabled in the JUnit suite or the surefire
+        // fork times out inside Span.copyTo.
+        var result = Convert(@"
+using Xunit;
+
+public class MyTests {
+    [Fact]
+    [OuterLoop]
+    public void BigTest() {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("org.junit.jupiter.api.Disabled", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
