@@ -820,9 +820,7 @@ public class ArgumentTransformer
                     && targetParam.ContainingSymbol is IMethodSymbol runAsyncMethod
                     && runAsyncMethod.Name == "Run"
                     && runAsyncMethod.ContainingType?.ToDisplayString() == "System.Threading.Tasks.Task"
-                    && targetParam.Type is INamedTypeSymbol delegateSymbol
-                    && delegateSymbol.DelegateInvokeMethod?.ReturnType.ToDisplayString()
-                        is "System.Threading.Tasks.Task" or "System.Threading.Tasks.ValueTask")
+                    && javaFuncType.Contains("CompletableFuture", StringComparison.Ordinal))
                 {
                     context.AddImport("java.lang.Runnable");
                     transformedExpr = $"(Runnable) {transformedExpr}";

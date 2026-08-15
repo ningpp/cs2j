@@ -256,12 +256,18 @@ public partial class StatementTransformer
             if (stmt.Expression is IdentifierNameSyntax receiverId
                 && context.GetSymbolInfo(receiverId).Symbol is ILocalSymbol receiverLocal)
             {
-                var declarator = receiverLocal.DeclaringSyntaxReferences
-                    .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
-                if (declarator?.Initializer != null
-                    && context.GetTypeInfo(declarator.Initializer.Value).Type is INamedTypeSymbol initNamed)
+                var receiverDeclaredType = receiverLocal.Type?.ToDisplayString();
+                if (receiverDeclaredType is not ("System.Collections.IList"
+                    or "System.Collections.ICollection"
+                    or "System.Collections.IEnumerable"))
                 {
-                    effectiveExprType = initNamed;
+                    var declarator = receiverLocal.DeclaringSyntaxReferences
+                        .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+                    if (declarator?.Initializer != null
+                        && context.GetTypeInfo(declarator.Initializer.Value).Type is INamedTypeSymbol initNamed)
+                    {
+                        effectiveExprType = initNamed;
+                    }
                 }
             }
 

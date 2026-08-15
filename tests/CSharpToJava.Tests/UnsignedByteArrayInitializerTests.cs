@@ -74,6 +74,36 @@ public class C
         Assert.True(hasByteCast, $"Expected a Java (byte) cast around toByteInt32 in byte[] initializer.\n{code}");
     }
 
+    [Fact]
+    public void ImplicitByteArrayInitializer_GeneratedJavaKeepsByteCast()
+    {
+        var result = Convert("""
+namespace Cs2jUnsigned
+{
+    public static class UnsignedMath
+    {
+        public static byte ToByteInt32(int v) => (byte)v;
+    }
+}
+
+public class C
+{
+    public static byte[] Values = { (byte)Cs2jUnsigned.UnsignedMath.ToByteInt32('1') };
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("byte[] Values", code, StringComparison.Ordinal);
+
+        var hasByteCast =
+            code.Contains("(byte)(UnsignedMath.toByteInt32", StringComparison.Ordinal)
+            || code.Contains("(byte) (UnsignedMath.toByteInt32", StringComparison.Ordinal)
+            || code.Contains("(byte)UnsignedMath.toByteInt32", StringComparison.Ordinal)
+            || code.Contains("(byte) UnsignedMath.toByteInt32", StringComparison.Ordinal);
+        Assert.True(hasByteCast, $"Expected a Java (byte) cast around toByteInt32 in implicit byte[] initializer.\n{code}");
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

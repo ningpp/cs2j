@@ -32,6 +32,26 @@ class C
         Assert.DoesNotContain("(Runnable)", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TaskRunWithTaskReturningLambda_UsesRunAsyncWithRunnableCast()
+    {
+        var result = Convert("""
+using System.Threading.Tasks;
+
+class C
+{
+    Task M() => Task.Run(() => HelperAsync());
+    static async Task HelperAsync() { }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("CompletableFuture.runAsync((Runnable)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Supplier<", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -204,13 +204,17 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             return false;
         }
 
-        if (initializer.Parent is ArrayCreationExpressionSyntax arrayCreation)
+        string? elementType = initializer.Parent switch
         {
-            var elementType = arrayCreation.Type.ElementType.ToString();
-            return elementType == "byte" || elementType == "System.Byte";
-        }
+            ArrayCreationExpressionSyntax arrayCreation => arrayCreation.Type.ElementType.ToString(),
+            EqualsValueClauseSyntax equalsValue
+                when equalsValue.Parent is VariableDeclaratorSyntax declarator
+                     && declarator.Parent is VariableDeclarationSyntax declaration
+                     && declaration.Type is ArrayTypeSyntax arrayType => arrayType.ElementType.ToString(),
+            _ => null,
+        };
 
-        return false;
+        return elementType == "byte" || elementType == "System.Byte";
     }
 
     private bool IsSafeAssignmentTarget(ExpressionSyntax target)
