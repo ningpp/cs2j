@@ -172,12 +172,22 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         return false;
     }
 
-    private static bool IsSafeAssignmentTarget(ExpressionSyntax target)
+    private bool IsSafeAssignmentTarget(ExpressionSyntax target)
     {
+        if (_semanticModel == null)
+        {
+            return false;
+        }
+
         return target switch
         {
-            IdentifierNameSyntax => true,
-            MemberAccessExpressionSyntax memberAccess => IsSideEffectFreeReceiver(memberAccess.Expression),
+            IdentifierNameSyntax identifier =>
+                _semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol
+                    or IParameterSymbol
+                    or IFieldSymbol,
+            MemberAccessExpressionSyntax memberAccess =>
+                _semanticModel.GetSymbolInfo(memberAccess).Symbol is IFieldSymbol
+                && IsSideEffectFreeReceiver(memberAccess.Expression),
             _ => false,
         };
     }
@@ -255,14 +265,6 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         SpecialType.System_UInt32 => UnsignedDomain.UInt32,
         SpecialType.System_UInt64 => UnsignedDomain.UInt64,
         _ => UnsignedDomain.Native,
-    };
-
-    private static SyntaxKind ComparisonKind(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.GreaterThanExpression,
-        _ => SyntaxKind.GreaterThanOrEqualExpression,
     };
 
     private static ExpressionSyntax LiteralZero()
@@ -352,8 +354,17 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                 "Compare" + UnsignedMathSyntax.Suffix(domain),
                 UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
                 UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial));
+            var comparisonKind = rewritten.Kind() switch
+            {
+                SyntaxKind.EqualsExpression => SyntaxKind.EqualsExpression,
+                SyntaxKind.NotEqualsExpression => SyntaxKind.NotEqualsExpression,
+                SyntaxKind.LessThanExpression => SyntaxKind.LessThanExpression,
+                SyntaxKind.LessThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
+                SyntaxKind.GreaterThanExpression => SyntaxKind.GreaterThanExpression,
+                _ => SyntaxKind.GreaterThanOrEqualExpression,
+            };
             return SyntaxFactory.BinaryExpression(
-                ComparisonKind(rewritten.Kind()), compare, LiteralZero());
+                comparisonKind, compare, LiteralZero());
         }
 
         var binaryMethod = BinaryOpMethod[rewritten.Kind()] + UnsignedMathSyntax.Suffix(domain);
@@ -472,13 +483,13 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         if (method != null
             && !IsInCheckedContext(node)
             && !IsInRepeatedEvaluationContext(node)
-            && IsUnsignedExpression(node.Operand)
+            && IsUnsignedSpecial(GetNaturalSpecial(node.Operand) ?? SpecialType.None)
             && IsSafeAssignmentTarget(node.Operand))
         {
-            var type = GetEffectiveType(node.Operand);
+            var target = GetNaturalSpecial(node.Operand) ?? SpecialType.None;
             return base.VisitPostfixUnaryExpression(
                 node.WithAdditionalAnnotations(
-                    UnsignedPostfixAnnotations.For(type!.SpecialType)));
+                    UnsignedPostfixAnnotations.For(target)));
         }
 
         return base.VisitPostfixUnaryExpression(node);
@@ -497,8 +508,8 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                 return notRewritten;
             }
 
-            var operandType = GetEffectiveType(node.Operand);
-            var domain = GetUnaryDomain(operandType?.SpecialType);
+            var notSpecial = GetNaturalSpecial(node.Operand) ?? SpecialType.None;
+            var domain = GetUnaryDomain(notSpecial);
             if (domain == UnsignedDomain.Native)
             {
                 return notRewritten;
@@ -511,7 +522,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                 UnsignedMathSyntax.Normalize(
                     notRewritten.Operand,
                     domain,
-                    operandType?.SpecialType ?? SpecialType.None));
+                    notSpecial));
         }
 
         var method = node.Kind() switch
@@ -527,14 +538,14 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             || !_options.EnableOperatorRewrite
             || IsInCheckedContext(node)
             || IsInConstantExpressionContext(node)
-            || !IsUnsignedExpression(node.Operand)
+            || !IsUnsignedSpecial(GetNaturalSpecial(node.Operand) ?? SpecialType.None)
             || !IsSafeAssignmentTarget(node.Operand))
         {
             return rewritten;
         }
 
-        var type = GetEffectiveType(node.Operand);
-        var prefixDomain = GetUnaryDomain(type?.SpecialType);
+        var operandSpecial = GetNaturalSpecial(node.Operand) ?? SpecialType.None;
+        var prefixDomain = GetUnaryDomain(operandSpecial);
         if (prefixDomain == UnsignedDomain.Native)
         {
             return rewritten;
@@ -545,7 +556,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             UnsignedMathSyntax.Normalize(
                 rewritten.Operand,
                 prefixDomain,
-                type?.SpecialType ?? SpecialType.None),
+                operandSpecial),
             LiteralOne());
 
         UsedExtensions = true;
@@ -554,7 +565,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         return SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
             rewritten.Operand,
-            UnsignedMathSyntax.WrapTarget(type!.SpecialType, call));
+            UnsignedMathSyntax.WrapTarget(operandSpecial, call));
     }
 
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
