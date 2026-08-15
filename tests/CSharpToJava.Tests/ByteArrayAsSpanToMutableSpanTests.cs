@@ -21,7 +21,7 @@ public class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("Span<io.github.ningpp.compat.UByte> rentedSpan = new Span<>(MemoryExtensions.asSpan(rented, 0, length))", code, StringComparison.Ordinal);
+        Assert.Contains("Span<Integer> rentedSpan = new Span<>(MemoryExtensions.asSpan(rented, 0, length))", code, StringComparison.Ordinal);
     }
 
     [Fact]

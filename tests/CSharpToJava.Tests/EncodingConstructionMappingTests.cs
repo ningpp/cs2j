@@ -87,8 +87,8 @@ class Sample
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        Assert.Contains("ReadOnlySpan<io.github.ningpp.compat.UByte> preamble = MemoryExtensions.asSpan(enc.getPreamble())", code);
-        Assert.DoesNotContain("ReadOnlySpan<io.github.ningpp.compat.UByte> preamble = enc.getPreamble()", code);
+        Assert.Contains("ReadOnlySpan<Integer> preamble = MemoryExtensions.asSpan(enc.getPreamble())", code);
+        Assert.DoesNotContain("ReadOnlySpan<Integer> preamble = enc.getPreamble()", code);
         Assert.Contains("import io.github.ningpp.compat.MemoryExtensions", code);
     }
 
@@ -128,9 +128,9 @@ abstract class CustomEncoding : Encoding
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        Assert.Contains("public ReadOnlySpan<io.github.ningpp.compat.UByte> getPreambleSpan()", code);
+        Assert.Contains("public ReadOnlySpan<Integer> getPreambleSpan()", code);
         Assert.Contains("return MemoryExtensions.asSpan(s_preamble);", code);
-        Assert.DoesNotContain("public ReadOnlySpan<io.github.ningpp.compat.UByte> getPreamble()", code);
+        Assert.DoesNotContain("public ReadOnlySpan<Integer> getPreamble()", code);
     }
 
     [Fact]

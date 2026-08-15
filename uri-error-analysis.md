@@ -145,3 +145,30 @@ ew ArgumentOutOfRangeException(paramName, actualValue, message) 保持参数顺�
 - **测试**: compat EncodingSurrogateTest（孤立代理项 → EF BF BD 3 字节；合法代理对 → 4 字节）
 - **验证**: compat mvn install 全部通过；mvn clean install -e → BUILD SUCCESS（functional 608 + unit 28 + extended 49 测试 0 失败）
 - **状态**: ✅ Fixed
+
+## Iteration 7 — 无符号类型映射为不存在的 compat 包装类 [build]
+- **Java 文件**: system-private-uri/src/main/java/Cs2jUnsigned/UnsignedMath.java（连带 DomainNameHelper.java、Uri.java 的 UShort/ULong 值用法）
+- **行号**: 89-90（UByte），68-69/75/94/97/99/101（ULong），91-92（UShort）
+- **错误信息**:
+  1. `[89,38] 找不到符号 符号: 类 UByte 位置: 程序包 io.github.ningpp.compat`
+  2. `[68,101] 不兼容的类型: long无法转换为io.github.ningpp.compat.ULong`
+  3. `[91,103] 不兼容的类型: int无法转换为io.github.ningpp.compat.UShort`
+- **代码片段**:
+  ```java
+  public static io.github.ningpp.compat.UByte toByteInt32(int v) { return ((v & 0xFF) & 0xFF) & 0xFF; }
+  public static io.github.ningpp.compat.UByte toByteInt64(long v) { return (((int)(v) & 0xFF) & 0xFF) & 0xFF; }
+  public static io.github.ningpp.compat.UShort toUInt16Int32(int v) { return (((int)((v & 0xFFFF))) & 0xFFFF); }
+  public static io.github.ningpp.compat.UShort toUInt16Int64(long v) { return (((int)(((int)(v) & 0xFFFF))) & 0xFFFF); }
+  public static io.github.ningpp.compat.ULong toUInt64UInt32(int v) { return (io.github.ningpp.compat.ULong)((v & 0xFFFFFFFFL)); }
+  ```
+- **对应 C# 文件**: src/System/DomainNameHelper.cs、src/System/Uri.cs（ushort/byte/uint/ulong 声明及转换）；上游 helper 源 src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedMathFileContent.cs
+- **根因分类**: 类型映射缺失（无 UByte 类）+ Transformer 类型映射错误（byte/ushort/uint/ulong 被映射成无状态工具类，Java 中无法作为值类型存储/转换）
+- **涉及组件**:
+  - config/TypeMappings.json（System.Byte/UInt16/UInt32/UInt64 → compat 包装类）
+  - src/CSharpToJava.Core/Context/TypeMappingService.cs（MapSimpleTypeName / MapTypeFromSyntaxString 同步改为包装类）
+  - java/csharptojava-compat/.../UByte.java 缺失（UInt/UShort/ULong 也只是静态工具类）
+- **分析**: 最新提交把无符号值类型映射到 `io.github.ningpp.compat.UByte/UShort/UInt/ULong`，但这些 compat 类是静态工具类（无实例值），生成代码却把它们当值类型声明/强制转换/返回，导致 UByte 找不到符号以及 long/int 无法转 ULong/UShort；此前 byte/ushort/uint→int、ulong→long 的映射已能通过完整 Maven 构建。
+- **修复**: 回退 `44799c6c` 的无符号类型映射改动：TypeMappings.json 与 TypeMappingService 恢复 byte/ushort/uint→int、ulong→long；移除 TypeOperationTransformer 中针对包装类的 default 特例；同步回退 10 个断言包装类输出的单测
+- **测试**: `UnsignedPrimitiveMappingTests.UnsignedTypes_MapToPrimitiveStorage`（先红后绿：修复前输出 `io.github.ningpp.compat.UByte b` 等，修复后为 `int b`/`int u`/`int ui`/`long ul`）
+- **验证**: dotnet build 0 错误；全量 dotnet test 2758+50=2808 通过 0 失败；重新转换后 `mvn clean install -e` 退出码 0、`BUILD SUCCESS`（unit 28 + extended 49 + functional 609 测试全部通过）
+- **状态**: ✅ Fixed

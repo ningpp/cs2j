@@ -35,7 +35,7 @@ public class DecimalULongConversionTests
     }
 
     [Fact]
-    public void NewDecimal_FromULong_UsesCompatConstructor()
+    public void NewDecimal_FromULong_UsesCompatHelper()
     {
         var result = Convert(@"
 class C
@@ -47,7 +47,7 @@ class C
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("new Decimal(x)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Decimal.createFrom_long(", result.GeneratedCode, StringComparison.Ordinal);
 
         // The compat library must expose the helper used by the generated code.
         var repoRoot = FindRepoRoot();

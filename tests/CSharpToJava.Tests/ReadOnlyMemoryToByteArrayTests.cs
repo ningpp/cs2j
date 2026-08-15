@@ -23,7 +23,7 @@ class Holder {
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("ReadOnlyMemory<io.github.ningpp.compat.UByte>", code);
+        Assert.Contains("ReadOnlyMemory<Integer>", code);
         Assert.Contains("m.toByteArray()", code);
     }
 
@@ -38,7 +38,7 @@ class Holder {
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("new ReadOnlyMemory<io.github.ningpp.compat.UByte>(data)", code);
+        Assert.Contains("new ReadOnlyMemory<Integer>(data)", code);
     }
 
     private static ConversionResult Convert(string sourceCode)
