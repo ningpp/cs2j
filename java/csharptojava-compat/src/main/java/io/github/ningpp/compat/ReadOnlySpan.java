@@ -36,7 +36,7 @@ public final class ReadOnlySpan<T> {
         this.array = array;
         this.stringBacking = null;
         this.offset = 0;
-        this.length = array.length;
+        this.length = array == null ? 0 : array.length;
     }
 
     /** Primitive byte[] backing — mirrors C# byte[] → ReadOnlySpan&lt;byte&gt;. */
@@ -44,7 +44,7 @@ public final class ReadOnlySpan<T> {
         this.array = array;
         this.stringBacking = null;
         this.offset = 0;
-        this.length = array.length;
+        this.length = array == null ? 0 : array.length;
     }
 
     /** Primitive char[] backing — mirrors C# char[] → ReadOnlySpan&lt;char&gt;. */
@@ -52,7 +52,7 @@ public final class ReadOnlySpan<T> {
         this.array = array;
         this.stringBacking = null;
         this.offset = 0;
-        this.length = array.length;
+        this.length = array == null ? 0 : array.length;
     }
 
     /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
@@ -64,6 +64,17 @@ public final class ReadOnlySpan<T> {
     }
 
     public ReadOnlySpan(T[] array, int offset, int length) {
+        if (array == null) {
+            if (offset != 0 || length != 0) {
+                throw new IndexOutOfBoundsException(
+                    "offset=" + offset + ", length=" + length + ", arrayLength=null");
+            }
+            this.array = null;
+            this.stringBacking = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
@@ -76,6 +87,17 @@ public final class ReadOnlySpan<T> {
 
     /** Primitive byte[] slice backing — mirrors C# byte[] → ReadOnlySpan&lt;byte&gt;. */
     public ReadOnlySpan(byte[] array, int offset, int length) {
+        if (array == null) {
+            if (offset != 0 || length != 0) {
+                throw new IndexOutOfBoundsException(
+                    "offset=" + offset + ", length=" + length + ", arrayLength=null");
+            }
+            this.array = null;
+            this.stringBacking = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
@@ -88,6 +110,17 @@ public final class ReadOnlySpan<T> {
 
     /** Primitive char[] slice backing — mirrors C# char[] → ReadOnlySpan&lt;char&gt;. */
     public ReadOnlySpan(char[] array, int offset, int length) {
+        if (array == null) {
+            if (offset != 0 || length != 0) {
+                throw new IndexOutOfBoundsException(
+                    "offset=" + offset + ", length=" + length + ", arrayLength=null");
+            }
+            this.array = null;
+            this.stringBacking = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);

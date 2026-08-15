@@ -23,6 +23,18 @@
 
 ---
 
+## Agent1c — ReadOnlySpan(byte[]/T[]/char[]) 不允许 null 数组，default(JsonEncodedText) 访问编码字节即 NPE
+- **Java 文件**: `d:\cs-java-81319-8\...\JsonEncodedText.java:59`（`getEncodedUtf8Bytes` → `new ReadOnlySpan<Integer>(_utf8Value)`）；`Utf8JsonWriterTests.writeUtf8StringHelper`
+- **错误信息**: `NullPointerException: Cannot read the array length because "array" is null`（Utf8JsonWriterTests 75 处）
+- **对应 C# 文件**: `System.ReadOnlySpan<T>.ctor(T[]?)` 对 null 数组返回空 span；`System.Text.Json.JsonEncodedText` 默认结构体 `_utf8Value == null` 时 `EncodedUtf8Bytes` 返回 default span
+- **根因分类**: compat（ReadOnlySpan 构造器语义缺失）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ReadOnlySpan.java`
+- **分析**: .NET 的 `ReadOnlySpan<T>(T[]?)` 允许 null 并产生空 span，compat 构造器直接解引用 `array.length` 抛 NPE；所有经数组隐式转换生成的 `new ReadOnlySpan<>(字段)` 在字段为 null（如默认结构体）时崩溃。
+- **验证**: 新增 `ReadOnlySpanNullArrayTest` 3 例通过；`mvn install` 更新 compat 后 Utf8JsonWriterTests 的 `Cannot read the array length` 归零（对应 75 个 ERROR 转为可继续执行的断言失败）。
+- **状态**: ✅ Fixed
+
+---
+
 ## Agent1b — MemoryStream.getCanWrite/getCanRead 恒 false，Utf8JsonWriter(Stream) 全部抛 “Stream is not writable”
 - **Java 文件**: `d:\cs-java-81319-8\system-text-json\src\main\java\dotnet\text\json\Utf8JsonWriter.java:104`（构造器校验 `utf8Json.getCanWrite()`）
 - **错误信息**: `io.github.ningpp.compat.ArgumentException: Stream is not writable.`（disposeAutoFlushes/writeNumber_NullPropertyName 等数十处）
