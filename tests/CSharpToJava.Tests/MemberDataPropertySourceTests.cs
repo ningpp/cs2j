@@ -123,6 +123,36 @@ public class MyTests {
     }
 
     [Fact]
+    public void MemberData_EnumValueToNumericParameter_UsesEnumHelperAdapter()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+using Xunit;
+
+public enum SampleEnumByte : byte {
+    A = 1
+}
+
+public class MyTests {
+    public static IEnumerable<object[]> MyMethodData() {
+        yield return new object[] { SampleEnumByte.A };
+    }
+
+    [Theory]
+    [MemberData(nameof(MyMethodData))]
+    public void TestSomething(long value) {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // JUnit cannot convert a converter-generated Java enum to a numeric
+        // parameter; the adapter must unwrap it with EnumHelper.toInt64.
+        Assert.Contains("MethodSource(\"myMethodData_pad", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("EnumHelper.toInt64(_row[0])", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.EnumHelper;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ConditionalTheory_GeneratesParameterizedTest()
     {
         // xUnit [ConditionalTheory] must be treated as [Theory]: otherwise the

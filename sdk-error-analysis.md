@@ -701,3 +701,15 @@
 - **分析**: JUnit `@CsvSource` 只能把字符串转成原始类型/String/enum；C# 属性参数是编译期常量表达式，被原样输出成 C# 文本后 JUnit 无法求值。修复：非常量字面量/`typeof(X)`/正则枚举转数值参数等 InlineData 参数改走 `BuildInlineDataDataMethod`（`@MethodSource`）用常规表达式转换；同时修复嵌套泛型 `typeof` 的 `BuildNestedJavaTypeReference`（点号在泛型实参内导致 Substring 越界）、负 uint/long 字面量缺 `L` 后缀、以及 data method 行按目标参数类型做窄化/枚举 `getValue()` 适配。
 - **验证**: 新增 `InlineDataCsvMappingTests` 7 例（常量表达式/typeof/嵌套泛型 typeof/const 标识符/负 long/枚举转数值/长表达式转 int），全量 `dotnet test` 2805 通过；重新转换 1080/1080 成功；`mvn test` 编译通过（原 `Utf8JsonReaderTests.java:5724 整数太大` 消失），BitStackTests 参数错误清零，ValueTests/JsonReaderStateAndOptionsTests 的 InlineData 参数错误清零。
 - **状态**: ✅ Fixed（InlineData 集群；MemberData 行内枚举→数值参数仍遗留，属后续迭代）
+
+---
+
+## Agent8b — MemberData 行内枚举/数值参数未按目标参数类型转换（EnumTests 参数转换错误）
+- **Java 文件**: `d:\cs-java-81319-8\system-text-json-tests\src\test\java\...\EnumTests.java`（`getToString_ExceedMaxCapacity` 等 MemberData 数据方法）
+- **错误信息**: `No built-in converter for source type SampleEnumByte/SampleEnumUInt16/... and target type long`；`No built-in converter for source type java.lang.Long and target type int`
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\...` 中 `[MemberData(nameof(...))]` + `yield return new object[] { SomeEnum.A, ... }`
+- **根因分类**: Transformer（MemberData 适配器缺失）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`（`BuildMemberDataAdapterMethod`/`ConvertMemberDataRowValue`）
+- **分析**: 只有存在尾部默认参数时才生成 MemberData 适配器，行内枚举实例/盒装 Number 与目标数值参数类型不匹配，JUnit 无法转换。修复：任何含数值参数（int/long/short/byte/float/double）的测试方法都生成适配器，逐参数用 `EnumHelper.toInt32/toInt64` 或 Number 转换解包；无默认参数时 `firstDefaultIdx` 不再为 -1。
+- **验证**: 新增 `MemberDataPropertySourceTests.MemberData_EnumValueToNumericParameter_UsesEnumHelperAdapter`；全量 `dotnet test` 2808 通过；重新转换 1080/1080 成功；`mvn test` 后 surefire 报告中 `No built-in converter` / `Failed to convert String` 全部归零（BitStackTests、ValueTests、JsonReaderStateAndOptionsTests、ExtensionDataTests、PropertyVisibilityTests、EnumTests 的参数转换错误消失）。
+- **状态**: ✅ Fixed（参数转换集群；EnumTests 其余 52 fail/112 err 属枚举语义/序列化行为，留待枚举集群）

@@ -1280,11 +1280,16 @@ public class MethodTransformer : IMemberTransformer
                 // parameter defaults and point @MethodSource at it.
                 var memberParams = methodDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
                 int firstDefaultIdx = memberParams.FindIndex(p => p.Default != null);
+                if (firstDefaultIdx < 0)
+                    firstDefaultIdx = memberParams.Count; // no defaults: fallback is never used
                 bool hasTrailingDefaults = firstDefaultIdx >= 0
+                    && firstDefaultIdx < memberParams.Count
                     && memberParams.Skip(firstDefaultIdx).All(p => p.Default != null);
-                if (hasTrailingDefaults)
+                bool needsMemberDataAdapter = hasTrailingDefaults
+                    || memberParams.Any(p => p.Type != null && MemberDataParamNeedsNumericConversion(p, context));
+                if (needsMemberDataAdapter)
                 {
-                    var adapter = BuildMemberDataPaddingMethod(
+                    var adapter = BuildMemberDataAdapterMethod(
                         methodSourceRef,
                         javaMethodName,
                         memberParams,
@@ -1514,11 +1519,13 @@ public class MethodTransformer : IMemberTransformer
     }
 
     /// <summary>
-    /// Builds a synthetic static data method that pads [MemberData] rows with the
-    /// test method's trailing C# default parameter values (JUnit cannot fill
-    /// optional parameters, e.g. <c>void M(string s, int maxDepth = 64)</c>).
+    /// Builds a synthetic static data method that adapts [MemberData] rows to the
+    /// test method's parameter list: pads trailing C# default parameter values
+    /// (JUnit cannot fill optional parameters, e.g. <c>void M(string s, int maxDepth = 64)</c>)
+    /// and converts row elements to numeric parameter types (boxed numbers and
+    /// converter-generated enum constants both go through EnumHelper).
     /// </summary>
-    private static JavaMethodDeclaration BuildMemberDataPaddingMethod(
+    private static JavaMethodDeclaration BuildMemberDataAdapterMethod(
         string sourceRef,
         string dataMethodName,
         List<ParameterSyntax> methodParams,
@@ -1551,6 +1558,26 @@ public class MethodTransformer : IMemberTransformer
                 defaultValues.Add("null");
             }
         }
+        var conversionCases = new System.Text.StringBuilder();
+        bool usesEnumHelper = false;
+        for (int i = 0; i < total; i++)
+        {
+            var paramSymbol = context.GetDeclaredSymbol(methodParams[i]) as IParameterSymbol;
+            string converted = ConvertMemberDataRowValue(paramSymbol, $"_row[{i}]");
+            if (converted != $"_row[{i}]")
+            {
+                usesEnumHelper = true;
+                conversionCases.AppendLine($"        case {i}: _padded[{i}] = _i < _row.length ? {converted} : _defaults[Math.max(0, _i - {firstDefaultIdx})]; break;");
+            }
+            else
+            {
+                conversionCases.AppendLine($"        case {i}: _padded[{i}] = _i < _row.length ? _row[{i}] : _defaults[Math.max(0, _i - {firstDefaultIdx})]; break;");
+            }
+        }
+        if (usesEnumHelper)
+        {
+            context.AddImport("io.github.ningpp.compat.EnumHelper");
+        }
 
         var body = new System.Text.StringBuilder();
         body.AppendLine("CSharpList<Object[]> _yieldResult = new CSharpList<Object[]>();");
@@ -1558,7 +1585,9 @@ public class MethodTransformer : IMemberTransformer
         body.AppendLine($"for (Object[] _row : {callTarget}()) {{");
         body.AppendLine($"    Object[] _padded = new Object[{total}];");
         body.AppendLine($"    for (int _i = 0; _i < {total}; _i++) {{");
-        body.AppendLine($"        _padded[_i] = _i < _row.length ? _row[_i] : _defaults[Math.max(0, _i - {firstDefaultIdx})];");
+        body.AppendLine("        switch (_i) {");
+        body.Append(conversionCases.ToString());
+        body.AppendLine("        }");
         body.AppendLine("    }");
         body.AppendLine("    _yieldResult.add(_padded);");
         body.AppendLine("}");
@@ -1570,6 +1599,28 @@ public class MethodTransformer : IMemberTransformer
             Modifiers = JavaModifiers.Public | JavaModifiers.Static,
             ReturnType = "CSharpGenericIterable<Object[]>",
             Body = body.ToString()
+        };
+    }
+
+    private static bool MemberDataParamNeedsNumericConversion(ParameterSyntax param, ConversionContext context)
+    {
+        var symbol = context.GetDeclaredSymbol(param) as IParameterSymbol;
+        return ConvertMemberDataRowValue(symbol, "x") != "x";
+    }
+
+    private static string ConvertMemberDataRowValue(IParameterSymbol? param, string rowExpr)
+    {
+        if (param == null)
+            return rowExpr;
+        return param.Type.SpecialType switch
+        {
+            SpecialType.System_Int32 => $"EnumHelper.toInt32({rowExpr})",
+            SpecialType.System_Int64 or SpecialType.System_UInt64 => $"EnumHelper.toInt64({rowExpr})",
+            SpecialType.System_Int16 or SpecialType.System_UInt16 => $"(short) EnumHelper.toInt32({rowExpr})",
+            SpecialType.System_Byte or SpecialType.System_SByte => $"(byte) EnumHelper.toInt32({rowExpr})",
+            SpecialType.System_Single => $"((Number) ({rowExpr})).floatValue()",
+            SpecialType.System_Double => $"((Number) ({rowExpr})).doubleValue()",
+            _ => rowExpr
         };
     }
 
