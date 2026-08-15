@@ -461,6 +461,26 @@ class Sample
         Assert.True(result.Success);
     }
 
+    [Fact]
+    public void LinqContainsOnIntArray_DoesNotDoubleWrapArraysStream()
+    {
+        // int[].Contains(i) (LINQ Enumerable.Contains) must not wrap the already-built
+        // Arrays.stream(...) receiver in a second Arrays.stream(...).
+        var result = Convert(@"
+using System.Linq;
+class Sample
+{
+    bool M(int[] except, int i)
+    {
+        return except.Contains(i);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.DoesNotContain("Arrays.stream(Arrays.stream(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Arrays.stream(except).boxed().collect(Collectors.toSet()).contains(i)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

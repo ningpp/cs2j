@@ -6050,10 +6050,22 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     && arr.ElementType.SpecialType is not SpecialType.System_Object;
                 if (isPrimitiveArraySource)
                 {
-                    // receiver is a primitive array (e.g. int[]), not a stream —
-                    // wrap in Arrays.stream(...) before boxed()/collect().
-                    context.AddImport("java.util.Arrays");
-                    return $"Arrays.stream({receiver}).boxed().collect(Collectors.toSet()).contains({valArg})";
+                    context.AddImport("java.util.stream.Collectors");
+                    bool receiverIsStream = ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(receiver);
+                    if (!receiverIsStream)
+                    {
+                        // receiver is a primitive array (e.g. int[]), not a stream —
+                        // wrap in Arrays.stream(...) before boxed()/collect().
+                        context.AddImport("java.util.Arrays");
+                        return $"Arrays.stream({receiver}).boxed().collect(Collectors.toSet()).contains({valArg})";
+                    }
+
+                    // The LINQ fallback already converted the primitive array into a Java stream
+                    // (e.g. Arrays.stream(arr) / IntStream.range(...)). Don't wrap it again.
+                    var primitiveCat = DetectReceiverPrimitiveStreamCategory(memberAccess, receiver, context);
+                    if (primitiveCat != "")
+                        return $"{receiver}.boxed().collect(Collectors.toSet()).contains({valArg})";
+                    return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
                 }
                 // Inside loops, use collect+contains to avoid effectively-final capture issues
                 bool insideLoop = node.Ancestors().Any(a => a is ForStatementSyntax
