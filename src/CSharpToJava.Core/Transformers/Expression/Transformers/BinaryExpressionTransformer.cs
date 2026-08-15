@@ -204,6 +204,17 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // Nullable bool equality: route through the string transformer so the
+        // null-safe Objects.equals(...) form is emitted instead of a raw
+        // `==`/`!=` that unboxes the nullable Boolean.
+        if ((op == "==" || op == "!=") && context.SemanticModel != null
+            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        {
+            var nullableBoolEq = TryTransformNullableBoolEquality(binExpr, op, context);
+            if (nullableBoolEq != null)
+                return new JavaRawExpression(nullableBoolEq);
+        }
+
         // Check for event comparisons — fall back to raw
         if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
@@ -690,6 +701,18 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (TryTransformDecimalBinaryExpression(node, op, context, left, right, out var decimalResult))
             return decimalResult;
 
+        // C# lifted bool? ==/!= bool comparisons must be null-safe. A direct Java
+        // `==`/`!=` unboxes the Boolean (NPE when null), and conditional-access
+        // lowering may even produce `(x != null ? ... : null) == true` which
+        // throws on the null false branch. bool? == true must mean
+        // HasValue && Value, i.e. Objects.equals(x, Boolean.TRUE).
+        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        {
+            var nullableBoolEq = TryTransformNullableBoolEquality(node, op, context);
+            if (nullableBoolEq != null)
+                return nullableBoolEq;
+        }
+
         // Task 26 (TS only): equality operators -> === / !== (spec 2.6.4).
         // String/primitive/plain-reference/nullable comparisons in TS use ===/!==
         // which matches C# value/reference semantics (string value comparison is
@@ -733,6 +756,68 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
         return result;
     }
+
+    /// <summary>
+    /// Detects `bool? ==/!= bool` and `bool? ==/!= bool?` comparisons (including
+    /// null-conditional expressions whose natural type is bool?) and returns a
+    /// null-safe Java expression, or null when the pattern does not apply.
+    /// </summary>
+    private static string? TryTransformNullableBoolEquality(
+        BinaryExpressionSyntax node,
+        string op,
+        ConversionContext context)
+    {
+        var leftType = context.GetTypeInfo(node.Left).Type;
+        var rightType = context.GetTypeInfo(node.Right).Type;
+        bool leftIsNullableBool = IsNullableBooleanType(leftType)
+            || (leftType?.SpecialType == SpecialType.System_Boolean && node.Left is ConditionalAccessExpressionSyntax);
+        bool rightIsNullableBool = IsNullableBooleanType(rightType)
+            || (rightType?.SpecialType == SpecialType.System_Boolean && node.Right is ConditionalAccessExpressionSyntax);
+
+        bool leftIsBoolLiteral = node.Left.IsKind(SyntaxKind.TrueLiteralExpression)
+            || node.Left.IsKind(SyntaxKind.FalseLiteralExpression);
+        bool rightIsBoolLiteral = node.Right.IsKind(SyntaxKind.TrueLiteralExpression)
+            || node.Right.IsKind(SyntaxKind.FalseLiteralExpression);
+
+        bool nullableVsNullable = leftIsNullableBool && rightIsNullableBool;
+        bool nullableVsLiteral = (leftIsNullableBool && rightIsBoolLiteral)
+            || (rightIsNullableBool && leftIsBoolLiteral);
+        if (!nullableVsNullable && !nullableVsLiteral)
+            return null;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+        var right = facade.Transform(node.Right, context);
+
+        // Literal side becomes the boxed constant; a nullable-vs-nullable pair
+        // compares with Objects.equals (null == null in C# lifted semantics).
+        string subject;
+        string comparison;
+        if (leftIsBoolLiteral)
+        {
+            subject = right;
+            comparison = node.Left.IsKind(SyntaxKind.TrueLiteralExpression) ? "Boolean.TRUE" : "Boolean.FALSE";
+        }
+        else if (rightIsBoolLiteral)
+        {
+            subject = left;
+            comparison = node.Right.IsKind(SyntaxKind.TrueLiteralExpression) ? "Boolean.TRUE" : "Boolean.FALSE";
+        }
+        else
+        {
+            subject = left;
+            comparison = right;
+        }
+
+        context.AddImport("java.util.Objects");
+        var equality = $"Objects.equals({subject}, {comparison})";
+        return op == "==" ? equality : $"!{equality}";
+    }
+
+    private static bool IsNullableBooleanType(ITypeSymbol? type)
+        => type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } named
+           && named.TypeArguments.Length == 1
+           && named.TypeArguments[0].SpecialType == SpecialType.System_Boolean;
 
     private static bool TryWrapEnumBitwiseResult(
         BinaryExpressionSyntax node,

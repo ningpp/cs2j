@@ -679,6 +679,19 @@
 
 ---
 
+## Agent4 前置根因 — `bool?` 条件访问比较被生成成 null 拆箱（NPE 群，约 220 处）
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\Serialization\IEnumerableConverterFactoryHelpers.java:219`
+- **行号**: 219（`if ((stackType != null ? stackType.isAssignableFrom(type) : null) == true)`）
+- **错误信息**: `NullPointerException: Cannot invoke "java.lang.Boolean.booleanValue()"`（`isNonGenericStackOrQueue` → `IEnumerableConverterFactory.createConverter` → `JsonClassInfo.addProperty` 链，ArrayTests/CollectionTests/CustomConverterTests/DictionaryTests/ImmutableCollectionsTests 等约 220 处）
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Collection\IEnumerableConverterFactoryHelpers.cs`（`stackType?.IsAssignableFrom(type) == true`）
+- **根因分类**: Transformer（BinaryExpressionTransformer 对提升的 `bool? == bool` 直接发射 Java `==`/`!=`，对 `Boolean` 做拆箱比较）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs`
+- **分析**: `Type? stackType` 的条件访问被转换为 `(stackType != null ? stackType.isAssignableFrom(type) : null)`，`== true` 再被发射成 Java `==`；当 `stackType` 为 null（该程序集不可解析）时 false 分支是 `null`，`== true` 对 null 拆箱抛 NPE，导致所有需要该转换器的类型初始化/序列化路径连锁失败。修复：在字符串转换与 IR 两条路径中识别 `bool? ==/!= bool 字面量` 与 `bool? ==/!= bool?`，统一发射 null 安全的 `Objects.equals(x, Boolean.TRUE/FALSE)` / `!Objects.equals(...)`（bool? == true 语义 = HasValue && Value）。
+- **验证**: Red→Green `NullableBoolComparisonTests` 3 例（字段 bool?==true、bool?!=false、`stackType?.IsAssignableFrom(type)==true`）；全量 `dotnet test -c Release` 2811 通过，无回归。
+- **状态**: ✅ Fixed
+
+---
+
 ## Agent8 — InlineData/属性常量表达式被当成原始 C# 文本（约 400 个 JUnit 参数转换错误）
 - **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\...\BitStackTests.java` 等
 - **错误信息**: `Failed to convert String "int.MaxValue / 32 + 1" to type int`；`"Threshold - 3"`；`"System.Byte.MaxValue + 4"`；`"ClassWithExtensionPropertyNoGenericParameters.class"` to Class；`No built-in converter for source type SampleEnumByte ... target type long`
