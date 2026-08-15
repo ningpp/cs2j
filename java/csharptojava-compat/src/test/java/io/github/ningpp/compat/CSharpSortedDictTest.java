@@ -179,4 +179,19 @@ class CSharpSortedDictTest {
         assertTrue(dict.remove("cherry"));
         assertEquals(2, dict.getCount());
     }
+
+    @Test
+    void iterator_returnsTypedSortedDictEnumerator() {
+        // AGL generated code casts SortedDictionary<K,V>.GetEnumerator() results to
+        // CSharpSortedDict.Enumerator<K,V>, mirroring CSharpDictionary.Enumerator.
+        CSharpSortedDict<String, Integer> dict = new CSharpSortedDict<>();
+        dict.add("a", 1);
+        dict.add("b", 2);
+        CSharpSortedDict.Enumerator<String, Integer> enumerator = dict.iterator();
+        assertTrue(enumerator.moveNext());
+        assertEquals("a", enumerator.getCurrent().getKey());
+        assertTrue(enumerator.moveNext());
+        assertEquals("b", enumerator.getCurrent().getKey());
+        assertFalse(enumerator.moveNext());
+    }
 }

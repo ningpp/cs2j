@@ -145,21 +145,57 @@ public class CSharpSortedDict<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
-    public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> iterator() {
-        return CSharpGenericEnumerator.from(new Iterator<CSharpKeyValuePair<K, V>>() {
-            private final Iterator<Map.Entry<K, V>> it = map.entrySet().iterator();
+    public Enumerator<K, V> iterator() {
+        return new Enumerator<>(map.entrySet().iterator());
+    }
 
-            @Override
-            public boolean hasNext() {
-                return it.hasNext();
-            }
+    /**
+     * Mirrors SortedDictionary&lt;TKey, TValue&gt;.Enumerator — the C# generic sorted
+     * dictionary enumerator. The converter references it as CSharpSortedDict.Enumerator.
+     */
+    public static class Enumerator<K, V> implements CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> {
+        private final Iterator<Map.Entry<K, V>> it;
+        private CSharpKeyValuePair<K, V> current;
+        private boolean hasCurrent;
 
-            @Override
-            public CSharpKeyValuePair<K, V> next() {
-                Map.Entry<K, V> e = it.next();
-                return new CSharpKeyValuePair<>(e.getKey(), e.getValue());
+        public Enumerator(Iterator<Map.Entry<K, V>> it) {
+            this.it = it;
+        }
+
+        @Override
+        public boolean moveNext() {
+            if (!it.hasNext()) {
+                current = null;
+                hasCurrent = false;
+                return false;
             }
-        });
+            Map.Entry<K, V> e = it.next();
+            current = new CSharpKeyValuePair<>(e.getKey(), e.getValue());
+            hasCurrent = true;
+            return true;
+        }
+
+        @Override
+        public CSharpKeyValuePair<K, V> getCurrent() {
+            if (!hasCurrent) throw new IllegalStateException("Enumeration has not started or has already finished.");
+            return current;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return it.hasNext();
+        }
+
+        @Override
+        public CSharpKeyValuePair<K, V> next() {
+            if (!moveNext()) throw new java.util.NoSuchElementException();
+            return current;
+        }
+
+        @Override
+        public void remove() {
+            it.remove();
+        }
     }
 
     public CSharpGenericComparer<K> getComparer() {
