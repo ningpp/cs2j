@@ -45,6 +45,8 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         { SyntaxKind.AndAssignmentExpression,         "And"       },
         { SyntaxKind.OrAssignmentExpression,          "Or"        },
         { SyntaxKind.ExclusiveOrAssignmentExpression, "Xor"       },
+        { SyntaxKind.LeftShiftAssignmentExpression,   "LeftShift" },
+        { SyntaxKind.RightShiftAssignmentExpression,  "RightShift"},
     };
 
     public UnsignedTypeSyntaxRewriter(

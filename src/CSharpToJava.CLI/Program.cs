@@ -2808,6 +2808,7 @@ public class Program
                 Force = true,
                 Verbose = opts.Verbose,
                 RewriterOptions = rewriterOptions,
+                FilterUnsupportedProjects = !opts.NoFilterProjects,
             });
 
         Console.WriteLine(
@@ -3068,7 +3069,7 @@ class UnsignedTypeOptions
     public string? Input { get; set; }
     [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
     public string? Output { get; set; }
-    [Option('s', "source", SetName = "dir", HelpText = "Source directory")]
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
     public string? Source { get; set; }
     [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
     public string? Destination { get; set; }
@@ -3078,8 +3079,11 @@ class UnsignedTypeOptions
     public bool NoCastRewrite { get; set; }
     [Option('v', "verbose", Default = false)]
     public bool Verbose { get; set; }
-    [Option("strict", Default = false)]
+    [Option("strict", Default = false, HelpText = "Treat unsupported diagnostics as fatal")]
     public bool Strict { get; set; }
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
 }
 
 // 命令行选项

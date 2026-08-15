@@ -105,7 +105,8 @@ internal static class ProjectUnsignedTypePreprocessor
 
         CopyAncestorMsBuildDirectoryFiles(sourceRoot, intermediateRoot, request.Verbose);
 
-        var sourceFiles = EnumerateSourceFiles(sourceRoot, intermediateRoot)
+        var sourceFiles = EnumerateSourceFiles(
+                sourceRoot, intermediateRoot, Path.GetFullPath(request.DestinationRoot))
             .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
             .ToList();
         var csFiles = sourceFiles
@@ -126,7 +127,7 @@ internal static class ProjectUnsignedTypePreprocessor
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
 
-        var usedExtensions = false;
+        var rewrittenSourceFiles = new List<string>();
         foreach (var sourceFile in sourceFiles)
         {
             var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
@@ -161,23 +162,26 @@ internal static class ProjectUnsignedTypePreprocessor
                 diagnostics.Add(diagnostic with { Message = $"{relativePath}: {diagnostic.Message}" });
             }
 
-            usedExtensions |= result.Statistics.OperatorsRewritten > 0 || result.Statistics.CastsRewritten > 0;
-
             if (!result.Changed)
             {
                 File.Copy(sourceFile, destinationFile, overwrite: true);
             }
             else
             {
+                rewrittenSourceFiles.Add(sourceFile);
                 await File.WriteAllTextAsync(destinationFile, result.OutputCode, new System.Text.UTF8Encoding(false));
+            }
+
+            if (request.Verbose)
+            {
+                Console.WriteLine($"[unsigned-type] {(result.Changed ? "transformed" : "clean (copy)")}: {relativePath}");
             }
         }
 
-        if (usedExtensions)
+        if (statistics.OperatorsRewritten > 0 || statistics.CastsRewritten > 0)
         {
-            var extensionPath = Path.Combine(intermediateRoot, UnsignedExtensionsFileContent.FileName);
-            await File.WriteAllTextAsync(extensionPath, UnsignedExtensionsFileContent.Generate(), new System.Text.UTF8Encoding(false));
-            EnsureExtensionFileIncluded(intermediateRoot);
+            await WriteExtensionFilesAsync(
+                intermediateRoot, sourceRoot, layout, exclusionInfo, rewrittenSourceFiles, projectGraph);
         }
 
         var restoreTarget = ResolveRestoreTarget(intermediateRoot, layout);
@@ -198,7 +202,8 @@ internal static class ProjectUnsignedTypePreprocessor
             {
                 diagnostics.Add(new UnsignedTypeRewriterDiagnostic(
                     UnsignedTypeSeverity.Error,
-                    $"dotnet restore failed with exit code {restoreExitCode} for {restoreTarget}."));
+                    $"dotnet restore failed with exit code {restoreExitCode} for {restoreTarget}. " +
+                    "Package references may not be resolved, leading to incorrect code generation."));
             }
         }
 
@@ -296,15 +301,24 @@ internal static class ProjectUnsignedTypePreprocessor
         }
     }
 
-    private static IEnumerable<string> EnumerateSourceFiles(string sourceRoot, string destinationRoot)
+    private static IEnumerable<string> EnumerateSourceFiles(
+        string sourceRoot, string intermediateRoot, string outputRoot)
     {
+        var fullOutputRoot = Path.GetFullPath(outputRoot);
+        var fullSourceRoot = Path.GetFullPath(sourceRoot);
+        // 当输出目录位于源树内部（如测试 fixture 的 .test-output-sln）时，
+        // 跳过整个输出目录，避免把上次生成的中间产物当作输入再次处理。
+        var skipOutputRoot = IsSameOrDescendantPath(fullOutputRoot, fullSourceRoot)
+                             && !string.Equals(fullOutputRoot, fullSourceRoot, StringComparison.OrdinalIgnoreCase);
+
         var pending = new Stack<string>();
         pending.Push(sourceRoot);
 
         while (pending.Count > 0)
         {
             var currentDirectory = pending.Pop();
-            if (IsSameOrDescendantPath(currentDirectory, destinationRoot))
+            if (IsSameOrDescendantPath(currentDirectory, intermediateRoot)
+                || (skipOutputRoot && IsSameOrDescendantPath(currentDirectory, fullOutputRoot)))
             {
                 continue;
             }
@@ -321,7 +335,8 @@ internal static class ProjectUnsignedTypePreprocessor
                     continue;
                 }
 
-                if (IsSameOrDescendantPath(subDirectory, destinationRoot))
+                if (IsSameOrDescendantPath(subDirectory, intermediateRoot)
+                    || (skipOutputRoot && IsSameOrDescendantPath(subDirectory, fullOutputRoot)))
                 {
                     continue;
                 }
@@ -627,7 +642,8 @@ internal static class ProjectUnsignedTypePreprocessor
 
     private static bool IsSameOrDescendantPath(string path, string candidateAncestor)
     {
-        var fullPath = Path.GetFullPath(path);
+        var fullPath = Path.GetFullPath(path).TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var fullCandidate = Path.GetFullPath(candidateAncestor).TrimEnd(
             Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
@@ -640,35 +656,132 @@ internal static class ProjectUnsignedTypePreprocessor
                || fullPath.StartsWith(fullCandidate + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void EnsureExtensionFileIncluded(string intermediateRoot)
+    /// <summary>
+    /// 扩展方法辅助文件只需在至少一个文件发生运算符/cast 重写时写入一次。
+    /// 写入每个“宿主”项目目录（SDK 风格 .csproj 默认 glob 自动包含）；若项目已
+    /// 通过 ProjectReference 传递引用到另一个已承载该文件的项目，则不再写入本地
+    /// 副本，避免两个同名 UnsignedExtensions 类型造成 CS0121 二义性。中间根目录
+    /// 始终保留一份（单项目目录模式下根目录即项目目录）。
+    /// </summary>
+    private static async Task WriteExtensionFilesAsync(
+        string intermediateRoot,
+        string sourceRoot,
+        UnsignedTypeSourceLayout layout,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
+        IReadOnlyList<string> rewrittenFiles,
+        ProjectGraph? projectGraph)
     {
-        var extensionPath = Path.Combine(intermediateRoot, UnsignedExtensionsFileContent.FileName);
-        if (!File.Exists(extensionPath))
+        var content = UnsignedExtensionsFileContent.Generate();
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            return;
+            Path.Combine(intermediateRoot, UnsignedExtensionsFileContent.FileName),
+        };
+
+        var hostProjectDirectories = ComputeExtensionHostProjectDirectories(
+            layout, exclusionInfo, rewrittenFiles, projectGraph);
+        foreach (var projectDirectory in hostProjectDirectories)
+        {
+            paths.Add(Path.Combine(
+                intermediateRoot,
+                Path.GetRelativePath(sourceRoot, projectDirectory),
+                UnsignedExtensionsFileContent.FileName));
         }
 
-        foreach (var projectFile in Directory.EnumerateFiles(intermediateRoot, "*.csproj", SearchOption.AllDirectories))
+        foreach (var path in paths)
         {
-            var content = File.ReadAllText(projectFile);
-            if (content.Contains(UnsignedExtensionsFileContent.FileName, StringComparison.OrdinalIgnoreCase))
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllTextAsync(path, content, new System.Text.UTF8Encoding(false));
+        }
+    }
+
+    /// <summary>
+    /// 计算哪些项目目录需要本地写入扩展方法文件：仅当该项目自身发生了表达式重写，
+    /// 且其传递项目引用中不存在另一个已承载该文件的项目时才写入。
+    /// </summary>
+    private static IReadOnlySet<string> ComputeExtensionHostProjectDirectories(
+        UnsignedTypeSourceLayout layout,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
+        IReadOnlyList<string> rewrittenFiles,
+        ProjectGraph? projectGraph)
+    {
+        var hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (projectGraph == null || rewrittenFiles.Count == 0)
+        {
+            return hosts;
+        }
+
+        var rewrittenProjectDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var projectFile in layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
             {
                 continue;
             }
 
-            var marker = "</Project>";
-            var insertAt = content.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
-            if (insertAt < 0)
+            var projectDirectory = Path.GetDirectoryName(projectFile)!;
+            if (rewrittenFiles.Any(file => IsSameOrDescendantPath(file, projectDirectory)))
+            {
+                rewrittenProjectDirectories.Add(projectDirectory);
+            }
+        }
+
+        var projectByPath = projectGraph.ProjectsInTopologicalOrder
+            .ToDictionary(project => project.ProjectFilePath, project => project, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var project in projectGraph.ProjectsInTopologicalOrder)
+        {
+            var projectDirectory = Path.GetDirectoryName(project.ProjectFilePath)!;
+            if (!rewrittenProjectDirectories.Contains(projectDirectory))
             {
                 continue;
             }
 
-            var projectDir = Path.GetDirectoryName(projectFile)!;
-            var relative = Path.GetRelativePath(projectDir, extensionPath);
-            var itemGroup = $"  <ItemGroup>\r\n    <Compile Include=\"{relative}\" />\r\n  </ItemGroup>\r\n";
-            content = content.Insert(insertAt, itemGroup);
-            File.WriteAllText(projectFile, content, new System.Text.UTF8Encoding(false));
+            if (ReferencesHostProject(project, projectByPath, hosts))
+            {
+                continue;
+            }
+
+            hosts.Add(projectDirectory);
         }
+
+        return hosts;
+    }
+
+    private static bool ReferencesHostProject(
+        DiscoveredProject project,
+        IReadOnlyDictionary<string, DiscoveredProject> projectByPath,
+        IReadOnlySet<string> hostProjectDirectories)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Stack<string>(project.ProjectReferences);
+
+        while (pending.Count > 0)
+        {
+            var referencePath = pending.Pop();
+            if (!visited.Add(referencePath))
+            {
+                continue;
+            }
+
+            if (!projectByPath.TryGetValue(referencePath, out var referencedProject))
+            {
+                continue;
+            }
+
+            var referencedDirectory = Path.GetDirectoryName(referencedProject.ProjectFilePath)!;
+            if (hostProjectDirectories.Contains(referencedDirectory))
+            {
+                return true;
+            }
+
+            foreach (var nextReference in referencedProject.ProjectReferences)
+            {
+                pending.Push(nextReference);
+            }
+        }
+
+        return false;
     }
 
     private sealed record UnsignedTypeSourceLayout(
