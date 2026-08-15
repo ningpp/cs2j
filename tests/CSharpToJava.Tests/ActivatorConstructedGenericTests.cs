@@ -100,6 +100,71 @@ class Sample
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CreateInstanceWithExistingArgs_AppendsConstructedGenericTypeArgument()
+    {
+        var result = Convert(@"
+using System;
+using System.Reflection;
+
+class EnumConverter<T>
+{
+    public EnumConverter(int options, object serializerOptions, Type tClass) { }
+}
+
+class Sample
+{
+    object M(Type type, object options)
+    {
+        return Activator.CreateInstance(
+            typeof(EnumConverter<>).MakeGenericType(type),
+            BindingFlags.Instance | BindingFlags.Public,
+            null,
+            new object[] { 1, options },
+            null);
+    }
+}
+");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("Activator.createInstance(EnumConverter.class, BindingFlags.Instance | BindingFlags.Public, null, new Object[] { 1, options , type}, null)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CreateInstanceWithEmptyArgs_AppendsConstructedGenericTypeArgument()
+    {
+        var result = Convert(@"
+using System;
+using System.Reflection;
+
+class GenericConverter<T>
+{
+    public GenericConverter(Type tClass) { }
+}
+
+class Sample
+{
+    object M(Type type)
+    {
+        return Activator.CreateInstance(
+            typeof(GenericConverter<>).MakeGenericType(type),
+            BindingFlags.Instance | BindingFlags.Public,
+            null,
+            new object[] { },
+            null);
+    }
+}
+");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("new Object[] { type }", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Object[] { , type }", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

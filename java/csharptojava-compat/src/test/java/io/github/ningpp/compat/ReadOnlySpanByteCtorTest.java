@@ -3,6 +3,7 @@ package io.github.ningpp.compat;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * ReadOnlySpan must accept a primitive byte[] backing (C# byte[] implicitly
@@ -28,5 +29,19 @@ public class ReadOnlySpanByteCtorTest {
         assertEquals(3, lookup.length());
         assertEquals(Integer.valueOf(2), lookup.get(0));
         assertEquals(Integer.valueOf(4), lookup.get(2));
+    }
+
+    @Test
+    public void sliceOverByteArray_returnsViewNotCopy() {
+        byte[] data = { 10, 20, 30, 40, 50 };
+        ReadOnlySpan<Integer> span = new ReadOnlySpan<>(data, 1, 3);
+        ReadOnlySpan<Integer> sliced = span.slice(1);
+        assertEquals(2, sliced.length());
+        assertEquals(Integer.valueOf(30), sliced.get(0));
+        assertEquals(Integer.valueOf(40), sliced.get(1));
+        assertTrue(sliced.getArray() instanceof byte[],
+            "slicing a byte-backed span must stay a view over the original byte[]");
+        data[2] = 99;
+        assertEquals(Integer.valueOf(99), sliced.get(0));
     }
 }

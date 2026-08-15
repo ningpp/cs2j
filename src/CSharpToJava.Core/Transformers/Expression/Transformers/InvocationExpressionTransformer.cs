@@ -3418,8 +3418,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     memberAccess.Expression, context, "Activator", "System.Activator"))))
         {
             var argsExpression = node.ArgumentList.Arguments[3].Expression;
-            if (argsExpression.IsKind(SyntaxKind.NullLiteralExpression)
-                && TryCollectMakeGenericTypeArguments(
+            if (TryCollectMakeGenericTypeArguments(
                     node.ArgumentList.Arguments[0].Expression,
                     context,
                     out var genericScalarArgs,
@@ -3428,16 +3427,36 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var bindingAttrArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                 var binderArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+                var cultureArg = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
                 context.AddImport("io.github.ningpp.compat.Activator");
-                if (genericScalarArgs.Count > 0)
+
+                var genericArgTexts = genericScalarArgs.Count > 0
+                    ? genericScalarArgs.Select(a => facade.Transform(a, context))
+                    : null;
+                var genericArrayText = genericScalarArgs.Count == 0 && genericArrayArg != null
+                    ? facade.Transform(genericArrayArg, context)
+                    : null;
+
+                if (argsExpression.IsKind(SyntaxKind.NullLiteralExpression))
                 {
-                    var genericArgTexts = genericScalarArgs.Select(a => facade.Transform(a, context));
-                    return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericArgTexts)})";
+                    if (genericArgTexts != null)
+                    {
+                        return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericArgTexts)})";
+                    }
+                    if (genericArrayText != null)
+                    {
+                        return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {genericArrayText})";
+                    }
                 }
-                if (genericArrayArg != null)
+
+                if (genericArgTexts != null)
                 {
-                    var genericArrayText = facade.Transform(genericArrayArg, context);
-                    return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {genericArrayText})";
+                    var baseArgs = facade.Transform(argsExpression, context);
+                    var argsOutput = AppendGenericArgsToObjectArray(baseArgs, string.Join(", ", genericArgTexts));
+                    if (argsOutput != null)
+                    {
+                        return $"Activator.createInstance({typeArg}, {bindingAttrArg}, {binderArg}, {argsOutput}, {cultureArg})";
+                    }
                 }
             }
         }
@@ -3515,6 +3534,19 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         {
             var baseTypeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             return $"{baseTypeArg}.isAssignableFrom({receiver})";
+        }
+
+        // System.Type.IsAssignableFrom(Type) → TypeHelper.isAssignableFrom(base, type)
+        // Java arrays do not implement CSharpGenericIterable, but C# arrays implement
+        // IEnumerable, so the compat helper treats arrays as assignable to it.
+        if (originalMethodName == "IsAssignableFrom"
+            && node.ArgumentList.Arguments.Count == 1
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Type"
+                || IsReceiverOfType(memberAccess.Expression, "System.Type", context)))
+        {
+            var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            return $"TypeHelper.isAssignableFrom({receiver}, {typeArg})";
         }
 
         // System.Type.IsInstanceOfType(object) → type.isInstance(object)
@@ -11579,6 +11611,29 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// example Type[] typeArguments) is returned separately so the compat helper
     /// can receive it as the varargs array.
     /// </summary>
+    private static string? AppendGenericArgsToObjectArray(string argsExpr, string genericArgs)
+    {
+        if (argsExpr == "null" || argsExpr == "(Object[]) null")
+        {
+            return $"new Object[] {{ {genericArgs} }}";
+        }
+        int lastBrace = argsExpr.LastIndexOf('}');
+        if (argsExpr.Contains("new Object[", StringComparison.Ordinal) && lastBrace >= 0)
+        {
+            int openBrace = argsExpr.IndexOf('{');
+            if (openBrace >= 0)
+            {
+                var inner = argsExpr.Substring(openBrace + 1, lastBrace - openBrace - 1);
+                if (string.IsNullOrWhiteSpace(inner))
+                {
+                    return $"new Object[] {{ {genericArgs} }}";
+                }
+            }
+            return argsExpr.Insert(lastBrace, ", " + genericArgs);
+        }
+        return null;
+    }
+
     private static bool TryCollectMakeGenericTypeArguments(
         ExpressionSyntax typeExpression,
         ConversionContext context,

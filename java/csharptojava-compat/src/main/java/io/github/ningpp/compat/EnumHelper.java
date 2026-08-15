@@ -43,6 +43,9 @@ public class EnumHelper {
 
     @SuppressWarnings("unchecked")
     public static CSharpArray getValues(Class<?> enumType) {
+        // C# Enum.GetValues returns an enum-typed array. Converted foreach loops
+        // cast the returned CSharpArray to Iterable<T>, so elements must be the
+        // enum constants themselves (callers read the numeric value via getValue()).
         return CSharpArray.of(enumType.getEnumConstants());
     }
 

@@ -212,7 +212,10 @@ public final class ReadOnlySpan<T> {
             return (ReadOnlySpan<T>) (ReadOnlySpan<?>) fromString(stringBacking, offset + start, len);
         }
         if (array instanceof byte[] bytes) {
-            return new ReadOnlySpan<>((T[]) toIntegerArray(bytes, offset + start, len));
+            // Keep the slice as a view over the original byte[] (C# Slice is O(1)).
+            // Materializing an Integer[] here makes repeated slicing of a large
+            // byte span quadratic (e.g. Utf8JsonReader.consumeComment).
+            return new ReadOnlySpan<>(bytes, offset + start, len);
         }
         return new ReadOnlySpan<>((T[]) array, offset + start, len);
     }

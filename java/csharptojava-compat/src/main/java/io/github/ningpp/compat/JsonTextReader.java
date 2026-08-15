@@ -24,15 +24,16 @@ public class JsonTextReader implements AutoCloseable {
         if (pushedBack) {
             return current;
         }
-        current = reader.peek();
-        pushedBack = current >= 0;
-        return current;
+        // TextReader.peek() is non-consuming; do not mark it as pushed back.
+        return reader.peek();
     }
 
     private int nextChar() {
-        int c = peekChar();
-        pushedBack = false;
-        return c;
+        if (pushedBack) {
+            pushedBack = false;
+            return current;
+        }
+        return reader.read();
     }
 
     private void skipWhitespace() {

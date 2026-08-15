@@ -125,7 +125,7 @@ public final class Activator {
                         }
                         continue;
                     }
-                    if (!params[i].isAssignableFrom(arg.getClass())) {
+                    if (!isCompatible(params[i], arg)) {
                         matches = false;
                         break;
                     }
@@ -135,7 +135,7 @@ public final class Activator {
                 }
                 boolean isExact = true;
                 for (int i = 0; i < params.length; i++) {
-                    if (args[i] != null && params[i] != args[i].getClass()) {
+                    if (args[i] != null && !isExactParamType(params[i], args[i])) {
                         isExact = false;
                         break;
                     }
@@ -196,5 +196,31 @@ public final class Activator {
             }
         }
         return null;
+    }
+
+    private static boolean isCompatible(Class<?> paramType, Object arg) {
+        if (paramType.isPrimitive()) {
+            return boxedType(paramType).isInstance(arg);
+        }
+        return paramType.isAssignableFrom(arg.getClass());
+    }
+
+    private static boolean isExactParamType(Class<?> paramType, Object arg) {
+        if (paramType.isPrimitive()) {
+            return boxedType(paramType) == arg.getClass();
+        }
+        return paramType == arg.getClass();
+    }
+
+    private static Class<?> boxedType(Class<?> primitive) {
+        if (primitive == int.class) return Integer.class;
+        if (primitive == long.class) return Long.class;
+        if (primitive == short.class) return Short.class;
+        if (primitive == byte.class) return Byte.class;
+        if (primitive == boolean.class) return Boolean.class;
+        if (primitive == char.class) return Character.class;
+        if (primitive == float.class) return Float.class;
+        if (primitive == double.class) return Double.class;
+        return primitive;
     }
 }

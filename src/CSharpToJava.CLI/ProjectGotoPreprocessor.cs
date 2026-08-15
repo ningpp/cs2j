@@ -381,7 +381,7 @@ internal static class ProjectGotoPreprocessor
             var startInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"restore \"{targetPath}\"",
+                Arguments = $"restore \"{targetPath}\" --ignore-failed-sources",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

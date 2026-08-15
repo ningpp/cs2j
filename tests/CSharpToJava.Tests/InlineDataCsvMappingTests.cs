@@ -200,6 +200,35 @@ class Test {
         Assert.DoesNotContain("(MyFlags)0x80", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void InlineData_FloatingSpecialValues_ConvertedToJUnitCsvLiterals()
+    {
+        var result = Convert(@"
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    [DataTestMethod]
+    [InlineData(""-1"", double.NegativeInfinity)]
+    [InlineData(""1"", double.PositiveInfinity)]
+    [InlineData(""nan"", double.NaN)]
+    public void M(string s, double d) {}
+
+    [DataTestMethod]
+    [InlineData(""-1"", float.NegativeInfinity)]
+    public void N(string s, float f) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // JUnit's CSV-to-double/float conversion accepts "Infinity", "-Infinity"
+        // and "NaN", but not the C# member-access expression text.
+        Assert.Contains("-Infinity", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Infinity", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("NaN", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("double.NegativeInfinity", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("float.NegativeInfinity", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

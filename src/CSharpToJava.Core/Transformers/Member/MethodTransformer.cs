@@ -1061,6 +1061,20 @@ public class MethodTransformer : IMemberTransformer
                         var resolvedEnum = TryResolveEnumValue(expr, context);
                         if (resolvedEnum != null)
                             return resolvedEnum;
+                        // float/double special values cannot round-trip through CSV
+                        // as C# member-access text. JUnit's String→double/float
+                        // conversion accepts "Infinity", "-Infinity" and "NaN".
+                        if (expr is MemberAccessExpressionSyntax floatMember
+                            && floatMember.Name.Identifier.Text is "NegativeInfinity" or "PositiveInfinity" or "NaN"
+                            && floatMember.Expression.ToString() is "double" or "float")
+                        {
+                            return floatMember.Name.Identifier.Text switch
+                            {
+                                "NegativeInfinity" => "-Infinity",
+                                "PositiveInfinity" => "Infinity",
+                                _ => "NaN",
+                            };
+                        }
                         // Handle other expressions that might represent null (e.g., cast expressions)
                         var exprStr = expr.ToString();
                         if (exprStr == "null")
@@ -1149,7 +1163,25 @@ public class MethodTransformer : IMemberTransformer
                     // Methods use camelCase
                     javaMethodName = char.ToLowerInvariant(memberName[0]) + memberName.Substring(1);
                 }
-                javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{javaMethodName}\")"));
+
+                string methodSourceRef = javaMethodName;
+                // MemberData(nameof(SomeOtherType.Member), MemberType = typeof(SomeOtherType)):
+                // JUnit's @MethodSource requires "fully.qualified.ClassName#methodName" when
+                // the data method lives in a different class than the test.
+                var memberTypeArg = firstAttr.ArgumentList.Arguments
+                    .FirstOrDefault(a => a.NameColon?.Name.Identifier.Text == "MemberType");
+                if (memberTypeArg?.Expression is TypeOfExpressionSyntax memberTypeOf)
+                {
+                    var dataTypeSymbol = context.GetTypeInfo(memberTypeOf.Type).Type;
+                    if (dataTypeSymbol is INamedTypeSymbol dataType
+                        && !string.IsNullOrEmpty(dataType.Name)
+                        && dataType.ContainingNamespace != null)
+                    {
+                        var package = context.NamespaceToPackage(dataType.ContainingNamespace.ToDisplayString());
+                        methodSourceRef = $"{package}.{dataType.Name}#{javaMethodName}";
+                    }
+                }
+                javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{methodSourceRef}\")"));
             }
         }
 

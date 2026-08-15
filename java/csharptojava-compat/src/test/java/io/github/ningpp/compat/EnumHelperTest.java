@@ -200,6 +200,16 @@ class EnumHelperTest {
     }
 
     @Test
+    void getValues_csharpArrayReturnsEnumConstants() {
+        // C# Enum.GetValues returns an enum-typed array; converted foreach loops
+        // iterate EnumHelper.getValues(...) with the enum element type.
+        CSharpArray values = EnumHelper.getValues(Color.class);
+        assertEquals(3, values.getLength());
+        assertSame(Color.Red, values.getValue(0));
+        assertSame(Color.Blue, values.getValue(2));
+    }
+
+    @Test
     void getValues_statusEnum() {
         Object[] values = EnumHelper.getValuesArray(Status.class);
         assertArrayEquals(new Object[]{Status.Open, Status.Closed, Status.Pending}, values);

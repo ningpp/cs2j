@@ -22,6 +22,19 @@ public final class TypeHelper {
         if (type == null) {
             return TypeCode.Empty;
         }
+        if (type.isEnum()) {
+            // Converted C# enums are Java enums with an int/long "value" field;
+            // Type.GetTypeCode(enumType) reports the underlying numeric type.
+            try {
+                java.lang.reflect.Field valueField = type.getDeclaredField("value");
+                if (valueField.getType() == long.class) {
+                    return TypeCode.Int64;
+                }
+            } catch (NoSuchFieldException ignored) {
+                // Default to Int32 below.
+            }
+            return TypeCode.Int32;
+        }
         if (type == boolean.class || type == Boolean.class) {
             return TypeCode.Boolean;
         }
@@ -189,6 +202,19 @@ public final class TypeHelper {
 
     public static boolean getIsInterface(Class<?> type) {
         return type != null && type.isInterface();
+    }
+
+    /**
+     * Mirrors C# Type.IsAssignableFrom(Type). Java arrays are not assignable to
+     * the CSharpGenericIterable interface, but in C# every array implements
+     * IEnumerable, so the compat mapping treats arrays as assignable to
+     * CSharpGenericIterable.
+     */
+    public static boolean isAssignableFrom(Class<?> baseType, Class<?> type) {
+        if (baseType == CSharpGenericIterable.class && type != null && type.isArray()) {
+            return true;
+        }
+        return baseType != null && baseType.isAssignableFrom(type);
     }
 
     public static boolean getIsSealed(Class<?> type) {

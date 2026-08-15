@@ -658,7 +658,7 @@ internal static class ProjectReadOnlyStructPreprocessor
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"restore \"{targetPath}\"",
+                Arguments = $"restore \"{targetPath}\" --ignore-failed-sources",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
