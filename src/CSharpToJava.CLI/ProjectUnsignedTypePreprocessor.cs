@@ -807,7 +807,7 @@ internal static class ProjectUnsignedTypePreprocessor
             EnsureExtensionCompileItem(
                 destinationProjectFile,
                 UnsignedMathFileContent.FileName,
-                projectDirectory,
+                Path.GetDirectoryName(destinationProjectFile)!,
                 sharedFilePath);
         }
     }

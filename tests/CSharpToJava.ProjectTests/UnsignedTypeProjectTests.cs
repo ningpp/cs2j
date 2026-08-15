@@ -157,6 +157,7 @@ public class UnsignedTypeProjectTests
             var csprojContent = await File.ReadAllTextAsync(csprojPath);
             Assert.Contains("_Cs2jUnsignedMath.cs", csprojContent);
             Assert.Contains("Link=\"_Cs2jUnsignedMath.cs\"", csprojContent);
+            Assert.DoesNotContain(".test-output-explicit", csprojContent);
         }
         finally
         {
@@ -193,6 +194,7 @@ public class UnsignedTypeProjectTests
             var testsContent = await File.ReadAllTextAsync(testsCsproj);
             Assert.Contains("_Cs2jUnsignedMath.cs", srcContent);
             Assert.Contains("_Cs2jUnsignedMath.cs", testsContent);
+            Assert.DoesNotContain(".test-output-cross", testsContent);
             Assert.True(File.Exists(Path.Combine(result.IntermediateRoot, "_Cs2jUnsignedMath.cs")),
                 "Shared helper file not generated at intermediate root");
             Assert.False(File.Exists(Path.Combine(result.IntermediateRoot, "Tests", "_Cs2jUnsignedMath.cs")),
