@@ -704,6 +704,19 @@
 
 ---
 
+## Agent4 前置根因（二）— 数组→IEnumerable cast 生成 `(CSharpGenericIterable<?>)` 中间转换，Java 数组运行时 ClassCastException
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\Serialization\Converters\ArrayConverter.java:36`（`var array = (TElement[]) (Object) ((CSharpGenericIterable<?>)(value));`）
+- **行号**: 36
+- **错误信息**: `ClassCastException: class [I cannot be cast to class io.github.ningpp.compat.CSharpGenericIterable`（CollectionTests/ArrayTests 写数组元素约 30+ 处）
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Collection\ArrayConverter.cs`（`TElement[] array = (TElement[])(IEnumerable)value;`，`where TCollection : IEnumerable`）
+- **根因分类**: Transformer（TypeOperationTransformer 数组目标 cast 未识别“受 IEnumerable 约束的类型参数”源）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`
+- **分析**: C# 里 `TCollection : IEnumerable` 的数组 cast 是引用转换，运行时对象就是数组；转换器把内层 `(IEnumerable)value` 具体化成 `(CSharpGenericIterable<?>)value`，而 Java 数组不实现该接口，ClassCastException。修复：数组目标 cast 时识别类型参数受 `IEnumerable` 约束，直接生成 `(TElement[]) (Object) (operand)` 身份跳转，不再插入 iterable 中间转换。
+- **验证**: Red→Green `TypeParameterEnumerableToArrayCastTests`；修正 `EnumerableInterfaceToArrayCastTests` 断言（旧断言锁定的正是会运行期失败的中间转换）；全量 `dotnet test` 2813 通过。
+- **状态**: ✅ Fixed
+
+---
+
 ## Agent8 — InlineData/属性常量表达式被当成原始 C# 文本（约 400 个 JUnit 参数转换错误）
 - **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\...\BitStackTests.java` 等
 - **错误信息**: `Failed to convert String "int.MaxValue / 32 + 1" to type int`；`"Threshold - 3"`；`"System.Byte.MaxValue + 4"`；`"ClassWithExtensionPropertyNoGenericParameters.class"` to Class；`No built-in converter for source type SampleEnumByte ... target type long`

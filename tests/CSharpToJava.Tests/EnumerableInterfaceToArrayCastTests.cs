@@ -29,8 +29,11 @@ abstract class Holder<TCollection, TElement> where TCollection : System.Collecti
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("(TElement[]) (Object) ((CSharpGenericIterable<?>)(value))", code);
-        Assert.DoesNotContain("(TElement[])((CSharpGenericIterable<?>)(value))", code);
+        // Type-parameter source constrained to IEnumerable: the inner cast must not
+        // materialize (CSharpGenericIterable<?>) — the runtime object is a Java array,
+        // which cannot be cast to that interface. The cast stays an identity hop.
+        Assert.Contains("(TElement[]) (Object) (value)", code);
+        Assert.DoesNotContain("(CSharpGenericIterable<?>) (value)", code);
     }
 
     [Fact]

@@ -585,22 +585,42 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && targetSymbol is IArrayTypeSymbol targetArrayType
             && targetArrayType.ElementType.SpecialType == SpecialType.None)
         {
-            var sourceType = context.GetTypeInfo(node.Expression).Type as INamedTypeSymbol;
-            if (sourceType != null && sourceType.SpecialType != SpecialType.System_Array)
+            var sourceTypeInfo = context.GetTypeInfo(node.Expression).Type;
+            var sourceType = sourceTypeInfo as INamedTypeSymbol;
+            var sourceTypeParam = sourceTypeInfo as ITypeParameterSymbol;
+            if ((sourceType != null || sourceTypeParam != null)
+                && sourceType?.SpecialType != SpecialType.System_Array)
             {
-                // Source is an IEnumerable interface itself (e.g. (TElement[])(IEnumerable)x):
-                // the value's runtime type is the array, so the C# cast is a reference cast —
-                // hop through Object instead of converting (CSharpGenericIterable<?> cannot be
-                // cast to an array type in Java).
-                if (sourceType.OriginalDefinition?.ToDisplayString() is
+                // Source is an IEnumerable interface itself (e.g. (TElement[])(IEnumerable)x),
+                // or a type parameter constrained to IEnumerable (e.g. ArrayConverter's
+                // TCollection where TCollection : IEnumerable): the value's runtime type is
+                // the array, so the C# cast is a reference cast — hop through Object instead
+                // of converting (CSharpGenericIterable<?> cannot be cast to an array type in
+                // Java, and Java arrays cannot be cast to CSharpGenericIterable at all).
+                bool sourceIsEnumerableLike = sourceType?.OriginalDefinition?.ToDisplayString() is
                     "System.Collections.IEnumerable" or
-                    "System.Collections.Generic.IEnumerable<T>")
+                    "System.Collections.Generic.IEnumerable<T>";
+                sourceIsEnumerableLike |= IsTypeParameterConstrainedToEnumerable(sourceTypeParam);
+                if (sourceIsEnumerableLike)
                 {
                     // Type-parameter element: no runtime class literal is available for
                     // toArray(new T[0]), so keep the identity hop through Object — the C#
                     // cast is a reference cast and the runtime object is already the array.
                     if (targetArrayType.ElementType is ITypeParameterSymbol)
                     {
+                        // Type-parameter source (e.g. ArrayConverter's TCollection):
+                        // the inner cast (IEnumerable)operand must not be materialized as
+                        // (CSharpGenericIterable<?>)operand — when the runtime value is a
+                        // Java array that cast throws ClassCastException. Skip straight to
+                        // the operand (identity conversion through Object is sufficient).
+                        // A named IEnumerable source keeps its expression (it may be a
+                        // CSharpList wrapper, which needs the generic iterable hop).
+                        var operandType = GetOperandTypeOfEnumerableCast(node.Expression, context);
+                        if (sourceTypeParam != null || operandType is ITypeParameterSymbol)
+                        {
+                            var operand = GetOperandOfEnumerableCast(node.Expression, context);
+                            return $"({targetType}) (Object) ({operand})";
+                        }
                         return $"({targetType}) (Object) ({expression})";
                     }
 
@@ -880,6 +900,67 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         }
 
         return $"({targetType})({expression})";
+    }
+
+    private static bool IsTypeParameterConstrainedToEnumerable(ITypeParameterSymbol? typeParam)
+    {
+        if (typeParam == null)
+            return false;
+        if (typeParam.ConstraintTypes.Any(c => c.OriginalDefinition?.ToDisplayString() is
+                "System.Collections.IEnumerable" or
+                "System.Collections.Generic.IEnumerable<T>"))
+        {
+            return true;
+        }
+        return typeParam.ConstraintTypes.Any(c =>
+            c is INamedTypeSymbol named && named.AllInterfaces.Any(i =>
+                i.OriginalDefinition?.ToDisplayString() is
+                    "System.Collections.IEnumerable" or
+                    "System.Collections.Generic.IEnumerable<T>"));
+    }
+
+    /// <summary>
+    /// Extracts the operand of an IEnumerable/object hop cast so an array-target
+    /// cast can reach the runtime array without materializing
+    /// (CSharpGenericIterable&lt;?&gt;)(...).
+    /// </summary>
+    private static string GetOperandOfEnumerableCast(ExpressionSyntax expression, ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var current = expression;
+        while (current is CastExpressionSyntax innerCast)
+        {
+            var innerTarget = context.GetTypeInfo(innerCast.Type).Type;
+            if (innerTarget is INamedTypeSymbol innerNamed
+                && innerNamed.OriginalDefinition?.ToDisplayString() is
+                    "System.Collections.IEnumerable" or
+                    "System.Collections.Generic.IEnumerable<T>")
+            {
+                current = innerCast.Expression;
+                continue;
+            }
+            break;
+        }
+        return facade.Transform(current, context);
+    }
+
+    private static ITypeSymbol? GetOperandTypeOfEnumerableCast(ExpressionSyntax expression, ConversionContext context)
+    {
+        var current = expression;
+        while (current is CastExpressionSyntax innerCast)
+        {
+            var innerTarget = context.GetTypeInfo(innerCast.Type).Type;
+            if (innerTarget is INamedTypeSymbol innerNamed
+                && innerNamed.OriginalDefinition?.ToDisplayString() is
+                    "System.Collections.IEnumerable" or
+                    "System.Collections.Generic.IEnumerable<T>")
+            {
+                current = innerCast.Expression;
+                continue;
+            }
+            break;
+        }
+        return context.GetTypeInfo(current).Type;
     }
 
     private static bool IsDelegateCastableExpression(ExpressionSyntax expression, ConversionContext context)
