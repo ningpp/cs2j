@@ -133,6 +133,26 @@ class CSharpDateTimeOffsetTest {
     }
 
     @Test
+    void parse_RetainsSevenDigitFractionalSecondPrecision() {
+        // .NET DateTimeOffset.Parse keeps 100ns (7-digit) fraction precision.
+        CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("1997-07-16T19:20:30.4555555");
+        assertEquals(4555555L, dto.getDateTime().getTicks() % CSharpTimeSpan.TICKS_PER_SECOND);
+    }
+
+    @Test
+    void parse_RetainsSmallestTickFraction() {
+        CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("1997-07-16T19:20:30.0000001");
+        assertEquals(1L, dto.getDateTime().getTicks() % CSharpTimeSpan.TICKS_PER_SECOND);
+    }
+
+    @Test
+    void parse_RetainsFractionalPrecisionWithUtcOffset() {
+        CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("1997-07-16T19:20:30.4555555+01:00");
+        assertEquals(4555555L, dto.getDateTime().getTicks() % CSharpTimeSpan.TICKS_PER_SECOND);
+        assertEquals(CSharpTimeSpan.fromHours(1), dto.getOffset());
+    }
+
+    @Test
     void addTimeSpan() {
         CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, offset);

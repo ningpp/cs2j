@@ -58,6 +58,11 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
         this.kind = kind;
     }
 
+    /** Creates a C# DateTime from a Java LocalDateTime, preserving 100ns (7-digit) tick precision. */
+    public static CSharpDateTime fromLocalDateTime(LocalDateTime ldt, DateTimeKind kind) {
+        return new CSharpDateTime(ldtToTicks(ldt), kind);
+    }
+
     // --- Conversion helpers ---
 
     public LocalDateTime ticksToLdtPublic() {

@@ -231,8 +231,7 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
                 odt = OffsetDateTime.of(ldt, localOffset);
             }
 
-            CSharpDateTime dt = new CSharpDateTime(odt.getYear(), odt.getMonthValue(), odt.getDayOfMonth(),
-                odt.getHour(), odt.getMinute(), odt.getSecond(), odt.getNano() / 1_000_000, DateTimeKind.Unspecified);
+            CSharpDateTime dt = CSharpDateTime.fromLocalDateTime(odt.toLocalDateTime(), DateTimeKind.Unspecified);
             return new CSharpDateTimeOffset(dt, CSharpTimeSpan.fromSeconds(odt.getOffset().getTotalSeconds()));
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s, e);
