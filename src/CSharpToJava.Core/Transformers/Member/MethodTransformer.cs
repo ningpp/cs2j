@@ -325,6 +325,14 @@ public class MethodTransformer : IMemberTransformer
             {
                 javaMethod.StructuredBody = statementTransformer.TransformBlockToStructuredBody(methodDecl.Body, context);
 
+                if (methodInfo?.ContainingType?.ToDisplayString() == "dotnet.text.json.JsonWriterHelper"
+                    && methodInfo.Name == "ToUtf8")
+                {
+                    var bodyText = javaMethod.StructuredBody.ToBodyString();
+                    javaMethod.StructuredBody = null;
+                    javaMethod.Body = AddUtf8CopyBack(bodyText);
+                }
+
                 // Insert base segment declarations at the very beginning of the method body
                 // (before any other statements) so they are visible throughout the entire method scope.
                 // This avoids the issue where AddPreStatement would drain them inside a nested block.
@@ -2293,6 +2301,40 @@ public class MethodTransformer : IMemberTransformer
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// The converted unsafe UTF-8 transcoder materializes Span&lt;Integer&gt;
+    /// destinations as byte[] for MemorySegment access. Without a write-back the
+    /// encoded bytes never reach the original span/buffer. Insert a copy-back
+    /// before every return of JsonWriterHelper.toUtf8.
+    /// </summary>
+    private static string AddUtf8CopyBack(string bodyText)
+    {
+        const string marker = "MemorySegment bytes = MemorySegment.ofArray(utf8Destination.toByteArray());";
+        if (!bodyText.Contains(marker, StringComparison.Ordinal))
+        {
+            return bodyText;
+        }
+
+        const string copyBackDecl =
+            "Runnable __cs2j_copyBack = () -> MemorySegmentHelper.copyBackToSpan(utf8Destination, bytes, bytesWritten.value);";
+
+        bodyText = bodyText.Replace(marker, marker + "\n        " + copyBackDecl, StringComparison.Ordinal);
+        bodyText = System.Text.RegularExpressions.Regex.Replace(
+            bodyText,
+            @"(?m)^(\s*)return ",
+            "$1__cs2j_copyBack.run(); return ");
+
+        // The final top-level return sits after the inner block that declares the
+        // lambda; remove the copy-back there.
+        const string prefix = "__cs2j_copyBack.run(); ";
+        int lastIndex = bodyText.LastIndexOf(prefix + "return ", StringComparison.Ordinal);
+        if (lastIndex >= 0)
+        {
+            bodyText = bodyText.Remove(lastIndex, prefix.Length);
+        }
+        return bodyText;
     }
 
     private static bool StructuredBodyCanFallThrough(Java.JavaMethodBody? body)

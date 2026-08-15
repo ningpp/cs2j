@@ -103,4 +103,29 @@ public final class MemorySegmentHelper {
             segment.set(ValueLayout.JAVA_BYTE, offset + i, (byte) ((value >> shift) & 0xFF));
         }
     }
+
+    /**
+     * Copies bytes written into a temporary byte[] segment back into the original
+     * Integer-backed Span. Generated unsafe code materializes Span&lt;Integer&gt;
+     * destinations as byte[] for MemorySegment access; without this the writes are
+     * lost when the converter's ToUtf8 returns.
+     */
+    public static void copyBackToSpan(Span<Integer> destination, MemorySegment bytes) {
+        copyBackToSpan(destination, bytes, destination == null ? 0 : destination.getLength());
+    }
+
+    /**
+     * Copies only the bytes actually written back into the original Integer-backed
+     * Span. Copying the whole segment would overwrite unwritten positions with
+     * zero bytes.
+     */
+    public static void copyBackToSpan(Span<Integer> destination, MemorySegment bytes, int count) {
+        if (destination == null || bytes == null) {
+            return;
+        }
+        count = Math.min(Math.min(destination.getLength(), (int) bytes.byteSize()), count);
+        for (int i = 0; i < count; i++) {
+            destination.set(i, bytes.get(ValueLayout.JAVA_BYTE, i) & 0xFF);
+        }
+    }
 }
