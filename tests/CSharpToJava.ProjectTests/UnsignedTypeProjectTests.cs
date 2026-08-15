@@ -131,4 +131,76 @@ public class UnsignedTypeProjectTests
             }
         }
     }
+
+    [Fact]
+    public async Task ExplicitCompileLib_ExtensionFileAddedToProjectCompileItems()
+    {
+        var libDir = Path.Combine(FixtureDir, "SampleExplicitCompileLib");
+        Assert.True(Directory.Exists(libDir), $"Fixture not found: {libDir}");
+        var outputDir = Path.Combine(libDir, "..", ".test-output-explicit");
+
+        try
+        {
+            var result = await ProjectUnsignedTypePreprocessor.PreprocessAsync(
+                new ProjectUnsignedTypePreprocessRequest
+                {
+                    SourcePath = libDir,
+                    DestinationRoot = outputDir,
+                    Verbose = false,
+                });
+
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+
+            var csprojPath = Path.Combine(result.IntermediateRoot, "SampleExplicitCompileLib.csproj");
+            var csprojContent = await File.ReadAllTextAsync(csprojPath);
+            Assert.Contains("_Cs2jUnsignedExtensions.cs", csprojContent);
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CrossDirectoryCompile_ExtensionFileAddedToCompilingProjects()
+    {
+        var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleCrossCompile");
+        var slnPath = Path.Combine(fixtureDir, "SampleCrossCompile.sln");
+        Assert.True(File.Exists(slnPath), $"Fixture not found: {slnPath}");
+        var outputDir = Path.Combine(fixtureDir, ".test-output-cross");
+
+        try
+        {
+            var result = await ProjectUnsignedTypePreprocessor.PreprocessAsync(
+                new ProjectUnsignedTypePreprocessRequest
+                {
+                    SourcePath = slnPath,
+                    DestinationRoot = outputDir,
+                    Verbose = false,
+                });
+
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+
+            var srcCsproj = Path.Combine(result.IntermediateRoot, "Src", "SampleCrossCompile.csproj");
+            var testsCsproj = Path.Combine(result.IntermediateRoot, "Tests", "SampleCrossCompile.Tests.csproj");
+            var srcContent = await File.ReadAllTextAsync(srcCsproj);
+            var testsContent = await File.ReadAllTextAsync(testsCsproj);
+            Assert.Contains("_Cs2jUnsignedExtensions.cs", srcContent);
+            Assert.Contains("_Cs2jUnsignedExtensions.cs", testsContent);
+            Assert.True(File.Exists(Path.Combine(result.IntermediateRoot, "Tests", "_Cs2jUnsignedExtensions.cs")),
+                "Extension file not copied into the cross-directory compiling project");
+            Assert.True(File.Exists(Path.Combine(result.IntermediateRoot, "Src", "_Cs2jUnsignedExtensions.cs")),
+                "Extension file not copied into the referenced compiling project");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
 }

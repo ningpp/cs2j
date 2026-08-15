@@ -1,6 +1,7 @@
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using System.Xml.Linq;
 
 namespace CSharpToJava.CLI;
 
@@ -658,10 +659,12 @@ internal static class ProjectUnsignedTypePreprocessor
 
     /// <summary>
     /// 扩展方法辅助文件只需在至少一个文件发生运算符/cast 重写时写入一次。
-    /// 写入每个“宿主”项目目录（SDK 风格 .csproj 默认 glob 自动包含）；若项目已
-    /// 通过 ProjectReference 传递引用到另一个已承载该文件的项目，则不再写入本地
-    /// 副本，避免两个同名 UnsignedExtensions 类型造成 CS0121 二义性。中间根目录
-    /// 始终保留一份（单项目目录模式下根目录即项目目录）。
+    /// 写入每个实际编译了被重写源文件的项目目录。扩展类为 internal，每个程序集
+    /// 自包含一份，避免跨程序集解析（例如框架程序集名 System.Private.Uri 在运行时
+    /// 无法被本地版本遮蔽）以及两个同名 UnsignedExtensions 类型造成的 CS0121 二义性。
+    /// SDK 风格 .csproj 默认 glob 会自动包含项目目录中的 .cs；对关闭默认编译项的
+    /// 项目（EnableDefaultCompileItems=false 或非 SDK 风格），同时把扩展文件追加到
+    /// csproj 的 Compile Include。中间根目录始终保留一份。
     /// </summary>
     private static async Task WriteExtensionFilesAsync(
         string intermediateRoot,
@@ -677,7 +680,7 @@ internal static class ProjectUnsignedTypePreprocessor
             Path.Combine(intermediateRoot, UnsignedExtensionsFileContent.FileName),
         };
 
-        var hostProjectDirectories = ComputeExtensionHostProjectDirectories(
+        var hostProjectDirectories = ComputeAllExtensionHostProjectDirectories(
             layout, exclusionInfo, rewrittenFiles, projectGraph);
         foreach (var projectDirectory in hostProjectDirectories)
         {
@@ -692,25 +695,45 @@ internal static class ProjectUnsignedTypePreprocessor
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             await File.WriteAllTextAsync(path, content, new System.Text.UTF8Encoding(false));
         }
+
+        EnsureExtensionCompileItems(sourceRoot, intermediateRoot, layout, exclusionInfo, hostProjectDirectories);
     }
 
     /// <summary>
-    /// 计算哪些项目目录需要本地写入扩展方法文件：仅当该项目自身发生了表达式重写，
-    /// 且其传递项目引用中不存在另一个已承载该文件的项目时才写入。
+    /// 计算需要承载扩展方法文件的项目目录：项目实际编译了至少一个被重写的源文件
+    /// （目录内默认 glob，或 csproj 显式 Compile Include 解析到被重写文件）。
     /// </summary>
-    private static IReadOnlySet<string> ComputeExtensionHostProjectDirectories(
+    private static IReadOnlySet<string> ComputeAllExtensionHostProjectDirectories(
         UnsignedTypeSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlyList<string> rewrittenFiles,
         ProjectGraph? projectGraph)
     {
-        var hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (projectGraph == null || rewrittenFiles.Count == 0)
         {
-            return hosts;
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var rewrittenProjectDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        return ComputeProjectsCompilingRewrittenFiles(layout, exclusionInfo, rewrittenFiles);
+    }
+
+    /// <summary>
+    /// 收集实际会编译至少一个被重写源文件的项目目录：目录内直接包含被重写文件
+    /// （SDK 默认 glob 场景），或 csproj 的 Compile Include 解析到被重写文件。
+    /// </summary>
+    private static IReadOnlySet<string> ComputeProjectsCompilingRewrittenFiles(
+        UnsignedTypeSourceLayout layout,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
+        IReadOnlyList<string> rewrittenFiles)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (rewrittenFiles.Count == 0)
+        {
+            return result;
+        }
+
+        var rewrittenFileSet = new HashSet<string>(rewrittenFiles, StringComparer.OrdinalIgnoreCase);
+
         foreach (var projectFile in layout.ProjectFiles
                      .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
@@ -722,66 +745,150 @@ internal static class ProjectUnsignedTypePreprocessor
             var projectDirectory = Path.GetDirectoryName(projectFile)!;
             if (rewrittenFiles.Any(file => IsSameOrDescendantPath(file, projectDirectory)))
             {
-                rewrittenProjectDirectories.Add(projectDirectory);
+                result.Add(projectDirectory);
             }
         }
 
-        var projectByPath = projectGraph.ProjectsInTopologicalOrder
-            .ToDictionary(project => project.ProjectFilePath, project => project, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var project in projectGraph.ProjectsInTopologicalOrder)
+        foreach (var projectFile in layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
-            var projectDirectory = Path.GetDirectoryName(project.ProjectFilePath)!;
-            if (!rewrittenProjectDirectories.Contains(projectDirectory))
+            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
             {
                 continue;
             }
 
-            if (ReferencesHostProject(project, projectByPath, hosts))
+            var projectDirectory = Path.GetDirectoryName(projectFile)!;
+            if (result.Contains(projectDirectory))
             {
                 continue;
             }
 
-            hosts.Add(projectDirectory);
+            XDocument projectDocument;
+            try
+            {
+                projectDocument = XDocument.Load(projectFile, LoadOptions.None);
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            foreach (var compileElement in projectDocument.Descendants().Where(e => e.Name.LocalName == "Compile"))
+            {
+                var include = (string?)compileElement.Attribute("Include");
+                if (string.IsNullOrWhiteSpace(include))
+                {
+                    continue;
+                }
+
+                var resolvedPath = Path.GetFullPath(Path.Combine(projectDirectory, include!));
+                if (rewrittenFileSet.Contains(resolvedPath))
+                {
+                    result.Add(projectDirectory);
+                    break;
+                }
+            }
         }
 
-        return hosts;
+        return result;
     }
 
-    private static bool ReferencesHostProject(
-        DiscoveredProject project,
-        IReadOnlyDictionary<string, DiscoveredProject> projectByPath,
+    /// <summary>
+    /// 对关闭默认编译项的宿主项目，把扩展方法文件追加到 csproj 的 Compile Include，
+    /// 否则重写后的 using Cs2jUnsigned; 无法解析。
+    /// </summary>
+    private static void EnsureExtensionCompileItems(
+        string sourceRoot,
+        string intermediateRoot,
+        UnsignedTypeSourceLayout layout,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlySet<string> hostProjectDirectories)
     {
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var pending = new Stack<string>(project.ProjectReferences);
-
-        while (pending.Count > 0)
+        foreach (var projectFile in layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
-            var referencePath = pending.Pop();
-            if (!visited.Add(referencePath))
+            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
             {
                 continue;
             }
 
-            if (!projectByPath.TryGetValue(referencePath, out var referencedProject))
+            var projectDirectory = Path.GetDirectoryName(projectFile)!;
+            if (!hostProjectDirectories.Contains(projectDirectory))
             {
                 continue;
             }
 
-            var referencedDirectory = Path.GetDirectoryName(referencedProject.ProjectFilePath)!;
-            if (hostProjectDirectories.Contains(referencedDirectory))
+            var destinationProjectFile = Path.Combine(
+                intermediateRoot,
+                Path.GetRelativePath(sourceRoot, projectFile));
+            EnsureExtensionCompileItem(destinationProjectFile, UnsignedExtensionsFileContent.FileName);
+        }
+    }
+
+    private static void EnsureExtensionCompileItem(string projectFilePath, string fileName)
+    {
+        if (!File.Exists(projectFilePath))
+        {
+            return;
+        }
+
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(projectFilePath, LoadOptions.PreserveWhitespace);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        var root = document.Root;
+        if (root == null || !root.Name.LocalName.Equals("Project", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var isSdkProject = root.Attribute("Sdk") != null;
+        var enableDefaultCompileItems = GetPropertyValue(root, "EnableDefaultCompileItems");
+        if (isSdkProject
+            && !string.Equals(enableDefaultCompileItems?.Trim(), "false", StringComparison.OrdinalIgnoreCase))
+        {
+            // SDK 默认 glob 已包含项目目录中的 .cs 文件。
+            return;
+        }
+
+        var normalizedFileName = fileName.Replace('\\', '/');
+        foreach (var compileElement in root.Descendants().Where(e => e.Name.LocalName == "Compile"))
+        {
+            var include = (string?)compileElement.Attribute("Include");
+            if (string.IsNullOrWhiteSpace(include))
             {
-                return true;
+                continue;
             }
 
-            foreach (var nextReference in referencedProject.ProjectReferences)
+            var normalizedInclude = include!.Replace('\\', '/');
+            if (normalizedInclude.Equals(normalizedFileName, StringComparison.OrdinalIgnoreCase)
+                || normalizedInclude.EndsWith("/" + normalizedFileName, StringComparison.OrdinalIgnoreCase))
             {
-                pending.Push(nextReference);
+                return;
             }
         }
 
-        return false;
+        var compileItem = new XElement("Compile", new XAttribute("Include", fileName));
+        root.Add(
+            new XText(Environment.NewLine + "  "),
+            new XElement("ItemGroup", compileItem),
+            new XText(Environment.NewLine));
+
+        document.Save(projectFilePath, SaveOptions.DisableFormatting);
+    }
+
+    private static string? GetPropertyValue(XElement root, string propertyName)
+    {
+        return root.Descendants()
+            .Where(element => element.Name.LocalName == propertyName)
+            .Select(element => (string?)element.Value)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     private sealed record UnsignedTypeSourceLayout(

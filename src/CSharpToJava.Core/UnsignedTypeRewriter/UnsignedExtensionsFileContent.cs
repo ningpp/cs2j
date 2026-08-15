@@ -7,7 +7,7 @@ public static class UnsignedExtensionsFileContent
     public static string Generate() => """
         namespace Cs2jUnsigned;
 
-        public static class UnsignedExtensions
+        internal static class UnsignedExtensions
         {
             // System.Byte
             public static byte Add(this byte a, byte b) => unchecked((byte)(a + b));

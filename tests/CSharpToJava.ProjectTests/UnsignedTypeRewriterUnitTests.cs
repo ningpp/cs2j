@@ -12,7 +12,7 @@ public class UnsignedTypeRewriterUnitTests
         var compilation = CSharpCompilation.Create("unsigned-test",
             new[] { tree },
             new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         return (tree, compilation.GetSemanticModel(tree));
     }
 
@@ -24,6 +24,14 @@ public class UnsignedTypeRewriterUnitTests
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
         Assert.False(result.Changed);
         Assert.Equal(src, result.OutputCode);
+    }
+
+    [Fact]
+    public void ExtensionFile_TypeIsInternal()
+    {
+        var content = UnsignedExtensionsFileContent.Generate();
+        Assert.Contains("internal static class UnsignedExtensions", content);
+        Assert.DoesNotContain("public static class UnsignedExtensions", content);
     }
 
     [Fact]
@@ -105,6 +113,26 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
+    public void Cast_NegativeLiteral_OperandParenthesized()
+    {
+        var src = "public class C { private const byte Invalid = unchecked((byte)-1); }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("unchecked((System.Byte)(-1))", result.OutputCode);
+        Assert.DoesNotContain("(System.Byte)-1", result.OutputCode);
+    }
+
+    [Fact]
+    public void Cast_PointerDereference_OperandParenthesized()
+    {
+        var src = "public unsafe class C { public void M(byte* pDst, char* pS) { while ((*pDst++ = (byte)*pS++) != 0) ; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("(System.Byte)(*pS++)", result.OutputCode);
+        Assert.DoesNotContain("(System.Byte)*pS++", result.OutputCode);
+    }
+
+    [Fact]
     public void OneDimensionalArray_ElementTypeReplaced()
     {
         var src = "public class C { public uint[] arr = new uint[10]; }";
@@ -158,6 +186,29 @@ public class UnsignedTypeRewriterUnitTests
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
         Assert.Contains("const System.UInt32 MaxVal", result.OutputCode);
+    }
+
+    [Fact]
+    public void ConstFieldInitializer_BinaryOperatorsNotRewritten()
+    {
+        var src = "public class C { private const ulong Mask = (0x07ul | 0x06ul << 8 | 0x05ul << 16 | 0x04ul << 24 | 0x03ul << 32 | 0x02ul << 40 | 0x01ul << 48) + 1; }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("const System.UInt64 Mask", result.OutputCode);
+        Assert.DoesNotContain(".Or(", result.OutputCode);
+        Assert.DoesNotContain(".LeftShift(", result.OutputCode);
+        Assert.DoesNotContain(".Add(1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void ConstFieldInitializer_CastNotRewritten()
+    {
+        var src = "public class C { private const uint U = 0xFFFFFFFFu; private const int I = (int)U; }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("const System.UInt32 U", result.OutputCode);
+        Assert.DoesNotContain("U.ToInt32()", result.OutputCode);
+        Assert.Contains("(int)U", result.OutputCode);
     }
 
     [Fact]

@@ -101,6 +101,51 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// True when the expression must be a compile-time constant (const field/local
+    /// initializers, enum member values, attribute arguments, default parameter
+    /// values, case labels, and auto-property initializers). Rewriting operators or
+    /// casts there into extension method calls would produce CS0133-style errors,
+    /// so those rewrites are suppressed; the native operators remain valid on the
+    /// replaced System.* type names.
+    /// </summary>
+    private static bool IsInConstantExpressionContext(SyntaxNode node)
+    {
+        for (SyntaxNode? current = node.Parent; current != null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case FieldDeclarationSyntax fieldDeclaration
+                    when fieldDeclaration.Modifiers.Any(SyntaxKind.ConstKeyword)
+                         && fieldDeclaration.Declaration.Variables
+                             .Any(variable => variable.Initializer?.Span.Contains(node.Span) == true):
+                    return true;
+                case LocalDeclarationStatementSyntax localDeclaration
+                    when localDeclaration.Modifiers.Any(SyntaxKind.ConstKeyword)
+                         && localDeclaration.Declaration.Variables
+                             .Any(variable => variable.Initializer?.Span.Contains(node.Span) == true):
+                    return true;
+                case EnumMemberDeclarationSyntax enumMember
+                    when enumMember.EqualsValue?.Span.Contains(node.Span) == true:
+                    return true;
+                case AttributeArgumentSyntax attributeArgument
+                    when attributeArgument.Expression.Span.Contains(node.Span):
+                    return true;
+                case ParameterSyntax parameter
+                    when parameter.Default?.Span.Contains(node.Span) == true:
+                    return true;
+                case CaseSwitchLabelSyntax caseLabel
+                    when caseLabel.Value.Span.Contains(node.Span):
+                    return true;
+                case PropertyDeclarationSyntax propertyDeclaration
+                    when propertyDeclaration.Initializer?.Span.Contains(node.Span) == true:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Only locals, parameters, and fields are safe to rewrite into
     /// `target = target.Add(...)`-style expressions. Properties and indexers must
     /// stay native because rewriting would evaluate their getter/receiver twice.
@@ -287,7 +332,8 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     {
         if (_semanticModel == null
             || !_options.EnableOperatorRewrite
-            || !IsBinaryOperatorRewriteKind(node.Kind()))
+            || !IsBinaryOperatorRewriteKind(node.Kind())
+            || IsInConstantExpressionContext(node))
         {
             return false;
         }
@@ -449,7 +495,10 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
     {
         string? castMethod = null;
-        if (_options.EnableCastRewrite && _semanticModel != null && !IsInCheckedContext(node))
+        if (_options.EnableCastRewrite
+            && _semanticModel != null
+            && !IsInCheckedContext(node)
+            && !IsInConstantExpressionContext(node))
         {
             var sourceType = _semanticModel.GetTypeInfo(node.Expression).Type;
             if (IsUnsignedType(sourceType))
@@ -458,7 +507,24 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
         var rewritten = (CastExpressionSyntax)base.VisitCastExpression(node)!;
         if (castMethod == null)
+        {
+            // `(byte)-1` / `(byte)*p` are valid, but after replacing the keyword
+            // with the qualified name, the parser can treat `-`, `+`, `*` or `&`
+            // as a binary operator after the parenthesized type and raises
+            // CS0075/CS0119. Parenthesize those prefix unary operands.
+            if (rewritten.Type is not PredefinedTypeSyntax
+                && rewritten.Expression is PrefixUnaryExpressionSyntax prefix
+                && (prefix.IsKind(SyntaxKind.UnaryMinusExpression)
+                    || prefix.IsKind(SyntaxKind.UnaryPlusExpression)
+                    || prefix.IsKind(SyntaxKind.PointerIndirectionExpression)
+                    || prefix.IsKind(SyntaxKind.AddressOfExpression)))
+            {
+                return rewritten.WithExpression(
+                    SyntaxFactory.ParenthesizedExpression(rewritten.Expression));
+            }
+
             return rewritten;
+        }
 
         UsedExtensions = true;
         _stats.CastsRewritten++;
