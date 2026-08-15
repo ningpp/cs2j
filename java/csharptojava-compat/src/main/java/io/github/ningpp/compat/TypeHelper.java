@@ -108,7 +108,10 @@ public final class TypeHelper {
     }
 
     public static boolean getContainsGenericParameters(Class<?> type) {
-        return getIsGenericType(type);
+        // Java class objects are always concrete: generic type arguments are
+        // erased, so a raw generic class literal (CSharpList.class) represents a
+        // closed runtime type, not an open C# generic definition.
+        return false;
     }
 
     public static Class<?>[] getGenericArguments(Class<?> type) {

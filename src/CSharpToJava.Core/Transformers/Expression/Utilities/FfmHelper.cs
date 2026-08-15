@@ -155,6 +155,10 @@ public static class FfmHelper
 
     public static string GeneratePointerRead(string segmentExpr, FixedPointerInfo info, string offsetExpr)
     {
+        if (info.ValueLayoutName == "JAVA_CHAR")
+        {
+            return $"(char) MemorySegmentHelper.getChar({segmentExpr}, {offsetExpr})";
+        }
         string read = $"{segmentExpr}.get(ValueLayout.{info.ValueLayoutName}, {offsetExpr})";
         return info.NeedsUnsignedMask ? $"({read} {info.MaskSuffix})" : read;
     }
@@ -187,7 +191,9 @@ public static class FfmHelper
             safeOffsetExpr = offsetVar;
         }
 
-        string read = $"{baseSegmentExpr}.get(ValueLayout.{info.ValueLayoutName}, {safeOffsetExpr})";
+        string read = info.ValueLayoutName == "JAVA_CHAR"
+            ? $"(char) MemorySegmentHelper.getChar({baseSegmentExpr}, {safeOffsetExpr})"
+            : $"{baseSegmentExpr}.get(ValueLayout.{info.ValueLayoutName}, {safeOffsetExpr})";
         if (info.NeedsUnsignedMask)
             read = $"({read} {info.MaskSuffix})";
 
@@ -219,6 +225,10 @@ public static class FfmHelper
     public static string GeneratePointerWrite(string segmentExpr, FixedPointerInfo info, string offsetExpr, string valueExpr)
     {
         string castValue = info.WriteCast.Length > 0 ? $"({info.WriteCast}({valueExpr}))" : valueExpr;
+        if (info.ValueLayoutName == "JAVA_CHAR")
+        {
+            return $"MemorySegmentHelper.setChar({segmentExpr}, {offsetExpr}, {castValue})";
+        }
         return $"{segmentExpr}.set(ValueLayout.{info.ValueLayoutName}, {offsetExpr}, {castValue})";
     }
 

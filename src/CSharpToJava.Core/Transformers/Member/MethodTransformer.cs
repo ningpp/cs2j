@@ -2282,7 +2282,10 @@ public class MethodTransformer : IMemberTransformer
                 if (!stmtText.StartsWith("return", StringComparison.Ordinal)
                     && !stmtText.StartsWith("return;", StringComparison.Ordinal)
                     && !stmtText.StartsWith("throw ", StringComparison.Ordinal)
-                    && !stmtText.StartsWith("throw;", StringComparison.Ordinal))
+                    && !stmtText.StartsWith("throw;", StringComparison.Ordinal)
+                    && !stmtText.Contains("else { throw ", StringComparison.Ordinal)
+                    && !stmtText.Contains("else { throw;", StringComparison.Ordinal)
+                    && !stmtText.Contains("else { return ", StringComparison.Ordinal))
                 {
                     return true;
                 }

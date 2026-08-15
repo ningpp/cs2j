@@ -851,6 +851,14 @@ public partial class StatementTransformer
                 VariableName = varName
             };
 
+            if (catchClause.Filter != null && string.IsNullOrWhiteSpace(varName))
+            {
+                // Java catch blocks always have a variable; use a synthetic one so a
+                // false filter can rethrow the original exception.
+                varName = "_cs2j_filterEx";
+                catchClauseIR.VariableName = varName;
+            }
+
             // For catch (T ...) with a type-parameter type, emit the whole clause raw:
             // catch (constraint _cs2j_xCatch) { guard; T x = (T) _cs2j_xCatch; body }
             bool typeParameterCatch = caughtTypeParam != null && catchClause.Declaration != null;
@@ -885,7 +893,8 @@ public partial class StatementTransformer
                 if (filter != null)
                 {
                     // Java doesn't support catch filters — wrap body in if statement
-                    catchText.Append("    if (").Append(filter).Append(") ").Append(bodyText).Append('\n');
+                    catchText.Append("    if (").Append(filter).Append(") ").Append(bodyText)
+                        .Append(" else { throw ").Append(syntheticCatchName).Append("; }\n");
                 }
                 else
                 {
@@ -910,7 +919,7 @@ public partial class StatementTransformer
                     innerBody.Statements.Add(s);
                 // Wrap the inner body in a raw if-check statement
                 catchClauseIR.Body.Statements.Add(
-                    new Java.JavaRawStatement($"if ({filter}) {innerBody.ToString("            ")}"));
+                    new Java.JavaRawStatement($"if ({filter}) {innerBody.ToString("            ")} else {{ throw {varName}; }}"));
             }
             else
             {

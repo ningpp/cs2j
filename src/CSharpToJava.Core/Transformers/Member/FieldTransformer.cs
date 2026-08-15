@@ -192,6 +192,15 @@ public class FieldTransformer : IMemberTransformer
                 javaField.Initializer = "Decimal.ZERO";
             }
             else if (variable.Initializer == null
+                && fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Struct } memoryStruct
+                && memoryStruct.OriginalDefinition.ToDisplayString() is "System.Memory<T>" or "System.ReadOnlyMemory<T>")
+            {
+                // Memory<T> is a C# struct whose default value is an empty memory,
+                // never null. The Java compat type is a reference type, so create the
+                // empty instance explicitly (e.g. Utf8JsonWriter._memory).
+                javaField.Initializer = $"new {javaType}()";
+            }
+            else if (variable.Initializer == null
                 && fieldTypeSymbol != null
                 && StructCloneHelper.IsUserDefinedStruct(fieldTypeSymbol))
             {

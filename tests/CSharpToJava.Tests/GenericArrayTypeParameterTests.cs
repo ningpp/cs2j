@@ -761,7 +761,7 @@ class Demo {
         // Should NOT contain (MemorySegment) cast on pointer dereference results
         Assert.DoesNotContain("(MemorySegment)", code);
         // Should contain MemorySegment.get() calls
-        Assert.Contains("get(ValueLayout.JAVA_CHAR", code);
+        Assert.Contains("(char) MemorySegmentHelper.getChar(", code);
         Assert.Contains("get(ValueLayout.JAVA_INT", code);
     }
 

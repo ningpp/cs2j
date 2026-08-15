@@ -409,7 +409,9 @@ public class ArgumentTransformer
             // are visible to both caller and callee without a holder object.
             // Hierarchy-aware: an override of an abstract base slot must not unwrap — the target renders a
             // holder signature there, so the argument must stay a holder (e.g. ReadWithQuotes → Read).
-            if (parameterSymbol != null && StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(parameterSymbol))
+            if (parameterSymbol != null && StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(
+                    parameterSymbol,
+                    context.SemanticModel?.Compilation))
             {
                 // Hoisted local functions generate holder-typed ref parameters
                 // (ObjectHolder<DateTimeParseData> etc.). For those, an argument that

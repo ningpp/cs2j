@@ -228,7 +228,7 @@ unsafe class Test {
 }");
         Assert.True(result.Success);
         Assert.Matches(
-            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*__base\d+\.get\(ValueLayout\.JAVA_CHAR,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*'\\0'\)",
+            @"\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\s*\+\s*2\s*<=\s*__base\d+\.byteSize\(\)\s*\?\s*\(char\)\s*MemorySegmentHelper\.getChar\(__base\d+,\s*\(p\.address\(\)\s*-\s*__base\d+\.address\(\)\s*\+\s*\(0\)\)\)\s*:\s*'\\0'\)",
             result.GeneratedCode);
     }
 
@@ -242,9 +242,9 @@ unsafe class Test {
             *p = 'a';
         }
     }
-}");
+        }");
         Assert.True(result.Success);
-        Assert.Contains("p.set(ValueLayout.JAVA_CHAR, 0, 'a')", result.GeneratedCode);
+        Assert.Contains("MemorySegmentHelper.setChar(p, 0, 'a')", result.GeneratedCode);
     }
 
     [Fact]
@@ -880,7 +880,7 @@ unsafe class Test {
         Assert.True(result.Success, result.GeneratedCode);
         Assert.DoesNotContain("asSlice(-", result.GeneratedCode);
         Assert.Contains("__base", result.GeneratedCode);
-        Assert.Contains(".set(", result.GeneratedCode);
+        Assert.Contains(".setChar(", result.GeneratedCode);
     }
 
     [Fact]

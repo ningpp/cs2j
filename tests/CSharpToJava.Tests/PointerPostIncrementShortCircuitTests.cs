@@ -196,7 +196,7 @@ public static unsafe class DomainNameHelper
         Assert.Equal(1, advances);
 
         // The dereferenced value for the < comparison must come from the pre-increment temp.
-        Assert.Matches(@"_ptrPost\d+\.get\(ValueLayout\.JAVA_CHAR, 0\) < 0xA0", result.GeneratedCode);
+        Assert.Matches(@"\(char\)\s*MemorySegmentHelper\.getChar\(_ptrPost\d+, 0\) < 0xA0", result.GeneratedCode);
     }
 
     private static ConversionResult Convert(string sourceCode)

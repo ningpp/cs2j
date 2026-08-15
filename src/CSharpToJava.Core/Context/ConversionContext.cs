@@ -827,7 +827,7 @@ public class ConversionContext
         IsInAsyncContext = false;
         ReturnsCSharpGenericIterable = false;
         var readOnlyParams = method?.Parameters
-            .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(p))
+            .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(p, SemanticModel?.Compilation))
             .Select(p => p.Name);
         MethodState.Reset(readOnlyParams);
         _addressOfScratchSegments.Clear();

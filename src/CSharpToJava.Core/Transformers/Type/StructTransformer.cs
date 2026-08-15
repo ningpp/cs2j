@@ -245,12 +245,15 @@ public class StructTransformer : ITypeTransformer
         // because in C#, `default(Outer)` initializes struct fields to their defaults (not null),
         // but Java's implicit no-arg ctor leaves reference fields as null.
         var structFieldNamesForCtor = BuildStructFieldNames(structDecl, context);
+        var enumFieldNamesForCtor = BuildEnumFieldNames(structDecl, context);
         bool hasExplicitCtors = javaClass.Constructors.Any(c => c.Parameters.Count > 0);
         bool hasNoArgCtor = javaClass.Constructors.Any(c => c.Parameters.Count == 0);
         bool hasStructFieldsNeedingInit = javaClass.Fields.Any(f =>
             (f.Modifiers & JavaModifiers.Static) == 0 && structFieldNamesForCtor.Contains(f.Name));
+        bool hasEnumFieldsNeedingInit = javaClass.Fields.Any(f =>
+            (f.Modifiers & JavaModifiers.Static) == 0 && enumFieldNamesForCtor.Contains(f.Name));
 
-        if ((hasExplicitCtors && !hasNoArgCtor) || (!hasNoArgCtor && hasStructFieldsNeedingInit))
+        if ((hasExplicitCtors && !hasNoArgCtor) || (!hasNoArgCtor && (hasStructFieldsNeedingInit || hasEnumFieldsNeedingInit)))
         {
             // Collect runtime class field names so we skip them in the default constructor.
             // These fields are managed by AddRuntimeClassConstructorParameters.
@@ -270,7 +273,12 @@ public class StructTransformer : ITypeTransformer
                 bool isFinal = (field.Modifiers & JavaModifiers.Final) != 0;
                 bool hasInitializer = !string.IsNullOrWhiteSpace(field.Initializer);
 
-                if (structFieldNamesForCtor.Contains(field.Name) && !hasInitializer)
+                if (enumFieldNamesForCtor.Contains(field.Name) && !hasInitializer)
+                {
+                    // C# enum fields default to the zero-valued member, never null.
+                    bodyLines.Add($"this.{field.Name} = {field.Type}.values()[0];");
+                }
+                else if (structFieldNamesForCtor.Contains(field.Name) && !hasInitializer)
                 {
                     // Struct-typed field: initialize to new StructType() to match C# value semantics.
                     // In C#, struct fields are always zero-initialized, never null.
@@ -306,7 +314,7 @@ public class StructTransformer : ITypeTransformer
         // independently assigns all final fields.
         if (isReadOnly)
         {
-            FixReadonlyStructConstructorChaining(javaClass, structFieldNamesForCtor);
+            FixReadonlyStructConstructorChaining(javaClass, structFieldNamesForCtor, enumFieldNamesForCtor);
             DropFinalFromRepeatedlyAssignedFields(javaClass);
         }
 
@@ -792,6 +800,60 @@ public class StructTransformer : ITypeTransformer
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Builds a set of Java field names whose corresponding C# type is a
+    /// non-flags enum. Struct enum fields default to the zero-valued member in
+    /// C#; Java enum references default to null, so generated constructors must
+    /// initialize them explicitly.
+    /// </summary>
+    private static HashSet<string> BuildEnumFieldNames(StructDeclarationSyntax structDecl, ConversionContext context)
+    {
+        var result = new HashSet<string>();
+        if (context.SemanticModel == null)
+            return result;
+
+        foreach (var member in structDecl.Members)
+        {
+            if (member is FieldDeclarationSyntax fieldDecl)
+            {
+                var fieldType = context.GetTypeInfo(fieldDecl.Declaration.Type).Type;
+                if (IsNonFlagsEnumType(fieldType, context))
+                {
+                    foreach (var variable in fieldDecl.Declaration.Variables)
+                        result.Add(ConversionContext.EscapeJavaKeyword(variable.Identifier.Text));
+                }
+            }
+            else if (member is PropertyDeclarationSyntax propDecl)
+            {
+                var propSymbol = context.GetDeclaredSymbol(propDecl) as IPropertySymbol;
+                if (propSymbol != null && IsNonFlagsEnumType(propSymbol.Type, context))
+                {
+                    var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
+                    result.Add(ConversionContext.EscapeJavaKeyword(ToCamelCase(propName)));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsNonFlagsEnumType(ITypeSymbol? type, ConversionContext context)
+    {
+        if (type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            return false;
+
+        if (context.IsFlagsEnum(enumType.Name)
+            || context.IsFlagsEnum(enumType.ToDisplayString())
+            || enumType.GetAttributes().Any(attribute =>
+                attribute.AttributeClass?.ToDisplayString()
+                    is "System.FlagsAttribute" or "System.Flags" or "FlagsAttribute" or "Flags"))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static string ToCamelCase(string name)
@@ -1353,7 +1415,10 @@ public class StructTransformer : ITypeTransformer
     /// Constructor chaining via this() causes double-assignment. This method removes this() chains
     /// and ensures each constructor independently assigns all final fields not already in its body.
     /// </summary>
-    private static void FixReadonlyStructConstructorChaining(JavaClassDeclaration javaClass, HashSet<string> structFieldNames)
+    private static void FixReadonlyStructConstructorChaining(
+        JavaClassDeclaration javaClass,
+        HashSet<string> structFieldNames,
+        HashSet<string> enumFieldNames)
     {
         var instanceFields = javaClass.Fields
             .Where(f => (f.Modifiers & JavaModifiers.Static) == 0 && (f.Modifiers & JavaModifiers.Final) != 0)
@@ -1455,7 +1520,9 @@ public class StructTransformer : ITypeTransformer
                 if (assignedFields.Contains(field.Name)) continue;
                 if (!string.IsNullOrWhiteSpace(field.Initializer)) continue;
 
-                if (structFieldNames.Contains(field.Name))
+                if (enumFieldNames.Contains(field.Name))
+                    prependLines.Add($"this.{field.Name} = {field.Type}.values()[0];");
+                else if (structFieldNames.Contains(field.Name))
                     prependLines.Add($"this.{field.Name} = new {field.Type}();");
                 else
                     prependLines.Add($"this.{field.Name} = {GetJavaDefaultValue(field.Type)};");

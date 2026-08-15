@@ -108,7 +108,7 @@ internal static class StructCloneHelper
     /// must render the holder signature too or javac reports "does not override
     /// abstract method" (e.g. ArrayConverter.createCollection vs its abstract base).
     /// </summary>
-    public static bool IsRefParamEffectivelyReadOnlyInHierarchy(IParameterSymbol parameter)
+    public static bool IsRefParamEffectivelyReadOnlyInHierarchy(IParameterSymbol parameter, Compilation? compilation = null)
     {
         if (!IsRefParamEffectivelyReadOnly(parameter))
             return false;
@@ -118,14 +118,55 @@ internal static class StructCloneHelper
             return false;
 
         int index = method.Parameters.IndexOf(parameter);
-        var overridden = method.OverriddenMethod;
-        while (overridden != null && index >= 0 && index < overridden.Parameters.Length)
+
+        // Java requires an override to repeat the base signature exactly, so the
+        // whole hierarchy must agree on the ObjectHolder form. The base method may
+        // be read-only while a derived override forwards/mutates the ref parameter
+        // (e.g. JsonConverter<T>.OnTryWrite), which forces every member of the
+        // chain to use the holder.
+        foreach (var hierarchyMethod in GetOverrideHierarchy(method, compilation))
         {
-            if (!IsRefParamEffectivelyReadOnly(overridden.Parameters[index]))
+            if (index < 0 || index >= hierarchyMethod.Parameters.Length)
+                continue;
+            if (!IsRefParamEffectivelyReadOnly(hierarchyMethod.Parameters[index]))
                 return false;
-            overridden = overridden.OverriddenMethod;
         }
         return true;
+    }
+
+    private static IEnumerable<IMethodSymbol> GetOverrideHierarchy(
+        IMethodSymbol method,
+        Compilation? compilation)
+    {
+        var result = new List<IMethodSymbol>();
+        var current = method;
+        while (current != null)
+        {
+            result.Add(current);
+            current = current.OverriddenMethod;
+        }
+
+        if (compilation != null)
+        {
+            foreach (var candidate in compilation.GetSymbolsWithName(method.Name, SymbolFilter.Member)
+                         .OfType<IMethodSymbol>())
+            {
+                var overridden = candidate.OverriddenMethod;
+                while (overridden != null)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(
+                            overridden.OriginalDefinition,
+                            method.OriginalDefinition))
+                    {
+                        result.Add(candidate);
+                        break;
+                    }
+                    overridden = overridden.OverriddenMethod;
+                }
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

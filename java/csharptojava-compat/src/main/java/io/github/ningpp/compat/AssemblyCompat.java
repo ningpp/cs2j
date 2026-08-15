@@ -5,12 +5,17 @@ import java.net.URLClassLoader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Minimal compat stub for System.Reflection.Assembly.
  * Supports the API surface used by CorrectnessTest.
  */
 public class AssemblyCompat {
+    private static final Map<String, AssemblyCompat> s_cache = new ConcurrentHashMap<>();
+
     private final ClassLoader classLoader;
     private final String location;
 
@@ -111,12 +116,28 @@ public class AssemblyCompat {
     /** Creates an AssemblyCompat representing the assembly that declares the given class.
      *  Mirrors C# {@code typeof(T).Assembly} / {@code GetType().Assembly}. */
     public static AssemblyCompat fromClass(Class<?> clazz) {
-        return new AssemblyCompat(clazz.getClassLoader(), clazz.getName());
+        java.security.ProtectionDomain domain = clazz.getProtectionDomain();
+        java.net.URL codeSource = domain == null ? null : domain.getCodeSource() == null ? null : domain.getCodeSource().getLocation();
+        String key = codeSource != null ? codeSource.toString() : String.valueOf(clazz.getClassLoader());
+        return s_cache.computeIfAbsent(key, k -> new AssemblyCompat(clazz.getClassLoader(), key));
     }
 
     /** Creates an AssemblyCompat from a class loader and location/name. */
     public static AssemblyCompat fromClassLoader(ClassLoader classLoader, String location) {
         return new AssemblyCompat(classLoader, location);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof AssemblyCompat other)) return false;
+        return Objects.equals(classLoader, other.classLoader)
+            && Objects.equals(location, other.location);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(classLoader, location);
     }
 
     /** Mirrors C# Assembly.GetManifestResourceStream(name) — returns StreamWrapper

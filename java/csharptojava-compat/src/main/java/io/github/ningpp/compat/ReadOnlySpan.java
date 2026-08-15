@@ -226,7 +226,8 @@ public final class ReadOnlySpan<T> {
         }
         byte[] result = new byte[length];
         for (int i = 0; i < length; i++) {
-            result[i] = (byte)(((Number) get(i)).intValue() & 0xFF);
+            Number value = (Number) get(i);
+            result[i] = (byte)((value == null ? 0 : value.intValue()) & 0xFF);
         }
         return result;
     }
