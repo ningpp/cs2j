@@ -33,7 +33,7 @@ public final class TypeMemberInfo implements MemberInfo {
     @Override
     @SuppressWarnings("unchecked")
     public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
-        if (type == null || attributeType == null) {
+        if (type == null || attributeType == null || !attributeType.isAnnotation()) {
             return new Object[0];
         }
         return type.getAnnotationsByType((Class) attributeType);

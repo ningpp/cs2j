@@ -68,6 +68,12 @@ public final class FieldInfo implements MemberInfo {
 
     @Override
     public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
+        if (attributeType == null || !attributeType.isAnnotation()) {
+            // Converted C# attributes (e.g. JsonConverterAttribute) are plain Java
+            // classes, not annotations. Java's getAnnotationsByType rejects
+            // non-annotation types with ClassCastException, so return empty instead.
+            return new Object[0];
+        }
         return field.getAnnotationsByType((Class) attributeType);
     }
 

@@ -563,3 +563,22 @@
 - **涉及组件**: `java/csharptojava-compat/.../PropertyInfo.java`（`getPropertyType`）、`FieldInfo.java`（`getFieldType`）
 - **分析**: Java 反射对基本类型属性返回 `boolean.class`/`int.class`，而转换器把 C# `typeof(bool)`/`typeof(int)` 映射为 `Boolean.class`/`Integer.class`；`s_defaultSimpleConverters` 用包装类做键，基本类型查不到后落入 `ObjectConverterFactory`，其产物 `ObjectDefaultConverter` 与基本类型不兼容而抛异常。修复为 `PropertyInfo.getPropertyType()`/`FieldInfo.getFieldType()` 经 `TypeHelper.toWrapperType` 装箱。
 - **状态**: ✅ Fixed（Red→Green：`ReflectionMemberTypeTest`；生成项目 `ObjectDefaultConverter ... not compatible` 归零）
+
+---
+
+## Iteration 16 — 非注解类型调用 getAnnotationsByType 抛 ClassCastException（JsonConverterAttribute 集群）
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonSerializerOptions.java:401`（`getAttributeThatCanHaveMultiple` → `FieldInfo.getCustomAttributes`）
+- **行号**: `FieldInfo.java:71`（`field.getAnnotationsByType((Class) attributeType)`）
+- **错误信息**: `ClassCastException: class [Ldotnet.text.json.Serialization.JsonConverterAttribute; cannot be cast to class [Ljava.lang.annotation.Annotation;`（CustomConverterTests 约 16 处）
+- **代码片段**:
+  ```java
+  @Override
+  public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
+      return field.getAnnotationsByType((Class) attributeType); // 非注解类 → ClassCastException
+  }
+  ```
+- **对应 C# 文件**: `System.Reflection.FieldInfo.GetCustomAttributes(Type, bool)` 语义；转换器生成的 `JsonConverterAttribute` 是普通类而非 Java 注解
+- **根因分类**: compat
+- **涉及组件**: `java/csharptojava-compat/.../FieldInfo.java`、`ConstructorInfo.java`、`TypeMemberInfo.java`、`TypeHelper.java`（`asCustomAttributeProvider`）
+- **分析**: Java `getAnnotationsByType` 要求类型是注解；转换器生成的自定义属性类是普通类，调用即抛 `ClassCastException`。修复为 `attributeType == null || !attributeType.isAnnotation()` 时返回空数组（属性元数据未建模的类不再崩溃）。
+- **状态**: ✅ Fixed（Red→Green：`MemberInfoCustomAttributesTest` 3 例；注：`[JsonConverter]` 成员属性的完整元数据支持仍未建模，相关用例会从 ClassCastException 转为断言失败，留待后续迭代）

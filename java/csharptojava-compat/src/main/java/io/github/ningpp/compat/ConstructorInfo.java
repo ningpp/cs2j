@@ -56,6 +56,9 @@ public final class ConstructorInfo implements MemberInfo {
 
     @Override
     public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
+        if (attributeType == null || !attributeType.isAnnotation()) {
+            return new Object[0];
+        }
         return constructor.getAnnotationsByType((Class) attributeType);
     }
 }
