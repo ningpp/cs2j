@@ -73,6 +73,10 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             or SpecialType.System_UInt32
             or SpecialType.System_UInt64;
 
+    private static bool IsNullableValueType(ITypeSymbol? type)
+        => type is INamedTypeSymbol named
+           && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
+
     private bool IsUnsignedExpression(ExpressionSyntax expression)
         => _semanticModel != null && IsUnsignedType(GetEffectiveType(expression));
 
@@ -267,6 +271,31 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         _ => UnsignedDomain.Native,
     };
 
+    private static ExpressionSyntax WrapResult(
+        ExpressionSyntax call,
+        UnsignedDomain domain,
+        SpecialType? contextSpecial) => domain switch
+    {
+        UnsignedDomain.UInt32 => contextSpecial switch
+        {
+            SpecialType.System_UInt32 => UnsignedMathSyntax.UncheckedCast(SyntaxKind.UIntKeyword, call),
+            SpecialType.System_Int64 => UnsignedMathSyntax.StaticCall("ToInt64UInt32", call),
+            SpecialType.System_Double => UnsignedMathSyntax.StaticCall("ToDoubleUInt32", call),
+            SpecialType.System_Single => UnsignedMathSyntax.StaticCall("ToSingleUInt32", call),
+            SpecialType.System_Decimal => UnsignedMathSyntax.StaticCall("ToDecimalUInt32", call),
+            _ => call,
+        },
+        UnsignedDomain.UInt64 => contextSpecial switch
+        {
+            SpecialType.System_UInt64 => UnsignedMathSyntax.UncheckedCast(SyntaxKind.ULongKeyword, call),
+            SpecialType.System_Double => UnsignedMathSyntax.StaticCall("ToDoubleUInt64", call),
+            SpecialType.System_Single => UnsignedMathSyntax.StaticCall("ToSingleUInt64", call),
+            SpecialType.System_Decimal => UnsignedMathSyntax.StaticCall("ToDecimalUInt64", call),
+            _ => call,
+        },
+        _ => call,
+    };
+
     private static ExpressionSyntax LiteralZero()
         => SyntaxFactory.LiteralExpression(
             SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
@@ -323,6 +352,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                       || node.IsKind(SyntaxKind.RightShiftExpression);
         var leftNaturalSpecial = GetNaturalSpecial(node.Left) ?? SpecialType.None;
         var rightNaturalSpecial = GetNaturalSpecial(node.Right) ?? SpecialType.None;
+        var resultContextSpecial = GetSpecial(node, GetEffectiveType(node));
         var domain = ShouldRewriteBinary(node, isShift, leftNaturalSpecial, rightNaturalSpecial);
 
         var rewritten = (BinaryExpressionSyntax)base.VisitBinaryExpression(node)!;
@@ -337,10 +367,13 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         if (isShift)
         {
             var method = BinaryOpMethod[rewritten.Kind()] + UnsignedMathSyntax.Suffix(domain);
-            return UnsignedMathSyntax.StaticCall(
-                method,
-                UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
-                rewritten.Right);
+            return WrapResult(
+                UnsignedMathSyntax.StaticCall(
+                    method,
+                    UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
+                    rewritten.Right),
+                domain,
+                resultContextSpecial);
         }
 
         if (rewritten.IsKind(SyntaxKind.EqualsExpression)
@@ -368,10 +401,13 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         var binaryMethod = BinaryOpMethod[rewritten.Kind()] + UnsignedMathSyntax.Suffix(domain);
-        return UnsignedMathSyntax.StaticCall(
-            binaryMethod,
-            UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
-            UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial));
+        return WrapResult(
+            UnsignedMathSyntax.StaticCall(
+                binaryMethod,
+                UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
+                UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial)),
+            domain,
+            resultContextSpecial);
     }
 
     private UnsignedDomain ShouldRewriteBinary(
@@ -385,6 +421,12 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             || !IsBinaryOperatorRewriteKind(node.Kind())
             || IsInCheckedContext(node)
             || IsInConstantExpressionContext(node))
+        {
+            return UnsignedDomain.Native;
+        }
+
+        if (IsNullableValueType(GetEffectiveType(node.Left))
+            || IsNullableValueType(GetEffectiveType(node.Right)))
         {
             return UnsignedDomain.Native;
         }
@@ -437,7 +479,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         var leftType = GetEffectiveType(node.Left);
-        if (!IsUnsignedType(leftType))
+        if (!IsUnsignedType(leftType) || IsNullableValueType(leftType))
         {
             return rewritten;
         }
@@ -483,6 +525,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         if (method != null
             && !IsInCheckedContext(node)
             && !IsInRepeatedEvaluationContext(node)
+            && !IsNullableValueType(GetEffectiveType(node.Operand))
             && IsUnsignedSpecial(GetNaturalSpecial(node.Operand) ?? SpecialType.None)
             && IsSafeAssignmentTarget(node.Operand))
         {
@@ -517,12 +560,15 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
             UsedExtensions = true;
             _stats.OperatorsRewritten++;
-            return UnsignedMathSyntax.StaticCall(
-                "Not" + UnsignedMathSyntax.Suffix(domain),
-                UnsignedMathSyntax.Normalize(
-                    notRewritten.Operand,
-                    domain,
-                    notSpecial));
+            return WrapResult(
+                UnsignedMathSyntax.StaticCall(
+                    "Not" + UnsignedMathSyntax.Suffix(domain),
+                    UnsignedMathSyntax.Normalize(
+                        notRewritten.Operand,
+                        domain,
+                        notSpecial)),
+                domain,
+                GetSpecial(node, GetEffectiveType(node)));
         }
 
         var method = node.Kind() switch
@@ -538,6 +584,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             || !_options.EnableOperatorRewrite
             || IsInCheckedContext(node)
             || IsInConstantExpressionContext(node)
+            || IsNullableValueType(GetEffectiveType(node.Operand))
             || !IsUnsignedSpecial(GetNaturalSpecial(node.Operand) ?? SpecialType.None)
             || !IsSafeAssignmentTarget(node.Operand))
         {
@@ -583,6 +630,10 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
         var sourceType = GetEffectiveType(node.Expression);
         var targetType = GetEffectiveType(node);
+        if (IsNullableValueType(sourceType) || IsNullableValueType(targetType))
+        {
+            return FixQualifiedCastParens(rewritten);
+        }
         var replacement = GetCastReplacement(targetType, sourceType, rewritten);
         if (replacement == null)
         {

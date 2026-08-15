@@ -56,7 +56,11 @@ public class UnsignedTypeSemanticsTests
         IEnumerable<MetadataReference> references,
         string assemblyName)
     {
-        var trees = sources.Select(s => CSharpSyntaxTree.ParseText(s)).ToList();
+        var trees = sources
+            .Select((s, index) => CSharpSyntaxTree.ParseText(
+                s,
+                path: $"{assemblyName}-{index}.cs"))
+            .ToList();
         var compilation = CSharpCompilation.Create(
             assemblyName,
             trees,
@@ -65,9 +69,17 @@ public class UnsignedTypeSemanticsTests
 
         using var stream = new MemoryStream();
         var emit = compilation.Emit(stream);
-        Assert.True(
-            emit.Success,
-            string.Join("\n", emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString())));
+        var errorText = string.Join(
+            "\n",
+            emit.Diagnostics
+                .Where(d => d.Severity == DiagnosticSeverity.Error)
+                .Select(d => d.ToString()));
+        var firstError = emit.Diagnostics
+            .FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error);
+        var errorSource = firstError?.Location.SourceTree != null
+            ? "\n--- source ---\n" + firstError.Location.SourceTree.GetText().ToString()
+            : string.Empty;
+        Assert.True(emit.Success, errorText + errorSource);
 
         var assembly = Assembly.Load(stream.ToArray());
         var type = assembly.GetType("SampleUnsignedLib.UnsignedSemantics", throwOnError: true)!;

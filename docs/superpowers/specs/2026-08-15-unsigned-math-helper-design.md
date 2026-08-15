@@ -369,12 +369,11 @@ ul++          → ul = unchecked((ulong)UnsignedMath.AddUInt64(
 ```csharp
 b += 1        → b = UnsignedMath.ToByteInt32(UnsignedMath.AddInt32(b, 1))
 s += i        → s = UnsignedMath.ToUInt16Int32(UnsignedMath.AddInt32(s, i))
-u += i        → u = unchecked((uint)UnsignedMath.AddInt64(
-                    UnsignedMath.ToInt64UInt32(unchecked((int)u)), i))  // C# 结果是 long
 u += 5        → u = unchecked((uint)UnsignedMath.AddUInt32(
                     unchecked((int)u), 5))                              // 常量走 UInt32 域
-ul += i       → ul = unchecked((ulong)UnsignedMath.AddUInt64(
-                    unchecked((long)ul), i))   // C# 语义：ul + (ulong)i（i 符号扩展）
+ul += 5ul     → ul = unchecked((ulong)UnsignedMath.AddUInt64(
+                    unchecked((long)ul), 5ul))  // 注意：ulong += int 在 C# 中本身是
+                                                // CS0034 编译错误，预处理不会遇到
 u <<= 4       → u = unchecked((uint)UnsignedMath.LeftShiftUInt32(
                     unchecked((int)u), 4))
 ul /= ul2     → ul = unchecked((ulong)UnsignedMath.DivideUInt64(
@@ -383,6 +382,12 @@ ul /= ul2     → ul = unchecked((ulong)UnsignedMath.DivideUInt64(
 
 仅当左值是局部变量/参数/字段（无副作用、求值一次）时改写；属性、
 索引器保持原生，避免 getter/receiver 二次求值（沿用现有约束）。
+
+注意：C# 复合赋值要求右操作数可隐式转换到左类型，否则是编译错误
+（实测 `uint += int`、`uint += long`、`ulong += int`、`byte += int`
+均报 CS0266/CS0034）。因此复合赋值的域与左类型一致（byte/ushort →
+Int32、uint → UInt32、ulong → UInt64），不存在“混合提升为 long 的
+复合赋值”输入。
 
 ### 6.8 强制转换
 

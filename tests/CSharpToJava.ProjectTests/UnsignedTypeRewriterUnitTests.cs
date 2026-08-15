@@ -193,22 +193,11 @@ public class UnsignedTypeRewriterUnitTests
     [Fact]
     public void ByteCompoundAssignment_WrapsThroughToByte()
     {
-        var src = "public class C { public void M(ref byte b, int i) { b += i; } }";
+        var src = "public class C { public void M(ref byte b) { b += 5; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
         Assert.Contains(
-            "b = Cs2jUnsigned.UnsignedMath.ToByteInt32(Cs2jUnsigned.UnsignedMath.AddInt32(b, i))",
-            result.OutputCode);
-    }
-
-    [Fact]
-    public void UIntCompoundWithInt_UsesInt64Domain()
-    {
-        var src = "public class C { public void M(ref uint a, int i) { a += i; } }";
-        var (tree, model) = ParseWithSemantics(src);
-        var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains(
-            "a = unchecked((uint)Cs2jUnsigned.UnsignedMath.AddInt64(Cs2jUnsigned.UnsignedMath.ToInt64UInt32(unchecked((int)a)), i))",
+            "b = Cs2jUnsigned.UnsignedMath.ToByteInt32(Cs2jUnsigned.UnsignedMath.AddInt32(b, 5))",
             result.OutputCode);
     }
 

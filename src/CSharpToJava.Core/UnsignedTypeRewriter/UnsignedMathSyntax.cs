@@ -41,10 +41,25 @@ internal static class UnsignedMathSyntax
     {
         var cast = SyntaxFactory.CastExpression(
             SyntaxFactory.PredefinedType(SyntaxFactory.Token(typeKeyword)),
-            operand);
+            EnsureCastOperand(operand));
         return SyntaxFactory.CheckedExpression(
             SyntaxKind.UncheckedExpression, cast);
     }
+
+    private static ExpressionSyntax EnsureCastOperand(ExpressionSyntax operand) => operand switch
+    {
+        IdentifierNameSyntax
+            or MemberAccessExpressionSyntax
+            or InvocationExpressionSyntax
+            or ElementAccessExpressionSyntax
+            or LiteralExpressionSyntax
+            or ParenthesizedExpressionSyntax
+            or CastExpressionSyntax
+            or CheckedExpressionSyntax
+            or ThisExpressionSyntax
+            or BaseExpressionSyntax => operand,
+        _ => SyntaxFactory.ParenthesizedExpression(operand),
+    };
 
     /// <summary>
     /// 按目标域归一化操作数：uint→int/long、ulong→long 显式插入转换。

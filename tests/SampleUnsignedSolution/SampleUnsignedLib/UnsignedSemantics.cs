@@ -11,6 +11,7 @@ public static class UnsignedSemantics
         AppendSection(sb, "overflow", UnsignedOverflow.Run());
         AppendSection(sb, "conversions", UnsignedConversions.Run());
         AppendSection(sb, "mixed", UnsignedMixedOps.Run());
+        AppendSection(sb, "mixedBoundaries", UnsignedMixedBoundaries.Run());
         AppendSection(sb, "postfix", UnsignedPostfix.Run());
         AppendSection(sb, "patterns", UnsignedPatterns.Run());
         AppendSection(sb, "collections", UnsignedCollections.Run());
