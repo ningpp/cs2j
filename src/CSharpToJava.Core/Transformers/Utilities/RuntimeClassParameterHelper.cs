@@ -805,6 +805,21 @@ internal static class RuntimeClassParameterHelper
         ConversionContext context,
         bool preferPrimitiveClassLiteral)
     {
+        // Unsigned scalar values are represented as Java int/long, but their
+        // reflection/type-token identity must stay distinct (e.g. ByteConverter vs
+        // Int32Converter in JsonSerializerOptions' Dictionary<Type, JsonConverter>).
+        switch (runtimeType.SpecialType)
+        {
+            case SpecialType.System_Byte:
+                return "io.github.ningpp.compat.CSharpByte.class";
+            case SpecialType.System_UInt16:
+                return "io.github.ningpp.compat.CSharpUInt16.class";
+            case SpecialType.System_UInt32:
+                return "io.github.ningpp.compat.CSharpUInt32.class";
+            case SpecialType.System_UInt64:
+                return "io.github.ningpp.compat.CSharpUInt64.class";
+        }
+
         if (runtimeType is ITypeParameterSymbol typeParameter)
         {
             if (context.TryGetRuntimeClassParameter(typeParameter.Name, out var runtimeClassParameter))
