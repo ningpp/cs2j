@@ -317,4 +317,32 @@
 - **根因分类**: Transformer
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs`（`ResolveReadOnlyDictListConflict` 第 3/4 步）
 - **分析**: compat 接口 `CSharpReadOnlyDict<K,V>` 已从 `containsKey(Object)/get(Object)` 改为 `containsKey(K)/get(K)`，但转换器仍按旧契约为 String 键合成 `containsKey(Object)/get(Object)` 桥接；Java 中 String 键类型方法的擦除就是 `Object`，显式 Object 重载与接口生成桥接冲突。
+- **状态**: ✅ Fixed（重新转换后 `dotnet-text-regularexpressions` 模块编译通过）
+
+---
+
+## Iteration 2 — byte[] 初始化器内 unsigned 转换返回 int（incompatible types: int → byte）
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonConstants.java`、`JsonSerializer.java`、`Utf8JsonWriter.java`
+- **行号**: `JsonConstants.java:108-117`、`JsonSerializer.java:42-44`、`Utf8JsonWriter.java:5351`
+- **错误信息**: `不兼容的类型: 从int转换到byte可能会有损失`（`UnsignedMath.toByteInt32(...)` 出现在 `new byte[] { ... }` 中）
+- **代码片段**:
+  ```java
+  public static ReadOnlySpan<Integer> getTrueValue() {
+      return new ReadOnlySpan<Integer>(new byte[] {
+          UnsignedMath.toByteInt32((int) ('t')),
+          UnsignedMath.toByteInt32((int) ('r')),
+          UnsignedMath.toByteInt32((int) ('u')),
+          UnsignedMath.toByteInt32((int) ('e'))
+      });
+  }
+  public static final byte[] s_idPropertyName = new byte[] {
+      UnsignedMath.toByteInt32((int) ('$')),
+      UnsignedMath.toByteInt32((int) ('i')),
+      UnsignedMath.toByteInt32((int) ('d'))
+  };
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\JsonConstants.cs:35-48`（`new byte[] { (byte)'t', ... }`）、`D:\csharp-sdk\json\src\System\Text\Json\Serialization\JsonSerializer.cs`（`s_idPropertyName` 等）、`D:\csharp-sdk\json\src\System\Text\Json\Writer\Utf8JsonWriter.cs`（`SingleLineCommentDelimiterUtf8`）
+- **根因分类**: Transformer（unsigned 重写）
+- **涉及组件**: `src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs`（`VisitCastExpression` / `GetCastReplacement`）
+- **分析**: unsigned 重写把 `(byte)'t'` 替换成返回 `System.Byte` 的 `UnsignedMath.ToByteInt32(...)`；C# `byte` 标量映射为 Java `int`，但 `byte[]` 仍映射为 Java `byte[]`，因此数组初始化器里的方法调用不是编译期常量且为 `int`，javac 报 narrowing 错误；重写时缺少“目标为 byte[] 元素”的 `(byte)` 收尾转换。
 - **状态**: ⏳ In Progress

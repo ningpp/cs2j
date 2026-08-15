@@ -197,6 +197,22 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         return false;
     }
 
+    private static bool IsDirectByteArrayInitializerElement(ExpressionSyntax node)
+    {
+        if (node.Parent is not InitializerExpressionSyntax initializer)
+        {
+            return false;
+        }
+
+        if (initializer.Parent is ArrayCreationExpressionSyntax arrayCreation)
+        {
+            var elementType = arrayCreation.Type.ElementType.ToString();
+            return elementType == "byte" || elementType == "System.Byte";
+        }
+
+        return false;
+    }
+
     private bool IsSafeAssignmentTarget(ExpressionSyntax target)
     {
         if (_semanticModel == null)
@@ -648,6 +664,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
     {
+        var isByteArrayInitializerElement = IsDirectByteArrayInitializerElement(node);
         var rewritten = (CastExpressionSyntax)base.VisitCastExpression(node)!;
         if (IsInConstantExpressionContext(node))
         {
@@ -678,7 +695,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             // object/字符串等非整型源（如拆箱 (byte)objectValue）保持原生转换。
             return FixQualifiedCastParens(rewritten);
         }
-        var replacement = GetCastReplacement(targetType, sourceType, rewritten);
+        var replacement = GetCastReplacement(targetType, sourceType, rewritten, isByteArrayInitializerElement);
         if (replacement == null)
         {
             return FixQualifiedCastParens(rewritten);
@@ -708,7 +725,8 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     private ExpressionSyntax? GetCastReplacement(
         ITypeSymbol? targetType,
         ITypeSymbol? sourceType,
-        CastExpressionSyntax rewritten)
+        CastExpressionSyntax rewritten,
+        bool isByteArrayInitializerElement)
     {
         if (targetType == null || sourceType == null)
         {
@@ -736,7 +754,20 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                 : source == SpecialType.System_UInt32
                     ? UnsignedMathSyntax.UncheckedCast(SyntaxKind.IntKeyword, operand)
                     : operand;
-            return UnsignedMathSyntax.StaticCall(method, normalized);
+            var call = UnsignedMathSyntax.StaticCall(method, normalized);
+
+            // byte[] stays Java byte[] while scalar byte maps to Java int. In a
+            // byte[] initializer the helper's int result must be narrowed back
+            // to byte or javac reports a lossy-conversion error.
+            if (target == SpecialType.System_Byte
+                && isByteArrayInitializerElement)
+            {
+                return SyntaxFactory.CastExpression(
+                    SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ByteKeyword)),
+                    call);
+            }
+
+            return call;
         }
 
         if (target == SpecialType.System_Int64 && source == SpecialType.System_UInt32)

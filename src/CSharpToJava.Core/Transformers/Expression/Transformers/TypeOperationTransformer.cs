@@ -51,6 +51,22 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             _ => throw new NotSupportedException($"Type operation kind {node.Kind()} not supported.")
         };
 
+    private static bool IsDirectByteArrayInitializerElement(CastExpressionSyntax node)
+    {
+        if (node.Parent is not InitializerExpressionSyntax initializer)
+        {
+            return false;
+        }
+
+        if (initializer.Parent is ArrayCreationExpressionSyntax arrayCreation)
+        {
+            var elementType = arrayCreation.Type.ElementType.ToString();
+            return elementType == "byte" || elementType == "System.Byte";
+        }
+
+        return false;
+    }
+
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
@@ -435,7 +451,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     if (targetSymbol?.SpecialType == SpecialType.System_UInt16)
                         return $"(((int)({expression})) & 0xFFFF)";
                     if (targetSymbol?.SpecialType == SpecialType.System_Byte)
-                        return $"{expression} & 0xFF";
+                        return IsDirectByteArrayInitializerElement(node)
+                            ? $"(byte)({expression} & 0xFF)"
+                            : $"{expression} & 0xFF";
                     if (targetSymbol?.SpecialType == SpecialType.System_UInt32)
                         return $"(int)(({expression}) & 0xFFFFFFFFL)";
                     return baseResult;
@@ -618,8 +636,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // Unbox to int first; the runtime type check (e.g. value instanceof Byte)
             // in the surrounding C# code guarantees the cast is safe.
             if (sourceType?.SpecialType == SpecialType.System_Object)
-                return $"(((Number)({expression})).intValue() & 0xFF)";
-            return $"({expression} & 0xFF)";
+                return IsDirectByteArrayInitializerElement(node)
+                    ? $"(byte)(((Number)({expression})).intValue() & 0xFF)"
+                    : $"(((Number)({expression})).intValue() & 0xFF)";
+            return IsDirectByteArrayInitializerElement(node)
+                ? $"(byte)({expression} & 0xFF)"
+                : $"({expression} & 0xFF)";
         }
 
         // C# (ushort)expr → ((int)(expr) & 0xFFFF) (ushort maps to Java short, but & 0xFFFF
