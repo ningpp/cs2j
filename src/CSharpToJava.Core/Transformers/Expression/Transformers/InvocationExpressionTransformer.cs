@@ -3464,6 +3464,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     memberAccess.Expression, context, "Activator", "System.Activator"))))
         {
             var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            // Activator.CreateInstance(Type, bool nonPublic) is a separate C#
+            // overload. Java reflection can create non-public instances directly,
+            // so the bool flag is dropped rather than wrapped as an object[] arg.
+            var secondArgType = context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type;
+            if (secondArgType?.SpecialType == SpecialType.System_Boolean)
+            {
+                context.AddImport("io.github.ningpp.compat.Activator");
+                return $"Activator.createInstance({typeArg})";
+            }
             var argsExpr = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
             context.AddImport("io.github.ningpp.compat.Activator");
             var argsType = context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type;

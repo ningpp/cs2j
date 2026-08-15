@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.util.LinkedHashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -118,7 +119,20 @@ public interface CSharpIDictionary extends CSharpCollection {
             }
             @Override
             public CSharpGenericEnumerator<Object> iterator() {
-                return CSharpGenericEnumerator.<Object>from(dict.iterator());
+                return CSharpGenericEnumerator.<Object>from(new Iterator<Object>() {
+                    private final Iterator<? extends CSharpKeyValuePair<?, ?>> it = dict.iterator();
+
+                    @Override
+                    public boolean hasNext() {
+                        return it.hasNext();
+                    }
+
+                    @Override
+                    public Object next() {
+                        CSharpKeyValuePair<?, ?> pair = it.next();
+                        return new CSharpDictEntry(pair.getKey(), pair.getValue());
+                    }
+                });
             }
         };
     }

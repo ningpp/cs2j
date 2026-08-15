@@ -245,6 +245,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"FileHelper.open({args})";
         }
 
+        // Java cannot emit IL; the reflection-based accessor is the compatible
+        // implementation of the same C# abstraction.
+        if (createdTypeSymbol?.ToDisplayString() == "dotnet.text.json.Serialization.ReflectionEmitMemberAccessor")
+        {
+            return "new ReflectionMemberAccessor()";
+        }
+
         if (createdTypeSymbol?.ToDisplayString() is "System.Text.UTF8Encoding" or "System.Text.ASCIIEncoding")
         {
             var call = createdTypeSymbol?.ToDisplayString() == "System.Text.UTF8Encoding"
