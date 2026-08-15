@@ -1226,6 +1226,11 @@ public static class ExpressionTransformerHelpers
             return rhs;
         }
 
+        if (IsArrayAlreadyWrappedForCollectionOrIterable(rhs))
+        {
+            return rhs;
+        }
+
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
         if (targetType.TypeArguments.Length == 1)
         {
@@ -1234,6 +1239,28 @@ public static class ExpressionTransformerHelpers
             return $"new CSharpList<{elemJava}>(ArrayHelper.toList({rhs}))";
         }
         return $"ArrayHelper.toList({rhs})";
+    }
+
+    /// <summary>
+    /// Returns true when a Java expression has already been converted from a raw array
+    /// into a collection/stream form (CSharpList, ArrayHelper.toList, Arrays.asList,
+    /// Arrays.stream, IntStream.range, StreamSupport.stream). Used to prevent repeated
+    /// wrapping by field/property initializer fallbacks and iterable-target adapters.
+    /// </summary>
+    public static bool IsArrayAlreadyWrappedForCollectionOrIterable(string expr)
+    {
+        if (string.IsNullOrWhiteSpace(expr))
+        {
+            return false;
+        }
+        var trimmed = expr.TrimStart();
+        return trimmed.StartsWith("new CSharpList<", StringComparison.Ordinal)
+            || trimmed.StartsWith("ArrayHelper.toList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+            || trimmed.StartsWith("IntStream.range(", StringComparison.Ordinal)
+            || trimmed.StartsWith("StreamSupport.stream(", StringComparison.Ordinal);
     }
 
     /// <summary>

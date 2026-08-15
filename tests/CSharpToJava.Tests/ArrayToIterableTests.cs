@@ -138,6 +138,25 @@ class Sample
         Assert.DoesNotContain("ArrayHelper.toList(ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void IEnumerableField_FromImplicitArray_NoDoubleWrap()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Sample
+{
+    enum PlacementStrategy { Horizontal, AlongCurve }
+    IEnumerable<PlacementStrategy> placementStrategyPriority = new[] { PlacementStrategy.Horizontal, PlacementStrategy.AlongCurve };
+}");
+
+        Assert.True(result.Success);
+        // AGL Label.cs: the field initializer must not be wrapped again by the
+        // syntax-only fallback after WrapArrayForIterableTarget already produced
+        // new CSharpList<T>(ArrayHelper.toList(array)).
+        Assert.DoesNotContain("ArrayHelper.toList(new CSharpList<", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("new CSharpList<PlacementStrategy>(ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

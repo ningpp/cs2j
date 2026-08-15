@@ -319,7 +319,8 @@ public class FieldTransformer : IMemberTransformer
                 }
 
                 if (IsEnumerableOrCollectionTypeSyntax(fieldDecl.Declaration.Type)
-                    && variable.Initializer.Value is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax)
+                    && variable.Initializer.Value is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax
+                    && !ExpressionTransformerHelpers.IsArrayAlreadyWrappedForCollectionOrIterable(javaField.Initializer))
                 {
                     // Fallback when semantic model doesn't surface array type information.
                     // Java Arrays.stream only supports int[], long[], double[], and T[].
