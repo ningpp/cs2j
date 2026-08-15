@@ -819,7 +819,10 @@ public class ArgumentTransformer
                 if (javaFuncType.StartsWith("Supplier<", StringComparison.Ordinal)
                     && targetParam.ContainingSymbol is IMethodSymbol runAsyncMethod
                     && runAsyncMethod.Name == "Run"
-                    && runAsyncMethod.ContainingType?.ToDisplayString() == "System.Threading.Tasks.Task")
+                    && runAsyncMethod.ContainingType?.ToDisplayString() == "System.Threading.Tasks.Task"
+                    && targetParam.Type is INamedTypeSymbol delegateSymbol
+                    && delegateSymbol.DelegateInvokeMethod?.ReturnType.ToDisplayString()
+                        is "System.Threading.Tasks.Task" or "System.Threading.Tasks.ValueTask")
                 {
                     context.AddImport("java.lang.Runnable");
                     transformedExpr = $"(Runnable) {transformedExpr}";

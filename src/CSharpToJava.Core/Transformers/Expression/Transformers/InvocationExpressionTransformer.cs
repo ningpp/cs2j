@@ -9965,6 +9965,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         if (containingType == null)
             return false;
 
+        // User/source-defined collections implement ICollection<T> but may override
+        // CopyTo with type-specific semantics (e.g. XmlAttributeCollection clones
+        // attributes). The generic CSharpArray.copyTo rewrite must only apply to
+        // framework collection types from referenced assemblies.
+        if (containingType.Locations.Any(location => location.IsInSource))
+        {
+            return false;
+        }
+
         var typeName = containingType.OriginalDefinition.ToDisplayString();
         if (typeName is "System.Collections.Generic.List<T>"
             or "System.Collections.Generic.HashSet<T>"

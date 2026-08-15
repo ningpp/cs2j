@@ -32,6 +32,11 @@ public class MemoryMarshal {
         return new ReadOnlySpan<>(bytes);
     }
 
+    /** Overload for the converter's mutable Span re-wrapping of char[].AsSpan. */
+    public static ReadOnlySpan<Integer> asBytes(Span span) {
+        return asBytes(span.asReadOnlySpan());
+    }
+
     /** Mirrors C# MemoryMarshal.Read&lt;int&gt;(ReadOnlySpan&lt;byte&gt;) — little-endian 4-byte read. */
     public static int read(ReadOnlySpan<Integer> span) {
         int value = 0;

@@ -77,4 +77,47 @@ class Sample
         Assert.DoesNotContain(".toArray()", code);
         Assert.DoesNotContain(".size()", code);
     }
+
+    [Fact]
+    public void SourceDefinedCollectionCopyTo_NotRewrittenToCSharpArrayCopy()
+    {
+        var r = Convert(@"using System;
+using System.Collections;
+using System.Collections.Generic;
+
+class Item { }
+
+class ItemCollection : ICollection<Item>
+{
+    public int Count => 0;
+    public bool IsReadOnly => true;
+    public void Add(Item item) { }
+    public void Clear() { }
+    public bool Contains(Item item) => false;
+    public bool Remove(Item item) => false;
+    public IEnumerator<Item> GetEnumerator() => null;
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public void CopyTo(Item[] array, int arrayIndex)
+    {
+        array[arrayIndex] = new Item();
+    }
+}
+
+class Sample
+{
+    void Test(ItemCollection c, Item[] a)
+    {
+        c.CopyTo(a, 0);
+    }
+}");
+
+        Assert.True(r.Success, string.Join("\n", r.Diagnostics) + "\n---Generated---\n" + r.GeneratedCode);
+        var code = r.GeneratedCode ?? "";
+
+        // XmlAttributeCollection is a source-defined ICollection<T> whose CopyTo
+        // clones elements; the generic CSharpArray.copyTo rewrite would lose that.
+        Assert.Contains("c.copyTo(a, 0)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("CSharpArray.copyTo", code, StringComparison.Ordinal);
+    }
 }

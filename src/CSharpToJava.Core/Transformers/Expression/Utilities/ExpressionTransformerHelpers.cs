@@ -211,8 +211,11 @@ public static class ExpressionTransformerHelpers
             // re-wrap for a mutable Span target.
             if (transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal))
             {
+                var spanElementArg = spanSourceArray.ElementType.SpecialType == SpecialType.System_Char
+                    ? "Character"
+                    : BoxJavaPrimitiveType(context.MapType(spanSourceArray.ElementType));
                 return spanTargetNamed.Name == "Span"
-                    ? $"new Span<>({transformedExpression})"
+                    ? $"new Span<{spanElementArg}>({transformedExpression})"
                     : transformedExpression;
             }
             if (transformedExpression.StartsWith("new Span<>(", StringComparison.Ordinal)
@@ -231,7 +234,7 @@ public static class ExpressionTransformerHelpers
                 context.AddImport("io.github.ningpp.compat.MemoryExtensions");
                 var charAsSpan = $"MemoryExtensions.asSpan({transformedExpression})";
                 return spanTargetNamed.Name == "Span"
-                    ? $"new Span<>({charAsSpan})"
+                    ? $"new Span<Character>({charAsSpan})"
                     : charAsSpan;
             }
             // byte[]/sbyte[] are matched by both the generic T[] constructor and the
@@ -253,7 +256,8 @@ public static class ExpressionTransformerHelpers
             && transformedExpression.StartsWith("MemoryExtensions.asSpan(", StringComparison.Ordinal))
         {
             context.AddImport("io.github.ningpp.compat.Span");
-            return $"new Span<>({transformedExpression})";
+            var mutableElementArg = BoxJavaPrimitiveType(context.MapType(mutableSpanTarget.TypeArguments[0]));
+            return $"new Span<{mutableElementArg}>({transformedExpression})";
         }
 
         // C# Memory<T>.Span returns Span<T>; the compat Memory maps to ReadOnlyMemory,
@@ -263,7 +267,8 @@ public static class ExpressionTransformerHelpers
             && transformedExpression.EndsWith(".getSpan()", StringComparison.Ordinal))
         {
             context.AddImport("io.github.ningpp.compat.Span");
-            return $"new Span<>({transformedExpression})";
+            var spanElementArg = BoxJavaPrimitiveType(context.MapType(spanTargetNamed2.TypeArguments[0]));
+            return $"new Span<{spanElementArg}>({transformedExpression})";
         }
 
         // C# implicit conversion string → Span<char>/ReadOnlySpan<char>: the compat

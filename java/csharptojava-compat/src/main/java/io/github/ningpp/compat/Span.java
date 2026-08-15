@@ -43,6 +43,11 @@ public final class Span<T> {
         this.length = other.getLength();
     }
 
+    /** Mirrors C# Span&lt;T&gt; → ReadOnlySpan&lt;T&gt; implicit conversion. */
+    public ReadOnlySpan<T> asReadOnlySpan() {
+        return new ReadOnlySpan<>(this);
+    }
+
     public Span(T[] array, int offset, int length) {
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(

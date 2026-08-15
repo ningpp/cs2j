@@ -389,4 +389,24 @@
 - **根因分类**: Transformer
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs`（Span 适配，`new Span<>(MemoryExtensions.asSpan(...))`）
 - **分析**: `MemoryExtensions.asSpan(char[], ...)` 返回 `ReadOnlySpan<Character>`，但转换器用菱形 `new Span<>(...)` 再包装；该菱形出现在接受 raw `ReadOnlySpan` 的 `MemoryMarshal.asBytes` 实参位置，javac 无法从 raw 参数类型推断 T，需显式 `new Span<Character>(...)`（byte 路径同理应为 `<Integer>`）。
+- **状态**: ✅ Fixed（含 compat `MemoryMarshal.asBytes(Span)`/`Span.asReadOnlySpan()` 与 `Task.Run<T>` 不再 Runnable 化；`system-private-xml` 主模块编译通过）
+
+---
+
+## Iteration 5 — 源定义 ICollection<T>.CopyTo 被泛型数组拷贝重写，丢失克隆语义（运行时测试失败）
+- **Java 文件**: `d:\cs-java-81512\xmldocument-tests\src\test\java\dotnet\xml\Tests\CopyToTests.java:49`
+- **行号**: 49（`Assert.notSame(attr1, destinationArray[0])`）
+- **错误信息**: `Assert.notSame() failure: References are the same`（`CopyToCopiesClonedAttributes`）
+- **代码片段**:
+  ```java
+  dotnet.xml.XmlAttribute[] destinationArray = new dotnet.xml.XmlAttribute[2];
+  dotnet.xml.XmlAttributeCollection target = element.getAttributes();
+  CSharpArray.copyTo(target.toArray(), 0, destinationArray, 0, target.size());
+  Assert.notNull(destinationArray[0]);
+  Assert.notSame(attr1, destinationArray[0]);   // FAILS: same reference
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\xml\tests\XmlDocument\XmlAttributeCollectionTests\CopyToTests.cs:27-45`；`D:\csharp-sdk\xml\src\System\Xml\Dom\XmlAttributeCollection.cs:290-296`（`CopyTo(XmlAttribute[], int)` 内调用 `CloneNode(true)`）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`IsFrameworkCollectionCopyTo`）
+- **分析**: `IsFrameworkCollectionCopyTo` 通过“实现 `ICollection<T>`”匹配所有类型，把源定义的 `XmlAttributeCollection.CopyTo(XmlAttribute[], int)` 也重写成 `CSharpArray.copyTo(toArray(), ...)`；该方法在 C# 中有克隆属性语义，泛型数组拷贝只复制引用。修复为：方法所在类型若来自当前源码（`Locations.IsInSource`）则不重写，保留实例 `copyTo` 调用。
 - **状态**: ⏳ In Progress
