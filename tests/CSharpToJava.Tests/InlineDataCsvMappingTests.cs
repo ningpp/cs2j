@@ -229,6 +229,38 @@ class Test {
         Assert.DoesNotContain("float.NegativeInfinity", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void InlineData_FloatingMinMaxValues_ConvertedToNumericLiterals()
+    {
+        var result = Convert(@"
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    [DataTestMethod]
+    [InlineData(double.MinValue)]
+    [InlineData(double.MaxValue)]
+    public void M(double d) {}
+
+    [DataTestMethod]
+    [InlineData(float.MinValue)]
+    [InlineData(float.MaxValue)]
+    public void N(float f) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // JUnit's CSV-to-double/float conversion cannot parse "double.MinValue"
+        // member-access text; emit the numeric literals instead.
+        Assert.Contains("-1.7976931348623157E308", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("1.7976931348623157E308", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("-3.4028235E38", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("3.4028235E38", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("double.MinValue", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("double.MaxValue", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("float.MinValue", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("float.MaxValue", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

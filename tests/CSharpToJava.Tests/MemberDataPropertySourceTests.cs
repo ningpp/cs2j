@@ -122,6 +122,32 @@ public class MyTests {
         Assert.Contains("Object[] _defaults = new Object[] { 64 };", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConditionalTheory_GeneratesParameterizedTest()
+    {
+        // xUnit [ConditionalTheory] must be treated as [Theory]: otherwise the
+        // converted test keeps @MethodSource but loses @ParameterizedTest and is
+        // silently dropped (e.g. RegexMatchTests' timeout cases never ran).
+        var result = Convert(@"
+using System.Collections.Generic;
+using Xunit;
+
+public class MyTests {
+    public static IEnumerable<object[]> MyMethodData() {
+        yield return new object[] { ""hello"" };
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(MyMethodData))]
+    public void TestSomething(string input) {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("org.junit.jupiter.params.ParameterizedTest", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MethodSource(\"myMethodData\"", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

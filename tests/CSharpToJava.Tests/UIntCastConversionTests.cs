@@ -98,9 +98,9 @@ class Test {
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
 
-        // (uint)obj must unbox Object to Integer before applying the uint mask;
-        // Object cannot be used directly as an operand of bitwise AND with a long literal.
-        Assert.Contains("(Integer)(value)", result.GeneratedCode, StringComparison.Ordinal);
+        // (uint)obj must unbox Object before applying the uint mask; route through
+        // EnumHelper so boxed enum constants (not Java Numbers) also work.
+        Assert.Contains("EnumHelper.toInt32(value)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("& 0xFFFFFFFFL", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("(value) & 0xFFFFFFFFL", result.GeneratedCode, StringComparison.Ordinal);
     }

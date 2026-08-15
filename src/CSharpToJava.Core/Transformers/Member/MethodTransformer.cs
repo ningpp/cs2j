@@ -912,8 +912,8 @@ public class MethodTransformer : IMemberTransformer
             javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
 
-        // Xunit [Fact] → JUnit 5 @Test
-        if (attributeNames.Contains("Fact"))
+        // Xunit [Fact] / [ConditionalFact] → JUnit 5 @Test
+        if (attributeNames.Contains("Fact") || attributeNames.Contains("ConditionalFact"))
         {
             javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, methodDecl, "Test", "org.junit.jupiter.api.Test")));
             context.AddImport("org.junit.jupiter.api.Test");
@@ -921,8 +921,8 @@ public class MethodTransformer : IMemberTransformer
             javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
 
-        // Xunit [Theory] → JUnit 5 @ParameterizedTest
-        if (attributeNames.Contains("Theory"))
+        // Xunit [Theory] / [ConditionalTheory] → JUnit 5 @ParameterizedTest
+        if (attributeNames.Contains("Theory") || attributeNames.Contains("ConditionalTheory"))
         {
             javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, methodDecl, "ParameterizedTest", "org.junit.jupiter.params.ParameterizedTest")));
             context.AddImport("org.junit.jupiter.params.ParameterizedTest");
@@ -1065,14 +1065,19 @@ public class MethodTransformer : IMemberTransformer
                         // as C# member-access text. JUnit's String→double/float
                         // conversion accepts "Infinity", "-Infinity" and "NaN".
                         if (expr is MemberAccessExpressionSyntax floatMember
-                            && floatMember.Name.Identifier.Text is "NegativeInfinity" or "PositiveInfinity" or "NaN"
+                            && floatMember.Name.Identifier.Text is "NegativeInfinity" or "PositiveInfinity" or "NaN" or "MinValue" or "MaxValue"
                             && floatMember.Expression.ToString() is "double" or "float")
                         {
+                            bool isDoubleMember = floatMember.Expression.ToString() == "double";
                             return floatMember.Name.Identifier.Text switch
                             {
                                 "NegativeInfinity" => "-Infinity",
                                 "PositiveInfinity" => "Infinity",
-                                _ => "NaN",
+                                "NaN" => "NaN",
+                                "MinValue" when isDoubleMember => "-1.7976931348623157E308",
+                                "MaxValue" when isDoubleMember => "1.7976931348623157E308",
+                                "MinValue" => "-3.4028235E38",
+                                _ => "3.4028235E38",
                             };
                         }
                         // Handle other expressions that might represent null (e.g., cast expressions)

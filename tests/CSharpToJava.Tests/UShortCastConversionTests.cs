@@ -110,9 +110,9 @@ class Test {
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
 
-        // (ushort)obj must unbox Object to Integer before applying the ushort mask;
-        // Object cannot be cast to int directly in Java.
-        Assert.Contains("(Integer)(value)", result.GeneratedCode, StringComparison.Ordinal);
+        // (ushort)obj must unbox Object before applying the ushort mask; route
+        // through EnumHelper so boxed enum constants (not Java Numbers) also work.
+        Assert.Contains("EnumHelper.toInt32(value)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("& 0xFFFF", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("(int)(value)", result.GeneratedCode, StringComparison.Ordinal);
     }

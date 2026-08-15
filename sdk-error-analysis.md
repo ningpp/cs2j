@@ -509,6 +509,60 @@
 
 ---
 
+## Iteration 14 — 枚举 `_UNMAPPED` 哨兵泄漏 + 枚举反装箱 ClassCastException
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`（`jsonWithTrailingCommasAndCommentsMultiSegment_Valid`）等
+- **行号**: `JsonReaderOptions.setCommentHandling(JsonReaderOptions.java:53)`
+- **错误信息**: `ArgumentOutOfRangeException: The JsonCommentHandling enum must be set to one of the supported values`；`EnumConverter.convertToUInt64` 对枚举常量做 `(int)` 强转
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Reader\JsonReaderOptions.cs`、`...\Converters\Value\EnumConverter.cs`
+- **根因分类**: compat + Transformer
+- **涉及组件**: `EnumHelper.java`、`TypeOperationTransformer.cs`
+- **分析**: 转换器合成 `_UNMAPPED` 常量使 `Enum.GetValues` 多出 1 项；C# `(int)boxedEnum` 被生成成 Java `(Integer)value`。修复：`getValues/getValuesArray/getNames/tryParse` 过滤 `_UNMAPPED`；新增 `EnumHelper.toInt32/toInt64`，`object→数值` 反装箱改走该 helper。
+- **状态**: ✅ Fixed（提交 `42aa0766`；Agent A 并行完成）
+
+---
+
+## Iteration 15 — struct Clone() 内 `return this` 生成 `this.clone()` 自递归
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonElement.java`
+- **行号**: `JsonElement.clone(JsonElement.java:942)` 无限递归（StackOverflowError）
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Document\JsonElement.cs`（`Clone()`）
+- **根因分类**: Transformer（struct 值复制）
+- **涉及组件**: `StatementTransformer.ExpressionAndReturn.cs`
+- **分析**: C# `Clone()` 已映射为 Java `clone()`，值复制规则又把 `return this` 追加成 `.clone()`。修复：无参实例 `Clone()` 内 `return this` 跳过克隆。
+- **状态**: ✅ Fixed（提交 `644c8dc1`）
+
+---
+
+## Iteration 16 — 非注解属性类型 `getAnnotationsByType` ClassCastException
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\...\CustomConverterTests.java`
+- **错误信息**: `ClassCastException: class [Ldotnet.text.json.Serialization.JsonConverterAttribute; cannot be cast to [Ljava.lang.annotation.Annotation;`
+- **对应 C# 文件**: 反射属性读取路径（`JsonSerializerOptions.GetAttributeThatCanHaveMultiple`）
+- **根因分类**: compat
+- **涉及组件**: `FieldInfo.java`、`ConstructorInfo.java`、`TypeMemberInfo.java`、`TypeHelper.java`
+- **分析**: 转换器生成的属性类是普通类而非 Java 注解，直接 `getAnnotationsByType` 崩溃；非注解类型返回空数组。
+- **状态**: ✅ Fixed（提交 `838c58ca`）
+
+---
+
+## Iteration 17 — uint/ulong 比较双重包装 + ReadOnlyMemory<byte> 切片复制 + 原始/包装类型相等
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonHelpers.java`、SpanTests 等
+- **错误信息**: `isInRangeInclusive` 恒 false；流读取写副本丢失；`typeof(bool)` 与 `boolean.class` 引用不等
+- **根因分类**: compat + Transformer
+- **涉及组件**: `BinaryExpressionTransformer.cs`（ContainsUIntCast 祖先遍历）、`MemoryExtensions.asMemory(byte[])`（改视图）、`TypeHelper.isSameType/isAssignableFrom`
+- **分析**: ① 比较调用 `CompareUInt32(...)` 结果被再次 `Integer.compareUnsigned` 包装；② `asMemory` 复制导致异步写入丢失；③ 原始/包装类型对需要 `isSameType` 互认（配合 Type 相等路由）。
+- **状态**: ✅ Fixed（提交 `ae75331e`）
+
+---
+
+## Iteration 18 — InlineData 浮点 Min/Max + ConditionalTheory/ConditionalFact 被丢弃
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`、RegexMatchTests
+- **错误信息**: `@CsvSource` 出现 `double.MinValue` 文本；RegexMatchTests 的 `match_DefaultTimeout_Throws` 等 `[ConditionalTheory]` 用例从未运行
+- **根因分类**: Transformer（测试属性生成）
+- **涉及组件**: `MethodTransformer.cs`
+- **分析**: ① InlineData 特殊值分支未覆盖 `MinValue/MaxValue`；② 只识别 `Theory`/`Fact`，`ConditionalTheory`/`ConditionalFact` 丢失 `@ParameterizedTest`/`@Test` 注解，用例被静默丢弃。
+- **状态**: ✅ Fixed（Agent C 提交 InlineData Min/Max；父代理补 ConditionalTheory/ConditionalFact，Red→Green：`ConditionalTheory_GeneratesParameterizedTest`）
+
+---
+
 ## Iteration 14 — JsonElement.Clone 被生成成 `return this.clone()`，clone() 无限自递归
 - **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonElement.java:942`
 - **行号**: 942（`clone()` 内 `if (!_parent.getIsDisposable()) { return this.clone(); }`）
