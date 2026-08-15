@@ -21,7 +21,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         { SyntaxKind.ULongKeyword,  "System.UInt64" },
     };
 
-    private static readonly Dictionary<SyntaxKind, string> BinaryOpToMethod = new()
+    private static readonly Dictionary<SyntaxKind, string> BinaryOpMethod = new()
     {
         { SyntaxKind.AddExpression,         "Add"       },
         { SyntaxKind.SubtractExpression,    "Subtract"  },
@@ -35,7 +35,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         { SyntaxKind.RightShiftExpression,  "RightShift"},
     };
 
-    private static readonly Dictionary<SyntaxKind, string> CompoundAssignmentToMethod = new()
+    private static readonly Dictionary<SyntaxKind, string> CompoundAssignmentMethod = new()
     {
         { SyntaxKind.AddAssignmentExpression,         "Add"       },
         { SyntaxKind.SubtractAssignmentExpression,    "Subtract"  },
@@ -74,14 +74,25 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             or SpecialType.System_UInt64;
 
     private bool IsUnsignedExpression(ExpressionSyntax expression)
-        => _semanticModel != null && IsUnsignedType(_semanticModel.GetTypeInfo(expression).Type);
+        => _semanticModel != null && IsUnsignedType(GetEffectiveType(expression));
 
-    /// <summary>
-    /// True when the nearest enclosing checked/unchecked construct is checked.
-    /// Rewriting arithmetic/increment/cast to unchecked extension calls inside a
-    /// checked context would silently change overflow behavior, so those rewrites
-    /// are suppressed there.
-    /// </summary>
+    private ITypeSymbol? GetEffectiveType(ExpressionSyntax expression)
+    {
+        if (_semanticModel == null)
+        {
+            return null;
+        }
+
+        var info = _semanticModel.GetTypeInfo(expression);
+        return info.ConvertedType ?? info.Type;
+    }
+
+    private SpecialType? GetNaturalSpecial(ExpressionSyntax expression)
+        => _semanticModel?.GetTypeInfo(expression).Type?.SpecialType;
+
+    private static SpecialType? GetSpecial(ExpressionSyntax expression, ITypeSymbol? type)
+        => type?.SpecialType;
+
     private static bool IsInCheckedContext(SyntaxNode node)
     {
         for (SyntaxNode? current = node.Parent; current != null; current = current.Parent)
@@ -100,14 +111,6 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         return false;
     }
 
-    /// <summary>
-    /// True when the expression must be a compile-time constant (const field/local
-    /// initializers, enum member values, attribute arguments, default parameter
-    /// values, case labels, and auto-property initializers). Rewriting operators or
-    /// casts there into extension method calls would produce CS0133-style errors,
-    /// so those rewrites are suppressed; the native operators remain valid on the
-    /// replaced System.* type names.
-    /// </summary>
     private static bool IsInConstantExpressionContext(SyntaxNode node)
     {
         for (SyntaxNode? current = node.Parent; current != null; current = current.Parent)
@@ -145,45 +148,6 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         return false;
     }
 
-    /// <summary>
-    /// Only locals, parameters, and fields are safe to rewrite into
-    /// `target = target.Add(...)`-style expressions. Properties and indexers must
-    /// stay native because rewriting would evaluate their getter/receiver twice.
-    /// </summary>
-    private bool IsSafeAssignmentTarget(ExpressionSyntax target)
-    {
-        if (_semanticModel == null)
-        {
-            return false;
-        }
-
-        return target switch
-        {
-            IdentifierNameSyntax identifier =>
-                _semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol
-                    or IParameterSymbol
-                    or IFieldSymbol,
-            MemberAccessExpressionSyntax memberAccess =>
-                _semanticModel.GetSymbolInfo(memberAccess).Symbol is IFieldSymbol
-                && IsSideEffectFreeReceiver(memberAccess.Expression),
-            _ => false,
-        };
-    }
-
-    private static bool IsSideEffectFreeReceiver(ExpressionSyntax receiver) => receiver switch
-    {
-        ThisExpressionSyntax => true,
-        BaseExpressionSyntax => true,
-        IdentifierNameSyntax => true,
-        MemberAccessExpressionSyntax memberAccess => IsSideEffectFreeReceiver(memberAccess.Expression),
-        _ => false,
-    };
-
-    /// <summary>
-    /// True when the node is evaluated more than once (loop condition/incrementor)
-    /// or deferred (lambda/local function/query), where hoisting or in-place
-    /// value-changing rewrites would break semantics.
-    /// </summary>
     private static bool IsInRepeatedEvaluationContext(SyntaxNode node)
     {
         for (SyntaxNode? current = node.Parent; current != null; current = current.Parent)
@@ -208,8 +172,27 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         return false;
     }
 
+    private static bool IsSafeAssignmentTarget(ExpressionSyntax target)
+    {
+        return target switch
+        {
+            IdentifierNameSyntax => true,
+            MemberAccessExpressionSyntax memberAccess => IsSideEffectFreeReceiver(memberAccess.Expression),
+            _ => false,
+        };
+    }
+
+    private static bool IsSideEffectFreeReceiver(ExpressionSyntax receiver) => receiver switch
+    {
+        ThisExpressionSyntax => true,
+        BaseExpressionSyntax => true,
+        IdentifierNameSyntax => true,
+        MemberAccessExpressionSyntax memberAccess => IsSideEffectFreeReceiver(memberAccess.Expression),
+        _ => false,
+    };
+
     private static bool IsBinaryOperatorRewriteKind(SyntaxKind kind)
-        => BinaryOpToMethod.ContainsKey(kind)
+        => BinaryOpMethod.ContainsKey(kind)
            || kind is SyntaxKind.EqualsExpression
                or SyntaxKind.NotEqualsExpression
                or SyntaxKind.LessThanExpression
@@ -217,36 +200,69 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                or SyntaxKind.GreaterThanExpression
                or SyntaxKind.GreaterThanOrEqualExpression;
 
-    private static ExpressionSyntax Clone(ExpressionSyntax expression)
-        => SyntaxFactory.ParseExpression(expression.ToString());
-
-    private static InvocationExpressionSyntax Invoke(
-        ExpressionSyntax receiver, string method, ExpressionSyntax? argument = null)
+    private static UnsignedDomain GetBinaryDomain(SpecialType? left, SpecialType? right)
     {
-        var memberAccess = SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            EnsureReceiver(receiver),
-            SyntaxFactory.IdentifierName(method));
+        if (left == null || right == null)
+        {
+            return UnsignedDomain.Native;
+        }
 
-        var argumentList = argument == null
-            ? SyntaxFactory.ArgumentList()
-            : SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
-                new[] { SyntaxFactory.Argument(argument) }));
+        if (left == SpecialType.System_UInt64 || right == SpecialType.System_UInt64)
+        {
+            return UnsignedDomain.UInt64;
+        }
 
-        return SyntaxFactory.InvocationExpression(memberAccess, argumentList);
+        if (left == SpecialType.System_Int64 || right == SpecialType.System_Int64)
+        {
+            return UnsignedDomain.Int64;
+        }
+
+        if (left == SpecialType.System_UInt32 || right == SpecialType.System_UInt32)
+        {
+            if (left == SpecialType.System_Int32 || right == SpecialType.System_Int32
+                || left == SpecialType.System_Int16 || right == SpecialType.System_Int16
+                || left == SpecialType.System_SByte || right == SpecialType.System_SByte)
+            {
+                return UnsignedDomain.Int64;
+            }
+
+            return UnsignedDomain.UInt32;
+        }
+
+        return UnsignedDomain.Int32;
     }
 
-    private static ExpressionSyntax EnsureReceiver(ExpressionSyntax receiver) => receiver switch
+    private static UnsignedDomain GetShiftDomain(SpecialType? left) => left switch
     {
-        IdentifierNameSyntax
-            or MemberAccessExpressionSyntax
-            or InvocationExpressionSyntax
-            or ElementAccessExpressionSyntax
-            or ParenthesizedExpressionSyntax
-            or ThisExpressionSyntax
-            or BaseExpressionSyntax
-            or LiteralExpressionSyntax => receiver,
-        _ => SyntaxFactory.ParenthesizedExpression(receiver),
+        SpecialType.System_Byte or SpecialType.System_UInt16 => UnsignedDomain.Int32,
+        SpecialType.System_UInt32 => UnsignedDomain.UInt32,
+        SpecialType.System_UInt64 => UnsignedDomain.UInt64,
+        _ => UnsignedDomain.Native,
+    };
+
+    private static UnsignedDomain GetUnaryDomain(SpecialType? operand) => operand switch
+    {
+        SpecialType.System_Byte or SpecialType.System_UInt16 => UnsignedDomain.Int32,
+        SpecialType.System_UInt32 => UnsignedDomain.UInt32,
+        SpecialType.System_UInt64 => UnsignedDomain.UInt64,
+        _ => UnsignedDomain.Native,
+    };
+
+    private static UnsignedDomain GetResultDomain(SpecialType? result) => result switch
+    {
+        SpecialType.System_Int32 => UnsignedDomain.Int32,
+        SpecialType.System_Int64 => UnsignedDomain.Int64,
+        SpecialType.System_UInt32 => UnsignedDomain.UInt32,
+        SpecialType.System_UInt64 => UnsignedDomain.UInt64,
+        _ => UnsignedDomain.Native,
+    };
+
+    private static SyntaxKind ComparisonKind(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.LessThanExpression => SyntaxKind.LessThanExpression,
+        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
+        SyntaxKind.GreaterThanExpression => SyntaxKind.GreaterThanExpression,
+        _ => SyntaxKind.GreaterThanOrEqualExpression,
     };
 
     private static ExpressionSyntax LiteralZero()
@@ -257,18 +273,12 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         => SyntaxFactory.LiteralExpression(
             SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1));
 
-    private static SyntaxKind ComparisonKind(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.GreaterThanExpression,
-        _ => SyntaxKind.GreaterThanOrEqualExpression,
-    };
-
     public override SyntaxNode? VisitPredefinedType(PredefinedTypeSyntax node)
     {
         if (!KeywordToFullName.TryGetValue(node.Keyword.Kind(), out var fullName))
+        {
             return base.VisitPredefinedType(node);
+        }
 
         _stats.TypesReplaced++;
         return SyntaxFactory.ParseTypeName(fullName).WithTriviaFrom(node);
@@ -276,8 +286,6 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
-        // `uint.MaxValue` / `uint.Parse(...)` parse with the keyword token as an
-        // IdentifierName; replacing it produces System.UInt32.MaxValue.
         if (KeywordToFullName.TryGetValue(node.Identifier.Kind(), out var fullName))
         {
             _stats.TypesReplaced++;
@@ -290,143 +298,166 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitArrayType(ArrayTypeSyntax node)
     {
         if (ContainsUnsignedKeyword(node.ElementType))
+        {
             _stats.ArraysRewritten++;
+        }
+
         return base.VisitArrayType(node);
     }
 
     public override SyntaxNode? VisitTypeArgumentList(TypeArgumentListSyntax node)
     {
         if (node.Arguments.Any(ContainsUnsignedKeyword))
+        {
             _stats.GenericArgsReplaced++;
+        }
+
         return base.VisitTypeArgumentList(node);
     }
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
     {
-        var shouldRewrite = ShouldRewriteBinary(node);
+        var isShift = node.IsKind(SyntaxKind.LeftShiftExpression)
+                      || node.IsKind(SyntaxKind.RightShiftExpression);
+        var leftNaturalSpecial = GetNaturalSpecial(node.Left) ?? SpecialType.None;
+        var rightNaturalSpecial = GetNaturalSpecial(node.Right) ?? SpecialType.None;
+        var domain = ShouldRewriteBinary(node, isShift, leftNaturalSpecial, rightNaturalSpecial);
 
         var rewritten = (BinaryExpressionSyntax)base.VisitBinaryExpression(node)!;
-        if (!shouldRewrite)
+        if (domain == UnsignedDomain.Native)
+        {
             return rewritten;
+        }
 
         UsedExtensions = true;
         _stats.OperatorsRewritten++;
 
-        return rewritten.Kind() switch
+        if (isShift)
         {
-            SyntaxKind.EqualsExpression => Invoke(rewritten.Left, "Equals", rewritten.Right),
-            SyntaxKind.NotEqualsExpression => SyntaxFactory.PrefixUnaryExpression(
-                SyntaxKind.LogicalNotExpression,
-                Invoke(rewritten.Left, "Equals", rewritten.Right)),
-            SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression
-                or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression =>
-                SyntaxFactory.BinaryExpression(
-                    ComparisonKind(rewritten.Kind()),
-                    Invoke(rewritten.Left, "CompareTo", rewritten.Right),
-                    LiteralZero()),
-            _ => Invoke(rewritten.Left, BinaryOpToMethod[rewritten.Kind()], rewritten.Right),
-        };
+            var method = BinaryOpMethod[rewritten.Kind()] + UnsignedMathSyntax.Suffix(domain);
+            return UnsignedMathSyntax.StaticCall(
+                method,
+                UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
+                rewritten.Right);
+        }
+
+        if (rewritten.IsKind(SyntaxKind.EqualsExpression)
+            || rewritten.IsKind(SyntaxKind.NotEqualsExpression)
+            || rewritten.IsKind(SyntaxKind.LessThanExpression)
+            || rewritten.IsKind(SyntaxKind.LessThanOrEqualExpression)
+            || rewritten.IsKind(SyntaxKind.GreaterThanExpression)
+            || rewritten.IsKind(SyntaxKind.GreaterThanOrEqualExpression))
+        {
+            var compare = UnsignedMathSyntax.StaticCall(
+                "Compare" + UnsignedMathSyntax.Suffix(domain),
+                UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
+                UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial));
+            return SyntaxFactory.BinaryExpression(
+                ComparisonKind(rewritten.Kind()), compare, LiteralZero());
+        }
+
+        var binaryMethod = BinaryOpMethod[rewritten.Kind()] + UnsignedMathSyntax.Suffix(domain);
+        return UnsignedMathSyntax.StaticCall(
+            binaryMethod,
+            UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
+            UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial));
     }
 
-    private bool ShouldRewriteBinary(BinaryExpressionSyntax node)
+    private UnsignedDomain ShouldRewriteBinary(
+        BinaryExpressionSyntax node,
+        bool isShift,
+        SpecialType leftNaturalSpecial,
+        SpecialType rightNaturalSpecial)
     {
         if (_semanticModel == null
             || !_options.EnableOperatorRewrite
             || !IsBinaryOperatorRewriteKind(node.Kind())
+            || IsInCheckedContext(node)
             || IsInConstantExpressionContext(node))
         {
-            return false;
+            return UnsignedDomain.Native;
         }
 
-        // checked contexts must keep native overflow behavior.
-        if (IsInCheckedContext(node))
+        if (isShift)
         {
-            return false;
+            // 移位只由左操作数（提升后）类型决定；int/long 左操作数不重写。
+            return GetShiftDomain(leftNaturalSpecial);
         }
 
-        var leftType = _semanticModel.GetTypeInfo(node.Left).Type;
-        if (!IsUnsignedType(leftType))
+        if (!IsUnsignedSpecial(leftNaturalSpecial)
+            && !IsUnsignedSpecial(rightNaturalSpecial))
         {
-            return false;
+            return UnsignedDomain.Native;
         }
 
-        // byte/ushort arithmetic and bitwise operators promote to int in C#.
-        // Only equality/comparison (bool results) may be rewritten safely.
-        var isEqualityOrComparison = node.Kind() is SyntaxKind.EqualsExpression
-            or SyntaxKind.NotEqualsExpression
-            or SyntaxKind.LessThanExpression
-            or SyntaxKind.LessThanOrEqualExpression
-            or SyntaxKind.GreaterThanExpression
-            or SyntaxKind.GreaterThanOrEqualExpression;
-        if (leftType.SpecialType is SpecialType.System_Byte or SpecialType.System_UInt16
-            && !isEqualityOrComparison)
+        if (node.IsKind(SyntaxKind.EqualsExpression)
+            || node.IsKind(SyntaxKind.NotEqualsExpression)
+            || node.IsKind(SyntaxKind.LessThanExpression)
+            || node.IsKind(SyntaxKind.LessThanOrEqualExpression)
+            || node.IsKind(SyntaxKind.GreaterThanExpression)
+            || node.IsKind(SyntaxKind.GreaterThanOrEqualExpression))
         {
-            return false;
+            // 比较的结果是 bool，按操作数自然类型的提升规则归类。
+            return GetBinaryDomain(leftNaturalSpecial, rightNaturalSpecial);
         }
 
-        // Shift extension methods take an int shift count and only uint/ulong
-        // keep their result type; byte/ushort shifts promote to int, so they stay
-        // native.
-        if (node.Kind() is SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression)
-        {
-            return leftType.SpecialType is SpecialType.System_UInt32 or SpecialType.System_UInt64;
-        }
-
-        // The extension method takes the same unsigned type as the receiver.
-        // A numeric literal is only fine when it converts to the receiver's type
-        // (e.g. `a + 1`), not when it promotes the operation (e.g. `a + 1L`).
-        var rightType = _semanticModel.GetTypeInfo(node.Right).Type;
-        if (IsUnsignedType(rightType))
-        {
-            return rightType!.SpecialType == leftType!.SpecialType;
-        }
-
-        if (node.Right is LiteralExpressionSyntax)
-        {
-            return _semanticModel.GetTypeInfo(node.Right).ConvertedType?.SpecialType
-                   == leftType!.SpecialType;
-        }
-
-        return false;
+        // 算术/位运算按 C# 实际结果类型归类（结果类型已经体现常量转换与提升）。
+        return GetResultDomain(_semanticModel.GetTypeInfo(node).Type?.SpecialType);
     }
+
+    private static bool IsUnsignedSpecial(SpecialType special)
+        => special is SpecialType.System_Byte
+            or SpecialType.System_UInt16
+            or SpecialType.System_UInt32
+            or SpecialType.System_UInt64;
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
-        var leftType = _semanticModel?.GetTypeInfo(node.Left).Type;
-        var shouldRewrite = _options.EnableOperatorRewrite
-            && CompoundAssignmentToMethod.ContainsKey(node.Kind())
-            && !IsInCheckedContext(node)
-            && IsUnsignedType(leftType)
-            && IsSafeAssignmentTarget(node.Left)
-            && IsCompatibleOperand(node.Right, leftType!);
-
         var rewritten = (AssignmentExpressionSyntax)base.VisitAssignmentExpression(node)!;
-        if (!shouldRewrite)
+
+        if (_semanticModel == null
+            || !_options.EnableOperatorRewrite
+            || !CompoundAssignmentMethod.ContainsKey(node.Kind())
+            || IsInCheckedContext(node)
+            || IsInConstantExpressionContext(node)
+            || !IsSafeAssignmentTarget(node.Left))
+        {
             return rewritten;
+        }
+
+        var leftType = GetEffectiveType(node.Left);
+        if (!IsUnsignedType(leftType))
+        {
+            return rewritten;
+        }
+
+        var isShift = node.IsKind(SyntaxKind.LeftShiftAssignmentExpression)
+                      || node.IsKind(SyntaxKind.RightShiftAssignmentExpression);
+        var leftSpecial = GetSpecial(node.Left, leftType);
+        var rightEffectiveSpecial = GetSpecial(node.Right, GetEffectiveType(node.Right));
+        var leftNaturalSpecial = GetNaturalSpecial(node.Left) ?? SpecialType.None;
+        var rightNaturalSpecial = GetNaturalSpecial(node.Right) ?? SpecialType.None;
+        var domain = isShift
+            ? GetShiftDomain(leftSpecial)
+            : GetBinaryDomain(leftSpecial, rightEffectiveSpecial);
+        if (domain == UnsignedDomain.Native)
+        {
+            return rewritten;
+        }
+
+        var method = CompoundAssignmentMethod[node.Kind()] + UnsignedMathSyntax.Suffix(domain);
+        var call = UnsignedMathSyntax.StaticCall(
+            method,
+            UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
+            UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial));
 
         UsedExtensions = true;
         _stats.OperatorsRewritten++;
+
         return SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
             rewritten.Left,
-            Invoke(Clone(rewritten.Left), CompoundAssignmentToMethod[rewritten.Kind()], rewritten.Right));
-    }
-
-    private bool IsCompatibleOperand(ExpressionSyntax operand, ITypeSymbol leftType)
-    {
-        if (_semanticModel == null)
-        {
-            return false;
-        }
-
-        var operandType = _semanticModel.GetTypeInfo(operand).Type;
-        if (IsUnsignedType(operandType))
-        {
-            return operandType!.SpecialType == leftType.SpecialType;
-        }
-
-        return operand is LiteralExpressionSyntax
-               && _semanticModel.GetTypeInfo(operand).ConvertedType?.SpecialType == leftType.SpecialType;
+            UnsignedMathSyntax.WrapTarget(leftType!.SpecialType, call));
     }
 
     public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
@@ -444,8 +475,10 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             && IsUnsignedExpression(node.Operand)
             && IsSafeAssignmentTarget(node.Operand))
         {
+            var type = GetEffectiveType(node.Operand);
             return base.VisitPostfixUnaryExpression(
-                node.WithAdditionalAnnotations(UnsignedPostfixAnnotations.Postfix));
+                node.WithAdditionalAnnotations(
+                    UnsignedPostfixAnnotations.For(type!.SpecialType)));
         }
 
         return base.VisitPostfixUnaryExpression(node);
@@ -455,18 +488,30 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     {
         if (node.IsKind(SyntaxKind.BitwiseNotExpression))
         {
-            var operandType = _semanticModel?.GetTypeInfo(node.Operand).Type;
-            var shouldRewriteNot = _options.EnableOperatorRewrite
-                && !IsInCheckedContext(node)
-                && operandType?.SpecialType is SpecialType.System_UInt32 or SpecialType.System_UInt64;
-
             var notRewritten = (PrefixUnaryExpressionSyntax)base.VisitPrefixUnaryExpression(node)!;
-            if (!shouldRewriteNot)
+            if (_semanticModel == null
+                || !_options.EnableOperatorRewrite
+                || IsInCheckedContext(node)
+                || IsInConstantExpressionContext(node))
+            {
                 return notRewritten;
+            }
+
+            var operandType = GetEffectiveType(node.Operand);
+            var domain = GetUnaryDomain(operandType?.SpecialType);
+            if (domain == UnsignedDomain.Native)
+            {
+                return notRewritten;
+            }
 
             UsedExtensions = true;
             _stats.OperatorsRewritten++;
-            return Invoke(notRewritten.Operand, "Not");
+            return UnsignedMathSyntax.StaticCall(
+                "Not" + UnsignedMathSyntax.Suffix(domain),
+                UnsignedMathSyntax.Normalize(
+                    notRewritten.Operand,
+                    domain,
+                    operandType?.SpecialType ?? SpecialType.None));
         }
 
         var method = node.Kind() switch
@@ -475,76 +520,169 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             SyntaxKind.PreDecrementExpression => "Subtract",
             _ => null,
         };
-        var shouldRewrite = method != null
-            && !IsInCheckedContext(node)
-            && IsUnsignedExpression(node.Operand)
-            && IsSafeAssignmentTarget(node.Operand);
 
         var rewritten = (PrefixUnaryExpressionSyntax)base.VisitPrefixUnaryExpression(node)!;
-        if (!shouldRewrite || method == null)
+        if (method == null
+            || _semanticModel == null
+            || !_options.EnableOperatorRewrite
+            || IsInCheckedContext(node)
+            || IsInConstantExpressionContext(node)
+            || !IsUnsignedExpression(node.Operand)
+            || !IsSafeAssignmentTarget(node.Operand))
+        {
             return rewritten;
+        }
+
+        var type = GetEffectiveType(node.Operand);
+        var prefixDomain = GetUnaryDomain(type?.SpecialType);
+        if (prefixDomain == UnsignedDomain.Native)
+        {
+            return rewritten;
+        }
+
+        var call = UnsignedMathSyntax.StaticCall(
+            method + UnsignedMathSyntax.Suffix(prefixDomain),
+            UnsignedMathSyntax.Normalize(
+                rewritten.Operand,
+                prefixDomain,
+                type?.SpecialType ?? SpecialType.None),
+            LiteralOne());
 
         UsedExtensions = true;
         _stats.OperatorsRewritten++;
+
         return SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
             rewritten.Operand,
-            Invoke(Clone(rewritten.Operand), method, LiteralOne()));
+            UnsignedMathSyntax.WrapTarget(type!.SpecialType, call));
     }
 
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
     {
-        string? castMethod = null;
-        if (_options.EnableCastRewrite
-            && _semanticModel != null
-            && !IsInCheckedContext(node)
-            && !IsInConstantExpressionContext(node))
+        var rewritten = (CastExpressionSyntax)base.VisitCastExpression(node)!;
+        if (IsInConstantExpressionContext(node))
         {
-            var sourceType = _semanticModel.GetTypeInfo(node.Expression).Type;
-            if (IsUnsignedType(sourceType))
-                castMethod = GetSignedCastMethod(node.Type, sourceType!);
+            return FixQualifiedCastParens(rewritten);
         }
 
-        var rewritten = (CastExpressionSyntax)base.VisitCastExpression(node)!;
-        if (castMethod == null)
+        if (_semanticModel == null || !_options.EnableCastRewrite || IsInCheckedContext(node))
         {
-            // `(byte)-1` / `(byte)*p` are valid, but after replacing the keyword
-            // with the qualified name, the parser can treat `-`, `+`, `*` or `&`
-            // as a binary operator after the parenthesized type and raises
-            // CS0075/CS0119. Parenthesize those prefix unary operands.
-            if (rewritten.Type is not PredefinedTypeSyntax
-                && rewritten.Expression is PrefixUnaryExpressionSyntax prefix
-                && (prefix.IsKind(SyntaxKind.UnaryMinusExpression)
-                    || prefix.IsKind(SyntaxKind.UnaryPlusExpression)
-                    || prefix.IsKind(SyntaxKind.PointerIndirectionExpression)
-                    || prefix.IsKind(SyntaxKind.AddressOfExpression)))
-            {
-                return rewritten.WithExpression(
-                    SyntaxFactory.ParenthesizedExpression(rewritten.Expression));
-            }
+            return FixQualifiedCastParens(rewritten);
+        }
 
-            return rewritten;
+        var sourceType = GetEffectiveType(node.Expression);
+        var targetType = GetEffectiveType(node);
+        var replacement = GetCastReplacement(targetType, sourceType, rewritten);
+        if (replacement == null)
+        {
+            return FixQualifiedCastParens(rewritten);
         }
 
         UsedExtensions = true;
         _stats.CastsRewritten++;
-        return Invoke(rewritten.Expression, castMethod);
+        return replacement;
     }
 
-    private static string? GetSignedCastMethod(TypeSyntax targetType, ITypeSymbol sourceType)
+    private static ExpressionSyntax FixQualifiedCastParens(CastExpressionSyntax rewritten)
     {
-        if (targetType is not PredefinedTypeSyntax predefined)
-            return null;
-
-        return predefined.Keyword.Kind() switch
+        if (rewritten.Type is not PredefinedTypeSyntax
+            && rewritten.Expression is PrefixUnaryExpressionSyntax prefix
+            && (prefix.IsKind(SyntaxKind.UnaryMinusExpression)
+                || prefix.IsKind(SyntaxKind.UnaryPlusExpression)
+                || prefix.IsKind(SyntaxKind.PointerIndirectionExpression)
+                || prefix.IsKind(SyntaxKind.AddressOfExpression)))
         {
-            SyntaxKind.SByteKeyword => "ToSByte",
-            SyntaxKind.ShortKeyword => "ToInt16",
-            SyntaxKind.IntKeyword => "ToInt32",
-            SyntaxKind.LongKeyword =>
-                sourceType.SpecialType == SpecialType.System_UInt32 ? "ToInt64Unsigned" : "ToInt64",
-            _ => null,
-        };
+            return rewritten.WithExpression(
+                SyntaxFactory.ParenthesizedExpression(rewritten.Expression));
+        }
+
+        return rewritten;
     }
 
+    private ExpressionSyntax? GetCastReplacement(
+        ITypeSymbol? targetType,
+        ITypeSymbol? sourceType,
+        CastExpressionSyntax rewritten)
+    {
+        if (targetType == null || sourceType == null)
+        {
+            return null;
+        }
+
+        var target = targetType.SpecialType;
+        var source = sourceType.SpecialType;
+        var operand = rewritten.Expression;
+
+        if (target is SpecialType.System_Byte or SpecialType.System_UInt16)
+        {
+            if (source is SpecialType.System_Byte or SpecialType.System_UInt16)
+            {
+                return null;
+            }
+
+            var method = target == SpecialType.System_Byte
+                ? (source == SpecialType.System_Int64 || source == SpecialType.System_UInt64
+                    ? "ToByteInt64" : "ToByteInt32")
+                : (source == SpecialType.System_Int64 || source == SpecialType.System_UInt64
+                    ? "ToUInt16Int64" : "ToUInt16Int32");
+            var normalized = source == SpecialType.System_UInt64
+                ? UnsignedMathSyntax.UncheckedCast(SyntaxKind.LongKeyword, operand)
+                : source == SpecialType.System_UInt32
+                    ? UnsignedMathSyntax.UncheckedCast(SyntaxKind.IntKeyword, operand)
+                    : operand;
+            return UnsignedMathSyntax.StaticCall(method, normalized);
+        }
+
+        if (target == SpecialType.System_Int64 && source == SpecialType.System_UInt32)
+        {
+            return UnsignedMathSyntax.StaticCall(
+                "ToInt64UInt32",
+                UnsignedMathSyntax.UncheckedCast(SyntaxKind.IntKeyword, operand));
+        }
+
+        if (target == SpecialType.System_UInt64 && source == SpecialType.System_UInt32)
+        {
+            return UnsignedMathSyntax.StaticCall(
+                "ToUInt64UInt32",
+                UnsignedMathSyntax.UncheckedCast(SyntaxKind.IntKeyword, operand));
+        }
+
+        if (target == SpecialType.System_Int32 && source == SpecialType.System_UInt64)
+        {
+            return UnsignedMathSyntax.StaticCall(
+                "ToInt32UInt64",
+                UnsignedMathSyntax.UncheckedCast(SyntaxKind.LongKeyword, operand));
+        }
+
+        if (target is SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Decimal)
+        {
+            if (source == SpecialType.System_UInt32)
+            {
+                var name = target switch
+                {
+                    SpecialType.System_Double => "ToDoubleUInt32",
+                    SpecialType.System_Single => "ToSingleUInt32",
+                    _ => "ToDecimalUInt32",
+                };
+                return UnsignedMathSyntax.StaticCall(
+                    name,
+                    UnsignedMathSyntax.UncheckedCast(SyntaxKind.IntKeyword, operand));
+            }
+
+            if (source == SpecialType.System_UInt64)
+            {
+                var name = target switch
+                {
+                    SpecialType.System_Double => "ToDoubleUInt64",
+                    SpecialType.System_Single => "ToSingleUInt64",
+                    _ => "ToDecimalUInt64",
+                };
+                return UnsignedMathSyntax.StaticCall(
+                    name,
+                    UnsignedMathSyntax.UncheckedCast(SyntaxKind.LongKeyword, operand));
+            }
+        }
+
+        return null;
+    }
 }

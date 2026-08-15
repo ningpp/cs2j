@@ -6,9 +6,8 @@ namespace CSharpToJava.Core.UnsignedTypeRewriter;
 
 /// <summary>
 /// Syntax-only second pass. The semantic pass annotates safe unsigned postfix
-/// increments/decrements; this pass hoists value-used ones into a temp
-/// (`var t = x; x = x.Add(1);`) and rewrites standalone statement ones into
-/// assignments, preserving `a++`'s old-value semantics.
+/// increments/decrements; this pass hoists value-used ones into a temp and
+/// rewrites them as static UnsignedMath calls.
 /// </summary>
 internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
 {
@@ -31,9 +30,8 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
         {
             var postfixes = statement.DescendantNodes()
                 .OfType<PostfixUnaryExpressionSyntax>()
-                .Where(p => p.HasAnnotation(UnsignedPostfixAnnotations.Postfix)
-                            && !IsInsideNestedBlock(p, node)
-                            && !IsInsideLoopBody(p))
+                .Where(UnsignedPostfixAnnotations.Has)
+                .Where(p => !IsInsideNestedBlock(p, node) && !IsInsideLoopBody(p))
                 .OrderBy(p => p.SpanStart)
                 .ToList();
 
@@ -48,12 +46,29 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
             var replacements = new Dictionary<PostfixUnaryExpressionSyntax, ExpressionSyntax>();
             foreach (var postfix in postfixes)
             {
+                var target = UnsignedPostfixAnnotations.GetTarget(postfix);
+                var domain = target switch
+                {
+                    SpecialType.System_Byte or SpecialType.System_UInt16 => UnsignedDomain.Int32,
+                    SpecialType.System_UInt32 => UnsignedDomain.UInt32,
+                    SpecialType.System_UInt64 => UnsignedDomain.UInt64,
+                    _ => UnsignedDomain.Native,
+                };
+                if (domain == UnsignedDomain.Native)
+                {
+                    continue;
+                }
+
                 var method = postfix.IsKind(SyntaxKind.PostIncrementExpression) ? "Add" : "Subtract";
                 var operand = postfix.Operand;
+                var call = UnsignedMathSyntax.StaticCall(
+                    method + UnsignedMathSyntax.Suffix(domain),
+                    UnsignedMathSyntax.Normalize(operand, domain, target),
+                    LiteralOne());
                 var assignment = SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
                     operand.WithoutTrivia(),
-                    Invoke(Clone(operand), method, LiteralOne()));
+                    UnsignedMathSyntax.WrapTarget(target, call));
 
                 if (IsStandaloneExpressionStatement(postfix))
                 {
@@ -142,38 +157,6 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
 
         return false;
     }
-
-    private static ExpressionSyntax Clone(ExpressionSyntax expression)
-        => SyntaxFactory.ParseExpression(expression.ToString());
-
-    private static InvocationExpressionSyntax Invoke(
-        ExpressionSyntax receiver, string method, ExpressionSyntax? argument = null)
-    {
-        var memberAccess = SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            EnsureReceiver(receiver),
-            SyntaxFactory.IdentifierName(method));
-
-        var argumentList = argument == null
-            ? SyntaxFactory.ArgumentList()
-            : SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
-                new[] { SyntaxFactory.Argument(argument) }));
-
-        return SyntaxFactory.InvocationExpression(memberAccess, argumentList);
-    }
-
-    private static ExpressionSyntax EnsureReceiver(ExpressionSyntax receiver) => receiver switch
-    {
-        IdentifierNameSyntax
-            or MemberAccessExpressionSyntax
-            or InvocationExpressionSyntax
-            or ElementAccessExpressionSyntax
-            or ParenthesizedExpressionSyntax
-            or ThisExpressionSyntax
-            or BaseExpressionSyntax
-            or LiteralExpressionSyntax => receiver,
-        _ => SyntaxFactory.ParenthesizedExpression(receiver),
-    };
 
     private static ExpressionSyntax LiteralOne()
         => SyntaxFactory.LiteralExpression(
