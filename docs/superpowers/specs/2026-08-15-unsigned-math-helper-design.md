@@ -225,11 +225,12 @@ C# 转换，Java 侧是 no-op 或标准截断。
 
 | 方法 | C# 签名 | 语义 |
 | --- | --- | --- |
-| ToByteInt32 | `int ToByteInt32(int v)` | `v & 0xFF` |
-| ToByteInt64 | `int ToByteInt64(long v)` | `(int)v & 0xFF` |
-| ToUInt16Int32 | `int ToUInt16Int32(int v)` | `v & 0xFFFF` |
-| ToUInt16Int64 | `int ToUInt16Int64(long v)` | `(int)v & 0xFFFF` |
+| ToByteInt32 | `System.Byte ToByteInt32(int v)` | `unchecked((byte)(v & 0xFF))` |
+| ToByteInt64 | `System.Byte ToByteInt64(long v)` | `unchecked((byte)((int)v & 0xFF))` |
+| ToUInt16Int32 | `System.UInt16 ToUInt16Int32(int v)` | `unchecked((ushort)(v & 0xFFFF))` |
+| ToUInt16Int64 | `System.UInt16 ToUInt16Int64(long v)` | `unchecked((ushort)((int)v & 0xFFFF))` |
 | ToInt64UInt32 | `long ToInt64UInt32(int v)` | `v & 0xFFFFFFFFL`（uint→long 无符号扩展） |
+| ToUInt64UInt32 | `System.UInt64 ToUInt64UInt32(int v)` | `unchecked((ulong)(v & 0xFFFFFFFFL))`（uint→ulong 无符号扩展） |
 | ToInt32UInt64 | `int ToInt32UInt64(long v)` | `(int)v`（ulong→int 取低 32 位） |
 | ToDoubleUInt32 | `double ToDoubleUInt32(int v)` | `(double)(v & 0xFFFFFFFFL)` |
 | ToDoubleUInt64 | `double ToDoubleUInt64(long v)` | 按无符号值转 double（内部用 ulong/BigInteger） |
