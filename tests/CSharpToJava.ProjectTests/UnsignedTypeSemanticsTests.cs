@@ -43,7 +43,7 @@ public class UnsignedTypeSemanticsTests
             rewrittenSources.Add(result.OutputCode);
         }
 
-        rewrittenSources.Add(UnsignedExtensionsFileContent.Generate());
+        rewrittenSources.Add(UnsignedMathFileContent.Generate());
 
         var originalOutput = CompileAndRun(sources.Select(s => s.Code), references, "unsigned-semantics-original");
         var rewrittenOutput = CompileAndRun(rewrittenSources, references, "unsigned-semantics-rewritten");

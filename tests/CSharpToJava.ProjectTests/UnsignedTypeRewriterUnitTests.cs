@@ -46,10 +46,13 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
-    public void ExtensionFile_TypeIsInternal()
+    public void HelperFile_IsInternalUnsignedMathWithBlockNamespace()
     {
-        var content = UnsignedExtensionsFileContent.Generate();
-        Assert.Contains("internal static class UnsignedExtensions", content);
+        var content = UnsignedMathFileContent.Generate();
+        Assert.Contains("namespace Cs2jUnsigned", content);
+        Assert.Contains("internal static class UnsignedMath", content);
+        Assert.Contains("public static int AddUInt32(int a, int b)", content);
+        Assert.Contains("public static long ToInt64UInt32(int v)", content);
         Assert.DoesNotContain("public static class UnsignedExtensions", content);
     }
 

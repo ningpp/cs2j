@@ -674,10 +674,10 @@ internal static class ProjectUnsignedTypePreprocessor
         IReadOnlyList<string> rewrittenFiles,
         ProjectGraph? projectGraph)
     {
-        var content = UnsignedExtensionsFileContent.Generate();
+        var content = UnsignedMathFileContent.Generate();
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            Path.Combine(intermediateRoot, UnsignedExtensionsFileContent.FileName),
+            Path.Combine(intermediateRoot, UnsignedMathFileContent.FileName),
         };
 
         var hostProjectDirectories = ComputeAllExtensionHostProjectDirectories(
@@ -687,7 +687,7 @@ internal static class ProjectUnsignedTypePreprocessor
             paths.Add(Path.Combine(
                 intermediateRoot,
                 Path.GetRelativePath(sourceRoot, projectDirectory),
-                UnsignedExtensionsFileContent.FileName));
+                UnsignedMathFileContent.FileName));
         }
 
         foreach (var path in paths)
@@ -821,7 +821,7 @@ internal static class ProjectUnsignedTypePreprocessor
             var destinationProjectFile = Path.Combine(
                 intermediateRoot,
                 Path.GetRelativePath(sourceRoot, projectFile));
-            EnsureExtensionCompileItem(destinationProjectFile, UnsignedExtensionsFileContent.FileName);
+            EnsureExtensionCompileItem(destinationProjectFile, UnsignedMathFileContent.FileName);
         }
     }
 
