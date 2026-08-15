@@ -88,6 +88,19 @@ public class MemoryStream extends StreamWrapper {
         return true;
     }
 
+    // MemoryStream maintains its own in-memory buffer and overrides read/write,
+    // so it is always readable and writable even though the base StreamWrapper
+    // was constructed with null input/output streams.
+    @Override
+    public boolean getCanWrite() {
+        return true;
+    }
+
+    @Override
+    public boolean getCanRead() {
+        return true;
+    }
+
     @Override
     public int read() {
         if (position >= length) return -1;

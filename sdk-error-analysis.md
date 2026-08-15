@@ -23,6 +23,18 @@
 
 ---
 
+## Agent1b — MemoryStream.getCanWrite/getCanRead 恒 false，Utf8JsonWriter(Stream) 全部抛 “Stream is not writable”
+- **Java 文件**: `d:\cs-java-81319-8\system-text-json\src\main\java\dotnet\text\json\Utf8JsonWriter.java:104`（构造器校验 `utf8Json.getCanWrite()`）
+- **错误信息**: `io.github.ningpp.compat.ArgumentException: Stream is not writable.`（disposeAutoFlushes/writeNumber_NullPropertyName 等数十处）
+- **对应 C# 文件**: `System.IO.MemoryStream.CanWrite/CanRead` 恒为 true
+- **根因分类**: compat（MemoryStream 基类能力标志缺失）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/MemoryStream.java`
+- **分析**: `MemoryStream` 用内部 byte[] 自己实现 read/write，但构造函数向 `StreamWrapper` 传了 null 输入输出流，继承的 `getCanWrite()`/`getCanRead()` 返回 `outputStream != null`（false），导致所有 `Utf8JsonWriter(Stream)` 构造即抛异常。
+- **验证**: 新增 compat 单测 `MemoryStreamTest`（CanWrite/CanRead + 写读回）2 例通过；`mvn install` 更新本地 compat jar 后重跑 Utf8JsonWriterTests，“Stream is not writable” 归零（错误数 253→217，均为其余语义问题）。
+- **状态**: ✅ Fixed
+
+---
+
 ## Iteration 2 — 跨文件同名结构体误匹配（CS1061 Withkind/WithprevNsIndex）
 - **Java 文件**: `xml\src\System\Xml\Core\XmlWellFormedWriter.cs`
 - **错误信息**: `XmlWellFormedWriter.Namespace` 未包含 `Withkind`/`WithprevNsIndex` 定义
