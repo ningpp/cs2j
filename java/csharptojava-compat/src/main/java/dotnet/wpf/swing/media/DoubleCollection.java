@@ -69,6 +69,14 @@ public final class DoubleCollection implements List<Double> {
         return items.add(value);
     }
 
+    /**
+     * Accepts int/float literals with C#-style implicit widening to double
+     * (e.g. generated {@code new DoubleCollection(); dc.add(1);}).
+     */
+    public boolean add(double value) {
+        return items.add(value);
+    }
+
     @Override
     public boolean remove(Object o) {
         return items.remove(o);
@@ -114,8 +122,16 @@ public final class DoubleCollection implements List<Double> {
         return items.set(index, element);
     }
 
+    public Double set(int index, double element) {
+        return items.set(index, element);
+    }
+
     @Override
     public void add(int index, Double element) {
+        items.add(index, element);
+    }
+
+    public void add(int index, double element) {
         items.add(index, element);
     }
 
