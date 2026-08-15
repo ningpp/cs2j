@@ -566,7 +566,7 @@ public final class TypeHelper {
     }
 
     public static Object[] getCustomAttributes(Class<?> type, Class<?> attributeType, boolean inherit) {
-        if (type == null || attributeType == null) {
+        if (type == null || attributeType == null || !attributeType.isAnnotation()) {
             return new Object[0];
         }
         return type.getAnnotationsByType((Class) attributeType);
@@ -576,7 +576,7 @@ public final class TypeHelper {
      * Mirrors C# Attribute.IsDefined(element, attributeType, inherit) for Class targets.
      */
     public static boolean isDefined(Class<?> type, Class<?> attributeType, boolean inherit) {
-        if (type == null || attributeType == null) {
+        if (type == null || attributeType == null || !attributeType.isAnnotation()) {
             return false;
         }
         return type.isAnnotationPresent((Class) attributeType);
