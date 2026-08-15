@@ -36,6 +36,64 @@ public final class Activator {
         return createInstanceWithArgs(type, args);
     }
 
+    /**
+     * C# Activator.CreateInstance(constructedGenericType, bindingAttr, binder,
+     * args: null, culture) — the open generic type has an implicit parameterless
+     * constructor, but the Java conversion injects Class runtime parameters into
+     * converter constructors (e.g. ObjectDefaultConverter(Class)). Match the
+     * injected constructor by forwarding the MakeGenericType type arguments: use
+     * the longest constructor whose parameters are all Class and take the
+     * corresponding prefix of the supplied type arguments.
+     */
+    public static Object createInstanceForGenericType(Class<?> type, Object bindingAttr, Object binder, Class<?>... genericTypeArguments) {
+        if (type == null) {
+            throw new NullPointerException("type");
+        }
+        try {
+            Constructor<?>[] ctors = type.getDeclaredConstructors();
+            // Prefer a real parameterless constructor when the generated class has one.
+            for (Constructor<?> ctor : ctors) {
+                if (ctor.getParameterTypes().length == 0) {
+                    ctor.setAccessible(true);
+                    return ctor.newInstance();
+                }
+            }
+            Constructor<?> chosen = null;
+            for (Constructor<?> ctor : ctors) {
+                Class<?>[] params = ctor.getParameterTypes();
+                if (params.length == 0 || params.length > genericTypeArguments.length) {
+                    continue;
+                }
+                boolean allClassParams = true;
+                for (Class<?> param : params) {
+                    if (param != Class.class) {
+                        allClassParams = false;
+                        break;
+                    }
+                }
+                if (!allClassParams) {
+                    continue;
+                }
+                if (chosen == null || params.length > chosen.getParameterTypes().length) {
+                    chosen = ctor;
+                }
+            }
+            if (chosen == null) {
+                throw new RuntimeException("No matching constructor found for " + type.getName(), new NoSuchMethodException());
+            }
+            Object[] args = new Object[chosen.getParameterTypes().length];
+            System.arraycopy(genericTypeArguments, 0, args, 0, args.length);
+            chosen.setAccessible(true);
+            return chosen.newInstance(args);
+        } catch (InstantiationException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        } catch (InvocationTargetException e) {
+            // .NET wraps constructor exceptions in TargetInvocationException whose
+            // InnerException is the original exception.
+            throw new TargetInvocationException(null, e.getCause() == null ? e : e.getCause());
+        }
+    }
+
     private static Object createInstanceWithArgs(Class<?> type, Object... args) {
         if (type == null) {
             throw new NullPointerException("type");

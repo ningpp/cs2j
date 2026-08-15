@@ -3406,6 +3406,42 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // System.Activator.CreateInstance(type) → Activator.createInstance(type)
         // (the compat helper wraps checked reflection exceptions so generated call
         // sites do not need try/catch around NoSuchMethodException etc.)
+        // System.Activator.CreateInstance(constructedGenericType, bindingAttr,
+        // binder, args: null, culture) is handled before the single-argument form:
+        // generated Java converter classes receive injected Class<?> constructor
+        // parameters, so the MakeGenericType type arguments must be forwarded to the
+        // compat helper even though the C# call passes args: null.
+        if (originalMethodName == "CreateInstance"
+            && node.ArgumentList.Arguments.Count == 5
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Activator"
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression, context, "Activator", "System.Activator"))))
+        {
+            var argsExpression = node.ArgumentList.Arguments[3].Expression;
+            if (argsExpression.IsKind(SyntaxKind.NullLiteralExpression)
+                && TryCollectMakeGenericTypeArguments(
+                    node.ArgumentList.Arguments[0].Expression,
+                    context,
+                    out var genericScalarArgs,
+                    out var genericArrayArg))
+            {
+                var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var bindingAttrArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var binderArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+                context.AddImport("io.github.ningpp.compat.Activator");
+                if (genericScalarArgs.Count > 0)
+                {
+                    var genericArgTexts = genericScalarArgs.Select(a => facade.Transform(a, context));
+                    return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericArgTexts)})";
+                }
+                if (genericArrayArg != null)
+                {
+                    var genericArrayText = facade.Transform(genericArrayArg, context);
+                    return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {genericArrayText})";
+                }
+            }
+        }
+
         if (originalMethodName == "CreateInstance"
             && node.ArgumentList.Arguments.Count == 1
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Activator"
@@ -11523,5 +11559,143 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Recovers the type arguments passed to a MakeGenericType expression when a
+    /// System.Activator.CreateInstance call passes args: null. The type argument
+    /// may be the MakeGenericType invocation itself or a local variable assigned
+    /// from one (possibly in several mutually exclusive branches). Scalar type
+    /// arguments are deduplicated in source order; an array-valued argument (for
+    /// example Type[] typeArguments) is returned separately so the compat helper
+    /// can receive it as the varargs array.
+    /// </summary>
+    private static bool TryCollectMakeGenericTypeArguments(
+        ExpressionSyntax typeExpression,
+        ConversionContext context,
+        out List<ExpressionSyntax> scalarArgs,
+        out ExpressionSyntax? arrayArg)
+    {
+        scalarArgs = new List<ExpressionSyntax>();
+        arrayArg = null;
+        var seenScalars = new HashSet<string>(StringComparer.Ordinal);
+        var arrayArgs = new List<ExpressionSyntax>();
+
+        void AddFromInitializer(InitializerExpressionSyntax? initializer, List<ExpressionSyntax> scalars, List<ExpressionSyntax> arrays)
+        {
+            if (initializer == null)
+                return;
+            foreach (var element in initializer.Expressions)
+            {
+                if (context.GetTypeInfo(element).Type is IArrayTypeSymbol)
+                {
+                    arrays.Add(element);
+                }
+                else
+                {
+                    AddScalar(element, scalars);
+                }
+            }
+        }
+
+        void AddScalar(ExpressionSyntax expression, List<ExpressionSyntax> scalars)
+        {
+            var key = expression.ToString();
+            if (seenScalars.Add(key))
+            {
+                scalars.Add(expression);
+            }
+        }
+
+        void AddFromInvocation(InvocationExpressionSyntax invocation, List<ExpressionSyntax> scalars, List<ExpressionSyntax> arrays)
+        {
+            foreach (var argument in invocation.ArgumentList.Arguments)
+            {
+                var expression = argument.Expression;
+                if (expression is ArrayCreationExpressionSyntax arrayCreation)
+                {
+                    AddFromInitializer(arrayCreation.Initializer, scalars, arrays);
+                    continue;
+                }
+                if (expression is ImplicitArrayCreationExpressionSyntax implicitArrayCreation)
+                {
+                    AddFromInitializer(implicitArrayCreation.Initializer, scalars, arrays);
+                    continue;
+                }
+                if (context.GetTypeInfo(expression).Type is IArrayTypeSymbol)
+                {
+                    arrays.Add(expression);
+                    continue;
+                }
+                AddScalar(expression, scalars);
+            }
+        }
+
+        if (typeExpression is InvocationExpressionSyntax directInvocation
+            && directInvocation.Expression is MemberAccessExpressionSyntax directAccess
+            && directAccess.Name.Identifier.Text == "MakeGenericType")
+        {
+            AddFromInvocation(directInvocation, scalarArgs, arrayArgs);
+            if (scalarArgs.Count == 0 && arrayArgs.Count > 0)
+                arrayArg = arrayArgs[0];
+            return scalarArgs.Count > 0 || arrayArg != null;
+        }
+
+        if (typeExpression is IdentifierNameSyntax identifier
+            && context.GetSymbolInfo(identifier).Symbol is ILocalSymbol local)
+        {
+            var candidates = new List<ExpressionSyntax>();
+
+            foreach (var syntaxRef in local.DeclaringSyntaxReferences)
+            {
+                if (syntaxRef.GetSyntax() is VariableDeclaratorSyntax { Initializer: { } initializer })
+                {
+                    candidates.Add(initializer.Value);
+                }
+            }
+
+            var enclosingExecutable = identifier.FirstAncestorOrSelf<SyntaxNode>(node =>
+                node is MethodDeclarationSyntax
+                    or ConstructorDeclarationSyntax
+                    or AccessorDeclarationSyntax
+                    or LocalFunctionStatementSyntax
+                    or AnonymousFunctionExpressionSyntax);
+            if (enclosingExecutable != null)
+            {
+                foreach (var assignment in enclosingExecutable.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+                {
+                    if (assignment.Left is IdentifierNameSyntax leftIdentifier
+                        && SymbolEqualityComparer.Default.Equals(context.GetSymbolInfo(leftIdentifier).Symbol, local))
+                    {
+                        candidates.Add(assignment.Right);
+                    }
+                }
+            }
+
+            var found = false;
+            foreach (var candidate in candidates)
+            {
+                if (candidate is InvocationExpressionSyntax invocation
+                    && invocation.Expression is MemberAccessExpressionSyntax access
+                    && access.Name.Identifier.Text == "MakeGenericType")
+                {
+                    AddFromInvocation(invocation, scalarArgs, arrayArgs);
+                    found = true;
+                }
+            }
+
+            if (found)
+            {
+                if (scalarArgs.Count > 0)
+                    return true;
+                if (arrayArgs.Count > 0)
+                {
+                    arrayArg = arrayArgs[0];
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
