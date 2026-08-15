@@ -261,6 +261,166 @@ class Test {
         Assert.DoesNotContain("float.MaxValue", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void InlineData_ConstantExpression_RouteToMethodSourceDataMethod()
+    {
+        var result = Convert(@"
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    [DataTestMethod]
+    [InlineData(int.MaxValue / 32 + 1)]
+    public void M(int x) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // `int.MaxValue / 32 + 1` is a C# constant expression, but raw C# text
+        // cannot round-trip through @CsvSource. It must be emitted through the
+        // synthetic data method as a real Java expression.
+        Assert.Contains("MethodSource(\"m_data1\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("import org.junit.jupiter.params.provider.MethodSource;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("int.MaxValue / 32 + 1\"", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_TypeofArgument_RouteToMethodSourceDataMethod()
+    {
+        var result = Convert(@"
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    [DataTestMethod]
+    [InlineData(typeof(string))]
+    public void M(Type t) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // JUnit's CSV String→Class conversion is not built-in, so typeof(X) must
+        // go through the data method and become a real Java class literal.
+        Assert.Contains("MethodSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("String.class", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_TypeofNestedGenericArgument_RouteToMethodSourceDataMethod()
+    {
+        var result = Convert(@"
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    public class Box<T> {}
+
+    [DataTestMethod]
+    [InlineData(typeof(Box<string>))]
+    public void M(Type t) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // The nested generic class literal must be built from the simple name
+        // (Outer.Box.class), not from the fully-qualified generic argument.
+        Assert.Contains("MethodSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Box.class", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_ConstIdentifierExpression_RouteToMethodSourceDataMethod()
+    {
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    const int Threshold = 10;
+
+    [DataTestMethod]
+    [InlineData(Threshold - 3)]
+    public void M(int x) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // `Threshold - 3` is a compile-time constant but cannot be evaluated by
+        // JUnit's CSV converter; it must be routed to the data method.
+        Assert.Contains("MethodSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Threshold - 3\"", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_NegativeLongConstant_GetsLongSuffix()
+    {
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    [DataTestMethod]
+    [InlineData(-2147483649)]
+    public void M(double x) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // -2147483649 is below int range; the Java literal must carry the L suffix
+        // (or a .0 double form when the parameter is double), otherwise javac
+        // reports "integer number too large".
+        Assert.Contains("MethodSource", result.GeneratedCode, StringComparison.Ordinal);
+        bool hasValidLiteral = result.GeneratedCode.Contains("-2147483649.0", StringComparison.Ordinal)
+            || result.GeneratedCode.Contains("-2147483649L", StringComparison.Ordinal);
+        Assert.True(hasValidLiteral, "expected -2147483649.0 or -2147483649L");
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_RegularEnumToNumericParameter_RouteToMethodSourceDataMethod()
+    {
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+public enum SampleEnumByte : byte {
+    A = 1,
+    B = 2
+}
+
+class Test {
+    [DataTestMethod]
+    [InlineData(SampleEnumByte.A)]
+    public void M(long x) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // A regular (non-flags) enum member name cannot be converted by JUnit into
+        // a numeric parameter; the expression must go through the data method and
+        // be unwrapped to its numeric value.
+        Assert.Contains("MethodSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getValue()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InlineData_LongExpressionToIntParameter_AddsNarrowingCast()
+    {
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    const long Threshold = 349525L;
+
+    [DataTestMethod]
+    [InlineData(Threshold - 3)]
+    public void M(int x) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // `Threshold - 3` is a long constant expression converted to an int
+        // parameter; the data method must narrow it so JUnit receives an Integer.
+        Assert.Contains("MethodSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("(int) (Threshold - 3)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

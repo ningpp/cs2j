@@ -1023,6 +1023,70 @@ public class MethodTransformer : IMemberTransformer
                         hasArrayArg = true;
                         break;
                     }
+                    // JUnit @CsvSource only knows String→primitive/String/enum conversions.
+                    // C# attribute arguments that are non-literal constant expressions
+                    // (e.g. `int.MaxValue / 32 + 1`, `Threshold - 3`, `System.Byte.MaxValue + 4`,
+                    // `nameof(X)`), `typeof(X)` class literals, and regular enum values
+                    // passed to numeric parameters cannot round-trip through CSV text.
+                    // Route them to the synthetic data method where the normal expression
+                    // conversion emits real Java expressions with their actual types.
+                    if (expr is TypeOfExpressionSyntax)
+                    {
+                        hasArrayArg = true;
+                        break;
+                    }
+                    if (targetType is INamedTypeSymbol { Name: "Type" }
+                        && targetType.ContainingNamespace?.Name == "System")
+                    {
+                        hasArrayArg = true;
+                        break;
+                    }
+                    var inlineExprType = context.GetTypeInfo(expr).Type;
+                    if (inlineExprType?.TypeKind == TypeKind.Enum
+                        && targetType is { } inlineTargetType
+                        && inlineTargetType.SpecialType is >= SpecialType.System_SByte
+                            and <= SpecialType.System_Double)
+                    {
+                        // Flags enums map to Java int/long and CSV can carry the numeric
+                        // literal; regular enum member names cannot be converted to a
+                        // numeric parameter by JUnit.
+                        bool isFlagsEnum = inlineExprType.GetAttributes().Any(a =>
+                                a.AttributeClass?.Name is "FlagsAttribute" or "Flags")
+                            || context.IsFlagsEnum(inlineExprType.Name);
+                        if (!isFlagsEnum)
+                        {
+                            hasArrayArg = true;
+                            break;
+                        }
+                    }
+                    if (expr is not LiteralExpressionSyntax
+                        && TryResolveEnumValue(expr, context) == null
+                        && !(expr is BinaryExpressionSyntax binExpr2
+                            && binExpr2.IsKind(SyntaxKind.AddExpression)
+                            && TryEvaluateStringConcat(binExpr2) != null)
+                        && !(expr is MemberAccessExpressionSyntax floatMember2
+                            && floatMember2.Name.Identifier.Text
+                                is "NegativeInfinity" or "PositiveInfinity" or "NaN" or "MinValue" or "MaxValue"
+                            && floatMember2.Expression.ToString() is "double" or "float"))
+                    {
+                        var inlineModel = context.GetSemanticModelForNode(expr);
+                        if (inlineModel != null)
+                        {
+                            try
+                            {
+                                if (inlineModel.GetConstantValue(expr).HasValue)
+                                {
+                                    hasArrayArg = true;
+                                    break;
+                                }
+                            }
+                            catch
+                            {
+                                // Fall through to CSV text when the semantic model cannot
+                                // evaluate the expression.
+                            }
+                        }
+                    }
                 }
                 if (hasArrayArg) break;
             }
@@ -1353,9 +1417,13 @@ public class MethodTransformer : IMemberTransformer
             if (argList.Count == 0)
                 continue;
             var converted = new List<string>(argList.Count);
+            int argIndex = 0;
             foreach (var arg in argList)
             {
-                converted.Add(ExpressionTransformerFacade.Instance.Transform(arg.Expression, context));
+                var raw = ExpressionTransformerFacade.Instance.Transform(arg.Expression, context);
+                var paramSymbol = argIndex < paramSymbols.Count ? paramSymbols[argIndex] : null;
+                converted.Add(AdaptInlineDataArgument(arg.Expression, paramSymbol, raw, context));
+                argIndex++;
             }
             // Pad missing trailing arguments with the parameter's explicit default value.
             while (converted.Count < paramSymbols.Count)
@@ -1376,6 +1444,73 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = "CSharpGenericIterable<Object[]>",
             Body = body.ToString()
         };
+    }
+
+    /// <summary>
+    /// Adapts an [InlineData] argument to its test parameter's declared type when the
+    /// raw expression transform would produce a Java value JUnit cannot convert (e.g.
+    /// a long expression passed to an int parameter, or a regular enum member passed
+    /// to a numeric parameter). Regular (non-flags) enums are Java enums, so they must
+    /// be unwrapped with <c>.getValue()</c> and cast to the target numeric type.
+    /// </summary>
+    private static string AdaptInlineDataArgument(
+        ExpressionSyntax expression,
+        IParameterSymbol? parameter,
+        string transformed,
+        ConversionContext context)
+    {
+        if (parameter == null)
+            return transformed;
+
+        var targetType = parameter.Type;
+        if (targetType is INamedTypeSymbol targetNamed
+            && IsIntegralNumericSpecialType(targetNamed.SpecialType))
+        {
+            var sourceType = context.GetTypeInfo(expression).Type;
+            if (sourceType is INamedTypeSymbol sourceNamed
+                && sourceNamed.TypeKind == TypeKind.Enum
+                && !IsFlagsEnumType(sourceNamed, context))
+            {
+                var valueExpr = transformed.Trim();
+                if (!valueExpr.EndsWith(".getValue()", StringComparison.Ordinal))
+                    valueExpr = $"{valueExpr}.getValue()";
+                var cast = targetNamed.SpecialType switch
+                {
+                    SpecialType.System_SByte => "byte",
+                    SpecialType.System_Int16 => "short",
+                    SpecialType.System_Int32 => "int",
+                    SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
+                    SpecialType.System_Single => "float",
+                    SpecialType.System_Double => "double",
+                    _ => null
+                };
+                return cast == null ? valueExpr : $"({cast}) ({valueExpr})";
+            }
+        }
+
+        return ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+            expression,
+            transformed,
+            targetType,
+            context);
+    }
+
+    private static bool IsFlagsEnumType(INamedTypeSymbol enumType, ConversionContext context)
+    {
+        return enumType.GetAttributes().Any(a => a.AttributeClass?.Name is "FlagsAttribute" or "Flags")
+            || context.IsFlagsEnum(enumType.Name);
+    }
+
+    private static bool IsIntegralNumericSpecialType(SpecialType specialType)
+    {
+        return specialType is SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64;
     }
 
     /// <summary>

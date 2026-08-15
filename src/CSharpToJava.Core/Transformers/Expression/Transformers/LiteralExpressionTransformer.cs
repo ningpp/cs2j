@@ -115,14 +115,24 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             return $"Long.parseUnsignedLong(\"{StripLeadingZeros(literal.Replace("_", ""))}\")";
         }
 
+        // Unsuffixed C# literal whose value is uint-typed (int.MaxValue < value <=
+        // uint.MaxValue). Java has no unsigned 32-bit literal, so an explicit L
+        // suffix is required to keep the literal inside the int range.
+        if (token.Value is uint unsuffixedUint && unsuffixedUint > int.MaxValue)
+        {
+            return literal + "L";
+        }
+
         // Strip leading zeros from decimal integer literals.
         // C# allows leading zeros (e.g., 08 = 8), but Java interprets them as octal
         // (08 = illegal octal digit). Preserve plain "0" as-is.
         literal = StripLeadingZeros(literal);
 
-        // Unsuffixed integer literal that exceeds int range needs L suffix in Java.
-        // C# implicitly promotes to long, but Java requires explicit L.
-        if (token.Value is long unsuffixedLong && unsuffixedLong > int.MaxValue)
+        // Unsuffixed integer literal that falls outside int range needs L suffix in
+        // Java. C# implicitly promotes to long in both directions (positive and
+        // negative, e.g. -2147483649), but Java requires an explicit L suffix.
+        if (token.Value is long unsuffixedLong
+            && (unsuffixedLong > int.MaxValue || unsuffixedLong < int.MinValue))
         {
             return literal + "L";
         }

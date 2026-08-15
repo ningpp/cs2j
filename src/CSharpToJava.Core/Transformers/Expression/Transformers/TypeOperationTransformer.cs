@@ -1915,9 +1915,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (type.ContainingType is INamedTypeSymbol parent)
         {
             var mappedNested = context.MapType(type);
-            var dot = mappedNested.LastIndexOf('.');
             var open = mappedNested.IndexOf('<');
             var nestedSimple = open >= 0 ? mappedNested[..open] : mappedNested;
+            // The last dot must be computed on the part before any generic argument:
+            // fully-qualified generic arguments (e.g. Outer.Inner<io.github.ningpp...>)
+            // would otherwise move the dot index past the simple-name slice.
+            var dot = nestedSimple.LastIndexOf('.');
             if (dot >= 0)
                 nestedSimple = nestedSimple[(dot + 1)..];
             return $"{BuildNestedJavaTypeReference(parent, context)}.{nestedSimple}";

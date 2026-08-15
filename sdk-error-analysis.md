@@ -676,3 +676,15 @@
 - **涉及组件**: `java/csharptojava-compat/.../FieldInfo.java`、`ConstructorInfo.java`、`TypeMemberInfo.java`、`TypeHelper.java`（`asCustomAttributeProvider`）
 - **分析**: Java `getAnnotationsByType` 要求类型是注解；转换器生成的自定义属性类是普通类，调用即抛 `ClassCastException`。修复为 `attributeType == null || !attributeType.isAnnotation()` 时返回空数组（属性元数据未建模的类不再崩溃）。
 - **状态**: ✅ Fixed（Red→Green：`MemberInfoCustomAttributesTest` 3 例；注：`[JsonConverter]` 成员属性的完整元数据支持仍未建模，相关用例会从 ClassCastException 转为断言失败，留待后续迭代）
+
+---
+
+## Agent8 — InlineData/属性常量表达式被当成原始 C# 文本（约 400 个 JUnit 参数转换错误）
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\...\BitStackTests.java` 等
+- **错误信息**: `Failed to convert String "int.MaxValue / 32 + 1" to type int`；`"Threshold - 3"`；`"System.Byte.MaxValue + 4"`；`"ClassWithExtensionPropertyNoGenericParameters.class"` to Class；`No built-in converter for source type SampleEnumByte ... target type long`
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\...` 中 `[InlineData(...)]` 常量表达式参数
+- **根因分类**: Transformer（`MethodTransformer.cs` InlineData→@CsvSource 回退到 `expr.ToString()`）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`、`src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`、`src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs`
+- **分析**: JUnit `@CsvSource` 只能把字符串转成原始类型/String/enum；C# 属性参数是编译期常量表达式，被原样输出成 C# 文本后 JUnit 无法求值。修复：非常量字面量/`typeof(X)`/正则枚举转数值参数等 InlineData 参数改走 `BuildInlineDataDataMethod`（`@MethodSource`）用常规表达式转换；同时修复嵌套泛型 `typeof` 的 `BuildNestedJavaTypeReference`（点号在泛型实参内导致 Substring 越界）、负 uint/long 字面量缺 `L` 后缀、以及 data method 行按目标参数类型做窄化/枚举 `getValue()` 适配。
+- **验证**: 新增 `InlineDataCsvMappingTests` 7 例（常量表达式/typeof/嵌套泛型 typeof/const 标识符/负 long/枚举转数值/长表达式转 int），全量 `dotnet test` 2805 通过；重新转换 1080/1080 成功；`mvn test` 编译通过（原 `Utf8JsonReaderTests.java:5724 整数太大` 消失），BitStackTests 参数错误清零，ValueTests/JsonReaderStateAndOptionsTests 的 InlineData 参数错误清零。
+- **状态**: ✅ Fixed（InlineData 集群；MemberData 行内枚举→数值参数仍遗留，属后续迭代）
