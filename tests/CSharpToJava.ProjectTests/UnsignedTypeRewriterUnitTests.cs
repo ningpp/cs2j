@@ -17,6 +17,25 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
+    public void StaticCallBuilder_EmitsFullyQualifiedInvocation()
+    {
+        var call = UnsignedMathSyntax.StaticCall(
+            "AddUInt32",
+            SyntaxFactory.ParseExpression("a"),
+            SyntaxFactory.ParseExpression("b"));
+        Assert.Equal("Cs2jUnsigned.UnsignedMath.AddUInt32(a,b)", call.ToString());
+    }
+
+    [Fact]
+    public void UncheckedCastBuilder_EmitsUncheckedCast()
+    {
+        var cast = UnsignedMathSyntax.UncheckedCast(
+            SyntaxKind.IntKeyword,
+            SyntaxFactory.ParseExpression("u"));
+        Assert.Equal("unchecked((int)u)", cast.ToString());
+    }
+
+    [Fact]
     public void CleanFile_NoUnsignedKeywords_ReturnedUnchanged()
     {
         var src = "public class C { public int Value; }";
