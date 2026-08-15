@@ -538,6 +538,15 @@ public class ArgumentTransformer
             if (parameterSymbol != null
                 && complexRefExpr.Contains("getReference(", StringComparison.Ordinal))
             {
+                // ref MemoryMarshal.GetReference(byteSpan): the compat holder must
+                // remember the span so Unsafe.addByteOffset can honour offsets
+                // (byte scans like IndexOfOrLessThan read every byte, not just 0).
+                if (parameterSymbol.Type?.SpecialType == SpecialType.System_Byte
+                    && TryExtractGetReferenceSpanArg(complexRefExpr, out var byteSpanArg))
+                {
+                    context.AddImport("io.github.ningpp.compat.Unsafe");
+                    return $"Unsafe.createByteSpanRef({byteSpanArg})";
+                }
                 var refHolderJavaType = HolderTypeResolver.GetHolderType(context.MapType(parameterSymbol.Type));
                 return HolderTypeResolver.GetHolderInstantiationWithValue(refHolderJavaType, complexRefExpr);
             }
@@ -1165,6 +1174,13 @@ public class ArgumentTransformer
         if (refArgType != null
             && transformedExpr.Contains("getReference(", StringComparison.Ordinal))
         {
+            // Same span-aware holder for the general argument path (byte refs).
+            if (refArgType.SpecialType == SpecialType.System_Byte
+                && TryExtractGetReferenceSpanArg(transformedExpr, out var byteSpanArg))
+            {
+                context.AddImport("io.github.ningpp.compat.Unsafe");
+                return $"Unsafe.createByteSpanRef({byteSpanArg})";
+            }
             var holderJavaType = HolderTypeResolver.GetHolderType(context.MapType(refArgType));
             return HolderTypeResolver.GetHolderInstantiationWithValue(holderJavaType, transformedExpr);
         }
@@ -1182,6 +1198,25 @@ public class ArgumentTransformer
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Extracts the span argument from a transformed
+    /// <c>MemoryMarshal.getReference(&lt;span&gt;)</c> expression so the ref can be
+    /// modelled as a span-aware holder (Unsafe.createByteSpanRef).
+    /// </summary>
+    private static bool TryExtractGetReferenceSpanArg(string expr, out string spanArg)
+    {
+        spanArg = string.Empty;
+        int open = expr.IndexOf("getReference(", StringComparison.Ordinal);
+        if (open < 0)
+            return false;
+        int start = open + "getReference(".Length;
+        int end = expr.LastIndexOf(')');
+        if (end <= start)
+            return false;
+        spanArg = expr.Substring(start, end - start).Trim();
+        return spanArg.Length > 0;
     }
 
     /// <summary>

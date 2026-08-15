@@ -70,6 +70,30 @@ class C {
         Assert.True(javac.ExitCode == 0, javac.Output);
     }
 
+    [Fact]
+    public void SpanEqualityOperator_UsesSequenceEqual()
+    {
+        // C# Span<T> == / != are value comparisons (contents + length), but the
+        // Java port maps spans to classes where == is reference identity.
+        var result = Convert("""
+using System;
+class C {
+    static bool IsEmpty(System.ReadOnlySpan<byte> span) {
+        return span == default;
+    }
+    static bool NonEmpty(System.ReadOnlySpan<byte> span) {
+        return span != default;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("MemoryExtensions.sequenceEqual(", code);
+        Assert.DoesNotContain("span == null", code);
+        Assert.DoesNotContain("span != null", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ProjectConversionPipeline(new ConversionOptions());

@@ -235,6 +235,24 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     private string TransformBinaryExpression(BinaryExpressionSyntax node, string op, ConversionContext context)
     {
+        // C# Span<T> / ReadOnlySpan<T> define == / != as value comparisons
+        // (length + contents). Java maps spans to classes, where == is reference
+        // identity — route through MemoryExtensions.sequenceEqual instead.
+        if (op is "==" or "!=")
+        {
+            var eqLeftType = context.GetTypeInfo(node.Left).Type;
+            var eqRightType = context.GetTypeInfo(node.Right).Type;
+            if (IsSpanType(eqLeftType) || IsSpanType(eqRightType))
+            {
+                var facade2 = ExpressionTransformerFacade.Instance;
+                var leftExpr = facade2.Transform(node.Left, context);
+                var rightExpr = facade2.Transform(node.Right, context);
+                context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+                var eq = $"MemoryExtensions.sequenceEqual({leftExpr}, {rightExpr})";
+                return op == "==" ? eq : $"!({eq})";
+            }
+        }
+
         if (op == "+")
         {
             var leftType = context.GetTypeInfo(node.Left).Type;
@@ -770,6 +788,12 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 .TakeWhile(ancestor => ancestor != node)
                 .OfType<InvocationExpressionSyntax>()
                 .Any());
+    }
+
+    private static bool IsSpanType(ITypeSymbol? type)
+    {
+        return type is INamedTypeSymbol named
+            && named.OriginalDefinition.ToDisplayString() is "System.ReadOnlySpan<T>" or "System.Span<T>";
     }
 
     /// <summary>

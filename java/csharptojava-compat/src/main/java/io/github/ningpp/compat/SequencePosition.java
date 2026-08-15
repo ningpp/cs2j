@@ -27,4 +27,20 @@ public final class SequencePosition {
     public Object getObject() {
         return segment;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof SequencePosition other)) {
+            return false;
+        }
+        return index == other.index && java.util.Objects.equals(segment, other.segment);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(segment, index);
+    }
 }

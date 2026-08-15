@@ -1102,6 +1102,7 @@ public class MethodTransformer : IMemberTransformer
         var memberDataAttrs = allAttributes
             .Where(a => NormalizeAttributeName(a.Name.ToString()).Equals("MemberData", StringComparison.OrdinalIgnoreCase))
             .ToList();
+        var memberDataAdapters = new List<JavaSyntaxNode>();
         if (memberDataAttrs.Count > 0)
         {
             context.AddImport("org.junit.jupiter.params.provider.MethodSource");
@@ -1119,6 +1120,8 @@ public class MethodTransformer : IMemberTransformer
                         var nameofArg = invoc.ArgumentList.Arguments[0].Expression;
                         if (nameofArg is IdentifierNameSyntax idArg)
                             memberName = idArg.Identifier.Text;
+                        else if (nameofArg is MemberAccessExpressionSyntax maArg)
+                            memberName = maArg.Name.Identifier.Text;
                         else
                             memberName = nameofArg.ToString().Trim('"');
                     }
@@ -1169,7 +1172,7 @@ public class MethodTransformer : IMemberTransformer
                 // JUnit's @MethodSource requires "fully.qualified.ClassName#methodName" when
                 // the data method lives in a different class than the test.
                 var memberTypeArg = firstAttr.ArgumentList.Arguments
-                    .FirstOrDefault(a => a.NameColon?.Name.Identifier.Text == "MemberType");
+                    .FirstOrDefault(a => a.NameEquals?.Name.Identifier.Text == "MemberType");
                 if (memberTypeArg?.Expression is TypeOfExpressionSyntax memberTypeOf)
                 {
                     var dataTypeSymbol = context.GetTypeInfo(memberTypeOf.Type).Type;
@@ -1180,6 +1183,26 @@ public class MethodTransformer : IMemberTransformer
                         var package = context.NamespaceToPackage(dataType.ContainingNamespace.ToDisplayString());
                         methodSourceRef = $"{package}.{dataType.Name}#{javaMethodName}";
                     }
+                }
+
+                // C# optional parameters (e.g. maxDepth = 64) cannot be filled by
+                // JUnit when MemberData rows are shorter than the method's parameter
+                // list. Generate an adapter data method that pads each row with the
+                // parameter defaults and point @MethodSource at it.
+                var memberParams = methodDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
+                int firstDefaultIdx = memberParams.FindIndex(p => p.Default != null);
+                bool hasTrailingDefaults = firstDefaultIdx >= 0
+                    && memberParams.Skip(firstDefaultIdx).All(p => p.Default != null);
+                if (hasTrailingDefaults)
+                {
+                    var adapter = BuildMemberDataPaddingMethod(
+                        methodSourceRef,
+                        javaMethodName,
+                        memberParams,
+                        firstDefaultIdx,
+                        context);
+                    methodSourceRef = adapter.Name;
+                    memberDataAdapters.Add(adapter);
                 }
                 javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{methodSourceRef}\")"));
             }
@@ -1255,7 +1278,9 @@ public class MethodTransformer : IMemberTransformer
             }
         }
 
-        return null;
+        return memberDataAdapters.Count > 0
+            ? new JavaMemberCollection(memberDataAdapters)
+            : null;
     }
 
     private static string EscapeCsvValue(string value)
@@ -1322,6 +1347,66 @@ public class MethodTransformer : IMemberTransformer
         return new JavaMethodDeclaration
         {
             Name = dataMethodName,
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            ReturnType = "CSharpGenericIterable<Object[]>",
+            Body = body.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Builds a synthetic static data method that pads [MemberData] rows with the
+    /// test method's trailing C# default parameter values (JUnit cannot fill
+    /// optional parameters, e.g. <c>void M(string s, int maxDepth = 64)</c>).
+    /// </summary>
+    private static JavaMethodDeclaration BuildMemberDataPaddingMethod(
+        string sourceRef,
+        string dataMethodName,
+        List<ParameterSyntax> methodParams,
+        int firstDefaultIdx,
+        ConversionContext context)
+    {
+        var adapterName = context.GenerateSyntheticName(dataMethodName + "_pad");
+        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+        context.AddImport("io.github.ningpp.compat.CSharpList");
+
+        int total = methodParams.Count;
+        int hashIdx = sourceRef.IndexOf('#');
+        string callTarget = hashIdx >= 0
+            ? sourceRef.Substring(0, hashIdx) + "." + sourceRef.Substring(hashIdx + 1)
+            : sourceRef;
+
+        var defaultValues = new List<string>(total - firstDefaultIdx);
+        for (int i = firstDefaultIdx; i < total; i++)
+        {
+            var paramSymbol = context.GetDeclaredSymbol(methodParams[i]) as IParameterSymbol;
+            if (paramSymbol?.HasExplicitDefaultValue == true)
+            {
+                defaultValues.Add(ConvertDefaultParameterValue(
+                    paramSymbol,
+                    paramSymbol.ExplicitDefaultValue,
+                    context));
+            }
+            else
+            {
+                defaultValues.Add("null");
+            }
+        }
+
+        var body = new System.Text.StringBuilder();
+        body.AppendLine("CSharpList<Object[]> _yieldResult = new CSharpList<Object[]>();");
+        body.AppendLine($"Object[] _defaults = new Object[] {{ {string.Join(", ", defaultValues)} }};");
+        body.AppendLine($"for (Object[] _row : {callTarget}()) {{");
+        body.AppendLine($"    Object[] _padded = new Object[{total}];");
+        body.AppendLine($"    for (int _i = 0; _i < {total}; _i++) {{");
+        body.AppendLine($"        _padded[_i] = _i < _row.length ? _row[_i] : _defaults[Math.max(0, _i - {firstDefaultIdx})];");
+        body.AppendLine("    }");
+        body.AppendLine("    _yieldResult.add(_padded);");
+        body.AppendLine("}");
+        body.Append("return _yieldResult;");
+
+        return new JavaMethodDeclaration
+        {
+            Name = adapterName,
             Modifiers = JavaModifiers.Public | JavaModifiers.Static,
             ReturnType = "CSharpGenericIterable<Object[]>",
             Body = body.ToString()

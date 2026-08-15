@@ -16,6 +16,11 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
     private final T[] data;
     private final int start;
     private final int length;
+    /** Materialized segment chain (multi-segment sequences only). */
+    private final ReadOnlyMemory<T>[] segments;
+    /** Running byte index of each segment boundary (multi-segment only). */
+    private final long[] runningIndex;
+    private final boolean singleSegment;
     private int traversalIndex;
 
     /** Default (empty) sequence — corresponds to default(ReadOnlySequence&lt;T&gt;). */
@@ -23,6 +28,9 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         this.data = null;
         this.start = 0;
         this.length = 0;
+        this.segments = null;
+        this.runningIndex = null;
+        this.singleSegment = true;
         this.traversalIndex = 0;
     }
 
@@ -51,6 +59,9 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         this.data = data;
         this.start = start;
         this.length = length;
+        this.segments = null;
+        this.runningIndex = null;
+        this.singleSegment = true;
         this.traversalIndex = 0;
     }
 
@@ -60,6 +71,9 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         this.data = span.toArray();
         this.start = 0;
         this.length = span.length();
+        this.segments = null;
+        this.runningIndex = null;
+        this.singleSegment = true;
         this.traversalIndex = 0;
     }
 
@@ -75,12 +89,20 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
             this.data = null;
             this.start = 0;
             this.length = 0;
+            this.segments = null;
+            this.runningIndex = null;
+            this.singleSegment = true;
             this.traversalIndex = 0;
             return;
         }
+        java.util.List<ReadOnlyMemory<T>> segList = new java.util.ArrayList<>();
         int total = 0;
+        int lastSegmentLength = 0;
         for (ReadOnlySequenceSegment<T> seg = startSegment; seg != null; seg = seg.getNext()) {
-            total += seg.getMemory().getLength();
+            int segLen = seg.getMemory().getLength();
+            total += segLen;
+            lastSegmentLength = segLen;
+            segList.add(seg.getMemory());
             if (seg == endSegment) {
                 break;
             }
@@ -99,14 +121,27 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         }
         this.data = merged;
         this.start = startIndex;
-        int computedLength = total - startIndex - (total - endIndex > 0 ? total - endIndex : 0);
+        // .NET length = (endSegment.RunningIndex + endIndex) -
+        //               (startSegment.RunningIndex + startIndex).
+        // A trailing EMPTY segment with endIndex=0 is a valid end marker: the
+        // sequence still covers every byte before it (JsonTestHelper.GetSequence
+        // appends a zero-length last buffer when the data divides evenly).
+        int computedLength = total - startIndex - (lastSegmentLength - endIndex);
         this.length = Math.max(computedLength, 0);
+        @SuppressWarnings("unchecked")
+        ReadOnlyMemory<T>[] segs = (ReadOnlyMemory<T>[]) new ReadOnlyMemory<?>[segList.size()];
+        this.segments = segList.toArray(segs);
+        this.runningIndex = new long[segments.length + 1];
+        for (int i = 0; i < segments.length; i++) {
+            runningIndex[i + 1] = runningIndex[i] + segments[i].getLength();
+        }
+        this.singleSegment = startSegment == endSegment;
         this.traversalIndex = 0;
     }
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.Start — the starting position. */
     public SequencePosition getStart() {
-        return new SequencePosition();
+        return new SequencePosition(this, 0);
     }
 
     /**
@@ -116,6 +151,24 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
      * and Object holders without an erasure clash.
      */
     public boolean tryGet(ObjectHolder<SequencePosition> nextPosition, ObjectHolder<? super ReadOnlyMemory<T>> memory, boolean advance) {
+        if (segments != null) {
+            int offset = nextPosition.value != null && nextPosition.value.getObject() == this
+                ? nextPosition.value.getInteger()
+                : 0;
+            int idx = findSegment(offset);
+            if (idx >= segments.length) {
+                memory.value = new ReadOnlyMemory<>();
+                return false;
+            }
+            // .NET TryGet: return the memory AT the current position, then
+            // advance the position to the start of the next segment. Positions
+            // are byte offsets so the reader's "index + consumed" arithmetic works.
+            memory.value = segments[idx];
+            if (advance) {
+                nextPosition.value = new SequencePosition(this, (int) runningIndex[idx + 1]);
+            }
+            return true;
+        }
         if (traversalIndex >= 1 || length == 0) {
             memory.value = new ReadOnlyMemory<>();
             return false;
@@ -127,11 +180,19 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.GetPosition(long, SequencePosition). */
     public SequencePosition getPosition(long offset, SequencePosition position) {
-        return new SequencePosition();
+        if (segments == null) {
+            return new SequencePosition(this, 0);
+        }
+        int base = position != null && position.getObject() == this ? position.getInteger() : 0;
+        return new SequencePosition(this, base + (int) offset);
     }
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.First — the first segment (this single segment). */
     public ReadOnlyMemory<T> getFirst() {
+        if (segments != null && segments.length > 0) {
+            int idx = findSegment(0);
+            return idx < segments.length ? segments[idx] : new ReadOnlyMemory<>();
+        }
         if (length == 0) {
             return new ReadOnlyMemory<>();
         }
@@ -147,7 +208,7 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.IsSingleSegment. */
     public boolean getIsSingleSegment() {
-        return true;
+        return singleSegment;
     }
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.IsEmpty. */
@@ -174,23 +235,37 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(SequencePosition, SequencePosition) — single-segment pass-through. */
     public ReadOnlySequence<T> slice(SequencePosition start, SequencePosition end) {
-        return this;
+        long s = start != null && start.getObject() == this ? start.getInteger() : 0;
+        long e = end != null && end.getObject() == this ? end.getInteger() : length;
+        return slice(s, Math.max(e - s, 0));
     }
 
-    /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(SequencePosition) — single-segment pass-through. */
+    /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(SequencePosition). */
     public ReadOnlySequence<T> slice(SequencePosition start) {
-        if (start == null || start.getInteger() == 0) {
-            return this;
-        }
-        return slice(start.getInteger());
+        long s = start != null && start.getObject() == this ? start.getInteger() : 0;
+        return slice(s, Math.max(length - s, 0));
     }
 
-    /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(int, SequencePosition) — single-segment pass-through. */
+    /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(int, SequencePosition). */
     public ReadOnlySequence<T> slice(int start, SequencePosition end) {
-        if (end == null || end.getInteger() == 0) {
-            return this;
+        long e = end != null && end.getObject() == this ? end.getInteger() : length;
+        return slice(start, Math.max(e - start, 0));
+    }
+
+    /**
+     * Maps a byte offset to the segment that contains it. Empty segments have no
+     * byte range and are skipped; an offset at/past the end maps to segments.length.
+     */
+    private int findSegment(int offset) {
+        if (offset < 0) {
+            return 0;
         }
-        return slice(start);
+        for (int i = 0; i < segments.length; i++) {
+            if (offset >= runningIndex[i] && offset < runningIndex[i + 1]) {
+                return i;
+            }
+        }
+        return segments.length;
     }
 
     /** Iterates the single segment — mirrors C# foreach over a ReadOnlySequence. */

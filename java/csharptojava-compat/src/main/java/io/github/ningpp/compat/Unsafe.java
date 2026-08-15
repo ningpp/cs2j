@@ -67,11 +67,34 @@ public class Unsafe {
 
     /**
      * Mirrors Unsafe.AddByteOffset(ref byte source, IntPtr byteOffset) — byte read
-     * at an offset. The holder only carries the first byte, so the offset cannot
-     * be honoured; the caller's sequential scan relies on the loop counter.
+     * at an offset. Plain holders only carry the first byte; when the holder was
+     * created by {@link #createByteSpanRef(ReadOnlySpan)} the offset is resolved
+     * against the original span (C# ref to MemoryMarshal.GetReference(span)).
      */
     public static int addByteOffset(IntHolder source, long byteOffset) {
+        if (source instanceof ByteSpanRef ref) {
+            int index = (int) byteOffset;
+            return ref.span.get(index);
+        }
         return source.value;
+    }
+
+    /**
+     * Creates a holder that mirrors <c>ref MemoryMarshal.GetReference(span)</c>:
+     * it carries the first byte value for pass-through call sites, and remembers
+     * the span so {@link #addByteOffset(IntHolder, long)} can honour byte offsets.
+     */
+    public static IntHolder createByteSpanRef(ReadOnlySpan<Integer> span) {
+        return new ByteSpanRef(span.length() > 0 ? span.get(0) : 0, span);
+    }
+
+    static final class ByteSpanRef extends IntHolder {
+        final ReadOnlySpan<Integer> span;
+
+        ByteSpanRef(int first, ReadOnlySpan<Integer> span) {
+            super(first);
+            this.span = span;
+        }
     }
 
     /** Mirrors Unsafe.ReadUnaligned&lt;int&gt;(ref byte) — pass-through. */

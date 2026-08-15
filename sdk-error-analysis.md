@@ -409,4 +409,100 @@
 - **根因分类**: Transformer
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`IsFrameworkCollectionCopyTo`）
 - **分析**: `IsFrameworkCollectionCopyTo` 通过“实现 `ICollection<T>`”匹配所有类型，把源定义的 `XmlAttributeCollection.CopyTo(XmlAttribute[], int)` 也重写成 `CSharpArray.copyTo(toArray(), ...)`；该方法在 C# 中有克隆属性语义，泛型数组拷贝只复制引用。修复为：方法所在类型若来自当前源码（`Locations.IsInSource`）则不重写，保留实例 `copyTo` 调用。
-- **状态**: ⏳ In Progress
+- **状态**: ✅ Fixed（提交 `fe7816c5`；xmldocument-tests 重新转换后编译/运行通过）
+
+---
+
+## Iteration 6 — Utf8JsonReaderTests 卡死：ReadOnlySpan.slice 对 byte[] 后端每次整段复制（O(n²)）
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`（`consumeLotsOfComments`）
+- **行号**: 卡死栈 `ReadOnlySpan.toIntegerArray(ReadOnlySpan.java:308)` ← `slice` ← `Utf8JsonReader.consumeComment`
+- **错误信息**: `mvn clean install -e` 停在 `Running dotnet.text.json.Tests.Utf8JsonReaderTests`，线程 CPU 213s 不返回
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Reader\Utf8JsonReader.cs`（`ConsumeComment` 反复 `_buffer.Slice(...)`）
+- **根因分类**: compat（ReadOnlySpan）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ReadOnlySpan.java`（`slice`）
+- **分析**: `slice` 对 `byte[]` 后端每次物化 `Integer[]` 副本；`consumeLotsOfComments` 在超大缓冲上反复切片导致 O(n²)，表现为死循环。修复为返回 `ReadOnlySpan<>(bytes, offset+start, len)` 视图（O(1)）。
+- **状态**: ✅ Fixed（Red→Green：`sliceOverByteArray_returnsViewNotCopy`）
+
+---
+
+## Iteration 7 — JsonTextReader 死循环：nextChar 永不消费字符
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`（`testTrySkipWithComments`）
+- **行号**: 卡死栈 `JsonTextReader.read(JsonTextReader.java:51)` ← `JsonTestHelper.getTokenTypes`
+- **错误信息**: `mvn test -pl system-text-json-tests -Dtest=Utf8JsonReaderTests` 卡在 `Running ...Utf8JsonReaderTests`
+- **对应 C# 文件**: Newtonsoft `JsonTextReader` 兼容（compat 手写扫描器）
+- **根因分类**: compat（JsonTextReader）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/JsonTextReader.java`
+- **分析**: `peekChar()` 把 `reader.peek()` 标成 pushedBack，`nextChar()` 只返回当前值、从不调用 `reader.read()`，所有空白/字符串扫描死循环。修复为 peek 不消费、next 走 `reader.read()`。
+- **状态**: ✅ Fixed（Red→Green：`JsonTextReaderTest`）
+
+---
+
+## Iteration 8 — EnumHelper.getValues 返回底层数值而非枚举常量（ClassCastException 集群）
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`（`jsonWithTrailingCommasAndCommentsMultiSegment_Valid` 等）
+- **行号**: `(Iterable<JsonCommentHandling>)(Iterable<?>)(EnumHelper.getValues(...))`
+- **错误信息**: `ClassCastException: class java.lang.Integer cannot be cast to class dotnet.text.json.JsonCommentHandling`
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\Utf8JsonReaderTests.MultiSegment.cs`（`foreach (JsonCommentHandling ... in Enum.GetValues(...))`）
+- **根因分类**: compat（EnumHelper）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/EnumHelper.java`
+- **分析**: `Enum.GetValues` 返回枚举类型数组，之前为修 EnumConverter 把 `getValues` 改成了数值数组，导致 foreach 强转失败。恢复为返回枚举常量；EnumConverter 的数值转换在下一轮另行处理。
+- **状态**: ✅ Fixed（Red→Green：`getValues_csharpArrayReturnsEnumConstants`）
+
+---
+
+## Iteration 9 — 参数化测试数据生成：CsvSource 特殊浮点值、MemberData 全限定名与可选参数填充
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`
+- **行号**: `@CsvSource(value = {..., double.NegativeInfinity})`；`@MethodSource("jsonGuidTestData.InvalidGuidTests")`；`invalidJson(String,int,int,int)` 数据行只有 3 值
+- **错误信息**: `ParameterResolution ... Failed to convert String "double.NegativeInfinity"`；`PreconditionViolation ... not a valid fully qualified method name`；`No ParameterResolver registered for parameter [int arg3]`
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\Utf8JsonReaderTests.TryGet.cs`、`Utf8JsonReaderTests.cs`
+- **根因分类**: Transformer（测试属性生成）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`
+- **分析**: ① InlineData 回退把 `double.NegativeInfinity` 原文塞进 CSV；② MemberData 带 `MemberType` 时未生成 `包.类#方法`，且 `nameof(类.成员)` 取了全名；③ 可选参数 `maxDepth=64` 无法由 JUnit 填充，生成适配数据方法按默认值补行。
+- **状态**: ✅ Fixed（Red→Green：`InlineData_FloatingSpecialValues...`、`MemberData_WithMemberType...`、`MemberData_WithOptionalParameter...`）
+
+---
+
+## Iteration 10 — Unsafe.addByteOffset 桩恒返回首字节（字符串扫描找不到结束引号）
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonReaderHelper.java`（`indexOfOrLessThan`）
+- **行号**: `lookUp = Unsafe.addByteOffset(searchSpace, index)` 恒等于首字节
+- **错误信息**: `JsonReaderException: Expected end of string, but instead reached end of data`（约 2700 个）
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Reader\JsonReaderHelper.cs`（`IndexOfQuoteOrAnyControlOrBackSlash`）
+- **根因分类**: compat + Transformer（ref 降级丢失 span）
+- **涉及组件**: `java/csharptojava-compat/.../Unsafe.java`、`IntHolder.java`；`src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs`
+- **分析**: `ref MemoryMarshal.GetReference(span)` 被降级为 `new IntHolder(首字节)`，`addByteOffset` 无法按偏移读字节。新增 `Unsafe.createByteSpanRef(span)`（携带 span 的 IntHolder 子类），`addByteOffset` 识别后按偏移 `span.get(offset)`；转换器对 byte 型 ref 实参生成 `createByteSpanRef`。
+- **状态**: ✅ Fixed（Red→Green：`UnsafeByteSpanRefTest`、`RefGetReferenceByteArg_UsesSpanAwareHolder`）
+
+---
+
+## Iteration 11 — SequencePosition 缺少值相等（默认位置断言全挂）
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`（`defaultUtf8JsonReader` 等）
+- **行号**: `Assert.equal(new SequencePosition(), json.getPosition())`
+- **错误信息**: `Assert.equal() failure: Values differ`
+- **对应 C# 文件**: `System.Buffers.SequencePosition`（值类型 struct）
+- **根因分类**: compat（SequencePosition）
+- **涉及组件**: `java/csharptojava-compat/.../SequencePosition.java`
+- **分析**: Java 端无 `equals`，默认/同 segment+index 的实例按引用比较失败。补值相等与 hashCode。
+- **状态**: ✅ Fixed（Red→Green：`SequencePositionTest`）
+
+---
+
+## Iteration 12 — ReadOnlySequence 多段序列：空末段长度算 0、位置被当段索引而非字节偏移
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`（大量 MultiSegment 用例）
+- **行号**: 构造 `ReadOnlySequence(segment, 0, segment, endIndex)` 后 `getLength()==0`；`ValueSequence` 为空
+- **错误信息**: `JsonReaderException: The input does not contain any JSON tokens`（多段输入被当空）；`Escaped ValueSequence to not be empty when HasValueSequence is true`
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\JsonTestHelper.cs`、`System.Buffers.ReadOnlySequence`
+- **根因分类**: compat（ReadOnlySequence）
+- **涉及组件**: `java/csharptojava-compat/.../ReadOnlySequence.java`
+- **分析**: ① 长度公式 `total - (total - endIndex)` 未处理“末段为空 + endIndex=0”，整段序列长度变 0；② `SequencePosition.getInteger()` 被 reader 当字节偏移使用（`+ consumed`/`+ literal长度`），compat 却当段索引。改为按 .NET 语义：位置=字节偏移，`tryGet` 定位所在段并推进到下一段起点，`getIsSingleSegment()` 对多段链返回 false。
+- **状态**: ✅ Fixed（Red→Green：`ReadOnlySequenceChainTest` 5 例）
+
+---
+
+## Iteration 13 — Span/ReadOnlySpan 的 ==/!= 被生成成 Java 引用相等
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Tests\Utf8JsonReaderTests.java`（`checkOnlyOneOfValueSpanOrSequenceIsSet`）
+- **行号**: `Assert.true_(json.getValueSpan() == new ReadOnlySpan<Integer>())`
+- **错误信息**: `Assert.true() failure: Expected condition to be true`（两个空 span 实例引用不同）
+- **对应 C# 文件**: `System.Span<T>`/`ReadOnlySpan<T>` 的 `op_Equality`（值比较）
+- **根因分类**: Transformer（二元运算符）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs`
+- **分析**: C# `span == default`/`span1 == span2` 是长度+内容比较；Java 端类对象 `==` 是引用比较。检测 `System.ReadOnlySpan<T>`/`System.Span<T>` 操作数后改为 `MemoryExtensions.sequenceEqual(...)`。
+- **状态**: ✅ Fixed（Red→Green：`SpanEqualityOperator_UsesSequenceEqual`）
