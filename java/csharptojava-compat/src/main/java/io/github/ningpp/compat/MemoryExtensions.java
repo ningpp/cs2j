@@ -95,11 +95,9 @@ public class MemoryExtensions {
 
     /** C# ReadOnlyMemory&lt;byte&gt; slice → Java ReadOnlyMemory&lt;Integer&gt;. */
     public static ReadOnlyMemory<Integer> asMemory(byte[] data, int start, int length) {
-        Integer[] arr = new Integer[length];
-        for (int i = 0; i < length; i++) {
-            arr[i] = data[start + i] & 0xFF;
-        }
-        return new ReadOnlyMemory<>(arr);
+        // View over the original array: the async stream reader writes through
+        // getSpan() and the caller reads the same backing bytes.
+        return new ReadOnlyMemory<>(data, start, length);
     }
 
     /** C# ReadOnlyMemory&lt;byte&gt; from start → Java ReadOnlyMemory&lt;Integer&gt;. */

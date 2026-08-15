@@ -214,7 +214,12 @@ public final class TypeHelper {
         if (baseType == CSharpGenericIterable.class && type != null && type.isArray()) {
             return true;
         }
-        return baseType != null && baseType.isAssignableFrom(type);
+        if (baseType != null && baseType.isAssignableFrom(type)) {
+            return true;
+        }
+        // typeof(bool) is represented as Boolean.class while reflection may surface
+        // boolean.class; treat primitive/wrapper pairs as assignable both ways.
+        return type != null && isSameType(baseType, type);
     }
 
     public static boolean getIsSealed(Class<?> type) {
@@ -540,6 +545,20 @@ public final class TypeHelper {
     }
 
     /**
+     * Mirrors C# Type equality: typeof(bool) is represented as Boolean.class while
+     * reflection surfaces boolean.class, so primitive/wrapper pairs compare equal.
+     */
+    public static boolean isSameType(Class<?> a, Class<?> b) {
+        if (a == b) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        return toWrapperType(a) == toWrapperType(b);
+    }
+
+    /**
      * Maps a boxed wrapper class back to its Java primitive class.
      * Returns null for non-wrapper inputs so callers can decide whether to
      * preserve the original class.
@@ -630,6 +649,9 @@ public final class TypeHelper {
             @Override
             @SuppressWarnings("unchecked")
             public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
+                if (attributeType == null || !attributeType.isAnnotation()) {
+                    return new Object[0];
+                }
                 return type.getAnnotationsByType((Class) attributeType);
             }
 

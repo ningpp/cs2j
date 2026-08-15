@@ -169,6 +169,48 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
+    public void IsInRangeInclusiveUIntOverload_CompareCall_NotDoubleWrapped()
+    {
+        // Exact expression produced by the CLI unsigned preprocessor for
+        // JsonHelpers.IsInRangeInclusive(uint, uint, uint). The (uint) casts
+        // inside the CompareUInt32 arguments used to re-trigger the unsigned
+        // comparison fallback and double-wrap the comparison.
+        var src = """
+            public static class JsonHelpers
+            {
+                public static bool IsInRangeInclusive(System.UInt32 value, System.UInt32 lowerBound, System.UInt32 upperBound)
+                    => Cs2jUnsigned.UnsignedMath.CompareUInt32(unchecked((int)(unchecked((uint)Cs2jUnsigned.UnsignedMath.SubtractUInt32(unchecked((int)value), unchecked((int)lowerBound))))), unchecked((int)(unchecked((uint)Cs2jUnsigned.UnsignedMath.SubtractUInt32(unchecked((int)upperBound), unchecked((int)lowerBound)))))) <= 0;
+            }
+            """;
+
+        var helper = """
+            namespace Cs2jUnsigned
+            {
+                internal static class UnsignedMath
+                {
+                    public static int SubtractUInt32(int a, int b) => unchecked(a - b);
+                    public static int CompareUInt32(int a, int b) => a < b ? -1 : a > b ? 1 : 0;
+                }
+            }
+            """;
+        var pipeline = new Core.Pipeline.ConversionPipeline();
+        var conv = pipeline.Convert(new Core.Pipeline.ConversionRequest
+        {
+            SourceCode = src + "\n" + helper,
+            FileName = "JsonHelpers.cs",
+            Options = new Core.Context.ConversionOptions(),
+        });
+        Assert.True(conv.Success, string.Join("; ", conv.Diagnostics.Select(d => d.Message)));
+        var code = conv.GeneratedCode;
+        // The rewriter lowers the uint comparison to CompareUInt32(...) <= 0.
+        // The expression transformer must not wrap that compare call in
+        // Integer.compareUnsigned(..., 0): the -1/0/1 result would be treated as
+        // an unsigned value and in-range comparisons would be false.
+        Assert.Contains("UnsignedMath.compareUInt32(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Integer.compareUnsigned(UnsignedMath.compareUInt32", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EqualityOperator_ConvertedToCompareUInt32()
     {
         var src = "public class C { public bool Eq(uint a, uint b) { return a == b; } }";

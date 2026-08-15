@@ -566,6 +566,34 @@
 
 ---
 
+## Iteration 15 — uint/ulong 比较被双重包装，isInRangeInclusive 恒 false（NumberHandling 64 挂 + 大量 reader 错误）
+- **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonHelpers.java:53`
+- **行号**: 53（`isInRangeInclusive(int,int,int)`）
+- **错误信息**: `NumberHandlingTests` 静态初始化 `setNumberHandling` → `ArgumentOutOfRangeException`（64 个测试全挂）；后续大量 `JsonReaderException`
+- **代码片段**（修复前）:
+  ```java
+  return Integer.compareUnsigned(UnsignedMath.compareUInt32(X, Y), 0) <= 0;
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\JsonHelpers.cs:53`（`(uint)(value - lowerBound) <= (uint)(upperBound - lowerBound)`）
+- **根因分类**: Transformer（`ContainsUIntCast` 排除逻辑失效）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs`（`ContainsUIntCast`）
+- **分析**: 无符号预处理器把比较重写为 `UnsignedMath.CompareUInt32(..., (uint)…) <= 0`；`ContainsUIntCast` 的 `TakeWhile(ancestor => ancestor != node)` 把“包含该 (uint) 转换的调用表达式”本身排除在祖先遍历之外，导致回退分支再次把 `compareUInt32(...)` 包进 `Integer.compareUnsigned(..., 0)`，把 -1/0/1 结果当无符号值，范围内判断恒 false。修复为祖先遍历包含操作数节点（停在比较节点），调用表达式内的 `(uint)` 转换不再触发重包。
+- **状态**: ✅ Fixed（Red→Green：`UnsignedTypeRewriterUnitTests.IsInRangeInclusiveUIntOverload_CompareCall_NotDoubleWrapped`；重新转换后 `JsonHelpers.java` 为单层 `UnsignedMath.compareUInt32(...) <= 0`，NumberHandlingTests 类初始化恢复，Utf8JsonReaderTests 错误从 1633 降到 440）
+
+---
+
+## Iteration 16 — ReadOnlyMemory<byte> 切片是复制而非视图，异步流读取写入副本后丢失（SpanTests.readFromStream 等）
+- **Java 文件**: `d:\cs-java-81512\system-text-json-tests\src\test\java\dotnet\text\json\Serialization\Tests\SpanTests.java:67`（`readFromStream`）
+- **行号**: 67（`deserializeAsync_0tp(stream, ...)`）
+- **错误信息**: `JsonReaderException: '0x 0' is an invalid start of a value`（buffer 全 0）；另有 `toByteArray() requires a byte-backed memory`
+- **对应 C# 文件**: `System.Text.Json.JsonSerializer.ReadFromStreamAsync`（`stream.ReadAsync(buffer.AsMemory(bytesInBuffer), ...)`）
+- **根因分类**: compat（ReadOnlyMemory/MemoryExtensions）
+- **涉及组件**: `java/csharptojava-compat/.../ReadOnlyMemory.java`、`MemoryExtensions.java`、`ArrayBufferWriter.java`
+- **分析**: `MemoryExtensions.asMemory(byte[], start, length)` 和 `ReadOnlyMemory(byte[], start, length)` 把字节切片复制成新 `Integer[]`，`StreamWrapper.readAsync` 经 `getSpan()` 写入的是副本，主 buffer 永远是 0。改为 byte[] 视图（与 ReadOnlySpan 一致），并让 `getSpan()`/`toArray()`/`toByteArray()` 支持 byte[] 与 Object[]（ArrayBufferWriter 因泛型擦除用 Object[] 缓冲）后端。
+- **状态**: ✅ Fixed（Red→Green：`ReadOnlyMemoryByteCtorTest` 视图/`toByteArray` 用例；SpanTests 的 `'0x 0'` 与 `toByteArray` 错误消失）
+
+---
+
 ## Iteration 16 — 非注解类型调用 getAnnotationsByType 抛 ClassCastException（JsonConverterAttribute 集群）
 - **Java 文件**: `d:\cs-java-81512\system-text-json\src\main\java\dotnet\text\json\JsonSerializerOptions.java:401`（`getAttributeThatCanHaveMultiple` → `FieldInfo.getCustomAttributes`）
 - **行号**: `FieldInfo.java:71`（`field.getAnnotationsByType((Class) attributeType)`）

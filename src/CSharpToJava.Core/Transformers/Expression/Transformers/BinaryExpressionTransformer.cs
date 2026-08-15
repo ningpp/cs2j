@@ -253,6 +253,30 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# System.Type equality: Java represents C# typeof(bool) as Boolean.class
+        // while runtime property types surface as boolean.class. Primitive/wrapper
+        // pairs must compare equal, so route through TypeHelper.isSameType instead
+        // of Java reference ==. Only when BOTH operands are System.Type: a Type vs
+        // null comparison must stay a reference check (e.g. Nullable.GetUnderlyingType(t) != null).
+        if (op is "==" or "!=")
+        {
+            var eqLeftType = context.GetTypeInfo(node.Left).Type;
+            var eqRightType = context.GetTypeInfo(node.Right).Type;
+            if (IsSystemType(eqLeftType) && IsSystemType(eqRightType))
+            {
+                var facade2 = ExpressionTransformerFacade.Instance;
+                var leftExpr = facade2.Transform(node.Left, context);
+                var rightExpr = facade2.Transform(node.Right, context);
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                var eq = $"TypeHelper.isSameType({leftExpr}, {rightExpr})";
+                return op == "==" ? eq : $"!({eq})";
+            }
+        }
+
+    static bool IsSystemType(ITypeSymbol? type)
+        => type is INamedTypeSymbol { Name: "Type" } named
+           && named.ContainingNamespace?.ToDisplayString() == "System";
+
         if (op == "+")
         {
             var leftType = context.GetTypeInfo(node.Left).Type;
@@ -785,7 +809,14 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             cast.Type is PredefinedTypeSyntax pts
             && pts.Keyword.IsKind(SyntaxKind.UIntKeyword)
             && !cast.Ancestors()
-                .TakeWhile(ancestor => ancestor != node)
+                // Stop at the comparison node's parent so the walk includes the
+                // operand itself. A (uint) cast that lives inside an invocation
+                // operand (e.g. UnsignedMath.CompareUInt32(..., (uint)…)) must not
+                // re-trigger the unsigned-comparison fallback: the invocation
+                // already provides the comparison semantics, and re-wrapping it in
+                // Integer.compareUnsigned(compareUInt32(...), 0) treats the -1/0/1
+                // result as an unsigned value, making in-range checks always false.
+                .TakeWhile(ancestor => !ReferenceEquals(ancestor, node.Parent))
                 .OfType<InvocationExpressionSyntax>()
                 .Any());
     }

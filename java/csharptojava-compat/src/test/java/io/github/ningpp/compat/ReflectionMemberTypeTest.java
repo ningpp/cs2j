@@ -60,4 +60,17 @@ class ReflectionMemberTypeTest {
         assertEquals(Integer.class, count.getFieldType());
         assertEquals(Boolean.class, boxed.getFieldType());
     }
+
+    static class PlainAttribute {
+    }
+
+    @Test
+    void fieldCustomAttributes_nonAnnotationType_returnsEmptyWithoutThrowing() {
+        FieldInfo flag = TypeHelper.getField(Holder.class, "flag");
+        assertNotNull(flag);
+        // Converted C# attributes are plain classes; Java reflection must not
+        // be asked for annotations of a non-annotation type (ClassCastException).
+        Object[] attrs = flag.getCustomAttributes(PlainAttribute.class, false);
+        assertEquals(0, attrs.length);
+    }
 }

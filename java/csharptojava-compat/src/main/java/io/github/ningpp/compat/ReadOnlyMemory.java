@@ -40,7 +40,6 @@ public final class ReadOnlyMemory<T> {
     }
 
     /** Primitive byte[] slice backing — mirrors C# new ReadOnlyMemory&lt;byte&gt;(byte[], start, length). */
-    @SuppressWarnings("unchecked")
     public ReadOnlyMemory(byte[] array, int start, int length) {
         if (array == null) {
             if (start != 0 || length != 0) {
@@ -55,12 +54,11 @@ public final class ReadOnlyMemory<T> {
             throw new IndexOutOfBoundsException(
                 "start=" + start + ", length=" + length + ", arrayLength=" + array.length);
         }
-        T[] converted = (T[]) new Integer[length];
-        for (int i = 0; i < length; i++) {
-            converted[i] = (T) Integer.valueOf(array[start + i] & 0xFF);
-        }
-        this.backing = converted;
-        this.start = 0;
+        // Keep the byte[] as a view (like ReadOnlySpan byte[] backing): callers
+        // such as StreamWrapper.readAsync write through getSpan() and must see
+        // their changes in the original array. A copy would be discarded.
+        this.backing = array;
+        this.start = start;
         this.length = length;
     }
 
@@ -149,6 +147,11 @@ public final class ReadOnlyMemory<T> {
             }
             return new ReadOnlySpan<>(chars);
         }
+        if (backing instanceof byte[] bytes) {
+            @SuppressWarnings("unchecked")
+            ReadOnlySpan<Integer> span = new ReadOnlySpan<Integer>(bytes, start, length);
+            return (ReadOnlySpan<T>) (ReadOnlySpan<?>) span;
+        }
         if (backing == null) {
             @SuppressWarnings("unchecked")
             T[] empty = (T[]) new Object[0];
@@ -183,6 +186,14 @@ public final class ReadOnlyMemory<T> {
             }
             return chars;
         }
+        if (backing instanceof byte[] bytes) {
+            @SuppressWarnings("unchecked")
+            T[] converted = (T[]) new Integer[length];
+            for (int i = 0; i < length; i++) {
+                converted[i] = (T) Integer.valueOf(bytes[start + i] & 0xFF);
+            }
+            return converted;
+        }
         if (backing == null) {
             @SuppressWarnings("unchecked")
             T[] empty = (T[]) new Object[0];
@@ -202,10 +213,26 @@ public final class ReadOnlyMemory<T> {
         if (backing == null) {
             return new byte[0];
         }
+        if (backing instanceof byte[] bytes) {
+            return Arrays.copyOfRange(bytes, start, start + length);
+        }
         if (backing instanceof Integer[] array) {
             byte[] result = new byte[length];
             for (int i = 0; i < length; i++) {
                 result[i] = (byte) (array[start + i].intValue() & 0xFF);
+            }
+            return result;
+        }
+        if (backing instanceof Object[] objects) {
+            // ArrayBufferWriter<T> keeps an Object[] buffer (Java generic erasure),
+            // so byte-typed memories copied from it are Object[] of boxed Integers.
+            byte[] result = new byte[length];
+            for (int i = 0; i < length; i++) {
+                Object item = objects[start + i];
+                if (!(item instanceof Number)) {
+                    throw new IllegalStateException("toByteArray() requires a byte-backed memory");
+                }
+                result[i] = (byte) (((Number) item).intValue() & 0xFF);
             }
             return result;
         }
