@@ -618,3 +618,83 @@ ew BorderInfo(4.0)，集群 margin 全部丢失 → X/Y 集群尺寸偏小、X �
 - **修复**: `TransformLocalDeclaration` 对用户自定义结构体数组的无初始化器创建追加 `Arrays.setAll(var, _i -> new T());`。
 - **测试**: `StructArray_LocalDeclaration_FillsElementsWithDefaultInstances`（先红后绿）
 - **状态**: ✅ Fixed (2026-08-13) — SDK/AGL 重新转换，两处 mvn BUILD SUCCESS，`WriteToSvgSample.Program` 运行成功输出 SVG；全量 dotnet test 3392 通过。
+
+---
+
+## Iteration AGL-1 — `int[].Contains(i)` 被双重 `Arrays.stream(...)` 包装
+- **Java 文件**: `d:\agl-java-816\automaticgraphlayout\src\main\java\Microsoft\Msagl\Core\Geometry\Disc.java:163`
+- **行号**: 163
+- **错误信息**: `对于stream(java.util.stream.IntStream), 找不到合适的方法`（`Arrays.stream(Arrays.stream(except)).boxed().collect(...)`）
+- **代码片段**:
+  ```java
+  if (!Arrays.stream(Arrays.stream(except)).boxed().collect(Collectors.toSet()).contains(i) && !contains(points[i])) {
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\MinEnclosingDisc\Disc.cs:65`（`except.Contains(i)`，int[] 上的 LINQ Enumerable.Contains）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（LINQ fallback + Contains 处理器）
+- **分析**: LINQ fallback 先调用 `BuildStreamReceiverExpression` 把原始 `int[]` 转成 `Arrays.stream(except)`，随后 Contains 处理器又按“源类型是原始数组”判定再次包一层 `Arrays.stream(...)`，得到 `Arrays.stream(IntStream)`，Java 无法编译。
+- **验证**: Red→Green `LinqContainsOnIntArray_DoesNotDoubleWrapArraysStream`（先确认生成 `Arrays.stream(Arrays.stream(` 失败，修复后生成 `Arrays.stream(except).boxed().collect(...)`）；全量 `dotnet test -c Release` 通过。
+- **状态**: ✅ Fixed — 重新转换后 `mvn clean package -e` 中 Disc.java:163 错误消失，进入下一轮
+
+---
+
+## Iteration AGL-2 — `CSharpSortedDict` 缺少 `Enumerator` 嵌套类型
+- **Java 文件**: `d:\agl-java-816\automaticgraphlayout\src\main\java\Microsoft\Msagl\Core\GraphAlgorithms\GraphForCycleRemoval.java:134`（同类问题 `Ordering.java:647`）
+- **行号**: 134（`(CSharpSortedDict.Enumerator<Integer, Set<Integer>>) ...iterator()`）
+- **错误信息**: `找不到符号 类 Enumerator 位置 类 io.github.ningpp.compat.CSharpSortedDict`
+- **代码片段**:
+  ```java
+  var enumerator = (CSharpSortedDict.Enumerator<Integer, Set<Integer>>) this.deltaDegreeBucketsForSourcesInConstrainedSubgraph.iterator();
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\GraphAlgorithms\CycleRemoval\GraphForCycleRemoval.cs:96`（`SortedDictionary<K,V>.GetEnumerator()` 赋值给 `var`，类型是 `SortedDictionary<K,V>.Enumerator`）
+- **根因分类**: compat 缺失（CSharpSortedDict 未镜像 .NET 的 Enumerator 嵌套类型）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpSortedDict.java`
+- **分析**: 转换器的嵌套类型映射把 `SortedDictionary<K,V>.Enumerator` 引成 `CSharpSortedDict.Enumerator<K,V>`（与 `CSharpDictionary` 相同模式），但 compat 的 `CSharpSortedDict` 只有 `CSharpGenericEnumerator` 返回值的 `iterator()`，没有嵌套 `Enumerator` 类型。修复：仿照 `CSharpDictionary.Enumerator` 增加 `CSharpSortedDict.Enumerator<K,V>`，并让 `iterator()` 返回该类型。
+- **验证**: Red→Green `CSharpSortedDictTest.iterator_returnsTypedSortedDictEnumerator`（先确认缺类编译失败，修复后通过）；compat `mvn clean install` 全量通过并安装到 `D:\mvnrepo`。
+- **状态**: ✅ Fixed — AGL `mvn clean package -e` 全模块 BUILD SUCCESS
+
+---
+
+## Iteration AGL-3 — `IEnumerable<T>` 字段数组初始化器被 `ArrayHelper.toList` 重复包装
+- **Java 文件**: `d:\agl-java-816\automaticgraphlayout\src\main\java\Microsoft\Msagl\Core\Layout\Label.java:70`
+- **行号**: 70
+- **错误信息**: `不兼容的类型: 推论变量 T 具有不兼容的上限（等式约束 PlacementStrategy，下限 CSharpList<PlacementStrategy>）`
+- **代码片段**:
+  ```java
+  private CSharpGenericIterable<PlacementStrategy> placementStrategyPriority =
+      ArrayHelper.toList(new CSharpList<PlacementStrategy>(ArrayHelper.toList(new PlacementStrategy[] {
+          PlacementStrategy.Horizontal, PlacementStrategy.AlongCurve })));
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Layout\Label.cs:191`（`IEnumerable<PlacementStrategy> placementStrategyPriority = new[] { ... };`）
+- **根因分类**: Transformer（字段初始化器多路径重复包装）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs`、`src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs`
+- **分析**: `WrapArrayForIterableTarget` 已把数组包成 `new CSharpList<T>(ArrayHelper.toList(array))`，随后 FieldTransformer 的语法兜底（`IsEnumerableOrCollectionTypeSyntax` + 数组初始化器）又对已包装结果再套一层 `ArrayHelper.toList(...)`，把 `CSharpList<T>` 当作 varargs 元素，导致泛型推断冲突。修复：`WrapArrayForIterableTarget` 与字段兜底均增加“已包装”幂等判断（`IsArrayAlreadyWrappedForCollectionOrIterable`），跳过重复包装。
+- **验证**: Red→Green `ArrayToIterableTests.IEnumerableField_FromImplicitArray_NoDoubleWrap`；全量 `dotnet test -c Release` 通过。
+- **状态**: ✅ Fixed — 重新转换后 `automaticgraphlayout` 编译通过，错误推进到下一模块
+
+---
+
+## Iteration AGL-4 — `DoubleCollection.add(1)` int 字面量无法装箱为 Double
+- **Java 文件**: `d:\agl-java-816\graphmapswpfcontrol-net6-0-windows\src\main\java\Microsoft\Msagl\GraphmapsWpfControl\GraphmapsEdge.java:442,555`
+- **行号**: 442（`_obj6.add(1);`，同类 555）
+- **错误信息**: `不兼容的类型: int无法转换为java.lang.Double`
+- **代码片段**:
+  ```java
+  var _obj6 = new DoubleCollection();
+  _obj6.add(1);
+  path.setStrokeDashArray(_obj6);
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\tools\GraphmapsWpfControl\GraphmapsEdge.cs`（`DoubleCollection { 1 }` / `.Add(1)`，C# 允许 int→double 隐式转换）
+- **根因分类**: compat 缺失（DoubleCollection 只提供 `add(Double)`，不提供隐式加宽入口）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/dotnet/wpf/swing/media/DoubleCollection.java`
+- **分析**: C# 的 int 字面量可隐式转换为 double 后加入 `DoubleCollection`；Java 端 `add(Double)` 无法接受裸 int。补 `add(double)`、`add(int, double)`、`set(int, double)` 三个隐式加宽重载。
+- **验证**: Red→Green `DoubleCollectionTest`（3 个 int 字面量调用先编译失败，补重载后通过）；compat `mvn clean install` 全量通过并安装到 `D:\mvnrepo`。
+- **状态**: ✅ Fixed — AGL `mvn clean package -e` 全模块 BUILD SUCCESS
+
+---
+
+## 最终复验（2026-08-16）
+- 同一份 `D:\code\cs2j` 转换器代码：
+  - 子任务一：`d:\cs-java-816-sdk` 重新转换 + `mvn clean install -e` → **BUILD SUCCESS**（667 测试通过）
+  - 子任务二：`d:\agl-java-816` 重新转换 + `mvn clean package -e` → **BUILD SUCCESS**（13/13 模块，609 测试通过，0 失败 0 错误）
+  - 全量单元测试：`dotnet test -c Release` → 2815 + 51 全部通过，0 失败
