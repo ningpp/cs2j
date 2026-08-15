@@ -3016,7 +3016,7 @@ public class ClassTransformer : ITypeTransformer
     /// keep the dictionary contract (C# code commonly uses the collection as a dictionary),
     /// drop the clashing list/collection interfaces (their members survive as plain methods),
     /// make the single iterator() return the KVP enumerator, and adapt the dictionary members
-    /// (containsKey(Object), get(Object), tryGetValue(K), getKeys()/getValues() → CSharpReadOnlyCollection).
+    /// (containsKey(K), get(K), tryGetValue(K), getKeys()/getValues() → CSharpReadOnlyCollection).
     /// </summary>
     private static void ResolveReadOnlyDictListConflict(JavaClassDeclaration javaClass, ConversionContext context)
     {
@@ -3077,45 +3077,7 @@ public class ClassTransformer : ITypeTransformer
 
         context.AddImport("io.github.ningpp.compat.CSharpKeyValuePair");
 
-        // The key type erases to Object for an unbounded type parameter (TKey, T, ...),
-        // in which case the Object bridges below would collide with the C#-typed
-        // overload after erasure.
-        bool keyErasesToObject = keyType == "Object"
-            || javaClass.TypeParameters.Any(tp => tp.Name == keyType);
-
-        // 3. containsKey(Object) overload delegating to the C#-typed containsKey(K).
-        // Skip when the key type erases to Object (unbounded type parameter) — the
-        // bridge would collide with the C#-typed overload after erasure.
-        if (!keyErasesToObject
-            && !javaClass.Methods.Any(m => m.Name == "containsKey" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
-            && javaClass.Methods.Any(m => m.Name == "containsKey" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
-        {
-            javaClass.Methods.Add(new JavaMethodDeclaration
-            {
-                Modifiers = JavaModifiers.Public,
-                ReturnType = "boolean",
-                Name = "containsKey",
-                Parameters = { new JavaParameter("Object", "key") },
-                Body = $"return containsKey(({keyType}) key);"
-            });
-        }
-
-        // 4. get(Object) overload delegating to the C#-typed get(K).
-        if (!keyErasesToObject
-            && !javaClass.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object")
-            && javaClass.Methods.Any(m => m.Name == "get" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
-        {
-            javaClass.Methods.Add(new JavaMethodDeclaration
-            {
-                Modifiers = JavaModifiers.Public,
-                ReturnType = valueType,
-                Name = "get",
-                Parameters = { new JavaParameter("Object", "key") },
-                Body = $"return get(({keyType}) key);"
-            });
-        }
-
-        // 5. tryGetValue(K) delegating to the out-parameter version (or containsKey/get).
+        // 3. tryGetValue(K) delegating to the out-parameter version (or containsKey/get).
         if (!javaClass.Methods.Any(m => m.Name == "tryGetValue" && m.Parameters.Count == 1 && m.Parameters[0].Type == keyType))
         {
             if (javaClass.Methods.Any(m => m.Name == "tryGetValue" && m.Parameters.Count == 2
@@ -3145,12 +3107,12 @@ public class ClassTransformer : ITypeTransformer
             }
         }
 
-        // 6. getKeys()/getValues() must return CSharpReadOnlyCollection<X> per the interface
+        // 4. getKeys()/getValues() must return CSharpReadOnlyCollection<X> per the interface
         //    contract; wrap the accumulated CSharpList via CSharpCollectionExtensions.asReadOnly.
         AdaptReadOnlyDictKeysValuesMethod(javaClass, "getKeys", keyType, context);
         AdaptReadOnlyDictKeysValuesMethod(javaClass, "getValues", valueType, context);
 
-        // 7. Erasure-conflict helper methods with a bogus `this::compare` body (designed for
+        // 5. Erasure-conflict helper methods with a bogus `this::compare` body (designed for
         //    Comparable/Comparator) are dead code once the conflicting interfaces are dropped.
         javaClass.Methods.RemoveAll(m => (m.Body?.Trim() ?? "") == "return this::compare;");
         foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())

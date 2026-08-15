@@ -258,4 +258,63 @@
 - **分析**: C# `new UserStruct[n]` 零初始化每个元素；Java 中结构体转成的类数组初始全 null。赋值路径（`TryGetStructArrayFillStatement` → `Arrays.setAll`，见 `AssignmentTransformer.cs:1595`）已处理 `x = new T[n]`，但局部声明 `T[] x = new T[n]` 未填充；`addAttribute` 扩容后立刻读取新槽做结构体写回（`arr[i] = arr[i].set(...)`）→ NPE。首次 8 个槽由构造器填充所以 SDK 单测未暴露，超过 8 个属性/命名空间才触发（SvgGraphWriter 写节点属性时命中）。
 - **修复**: 在 `TransformLocalDeclaration` 增加与枚举数组填充（`Arrays.fill`）平行的结构体数组填充：单变量、无初始化器的 `new T[size]` 且元素为用户自定义结构体时，声明后追加 `Arrays.setAll(var, _i -> new T());`（复用 `StructCloneHelper.IsUserDefinedStruct` 判定，排除枚举/元组/基元类型）。
 - **回归测试**: `StructTransformerTests.StructArray_LocalDeclaration_FillsElementsWithDefaultInstances`（Red→Green 验证）
-- **状态**: ✅ Fixed（2026-08-13）— 全量 `dotnet test -c Release` **3392 通过**；SDK 重新转换 + `mvn clean install -e` BUILD SUCCESS；AGL 重新转换 + `mvn clean package -e` BUILD SUCCESS；`WriteToSvgSample.Program` 运行成功输出 SVG（NPE 消除，`XmlWellFormedWriter` 4 处扩容均生成 setAll 填充）
+
+---
+
+# 第四轮（目标目录 `d:\cs-java-81512`，迭代直至 BUILD SUCCESS）
+
+## Iteration 1 — GroupCollection 与 CSharpReadOnlyDict 方法名冲突（name clash）
+- **Java 文件**: `d:\cs-java-81512\dotnet-text-regularexpressions\src\main\java\dotnet\text\regularexpressions\GroupCollection.java`
+- **行号**: 62、174、195、198
+- **错误信息**: `名称冲突: class GroupCollection 的两种方法具有相同的疑符, 但两者均不覆盖对方` — `CSharpReadOnlyDict.get(java.lang.String)` 与 `GroupCollection.get(java.lang.Object)`；`CSharpReadOnlyDict.containsKey(java.lang.String)` 与 `GroupCollection.containsKey(java.lang.Object)`
+- **代码片段**:
+  ```java
+  @DebuggerDisplay("Count = {Count}") @DebuggerTypeProxy(CollectionDebuggerProxy.class) public class GroupCollection implements CSharpReadOnlyDict<String, Group> {
+      private Match _match;
+      private CSharpHashtable _captureMap;
+      private Group[] _groups;
+
+      public GroupCollection(Match match, CSharpHashtable caps) {
+          _match = match;
+          _captureMap = caps;
+      }
+
+      public void reset() { _groups = null; }
+      public boolean getIsReadOnly() { return true; }
+      public int getCount() { return _match._matchcount.length; }
+      public Group get(int groupnum) { return getGroup(groupnum); }
+      public Group get(String groupname) { return (_match._regex == null ? Group.s_emptyGroup : getGroup(_match._regex.groupNumberFromName(groupname))); }
+      public CSharpGenericEnumerator<CSharpKeyValuePair<String, Group>> iterator() { ... }
+      private Group getGroup(int groupnum) { ... }
+      private Group getGroupImpl(int groupnum) { ... }
+      public boolean getIsSynchronized() { return false; }
+      public Object getSyncRoot() { return _match; }
+      public void copyTo(CSharpArray array, int arrayIndex) { ... }
+      public void copyTo(Group[] array, int arrayIndex) { ... }
+      public int indexOf(Object item) { ... }
+      public void insert(int index, Group item) { throw new UnsupportedOperationException(...); }
+      public void removeAt(int index) { throw new UnsupportedOperationException(...); }
+      public Group set(int index, Group value) { ... }
+      public boolean add(Group item) { throw new UnsupportedOperationException(...); }
+      public void clear() { throw new UnsupportedOperationException(...); }
+      public boolean contains(Object item) { ... }
+      public boolean remove(Object item__obj) { ... }
+      public boolean getIsFixedSize() { return true; }
+      public void remove$Class(Object value) { throw new UnsupportedOperationException(...); }
+      public boolean tryGetValue(String key, ObjectHolder<Group> value) { ... }
+      public boolean containsKey(String key) { return _match._regex.groupNumberFromName(key) >= 0; }
+      public CSharpReadOnlyCollection<String> getKeys() { ... }
+      public CSharpReadOnlyCollection<Group> getValues() { ... }
+      public int size() { return getCount(); }
+      public boolean isEmpty() { return getCount() == 0; }
+      public boolean containsKey(Object key) { return containsKey((String) key); }
+      public Group get(Object key) { return get((String) key); }
+      public Group tryGetValue(String key) { ... }
+      ...
+  }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\regular-expressions\src\System\Text\RegularExpressions\GroupCollection.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs`（`ResolveReadOnlyDictListConflict` 第 3/4 步）
+- **分析**: compat 接口 `CSharpReadOnlyDict<K,V>` 已从 `containsKey(Object)/get(Object)` 改为 `containsKey(K)/get(K)`，但转换器仍按旧契约为 String 键合成 `containsKey(Object)/get(Object)` 桥接；Java 中 String 键类型方法的擦除就是 `Object`，显式 Object 重载与接口生成桥接冲突。
+- **状态**: ⏳ In Progress

@@ -78,9 +78,12 @@ public class Group { public string Name { get; set; } }
         Assert.DoesNotContain("CSharpGenericIList<Group>", code, StringComparison.Ordinal);
         Assert.DoesNotContain("CSharpReadOnlyList<Group>", code, StringComparison.Ordinal);
 
-        // CSharpReadOnlyDict member contract.
-        Assert.Contains("public boolean containsKey(Object key)", code, StringComparison.Ordinal);
-        Assert.Contains("public Group get(Object key)", code, StringComparison.Ordinal);
+        // CSharpReadOnlyDict member contract: the typed members satisfy the
+        // interface; explicit Object overloads would erase-clash with them.
+        Assert.Contains("public boolean containsKey(String", code, StringComparison.Ordinal);
+        Assert.Contains("public Group get(String", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("containsKey(Object key)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Group get(Object key)", code, StringComparison.Ordinal);
         Assert.Contains("public Group tryGetValue(String key)", code, StringComparison.Ordinal);
         Assert.Contains("public CSharpReadOnlyCollection<String> getKeys()", code, StringComparison.Ordinal);
         Assert.Contains("public CSharpReadOnlyCollection<Group> getValues()", code, StringComparison.Ordinal);
