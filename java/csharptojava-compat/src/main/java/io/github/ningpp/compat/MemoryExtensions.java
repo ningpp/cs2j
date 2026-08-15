@@ -146,21 +146,15 @@ public class MemoryExtensions {
     /** C# char[].AsSpan() → ReadOnlySpan&lt;Character&gt;. */
     public static ReadOnlySpan<Character> asSpan(char[] data) {
         if (data == null) return new ReadOnlySpan<>(new Character[0]);
-        Character[] arr = new Character[data.length];
-        for (int i = 0; i < data.length; i++) {
-            arr[i] = data[i];
-        }
-        return new ReadOnlySpan<>(arr);
+        // View over the original array so Fill/CopyTo/set write through,
+        // mirroring C# Span<char> semantics over char[].
+        return new ReadOnlySpan<Character>(data);
     }
 
     /** C# char[].AsSpan(start, length) → ReadOnlySpan&lt;Character&gt;. */
     public static ReadOnlySpan<Character> asSpan(char[] data, int start, int length) {
         if (data == null) return new ReadOnlySpan<>(new Character[0]);
-        Character[] arr = new Character[length];
-        for (int i = 0; i < length; i++) {
-            arr[i] = data[start + i];
-        }
-        return new ReadOnlySpan<>(arr);
+        return new ReadOnlySpan<Character>(data, start, length);
     }
 
     /** C# char[].AsSpan(start) → ReadOnlySpan&lt;Character&gt; (slice from start to end). */

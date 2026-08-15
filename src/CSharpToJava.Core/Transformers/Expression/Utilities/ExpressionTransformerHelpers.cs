@@ -887,6 +887,13 @@ public static class ExpressionTransformerHelpers
             && literal.IsKind(SyntaxKind.NumericLiteralExpression))
         {
             var literalText = literal.Token.Text.TrimEnd('m', 'M');
+            // C# `(decimal)1.1234e1` is a compile-time constant: Decimal.Parse
+            // does not accept exponent notation, so map exponent-form double
+            // literals to Decimal.valueOf(double) (exact via BigDecimal.valueOf).
+            if (literalText.IndexOfAny(new[] { 'e', 'E' }) >= 0)
+            {
+                return $"Decimal.valueOf({transformedExpression})";
+            }
             return $"Decimal.parse(\"{literalText}\")";
         }
 

@@ -47,6 +47,14 @@ public final class ReadOnlySpan<T> {
         this.length = array.length;
     }
 
+    /** Primitive char[] backing — mirrors C# char[] → ReadOnlySpan&lt;char&gt;. */
+    public ReadOnlySpan(char[] array) {
+        this.array = array;
+        this.stringBacking = null;
+        this.offset = 0;
+        this.length = array.length;
+    }
+
     /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
     public ReadOnlySpan(ReadOnlySpan<T> other) {
         this.array = other.array;
@@ -68,6 +76,18 @@ public final class ReadOnlySpan<T> {
 
     /** Primitive byte[] slice backing — mirrors C# byte[] → ReadOnlySpan&lt;byte&gt;. */
     public ReadOnlySpan(byte[] array, int offset, int length) {
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(
+                "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
+        }
+        this.array = array;
+        this.stringBacking = null;
+        this.offset = offset;
+        this.length = length;
+    }
+
+    /** Primitive char[] slice backing — mirrors C# char[] → ReadOnlySpan&lt;char&gt;. */
+    public ReadOnlySpan(char[] array, int offset, int length) {
         if (offset < 0 || length < 0 || offset + length > array.length) {
             throw new IndexOutOfBoundsException(
                 "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
@@ -153,7 +173,7 @@ public final class ReadOnlySpan<T> {
         if (array instanceof byte[] bytes) {
             bytes[offset + index] = ((Number) value).byteValue();
         } else if (array instanceof char[] chars) {
-            chars[offset + index] = (char) ((Number) value).intValue();
+            chars[offset + index] = ((Character) value).charValue();
         } else {
             @SuppressWarnings("unchecked")
             T[] arr = (T[]) array;
@@ -184,6 +204,11 @@ public final class ReadOnlySpan<T> {
         if (array instanceof byte[] bytes) {
             @SuppressWarnings("unchecked")
             T value = (T) java.lang.Integer.valueOf(bytes[offset + index] & 0xFF);
+            return value;
+        }
+        if (array instanceof char[] chars) {
+            @SuppressWarnings("unchecked")
+            T value = (T) java.lang.Character.valueOf(chars[offset + index]);
             return value;
         }
         @SuppressWarnings("unchecked")
@@ -217,12 +242,23 @@ public final class ReadOnlySpan<T> {
             // byte span quadratic (e.g. Utf8JsonReader.consumeComment).
             return new ReadOnlySpan<>(bytes, offset + start, len);
         }
+        if (array instanceof char[] chars) {
+            // Keep the slice as a view over the original char[] (C# Slice is O(1)).
+            return new ReadOnlySpan<>(chars, offset + start, len);
+        }
         return new ReadOnlySpan<>((T[]) array, offset + start, len);
     }
 
     public T[] toArray() {
         if (array instanceof byte[] bytes) {
             return (T[]) toIntegerArray(bytes, offset, length);
+        }
+        if (array instanceof char[] chars) {
+            Character[] copy = new Character[length];
+            for (int i = 0; i < length; i++) {
+                copy[i] = chars[offset + i];
+            }
+            return (T[]) copy;
         }
         return Arrays.copyOfRange((T[]) array, offset, offset + length);
     }
@@ -303,6 +339,9 @@ public final class ReadOnlySpan<T> {
                 sb.append(chars[offset + i]);
             }
             return sb.toString();
+        }
+        if (array instanceof char[] chars) {
+            return new String(chars, offset, length);
         }
         return super.toString();
     }

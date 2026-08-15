@@ -1540,25 +1540,53 @@ internal sealed partial class StateMachineBuilder
     {
         private readonly Dictionary<string, int> _labelToIndex;
         private int _loopDepth;
+        private bool _innermostLoopIsFor;
         private readonly Stack<string> _generatedStateMachineStates = new();
         internal GotoTransitionRewriter(Dictionary<string, int> labelToIndex) { _labelToIndex = labelToIndex; }
 
         public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
-        { _loopDepth++; var r = base.VisitForStatement(node); _loopDepth--; return r; }
+        {
+            _loopDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = true;
+            var r = base.VisitForStatement(node);
+            _innermostLoopIsFor = previous;
+            _loopDepth--;
+            return r;
+        }
         public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
-        { _loopDepth++; var r = base.VisitForEachStatement(node); _loopDepth--; return r; }
+        {
+            _loopDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = true;
+            var r = base.VisitForEachStatement(node);
+            _innermostLoopIsFor = previous;
+            _loopDepth--;
+            return r;
+        }
         public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
         {
             _loopDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = false;
             var generatedState = TryGetGeneratedStateMachineStateName(node);
             if (generatedState != null) _generatedStateMachineStates.Push(generatedState);
             var r = base.VisitWhileStatement(node);
             if (generatedState != null) _generatedStateMachineStates.Pop();
+            _innermostLoopIsFor = previous;
             _loopDepth--;
             return r;
         }
         public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
-        { _loopDepth++; var r = base.VisitDoStatement(node); _loopDepth--; return r; }
+        {
+            _loopDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = false;
+            var r = base.VisitDoStatement(node);
+            _innermostLoopIsFor = previous;
+            _loopDepth--;
+            return r;
+        }
 
         public override SyntaxNode? VisitGotoStatement(GotoStatementSyntax node)
         {
@@ -1580,7 +1608,7 @@ internal sealed partial class StateMachineBuilder
             return base.VisitGotoStatement(node);
         }
 
-        private static StatementSyntax BreakThroughGeneratedStateMachine(int target, string innerStateName)
+        private StatementSyntax BreakThroughGeneratedStateMachine(int target, string innerStateName)
             => SyntaxFactory.Block(
                 SyntaxFactory.ExpressionStatement(
                     SyntaxFactory.AssignmentExpression(
@@ -1597,7 +1625,16 @@ internal sealed partial class StateMachineBuilder
                         SyntaxKind.SimpleAssignmentExpression,
                         SyntaxFactory.IdentifierName(innerStateName),
                         Number(-1))),
-                SyntaxFactory.ContinueStatement());
+                // `continue` inside a for/foreach body runs the loop incrementer
+                // before leaving, which corrupts the loop variable when the goto
+                // exits the enclosing generated state machine (e.g. Utf8JsonReader
+                // multi-segment string ValueSequence end index was one past the
+                // closing quote). `break` skips the incrementer; the injected
+                // `if (__exit) break;` checks then propagate out of the state
+                // machine while-loop and re-dispatch to the target state.
+                _innermostLoopIsFor
+                    ? SyntaxFactory.BreakStatement()
+                    : SyntaxFactory.ContinueStatement());
     }
 
     private sealed class NestedBlockTransitionRewriter : CSharpSyntaxRewriter
@@ -1612,6 +1649,7 @@ internal sealed partial class StateMachineBuilder
         private int _loopDepth;
         private int _breakableDepth;
         private int _continuableDepth;
+        private bool _innermostLoopIsFor;
         private readonly Stack<string> _generatedStateMachineStates = new();
 
         internal NestedBlockTransitionRewriter(
@@ -1637,7 +1675,10 @@ internal sealed partial class StateMachineBuilder
             _loopDepth++;
             _breakableDepth++;
             _continuableDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = true;
             var r = base.VisitForStatement(node);
+            _innermostLoopIsFor = previous;
             _continuableDepth--;
             _breakableDepth--;
             _loopDepth--;
@@ -1648,7 +1689,10 @@ internal sealed partial class StateMachineBuilder
             _loopDepth++;
             _breakableDepth++;
             _continuableDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = true;
             var r = base.VisitForEachStatement(node);
+            _innermostLoopIsFor = previous;
             _continuableDepth--;
             _breakableDepth--;
             _loopDepth--;
@@ -1659,10 +1703,13 @@ internal sealed partial class StateMachineBuilder
             _loopDepth++;
             _breakableDepth++;
             _continuableDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = false;
             var generatedState = TryGetGeneratedStateMachineStateName(node);
             if (generatedState != null) _generatedStateMachineStates.Push(generatedState);
             var r = base.VisitWhileStatement(node);
             if (generatedState != null) _generatedStateMachineStates.Pop();
+            _innermostLoopIsFor = previous;
             _continuableDepth--;
             _breakableDepth--;
             _loopDepth--;
@@ -1673,7 +1720,10 @@ internal sealed partial class StateMachineBuilder
             _loopDepth++;
             _breakableDepth++;
             _continuableDepth++;
+            var previous = _innermostLoopIsFor;
+            _innermostLoopIsFor = false;
             var r = base.VisitDoStatement(node);
+            _innermostLoopIsFor = previous;
             _continuableDepth--;
             _breakableDepth--;
             _loopDepth--;
@@ -1722,7 +1772,8 @@ internal sealed partial class StateMachineBuilder
         }
 
         private StatementSyntax BreakThroughGeneratedStateMachine(int target, string innerStateName)
-            => SyntaxFactory.Block(
+        {
+            return SyntaxFactory.Block(
                 SyntaxFactory.ExpressionStatement(
                     SyntaxFactory.AssignmentExpression(
                         SyntaxKind.SimpleAssignmentExpression,
@@ -1738,7 +1789,17 @@ internal sealed partial class StateMachineBuilder
                         SyntaxKind.SimpleAssignmentExpression,
                         SyntaxFactory.IdentifierName(innerStateName),
                         Number(-1))),
-                SyntaxFactory.ContinueStatement());
+                // `continue` inside a for/foreach body runs the loop incrementer
+                // before leaving, which corrupts the loop variable when the goto
+                // exits the enclosing generated state machine (e.g. Utf8JsonReader
+                // multi-segment string ValueSequence end index was one past the
+                // closing quote). `break` skips the incrementer; the injected
+                // `if (__exit) break;` checks then propagate out of the state
+                // machine while-loop and re-dispatch to the target state.
+                _innermostLoopIsFor
+                    ? SyntaxFactory.BreakStatement()
+                    : SyntaxFactory.ContinueStatement());
+        }
     }
 
     /// <summary>判断 switch 是否存在至少一个可以贯穿到 switch 之后的 section。</summary>

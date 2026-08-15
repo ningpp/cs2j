@@ -222,14 +222,36 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
         String trimmed = s.trim();
         try {
             LocalDateTime ldt;
-            if (trimmed.contains("T")) {
+            DateTimeKind kind = DateTimeKind.Unspecified;
+            if (trimmed.endsWith("Z") || trimmed.endsWith("z")) {
+                // .NET DateTime.Parse("...Z") returns Kind=Utc (wall time in UTC).
+                OffsetDateTime odt = OffsetDateTime.parse(trimmed.substring(0, trimmed.length() - 1) + "Z");
+                ldt = odt.toLocalDateTime();
+                kind = DateTimeKind.Utc;
+            } else if (trimmed.contains("+")
+                || (trimmed.contains("-") && trimmed.indexOf('-') != trimmed.lastIndexOf('-'))) {
+                // Offset forms like "1997-07-16T19:20+01:00" are converted to
+                // local time by DateTime.Parse (Kind=Local). Date-only strings
+                // contain a single '-' (date separator) and fall through below.
+                try {
+                    OffsetDateTime odt = OffsetDateTime.parse(trimmed);
+                    ldt = odt.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
+                    kind = DateTimeKind.Local;
+                } catch (Exception ignored) {
+                    ldt = trimmed.contains("T")
+                        ? LocalDateTime.parse(trimmed)
+                        : trimmed.contains(":")
+                            ? LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                            : LocalDate.parse(trimmed).atStartOfDay();
+                }
+            } else if (trimmed.contains("T")) {
                 ldt = LocalDateTime.parse(trimmed);
             } else if (trimmed.contains(":")) {
                 ldt = LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             } else {
                 ldt = LocalDate.parse(trimmed).atStartOfDay();
             }
-            return new CSharpDateTime(ldtToTicks(ldt), DateTimeKind.Unspecified);
+            return new CSharpDateTime(ldtToTicks(ldt), kind);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid DateTime format: " + s, e);
         }

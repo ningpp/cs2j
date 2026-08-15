@@ -8,6 +8,30 @@ import static org.junit.jupiter.api.Assertions.*;
 class CSharpDateTimeOffsetTest {
 
     @Test
+    void parse_NoOffset_UsesLocalTimeZoneOffset() {
+        // .NET DateTimeOffset.Parse("1997-07-16") uses the local time zone's
+        // offset when the string carries no offset.
+        CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("1997-07-16");
+        long expectedSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
+        assertEquals(expectedSeconds, dto.getOffset().getTicks() / CSharpTimeSpan.TICKS_PER_SECOND);
+    }
+
+    @Test
+    void getLocalDateTime_ConvertsOffsetToLocalZone() {
+        // .NET DateTimeOffset.LocalDateTime converts to the local time zone.
+        java.time.OffsetDateTime odt = java.time.OffsetDateTime.of(2024, 6, 15, 10, 30, 45, 0, java.time.ZoneOffset.ofHours(1));
+        java.time.LocalDateTime expected = odt.atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, CSharpTimeSpan.fromHours(1));
+        CSharpDateTime local = dto.getLocalDateTime();
+        assertEquals(expected.getYear(), local.getYear());
+        assertEquals(expected.getMonthValue(), local.getMonth());
+        assertEquals(expected.getDayOfMonth(), local.getDay());
+        assertEquals(expected.getHour(), local.getHour());
+        assertEquals(expected.getMinute(), local.getMinute());
+        assertEquals(expected.getSecond(), local.getSecond());
+    }
+
+    @Test
     void constructor_withOffset() {
         // C#: new DateTimeOffset(2024,6,15,10,30,45,+08:00)
         CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);

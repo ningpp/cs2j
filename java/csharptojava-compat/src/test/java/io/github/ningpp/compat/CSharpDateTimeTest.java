@@ -7,6 +7,30 @@ import static org.junit.jupiter.api.Assertions.*;
 class CSharpDateTimeTest {
 
     @Test
+    void parse_OffsetString_ConvertsToLocalTime() {
+        java.time.OffsetDateTime odt = java.time.OffsetDateTime.parse("1997-07-16T19:20+01:00");
+        java.time.LocalDateTime expected = odt.atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        CSharpDateTime actual = CSharpDateTime.parse("1997-07-16T19:20+01:00");
+        assertEquals(expected.getYear(), actual.getYear());
+        assertEquals(expected.getMonthValue(), actual.getMonth());
+        assertEquals(expected.getDayOfMonth(), actual.getDay());
+        assertEquals(expected.getHour(), actual.getHour());
+        assertEquals(expected.getMinute(), actual.getMinute());
+        assertEquals(DateTimeKind.Local, actual.getKind());
+    }
+
+    @Test
+    void parse_UtcZuluString_ReturnsUtcWallTime() {
+        CSharpDateTime actual = CSharpDateTime.parse("1997-07-16T19:20Z");
+        assertEquals(1997, actual.getYear());
+        assertEquals(7, actual.getMonth());
+        assertEquals(16, actual.getDay());
+        assertEquals(19, actual.getHour());
+        assertEquals(20, actual.getMinute());
+        assertEquals(DateTimeKind.Utc, actual.getKind());
+    }
+
+    @Test
     void constructor_ymdhms() {
         // C#: new DateTime(2024,6,15,10,30,45)
         CSharpDateTime dt = new CSharpDateTime(2024, 6, 15, 10, 30, 45);

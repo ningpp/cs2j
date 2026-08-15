@@ -69,6 +69,27 @@ class Sample
     }
 
     [Fact]
+    public void DecimalCastFromDoubleExponentLiteral_UsesValueOf()
+    {
+        var result = Convert("""
+class Sample
+{
+    decimal Get()
+    {
+        return (decimal)1.1234e1;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // C# `(decimal)1.1234e1` is a compile-time constant (11.234); the Java
+        // port must use Decimal.valueOf(11.234), not Decimal.parse("1.1234e1")
+        // (Decimal.Parse does not accept exponent notation).
+        Assert.Contains("Decimal.valueOf(1.1234e1)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Decimal.parse(\"1.1234e1\")", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DecimalArithmeticAndComparison_UseCompatMethods()
     {
         var result = Convert("""

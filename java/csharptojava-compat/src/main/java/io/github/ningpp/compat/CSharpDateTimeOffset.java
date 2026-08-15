@@ -119,7 +119,12 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
     public int getDayOfYear() { return dateTime.getDayOfYear(); }
 
     public CSharpDateTime getLocalDateTime() {
-        return dateTime;
+        // .NET DateTimeOffset.LocalDateTime converts the instant to the local
+        // time zone; returning the stored wall time made Utf8JsonReader
+        // GetDateTime() disagree with DateTime.Parse on offset strings.
+        long localOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
+        long offsetSeconds = offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
+        return dateTime.addSeconds(localOffsetSeconds - offsetSeconds);
     }
 
     public CSharpDateTime getUtcDateTime() {
@@ -216,7 +221,14 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
                     : trimmed.contains(":")
                         ? LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         : LocalDate.parse(trimmed).atStartOfDay();
-                odt = OffsetDateTime.of(ldt, ZoneOffset.UTC);
+                // .NET DateTimeOffset.Parse applies the local time zone's offset
+                // when the string carries no offset; using UTC here made
+                // date-only ISO strings (e.g. "1997-07-16") disagree with the
+                // System.Text.Json reader on non-UTC machines. Use the current
+                // zone offset (minute-aligned), which is what the reader's
+                // local-time conversion path uses too.
+                ZoneOffset localOffset = OffsetDateTime.now().getOffset();
+                odt = OffsetDateTime.of(ldt, localOffset);
             }
 
             CSharpDateTime dt = new CSharpDateTime(odt.getYear(), odt.getMonthValue(), odt.getDayOfMonth(),

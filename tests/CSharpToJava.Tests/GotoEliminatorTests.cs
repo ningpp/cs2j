@@ -63,6 +63,43 @@ public partial class GotoEliminatorTests
     }
 
     [Fact]
+    public void Eliminate_GotoOutOfForInsideNestedStateMachine_UsesBreakNotContinue()
+    {
+        var src = """
+        class C {
+            static int M(int[] data) {
+                int i = 0;
+                while (true) {
+                    int idx = 0;
+                    if (idx >= 0) {
+                        while (true) {
+                        StartOfLoop:
+                            for (; i < data.Length; i++) {
+                                if (data[i] == 42) goto Done;
+                                if (data[i] == 7) goto StartOfLoop;
+                            }
+                            if (i >= data.Length) break;
+                        }
+                        break;
+                    }
+                }
+                Done:
+                return i;
+            }
+        }
+        """;
+
+        var result = new GotoEliminator().Eliminate(src);
+        Assert.True(result.Changed);
+        // A goto leaving a for loop must not fall through the for's incrementer:
+        // BreakThroughGeneratedStateMachine must emit `break` (which skips the
+        // for-increment), not `continue` (which runs i++ and corrupts the index).
+        Assert.DoesNotMatch(
+            @"__exit\s*=\s*true;\s*__cs2jBlockState0\s*=\s*-1;\s*continue;",
+            result.OutputCode);
+    }
+
+    [Fact]
     public void Statistics_Starts_Zero()
     {
         var s = new GotoEliminatorStatistics();
