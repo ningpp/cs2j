@@ -763,9 +763,13 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static bool ContainsUIntCast(ExpressionSyntax node)
     {
-        return node.DescendantNodesAndSelf().Any(n =>
-            n is CastExpressionSyntax { Type: PredefinedTypeSyntax pts }
-            && pts.Keyword.IsKind(SyntaxKind.UIntKeyword));
+        return node.DescendantNodesAndSelf().OfType<CastExpressionSyntax>().Any(cast =>
+            cast.Type is PredefinedTypeSyntax pts
+            && pts.Keyword.IsKind(SyntaxKind.UIntKeyword)
+            && !cast.Ancestors()
+                .TakeWhile(ancestor => ancestor != node)
+                .OfType<InvocationExpressionSyntax>()
+                .Any());
     }
 
     /// <summary>

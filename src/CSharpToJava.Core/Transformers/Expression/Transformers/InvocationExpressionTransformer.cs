@@ -3417,6 +3417,27 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"Activator.createInstance({typeArg})";
         }
 
+        // System.Activator.CreateInstance(type, object args) → Activator.createInstance(type, args).
+        // The C# params object[] call wraps a non-array object argument into a single-element
+        // array; the compat varargs helper must receive that element (even when it is null),
+        // so emit an explicit new Object[] { ... } unless the argument is already an array.
+        if (originalMethodName == "CreateInstance"
+            && node.ArgumentList.Arguments.Count == 2
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Activator"
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression, context, "Activator", "System.Activator"))))
+        {
+            var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var argsExpr = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            context.AddImport("io.github.ningpp.compat.Activator");
+            var argsType = context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type;
+            if (argsType is IArrayTypeSymbol)
+            {
+                return $"Activator.createInstance({typeArg}, {argsExpr})";
+            }
+            return $"Activator.createInstance({typeArg}, new Object[] {{ {argsExpr} }})";
+        }
+
         // System.Type.GetType(string) → Class.forName(string)
         // System.Type.GetType(string, bool throwOnError) → TypeHelper.getType(name, throwOnError)
         // (the compat helper catches ClassNotFoundException and returns null when

@@ -40,6 +40,9 @@ public final class Activator {
         if (type == null) {
             throw new NullPointerException("type");
         }
+        if (args == null) {
+            args = new Object[0];
+        }
         try {
             // .NET's Activator.CreateInstance(Type, object[]) matches constructors whose
             // parameter types are assignment-compatible with the runtime argument types

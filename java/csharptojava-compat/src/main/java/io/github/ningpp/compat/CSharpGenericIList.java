@@ -30,7 +30,43 @@ public interface CSharpGenericIList<T> extends CSharpICollection<T> {
         if (list instanceof CSharpIList) {
             return fromCSharpIList((CSharpIList) list);
         }
+        if (list instanceof CSharpReadOnlyDict) {
+            return fromCSharpReadOnlyDict((CSharpReadOnlyDict) list);
+        }
         throw new IllegalArgumentException("Unsupported list type: " + list.getClass().getName());
+    }
+
+    /**
+     * Adapts a CSharpReadOnlyDict-backed collection (e.g. GroupCollection) to the
+     * non-generic IList view. The C# non-generic IList enumeration yields the
+     * dictionary's VALUES, and the collection is read-only.
+     */
+    @SuppressWarnings("unchecked")
+    static CSharpGenericIList<Object> fromCSharpReadOnlyDict(CSharpReadOnlyDict dict) {
+        CSharpList<Object> values = new CSharpList<>();
+        for (Object value : dict.values()) {
+            values.add(value);
+        }
+        return new CSharpGenericIList<Object>() {
+            @Override public CSharpGenericEnumerator<Object> iterator() {
+                return CSharpGenericEnumerator.from(values.iterator());
+            }
+            @Override public int getCount() { return values.size(); }
+            @Override public boolean getIsReadOnly() { return true; }
+            @Override public boolean getIsFixedSize() { return true; }
+            @Override public void copyTo(Object[] array, int arrayIndex) {
+                values.copyTo(array, arrayIndex);
+            }
+            @Override public boolean add(Object item) { throw new UnsupportedOperationException(); }
+            @Override public void clear() { throw new UnsupportedOperationException(); }
+            @Override public boolean contains(Object o) { return values.contains(o); }
+            @Override public boolean remove(Object o) { throw new UnsupportedOperationException(); }
+            @Override public int indexOf(Object o) { return values.indexOf(o); }
+            @Override public void insert(int index, Object item) { throw new UnsupportedOperationException(); }
+            @Override public void removeAt(int index) { throw new UnsupportedOperationException(); }
+            @Override public Object get(int index) { return values.get(index); }
+            @Override public Object set(int index, Object value) { throw new UnsupportedOperationException(); }
+        };
     }
 
     /**
