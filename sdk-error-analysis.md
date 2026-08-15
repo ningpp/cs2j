@@ -345,4 +345,48 @@
 - **根因分类**: Transformer（unsigned 重写）
 - **涉及组件**: `src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs`（`VisitCastExpression` / `GetCastReplacement`）
 - **分析**: unsigned 重写把 `(byte)'t'` 替换成返回 `System.Byte` 的 `UnsignedMath.ToByteInt32(...)`；C# `byte` 标量映射为 Java `int`，但 `byte[]` 仍映射为 Java `byte[]`，因此数组初始化器里的方法调用不是编译期常量且为 `int`，javac 报 narrowing 错误；重写时缺少“目标为 byte[] 元素”的 `(byte)` 收尾转换。
+- **状态**: ✅ Fixed（重新转换后 `system-text-json` 主模块编译通过）
+
+---
+
+## Iteration 3 — 非泛型 IList 局部变量被降级为 var 且未套用适配器（Object → Capture/Match）
+- **Java 文件**: `d:\cs-java-81512\dotnet-text-regularexpressions-tests\src\test\java\dotnet\text\regularexpressions\Tests\CaptureCollectionTests.java:253,255`、`MatchCollectionTests.java:242,244`
+- **行号**: 253/255、242/244
+- **错误信息**: `不兼容的类型: java.lang.Object无法转换为dotnet.text.regularexpressions.Capture/Match`（`list.add((Object) null)`、`list.insert(0, (Object) null)`）
+- **代码片段**:
+  ```java
+  public void iList_IsReadOnly() {
+      var list = createCollection();
+      Assert.true_(list.getIsReadOnly());
+      Assert.true_(list.getIsFixedSize());
+      Assert.throws_(UnsupportedOperationException.class, () -> list.add((Object) null));
+      Assert.throws_(UnsupportedOperationException.class, () -> list.clear());
+      Assert.throws_(UnsupportedOperationException.class, () -> list.insert(0, (Object) null));
+      ...
+  }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\regular-expressions\tests\CaptureCollectionTests2.cs:154-163`、`D:\csharp-sdk\regular-expressions\tests\MatchCollectionTests2.cs:148-157`（`IList list = CreateCollection();`）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs`（`TransformLocalDeclaration` 的 var 降级 + `IsAssignableToCSharpGenericIList`）
+- **分析**: 显式 `System.Collections.IList` 局部变量被无条件降级为 `var`，且 `IsAssignableToCSharpGenericIList` 误把“C# 类型实现非泛型 IList”当作可直接赋给 Java `CSharpGenericIList<Object>`；实际生成类只实现 `CSharpGenericIList<T>`（泛型不变），因此需要 `CSharpGenericIList.from(...)` 适配器并保留 `CSharpGenericIList<Object>` 声明，否则 `add(Object)` 调用落到类型化 `add(T)` 上。
+- **状态**: ✅ Fixed（单元测试 Red→Green；待 Maven 推进到 regex-tests 模块复核）
+
+---
+
+## Iteration 4 — char[].AsSpan 再包装为 Span<> 时菱形推断失败（无法推断类型参数）
+- **Java 文件**: `d:\cs-java-81512\system-private-xml\src\main\java\dotnet\xml\NameTable.java:169`
+- **行号**: 169
+- **错误信息**: `不兼容的类型: 无法推断io.github.ningpp.compat.Span<>的类型参数` — `不存在类型变量T的实例, 以使io.github.ningpp.compat.Span<T>与io.github.ningpp.compat.ReadOnlySpan一致`
+- **代码片段**:
+  ```java
+  private static int computeHash32(char[] key, int start, int len) {
+      ReadOnlySpan<Integer> bytes = new ReadOnlySpan<>(
+          MemoryMarshal.asBytes(new Span<>(MemoryExtensions.asSpan(key, start, len))));
+      return Marvin.computeHash32(bytes, Marvin.getDefaultSeed());
+  }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\xml\src\System\Xml\NameTable.cs:242-245`（`MemoryMarshal.AsBytes(key.AsSpan(start, len))`）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs`（Span 适配，`new Span<>(MemoryExtensions.asSpan(...))`）
+- **分析**: `MemoryExtensions.asSpan(char[], ...)` 返回 `ReadOnlySpan<Character>`，但转换器用菱形 `new Span<>(...)` 再包装；该菱形出现在接受 raw `ReadOnlySpan` 的 `MemoryMarshal.asBytes` 实参位置，javac 无法从 raw 参数类型推断 T，需显式 `new Span<Character>(...)`（byte 路径同理应为 `<Integer>`）。
 - **状态**: ⏳ In Progress

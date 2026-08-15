@@ -73,6 +73,7 @@ public partial class StatementTransformer
             v.Initializer?.Value is { } initValue && InitializerEmitsNull(initValue, context));
         if (!hasNullEmittingInitializer
             && !javaType.EndsWith("[]", StringComparison.Ordinal)
+            && javaType != "CSharpGenericIList<Object>"
             && (javaType is "Iterable" or "CSharpGenericIterable" or "CSharpICollection" or "CSharpGenericIList"
                   or "CSharpReadOnlyCollection" or "CSharpReadOnlyList"
                 || javaType.StartsWith("Iterable<") || javaType.StartsWith("CSharpGenericIterable<")
@@ -1099,11 +1100,6 @@ public partial class StatementTransformer
                 {
                     if (SymbolEqualityComparer.Default.Equals(iface.TypeArguments[0], targetNt.TypeArguments[0]))
                         return true;
-                }
-                if (iface.ToDisplayString() == "System.Collections.IList"
-                    && targetType?.ToDisplayString() == "System.Collections.IList")
-                {
-                    return true;
                 }
             }
         }
