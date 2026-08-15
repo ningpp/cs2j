@@ -93,11 +93,19 @@ public final class Utf8Formatter {
 
     /** Mirrors Utf8Formatter.TryFormat(DateTime, Span&lt;byte&gt;, out int, StandardFormat). */
     public static boolean tryFormat(CSharpDateTime value, Span<Integer> destination, IntHolder bytesWritten, StandardFormat format) {
-        return writeBytes(value.toString().getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+        char symbol = format == null ? 'G' : format.getSymbol();
+        String text = (symbol == 'O' || symbol == 'o')
+            ? value.toString("O")
+            : value.toString();
+        return writeBytes(text.getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
     }
 
     /** Mirrors Utf8Formatter.TryFormat(DateTimeOffset, Span&lt;byte&gt;, out int, StandardFormat). */
     public static boolean tryFormat(CSharpDateTimeOffset value, Span<Integer> destination, IntHolder bytesWritten, StandardFormat format) {
-        return writeBytes(value.toString().getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+        char symbol = format == null ? 'G' : format.getSymbol();
+        String text = (symbol == 'O' || symbol == 'o')
+            ? value.toString("O")
+            : value.toString();
+        return writeBytes(text.getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
     }
 }

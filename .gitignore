@@ -88,3 +88,4 @@ repro/
 .worktrees/
 
 .scratch-*/
+probe-out/
