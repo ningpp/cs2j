@@ -88,8 +88,32 @@
 - **修复**: `NonPublic` 单独请求且未指定 `Public` 时，允许回退匹配 public Java 成员。
 - **状态**: ✅ Fixed
 
-## 最终复验（2026-08-16）
+## Iteration AGL-PointReadOnly — `[Serializable]` 可变字段 struct 被反射安全规则跳过
 
-- 子任务一：`d:\cs-java-816-sdk` 重新转换，`mvn clean install -e` → **BUILD SUCCESS**
-- 子任务二：`d:\agl-java-816` 重新转换，`mvn clean package -e` → **BUILD SUCCESS**（10 个模块，无 Windows/WPF 模块）
-- 全量测试：`dotnet test -c Release` → **2826 + 51 全部通过，0 失败**
+- **Java 文件**: `automaticgraphlayout/.../Microsoft/Msagl/Core/Geometry/Point.java`
+- **错误信息**: `make-readonly` 输出 `Point: serialization/mapping attribute present (reflection mutation risk)`，Point 保持可变 `public class`，未按 readonly struct / value class 输出。
+- **根因分类**: 配置驱动缺失 + Transformer
+- **涉及组件**:
+  - `config/ReadOnlyStructOverrides.json`（新增 force-readonly 配置）
+  - `src/CSharpToJava.Core/ReadOnlyStructMaker/ReadOnlyStructMakerOptions.cs`
+  - `src/CSharpToJava.Core/ReadOnlyStructMaker/StructAnalyzer.cs`
+  - `src/CSharpToJava.CLI/Program.cs`
+- **分析**: `StructAnalyzer` 对带序列化/映射特性且含可变状态、无迁移方法的 struct 一律跳过。Point 因 `[Serializable]` 被跳过，但转换后的 Java 并不存在 .NET 反射序列化语义，保留可变形状反而破坏值类型语义。
+- **修复**: 新增配置驱动的 `ForceReadOnlyQualifiedNames` 覆盖机制，命中完全限定名时仅绕过反射安全（boxing/序列化）跳过，其余不可转换守卫保留；CLI 默认加载 `config/ReadOnlyStructOverrides.json`，AGL 转换强制把 `Microsoft.Msagl.Core.Geometry.Point` 转为 readonly。
+- **状态**: ✅ Fixed
+
+## Iteration AGL-LinqFirstContains — `First()/Last()` 返回数组后误加 `.boxed()`
+
+- **Java 文件**: 生成的 `CollectionTests`/`Sample.java`（回归测试 `FirstElementContainsOnArrayTests.cs`）
+- **错误信息**: `result.First().Contains(1)` 生成 `...findFirst().orElseThrow().boxed()...`，`orElseThrow()` 已返回 `int[]`，`int[].boxed()` 非法。
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
+- **分析**: `Contains` 处理以 `containsSourceType` 是否为原始数组判断，但 `ContainsStreamMethodAtTopLevel` 对 `...findFirst().orElseThrow()` 误判为流表达式，导致直接给数组值追加 `.boxed()`。
+- **修复**: C# 接收表达式为方法调用（如 `First()`/`Last()`/`ToArray()`）且 C# 类型为原始数组时，一律用 `Arrays.stream(receiver).boxed().collect(Collectors.toSet()).contains(...)`，避免把终态数组当流处理；直接 `int[].Contains(...)` 的双重包装保护保持不变。
+- **状态**: ✅ Fixed
+
+## 最终复验（2026-08-16 第二次）
+
+- 子任务一：使用同一份 cs2j 代码重新转换 `D:\csharp-sdk` → `d:\cs-java-816-sdk`，`mvn clean install -e` → **BUILD SUCCESS**（7102 个测试，0 失败）
+- 子任务二：使用同一份 cs2j 代码重新转换 `E:\agl-master\GraphLayout\` → `d:\agl-java-816`，`mvn clean package -e` → **BUILD SUCCESS**（10 个模块，无 Windows/WPF 模块；`Point.java` 为 `public value class`，`X`/`Y` 为 `public final double`，带 `withX/withY`）
+- 全量测试：`dotnet test -c Release` → **2830 + 51 全部通过，0 失败**

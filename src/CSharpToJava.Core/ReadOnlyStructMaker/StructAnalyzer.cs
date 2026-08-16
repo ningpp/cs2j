@@ -193,6 +193,8 @@ internal sealed class StructAnalyzer
     private AnalyzeResult AnalyzeCore(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
     {
         var name = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var isForced = _options.ForceReadOnlyQualifiedNames.Count > 0 &&
+                       _options.ForceReadOnlyQualifiedNames.Contains(AssignmentRewriter.GetQualifiedTypeName(symbol));
 
         // L0: already readonly
         if (syntax.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
@@ -296,7 +298,7 @@ internal sealed class StructAnalyzer
         // Structs with mutating methods follow the L5 method-migration path, whose
         // mutation is encapsulated in methods rather than reflectively-writable
         // members, so they are not subject to this skip.
-        if (mutatingMethods.Count == 0)
+        if (mutatingMethods.Count == 0 && !isForced)
         {
             var hasMutableState = mutableProperties.Count > 0 ||
                                   fields.Any(f => !f.IsReadOnly);

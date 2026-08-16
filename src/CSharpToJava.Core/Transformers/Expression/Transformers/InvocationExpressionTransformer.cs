@@ -6039,7 +6039,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 {
                     context.AddImport("java.util.stream.Collectors");
                     bool receiverIsStream = ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(receiver);
-                    if (!receiverIsStream)
+                    // A C# invocation that returns the array (e.g. result.First() / result.Last()
+                    // / arr.ToArray()) evaluates to the array itself in Java even when the
+                    // transformed receiver text contains stream method names (findFirst(),
+                    // reduce(...)). Wrapping it in Arrays.stream(...) is required; treating it as
+                    // a live stream would emit invalid Java like int[].boxed().
+                    bool receiverIsArrayValuedInvocation = memberAccess.Expression is InvocationExpressionSyntax;
+                    if (!receiverIsStream || receiverIsArrayValuedInvocation)
                     {
                         // receiver is a primitive array (e.g. int[]), not a stream —
                         // wrap in Arrays.stream(...) before boxed()/collect().

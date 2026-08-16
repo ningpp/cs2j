@@ -1,0 +1,5 @@
+{
+  "forceReadOnly": [
+    "Microsoft.Msagl.Core.Geometry.Point"
+  ]
+}

@@ -992,7 +992,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     /// chain + own name (e.g. "dotnet.xml.core.XmlTextWriter.Namespace"). Used to
     /// disambiguate same-named structs declared inside different types.
     /// </summary>
-    private static string GetQualifiedTypeName(INamedTypeSymbol type)
+    internal static string GetQualifiedTypeName(INamedTypeSymbol type)
     {
         var parts = new List<string>();
         for (var t = (ITypeSymbol?)type; t is INamedTypeSymbol nts; t = nts.ContainingType)

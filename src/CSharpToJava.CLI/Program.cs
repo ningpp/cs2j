@@ -8,6 +8,7 @@ using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.TypeScript;
 using CSharpToJava.Core.Workspace;
+using System.Text.Json;
 
 namespace CSharpToJava.CLI;
 
@@ -226,7 +227,10 @@ public class Program
                     DestinationRoot = opts.Destination,
                     Force = opts.Force,
                     Verbose = opts.Verbose,
-                    MakerOptions = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions(),
+                    MakerOptions = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions
+                    {
+                        ForceReadOnlyQualifiedNames = LoadReadOnlyForceOverrides(opts.ReadOnlyOverrides),
+                    },
                     FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
                     CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
                     VerifyBuild = opts.VerifyBuild,
@@ -2954,6 +2958,67 @@ public class Program
         return result.Diagnostics.Any(d => d.Severity == GotoEliminatorSeverity.Warning) ? 1 : 0;
     }
 
+    /// <summary>
+    /// Loads the force-readonly override list (qualified struct names) from a JSON
+    /// config. The default config is <c>config/ReadOnlyStructOverrides.json</c> next
+    /// to the current directory or the repo root, so both project conversions share
+    /// the same converter code while only the configured types are forced.
+    /// </summary>
+    private static IReadOnlySet<string> LoadReadOnlyForceOverrides(string? explicitPath)
+    {
+        var path = explicitPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = Path.Combine(Directory.GetCurrentDirectory(), "config", "ReadOnlyStructOverrides.json");
+            if (!File.Exists(path))
+            {
+                var dir = new DirectoryInfo(AppContext.BaseDirectory);
+                string? found = null;
+                while (dir != null)
+                {
+                    var candidate = Path.Combine(dir.FullName, "config", "ReadOnlyStructOverrides.json");
+                    if (File.Exists(candidate))
+                    {
+                        found = candidate;
+                        break;
+                    }
+                    dir = dir.Parent;
+                }
+                if (found != null) path = found;
+            }
+        }
+
+        if (!File.Exists(path))
+            return new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (!document.RootElement.TryGetProperty("forceReadOnly", out var array) ||
+                array.ValueKind != JsonValueKind.Array)
+            {
+                return new HashSet<string>(StringComparer.Ordinal);
+            }
+
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in array.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String &&
+                    !string.IsNullOrWhiteSpace(item.GetString()))
+                {
+                    names.Add(item.GetString()!);
+                }
+            }
+            return names;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"[Warning] Failed to load readonly-struct overrides from {path}: {ex.Message}");
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+    }
+
     private static async Task<int> MakeReadonly(MakeReadOnlyOptions opts)
     {
         if (opts.Input != null)
@@ -2977,6 +3042,7 @@ public class Program
                 EnableDtoConversion = !opts.NoDtoConversion,
                 EnablePublicFieldConversion = !opts.NoPublicFieldConversion,
                 UpdateCallSites = !opts.NoUpdateCallSites,
+                ForceReadOnlyQualifiedNames = LoadReadOnlyForceOverrides(opts.ReadOnlyOverrides),
             };
             var result = maker.MakeReadOnly(tree, compilation.GetSemanticModel(tree), makerOpts);
             if (opts.Output != null)
@@ -3017,6 +3083,7 @@ public class Program
                 EnableDtoConversion = !opts.NoDtoConversion,
                 EnablePublicFieldConversion = !opts.NoPublicFieldConversion,
                 UpdateCallSites = !opts.NoUpdateCallSites,
+                ForceReadOnlyQualifiedNames = LoadReadOnlyForceOverrides(opts.ReadOnlyOverrides),
             },
             FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
             VerifyBuild = opts.VerifyBuild,
@@ -3094,6 +3161,10 @@ class MakeReadOnlyOptions
 
     [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after readonly preprocessing")]
     public bool NoVerifyTests { get; set; }
+
+    [Option("readonly-overrides", Required = false,
+        HelpText = "Path to JSON config listing qualified type names to force as readonly structs (default: config/ReadOnlyStructOverrides.json)")]
+    public string? ReadOnlyOverrides { get; set; }
 
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
@@ -3261,6 +3332,10 @@ class ConvertProjectOptions
 
     [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after readonly preprocessing")]
     public bool NoVerifyTests { get; set; }
+
+    [Option("readonly-overrides", Required = false,
+        HelpText = "Path to JSON config listing qualified type names to force as readonly structs (default: config/ReadOnlyStructOverrides.json)")]
+    public string? ReadOnlyOverrides { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

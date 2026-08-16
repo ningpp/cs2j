@@ -22,8 +22,17 @@
 - **分析**: readonly struct 在转成 value class 时，`ArrayBuilder(int capacity) : this()` 的 `this()` 链被 `AddRuntimeClassConstructorParameters` 改写成 `this(tClass)`，随后被 `FixReadonlyStructConstructorChaining` 内联，把默认构造函数中的 `this._array = null` 拼进参数化构造函数，接着 `if` 内再次给 `_array` 赋值。普通类场景下 `DropFinalFromRepeatedlyAssignedFields` 会把 `_array` 降为非 final 绕过该错误；但 value class 的实例字段隐式 final，降级后仍然非法。同类问题还包括：final 字段只在 `if` 内被赋值（无顶层默认赋值）时，javac 报“可能尚未初始化变量”。
 - **状态**: ✅ Fixed
 
-## 最终复验（2026-08-16）
+## Iteration 2 — `First()/Last()` 返回数组后误加 `.boxed()`
+- **错误信息**: 回归测试 `FirstElementContainsOnArrayTests.cs` 失败：`result.First().Contains(1)` 生成 `...findFirst().orElseThrow().boxed()...`，`orElseThrow()` 已返回 `int[]`，`int[].boxed()` 非法。
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
+- **分析**: `Contains` 处理用 `ContainsStreamMethodAtTopLevel` 判断 Java 接收表达式是否已是流；`...findFirst().orElseThrow()` 含 `.stream()` 被误判为流，但该链终态是数组元素，导致追加非法 `.boxed()`。
+- **修复**: C# 接收表达式为返回数组的方法调用（`First()`/`Last()`/`ToArray()` 等）时，统一用 `Arrays.stream(receiver).boxed().collect(Collectors.toSet()).contains(...)`；直接 `int[].Contains(...)` 的双重包装保护保持不变。
+- **状态**: ✅ Fixed
+
+## 最终复验（2026-08-16 第二次）
 
 - 使用同一份转换器代码重新转换 `D:\csharp-sdk` → `d:\cs-java-816-sdk`
-- `mvn clean install -e` → **BUILD SUCCESS**
-- 全量测试：`dotnet test -c Release` → **2826 + 51 全部通过，0 失败**
+- `mvn clean install -e` → **BUILD SUCCESS**（7102 个测试，0 失败）
+- 同一份代码同时验证 AGL：`mvn clean package -e` → **BUILD SUCCESS**
+- 全量测试：`dotnet test -c Release` → **2830 + 51 全部通过，0 失败**

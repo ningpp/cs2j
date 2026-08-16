@@ -23,6 +23,12 @@ public sealed class ReadOnlyStructMakerOptions
     /// <summary>方法迁移时是否更新调用点，默认 true</summary>
     public bool UpdateCallSites { get; init; } = true;
 
+    /// <summary>
+    /// 强制转为 readonly struct 的类型的完全限定名（namespace + containing-type chain + 名称）。
+    /// 命中集合时跳过反射安全（boxing / 序列化特性）跳过规则，仍保留其余不可转换守卫。
+    /// </summary>
+    public IReadOnlySet<string> ForceReadOnlyQualifiedNames { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+
     /// <summary>转换级别白名单，null 则全部允许</summary>
     public IReadOnlySet<ConversionLevel>? AllowedLevels { get; init; }
 }

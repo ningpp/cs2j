@@ -27,6 +27,7 @@ public partial class ReadOnlyStructMakerTests
         Assert.True(o.EnableMethodMigration);
         Assert.True(o.EnableDtoConversion);
         Assert.True(o.UpdateCallSites);
+        Assert.Empty(o.ForceReadOnlyQualifiedNames);
         Assert.Null(o.AllowedLevels);
     }
 
@@ -117,6 +118,55 @@ public partial class ReadOnlyStructMakerTests
         var result = RunMaker(src);
         Assert.False(result.Changed);
         Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.Skip);
+    }
+
+    [Fact]
+    public void SerializableMutableStruct_WithoutForce_IsSkipped()
+    {
+        var src = """
+        [System.Serializable]
+        struct Point {
+            public double X;
+            public double Y;
+            public Point(double x, double y) { X = x; Y = y; }
+        }
+        class User {
+            void M() {
+                var p = new Point();
+                p.X = 5;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.Skip);
+    }
+
+    [Fact]
+    public void SerializableMutableStruct_WithForce_ConvertsToReadonly()
+    {
+        var src = """
+        [System.Serializable]
+        struct Point {
+            public double X;
+            public double Y;
+            public Point(double x, double y) { X = x; Y = y; }
+        }
+        class User {
+            void M() {
+                var p = new Point();
+                p.X = 5;
+            }
+        }
+        """;
+        var options = new ReadOnlyStructMakerOptions
+        {
+            ForceReadOnlyQualifiedNames = new HashSet<string> { "Point" }
+        };
+        var result = RunMaker(src, options);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct Point", result.OutputCode);
+        Assert.Contains("p = p.WithX(5)", result.OutputCode);
     }
 
     // === L1 Direct Add Tests ===
