@@ -154,8 +154,8 @@ src/
 │   │   ├── Planning/              # Workspace plan, module layout, incremental caching
 │   │   └── Passes/                # Single-file, project-level, validation passes
 │   ├── Visitors/                  # Roslyn syntax visitor
-│   └── Workspace/                 # MSBuild workspace loader
-└── CSharpToJava.TypeMapping/     # Type mapping configuration
+│   ├── Workspace/                 # MSBuild workspace loader
+│   └── TypeMapping/               # Type mapping configuration (JSON-driven)
 
 java/
 └── csharptojava-compat/          # Java compatibility runtime library

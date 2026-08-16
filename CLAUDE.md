@@ -50,7 +50,6 @@ CSharpToJavaConverter/
 ├── src/
 │   ├── CSharpToJava.Core/          # Core conversion engine (Roslyn-based)
 │   ├── CSharpToJava.CLI/           # Command-line interface
-│   ├── CSharpToJava.TypeMapping/   # Type mapping configuration (JSON-driven)
 ├── tests/
 │   └── CSharpToJava.Tests/         # XUnit tests
 └── config/
@@ -90,7 +89,7 @@ Key entry point: `src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs:46`
 - Method name mappings (Add -> put, Add -> add)
 - Namespace-to-package mappings
 
-Managed by: `src/CSharpToJava.TypeMapping/TypeMappingRegistry.cs:92`
+Managed by: `src/CSharpToJava.Core/TypeMapping/TypeMappingRegistry.cs:92`
 
 ### Core Components
 
