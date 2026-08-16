@@ -9,6 +9,13 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     CSharpGenericEnumerator<T> iterator();
 
     static <T> CSharpGenericIterable<T> from(Iterable<? extends T> iterable) {
+        // C# IEnumerable<T> is a reference type: a null source must stay null.
+        // Wrapping null in an anonymous CSharpGenericIterable would create a
+        // "non-null object whose inner iterable is null", silently destroying
+        // C# null checks such as `if (path.PathPoints == null)`.
+        if (iterable == null) {
+            return null;
+        }
         if (iterable instanceof CSharpGenericIterable) {
             @SuppressWarnings("unchecked")
             CSharpGenericIterable<T> result = (CSharpGenericIterable<T>) iterable;
@@ -29,6 +36,10 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
 
     /** C# string is IEnumerable<char> — LINQ rewrites call Select/Where on strings. */
     static CSharpGenericIterable<Character> from(String s) {
+        // A null C# string is a null IEnumerable<char>, not an empty one.
+        if (s == null) {
+            return null;
+        }
         java.util.ArrayList<Character> chars = new java.util.ArrayList<>(s.length());
         for (int i = 0; i < s.length(); i++) {
             chars.add(s.charAt(i));

@@ -112,8 +112,23 @@
 - **修复**: C# 接收表达式为方法调用（如 `First()`/`Last()`/`ToArray()`）且 C# 类型为原始数组时，一律用 `Arrays.stream(receiver).boxed().collect(Collectors.toSet()).contains(...)`，避免把终态数组当流处理；直接 `int[].Contains(...)` 的双重包装保护保持不变。
 - **状态**: ✅ Fixed
 
-## 最终复验（2026-08-16 第二次）
+## Iteration AGL-NullIterable — `CSharpGenericIterable.from(null)` 吞掉 null 语义导致 Rectilinear NPE
+
+- **Java 文件**: `msagltests/src/test/java/Microsoft/Msagl/UnitTests/Rectilinear/RectilinearEdgeRouterWrapper.java:524`（`nudgePaths` 中 `edgePath.getPathPoints().ToList()`）
+- **错误信息**: `NullPointerException: Cannot invoke "java.lang.Iterable.iterator()" because "this.val$iterable" is null`（`io.github.ningpp.compat.CSharpGenericIterable$1.iterator`）
+- **对应 C# 文件**:
+  - `E:\agl-master\GraphLayout\MSAGL\Routing\Rectilinear\MsmtRectilinearPath.cs`
+  - `E:\agl-master\GraphLayout\MSAGL\Routing\Rectilinear\SsstRectilinearPath.cs`
+  - `E:\agl-master\GraphLayout\MSAGL\Routing\Rectilinear\RectilinearEdgeRouter.cs`
+- **根因分类**: compat
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpGenericIterable.java`
+- **分析**: C# `SsstRectilinearPath.RestorePath(null)` 返回 `null`，于是 `Path.PathPoints = null` → `GeneratePath` 返回 false → `EnsureNonNullPath`/重试兜底。转换器生成的 Java 用 `CSharpGenericIterable.from(...)` 包装 `IEnumerable<T>` 返回值，而 `from(null)` 构造了一个“外层非 null、内部 iterable 为 null”的匿名对象，`PathPoints != null` 被误判为路径成功，跳过兜底；最后 `nudgePaths` 对 `PathPoints` 做 `ToList()` 时枚举到 null iterable 抛 NPE。10 个 Rectilinear 用例（OutsideGroup / Landlock / Obstacle crossing / Spatial parent / FreePort）全部是同一根因。
+- **修复**: `from(Iterable)` 与 `from(String)` 对 null 输入返回 null，保持 C# 引用语义；新增 `CSharpGenericIterableNullSemanticsTest`（4 个用例：null iterable / null string / 非 null 包装 / CSharpList 保持同一实例）。
+- **验证**: compat `mvn test` 1500 个测试 0 失败；AGL `mvn clean package -e` 609 个测试 0 失败 0 错误，`BUILD SUCCESS`。
+- **状态**: ✅ Fixed
+
+## 最终复验（2026-08-16 第三次）
 
 - 子任务一：使用同一份 cs2j 代码重新转换 `D:\csharp-sdk` → `d:\cs-java-816-sdk`，`mvn clean install -e` → **BUILD SUCCESS**（7102 个测试，0 失败）
-- 子任务二：使用同一份 cs2j 代码重新转换 `E:\agl-master\GraphLayout\` → `d:\agl-java-816`，`mvn clean package -e` → **BUILD SUCCESS**（10 个模块，无 Windows/WPF 模块；`Point.java` 为 `public value class`，`X`/`Y` 为 `public final double`，带 `withX/withY`）
-- 全量测试：`dotnet test -c Release` → **2830 + 51 全部通过，0 失败**
+- 子任务二：使用同一份 cs2j 代码重新转换 `E:\agl-master\GraphLayout\` → `d:\agl-java-816`，`mvn clean package -e` → **BUILD SUCCESS**（10 个模块，609 个测试 0 失败 0 错误）
+- compat：`mvn test` → **1500 个测试全部通过，0 失败**（含新增 `CSharpGenericIterableNullSemanticsTest`）

@@ -30,9 +30,9 @@
 - **修复**: C# 接收表达式为返回数组的方法调用（`First()`/`Last()`/`ToArray()` 等）时，统一用 `Arrays.stream(receiver).boxed().collect(Collectors.toSet()).contains(...)`；直接 `int[].Contains(...)` 的双重包装保护保持不变。
 - **状态**: ✅ Fixed
 
-## 最终复验（2026-08-16 第二次）
+## 最终复验（2026-08-16 第三次）
 
 - 使用同一份转换器代码重新转换 `D:\csharp-sdk` → `d:\cs-java-816-sdk`
 - `mvn clean install -e` → **BUILD SUCCESS**（7102 个测试，0 失败）
-- 同一份代码同时验证 AGL：`mvn clean package -e` → **BUILD SUCCESS**
-- 全量测试：`dotnet test -c Release` → **2830 + 51 全部通过，0 失败**
+- 同一份代码同时验证 AGL：`mvn clean package -e` → **BUILD SUCCESS**（609 个测试，0 失败 0 错误；`CSharpGenericIterable.from(null)` 修复后 Rectilinear 10 个 NPE 全部消失）
+- compat：`mvn test` → **1500 个测试全部通过，0 失败**
