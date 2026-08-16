@@ -12,36 +12,29 @@ internal sealed class ProjectConversionExclusion
 
 internal static class ProjectConversionExclusionPlanner
 {
-    /// <summary>
-    /// AssemblyNames that are explicitly allowed to be converted even though they
-    /// would otherwise be excluded by the platform rules (e.g. a WPF control that
-    /// has a working cs2j WPF compatibility layer). Matched exactly (case-sensitive)
-    /// against the csproj <c>AssemblyName</c> property — never against disk paths.
-    /// </summary>
-    private static readonly IReadOnlySet<string> HARD_CODE_ASSEMBLE_NAMES = new HashSet<string>(
-        new string[]
-        {
-            // "Microsoft.Msagl.GraphmapsWpfControl",
-            // "Microsoft.Msagl.GraphViewerGdi", // WinForms: backed by dotnet.winforms.swing + dotnet.drawing.swing compat
-            // "TestGraphmaps",
-        },
-        StringComparer.Ordinal);
-
-    public static IReadOnlyDictionary<string, ProjectConversionExclusion> Plan(ProjectGraph graph)
+    public static IReadOnlyDictionary<string, ProjectConversionExclusion> Plan(
+        ProjectGraph graph,
+        IReadOnlyCollection<string>? compatNamespacePrefixes = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         return PlanCore(graph.ProjectsInTopologicalOrder.Select(project =>
-            new ProjectNodeInfo(project.ProjectFilePath, project.Name, project.ProjectReferences)));
+            new ProjectNodeInfo(project.ProjectFilePath, project.Name, project.ProjectReferences)),
+            compatNamespacePrefixes);
     }
 
-    public static IReadOnlyDictionary<string, ProjectConversionExclusion> Plan(IReadOnlyList<WorkspaceProject> projects)
+    public static IReadOnlyDictionary<string, ProjectConversionExclusion> Plan(
+        IReadOnlyList<WorkspaceProject> projects,
+        IReadOnlyCollection<string>? compatNamespacePrefixes = null)
     {
         ArgumentNullException.ThrowIfNull(projects);
         return PlanCore(projects.Select(project =>
-            new ProjectNodeInfo(project.FilePath, project.Name, project.ProjectReferences)));
+            new ProjectNodeInfo(project.FilePath, project.Name, project.ProjectReferences)),
+            compatNamespacePrefixes);
     }
 
-    private static IReadOnlyDictionary<string, ProjectConversionExclusion> PlanCore(IEnumerable<ProjectNodeInfo> projects)
+    private static IReadOnlyDictionary<string, ProjectConversionExclusion> PlanCore(
+        IEnumerable<ProjectNodeInfo> projects,
+        IReadOnlyCollection<string>? compatNamespacePrefixes)
     {
         var nodes = projects
             .Select(project => new ProjectNodeInfo(
@@ -73,7 +66,7 @@ internal static class ProjectConversionExclusionPlanner
 
         foreach (var project in nodes.Values)
         {
-            var evaluation = EvaluateProjectSupport(project.ProjectPath);
+            var evaluation = EvaluateProjectSupport(project.ProjectPath, compatNamespacePrefixes);
             if (evaluation.IsSupported)
             {
                 continue;
@@ -118,29 +111,37 @@ internal static class ProjectConversionExclusionPlanner
         return exclusions;
     }
 
-    private static ProjectSupportEvaluation EvaluateProjectSupport(string projectPath)
+    private static ProjectSupportEvaluation EvaluateProjectSupport(
+        string projectPath,
+        IReadOnlyCollection<string>? compatNamespacePrefixes)
     {
         try
         {
             var doc = XDocument.Load(projectPath, LoadOptions.PreserveWhitespace);
             var reasons = new List<string>();
+            var requiredCompatNamespaces = new HashSet<string>(StringComparer.Ordinal);
+            var hasNeverSupportedReason = false;
 
             var sdk = doc.Root?.Attribute("Sdk")?.Value;
             if (!string.IsNullOrWhiteSpace(sdk)
                 && sdk.Contains("Microsoft.NET.Sdk.WindowsDesktop", StringComparison.OrdinalIgnoreCase))
             {
                 reasons.Add("WindowsDesktop SDK");
+                requiredCompatNamespaces.Add("System.Windows.Forms");
+                requiredCompatNamespaces.Add("System.Windows");
             }
 
             var useWpf = GetBooleanProperty(doc, "UseWPF");
             if (useWpf)
             {
                 reasons.Add("UseWPF=true");
+                requiredCompatNamespaces.Add("System.Windows");
             }
 
             if (GetBooleanProperty(doc, "UseWindowsForms"))
             {
                 reasons.Add("UseWindowsForms=true");
+                requiredCompatNamespaces.Add("System.Windows.Forms");
             }
 
             // GenAPI-style ref assemblies (e.g. dotnet/runtime ref\*.csproj) are
@@ -153,6 +154,7 @@ internal static class ProjectConversionExclusionPlanner
                 && assemblyName.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase))
             {
                 reasons.Add($"Ref assembly (AssemblyName={assemblyName})");
+                hasNeverSupportedReason = true;
             }
 
             var targetFrameworks = GetPropertyValues(doc, "TargetFramework")
@@ -165,6 +167,15 @@ internal static class ProjectConversionExclusionPlanner
             if (!string.IsNullOrWhiteSpace(windowsTargetFramework))
             {
                 reasons.Add($"TargetFramework={windowsTargetFramework}");
+                if (windowsTargetFramework.StartsWith("uap", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasNeverSupportedReason = true;
+                }
+                else
+                {
+                    requiredCompatNamespaces.Add("System.Windows.Forms");
+                    requiredCompatNamespaces.Add("System.Windows");
+                }
             }
 
             var targetPlatformIdentifier = GetPropertyValues(doc, "TargetPlatformIdentifier")
@@ -172,6 +183,15 @@ internal static class ProjectConversionExclusionPlanner
             if (!string.IsNullOrWhiteSpace(targetPlatformIdentifier))
             {
                 reasons.Add("TargetPlatformIdentifier=" + targetPlatformIdentifier);
+                if (targetPlatformIdentifier.Equals("UAP", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasNeverSupportedReason = true;
+                }
+                else
+                {
+                    requiredCompatNamespaces.Add("System.Windows.Forms");
+                    requiredCompatNamespaces.Add("System.Windows");
+                }
             }
 
             var usesUwpPackage = doc
@@ -182,6 +202,7 @@ internal static class ProjectConversionExclusionPlanner
             if (usesUwpPackage)
             {
                 reasons.Add("UniversalWindowsPlatform package");
+                hasNeverSupportedReason = true;
             }
 
             if (reasons.Count == 0)
@@ -189,10 +210,13 @@ internal static class ProjectConversionExclusionPlanner
                 return ProjectSupportEvaluation.Supported;
             }
 
-            // Explicit allow-list: specific projects (e.g. a WPF control backed by the
-            // cs2j WPF compatibility layer) are converted even though they match the
-            // Windows-only heuristics above. Matched purely by AssemblyName, never by path.
-            if (!string.IsNullOrWhiteSpace(assemblyName) && HARD_CODE_ASSEMBLE_NAMES.Contains(assemblyName))
+            // A Windows-only project is convertible when every platform namespace it
+            // may rely on has an explicit compat namespace mapping in the type-mapping
+            // config (e.g. System.Windows.Forms → dotnet.winforms.swing). Ref assemblies
+            // and UWP have no compat layer, so they stay excluded regardless.
+            if (!hasNeverSupportedReason
+                && requiredCompatNamespaces.Count > 0
+                && requiredCompatNamespaces.All(ns => HasExplicitCompatNamespaceMapping(ns, compatNamespacePrefixes)))
             {
                 return ProjectSupportEvaluation.Supported;
             }
@@ -203,6 +227,14 @@ internal static class ProjectConversionExclusionPlanner
         {
             return new ProjectSupportEvaluation(false, $"Failed to inspect project file: {ex.Message}");
         }
+    }
+
+    private static bool HasExplicitCompatNamespaceMapping(
+        string namespaceName,
+        IReadOnlyCollection<string>? compatNamespacePrefixes)
+    {
+        return compatNamespacePrefixes != null
+            && compatNamespacePrefixes.Contains(namespaceName, StringComparer.Ordinal);
     }
 
     private static IEnumerable<string> GetPropertyValues(XDocument projectDoc, string propertyName)

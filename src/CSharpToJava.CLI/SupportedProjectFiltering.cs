@@ -33,7 +33,10 @@ internal static class SupportedProjectFiltering
     /// Returns an empty <see cref="ExclusionInfo"/> when the graph is null or everything
     /// is supported.
     /// </summary>
-    public static ExclusionInfo ComputeExclusions(ProjectGraph? graph, bool verbose)
+    public static ExclusionInfo ComputeExclusions(
+        ProjectGraph? graph,
+        bool verbose,
+        IReadOnlyCollection<string>? compatNamespacePrefixes = null)
     {
         var info = new ExclusionInfo();
         if (graph == null || graph.ProjectsInTopologicalOrder.Count == 0)
@@ -44,7 +47,7 @@ internal static class SupportedProjectFiltering
         IReadOnlyDictionary<string, ProjectConversionExclusion> exclusions;
         try
         {
-            exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+            exclusions = ProjectConversionExclusionPlanner.Plan(graph, compatNamespacePrefixes);
         }
         catch (Exception ex)
         {

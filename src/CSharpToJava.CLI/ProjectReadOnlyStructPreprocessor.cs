@@ -19,6 +19,13 @@ internal sealed class ProjectReadOnlyPreprocessRequest
     /// </summary>
     public bool FilterUnsupportedProjects { get; init; } = true;
 
+    /// <summary>
+    /// Explicit namespace mappings from the type-mapping config (e.g.
+    /// System.Windows.Forms → dotnet.winforms.swing). Windows-only projects whose
+    /// platform namespaces are covered are kept instead of excluded.
+    /// </summary>
+    public IReadOnlyCollection<string>? CompatNamespacePrefixes { get; init; }
+
     /// <summary>Run <c>dotnet build</c> on the readonly output to verify it compiles.</summary>
     public bool VerifyBuild { get; init; } = true;
 
@@ -79,7 +86,7 @@ internal static class ProjectReadOnlyStructPreprocessor
         // directory structure) and rewrite the copied .sln to drop the unsupported ones.
         var projectGraph = TryLoadProjectGraph(layout, request.Verbose);
         var exclusionInfo = request.FilterUnsupportedProjects
-            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose)
+            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose, request.CompatNamespacePrefixes)
             : new SupportedProjectFiltering.ExclusionInfo();
 
         // Copy project files (.csproj, .sln) to the intermediate directory, skipping the

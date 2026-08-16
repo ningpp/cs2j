@@ -13,6 +13,13 @@ internal sealed class ProjectUnsignedTypePreprocessRequest
     public bool Verbose { get; init; }
     public UnsignedTypeRewriterOptions RewriterOptions { get; init; } = new();
     public bool FilterUnsupportedProjects { get; init; } = true;
+
+    /// <summary>
+    /// Explicit namespace mappings from the type-mapping config (e.g.
+    /// System.Windows.Forms → dotnet.winforms.swing). Windows-only projects whose
+    /// platform namespaces are covered are kept instead of excluded.
+    /// </summary>
+    public IReadOnlyCollection<string>? CompatNamespacePrefixes { get; init; }
 }
 
 internal sealed class ProjectUnsignedTypePreprocessResult
@@ -72,7 +79,7 @@ internal static class ProjectUnsignedTypePreprocessor
 
         var projectGraph = TryLoadProjectGraph(layout, request.Verbose);
         var exclusionInfo = request.FilterUnsupportedProjects
-            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose)
+            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose, request.CompatNamespacePrefixes)
             : new SupportedProjectFiltering.ExclusionInfo();
 
         // Copy project files (.csproj, .sln), dropping excluded projects and

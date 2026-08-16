@@ -193,6 +193,7 @@ public class Program
                         Force = opts.Force,
                         Verbose = opts.Verbose,
                         FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
                     });
 
                 Console.WriteLine(
@@ -227,6 +228,7 @@ public class Program
                     Verbose = opts.Verbose,
                     MakerOptions = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions(),
                     FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                    CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
                     VerifyBuild = opts.VerifyBuild,
                     VerifyTests = opts.VerifyTests,
                 });
@@ -265,6 +267,7 @@ public class Program
                     Force = opts.Force,
                     Verbose = opts.Verbose,
                     FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                    CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
                 });
 
                 if (opts.Verbose)
@@ -340,7 +343,10 @@ public class Program
                     return 0;
                 }
 
-                workspaceProjects = FilterUnsupportedWorkspaceProjects(workspaceProjects, opts.Verbose);
+                workspaceProjects = FilterUnsupportedWorkspaceProjects(
+                    workspaceProjects,
+                    opts.Verbose,
+                    LoadCompatNamespacePrefixes(opts.MappingConfig));
                 if (workspaceProjects.Count == 0)
                 {
                     Console.Error.WriteLine("Error: All discovered projects were excluded by platform rules.");
@@ -374,7 +380,10 @@ public class Program
                     return 0;
                 }
 
-                graph = FilterUnsupportedProjectGraph(graph, opts.Verbose);
+                graph = FilterUnsupportedProjectGraph(
+                    graph,
+                    opts.Verbose,
+                    LoadCompatNamespacePrefixes(opts.MappingConfig));
                 if (graph.ProjectsInTopologicalOrder.Count == 0)
                 {
                     Console.Error.WriteLine("Error: All discovered projects were excluded by platform rules.");
@@ -501,7 +510,10 @@ public class Program
                 return 0;
             }
 
-            workspaceProjects = FilterUnsupportedWorkspaceProjects(workspaceProjects, opts.Verbose);
+            workspaceProjects = FilterUnsupportedWorkspaceProjects(
+                workspaceProjects,
+                opts.Verbose,
+                LoadCompatNamespacePrefixes(opts.MappingConfig ?? ResolveTypeScriptTypeMappingPath()));
             if (workspaceProjects.Count == 0)
             {
                 Console.Error.WriteLine("Error: All discovered projects were excluded by platform rules.");
@@ -535,7 +547,10 @@ public class Program
                 return 0;
             }
 
-            graph = FilterUnsupportedProjectGraph(graph, opts.Verbose);
+            graph = FilterUnsupportedProjectGraph(
+                graph,
+                opts.Verbose,
+                LoadCompatNamespacePrefixes(opts.MappingConfig ?? ResolveTypeScriptTypeMappingPath()));
             if (graph.ProjectsInTopologicalOrder.Count == 0)
             {
                 Console.Error.WriteLine("Error: All discovered projects were excluded by platform rules.");
@@ -2176,9 +2191,31 @@ public class Program
         }
     }
 
-    private static ProjectGraph FilterUnsupportedProjectGraph(ProjectGraph graph, bool verbose)
+    /// <summary>
+    /// Loads the explicit namespace mappings (compat layer coverage) from the
+    /// type-mapping config so the project exclusion planner can allow Windows-only
+    /// projects whose platform namespaces are backed by a compatibility package.
+    /// Returns null when the config cannot be loaded, which keeps the default
+    /// conservative exclusion behavior.
+    /// </summary>
+    private static IReadOnlyCollection<string>? LoadCompatNamespacePrefixes(string? mappingConfig)
     {
-        var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+        try
+        {
+            return new TypeMappingRegistry(mappingConfig).GetExplicitNamespaceMappings();
+        }
+        catch (TypeMappingConfigurationException)
+        {
+            return null;
+        }
+    }
+
+    private static ProjectGraph FilterUnsupportedProjectGraph(
+        ProjectGraph graph,
+        bool verbose,
+        IReadOnlyCollection<string>? compatNamespacePrefixes)
+    {
+        var exclusions = ProjectConversionExclusionPlanner.Plan(graph, compatNamespacePrefixes);
         if (exclusions.Count == 0)
         {
             return graph;
@@ -2313,9 +2350,10 @@ public class Program
 
     private static IReadOnlyList<WorkspaceProject> FilterUnsupportedWorkspaceProjects(
         IReadOnlyList<WorkspaceProject> projects,
-        bool verbose)
+        bool verbose,
+        IReadOnlyCollection<string>? compatNamespacePrefixes)
     {
-        var exclusions = ProjectConversionExclusionPlanner.Plan(projects);
+        var exclusions = ProjectConversionExclusionPlanner.Plan(projects, compatNamespacePrefixes);
         if (exclusions.Count == 0)
         {
             return projects;

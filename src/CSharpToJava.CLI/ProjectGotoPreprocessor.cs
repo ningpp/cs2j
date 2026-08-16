@@ -19,6 +19,13 @@ internal sealed class ProjectGotoPreprocessRequest
     /// unsupported (e.g. WPF/UWP/WinForms) projects are dropped.
     /// </summary>
     public bool FilterUnsupportedProjects { get; init; } = true;
+
+    /// <summary>
+    /// Explicit namespace mappings from the type-mapping config (e.g.
+    /// System.Windows.Forms → dotnet.winforms.swing). Windows-only projects whose
+    /// platform namespaces are covered are kept instead of excluded.
+    /// </summary>
+    public IReadOnlyCollection<string>? CompatNamespacePrefixes { get; init; }
 }
 
 internal sealed class ProjectGotoPreprocessResult
@@ -82,7 +89,7 @@ internal static class ProjectGotoPreprocessor
         // directory structure) and rewrite the copied .sln to drop the unsupported ones.
         var projectGraph = TryLoadProjectGraph(layout, request.Verbose);
         var exclusionInfo = request.FilterUnsupportedProjects
-            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose)
+            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose, request.CompatNamespacePrefixes)
             : new SupportedProjectFiltering.ExclusionInfo();
 
         // Copy project files (.csproj, .sln) to the intermediate directory so that

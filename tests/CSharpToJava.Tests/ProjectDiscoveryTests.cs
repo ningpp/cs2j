@@ -4,6 +4,12 @@ namespace CSharpToJava.Tests;
 
 public class ProjectDiscoveryTests
 {
+    private static readonly IReadOnlyList<string> WindowsCompatNamespacePrefixes =
+    [
+        "System.Windows.Forms",
+        "System.Windows",
+    ];
+
     [Fact]
     public void TryResolveProjectEntry_PrefersTopLevelSolution_ForDirectorySource()
     {
@@ -119,7 +125,7 @@ public class ProjectDiscoveryTests
             var solutionPath = CreateSolution(root, "GraphLayout.sln", [coreProject, uwpProject]);
 
             var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
-            var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph, WindowsCompatNamespacePrefixes);
 
             Assert.Contains(Path.GetFullPath(uwpProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
             Assert.Contains("TargetPlatformIdentifier=UAP", exclusions[Path.GetFullPath(uwpProject)].Reason, StringComparison.Ordinal);
@@ -152,7 +158,7 @@ public class ProjectDiscoveryTests
             var solutionPath = CreateSolution(root, "GraphLayout.sln", [coreProject, refProject]);
 
             var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
-            var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph, WindowsCompatNamespacePrefixes);
 
             Assert.Contains(Path.GetFullPath(refProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
             Assert.Contains("Ref", exclusions[Path.GetFullPath(refProject)].Reason, StringComparison.Ordinal);
@@ -168,29 +174,86 @@ public class ProjectDiscoveryTests
     [Fact]
     public void ProjectConversionExclusionPlanner_AllowsWinFormsProject_WithCompatLayer()
     {
-        // Microsoft.Msagl.GraphViewerGdi is a WinForms project backed by the
-        // dotnet.winforms.swing + dotnet.drawing.swing compat layer (System.Windows.Forms
-        // and System.Drawing now have namespace mappings), so it and its dependents
-        // (e.g. Dot2Svg) must be allowed through the planner.
+        // A WinForms project is allowed through the planner when the platform
+        // namespaces it relies on (System.Windows.Forms) have an explicit compat
+        // namespace mapping in the type-mapping config (e.g. dotnet.winforms.swing).
+        // No assembly-name allow-list is involved.
         var root = CreateTempDirectory();
         try
         {
-            var gdiProject = CreateProject(
+            var winFormsProject = CreateProject(
                 root,
-                "GraphViewerGDI",
+                "WinFormsApp",
                 isTest: false,
                 sdk: "Microsoft.NET.Sdk.WindowsDesktop",
                 targetFramework: "net6.0-windows",
-                useWindowsForms: true,
-                assemblyName: "Microsoft.Msagl.GraphViewerGdi");
-            var consumerProject = CreateProject(root, "Dot2Svg", isTest: false, projectReferences: [gdiProject]);
-            var solutionPath = CreateSolution(root, "GraphLayout.sln", [gdiProject, consumerProject]);
+                useWindowsForms: true);
+            var consumerProject = CreateProject(root, "Consumer", isTest: false, projectReferences: [winFormsProject]);
+            var solutionPath = CreateSolution(root, "GraphLayout.sln", [winFormsProject, consumerProject]);
+
+            var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph, WindowsCompatNamespacePrefixes);
+
+            Assert.DoesNotContain(Path.GetFullPath(winFormsProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.DoesNotContain(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ProjectConversionExclusionPlanner_ExcludesWinFormsProject_WithoutCompatLayer()
+    {
+        // Regression: without compat namespace mappings the same WinForms project
+        // must be excluded, and its dependents cascade.
+        var root = CreateTempDirectory();
+        try
+        {
+            var winFormsProject = CreateProject(
+                root,
+                "WinFormsApp",
+                isTest: false,
+                sdk: "Microsoft.NET.Sdk.WindowsDesktop",
+                targetFramework: "net6.0-windows",
+                useWindowsForms: true);
+            var consumerProject = CreateProject(root, "Consumer", isTest: false, projectReferences: [winFormsProject]);
+            var solutionPath = CreateSolution(root, "GraphLayout.sln", [winFormsProject, consumerProject]);
 
             var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
             var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
 
-            Assert.DoesNotContain(Path.GetFullPath(gdiProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
-            Assert.DoesNotContain(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(Path.GetFullPath(winFormsProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ProjectConversionExclusionPlanner_AllowsWpfProject_WithCompatLayer()
+    {
+        // Same generic rule for WPF: System.Windows must have an explicit compat
+        // namespace mapping (e.g. dotnet.wpf.swing).
+        var root = CreateTempDirectory();
+        try
+        {
+            var wpfProject = CreateProject(
+                root,
+                "WpfControl",
+                isTest: false,
+                sdk: "Microsoft.NET.Sdk.WindowsDesktop",
+                targetFramework: "net8.0-windows",
+                useWpf: true);
+            var solutionPath = CreateSolution(root, "GraphLayout.sln", [wpfProject]);
+
+            var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
+            var exclusions = ProjectConversionExclusionPlanner.Plan(graph, WindowsCompatNamespacePrefixes);
+
+            Assert.DoesNotContain(Path.GetFullPath(wpfProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
         }
         finally
         {
