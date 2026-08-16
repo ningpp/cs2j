@@ -3212,7 +3212,7 @@ class ConvertProjectOptions
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }
 
-    [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 28+)")]
+    [Option("use-value-class", Default = true, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 28+)")]
     public bool UseValueClass { get; set; }
 
     [Option("no-filter-projects", Default = false, HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
