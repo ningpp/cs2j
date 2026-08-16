@@ -3,3 +3,4 @@
 2. pre process struct
 3. pre process ref/out
 4. pre process goto
+5. some generics
