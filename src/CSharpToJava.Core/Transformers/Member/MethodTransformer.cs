@@ -905,9 +905,6 @@ public class MethodTransformer : IMemberTransformer
         {
             javaMethod.Annotations.Add(new JavaAnnotation(TestAnnotationName(context, methodDecl, "Test", "org.junit.jupiter.api.Test")));
             context.AddImport("org.junit.jupiter.api.Test");
-            // Add a timeout to prevent tests from hanging indefinitely
-            javaMethod.Annotations.Add(new JavaAnnotation("Timeout(120)"));
-            context.AddImport("org.junit.jupiter.api.Timeout");
             // JUnit @Test methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
@@ -937,6 +934,11 @@ public class MethodTransformer : IMemberTransformer
             // JUnit @ParameterizedTest methods cannot be static
             javaMethod.Modifiers &= ~JavaModifiers.Static;
         }
+
+        // MSTest [Timeout(ms)] and xUnit [Fact(Timeout = ms)] / [Theory(Timeout = ms)]
+        // map to JUnit @Timeout with an explicit millisecond unit. No default timeout
+        // is invented: tests without a C# timeout keep no Java timeout.
+        ApplyTestMethodTimeout(allAttributes, javaMethod, context);
 
         // [ConditionalTheory(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
         // is skipped by xUnit when the remote executor is unavailable. The compat
@@ -1860,6 +1862,100 @@ public class MethodTransformer : IMemberTransformer
         }
 
         return arg.Expression.ToString();
+    }
+
+    /// <summary>
+    /// Maps an explicit C# test timeout to JUnit
+    /// <c>@Timeout(value = N, unit = TimeUnit.MILLISECONDS)</c>.
+    /// Handles MSTest <c>[Timeout(ms)]</c> and the <c>Timeout</c> named argument on
+    /// xUnit <c>[Fact(Timeout = ms)]</c>/<c>[Theory(Timeout = ms)]</c> attributes.
+    /// A hard-coded default timeout is intentionally NOT emitted.
+    /// </summary>
+    private static void ApplyTestMethodTimeout(
+        List<AttributeSyntax> allAttributes,
+        JavaMethodDeclaration javaMethod,
+        ConversionContext context)
+    {
+        foreach (var attr in allAttributes)
+        {
+            var attrName = NormalizeAttributeName(attr.Name.ToString());
+            var argList = attr.ArgumentList?.Arguments ?? default;
+
+            AttributeArgumentSyntax? timeoutArg = null;
+            if (attrName.Equals("Timeout", StringComparison.OrdinalIgnoreCase))
+            {
+                // MSTest [Timeout(ms)] — positional constructor argument.
+                timeoutArg = argList.FirstOrDefault(a => a.NameEquals == null)
+                    ?? (argList.Count > 0 ? argList[0] : null);
+            }
+            else if (attrName is "Fact" or "Theory" or "ConditionalFact" or "ConditionalTheory")
+            {
+                // xUnit [Fact(Timeout = ms)] — named property argument.
+                timeoutArg = argList.FirstOrDefault(a =>
+                    a.NameEquals?.Name.Identifier.Text.Equals("Timeout", StringComparison.OrdinalIgnoreCase) == true);
+            }
+
+            if (timeoutArg == null)
+                continue;
+
+            var milliseconds = GetConstantIntAttributeValue(timeoutArg.Expression, context);
+            // 0 means "no timeout" for xUnit; MSTest requires a positive value.
+            if (milliseconds == null || milliseconds <= 0)
+                continue;
+
+            var annotation = new JavaAnnotation("Timeout");
+            annotation.Values["value"] = milliseconds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            annotation.Values["unit"] = "TimeUnit.MILLISECONDS";
+            javaMethod.Annotations.Add(annotation);
+            context.AddImport("org.junit.jupiter.api.Timeout");
+            context.AddImport("java.util.concurrent.TimeUnit");
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Gets the constant integer value of an attribute argument expression.
+    /// Returns null when the expression cannot be evaluated.
+    /// </summary>
+    private static int? GetConstantIntAttributeValue(ExpressionSyntax expression, ConversionContext context)
+    {
+        var model = context.GetSemanticModelForNode(expression);
+        if (model != null)
+        {
+            try
+            {
+                var constant = model.GetConstantValue(expression);
+                if (constant.HasValue)
+                {
+                    return constant.Value switch
+                    {
+                        int i => i,
+                        uint u when u <= int.MaxValue => (int)u,
+                        long l when l is >= int.MinValue and <= int.MaxValue => (int)l,
+                        short s => s,
+                        byte b => b,
+                        _ => null
+                    };
+                }
+            }
+            catch
+            {
+                // Fall through to the syntax-based fallback below.
+            }
+        }
+
+        if (expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.NumericLiteralExpression)
+            && int.TryParse(
+                literal.Token.ValueText,
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var value))
+        {
+            return value;
+        }
+
+        return null;
     }
 
     /// <summary>
