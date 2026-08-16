@@ -21,9 +21,9 @@ internal static class ProjectConversionExclusionPlanner
     private static readonly IReadOnlySet<string> HARD_CODE_ASSEMBLE_NAMES = new HashSet<string>(
         new string[]
         {
-            "Microsoft.Msagl.GraphmapsWpfControl",
-            "Microsoft.Msagl.GraphViewerGdi", // WinForms: backed by dotnet.winforms.swing + dotnet.drawing.swing compat
-            "TestGraphmaps",
+            // "Microsoft.Msagl.GraphmapsWpfControl",
+            // "Microsoft.Msagl.GraphViewerGdi", // WinForms: backed by dotnet.winforms.swing + dotnet.drawing.swing compat
+            // "TestGraphmaps",
         },
         StringComparer.Ordinal);
 
