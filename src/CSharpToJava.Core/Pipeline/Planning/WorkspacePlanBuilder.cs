@@ -9,7 +9,7 @@ public sealed class WorkspacePlanBuilder
     private string _groupId = "com.example";
     private string _artifactId = "project";
     private string _version = "1.0-SNAPSHOT";
-    private string _javaVersion = "Java25";
+    private string _javaVersion = "Java28";
     private readonly List<JavaModulePlan> _modules = [];
 
     public WorkspacePlanBuilder GroupId(string groupId) { _groupId = groupId; return this; }

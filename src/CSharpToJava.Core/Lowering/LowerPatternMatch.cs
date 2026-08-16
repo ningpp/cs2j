@@ -38,7 +38,7 @@ public class LowerPatternMatch : ILoweringPass
         if (expr is IrCSharpPatternExpression pat && pat.PatternKind == "type" && pat.MatchedType != null)
         {
             // `is double d` on a boxed subject must test the wrapper type — Java's
-            // primitive instance patterns are a preview feature (Java 25) and boxed
+            // primitive instance patterns are a preview feature (Java 28) and boxed
             // checks are semantically equivalent for Number subjects.
             var boxedType = BoxJavaTypeName(pat.MatchedType);
             return new IrInstanceOfExpression { Expression = LowerExpression(pat.Subject), TypeName = boxedType, PatternVariable = pat.PatternVariable };

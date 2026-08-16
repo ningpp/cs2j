@@ -48,12 +48,12 @@ namespace CSharpToJava.Core.LinqRewrite
 
         /// <summary>
         /// Whether synthesized Java records are available for anonymous types
-        /// (Java 25 with UseRecords enabled).
+        /// (Java 28 with UseRecords enabled).
         /// </summary>
         private bool CanUseRecordsForAnonymousTypes =>
             _options != null
             && _options.UseRecords
-            && _options.TargetJavaVersion >= JavaVersion.Java25;
+            && _options.TargetJavaVersion >= JavaVersion.Java28;
         public int RewrittenMethods { get; private set; }
         public int RewrittenLinqQueries { get; private set; }
         public List<string> SkippedLinqChains { get; } = new();

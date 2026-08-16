@@ -41,7 +41,7 @@ public class PlanningTests
             GroupId = "com.example",
             ArtifactId = "demo-parent",
             Version = "1.0-SNAPSHOT",
-            JavaVersion = "Java25",
+            JavaVersion = "Java28",
             Modules = [module],
         };
 
@@ -68,7 +68,7 @@ public class PlanningTests
             GroupId = "com.example",
             ArtifactId = "demo-parent",
             Version = "1.0-SNAPSHOT",
-            JavaVersion = "Java25",
+            JavaVersion = "Java28",
             Modules = [module],
         };
 
@@ -103,7 +103,7 @@ public class PlanningTests
             GroupId = "com.example",
             ArtifactId = "demo-parent",
             Version = "1.0-SNAPSHOT",
-            JavaVersion = "Java25",
+            JavaVersion = "Java28",
             Modules = [module],
         };
 
@@ -141,7 +141,7 @@ public class PlanningTests
             GroupId = "com.example",
             ArtifactId = "demo-parent",
             Version = "1.0-SNAPSHOT",
-            JavaVersion = "Java25",
+            JavaVersion = "Java28",
             RequiredRuntimeBridges = [jsonBridge],
             Modules =
             [

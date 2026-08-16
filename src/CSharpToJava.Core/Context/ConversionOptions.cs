@@ -8,7 +8,7 @@ public class ConversionOptions
     /// <summary>
     /// 目标 Java 版本
     /// </summary>
-    public JavaVersion TargetJavaVersion { get; set; } = JavaVersion.Java25;
+    public JavaVersion TargetJavaVersion { get; set; } = JavaVersion.Java28;
 
     /// <summary>
     /// 类型映射配置文件路径
@@ -34,7 +34,7 @@ public class ConversionOptions
 
     /// <summary>
     /// 是否使用 Java Value Class (JEP 401) 转换 C# readonly struct
-    /// 需要 Java 27+ 并启用 --enable-preview
+    /// 需要 Java 28+ 并启用 --enable-preview
     /// </summary>
     public bool UseValueClass { get; set; } = false;
 
@@ -55,13 +55,13 @@ public class ConversionOptions
 
     /// <summary>
     /// When true, LINQ chains are converted to Java Stream API calls (.stream().filter().map()...)
-    /// instead of procedural loops via LinqRewriter. Default: true for Java 25.
+    /// instead of procedural loops via LinqRewriter. Default: true for Java 28.
     /// When set explicitly, overrides the version-based default.
     /// </summary>
     public bool? PreferStreamApi { get; set; }
 
     /// <summary>
-    /// Resolved value: uses explicit setting if provided, otherwise defaults to Stream API for Java 25.
+    /// Resolved value: uses explicit setting if provided, otherwise defaults to Stream API for Java 28.
     /// </summary>
     /// <summary>
     /// Always use LINQ desugarer (procedural conversion). Stream API mode is disabled.
@@ -136,8 +136,6 @@ public class ConversionOptions
 /// </summary>
 public enum JavaVersion
 {
-    Java25 = 25,
-    Java27 = 27,
     Java28 = 28,
 }
 

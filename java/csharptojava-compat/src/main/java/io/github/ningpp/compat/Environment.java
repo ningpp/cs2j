@@ -12,7 +12,7 @@ public final class Environment {
 
     /**
      * Mirrors Environment.Version (System.Version). The major number is the
-     * current runtime major version — Java 25 feature maps to .NET-style 25,
+     * current runtime major version — Java 28 feature maps to .NET-style 28,
      * which satisfies .NET 5+ (IsNetCore) checks.
      */
     public static Version getVersion() {

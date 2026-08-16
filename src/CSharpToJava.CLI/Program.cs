@@ -3102,8 +3102,8 @@ class ConvertOptions
     [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
     public string? MappingConfig { get; set; }
 
-    [Option('j', "java-version", Default = "Java25", HelpText = "Target Java version (Java25)")]
-    public string JavaVersion { get; set; } = "Java25";
+    [Option('j', "java-version", Default = "Java28", HelpText = "Target Java version (Java28)")]
+    public string JavaVersion { get; set; } = "Java28";
 
     [Option("no-records", Default = false, HelpText = "Don't use Java records for C# records")]
     public bool NoRecords { get; set; }
@@ -3120,7 +3120,7 @@ class ConvertOptions
     [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code")]
     public bool NoLinqRewrite { get; set; }
 
-    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 25)")]
+    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 28)")]
     public bool PreferStreamApiFlag { get; set; }
 
     [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion")]
@@ -3129,7 +3129,7 @@ class ConvertOptions
     [Option("no-parallel-project-passes", Default = false, HelpText = "Disable parallel execution for safe project-level tree-local passes")]
     public bool NoParallelProjectPasses { get; set; }
 
-    [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 27+)")]
+    [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 28+)")]
     public bool UseValueClass { get; set; }
 
     // 便捷属性
@@ -3157,8 +3157,8 @@ class ConvertProjectOptions
     [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
     public string? MappingConfig { get; set; }
 
-    [Option('j', "java-version", Default = "Java25", HelpText = "Target Java version (Java25)")]
-    public string JavaVersion { get; set; } = "Java25";
+    [Option('j', "java-version", Default = "Java28", HelpText = "Target Java version (Java28)")]
+    public string JavaVersion { get; set; } = "Java28";
 
     [Option('f', "force", Default = true, HelpText = "Overwrite existing files")]
     public bool Force { get; set; }
@@ -3181,7 +3181,7 @@ class ConvertProjectOptions
     [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code")]
     public bool NoLinqRewrite { get; set; }
 
-    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 25)")]
+    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 28)")]
     public bool PreferStreamApiFlag { get; set; }
 
     [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion")]
@@ -3212,7 +3212,7 @@ class ConvertProjectOptions
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }
 
-    [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 27+)")]
+    [Option("use-value-class", Default = false, HelpText = "Use Java Value Class (JEP 401) for C# readonly struct (requires Java 28+)")]
     public bool UseValueClass { get; set; }
 
     [Option("no-filter-projects", Default = false, HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]

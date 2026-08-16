@@ -6431,14 +6431,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 return $"{receiver}.limit({takeArg})";
             }
 
-            // SkipWhile → dropWhile(predicate) (Java 25)
+            // SkipWhile → dropWhile(predicate) (Java 28)
             if (originalMethodName == "SkipWhile" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 return $"{receiver}.dropWhile({predArg})";
             }
 
-            // TakeWhile → takeWhile(predicate) (Java 25)
+            // TakeWhile → takeWhile(predicate) (Java 28)
             if (originalMethodName == "TakeWhile" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);

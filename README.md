@@ -14,7 +14,7 @@ A C# to Java source code converter using Roslyn for parsing and semantic analysi
 - **Partial type merging** — merges `partial class`/`partial method` across files
 - **Compatibility runtime** — `csharptojava-compat` Java library bridges C# API patterns (collections, reflection, exceptions, etc.)
 - **Incremental builds** — input fingerprint caching skips re-conversion when sources are unchanged
-- **Java 25 target** — supports modern Java language features
+- **Java 28 target** — supports modern Java language features
 
 ## Requirements
 
@@ -77,7 +77,7 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- analyze -s 
 | `-i, --input` | Input C# file path |
 | `-o, --output` | Output Java file path (default: stdout) |
 | `-m, --mapping` | Type mapping configuration file |
-| `-j, --java-version` | Target Java version (default: Java25) |
+| `-j, --java-version` | Target Java version (default: Java28) |
 | `--no-records` | Don't use Java records for C# records |
 | `--use-optional` | Use `Optional` for nullable types |
 | `--no-javadoc` | Don't generate JavaDoc comments |
@@ -93,7 +93,7 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- analyze -s 
 | `-s, --source` | Source directory, `.csproj`, or `.sln` path |
 | `-d, --destination` | Destination directory path |
 | `-m, --mapping` | Type mapping configuration file |
-| `-j, --java-version` | Target Java version (default: Java25) |
+| `-j, --java-version` | Target Java version (default: Java28) |
 | `-f, --force` | Overwrite existing files (default: true) |
 | `--no-cache` | Disable fingerprint-based caching (default: true) |
 | `--no-records` | Don't use Java records |

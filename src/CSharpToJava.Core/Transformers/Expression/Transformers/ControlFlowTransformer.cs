@@ -591,7 +591,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         var namedType = typeInfo.Type as INamedTypeSymbol;
         bool isJavaRecord = namedType?.IsRecord == true
                             && context.Options.UseRecords
-                            && context.Options.TargetJavaVersion >= JavaVersion.Java25
+                            && context.Options.TargetJavaVersion >= JavaVersion.Java28
                             && !namedType.IsAbstract;
 
         if (isJavaRecord && namedType != null)

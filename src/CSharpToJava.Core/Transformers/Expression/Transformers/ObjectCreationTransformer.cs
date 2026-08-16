@@ -1967,8 +1967,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        // When targeting Java 25 with records enabled, synthesize a Java record instead of Map
-        if (context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java25)
+        // When targeting Java 28 with records enabled, synthesize a Java record instead of Map
+        if (context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java28)
         {
             var (record, ctorCall) = AnonymousTypeRecordSynthesizer.SynthesizeForAnonymousType(
                 node, context, expr => facade.Transform(expr, context));
@@ -2264,7 +2264,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (elementType == "Object"
             && node.Initializer?.Expressions.Count > 0
             && node.Initializer.Expressions.All(e => e is AnonymousObjectCreationExpressionSyntax)
-            && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java25)
+            && context.Options.UseRecords && context.Options.TargetJavaVersion >= JavaVersion.Java28)
         {
             var facade2 = ExpressionTransformerFacade.Instance;
             var firstAnon = (AnonymousObjectCreationExpressionSyntax)node.Initializer.Expressions[0];
@@ -2715,7 +2715,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         if (isSetLike)
         {
-            if (context.Options.TargetJavaVersion >= JavaVersion.Java25)
+            if (context.Options.TargetJavaVersion >= JavaVersion.Java28)
             {
                 // C# HashSet silently ignores duplicates; Java Set.of() throws on duplicates.
                 // Deduplicate to match C# semantics.

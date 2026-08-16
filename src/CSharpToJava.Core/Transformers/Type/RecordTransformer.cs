@@ -44,7 +44,7 @@ public class RecordTransformer : ITypeTransformer
         bool hasExtraInstanceMembers = recordDecl.Members.Any(m =>
             m is PropertyDeclarationSyntax or FieldDeclarationSyntax);
         var useRecord = context.Options.UseRecords &&
-                       context.Options.TargetJavaVersion >= JavaVersion.Java25 &&
+                       context.Options.TargetJavaVersion >= JavaVersion.Java28 &&
                        !hasExtraInstanceMembers;
 
         if (useRecord)
