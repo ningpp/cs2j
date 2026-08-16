@@ -12,6 +12,22 @@ namespace CSharpToJava.CLI;
 internal static class SupportedProjectFiltering
 {
     /// <summary>
+    /// Directory names that are never part of a project's source tree. Shared by
+    /// every preprocessor so all intermediate copies use the exact same walk.
+    /// </summary>
+    internal static readonly HashSet<string> IgnoredDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git",
+        ".vs",
+        ".idea",
+        "bin",
+        "obj",
+        "node_modules",
+        "packages",
+        "TestResults",
+    };
+
+    /// <summary>
     /// Result of computing which projects must be excluded from the copied tree.
     /// </summary>
     internal sealed class ExclusionInfo
@@ -36,46 +52,47 @@ internal static class SupportedProjectFiltering
     public static ExclusionInfo ComputeExclusions(
         ProjectGraph? graph,
         bool verbose,
-        IReadOnlyCollection<string>? compatNamespacePrefixes = null)
+        IReadOnlyCollection<string>? compatNamespacePrefixes = null,
+        string? directoryToScan = null)
     {
         var info = new ExclusionInfo();
-        if (graph == null || graph.ProjectsInTopologicalOrder.Count == 0)
+        if (graph != null && graph.ProjectsInTopologicalOrder.Count > 0)
         {
-            return info;
-        }
-
-        IReadOnlyDictionary<string, ProjectConversionExclusion> exclusions;
-        try
-        {
-            exclusions = ProjectConversionExclusionPlanner.Plan(graph, compatNamespacePrefixes);
-        }
-        catch (Exception ex)
-        {
-            if (verbose)
+            IReadOnlyDictionary<string, ProjectConversionExclusion> exclusions;
+            try
             {
-                Console.Error.WriteLine($"Warning: failed to evaluate project support, keeping all projects: {ex.Message}");
+                exclusions = ProjectConversionExclusionPlanner.Plan(graph, compatNamespacePrefixes);
             }
-            return info;
-        }
-
-        if (exclusions.Count == 0)
-        {
-            return info;
-        }
-
-        foreach (var exclusion in exclusions.Values)
-        {
-            info.Exclusions.Add(exclusion);
-            info.ExcludedProjectPaths.Add(Path.GetFullPath(exclusion.ProjectPath));
-
-            var directory = Path.GetDirectoryName(exclusion.ProjectPath);
-            if (!string.IsNullOrWhiteSpace(directory))
+            catch (Exception ex)
             {
-                info.ExcludedProjectDirectories.Add(Path.GetFullPath(directory));
+                if (verbose)
+                {
+                    Console.Error.WriteLine($"Warning: failed to evaluate project support, keeping all projects: {ex.Message}");
+                }
+
+                exclusions = new Dictionary<string, ProjectConversionExclusion>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            foreach (var exclusion in exclusions.Values)
+            {
+                AddExclusion(info, exclusion);
             }
         }
 
-        if (verbose)
+        if (!string.IsNullOrWhiteSpace(directoryToScan))
+        {
+            var projectFiles = Directory.EnumerateFiles(
+                    Path.GetFullPath(directoryToScan),
+                    "*.csproj",
+                    SearchOption.AllDirectories)
+                .Where(path => !IsUnderIgnoredDirectory(path));
+            foreach (var exclusion in ProjectConversionExclusionPlanner.PlanFiles(projectFiles, compatNamespacePrefixes).Values)
+            {
+                AddExclusion(info, exclusion);
+            }
+        }
+
+        if (verbose && info.Exclusions.Count > 0)
         {
             Console.WriteLine($"Preprocessing excludes {info.Exclusions.Count} unsupported project(s):");
             foreach (var exclusion in info.Exclusions.OrderBy(e => e.ProjectName, StringComparer.OrdinalIgnoreCase))
@@ -85,6 +102,38 @@ internal static class SupportedProjectFiltering
         }
 
         return info;
+    }
+
+    private static void AddExclusion(ExclusionInfo info, ProjectConversionExclusion exclusion)
+    {
+        var fullProjectPath = Path.GetFullPath(exclusion.ProjectPath);
+        if (!info.ExcludedProjectPaths.Add(fullProjectPath))
+        {
+            return;
+        }
+
+        info.Exclusions.Add(exclusion);
+        var directory = Path.GetDirectoryName(fullProjectPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            info.ExcludedProjectDirectories.Add(Path.GetFullPath(directory));
+        }
+    }
+
+    private static bool IsUnderIgnoredDirectory(string fullPath)
+    {
+        foreach (var segment in fullPath.Split(
+                     Path.DirectorySeparatorChar,
+                     Path.AltDirectorySeparatorChar,
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (IgnoredDirectoryNames.Contains(segment))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

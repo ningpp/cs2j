@@ -738,7 +738,11 @@ public final class TypeHelper {
         // A member matches when it is public AND Public is requested, or when it
         // is non-public AND NonPublic is requested. Treating them as AND made
         // every member fail the common Public | NonPublic combination.
-        if (!((wantPublic && isPublic) || (wantNonPublic && !isPublic))) {
+        // cs2j additionally emits C# internal members as public Java members
+        // (Java has no assembly-level visibility), so a NonPublic-only lookup
+        // must fall back to public members to keep reflection working.
+        boolean nonPublicBridgeFallback = wantNonPublic && !wantPublic && isPublic;
+        if (!((wantPublic && isPublic) || (wantNonPublic && !isPublic) || nonPublicBridgeFallback)) {
             return false;
         }
         if (wantStatic && !isStatic) {

@@ -32,6 +32,40 @@ internal static class ProjectConversionExclusionPlanner
             compatNamespacePrefixes);
     }
 
+    /// <summary>
+    /// Evaluates standalone project files (not necessarily part of the loaded
+    /// solution graph) so unsupported projects that live under the source root but
+    /// are absent from the .sln are excluded from intermediate copies too.
+    /// </summary>
+    public static IReadOnlyDictionary<string, ProjectConversionExclusion> PlanFiles(
+        IEnumerable<string> projectFiles,
+        IReadOnlyCollection<string>? compatNamespacePrefixes = null)
+    {
+        var exclusions = new Dictionary<string, ProjectConversionExclusion>(StringComparer.OrdinalIgnoreCase);
+        foreach (var projectFile in projectFiles
+                     .Select(Path.GetFullPath)
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (exclusions.ContainsKey(projectFile))
+            {
+                continue;
+            }
+
+            var evaluation = EvaluateProjectSupport(projectFile, compatNamespacePrefixes);
+            if (!evaluation.IsSupported)
+            {
+                exclusions[projectFile] = new ProjectConversionExclusion
+                {
+                    ProjectPath = projectFile,
+                    ProjectName = Path.GetFileNameWithoutExtension(projectFile),
+                    Reason = evaluation.Reason,
+                };
+            }
+        }
+
+        return exclusions;
+    }
+
     private static IReadOnlyDictionary<string, ProjectConversionExclusion> PlanCore(
         IEnumerable<ProjectNodeInfo> projects,
         IReadOnlyCollection<string>? compatNamespacePrefixes)
@@ -127,6 +161,7 @@ internal static class ProjectConversionExclusionPlanner
                 && sdk.Contains("Microsoft.NET.Sdk.WindowsDesktop", StringComparison.OrdinalIgnoreCase))
             {
                 reasons.Add("WindowsDesktop SDK");
+                hasNeverSupportedReason = true;
                 requiredCompatNamespaces.Add("System.Windows.Forms");
                 requiredCompatNamespaces.Add("System.Windows");
             }
@@ -135,12 +170,14 @@ internal static class ProjectConversionExclusionPlanner
             if (useWpf)
             {
                 reasons.Add("UseWPF=true");
+                hasNeverSupportedReason = true;
                 requiredCompatNamespaces.Add("System.Windows");
             }
 
             if (GetBooleanProperty(doc, "UseWindowsForms"))
             {
                 reasons.Add("UseWindowsForms=true");
+                hasNeverSupportedReason = true;
                 requiredCompatNamespaces.Add("System.Windows.Forms");
             }
 
@@ -173,6 +210,7 @@ internal static class ProjectConversionExclusionPlanner
                 }
                 else
                 {
+                    hasNeverSupportedReason = true;
                     requiredCompatNamespaces.Add("System.Windows.Forms");
                     requiredCompatNamespaces.Add("System.Windows");
                 }
@@ -189,6 +227,7 @@ internal static class ProjectConversionExclusionPlanner
                 }
                 else
                 {
+                    hasNeverSupportedReason = true;
                     requiredCompatNamespaces.Add("System.Windows.Forms");
                     requiredCompatNamespaces.Add("System.Windows");
                 }

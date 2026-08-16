@@ -172,12 +172,11 @@ public class ProjectDiscoveryTests
     }
 
     [Fact]
-    public void ProjectConversionExclusionPlanner_AllowsWinFormsProject_WithCompatLayer()
+    public void ProjectConversionExclusionPlanner_ExcludesWinFormsProject_EvenWithCompatLayer()
     {
-        // A WinForms project is allowed through the planner when the platform
-        // namespaces it relies on (System.Windows.Forms) have an explicit compat
-        // namespace mapping in the type-mapping config (e.g. dotnet.winforms.swing).
-        // No assembly-name allow-list is involved.
+        // WinForms/WPF projects must always be excluded from conversion regardless
+        // of System.Windows.Forms/System.Windows namespace mappings. Their
+        // dependents must cascade.
         var root = CreateTempDirectory();
         try
         {
@@ -194,36 +193,6 @@ public class ProjectDiscoveryTests
             var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
             var exclusions = ProjectConversionExclusionPlanner.Plan(graph, WindowsCompatNamespacePrefixes);
 
-            Assert.DoesNotContain(Path.GetFullPath(winFormsProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
-            Assert.DoesNotContain(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public void ProjectConversionExclusionPlanner_ExcludesWinFormsProject_WithoutCompatLayer()
-    {
-        // Regression: without compat namespace mappings the same WinForms project
-        // must be excluded, and its dependents cascade.
-        var root = CreateTempDirectory();
-        try
-        {
-            var winFormsProject = CreateProject(
-                root,
-                "WinFormsApp",
-                isTest: false,
-                sdk: "Microsoft.NET.Sdk.WindowsDesktop",
-                targetFramework: "net6.0-windows",
-                useWindowsForms: true);
-            var consumerProject = CreateProject(root, "Consumer", isTest: false, projectReferences: [winFormsProject]);
-            var solutionPath = CreateSolution(root, "GraphLayout.sln", [winFormsProject, consumerProject]);
-
-            var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
-            var exclusions = ProjectConversionExclusionPlanner.Plan(graph);
-
             Assert.Contains(Path.GetFullPath(winFormsProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
             Assert.Contains(Path.GetFullPath(consumerProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
         }
@@ -234,10 +203,9 @@ public class ProjectDiscoveryTests
     }
 
     [Fact]
-    public void ProjectConversionExclusionPlanner_AllowsWpfProject_WithCompatLayer()
+    public void ProjectConversionExclusionPlanner_ExcludesWpfProject_EvenWithCompatLayer()
     {
-        // Same generic rule for WPF: System.Windows must have an explicit compat
-        // namespace mapping (e.g. dotnet.wpf.swing).
+        // WPF must be excluded even when System.Windows has a compat mapping.
         var root = CreateTempDirectory();
         try
         {
@@ -253,7 +221,8 @@ public class ProjectDiscoveryTests
             var graph = ProjectDiscovery.LoadProjectGraph(solutionPath);
             var exclusions = ProjectConversionExclusionPlanner.Plan(graph, WindowsCompatNamespacePrefixes);
 
-            Assert.DoesNotContain(Path.GetFullPath(wpfProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(Path.GetFullPath(wpfProject), exclusions.Keys, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("Windows-only project", exclusions[Path.GetFullPath(wpfProject)].Reason, StringComparison.Ordinal);
         }
         finally
         {

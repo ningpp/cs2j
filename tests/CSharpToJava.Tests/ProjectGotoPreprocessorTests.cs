@@ -23,7 +23,7 @@ public class ProjectGotoPreprocessorTests
             Directory.CreateDirectory(intermediateRoot);
             File.WriteAllText(preprocessedProject, """<Project Sdk="Microsoft.NET.Sdk"></Project>""");
 
-            var layout = new ProjectGotoPreprocessor.ProjectGotoSourceLayout(
+            var layout = new ProjectPreprocessSourceLayout(
                 sourceRoot,
                 sourceProject,
                 [sourceProject]);
@@ -60,7 +60,7 @@ public class ProjectGotoPreprocessorTests
             File.WriteAllText(preprocessedProject, """<Project Sdk="Microsoft.NET.Sdk"></Project>""");
             File.WriteAllText(preprocessedSln, "Microsoft Visual Studio Solution File, Format Version 12.00\n");
 
-            var layout = new ProjectGotoPreprocessor.ProjectGotoSourceLayout(
+            var layout = new ProjectPreprocessSourceLayout(
                 sourceRoot,
                 sourceSln,
                 [sourceProject, sourceSln]);
@@ -98,7 +98,7 @@ public class ProjectGotoPreprocessorTests
                 Path.Combine(intermediateRoot, "Solution.sln"),
                 "Microsoft Visual Studio Solution File, Format Version 12.00\n");
 
-            var layout = new ProjectGotoPreprocessor.ProjectGotoSourceLayout(
+            var layout = new ProjectPreprocessSourceLayout(
                 sourceRoot,
                 sourceRoot,
                 [sourceProject, sourceSln]);

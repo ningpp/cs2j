@@ -486,10 +486,7 @@ public final class Assert {
         try {
             action.run();
         } catch (Throwable e) {
-            if (exceptionType.isInstance(e)) {
-                return exceptionType.cast(e);
-            }
-            throw e;
+            return unwrapExpectedException(e, exceptionType);
         }
         fail(format(message, "No exception thrown. Expected <" + exceptionType.getName() + ">."));
         return null; // unreachable
@@ -507,10 +504,7 @@ public final class Assert {
         try {
             action.get();
         } catch (Throwable e) {
-            if (exceptionType.isInstance(e)) {
-                return exceptionType.cast(e);
-            }
-            throw e;
+            return unwrapExpectedException(e, exceptionType);
         }
         fail(format(message, "No exception thrown. Expected <" + exceptionType.getName() + ">."));
         return null; // unreachable
@@ -518,6 +512,29 @@ public final class Assert {
 
     public static <T extends Throwable> T throwsException(Class<T> exceptionType, Supplier<?> action, String message, Object... args) {
         return throwsException(exceptionType, action, formatMessage(message, args));
+    }
+
+    private static <T extends Throwable> T unwrapExpectedException(Throwable e, Class<T> exceptionType) {
+        Throwable current = e;
+        while (current != null) {
+            if (exceptionType == io.github.ningpp.compat.FileNotFoundException.class
+                    && current instanceof java.io.FileNotFoundException jfnfe) {
+                return exceptionType.cast(
+                        new io.github.ningpp.compat.FileNotFoundException(jfnfe.getMessage(), jfnfe));
+            }
+            if (exceptionType.isInstance(current)) {
+                return exceptionType.cast(current);
+            }
+            current = current.getCause();
+        }
+
+        if (e instanceof RuntimeException re) {
+            throw re;
+        }
+        if (e instanceof Error err) {
+            throw err;
+        }
+        throw new RuntimeException(e);
     }
 
     // ── Fail ──────────────────────────────────────────────────────────

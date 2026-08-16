@@ -37,18 +37,6 @@ internal static class ProjectUnsignedTypePreprocessor
 {
     public const string IntermediateDirectoryName = ".cs2j-unsigned-src";
 
-    private static readonly HashSet<string> IgnoredDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".git",
-        ".vs",
-        ".idea",
-        "bin",
-        "obj",
-        "node_modules",
-        "packages",
-        "TestResults",
-    };
-
     public static async Task<ProjectUnsignedTypePreprocessResult> PreprocessAsync(
         ProjectUnsignedTypePreprocessRequest request)
     {
@@ -56,7 +44,7 @@ internal static class ProjectUnsignedTypePreprocessor
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SourcePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DestinationRoot);
 
-        var layout = ResolveSourceLayout(request.SourcePath);
+        var layout = ProjectPreprocessSource.ResolveLayout(request.SourcePath);
         var intermediateRoot = Path.Combine(Path.GetFullPath(request.DestinationRoot), IntermediateDirectoryName);
 
         if (Directory.Exists(intermediateRoot))
@@ -77,43 +65,25 @@ internal static class ProjectUnsignedTypePreprocessor
         var rewriter = new UnsignedTypeRewriter();
         var sourceRoot = layout.SourceRoot;
 
-        var projectGraph = TryLoadProjectGraph(layout, request.Verbose);
+        var projectGraph = ProjectPreprocessSource.TryLoadProjectGraph(layout, request.Verbose);
         var exclusionInfo = request.FilterUnsupportedProjects
-            ? SupportedProjectFiltering.ComputeExclusions(projectGraph, request.Verbose, request.CompatNamespacePrefixes)
+            ? SupportedProjectFiltering.ComputeExclusions(
+                projectGraph,
+                request.Verbose,
+                request.CompatNamespacePrefixes,
+                layout.SourceRoot)
             : new SupportedProjectFiltering.ExclusionInfo();
 
         // Copy project files (.csproj, .sln), dropping excluded projects and
         // rewriting the solution file so the intermediate tree is self-consistent.
-        foreach (var projectFile in layout.ProjectFiles)
-        {
-            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
-            {
-                continue;
-            }
+        await ProjectPreprocessSource.CopyProjectFilesAsync(layout, sourceRoot, intermediateRoot, exclusionInfo);
+        ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
+            sourceRoot,
+            intermediateRoot,
+            "[unsigned-type]",
+            request.Verbose);
 
-            var relativePath = Path.GetRelativePath(sourceRoot, projectFile);
-            var destinationFile = Path.Combine(intermediateRoot, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
-
-            if (exclusionInfo.HasExclusions &&
-                projectFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
-            {
-                var solutionContent = await File.ReadAllTextAsync(projectFile);
-                var rewrittenSolution = SupportedProjectFiltering.RewriteSolutionContent(
-                    solutionContent,
-                    Path.GetDirectoryName(projectFile) ?? sourceRoot,
-                    exclusionInfo);
-                await File.WriteAllTextAsync(destinationFile, rewrittenSolution, new System.Text.UTF8Encoding(false));
-            }
-            else
-            {
-                File.Copy(projectFile, destinationFile, overwrite: true);
-            }
-        }
-
-        CopyAncestorMsBuildDirectoryFiles(sourceRoot, intermediateRoot, request.Verbose);
-
-        var sourceFiles = EnumerateSourceFiles(
+        var sourceFiles = ProjectPreprocessSource.EnumerateSourceFiles(
                 sourceRoot, intermediateRoot, Path.GetFullPath(request.DestinationRoot))
             .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
             .ToList();
@@ -192,7 +162,7 @@ internal static class ProjectUnsignedTypePreprocessor
                 intermediateRoot, sourceRoot, layout, exclusionInfo, rewrittenSourceFiles, projectGraph);
         }
 
-        var restoreTarget = ResolveRestoreTarget(intermediateRoot, layout);
+        var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(layout, intermediateRoot);
         if (restoreTarget != null)
         {
             if (request.Verbose)
@@ -200,7 +170,7 @@ internal static class ProjectUnsignedTypePreprocessor
                 Console.WriteLine($"Restoring packages: {restoreTarget}");
             }
 
-            var restoreExitCode = RunDotNetRestore(restoreTarget);
+            var restoreExitCode = ProjectPreprocessSource.RunDotNetRestore(restoreTarget, "[unsigned-type]");
             if (request.Verbose)
             {
                 Console.WriteLine($"Restore exit code: {restoreExitCode}");
@@ -220,7 +190,7 @@ internal static class ProjectUnsignedTypePreprocessor
             OriginalSourcePath = layout.EntryPath,
             SourceRoot = sourceRoot,
             IntermediateRoot = intermediateRoot,
-            PreprocessedSourcePath = MapToIntermediate(layout, intermediateRoot),
+            PreprocessedSourcePath = ProjectPreprocessSource.MapToIntermediate(layout, intermediateRoot),
             Success = !diagnostics.Any(d => d.Severity == UnsignedTypeSeverity.Error),
             Statistics = statistics,
             Diagnostics = diagnostics,
@@ -309,305 +279,6 @@ internal static class ProjectUnsignedTypePreprocessor
         }
     }
 
-    private static IEnumerable<string> EnumerateSourceFiles(
-        string sourceRoot, string intermediateRoot, string outputRoot)
-    {
-        var fullOutputRoot = Path.GetFullPath(outputRoot);
-        var fullSourceRoot = Path.GetFullPath(sourceRoot);
-        // 当输出目录位于源树内部（如测试 fixture 的 .test-output-sln）时，
-        // 跳过整个输出目录，避免把上次生成的中间产物当作输入再次处理。
-        var skipOutputRoot = IsSameOrDescendantPath(fullOutputRoot, fullSourceRoot)
-                             && !string.Equals(fullOutputRoot, fullSourceRoot, StringComparison.OrdinalIgnoreCase);
-
-        var pending = new Stack<string>();
-        pending.Push(sourceRoot);
-
-        while (pending.Count > 0)
-        {
-            var currentDirectory = pending.Pop();
-            if (IsSameOrDescendantPath(currentDirectory, intermediateRoot)
-                || (skipOutputRoot && IsSameOrDescendantPath(currentDirectory, fullOutputRoot)))
-            {
-                continue;
-            }
-
-            foreach (var file in Directory.EnumerateFiles(currentDirectory))
-            {
-                yield return Path.GetFullPath(file);
-            }
-
-            foreach (var subDirectory in Directory.EnumerateDirectories(currentDirectory))
-            {
-                if (IgnoredDirectoryNames.Contains(Path.GetFileName(subDirectory)))
-                {
-                    continue;
-                }
-
-                if (IsSameOrDescendantPath(subDirectory, intermediateRoot)
-                    || (skipOutputRoot && IsSameOrDescendantPath(subDirectory, fullOutputRoot)))
-                {
-                    continue;
-                }
-
-                pending.Push(Path.GetFullPath(subDirectory));
-            }
-        }
-    }
-
-    private static readonly string[] MsBuildDirectoryFileNames =
-    {
-        "Directory.Build.props",
-        "Directory.Build.targets",
-        "Directory.Packages.props",
-        "nuget.config",
-    };
-
-    private static void CopyAncestorMsBuildDirectoryFiles(string sourceRoot, string intermediateRoot, bool verbose)
-    {
-        foreach (var fileName in MsBuildDirectoryFileNames)
-        {
-            var current = Path.GetFullPath(sourceRoot);
-            string? found = null;
-            while (!string.IsNullOrEmpty(current))
-            {
-                var candidate = Path.Combine(current, fileName);
-                if (File.Exists(candidate))
-                {
-                    found = candidate;
-                    break;
-                }
-
-                var parent = Path.GetDirectoryName(current);
-                if (parent == null || string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
-                {
-                    break;
-                }
-
-                current = parent;
-            }
-
-            if (found == null)
-            {
-                continue;
-            }
-
-            var destination = Path.Combine(intermediateRoot, fileName);
-            File.Copy(found, destination, overwrite: true);
-            if (verbose)
-            {
-                Console.WriteLine($"[unsigned-type] Copied MSBuild directory file: {found} -> {destination}");
-            }
-
-            CopyMsBuildThisFileDirectoryReferences(found, intermediateRoot, verbose);
-        }
-    }
-
-    private static void CopyMsBuildThisFileDirectoryReferences(string sourceFile, string intermediateRoot, bool verbose)
-    {
-        string content;
-        try
-        {
-            content = File.ReadAllText(sourceFile);
-        }
-        catch (IOException)
-        {
-            return;
-        }
-
-        var sourceDirectory = Path.GetDirectoryName(sourceFile)!;
-        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
-                     content,
-                     @"\$\(MSBuildThisFileDirectory\)\s*\\?([^""<>|?*\r\n]+)"))
-        {
-            var relativeReference = match.Groups[1].Value.Trim().TrimEnd('\\', '/');
-            if (relativeReference.Length == 0) continue;
-
-            var referencedPath = Path.GetFullPath(Path.Combine(sourceDirectory, relativeReference));
-            if (!File.Exists(referencedPath)) continue;
-
-            var destinationPath = Path.Combine(intermediateRoot, Path.GetFileName(referencedPath));
-            if (File.Exists(destinationPath)) continue;
-
-            File.Copy(referencedPath, destinationPath, overwrite: false);
-            if (verbose)
-            {
-                Console.WriteLine($"[unsigned-type] Copied MSBuild sibling reference: {referencedPath} -> {destinationPath}");
-            }
-        }
-    }
-
-    private static UnsignedTypeSourceLayout ResolveSourceLayout(string sourcePath)
-    {
-        var fullSourcePath = Path.GetFullPath(sourcePath);
-
-        if (File.Exists(fullSourcePath) && Path.GetExtension(fullSourcePath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
-        {
-            var graph = ProjectDiscovery.LoadProjectGraph(fullSourcePath);
-            var sourceRoot = GetCommonRoot(graph.ProjectsInTopologicalOrder.Select(p => p.ProjectDirectory));
-            var projectFiles = graph.ProjectsInTopologicalOrder
-                .Select(p => p.ProjectFilePath)
-                .Append(fullSourcePath)
-                .ToList();
-            return new UnsignedTypeSourceLayout(sourceRoot, fullSourcePath, projectFiles);
-        }
-
-        if (File.Exists(fullSourcePath) && Path.GetExtension(fullSourcePath).Equals(".csproj", StringComparison.OrdinalIgnoreCase))
-        {
-            var graph = ProjectDiscovery.LoadProjectGraph(fullSourcePath);
-            var sourceRoot = GetCommonRoot(graph.ProjectsInTopologicalOrder.Select(p => p.ProjectDirectory));
-            var projectFiles = graph.ProjectsInTopologicalOrder
-                .Select(p => p.ProjectFilePath)
-                .ToList();
-            return new UnsignedTypeSourceLayout(sourceRoot, fullSourcePath, projectFiles);
-        }
-
-        if (Directory.Exists(fullSourcePath))
-        {
-            if (ProjectDiscovery.TryResolveProjectEntry(fullSourcePath, out var entryProjectPath))
-            {
-                var graph = ProjectDiscovery.LoadProjectGraph(entryProjectPath);
-                var sourceRoot = GetCommonRoot(graph.ProjectsInTopologicalOrder.Select(p => p.ProjectDirectory));
-                var projectFiles = graph.ProjectsInTopologicalOrder
-                    .Select(p => p.ProjectFilePath)
-                    .ToList();
-
-                if (Path.GetExtension(entryProjectPath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
-                {
-                    projectFiles.Add(entryProjectPath);
-                }
-                else
-                {
-                    var slnDirs = new[] { sourceRoot, fullSourcePath };
-                    foreach (var searchDir in slnDirs)
-                    {
-                        if (!Directory.Exists(searchDir)) continue;
-                        var slnInDir = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-                        if (slnInDir != null)
-                        {
-                            projectFiles.Add(slnInDir);
-                            break;
-                        }
-                    }
-                }
-
-                return new UnsignedTypeSourceLayout(sourceRoot, fullSourcePath, projectFiles);
-            }
-
-            return new UnsignedTypeSourceLayout(fullSourcePath, fullSourcePath, Array.Empty<string>());
-        }
-
-        throw new FileNotFoundException("Source path not found.", fullSourcePath);
-    }
-
-    private static string MapToIntermediate(UnsignedTypeSourceLayout layout, string intermediateRoot)
-    {
-        if (layout.ProjectFiles.Count > 0 && Directory.Exists(layout.EntryPath))
-        {
-            return intermediateRoot;
-        }
-
-        if (File.Exists(layout.EntryPath))
-        {
-            return Path.Combine(intermediateRoot, Path.GetRelativePath(layout.SourceRoot, layout.EntryPath));
-        }
-
-        if (string.Equals(layout.SourceRoot, layout.EntryPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return intermediateRoot;
-        }
-
-        return Path.Combine(intermediateRoot, Path.GetRelativePath(layout.SourceRoot, layout.EntryPath));
-    }
-
-    private static string? ResolveRestoreTarget(string intermediateRoot, UnsignedTypeSourceLayout layout)
-    {
-        var preprocessedPath = MapToIntermediate(layout, intermediateRoot);
-        if (File.Exists(preprocessedPath) &&
-            (preprocessedPath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
-             preprocessedPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
-        {
-            return preprocessedPath;
-        }
-
-        if (Directory.Exists(preprocessedPath))
-        {
-            var sln = Directory.GetFiles(preprocessedPath, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-            if (sln != null) return sln;
-
-            var csproj = Directory.GetFiles(preprocessedPath, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
-            if (csproj != null) return csproj;
-        }
-
-        return null;
-    }
-
-    private static int RunDotNetRestore(string targetPath)
-    {
-        try
-        {
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = $"restore \"{targetPath}\" --ignore-failed-sources",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-            using var process = System.Diagnostics.Process.Start(startInfo);
-            if (process == null)
-            {
-                Console.Error.WriteLine("Failed to start dotnet restore process.");
-                return -1;
-            }
-
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
-            process.WaitForExit();
-            if (process.ExitCode != 0)
-            {
-                var output = outputTask.Result;
-                var error = errorTask.Result;
-                Console.Error.WriteLine($"dotnet restore exited with code {process.ExitCode} for {targetPath}");
-                if (!string.IsNullOrWhiteSpace(output))
-                    Console.Error.WriteLine($"stdout: {output}");
-                if (!string.IsNullOrWhiteSpace(error))
-                    Console.Error.WriteLine($"stderr: {error}");
-            }
-            return process.ExitCode;
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"dotnet restore failed: {ex.Message}");
-            return -1;
-        }
-    }
-
-    private static ProjectGraph? TryLoadProjectGraph(UnsignedTypeSourceLayout layout, bool verbose)
-    {
-        if (layout.ProjectFiles.Count == 0)
-        {
-            return null;
-        }
-
-        try
-        {
-            if (ProjectDiscovery.TryResolveProjectEntry(layout.EntryPath, out var entryPath))
-            {
-                return ProjectDiscovery.LoadProjectGraph(entryPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            if (verbose)
-            {
-                Console.Error.WriteLine($"Warning: could not load the project graph for support filtering: {ex.Message}");
-            }
-        }
-
-        return null;
-    }
-
     private static void MergeStatistics(UnsignedTypeRewriterStatistics target, UnsignedTypeRewriterStatistics source)
     {
         target.FilesScanned += source.FilesScanned;
@@ -620,50 +291,6 @@ internal static class ProjectUnsignedTypePreprocessor
         target.GenericArgsReplaced += source.GenericArgsReplaced;
     }
 
-    private static string GetCommonRoot(IEnumerable<string> paths)
-    {
-        var normalized = paths
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(Path.GetFullPath)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (normalized.Count == 0)
-        {
-            return Path.GetFullPath(".");
-        }
-
-        var commonRoot = normalized[0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        while (normalized.Any(path => !IsSameOrDescendantPath(path, commonRoot)))
-        {
-            var parent = Directory.GetParent(commonRoot);
-            if (parent == null)
-            {
-                break;
-            }
-
-            commonRoot = parent.FullName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-
-        return commonRoot;
-    }
-
-    private static bool IsSameOrDescendantPath(string path, string candidateAncestor)
-    {
-        var fullPath = Path.GetFullPath(path).TrimEnd(
-            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var fullCandidate = Path.GetFullPath(candidateAncestor).TrimEnd(
-            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        if (fullPath.Equals(fullCandidate, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return fullPath.StartsWith(fullCandidate + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-               || fullPath.StartsWith(fullCandidate + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>
     /// 数学辅助文件只写一份到中间根目录；每个实际编译被重写源文件的项目通过
     /// Compile Include + Link 引用同一物理文件，不复制本地副本。扩展类为
@@ -672,7 +299,7 @@ internal static class ProjectUnsignedTypePreprocessor
     private static async Task WriteExtensionFilesAsync(
         string intermediateRoot,
         string sourceRoot,
-        UnsignedTypeSourceLayout layout,
+        ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlyList<string> rewrittenFiles,
         ProjectGraph? projectGraph)
@@ -692,7 +319,7 @@ internal static class ProjectUnsignedTypePreprocessor
     /// （目录内默认 glob，或 csproj 显式 Compile Include 解析到被重写文件）。
     /// </summary>
     private static IReadOnlySet<string> ComputeAllExtensionHostProjectDirectories(
-        UnsignedTypeSourceLayout layout,
+        ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlyList<string> rewrittenFiles,
         ProjectGraph? projectGraph)
@@ -710,7 +337,7 @@ internal static class ProjectUnsignedTypePreprocessor
     /// （SDK 默认 glob 场景），或 csproj 的 Compile Include 解析到被重写文件。
     /// </summary>
     private static IReadOnlySet<string> ComputeProjectsCompilingRewrittenFiles(
-        UnsignedTypeSourceLayout layout,
+        ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlyList<string> rewrittenFiles)
     {
@@ -731,7 +358,7 @@ internal static class ProjectUnsignedTypePreprocessor
             }
 
             var projectDirectory = Path.GetDirectoryName(projectFile)!;
-            if (rewrittenFiles.Any(file => IsSameOrDescendantPath(file, projectDirectory)))
+            if (rewrittenFiles.Any(file => ProjectPreprocessSource.IsSameOrDescendantPath(file, projectDirectory)))
             {
                 result.Add(projectDirectory);
             }
@@ -788,7 +415,7 @@ internal static class ProjectUnsignedTypePreprocessor
     private static void EnsureExtensionCompileItems(
         string sourceRoot,
         string intermediateRoot,
-        UnsignedTypeSourceLayout layout,
+        ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlySet<string> hostProjectDirectories)
     {
@@ -905,8 +532,4 @@ internal static class ProjectUnsignedTypePreprocessor
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
-    private sealed record UnsignedTypeSourceLayout(
-        string SourceRoot,
-        string EntryPath,
-        IReadOnlyList<string> ProjectFiles);
 }

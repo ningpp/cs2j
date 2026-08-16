@@ -21,6 +21,34 @@ public final class CollectionAssert {
         }
     }
 
+    public static void areEquivalent(Iterable<?> expected, Iterable<?> actual) {
+        areEquivalent(expected, actual, null);
+    }
+
+    public static void areEquivalent(Iterable<?> expected, Iterable<?> actual, String message) {
+        var expectedList = toList(expected);
+        var actualList = toList(actual);
+        if (!areMultisetsEqual(expectedList, actualList)) {
+            throw new AssertionError(message == null || message.isEmpty()
+                ? "Expected collections to be equivalent."
+                : message);
+        }
+    }
+
+    private static boolean areMultisetsEqual(List<Object> expected, List<Object> actual) {
+        if (expected.size() != actual.size()) {
+            return false;
+        }
+
+        List<Object> remaining = new ArrayList<>(actual);
+        for (Object item : expected) {
+            if (!remaining.remove(item)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static List<Object> toList(Iterable<?> source) {
         ArrayList<Object> values = new ArrayList<>();
         for (Object item : source) {

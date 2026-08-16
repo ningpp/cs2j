@@ -746,6 +746,27 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // C# string + double/float uses .NET double.ToString() (trailing ".0"
+        // trimmed for integral values); Java's default concatenation would emit
+        // "36.0" instead of "36". Route numeric operands through DoubleHelper.
+        if (op == "+")
+        {
+            bool leftIsString = IsStringType(node.Left, context.SemanticModel);
+            bool rightIsString = IsStringType(node.Right, context.SemanticModel);
+            if (leftIsString || rightIsString)
+            {
+                if (leftIsString && !rightIsString)
+                {
+                    right = FormatDotNetNumericForStringConcat(node.Right, right, context);
+                }
+
+                if (rightIsString && !leftIsString)
+                {
+                    left = FormatDotNetNumericForStringConcat(node.Left, left, context);
+                }
+            }
+        }
+
         // Wrap operands in parentheses when needed for operator precedence
         left = WrapOperandIfNeeded(node.Left, left, op, true);
         right = WrapOperandIfNeeded(node.Right, right, op, false);
@@ -755,6 +776,21 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             return wrappedResult;
 
         return result;
+    }
+
+    private static string FormatDotNetNumericForStringConcat(
+        ExpressionSyntax operand,
+        string transformed,
+        ConversionContext context)
+    {
+        var type = context.GetTypeInfo(operand).Type;
+        if (type?.SpecialType is SpecialType.System_Double or SpecialType.System_Single)
+        {
+            context.AddImport("io.github.ningpp.compat.DoubleHelper");
+            return $"DoubleHelper.toString({transformed})";
+        }
+
+        return transformed;
     }
 
     /// <summary>

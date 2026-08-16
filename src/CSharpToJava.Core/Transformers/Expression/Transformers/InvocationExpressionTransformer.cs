@@ -2575,7 +2575,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         { RawKind: (int)SyntaxKind.StringLiteralExpression } strLit)
                 {
                     var rewrittenFormat = RewriteStringFormatLiteral(strLit.Token.ValueText);
-                    var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart + 1);
+                    var remainingArgs = string.Join(
+                        ", ",
+                        node.ArgumentList.Arguments
+                            .Skip(fmtStart + 1)
+                            .Select((arg, index) => TransformStringFormatArgument(
+                                arg,
+                                context,
+                                facade,
+                                strLit.Token.ValueText,
+                                index)));
                     return string.IsNullOrEmpty(remainingArgs)
                         ? $"String.format({rewrittenFormat})"
                         : $"String.format({rewrittenFormat}, {remainingArgs})";
@@ -2829,6 +2838,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         if (TryMapMSTestAssertInvocation(memberAccess.Expression, context, originalMethodName, methodSymbol, out var mstestAssertName))
         {
             var assertArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+            if (mstestAssertName == "throwsException"
+                && memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 } genericName
+                && TryGetExceptionClassLiteral(genericName, methodSymbol, context, facade, out var classLiteral)
+                && classLiteral != null)
+            {
+                assertArgs = string.IsNullOrEmpty(assertArgs)
+                    ? classLiteral
+                    : $"{classLiteral}, {assertArgs}";
+            }
+
             context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.Assert");
             return $"Assert.{mstestAssertName}({assertArgs})";
         }
@@ -2910,71 +2929,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if ((xunitAssertName == "throws_" || xunitAssertName == "throwsAny" || xunitAssertName == "throwsAsync")
                 && memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 } genericName)
             {
-                string? classLiteral = null;
-
-                // Prefer semantic type info when available (handles type mappings correctly).
-                if (methodSymbol?.TypeArguments.Length > 0)
+                if (TryGetExceptionClassLiteral(genericName, methodSymbol, context, facade, out var classLiteral)
+                    && classLiteral != null)
                 {
-                    var typeArg = methodSymbol.TypeArguments[0];
-                    if (typeArg is ITypeParameterSymbol typeParam)
-                    {
-                        // T is a type parameter from the enclosing method/type — cannot use T.class.
-                        // Register a Class<T> parameter requirement so MethodTransformer adds it.
-                        var currentMethod = context.CurrentMethod;
-                        if (currentMethod != null)
-                        {
-                            context.RequireClassTypeParam(currentMethod, typeParam.Name);
-                        }
-                        // GetClassLiteral now handles ITypeParameterSymbol via TryGetRuntimeClassParameter.
-                        classLiteral = ConversionContext.GetClassLiteral(typeArg, context);
-                    }
-                    else
-                    {
-                        classLiteral = ConversionContext.GetClassLiteral(typeArg, context);
-                    }
+                    assertArgs = string.IsNullOrEmpty(assertArgs)
+                        ? classLiteral
+                        : $"{classLiteral}, {assertArgs}";
                 }
-                else
-                {
-                    // Fallback: resolve the type argument syntax via Roslyn's semantic model.
-                    var typeArgSyntax = genericName.TypeArgumentList.Arguments[0];
-                    var typeArgSymbol = context.GetTypeInfo(typeArgSyntax).Type;
-                    if (typeArgSymbol != null)
-                    {
-                        if (typeArgSymbol is ITypeParameterSymbol typeParam)
-                        {
-                            var currentMethod = context.CurrentMethod;
-                            if (currentMethod != null)
-                            {
-                                context.RequireClassTypeParam(currentMethod, typeParam.Name);
-                            }
-                        }
-                        classLiteral = ConversionContext.GetClassLiteral(typeArgSymbol, context);
-                    }
-                    else
-                    {
-                        // Last resort: transform the type syntax directly and append .class.
-                        var mappedType = facade.Transform(typeArgSyntax, context);
-                        classLiteral = $"{mappedType}.class";
-                    }
-                }
-
-                // A Class<T> argument that is a bare type-parameter reference (e.g.
-                // tExceptionClass) cannot bind T in throws_(Class<T>, ...) — javac
-                // infers a capture type and rejects it. Widen through Class<?>.
-                // Runtime Class parameters (_cs2j_T) already carry the exact type.
-                if (classLiteral != null
-                    && !classLiteral.StartsWith("_cs2j_", StringComparison.Ordinal)
-                    && !classLiteral.Contains('.')
-                    && !classLiteral.EndsWith(".class", StringComparison.Ordinal)
-                    && !classLiteral.EndsWith(")", StringComparison.Ordinal))
-                {
-                    context.AddImport("java.lang.Throwable");
-                    classLiteral = $"((Class<Throwable>) (Class<?>) {classLiteral})";
-                }
-
-                assertArgs = string.IsNullOrEmpty(assertArgs)
-                    ? classLiteral
-                    : $"{classLiteral}, {assertArgs}";
             }
 
             return $"Assert.{xunitAssertName}({assertArgs})";
@@ -2996,7 +2957,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     { RawKind: (int)SyntaxKind.StringLiteralExpression } strLit)
             {
                 var rewrittenFormat = RewriteStringFormatLiteral(strLit.Token.ValueText);
-                var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, fmtStart + 1);
+                var remainingArgs = string.Join(
+                    ", ",
+                    node.ArgumentList.Arguments
+                        .Skip(fmtStart + 1)
+                        .Select((arg, index) => TransformStringFormatArgument(
+                            arg,
+                            context,
+                            facade,
+                            strLit.Token.ValueText,
+                            index)));
                 return string.IsNullOrEmpty(remainingArgs)
                     ? $"String.format({rewrittenFormat})"
                     : $"String.format({rewrittenFormat}, {remainingArgs})";
@@ -5337,7 +5307,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (firstArg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } strLit)
             {
                 var rewrittenFormat = RewriteStringFormatLiteral(strLit.Token.ValueText);
-                var remainingArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex + 1);
+                var remainingArgs = string.Join(
+                    ", ",
+                    node.ArgumentList.Arguments
+                        .Skip(argStartIndex + 1)
+                        .Select((arg, index) => TransformStringFormatArgument(
+                            arg,
+                            context,
+                            facade,
+                            strLit.Token.ValueText,
+                            index)));
                 var formatCall = string.IsNullOrEmpty(remainingArgs)
                     ? $"{receiver}.{methodName}({rewrittenFormat})"
                     : $"{receiver}.{methodName}({rewrittenFormat}, {remainingArgs})";
@@ -5355,6 +5334,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         {
             var firstArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
             var secondArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
+            if (context.GetTypeInfo(node.ArgumentList.Arguments[argStartIndex].Expression).Type
+                is IArrayTypeSymbol firstArrayType)
+            {
+                firstArg = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(
+                    firstArg,
+                    firstArrayType,
+                    context);
+            }
             if ((firstArg.Contains("IntStream.range(", StringComparison.Ordinal)
                  || firstArg.Contains(".stream(", StringComparison.Ordinal)
                  || firstArg.Contains("StreamSupport.stream(", StringComparison.Ordinal))
@@ -5449,8 +5436,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         {
             var writeArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex, methodSymbol);
             if (string.IsNullOrEmpty(writeArgs))
-                return $"{receiver}.{methodName}(\"\\n\")";
-            return $"{receiver}.{methodName}({writeArgs} + \"\\n\")";
+                return $"{receiver}.{methodName}(System.lineSeparator())";
+            return $"{receiver}.{methodName}({writeArgs} + System.lineSeparator())";
         }
 
         // StringWriter declared as TextWriter (polymorphic): TextWriter.WriteLine
@@ -5464,8 +5451,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         {
             var writeArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, argStartIndex, methodSymbol);
             if (string.IsNullOrEmpty(writeArgs))
-                return $"{receiver}.write(\"\\n\")";
-            return $"{receiver}.write({writeArgs} + \"\\n\")";
+                return $"{receiver}.write(System.lineSeparator())";
+            return $"{receiver}.write({writeArgs} + System.lineSeparator())";
         }
 
         // ── Static Enumerable methods (Range, Repeat, Empty) ──────────────────
@@ -7441,7 +7428,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             || trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
-            || trimmed.StartsWith("IntStream.range(", StringComparison.Ordinal);
+            || (trimmed.StartsWith("IntStream.range(", StringComparison.Ordinal)
+                && trimmed.Contains(".boxed()", StringComparison.Ordinal)
+                && trimmed.Contains(".collect(", StringComparison.Ordinal));
     }
 
     private static string CoerceXmlFactoryReaderWriterArgument(
@@ -9183,6 +9172,112 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         return false;
     }
 
+    private static bool TryGetExceptionClassLiteral(
+        GenericNameSyntax genericName,
+        IMethodSymbol? methodSymbol,
+        ConversionContext context,
+        IExpressionTransformer facade,
+        out string? classLiteral)
+    {
+        classLiteral = null;
+        if (genericName.TypeArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        // Prefer semantic type info when available (handles type mappings correctly).
+        if (methodSymbol?.TypeArguments.Length > 0)
+        {
+            var typeArg = methodSymbol.TypeArguments[0];
+            if (typeArg is ITypeParameterSymbol typeParam)
+            {
+                // T is a type parameter from the enclosing method/type — cannot use T.class.
+                // Register a Class<T> parameter requirement so MethodTransformer adds it.
+                var currentMethod = context.CurrentMethod;
+                if (currentMethod != null)
+                {
+                    context.RequireClassTypeParam(currentMethod, typeParam.Name);
+                }
+
+                // GetClassLiteral now handles ITypeParameterSymbol via TryGetRuntimeClassParameter.
+                classLiteral = ConversionContext.GetClassLiteral(typeArg, context);
+            }
+            else
+            {
+                classLiteral = ConversionContext.GetClassLiteral(typeArg, context);
+            }
+        }
+        else
+        {
+            // Fallback: resolve the type argument syntax via Roslyn's semantic model.
+            var typeArgSyntax = genericName.TypeArgumentList.Arguments[0];
+            var typeArgSymbol = context.GetTypeInfo(typeArgSyntax).Type;
+            if (typeArgSymbol != null)
+            {
+                if (typeArgSymbol is ITypeParameterSymbol typeParam)
+                {
+                    var currentMethod = context.CurrentMethod;
+                    if (currentMethod != null)
+                    {
+                        context.RequireClassTypeParam(currentMethod, typeParam.Name);
+                    }
+                }
+
+                classLiteral = ConversionContext.GetClassLiteral(typeArgSymbol, context);
+            }
+            else
+            {
+                // Last resort: transform the type syntax directly and append .class.
+                var mappedType = facade.Transform(typeArgSyntax, context);
+                classLiteral = $"{mappedType}.class";
+            }
+        }
+
+        if (classLiteral == null)
+        {
+            return false;
+        }
+
+        // A Class<T> argument that is a bare type-parameter reference (e.g.
+        // tExceptionClass) cannot bind T in throws_(Class<T>, ...) — javac
+        // infers a capture type and rejects it. Widen through Class<?>.
+        // Runtime Class parameters (_cs2j_T) already carry the exact type.
+        if (!classLiteral.StartsWith("_cs2j_", StringComparison.Ordinal)
+            && !classLiteral.Contains('.')
+            && !classLiteral.EndsWith(".class", StringComparison.Ordinal)
+            && !classLiteral.EndsWith(")", StringComparison.Ordinal))
+        {
+            context.AddImport("java.lang.Throwable");
+            classLiteral = $"((Class<Throwable>) (Class<?>) {classLiteral})";
+        }
+
+        return true;
+    }
+
+    private static string TransformStringFormatArgument(
+        ArgumentSyntax argument,
+        ConversionContext context,
+        IExpressionTransformer facade,
+        string formatLiteral,
+        int argumentIndex)
+    {
+        var transformed = facade.Transform(argument.Expression, context);
+        if (context.GetTypeInfo(argument.Expression).Type?.SpecialType
+            is SpecialType.System_Double or SpecialType.System_Single)
+        {
+            // Only plain "{N}" placeholders (no format specifier) need .NET double
+            // formatting. "{N:F2}" is rewritten to a Java %f specifier and must
+            // keep the raw numeric argument.
+            if (formatLiteral.Contains("{" + argumentIndex + "}", StringComparison.Ordinal))
+            {
+                context.AddImport("io.github.ningpp.compat.DoubleHelper");
+                return $"DoubleHelper.toString({transformed})";
+            }
+        }
+
+        return transformed;
+    }
+
     private static bool TryMapMSTestAssertInvocation(
         ExpressionSyntax receiverExpression,
         ConversionContext context,
@@ -9215,6 +9310,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             "IsNull" => "isNull",
             "IsNotNull" => "isNotNull",
             "Fail" => "fail",
+            "ThrowsException" => "throwsException",
             _ => string.Empty,
         };
 
