@@ -48,6 +48,17 @@ class VisualTreeHelperTest {
         assertTrue(dpi.getPixelsPerDip() > 0);
     }
 
+    @Test
+    void renderTransform_defaultsToIdentityMatrixTransform() {
+        Canvas canvas = new Canvas();
+
+        Transform transform = canvas.getRenderTransform();
+
+        assertNotNull(transform, "WPF UIElement.RenderTransform defaults to identity");
+        assertInstanceOf(MatrixTransform.class, transform);
+        assertTrue(((MatrixTransform) transform).getMatrix().isIdentity());
+    }
+
     private static Visual canvas() {
         return new Canvas();
     }

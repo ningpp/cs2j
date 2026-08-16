@@ -23,4 +23,8 @@ public class CommandBinding {
     public RoutedUICommand getCommand() {
         return command;
     }
+
+    public ExecutedRoutedEventHandler getExecuted() {
+        return executed;
+    }
 }

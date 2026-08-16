@@ -24,6 +24,31 @@ class CanvasPanelTest {
     }
 
     @Test
+    void childrenCollection_addSetsVisualParent() {
+        Canvas canvas = new Canvas();
+        Rectangle r = new Rectangle();
+
+        canvas.getChildren().add(r);
+
+        assertTrue(canvas.getChildren().contains(r));
+        assertEquals(1, canvas.getVisualChildrenCount());
+        assertSame(canvas, r.getParent(), "Children.Add must register the visual parent like WPF");
+    }
+
+    @Test
+    void childrenCollection_removeClearsVisualParent() {
+        Canvas canvas = new Canvas();
+        Rectangle r = new Rectangle();
+        canvas.getChildren().add(r);
+
+        canvas.getChildren().remove(r);
+
+        assertEquals(0, canvas.getChildrenCount());
+        assertEquals(0, canvas.getVisualChildrenCount());
+        assertNull(r.getParent());
+    }
+
+    @Test
     void clearChildren() {
         Canvas canvas = new Canvas();
         canvas.addChild(new Rectangle());

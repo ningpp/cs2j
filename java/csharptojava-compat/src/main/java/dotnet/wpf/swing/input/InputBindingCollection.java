@@ -13,4 +13,14 @@ public class InputBindingCollection {
     public void add(InputBinding binding) {
         bindings.add(binding);
     }
+
+    public InputBinding find(Key key, int modifiers) {
+        for (InputBinding binding : bindings) {
+            KeyGesture gesture = binding.getGesture();
+            if (gesture != null && gesture.getKey() == key && gesture.getModifiers() == modifiers) {
+                return binding;
+            }
+        }
+        return null;
+    }
 }

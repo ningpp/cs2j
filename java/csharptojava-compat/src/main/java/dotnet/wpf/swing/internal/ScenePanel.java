@@ -16,15 +16,22 @@ import dotnet.wpf.swing.controls.ContextMenu;
 import dotnet.wpf.swing.controls.ContextMenuService;
 import dotnet.wpf.swing.controls.DockPanel;
 import dotnet.wpf.swing.controls.Image;
+import dotnet.wpf.swing.controls.Menu;
 import dotnet.wpf.swing.controls.MenuItem;
 import dotnet.wpf.swing.controls.Panel;
+import dotnet.wpf.swing.controls.StatusBar;
 import dotnet.wpf.swing.controls.TextBlock;
 import dotnet.wpf.swing.controls.TextBox;
 import dotnet.wpf.swing.controls.TextBoxBase;
+import dotnet.wpf.swing.controls.ToolBar;
 import dotnet.wpf.swing.controls.Viewbox;
+import dotnet.wpf.swing.input.CommandBinding;
+import dotnet.wpf.swing.input.ExecutedRoutedEventArgs;
+import dotnet.wpf.swing.input.InputBinding;
 import dotnet.wpf.swing.input.Key;
 import dotnet.wpf.swing.input.KeyEventArgs;
 import dotnet.wpf.swing.input.Keyboard;
+import dotnet.wpf.swing.input.ModifierKeys;
 import dotnet.wpf.swing.input.MouseButton;
 import dotnet.wpf.swing.input.MouseButtonEventArgs;
 import dotnet.wpf.swing.input.MouseButtonState;
@@ -57,6 +64,7 @@ import dotnet.wpf.swing.media.Stretch;
 import dotnet.wpf.swing.shapes.Shape;
 
 import javax.swing.JComponent;
+import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.event.PopupMenuEvent;
@@ -420,6 +428,8 @@ public final class ScenePanel extends JComponent {
             }
         } else if (e instanceof DockPanel) {
             layoutDock((DockPanel) e, x, y, w, h);
+        } else if (e instanceof ToolBar || e instanceof StatusBar || e instanceof Menu) {
+            layoutHorizontal((Panel) e, x, y, w, h);
         } else if (e instanceof Border) {
             Border b = (Border) e;
             Thickness pad = b.getPadding() == null ? new Thickness(0) : b.getPadding();
@@ -488,6 +498,21 @@ public final class ScenePanel extends JComponent {
                 y += ch;
                 remainingH -= ch;
             }
+        }
+    }
+
+    private void layoutHorizontal(Panel bar, double x, double y, double w, double h) {
+        double cursor = x;
+        double remaining = w;
+        for (UIElement child : bar.getChildren()) {
+            if (child == null || !child.getIsVisible()) {
+                continue;
+            }
+            Size s = measureChild(child, remaining, h);
+            double cw = Math.min(s.getWidth(), Math.max(0, remaining));
+            layoutElement(child, cursor, y, cw, Math.max(0, h));
+            cursor += cw;
+            remaining -= cw;
         }
     }
 
@@ -584,6 +609,8 @@ public final class ScenePanel extends JComponent {
             drawTextBlock((TextBlock) e, w, h, g);
         } else if (e instanceof TextBoxBase) {
             drawTextBox((TextBoxBase) e, w, h, g);
+        } else if (e instanceof MenuItem) {
+            drawMenuItem((MenuItem) e, w, h, g);
         } else if (e instanceof Image) {
             drawImage((Image) e, w, h, g);
         } else if (e instanceof Shape) {
@@ -671,6 +698,21 @@ public final class ScenePanel extends JComponent {
             int caret = Math.max(0, Math.min(box.getCaretIndex(), text.length()));
             int x = 3 + fm.stringWidth(text.substring(0, caret));
             g.drawLine(x, 2, x, (int) Math.max(4, h - 2));
+        }
+    }
+
+    private void drawMenuItem(MenuItem item, double w, double h, Graphics2D g) {
+        g.setColor(new Color(240, 240, 240));
+        g.fillRect(0, 0, (int) Math.ceil(w), (int) Math.ceil(h));
+        g.setColor(Color.GRAY);
+        g.drawRect(0, 0, (int) Math.ceil(w) - 1, (int) Math.ceil(h) - 1);
+        g.setFont(new Font(Font.DIALOG, Font.PLAIN, 12));
+        g.setColor(DEFAULT_FOREGROUND);
+        String text = item.getHeader() == null ? "" : String.valueOf(item.getHeader());
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(text, 7, fm.getAscent() + Math.max(0, (int) ((h - fm.getHeight()) / 2)));
+        if (item.getItems().getCount() > 0) {
+            g.drawString("\u203A", (int) Math.max(0, w - 14), fm.getAscent() + Math.max(0, (int) ((h - fm.getHeight()) / 2)));
         }
     }
 
@@ -892,13 +934,60 @@ public final class ScenePanel extends JComponent {
             return;
         }
         if (e.getButton() == MouseEvent.BUTTON1) {
+            if (hit instanceof MenuItem) {
+                MenuItem menuItem = (MenuItem) hit;
+                if (menuItem.getItems().getCount() > 0) {
+                    showMenuItems(menuItem, menuItem.getItems().getItems(), e);
+                    return;
+                }
+            }
             requestFocusOn(hit);
             hit.raiseMouseLeftButtonDown(mouseButtonArgs(hit, e, MouseButton.Left, MouseButtonState.Pressed));
+            if (hit instanceof MenuItem) {
+                executeCommand((MenuItem) hit);
+            }
         } else if (e.getButton() == MouseEvent.BUTTON3) {
             hit.raiseMouseRightButtonDown(mouseButtonArgs(hit, e, MouseButton.Right, MouseButtonState.Pressed));
             showContextMenu(hit, e);
         }
         Mouse.captureIf(hit);
+    }
+
+    private void showMenuItems(UIElement anchor, java.util.List<?> items, MouseEvent e) {
+        JPopupMenu popup = new JPopupMenu();
+        addMenuItems(popup, items);
+        popup.show(this, e.getX(), e.getY());
+    }
+
+    private void addMenuItems(JComponent parent, java.util.List<?> items) {
+        for (Object item : items) {
+            if (item instanceof MenuItem) {
+                MenuItem menuItem = (MenuItem) item;
+                if (menuItem.getItems().getCount() > 0) {
+                    JMenu sub = new JMenu(String.valueOf(menuItem.getHeader()));
+                    addMenuItems(sub, menuItem.getItems().getItems());
+                    parent.add(sub);
+                } else {
+                    JMenuItem leaf = new JMenuItem(String.valueOf(menuItem.getHeader()));
+                    leaf.addActionListener(ev -> executeCommand(menuItem));
+                    parent.add(leaf);
+                }
+            } else if (item != null) {
+                parent.add(new JMenuItem(String.valueOf(item)));
+            }
+        }
+    }
+
+    private void executeCommand(MenuItem menuItem) {
+        Object command = menuItem.getCommand();
+        if (!(command instanceof dotnet.wpf.swing.input.RoutedUICommand) || owner == null) {
+            return;
+        }
+        CommandBinding binding = owner.getCommandBindings().find(
+                (dotnet.wpf.swing.input.RoutedUICommand) command);
+        if (binding != null && binding.getExecuted() != null) {
+            binding.getExecuted().accept(menuItem, new ExecutedRoutedEventArgs());
+        }
     }
 
     private void onMouseReleased(MouseEvent e) {
@@ -1024,13 +1113,45 @@ public final class ScenePanel extends JComponent {
 
     private void onKeyPressed(KeyEvent e) {
         if (focusedElement == null) {
+            if (owner != null && handleInputBinding(e)) {
+                e.consume();
+            }
             return;
         }
         KeyEventArgs args = new KeyEventArgs();
         args.setKey(Key.fromAwtKeyCode(e.getKeyCode()));
         args.setSource(focusedElement);
+        if (owner != null && handleInputBinding(e)) {
+            e.consume();
+            return;
+        }
         focusedElement.raiseKeyDown(args);
         handleTextBoxKey(focusedElement, e);
+    }
+
+    private boolean handleInputBinding(KeyEvent e) {
+        int modifiers = 0;
+        if (e.isControlDown()) {
+            modifiers |= ModifierKeys.Control;
+        }
+        if (e.isShiftDown()) {
+            modifiers |= ModifierKeys.Shift;
+        }
+        if (e.isAltDown()) {
+            modifiers |= ModifierKeys.Alt;
+        }
+        InputBinding binding = owner.getInputBindings().find(
+                Key.fromAwtKeyCode(e.getKeyCode()), modifiers);
+        if (binding == null) {
+            return false;
+        }
+        CommandBinding commandBinding = owner.getCommandBindings().find(binding.getCommand());
+        if (commandBinding != null && commandBinding.getExecuted() != null) {
+            commandBinding.getExecuted().accept(
+                    focusedElement != null ? focusedElement : owner, new ExecutedRoutedEventArgs());
+            return true;
+        }
+        return false;
     }
 
     private void onKeyReleased(KeyEvent e) {

@@ -284,7 +284,7 @@ public class Application {
     }
 
     public static void loadComponent(Window window, Object resourceLocator) {
-        // XAML resource loading is not supported in the Swing-backed compat layer.
+        dotnet.wpf.swing.internal.XamlLoader.loadComponent(window, resourceLocator);
     }
 
     private void raiseStartup(StartupEventArgs e) {

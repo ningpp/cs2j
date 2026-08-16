@@ -4,7 +4,6 @@ import dotnet.wpf.swing.FrameworkElement;
 import dotnet.wpf.swing.UIElement;
 import dotnet.wpf.swing.media.Brush;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -12,7 +11,7 @@ import java.util.List;
  */
 public abstract class Panel extends FrameworkElement {
 
-    protected final List<UIElement> children = new ArrayList<>();
+    protected final UIElementCollection children = new UIElementCollection(this);
     private Brush background;
 
     public Brush getBackground() {
@@ -33,22 +32,15 @@ public abstract class Panel extends FrameworkElement {
 
     public void addChild(UIElement child) {
         children.add(child);
-        if (child != null) {
-            addVisualChild(child);
-        }
         dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public void removeChild(UIElement child) {
         children.remove(child);
-        if (child != null) {
-            removeVisualChild(child);
-        }
         dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }
 
     public void clearChildren() {
-        clearVisualChildren();
         children.clear();
         dotnet.wpf.swing.internal.ScenePanel.refresh(this);
     }

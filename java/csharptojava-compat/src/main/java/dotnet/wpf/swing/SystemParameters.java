@@ -9,9 +9,16 @@ public final class SystemParameters {
     }
 
     public static Rect getWorkArea() {
-        java.awt.Rectangle bounds = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
-                .getMaximumWindowBounds();
-        return new Rect(0, 0, bounds.getWidth(), bounds.getHeight());
+        if (java.awt.GraphicsEnvironment.isHeadless()) {
+            return new Rect(0, 0, 800, 600);
+        }
+        try {
+            java.awt.Rectangle bounds = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+                    .getMaximumWindowBounds();
+            return new Rect(0, 0, bounds.getWidth(), bounds.getHeight());
+        } catch (java.awt.HeadlessException e) {
+            return new Rect(0, 0, 800, 600);
+        }
     }
 
     public static double getPrimaryScreenWidth() {

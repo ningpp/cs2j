@@ -12,7 +12,7 @@ import java.util.List;
  */
 public abstract class Visual {
 
-    private Transform renderTransform;
+    private Transform renderTransform = new MatrixTransform();
     private final List<Visual> visualChildren = new ArrayList<>();
     private Visual visualParent;
 

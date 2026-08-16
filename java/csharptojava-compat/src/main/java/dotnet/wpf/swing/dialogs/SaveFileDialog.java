@@ -4,6 +4,6 @@ package dotnet.wpf.swing.dialogs;
 public class SaveFileDialog extends FileDialog {
 
     public boolean showDialog() {
-        return true;
+        return showChooser(true);
     }
 }

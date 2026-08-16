@@ -14,6 +14,6 @@ public class OpenFileDialog extends FileDialog {
     }
 
     public boolean showDialog() {
-        return true;
+        return showChooser(false);
     }
 }

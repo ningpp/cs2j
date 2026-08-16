@@ -53,6 +53,19 @@ class InputTest {
     }
 
     @Test
+    void inputBindingCollection_findsByKeyAndModifiers() {
+        RoutedUICommand command = new RoutedUICommand("Open", "OpenFileCommand", InputTest.class);
+        InputBindingCollection bindings = new InputBindingCollection();
+        bindings.add(new InputBinding(command, new KeyGesture(Key.O, ModifierKeys.Control)));
+
+        InputBinding found = bindings.find(Key.O, ModifierKeys.Control);
+
+        assertNotNull(found);
+        assertSame(command, found.getCommand());
+        assertNull(bindings.find(Key.O, ModifierKeys.None));
+    }
+
+    @Test
     void mouse_capture() {
         Object el = new Object();
         assertTrue(Mouse.capture(el));

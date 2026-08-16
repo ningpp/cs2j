@@ -1,0 +1,8 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Test" Width="640" Height="480">
+    <DockPanel Name="dockPanel">
+        <TextBox Name="_searchBox" Text="Find" Width="156" Height="23"/>
+        <DockPanel Name="graphViewerPanel" Background="Gray"/>
+    </DockPanel>
+</Window>

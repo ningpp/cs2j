@@ -14,6 +14,10 @@ public class ItemCollection {
         items.add(item);
     }
 
+    public java.util.List<Object> getItems() {
+        return items;
+    }
+
     public int getCount() {
         return items.size();
     }

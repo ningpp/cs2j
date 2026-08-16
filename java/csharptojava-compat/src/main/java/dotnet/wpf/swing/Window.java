@@ -288,7 +288,11 @@ public class Window extends ContentControl {
             raiseDeactivated();
         }
         if (frame != null) {
-            UiLoop.get().invokeAndWait(() -> frame.setVisible(false));
+            UiLoop.get().invokeAndWait(() -> {
+                frame.setVisible(false);
+                frame.dispose();
+            });
+            frame = null;
         }
     }
 

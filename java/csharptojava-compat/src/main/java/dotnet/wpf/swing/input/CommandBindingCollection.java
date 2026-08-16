@@ -13,4 +13,17 @@ public class CommandBindingCollection {
     public void add(CommandBinding binding) {
         bindings.add(binding);
     }
+
+    public CommandBinding find(RoutedUICommand command) {
+        for (CommandBinding binding : bindings) {
+            if (binding.getCommand() == command) {
+                return binding;
+            }
+        }
+        return null;
+    }
+
+    public List<CommandBinding> getBindings() {
+        return bindings;
+    }
 }
