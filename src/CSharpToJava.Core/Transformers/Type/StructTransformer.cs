@@ -493,7 +493,10 @@ public class StructTransformer : ITypeTransformer
     /// Java final fields allow a single assignment per constructor path. Whole-instance
     /// reassignment expansions (`this = expr` → per-field copies, also emitted as
     /// `__inst.f = ...` inside static factory conversions) can leave a field assigned
-    /// twice; drop final from such fields so the code compiles.
+    /// twice, and a field assigned only inside nested control flow (e.g. an `if`
+    /// block) is not definitely assigned on every path; drop final from such fields
+    /// so the code compiles. Value classes cannot carry non-final instance fields,
+    /// so a value class with any such field falls back to a regular class.
     /// </summary>
     private static void DropFinalFromRepeatedlyAssignedFields(JavaClassDeclaration javaClass)
     {
@@ -541,11 +544,116 @@ public class StructTransformer : ITypeTransformer
                     repeated.Add(field.Name);
             }
         }
+
+        // Fields whose only assignments are inside nested control-flow blocks
+        // (if/switch/loop) may not be definitely assigned on every constructor
+        // path. A conservative top-level-assignment check drops final for them
+        // too; otherwise javac reports "variable might not have been initialized".
+        foreach (var ctor in javaClass.Constructors)
+        {
+            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
+            foreach (var field in javaClass.Fields)
+            {
+                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
+                if (repeated.Contains(field.Name)) continue;
+
+                var escaped = System.Text.RegularExpressions.Regex.Escape(field.Name);
+                var qualified = $@"(?:this|__inst)\.{escaped}\s*=";
+                var matches = System.Text.RegularExpressions.Regex.Matches(body, qualified)
+                    .Cast<System.Text.RegularExpressions.Match>()
+                    .ToList();
+
+                var hasShadowLocal = System.Text.RegularExpressions.Regex.IsMatch(body,
+                    $@"(?:var|[A-Za-z_][\w<>,\s\.\[\]]*?)\s+{escaped}\s*=");
+                if (!hasShadowLocal)
+                {
+                    matches.AddRange(System.Text.RegularExpressions.Regex.Matches(
+                        body,
+                        $@"(?<![\w.]){escaped}\s*=")
+                        .Cast<System.Text.RegularExpressions.Match>());
+                }
+
+                if (matches.Count == 0) continue;
+
+                var hasTopLevelAssignment = matches.Any(m => BraceDepthAt(body, m.Index) == 0);
+                var hasNestedAssignment = matches.Any(m => BraceDepthAt(body, m.Index) > 0);
+                if (hasNestedAssignment && !hasTopLevelAssignment)
+                    repeated.Add(field.Name);
+            }
+        }
+
         foreach (var field in javaClass.Fields)
         {
             if (repeated.Contains(field.Name))
                 field.Modifiers &= ~JavaModifiers.Final;
         }
+
+        // Java value classes (JEP 401) require final instance fields even when the
+        // field is not explicitly marked final. If any instance field had to lose
+        // final above, the struct cannot be emitted as a value class; fall back to
+        // a regular class (the readonly-struct clone-based codegen is unchanged).
+        if (javaClass.IsValueClass)
+        {
+            var anyNonFinalInstanceField = javaClass.Fields.Any(f =>
+                (f.Modifiers & JavaModifiers.Static) == 0 &&
+                (f.Modifiers & JavaModifiers.Final) == 0);
+            if (anyNonFinalInstanceField)
+                javaClass.IsValueClass = false;
+        }
+    }
+
+    private static int BraceDepthAt(string body, int position)
+    {
+        int depth = 0;
+        bool inLineComment = false;
+        bool inBlockComment = false;
+        bool inString = false;
+        bool inChar = false;
+        bool escaped = false;
+
+        for (int i = 0; i < position && i < body.Length; i++)
+        {
+            char c = body[i];
+            char next = i + 1 < body.Length ? body[i + 1] : '\0';
+
+            if (inLineComment)
+            {
+                if (c == '\n') inLineComment = false;
+                continue;
+            }
+            if (inBlockComment)
+            {
+                if (c == '*' && next == '/')
+                {
+                    inBlockComment = false;
+                    i++;
+                }
+                continue;
+            }
+            if (inString)
+            {
+                if (escaped) { escaped = false; continue; }
+                if (c == '\\') { escaped = true; continue; }
+                if (c == '"') inString = false;
+                continue;
+            }
+            if (inChar)
+            {
+                if (escaped) { escaped = false; continue; }
+                if (c == '\\') { escaped = true; continue; }
+                if (c == '\'') inChar = false;
+                continue;
+            }
+
+            if (c == '/' && next == '/') { inLineComment = true; i++; continue; }
+            if (c == '/' && next == '*') { inBlockComment = true; i++; continue; }
+            if (c == '"') { inString = true; continue; }
+            if (c == '\'') { inChar = true; continue; }
+            if (c == '{') depth++;
+            else if (c == '}') depth--;
+        }
+
+        return depth;
     }
 
     /// <summary>
