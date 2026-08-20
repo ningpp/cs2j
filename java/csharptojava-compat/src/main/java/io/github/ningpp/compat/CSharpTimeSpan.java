@@ -71,6 +71,16 @@ public final class CSharpTimeSpan implements Comparable<CSharpTimeSpan> {
 
     public static CSharpTimeSpan add(CSharpTimeSpan left, CSharpTimeSpan right) { return left.add(right); }
     public static CSharpTimeSpan subtract(CSharpTimeSpan left, CSharpTimeSpan right) { return left.subtract(right); }
+    public static CSharpTimeSpan multiply(CSharpTimeSpan value, double factor) {
+        if (Double.isNaN(factor)) {
+            throw new IllegalArgumentException("TimeSpan factor cannot be NaN.");
+        }
+        double scaledTicks = value.ticks * factor;
+        if (Double.isInfinite(scaledTicks) || scaledTicks > Long.MAX_VALUE || scaledTicks < Long.MIN_VALUE) {
+            throw new ArithmeticException("TimeSpan overflowed because the duration is too long.");
+        }
+        return new CSharpTimeSpan(Math.round(scaledTicks));
+    }
 
     @Override
     public int compareTo(CSharpTimeSpan other) { return Long.compare(ticks, other.ticks); }

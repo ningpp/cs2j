@@ -15,6 +15,15 @@ public class DirectoryInfo {
         this.path = Paths.get(path);
     }
 
+    public String getFullName() {
+        return path.toAbsolutePath().normalize().toString();
+    }
+
+    public DirectoryInfo getParent() {
+        Path parent = path.getParent();
+        return parent == null ? null : new DirectoryInfo(parent.toString());
+    }
+
     public static boolean exists(String path) {
         return Files.exists(Paths.get(path));
     }
@@ -114,6 +123,24 @@ public class DirectoryInfo {
             throw new UncheckedIOException(e);
         }
         return result.toArray(String[]::new);
+    }
+
+    public static String[] getFiles(String directory, String searchPattern, boolean recursive) {
+        if (!recursive) return getFiles(directory, searchPattern);
+        ArrayList<String> result = new ArrayList<>();
+        String glob = searchPattern == null || searchPattern.isEmpty() ? "*" : searchPattern;
+        try (var stream = Files.walk(Paths.get(directory))) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().matches(globToRegex(glob)))
+                .forEach(path -> result.add(path.toString()));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return result.toArray(String[]::new);
+    }
+
+    private static String globToRegex(String glob) {
+        return glob.replace(".", "\\.").replace("*", ".*").replace("?", ".");
     }
 
     /** C# Directory.CreateDirectory(path). */

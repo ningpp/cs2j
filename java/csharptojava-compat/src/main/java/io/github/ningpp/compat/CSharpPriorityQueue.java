@@ -56,6 +56,19 @@ public class CSharpPriorityQueue<E, P> {
         return entry.element;
     }
 
+    /** Mirrors PriorityQueue.TryDequeue(out int element, out double priority). */
+    public boolean tryDequeue(IntHolder element, DoubleHolder priority) {
+        PriorityEntry<E, P> entry = pq.poll();
+        if (entry == null) {
+            element.value = 0;
+            priority.value = 0.0;
+            return false;
+        }
+        element.value = ((Number) entry.element).intValue();
+        priority.value = ((Number) entry.priority).doubleValue();
+        return true;
+    }
+
     public E tryPeek() {
         PriorityEntry<E, P> entry = pq.peek();
         if (entry == null) {

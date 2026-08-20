@@ -35,6 +35,21 @@ public final class CollectionAssert {
         }
     }
 
+    public static void contains(Iterable<?> collection, Object element) {
+        for (Object item : collection) {
+            if (Objects.equals(item, element)) {
+                return;
+            }
+        }
+        throw new AssertionError("Expected collection to contain the specified element.");
+    }
+
+    public static void areNotEqual(Iterable<?> notExpected, Iterable<?> actual) {
+        if (Objects.equals(toList(notExpected), toList(actual))) {
+            throw new AssertionError("Expected collections to be different.");
+        }
+    }
+
     private static boolean areMultisetsEqual(List<Object> expected, List<Object> actual) {
         if (expected.size() != actual.size()) {
             return false;

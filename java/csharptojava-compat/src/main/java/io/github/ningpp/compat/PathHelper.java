@@ -37,6 +37,15 @@ public class PathHelper {
         if (Paths.get(path2).isAbsolute()) return path2;
         return Paths.get(path1, path2).toString();
     }
+    /** Mirrors Path.Combine(params string[] paths). */
+    public static String combine(String... paths) {
+        if (paths == null || paths.length == 0) return "";
+        String combined = "";
+        for (String path : paths) {
+            combined = combine(combined, path);
+        }
+        return combined;
+    }
     /** Mirrors Path.GetExtension */
     public static String getExtension(String path) {        String name = getFileName(path);
         if (name == null) return null;

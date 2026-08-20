@@ -173,6 +173,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                         return fallbackResult;
                 }
             }
+
+            var compatComparison = TryTransformCompatComparison(binExpr, op, context);
+            if (compatComparison != null)
+                return new JavaRawExpression(compatComparison);
         }
 
         // Check for string equality (needs Objects.equals) → JavaMethodCallExpression
@@ -513,6 +517,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                         return fallbackResult;
                 }
             }
+
+            var compatComparison = TryTransformCompatComparison(node, op, context);
+            if (compatComparison != null)
+                return compatComparison;
         }
 
         // Handle enum arithmetic operators (+, -, *, /, %).
@@ -888,6 +896,33 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
 
     private static bool IsComparisonOp(string op) => op is "<" or ">" or "<=" or ">=";
+
+    /// <summary>
+    /// Java has no relational operators for objects. System.TimeSpan maps to
+    /// CSharpTimeSpan, so its C# relational operators must become compareTo calls.
+    /// </summary>
+    private string? TryTransformCompatComparison(
+        BinaryExpressionSyntax node,
+        string op,
+        ConversionContext context)
+    {
+        if (context.Options.TargetLanguage != TargetLanguage.Java || !IsComparisonOp(op))
+            return null;
+
+        var semanticModel = context.GetSemanticModelForNode(node) ?? context.SemanticModel;
+        if (semanticModel == null)
+            return null;
+
+        var leftType = semanticModel.GetTypeInfo(node.Left).Type?.ToDisplayString();
+        var rightType = semanticModel.GetTypeInfo(node.Right).Type?.ToDisplayString();
+        if (leftType is not "System.TimeSpan" && rightType is not "System.TimeSpan")
+            return null;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, context);
+        var right = facade.Transform(node.Right, context);
+        return $"{left}.compareTo({right}) {op} 0";
+    }
 
     /// <summary>
     /// Renders one operand of a pointer comparison. Real MemorySegment pointer
