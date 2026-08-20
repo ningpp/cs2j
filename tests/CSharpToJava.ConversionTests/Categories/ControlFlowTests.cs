@@ -71,6 +71,88 @@ public class ControlFlowTests : ConversionTestBase
     }
 
     [Fact]
+    public void ForEachNamedTupleVariable_ConvertsToTupleAccessors()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class Point { public int X; public int Y; }
+class C
+{
+    public int M()
+    {
+        var configurations = new List<(Point P, Point Q)>
+        {
+            (new Point { X = 0, Y = 0 }, new Point { X = 10, Y = 10 })
+        };
+        var total = 0;
+        foreach (var (pPoint, qPoint) in configurations)
+        {
+            total += pPoint.X + qPoint.X;
+        }
+        return total;
+    }
+}");
+
+        AssertConversion(result, "Tuple2<Point, Point>", "for (Tuple2<Point, Point> _foreachItem1 : configurations)");
+        AssertJavaContains(result, "Point pPoint = _foreachItem1._1();");
+        AssertJavaContains(result, "Point qPoint = _foreachItem1._2();");
+        AssertJavaContains(result, "total += pPoint.X + qPoint.X;");
+        AssertJavaDoesNotContain(result, "TODO: ForEachVariableStatement");
+    }
+
+    [Fact]
+    public void ForEachTupleVariable_UsesElementAccessorsForTypedDesignation()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class C
+{
+    public int M(List<(int, string)> values)
+    {
+        var total = 0;
+        foreach ((int number, string text) in values)
+        {
+            total += number + text.Length;
+        }
+        return total;
+    }
+}");
+
+        AssertConversion(result, "Tuple2<Integer, String>", "for (Tuple2<Integer, String> _foreachItem1 : values)");
+        AssertJavaContains(result, "int number = _foreachItem1._1();");
+        AssertJavaContains(result, "String text = _foreachItem1._2();");
+        AssertJavaContains(result, "total += number + text.length();");
+        AssertJavaDoesNotContain(result, "TODO: ForEachVariableStatement");
+    }
+
+    [Fact]
+    public void ForEachNestedTupleVariable_RecursivelyExtractsElements()
+    {
+        var result = Convert(@"
+using System.Collections.Generic;
+class C
+{
+    public int M(List<((int, int), string)> values)
+    {
+        var total = 0;
+        foreach (var ((x, y), text) in values)
+        {
+            total += x + y + text.Length;
+        }
+        return total;
+    }
+}");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "Tuple2<Tuple2<Integer, Integer>, String>");
+        AssertJavaContains(result, "int x = _foreachItem1._1()._1();");
+        AssertJavaContains(result, "int y = _foreachItem1._1()._2();");
+        AssertJavaContains(result, "String text = _foreachItem1._2();");
+        AssertJavaContains(result, "total += x + y + text.length();");
+        AssertJavaDoesNotContain(result, "TODO: ForEachVariableStatement");
+    }
+
+    [Fact]
     public void WhileLoop_ConvertsToJavaWhile()
     {
         var result = Convert("class C { public int M(int x) { int i = 0; while (i < x) { i++; } return i; } }");

@@ -549,6 +549,111 @@ public partial class StatementTransformer
         return new JavaStatementNode($"{loopPrefix}for ({javaType} {identifier} : {expression}) {body}");
     }
 
+    private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var expression = exprTransformer.Transform(stmt.Expression, context);
+        var expressionType = context.GetTypeInfo(stmt.Expression).Type;
+        var elementType = GetEnumerableElementType(expressionType);
+        var javaType = elementType != null ? context.MapType(elementType) : "var";
+        if (javaType is "TSource" or "TResult" or "TKey" or "TElement")
+            javaType = "Object";
+
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(expression)
+            && !expression.TrimEnd().EndsWith(".collect(CSharpList.toCSharpList())", StringComparison.Ordinal))
+        {
+            context.AddImport("java.util.ArrayList");
+            context.AddImport("io.github.ningpp.compat.CSharpList");
+            context.AddImport("java.util.stream.Collectors");
+            expression = $"{expression}.collect(CSharpList.toCSharpList())";
+        }
+
+        var loopVariable = context.GenerateSyntheticName("_foreachItem");
+        var prefix = new List<string>();
+        AppendForEachDesignation(stmt.Variable, loopVariable, prefix, context);
+
+        var stmtTransformer = new StatementTransformer();
+        string body;
+        if (stmt.Statement is BlockSyntax block)
+        {
+            var transformedBody = TransformBlock(block, context);
+            body = $"{{\n        {string.Join("\n        ", prefix)}{(prefix.Count > 0 ? "\n        " : "")}{transformedBody}\n    }}";
+        }
+        else
+        {
+            var transformedBody = stmtTransformer.Transform(stmt.Statement, context).ToString("");
+            body = $"{{\n        {string.Join("\n        ", prefix)}{(prefix.Count > 0 ? "\n        " : "")}{transformedBody}\n    }}";
+        }
+
+        return new JavaStatementNode($"for ({javaType} {loopVariable} : {expression}) {body}");
+    }
+
+    private static ITypeSymbol? GetEnumerableElementType(ITypeSymbol? type)
+    {
+        if (type is IArrayTypeSymbol array)
+            return array.ElementType;
+        if (type is not INamedTypeSymbol named)
+            return null;
+        if (named.Name is "IEnumerable" or "ICollection" or "IList" or "List" && named.TypeArguments.Length == 1)
+            return named.TypeArguments[0];
+        return named.AllInterfaces.FirstOrDefault(i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1)?.TypeArguments[0];
+    }
+
+    private static void AppendForEachDesignation(
+        ExpressionSyntax variable,
+        string tupleExpression,
+        List<string> declarations,
+        ConversionContext context)
+    {
+        if (variable is DeclarationExpressionSyntax declaration)
+        {
+            AppendForEachDesignation(declaration.Designation, tupleExpression, declarations, context, declaration.Type);
+            return;
+        }
+
+        if (variable is TupleExpressionSyntax tuple)
+        {
+            for (var i = 0; i < tuple.Arguments.Count; i++)
+                AppendForEachDesignation(tuple.Arguments[i].Expression, $"{tupleExpression}._{i + 1}()", declarations, context);
+            return;
+        }
+
+        if (variable is IdentifierNameSyntax identifier && identifier.Identifier.Text != "_")
+        {
+            var javaName = ConversionContext.EscapeJavaKeyword(identifier.Identifier.Text);
+            declarations.Add($"var {javaName} = {tupleExpression};");
+        }
+    }
+
+    private static void AppendForEachDesignation(
+        VariableDesignationSyntax designation,
+        string tupleExpression,
+        List<string> declarations,
+        ConversionContext context,
+        TypeSyntax? declaredType = null)
+    {
+        if (designation is ParenthesizedVariableDesignationSyntax parenthesized)
+        {
+            for (var i = 0; i < parenthesized.Variables.Count; i++)
+                AppendForEachDesignation(parenthesized.Variables[i], $"{tupleExpression}._{i + 1}()", declarations, context);
+            return;
+        }
+
+        if (designation is SingleVariableDesignationSyntax single)
+        {
+            if (single.Identifier.Text == "_")
+                return;
+            var symbol = context.GetDeclaredSymbol(single) as ILocalSymbol;
+            var javaName = context.MethodState.GetEffectiveLocalJavaName(
+                symbol, ConversionContext.EscapeJavaKeyword(single.Identifier.Text));
+            var javaType = symbol != null
+                ? context.MapType(symbol.Type)
+                : declaredType != null ? context.MapTypeFromSyntax(declaredType) : "var";
+            declarations.Add($"{javaType} {javaName} = {tupleExpression};");
+        }
+    }
+
     /// <summary>
     /// Handles: foreach (var pair in from A a in src from B b in tgt ... select new { aField = a, bField = b })
     /// by expanding to nested for-each loops, substituting the anonymous field accesses with the actual variables.

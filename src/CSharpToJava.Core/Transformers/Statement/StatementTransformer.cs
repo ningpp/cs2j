@@ -32,6 +32,7 @@ public partial class StatementTransformer : IStatementTransformer
             SyntaxKind.WhileStatement => TransformWhileStatement(node as WhileStatementSyntax, context),
             SyntaxKind.ForStatement => TransformForStatement(node as ForStatementSyntax, context),
             SyntaxKind.ForEachStatement => TransformForEachStatement(node as ForEachStatementSyntax, context),
+            SyntaxKind.ForEachVariableStatement => TransformForEachVariableStatement(node as ForEachVariableStatementSyntax, context),
             SyntaxKind.DoStatement => TransformDoStatement(node as DoStatementSyntax, context),
             SyntaxKind.SwitchStatement => TransformSwitchStatement(node as SwitchStatementSyntax, context),
             SyntaxKind.TryStatement => TransformTryStatement(node as TryStatementSyntax, context),
