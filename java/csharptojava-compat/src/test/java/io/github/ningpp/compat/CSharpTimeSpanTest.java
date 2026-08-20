@@ -7,6 +7,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class CSharpTimeSpanTest {
 
     @Test
+    void multiply_scalesTicksUsingCSharpTimeSpanDoubleOperatorSemantics() {
+        assertEquals(CSharpTimeSpan.fromSeconds(3),
+            CSharpTimeSpan.multiply(CSharpTimeSpan.fromSeconds(1.5), 2));
+    }
+
+    @Test
     void constructor_hms_toString() {
         // C#: new TimeSpan(1,2,3).ToString() = 01:02:03
         CSharpTimeSpan ts = new CSharpTimeSpan(1, 2, 3);

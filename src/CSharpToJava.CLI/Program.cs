@@ -1366,12 +1366,9 @@ public class Program
                 }
             }
 
-            var compatibilityRequirements = CompatibilityPackPlanner.Analyze(results, CompatibilityRuntime.JavaPackage);
-
             var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependenciesForModule(
                 opts.MavenGroupId,
                 moduleName));
-            deps.AddRange(compatibilityRequirements.ExternalDependencies);
             foreach (var refPath in project.ProjectReferences)
             {
                 var refProject = projects.FirstOrDefault(p =>
@@ -1397,8 +1394,8 @@ public class Program
                     WorkspacePlanBuilder.MergeDependencies(deps),
                     opts.MavenGroupId,
                     moduleName),
-                RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
-                RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
+                RequiredCompatPacks = [],
+                RequiredRuntimeBridges = [],
                 ProduceTestJar = isTest,
             };
 
@@ -1548,16 +1545,9 @@ public class Program
                 }
             }
 
-            var compatibilityRequirements = CompatibilityPackPlanner.Analyze(
-                moduleResults,
-                CompatibilityRuntime.JavaPackage);
-
             var modulePlan = PlannedModuleToJavaModulePlan(
                 module,
                 opts.MavenGroupId,
-                compatibilityRequirements.RequiredPackIds,
-                compatibilityRequirements.RuntimeBridges,
-                compatibilityRequirements.ExternalDependencies,
                 GetExtraDependencies(opts));
             modulePlans.Add(modulePlan);
             await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
@@ -1880,16 +1870,11 @@ public class Program
         bool includeTests,
         IReadOnlyList<ConversionResult> convertedResults)
     {
-        var compatibilityRequirements = CompatibilityPackPlanner.Analyze(
-            convertedResults,
-            CompatibilityRuntime.JavaPackage);
-
         var moduleName = new DirectoryInfo(opts.Destination).Name;
         var deps = new List<JavaDependency>();
         deps.AddRange(WorkspacePlanBuilder.DefaultDependenciesForModule(
             opts.MavenGroupId,
             moduleName));
-        deps.AddRange(compatibilityRequirements.ExternalDependencies);
         deps.AddRange(GetExtraDependencies(opts));
 
         return new JavaModulePlan
@@ -1901,8 +1886,8 @@ public class Program
                 WorkspacePlanBuilder.MergeDependencies(deps),
                 opts.MavenGroupId,
                 moduleName),
-            RequiredCompatPacks = compatibilityRequirements.RequiredPackIds,
-            RequiredRuntimeBridges = compatibilityRequirements.RuntimeBridges,
+            RequiredCompatPacks = [],
+            RequiredRuntimeBridges = [],
         };
     }
 
@@ -2688,15 +2673,11 @@ public class Program
     private static JavaModulePlan PlannedModuleToJavaModulePlan(
         PlannedModule module,
         string groupId,
-        IReadOnlyList<string>? requiredCompatPacks = null,
-        IReadOnlyList<JavaRuntimeBridgeRequirement>? requiredRuntimeBridges = null,
-        IReadOnlyList<JavaDependency>? externalDependencies = null,
         IReadOnlyList<JavaDependency>? extraDependencies = null)
     {
         var deps = new List<JavaDependency>(WorkspacePlanBuilder.DefaultDependenciesForModule(
             groupId,
             module.Name));
-        deps.AddRange(externalDependencies ?? []);
 
         foreach (var dep in module.CompileDependencies.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
         {
@@ -2720,8 +2701,8 @@ public class Program
                 WorkspacePlanBuilder.MergeDependencies(deps),
                 groupId,
                 module.Name),
-            RequiredCompatPacks = requiredCompatPacks ?? [],
-            RequiredRuntimeBridges = requiredRuntimeBridges ?? [],
+            RequiredCompatPacks = [],
+            RequiredRuntimeBridges = [],
         };
     }
 

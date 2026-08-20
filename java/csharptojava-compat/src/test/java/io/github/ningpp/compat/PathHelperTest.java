@@ -11,6 +11,12 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class PathHelperTest {
 
+    @Test
+    void combine_acceptsAnArrayOfPathSegments() {
+        assertEquals(Paths.get("one", "two", "three").toString(),
+            PathHelper.combine(new String[] { "one", "two", "three" }));
+    }
+
     /** Returns a real platform-specific absolute path for testing. */
     private static String absPath(String... parts) {
         // Build from current directory's root, which is always absolute

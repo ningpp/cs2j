@@ -7,6 +7,19 @@ import java.util.NoSuchElementException;
 
 class CSharpPriorityQueueTest {
 
+    @Test
+    void tryDequeue_populatesElementAndPriorityOutParameters() {
+        var queue = new CSharpPriorityQueue<Integer, Double>();
+        queue.enqueue(7, 1.5);
+        var element = new IntHolder();
+        var priority = new DoubleHolder();
+
+        assertTrue(queue.tryDequeue(element, priority));
+        assertEquals(7, element.value);
+        assertEquals(1.5, priority.value);
+        assertFalse(queue.tryDequeue(element, priority));
+    }
+
     // ---- Construction ----
 
     @Test

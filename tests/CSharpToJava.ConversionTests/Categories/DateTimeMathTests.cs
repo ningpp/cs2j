@@ -43,6 +43,18 @@ public class DateTimeMathTests : ConversionTestBase
     }
 
     [Fact]
+    public void TimeSpanComparison_UsesCompareToInsteadOfJavaRelationalOperator()
+    {
+        var result = Convert("class C { public bool M(System.TimeSpan left, System.TimeSpan right) { return left < right || left <= right || left > right || left >= right; } }");
+
+        AssertConversion(result,
+            "left.compareTo(right) < 0",
+            "left.compareTo(right) <= 0",
+            "left.compareTo(right) > 0",
+            "left.compareTo(right) >= 0");
+    }
+
+    [Fact]
     public void MathOps_ConvertsToStaticMath()
     {
         var result = Convert("class C { public double M() { return System.Math.Max(1, 2) + System.Math.Abs(-3) + System.Math.Sqrt(4); } }");
