@@ -6032,12 +6032,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 var valArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
                 var containsSourceType = context.GetTypeInfo(memberAccess.Expression).Type;
-                bool isPrimitiveArraySource = containsSourceType is IArrayTypeSymbol arr
-                    && arr.ElementType.SpecialType is not SpecialType.None
-                    && arr.ElementType.SpecialType is not SpecialType.System_Object;
-                if (isPrimitiveArraySource)
+                // Any array-valued receiver (primitive OR reference element type) must be wrapped
+                // in Arrays.stream(...) before any terminal operation. The transformed receiver text
+                // for an array-valued invocation (e.g. enumerable.ToArray() -> stream().toArray(),
+                // result.First()/Last()) evaluates to the array itself in Java, not a Stream, so
+                // calling .anyMatch()/.collect() on it would be illegal (arrays have no such methods).
+                bool isArraySource = containsSourceType is IArrayTypeSymbol;
+                if (isArraySource)
                 {
-                    context.AddImport("java.util.stream.Collectors");
+                    context.AddImport("java.util.Arrays");
                     bool receiverIsStream = ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(receiver);
                     // A C# invocation that returns the array (e.g. result.First() / result.Last()
                     // / arr.ToArray()) evaluates to the array itself in Java even when the
@@ -6047,15 +6050,28 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     bool receiverIsArrayValuedInvocation = memberAccess.Expression is InvocationExpressionSyntax;
                     if (!receiverIsStream || receiverIsArrayValuedInvocation)
                     {
-                        // receiver is a primitive array (e.g. int[]), not a stream —
-                        // wrap in Arrays.stream(...) before boxed()/collect().
-                        context.AddImport("java.util.Arrays");
+                        if (((IArrayTypeSymbol)containsSourceType).ElementType.SpecialType is SpecialType.None or SpecialType.System_Object)
+                        {
+                            // Reference-type array (e.g. Point[]): no boxing needed, use anyMatch.
+                            context.AddImport("java.util.Objects");
+                            return $"Arrays.stream({receiver}).anyMatch(_item -> Objects.equals(_item, {valArg}))";
+                        }
+
+                        // primitive array (e.g. int[]): box and collect into a Set.
+                        context.AddImport("java.util.stream.Collectors");
                         return $"Arrays.stream({receiver}).boxed().collect(Collectors.toSet()).contains({valArg})";
                     }
 
                     // The LINQ fallback already converted the primitive array into a Java stream
                     // (e.g. Arrays.stream(arr) / IntStream.range(...)). Don't wrap it again.
+                    if (((IArrayTypeSymbol)containsSourceType).ElementType.SpecialType is SpecialType.None or SpecialType.System_Object)
+                    {
+                        context.AddImport("java.util.Objects");
+                        return $"{receiver}.anyMatch(_item -> Objects.equals(_item, {valArg}))";
+                    }
+
                     var primitiveCat = DetectReceiverPrimitiveStreamCategory(memberAccess, receiver, context);
+                    context.AddImport("java.util.stream.Collectors");
                     if (primitiveCat != "")
                         return $"{receiver}.boxed().collect(Collectors.toSet()).contains({valArg})";
                     return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
@@ -6066,6 +6082,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     || a is DoStatementSyntax);
                 if (insideLoop)
                 {
+                    context.AddImport("java.util.Objects");
+                    context.AddImport("java.util.stream.Collectors");
                     return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
                 }
                 context.AddImport("java.util.Objects");
