@@ -640,37 +640,99 @@ namespace CSharpToJava.Core.LinqRewrite
         private Lambda RenameSymbol(Lambda container, int argIndex, string newname)
         {
             var oldparameter = GetLambdaParameter(container, argIndex).Identifier.ValueText;
-            //var oldsymbol = semantic.GetDeclaredSymbol(oldparameter);
-            var tokensToRename = container.Body.DescendantNodesAndSelf().Where(x =>
-            {
-                var sem = semantic.GetSymbolInfo(x).Symbol;
-                if (sem != null && (sem is ILocalSymbol || sem is IParameterSymbol) && sem.Name == oldparameter) return true;
-                //  if (sem.Symbol == oldsymbol) return true;
-                return false;
-            });
-            var syntax = SyntaxFactory.ParenthesizedLambdaExpression(CreateParameters(container.Parameters.Select((x, i) => i == argIndex ? SyntaxFactory.Parameter(SyntaxFactory.Identifier(newname)).WithType(x.Type) : x)), container.Body.ReplaceNodes(tokensToRename, (a, b) =>
-                 {
-                     var ide = b as IdentifierNameSyntax;
-                     if (ide != null) return ide.WithIdentifier(SyntaxFactory.Identifier(newname));
-                     throw new NotImplementedException();
-                 }));
-            return new Lambda(syntax);
-            //var doc = project.GetDocument(docid);
 
-            //var annot = new SyntaxAnnotation("RenamedLambda");
-            //var annotated = container.WithAdditionalAnnotations(annot);
-            //var root = project.GetDocument(docid).GetSyntaxRootAsync().Result.ReplaceNode(container, annotated).SyntaxTree;
-            //var proj = project.GetDocument(docid).WithSyntaxRoot(root.GetRoot()).Project;
-            //doc = proj.GetDocument(docid);
-            //var syntaxTree = doc.GetSyntaxTreeAsync().Result;
-            //var modifiedSemantic = proj.GetCompilationAsync().Result.GetSemanticModel(syntaxTree);
-            //annotated = (AnonymousFunctionExpressionSyntax)doc.GetSyntaxRootAsync().Result.GetAnnotatedNodes(annot).First();
-            //var parameter = GetLambdaParameter(annotated, 0);
-            //var renamed = Renamer.RenameSymbolAsync(proj.Solution, modifiedSemantic.GetDeclaredSymbol(parameter), newname, null).Result;
-            //annotated = (AnonymousFunctionExpressionSyntax)renamed.GetDocument(doc.Id).GetSyntaxRootAsync().Result.GetAnnotatedNodes(annot).First();
-            //return annotated.WithoutAnnotations();
+            // Check if there are any anonymous object members whose property name
+            // would change due to parameter renaming (members without NameEquals
+            // whose expression is a parameter/local reference being renamed).
+            bool hasAnonymousMembersToFix = container.Body.DescendantNodesAndSelf()
+                .OfType<AnonymousObjectMemberDeclaratorSyntax>()
+                .Any(m => m.NameEquals == null
+                          && m.Expression is IdentifierNameSyntax idn
+                          && semantic.GetSymbolInfo(idn).Symbol is ISymbol sym
+                          && (sym is IParameterSymbol or ILocalSymbol)
+                          && sym.Name == oldparameter);
+
+            if (!hasAnonymousMembersToFix)
+            {
+                // Original fast path — no anonymous members to fix.
+                var tokensToRename = container.Body.DescendantNodesAndSelf().Where(x =>
+                {
+                    var sem = semantic.GetSymbolInfo(x).Symbol;
+                    if (sem != null && (sem is ILocalSymbol || sem is IParameterSymbol) && sem.Name == oldparameter) return true;
+                    return false;
+                });
+                var syntax = SyntaxFactory.ParenthesizedLambdaExpression(
+                    CreateParameters(container.Parameters.Select((x, i) => i == argIndex ? SyntaxFactory.Parameter(SyntaxFactory.Identifier(newname)).WithType(x.Type) : x)),
+                    container.Body.ReplaceNodes(tokensToRename, (a, b) =>
+                    {
+                        var ide = b as IdentifierNameSyntax;
+                        if (ide != null) return ide.WithIdentifier(SyntaxFactory.Identifier(newname));
+                        throw new NotImplementedException();
+                    }));
+                return new Lambda(syntax);
+            }
+
+            // Use a CSharpSyntaxRewriter to handle both parameter renaming and
+            // anonymous object member NameEquals preservation in one pass.
+            var rewriter = new RenameSymbolRewriter(semantic, oldparameter, newname);
+            var newBody = (CSharpSyntaxNode)rewriter.Visit(container.Body);
+            var newSyntax = SyntaxFactory.ParenthesizedLambdaExpression(
+                CreateParameters(container.Parameters.Select((x, i) => i == argIndex ? SyntaxFactory.Parameter(SyntaxFactory.Identifier(newname)).WithType(x.Type) : x)),
+                newBody);
+            return new Lambda(newSyntax);
         }
 
+        /// <summary>
+        /// A CSharpSyntaxRewriter that renames parameter/local references and
+        /// preserves anonymous object member property names when the member's
+        /// expression is the renamed parameter/local identifier.
+        /// </summary>
+        private sealed class RenameSymbolRewriter : CSharpSyntaxRewriter
+        {
+            private readonly SemanticModel _semantic;
+            private readonly string _oldName;
+            private readonly string _newName;
+
+            public RenameSymbolRewriter(SemanticModel semantic, string oldName, string newName)
+            {
+                _semantic = semantic;
+                _oldName = oldName;
+                _newName = newName;
+            }
+
+            public override SyntaxNode VisitAnonymousObjectMemberDeclarator(AnonymousObjectMemberDeclaratorSyntax node)
+            {
+                var visitedExpr = (ExpressionSyntax)Visit(node.Expression);
+
+                if (node.NameEquals == null && node.Expression is IdentifierNameSyntax origIdn)
+                {
+                    var sym = _semantic.GetSymbolInfo(origIdn).Symbol;
+                    if (sym is IParameterSymbol or ILocalSymbol && sym.Name == _oldName)
+                    {
+                        var nameEquals = SyntaxFactory.NameEquals(
+                            SyntaxFactory.IdentifierName(origIdn.Identifier.Text));
+                        return node
+                            .WithExpression(visitedExpr)
+                            .WithNameEquals(nameEquals);
+                    }
+                }
+
+                if (visitedExpr != node.Expression)
+                    return node.WithExpression(visitedExpr);
+                return node;
+            }
+
+            public override SyntaxNode VisitIdentifierName(IdentifierNameSyntax node)
+            {
+                if (node.Parent is NameEqualsSyntax)
+                    return node;
+
+                var sym = _semantic.GetSymbolInfo(node).Symbol;
+                if (sym is IParameterSymbol or ILocalSymbol && sym.Name == _oldName)
+                    return node.WithIdentifier(SyntaxFactory.Identifier(_newName));
+                return node;
+            }
+        }
 
 
         ITypeSymbol GetSymbolType(VariableCapture x)

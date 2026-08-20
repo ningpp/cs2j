@@ -1404,20 +1404,126 @@ namespace CSharpToJava.Core.LinqRewrite
             var param0Name = wrappedLambda.Parameters[0].Identifier.ValueText;
             var param1Name = wrappedLambda.Parameters[1].Identifier.ValueText;
 
-            var replacements = new Dictionary<SyntaxNode, string>();
+            // Step 1: On the *original* tree, find parameter references and check
+            // if any are the expression of anonymous-object members without NameEquals.
+            // Record the original property name for such members so we can restore it.
+            var paramReplacements = new Dictionary<SyntaxNode, string>();
+            // The member nodes that need NameEquals preservation (on the original tree)
+            var membersToAnnotate = new List<(AnonymousObjectMemberDeclaratorSyntax node, string originalName)>();
+
             foreach (var id in wrappedLambda.Body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
             {
                 var sym = semantic.GetSymbolInfo(id).Symbol;
                 if (sym is IParameterSymbol ps)
                 {
-                    if (ps.Name == param0Name) replacements[id] = itemName;
-                    else if (ps.Name == param1Name) replacements[id] = indexVarName;
+                    string replacement = null;
+                    if (ps.Name == param0Name) replacement = itemName;
+                    else if (ps.Name == param1Name) replacement = indexVarName;
+                    if (replacement != null)
+                    {
+                        paramReplacements[id] = replacement;
+
+                        if (id.Parent is AnonymousObjectMemberDeclaratorSyntax anonMember
+                            && anonMember.NameEquals == null
+                            && anonMember.Expression == id)
+                        {
+                            membersToAnnotate.Add((anonMember, id.Identifier.Text));
+                        }
+                    }
                 }
             }
 
-            return (ExpressionSyntax)wrappedLambda.Body.ReplaceNodes(
-                replacements.Keys,
-                (orig, _) => SyntaxFactory.IdentifierName(replacements[orig]));
+            // If no anonymous members need fixing, use the original fast path.
+            if (membersToAnnotate.Count == 0)
+            {
+                return (ExpressionSyntax)wrappedLambda.Body.ReplaceNodes(
+                    paramReplacements.Keys,
+                    (orig, _) => SyntaxFactory.IdentifierName(paramReplacements[orig]));
+            }
+
+            // Use a CSharpSyntaxRewriter that does both jobs in one pass on the
+            // original tree (so the semantic model can resolve symbols):
+            // 1. Replace parameter references (param0 → itemName, param1 → indexVarName).
+            // 2. Add explicit NameEquals to anonymous-object members whose expression
+            //    is a parameter reference, preserving the original property name.
+            var rewriter = new IndexedLambdaParamRewriter(semantic, param0Name, param1Name,
+                itemName, indexVarName);
+            var result = rewriter.Visit(wrappedLambda.Body);
+            return (ExpressionSyntax)result;
+        }
+
+        /// <summary>
+        /// A CSharpSyntaxRewriter that performs two tasks in a single tree traversal:
+        /// 1. Replaces parameter references (param0 → itemName, param1 → indexVarName).
+        /// 2. For anonymous-object members whose expression is a parameter reference
+        ///    and that lack NameEquals, adds an explicit NameEquals with the original
+        ///    parameter name, preserving the anonymous type property name.
+        /// </summary>
+        private sealed class IndexedLambdaParamRewriter : CSharpSyntaxRewriter
+        {
+            private readonly SemanticModel _semantic;
+            private readonly string _param0Name;
+            private readonly string _param1Name;
+            private readonly string _itemName;
+            private readonly string _indexVarName;
+
+            public IndexedLambdaParamRewriter(
+                SemanticModel semantic,
+                string param0Name, string param1Name,
+                string itemName, string indexVarName)
+            {
+                _semantic = semantic;
+                _param0Name = param0Name;
+                _param1Name = param1Name;
+                _itemName = itemName;
+                _indexVarName = indexVarName;
+            }
+
+            public override SyntaxNode VisitAnonymousObjectMemberDeclarator(AnonymousObjectMemberDeclaratorSyntax node)
+            {
+                // Visit the expression first (this will replace parameter references).
+                var visitedExpr = (ExpressionSyntax)Visit(node.Expression);
+
+                // If the member lacks NameEquals and the original expression was a
+                // parameter reference (an IdentifierNameSyntax), add an explicit
+                // NameEquals with the original parameter name.
+                if (node.NameEquals == null && node.Expression is IdentifierNameSyntax origIdn)
+                {
+                    var sym = _semantic.GetSymbolInfo(origIdn).Symbol;
+                    if (sym is IParameterSymbol ps
+                        && (ps.Name == _param0Name || ps.Name == _param1Name))
+                    {
+                        var nameEquals = SyntaxFactory.NameEquals(
+                            SyntaxFactory.IdentifierName(origIdn.Identifier.Text));
+                        return node
+                            .WithExpression(visitedExpr)
+                            .WithNameEquals(nameEquals);
+                    }
+                }
+
+                // Default: just replace the expression if it changed.
+                if (visitedExpr != node.Expression)
+                    return node.WithExpression(visitedExpr);
+                return node;
+            }
+
+            public override SyntaxNode VisitIdentifierName(IdentifierNameSyntax node)
+            {
+                // Don't rewrite identifiers that are part of a NameEquals — they are
+                // property names, not parameter references.
+                if (node.Parent is NameEqualsSyntax)
+                    return node;
+
+                var sym = _semantic.GetSymbolInfo(node).Symbol;
+                if (sym is IParameterSymbol ps)
+                {
+                    if (ps.Name == _param0Name)
+                        return SyntaxFactory.IdentifierName(_itemName);
+                    if (ps.Name == _param1Name)
+                        return SyntaxFactory.IdentifierName(_indexVarName);
+                }
+                return node;
+            }
         }
 
         /// <summary>
