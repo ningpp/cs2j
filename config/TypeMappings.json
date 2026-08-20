@@ -4322,6 +4322,13 @@
             ]
         },
         {
+            "csharp": "System.Numerics.Complex",
+            "java": "Complex",
+            "imports": [
+                "io.github.ningpp.compat.Complex"
+            ]
+        },
+        {
             "csharp": "System.Runtime.CompilerServices.Unsafe",
             "java": "Unsafe",
             "imports": [
