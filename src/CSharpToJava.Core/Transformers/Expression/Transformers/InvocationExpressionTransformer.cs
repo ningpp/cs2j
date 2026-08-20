@@ -6118,8 +6118,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 var concatReceiver = receiver;
                 var concatReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
                 if (concatReceiverType is IArrayTypeSymbol concatArr
-                    && concatArr.ElementType.SpecialType is not SpecialType.None
-                    && concatArr.ElementType.SpecialType is not SpecialType.System_Object)
+                    && concatArr.ElementType.SpecialType is
+                        SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double)
                 {
                     concatReceiver = $"{concatReceiver}.boxed()";
                 }

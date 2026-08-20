@@ -960,6 +960,13 @@
             ]
         },
         {
+            "csharp": "System.IO.SearchOption",
+            "java": "SearchOption",
+            "imports": [
+                "io.github.ningpp.compat.SearchOption"
+            ]
+        },
+        {
             "csharp": "System.IO.Pipelines.Pipe",
             "java": "Pipe",
             "imports": [

@@ -1443,7 +1443,7 @@ public static class ExpressionTransformerHelpers
 
         var enumType = enumMember.ContainingType;
         var typeDisplay = enumType.ToDisplayString();
-        if (typeDisplay is not ("System.IO.FileMode" or "System.IO.FileAccess" or "System.IO.FileShare"))
+        if (typeDisplay is not ("System.IO.FileMode" or "System.IO.FileAccess" or "System.IO.FileShare" or "System.IO.SearchOption"))
             return false;
 
         var simpleName = enumType.Name;

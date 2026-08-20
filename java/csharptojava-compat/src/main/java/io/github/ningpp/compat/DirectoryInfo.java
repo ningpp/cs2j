@@ -139,6 +139,10 @@ public class DirectoryInfo {
         return result.toArray(String[]::new);
     }
 
+    public static String[] getFiles(String directory, String searchPattern, SearchOption searchOption) {
+        return getFiles(directory, searchPattern, searchOption == SearchOption.AllDirectories);
+    }
+
     private static String globToRegex(String glob) {
         return glob.replace(".", "\\.").replace("*", ".*").replace("?", ".");
     }
