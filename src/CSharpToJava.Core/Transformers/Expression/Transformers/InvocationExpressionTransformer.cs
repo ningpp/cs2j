@@ -10684,7 +10684,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 if (IsSimplePropertyGetterWrapper(methodSymbol, property.Name))
                     continue;
 
-                return !AccessorIsPrivate(property.GetMethod, methodSymbol);
+                return !AccessorIsPrivate(property.GetMethod, methodSymbol, property);
             }
 
             if (property.SetMethod != null
@@ -10693,16 +10693,29 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 && ErasedJavaType(context.MapType(methodSymbol.Parameters[0].Type))
                     == ErasedJavaType(context.MapType(property.Type)))
             {
-                return !AccessorIsPrivate(property.SetMethod, methodSymbol);
+                return !AccessorIsPrivate(property.SetMethod, methodSymbol, property);
             }
         }
 
         return false;
     }
 
-    private static bool AccessorIsPrivate(IMethodSymbol accessor, IMethodSymbol methodSymbol)
-        => accessor.DeclaredAccessibility == Accessibility.Private
-            && methodSymbol.DeclaredAccessibility != Accessibility.Private;
+    private static bool AccessorIsPrivate(IMethodSymbol accessor, IMethodSymbol methodSymbol, IPropertySymbol property)
+    {
+        if (accessor.DeclaredAccessibility != Accessibility.Private)
+            return false;
+        // The accessor is private in C#. But when the property itself is public,
+        // the converter widens a private setter/getter to 'protected' so that
+        // base-class methods can still assign subclass instances' properties
+        // (see PropertyTransformer.GetSingleAccessModifier). In that case both
+        // the auto-generated accessor (protected) and the user method survive in
+        // Java, so the accessor is NOT effectively private — treat it as a collision.
+        if (property.DeclaredAccessibility == Accessibility.Public)
+        {
+            return false;
+        }
+        return methodSymbol.DeclaredAccessibility != Accessibility.Private;
+    }
 
     private static string ToPascalCase(string name)
         => string.IsNullOrEmpty(name) ? name : char.ToUpperInvariant(name[0]) + name[1..];

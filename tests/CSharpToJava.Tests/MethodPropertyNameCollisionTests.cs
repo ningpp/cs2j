@@ -318,6 +318,85 @@ class Normal
         Assert.DoesNotContain("SetName(", code, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Regression test for the Obstacle.ConvexHull / SetConvexHull collision in the
+    /// Automatic Graph Layout project.  When a public property has a <c>private set</c>
+    /// (which the converter widens to <c>protected</c> in Java) and the containing type
+    /// also declares a non-private method whose camelCase name matches the generated
+    /// setter (e.g. <c>SetConvexHull</c> → <c>setConvexHull</c>), both methods survive
+    /// in the Java class.  The call-site collision check must therefore detect the
+    /// collision and emit the PascalCase user-method name; otherwise calls are
+    /// silently routed to the trivial property setter, bypassing the method's
+    /// side-effects (e.g. clearing the clump).
+    /// </summary>
+    [Fact]
+    public void PublicPropertyWithPrivateSet_InternalMethod_SameName_CallSiteUsesPascalCase()
+    {
+        var result = Convert(@"
+namespace Demo
+{
+    class Obstacle
+    {
+        public Hull ConvexHull { get; private set; }
+
+        internal void SetConvexHull(Hull hull)
+        {
+            this.ConvexHull = hull;
+        }
+    }
+
+    class ObstacleTree
+    {
+        internal void CreateHull(Obstacle obstacle, Hull hull)
+        {
+            obstacle.SetConvexHull(hull);
+        }
+    }
+
+    class Hull { }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        // The user-defined method must survive with PascalCase name
+        Assert.Contains("void SetConvexHull(Hull hull)", code, StringComparison.Ordinal);
+        // Call site must use PascalCase to invoke the user method, not the property setter
+        Assert.Contains("obstacle.SetConvexHull(hull)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("obstacle.setConvexHull(hull)", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Same scenario as above but the property and method are in the same class and
+    /// the method is called from within the declaring class (bare call, no receiver).
+    /// </summary>
+    [Fact]
+    public void PublicPropertyWithPrivateSet_InternalMethod_BareCall_UsesPascalCase()
+    {
+        var result = Convert(@"
+class Widget
+{
+    public int Data { get; private set; }
+
+    internal void SetData(int data)
+    {
+        this.Data = data;
+    }
+
+    internal void Reset()
+    {
+        SetData(0);
+    }
+}");
+
+        Assert.True(result.Success);
+        var code = result.GeneratedCode;
+
+        Assert.Contains("void SetData(int data)", code, StringComparison.Ordinal);
+        // Bare call must use PascalCase
+        Assert.Contains("SetData(0)", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
