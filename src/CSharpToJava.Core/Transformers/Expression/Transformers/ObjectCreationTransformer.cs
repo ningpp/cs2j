@@ -1524,6 +1524,23 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(expr, arrayType, context);
     }
 
+    /// <summary>
+    /// Returns true when the type is one of the C# collection interfaces that arrays
+    /// implicitly implement (IEnumerable, ICollection, IList, IReadOnlyCollection,
+    /// IReadOnlyList). Used to detect array-to-interface assignments in object
+    /// initializers that need wrapping in Java.
+    /// </summary>
+    private static bool IsEnumerableOrCollectionInterface(INamedTypeSymbol type)
+    {
+        if (type.Name is not "IEnumerable" and not "ICollection" and not "IList"
+            and not "IReadOnlyCollection" and not "IReadOnlyList")
+            return false;
+        var ns = type.ContainingNamespace?.ToDisplayString()
+            ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
+        return ns != null && (ns.StartsWith("System.Collections.Generic")
+            || ns.StartsWith("System.Collections"));
+    }
+
     private static bool IsPrimitiveSpecialType(SpecialType st)
         => st is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
             or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
@@ -1797,6 +1814,18 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     }
                     else if (memberSymbol is IFieldSymbol fieldSym)
                     {
+                        // Wrap array values assigned to collection-interface fields
+                        // (C# T[] implements IList<T>; Java T[] does not).
+                        if (context.SemanticModel != null)
+                        {
+                            var rhsType = context.GetTypeInfo(assignExpr.Right).Type;
+                            var fieldType = fieldSym.Type;
+                            if (rhsType is IArrayTypeSymbol arrayType && fieldType is INamedTypeSymbol fieldNamed
+                                && IsEnumerableOrCollectionInterface(fieldNamed))
+                            {
+                                value = WrapArrayForCollectionArg(value, arrayType, context);
+                            }
+                        }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym.Type, context);
                         var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym.Name);
                         pendingAssignments.Add($"{tmpVar}.{javaFieldName} = {value};");
@@ -1804,6 +1833,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     else
                     {
                         var propertyType = memberSymbol is IPropertySymbol propertySymbol ? propertySymbol.Type : null;
+                        // Wrap array values assigned to collection-interface properties
+                        // (C# T[] implements IList<T>; Java T[] does not).
+                        if (context.SemanticModel != null && propertyType is INamedTypeSymbol propNamed)
+                        {
+                            var rhsType = context.GetTypeInfo(assignExpr.Right).Type;
+                            if (rhsType is IArrayTypeSymbol arrayType && IsEnumerableOrCollectionInterface(propNamed))
+                            {
+                                value = WrapArrayForCollectionArg(value, arrayType, context);
+                            }
+                        }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
                         var propertyName = ConversionContext.EscapeJavaKeyword(
                             memberSymbol is IPropertySymbol propSym2
@@ -1840,6 +1879,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     var memberSymbol2 = context.GetSymbolInfo(memberAccess.Name).Symbol;
                     if (memberSymbol2 is IFieldSymbol fieldSym2)
                     {
+                        // Wrap array values assigned to collection-interface fields
+                        if (context.SemanticModel != null)
+                        {
+                            var rhsType2 = context.GetTypeInfo(assignExpr.Right).Type;
+                            if (rhsType2 is IArrayTypeSymbol arrayType2 && fieldSym2.Type is INamedTypeSymbol fieldNamed2
+                                && IsEnumerableOrCollectionInterface(fieldNamed2))
+                            {
+                                value = WrapArrayForCollectionArg(value, arrayType2, context);
+                            }
+                        }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym2.Type, context);
                         var javaFieldName = ConversionContext.EscapeJavaKeyword(fieldSym2.Name);
                         pendingAssignments.Add($"{tmpVar}.{javaFieldName} = {value};");
@@ -1847,6 +1896,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     else
                     {
                         var propertyType = memberSymbol2 is IPropertySymbol propertySymbol2 ? propertySymbol2.Type : null;
+                        // Wrap array values assigned to collection-interface properties
+                        if (context.SemanticModel != null && propertyType is INamedTypeSymbol propNamed2)
+                        {
+                            var rhsType2 = context.GetTypeInfo(assignExpr.Right).Type;
+                            if (rhsType2 is IArrayTypeSymbol arrayType2 && IsEnumerableOrCollectionInterface(propNamed2))
+                            {
+                                value = WrapArrayForCollectionArg(value, arrayType2, context);
+                            }
+                        }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
                         var propertyName = ConversionContext.EscapeJavaKeyword(
                             memberSymbol2 is IPropertySymbol propSym3

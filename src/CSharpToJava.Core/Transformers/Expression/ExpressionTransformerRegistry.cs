@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -37,8 +38,41 @@ public static class ExpressionTransformerRegistry
             new DelegateExpressionTransformer((node, ctx) =>
             {
                 var tuple = (TupleExpressionSyntax)node;
-                var elements = string.Join(", ", tuple.Arguments.Select(a =>
-                    ExpressionTransformerFacade.Instance.Transform(a.Expression, ctx)));
+                var facade = ExpressionTransformerFacade.Instance;
+                // Use the semantic model to get the tuple's element types so that
+                // implicit C# conversions (e.g. int→double) are applied via
+                // AdaptExpressionToTargetType, producing correct Java literals
+                // (e.g. 1.0 instead of 1 for a double tuple element).
+                ITypeSymbol[]? tupleElementTypes = null;
+                if (ctx.SemanticModel != null)
+                {
+                    var tupleTypeInfo = ctx.GetTypeInfo(node);
+                    // Prefer ConvertedType (the target type after implicit C# conversions,
+                    // e.g. when (i, i+1, 1, 1, false, 1) is assigned to (int, int, int, int, bool, double))
+                    // over Type (the natural type, where "1" is int).
+                    var tupleType = tupleTypeInfo.ConvertedType is INamedTypeSymbol { IsTupleType: true } converted
+                        ? converted
+                        : tupleTypeInfo.Type as INamedTypeSymbol;
+                    if (tupleType is { IsTupleType: true })
+                    {
+                        tupleElementTypes = tupleType.TupleElements
+                            .Select(e => e.Type)
+                            .ToArray();
+                    }
+                }
+                var elementsList = new System.Collections.Generic.List<string>();
+                for (int i = 0; i < tuple.Arguments.Count; i++)
+                {
+                    var expr = tuple.Arguments[i].Expression;
+                    var transformed = facade.Transform(expr, ctx);
+                    if (tupleElementTypes != null && i < tupleElementTypes.Length)
+                    {
+                        transformed = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                            expr, transformed, tupleElementTypes[i], ctx);
+                    }
+                    elementsList.Add(transformed);
+                }
+                var elements = string.Join(", ", elementsList);
                 ctx.AddImport("io.vavr.Tuple");
                 return $"Tuple.of({elements})";
             }));

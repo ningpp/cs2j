@@ -137,6 +137,12 @@ public class LambdaTransformer : IIRExpressionTransformer
         // signature. Track renames so the lambda body can be rewritten consistently.
         var enclosingNames = CollectEnclosingMethodNames(node);
         var paramRenames = new Dictionary<string, string>();
+        // Track names already used within this lambda to ensure uniqueness
+        // (especially for C# discard parameters "_", which all map to "_Value"
+        // via EscapeJavaKeyword — multiple discards in the same lambda would
+        // otherwise produce duplicate parameter names).
+        var usedParamNames = new HashSet<string>();
+        var discardCounter = 0;
         var javaParams = parameters
             .Select(p =>
             {
@@ -159,6 +165,30 @@ public class LambdaTransformer : IIRExpressionTransformer
                     paramRenames[p.Identifier.Text] = newName;
                     name = newName;
                 }
+                // Ensure uniqueness among lambda parameters: C# discards ("_")
+                // all escape to "_Value"; when multiple discards appear in the
+                // same lambda, disambiguate with a counter suffix.
+                if (p.Identifier.Text == "_")
+                {
+                    discardCounter++;
+                    if (discardCounter > 1)
+                    {
+                        name = $"_Value{discardCounter}";
+                    }
+                }
+                // Also guard against any other duplicate parameter names
+                if (usedParamNames.Contains(name))
+                {
+                    int suffix = 2;
+                    string newName;
+                    do
+                    {
+                        newName = $"{name}_{suffix}";
+                        suffix++;
+                    } while (usedParamNames.Contains(newName));
+                    name = newName;
+                }
+                usedParamNames.Add(name);
                 // Fix 2: emit explicit type when the parameter carries a declared type
                 if (p.Type != null)
                 {

@@ -3,6 +3,7 @@ package io.github.ningpp.compat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -307,8 +308,40 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         super.sort(null);
     }
 
+    /**
+     * Handles sort with a Comparator to deal with non-transitive comparators
+     * that Java's TimSort rejects. C# List.Sort uses introsort which does
+     * not enforce the transitivity contract. When TimSort throws
+     * IllegalArgumentException, we fall back to insertion sort.
+     */
+    @Override
+    public void sort(Comparator<? super T> c) {
+        if (c == null) {
+            super.sort(null);
+            return;
+        }
+        try {
+            super.sort(c);
+        } catch (IllegalArgumentException e) {
+            insertionSort(c);
+        }
+    }
+
     public void sort(CSharpGenericComparer<T> comparer) {
-        super.sort((a, b) -> comparer.compare(a, b));
+        sort((Comparator<T>) (a, b) -> comparer.compare(a, b));
+    }
+
+    private void insertionSort(Comparator<? super T> c) {
+        int n = size();
+        for (int i = 1; i < n; i++) {
+            T key = get(i);
+            int j = i - 1;
+            while (j >= 0 && c.compare(get(j), key) > 0) {
+                set(j + 1, get(j));
+                j--;
+            }
+            set(j + 1, key);
+        }
     }
 
     /** Mirrors C# List&lt;T&gt;.ConvertAll(Converter&lt;T, U&gt;) — maps every element. */

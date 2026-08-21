@@ -84,7 +84,28 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
         }
     }
     public void sort() { list.sort(null); }
-    public void sort(Comparator<?> comparer) { list.sort((Comparator<Object>) comparer); }
+    public void sort(Comparator<?> comparer) {
+        Comparator<Object> c = (Comparator<Object>) comparer;
+        if (c == null) {
+            list.sort(null);
+            return;
+        }
+        try {
+            list.sort(c);
+        } catch (IllegalArgumentException e) {
+            // TimSort transitivity violation - fall back to insertion sort
+            int n = list.size();
+            for (int i = 1; i < n; i++) {
+                Object key = list.get(i);
+                int j = i - 1;
+                while (j >= 0 && c.compare(list.get(j), key) > 0) {
+                    list.set(j + 1, list.get(j));
+                    j--;
+                }
+                list.set(j + 1, key);
+            }
+        }
+    }
     public Object[] toArray() { return list.toArray(); }
     public <T> T[] toArray(T[] array) { return list.toArray(array); }
     public <T> T[] toArray(Class<T> type) {

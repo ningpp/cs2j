@@ -7195,8 +7195,65 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
         }
 
-        args = PrependClassTypeTokens(args,
-            methodSymbol != null ? GetClassTypeTokensForCall(methodSymbol, context, node) : null);
+        var memberClassTokens = methodSymbol != null
+            ? GetClassTypeTokensForCall(methodSymbol, context, node)
+            : null;
+        // Fallback for member-access generic method calls with explicit type
+        // arguments (e.g. RoutingTestSupport.LoadJson<BugsReference>(...)).
+        // GetClassTypeTokensForCall only returns tokens when the method is
+        // registered as needing Class<T> parameters (via default(T) or typeof(T)
+        // detection).  When the method delegates T to another generic call
+        // (e.g. LoadJson<T> calls JsonSerializer.Deserialize<T>), the method
+        // definition gains a Class<T> parameter during its own processing, but
+        // the call site may be converted before the definition — so the
+        // registration hasn't happened yet.  Fall back to the explicit type
+        // arguments at the call site, mirroring the GenericNameSyntax path.
+        // Also fall back when the method IS registered but GetClassTypeTokensForCall
+        // returned null (e.g. all type params were classified as runtime-array params
+        // and filtered out, yet the Java signature still has Class<T> parameters).
+        if (memberClassTokens == null
+            && methodSymbol is { IsGenericMethod: true }
+            && memberAccess.Name is GenericNameSyntax memberGenericName
+            && memberGenericName.TypeArgumentList.Arguments.Count > 0)
+        {
+            memberClassTokens = GetClassTokensFromExplicitTypeArguments(
+                memberGenericName, context, methodSymbol);
+            // Additional fallback: when the semantic model can't resolve the
+            // type argument (e.g. cross-assembly reference producing
+            // IErrorTypeSymbol), derive the class literal from the syntax node.
+            if (memberClassTokens == null)
+            {
+                memberClassTokens = GetClassTokensFromSyntaxFallback(
+                    memberGenericName, context);
+            }
+            // Guard: the Java-side signature must have token slots for every
+            // Class token. Registered Class<T> parameters widen the slot count;
+            // without them, drop the tokens instead of emitting a mismatched list.
+            // NOTE: when the method has a params (varargs) parameter, the C#
+            // parameter count is the minimum (1 for params alone), but the call
+            // site can pass any number of arguments. In that case, don't reject
+            // the tokens just because the call site has more arguments than the
+            // C# parameter count + Class<T> slots.
+            if (memberClassTokens != null)
+            {
+                var csharpParamCount = methodSymbol.Parameters.Length;
+                bool hasParamsArg = methodSymbol.Parameters.Length > 0
+                    && methodSymbol.Parameters[^1].IsParams;
+                int registeredClassParams = 0;
+                if (context.MethodHasClassParams(methodSymbol.OriginalDefinition))
+                {
+                    registeredClassParams = context.GetMethodClassTypeParamNames(methodSymbol.OriginalDefinition)?.Count
+                        ?? memberClassTokens.Count;
+                }
+                if (!hasParamsArg
+                    && node.ArgumentList.Arguments.Count + memberClassTokens.Count
+                    > csharpParamCount + registeredClassParams)
+                {
+                    memberClassTokens = null;
+                }
+            }
+        }
+        args = PrependClassTypeTokens(args, memberClassTokens);
 
         if ((originalMethodName == "Parse" || originalMethodName == "TryParse")
             && methodName.StartsWith("MathHelper.", StringComparison.Ordinal))
@@ -11592,6 +11649,53 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             tokens.Add(literal);
         }
         return tokens;
+    }
+
+    /// <summary>
+    /// Syntax-based fallback for generating Class literal tokens when the
+    /// semantic model cannot resolve type arguments (e.g. cross-assembly
+    /// references producing IErrorTypeSymbol).  Derives the Java type name
+    /// directly from the syntax node via MapTypeFromSyntax.
+    /// </summary>
+    private static List<string>? GetClassTokensFromSyntaxFallback(
+        GenericNameSyntax genericName,
+        ConversionContext context)
+    {
+        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
+            return null;
+        if (genericName.TypeArgumentList.Arguments.Count == 0)
+            return null;
+
+        var tokens = new List<string>();
+        foreach (var typeArgSyntax in genericName.TypeArgumentList.Arguments)
+        {
+            // Skip type-parameter-style arguments (e.g. "T") — these need
+            // runtime Class<T> parameters that require semantic resolution.
+            if (typeArgSyntax is IdentifierNameSyntax id)
+            {
+                // Heuristic: single uppercase letter or short name starting
+                // with uppercase — likely a type parameter, not a concrete type.
+                var name = id.Identifier.Text;
+                if (name.Length <= 2 && char.IsUpper(name[0]))
+                {
+                    tokens.Add($"_cs2j_{name}");
+                    continue;
+                }
+            }
+
+            var mappedType = context.MapTypeFromSyntax(typeArgSyntax);
+            if (string.IsNullOrWhiteSpace(mappedType) || mappedType == "Object")
+                return null;
+
+            // Strip generic type arguments — Foo<T>.class is illegal in Java
+            var stripped = mappedType;
+            var ltIdx = stripped.IndexOf('<');
+            if (ltIdx >= 0)
+                stripped = stripped.Substring(0, ltIdx);
+
+            tokens.Add($"{stripped}.class");
+        }
+        return tokens.Count > 0 ? tokens : null;
     }
 
     private static string TransformArrayCopyArrayArgument(ExpressionSyntax expression, ConversionContext context)

@@ -897,7 +897,14 @@ private static bool IsArrayAccessSegment(string segment)
         if (context.ReturnsCSharpGenericIterable && context.SemanticModel != null)
         {
             var retExprType = context.GetTypeInfo(stmt.Expression).Type;
-            bool isAlreadyCSharpGenericIterable = expr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal);
+            bool isAlreadyCSharpGenericIterable = expr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal)
+                || expr.StartsWith("new CSharpList<", StringComparison.Ordinal)
+                || expr.StartsWith("new CSharpDictionary<", StringComparison.Ordinal)
+                || expr.StartsWith("new CSharpHashSet<", StringComparison.Ordinal)
+                || expr.StartsWith("new CSharpSortedSet<", StringComparison.Ordinal)
+                || expr.StartsWith("new CSharpQueue<", StringComparison.Ordinal)
+                || expr.StartsWith("new CSharpStack<", StringComparison.Ordinal)
+                || expr.StartsWith("new CSharpPriorityQueue<", StringComparison.Ordinal);
             bool isIDictionary = retExprType is INamedTypeSymbol dictType
                 && (dictType.Name is "Dictionary" or "SortedDictionary" or "IDictionary"
                     || dictType.AllInterfaces.Any(i => i.Name == "IDictionary"));

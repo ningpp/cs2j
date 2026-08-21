@@ -533,23 +533,95 @@ namespace CSharpToJava.Core.LinqRewrite
                 if (count != null)
                 {
                     var arrayIdentifier = SyntaxFactory.IdentifierName("_array");
-                    return RewriteAsLoop(
-                        returnType,
-                        new[] { CreateLocalVariableDeclaration("_array", SyntaxFactory.ArrayCreationExpression(SyntaxFactory.ArrayType(((ArrayTypeSyntax)returnType).ElementType, SyntaxFactory.List(new[] { SyntaxFactory.ArrayRankSpecifier(CreateSeparatedList(new[] { count })) })))) },
-                        new[] { SyntaxFactory.ReturnStatement(arrayIdentifier) },
-                        collection,
-                        chain,
-                        (inv, arguments, param) =>
+                    // For ToArray, we need to create "new ElementType[count]".
+                    // When returnType is a jagged array like double[][], the C# ArrayTypeSyntax
+                    // has ElementType=double and RankSpecifiers=[[],[]]. To create double[count][]
+                    // we need ElementType=double and RankSpecifiers=[[count],[]].
+                    // We achieve this by taking the original returnType, replacing the FIRST
+                    // rank specifier (which has the size) with our count, and keeping the rest.
+                    TypeSyntax arrayElementType;
+                    var returnStr = returnType.ToString();
+                    if (returnType is ArrayTypeSyntax arrayType && arrayType.RankSpecifiers.Count > 0)
+                    {
+                        // Build a new ArrayType with the first rank replaced by count,
+                        // and all other ranks preserved (as empty []).
+                        var newRanks = new List<ArrayRankSpecifierSyntax>();
+                        newRanks.Add(SyntaxFactory.ArrayRankSpecifier(CreateSeparatedList(new[] { count })));
+                        for (int ri = 1; ri < arrayType.RankSpecifiers.Count; ri++)
                         {
-                            return CreateStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.ElementAccessExpression(arrayIdentifier, SyntaxFactory.BracketedArgumentList(CreateSeparatedList(new[] { SyntaxFactory.Argument(SyntaxFactory.IdentifierName("_index")) }))), SyntaxFactory.IdentifierName(param.Identifier.ValueText)));
+                            newRanks.Add(SyntaxFactory.ArrayRankSpecifier(CreateSeparatedList(Array.Empty<ExpressionSyntax>())));
                         }
-                    );
+                        arrayElementType = arrayType.ElementType;
+                        var newArrayType = SyntaxFactory.ArrayType(arrayElementType, SyntaxFactory.List(newRanks));
+                        return RewriteAsLoop(
+                            returnType,
+                            new[] { CreateLocalVariableDeclaration("_array", SyntaxFactory.ArrayCreationExpression(newArrayType)) },
+                            new[] { SyntaxFactory.ReturnStatement(arrayIdentifier) },
+                            collection,
+                            chain,
+                            (inv, arguments, param) =>
+                            {
+                                return CreateStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.ElementAccessExpression(arrayIdentifier, SyntaxFactory.BracketedArgumentList(CreateSeparatedList(new[] { SyntaxFactory.Argument(SyntaxFactory.IdentifierName("_index")) }))), SyntaxFactory.IdentifierName(param.Identifier.ValueText)));
+                            }
+                        );
+                    }
+                    else
+                    {
+                        // returnType is not an ArrayTypeSyntax — fall back to old logic.
+                        // This shouldn't normally happen for ToArray, but handle it gracefully.
+                        arrayElementType = returnType;
+                        return RewriteAsLoop(
+                            returnType,
+                            new[] { CreateLocalVariableDeclaration("_array", SyntaxFactory.ArrayCreationExpression(SyntaxFactory.ArrayType(arrayElementType, SyntaxFactory.List(new[] { SyntaxFactory.ArrayRankSpecifier(CreateSeparatedList(new[] { count })) })))) },
+                            new[] { SyntaxFactory.ReturnStatement(arrayIdentifier) },
+                            collection,
+                            chain,
+                            (inv, arguments, param) =>
+                            {
+                                return CreateStatement(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.ElementAccessExpression(arrayIdentifier, SyntaxFactory.BracketedArgumentList(CreateSeparatedList(new[] { SyntaxFactory.Argument(SyntaxFactory.IdentifierName("_index")) }))), SyntaxFactory.IdentifierName(param.Identifier.ValueText)));
+                            }
+                        );
+                    }
 
                 }
                 else
                 {
                     var listIdentifier = SyntaxFactory.IdentifierName("_list");
-                    var listType = SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + ((ArrayTypeSyntax)returnType).ElementType + ">");
+                    // For jagged arrays (e.g. double[][]), arrayType.ElementType is "double"
+                    // and RankSpecifiers=[[],[]]. We need "double[]" for the List element type.
+                    TypeSyntax listElementType;
+                    if (returnType is ArrayTypeSyntax arrayType && arrayType.RankSpecifiers.Count > 0)
+                    {
+                        if (arrayType.RankSpecifiers.Count == 1)
+                        {
+                            // Simple array: double[] -> element type is double
+                            listElementType = arrayType.ElementType;
+                        }
+                        else
+                        {
+                            // Jagged array: double[][] -> element type is double[]
+                            // Build it from ElementType + all ranks except the last one
+                            var ranks = new List<ArrayRankSpecifierSyntax>();
+                            for (int ri = 0; ri < arrayType.RankSpecifiers.Count - 1; ri++)
+                            {
+                                ranks.Add(SyntaxFactory.ArrayRankSpecifier(CreateSeparatedList(Array.Empty<ExpressionSyntax>())));
+                            }
+                            listElementType = SyntaxFactory.ArrayType(arrayType.ElementType, SyntaxFactory.List(ranks));
+                        }
+                    }
+                    else
+                    {
+                        var returnStr = returnType.ToString();
+                        if (returnStr.EndsWith("[]"))
+                        {
+                            listElementType = SyntaxFactory.ParseTypeName(returnStr.Substring(0, returnStr.Length - 2));
+                        }
+                        else
+                        {
+                            listElementType = returnType;
+                        }
+                    }
+                    var listType = SyntaxFactory.ParseTypeName("System.Collections.Generic.List<" + listElementType + ">");
                     return RewriteAsLoop(
                         returnType,
                         new[] { CreateLocalVariableDeclaration("_list", SyntaxFactory.ObjectCreationExpression(listType, CreateArguments(Enumerable.Empty<ArgumentSyntax>()), null)) },

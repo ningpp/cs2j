@@ -678,6 +678,13 @@ public class MathHelper {
                 }
                 return precision > 0 ? "%" + "." + precision + "f" : "%f";
             }
+            case 'R': {
+                // C# "R" = round-trip format: G17 for double, G9 for float
+                if (value instanceof Float) {
+                    return "%.9g";
+                }
+                return "%.17g";
+            }
             default:
                 return "%" + format;
         }

@@ -908,7 +908,22 @@ public class ArgumentTransformer
             if (targetParam.ContainingSymbol is IMethodSymbol { Name: "AddRange" })
                 return transformedExpr;
 
-            return ExpressionTransformerHelpers.BuildArrayToCollectionExpression(transformedExpr, argArrayType, context);
+            var collectionExpr = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(transformedExpr, argArrayType, context);
+            // When the target is IList<T> (mapped to CSharpGenericIList<T>),
+            // the BuildArrayToCollectionExpression result (List<T>) must be wrapped
+            // via CSharpGenericIList.fromTyped() because Java's List<T> does not
+            // implement CSharpGenericIList<T>. CSharpList<T> does implement it
+            // (via its interface chain), so only wrap plain List<T> results
+            // (from ArrayHelper.toList). Use fromTyped() (not from()) to
+            // preserve the element type — from() returns CSharpGenericIList<Object>.
+            if (paramNamed.Name == "IList"
+                && context.Options.TargetLanguage != TargetLanguage.TypeScript
+                && !collectionExpr.StartsWith("CSharpList<", StringComparison.Ordinal))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+                return $"CSharpGenericIList.fromTyped({collectionExpr})";
+            }
+            return collectionExpr;
         }
 
         // ── Case 2: IEnumerable (Iterable) argument → Java target needs Collection ──
@@ -987,6 +1002,25 @@ public class ArgumentTransformer
                     return $"CSharpGenericIterable.from({spliteratorCollectExpr})";
                 }
                 return spliteratorCollectExpr;
+            }
+        }
+
+        // ── Case 2c: Collections.emptyList() → IEnumerable<T> parameter ──
+        // Enumerable.Empty<T>() converts to Collections.<T>emptyList(), which
+        // returns List<T> in Java. When the target parameter is IEnumerable<T>
+        // (mapped to CSharpGenericIterable<T>), List<T> does not implement
+        // CSharpGenericIterable<T>, so wrap it via CSharpGenericIterable.from().
+        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
+            && paramType is INamedTypeSymbol paramNamedEmpty
+            && paramNamedEmpty.Name == "IEnumerable"
+            && paramNamedEmpty.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
+        {
+            var trimmedEmpty = transformedExpr.Trim();
+            if (trimmedEmpty.StartsWith("Collections.", StringComparison.Ordinal)
+                && (trimmedEmpty.Contains("emptyList()") || trimmedEmpty.EndsWith(".emptyList()")))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                return $"CSharpGenericIterable.from({transformedExpr})";
             }
         }
 
