@@ -63,10 +63,18 @@
     </Content>
   </ItemGroup>
 
-  <ItemGroup>
+    <ItemGroup>
     <!-- Include SampleCrossCompile as content so it's available at test runtime -->
     <Content Include="..\SampleCrossCompile\**\*.*">
       <Link>SampleCrossCompile\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Include SampleStaticGenericSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleStaticGenericSolution\**\*.*">
+      <Link>SampleStaticGenericSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

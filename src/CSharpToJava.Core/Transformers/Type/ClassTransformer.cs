@@ -7,6 +7,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
 using CSharpToJava.Core.Transformers.Member;
+using CSharpToJava.Core.Transformers.Expression;
 using CSharpToJava.Core.Transformers.Utilities;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -302,7 +303,7 @@ public class ClassTransformer : ITypeTransformer
                 if (member is MethodDeclarationSyntax preMethod)
                 {
                     var preSym = preModel.GetDeclaredSymbol(preMethod);
-                    var preTypeParamNames = DetectTypeOfDefaultUsage(preMethod, preModel);
+                    var preTypeParamNames = DetectTypeOfDefaultUsage(preMethod, preModel, context);
             if (preSym != null && preTypeParamNames != null)
             {
                 foreach (var tpName in preTypeParamNames)
@@ -1012,7 +1013,8 @@ public class ClassTransformer : ITypeTransformer
     /// </summary>
     private static List<string>? DetectTypeOfDefaultUsage(
         MethodDeclarationSyntax method,
-        Microsoft.CodeAnalysis.SemanticModel semanticModel)
+        Microsoft.CodeAnalysis.SemanticModel semanticModel,
+        ConversionContext context)
     {
         if (method.TypeParameterList == null || method.TypeParameterList.Parameters.Count == 0)
             return null;
@@ -1063,6 +1065,16 @@ public class ClassTransformer : ITypeTransformer
                 // Explicit generic call forwarding a type parameter (e.g.
                 // ReadCore<TValue>(...)) — the callee likely needs the Class token,
                 // so this method's signature must carry it too.
+                // But only forward when the callee actually exposes Class<T> slots
+                // in its Java signature (consistent with DetectDefaultUsageInMethod).
+                // Without this check, LINQ-generated procedural methods like
+                // Sort_ProceduralLinq1<TEdge>(...) would cause Sort<TEdge> to gain
+                // a spurious Class<TEdge> parameter that the call site (in another
+                // project) cannot detect via DetectDefaultUsageInMethod.
+                var calleeSym = semanticModel.GetSymbolInfo(inv).Symbol as IMethodSymbol;
+                if (calleeSym != null
+                    && !InvocationExpressionTransformer.MethodLikelyNeedsClassTokens(calleeSym, context))
+                    continue;
                 foreach (var typeArg in invGeneric.TypeArgumentList.Arguments)
                 {
                     if (typeArg is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeArgId)

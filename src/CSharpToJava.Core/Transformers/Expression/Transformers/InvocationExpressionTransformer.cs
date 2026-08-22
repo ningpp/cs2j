@@ -7271,7 +7271,6 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
         }
 
-        System.Console.WriteLine($"[CS2J-TRACE] TransformMemberInvocation: method={methodSymbol?.OriginalDefinition.ToDisplayString()}, isGeneric={methodSymbol?.IsGenericMethod}, nodeExprType={node.Expression.GetType().Name}");
         var memberClassTokens = methodSymbol != null
             ? GetClassTypeTokensForCall(methodSymbol, context, node)
             : null;
@@ -11084,6 +11083,102 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         if (containingType == null)
             return null;
 
+        // [DEBUG] Deep semantic analysis for GraphSort.Sort calls
+        var methodDisplay = methodSymbol.ToDisplayString();
+        if (methodDisplay.Contains("GraphSort") || methodDisplay.Contains("Sort"))
+        {
+            System.Console.WriteLine($"========== [CS2J-DEEP] GetClassTypeTokensForCall ==========");
+            System.Console.WriteLine($"[CS2J-DEEP] methodSymbol.ToDisplayString() = {methodSymbol.ToDisplayString()}");
+            System.Console.WriteLine($"[CS2J-DEEP] methodSymbol.Kind = {methodSymbol.Kind}");
+            System.Console.WriteLine($"[CS2J-DEEP] methodSymbol.IsGenericMethod = {methodSymbol.IsGenericMethod}");
+            System.Console.WriteLine($"[CS2J-DEEP] methodSymbol.IsDefinition = {methodSymbol.IsDefinition}");
+            System.Console.WriteLine($"[CS2J-DEEP] methodSymbol.TypeArguments.Length = {methodSymbol.TypeArguments.Length}");
+            for (int i = 0; i < methodSymbol.TypeArguments.Length; i++)
+            {
+                var ta = methodSymbol.TypeArguments[i];
+                System.Console.WriteLine($"[CS2J-DEEP]   TypeArg[{i}] = {ta.ToDisplayString()}, Kind={ta.Kind}");
+            }
+            System.Console.WriteLine($"[CS2J-DEEP] originalDef.ToDisplayString() = {originalDef.ToDisplayString()}");
+            System.Console.WriteLine($"[CS2J-DEEP] originalDef.IsDefinition = {originalDef.IsDefinition}");
+            System.Console.WriteLine($"[CS2J-DEEP] originalDef.TypeParameters.Length = {originalDef.TypeParameters.Length}");
+            for (int i = 0; i < originalDef.TypeParameters.Length; i++)
+            {
+                var tp = originalDef.TypeParameters[i];
+                System.Console.WriteLine($"[CS2J-DEEP]   TypeParam[{i}] = {tp.Name}, HasConstructorConstraint={tp.HasConstructorConstraint}");
+            }
+            System.Console.WriteLine($"[CS2J-DEEP] originalDef.ContainingType.ToDisplayString() = {originalDef.ContainingType?.ToDisplayString()}");
+            System.Console.WriteLine($"[CS2J-DEEP] originalDef.ContainingType.Locations.Length = {originalDef.ContainingType?.Locations.Length ?? 0}");
+            var ctLocs = originalDef.ContainingType?.Locations ?? default;
+            foreach (var loc in ctLocs)
+            {
+                System.Console.WriteLine($"[CS2J-DEEP]   ContainingType Location: {loc.SourceTree?.FilePath}:{loc.SourceSpan.Start}");
+            }
+            System.Console.WriteLine($"[CS2J-DEEP] originalDef.Locations.Length = {originalDef.Locations.Length}");
+            foreach (var loc in originalDef.Locations)
+            {
+                System.Console.WriteLine($"[CS2J-DEEP]   Method Location: {loc.SourceTree?.FilePath}:{loc.SourceSpan.Start}");
+            }
+            System.Console.WriteLine($"[CS2J-DEEP] originalDef.DeclaringSyntaxReferences.Length = {originalDef.DeclaringSyntaxReferences.Length}");
+            foreach (var sr in originalDef.DeclaringSyntaxReferences)
+            {
+                System.Console.WriteLine($"[CS2J-DEEP]   SyntaxRef: {sr.SyntaxTree.FilePath}");
+                System.Console.WriteLine($"[CS2J-DEEP]   SyntaxRef.Span.Start = {sr.Span.Start}");
+                System.Console.WriteLine($"[CS2J-DEEP]   SyntaxRef.SyntaxTree.Length = {sr.SyntaxTree.Length}");
+                var node = sr.GetSyntax();
+                System.Console.WriteLine($"[CS2J-DEEP]   SyntaxNode.Kind = {node.Kind()}, Type={node.GetType().Name}");
+            }
+            System.Console.WriteLine($"[CS2J-DEEP] context.MethodHasClassParams(originalDef) = {context.MethodHasClassParams(originalDef)}");
+
+            // Check if the method's syntax tree is in the current compilation
+            var comp = context.ProjectCompilation;
+            if (comp != null)
+            {
+                System.Console.WriteLine($"[CS2J-DEEP] context.ProjectCompilation != null");
+                System.Console.WriteLine($"[CS2J-DEEP] context.ProjectCompilation.SyntaxTrees.Count = {comp.SyntaxTrees.Count()}");
+                foreach (var st in comp.SyntaxTrees)
+                {
+                    var contains = originalDef.Locations.Any(l => l.SourceTree == st);
+                    System.Console.WriteLine($"[CS2J-DEEP]   SyntaxTree: {st.FilePath}, ContainsMethodDef={contains}");
+                }
+            }
+            else
+            {
+                System.Console.WriteLine($"[CS2J-DEEP] context.ProjectCompilation == null");
+            }
+
+            // Check RuntimeClassParameterHelper results
+            var runtimeParams = RuntimeClassParameterHelper.GetRequiredTypeParameters(methodSymbol, context);
+            System.Console.WriteLine($"[CS2J-DEEP] RuntimeClassParameterHelper.GetRequiredTypeParameters count = {runtimeParams.Count()}");
+            foreach (var rp in runtimeParams)
+            {
+                System.Console.WriteLine($"[CS2J-DEEP]   RuntimeParam: name={rp.Name}, DeclaringMethod={rp.DeclaringMethod?.ToDisplayString()}");
+                System.Console.WriteLine($"[CS2J-DEEP]   Equals(originalDef) = {SymbolEqualityComparer.Default.Equals(rp.DeclaringMethod, originalDef)}");
+            }
+
+            // Check Registry
+            var hasRegistry = context.Options.RuntimeClassParameters.TryGetMethodRequirements(originalDef, out var registryReqs);
+            System.Console.WriteLine($"[CS2J-DEEP] Registry.TryGetMethodRequirements = {hasRegistry}");
+            if (hasRegistry)
+            {
+                System.Console.WriteLine($"[CS2J-DEEP]   RegistryReqs.Count = {registryReqs.Count()}");
+                foreach (var rr in registryReqs)
+                {
+                    System.Console.WriteLine($"[CS2J-DEEP]   RegistryReq: name={rr.Name}, Kind={rr.Kind}");
+                }
+            }
+
+            // Now check what DetectDefaultUsageInMethod returns
+            var detected = DetectDefaultUsageInMethod(originalDef, context);
+            System.Console.WriteLine($"[CS2J-DEEP] DetectDefaultUsageInMethod count = {detected?.Count ?? -1}");
+            if (detected != null)
+            {
+                foreach (var d in detected)
+                    System.Console.WriteLine($"[CS2J-DEEP]   Detected: {d}");
+            }
+
+            System.Console.WriteLine($"========== [CS2J-DEEP] End ==========");
+        }
+
         // First check the pre-registered set (populated when the method was processed
         // before the call site). If not found, scan the method body directly — the
         // method may be declared after the call site in the source file.
@@ -11115,6 +11210,51 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // Drain immediately — the method's signature will be patched when
                 // ApplyPendingClassTypeParams runs after the method is processed.
                 context.DrainClassTypeParams();
+            }
+            else
+            {
+                // Cross-project fallback: when the method is defined in a referenced
+                // assembly (not in the current project's source trees), the above
+                // scans cannot access the method body. Try the shared
+                // RuntimeClassParameterHelper first (it may have cached results from
+                // the defining project's conversion).
+                var runtimeRequired = RuntimeClassParameterHelper
+                    .GetRequiredTypeParameters(methodSymbol, context)
+                    .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, originalDef))
+                    .Select(tp => tp.Name)
+                    .ToList();
+                System.Console.WriteLine($"[CS2J-TRACE] CrossProjectFallback: method={originalDef.ToDisplayString()}, runtimeRequired={runtimeRequired.Count}, DeclSyntaxRefs={originalDef.DeclaringSyntaxReferences.Length}");
+                if (runtimeRequired.Count > 0)
+                {
+                    typeParamNames = runtimeRequired;
+                    foreach (var tpName in typeParamNames)
+                    {
+                        context.RequireClassTypeParam(originalDef, tpName);
+                    }
+                    context.DrainClassTypeParams();
+                }
+                else
+                {
+                    // Final fallback: check the shared RuntimeClassParameterRegistry
+                    // which was populated when the defining project was converted.
+                    if (context.Options.RuntimeClassParameters.TryGetMethodRequirements(
+                            originalDef, out var registryReqs))
+                    {
+                        var methodReqs = registryReqs
+                            .Where(r => r.Kind == RuntimeClassTypeParameterRequirementKind.Method)
+                            .Select(r => r.Name)
+                            .ToList();
+                        if (methodReqs.Count > 0)
+                        {
+                            typeParamNames = methodReqs;
+                            foreach (var tpName in typeParamNames)
+                            {
+                                context.RequireClassTypeParam(originalDef, tpName);
+                            }
+                            context.DrainClassTypeParams();
+                        }
+                    }
+                }
             }
         }
 
@@ -11216,10 +11356,37 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 result.Add(tp.Name);
         }
 
-        List<string>? result = null;
+                List<string>? result = null;
         foreach (var syntaxRef in methodSymbol.DeclaringSyntaxReferences)
         {
             var syntax = syntaxRef.GetSyntax();
+
+            // [DEBUG] DetectDefaultUsageInMethod scanning
+            var scanMethodDisplay = methodSymbol.OriginalDefinition.ToDisplayString();
+            if (scanMethodDisplay.Contains("Sort<TEdge>"))
+            {
+                System.Console.WriteLine($"[CS2J-DEEP-SCAN] DetectDefaultUsageInMethod scanning: {scanMethodDisplay}");
+                System.Console.WriteLine($"[CS2J-DEEP-SCAN]   syntaxRef.FilePath = {syntaxRef.SyntaxTree.FilePath}");
+                System.Console.WriteLine($"[CS2J-DEEP-SCAN]   syntax.Kind = {syntax.Kind()}");
+                var syntaxStr = syntax.ToString();
+                if (syntaxStr.Length > 600) syntaxStr = syntaxStr.Substring(0, 600) + "...";
+                System.Console.WriteLine($"[CS2J-DEEP-SCAN]   syntax content = {syntaxStr}");
+                var allInvs = syntax.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>().ToList();
+                System.Console.WriteLine($"[CS2J-DEEP-SCAN]   InvocationExpression count = {allInvs.Count}");
+                foreach (var invDebug in allInvs)
+                {
+                    var invStr = invDebug.ToString();
+                    if (invStr.Length > 120) invStr = invStr.Substring(0, 120) + "...";
+                    System.Console.WriteLine($"[CS2J-DEEP-SCAN]     Inv: {invStr}");
+                    System.Console.WriteLine($"[CS2J-DEEP-SCAN]       Expression.Kind = {invDebug.Expression?.Kind()}");
+                    if (invDebug.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax gn)
+                        System.Console.WriteLine($"[CS2J-DEEP-SCAN]       GenericName TypeArgs = [{string.Join(", ", gn.TypeArgumentList.Arguments)}]");
+                    else if (invDebug.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax mae && mae.Name is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax maeGn)
+                        System.Console.WriteLine($"[CS2J-DEEP-SCAN]       MemberAccess GenericName TypeArgs = [{string.Join(", ", maeGn.TypeArgumentList.Arguments)}]");
+                }
+            }
+
+
             // Hoisted local functions declare via LocalFunctionStatementSyntax, not
             // MethodDeclarationSyntax; scan their bodies the same way. Expression
             // bodies (T F<T>() => default(T)) have no BlockSyntax — scan the
@@ -11387,6 +11554,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// signature), so they are treated as token-free even when their body text
     /// would otherwise suggest a token requirement.
     /// </summary>
+    internal static bool MethodLikelyNeedsClassTokens(
+        IMethodSymbol method,
+        ConversionContext context)
+    {
+        return MethodLikelyNeedsClassTokens(method, context, activeChain: null);
+    }
+
     private static bool MethodLikelyNeedsClassTokens(
         IMethodSymbol method,
         ConversionContext context,
