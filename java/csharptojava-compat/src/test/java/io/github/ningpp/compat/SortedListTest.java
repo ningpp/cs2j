@@ -61,7 +61,13 @@ class SortedListTest {
     void add_throwsOnDuplicateKey() {
         CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
         list.add("a", 1);
-        assertThrows(IllegalArgumentException.class, () -> list.add("a", 2));
+        assertThrows(ArgumentException.class, () -> list.add("a", 2));
+    }
+
+    @Test
+    void get_missingKey_throwsKeyNotFoundException() {
+        CSharpSortedList<String, Integer> list = new CSharpSortedList<>();
+        assertThrows(KeyNotFoundException.class, () -> list.getChecked("z"));
     }
 
     @Test

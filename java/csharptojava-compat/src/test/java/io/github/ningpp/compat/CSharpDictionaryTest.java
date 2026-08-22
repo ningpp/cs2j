@@ -36,7 +36,7 @@ class CSharpDictionaryTest {
     void add_duplicateKey_throws() {
         CSharpDictionary<String, Integer> dict = new CSharpDictionary<>();
         dict.add("a", 1);
-        assertThrows(IllegalArgumentException.class, () -> dict.add("a", 2));
+        assertThrows(ArgumentException.class, () -> dict.add("a", 2));
     }
 
     @Test
@@ -53,6 +53,12 @@ class CSharpDictionaryTest {
         CSharpDictionary<String, Integer> dict = new CSharpDictionary<>();
         dict.put("c", 3);
         assertEquals(3, dict.get("c"));
+    }
+
+    @Test
+    void get_missingKey_throwsKeyNotFoundException() {
+        CSharpDictionary<String, Integer> dict = new CSharpDictionary<>();
+        assertThrows(KeyNotFoundException.class, () -> dict.getChecked("z"));
     }
 
     // ---- Count ----

@@ -31,7 +31,17 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpIterable<CSharpKey
         return false;
     }
     V get(K key);
-    V put(K key, V value);
+
+    /**
+     * Mirrors Dictionary&lt;TKey, TValue&gt;.get_Item: throws KeyNotFoundException
+     * when the key is absent. Emitted for C# indexer reads (dict[key]).
+     */
+    default V getChecked(K key) {
+        if (!containsKey(key)) {
+            throw new KeyNotFoundException("The given key '" + key + "' was not present in the dictionary.");
+        }
+        return get(key);
+    }    V put(K key, V value);
     /** Default implementations so converter-generated classes returning Set/Collection
      * from keySet()/values() (via the compat adapter) still compile. */
     default CSharpICollection<K> getKeys() {
@@ -133,7 +143,6 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpIterable<CSharpKey
     }
 
     default V getOrDefault(K key, V defaultValue) {
-        V v = get(key);
-        return v != null || containsKey(key) ? v : defaultValue;
+        return containsKey(key) ? get(key) : defaultValue;
     }
 }

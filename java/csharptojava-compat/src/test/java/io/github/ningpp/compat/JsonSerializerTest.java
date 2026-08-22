@@ -119,6 +119,28 @@ class JsonSerializerTest {
     }
 
     @Test
+    void deserialize_genericTypeReference_preservesElementType() {
+        // Converter emits deserialize(new TypeReference<CSharpList<X>>() {}, json) for
+        // generic Deserialize<T> targets; elements must be typed, not LinkedHashMap.
+        java.util.List<Map<String, Object>> result = JsonSerializer.deserialize(
+            new com.fasterxml.jackson.core.type.TypeReference<java.util.List<Map<String, Object>>>() {},
+            "[{\"name\":\"Alice\"},{\"name\":\"Bob\"}]");
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals("Alice", result.get(0).get("name"));
+        assertEquals("Bob", result.get(1).get("name"));
+    }
+
+    @Test
+    void deserialize_classFirstStringArgument() {
+        // Converter emits deserialize(T.class, json) for JsonSerializer.Deserialize<T>(json, options);
+        // it must bind to the (Class, String) overload, not the Utf8JsonReader (Class, Object) overload.
+        Map<?, ?> result = JsonSerializer.deserialize(Map.class, "{\"name\":\"Alice\"}");
+        assertNotNull(result);
+        assertEquals("Alice", result.get("name"));
+    }
+
+    @Test
     void deserialize_toObjectClass() {
         String json = "{\"x\":1}";
         Object result = JsonSerializer.deserialize(json);
@@ -157,6 +179,60 @@ class JsonSerializerTest {
         assertTrue(options.isWriteIndented());
         options.setWriteIndented(false);
         assertFalse(options.isWriteIndented());
+    }
+
+    @Test
+    void deserialize_snakeCaseOptions_bindsSnakeCaseProperties() {
+        // C# JsonSerializerOptions { PropertyNameCaseInsensitive = true,
+        // PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower } must map
+        // snake_case JSON keys onto camelCase Java properties.
+        JsonSerializerOptions options = new JsonSerializerOptions();
+        options.setPropertyNameCaseInsensitive(true);
+        options.setPropertyNamingPolicy(JsonNamingPolicy.getSnakeCaseLower());
+        SnakeCaseDto dto = JsonSerializer.deserialize(SnakeCaseDto.class,
+            "{\"ordered_container_clear\":{\"count_before_clear\":7,\"count_after_clear\":0}}", options);
+        assertNotNull(dto);
+        assertNotNull(dto.getOrderedContainerClear());
+        assertEquals(7, dto.getOrderedContainerClear().getCountBeforeClear());
+        assertEquals(0, dto.getOrderedContainerClear().getCountAfterClear());
+    }
+
+    @Test
+    void deserialize_unknownProperty_isIgnoredLikeSystemTextJson() {
+        // System.Text.Json ignores unknown properties; Jackson's default mapper
+        // must not throw UnrecognizedPropertyException for extra fields.
+        SnakeCaseDto dto = JsonSerializer.deserialize(SnakeCaseDto.class,
+            "{\"orderedContainerClear\":{\"countBeforeClear\":1},\"layers\":[1,2]}");
+        assertNotNull(dto);
+        assertEquals(1, dto.getOrderedContainerClear().getCountBeforeClear());
+    }
+
+    @Test
+    void deserialize_typeReferenceWithSnakeCaseOptions_preservesElementType() {
+        JsonSerializerOptions options = new JsonSerializerOptions();
+        options.setPropertyNamingPolicy(JsonNamingPolicy.getSnakeCaseLower());
+        java.util.List<SnakeCaseDto> result = JsonSerializer.deserialize(
+            new com.fasterxml.jackson.core.type.TypeReference<java.util.List<SnakeCaseDto>>() {},
+            "[{\"ordered_container_clear\":{\"count_before_clear\":3}}]",
+            options);
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(3, result.get(0).getOrderedContainerClear().getCountBeforeClear());
+    }
+
+    public static class SnakeCaseDto {
+        private OrderedContainerClearReference orderedContainerClear;
+        public OrderedContainerClearReference getOrderedContainerClear() { return orderedContainerClear; }
+        public void setOrderedContainerClear(OrderedContainerClearReference v) { orderedContainerClear = v; }
+    }
+
+    public static class OrderedContainerClearReference {
+        private int countBeforeClear;
+        private int countAfterClear;
+        public int getCountBeforeClear() { return countBeforeClear; }
+        public void setCountBeforeClear(int v) { countBeforeClear = v; }
+        public int getCountAfterClear() { return countAfterClear; }
+        public void setCountAfterClear(int v) { countAfterClear = v; }
     }
 
     // ---- Error handling ----

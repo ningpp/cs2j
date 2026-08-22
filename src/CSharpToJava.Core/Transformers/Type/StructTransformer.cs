@@ -1104,9 +1104,9 @@ public class StructTransformer : ITypeTransformer
     /// </summary>
     private static void AddEqualsOverrideIfMissing(JavaClassDeclaration javaClass, ConversionContext context)
     {
-        bool hasValueEquals = javaClass.Methods.Any(m =>
+        var valueEqualsMethod = javaClass.Methods.FirstOrDefault(m =>
             m.Name == "valueEquals" && (m.Modifiers & JavaModifiers.Static) != 0);
-        if (!hasValueEquals)
+        if (valueEqualsMethod == null)
             return;
 
         bool hasEqualsObject = javaClass.Methods.Any(m =>
@@ -1115,6 +1115,29 @@ public class StructTransformer : ITypeTransformer
             return;
 
         string className = javaClass.Name;
+        string returnStatement;
+        if (ValueEqualsDelegatesToInstanceEquals(valueEqualsMethod))
+        {
+            var instanceFields = javaClass.Fields
+                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+                .ToList();
+            if (instanceFields.Count == 0)
+            {
+                returnStatement = "        return true;";
+            }
+            else
+            {
+                returnStatement = "        return " + string.Join(" && ", instanceFields
+                    .Select(f => $"Objects.equals({f.Name}, other.{f.Name})")) + ";";
+            }
+
+            context.AddImport("java.util.Objects");
+        }
+        else
+        {
+            returnStatement = $"        return {className}.valueEquals(this, other);";
+        }
+
         var equalsMethod = new JavaMethodDeclaration
         {
             Name = "equals",
@@ -1122,15 +1145,24 @@ public class StructTransformer : ITypeTransformer
             Modifiers = JavaModifiers.Public,
             Body = $"if (this == o) return true;\n" +
                    $"        if (!(o instanceof {className} other)) return false;\n" +
-                   $"        return {className}.valueEquals(this, other);"
+                   returnStatement
         };
         equalsMethod.Parameters.Add(new JavaParameter("Object", "o"));
         equalsMethod.Annotations.Add(new JavaAnnotation("Override"));
         javaClass.Methods.Add(equalsMethod);
-        context.AddImport("java.util.Objects");
     }
 
     /// <summary>
+    /// Detects the operator==-converted pattern "return p0.equals(p1);" which would
+    /// recurse if the synthesized equals(Object) delegated back to valueEquals.
+    /// </summary>
+    private static bool ValueEqualsDelegatesToInstanceEquals(JavaMethodDeclaration valueEqualsMethod)
+    {
+        var body = (valueEqualsMethod.Body ?? valueEqualsMethod.StructuredBody?.ToBodyString() ?? string.Empty).Trim();
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            body,
+            @"^return\s+\w+\s*\.\s*equals\s*\(\s*\w+\s*\)\s*;$");
+    }    /// <summary>
     /// Generate a toString() method for structs when no explicit override exists.
     /// Includes all instance field values for easier debugging.
     /// </summary>

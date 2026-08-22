@@ -23,7 +23,7 @@ class Sample
 
         Assert.True(result.Success);
         Assert.Contains("doubleDict.put(1.0, 2.0);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return doubleDict.get(1.0);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return doubleDict.getChecked(1.0);", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ class Sample
 
         Assert.True(result.Success);
         Assert.Contains("doubleDict.put((double) (key), (double) (value));", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return doubleDict.get((double) (key));", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return doubleDict.getChecked((double) (key));", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

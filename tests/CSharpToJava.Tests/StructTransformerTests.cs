@@ -418,6 +418,43 @@ public struct Point
     }
 
     [Fact]
+    public void Struct_NullableComparisonAgainstNull_StaysReferenceCheck()
+    {
+        var result = Convert(@"
+using System;
+using System.Collections.Generic;
+public struct Point
+{
+    public int X, Y;
+    public static bool operator ==(Point a, Point b) => a.X == b.X && a.Y == b.Y;
+    public static bool operator !=(Point a, Point b) => !(a == b);
+}
+class User
+{
+    double Measure(IEnumerable<Point> ps)
+    {
+        double l = 0;
+        Point? q = null;
+        foreach (Point p in ps)
+        {
+            if (q != null)
+                l += 1;
+            q = p;
+        }
+        return l;
+    }
+}");
+
+        Assert.True(result.Success);
+        // A nullable struct compared against a null literal is a HasValue check:
+        // it must stay a plain reference comparison instead of calling the value
+        // operator, which would dereference null and throw.
+        Assert.Contains("q != null", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("notEquals(q, null)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("valueEquals(q, null)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Struct_ConversionOperators_GenerateStaticMethods()
     {
         var result = Convert(@"

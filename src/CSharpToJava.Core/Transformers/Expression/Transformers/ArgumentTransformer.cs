@@ -316,6 +316,13 @@ public class ArgumentTransformer
                 }
 
                 var varName = ConversionContext.EscapeJavaKeyword(ident.Identifier.Text);
+                // Bug 4 (out): if a holder is already active for this variable in the current
+                // statement (e.g. TryGetSource(out source) || TryGetSink(out source)), C# shares
+                // one variable across both call sites - reuse the holder instead of allocating a
+                // second one whose unconditional write-back would overwrite the first result.
+                if (context.TryGetActiveRefHolder(varName, out var existingOutHolder))
+                    return existingOutHolder;
+
                 var holderName = context.AllocateOutHolderName(varName);
                 var javaType = "Object";
                 var identResolved = false;

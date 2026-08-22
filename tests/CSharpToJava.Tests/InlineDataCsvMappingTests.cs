@@ -6,6 +6,29 @@ namespace CSharpToJava.Tests;
 public class InlineDataCsvMappingTests
 {
     [Fact]
+    public void DataRow_ConvertsToCsvSource()
+    {
+        // Regression (AGL SolverShellTests): MSTest [DataTestMethod] + [DataRow(...)]
+        // must produce a JUnit @ParameterizedTest with an argument source; without it
+        // JUnit fails with "You must configure at least one set of arguments".
+        var result = Convert(@"
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+class Test {
+    [DataTestMethod]
+    [DataRow(1.0)]
+    [DataRow(2.0)]
+    [DataRow(double.NaN)]
+    public void M(double weight) {}
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("ParameterizedTest", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CsvSource", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("@CsvSource(value = {\"1\", \"2\", \"NaN\"})", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void InlineData_NullValue_UsesNullLiteralInCsv()
     {
         var result = Convert(@"

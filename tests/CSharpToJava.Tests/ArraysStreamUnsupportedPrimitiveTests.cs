@@ -478,7 +478,7 @@ class Sample
 
         Assert.True(result.Success);
         Assert.DoesNotContain("Arrays.stream(Arrays.stream(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Arrays.stream(except).boxed().collect(Collectors.toSet()).contains(i)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Arrays.stream(CSharpGenericIterable.requireNonNull(except, \"source\")).boxed().collect(Collectors.toSet()).contains(i)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

@@ -1781,9 +1781,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 var value = facade.Transform(assignExpr.Right, context);
 
                 // Nested object-initializer assignments like "Settings = { NodeSeparation = ... }"
-                // may currently lower to a TODO comment placeholder. Emitting a setter call with
-                // that placeholder creates invalid Java (no effective argument). Skip for now.
-                if (value.TrimStart().StartsWith("/* TODO: ObjectInitializerExpression", StringComparison.Ordinal))
+                // are handled by BuildNestedInitializerAssignments below; other TODO
+                // placeholders must never reach the emitter as setter arguments.
+                var rightInit = assignExpr.Right as InitializerExpressionSyntax;
+                bool isNestedObjectInitializer = assignExpr.Left is IdentifierNameSyntax
+                                                 && rightInit != null
+                                                 && rightInit.Kind() == SyntaxKind.ObjectInitializerExpression;
+                if (!isNestedObjectInitializer
+                    && value.TrimStart().StartsWith("/* TODO: ObjectInitializerExpression", StringComparison.Ordinal))
                     continue;
 
                 if (assignExpr.Left is IdentifierNameSyntax idName)
@@ -1793,9 +1798,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     // properties → setter method call (e.g. _obj.setLeft(value))
                     var memberSymbol = context.GetSymbolInfo(idName).Symbol;
 
-                    // Handle collection initializer on a property/field: Prop = { item1, item2 }
-                    // C# calls .Add() for each item; Java needs explicit .add() calls on the getter.
-                    if (assignExpr.Right is InitializerExpressionSyntax collInit
+                    // Handle nested object initializer: Prop = { SubProp = value } mutates the
+                    // object returned by Prop's getter — emit getProp().setSubProp(value).
+                    if (isNestedObjectInitializer && rightInit != null)
+                    {
+                        bool isFieldMember = memberSymbol is IFieldSymbol;
+                        var propName = ConversionContext.EscapeJavaKeyword(
+                            memberSymbol is IPropertySymbol propSym
+                                ? propSym.Name
+                                : idName.Identifier.Text);
+                        var getterName = isFieldMember
+                            ? propName
+                            : ConvertToGetter(propName) + "()";
+                        foreach (var nestedStmt in BuildNestedInitializerAssignments(
+                                     rightInit, $"{tmpVar}.{getterName}.", context))
+                        {
+                            pendingAssignments.Add(nestedStmt);
+                        }
+                    }
+                    else if (assignExpr.Right is InitializerExpressionSyntax collInit
                         && collInit.Kind() == SyntaxKind.CollectionInitializerExpression)
                     {
                         bool isFieldMember = memberSymbol is IFieldSymbol;
@@ -1978,6 +1999,100 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             context.AddBranchScopedPreStatement(assignment);
 
         return tmpVar;
+    }
+
+    /// <summary>
+    /// Builds setter/assignment statements for a nested object initializer such as
+    /// Prop = { Sub = { Deep = v }, Item = w }. C# mutates the object returned by
+    /// Prop's getter, so Java emits getProp().getSub().setDeep(v) and
+    /// getProp().setItem(w).
+    /// </summary>
+    private static IEnumerable<string> BuildNestedInitializerAssignments(
+        InitializerExpressionSyntax initializer,
+        string targetPrefix,
+        ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        foreach (var expr in initializer.Expressions)
+        {
+            if (expr is not AssignmentExpressionSyntax assignExpr)
+                continue;
+
+            // Decompose the left side A.B.C into member names with resolvable symbols.
+            var parts = new List<string>();
+            var memberNodes = new List<MemberAccessExpressionSyntax>();
+            ExpressionSyntax? walk = assignExpr.Left;
+            while (walk is MemberAccessExpressionSyntax ma)
+            {
+                memberNodes.Insert(0, ma);
+                parts.Insert(0, ma.Name.Identifier.Text);
+                walk = ma.Expression;
+            }
+            if (walk is not IdentifierNameSyntax idName)
+                continue; // unsupported left shape (e.g. element access)
+            parts.Insert(0, idName.Identifier.Text);
+
+            // Resolve each part: the leading identifier resolves directly; the
+            // member after a dot resolves from the member-access node (A.B → B).
+            var symbols = new ISymbol?[parts.Count];
+            symbols[0] = context.GetSymbolInfo(idName).Symbol;
+            for (int i = 1; i < parts.Count; i++)
+                symbols[i] = context.GetSymbolInfo(memberNodes[i - 1]).Symbol;
+
+            // Build the access chain up to (but excluding) the final member.
+            var chain = targetPrefix;
+            for (int i = 0; i < parts.Count - 1; i++)
+            {
+                var partName = ConversionContext.EscapeJavaKeyword(parts[i]);
+                chain += symbols[i] is IFieldSymbol
+                    ? $"{partName}."
+                    : $"{ConvertToGetter(partName)}().";
+            }
+
+            // Final member: nested object initializer → getter; otherwise setter
+            // call or direct field assignment.
+            var finalName = ConversionContext.EscapeJavaKeyword(parts[^1]);
+            if (assignExpr.Right is InitializerExpressionSyntax nestedInit
+                && nestedInit.Kind() == SyntaxKind.ObjectInitializerExpression)
+            {
+                foreach (var nestedStmt in BuildNestedInitializerAssignments(
+                             nestedInit, $"{chain}{ConvertToGetter(finalName)}().", context))
+                {
+                    yield return nestedStmt;
+                }
+                continue;
+            }
+
+            var value = facade.Transform(assignExpr.Right, context);
+            var finalSymbol = symbols[^1];
+            var finalType = (finalSymbol as IPropertySymbol)?.Type
+                            ?? (finalSymbol as IFieldSymbol)?.Type;
+            if (finalType != null)
+            {
+                value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    assignExpr.Right, value, finalType, context);
+            }
+
+            if (finalSymbol is IFieldSymbol)
+            {
+                yield return $"{chain}{finalName} = {value};";
+            }
+            else if (finalSymbol is IPropertySymbol propSym && propSym.SetMethod != null)
+            {
+                yield return $"{chain}{ConvertToSetter(finalName)}({value});";
+            }
+            else if (finalSymbol is IPropertySymbol)
+            {
+                // Get-only property: assign to the camelCase backing field.
+                var fieldName = char.ToLowerInvariant(finalName[0]) + finalName.Substring(1);
+                yield return $"{chain}{fieldName} = {value};";
+            }
+            else
+            {
+                // Symbol unresolved: default to setter call.
+                yield return $"{chain}{ConvertToSetter(finalName)}({value});";
+            }
+        }
     }
 
     private static string ConvertToSetter(string propertyName)

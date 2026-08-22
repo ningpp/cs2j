@@ -597,6 +597,10 @@ public class MethodTransformer : IMemberTransformer
         if (extraTestMembers != null)
             allDeclarations.AddRange(extraTestMembers.Members);
 
+        // MSTest [ExpectedException(typeof(X))]: wrap the body so the test fails when
+        // the expected exception is not thrown (try/catch + flag, mirroring Assert.throwsException).
+        WrapExpectedExceptionBody(javaMethod, context);
+
         return allDeclarations.Count > 1
             ? new JavaMemberCollection(allDeclarations)
             : javaMethod;
@@ -656,7 +660,13 @@ public class MethodTransformer : IMemberTransformer
             ?? new List<MethodConversionState.CapturedLocal>();
         foreach (var capture in captures)
         {
-            javaMethod.Parameters.Add(new JavaParameter(capture.JavaType, capture.ParamName));
+            // Written captures need by-reference semantics: C# local-function captures
+            // share the enclosing variable, so the hoisted parameter is a holder and
+            // body references go through .value (see PushCaptureRename below).
+            var captureJavaType = capture.IsWritten
+                ? HolderTypeResolver.GetHolderType(capture.JavaType)
+                : capture.JavaType;
+            javaMethod.Parameters.Add(new JavaParameter(captureJavaType, capture.ParamName));
         }
 
         // Local functions are never async themselves, even inside async methods.
@@ -670,7 +680,10 @@ public class MethodTransformer : IMemberTransformer
         {
             foreach (var capture in captures)
             {
-                context.MethodState.PushCaptureRename(capture.Symbol, capture.ParamName);
+                // Written captures: body references emit holder.value so assignments
+                // inside the local function update the shared holder.
+                var renameTarget = capture.IsWritten ? capture.ParamName + ".value" : capture.ParamName;
+                context.MethodState.PushCaptureRename(capture.Symbol, renameTarget);
             }
             if (localFn.Body != null)
             {
@@ -940,6 +953,19 @@ public class MethodTransformer : IMemberTransformer
         // is invented: tests without a C# timeout keep no Java timeout.
         ApplyTestMethodTimeout(allAttributes, javaMethod, context);
 
+        // MSTest [ExpectedException(typeof(X))] — record the mapped Java exception
+        // type so the method body can be wrapped with a throws-check at emit time.
+        var expectedExceptionAttr = allAttributes.FirstOrDefault(a =>
+            NormalizeAttributeName(a.Name.ToString()).Equals("ExpectedException", StringComparison.OrdinalIgnoreCase));
+        if (expectedExceptionAttr != null)
+        {
+            var expectedType = ResolveExpectedExceptionType(expectedExceptionAttr, context);
+            if (expectedType != null)
+            {
+                context.MethodState.ExpectedExceptionJavaType = expectedType;
+            }
+        }
+
         // [ConditionalTheory(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
         // is skipped by xUnit when the remote executor is unavailable. The compat
         // RemoteExecutor reports IsSupported=false, so these tests must be disabled:
@@ -962,7 +988,7 @@ public class MethodTransformer : IMemberTransformer
 
         // Handle [InlineData] attributes → @CsvSource annotation
         var inlineDataAttrs = allAttributes
-            .Where(a => NormalizeAttributeName(a.Name.ToString()).Equals("InlineData", StringComparison.OrdinalIgnoreCase))
+            .Where(a => NormalizeAttributeName(a.Name.ToString()) is "InlineData" or "DataRow")
             .ToList();
         if (inlineDataAttrs.Count > 0)
         {
@@ -1817,6 +1843,78 @@ public class MethodTransformer : IMemberTransformer
     /// <summary>
     /// Builds an @MSTestDeploymentItem annotation from a C# [DeploymentItem] attribute.
     /// </summary>
+
+    /// <summary>
+    /// Resolves the exception type of an MSTest [ExpectedException(typeof(X))] attribute
+    /// to its mapped Java type (e.g. InvalidOperationException → IllegalStateException).
+    /// </summary>
+    private static string? ResolveExpectedExceptionType(AttributeSyntax attr, ConversionContext context)
+    {
+        var arg = attr.ArgumentList?.Arguments.FirstOrDefault();
+        if (arg?.Expression is TypeOfExpressionSyntax typeofExpr)
+        {
+            var typeSymbol = context.GetTypeInfo(typeofExpr.Type).Type;
+            if (typeSymbol != null)
+            {
+                var mapped = context.MapType(typeSymbol);
+                if (!string.IsNullOrWhiteSpace(mapped))
+                {
+                    var trimmed = mapped;
+                    var typeArgStart = trimmed.IndexOf('<');
+                    if (typeArgStart >= 0)
+                        trimmed = trimmed.Substring(0, typeArgStart);
+                    return trimmed.Replace("$", ".");
+                }
+
+                return typeSymbol.Name;
+            }
+
+            return typeofExpr.Type.ToString();
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Wraps the method body of an MSTest [ExpectedException(typeof(X))] test with a
+    /// try/catch that records whether the expected exception was thrown and fails the
+    /// test otherwise — mirroring Assert.throwsException semantics without moving the
+    /// body into a lambda (which would break checked-exception handling).
+    /// </summary>
+    private static void WrapExpectedExceptionBody(JavaMethodDeclaration javaMethod, ConversionContext context)
+    {
+        var expectedType = context.MethodState.ExpectedExceptionJavaType;
+        Console.Error.WriteLine("[CS2J-EX] wrap: type=" + (expectedType ?? "null") + " structured=" + (javaMethod.StructuredBody != null) + " method=" + (javaMethod.Name ?? "?"));
+        if (string.IsNullOrWhiteSpace(expectedType) || javaMethod.StructuredBody == null)
+            return;
+
+        var body = javaMethod.StructuredBody;
+        if (body.Statements.Count == 0)
+            return;
+
+        var flagName = context.GenerateSyntheticName("_cs2jExpectedThrown");
+        var originalStatements = body.Statements.ToList();
+        body.Statements.Clear();
+
+        body.Statements.Add(new Java.JavaRawStatement($"boolean {flagName} = false;"));
+        var tryStmt = new Java.JavaTryCatchStatement
+        {
+            TryBody = new Java.JavaBlockStatement()
+        };
+        tryStmt.TryBody.Statements.AddRange(originalStatements);
+        var catchBody = new Java.JavaBlockStatement();
+        catchBody.Statements.Add(new Java.JavaRawStatement($"{flagName} = true;"));
+        tryStmt.CatchClauses.Add(new Java.JavaCatchClause
+        {
+            ExceptionType = expectedType,
+            Body = catchBody
+        });
+        body.Statements.Add(tryStmt);
+        body.Statements.Add(new Java.JavaRawStatement(
+            $"if (!{flagName}) {{ Assert.fail(\"Expected exception of type {expectedType} was not thrown.\"); }}"));
+        context.AddImport("Microsoft.VisualStudio.TestTools.UnitTesting.Assert");
+    }
+
     internal static JavaAnnotation? BuildDeploymentItemAnnotation(
         AttributeSyntax attr,
         ConversionContext context)
@@ -2572,7 +2670,13 @@ public class MethodTransformer : IMemberTransformer
             if (javaMethod.Parameters.Any(p => p.Name == parameterName))
                 continue;
 
-            javaMethod.Parameters.Insert(0, new JavaParameter($"Class<{typeParameterName}>", parameterName));
+            // JsonSerializer.Deserialize<T> bodies register the type parameter as a
+            // TypeReference-token requirement: the injected parameter must be
+            // TypeReference<T> (fully qualified — the declaring file has no import).
+            var tokenParameterType = context.IsTypeRefTypeParam(sym, typeParameterName)
+                ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
+                : $"Class<{typeParameterName}>";
+            javaMethod.Parameters.Insert(0, new JavaParameter(tokenParameterType, parameterName));
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
             // The injected Class<T> parameter references the type parameter ? make sure
             // the method declares it (stripped when the body never used it before).
@@ -2587,7 +2691,10 @@ public class MethodTransformer : IMemberTransformer
             .Select(p => p.Name.Substring("_cs2j_".Length))
             .ToList();
         if (sym != null)
+        {
             context.SetMethodClassTypeParamNames(sym, orderedNames);
+            context.SetMethodTypeRefTypeParamNames(sym, orderedNames);
+        }
     }
 
     private static string AllocateRuntimeClassParameterName(string typeParameterName, JavaMethodDeclaration javaMethod)

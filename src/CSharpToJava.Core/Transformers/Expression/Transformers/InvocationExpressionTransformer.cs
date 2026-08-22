@@ -586,11 +586,44 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // Capture arguments are synthetic identifiers without symbols; inside
                 // another hoisted capturing function the captured variable's Java name is
                 // its hoisted parameter name, so resolve that rename by name first.
-                var capArgs = captures.Select(c =>
+                // Written captures are passed through a holder initialized with the
+                // current value and written back after the call, so assignments inside
+                // the local function (C# by-reference capture) reach the caller. Read-only
+                // captures stay plain by-value arguments. Recursive call sites resolve the
+                // value expression through the active capture rename (holder.value inside
+                // the hoisted body) and pass the holder itself as the argument.
+                var capArgsList = new List<string>();
+                foreach (var capture in captures)
                 {
-                    var renamed = context.MethodState.TryGetCaptureRenameByName(c.Name);
-                    return renamed ?? c.Name;
-                });
+                    var renamed = context.MethodState.TryGetCaptureRenameByName(capture.Name);
+                    var valueExpr = renamed ?? capture.Name;
+                    if (capture.IsWritten)
+                    {
+                        if (renamed != null)
+                        {
+                            // Inside the hoisted body the active rename is "holder.value";
+                            // recursive calls pass the holder itself (no fresh wrapper).
+                            var holderParam = renamed.EndsWith(".value", StringComparison.Ordinal)
+                                ? renamed.Substring(0, renamed.Length - ".value".Length)
+                                : renamed;
+                            capArgsList.Add(holderParam);
+                        }
+                        else
+                        {
+                            var holderType = HolderTypeResolver.GetHolderType(capture.JavaType);
+                            var holderName = context.AllocateOutHolderName(capture.Name);
+                            context.AddPreStatement(
+                                $"{holderType} {holderName} = {HolderTypeResolver.GetHolderInstantiationWithValue(holderType, valueExpr)}");
+                            context.AddPostStatement($"{valueExpr} = {holderName}.value;");
+                            capArgsList.Add(holderName);
+                        }
+                    }
+                    else
+                    {
+                        capArgsList.Add(valueExpr);
+                    }
+                }
+                var capArgs = string.Join(", ", capArgsList);
                 var captureArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
                 // Hoisted signatures keep no parameter defaults — pad omitted trailing
                 // arguments with the C# default values registered during the prescan
@@ -703,11 +736,22 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         classTokens.Add($"_cs2j_{tpArg.Name}");
                         continue;
                     }
-                    var argLiteral = ConversionContext.GetClassLiteral(typeArg, context);
-                    if (typeArg is INamedTypeSymbol namedArg2 && namedArg2.IsGenericType)
+                    string argLiteral;
+                    if (methodTypeParameterName != null
+                        && (context.IsTypeRefTypeParam(bareMethodSym2.OriginalDefinition, methodTypeParameterName)
+                            || context.Options.RuntimeClassParameters.IsMethodTypeReference(bareMethodSym2.OriginalDefinition, methodTypeParameterName)
+                            || CalleeJsonDeserializesTypeParameter(bareMethodSym2, methodTypeParameterName)))
                     {
-                        var javaArgType2 = context.MapType(typeArg);
-                        argLiteral = $"((Class<{javaArgType2}>) (Class<?>) {argLiteral})";
+                        argLiteral = $"new com.fasterxml.jackson.core.type.TypeReference<{context.MapType(typeArg)}>() {{}}";
+                    }
+                    else
+                    {
+                        argLiteral = ConversionContext.GetClassLiteral(typeArg, context);
+                        if (typeArg is INamedTypeSymbol namedArg2 && namedArg2.IsGenericType)
+                        {
+                            var javaArgType2 = context.MapType(typeArg);
+                            argLiteral = $"((Class<{javaArgType2}>) (Class<?>) {argLiteral})";
+                        }
                     }
                     classTokens.Add(argLiteral);
                 }
@@ -4520,6 +4564,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         {
             string? wrapperClass = null;
             ITypeSymbol? receiverSymbol = null;
+            INamedTypeSymbol? flagsEnumType = null;
 
             // Try semantic model first (may be unavailable after ReadOnlyStructMaker rewrites)
             if (context.SemanticModel != null)
@@ -4534,6 +4579,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     && namedEnumType.GetAttributes().Any(a =>
                         a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"))
                 {
+                    flagsEnumType = namedEnumType;
                     wrapperClass = GetFlagsEnumValueType(namedEnumType, context) == "long" ? "Long" : "Integer";
                 }
 
@@ -4544,7 +4590,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     && (context.IsFlagsEnum(receiverSymbol.Name)
                         || context.IsFlagsEnum(receiverSymbol.ToDisplayString() ?? string.Empty)))
                 {
-                    wrapperClass = receiverSymbol is INamedTypeSymbol namedFlags
+                    var namedFlags = receiverSymbol as INamedTypeSymbol;
+                    flagsEnumType = namedFlags;
+                    wrapperClass = namedFlags != null
                         && GetFlagsEnumValueType(namedFlags, context) == "long"
                         ? "Long"
                         : "Integer";
@@ -4624,7 +4672,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 {
                     "GetHashCode" => $"{wrapperClass}.hashCode({receiver})",
                     "CompareTo"   => $"{wrapperClass}.compare({receiver}, {ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade)})",
-                    "ToString"    => BuildPrimitiveToString(node, receiver, receiverSymbol, context, facade),
+                    "ToString"    => flagsEnumType != null
+                        ? BuildFlagsEnumToString(node, receiver, flagsEnumType, context, facade)
+                        : BuildPrimitiveToString(node, receiver, receiverSymbol, context, facade),
                     _             => $"{wrapperClass}.{char.ToLowerInvariant(originalMethodName[0]) + originalMethodName[1..]}({receiver})"
                 };
             }
@@ -5098,6 +5148,77 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     context.AddImport("io.github.ningpp.compat.ReadOnlySpan");
                     jsonArg = $"new ReadOnlySpan<Integer>({jsonArg})";
                 }
+                // C# Deserialize<T>(json, JsonSerializerOptions options): the options
+                // argument carries the naming policy and case-insensitivity settings
+                // (dropped before, so snake_case reference JSON failed to bind).
+                // Transform it (object-initializer options hoist to a temp variable
+                // via pre-statements) and append it to the compat call.
+                string? optionsSuffix = null;
+                if (argStartIndex + 1 < node.ArgumentList.Arguments.Count)
+                {
+                    var optionsExpr = facade.Transform(node.ArgumentList.Arguments[argStartIndex + 1].Expression, context);
+                    if (!string.IsNullOrWhiteSpace(optionsExpr) && optionsExpr != "null")
+                        optionsSuffix = $", {optionsExpr}";
+                }
+                // Generic constructed targets (e.g. List<SciPyResult>) lose their element
+                // type when erased to a raw Class literal: deserialize(CSharpList.class, json)
+                // makes Jackson produce LinkedHashMap elements, breaking foreach casts.
+                // Emit a Jackson TypeReference so elements keep their concrete type.
+                // Unbounded type parameters stay on the Class-token path (no runtime type).
+                bool isSystemTextJsonDeserialize = methodSymbol?.ContainingType.ToDisplayString()
+                    == "System.Text.Json.JsonSerializer";
+                bool deserializeJsonArgIsString = context.SemanticModel == null
+                    || context.GetTypeInfo(node.ArgumentList.Arguments[argStartIndex].Expression).Type?.SpecialType
+                        == SpecialType.System_String;
+                if (isSystemTextJsonDeserialize
+                    && deserializeJsonArgIsString
+                    && deserializeTargetType is INamedTypeSymbol { IsGenericType: true } genericDeserTarget)
+                {
+                    var mappedGenericTarget = context.MapType(genericDeserTarget);
+                    if (!string.IsNullOrWhiteSpace(mappedGenericTarget) && mappedGenericTarget.Contains('<'))
+                    {
+                        var typeRefCall = $"{receiver}.{methodName}(new com.fasterxml.jackson.core.type.TypeReference<{mappedGenericTarget}>() {{}}, {jsonArg}{optionsSuffix})";
+                        bool isStandaloneDeserialize = node.Parent is ExpressionStatementSyntax
+                            || node.Parent is ArrowExpressionClauseSyntax;
+                        var mappedTypeRefReturn = context.MapType(deserializeTargetType);
+                        if (!isStandaloneDeserialize
+                            && !string.IsNullOrWhiteSpace(mappedTypeRefReturn)
+                            && mappedTypeRefReturn != "Object")
+                        {
+                            return $"(({mappedTypeRefReturn}) {typeRefCall})";
+                        }
+                        return typeRefCall;
+                    }
+                }
+
+                // JsonSerializer.Deserialize<T> where T is a METHOD-level type parameter:
+                // the runtime token is injected as a TypeReference<T> parameter (see
+                // AddPendingRuntimeClassParameters) so call sites can pass constructed
+                // generic types without losing the element type to erasure. Class-level
+                // type parameters and already-registered runtime Class tokens stay on
+                // the Class-token path below.
+                if (deserializeTargetType is ITypeParameterSymbol deserializeTypeParam2
+                    && isSystemTextJsonDeserialize
+                    && deserializeJsonArgIsString
+                    && context.CurrentMethod != null
+                    && !context.TryGetRuntimeClassField(deserializeTypeParam2.Name, out _)
+                    && !context.TryGetRuntimeClassParameter(deserializeTypeParam2.Name, out _)
+                    && !ConversionContext.IsOverrideOrImplementation(context.CurrentMethod))
+                {
+                    context.RequireTypeRefTypeParam(context.CurrentMethod, deserializeTypeParam2.Name);
+                    var typeRefCall = $"{receiver}.{methodName}(_cs2j_{deserializeTypeParam2.Name}, {jsonArg}{optionsSuffix})";
+                    bool isStandaloneDeserialize = node.Parent is ExpressionStatementSyntax
+                        || node.Parent is ArrowExpressionClauseSyntax;
+                    var mappedTypeRefReturn = context.MapType(deserializeTargetType);
+                    if (!isStandaloneDeserialize
+                        && !string.IsNullOrWhiteSpace(mappedTypeRefReturn)
+                        && mappedTypeRefReturn != "Object")
+                    {
+                        return $"(({mappedTypeRefReturn}) {typeRefCall})";
+                    }
+                    return typeRefCall;
+                }
+
                 // Use GetClassLiteral so generic targets emit the raw class literal
                 // (CSharpList.class, not the illegal CSharpList<Integer>.class) and
                 // type parameters resolve through the runtime Class token machinery.
@@ -5115,7 +5236,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     var deserializeTpJava = context.MapType(deserializeTypeParam);
                     deserializeClassLiteral = $"((Class<{deserializeTpJava}>) (Class<?>) {deserializeClassLiteral})";
                 }
-                var deserializeCall = $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg})";
+                var deserializeCall = $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg}{optionsSuffix})";
                 // Java cannot infer the return type from a Class literal, so every call
                 // resolves to Object. Cast to the mapped target type so `var` declarations
                 // and direct uses keep the generic element type (e.g. foreach over
@@ -6698,12 +6819,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 return TransformToArrayWithElementType(receiver, methodSymbol, node, memberAccess, context);
             }
 
-            // ToHashSet() → collect(Collectors.toSet())
+            // ToHashSet() → new CSharpHashSet<>(collect(Collectors.toSet()))
+            // C# HashSet<T> maps to CSharpHashSet<T>, but Collectors.toSet() produces a
+            // java.util.HashSet; wrapping preserves the concrete C# HashSet type so casts
+            // to CSharpHashSet<T> (e.g. inside Select lambdas) do not fail at runtime.
             if (originalMethodName == "ToHashSet")
             {
                 context.AddImport("java.util.stream.Collectors");
-                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                return $"{receiver}.collect(Collectors.toSet())";
+                context.AddImport("io.github.ningpp.compat.CSharpHashSet");
+                return $"new CSharpHashSet<>({receiver}.collect(Collectors.toSet()))";
             }
 
             // Reverse() → collect to list, reverse in-place.
@@ -9235,6 +9359,28 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         };
     }
 
+
+    /// <summary>
+    /// Builds the Java expression for a [Flags] enum ToString() call. Without format
+    /// arguments the generated enum class provides a static toString(value) helper that
+    /// preserves C# name semantics ("East", "North, East"). With format arguments the
+    /// value is formatted numerically (C# formats the underlying number in that case).
+    /// </summary>
+    private static string BuildFlagsEnumToString(
+        InvocationExpressionSyntax node,
+        string receiver,
+        INamedTypeSymbol enumType,
+        ConversionContext context,
+        IExpressionTransformer facade)
+    {
+        if (node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0)
+        {
+            var typeRef = ExpressionTransformerHelpers.GetFlagsEnumJavaTypeReference(enumType, context);
+            return $"{typeRef}.toString({receiver})";
+        }
+
+        return BuildPrimitiveToString(node, receiver, enumType, context, facade);
+    }
     /// <summary>
     /// Builds the Java expression for a C# primitive ToString() call, including format arguments.
     /// Without format args: <c>String.valueOf(receiver)</c>.
@@ -9448,7 +9594,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         int argumentIndex)
     {
         var transformed = facade.Transform(argument.Expression, context);
-        if (context.GetTypeInfo(argument.Expression).Type?.SpecialType
+        var argumentType = context.GetTypeInfo(argument.Expression).Type;
+        if (argumentType?.SpecialType
             is SpecialType.System_Double or SpecialType.System_Single)
         {
             // Only plain "{N}" placeholders (no format specifier) need .NET double
@@ -9459,6 +9606,21 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 context.AddImport("io.github.ningpp.compat.DoubleHelper");
                 return $"DoubleHelper.toString({transformed})";
             }
+        }
+
+        // [Flags] enums are mapped to int in Java, but C# formats a plain {N}
+        // placeholder using the enum's member names ("East", "North, East").
+        // Wrap the argument with the generated static toString(value) helper.
+        if (argumentType?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
+            && argumentType is INamedTypeSymbol namedEnumArg
+            && formatLiteral.Contains("{" + argumentIndex + "}", StringComparison.Ordinal)
+            && (namedEnumArg.GetAttributes().Any(a =>
+                    a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute")
+                || context.IsFlagsEnum(namedEnumArg.Name)
+                || context.IsFlagsEnum(namedEnumArg.ToDisplayString() ?? string.Empty)))
+        {
+            var flagsRef = ExpressionTransformerHelpers.GetFlagsEnumJavaTypeReference(namedEnumArg, context);
+            return $"{flagsRef}.toString({transformed})";
         }
 
         return transformed;
@@ -11101,6 +11263,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         if (containingType == null)
             return null;
 
+
         // [DEBUG] Deep semantic analysis for GraphSort.Sort calls
         var methodDisplay = methodSymbol.ToDisplayString();
         if (methodDisplay.Contains("GraphSort") || methodDisplay.Contains("Sort"))
@@ -11247,7 +11410,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     typeParamNames = runtimeRequired;
                     foreach (var tpName in typeParamNames)
                     {
-                        context.RequireClassTypeParam(originalDef, tpName);
+                        if (context.Options.RuntimeClassParameters.IsMethodTypeReference(originalDef, tpName))
+                            context.RequireTypeRefTypeParam(originalDef, tpName);
+                        else
+                            context.RequireClassTypeParam(originalDef, tpName);
                     }
                     context.DrainClassTypeParams();
                 }
@@ -11267,7 +11433,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                             typeParamNames = methodReqs;
                             foreach (var tpName in typeParamNames)
                             {
-                                context.RequireClassTypeParam(originalDef, tpName);
+                                if (context.Options.RuntimeClassParameters.IsMethodTypeReference(originalDef, tpName))
+                                    context.RequireTypeRefTypeParam(originalDef, tpName);
+                                else
+                                    context.RequireClassTypeParam(originalDef, tpName);
                             }
                             context.DrainClassTypeParams();
                         }
@@ -11308,7 +11477,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (typeParamMap.TryGetValue(tpName, out var index) && index < typeArgs.Length)
             {
                 var concreteType = typeArgs[index];
-                var token = ConversionContext.GetClassLiteral(concreteType, context);
+                string token;
+                if (context.IsTypeRefTypeParam(originalDef, tpName))
+                {
+                    // TypeReference-token slot (JsonSerializer.Deserialize<T> body):
+                    // pass the fully parameterized type so element types survive.
+                    token = $"new com.fasterxml.jackson.core.type.TypeReference<{context.MapType(concreteType)}>() {{}}";
+                }
+                else
+                {
+                    token = ConversionContext.GetClassLiteral(concreteType, context);
+                }
                 // A raw Class literal for a parameterized type (e.g. CSharpList.class)
                 // pins type inference to the RAW type, failing when the remaining
                 // arguments carry the parameterized type (CSharpList<Integer>). When
@@ -11317,7 +11496,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // inference binds TValue correctly. When the argument is a different
                 // (e.g. invariant-subtype) type, keep the raw literal, which javac
                 // accepts via unchecked conversion.
-                if (concreteType is INamedTypeSymbol tokenNamed
+                if (!context.IsTypeRefTypeParam(originalDef, tpName)
+                    && concreteType is INamedTypeSymbol tokenNamed
                     && tokenNamed.IsGenericType
                     && invocation != null
                     && invocation.ArgumentList.Arguments.Any(a =>
@@ -11340,6 +11520,40 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         }
 
         return tokens.Count > 0 ? tokens : null;
+    }
+
+    /// <summary>
+    /// True when the callee's body syntactically contains
+    /// JsonSerializer.Deserialize<T>(...) for the given method type parameter.
+    /// Used at call sites converted before the definition registered its
+    /// TypeReference-token requirement (signature prepass order): the token must
+    /// still be emitted as a TypeReference so the constructed generic element
+    /// type survives erasure.
+    /// </summary>
+    private static bool CalleeJsonDeserializesTypeParameter(IMethodSymbol methodSymbol, string typeParamName)
+    {
+        var originalDef = methodSymbol.OriginalDefinition;
+        foreach (var syntaxRef in originalDef.DeclaringSyntaxReferences)
+        {
+            var node = syntaxRef.GetSyntax();
+            foreach (var memberAccess in node.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+            {
+                if (memberAccess.Name is not GenericNameSyntax genericName)
+                    continue;
+                if (genericName.Identifier.Text != "Deserialize")
+                    continue;
+                if (genericName.TypeArgumentList.Arguments.Count != 1)
+                    continue;
+                if (genericName.TypeArgumentList.Arguments[0] is IdentifierNameSyntax id
+                    && id.Identifier.Text == typeParamName
+                    && memberAccess.Expression is IdentifierNameSyntax receiver
+                    && receiver.Identifier.Text == "JsonSerializer")
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -11930,14 +12144,29 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 tokens.Add($"_cs2j_{typeParamArg.Name}");
                 continue;
             }
-            var literal = ConversionContext.GetClassLiteral(typeArgSymbol, context);
-            // A generic concrete type (e.g. Dictionary<string, float?> → CSharpDictionary)
-            // strips to a raw Class literal; cast through Class<?> so the call site's
-            // type inference binds the explicit type argument correctly.
-            if (typeArgSymbol is INamedTypeSymbol namedArg && namedArg.IsGenericType)
+            string literal;
+            // JsonSerializer.Deserialize<T> bodies declare TypeReference<T> token
+            // slots: the explicit type argument must be passed as a TypeReference so
+            // constructed generic element types survive erasure.
+            if (methodTypeParameterName != null
+                && targetMethod != null
+                && (context.IsTypeRefTypeParam(targetMethod.OriginalDefinition, methodTypeParameterName)
+                    || context.Options.RuntimeClassParameters.IsMethodTypeReference(targetMethod.OriginalDefinition, methodTypeParameterName)
+                    || CalleeJsonDeserializesTypeParameter(targetMethod, methodTypeParameterName)))
             {
-                var javaArgType = context.MapType(typeArgSymbol);
-                literal = $"((Class<{javaArgType}>) (Class<?>) {literal})";
+                literal = $"new com.fasterxml.jackson.core.type.TypeReference<{context.MapType(typeArgSymbol)}>() {{}}";
+            }
+            else
+            {
+                literal = ConversionContext.GetClassLiteral(typeArgSymbol, context);
+                // A generic concrete type (e.g. Dictionary<string, float?> → CSharpDictionary)
+                // strips to a raw Class literal; cast through Class<?> so the call site's
+                // type inference binds the explicit type argument correctly.
+                if (typeArgSymbol is INamedTypeSymbol namedArg && namedArg.IsGenericType)
+                {
+                    var javaArgType = context.MapType(typeArgSymbol);
+                    literal = $"((Class<{javaArgType}>) (Class<?>) {literal})";
+                }
             }
             tokens.Add(literal);
         }

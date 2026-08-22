@@ -61,9 +61,11 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 // List/Dict/String → JavaMethodCallExpression (get/charAt)
                 bool isList = false;
                 bool isMap = false;
+                string? namedFullName = null;
                 if (exprType is INamedTypeSymbol named)
                 {
-                    var fullName = named.OriginalDefinition.ToDisplayString();
+                    namedFullName = named.OriginalDefinition.ToDisplayString();
+                    var fullName = namedFullName;
                     isList = fullName is "System.Collections.Generic.List<T>"
                         or "System.Collections.Generic.IList<T>"
                         or "System.Collections.Generic.IReadOnlyList<T>"
@@ -78,7 +80,8 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 {
                     var targetIR = facade.TransformToIR(elemAccess.Expression, context);
                     var indexIR = facade.TransformToIR(arg, context);
-                    var methodName = isString ? "charAt" : "get";
+                    var methodName = isString ? "charAt"
+                        : (isMap && IsCheckedDictionaryTypeName(namedFullName) ? "getChecked" : "get");
                     var call = new JavaMethodCallExpression { Target = targetIR, MethodName = methodName };
                     call.Arguments.Add(indexIR);
                     return call;
@@ -186,9 +189,10 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         bool isString = exprType?.SpecialType == SpecialType.System_String;
         bool isList = false;
         bool isMap = false;
+        string? fullName = null;
         if (exprType is INamedTypeSymbol named)
         {
-            var fullName = named.OriginalDefinition.ToDisplayString();
+            fullName = named.OriginalDefinition.ToDisplayString();
             isList = fullName is "System.Collections.Generic.List<T>"
                 or "System.Collections.Generic.IList<T>"
                 or "System.Collections.Generic.IReadOnlyList<T>"
@@ -271,7 +275,8 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             }
             if (isString) return $"{expr}.charAt({idx})";
             if (IsJavaStringBuilder(exprType)) return $"{expr}.charAt({idx})";
-            if (isMap) return $"{expr}.get({idx})";
+            if (isMap)
+                return IsCheckedDictionaryTypeName(fullName) ? $"{expr}.getChecked({idx})" : $"{expr}.get({idx})";
             if (isList) return $"{expr}.get({idx})";
             // Fallback for unknown/dynamic/unresolved types — check String by display name too
             var typeDisplayName = exprType?.ToDisplayString() ?? "";
@@ -366,5 +371,18 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             SpecialType.System_Boolean => "bool",
             _ => type.Name
         };
+    }
+    /// <summary>
+    /// True for C# generic dictionary types whose Java mapping (CSharpDictionary,
+    /// CSharpGenericIDictionary, CSharpReadOnlyDict, ...) exposes a throwing
+    /// getChecked(key) mirroring the C# indexer (KeyNotFoundException on missing key).
+    /// ConcurrentDictionary maps to java.util.concurrent.ConcurrentHashMap which has
+    /// no checked accessor, so it keeps the null-returning get().
+    /// </summary>
+    private static bool IsCheckedDictionaryTypeName(string? fullName)
+    {
+        return fullName is "System.Collections.Generic.Dictionary<TKey, TValue>"
+            or "System.Collections.Generic.IDictionary<TKey, TValue>"
+            or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>";
     }
 }

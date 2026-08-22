@@ -467,22 +467,12 @@ public sealed class SolutionLoader : IDisposable
 
             if (normalizedInclude.Contains('*'))
             {
-                // Expand wildcard patterns
-                var patternDir = Path.GetDirectoryName(normalizedInclude) ?? "";
-                var patternFile = Path.GetFileName(normalizedInclude);
-                var searchDir = Path.GetFullPath(Path.Combine(projectDir, patternDir));
-
-                if (!Directory.Exists(searchDir))
-                    continue;
-
-                foreach (var matchedFile in Directory.GetFiles(searchDir, patternFile))
+                // Expand wildcard patterns (single * and recursive ** globs).
+                foreach (var matchedFile in ProjectGlobExpander.Expand(projectDir, normalizedInclude))
                 {
-                    var fileName = Path.GetFileName(matchedFile);
-                    var relativePath = string.IsNullOrEmpty(patternDir)
-                        ? fileName
-                        : Path.Combine(patternDir, fileName)
-                              .Replace('\\', Path.DirectorySeparatorChar)
-                              .Replace('/', Path.DirectorySeparatorChar);
+                    var relativePath = Path.GetRelativePath(projectDir, matchedFile)
+                                      .Replace('\\', Path.DirectorySeparatorChar)
+                                      .Replace('/', Path.DirectorySeparatorChar);
 
                     if (!addedPaths.Add(matchedFile))
                         continue;

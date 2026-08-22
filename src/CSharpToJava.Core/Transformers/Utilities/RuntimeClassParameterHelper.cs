@@ -213,6 +213,7 @@ internal static class RuntimeClassParameterHelper
                     AddForwardedInvocationRequirements(methodDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(methodDeclaration, semanticModel, originalMethod, context, required);
                     AddTypeOfDefaultRequirements(methodDeclaration, semanticModel, originalMethod, required);
+                    AddJsonDeserializeRequirements(methodDeclaration, semanticModel, originalMethod, context, required);
                     break;
                 case ConstructorDeclarationSyntax constructorDeclaration:
                     AddDirectArrayRequirements(constructorDeclaration, semanticModel, originalMethod, required);
@@ -220,6 +221,7 @@ internal static class RuntimeClassParameterHelper
                     AddForwardedInvocationRequirements(constructorDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(constructorDeclaration, semanticModel, originalMethod, context, required);
                     AddTypeOfDefaultRequirements(constructorDeclaration, semanticModel, originalMethod, required);
+                    AddJsonDeserializeRequirements(constructorDeclaration, semanticModel, originalMethod, context, required);
                     break;
             }
 
@@ -310,6 +312,42 @@ internal static class RuntimeClassParameterHelper
             {
                 AddUnique(required, typeParameter);
             }
+        }
+    }
+
+    /// <summary>
+    /// Scans for JsonSerializer.Deserialize&lt;T&gt; where T is a METHOD-level type
+    /// parameter. Such bodies need a TypeReference&lt;T&gt; token (not a Class&lt;T&gt;
+    /// token) so call sites can pass constructed generic types (e.g.
+    /// List&lt;GeometryCase&gt;) without losing the element type to erasure.
+    /// </summary>
+    private static void AddJsonDeserializeRequirements(
+        SyntaxNode declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        ConversionContext context,
+        List<ITypeParameterSymbol> required)
+    {
+        foreach (var invocation in declaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (semanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol methodSymbol)
+                continue;
+
+            if (methodSymbol.Name != "Deserialize" || !methodSymbol.IsGenericMethod)
+                continue;
+            if (methodSymbol.ContainingType.ToDisplayString() != "System.Text.Json.JsonSerializer")
+                continue;
+            if (methodSymbol.TypeArguments.Length != 1)
+                continue;
+            if (methodSymbol.TypeArguments[0] is not ITypeParameterSymbol typeParam)
+                continue;
+            if (!SymbolEqualityComparer.Default.Equals(typeParam.DeclaringMethod, originalMethod))
+                continue;
+            // Marker only: the type parameter must NOT join the trailing Class<?>
+            // clazz-parameter list (AddRuntimeClassParametersForTypeParameterArrays).
+            // The definition site registers the pending requirement itself and the
+            // signature is patched with a leading TypeReference<T> parameter.
+            context.Options.RuntimeClassParameters.RegisterMethodTypeReference(originalMethod, typeParam.Name);
         }
     }
 

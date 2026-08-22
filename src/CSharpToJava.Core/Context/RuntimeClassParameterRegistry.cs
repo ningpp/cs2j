@@ -32,6 +32,19 @@ internal sealed class RuntimeClassParameterRegistry
         out IReadOnlyList<RuntimeClassTypeParameterRequirement> requirements)
         => _methods.TryGetValue(GetMethodKey(methodSymbol), out requirements!);
 
+    private readonly HashSet<string> _methodTypeRefTypeParams = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Marks a method type parameter as needing a TypeReference&lt;T&gt; token instead
+    /// of a Class&lt;T&gt; token (JsonSerializer.Deserialize&lt;T&gt; bodies). Persistent across
+    /// files so call sites converted before the definition agree with the signature.
+    /// </summary>
+    public void RegisterMethodTypeReference(IMethodSymbol methodSymbol, string typeParameterName)
+        => _methodTypeRefTypeParams.Add(GetMethodKey(methodSymbol.OriginalDefinition) + "|" + typeParameterName);
+
+    public bool IsMethodTypeReference(IMethodSymbol methodSymbol, string typeParameterName)
+        => _methodTypeRefTypeParams.Contains(GetMethodKey(methodSymbol.OriginalDefinition) + "|" + typeParameterName);
+
     public void RegisterMethodRequirements(
         IMethodSymbol methodSymbol,
         IEnumerable<ITypeParameterSymbol> typeParameters)

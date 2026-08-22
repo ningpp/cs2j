@@ -231,4 +231,42 @@ class C
         Assert.Contains("io.github.ningpp.compat.DoubleHolder _valueRef = new io.github.ningpp.compat.DoubleHolder(value);", code);
         Assert.DoesNotContain("io.github.ningpp.compat.DoubleHolder _valueRef = new io.github.ningpp.compat.DoubleHolder();", code);
     }
+
+    [Fact]
+    public void OutSameVariableInOrChain_ReusesSingleHolder()
+    {
+        // Regression (AGL GraphForCycleRemovalTests.GraphForCycleRemoval_RemoveNodeFromBucket_Test):
+        // `TryGetSource(out source) || TryGetSink(out source)` shares one C# variable across both
+        // call sites; the converter must reuse a single out-holder so the unconditional write-back
+        // of a second holder cannot overwrite the short-circuited result.
+        var result = Convert(@"
+class C
+{
+    static bool TryGetSource(out int source)
+    {
+        source = 1;
+        return true;
+    }
+
+    static bool TryGetSink(out int source)
+    {
+        source = 2;
+        return true;
+    }
+
+    int Run()
+    {
+        int source;
+        bool ok = TryGetSource(out source) || TryGetSink(out source);
+        return ok ? source : -1;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("tryGetSource(_sourceHolder1) || tryGetSink(_sourceHolder1)", code);
+        Assert.DoesNotContain("_sourceHolder2", code);
+        Assert.Contains("source = _sourceHolder1.value;", code);
+    }
 }

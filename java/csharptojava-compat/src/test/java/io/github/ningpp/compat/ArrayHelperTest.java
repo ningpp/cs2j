@@ -5,6 +5,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ArrayHelperTest {
     @Test
+    void asListView_iterator_resetRestartsEnumeration() {
+        CSharpGenericIList<String> view = ArrayHelper.asListView(new String[] { "a", "b", "c" });
+        CSharpGenericEnumerator<String> en = view.iterator();
+        assertTrue(en.moveNext());
+        assertEquals("a", en.getCurrent());
+        assertTrue(en.moveNext());
+        assertEquals("b", en.getCurrent());
+        en.reset();
+        assertTrue(en.moveNext());
+        assertEquals("a", en.getCurrent());
+    }
+
+
+    @Test
     void copyArray_referenceArray_copiesContainerAndPreservesElementsAndNulls() {
         String[] source = new String[] { "a", null, "c" };
 

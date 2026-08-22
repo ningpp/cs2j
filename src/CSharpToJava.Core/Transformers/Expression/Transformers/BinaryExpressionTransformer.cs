@@ -123,7 +123,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 && ms.MethodKind == MethodKind.UserDefinedOperator
                 && ms.ContainingType != null
                 && !IsBuiltInType(ms.ContainingType)
-                && OperatorHasSourceDeclaration(ms))
+                && OperatorHasSourceDeclaration(ms)
+                && !IsStructNullLiteralComparison(ms, binExpr))
             {
                 // 结构体 ==/!= 声明端保持 valueEquals/notEquals（StructTransformer
                 // 合成依赖），调用点残余路径沿用 Java 名保持一致。
@@ -493,7 +494,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 // Only convert to method call if it's a user-defined type (not built-in types)
                 if (methodSymbol.MethodKind == MethodKind.UserDefinedOperator
                     && !IsBuiltInType(methodSymbol.ContainingType)
-                    && OperatorHasSourceDeclaration(methodSymbol))
+                    && OperatorHasSourceDeclaration(methodSymbol)
+                    && !IsStructNullLiteralComparison(methodSymbol, node))
                 {
                     return TransformUserDefinedOperator(node, methodSymbol, context);
                 }
@@ -796,6 +798,19 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         {
             context.AddImport("io.github.ningpp.compat.DoubleHelper");
             return $"DoubleHelper.toString({transformed})";
+        }
+
+        // [Flags] enums are mapped to int in Java, but C# string concatenation
+        // formats the enum using its member names ("East"), not the number.
+        if (type?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
+            && type is INamedTypeSymbol namedEnum
+            && (namedEnum.GetAttributes().Any(a =>
+                    a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute")
+                || context.IsFlagsEnum(namedEnum.Name)
+                || context.IsFlagsEnum(namedEnum.ToDisplayString() ?? string.Empty)))
+        {
+            var flagsRef = ExpressionTransformerHelpers.GetFlagsEnumJavaTypeReference(namedEnum, context);
+            return $"{flagsRef}.toString({transformed})";
         }
 
         return transformed;
@@ -1915,6 +1930,20 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     private static string? SyntaxKindToRoslynOperatorName(Microsoft.CodeAnalysis.CSharp.SyntaxKind kind) =>
         SyntaxKindToRoslynOperatorNameStatic(kind);
+
+    /// <summary>
+    /// True when the operator is a user-defined value-type operator compared
+    /// against a null literal (e.g. Point? q; q != null). C# semantics are a
+    /// HasValue check that never invokes the underlying value operator; the
+    /// Java struct maps to a class reference, so a plain ==/!= null is
+    /// correct. Emitting Point.notEquals(q, null) would dereference null and
+    /// throw a NullPointerException.
+    /// </summary>
+    private static bool IsStructNullLiteralComparison(IMethodSymbol operatorSymbol, BinaryExpressionSyntax node)
+        => operatorSymbol.ContainingType != null
+           && operatorSymbol.ContainingType.IsValueType
+           && (node.Left.IsKind(SyntaxKind.NullLiteralExpression)
+               || node.Right.IsKind(SyntaxKind.NullLiteralExpression));
 
     private static bool IsStringType(ExpressionSyntax expr, SemanticModel semanticModel)
     {

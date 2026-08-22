@@ -25,7 +25,7 @@ readonly struct S
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("this.e = E.values()[0]", code, StringComparison.Ordinal);
+        Assert.Contains("private final E e = E.A;", code, StringComparison.Ordinal);
         Assert.DoesNotContain("this.e = null", code, StringComparison.Ordinal);
     }
 

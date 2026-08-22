@@ -52,6 +52,27 @@ public class Point3D
         Assert.Contains("this.z = 0;", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TupleSwapWithOverlappingElements_HoistsTemps()
+    {
+        var result = Convert(@"
+public class Swapper
+{
+    public void Swap(int[] array, int start, int i)
+    {
+        (array[start], array[i]) = (array[i], array[start]);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("var _cs2jTupleTmp0 = array[i];", code, StringComparison.Ordinal);
+        Assert.Contains("var _cs2jTupleTmp1 = array[start];", code, StringComparison.Ordinal);
+        Assert.Contains("array[start] = _cs2jTupleTmp0;", code, StringComparison.Ordinal);
+        Assert.Contains("array[i] = _cs2jTupleTmp1;", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

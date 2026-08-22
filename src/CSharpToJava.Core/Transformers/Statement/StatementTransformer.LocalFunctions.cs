@@ -263,11 +263,61 @@ public partial class StatementTransformer
                         capName = $"{capName}_{capSuffix}";
                     }
                     captures.Add(new MethodConversionState.CapturedLocal(
-                        symbol, name, javaType, capName));
+                        symbol, name, javaType, capName,
+                        IsWritten: IsCapturedVariableWritten(localFn, symbol, context)));
                     break;
             }
         }
-
         return captures;
+    }
+
+    /// <summary>
+    /// True when the local function body writes to the captured variable itself
+    /// (direct assignment target, ++/--, or ref/out argument). Writes through a
+    /// member/element of the variable (e.g. arr[i] = x) do not count — the variable
+    /// reference itself stays unchanged, so by-value capture remains correct.
+    /// </summary>
+    private static bool IsCapturedVariableWritten(
+        LocalFunctionStatementSyntax localFn,
+        ISymbol symbol,
+        ConversionContext context)
+    {
+        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
+        if (body == null || context.SemanticModel == null)
+            return false;
+
+        foreach (var identifier in body
+            .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
+            .OfType<IdentifierNameSyntax>())
+        {
+            if (identifier.Parent is NameColonSyntax)
+                continue;
+            var resolved = context.GetSymbolInfo(identifier).Symbol;
+            if (!SymbolEqualityComparer.Default.Equals(resolved, symbol))
+                continue;
+
+            var parent = identifier.Parent;
+            // Direct assignment target: best = ..., best += ..., best ??= ...
+            if (parent is AssignmentExpressionSyntax assignment
+                && assignment.Left == identifier)
+                return true;
+            // ++ / --
+            if (parent is PrefixUnaryExpressionSyntax prefix
+                && prefix.Operand == identifier
+                && (prefix.IsKind(SyntaxKind.PreIncrementExpression)
+                    || prefix.IsKind(SyntaxKind.PreDecrementExpression)))
+                return true;
+            if (parent is PostfixUnaryExpressionSyntax postfix
+                && postfix.Operand == identifier
+                && (postfix.IsKind(SyntaxKind.PostIncrementExpression)
+                    || postfix.IsKind(SyntaxKind.PostDecrementExpression)))
+                return true;
+            // ref/out argument
+            if (parent is ArgumentSyntax argument
+                && (argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                    || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)))
+                return true;
+        }
+        return false;
     }
 }

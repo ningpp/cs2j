@@ -12,6 +12,11 @@ using System.Linq;
 /// </summary>
 public class MethodConversionState
 {
+    /// <summary>
+    /// Set when the method carries an MSTest [ExpectedException(typeof(X))]
+    /// attribute; the Java exception type is wrapped around the body at emit time.
+    /// </summary>
+    public string? ExpectedExceptionJavaType { get; set; }
     // ─── Pre/Post Statements ─────────────────────────────────────────
 
     private readonly List<string> _pendingPreStatements = new();
@@ -602,7 +607,7 @@ public class MethodConversionState
     }
 
     /// <summary>Captured variable of a hoisted local function.</summary>
-    public sealed record CapturedLocal(ISymbol Symbol, string Name, string JavaType, string ParamName);
+    public sealed record CapturedLocal(ISymbol Symbol, string Name, string JavaType, string ParamName, bool IsWritten = false);
 
     private readonly Dictionary<string, List<CapturedLocal>> _hoistedLocalFunctionCaptures = new(StringComparer.Ordinal);
 
@@ -719,6 +724,7 @@ public class MethodConversionState
         Labels.Clear();
         GotoAnalyzer = null;
         _postLoopGotoLabels.Clear();
+        ExpectedExceptionJavaType = null;
 
         if (readOnlyRefStructParamNames != null)
         {

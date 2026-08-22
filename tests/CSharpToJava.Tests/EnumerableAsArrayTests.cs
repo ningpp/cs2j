@@ -43,7 +43,7 @@ class Sample {
 }";
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Contains("StreamSupport.stream(items.spliterator(), false).mapToInt(Integer::intValue).toArray()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("StreamSupport.stream(CSharpGenericIterable.requireNonNull(items, \"source\").spliterator(), false).mapToInt(Integer::intValue).toArray()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("ArrayHelper.toIntArray(items)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -71,7 +71,7 @@ class Sample {
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         Assert.Contains("Arrays.stream", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Arrays.stream(StreamSupport.stream(items.spliterator(), false).toArray(Point[]::new)).anyMatch(_item -> Objects.equals(_item,", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Arrays.stream(StreamSupport.stream(CSharpGenericIterable.requireNonNull(items, \"source\").spliterator(), false).toArray(Point[]::new)).anyMatch(_item -> Objects.equals(_item,", result.GeneratedCode, StringComparison.Ordinal);
         // The materialized Point[] array itself must NOT receive the anyMatch call directly.
         Assert.DoesNotContain(".toArray(Point[]::new).anyMatch(", result.GeneratedCode, StringComparison.Ordinal);
     }

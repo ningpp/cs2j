@@ -1008,13 +1008,21 @@ private static bool IsArrayAccessSegment(string segment)
                 .Select(a => a.Expression)
                 .ToList();
             var exprTransformer = ExpressionTransformerFacade.Instance;
-            var sbTuple = new System.Text.StringBuilder();
+            // C# evaluates ALL tuple RHS expressions before ANY LHS element is written.
+            // Emitting plain sequential assignments is only safe when no RHS expression
+            // reads a location that an earlier LHS write may have modified (e.g. the
+            // classic swap (a, b) = (b, a)). When an overlap is detected, hoist every
+            // RHS value into a temp local first, then assign the LHS elements.
+            var rightTexts = new List<string>();
+            var leftTargetTexts = new List<string>();
+            var assignTemplates = new List<string>();
             for (int i = 0; i < lhsArgs.Count; i++)
             {
                 var leftExpr = lhsArgs[i];
                 var rightExpr = tupleRight.Arguments[i].Expression;
                 var rightText = exprTransformer.Transform(rightExpr, context);
-                string assignText;
+                string rhsPlaceholder = $"__cs2jTupleRhs{i}__";
+                string leftTarget;
                 var leftSymbol = GetSymbolInfoSafely(leftExpr, context);
                 if (leftSymbol is IPropertySymbol tupleProp)
                 {
@@ -1023,12 +1031,15 @@ private static bool IsArrayAccessSegment(string segment)
                     if (tupleProp.SetMethod == null)
                     {
                         var fieldName = CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(tupleProp);
-                        assignText = $"this.{fieldName} = {rightText}";
+                        leftTarget = $"this.{fieldName}";
+                        assignTemplates.Add($"{leftTarget} = {rhsPlaceholder}");
                     }
                     else
                     {
                         string setter = "set" + char.ToUpperInvariant(tupleProp.Name[0]) + tupleProp.Name[1..];
-                        assignText = $"{setter}({rightText})";
+                        string getter = "get" + char.ToUpperInvariant(tupleProp.Name[0]) + tupleProp.Name[1..];
+                        leftTarget = getter;
+                        assignTemplates.Add($"{setter}({rhsPlaceholder})");
                     }
                 }
                 else if (leftExpr is IdentifierNameSyntax bareIdent
@@ -1038,12 +1049,48 @@ private static bool IsArrayAccessSegment(string segment)
                     // syntax tree) — fall back to symbol-level lookup: a bare identifier matching
                     // a property of the enclosing type maps to its backing field (auto-property pattern).
                     string fieldName = CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(enclosingProp);
-                    assignText = $"this.{fieldName} = {rightText}";
+                    leftTarget = $"this.{fieldName}";
+                    assignTemplates.Add($"{leftTarget} = {rhsPlaceholder}");
                 }
                 else
                 {
-                    assignText = $"{exprTransformer.Transform(leftExpr, context)} = {rightText}";
+                    leftTarget = exprTransformer.Transform(leftExpr, context);
+                    assignTemplates.Add($"{leftTarget} = {rhsPlaceholder}");
                 }
+                rightTexts.Add(rightText);
+                leftTargetTexts.Add(leftTarget);
+            }
+
+            bool needsHoisting = false;
+            foreach (var rightText in rightTexts)
+            {
+                foreach (var leftTarget in leftTargetTexts)
+                {
+                    if (rightText.IndexOf(leftTarget, StringComparison.Ordinal) >= 0)
+                    {
+                        needsHoisting = true;
+                        break;
+                    }
+                }
+                if (needsHoisting)
+                    break;
+            }
+
+            var sbTuple = new System.Text.StringBuilder();
+            for (int i = 0; i < lhsArgs.Count; i++)
+            {
+                string rhs;
+                if (needsHoisting)
+                {
+                    var tempName = $"_cs2jTupleTmp{i}";
+                    sbTuple.AppendLine($"var {tempName} = {rightTexts[i]};");
+                    rhs = tempName;
+                }
+                else
+                {
+                    rhs = rightTexts[i];
+                }
+                var assignText = assignTemplates[i].Replace($"__cs2jTupleRhs{i}__", rhs);
                 if (i < lhsArgs.Count - 1)
                     sbTuple.AppendLine(assignText.TrimEnd(';') + ";");
                 else

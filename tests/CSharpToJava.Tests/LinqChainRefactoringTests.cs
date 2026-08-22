@@ -65,7 +65,7 @@ class C {
         Assert.True(result.Success, result.GeneratedCode);
         // List<int> → ArrayList<Integer>.stream() produces Stream<Integer>; no .boxed() on receiver
         // (the 'other' argument int[] may need boxing separately, which is expected)
-        Assert.Contains("nums.stream().collect(Collectors.collectingAndThen(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpGenericIterable.requireNonNull(nums, \"source\").stream().collect(Collectors.collectingAndThen(", result.GeneratedCode, StringComparison.Ordinal);
         // Should NOT have .boxed().collect() on the receiver - the receiver is already boxed (ArrayList<Integer>)
         Assert.DoesNotContain("nums.stream().boxed()", result.GeneratedCode, StringComparison.Ordinal);
     }

@@ -43,7 +43,7 @@ namespace OLEDB.Test.ModuleCore
         // CSharpDictionary<K,V>.get(K) after type erasure.
         Assert.Contains("public Type2 get(Type1 key)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("public Type2 set(Type1 key, Type2 value)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("super.get(key)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("super.getChecked(key)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("public Type2 get(Object key)", result.GeneratedCode, StringComparison.Ordinal);
     }
 

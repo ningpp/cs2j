@@ -410,7 +410,7 @@ public class Sample
         Assert.Contains("public static final long High = 1099511627776L;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("public static final long Next = 1099511627777L;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("public long get(long flags)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("String.valueOf(flags)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("BigFlags.toString(flags)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("public int get(int flags)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("Integer.", result.GeneratedCode, StringComparison.Ordinal);
     }

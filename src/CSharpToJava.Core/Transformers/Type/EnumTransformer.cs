@@ -82,6 +82,10 @@ public class EnumTransformer : ITypeTransformer
             // fromValue and fromValueUnchecked for int→flags casts (identity)
             AddFlagsMethod("fromValue",          numType, "return v;", new JavaParameter("int", "v"));
             AddFlagsMethod("fromValueUnchecked", numType, "return v;", new JavaParameter("int", "v"));
+            // C# [Flags] enum ToString() returns member names ("East" or "North, East"),
+            // not the numeric value. Emit a static toString(int/long) helper so call sites
+            // can preserve name semantics (String.valueOf would return the number).
+            AddFlagsToString(flagsClass, enumDecl, context, numType);
             return flagsClass;
         }
 
@@ -588,6 +592,70 @@ public class EnumTransformer : ITypeTransformer
             value = 0;
             return false;
         }
+    }
+
+
+    /// <summary>
+    /// Adds a static toString(value) helper to a [Flags] enum class so that
+    /// enumVar.ToString() call sites can preserve C# name semantics instead of
+    /// String.valueOf (which would return the numeric value).
+    /// </summary>
+    private static void AddFlagsToString(
+        JavaClassDeclaration flagsClass,
+        EnumDeclarationSyntax enumDecl,
+        ConversionContext context,
+        string numType)
+    {
+        var members = new List<(string Name, string Expr, long Value, bool HasConst)>();
+        foreach (var member in enumDecl.Members.OfType<EnumMemberDeclarationSyntax>())
+        {
+            string expr = FormatEnumMemberValue(member, context, numType);
+            var fieldSymbol = context.GetDeclaredSymbol(member) as IFieldSymbol;
+            bool hasConst = fieldSymbol?.HasConstantValue == true
+                            && fieldSymbol.ConstantValue is IConvertible;
+            long constValue = 0;
+            if (hasConst && fieldSymbol!.ConstantValue is IConvertible convertibleValue)
+            {
+                constValue = Convert.ToInt64(convertibleValue, CultureInfo.InvariantCulture);
+            }
+            members.Add((member.Identifier.Text, expr, constValue, hasConst));
+        }
+
+        // C# Enum.ToString() for flags lists names in member-value order.
+        if (members.All(m => m.HasConst))
+        {
+            members = members.OrderBy(m => m.Value).ToList();
+        }
+
+        string body = "";
+        var zeroMember = members.FirstOrDefault(m => m.HasConst && m.Value == 0);
+        body += zeroMember.HasConst
+            ? $"        if (value == 0) {{ return \"{zeroMember.Name}\"; }}\n"
+            : "        if (value == 0) { return String.valueOf(value); }\n";
+
+        foreach (var member in members)
+        {
+            body += $"        if (value == {member.Expr}) {{ return \"{member.Name}\"; }}\n";
+        }
+
+        body += "        var names = new java.util.ArrayList<String>();\n";
+        foreach (var member in members)
+        {
+            body += $"        if ((value & {member.Expr}) != 0) {{ names.add(\"{member.Name}\"); }}\n";
+        }
+
+        body += "        if (names.isEmpty()) { return String.valueOf(value); }\n";
+        body += "        return String.join(\", \", names);\n";
+
+        var method = new JavaMethodDeclaration
+        {
+            ReturnType = "String",
+            Name = "toString",
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            Body = body
+        };
+        method.Parameters.Add(new JavaParameter(numType, "value"));
+        flagsClass.Methods.Add(method);
     }
 
     private static JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)

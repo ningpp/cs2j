@@ -57,7 +57,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     @Override
     public void add(K key, V value) {
         if (map.containsKey(key)) {
-            throw new IllegalArgumentException("An element with the same key already exists: " + key);
+            throw new ArgumentException("An element with the same key already exists: " + key);
         }
         map.put(key, value);
     }
@@ -87,6 +87,14 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     @Override
     public V get(K key) {
+        return map.get(key);
+    }
+
+    @Override
+    public V getChecked(K key) {
+        if (!map.containsKey(key)) {
+            throw new KeyNotFoundException("The given key '" + key + "' was not present in the dictionary.");
+        }
         return map.get(key);
     }
 

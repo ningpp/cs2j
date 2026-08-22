@@ -163,3 +163,58 @@
 - **分析**: `RectangleNodeUtils.CrossRectangleNodes<TA,P>` 无 `typeof(T)`/`default(T)`，不应带 Class 参数；但测试项目转换时库源码作为源码可达，CRN 递归体 `CrossRectangleNodes<TA,P>(...)` 因 `inv.SyntaxTree` 属于另一编译单元、`ProjectCompilation.ContainsSyntaxTree(...) == false` 导致 `GetSymbolInfo` 返回 null；两处宽松的 `callee == null` 转发逻辑把 null 当作"需要 Class 令牌"，把 `TA`/`P` 注册为 CRN 的 Class 参数，后续调用点全部前置 `.class` 字面量。
 - **修复**: `DetectDefaultUsageInMethod` 由 `explicitCallee == null || MethodLikelyNeedsClassTokens(...)` 改为 `explicitCallee != null && MethodLikelyNeedsClassTokens(...)`；`DetectTypeOfDefaultUsage` 由 `calleeSym != null && !MethodLikelyNeedsClassTokens(...)` 改为 `calleeSym == null || !MethodLikelyNeedsClassTokens(...)`。跨编译单元无法解析符号时不再据此注入 Class 参数。
 - **状态**: ✅ Fixed
+
+## Iteration AGL-8 — Flags 枚举 toString 方法体重复嵌套签名
+
+- **Java 文件**: `automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/Direction.java`（同批所有 [Flags] 枚举类）
+- **行号**: 89 / 106
+- **错误信息**: `非法的表达式开始` / `需要 class、interface、enum 或 record`
+- **代码片段**:
+  ```java
+  public static String toString(int value) {
+      public static String toString(int value) {
+      if (value == 0) { return "None"; }
+      ...
+      }
+  }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\Direction.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs`（AddFlagsToString）
+- **分析**: 新增的 flags 枚举 `toString(value)` 合成方法把方法签名 `public static String toString(...) {` 和收尾 `}` 一起塞进 `JavaMethodDeclaration.Body`，而渲染器本身已生成签名与花括号，导致签名嵌套重复、类体提前闭合。
+- **修复**: AddFlagsToString 的 Body 只保留语句（去掉签名前缀与结尾花括号）；FlagsEnumToStringTests 增加 javac 编译校验（拆分顶层类型文件）。
+- **状态**: ✅ Fixed
+
+## Iteration AGL-9 — 元组交换 (a,b) = (b,a) 被拆成顺序赋值导致置换损坏
+
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Layout/Ordering/OrderingMatrix.java（及相关调用点）
+- **错误信息**: OrderingMatrixTest/OrderingTest/OrderingV2Test 中 "Not optimal for seed N" / "did not reach brute-force optimum"
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\Layout\Ordering\OrderingMatrix.cs（Permute 中的元组交换）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs（TupleAssignmentSplitters.SplitTupleAssignment）
+- **分析**: 转换器把 (a,b) = (b,a) 拆成顺序赋值 a = b; b = a;，两个值都被破坏。Permute 生成的排列退化为 [5,5,5]/[2,2,2]，暴力最小值为 0 而真实最小值为 1，导致排序测试断言失败。C# 参考测试（临时副本）5/5 通过，差异 harness 证明图边完全一致，问题只在元组交换。
+- **修复**: SplitTupleAssignment 收集 RHS 文本与 LHS 目标文本，检测重叠（RHS 文本包含某个 LHS 目标字符串）；若重叠，先把每个 RHS 提升为 var _cs2jTupleTmpN = ... 再依次赋值。非重叠场景输出不变（既有测试仍固定 this.x = x; 等）。新增 TupleAssignmentTests.TupleSwapWithOverlappingElements_HoistsTemps（Red→Green），完整转换器测试 2898/2898 通过。
+- **状态**: ✅ Fixed
+
+## Iteration AGL-10 — 嵌套对象初始化器 Prop = { Sub = v } 被整体丢弃
+
+- **Java 文件**: aglningpptests/src/test/java/AglNingppTests/Agl/Layout/LayeredTests/SugiyamaLayoutSettingsTest.java（settings_Clone_CopiesValues_Test）
+- **错误信息**: Expected <StraightLine> but was <SugiyamaSplines>
+- **对应 C# 文件**: E:\agl-master\GraphLayout\Test\AglNingppTests\Agl\Layout\Layered\SugiyamaLayoutSettingsTest.cs（EdgeRoutingSettings = { EdgeRoutingMode = StraightLine }）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs（TransformObjectCreationWithInitializer）
+- **分析**: 嵌套对象初始化器（RHS 是 ObjectInitializerExpression）经 facade.Transform 得到 "/* TODO: ObjectInitializerExpression ... */" 占位符，被"跳过 TODO 赋值"逻辑整体丢弃，导致 clone 前从未设置 EdgeRoutingMode。C# 语义是对 getter 返回的现有对象做原地修改，不是 setter 赋值新对象。
+- **修复**: 新增 BuildNestedInitializerAssignments：把 Prop = { A.B = v, C = { D = w } } 展开为 getProp().getA().setB(v) / getProp().getC().getD().setD(w) 链式调用；TODO 跳过逻辑对嵌套对象初始化器放行。新增 ObjectInitializerMethodChainTests.NestedObjectInitializer_ShouldEmitGetterSetterChain 与 DeeplyNestedObjectInitializer_ShouldEmitChainedGettersAndSetter（Red→Green）。
+- **状态**: ✅ Fixed
+
+## Iteration AGL-11 — 可空结构体与 null 比较被转成值比较方法调用导致 NPE
+
+- **Java 文件**: automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Layout/EdgeLabelPlacement.java（pointSetLength）
+- **行号**: 378
+- **错误信息**: NullPointerException: Cannot read field "X" because "point0" is null（Point.valueEquals → Point.notEquals）
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Core\Layout\EdgeLabelPlacement.cs（Point? q = null; if (q != null)）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs（用户定义运算符分支）
+- **分析**: Point? 与 null 字面量的 != 在 C# 中是提升运算符（HasValue 检查），不会调用底层值运算符；转换器却把 q != null 生成 Point.notEquals(q, null)，valueEquals 直接解引用 null 参数抛 NPE。
+- **修复**: 新增 IsStructNullLiteralComparison 守卫：结构体（值类型）运算符与 null 字面量比较时跳过方法调用路径，回落到普通 Java ==/!= 引用比较（Java 中结构体映射为类，null 即"无值"）。IR 路径与字符串路径两处用户定义运算符分支同步修复。新增 StructTransformerTests.Struct_NullableComparisonAgainstNull_StaysReferenceCheck（Red→Green）。
+- **状态**: ✅ Fixed

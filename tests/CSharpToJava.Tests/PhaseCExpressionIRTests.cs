@@ -1150,7 +1150,7 @@ class T {
         int x = dict[""key""];
     }
 }");
-        Assert.Contains(".get(", result);
+        Assert.Contains(".getChecked(", result);
     }
 
     [Fact]

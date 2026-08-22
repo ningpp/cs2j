@@ -1863,6 +1863,13 @@ public static class ExpressionTransformerHelpers
         };
     }
 
+
+    /// <summary>
+    /// Public entry point for call sites that need the Java type reference of a
+    /// [Flags] enum class (e.g. to invoke its generated static toString helper).
+    /// </summary>
+    public static string GetFlagsEnumJavaTypeReference(INamedTypeSymbol typeSymbol, ConversionContext context)
+        => GetJavaStaticTypeReference(typeSymbol, context, preserveEnumType: true);
     private static string GetJavaStaticTypeReference(
         INamedTypeSymbol typeSymbol,
         ConversionContext context,
@@ -2278,8 +2285,15 @@ public static class ExpressionTransformerHelpers
         ConversionContext context,
         bool boxPrimitiveArrayElements = false,
         bool preserveGroupingValueStream = false,
-        ExpressionSyntax? receiverSyntaxNode = null)
+        ExpressionSyntax? receiverSyntaxNode = null,
+        bool addNullSourceGuard = true)
     {
+        if (addNullSourceGuard)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            receiverExpr = $"CSharpGenericIterable.requireNonNull({receiverExpr}, \"source\")";
+        }
+
         if (receiverType is IArrayTypeSymbol arrayType)
         {
             return BuildArrayStreamExpression(receiverExpr, arrayType, context, boxed: boxPrimitiveArrayElements);

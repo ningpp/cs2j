@@ -1274,6 +1274,67 @@ class Sample
     }
 
     [Fact]
+    public async Task LinqQueryOverNullSource_ThrowsArgumentNullException()
+    {
+        // Regression (AGL OptimalRectanglePackingTest.constructor_NullRectangles_Throws):
+        // C# Enumerable methods (OrderBy/Where/Select, query syntax) throw
+        // ArgumentNullException when the LINQ source is null; the converted Java
+        // stream chain must preserve that (not throw a bare NPE).
+        var options = new ConversionOptions
+        {
+            JavaMetadataPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "config", "java")),
+        };
+        var pipeline = new ProjectConversionPipeline(options);
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile { FilePath = @"Sample.cs", Content = @"
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Sample
+{
+    public static IEnumerable<string> Sort(IEnumerable<string> items)
+    {
+        return from i in items orderby i.Length select i;
+    }
+
+    public static void Main()
+    {
+        try
+        {
+            Sort(null);
+            Console.WriteLine(""NO_EXCEPTION"");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.GetType().Name);
+        }
+    }
+}" },
+        });
+
+        Assert.True(results.All(r => r.Success), string.Join("\n", results.SelectMany(r => r.Diagnostics)) + "\nFiles: " + string.Join(",", results.Select(r => r.FileName)));
+
+        var code = results.First().GeneratedCode;
+        Assert.Contains("CSharpGenericIterable.requireNonNull(items, \"source\")", code, StringComparison.Ordinal);
+
+        using var temp = new TempDir();
+        var outDir = Path.Combine(temp.Path, "classes");
+        Directory.CreateDirectory(outDir);
+        var javaPath = Path.Combine(temp.Path, "Sample.java");
+        File.WriteAllText(javaPath, code);
+        var compatClasses = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "java", "csharptojava-compat", "target", "classes"));
+        var javac = RunProcess(FindRequiredExecutable("javac"), $"-cp \"{compatClasses}\" -d \"{outDir}\" \"{javaPath}\"");
+        Assert.True(javac.ExitCode == 0, javac.Output + "\n---Generated---\n" + code);
+
+        var javaRun = RunProcess(FindRequiredExecutable("java"), $"-cp \"{outDir};{compatClasses}\" Sample");
+        Assert.True(javaRun.Output.Contains("ArgumentNullException", StringComparison.Ordinal),
+            "Expected ArgumentNullException at runtime, got:\n" + javaRun.Output);
+    }
+
+
+    [Fact]
     public void MissingMethodException_Thrown_MapsToUncheckedCompatClass()
     {
         var result = Convert("""

@@ -293,7 +293,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                         receiverType = context.GetTypeInfo(condParent.Expression).Type;
                     }
                     var streamExpr = Transformers.Expression.Utilities.ExpressionTransformerHelpers
-                        .BuildStreamExpression(objExpr, receiverType, context);
+                        .BuildStreamExpression(objExpr, receiverType, context, addNullSourceGuard: false);
 
                     // Add .collect() terminal when this is the outermost expression
                     bool needsCollect = invocation.Parent is not MemberAccessExpressionSyntax;

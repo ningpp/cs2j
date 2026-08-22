@@ -152,6 +152,37 @@ public class PropertyTransformer : IMemberTransformer
                 field.Initializer = $"new {propType}()";
             }
         }
+        else if (propDecl.Initializer == null && needsBackingField
+            && propertySymbol?.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        {
+            // C# enum auto-properties default to the member with value 0, but Java enum
+            // references default to null — initialize the backing field to the 0-valued member.
+            bool isFlags = context.IsFlagsEnum(enumType.Name)
+                || enumType.GetAttributes().Any(a =>
+                    a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+            if (!isFlags)
+            {
+                var enumTypeRef = BuildEnumTypeReference(enumType);
+                // A field/property with the same name as the enum type makes the simple
+                // reference self-referencing in Java — qualify with the package.
+                if (context.CurrentEnclosingRoslynType != null
+                    && context.CurrentEnclosingRoslynType.GetMembers(enumTypeRef)
+                        .Any(m => m is IFieldSymbol or IPropertySymbol))
+                {
+                    var enumNs = enumType.ContainingNamespace?.ToDisplayString();
+                    if (!string.IsNullOrEmpty(enumNs) && enumNs != "<global namespace>")
+                    {
+                        var enumJavaPkg = context.NamespaceToPackage(enumNs);
+                        if (!string.IsNullOrEmpty(enumJavaPkg))
+                            enumTypeRef = $"{enumJavaPkg}.{enumTypeRef}";
+                    }
+                }
+                var zeroMember = FindEnumMemberByValue(enumType, 0);
+                field.Initializer = zeroMember != null
+                    ? $"{enumTypeRef}.{zeroMember}"
+                    : $"{enumTypeRef}.values()[0]";
+            }
+        }
 
         // 如果有默认值
         if (propDecl.Initializer != null)
@@ -797,6 +828,39 @@ public class PropertyTransformer : IMemberTransformer
             return ExpressionTransformerHelpers.BoxJavaPrimitiveType(propType);
         }
         return propType;
+    }
+    private static string BuildEnumTypeReference(INamedTypeSymbol enumType)
+    {
+        return enumType.ContainingType is INamedTypeSymbol parentType
+            ? $"{BuildEnumTypeReference(parentType)}.{enumType.Name}"
+            : enumType.Name;
+    }
+
+    private static string? FindEnumMemberByValue(INamedTypeSymbol enumType, long value)
+    {
+        foreach (var member in enumType.GetMembers())
+        {
+            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field)
+            {
+                if (field.ConstantValue is int intVal && intVal == value)
+                    return field.Name;
+                if (field.ConstantValue is long longVal && longVal == value)
+                    return field.Name;
+                if (field.ConstantValue is short shortVal && shortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is byte byteVal && byteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is sbyte sbyteVal && sbyteVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ushort ushortVal && ushortVal == value)
+                    return field.Name;
+                if (field.ConstantValue is uint uintVal && uintVal == value)
+                    return field.Name;
+                if (field.ConstantValue is ulong ulongVal && ulongVal == (ulong)value)
+                    return field.Name;
+            }
+        }
+        return null;
     }
 }
 

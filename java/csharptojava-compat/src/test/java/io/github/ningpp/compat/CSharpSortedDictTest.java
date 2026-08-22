@@ -31,7 +31,13 @@ class CSharpSortedDictTest {
     void add_duplicateKey_throws() {
         CSharpSortedDict<String, Integer> dict = new CSharpSortedDict<>();
         dict.add("a", 1);
-        assertThrows(IllegalArgumentException.class, () -> dict.add("a", 2));
+        assertThrows(ArgumentException.class, () -> dict.add("a", 2));
+    }
+
+    @Test
+    void get_missingKey_throwsKeyNotFoundException() {
+        CSharpSortedDict<String, Integer> dict = new CSharpSortedDict<>();
+        assertThrows(KeyNotFoundException.class, () -> dict.getChecked("z"));
     }
 
     @Test

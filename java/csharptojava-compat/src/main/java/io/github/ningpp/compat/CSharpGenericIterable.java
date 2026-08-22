@@ -48,6 +48,14 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     }
 
     @SuppressWarnings("unchecked")
+    /** Mirrors C# Enumerable methods: LINQ sources must not be null (ArgumentNullException). */
+    static <T> T requireNonNull(T value, String paramName) {
+        if (value == null) {
+            throw new ArgumentNullException(paramName);
+        }
+        return value;
+    }
+
     static <T> CSharpGenericIterable<T> fromCollection(Collection<? extends T> collection) {
         return new CSharpGenericIterable<>() {
             @Override

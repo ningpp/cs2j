@@ -244,7 +244,28 @@ public class ConversionContext
     /// needs @ExtendWith(MSTestExtension.class) for deployment items, TestContext
     /// parameter injection, or lifecycle support.
     /// </summary>
-    public bool CurrentClassNeedsMSTestExtension { get; set; }
+    private readonly Stack<bool> _mstestExtensionStack = new();
+
+    /// <summary>
+    /// Stack-scoped per type: nested type transforms push their own entry so they
+    /// cannot clear the outer class's requirement before its annotations are emitted.
+    /// </summary>
+    public bool CurrentClassNeedsMSTestExtension
+    {
+        get => _mstestExtensionStack.Count > 0 && _mstestExtensionStack.Peek();
+        set
+        {
+            if (_mstestExtensionStack.Count == 0)
+            {
+                _mstestExtensionStack.Push(value);
+            }
+            else
+            {
+                var current = _mstestExtensionStack.Pop();
+                _mstestExtensionStack.Push(current || value);
+            }
+        }
+    }
     /// <summary>
     /// When true, suppresses .clone() on return statements (used inside property getters
     /// where the consumption site handles cloning instead).
@@ -489,6 +510,53 @@ _pendingClassTypeParams ??= new();
     {
         var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
         SetMethodClassTypeParamNames(typeName, methodKey, typeParameterNames);
+    }
+    /// <summary>
+    /// Type parameter names whose runtime token is a Jackson TypeReference instead
+    /// of a Class literal. Registered when a generic method body deserializes the
+    /// type parameter (JsonSerializer.Deserialize&lt;T&gt;): call sites must then pass
+    /// new TypeReference&lt;...&gt;() {} so constructed generic element types survive.
+    /// </summary>
+    private readonly HashSet<string> _methodTypeRefTypeParamNames = new(StringComparer.Ordinal);
+
+    public void RequireTypeRefTypeParam(IMethodSymbol method, string typeParamName)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        RequireTypeRefTypeParam(typeName, methodKey, typeParamName);
+    }
+
+    public void RequireTypeRefTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
+    {
+        RequireClassTypeParam(containingTypeMetadataName, methodMetadataName, typeParamName);
+        _methodTypeRefTypeParamNames.Add($"{containingTypeMetadataName}|{methodMetadataName}|{typeParamName}");
+    }
+
+    public bool IsTypeRefTypeParam(IMethodSymbol method, string typeParamName)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        return _methodTypeRefTypeParamNames.Contains($"{typeName}|{methodKey}|{typeParamName}");
+    }
+
+    /// <summary>
+    /// Replaces the registered TypeReference-token set for a method with the given
+    /// names. Called after a method signature is patched so call sites emit the
+    /// right token flavor in exactly the order the signature declares parameters.
+    /// </summary>
+    public void SetMethodTypeRefTypeParamNames(IMethodSymbol method, IEnumerable<string> typeParameterNames)
+    {
+        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
+        var keyPrefix = $"{typeName}|{methodKey}|";
+        var existingMarkers = _methodTypeRefTypeParamNames
+            .Where(k => k.StartsWith(keyPrefix, StringComparison.Ordinal))
+            .ToArray();
+        _methodTypeRefTypeParamNames.RemoveWhere(k => k.StartsWith(keyPrefix, StringComparison.Ordinal));
+        // Preserve markers only for names still present in the final signature:
+        // never mark names that were registered through the Class-token path.
+        foreach (var name in typeParameterNames)
+        {
+            if (existingMarkers.Contains(keyPrefix + name, StringComparer.Ordinal))
+                _methodTypeRefTypeParamNames.Add(keyPrefix + name);
+        }
     }
 
     public IReadOnlySet<string>? DrainClassTypeParams()
