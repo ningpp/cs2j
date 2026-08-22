@@ -640,11 +640,42 @@ public class D4IrRewriterTests
     // ═══════════════════════════════════════════════════════════
 
     [Fact]
-    public void IntStream_ArraysStreamFlatMap_InsertsBoxed()
+    public void IntStream_ArraysStreamPrimitiveArrayLiteral_InsertsBoxed()
     {
         var rewriter = new IntStreamBoxedRewriter();
 
-        // Arrays.stream(intArr).flatMap(...)
+        // Arrays.stream(new int[]{...}).flatMap(...) — the argument is visibly a
+        // primitive array, so Arrays.stream returns IntStream and flatMap needs .boxed().
+        var call = new JavaMethodCallExpression
+        {
+            Target = new JavaMethodCallExpression
+            {
+                Target = new JavaIdentifierExpression("Arrays"),
+                MethodName = "stream",
+                Arguments = { new JavaNewExpression { Type = "int[]" } },
+            },
+            MethodName = "flatMap",
+        };
+        call.Arguments.Add(new JavaIdentifierExpression("mapper"));
+
+        rewriter.VisitMethodCallExpression(call);
+
+        // Should become: Arrays.stream(new int[]{...}).boxed().flatMap(mapper)
+        Assert.IsType<JavaMethodCallExpression>(call.Target);
+        var boxedCall = (JavaMethodCallExpression)call.Target!;
+        Assert.Equal("boxed", boxedCall.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+    }
+
+    [Fact]
+    public void IntStream_ArraysStreamIdentifierTypeUnknown_Unchanged()
+    {
+        var rewriter = new IntStreamBoxedRewriter();
+
+        // Arrays.stream(intArr).flatMap(...) — the IR carries no type information for
+        // the intArr identifier. It could be a reference array (Arrays.stream returns
+        // Stream<T>, where .boxed() does not exist), so the rewriter must not assume
+        // IntStream and must leave the call unchanged.
         var call = new JavaMethodCallExpression
         {
             Target = new JavaMethodCallExpression
@@ -659,11 +690,9 @@ public class D4IrRewriterTests
 
         rewriter.VisitMethodCallExpression(call);
 
-        // Should become: Arrays.stream(intArr).boxed().flatMap(mapper)
-        Assert.IsType<JavaMethodCallExpression>(call.Target);
-        var boxedCall = (JavaMethodCallExpression)call.Target!;
-        Assert.Equal("boxed", boxedCall.MethodName);
-        Assert.Equal(1, rewriter.RewriteCount);
+        var streamCall = (JavaMethodCallExpression)call.Target!;
+        Assert.Equal("stream", streamCall.MethodName);
+        Assert.Equal(0, rewriter.RewriteCount);
     }
 
     [Fact]

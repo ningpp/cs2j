@@ -139,7 +139,7 @@ class Sample
         // Deserialize<TValue>(string, Type, options) share identical parameter
         // SYNTAX types. The partial-type member dedup key must include the
         // type-parameter count, otherwise the later overload is dropped while
-        // call sites still reference it (prepending the Class token).
+        // call sites still reference it.
         var tempDir = Path.Combine(Path.GetTempPath(), $"cs2j-arity-dedup-test-{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
         try
@@ -179,11 +179,16 @@ class Sample
             // All three overloads must survive.
             Assert.Contains("public static <TValue> TValue deserialize(Class<TValue> _cs2j_TValue, String json, Object options)", code);
             Assert.Contains("public static Object deserialize_0tp(String json, Object returnType, Object options)", code);
-            Assert.Contains("private static <TValue> TValue deserialize(Class<TValue> _cs2j_TValue, String json, Object returnType, Object options)", code);
+            // The private generic overload needs no Class token: its body never uses
+            // typeof(TValue)/default(TValue), so Java infers TValue at the call sites.
+            Assert.Contains("private static <TValue> TValue deserialize(String json, Object returnType, Object options)", code);
 
-            // Call sites must match the surviving private definition (Class token first).
-            Assert.Contains("return deserialize(Object.class, json, returnType, options);", code);
-            Assert.Contains("return deserialize(_cs2j_TValue, json, returnType, options);", code);
+            // Both call sites (the public overload's delegation and the private
+            // recursion) must reference the surviving private definition; Java infers
+            // TValue from the return target type (Object / TValue respectively).
+            var callSiteCount = System.Text.RegularExpressions.Regex.Matches(
+                code, "return deserialize\\(json, returnType, options\\);").Count;
+            Assert.Equal(2, callSiteCount);
         }
         finally
         {

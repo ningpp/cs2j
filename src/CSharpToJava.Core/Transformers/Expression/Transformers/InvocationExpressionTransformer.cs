@@ -6378,7 +6378,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                                 context.AddImport("java.util.stream.StreamSupport");
                                 // Cast the block lambda to Function and chain .andThen to convert
                                 // the Iterable result to a Stream via spliterator.
-                                flatMapArg = $"((java.util.function.Function<Object, Iterable<?>>) ({blockLambda})).andThen(iter -> StreamSupport.stream(iter.spliterator(), false))";
+                                // Keep the element type: Iterable<?> would erase it to a
+                                // wildcard capture and break typed consumers downstream.
+                                var exprBodyIterElem = lambdaRetType2 is INamedTypeSymbol namedIterRet
+                                    ? ExtractEnumerableElementType(namedIterRet)
+                                    : null;
+                                var exprBodyIterJava = exprBodyIterElem != null
+                                    ? ExpressionTransformerHelpers.BoxJavaPrimitiveType(context.MapType(exprBodyIterElem))
+                                    : "Object";
+                                flatMapArg = $"((java.util.function.Function<Object, Iterable<{exprBodyIterJava}>>) ({blockLambda})).andThen(iter -> StreamSupport.stream(iter.spliterator(), false))";
                             }
                             else
                                 flatMapArg = facade.Transform(smArg.Expression, context);
@@ -6399,7 +6407,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         {
                             var mappedParam = context.MapType(lambdaParamType2.Value[0].Type);
                             if (!string.IsNullOrEmpty(mappedParam))
-                                funcParamType = mappedParam;
+                                funcParamType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(mappedParam);
                         }
                         if (lambdaRetType2 is IArrayTypeSymbol smArr)
                         {
@@ -6421,7 +6429,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                             string blockLambda = facade.Transform(smArg.Expression, context);
                             context.AddImport("java.util.function.Function");
                             context.AddImport("java.util.stream.StreamSupport");
-                            flatMapArg = $"((java.util.function.Function<{funcParamType}, Iterable<?>>) ({blockLambda})).andThen(iter -> StreamSupport.stream(iter.spliterator(), false))";
+                            // Preserve the element type: Iterable<?> would erase it to a
+                            // wildcard capture, so the stream produced by .andThen(...)
+                            // loses T and typed consumers (for-each over CSharpList<T>,
+                            // collect to CSharpList<T>) fail to compile.
+                            var iterElemType = lambdaRetType2 is INamedTypeSymbol namedRetType
+                                ? ExtractEnumerableElementType(namedRetType)
+                                : null;
+                            var iterElemJava = iterElemType != null
+                                ? ExpressionTransformerHelpers.BoxJavaPrimitiveType(context.MapType(iterElemType))
+                                : "Object";
+                            flatMapArg = $"((java.util.function.Function<{funcParamType}, Iterable<{iterElemJava}>>) ({blockLambda})).andThen(iter -> StreamSupport.stream(iter.spliterator(), false))";
                         }
                         else
                         {

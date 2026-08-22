@@ -239,18 +239,18 @@ public class AglGenericClassTokenRegressionTests
         var utils = Assert.Single(results, r => r.FileName == "RectangleNodeUtils.java");
         Assert.True(utils.Success, "UTILS:\n" + utils.GeneratedCode + "\n" + string.Join("\n", utils.Diagnostics));
         Assert.Contains("crossRectangleNodes_2tp", utils.GeneratedCode);
-        // Both overloads got _cs2j_ params; the 3tp declaration keeps the base name,
-        // the 2tp one is erasure-renamed.
-        Assert.Contains("void crossRectangleNodes(Class<TA> _cs2j_TA, Class<TB> _cs2j_TB, Class<P> _cs2j_P,", utils.GeneratedCode);
-        Assert.Contains("void crossRectangleNodes_2tp(Class<TA> _cs2j_TA, Class<P> _cs2j_P,", utils.GeneratedCode);
-        // Recursive calls pass tokens in the same order as the signature declares them.
-        Assert.Contains("crossRectangleNodes(_cs2j_TA, _cs2j_TB, _cs2j_P, a.Left, b.Left, action);", utils.GeneratedCode);
-        Assert.Contains("crossRectangleNodes_2tp(_cs2j_TA, _cs2j_P, a.Left, b.Left, action);", utils.GeneratedCode);
+        // Neither body needs runtime type info (no typeof/default), so no Class tokens
+        // are added: the 3tp declaration keeps the base name, the 2tp one is
+        // erasure-renamed, and Java infers all type parameters from the arguments.
+        Assert.Contains("public static <TA, TB, P> void crossRectangleNodes(RectangleNode<TA, P> a, RectangleNode<TB, P> b, BiConsumer<TA, TB> action)", utils.GeneratedCode);
+        Assert.Contains("public static <TA, P> void crossRectangleNodes_2tp(RectangleNode<TA, P> a, RectangleNode<TA, P> b, BiConsumer<TA, TA> action)", utils.GeneratedCode);
+        // Recursive calls use the method's own (possibly renamed) name.
+        Assert.Contains("crossRectangleNodes(a.Left, b.Left, action);", utils.GeneratedCode);
+        Assert.Contains("crossRectangleNodes_2tp(a.Left, b.Left, action);", utils.GeneratedCode);
         var callSite = Assert.Single(results, r => r.FileName == "UseIt.java");
         Assert.True(callSite.Success, "CALLSITE:\n" + callSite.GeneratedCode + "\n" + string.Join("\n", callSite.Diagnostics));
-        // The call site must use the same erasure-renamed name as the declaration,
-        // with Class tokens matching the signature order.
-        Assert.Contains("crossRectangleNodes_2tp(int.class, Point.class, a, b,", callSite.GeneratedCode);
+        // The call site must use the same erasure-renamed name as the declaration.
+        Assert.Contains("RectangleNodeUtils.crossRectangleNodes_2tp(a, b, (BiConsumer<Integer, Integer>)", callSite.GeneratedCode);
         Assert.DoesNotContain("crossRectangleNodes(a, b,", callSite.GeneratedCode);
     }
 
