@@ -443,6 +443,18 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
     private static readonly Regex CloseCallPattern = new(
         @"\.close\s*\(",
         RegexOptions.Compiled);
+    /// <summary>
+    /// Detects <c>throw new X(...)</c> inside raw (string-emitted) statements. Control-flow
+    /// statements (if/for/while/switch bodies) are emitted as raw strings by the statement
+    /// transformers, so their inner throw statements never surface as JavaThrowStatement IR
+    /// nodes. The thrown type must still be checked against the Java library index so
+    /// unchecked exceptions (IllegalArgumentException, compat SystemException subtypes, ...)
+    /// do not trigger a body wrap.
+    /// </summary>
+    private static readonly Regex ThrowNewExceptionPattern = new(
+        @"\bthrow\s+new\s+([A-Za-z_$][A-Za-z0-9_.$]*)(?:\s*<[^>]*>)?\s*\(",
+        RegexOptions.Compiled);
+
 
     private static readonly Regex CheckedConstructorPattern = new(
         @"new\s+(PrintWriter|CSharpTextWriter|FileInputStream|FileOutputStream|FileReader|FileWriter|RandomAccessFile|Scanner|Formatter)\s*\(",
@@ -456,6 +468,22 @@ public sealed class JavaExceptionCheckRewriter : JavaSyntaxRewriter
     {
         if (_javaLibrary is not null)
         {
+            // Detect throw statements with checked exception types. The C# statement
+            // transformers emit if/for/while/switch statements as raw strings, so the
+            // structured JavaThrowStatement visitor never sees throws nested inside them.
+            foreach (Match match in ThrowNewExceptionPattern.Matches(node.Code))
+            {
+                var thrownTypeName = StripGenerics(match.Groups[1].Value);
+                var canonicalName = ResolveCanonical(thrownTypeName);
+                if (canonicalName is not null && !IsUnchecked(canonicalName))
+                {
+                    var simpleName = canonicalName.Contains(".")
+                        ? canonicalName.Substring(canonicalName.LastIndexOf(".") + 1)
+                        : canonicalName;
+                    _pendingExceptions.Add(simpleName);
+                }
+            }
+
             // Detect try-with-resources: close() calls on AutoCloseable types
             if (node.Code.Contains("try ("))
             {

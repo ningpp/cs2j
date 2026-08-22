@@ -1229,6 +1229,51 @@ class StringCollection : IEnumerable<string>
     }
 
     [Fact]
+    public async Task FileNotFoundException_ThrownInIfBlock_MustCompile()
+    {
+        // Regression (AGL LayeredV2TestSupport/RoutingTestSupport): `if (!File.Exists(path))
+        // throw new FileNotFoundException(...)` must be wrapped by JavaExceptionCheckRewriter
+        // so the generated method compiles without a throws clause.
+        var options = new ConversionOptions
+        {
+            JavaMetadataPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "config", "java")),
+        };
+        var pipeline = new ProjectConversionPipeline(options);
+        var results = await pipeline.ConvertProjectAsync(new[]
+        {
+            new SourceFile { FilePath = @"Sample.cs", Content = @"
+using System.IO;
+using System.Collections.Generic;
+
+class Sample
+{
+    public static List<string> Load(string path)
+    {
+        if (!File.Exists(path))
+            throw new FileNotFoundException(""Missing: "" + path);
+        return new List<string>();
+    }
+}" },
+        });
+
+        Assert.True(results.All(r => r.Success), string.Join("\n", results.SelectMany(r => r.Diagnostics)) + "\nFiles: " + string.Join(",", results.Select(r => r.FileName)));
+
+        var code = results.First().GeneratedCode;
+        Assert.Contains("import io.github.ningpp.compat.FileNotFoundException;", code, StringComparison.Ordinal);
+        Assert.Contains("try {", code, StringComparison.Ordinal);
+        Assert.Contains("catch (Exception _e_cs2j)", code, StringComparison.Ordinal);
+
+        using var temp = new TempDir();
+        var outDir = Path.Combine(temp.Path, "classes");
+        Directory.CreateDirectory(outDir);
+        var javaPath = Path.Combine(temp.Path, "Sample.java");
+        File.WriteAllText(javaPath, code);
+        var compatClasses = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "java", "csharptojava-compat", "target", "classes"));
+        var javac = RunProcess(FindRequiredExecutable("javac"), $"-cp \"{compatClasses}\" -d \"{outDir}\" \"{javaPath}\"");
+        Assert.True(javac.ExitCode == 0, javac.Output + "\n---Generated---\n" + code);
+    }
+
+    [Fact]
     public void MissingMethodException_Thrown_MapsToUncheckedCompatClass()
     {
         var result = Convert("""

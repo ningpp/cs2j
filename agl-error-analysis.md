@@ -132,3 +132,21 @@
 - 子任务一：使用同一份 cs2j 代码重新转换 `D:\csharp-sdk` → `d:\cs-java-816-sdk`，`mvn clean install -e` → **BUILD SUCCESS**（7102 个测试，0 失败）
 - 子任务二：使用同一份 cs2j 代码重新转换 `E:\agl-master\GraphLayout\` → `d:\agl-java-816`，`mvn clean package -e` → **BUILD SUCCESS**（10 个模块，609 个测试 0 失败 0 错误）
 - compat：`mvn test` → **1500 个测试全部通过，0 失败**（含新增 `CSharpGenericIterableNullSemanticsTest`）
+
+## Iteration AGL-1 — 未报告的已检查异常 FileNotFoundException（if 块内 throw 未被包裹）
+- **Java 文件**: `aglningpptests/src/test/java/AglNingppTests/Agl/Layout/LayeredV2Tests/LayeredV2TestSupport.java:207`（同模式 `RoutingTestSupport.java:117`）
+- **行号**: 207
+- **错误信息**: `未报告的异常错误io.github.ningpp.compat.FileNotFoundException; 必须对其进行捕获或声明以便抛出`
+- **代码片段**:
+  ```java
+  if (!FileHelper.exists(path)) {
+      throw new FileNotFoundException("Missing SciPy reference data: " + path);
+  }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\Test\AglNingppTests\Agl\Layout\LayeredV2\LayeredV2TestSupport.cs`
+- **根因分类**: Transformer（异常重写器覆盖不足）
+- **涉及组件**: `src/CSharpToJava.Core/Java/Rewriters/JavaExceptionCheckRewriter.cs`
+- **分析**: 所有控制流语句（if/for/while/switch）由 StatementTransformer 以原始字符串（`JavaStatementNode`/`JavaRawStatement`）发射，`JavaExceptionCheckRewriter.VisitThrowStatement` 只能看到方法体最外层的结构化 throw，嵌套在 if 块内的 `throw new FileNotFoundException(...)` 永远无法触发 try-catch 包裹，导致 javac 报未报告异常。
+- **修复**: `VisitRawStatement` 新增 `ThrowNewExceptionPattern`（`throw new X(` 正则）扫描，解析类型后经 `ResolveCanonical`/`IsUnchecked` 判断，仅对已检查异常加入 pending 集合触发方法体包裹；unchecked（IllegalArgumentException、compat SystemException 子类等）不受影响。
+- **测试**: 新增 `FileNotFoundException_ThrownInIfBlock_MustCompile`（项目管线 + javac 编译验证）；全量 `dotnet test` 2872 通过 0 失败。
+- **状态**: ✅ Fixed
