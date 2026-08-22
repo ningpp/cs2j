@@ -117,6 +117,48 @@ class ArrayHelperTest {
     }
 
     @Test
+    void asIterable_toArrayReturnsSameInstance() {
+        String[] arr = new String[] { "a", "b", "c" };
+        CSharpGenericIterable<String> view = ArrayHelper.asIterable(arr);
+
+        assertSame(arr, view.toArray(new String[0]));
+        assertSame(arr, view.toArray());
+    }
+
+    @Test
+    void asIterable_reflectsExternalArrayChanges() {
+        String[] arr = new String[] { "a", "b" };
+        CSharpGenericIterable<String> view = ArrayHelper.asIterable(arr);
+
+        arr[0] = "Z";
+
+        assertEquals("Z", view.iterator().next());
+        assertEquals(2, view.size());
+    }
+
+    @Test
+    void asIterable_nullArrayReturnsNull() {
+        assertNull(ArrayHelper.asIterable(null));
+    }
+
+    @Test
+    void asIterable_supportsStreamOperations() {
+        Integer[] arr = new Integer[] { 3, 1, 2 };
+        CSharpGenericIterable<Integer> view = ArrayHelper.asIterable(arr);
+
+        assertEquals(3, view.stream().count());
+        assertEquals(1, (int) view.stream().min(Integer::compareTo).get());
+    }
+
+    @Test
+    void asListView_toArrayReturnsSameInstance() {
+        String[] arr = new String[] { "a", "b", "c" };
+        CSharpGenericIList<String> view = ArrayHelper.asListView(arr);
+
+        assertSame(arr, view.toArray(new String[0]));
+    }
+
+    @Test
     void asListView_sizeMatchesArrayLength() {
         Integer[] arr = new Integer[] { 1, 2, 3, 4, 5 };
         CSharpGenericIList<Integer> view = ArrayHelper.asListView(arr);

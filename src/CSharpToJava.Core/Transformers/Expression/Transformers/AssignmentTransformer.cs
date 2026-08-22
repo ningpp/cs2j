@@ -559,7 +559,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     if (rhsType is IArrayTypeSymbol arrayType && propType is INamedTypeSymbol propNamed
                         && IsEnumerableOrCollectionInterface(propNamed))
                     {
-                        right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
+                        // IEnumerable targets keep the array identity (array -> IEnumerable -> (T[])
+                        // cast round trips must return the same instance); IList/ICollection targets
+                        // need a mutable CSharpList.
+                        right = ExpressionTransformerHelpers.IsIEnumerableType(propNamed)
+                            ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(propNamed, right, context)
+                            : ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
                     }
 
                     right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, propType, context);
@@ -872,7 +877,9 @@ public class AssignmentTransformer : IIRExpressionTransformer
                     if (rhsType is IArrayTypeSymbol arrayType && propType is INamedTypeSymbol propNamed
                         && IsEnumerableOrCollectionInterface(propNamed))
                     {
-                        right = ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
+                        right = ExpressionTransformerHelpers.IsIEnumerableType(propNamed)
+                            ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(propNamed, right, context)
+                            : ObjectCreationTransformer.WrapArrayForCollectionArg(right, arrayType, context);
                     }
 
                     right = ExpressionTransformerHelpers.AdaptExpressionToTargetType(rightNode, right, propType, context);

@@ -443,9 +443,12 @@ public partial class StatementTransformer
                     // C# arrays implement IEnumerable<T>/ICollection<T>/IList<T> implicitly.
                     // When the declared C# type was IEnumerable<T> (→ javaType was "Iterable<T>",
                     // then lowered to "var"), the initializer may be an array. Java arrays do NOT
-                    // implement Iterable, so we must wrap with ArrayHelper.toList() / Arrays.stream().
+                    // implement Iterable, so we must wrap: IEnumerable targets keep the array
+                    // identity (ArrayHelper.asIterable), ICollection/IList targets get a mutable
+                    // list (ArrayHelper.toList / Arrays.stream for primitives).
                     if (semanticTypeIsEnumerableLike
                         && !initExpr.Contains("ArrayHelper.toList(")
+                        && !initExpr.Contains("ArrayHelper.asIterable(")
                         && !initExpr.Contains("Arrays.asList(")
                         && !initExpr.Contains("Arrays.stream(")
                         && !initExpr.Contains("IntStream.range(")
@@ -454,8 +457,16 @@ public partial class StatementTransformer
                         var initExprTypeInfo = context.GetTypeInfo(v.Initializer!.Value);
                         var arrayTypeSymbol = initExprTypeInfo.Type as IArrayTypeSymbol
                             ?? initExprTypeInfo.ConvertedType as IArrayTypeSymbol;
-                        if (arrayTypeSymbol != null)
+                        if (arrayTypeSymbol != null && localSym?.Type is INamedTypeSymbol localNamedType)
+                        {
+                            initExpr = ExpressionTransformerHelpers.IsIEnumerableType(localNamedType)
+                                ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(localNamedType, initExpr, context)
+                                : ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayTypeSymbol, context);
+                        }
+                        else if (arrayTypeSymbol != null)
+                        {
                             initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayTypeSymbol, context);
+                        }
                     }
                 }
 

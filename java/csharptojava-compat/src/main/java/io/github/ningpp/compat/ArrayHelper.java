@@ -87,6 +87,17 @@ public class ArrayHelper {
     }
 
     /**
+     * Null-preserving, array-backed CSharpGenericIterable view for C# arrays
+     * exposed as IEnumerable&lt;T&gt;. Unlike toList(), toArray() returns the
+     * SAME array instance, so an array -> IEnumerable -> (T[]) cast round trip
+     * preserves reference identity (relied on by e.g. SegWithIndex.Equals).
+     */
+    public static <T> CSharpGenericIterable<T> asIterable(T[] items) {
+        if (items == null) return null;
+        return new CSharpArrayIterable<>(items);
+    }
+
+    /**
      * A fixed-size list view backed by a Java array.
      * Supports get(), set(), size(), and iteration; structural modifications
      * (add/remove/clear) throw UnsupportedOperationException, matching the
@@ -165,6 +176,24 @@ public class ArrayHelper {
                     throw new UnsupportedOperationException();
                 }
             };
+        }
+
+        @Override
+        public Object[] toArray() {
+            return array;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public <E> E[] toArray(E[] a) {
+            // Identity-preserving: an empty destination of a compatible component
+            // type returns the backing array (C# array -> IList<T> -> (T[]) cast
+            // round trips preserve reference identity).
+            if (a.length == 0
+                    && a.getClass().getComponentType().isAssignableFrom(array.getClass().getComponentType())) {
+                return (E[]) array;
+            }
+            return super.toArray(a);
         }
 
         @Override

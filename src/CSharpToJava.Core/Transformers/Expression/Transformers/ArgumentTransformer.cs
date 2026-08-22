@@ -915,7 +915,12 @@ public class ArgumentTransformer
             if (targetParam.ContainingSymbol is IMethodSymbol { Name: "AddRange" })
                 return transformedExpr;
 
-            var collectionExpr = ExpressionTransformerHelpers.BuildArrayToCollectionExpression(transformedExpr, argArrayType, context);
+            // IEnumerable targets keep the array identity (array -> IEnumerable -> (T[])
+            // cast round trips must return the same instance); IList/ICollection targets
+            // need a mutable collection.
+            var collectionExpr = ExpressionTransformerHelpers.IsIEnumerableType(paramNamed)
+                ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(paramNamed, transformedExpr, context)
+                : ExpressionTransformerHelpers.BuildArrayToCollectionExpression(transformedExpr, argArrayType, context);
             // When the target is IList<T> (mapped to CSharpGenericIList<T>),
             // the BuildArrayToCollectionExpression result (List<T>) must be wrapped
             // via CSharpGenericIList.fromTyped() because Java's List<T> does not

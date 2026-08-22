@@ -1567,6 +1567,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     {
         var trimmed = expr.Trim();
         return trimmed.StartsWith("ArrayHelper.toList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("ArrayHelper.asIterable(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
@@ -1844,7 +1845,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                             if (rhsType is IArrayTypeSymbol arrayType && fieldType is INamedTypeSymbol fieldNamed
                                 && IsEnumerableOrCollectionInterface(fieldNamed))
                             {
-                                value = WrapArrayForCollectionArg(value, arrayType, context);
+                                value = ExpressionTransformerHelpers.IsIEnumerableType(fieldNamed)
+                                    ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(fieldNamed, value, context)
+                                    : WrapArrayForCollectionArg(value, arrayType, context);
                             }
                         }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym.Type, context);
@@ -1861,7 +1864,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                             var rhsType = context.GetTypeInfo(assignExpr.Right).Type;
                             if (rhsType is IArrayTypeSymbol arrayType && IsEnumerableOrCollectionInterface(propNamed))
                             {
-                                value = WrapArrayForCollectionArg(value, arrayType, context);
+                                value = ExpressionTransformerHelpers.IsIEnumerableType(propNamed)
+                                    ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(propNamed, value, context)
+                                    : WrapArrayForCollectionArg(value, arrayType, context);
                             }
                         }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);
@@ -1907,7 +1912,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                             if (rhsType2 is IArrayTypeSymbol arrayType2 && fieldSym2.Type is INamedTypeSymbol fieldNamed2
                                 && IsEnumerableOrCollectionInterface(fieldNamed2))
                             {
-                                value = WrapArrayForCollectionArg(value, arrayType2, context);
+                                value = ExpressionTransformerHelpers.IsIEnumerableType(fieldNamed2)
+                                    ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(fieldNamed2, value, context)
+                                    : WrapArrayForCollectionArg(value, arrayType2, context);
                             }
                         }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, fieldSym2.Type, context);
@@ -1923,7 +1930,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                             var rhsType2 = context.GetTypeInfo(assignExpr.Right).Type;
                             if (rhsType2 is IArrayTypeSymbol arrayType2 && IsEnumerableOrCollectionInterface(propNamed2))
                             {
-                                value = WrapArrayForCollectionArg(value, arrayType2, context);
+                                value = ExpressionTransformerHelpers.IsIEnumerableType(propNamed2)
+                                    ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(propNamed2, value, context)
+                                    : WrapArrayForCollectionArg(value, arrayType2, context);
                             }
                         }
                         value = ExpressionTransformerHelpers.AdaptExpressionToTargetType(assignExpr.Right, value, propertyType, context);

@@ -51,8 +51,10 @@ class Layout
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The array literal should be wrapped when passed to IEnumerable parameter
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+        // The array literal should be wrapped when passed to IEnumerable parameter.
+        // An IEnumerable parameter holds the array itself in C#, so the
+        // identity-preserving view is used (ArrayHelper.asIterable).
+        Assert.Contains("ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -123,7 +125,7 @@ class Sample
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         Assert.True(
-            result.GeneratedCode.Contains("new CSharpList<Item>(ArrayHelper.toList(box.ItemsArray))", StringComparison.Ordinal),
+            result.GeneratedCode.Contains("new CSharpList<Item>(ArrayHelper.asIterable(box.ItemsArray))", StringComparison.Ordinal),
             result.GeneratedCode);
         Assert.DoesNotContain("box.getItemsArray()", result.GeneratedCode, StringComparison.Ordinal);
     }

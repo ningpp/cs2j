@@ -218,3 +218,15 @@
 - **分析**: Point? 与 null 字面量的 != 在 C# 中是提升运算符（HasValue 检查），不会调用底层值运算符；转换器却把 q != null 生成 Point.notEquals(q, null)，valueEquals 直接解引用 null 参数抛 NPE。
 - **修复**: 新增 IsStructNullLiteralComparison 守卫：结构体（值类型）运算符与 null 字面量比较时跳过方法调用路径，回落到普通 Java ==/!= 引用比较（Java 中结构体映射为类，null 即"无值"）。IR 路径与字符串路径两处用户定义运算符分支同步修复。新增 StructTransformerTests.Struct_NullableComparisonAgainstNull_StaysReferenceCheck（Red→Green）。
 - **状态**: ✅ Fixed
+
+
+## Iteration AGL-12 — StaircaseRemover 数组身份语义丢失 + stream.toArray 误判为已包装
+
+- **Java 文件**: aglningpptests/src/test/java/AglNingppTests/Agl/Routing/Rectilinear/NudgingTests/NudgingHelpersTest.java（staircaseRemover_RemovesStaircase_Test）
+- **错误信息**: 去掉 C# [Ignore] 后转换出的 Java 测试无法通过/主模块编译报错：ConstrainedOrdering.java:249、Nudger.java:310、PathRefiner.java:88（T[] 无法转换为 CSharpGenericIterable<T>）
+- **对应 C# 文件**: E:\agl-master\GraphLayout\MSAGL\Routing\Rectilinear\Nudging\StaircaseRemover.cs（SegWithIndex.Equals 按数组引用比较）、Path.cs（PathPoints）、Nudger.cs / PathRefiner.cs
+- **根因分类**: Transformer + compat 库
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（IsArrayAlreadyWrappedForCollectionOrIterable / WrapArrayForIterableTarget）、AssignmentTransformer.cs / StatementTransformer.Declarations.cs、java/csharptojava-compat（ArrayHelper.asIterable / CSharpArrayIterable）
+- **分析**: 两个叠加问题：(1) C# 中 array 赋给 IEnumerable<T> 属性/局部变量时保存数组本身，(T[]) 强转回原数组；StaircaseRemover 依赖 SegWithIndex.Equals 的 Points 引用相等来忽略自身线段。转换器此前用 ArrayHelper.toList 复制，破坏身份，导致楼梯永远无法移除。(2) Enumerable.ToArray() 生成 StreamSupport.stream(...).toArray(T[]::new)，表达式以 StreamSupport.stream( 开头被 IsArrayAlreadyWrappedForCollectionOrIterable 误判为"已包装"，IEnumerable 目标处不再包 asIterable，产生 T[] 传给 CSharpGenericIterable<T> 参数的编译错误。
+- **修复**: (1) compat 新增 CSharpArrayIterable（数组后备、toArray 返回同一实例），ArrayHelper.asIterable 供 IEnumerable 目标使用；属性赋值/局部声明/方法实参三处统一改用 asIterable。(2) IsArrayAlreadyWrappedForCollectionOrIterable 对以 .toArray(...) 结尾的表达式返回 false（那是原始 Java 数组，仍需包装）。新增 IEnumerableArrayIdentityTests 3 个用例（LocalIEnumerableDeclaredFromToArrayCall / IEnumerablePropertyAssignedToArrayFromToArrayCall / GenericMethodArgumentFromToArrayDeclaredLocal），Red→Green；转换器全量 2964/2964 通过；重新转换后 mvn：aglningpptests 1661/1661、msagltests 612/612 全部通过，NudgingHelpersTest 10/10（含 staircaseRemover_RemovesStaircase_Test）。
+- **状态**: ✅ Fixed

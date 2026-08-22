@@ -52,8 +52,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // Reference type String[] → ArrayHelper.toList()
-        Assert.Contains("ArrayHelper.toList(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        // Reference type String[] → ArrayHelper.asIterable() (identity-preserving view)
+        Assert.Contains("ArrayHelper.asIterable(arr)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -71,8 +71,8 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        // Struct arrays are reference-type arrays in Java → ArrayHelper.toList()
-        Assert.Contains("ArrayHelper.toList(arr)", result.GeneratedCode, StringComparison.Ordinal);
+        // Struct arrays are reference-type arrays in Java → ArrayHelper.asIterable()
+        Assert.Contains("ArrayHelper.asIterable(arr)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ class Sample
 
         Assert.True(result.Success);
         // Method argument wrapping works when method symbol is resolved
-        Assert.Contains("ArrayHelper.toList", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.asIterable", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -152,9 +152,10 @@ class Sample
         Assert.True(result.Success);
         // AGL Label.cs: the field initializer must not be wrapped again by the
         // syntax-only fallback after WrapArrayForIterableTarget already produced
-        // new CSharpList<T>(ArrayHelper.toList(array)).
+        // the ArrayHelper.asIterable(array) identity-preserving view.
         Assert.DoesNotContain("ArrayHelper.toList(new CSharpList<", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("new CSharpList<PlacementStrategy>(ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("asIterable(ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

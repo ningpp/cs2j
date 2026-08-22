@@ -1232,6 +1232,22 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// True when the type is System.Collections.IEnumerable or
+    /// System.Collections.Generic.IEnumerable&lt;T&gt;. Arrays assigned to
+    /// IEnumerable targets keep their identity (see WrapArrayForIterableTarget);
+    /// IList/ICollection targets still need mutable CSharpList wrapping.
+    /// </summary>
+    public static bool IsIEnumerableType(INamedTypeSymbol type)
+    {
+        if (type.Name is not "IEnumerable")
+            return false;
+        var ns = type.ContainingNamespace?.ToDisplayString()
+            ?? type.OriginalDefinition?.ContainingNamespace?.ToDisplayString();
+        return ns != null && (ns.StartsWith("System.Collections.Generic")
+            || ns.StartsWith("System.Collections"));
+    }
+
+    /// <summary>
     /// Wraps a Java array expression for an IEnumerable / IEnumerable&lt;T&gt;
     /// target (CSharpGenericIterable): Java arrays do not implement the compat
     /// iterable. Used by field/property initializers and field/property
@@ -1255,12 +1271,24 @@ public static class ExpressionTransformerHelpers
             return rhs;
         }
 
+        // Primitive element types (int[], double[], ...) cannot back a generic
+        // object-array view: box through a stream like the collection path does.
+        if (targetType.TypeArguments.Length == 1
+            && IsPrimitiveSpecialTypeForArrayStream(targetType.TypeArguments[0].SpecialType)
+            && (context.ProjectCompilation ?? context.SemanticModel?.Compilation) is { } compilation)
+        {
+            var arrayTypeSymbol = compilation.CreateArrayTypeSymbol(targetType.TypeArguments[0]);
+            return BuildArrayToCollectionExpression(rhs, arrayTypeSymbol, context);
+        }
+
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
         if (targetType.TypeArguments.Length == 1)
         {
-            var elemJava = context.MapType(targetType.TypeArguments[0]);
-            context.AddImport("io.github.ningpp.compat.CSharpList");
-            return $"new CSharpList<{elemJava}>(ArrayHelper.toList({rhs}))";
+            // Array-backed view: C# stores the array itself in the IEnumerable slot,
+            // so an array -> IEnumerable -> (T[]) cast round trip must preserve the
+            // same array instance (e.g. SegWithIndex.Equals compares Points by
+            // reference identity). ArrayHelper.toList would copy and break that.
+            return $"ArrayHelper.asIterable({rhs})";
         }
         return $"ArrayHelper.toList({rhs})";
     }
@@ -1278,8 +1306,19 @@ public static class ExpressionTransformerHelpers
             return false;
         }
         var trimmed = expr.TrimStart();
+        // An expression terminated with .toArray(...) is a raw Java array (T[]),
+        // regardless of what it starts with (e.g. Enumerable.ToArray() converts to
+        // StreamSupport.stream(...).toArray(T[]::new)). Raw arrays must still be
+        // wrapped for IEnumerable/ICollection targets, so they are NOT "already
+        // wrapped". Only non-array-terminated collection/stream expressions skip
+        // the wrap (they were already converted from a raw array).
+        if (System.Text.RegularExpressions.Regex.IsMatch(trimmed.TrimEnd(), @"\.toArray\([^)]*\)$"))
+        {
+            return false;
+        }
         return trimmed.StartsWith("new CSharpList<", StringComparison.Ordinal)
             || trimmed.StartsWith("ArrayHelper.toList(", StringComparison.Ordinal)
+            || trimmed.StartsWith("ArrayHelper.asIterable(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
