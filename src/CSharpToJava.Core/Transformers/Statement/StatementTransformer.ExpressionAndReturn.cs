@@ -356,19 +356,22 @@ public partial class StatementTransformer
         {
             var rhsExpr = exprTransformer.Transform(tupleAssign.Right, context);
             var tempVar = "_t";
-            var names = parenDesig.Variables
-                .OfType<SingleVariableDesignationSyntax>()
-                .Select(svd => svd.Identifier.Text)
+            // Build (index, name) pairs — skip discards but preserve the original
+            // tuple position so getters (_1, _2, ...) match the C# tuple element order.
+            var designations = parenDesig.Variables
+                .Select((v, i) => (Index: i, Var: v))
+                .Where(pair => pair.Var is SingleVariableDesignationSyntax svd && svd.Identifier.Text != "_")
+                .Select(pair => (pair.Index, Name: ((SingleVariableDesignationSyntax)pair.Var).Identifier.Text))
                 .ToList();
             var sbTuple = new System.Text.StringBuilder();
             sbTuple.AppendLine($"var {tempVar} = {rhsExpr};");
-            for (int i = 0; i < names.Count; i++)
+            for (int i = 0; i < designations.Count; i++)
             {
-                string getter = $"_{i + 1}";
-                if (i < names.Count - 1)
-                    sbTuple.AppendLine($"var {ConversionContext.EscapeJavaKeyword(names[i])} = {tempVar}.{getter}();");
+                string getter = $"_{designations[i].Index + 1}";
+                if (i < designations.Count - 1)
+                    sbTuple.AppendLine($"var {ConversionContext.EscapeJavaKeyword(designations[i].Name)} = {tempVar}.{getter}();");
                 else
-                    sbTuple.Append($"var {ConversionContext.EscapeJavaKeyword(names[i])} = {tempVar}.{getter}();");
+                    sbTuple.Append($"var {ConversionContext.EscapeJavaKeyword(designations[i].Name)} = {tempVar}.{getter}();");
             }
             return new JavaStatementNode(sbTuple.ToString());
         }

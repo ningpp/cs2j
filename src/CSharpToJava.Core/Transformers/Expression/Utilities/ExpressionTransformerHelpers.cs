@@ -364,6 +364,30 @@ public static class ExpressionTransformerHelpers
             }
         }
 
+        // C# arrays implement IReadOnlyList<T>/IReadOnlyCollection<T> but Java arrays
+        // do not implement CSharpReadOnlyList<T>/CSharpReadOnlyCollection<T>. When the
+        // source is an array and the target is IReadOnlyList<T> or IReadOnlyCollection<T>,
+        // bridge via new CSharpList<>(ArrayHelper.toList(...)).
+        if (sourceType is IArrayTypeSymbol
+            && targetType is INamedTypeSymbol readOnlyTarget
+            && !transformedExpression.StartsWith("ArrayHelper.toList(", StringComparison.Ordinal)
+            && !transformedExpression.StartsWith("new CSharpList<", StringComparison.Ordinal))
+        {
+            var readOnlyTargetDisplay = readOnlyTarget.OriginalDefinition?.ToDisplayString();
+            if (readOnlyTargetDisplay is "System.Collections.Generic.IReadOnlyList<T>"
+                or "System.Collections.Generic.IReadOnlyCollection<T>")
+            {
+                context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                if (readOnlyTarget.TypeArguments.Length == 1)
+                {
+                    var elemJava = BoxJavaPrimitiveType(context.MapType(readOnlyTarget.TypeArguments[0]));
+                    context.AddImport("io.github.ningpp.compat.CSharpList");
+                    return $"new CSharpList<{elemJava}>(ArrayHelper.toList({transformedExpression}))";
+                }
+                return $"new CSharpList<>(ArrayHelper.toList({transformedExpression}))";
+            }
+        }
+
         // C# user-defined implicit conversion operators at implicit-conversion sites
         // (method arguments, returns, assignments) — e.g. "implicit operator
         // LocalBuilder(RentedLocalBuilder)". Java has no conversion operators, so emit
@@ -1355,6 +1379,33 @@ public static class ExpressionTransformerHelpers
             or "char" or "boolean" or "uint" or "ulong" or "ushort"
             or "bool" or "decimal" => true,
             _ => false
+        };
+    }
+
+    /// <summary>
+    /// Converts a Java primitive type name to its wrapper class name
+    /// (e.g. int → Integer, double → Double). Returns the input
+    /// unchanged if it is not a primitive type. This is needed because
+    /// Java generics do not accept primitive types (no List&lt;int&gt;).
+    /// </summary>
+    public static string BoxPrimitiveType(string typeName)
+    {
+        return typeName switch
+        {
+            "int" => "Integer",
+            "long" => "Long",
+            "double" => "Double",
+            "float" => "Float",
+            "short" => "Short",
+            "byte" => "Byte",
+            "char" => "Character",
+            "boolean" => "Boolean",
+            "uint" => "Integer",
+            "ulong" => "Long",
+            "ushort" => "Short",
+            "bool" => "Boolean",
+            "decimal" => "java.math.BigDecimal",
+            _ => typeName
         };
     }
 

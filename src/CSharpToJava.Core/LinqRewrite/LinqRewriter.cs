@@ -356,6 +356,51 @@ namespace CSharpToJava.Core.LinqRewrite
                         .Where(x => (x as IParameterSymbol)?.IsThis != true)
                         .Select(x => CreateVariableCapture(x, flowsOut)) ?? Enumerable.Empty<VariableCapture>();
 
+                    // When LINQ is inside a C# local function, Roslyn's AnalyzeDataFlow
+                    // on the lambda body may fail to detect variables captured from the
+                    // enclosing method scope (e.g. local variables like `layers` that are
+                    // read via array indexer `layers[e.Source]`).  Walk the lambda body
+                    // identifiers and add any enclosing-method locals/parameters that are
+                    // not already captured and not declared inside the local function.
+                    if (owner is LocalFunctionStatementSyntax localFuncOwner)
+                    {
+                        var existingCaptures = new HashSet<ISymbol>(
+                            currentFlow.Select(c => c.Symbol),
+                            SymbolEqualityComparer.Default);
+                        var localFnSymbol = semantic.GetDeclaredSymbol(localFuncOwner) as IMethodSymbol;
+                        var lambdaBodies = chain
+                            .SelectMany(s => s.Arguments)
+                            .OfType<AnonymousFunctionExpressionSyntax>()
+                            .Select(a => new Lambda(a))
+                            .ToList();
+                        foreach (var lb in lambdaBodies)
+                        {
+                            var lambdaParamNames = new HashSet<string>(
+                                lb.Parameters.Select(p => p.Identifier.ValueText));
+                            foreach (var id in lb.Body
+                                .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
+                                .OfType<IdentifierNameSyntax>())
+                            {
+                                if (id.Parent is NameColonSyntax) continue;
+                                var sym = semantic.GetSymbolInfo(id).Symbol;
+                                if (sym is not (ILocalSymbol or IParameterSymbol)) continue;
+                                if (lambdaParamNames.Contains(sym.Name)) continue;
+                                // Skip if already captured
+                                if (existingCaptures.Contains(sym)) continue;
+                                // Skip if the symbol belongs to the local function itself
+                                if (localFnSymbol != null &&
+                                    SymbolEqualityComparer.Default.Equals(sym.ContainingSymbol, localFnSymbol))
+                                    continue;
+                                // Skip `this` parameter
+                                if (sym is IParameterSymbol ps && ps.IsThis) continue;
+                                // Skip const locals (compile-time constants)
+                                if (sym is ILocalSymbol loc && loc.HasConstantValue) continue;
+                                existingCaptures.Add(sym);
+                                currentFlow = currentFlow.Append(CreateVariableCapture(sym, flowsOut));
+                            }
+                        }
+                    }
+
                     var collection = ((MemberAccessExpressionSyntax)lastNode.Expression).Expression;
                     // Strip parentheses from the collection expression (may appear after
                     // query desugaring: e.g. (values.Where(…)).Select(…)).

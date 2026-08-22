@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -331,11 +331,6 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && context.GetTypeInfo(node.Expression).Type is IPointerTypeSymbol)
         {
             return expression;
-        }
-
-        if (targetType.Contains("JsonParameterInfo"))
-        {
-            System.Console.WriteLine($"[CS2J-TRACE-CAST] cast target='{node.Type}' targetType='{targetType}' targetSym='{targetSymbol?.ToDisplayString()}'");
         }
 
         // C# (int)ptr / (long)ptr: casting a pointer to an integral type. Java's

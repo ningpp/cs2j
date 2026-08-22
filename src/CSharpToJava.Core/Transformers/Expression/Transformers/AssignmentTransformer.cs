@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Linq;
@@ -1172,6 +1172,17 @@ public class AssignmentTransformer : IIRExpressionTransformer
             && TryTransformFallbackPropertySetterAssignment(node, unresolvedPropertyAccess, context, out var fallbackSetter))
         {
             return fallbackSetter;
+        }
+
+        // C# discard assignment `_ = expr` — evaluate the RHS for side effects
+        // but discard the result. In Java there is no discard target, so return
+        // the RHS expression directly. This handles discard assignments that
+        // appear as sub-expressions (e.g. inside lambda bodies like
+        // () => _ = nonGeneric.Current) where the expression-statement path
+        // cannot catch them.
+        if (op == "=" && leftNode is IdentifierNameSyntax { Identifier.ValueText: "_" })
+        {
+            return facade.Transform(rightNode, context);
         }
 
         var left = facade.Transform(leftNode, context);

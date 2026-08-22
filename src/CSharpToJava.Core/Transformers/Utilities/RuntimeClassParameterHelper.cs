@@ -228,7 +228,10 @@ internal static class RuntimeClassParameterHelper
                 .ToList();
             context.CacheRuntimeClassRequiredTypeParameters(originalMethod, result);
             if (result.Count > 0)
+            {
+                System.Console.WriteLine($"[CS2J-TRACE] RegisterMethod: method={originalMethod.ToDisplayString()}, count={result.Count}, typeParams=[{string.Join(",", result.Select(tp => tp.Name))}]");
                 context.Options.RuntimeClassParameters.RegisterMethodRequirements(originalMethod, result);
+            }
             return result;
         }
         finally

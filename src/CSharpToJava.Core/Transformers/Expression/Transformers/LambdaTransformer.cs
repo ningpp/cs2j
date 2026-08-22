@@ -482,6 +482,35 @@ public class LambdaTransformer : IIRExpressionTransformer
                             }
                         }
                     }
+
+                    // C# allows implicit int→double widening in lambda return
+                    // positions (e.g. Func<int, double> f = i => i). Java's
+                    // Function<Integer, Double> cannot auto-widen Integer to
+                    // Double, so insert an explicit cast on the return value.
+                    if (!isVoidLambda && context.SemanticModel != null)
+                    {
+                        var convertedType = context.GetTypeInfo(node).ConvertedType;
+                        if (convertedType is INamedTypeSymbol namedType2)
+                        {
+                            var invokeMethod2 = namedType2.DelegateInvokeMethod;
+                            if (invokeMethod2 != null && !invokeMethod2.ReturnsVoid)
+                            {
+                                var retType2 = invokeMethod2.ReturnType;
+                                var bodyType = node.ExpressionBody != null
+                                    ? context.GetTypeInfo(node.ExpressionBody).Type
+                                    : null;
+                                if (bodyType != null && retType2 != null
+                                    && bodyType.SpecialType is SpecialType.System_Int32
+                                        or SpecialType.System_Int64
+                                        or SpecialType.System_UInt32
+                                        or SpecialType.System_UInt64
+                                    && retType2.SpecialType == SpecialType.System_Double)
+                                {
+                                    body = $"(double)({body})";
+                                }
+                            }
+                        }
+                    }
                     result = $"{paramStr} -> {body}";
                 }
             }

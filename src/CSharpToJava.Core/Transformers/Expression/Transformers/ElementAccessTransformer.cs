@@ -241,7 +241,20 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 else if (isList)
                     indexType = context.SemanticModel?.Compilation.GetSpecialType(SpecialType.System_Int32);
             }
-            idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
+            // Java arrays require int indices. C# allows long/ulong for array
+            // indexing implicitly — narrow with an explicit (int) cast.
+            if (isArray && context.SemanticModel != null)
+            {
+                var argType = context.GetTypeInfo(arg).Type;
+                if (argType != null && IsNonIntIntegralType(argType))
+                    idx = $"(int)({idx})";
+                else
+                    idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
+            }
+            else
+            {
+                idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
+            }
             if (isArray)
             {
                 var access = $"{expr}[{idx}]";
@@ -317,6 +330,20 @@ public class ElementAccessTransformer : IIRExpressionTransformer
 
     private static bool IsJavaStringBuilder(ITypeSymbol? type)
         => type?.ToDisplayString() == "System.Text.StringBuilder";
+
+    /// <summary>
+    /// Returns true for integral types that are not int (C# allows them for array
+    /// indexing, but Java requires int). Includes long, ulong, uint, short, ushort,
+    /// byte, sbyte, and their unsigned compat wrappers.
+    /// </summary>
+    private static bool IsNonIntIntegralType(ITypeSymbol type)
+        => type.SpecialType is SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Byte
+            or SpecialType.System_SByte;
 
     private static bool IsRegexGroupCollection(ITypeSymbol? type)
         => type?.ToDisplayString() == "System.Text.RegularExpressions.GroupCollection";

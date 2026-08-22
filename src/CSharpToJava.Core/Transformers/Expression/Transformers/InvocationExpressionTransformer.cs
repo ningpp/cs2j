@@ -5825,6 +5825,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 if (string.IsNullOrEmpty(sortArgs))
                     return $"{receiver}.sorted()";
 
+                // When the receiver is a primitive array (int[], long[], double[]),
+                // Arrays.stream() produces an IntStream/LongStream/DoubleStream whose
+                // sorted() method takes NO arguments (no Comparator overload). Using
+                // sorted(Comparator) would be a compile error.
+                var orderByReceiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+                if (orderByReceiverType is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double })
+                    return $"{receiver}.sorted()";
+
                 // Detect identity lambda (x -> x): use naturalOrder() to avoid type-inference failure
                 bool isIdentAsc = node.ArgumentList.Arguments.Count > argStartIndex
                     && TryGetSingleParamLambda(node.ArgumentList.Arguments[argStartIndex].Expression, context, facade, out var idPAsc, out var idBAsc)
@@ -6350,7 +6358,75 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                             flatMapArg = $"{smParam} -> {bodyStream}";
                         }
                         else
+                        {
+                            // Block-body lambda whose return type implements IEnumerable:
+                            // flatMap expects a Stream<T> but the lambda returns a
+                            // CSharpList (Collection). Since we can't modify the block
+                            // lambda's return statements, wrap the whole lambda via
+                            // .andThen(Collection::stream) so the Iterable result is
+                            // converted to a Stream.
+                            var lambdaType2 = context.GetTypeInfo(smArg.Expression).ConvertedType as INamedTypeSymbol;
+                            var lambdaRetType2 = lambdaType2?.DelegateInvokeMethod?.ReturnType;
+                            if (lambdaRetType2 != null && ImplementsIEnumerable(lambdaRetType2))
+                            {
+                                string blockLambda = facade.Transform(smArg.Expression, context);
+                                // The block lambda is e.g. "c -> { ... return edges; }"
+                                // The result is a Collection which has .stream().
+                                // Use: ((Function) blockLambda).andThen(Collection::stream)
+                                // which produces a Function that returns Stream<T>.
+                                context.AddImport("java.util.function.Function");
+                                context.AddImport("java.util.stream.StreamSupport");
+                                // Cast the block lambda to Function and chain .andThen to convert
+                                // the Iterable result to a Stream via spliterator.
+                                flatMapArg = $"((java.util.function.Function<Object, Iterable<?>>) ({blockLambda})).andThen(iter -> StreamSupport.stream(iter.spliterator(), false))";
+                            }
+                            else
+                                flatMapArg = facade.Transform(smArg.Expression, context);
+                        }
+                    }
+                    else if (smParam != null)
+                    {
+                        // Block-body lambda (smBodyExpr is null because block lambdas have no ExpressionBody).
+                        // Use the lambda's converted type to determine the return type.
+                        var lambdaType2 = context.GetTypeInfo(smArg.Expression).ConvertedType as INamedTypeSymbol;
+                        var lambdaRetType2 = lambdaType2?.DelegateInvokeMethod?.ReturnType;
+                        // Determine the lambda parameter type for the Function cast.
+                        // Using Object would lose type information (e.g. Integer parameter
+                        // needed for arithmetic inside the lambda body).
+                        var lambdaParamType2 = lambdaType2?.DelegateInvokeMethod?.Parameters;
+                        string funcParamType = "Object";
+                        if (lambdaParamType2 is { Length: > 0 } && lambdaParamType2.Value.Length > 0)
+                        {
+                            var mappedParam = context.MapType(lambdaParamType2.Value[0].Type);
+                            if (!string.IsNullOrEmpty(mappedParam))
+                                funcParamType = mappedParam;
+                        }
+                        if (lambdaRetType2 is IArrayTypeSymbol smArr)
+                        {
+                            // Block lambda returning an array — we can't easily wrap the
+                            // return statement, so use the andThen pattern with Arrays.stream.
+                            string blockLambda = facade.Transform(smArg.Expression, context);
+                            context.AddImport("java.util.function.Function");
+                            context.AddImport("java.util.Arrays");
+                            flatMapArg = $"((java.util.function.Function<{funcParamType}, ?>) ({blockLambda})).andThen(arr -> Arrays.stream((Object[]) arr))";
+                        }
+                        else if (lambdaRetType2 != null && ImplementsIEnumerable(lambdaRetType2))
+                        {
+                            // Block-body lambda whose return type implements IEnumerable:
+                            // flatMap expects a Stream<T> but the lambda returns a
+                            // CSharpList (Collection). Since we can't modify the block
+                            // lambda's return statements, wrap the whole lambda via
+                            // .andThen(Collection::stream) so the Iterable result is
+                            // converted to a Stream.
+                            string blockLambda = facade.Transform(smArg.Expression, context);
+                            context.AddImport("java.util.function.Function");
+                            context.AddImport("java.util.stream.StreamSupport");
+                            flatMapArg = $"((java.util.function.Function<{funcParamType}, Iterable<?>>) ({blockLambda})).andThen(iter -> StreamSupport.stream(iter.spliterator(), false))";
+                        }
+                        else
+                        {
                             flatMapArg = facade.Transform(smArg.Expression, context);
+                        }
                     }
                     else
                     {
@@ -7195,6 +7271,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
         }
 
+        System.Console.WriteLine($"[CS2J-TRACE] TransformMemberInvocation: method={methodSymbol?.OriginalDefinition.ToDisplayString()}, isGeneric={methodSymbol?.IsGenericMethod}, nodeExprType={node.Expression.GetType().Name}");
         var memberClassTokens = methodSymbol != null
             ? GetClassTypeTokensForCall(methodSymbol, context, node)
             : null;
@@ -7505,6 +7582,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     private static bool IsAlreadyCollectionWrapped(string expression)
     {
         var trimmed = expression.Trim();
+        // Expressions ending with .toArray(...) produce an array, not a Collection.
+        // Even if they start with Arrays.stream(, the final result is an array that
+        // still needs wrapping when the target parameter expects Iterable/Collection.
+        if (trimmed.Contains(".toArray(", StringComparison.Ordinal)
+            && trimmed.EndsWith(")", StringComparison.Ordinal))
+        {
+            // Check if the expression ends with a .toArray(...) call (possibly nested parens).
+            var toArrayIdx = trimmed.LastIndexOf(".toArray(", StringComparison.Ordinal);
+            if (toArrayIdx >= 0)
+                return false;
+        }
         return trimmed.StartsWith("ArrayHelper.toList(", StringComparison.Ordinal)
             || trimmed.StartsWith("Arrays.asList(", StringComparison.Ordinal)
             || trimmed.StartsWith("java.util.Arrays.asList(", StringComparison.Ordinal)

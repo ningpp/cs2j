@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Analysis;
@@ -393,8 +393,8 @@ public class ConversionContext
     private readonly Dictionary<string, List<string>> _methodClassTypeParamNames = new();
 
     public void RequireClassTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
-    {
-        _pendingClassTypeParams ??= new();
+{
+_pendingClassTypeParams ??= new();
         _pendingClassTypeParams.Add(typeParamName);
         _methodsWithClassParams.Add($"{containingTypeMetadataName}|{methodMetadataName}");
 

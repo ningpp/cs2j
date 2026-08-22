@@ -107,7 +107,11 @@ public partial class StatementTransformer
             bool hasTernaryWithLambda = stmt.Declaration.Variables.Any(v =>
                 v.Initializer?.Value is ConditionalExpressionSyntax cond
                 && (ContainsLambdaOrMethodRef(cond.WhenTrue) || ContainsLambdaOrMethodRef(cond.WhenFalse)));
-            if (!hasTernaryWithLambda)
+            // Java's var also cannot infer the type of a direct lambda expression —
+            // lambdas need an explicit target type (functional interface).
+            bool hasDirectLambdaInitializer = stmt.Declaration.Variables.Any(v =>
+                v.Initializer?.Value is LambdaExpressionSyntax);
+            if (!hasTernaryWithLambda && !hasDirectLambdaInitializer)
                 javaType = "var";
         }
         // Java's var cannot infer the type from a null-emitting initializer (null literal or
