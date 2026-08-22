@@ -16,5 +16,8 @@ public class Program
         var graph = new EdgeGraph<TestEdge>(edges, 4);
 
         var order = GraphSort.Sort(graph);
+
+        var rn = new RectNode<TestEdge, int>();
+        RectNodeUtils.Cross<TestEdge, int>(rn, rn);
     }
 }

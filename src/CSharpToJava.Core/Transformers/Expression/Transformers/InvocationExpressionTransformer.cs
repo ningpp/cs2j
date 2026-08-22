@@ -11517,8 +11517,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     // spurious Class<T> parameter — the hoisted declaration would not
                     // add one either.
                     var explicitCallee = context.GetSymbolInfo(inv).Symbol as IMethodSymbol;
-                    bool calleeNeedsTokens = explicitCallee == null
-                        || MethodLikelyNeedsClassTokens(explicitCallee, context, activeChain);
+                    bool calleeNeedsTokens = explicitCallee != null
+                        && MethodLikelyNeedsClassTokens(explicitCallee, context, activeChain);
                     if (!calleeNeedsTokens)
                         continue;
 

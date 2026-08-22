@@ -1072,8 +1072,8 @@ public class ClassTransformer : ITypeTransformer
                 // a spurious Class<TEdge> parameter that the call site (in another
                 // project) cannot detect via DetectDefaultUsageInMethod.
                 var calleeSym = semanticModel.GetSymbolInfo(inv).Symbol as IMethodSymbol;
-                if (calleeSym != null
-                    && !InvocationExpressionTransformer.MethodLikelyNeedsClassTokens(calleeSym, context))
+                if (calleeSym == null
+                    || !InvocationExpressionTransformer.MethodLikelyNeedsClassTokens(calleeSym, context))
                     continue;
                 foreach (var typeArg in invGeneric.TypeArgumentList.Arguments)
                 {

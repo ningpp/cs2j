@@ -144,4 +144,54 @@ public class CrossProjectGenericClassTokenTests
         // App: Program.java must NOT inject TestEdge.class
         Assert.DoesNotContain("TestEdge.class", programJava);
     }
+
+    /// <summary>
+    /// Workspace (MSBuildWorkspace) path: the App project's compilation references
+    /// the Lib project as a ProjectReference, so Lib symbols carry source syntax
+    /// from the Lib compilation. When a call site in the App triggers
+    /// DetectDefaultUsageInMethod on the recursive generic method, the invocation
+    /// nodes belong to the Lib compilation's trees — the App semantic model cannot
+    /// bind them, so GetSymbolInfo returns null. The lenient
+    /// "explicitCallee == null" forwarding must NOT register Class&lt;T&gt; params
+    /// for the method: the Lib phase already decided its signature has no Class
+    /// slots, and spurious tokens at the App call site would break compilation.
+    /// </summary>
+    [Fact]
+    public async Task WorkspaceAppProject_RecursiveGenericLibMethod_NoSpuriousClassToken()
+    {
+        Assert.True(File.Exists(SlnPath), $"Solution not found: {SlnPath}");
+        SolutionLoader.EnsureMSBuildRegistered();
+
+        using var loader = new SolutionLoader();
+        var projects = await loader.OpenSolutionAsync(SlnPath);
+        var appProject = Assert.Single(projects, p =>
+            p.Name.StartsWith("SampleStaticGenericApp", StringComparison.OrdinalIgnoreCase));
+
+        var emitFilePaths = new HashSet<string>(
+            appProject.Documents
+                .Where(d => d.FilePath != null)
+                .Select(d => Path.GetFullPath(d.FilePath!)),
+            StringComparer.OrdinalIgnoreCase);
+
+        var pipeline = new ProjectConversionPipeline(Options);
+        var results = await pipeline.ConvertProjectAsync(
+            appProject.Compilation,
+            emitFilePaths,
+            appProject.Name,
+            appProject.FilePath,
+            appProject.ProjectReferences,
+            appProject.IsTestProject);
+
+        Assert.NotEmpty(results);
+        var program = Assert.Single(results, r =>
+            string.Equals(r.FileName, "Program.java", StringComparison.OrdinalIgnoreCase));
+        Assert.True(program.Success, string.Join("\n", program.Diagnostics));
+        // The call RectNodeUtils.Cross<TestEdge, int>(...) must NOT inject class
+        // literals — RectNodeUtils.Cross<T, P> has no Class<T> leading parameters.
+        Assert.DoesNotContain("TestEdge.class", program.GeneratedCode);
+        Assert.DoesNotContain("int.class", program.GeneratedCode);
+        // The call should keep its two plain arguments.
+        Assert.Contains("cross(rn, rn)", program.GeneratedCode);
+    }
+
 }
