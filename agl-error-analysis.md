@@ -150,3 +150,16 @@
 - **修复**: `VisitRawStatement` 新增 `ThrowNewExceptionPattern`（`throw new X(` 正则）扫描，解析类型后经 `ResolveCanonical`/`IsUnchecked` 判断，仅对已检查异常加入 pending 集合触发方法体包裹；unchecked（IllegalArgumentException、compat SystemException 子类等）不受影响。
 - **测试**: 新增 `FileNotFoundException_ThrownInIfBlock_MustCompile`（项目管线 + javac 编译验证）；全量 `dotnet test` 2872 通过 0 失败。
 - **状态**: ✅ Fixed
+
+## Iteration AGL-2 — 跨项目调用递归泛型方法被误注入 Class 参数
+
+- **Java 文件**: `msagltests/src/test/java/Microsoft/Msagl/UnitTests/Rectilinear/RectilinearEdgeRouterWrapper.java`、`aglningpptests/src/test/java/AglNingppTests/Agl/Routing/RectilinearTests/RectilinearEdgeRouterWrapper.java`
+- **错误类型**: `cannot find symbol` — 调用点生成 `crossRectangleNodes_2tp(Obstacle.class, Point.class, ...)`，而目标签名 `crossRectangleNodes_2tp(RectangleNode<TA,P>, RectangleNode<TA,P>, BiConsumer<TA,TA>)` 没有 Class 参数
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\RectanglePacking\RectangleNodeUtils.cs`
+- **根因分类**: 语义丢失（跨编译单元 `GetSymbolInfo` 返回 null）
+- **涉及组件**:
+  - `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`DetectDefaultUsageInMethod`）
+  - `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs`（`DetectTypeOfDefaultUsage`）
+- **分析**: `RectangleNodeUtils.CrossRectangleNodes<TA,P>` 无 `typeof(T)`/`default(T)`，不应带 Class 参数；但测试项目转换时库源码作为源码可达，CRN 递归体 `CrossRectangleNodes<TA,P>(...)` 因 `inv.SyntaxTree` 属于另一编译单元、`ProjectCompilation.ContainsSyntaxTree(...) == false` 导致 `GetSymbolInfo` 返回 null；两处宽松的 `callee == null` 转发逻辑把 null 当作"需要 Class 令牌"，把 `TA`/`P` 注册为 CRN 的 Class 参数，后续调用点全部前置 `.class` 字面量。
+- **修复**: `DetectDefaultUsageInMethod` 由 `explicitCallee == null || MethodLikelyNeedsClassTokens(...)` 改为 `explicitCallee != null && MethodLikelyNeedsClassTokens(...)`；`DetectTypeOfDefaultUsage` 由 `calleeSym != null && !MethodLikelyNeedsClassTokens(...)` 改为 `calleeSym == null || !MethodLikelyNeedsClassTokens(...)`。跨编译单元无法解析符号时不再据此注入 Class 参数。
+- **状态**: ✅ Fixed
