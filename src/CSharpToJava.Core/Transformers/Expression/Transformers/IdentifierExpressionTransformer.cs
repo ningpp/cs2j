@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -210,6 +210,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 // Non-const field → JavaMemberAccessExpression
                 if (symbol is IFieldSymbol { IsConst: false })
                 {
+                    // [ThreadStatic] field read via qualified access → holder.get()
+                    if (symbol is IFieldSymbol tsMemberField
+                        && context.IsThreadStaticField(tsMemberField))
+                    {
+                        var tsHolderTarget = facade.TransformToIR(memberAccess.Expression, context);
+                        return new JavaMethodCallExpression
+                        {
+                            Target = new JavaMemberAccessExpression
+                            {
+                                Target = tsHolderTarget,
+                                MemberName = ConversionContext.EscapeJavaKeyword(memberAccess.Name.Identifier.Text)
+                            },
+                            MethodName = "get"
+                        };
+                    }
+
                     // C# tuple elements are fields; map ItemN/named elements to vavr _N().
                     if (IsTupleItemName(memberAccess.Name.Identifier.Text, out var irTupleIdx)
                         || TryGetReceiverTupleIndex(memberAccess, context, memberAccess.Name.Identifier.Text, out irTupleIdx))
@@ -373,6 +389,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         if (context.TryGetActiveRefHolder(name, out var activeHolderName))
             return $"{activeHolderName}.value";
+
+        // [ThreadStatic] field read -> ThreadLocal.get()
+        // Only rewrite when the identifier is NOT the left-hand side of a simple
+        // assignment (that case is handled by AssignmentTransformer via .set()).
+        if (context.SemanticModel != null
+            && context.GetSymbolInfo(node).Symbol is IFieldSymbol fieldSym
+            && context.IsThreadStaticField(fieldSym))
+        {
+            bool isLhsOfSimpleAssignment = node.Parent is AssignmentExpressionSyntax asgn
+                && asgn.Left == node
+                && asgn.Kind() == SyntaxKind.SimpleAssignmentExpression;
+            if (!isLhsOfSimpleAssignment)
+            {
+                return $"{name}.get()";
+            }
+        }
 
         // Lambda capture holder: if this variable was captured by a lambda and externally
         // reassigned, replace all references with holder element access (_varName[0]).
@@ -770,6 +802,25 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var memberName = node.Name.Identifier.Text;
         string? staticTypeTarget = null;
+
+        // [ThreadStatic] field read via qualified access (this.field / Type.field)
+        // → ThreadLocal.get(). Skip when this member access is the LHS of an
+        // assignment — AssignmentTransformer emits the .set() call for writes.
+        if (context.SemanticModel != null
+            && context.GetSymbolInfo(node).Symbol is IFieldSymbol threadStaticField
+            && context.IsThreadStaticField(threadStaticField))
+        {
+            bool isLhsOfAssignment = node.Parent is AssignmentExpressionSyntax tsAsgn
+                && tsAsgn.Left == node;
+            if (!isLhsOfAssignment)
+            {
+                var tsReceiver = node.Expression is ThisExpressionSyntax
+                    ? "this"
+                    : facade.Transform(node.Expression, context);
+                var tsHolderName = ConversionContext.EscapeJavaKeyword(memberName);
+                return $"{tsReceiver}.{tsHolderName}.get()";
+            }
+        }
 
         // C# bool.TrueString / bool.FalseString → "True" / "False" literals.
         if (memberName is "TrueString" or "FalseString"

@@ -603,6 +603,50 @@ _pendingClassTypeParams ??= new();
     }
 
     /// <summary>
+    /// Tracks fields marked with [ThreadStatic] so that reads/writes can be
+    /// rewritten to ThreadLocal.get()/set() calls. Keyed by
+    /// containingType.ToDisplayString()|fieldName (fully-qualified so same-named
+    /// types in different namespaces do not collide).
+    /// </summary>
+    private readonly HashSet<string> _threadStaticFields = new();
+
+    public void RegisterThreadStaticField(string containingTypeKey, string fieldName)
+    {
+        _threadStaticFields.Add($"{containingTypeKey}|{fieldName}");
+    }
+
+    public bool IsThreadStaticField(string containingTypeKey, string fieldName)
+    {
+        return _threadStaticFields.Contains($"{containingTypeKey}|{fieldName}");
+    }
+
+    /// <summary>
+    /// Checks whether a field symbol refers to a [ThreadStatic] field.
+    /// </summary>
+    public bool IsThreadStaticField(IFieldSymbol fieldSymbol)
+    {
+        var typeName = fieldSymbol.ContainingType?.ToDisplayString() ?? "";
+        return IsThreadStaticField(typeName, fieldSymbol.Name);
+    }
+
+    /// <summary>
+    /// Shared detection logic for [ThreadStatic] on a static field declaration.
+    /// Used by FieldTransformer (per-variable registration when the declaration is
+    /// converted) and by ClassTransformer's pre-scan (so methods that appear BEFORE
+    /// the field declaration in source order still see the registration).
+    /// </summary>
+    public static bool IsThreadStaticFieldDeclaration(
+        Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax fieldDecl,
+        IFieldSymbol? firstVariableSymbol)
+    {
+        if (!fieldDecl.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)))
+            return false;
+        return firstVariableSymbol?.GetAttributes().Any(a =>
+            a.AttributeClass?.ToDisplayString() is "System.ThreadStaticAttribute"
+                or "ThreadStaticAttribute" or "ThreadStatic") == true;
+    }
+
+    /// <summary>
     /// Returns the canonical Class&lt;T&gt;-parameter key parts for a method.
     /// Hoisted local functions must NOT share a key merely because their C# names
     /// (and therefore ToDisplayString signatures) collide — two methods can each
@@ -1105,6 +1149,27 @@ _pendingClassTypeParams ??= new();
         var result = TypeMapper.MapType(typeSymbol);
         result = QualifyMappedTypeIfImportedTypeNameCollides(typeSymbol, result);
         return QualifyMappedTypeIfCurrentTypeNameCollides(typeSymbol, result);
+    }
+
+    /// <summary>
+    /// Maps a type for use as a generic type argument: primitive Java types are
+    /// boxed (int → Integer, etc.) since Java generics cannot hold primitives.
+    /// </summary>
+    public string MapTypeBoxed(ITypeSymbol typeSymbol)
+    {
+        var mapped = MapType(typeSymbol);
+        return mapped switch
+        {
+            "int" => "Integer",
+            "long" => "Long",
+            "short" => "Short",
+            "byte" => "Byte",
+            "float" => "Float",
+            "double" => "Double",
+            "boolean" => "Boolean",
+            "char" => "Character",
+            _ => mapped
+        };
     }
 
     public string MapTypeForDeclarationHeader(ITypeSymbol typeSymbol)

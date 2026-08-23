@@ -286,6 +286,34 @@ public class ClassTransformer : ITypeTransformer
             }
         }
 
+        // Pre-register [ThreadStatic] fields BEFORE converting any member bodies.
+        // C# allows methods to reference fields declared later in source order
+        // (e.g. MSAGL AlgorithmBase uses threadStaticCancelToken in methods that
+        // precede its declaration). Without this pre-scan, reads/writes in those
+        // earlier methods would not be rewritten to ThreadLocal.get()/set().
+        foreach (var originalNode in mergedType.OriginalSyntaxNodes)
+        {
+            var tsModel = context.GetSemanticModelForTree(originalNode.SyntaxTree);
+            if (tsModel == null) continue;
+            foreach (var member in originalNode.Members)
+            {
+                if (member is FieldDeclarationSyntax tsFieldDecl)
+                {
+                    var tsFirstVariable = tsFieldDecl.Declaration.Variables.FirstOrDefault();
+                    if (tsFirstVariable == null) continue;
+                    var tsSymbol = tsModel.GetDeclaredSymbol(tsFirstVariable) as IFieldSymbol;
+                    if (!ConversionContext.IsThreadStaticFieldDeclaration(tsFieldDecl, tsSymbol))
+                        continue;
+                    foreach (var tsVariable in tsFieldDecl.Declaration.Variables)
+                    {
+                        context.RegisterThreadStaticField(
+                            tsSymbol?.ContainingType?.ToDisplayString() ?? "",
+                            tsVariable.Identifier.Text);
+                    }
+                }
+            }
+        }
+
         // Process members from original syntax nodes (not the synthetic merged node).
         // Original nodes are from the compilation trees, so semantic model works correctly.
 
@@ -934,6 +962,29 @@ public class ClassTransformer : ITypeTransformer
             {
                 var enumTransformer = new Transformers.Type.EnumTransformer();
                 enumTransformer.TransformEnum(nestedEnum, context);
+            }
+        }
+
+        // Pre-register [ThreadStatic] fields BEFORE converting any member bodies.
+        // C# allows methods to reference fields declared later in source order
+        // (e.g. MSAGL AlgorithmBase uses threadStaticCancelToken in methods that
+        // precede its declaration). Without this pre-scan, reads/writes in those
+        // earlier methods would not be rewritten to ThreadLocal.get()/set().
+        foreach (var member in classDecl.Members)
+        {
+            if (member is FieldDeclarationSyntax tsFieldDecl)
+            {
+                var tsFirstVariable = tsFieldDecl.Declaration.Variables.FirstOrDefault();
+                if (tsFirstVariable == null) continue;
+                var tsSymbol = context.GetDeclaredSymbol(tsFirstVariable) as IFieldSymbol;
+                if (!ConversionContext.IsThreadStaticFieldDeclaration(tsFieldDecl, tsSymbol))
+                    continue;
+                foreach (var tsVariable in tsFieldDecl.Declaration.Variables)
+                {
+                    context.RegisterThreadStaticField(
+                        tsSymbol?.ContainingType?.ToDisplayString() ?? "",
+                        tsVariable.Identifier.Text);
+                }
             }
         }
 

@@ -83,6 +83,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 && (param.RefKind == RefKind.Out || param.RefKind == RefKind.Ref))
                 return new JavaRawExpression(Transform(node, context));
 
+            // [ThreadStatic] field assignment → ThreadLocal.set() raw call
+            // (void-returning in Java, cannot be a structured assignment IR)
+            if (symbol is IFieldSymbol tsFieldSym
+                && context.SemanticModel != null
+                && context.IsThreadStaticField(tsFieldSym))
+                return new JavaRawExpression(Transform(node, context));
+
             string op = GetOperatorForKind(assignment.Kind());
 
             // User-defined operator on compound assignment → static method call
@@ -316,6 +323,49 @@ public class AssignmentTransformer : IIRExpressionTransformer
         if (op == "=" && leftNode is ThisExpressionSyntax && context.CurrentType is Java.JavaClassDeclaration { IsConvertedFromStruct: true } structClass)
         {
             return ExpandThisAssignment(structClass, rightNode, context);
+        }
+
+        // [ThreadStatic] field write → ThreadLocal.set().
+        // C# [ThreadStatic] static fields are emitted as ThreadLocal<T> holders in
+        // Java; a plain field write would not compile. Applies to bare identifiers
+        // (field referenced unqualified inside its declaring type) and to qualified
+        // access (this.field / Type.field). Compound assignments expand to
+        // holder.set(holder.get() op rhs).
+        if (context.SemanticModel != null
+            && context.GetSymbolInfo(leftNode).Symbol is IFieldSymbol tsField
+            && context.IsThreadStaticField(tsField))
+        {
+            string tsHolder;
+            if (leftNode is IdentifierNameSyntax tsIdent)
+            {
+                tsHolder = ConversionContext.EscapeJavaKeyword(tsIdent.Identifier.Text);
+            }
+            else if (leftNode is MemberAccessExpressionSyntax tsMa)
+            {
+                // Transform only the receiver part so the member name stays a plain
+                // ThreadLocal holder reference (the read path would append .get()).
+                var tsReceiver = facade.Transform(tsMa.Expression, context);
+                tsHolder = $"{tsReceiver}.{ConversionContext.EscapeJavaKeyword(tsMa.Name.Identifier.Text)}";
+            }
+            else
+            {
+                tsHolder = facade.Transform(leftNode, context);
+            }
+
+            if (op == "=")
+            {
+                var tsRight = facade.Transform(rightNode, context);
+                tsRight = StructCloneHelper.CloneStructValueIfNeeded(
+                    rightNode, tsRight, context.GetTypeInfo(rightNode).Type, context);
+                tsRight = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                    rightNode, tsRight, tsField.Type, context);
+                return $"{tsHolder}.set({tsRight})";
+            }
+
+            // Compound assignment: tsField op= rhs → tsField.set(tsField.get() op rhs)
+            var tsBinOp = op[..^1]; // '+=' → '+', etc.
+            var tsCompoundRight = facade.Transform(rightNode, context);
+            return $"{tsHolder}.set({tsHolder}.get() {tsBinOp} {tsCompoundRight})";
         }
 
         // Fix 4: Detect event += / -= using semantic model → listener methods
