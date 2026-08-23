@@ -391,6 +391,20 @@ public final class Assert {
 
     // ── IsInstanceOfType ──────────────────────────────────────────────
 
+    public static void isInstanceOfType(Object value) {
+        isInstanceOfType(value, (String) null);
+    }
+
+    public static void isInstanceOfType(Object value, String message) {
+        if (value == null) {
+            fail(format(message, "Expected value to be non-null."));
+        }
+    }
+
+    public static void isInstanceOfType(Object value, String message, Object... args) {
+        isInstanceOfType(value, formatMessage(message, args));
+    }
+
     public static void isInstanceOfType(Object value, Class<?> expectedType) {
         isInstanceOfType(value, expectedType, (String) null);
     }

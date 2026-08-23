@@ -56,4 +56,31 @@ public class ThreadHelper {
     public static void memoryBarrier() {
         java.lang.invoke.VarHandle.fullFence();
     }
+
+    /** Mirrors C# Thread.Sleep(int millisecondsTimeout) */
+    public static void sleep(int millisecondsTimeout) {
+        try {
+            java.lang.Thread.sleep(millisecondsTimeout);
+        } catch (InterruptedException e) {
+            java.lang.Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Mirrors C# Thread.Sleep(long millisecondsTimeout) */
+    public static void sleep(long millisecondsTimeout) {
+        try {
+            java.lang.Thread.sleep(millisecondsTimeout);
+        } catch (InterruptedException e) {
+            java.lang.Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Mirrors C# Thread.Sleep(TimeSpan timeout) */
+    public static void sleep(java.time.Duration timeout) {
+        try {
+            java.lang.Thread.sleep(timeout.toMillis());
+        } catch (InterruptedException e) {
+            java.lang.Thread.currentThread().interrupt();
+        }
+    }
 }

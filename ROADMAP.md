@@ -4,3 +4,4 @@
 3. pre process ref/out
 4. pre process goto
 5. some generics
+6. [ThreadStatic]

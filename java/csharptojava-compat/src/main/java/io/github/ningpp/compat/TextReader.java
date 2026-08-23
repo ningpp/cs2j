@@ -16,6 +16,18 @@ public class TextReader implements AutoCloseable {
     public TextReader(Reader r) {
         this.inner = (r instanceof PushbackReader) ? (PushbackReader) r
                    : new PushbackReader(new BufferedReader(r));
+        skipBom();
+    }
+
+    private void skipBom() {
+        try {
+            int c = inner.read();
+            if (c != 0xFEFF) {
+                inner.unread(c);
+            }
+        } catch (IOException e) {
+            // ignore
+        }
     }
 
     /** Mirrors C# TextReader.Peek() — reads next char without consuming it. Returns -1 at end. */

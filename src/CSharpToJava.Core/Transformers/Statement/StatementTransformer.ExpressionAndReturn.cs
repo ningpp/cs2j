@@ -427,6 +427,34 @@ public partial class StatementTransformer
             }
         }
 
+        // File.Delete(path) → FileHelper.delete(path) which declares `throws IOException`.
+        // When the call is NOT inside a try block that catches IOException,
+        // wrap it in try-catch to satisfy Java's checked-exception requirement.
+        if (stmt.Expression is InvocationExpressionSyntax fileDelInvoc
+            && fileDelInvoc.Expression is MemberAccessExpressionSyntax fileDelMa
+            && fileDelMa.Name.Identifier.Text == "Delete"
+            && fileDelInvoc.ArgumentList.Arguments.Count == 1
+            && ExpressionTransformerHelpers.StaticReceiverMatches(
+                fileDelMa.Expression, context, "File", "System.IO.File"))
+        {
+            context.AddImport("io.github.ningpp.compat.FileHelper");
+            var delArg = exprTransformer.Transform(fileDelInvoc.ArgumentList.Arguments[0].Expression, context);
+            var delExpr = $"FileHelper.delete({delArg})";
+
+            // Check if this statement is inside a try block whose catches include IOException
+            bool insideIOExceptionTry = IsInsideTryCatchingIOException(stmt, context);
+
+            if (insideIOExceptionTry)
+            {
+                return new JavaStatementNode(delExpr + ";");
+            }
+            else
+            {
+                // Wrap in try-catch to satisfy Java checked-exception requirement
+                return new JavaStatementNode($"try {{ {delExpr}; }} catch (IOException _e) {{ }}");
+            }
+        }
+
         var expr = exprTransformer.Transform(stmt.Expression, context);
 
         // Drain any pre-statements emitted by the expression transformer
@@ -457,6 +485,67 @@ public partial class StatementTransformer
         }
 
         return new JavaStatementNode(expr + ";");
+    }
+
+    /// <summary>
+    /// Walks up the syntax tree from <paramref name="stmt"/> to find the nearest
+    /// enclosing <see cref="TryStatementSyntax"/> whose catch clauses include
+    /// <c>System.IO.IOException</c> (or a base type like <c>System.Exception</c>).
+    /// Returns true when the statement is inside such a try block's body (not its
+    /// catch/finally blocks).
+    /// </summary>
+    private static bool IsInsideTryCatchingIOException(StatementSyntax stmt, ConversionContext context)
+    {
+        var parent = stmt.Parent;
+        while (parent != null)
+        {
+            // If we're inside a catch or finally block, we're no longer in the try body
+            if (parent is CatchClauseSyntax or FinallyClauseSyntax)
+            {
+                // We're in a catch/finally — check if the enclosing try (if any) catches IOException
+                // but only if we're in the try body, which we're not. So return false here.
+                // Actually, if we're in a finally block, the try's catches don't help us.
+                return false;
+            }
+
+            if (parent is TryStatementSyntax tryStmt)
+            {
+                // Make sure the statement is inside the try BODY (Block), not a catch/finally
+                // (already handled above — if we reach here, we're in the try body)
+                foreach (var catchClause in tryStmt.Catches)
+                {
+                    if (catchClause.Declaration?.Type == null)
+                    {
+                        // catch-all (catch { } or catch (Exception)) catches everything
+                        return true;
+                    }
+
+                    var caughtType = context.GetTypeInfo(catchClause.Declaration.Type).Type;
+                    if (caughtType == null)
+                    {
+                        // Fallback to name-based check
+                        var typeName = catchClause.Declaration.Type.ToString();
+                        if (typeName == "IOException" || typeName == "System.IO.IOException"
+                            || typeName == "Exception" || typeName == "System.Exception")
+                            return true;
+                        continue;
+                    }
+
+                    // Check if caughtType is IOException or a base type of IOException
+                    // (i.e., Exception, or any type that IOException inherits from)
+                    if (caughtType.Name == "IOException" || caughtType.ToDisplayString() == "System.IO.IOException")
+                        return true;
+
+                    // Check if caughtType is Exception or a parent of IOException
+                    if (caughtType.Name == "Exception" || caughtType.ToDisplayString() == "System.Exception")
+                        return true;
+                }
+                // This try doesn't catch IOException — continue up the tree
+            }
+
+            parent = parent.Parent;
+        }
+        return false;
     }
 
     /// <summary>

@@ -134,5 +134,5 @@ public class FileHelper {
         catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
     }
     public static boolean exists(String path) { return new File(path).exists(); }
-    public static void delete(String path) { new File(path).delete(); }
+    public static void delete(String path) throws IOException { Files.delete(Paths.get(path)); }
 }

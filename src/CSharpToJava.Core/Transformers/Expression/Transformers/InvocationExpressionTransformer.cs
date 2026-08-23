@@ -1529,6 +1529,21 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"TypeHelper.getCustomAttributes({typeReceiver}, {attributeTypeArg}, {inheritArg})";
         }
 
+        // C# Enum.IsDefined(typeof(T), "name" or enumValue) → EnumHelper.isDefined(T.class, value)
+        if (memberAccess.Name.Identifier.Text == "IsDefined"
+            && node.ArgumentList.Arguments.Count == 2
+            && ExpressionTransformerHelpers.StaticReceiverMatches(
+                memberAccess.Expression,
+                context,
+                "Enum",
+                "System.Enum"))
+        {
+            context.AddImport("io.github.ningpp.compat.EnumHelper");
+            var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            return $"EnumHelper.isDefined({typeArg}, {valueArg})";
+        }
+
         // C# Type.IsDefined(Type, bool) → TypeHelper.isDefined(Class, Class, boolean)
         if (memberAccess.Name.Identifier.Text == "IsDefined"
             && node.ArgumentList.Arguments.Count == 2
@@ -2250,6 +2265,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 var resetMappedType = context.MapType(resetReceiverType);
                 if (resetMappedType.StartsWith("CSharpEnumerator", StringComparison.Ordinal)
                     || resetMappedType.StartsWith("CSharpGenericEnumerator", StringComparison.Ordinal))
+                {
+                    return $"{receiver}.reset()";
+                }
+                // User-defined types that implement IEnumerator<T> may have their own
+                // Reset() method (e.g. PointNodesList). In Java, these implement
+                // CSharpGenericEnumerator<T> which has a reset() default method.
+                // Emit the real call so C# reset semantics are preserved.
+                if (resetReceiverType.GetMembers("Reset").Length > 0)
                 {
                     return $"{receiver}.reset()";
                 }
@@ -3610,6 +3633,31 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 {
                     // Concrete/user-defined CopyTo methods should stay as instance calls.
                     goto skipCopyToRewrite;
+                }
+
+                // When the methodSymbol comes from a framework interface (e.g. IList<T>),
+                // but the receiver's actual type is a user-defined class that overrides
+                // CopyTo (e.g. LgNodeCollection throws NotImplementedException), the
+                // CSharpArray.copyTo rewrite would bypass the user's implementation.
+                // Skip the rewrite when the receiver's concrete type is in source.
+                if (methodSymbol.ContainingType?.TypeKind == TypeKind.Interface)
+                {
+                    var receiverType = copySourceType;
+                    // Unwrap cast expressions to get the real underlying type
+                    // (may be wrapped in parentheses: ((IList<T>) expr).CopyTo)
+                    var receiverExpr = memberAccess.Expression;
+                    while (receiverExpr is ParenthesizedExpressionSyntax parens)
+                        receiverExpr = parens.Expression;
+                    if (receiverExpr is CastExpressionSyntax castExpr)
+                    {
+                        receiverType = context.GetTypeInfo(castExpr.Expression).Type;
+                    }
+                    if (receiverType is INamedTypeSymbol receiverNamed
+                        && receiverNamed.Locations.Any(loc => loc.IsInSource)
+                        && receiverNamed.GetMembers("CopyTo").Length > 0)
+                    {
+                        goto skipCopyToRewrite;
+                    }
                 }
 
                 var firstParam = methodSymbol.Parameters.FirstOrDefault();
@@ -5599,21 +5647,22 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 return $"Stream.generate(() -> {elemArg}).limit({countArg})";
             }
 
-            // Enumerable.Empty<T>() → Collections.<T>emptyList()
-            // Using Collections.emptyList() instead of Stream.<T>empty() because
-            // Stream does not implement Iterable in Java and is incompatible with
-            // materialized collections (ArrayList, List) in ternary expressions.
+            // Enumerable.Empty<T>() → CSharpGenericIterable.from(Collections.<T>emptyList())
+            // C# Enumerable.Empty<T>() returns IEnumerable<T>, which maps to
+            // CSharpGenericIterable<T> in Java. Collections.emptyList() returns
+            // List<T> which is NOT a CSharpGenericIterable<T>, so wrap it.
             if (originalMethodName == "Empty")
             {
                 context.AddImport("java.util.Collections");
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
                 if (node.Expression is MemberAccessExpressionSyntax ma
                     && ma.Name is GenericNameSyntax gns
                     && gns.TypeArgumentList.Arguments.Count > 0)
                 {
                     var typeArg = facade.Transform(gns.TypeArgumentList.Arguments[0], context);
-                    return $"Collections.<{typeArg}>emptyList()";
+                    return $"CSharpGenericIterable.from(Collections.<{typeArg}>emptyList())";
                 }
-                return "Collections.emptyList()";
+                return "CSharpGenericIterable.from(Collections.emptyList())";
             }
         }
 
@@ -6167,6 +6216,39 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // result.First()/Last()) evaluates to the array itself in Java, not a Stream, so
                 // calling .anyMatch()/.collect() on it would be illegal (arrays have no such methods).
                 bool isArraySource = containsSourceType is IArrayTypeSymbol;
+                // If the receiver was already transformed into a stream expression by the
+                // LINQ fallback (BuildStreamReceiverExpression), it may contain
+                // Arrays.stream(...) or StreamSupport.stream(...) even when the semantic
+                // type is an array. In that case, don't wrap again — the receiver is
+                // already a live Java Stream.
+                if (isArraySource && ReceiverLooksLikeStream(receiver))
+                {
+                    // If the receiver ends with .toArray(...), it returned an array, not a stream.
+                    // Fall through to the normal array handling below which wraps it in Arrays.stream().
+                    if (!receiver.Contains(".toArray(", StringComparison.Ordinal))
+                    {
+                        // Inside loops, use collect+contains to avoid effectively-final capture issues
+                        bool insideLoopEarly = node.Ancestors().Any(a => a is ForStatementSyntax
+                            || a is ForEachStatementSyntax || a is WhileStatementSyntax
+                            || a is DoStatementSyntax);
+                        if (insideLoopEarly)
+                        {
+                            context.AddImport("java.util.Objects");
+                            context.AddImport("java.util.stream.Collectors");
+                            // For primitive arrays (int[], etc.), Arrays.stream() returns a primitive
+                            // stream (IntStream, etc.) that needs .boxed() before collect(Collectors.toSet()).
+                            var elemSpec = ((IArrayTypeSymbol)containsSourceType).ElementType.SpecialType;
+                            string boxedPrefix = elemSpec is
+                                SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double
+                                or SpecialType.System_Single or SpecialType.System_Boolean or SpecialType.System_Byte
+                                or SpecialType.System_Int16 or SpecialType.System_Char
+                                ? ".boxed()" : "";
+                            return $"{receiver}{boxedPrefix}.collect(Collectors.toSet()).contains({valArg})";
+                        }
+                        context.AddImport("java.util.Objects");
+                        return $"{receiver}.anyMatch(_item -> Objects.equals(_item, {valArg}))";
+                    }
+                }
                 if (isArraySource)
                 {
                     context.AddImport("java.util.Arrays");
@@ -6216,6 +6298,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     return $"{receiver}.collect(Collectors.toSet()).contains({valArg})";
                 }
                 context.AddImport("java.util.Objects");
+                // If the receiver ends with .toArray(...), it returned an array (not a Stream).
+                // Wrap it in Arrays.stream() before calling anyMatch() to avoid calling
+                // stream methods on arrays (which don't exist in Java).
+                if (receiver.Contains(".toArray(", StringComparison.Ordinal))
+                {
+                    context.AddImport("java.util.Arrays");
+                    return $"Arrays.stream({receiver}).anyMatch(_item -> Objects.equals(_item, {valArg}))";
+                }
                 return $"{receiver}.anyMatch(_item -> Objects.equals(_item, {valArg}))";
             }
 

@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Analysis;
@@ -774,6 +774,7 @@ _pendingClassTypeParams ??= new();
     public string AllocateOutHolderName(string varName) => MethodState.AllocateOutHolderName(varName);
     public bool TryGetActiveRefHolder(string varName, out string holderName) => MethodState.TryGetActiveRefHolder(varName, out holderName);
     public void SetActiveRefHolder(string varName, string holderName) => MethodState.SetActiveRefHolder(varName, holderName);
+    public void RemoveActiveRefHolder(string varName) => MethodState.RemoveActiveRefHolder(varName);
     public string AllocateRefHolderName(string varName) => MethodState.AllocateRefHolderName(varName);
     public bool IsInShortCircuitOperand => MethodState.IsInShortCircuitOperand;
     public void EnterShortCircuitOperand() => MethodState.EnterShortCircuitOperand();

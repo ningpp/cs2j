@@ -35,6 +35,10 @@ public final class CollectionAssert {
         }
     }
 
+    public static void areEquivalent(Iterable<?> expected, Iterable<?> actual, String message, Object... args) {
+        areEquivalent(expected, actual, formatMessage(message, args));
+    }
+
     public static void contains(Iterable<?> collection, Object element) {
         for (Object item : collection) {
             if (Objects.equals(item, element)) {
@@ -70,5 +74,16 @@ public final class CollectionAssert {
             values.add(item);
         }
         return values;
+    }
+
+    private static String formatMessage(String message, Object... args) {
+        if (message == null || args == null || args.length == 0) {
+            return message;
+        }
+        String format = message;
+        for (int i = 0; i < args.length; i++) {
+            format = format.replace("{" + i + "}", "%s");
+        }
+        return String.format(format, args);
     }
 }

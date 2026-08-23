@@ -75,4 +75,14 @@ public class PathHelper {
     public static String getRandomFileName() {
         return UUID.randomUUID().toString("N").substring(0, 8) + ".tmp";
     }
+
+    /** Mirrors Path.GetTempFileName() — creates an empty temporary file and returns its absolute path. */
+    public static String getTempFileName() {
+        try {
+            java.io.File tempFile = java.io.File.createTempFile("cs2j", ".tmp");
+            return tempFile.getAbsolutePath();
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to create temporary file", e);
+        }
+    }
 }

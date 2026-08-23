@@ -497,7 +497,21 @@ public class ArgumentTransformer
                     ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, valueExpr)
                     : HolderTypeResolver.GetHolderInstantiation(refHolderType);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
-                context.AddPostStatement($"{writeBackTarget} = {refHolderName}.value");
+                // Skip the post-statement write-back when the method call's return
+                // value is already assigned to the same variable (x = Method(ref x)).
+                // The assignment overwrites the variable after the call returns, so
+                // writing back the holder's (potentially stale) value would clobber
+                // the correct result. We also remove the active ref-holder mapping
+                // so that subsequent references to the variable use the variable name
+                // directly instead of the holder's value.
+                if (IsRefArgAssignedToSameVariable(argExpr, refIdent))
+                {
+                    context.RemoveActiveRefHolder(varName);
+                }
+                else
+                {
+                    context.AddPostStatement($"{writeBackTarget} = {refHolderName}.value");
+                }
                 return refHolderName;
             }
 
@@ -568,6 +582,35 @@ public class ArgumentTransformer
         }
 
         return transformer.Transform(arg.Expression, context);
+    }
+
+    /// <summary>
+    /// Detects the pattern <c>x = Method(ref x, ...)</c> where the ref argument
+    /// variable is the same as the assignment target. In this case the return
+    /// value (assigned to x) should NOT be overwritten by the holder's value,
+    /// because the return value takes precedence in C# semantics.
+    /// </summary>
+    private static bool IsRefArgAssignedToSameVariable(ExpressionSyntax argExpr, IdentifierNameSyntax refIdent)
+    {
+        // Walk up: argExpr → Argument → ArgumentList → Invocation
+        var invocation = argExpr.Parent?.Parent?.Parent as InvocationExpressionSyntax;
+        if (invocation == null) return false;
+
+        // Invocation may be wrapped in a cast or parenthesized expression
+        var node = invocation.Parent;
+        while (node is ParenthesizedExpressionSyntax or CastExpressionSyntax)
+            node = node.Parent;
+
+        if (node is AssignmentExpressionSyntax assignment
+            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && assignment.Right == invocation
+            && assignment.Left is IdentifierNameSyntax leftIdent
+            && leftIdent.Identifier.Text == refIdent.Identifier.Text)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static bool ShouldSeedRefHolderFromCurrentValue(IdentifierNameSyntax refIdent, ConversionContext context)
@@ -846,6 +889,53 @@ public class ArgumentTransformer
                 else
                 {
                     transformedExpr = $"({javaFuncType}) {transformedExpr}";
+                }
+            }
+        }
+
+        // Lambda returning array/List → target delegate expects IEnumerable<T> (CSharpGenericIterable<T>).
+        // C# arrays and List<T> implement IEnumerable<T>, but the Java mapped type is
+        // CSharpGenericIterable<T> which they don't implement. Wrap the lambda body.
+        if (arg.Expression is AnonymousFunctionExpressionSyntax
+            && targetParam.Type is INamedTypeSymbol delegateParamType
+            && delegateParamType.TypeKind == TypeKind.Delegate
+            && delegateParamType.DelegateInvokeMethod?.ReturnType is INamedTypeSymbol delegateReturnType
+            && ExpressionTransformerHelpers.IsIEnumerableType(delegateReturnType))
+        {
+            ExpressionSyntax? lambdaBodyExpr = arg.Expression switch
+            {
+                SimpleLambdaExpressionSyntax sl => sl.ExpressionBody,
+                ParenthesizedLambdaExpressionSyntax pl => pl.ExpressionBody,
+                _ => null
+            };
+
+            if (lambdaBodyExpr != null)
+            {
+                var bodyType = context.GetTypeInfo(lambdaBodyExpr).Type;
+                if (bodyType is IArrayTypeSymbol)
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                    var bodyExpr = ExpressionTransformerFacade.Instance.Transform(lambdaBodyExpr, context);
+                    return transformedExpr.Replace(
+                        bodyExpr,
+                        $"CSharpGenericIterable.from(ArrayHelper.toList({bodyExpr}))",
+                        StringComparison.Ordinal);
+                }
+                else if (bodyType is INamedTypeSymbol bodyNamedType
+                    && (bodyNamedType.Name == "List" || bodyNamedType.Name == "Collection"
+                        || bodyNamedType.Name == "CSharpList"
+                        || bodyNamedType.Name == "IEnumerable"
+                        || bodyNamedType.Name == "ICollection"
+                        || bodyNamedType.Name == "IList")
+                    && !bodyNamedType.Equals(delegateReturnType, SymbolEqualityComparer.Default))
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    var bodyExpr = ExpressionTransformerFacade.Instance.Transform(lambdaBodyExpr, context);
+                    return transformedExpr.Replace(
+                        bodyExpr,
+                        $"CSharpGenericIterable.from({bodyExpr})",
+                        StringComparison.Ordinal);
                 }
             }
         }

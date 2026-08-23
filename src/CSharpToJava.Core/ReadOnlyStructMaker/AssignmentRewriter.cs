@@ -140,15 +140,58 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             tupleLeft.Arguments.Count == tupleRight.Arguments.Count)
         {
             var statements = new List<StatementSyntax>();
-            for (var i = 0; i < tupleLeft.Arguments.Count; i++)
+            // Detect swap patterns: if any RHS expression references a LHS target,
+            // hoist ALL RHS values into temp locals first to preserve simultaneous
+            // assignment semantics (e.g. (a, b) = (b, a) must use temps).
+            var leftTexts = tupleLeft.Arguments
+                .Select(a => a.Expression.ToString())
+                .ToHashSet();
+            bool needsHoisting = false;
+            for (var i = 0; i < tupleRight.Arguments.Count; i++)
             {
-                var rightExpr = (ExpressionSyntax)Visit(tupleRight.Arguments[i].Expression)!;
-                var single = SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    tupleLeft.Arguments[i].Expression,
-                    rightExpr);
-                var rewritten = (ExpressionSyntax)(VisitAssignmentExpression(single) ?? single);
-                statements.Add(SyntaxFactory.ExpressionStatement(rewritten));
+                var rightStr = tupleRight.Arguments[i].Expression.ToString();
+                if (leftTexts.Any(lt => rightStr.Contains(lt)))
+                {
+                    needsHoisting = true;
+                    break;
+                }
+            }
+            if (needsHoisting)
+            {
+                for (var i = 0; i < tupleLeft.Arguments.Count; i++)
+                {
+                    var rightExpr = (ExpressionSyntax)Visit(tupleRight.Arguments[i].Expression)!;
+                    var tempDecl = SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(
+                            SyntaxFactory.IdentifierName("var").WithTrailingTrivia(SyntaxFactory.Whitespace(" ")))
+                        .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator($"_cs2jSwap{i}")
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(rightExpr)))));
+                    statements.Add(tempDecl);
+                }
+                for (var i = 0; i < tupleLeft.Arguments.Count; i++)
+                {
+                    var tempIdent = SyntaxFactory.IdentifierName($"_cs2jSwap{i}");
+                    var single = SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        tupleLeft.Arguments[i].Expression,
+                        tempIdent);
+                    var rewritten = (ExpressionSyntax)(VisitAssignmentExpression(single) ?? single);
+                    statements.Add(SyntaxFactory.ExpressionStatement(rewritten));
+                }
+            }
+            else
+            {
+                for (var i = 0; i < tupleLeft.Arguments.Count; i++)
+                {
+                    var rightExpr = (ExpressionSyntax)Visit(tupleRight.Arguments[i].Expression)!;
+                    var single = SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        tupleLeft.Arguments[i].Expression,
+                        rightExpr);
+                    var rewritten = (ExpressionSyntax)(VisitAssignmentExpression(single) ?? single);
+                    statements.Add(SyntaxFactory.ExpressionStatement(rewritten));
+                }
             }
             return SyntaxFactory.Block(statements).WithTriviaFrom(node);
         }

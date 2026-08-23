@@ -6,6 +6,9 @@ import java.util.NoSuchElementException;
 public interface CSharpGenericEnumerator<T> extends CSharpEnumerator, Iterator<T> {
     @SuppressWarnings("unchecked")
     static <T> CSharpGenericEnumerator<T> from(Iterator<? extends T> iterator) {
+        if (iterator instanceof CSharpGenericEnumerator<?>) {
+            return (CSharpGenericEnumerator<T>) iterator;
+        }
         return new IteratorBackedCSharpEnumerator<T>((Iterator<T>) iterator);
     }
 

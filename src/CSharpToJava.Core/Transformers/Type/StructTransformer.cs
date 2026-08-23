@@ -221,12 +221,13 @@ public class StructTransformer : ITypeTransformer
         // Fix 1: Emit a clone() method to approximate C# value-type copy semantics.
         AddCloneMethod(javaClass, isReadOnly, structDecl, context, runtimeClassTypeParameters);
 
+        // Generate equals(Object) override when operator== was converted to valueEquals
+        // but no explicit equals(Object) override exists. Also generates equals() for
+        // structs without operator== (C# structs use value equality by default).
+        AddEqualsOverrideIfMissing(javaClass, context);
+
         // Fix 6: If an equals() method was generated but hashCode() is absent, emit a hashCode().
         AddHashCodeIfMissing(javaClass, context);
-
-        // Generate equals(Object) override when operator== was converted to valueEquals
-        // but no explicit equals(Object) override exists.
-        AddEqualsOverrideIfMissing(javaClass, context);
 
         // Generate toString() for better debugging when no explicit override exists.
         AddToStringIfMissing(javaClass);
@@ -742,10 +743,10 @@ public class StructTransformer : ITypeTransformer
         StructDeclarationSyntax structDecl, ConversionContext context,
         IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields)
     {
-        // For readonly structs, an existing clone() converted from C# Clone() may rely on
+        // For all structs, an existing clone() converted from C# Clone() may rely on
         // a constructor with side effects (e.g. Rectangle(Point, Point) calling add()),
-        // which recurses through clone(). Replace it with a compose-constructor copy.
-        if (isReadOnly)
+        // which can produce incorrect results for empty/degenerate rectangles.
+        // Replace it with a compose-constructor copy when possible.
         {
             var instanceFieldsForReplace = javaClass.Fields
                 .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
@@ -763,9 +764,42 @@ public class StructTransformer : ITypeTransformer
             }
         }
 
-        // Skip if the C# struct already defined a Clone() method (mapped to clone()).
+        // If the C# struct already defined a Clone() method (mapped to clone()),
+        // but the clone body may have side effects via constructors (e.g. Rectangle).
+        // Replace with a field-wise copy when possible to preserve value semantics.
         if (javaClass.Methods.Any(m => m.Name == "clone"))
+        {
+            var instanceFieldsForFieldCopy = javaClass.Fields
+                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+                .ToList();
+            var structFieldNamesForFieldCopy = BuildStructFieldNames(structDecl, context);
+            // Only replace if there are no final instance fields (can't assign final fields)
+            bool hasFinalField = instanceFieldsForFieldCopy.Any(f => (f.Modifiers & JavaModifiers.Final) != 0);
+            if (!hasFinalField && instanceFieldsForFieldCopy.Count > 0)
+            {
+                var newTypeName2 = javaClass.TypeParameters.Count > 0
+                    ? $"{javaClass.Name}<>"
+                    : javaClass.Name;
+                var fieldCopyLines = new List<string>();
+                foreach (var f in instanceFieldsForFieldCopy)
+                {
+                    if (structFieldNamesForFieldCopy.Contains(f.Name))
+                        fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name} != null ? this.{f.Name}.clone() : null;");
+                    else
+                        fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name};");
+                }
+                var fieldCopyBody = $"var copy = new {newTypeName2}();\n        " +
+                    string.Join("\n        ", fieldCopyLines) + "\n        return copy;";
+                foreach (var existing in javaClass.Methods.Where(m => m.Name == "clone").ToList())
+                {
+                    existing.StructuredBody = null;
+                    existing.Body = fieldCopyBody;
+                }
+                return;
+            }
+            // Has final fields or no instance fields — keep original clone()
             return;
+        }
 
         var instanceFields = javaClass.Fields
             .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
@@ -1106,8 +1140,6 @@ public class StructTransformer : ITypeTransformer
     {
         var valueEqualsMethod = javaClass.Methods.FirstOrDefault(m =>
             m.Name == "valueEquals" && (m.Modifiers & JavaModifiers.Static) != 0);
-        if (valueEqualsMethod == null)
-            return;
 
         bool hasEqualsObject = javaClass.Methods.Any(m =>
             m.Name == "equals" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object");
@@ -1116,7 +1148,7 @@ public class StructTransformer : ITypeTransformer
 
         string className = javaClass.Name;
         string returnStatement;
-        if (ValueEqualsDelegatesToInstanceEquals(valueEqualsMethod))
+        if (valueEqualsMethod != null && ValueEqualsDelegatesToInstanceEquals(valueEqualsMethod))
         {
             var instanceFields = javaClass.Fields
                 .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
@@ -1133,9 +1165,29 @@ public class StructTransformer : ITypeTransformer
 
             context.AddImport("java.util.Objects");
         }
-        else
+        else if (valueEqualsMethod != null)
         {
             returnStatement = $"        return {className}.valueEquals(this, other);";
+        }
+        else
+        {
+            // No valueEquals method (struct had no operator==). C# structs use
+            // value equality by default (reflective field-by-field comparison).
+            // Generate equals() based on instance fields to match C# semantics.
+            var instanceFields = javaClass.Fields
+                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+                .ToList();
+            if (instanceFields.Count == 0)
+            {
+                returnStatement = "        return true;";
+            }
+            else
+            {
+                returnStatement = "        return " + string.Join(" && ", instanceFields
+                    .Select(f => $"Objects.equals({f.Name}, other.{f.Name})")) + ";";
+            }
+
+            context.AddImport("java.util.Objects");
         }
 
         var equalsMethod = new JavaMethodDeclaration

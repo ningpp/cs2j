@@ -834,6 +834,18 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             bool isEnumerableLikeSource = IsEnumerableLikeSourceType(sourceType);
             if (isEnumerableLikeSource)
             {
+                // If the source type already implements IList<T> (not just IEnumerable<T>),
+                // it maps to CSharpGenericIList<T> in Java — no need to wrap in a new CSharpList.
+                // This preserves the source type's own method implementations (e.g. methods
+                // that throw NotImplementedException are bypassed when wrapped in CSharpList).
+                if (targetType.StartsWith("CSharpGenericIList<")
+                    && sourceType is INamedTypeSymbol sourceNamedType
+                    && sourceNamedType.AllInterfaces.Any(i =>
+                        i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IList<T>"))
+                {
+                    return expression;
+                }
+
                 // Dictionary-backed multi-enumeration types (e.g. GroupCollection): the
                 // Java mapping keeps the CSharpReadOnlyDict<K,V> iteration (KeyValuePair),
                 // but a cast to the LIST contract targets the dict's VALUE elements.

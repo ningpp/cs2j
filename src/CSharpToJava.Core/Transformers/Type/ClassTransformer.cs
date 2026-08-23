@@ -452,6 +452,7 @@ public class ClassTransformer : ITypeTransformer
         ReorderStaticFieldsByDependency(javaClass);
         ReorderStaticFieldInitializers(javaClass);
         AddDebuggerAnnotations(javaClass, mergedType.TypeSymbol, context);
+        AddHashCodeIfMissingForClass(javaClass, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
@@ -983,10 +984,52 @@ public class ClassTransformer : ITypeTransformer
         }
 
         InjectMSTestExtensionIfNeeded(javaClass, context);
+        AddHashCodeIfMissingForClass(javaClass, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
 
         return javaClass;
+    }
+
+    /// <summary>
+    /// When a C# class overrides Equals() but does not override GetHashCode(),
+    /// Java requires hashCode() to be consistent with equals(). This method
+    /// generates a hashCode() based on instance fields to maintain the
+    /// equals/hashCode contract required by Java.
+    /// </summary>
+    private static void AddHashCodeIfMissingForClass(JavaClassDeclaration javaClass, ConversionContext context)
+    {
+        bool hasEquals = javaClass.Methods.Any(m => m.Name == "equals" &&
+            m.Parameters.Count == 1 && m.Parameters[0].Type == "Object");
+        bool hasHashCode = javaClass.Methods.Any(m => m.Name == "hashCode");
+
+        if (!hasEquals || hasHashCode)
+            return;
+
+        var instanceFields = javaClass.Fields
+            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+            .ToList();
+
+        string hashBody;
+        if (instanceFields.Count == 0)
+        {
+            hashBody = "return getClass().hashCode();";
+        }
+        else
+        {
+            hashBody = $"return Objects.hash({string.Join(", ", instanceFields.Select(f => f.Name))});";
+            context.AddImport("java.util.Objects");
+        }
+
+        var hashCodeMethod = new JavaMethodDeclaration
+        {
+            Name = "hashCode",
+            ReturnType = "int",
+            Modifiers = JavaModifiers.Public,
+            Body = hashBody
+        };
+        hashCodeMethod.Annotations.Add(new JavaAnnotation("Override"));
+        javaClass.Methods.Add(hashCodeMethod);
     }
 
     private string GetJavaClassName(ClassDeclarationSyntax classDecl)

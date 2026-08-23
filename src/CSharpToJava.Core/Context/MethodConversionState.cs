@@ -169,6 +169,11 @@ public class MethodConversionState
         _activeRefHolders[varName] = holderName;
     }
 
+    public void RemoveActiveRefHolder(string varName)
+    {
+        _activeRefHolders.Remove(varName);
+    }
+
     public string AllocateRefHolderName(string varName)
     {
         var escaped = JavaNaming.EscapeJavaKeyword(varName);

@@ -217,7 +217,44 @@ public class LambdaTransformer : IIRExpressionTransformer
             // variables may never be activated, so GetMutatedCaptures must still handle them.
             if (context.MethodState.HasActiveLambdaCaptureHolder(capName))
                 continue;
-            context.AddPreStatement(ExpressionTransformerHelpers.BuildLambdaCaptureHolderDeclaration(capType, $"_{capName}", capName));
+            // Check if the captured variable is initialized at the point of lambda creation.
+            // If the variable is declared but not yet assigned (e.g. `double x;` followed by
+            // a lambda that mutates it via `out x`), Java rejects reading the uninitialized
+            // variable in the capture array. Use the type-appropriate default value instead.
+            string captureInit = capName;
+            if (context.SemanticModel != null)
+            {
+                var captureSymbol = context.SemanticModel.LookupSymbols(node.SpanStart)
+                    .OfType<ILocalSymbol>()
+                    .FirstOrDefault(s => s.Name == capName);
+                if (captureSymbol is { } capturedLocal)
+                {
+                    var declRef = capturedLocal.DeclaringSyntaxReferences.FirstOrDefault();
+                    if (declRef != null)
+                    {
+                        var declSyntax = declRef.GetSyntax();
+                        // If the declaration is a VariableDeclarator with no initializer, the
+                        // variable may be uninitialized at the point of lambda creation.
+                        if (declSyntax is Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax vd
+                            && vd.Initializer == null)
+                        {
+                            captureInit = capType switch
+                            {
+                                "int" => "0",
+                                "long" => "0L",
+                                "double" => "0.0",
+                                "float" => "0.0f",
+                                "boolean" => "false",
+                                "short" => "0",
+                                "byte" => "0",
+                                "char" => "'\\0'",
+                                _ => "null"
+                            };
+                        }
+                    }
+                }
+            }
+            context.AddPreStatement(ExpressionTransformerHelpers.BuildLambdaCaptureHolderDeclaration(capType, $"_{capName}", captureInit));
             // Register the holder as active so that IdentifierExpressionTransformer
             // replaces all subsequent references to capName with _capName[0] in the
             // enclosing scope (after the lambda). Without this, reads after the lambda

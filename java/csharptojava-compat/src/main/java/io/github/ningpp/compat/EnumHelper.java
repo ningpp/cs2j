@@ -1,6 +1,57 @@
 package io.github.ningpp.compat;
 
 public class EnumHelper {
+    /** Mirrors System.Enum.IsDefined(Type, String) — checks if a string name is a valid enum constant. */
+    public static boolean isDefined(Class<?> enumType, String name) {
+        if (enumType == null || !enumType.isEnum() || name == null) {
+            return false;
+        }
+        for (Object constant : enumType.getEnumConstants()) {
+            if (isSyntheticUnmapped(constant)) continue;
+            if (((Enum<?>) constant).name().equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Mirrors System.Enum.IsDefined(Type, Object) where Object is an enum constant of the same type. */
+    public static boolean isDefined(Class<?> enumType, Object value) {
+        if (enumType == null || !enumType.isEnum() || value == null) {
+            return false;
+        }
+        if (value instanceof Enum<?> enumValue) {
+            if (!enumType.isInstance(enumValue)) {
+                return false;
+            }
+            if (isSyntheticUnmapped(enumValue)) {
+                return false;
+            }
+            return true;
+        }
+        if (value instanceof Number number) {
+            long val = number.longValue();
+            for (Object constant : enumType.getEnumConstants()) {
+                if (isSyntheticUnmapped(constant)) continue;
+                try {
+                    Object raw = constant.getClass().getMethod("getValue").invoke(constant);
+                    if (raw instanceof Number num && num.longValue() == val) {
+                        return true;
+                    }
+                } catch (ReflectiveOperationException e) {
+                    // Fall back to ordinal
+                }
+            }
+            // Also try ordinal match
+            Object[] constants = enumType.getEnumConstants();
+            int ordinal = (int) val;
+            return ordinal >= 0 && ordinal < constants.length && !isSyntheticUnmapped(constants[ordinal]);
+        }
+        if (value instanceof String str) {
+            return isDefined(enumType, str);
+        }
+        return false;
+    }
     @SuppressWarnings("unchecked")
     public static <T> boolean tryParse(String name, boolean ignoreCase, ObjectHolder<T> result, Class<?> enumClass) {
         if (name == null || enumClass == null || !enumClass.isEnum()) {
