@@ -6761,17 +6761,23 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 return $"{receiver}.takeWhile({predArg})";
             }
 
-            // First() → findFirst().orElseThrow()
+            // First() → findFirst().orElseThrow(() -> new IllegalStateException())
+            // C# Enumerable.First() throws InvalidOperationException on an empty source;
+            // cs2j maps InvalidOperationException → IllegalStateException.
+            // Using orElseThrow(() -> new IllegalStateException()) preserves the
+            // correct exception type instead of NoSuchElementException from orElseThrow().
             if (originalMethodName == "First" && node.ArgumentList.Arguments.Count == 0)
             {
-                return $"{receiver}.findFirst().orElseThrow()";
+                context.AddImport("java.util.stream.Stream");
+                return $"{receiver}.findFirst().orElseThrow(() -> new java.lang.IllegalStateException())";
             }
 
-            // First(predicate) → filter(predicate).findFirst().orElseThrow()
+            // First(predicate) → filter(predicate).findFirst().orElseThrow(() -> new IllegalStateException())
             if (originalMethodName == "First" && node.ArgumentList.Arguments.Count >= 1)
             {
                 var predArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"{receiver}.filter({predArg}).findFirst().orElseThrow()";
+                context.AddImport("java.util.stream.Stream");
+                return $"{receiver}.filter({predArg}).findFirst().orElseThrow(() -> new java.lang.IllegalStateException())";
             }
 
             // FirstOrDefault() → findFirst().orElse(null)
@@ -11251,7 +11257,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
         // Identify key and value parameter indices
         // The non-dictionary params are key and value.
-        // key matches dict.TypeArguments[0]; value is the remaining param
+        // key matches dict.TypeArguments[0]; value is the remaining param.
+        // When key and value share the same type (e.g. AddToMap<string,string,HashSet<string>>),
+        // both non-dict params match dictKeyType — in that case the first match
+        // (by parameter order) is the key and the second is the value, preserving
+        // the canonical AddToMap(dict, key, value) calling convention.
         int keyParamIdx = -1;
         int valueParamIdx = -1;
 
@@ -11263,7 +11273,12 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 if (i == dictParamIdx) continue;
                 if (SymbolEqualityComparer.Default.Equals(parameters[i].Type, dictKeyType))
-                    keyParamIdx = i;
+                {
+                    if (keyParamIdx < 0)
+                        keyParamIdx = i;
+                    else
+                        valueParamIdx = i;
+                }
                 else
                     valueParamIdx = i;
             }

@@ -1366,12 +1366,22 @@ public class ClassTransformer : ITypeTransformer
                 continue;
 
             context.AddImport("io.github.ningpp.compat.DefaultValue");
+            // When the class has a runtime Class<?> field for this type parameter
+            // (added by AddRuntimeClassFields), use DefaultValue.ofClass(field) so that
+            // primitive wrappers (Integer, Double, etc.) get the correct zero value
+            // instead of null. This prevents NullPointerException when the default
+            // value is unboxed (e.g., int val = queue.peek(...)).
+            string body;
+            if (context.TryGetRuntimeClassField(typeParamName, out var classFieldName))
+                body = $"return ({typeParamName}) DefaultValue.ofClass({classFieldName});";
+            else
+                body = $"return DefaultValue.of();";
             javaClass.Methods.Add(new JavaMethodDeclaration
             {
                 Name = methodName,
                 ReturnType = typeParamName,
                 Modifiers = JavaModifiers.Protected,
-                Body = $"return DefaultValue.of();"
+                Body = body
             });
         }
     }

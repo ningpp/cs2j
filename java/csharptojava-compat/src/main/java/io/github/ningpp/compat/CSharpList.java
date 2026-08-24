@@ -30,6 +30,22 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         super(c);
     }
 
+    /**
+     * C# List&lt;T&gt;[index] throws ArgumentOutOfRangeException on out-of-bounds
+     * access, whereas Java's ArrayList.get(index) throws IndexOutOfBoundsException.
+     * Override to preserve the C# exception type so tests expecting
+     * ArgumentOutOfRangeException pass correctly.
+     */
+    @Override
+    public T get(int index) {
+        if (index < 0 || index >= size()) {
+            throw new ArgumentOutOfRangeException(
+                "index", index,
+                "Index was out of range. Must be non-negative and less than the size of the collection.");
+        }
+        return super.get(index);
+    }
+
     // CSharpGenericIList / CSharpICollection methods
 
     @Override

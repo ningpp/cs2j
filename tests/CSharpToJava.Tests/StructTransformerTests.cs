@@ -1216,7 +1216,9 @@ public abstract class ShiftReduceParser<TValue>
 
         // Unknown binding: factory methods ARE generated in both base classes.
         Assert.Contains("_cs2jDefault_TValue()", runtimeCode, StringComparison.Ordinal);
-        Assert.Contains("DefaultValue.of()", runtimeCode, StringComparison.Ordinal);
+        // With a runtime Class<?> token field (tValueClass) available, the factory
+        // body uses DefaultValue.ofClass(tValueClass) instead of DefaultValue.of().
+        Assert.Contains("DefaultValue.ofClass(tValueClass)", runtimeCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1256,7 +1258,9 @@ public abstract class ShiftReduceParser<TValue>
 
         // Unknown binding: factory method IS generated.
         Assert.Contains("_cs2jDefault_TValue()", libraryCode, StringComparison.Ordinal);
-        Assert.Contains("DefaultValue.of()", libraryCode, StringComparison.Ordinal);
+        // With a runtime Class<?> token field (tValueClass) available, the factory
+        // body uses DefaultValue.ofClass(tValueClass) instead of DefaultValue.of().
+        Assert.Contains("DefaultValue.ofClass(tValueClass)", libraryCode, StringComparison.Ordinal);
 
         // ── Project B: consumer with struct-bound subclass ──
         var consumerResults = await new ProjectConversionPipeline(sharedOptions)
