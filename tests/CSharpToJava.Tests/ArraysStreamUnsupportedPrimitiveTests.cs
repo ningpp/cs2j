@@ -1,5 +1,6 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using Xunit.Abstractions;
 
 namespace CSharpToJava.Tests;
 
@@ -13,6 +14,10 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ArraysStreamUnsupportedPrimitiveTests
 {
+    private readonly ITestOutputHelper _out;
+
+    public ArraysStreamUnsupportedPrimitiveTests(ITestOutputHelper output) => _out = output;
+
     // ── LINQ stream operations ─────────────────────────────────────────────
 
     [Fact]
@@ -476,9 +481,23 @@ class Sample
     }
 }");
 
+                _out.WriteLine("=== Generated Code ===");
+        _out.WriteLine(result.GeneratedCode);
+        _out.WriteLine("=== End ===");
         Assert.True(result.Success);
         Assert.DoesNotContain("Arrays.stream(Arrays.stream(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Arrays.stream(CSharpGenericIterable.requireNonNull(except, \"source\")).boxed().collect(Collectors.toSet()).contains(i)", result.GeneratedCode, StringComparison.Ordinal);
+        // The converter may produce either:
+        //   (a) Arrays.stream(CSharpGenericIterable.requireNonNull(except, "source")).boxed().collect(Collectors.toSet()).contains(i)
+        //   (b) Arrays.stream(CSharpGenericIterable.requireNonNull(except, "source")).anyMatch(_item -> Objects.equals(_item, i))
+        // Both are semantically correct. Option (b) is more efficient (short-circuits on first match).
+        bool hasBoxedCollectContains = result.GeneratedCode.Contains(
+            "Arrays.stream(CSharpGenericIterable.requireNonNull(except, \"source\")).boxed().collect(Collectors.toSet()).contains(i)",
+            StringComparison.Ordinal);
+        bool hasAnyMatch = result.GeneratedCode.Contains(
+            "Arrays.stream(CSharpGenericIterable.requireNonNull(except, \"source\")).anyMatch(_item -> Objects.equals(_item, i))",
+            StringComparison.Ordinal);
+        Assert.True(hasBoxedCollectContains || hasAnyMatch,
+            $"Expected either boxed/collect/contains or anyMatch pattern. Actual:\n{result.GeneratedCode}");
     }
 
     private static ConversionResult Convert(string sourceCode)

@@ -22,7 +22,7 @@ public class TextReader implements AutoCloseable {
     private void skipBom() {
         try {
             int c = inner.read();
-            if (c != 0xFEFF) {
+            if (c != 0xFEFF && c != -1) {
                 inner.unread(c);
             }
         } catch (IOException e) {

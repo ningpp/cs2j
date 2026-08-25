@@ -769,35 +769,43 @@ public class StructTransformer : ITypeTransformer
         // Replace with a field-wise copy when possible to preserve value semantics.
         if (javaClass.Methods.Any(m => m.Name == "clone"))
         {
-            var instanceFieldsForFieldCopy = javaClass.Fields
-                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-                .ToList();
-            var structFieldNamesForFieldCopy = BuildStructFieldNames(structDecl, context);
-            // Only replace if there are no final instance fields (can't assign final fields)
-            bool hasFinalField = instanceFieldsForFieldCopy.Any(f => (f.Modifiers & JavaModifiers.Final) != 0);
-            if (!hasFinalField && instanceFieldsForFieldCopy.Count > 0)
+            // Check if the original C# Clone() method has custom logic (e.g. conditional
+            // returns, control flow). If so, keep the original body — replacing it with a
+            // field-wise copy would destroy the custom semantics (e.g. `return this;` inside
+            // Clone() must NOT become `return this.clone();` which would recurse forever).
+            bool hasCustomCloneBody = HasCustomCloneBody(structDecl);
+            if (!hasCustomCloneBody)
             {
-                var newTypeName2 = javaClass.TypeParameters.Count > 0
-                    ? $"{javaClass.Name}<>"
-                    : javaClass.Name;
-                var fieldCopyLines = new List<string>();
-                foreach (var f in instanceFieldsForFieldCopy)
+                var instanceFieldsForFieldCopy = javaClass.Fields
+                    .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+                    .ToList();
+                var structFieldNamesForFieldCopy = BuildStructFieldNames(structDecl, context);
+                // Only replace if there are no final instance fields (can't assign final fields)
+                bool hasFinalField = instanceFieldsForFieldCopy.Any(f => (f.Modifiers & JavaModifiers.Final) != 0);
+                if (!hasFinalField && instanceFieldsForFieldCopy.Count > 0)
                 {
-                    if (structFieldNamesForFieldCopy.Contains(f.Name))
-                        fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name} != null ? this.{f.Name}.clone() : null;");
-                    else
-                        fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name};");
+                    var newTypeName2 = javaClass.TypeParameters.Count > 0
+                        ? $"{javaClass.Name}<>"
+                        : javaClass.Name;
+                    var fieldCopyLines = new List<string>();
+                    foreach (var f in instanceFieldsForFieldCopy)
+                    {
+                        if (structFieldNamesForFieldCopy.Contains(f.Name))
+                            fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name} != null ? this.{f.Name}.clone() : null;");
+                        else
+                            fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name};");
+                    }
+                    var fieldCopyBody = $"var copy = new {newTypeName2}();\n        " +
+                        string.Join("\n        ", fieldCopyLines) + "\n        return copy;";
+                    foreach (var existing in javaClass.Methods.Where(m => m.Name == "clone").ToList())
+                    {
+                        existing.StructuredBody = null;
+                        existing.Body = fieldCopyBody;
+                    }
+                    return;
                 }
-                var fieldCopyBody = $"var copy = new {newTypeName2}();\n        " +
-                    string.Join("\n        ", fieldCopyLines) + "\n        return copy;";
-                foreach (var existing in javaClass.Methods.Where(m => m.Name == "clone").ToList())
-                {
-                    existing.StructuredBody = null;
-                    existing.Body = fieldCopyBody;
-                }
-                return;
             }
-            // Has final fields or no instance fields — keep original clone()
+            // Has final fields, no instance fields, or custom clone body — keep original clone()
             return;
         }
 
@@ -905,6 +913,43 @@ public class StructTransformer : ITypeTransformer
         if (structFieldNames.Contains(field.Name))
             return $"copy.{field.Name} = this.{field.Name} != null ? this.{field.Name}.clone() : null;";
         return $"copy.{field.Name} = this.{field.Name};";
+    }
+
+    /// <summary>
+    /// Checks whether the original C# Clone() method has custom logic that should be
+    /// preserved (not replaced with a field-wise copy). Custom logic includes control
+    /// flow statements (if, switch, loops), multiple statements, or non-trivial returns.
+    /// </summary>
+    private static bool HasCustomCloneBody(StructDeclarationSyntax structDecl)
+    {
+        var cloneMethod = structDecl.Members.OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault(m => m.Identifier.Text == "Clone" && m.ParameterList.Parameters.Count == 0);
+        if (cloneMethod == null)
+            return false;
+
+        var body = cloneMethod.Body ?? (SyntaxNode?)cloneMethod.ExpressionBody;
+        if (body == null)
+            return false;
+
+        // Single expression-bodied method (e.g. `=> new Node();`) is not custom.
+        if (cloneMethod.ExpressionBody != null)
+            return false;
+
+        var block = body as BlockSyntax;
+        if (block == null)
+            return false;
+
+        // A single `return ...;` statement is not custom (will be handled by the
+        // field-wise copy or kept as-is if it's a simple new/copy pattern).
+        if (block.Statements.Count == 1 && block.Statements[0] is ReturnStatementSyntax)
+            return false;
+
+        // Multiple statements or any control flow = custom logic.
+        if (block.Statements.Count > 1)
+            return true;
+
+        // Single statement that is not a return = custom logic.
+        return true;
     }
 
     /// <summary>
