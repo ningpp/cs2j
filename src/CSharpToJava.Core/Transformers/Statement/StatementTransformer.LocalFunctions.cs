@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CSharp;
 using CSharpToJava.Core.Context;
@@ -107,9 +107,22 @@ public partial class StatementTransformer
                             continue;
                         foreach (var capture in calleeCaptures)
                         {
-                            if (!expanded.Any(existing => SymbolEqualityComparer.Default.Equals(existing.Symbol, capture.Symbol)))
+                            var existing = expanded.FirstOrDefault(e =>
+                                SymbolEqualityComparer.Default.Equals(e.Symbol, capture.Symbol));
+                            if (existing == null)
                             {
                                 expanded.Add(capture);
+                                added = true;
+                            }
+                            else if (capture.IsWritten && !existing.IsWritten)
+                            {
+                                // The callee writes to this captured variable but the
+                                // caller currently treats it as read-only. By-reference
+                                // semantics require a holder parameter so the callee's
+                                // hoisted signature (which already uses a holder) and
+                                // the caller's signature agree.
+                                expanded[expanded.IndexOf(existing)] =
+                                    existing with { IsWritten = true };
                                 added = true;
                             }
                         }

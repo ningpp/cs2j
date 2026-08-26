@@ -36,3 +36,22 @@
 - `mvn clean install -e` → **BUILD SUCCESS**（7102 个测试，0 失败）
 - 同一份代码同时验证 AGL：`mvn clean package -e` → **BUILD SUCCESS**（609 个测试，0 失败 0 错误；`CSharpGenericIterable.from(null)` 修复后 Rectilinear 10 个 NPE 全部消失）
 - compat：`mvn test` → **1500 个测试全部通过，0 失败**
+
+## Iteration 3 — 局部函数捕获变量 IsWritten 传递闭包未提升
+- **Java 文件**: `dotnet-text-regularexpressions/src/main/java/dotnet/text/regularexpressions/RegexCompiler.java`
+- **行号**: 2084（首批错误之一，同模式共 14+ 处）
+- **错误信息**: `不兼容的类型: io.github.ningpp.compat.Label无法转换为io.github.ningpp.compat.ObjectHolder<io.github.ningpp.compat.Label>`（同模式还有 `int无法转换为io.github.ningpp.compat.IntHolder`）
+- **代码片段**:
+  ```java
+  // emitNode 参数 _cs2j_cap_doneLabel 类型为 Label（只读）
+  // 但 emitSingleCharAtomicLoop 参数 _cs2j_cap_doneLabel 类型为 ObjectHolder<Label>（写入）
+  // emitNode 内调用 emitSingleCharAtomicLoop 时传入 Label → 类型不兼容
+  private void emitNode(RegexNode node, Label _cs2j_cap_doneLabel, ...) {
+      case RegexNode.Oneloopatomic, ...:
+      emitSingleCharAtomicLoop(node, _cs2j_cap_doneLabel, ...); // ← Label 传给 ObjectHolder<Label>
+  }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\regular-expressions\src\System\Text\RegularExpressions\RegexCompiler.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.LocalFunctions.cs`（`PrescanLocalFunctions` 传递闭包）
+- **分析**: C# 局部函数 `EmitNode` 只读取捕获变量 `doneLabel`（`IsWritten=false`），但它调用的 `EmitSingleCharAtomicLoop` 写入 `doneLabel`（`IsWritten=true`）。`PrescanLocalFunctions` 的 fixpoint 传播 callee 的 captures 给 caller 时，如果 caller 已有同名 capture（`IsWritten=false`），直接跳过不更新——导致 caller 的参数类型保持为 `Label` 而非 `ObjectHolder<Label>`，调用 callee 时传 `Label` 给期望 `ObjectHolder<Label>` 的参数。

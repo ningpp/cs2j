@@ -60,6 +60,35 @@ class C {
         Assert.DoesNotContain("ObjectHolder", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TransitiveWrittenCapture_PropagatesIsWrittenToCaller()
+    {
+        // Outer captures 'flag' read-only, but calls Inner which writes 'flag'.
+        // The fixpoint must propagate IsWritten=true from Inner to Outer so
+        // both hoisted signatures use a holder parameter and the call site
+        // from Outer to Inner passes the holder (not the bare value).
+        var result = Convert(@"
+class C {
+    int M() {
+        int flag = 0;
+        void Inner() { flag = 1; }
+        void Outer() { int x = flag; Inner(); }
+        Outer();
+        return flag;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        // Inner: writes flag → holder parameter
+        Assert.Contains("private void inner(io.github.ningpp.compat.IntHolder _cs2j_cap_flag)", code, StringComparison.Ordinal);
+        // Outer: reads flag but calls Inner which writes it → must also use holder
+        Assert.Contains("private void outer(io.github.ningpp.compat.IntHolder _cs2j_cap_flag)", code, StringComparison.Ordinal);
+        // Outer's body references flag through holder.value
+        Assert.Contains("_cs2j_cap_flag.value", code, StringComparison.Ordinal);
+        // Outer calls Inner, passing the holder (not a bare value)
+        Assert.Contains("inner(_cs2j_cap_flag)", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

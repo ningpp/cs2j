@@ -79,6 +79,7 @@ _out/
 *.DotSettings.user
 cs-xml-temp-*/
 output/
+.zcode/
 
 # TypeScript compat package (M4 Task 28)
 typescript/csharptotypescript-compat/node_modules/

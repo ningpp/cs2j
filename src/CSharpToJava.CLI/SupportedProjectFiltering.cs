@@ -20,6 +20,7 @@ internal static class SupportedProjectFiltering
         ".git",
         ".vs",
         ".idea",
+        ".worktrees",
         "bin",
         "obj",
         "node_modules",
