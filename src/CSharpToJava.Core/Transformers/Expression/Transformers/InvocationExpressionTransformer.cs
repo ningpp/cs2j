@@ -148,6 +148,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     registeredClassParams = context.GetMethodClassTypeParamNames(bareMethodSym.OriginalDefinition)?.Count
                         ?? irTokens.Count;
                 }
+                else if (MethodLikelyNeedsClassTokens(bareMethodSym, context))
+                {
+                    // Target method hasn't been registered yet but its body
+                    // uses default(T)/typeof(T)/is T or forwards type params
+                    // to callees that do — it WILL gain Class<T> slots equal
+                    // to the number of type parameters, so don't strip the
+                    // tokens the fallback synthesized.
+                    registeredClassParams = irTokens.Count;
+                }
                 if (invocation.ArgumentList.Arguments.Count + irTokens.Count
                     > csharpParamCount + registeredClassParams)
                 {
@@ -768,6 +777,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 {
                     registeredClassParams = context.GetMethodClassTypeParamNames(bareMethodSym2.OriginalDefinition)?.Count
                         ?? classTokens.Count;
+                }
+                else if (MethodLikelyNeedsClassTokens(bareMethodSym2, context))
+                {
+                    registeredClassParams = classTokens.Count;
                 }
                 if (node.ArgumentList.Arguments.Count + classTokens.Count > csharpParamCount + registeredClassParams)
                 {
@@ -7558,6 +7571,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 {
                     registeredClassParams = context.GetMethodClassTypeParamNames(methodSymbol.OriginalDefinition)?.Count
                         ?? memberClassTokens.Count;
+                }
+                else if (MethodLikelyNeedsClassTokens(methodSymbol, context))
+                {
+                    registeredClassParams = memberClassTokens.Count;
                 }
                 if (!hasParamsArg
                     && node.ArgumentList.Arguments.Count + memberClassTokens.Count
