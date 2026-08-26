@@ -1884,7 +1884,6 @@ public class MethodTransformer : IMemberTransformer
     private static void WrapExpectedExceptionBody(JavaMethodDeclaration javaMethod, ConversionContext context)
     {
         var expectedType = context.MethodState.ExpectedExceptionJavaType;
-        Console.Error.WriteLine("[CS2J-EX] wrap: type=" + (expectedType ?? "null") + " structured=" + (javaMethod.StructuredBody != null) + " method=" + (javaMethod.Name ?? "?"));
         if (string.IsNullOrWhiteSpace(expectedType) || javaMethod.StructuredBody == null)
             return;
 
