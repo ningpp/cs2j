@@ -148,15 +148,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     registeredClassParams = context.GetMethodClassTypeParamNames(bareMethodSym.OriginalDefinition)?.Count
                         ?? irTokens.Count;
                 }
-                else if (MethodLikelyNeedsClassTokens(bareMethodSym, context))
-                {
-                    // Target method hasn't been registered yet but its body
-                    // uses default(T)/typeof(T)/is T or forwards type params
-                    // to callees that do — it WILL gain Class<T> slots equal
-                    // to the number of type parameters, so don't strip the
-                    // tokens the fallback synthesized.
-                    registeredClassParams = irTokens.Count;
-                }
                 if (invocation.ArgumentList.Arguments.Count + irTokens.Count
                     > csharpParamCount + registeredClassParams)
                 {
@@ -777,10 +768,6 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 {
                     registeredClassParams = context.GetMethodClassTypeParamNames(bareMethodSym2.OriginalDefinition)?.Count
                         ?? classTokens.Count;
-                }
-                else if (MethodLikelyNeedsClassTokens(bareMethodSym2, context))
-                {
-                    registeredClassParams = classTokens.Count;
                 }
                 if (node.ArgumentList.Arguments.Count + classTokens.Count > csharpParamCount + registeredClassParams)
                 {
@@ -7572,10 +7559,6 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     registeredClassParams = context.GetMethodClassTypeParamNames(methodSymbol.OriginalDefinition)?.Count
                         ?? memberClassTokens.Count;
                 }
-                else if (MethodLikelyNeedsClassTokens(methodSymbol, context))
-                {
-                    registeredClassParams = memberClassTokens.Count;
-                }
                 if (!hasParamsArg
                     && node.ArgumentList.Arguments.Count + memberClassTokens.Count
                     > csharpParamCount + registeredClassParams)
@@ -11846,15 +11829,28 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
                 if (explicitTypeArgs.Count > 0)
                 {
+                    // xUnit Assert.Throws<T>, ThrowsAny<T>, and ThrowsAsync<T> are
+                    // handled specially by the converter — the type argument is
+                    // always converted to a Class<T> literal and prepended. So
+                    // any type parameter forwarded to them needs a Class<T> slot
+                    // on the enclosing method, regardless of whether the external
+                    // xUnit method can be scanned by MethodLikelyNeedsClassTokens.
+                    var explicitCallee = context.GetSymbolInfo(inv).Symbol as IMethodSymbol;
+                    bool isXunitThrowsCall = explicitCallee != null
+                        && explicitCallee.ContainingType?.ToDisplayString() is { } calleeTypeName
+                        && (calleeTypeName.StartsWith("Xunit.Assert", StringComparison.Ordinal)
+                            || calleeTypeName.StartsWith("Microsoft.VisualStudio.TestTools.UnitTesting.Assert", StringComparison.Ordinal))
+                        && (explicitCallee.Name is "Throws" or "ThrowsAny" or "ThrowsAsync");
+
                     // Only forward the callee's explicit type argument when the callee
                     // actually exposes Class<T> slots in its Java signature. Abstract
                     // helpers whose overrides suppress Class tokens (e.g.
                     // DeserializeWrapper<T>) must NOT cause the caller to gain a
                     // spurious Class<T> parameter — the hoisted declaration would not
                     // add one either.
-                    var explicitCallee = context.GetSymbolInfo(inv).Symbol as IMethodSymbol;
-                    bool calleeNeedsTokens = explicitCallee != null
-                        && MethodLikelyNeedsClassTokens(explicitCallee, context, activeChain);
+                    bool calleeNeedsTokens = isXunitThrowsCall
+                        || (explicitCallee != null
+                            && MethodLikelyNeedsClassTokens(explicitCallee, context, activeChain));
                     if (!calleeNeedsTokens)
                         continue;
 
