@@ -3460,7 +3460,7 @@ class ConvertProjectOptions
     [Option("no-make-readonly", Default = false, HelpText = "Disable the default readonly-struct preprocessing step")]
     public bool NoMakeReadOnly { get; set; }
 
-    [Option("generic-preprocess", Default = false, HelpText = "Run the generic-preprocessing step (default(T)/new T()/new T[n] lowering) before conversion")]
+    [Option("generic-preprocess", Default = true, HelpText = "Run the generic-preprocessing step (default(T)/new T()/new T[n] lowering) before conversion")]
     public bool GenericPreprocess { get; set; }
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]

@@ -28,4 +28,4 @@ target/
 .cs2j-no-goto-src/
 .cs2j-readonly-src/
 .cs2j-unsigned-src/
-.cs2j-generic-src
+.cs2j-generic-src/
