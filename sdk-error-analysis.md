@@ -90,3 +90,18 @@
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`Array.CreateInstance` 特殊处理路径）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`（`(T[])` cast 处理）
 - **分析**: GenericPreprocessor 将 `new T[n]` 重写为 `(T[])Array.CreateInstance(typeof(T), n)`。`InvocationExpressionTransformer` 的特殊情况检查 `TryGetRuntimeClassParameter(typeParam.Name, ...)`，但该方法级类型参数 T 的 runtime class parameter (`_cs2j_T`) 是在方法体转换**之后**由 `AddPendingRuntimeClassParameters` 注册的。转换方法体时 `TryGetRuntimeClassParameter` 返回 false，特殊情况不触发，走了通用 fallback 路径 `CSharpArray.of(...)`。同样，`TypeOperationTransformer` 中 `(T[])` cast 也因 `TryGetRuntimeClassParameter` 返回 false 走了 `(T[]) (Object)` 路径。结果：`CSharpArray` 对象无法 cast 为 `Object[]`，运行时 `ClassCastException`。
 - **状态**: ✅ Fixed
+
+## Iteration 6 — `Activator.CreateInstance<T>()` 生成无参数调用 & `system-private-uri` 依赖缺失
+- **Java 文件**: `system-text-json/src/main/java/dotnet/text/json/Serialization/ReferenceHandler1.java`
+- **行号**: 29
+- **错误信息**: `无法将类 io.github.ningpp.compat.Activator中的方法 createInstance应用到给定类型; 需要: java.lang.Class<T> 找到: 没有参数`（同时有 `Uri`/`UriKind` 符号未找到错误，根因是 `pom.xml` 缺少 `system-private-uri` 依赖）
+- **代码片段**:
+  ```java
+  public ReferenceResolver createResolver() { return Activator.createInstance(); }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Serialization\ReferenceHandlerOfT.cs`（`new T()` → `Activator.CreateInstance<T>()`）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs`（`new T()` → `Activator.CreateInstance<T>()`）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`Activator.CreateInstance<T>()` 泛型调用处理）、`src/CSharpToJava.Core/Transformers/Utilities/RuntimeClassParameterHelper.cs`（`AddObjectCreationRequirements` 仅扫描 `BaseObjectCreationExpressionSyntax`，不扫描重写后的 `Activator.CreateInstance<T>()`）
+- **分析**: GenericPreprocessor 将 `new T()` 重写为 `Activator.CreateInstance<T>()`。转换器未检测此泛型调用的类型参数 T 需要运行时 Class 参数，因为：(1) `AddObjectCreationRequirements` 仅扫描 `BaseObjectCreationExpressionSyntax`，重写后已变为 `InvocationExpressionSyntax`；(2) `InvocationExpressionTransformer` 的 `Activator.CreateInstance` 处理仅覆盖非泛型形式（1 个参数），不覆盖 `CreateInstance<T>()`（0 个参数）。同时 `system-text-json` 的 `pom.xml` 缺少对 `system-private-uri` 模块的依赖，导致 `Uri`/`UriKind` 符号找不到。
+- **修复**: (1) 在 `InvocationExpressionTransformer.cs` 中添加 `Activator.CreateInstance<T>()` 泛型调用处理，检测类型参数 T 并生成 `Activator.createInstance(_cs2j_T)` 或 `Activator.createInstance(tClass)`。(2) 在 `Program.cs` 中添加 `DiscoverImplicitModuleDependencies` 后处理步骤：在所有 Java 源码生成完毕后，扫描各模块 `.java` 文件的 `package` 声明和 `import` 语句，构建 包名→模块名 映射，自动发现 C# 项目引用未覆盖的隐式模块间依赖（如框架类型 `System.Uri` 映射到 `system-private-uri` 模块），并重新生成受影响模块的 `pom.xml`。
+- **状态**: ✅ Fixed

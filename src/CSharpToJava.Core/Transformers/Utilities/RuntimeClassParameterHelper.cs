@@ -561,6 +561,52 @@ internal static class RuntimeClassParameterHelper
                 }
             }
         }
+
+        // GenericPreprocessor rewrites `new T()` (where T : new()) to
+        // `System.Activator.CreateInstance<T>()` before the requirements scan runs.
+        // The rewritten form is an InvocationExpressionSyntax, not a
+        // BaseObjectCreationExpressionSyntax, so the loop above misses it.
+        // Scan for Activator.CreateInstance<T>() calls and register the type
+        // parameter as a runtime class requirement.
+        foreach (var invocation in declaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (invocation.ArgumentList.Arguments.Count != 0)
+                continue;
+
+            if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+                continue;
+
+            if (memberAccess.Name is not GenericNameSyntax genericName)
+                continue;
+
+            if (genericName.Identifier.ValueText != "CreateInstance")
+                continue;
+
+            // Check that the receiver is System.Activator or Activator
+            var methodSymbol = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (methodSymbol == null)
+            {
+                // Fallback: check receiver text
+                var receiverText = memberAccess.Expression.ToString();
+                if (receiverText != "System.Activator" && receiverText != "Activator")
+                    continue;
+            }
+            else if (methodSymbol.ContainingType?.ToDisplayString() != "System.Activator")
+            {
+                continue;
+            }
+
+            if (genericName.TypeArgumentList.Arguments.Count != 1)
+                continue;
+
+            var typeArgSymbol = semanticModel.GetTypeInfo(genericName.TypeArgumentList.Arguments[0]).Type;
+            if (typeArgSymbol is ITypeParameterSymbol typeParam
+                && typeParam.HasConstructorConstraint
+                && IsOwnedByMethodOrType(typeParam, originalMethod))
+            {
+                AddUnique(required, typeParam);
+            }
+        }
     }
 
     private static void AddForwardedInvocationRequirements(

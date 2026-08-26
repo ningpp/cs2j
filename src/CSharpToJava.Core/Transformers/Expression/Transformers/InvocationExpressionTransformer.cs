@@ -3530,6 +3530,49 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
         }
 
+        // System.Activator.CreateInstance<T>() (generic, 0 args) — produced by
+        // GenericPreprocessor rewriting `new T()` where T : new(). In Java the
+        // runtime Class<T> token is needed for reflective instantiation.
+        if (originalMethodName == "CreateInstance"
+            && node.ArgumentList.Arguments.Count == 0
+            && memberAccess.Name is GenericNameSyntax genericCreateName
+            && (methodSymbol?.ContainingType.ToDisplayString() == "System.Activator"
+                || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
+                    memberAccess.Expression, context, "Activator", "System.Activator"))))
+        {
+            context.AddImport("io.github.ningpp.compat.Activator");
+            // Get the type argument T from the generic name
+            if (genericCreateName.TypeArgumentList.Arguments.Count == 1)
+            {
+                var typeArgSymbol = context.GetTypeInfo(genericCreateName.TypeArgumentList.Arguments[0]).Type;
+                if (typeArgSymbol is ITypeParameterSymbol typeParam)
+                {
+                    // Check if a runtime class parameter is already registered (class-level type params)
+                    if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
+                    {
+                        return $"Activator.createInstance({runtimeClassParam})";
+                    }
+                    // Method-level type parameter: register a pending requirement and use
+                    // the expected _cs2j_T name (same timing issue as Array.CreateInstance)
+                    if (typeParam.DeclaringMethod != null)
+                    {
+                        var currentMethod = context.CurrentMethod;
+                        if (currentMethod != null)
+                        {
+                            context.RequireClassTypeParam(currentMethod, typeParam.Name);
+                        }
+                        return $"Activator.createInstance(_cs2j_{typeParam.Name})";
+                    }
+                    // Class-level type parameter without runtime class field yet:
+                    // GetClassLiteral will register the pending requirement.
+                    return $"Activator.createInstance({ConversionContext.GetClassLiteral(typeParam, context)})";
+                }
+                // Non-type-parameter generic arg (e.g. Activator.CreateInstance<string>())
+                var mappedType = facade.Transform(genericCreateName.TypeArgumentList.Arguments[0], context);
+                return $"Activator.createInstance({ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(mappedType)}.class)";
+            }
+        }
+
         if (originalMethodName == "CreateInstance"
             && node.ArgumentList.Arguments.Count == 1
             && (methodSymbol?.ContainingType.ToDisplayString() == "System.Activator"

@@ -1443,6 +1443,42 @@ public class Program
             await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
         }
 
+        // Post-pass: scan generated Java imports to discover implicit module
+        // dependencies that were not captured by C# project references (e.g.
+        // framework types like System.Uri mapped to another module).
+        var moduleRoots = modulePlans
+            .Select(mp => Path.Combine(opts.Destination, mp.ModuleName))
+            .ToList();
+        var implicitDeps = DiscoverImplicitModuleDependencies(modulePlans, moduleRoots, opts.MavenGroupId);
+        if (implicitDeps.Count > 0)
+        {
+            // Re-generate POM files for modules whose dependencies changed.
+            foreach (var kvp in implicitDeps)
+            {
+                var modulePlan = kvp.Key;
+                var additionalDeps = kvp.Value;
+                var updatedDeps = new List<JavaDependency>(modulePlan.Dependencies);
+                updatedDeps.AddRange(additionalDeps);
+                var newPlan = new JavaModulePlan
+                {
+                    ModuleName = modulePlan.ModuleName,
+                    IsTestOnly = modulePlan.IsTestOnly,
+                    SourceSets = modulePlan.SourceSets,
+                    Dependencies = WorkspacePlanBuilder.FilterSelfDependencies(
+                        WorkspacePlanBuilder.MergeDependencies(updatedDeps),
+                        opts.MavenGroupId,
+                        modulePlan.ModuleName),
+                    RequiredCompatPacks = modulePlan.RequiredCompatPacks,
+                    RequiredRuntimeBridges = modulePlan.RequiredRuntimeBridges,
+                    ProduceTestJar = modulePlan.ProduceTestJar,
+                };
+                var idx = modulePlans.IndexOf(modulePlan);
+                modulePlans[idx] = newPlan;
+                var mr = Path.Combine(opts.Destination, newPlan.ModuleName);
+                await WriteMultiModulePom(opts, mr, newPlan, outputSession);
+            }
+        }
+
         var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
         await WriteParentPom(opts, workspacePlan, outputSession);
         await WriteWorkspacePlanManifest(opts.Destination, workspacePlan, outputSession);
@@ -1591,6 +1627,41 @@ public class Program
                 GetExtraDependencies(opts));
             modulePlans.Add(modulePlan);
             await WriteMultiModulePom(opts, moduleRoot, modulePlan, outputSession);
+        }
+
+        // Post-pass: scan generated Java imports to discover implicit module
+        // dependencies that were not captured by C# project references (e.g.
+        // framework types like System.Uri mapped to another module).
+        var moduleRoots2 = modulePlans
+            .Select(mp => Path.Combine(opts.Destination, mp.ModuleName))
+            .ToList();
+        var implicitDeps2 = DiscoverImplicitModuleDependencies(modulePlans, moduleRoots2, opts.MavenGroupId);
+        if (implicitDeps2.Count > 0)
+        {
+            foreach (var kvp in implicitDeps2)
+            {
+                var modulePlan = kvp.Key;
+                var additionalDeps = kvp.Value;
+                var updatedDeps = new List<JavaDependency>(modulePlan.Dependencies);
+                updatedDeps.AddRange(additionalDeps);
+                var newPlan = new JavaModulePlan
+                {
+                    ModuleName = modulePlan.ModuleName,
+                    IsTestOnly = modulePlan.IsTestOnly,
+                    SourceSets = modulePlan.SourceSets,
+                    Dependencies = WorkspacePlanBuilder.FilterSelfDependencies(
+                        WorkspacePlanBuilder.MergeDependencies(updatedDeps),
+                        opts.MavenGroupId,
+                        modulePlan.ModuleName),
+                    RequiredCompatPacks = modulePlan.RequiredCompatPacks,
+                    RequiredRuntimeBridges = modulePlan.RequiredRuntimeBridges,
+                    ProduceTestJar = modulePlan.ProduceTestJar,
+                };
+                var idx = modulePlans.IndexOf(modulePlan);
+                modulePlans[idx] = newPlan;
+                var mr = Path.Combine(opts.Destination, newPlan.ModuleName);
+                await WriteMultiModulePom(opts, mr, newPlan, outputSession);
+            }
         }
 
         var workspacePlan = BuildWorkspacePlan(opts, modulePlans);
@@ -2749,6 +2820,189 @@ public class Program
             RequiredCompatPacks = [],
             RequiredRuntimeBridges = [],
         };
+    }
+
+    /// <summary>
+    /// Scans generated Java files to discover implicit module-to-module dependencies
+    /// that were not captured by C# project references. This happens when a C# project
+    /// uses framework types (e.g. <c>System.Uri</c>) that the converter maps to another
+    /// generated module (e.g. <c>system-private-uri</c>), but there is no C# project
+    /// reference to link them.
+    /// </summary>
+    /// <param name="modulePlans">All module plans (used to know module names and existing deps).</param>
+    /// <param name="moduleRoots">File-system path to each module root (parallel to modulePlans).</param>
+    /// <param name="groupId">Maven groupId for internal module references.</param>
+    /// <returns>A dictionary mapping module plan to a list of additional internal dependencies to add.</returns>
+    private static Dictionary<JavaModulePlan, List<JavaDependency>> DiscoverImplicitModuleDependencies(
+        IReadOnlyList<JavaModulePlan> modulePlans,
+        IReadOnlyList<string> moduleRoots,
+        string groupId)
+    {
+        var result = new Dictionary<JavaModulePlan, List<JavaDependency>>();
+
+        if (modulePlans.Count != moduleRoots.Count || modulePlans.Count == 0)
+            return result;
+
+        // Step 1: Build a map from Java package prefix -> module name.
+        // We scan each module's .java files for `package` declarations.
+        var packageToModule = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var i = 0; i < modulePlans.Count; i++)
+        {
+            var moduleName = modulePlans[i].ModuleName;
+            var moduleRoot = moduleRoots[i];
+            if (!Directory.Exists(moduleRoot))
+                continue;
+
+            foreach (var javaFile in Directory.EnumerateFiles(
+                moduleRoot, "*.java", SearchOption.AllDirectories))
+            {
+                var pkg = TryReadPackageName(javaFile);
+                if (pkg != null)
+                {
+                    // Store the full package, and also all parent prefixes
+                    // (e.g. "dotnet.system" for "dotnet.system.Uri").
+                    // We only need the full package for exact matching.
+                    packageToModule.TryAdd(pkg, moduleName);
+                }
+            }
+        }
+
+        if (packageToModule.Count == 0)
+            return result;
+
+        // Step 2: For each module, scan .java files for `import` statements
+        // and map them to module names.
+        var existingDepModules = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+        for (var i = 0; i < modulePlans.Count; i++)
+        {
+            var moduleName = modulePlans[i].ModuleName;
+            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { moduleName };
+            foreach (var dep in modulePlans[i].Dependencies)
+            {
+                if (dep.IsInternal || dep.GroupId.Equals(groupId, StringComparison.OrdinalIgnoreCase))
+                    existing.Add(dep.ArtifactId);
+            }
+            existingDepModules[moduleName] = existing;
+        }
+
+        for (var i = 0; i < modulePlans.Count; i++)
+        {
+            var modulePlan = modulePlans[i];
+            var moduleRoot = moduleRoots[i];
+            if (!Directory.Exists(moduleRoot))
+                continue;
+
+            var discovered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var javaFile in Directory.EnumerateFiles(
+                moduleRoot, "*.java", SearchOption.AllDirectories))
+            {
+                foreach (var imp in ReadImports(javaFile))
+                {
+                    // Try exact package match first.
+                    if (packageToModule.TryGetValue(imp, out var depModule))
+                    {
+                        discovered.Add(depModule);
+                        continue;
+                    }
+
+                    // Try parent package match: find the longest matching prefix.
+                    // e.g. import "dotnet.system.Uri" -> package "dotnet.system" -> module "system-private-uri"
+                    string? bestMatch = null;
+                    int bestLen = -1;
+                    foreach (var kvp in packageToModule)
+                    {
+                        if (imp.StartsWith(kvp.Key + ".", StringComparison.OrdinalIgnoreCase)
+                            && kvp.Key.Length > bestLen)
+                        {
+                            bestMatch = kvp.Value;
+                            bestLen = kvp.Key.Length;
+                        }
+                    }
+                    if (bestMatch != null)
+                        discovered.Add(bestMatch);
+                }
+            }
+
+            // Filter out self and already-existing dependencies.
+            discovered.ExceptWith(existingDepModules[modulePlan.ModuleName]);
+
+            if (discovered.Count > 0)
+            {
+                var depsToAdd = new List<JavaDependency>();
+                foreach (var depModule in discovered.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                {
+                    depsToAdd.Add(WorkspacePlanBuilder.InternalModuleRef(groupId, depModule));
+                }
+                result[modulePlan] = depsToAdd;
+            }
+        }
+
+        return result;
+    }
+
+    private static string? TryReadPackageName(string javaFilePath)
+    {
+        try
+        {
+            using var reader = new StreamReader(javaFilePath);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                var trimmed = line.TrimStart();
+                if (trimmed.StartsWith("package ", StringComparison.Ordinal))
+                {
+                    // Extract the package name: "package foo.bar;" -> "foo.bar"
+                    var rest = trimmed["package ".Length..];
+                    var semi = rest.IndexOf(';');
+                    if (semi >= 0)
+                        rest = rest[..semi];
+                    return rest.Trim();
+                }
+                // Skip empty lines and comments before package declaration
+                if (trimmed.Length == 0 || trimmed.StartsWith("//", StringComparison.Ordinal)
+                    || trimmed.StartsWith("/*", StringComparison.Ordinal))
+                    continue;
+                // If we hit any other line, the package declaration is missing or past
+                break;
+            }
+        }
+        catch
+        {
+            // Ignore file read errors
+        }
+        return null;
+    }
+
+    private static List<string> ReadImports(string javaFilePath)
+    {
+        var imports = new List<string>();
+        try
+        {
+            using var reader = new StreamReader(javaFilePath);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                var trimmed = line.TrimStart();
+                if (trimmed.StartsWith("import ", StringComparison.Ordinal))
+                {
+                    // "import foo.bar.Baz;" -> "foo.bar.Baz"
+                    var rest = trimmed["import ".Length..];
+                    var semi = rest.IndexOf(';');
+                    if (semi >= 0)
+                        rest = rest[..semi];
+                    rest = rest.Trim();
+                    if (rest.Length > 0)
+                        imports.Add(rest);
+                }
+            }
+        }
+        catch
+        {
+            // Ignore file read errors
+        }
+        return imports;
     }
 
     private static string FormatDiagnostic(DiagnosticMessage diag)
