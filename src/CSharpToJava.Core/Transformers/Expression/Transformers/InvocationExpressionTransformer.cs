@@ -3446,9 +3446,24 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 if (typeOfSymbol is ITypeParameterSymbol typeParam
                     && context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
                 {
-                    var mappedElementType = context.MapType(typeParam);
                     context.AddImport("io.github.ningpp.compat.TypeHelper");
                     return $"TypeHelper.newArrayInstance({runtimeClassParam}, {lengthArg})";
+                }
+                // Method-level type parameters: the runtime class parameter is registered
+                // AFTER the body is converted (AddPendingRuntimeClassParameters), so
+                // TryGetRuntimeClassParameter returns false here. Register a pending
+                // requirement now and use the expected parameter name so the generated
+                // code matches the final method signature.
+                if (typeOfSymbol is ITypeParameterSymbol methodTypeParam
+                    && methodTypeParam.DeclaringMethod != null)
+                {
+                    var currentMethod = context.CurrentMethod;
+                    if (currentMethod != null)
+                    {
+                        context.RequireClassTypeParam(currentMethod, methodTypeParam.Name);
+                        context.AddImport("io.github.ningpp.compat.TypeHelper");
+                        return $"TypeHelper.newArrayInstance(_cs2j_{methodTypeParam.Name}, {lengthArg})";
+                    }
                 }
             }
 

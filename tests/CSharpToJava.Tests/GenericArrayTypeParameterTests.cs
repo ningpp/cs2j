@@ -960,6 +960,32 @@ class Demo<T> {
         Assert.Contains("TypeHelper.newArrayInstance(tClass", code);
     }
 
+    [Fact]
+    public void ArrayCreateInstanceWithTypeOfMethodTypeParam_GeneratesRuntimeClassArrayNotCSharpArray()
+    {
+        // Simulates the post-GenericPreprocessor rewrite of new T[n] -> (T[])Array.CreateInstance(typeof(T), n)
+        // where T is a METHOD-level type parameter (not class-level). The runtime class parameter
+        // (_cs2j_T) is registered AFTER the body is converted, so TryGetRuntimeClassParameter returns
+        // false during body conversion. The special case must still generate TypeHelper.newArrayInstance.
+        var result = Convert("""
+using System;
+
+class Demo {
+    public T[] ToArray<T>(string[] values)
+    {
+        return (T[])Array.CreateInstance(typeof(T), values.Length);
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should use TypeHelper.newArrayInstance with runtime class parameter
+        Assert.DoesNotContain("CSharpArray.of", code);
+        Assert.DoesNotContain("(Object)", code);
+        Assert.Contains("TypeHelper.newArrayInstance", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

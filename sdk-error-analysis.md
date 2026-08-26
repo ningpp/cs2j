@@ -74,3 +74,18 @@
 - **涉及组件**: `src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs`（`VisitArrayCreationExpression`：`new T[n]` → `(T[])Array.CreateInstance(typeof(T), n)`）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`Array.CreateInstance` 处理）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`（`(T[])` cast → `.toArray(T.class)`）
 - **分析**: GenericPreprocessor 将 `new T[n]` 重写为 `(T[])Array.CreateInstance(typeof(T), n)`。然后 `InvocationExpressionTransformer` 将 `Array.CreateInstance(typeof(T), n)` 转成 `CSharpArray.of(java.lang.reflect.Array.newInstance(TypeHelper.toWrapperType(tClass), n))`，外部的 `(T[])` cast 被 `TypeOperationTransformer` 转成 `.toArray(T.class)`，但 `T.class` 在 Java 中对类型变量是非法的。修复方案：(1) `InvocationExpressionTransformer` 中检测 `Array.CreateInstance(typeof(T), n)` 当 T 有 runtime class parameter 时直接返回 `TypeHelper.newArrayInstance(tClass, n)`；(2) `TypeOperationTransformer` 中当目标数组元素类型是类型参数时直接用 `(T[])` cast 代替 `.toArray(T.class)`。
 - **状态**: ✅ Fixed
+
+## Iteration 5 — 方法级类型参数的 `Array.CreateInstance(typeof(T), n)` 未触发特殊情况
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/schema/XmlUntypedStringConverter.java`
+- **行号**: 311
+- **错误信息**: `java.lang.ClassCastException: class io.github.ningpp.compat.CSharpArray cannot be cast to class [Ljava.lang.Object;`（运行时，编译无错）
+- **代码片段**:
+  ```java
+  private <T> T[] toArray(Class<T> _cs2j_T, String[] stringArray, ...) {
+      try {
+          T[] arrDst = (T[]) (Object) (CSharpArray.of(java.lang.reflect.Array.newInstance(TypeHelper.toWrapperType(_cs2j_T), stringArray.length)));
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\xml\src\System\Xml\Schema\XmlUntypedStringConverter.cs`（`ToArray<T>` 方法）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`Array.CreateInstance` 特殊处理路径）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`（`(T[])` cast 处理）
+- **分析**: GenericPreprocessor 将 `new T[n]` 重写为 `(T[])Array.CreateInstance(typeof(T), n)`。`InvocationExpressionTransformer` 的特殊情况检查 `TryGetRuntimeClassParameter(typeParam.Name, ...)`，但该方法级类型参数 T 的 runtime class parameter (`_cs2j_T`) 是在方法体转换**之后**由 `AddPendingRuntimeClassParameters` 注册的。转换方法体时 `TryGetRuntimeClassParameter` 返回 false，特殊情况不触发，走了通用 fallback 路径 `CSharpArray.of(...)`。同样，`TypeOperationTransformer` 中 `(T[])` cast 也因 `TryGetRuntimeClassParameter` 返回 false 走了 `(T[]) (Object)` 路径。结果：`CSharpArray` 对象无法 cast 为 `Object[]`，运行时 `ClassCastException`。

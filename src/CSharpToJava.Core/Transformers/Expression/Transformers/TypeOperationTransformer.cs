@@ -535,6 +535,18 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 return $"({elementTypeName}[]) ({expression})";
             }
 
+            // Method-level type parameter without a registered runtime class parameter yet:
+            // The parameter will be registered after body conversion (AddPendingRuntimeClassParameters),
+            // and the inner expression (Array.CreateInstance(typeof(T), n)) will have already
+            // generated TypeHelper.newArrayInstance(_cs2j_T, n) which produces a correctly-typed
+            // array. Use a direct (T[]) cast without the (Object) intermediate that would fail
+            // at runtime when the inner expression returns a CSharpArray wrapper.
+            if (elementIsTypeParameter
+                && elementType is ITypeParameterSymbol { DeclaringMethod: not null })
+            {
+                return $"({elementTypeName}[]) ({expression})";
+            }
+
             // Type parameter without runtime class parameter — use a raw cast through Object.
             if (elementIsTypeParameter)
             {
