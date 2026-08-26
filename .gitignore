@@ -90,3 +90,4 @@ repro/
 
 .scratch-*/
 probe-out/
+.cs2j-generic-src/

@@ -23,7 +23,7 @@ public class Program
 
     internal static async Task<int> MainImpl(string[] args)
     {
-        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions>(args)
+        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -31,6 +31,7 @@ public class Program
                 (EliminateGotoOptions opts) => EliminateGoto(opts),
                 (MakeReadOnlyOptions opts) => MakeReadonly(opts),
                 (UnsignedTypeOptions opts) => UnsignedType(opts),
+                (GenericPreprocessOptions opts) => GenericPreprocess(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -216,6 +217,45 @@ public class Program
                 opts.Source = unsignedResult.PreprocessedSourcePath;
                 opts.FingerprintSourcePath ??= unsignedResult.OriginalSourcePath;
                 opts.FingerprintInputRoot ??= unsignedResult.SourceRoot;
+            }
+
+            if (opts.GenericPreprocess)
+            {
+                var genericResult = await ProjectGenericPreprocessor.PreprocessAsync(new ProjectGenericPreprocessRequest
+                {
+                    SourcePath = opts.Source,
+                    DestinationRoot = opts.Destination,
+                    Force = opts.Force,
+                    Verbose = opts.Verbose,
+                    FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                    CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                    VerifyBuild = opts.VerifyBuild,
+                    VerifyTests = opts.VerifyTests,
+                });
+
+                Console.WriteLine(
+                    $"generic: {genericResult.Statistics.FilesTransformed} transformed, " +
+                    $"{genericResult.Statistics.FilesSkippedClean} clean " +
+                    $"({genericResult.Statistics.DefaultExpressionsRewritten} default(T), " +
+                    $"{genericResult.Statistics.NewTypeParamRewritten} new T(), " +
+                    $"{genericResult.Statistics.NewTypeParamArrayRewritten} new T[n])");
+
+                foreach (var diagnostic in genericResult.Diagnostics)
+                {
+                    if (diagnostic.Severity != CSharpToJava.Core.GenericPreprocess.GenericPreprocessSeverity.Info || opts.Verbose)
+                    {
+                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.FilePath}: {diagnostic.Message}");
+                    }
+                }
+
+                if (!genericResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = genericResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= genericResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= genericResult.SourceRoot;
             }
 
             if (opts.MakeReadOnly)
@@ -1691,6 +1731,10 @@ public class Program
         {
             preserved.Add(ProjectReadOnlyStructPreprocessor.IntermediateDirectoryName);
         }
+        if (opts.GenericPreprocess)
+        {
+            preserved.Add(ProjectGenericPreprocessor.IntermediateDirectoryName);
+        }
         return preserved.Count > 0 ? preserved : null;
     }
 
@@ -2431,6 +2475,7 @@ public class Program
             $"include-tests={opts.IncludeTests}",
             $"eliminate-goto={opts.EliminateGoto}",
             $"unsigned-type={opts.UnsignedType}",
+            $"generic-preprocess={opts.GenericPreprocess}",
             $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
     }
@@ -3000,6 +3045,91 @@ public class Program
         }
     }
 
+    private static async Task<int> GenericPreprocess(GenericPreprocessOptions opts)
+    {
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("generic-preprocess",
+                new[] { tree },
+                new[] { Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+            var preprocessor = new CSharpToJava.Core.GenericPreprocess.GenericPreprocessor();
+            var genOpts = new CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions
+            {
+                Strict = opts.Strict,
+                ReportInfo = opts.Verbose,
+            };
+            var result = preprocessor.Preprocess(sourceCode, compilation.GetSemanticModel(tree), genOpts);
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose) Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else Console.Write(result.OutputCode);
+
+            foreach (var d in result.Diagnostics)
+                Console.Error.WriteLine($"[{d.Severity}] {d.Message}");
+            return result.Diagnostics.Any(d => d.Severity == CSharpToJava.Core.GenericPreprocess.GenericPreprocessSeverity.Warning) && opts.Strict ? 1 : 0;
+        }
+
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectGenericPreprocessor.PreprocessAsync(new ProjectGenericPreprocessRequest
+        {
+            SourcePath = opts.Source,
+            DestinationRoot = opts.Destination,
+            Force = true,
+            Verbose = opts.Verbose,
+            Options = new CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions
+            {
+                Strict = opts.Strict,
+                ReportInfo = opts.Verbose,
+            },
+            FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+            VerifyBuild = opts.VerifyBuild,
+            VerifyTests = opts.VerifyTests,
+        });
+
+        Console.WriteLine(
+            $"generic: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean " +
+            $"({preprocessResult.Statistics.DefaultExpressionsRewritten} default(T), " +
+            $"{preprocessResult.Statistics.NewTypeParamRewritten} new T(), " +
+            $"{preprocessResult.Statistics.NewTypeParamArrayRewritten} new T[n])");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            if (diagnostic.Severity != CSharpToJava.Core.GenericPreprocess.GenericPreprocessSeverity.Info || opts.Verbose)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.FilePath}: {diagnostic.Message}");
+            }
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+
+        if (opts.Strict && preprocessResult.Diagnostics.Any(d => d.Severity == CSharpToJava.Core.GenericPreprocess.GenericPreprocessSeverity.Warning))
+            return 1;
+        return preprocessResult.Success ? 0 : 1;
+    }
+
     private static async Task<int> MakeReadonly(MakeReadOnlyOptions opts)
     {
         if (opts.Input != null)
@@ -3152,6 +3282,37 @@ class MakeReadOnlyOptions
     public bool VerifyTests => !NoVerifyTests;
 }
 
+[Verb("generic-preprocess", HelpText = "Rewrite generic C# patterns (default(T), new T(), new T[n]) to translation-friendly equivalents")]
+class GenericPreprocessOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat unrewritten generic patterns as fatal")]
+    public bool Strict { get; set; }
+
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after generic preprocessing")]
+    public bool NoVerifyBuild { get; set; }
+
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after generic preprocessing")]
+    public bool NoVerifyTests { get; set; }
+
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+    public bool VerifyBuild => !NoVerifyBuild;
+    public bool VerifyTests => !NoVerifyTests;
+}
+
 [Verb("unsigned-type", HelpText = "Rewrite byte/ushort/uint/ulong keywords to System.* full names")]
 class UnsignedTypeOptions
 {
@@ -3298,6 +3459,9 @@ class ConvertProjectOptions
     
     [Option("no-make-readonly", Default = false, HelpText = "Disable the default readonly-struct preprocessing step")]
     public bool NoMakeReadOnly { get; set; }
+
+    [Option("generic-preprocess", Default = false, HelpText = "Run the generic-preprocessing step (default(T)/new T()/new T[n] lowering) before conversion")]
+    public bool GenericPreprocess { get; set; }
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }
