@@ -89,3 +89,4 @@
 - **根因分类**: Transformer
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`Array.CreateInstance` 特殊处理路径）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`（`(T[])` cast 处理）
 - **分析**: GenericPreprocessor 将 `new T[n]` 重写为 `(T[])Array.CreateInstance(typeof(T), n)`。`InvocationExpressionTransformer` 的特殊情况检查 `TryGetRuntimeClassParameter(typeParam.Name, ...)`，但该方法级类型参数 T 的 runtime class parameter (`_cs2j_T`) 是在方法体转换**之后**由 `AddPendingRuntimeClassParameters` 注册的。转换方法体时 `TryGetRuntimeClassParameter` 返回 false，特殊情况不触发，走了通用 fallback 路径 `CSharpArray.of(...)`。同样，`TypeOperationTransformer` 中 `(T[])` cast 也因 `TryGetRuntimeClassParameter` 返回 false 走了 `(T[]) (Object)` 路径。结果：`CSharpArray` 对象无法 cast 为 `Object[]`，运行时 `ClassCastException`。
+- **状态**: ✅ Fixed
