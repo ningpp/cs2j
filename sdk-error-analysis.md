@@ -55,3 +55,22 @@
 - **根因分类**: Transformer
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.LocalFunctions.cs`（`PrescanLocalFunctions` 传递闭包）
 - **分析**: C# 局部函数 `EmitNode` 只读取捕获变量 `doneLabel`（`IsWritten=false`），但它调用的 `EmitSingleCharAtomicLoop` 写入 `doneLabel`（`IsWritten=true`）。`PrescanLocalFunctions` 的 fixpoint 传播 callee 的 captures 给 caller 时，如果 caller 已有同名 capture（`IsWritten=false`），直接跳过不更新——导致 caller 的参数类型保持为 `Label` 而非 `ObjectHolder<Label>`，调用 callee 时传 `Label` 给期望 `ObjectHolder<Label>` 的参数。
+
+## Iteration 4 — `new T[n]` 泛型数组创建误用 `T.class`
+- **Java 文件**: `system-private-uri/src/main/java/dotnet/system/Collections/Generic/ArrayBuilder.java`
+- **行号**: 59（同模式共 3 处：59、131、168）
+- **错误信息**: `无法从类型变量中进行选择`（cannot select from a type variable）
+- **代码片段**:
+  ```java
+  // 行 59
+  _array = CSharpArray.of(java.lang.reflect.Array.newInstance(TypeHelper.toWrapperType(tClass), capacity)).toArray(T.class);
+  // 行 131
+  result = CSharpArray.of(java.lang.reflect.Array.newInstance(TypeHelper.toWrapperType(tClass), _count)).toArray(T.class);
+  // 行 168
+  T[] next = CSharpArray.of(java.lang.reflect.Array.newInstance(TypeHelper.toWrapperType(tClass), nextCapacity)).toArray(T.class);
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\uri\src\Common\System\Collections\Generic\ArrayBuilder.cs`
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs`（`VisitArrayCreationExpression`：`new T[n]` → `(T[])Array.CreateInstance(typeof(T), n)`）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`Array.CreateInstance` 处理）、`src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`（`(T[])` cast → `.toArray(T.class)`）
+- **分析**: GenericPreprocessor 将 `new T[n]` 重写为 `(T[])Array.CreateInstance(typeof(T), n)`。然后 `InvocationExpressionTransformer` 将 `Array.CreateInstance(typeof(T), n)` 转成 `CSharpArray.of(java.lang.reflect.Array.newInstance(TypeHelper.toWrapperType(tClass), n))`，外部的 `(T[])` cast 被 `TypeOperationTransformer` 转成 `.toArray(T.class)`，但 `T.class` 在 Java 中对类型变量是非法的。修复方案：(1) `InvocationExpressionTransformer` 中检测 `Array.CreateInstance(typeof(T), n)` 当 T 有 runtime class parameter 时直接返回 `TypeHelper.newArrayInstance(tClass, n)`；(2) `TypeOperationTransformer` 中当目标数组元素类型是类型参数时直接用 `(T[])` cast 代替 `.toArray(T.class)`。
+- **状态**: ✅ Fixed

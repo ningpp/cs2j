@@ -3434,8 +3434,25 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     "System.Array",
                     "Object"))))
         {
-            var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             var lengthArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+
+            // When the type argument is typeof(T) where T is a type parameter with a
+            // runtime class parameter, generate (T[]) TypeHelper.newArrayInstance(tClass, n)
+            // directly. This avoids the CSharpArray.of(...).toArray(T.class) pattern which
+            // is illegal in Java because T.class cannot be used with a type variable.
+            if (node.ArgumentList.Arguments[0].Expression is TypeOfExpressionSyntax typeOfExpr)
+            {
+                var typeOfSymbol = context.GetTypeInfo(typeOfExpr.Type).Type;
+                if (typeOfSymbol is ITypeParameterSymbol typeParam
+                    && context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
+                {
+                    var mappedElementType = context.MapType(typeParam);
+                    context.AddImport("io.github.ningpp.compat.TypeHelper");
+                    return $"TypeHelper.newArrayInstance({runtimeClassParam}, {lengthArg})";
+                }
+            }
+
+            var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
             context.AddImport("io.github.ningpp.compat.CSharpArray");
             return $"CSharpArray.of(java.lang.reflect.Array.newInstance({typeArg}, {lengthArg}))";
         }

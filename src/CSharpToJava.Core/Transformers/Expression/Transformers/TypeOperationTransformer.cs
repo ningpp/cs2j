@@ -523,6 +523,24 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             var elementType = arrayCastTarget.ElementType;
             var elementTypeName = context.MapType(elementType);
+            // When the element type is a type parameter, T.class is illegal in Java.
+            // If a runtime class parameter is available, the inner expression
+            // (e.g. Array.CreateInstance(typeof(T), n) → TypeHelper.newArrayInstance(tClass, n))
+            // already produces a correctly-typed Java array, so a direct (T[]) cast suffices
+            // without calling CSharpArray.toArray(T.class).
+            bool elementIsTypeParameter = elementType.TypeKind == TypeKind.TypeParameter;
+            if (elementIsTypeParameter
+                && context.TryGetRuntimeClassParameter(elementType.Name, out _))
+            {
+                return $"({elementTypeName}[]) ({expression})";
+            }
+
+            // Type parameter without runtime class parameter — use a raw cast through Object.
+            if (elementIsTypeParameter)
+            {
+                return $"({elementTypeName}[]) (Object) ({expression})";
+            }
+
             var elementClassLiteral = $"{ToRuntimeTypeForClassLiteral(elementTypeName)}.class";
             context.AddImport("io.github.ningpp.compat.CSharpArray");
 

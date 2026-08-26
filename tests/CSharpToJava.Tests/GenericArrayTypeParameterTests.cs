@@ -935,6 +935,31 @@ class Demo {
         Assert.DoesNotContain("T.class", code);
     }
 
+    [Fact]
+    public void ArrayCreateInstanceWithTypeOfT_GeneratesRuntimeClassArrayNotTClass()
+    {
+        // Simulates the post-GenericPreprocessor rewrite of new T[n] -> (T[])Array.CreateInstance(typeof(T), n).
+        // The generated Java code must NOT contain T.class (illegal in Java for type variables).
+        var result = Convert("""
+using System;
+
+class Demo<T> {
+    public T[] Repeat(T value, int count)
+    {
+        return (T[])Array.CreateInstance(typeof(T), count);
+    }
+}
+""");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        var code = result.GeneratedCode!;
+
+        // Should use TypeHelper.newArrayInstance with runtime class parameter, not CSharpArray.of(...).toArray(T.class)
+        Assert.DoesNotContain("T.class", code);
+        Assert.DoesNotContain(".toArray(", code);
+        Assert.DoesNotContain("CSharpArray.of", code);
+        Assert.Contains("TypeHelper.newArrayInstance(tClass", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
