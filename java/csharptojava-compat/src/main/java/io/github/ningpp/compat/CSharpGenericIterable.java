@@ -77,6 +77,45 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         };
     }
 
+    /**
+     * Handles C# 'where T : IEnumerable' constraint erased at compile time.
+     * In .NET, arrays implement IEnumerable, but Java arrays do not implement
+     * Iterable.  This method bridges the gap by accepting either an Iterable
+     * or an array and returning a CSharpGenericIterable view, so generated code
+     * like {@code CSharpGenericIterable.fromAny(value).iterator()} works
+     * regardless of whether value is a CSharpList, a plain Collection, or an
+     * array (e.g. int[][], String[], Object[]).
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    static CSharpGenericIterable fromAny(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof CSharpGenericIterable) {
+            return (CSharpGenericIterable) value;
+        }
+        if (value instanceof Iterable) {
+            return from((Iterable<?>) value);
+        }
+        if (value.getClass().isArray()) {
+            return new CSharpGenericIterable() {
+                @Override
+                public CSharpGenericEnumerator iterator() {
+                    // Use reflection to iterate any array (primitive or reference).
+                    int len = java.lang.reflect.Array.getLength(value);
+                    List list = new ArrayList<>(len);
+                    for (int i = 0; i < len; i++) {
+                        list.add(java.lang.reflect.Array.get(value, i));
+                    }
+                    return CSharpGenericEnumerator.from(list.iterator());
+                }
+                @Override public int size() { return java.lang.reflect.Array.getLength(value); }
+            };
+        }
+        throw new UnsupportedOperationException(
+            "Cannot convert " + value.getClass() + " to CSharpGenericIterable");
+    }
+
     // Default Collection implementations for lazy iterables
     @Override
     default int size() {

@@ -24,7 +24,9 @@
                 <configuration>
                     <release>${java.version}</release>
                     <encoding>UTF-8</encoding>
-
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>
@@ -32,7 +34,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.3.1</version>
                 <configuration>
-                    <argLine>-Djava.awt.headless=true</argLine>
+                    <argLine>-Djava.awt.headless=true --enable-preview</argLine>
                 </configuration>
             </plugin>
         </plugins>

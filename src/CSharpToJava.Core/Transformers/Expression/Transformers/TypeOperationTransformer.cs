@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -653,9 +653,25 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                         if (sourceTypeParam != null || operandType is ITypeParameterSymbol)
                         {
                             var operand = GetOperandOfEnumerableCast(node.Expression, context);
-                            return $"({targetType}) (Object) ({operand})";
+                            // C# allows (TElement[])(IEnumerable)value where the runtime
+                            // value may be a primitive array (int[]). Java forbids casting
+                            // int[] to Object[], so use TypeHelper.castArray which boxes
+                            // primitive elements when needed. The tElementClass field
+                            // (generated for generic converters via runtime class fields)
+                            // provides the component type; fall back to Object.class when
+                            // the field is not available.
+                            var elemTypeParam = targetArrayType.ElementType as ITypeParameterSymbol;
+                            var classFieldName = elemTypeParam?.Name switch
+                            {
+                                "TElement" => "tElementClass",
+                                "T" => "tClass",
+                                _ => $"{char.ToLowerInvariant(elemTypeParam!.Name[0])}{elemTypeParam.Name.Substring(1)}Class"
+                            };
+                            context.AddImport("io.github.ningpp.compat.TypeHelper");
+                            return $"TypeHelper.castArray({operand}, {classFieldName})";
                         }
-                        return $"({targetType}) (Object) ({expression})";
+                        context.AddImport("io.github.ningpp.compat.TypeHelper");
+                        return $"TypeHelper.castArray({expression}, Object.class)";
                     }
 
                     // Concrete element type: the runtime value may be a collection wrapper
@@ -948,7 +964,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         return $"({targetType})({expression})";
     }
 
-    private static bool IsTypeParameterConstrainedToEnumerable(ITypeParameterSymbol? typeParam)
+    internal static bool IsTypeParameterConstrainedToEnumerable(ITypeParameterSymbol? typeParam)
     {
         if (typeParam == null)
             return false;

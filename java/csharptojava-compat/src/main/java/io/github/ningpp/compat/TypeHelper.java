@@ -214,6 +214,31 @@ public final class TypeHelper {
         if (baseType == CSharpGenericIterable.class && type != null && type.isArray()) {
             return true;
         }
+        // .NET's non-generic collection interfaces (IDictionary, IList,
+        // ICollection, IEnumerable) all derive from IEnumerable.  In the
+        // compat library these are modeled as separate interface trees
+        // (CSharpIDictionary/CSharpCollection/CSharpIterable vs.
+        // CSharpGenericIterable), so bridge them here to keep
+        // typeof(IEnumerable).IsAssignableFrom(...) semantics intact for
+        // types like CSharpIDictionary and CSharpGenericIDictionary.
+        if (baseType == CSharpGenericIterable.class && type != null
+                && (type == CSharpIDictionary.class
+                    || type == CSharpCollection.class
+                    || type == CSharpIterable.class
+                    || type == CSharpGenericIDictionary.class)) {
+            return true;
+        }
+        // .NET's concrete generic collections (Dictionary<K,V>, List<T>)
+        // implement both their generic interface (IDictionary<K,V>,
+        // IList<T>) and the non-generic interface (IDictionary, IList).
+        // The compat library models the generic and non-generic interfaces
+        // as unrelated types, so bridge the assignability here.
+        if (baseType == CSharpIDictionary.class && type == CSharpDictionary.class) {
+            return true;
+        }
+        if (baseType == CSharpIList.class && type == CSharpList.class) {
+            return true;
+        }
         if (baseType != null && baseType.isAssignableFrom(type)) {
             return true;
         }
@@ -234,13 +259,13 @@ public final class TypeHelper {
         if (type == null || !type.isArray()) {
             return 0;
         }
-        int rank = 0;
-        Class<?> current = type;
-        while (current.isArray()) {
-            rank++;
-            current = current.getComponentType();
-        }
-        return rank;
+        // In .NET, ArrayRank is the number of comma dimensions in a single
+        // array type (int[,] => rank 2). Java has no true multidimensional
+        // arrays — int[][] is a jagged array (rank 1, element type int[]).
+        // Therefore the .NET-compatible rank is always 1 for any Java array
+        // (which is always single-dimensional; "multidimensional" arrays are
+        // modeled as arrays-of-arrays and handled recursively by element type).
+        return 1;
     }
 
     public static MethodInfo[] getMethods(Class<?> type, int bindingFlags) {
@@ -556,6 +581,43 @@ public final class TypeHelper {
             return false;
         }
         return toWrapperType(a) == toWrapperType(b);
+    }
+
+    /**
+     * Bridges C# array covariance to Java. In C#, any array (including
+     * {@code int[]}) can be cast to {@code T[]} where T is a reference type,
+     * because C# supports array covariance through {@code IEnumerable}.
+     * Java forbids casting {@code int[]} to {@code Object[]}.
+     * <p>
+     * This method returns the array itself if it is already assignable to
+     * {@code Object[]}, otherwise it boxes primitive elements into a new
+     * {@code Object[]} (or the requested component type array). This mirrors
+     * the semantics of C#'s {@code (T[])(IEnumerable)value} cast.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T[] castArray(Object value, Class<T> componentType) {
+        if (value == null) {
+            return null;
+        }
+        if (!value.getClass().isArray()) {
+            throw new ClassCastException(value.getClass().getName()
+                + " is not an array");
+        }
+        Class<?> srcComponent = value.getClass().getComponentType();
+        // If the source is already assignable (e.g. String[] → Object[]),
+        // return as-is.
+        if (componentType.isAssignableFrom(srcComponent)) {
+            return (T[]) value;
+        }
+        // Otherwise box each element (e.g. int[] → Integer[] → T[]).
+        int len = java.lang.reflect.Array.getLength(value);
+        Object[] result = (Object[]) java.lang.reflect.Array.newInstance(
+            componentType.isPrimitive() ? toWrapperType(componentType) : componentType,
+            len);
+        for (int i = 0; i < len; i++) {
+            result[i] = java.lang.reflect.Array.get(value, i);
+        }
+        return (T[]) result;
     }
 
     /**

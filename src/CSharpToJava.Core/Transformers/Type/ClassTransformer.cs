@@ -259,6 +259,22 @@ public class ClassTransformer : ITypeTransformer
             foreach (var constraintType in typeParam.ConstraintTypes)
             {
                 var bound = context.MapType(constraintType);
+                // C# 'where T : IEnumerable' (and its generic form) maps to
+                // CSharpGenericIterable.  In .NET, arrays implement IEnumerable,
+                // but Java arrays cannot implement CSharpGenericIterable, so
+                // keeping the bound would cause ClassCastException at call sites
+                // that pass arrays (e.g. ArrayConverter<TCollection, TElement>
+                // where TCollection : IEnumerable is instantiated with int[]).
+                // The compat library's TypeHelper.isAssignableFrom already bridges
+                // the runtime assignability, so the compile-time bound is not
+                // needed and would only break array usage.
+                if (bound == "CSharpGenericIterable<?>"
+                    || bound == "CSharpGenericIterable"
+                    || bound.Contains("CSharpGenericIterable")
+                    || bound == "Iterable"
+                    || bound == "Iterable<?>"
+                    || bound.StartsWith("Iterable<", StringComparison.Ordinal))
+                    continue;
                 if (!string.IsNullOrEmpty(bound) && bound != "Object")
                     jtp.Bounds.Add(bound);
             }
@@ -1965,6 +1981,22 @@ public class ClassTransformer : ITypeTransformer
                         // used for Action/Func targets are unrelated, so the bound
                         // would reject BiConsumer/Function arguments.
                         if (bound == "Delegate" || bound.StartsWith("Delegate<", StringComparison.Ordinal))
+                            continue;
+                        // C# 'where T : IEnumerable' (and its generic form) maps to
+                        // CSharpGenericIterable.  In .NET, arrays implement IEnumerable,
+                        // but Java arrays cannot implement CSharpGenericIterable, so
+                        // keeping the bound would cause ClassCastException at call sites
+                        // that pass arrays (e.g. ArrayConverter<TCollection, TElement>
+                        // where TCollection : IEnumerable is instantiated with int[]).
+                        // The compat library's TypeHelper.isAssignableFrom already bridges
+                        // the runtime assignability, so the compile-time bound is not
+                        // needed and would only break array usage.
+                        if (bound == "CSharpGenericIterable<?>"
+                            || bound == "CSharpGenericIterable"
+                            || bound.Contains("CSharpGenericIterable")
+                            || bound == "Iterable"
+                            || bound == "Iterable<?>"
+                            || bound.StartsWith("Iterable<", StringComparison.Ordinal))
                             continue;
                         if (!string.IsNullOrEmpty(bound) && bound != "Object")
                             jtp.Bounds.Add(bound);

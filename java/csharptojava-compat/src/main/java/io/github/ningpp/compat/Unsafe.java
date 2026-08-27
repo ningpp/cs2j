@@ -47,9 +47,23 @@ public class Unsafe {
         return holder.value;
     }
 
-    /** Mirrors Unsafe.As&lt;TFrom, TTo&gt;(ref TFrom value) — unchecked reference cast. */
+    /**
+     * Mirrors Unsafe.As&lt;TFrom, TTo&gt;(ref TFrom value) — unchecked reference cast.
+     * In C#, this reinterprets the memory representation of one type as another.
+     * When the source is a C# enum (modelled as a Java enum with a getValue()
+     * method), the numeric value is extracted instead of attempting a direct
+     * cast (which would fail because Java enums are not Numbers).
+     */
     @SuppressWarnings("unchecked")
     public static <T> T as(Object value) {
+        if (value instanceof Enum<?> e) {
+            try {
+                var gm = e.getClass().getMethod("getValue");
+                Object numVal = gm.invoke(e);
+                return (T) numVal;
+            } catch (Exception ignored) {
+            }
+        }
         return (T) value;
     }
 

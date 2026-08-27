@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -317,6 +317,50 @@ public class StructTransformer : ITypeTransformer
         {
             FixReadonlyStructConstructorChaining(javaClass, structFieldNamesForCtor, enumFieldNamesForCtor);
             DropFinalFromRepeatedlyAssignedFields(javaClass);
+        }
+
+        // For value classes (C# readonly struct → Java value class), add a
+        // field-copy constructor that directly assigns every instance field
+        // from its parameter.  MemoryMarshal.read uses this constructor to
+        // reconstruct value-class instances from their encoded byte layout,
+        // because Java value classes cannot have their final fields modified
+        // via reflection/Unsafe (unlike C# where MemoryMarshal.Read directly
+        // reinterprets the raw bytes).  The constructor is package-private
+        // to avoid polluting the public API.
+        if (javaClass.IsValueClass)
+        {
+            var instanceFields = javaClass.Fields
+                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
+                .ToList();
+            if (instanceFields.Count > 0)
+            {
+                // Check if a constructor with the same parameter types already exists.
+                var fieldTypes = instanceFields.Select(f => f.Type).ToList();
+                bool hasFieldCopyCtor = javaClass.Constructors.Any(c =>
+                    c.Parameters.Count == fieldTypes.Count
+                    && c.Parameters.Select(p => p.Type).SequenceEqual(fieldTypes));
+                if (!hasFieldCopyCtor)
+                {
+                    var fieldCopyCtorParams = new List<JavaParameter>();
+                    var bodyLines = new List<string>();
+                    for (int i = 0; i < instanceFields.Count; i++)
+                    {
+                        var field = instanceFields[i];
+                        var paramName = $"__field{i}";
+                        fieldCopyCtorParams.Add(new JavaParameter(field.Type, paramName));
+                        bodyLines.Add($"this.{field.Name} = {paramName};");
+                    }
+                    var fieldCopyCtor = new JavaConstructorDeclaration
+                    {
+                        ClassName = javaClass.Name,
+                        Modifiers = JavaModifiers.None, // package-private
+                        Body = string.Join("\n", bodyLines)
+                    };
+                    foreach (var p in fieldCopyCtorParams)
+                        fieldCopyCtor.Parameters.Add(p);
+                    javaClass.Constructors.Add(fieldCopyCtor);
+                }
+            }
         }
 
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;

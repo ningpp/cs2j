@@ -1895,6 +1895,25 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"({leftArg} == {rightArg})";
         }
 
+        // C# 'where T : IEnumerable' constraint is erased in Java to allow arrays
+        // (which don't implement Iterable). When GetEnumerator() is called on
+        // such a type parameter, wrap the receiver with CSharpGenericIterable.fromAny()
+        // so the iterator() call works for both arrays and real Iterable types.
+        // This must happen BEFORE the dictionary/explicit-enumerator checks below,
+        // because those checks would otherwise generate receiver.iterator() which
+        // fails to compile when TCollection has no bound.
+        if (originalMethodName == "GetEnumerator"
+            && context.SemanticModel != null)
+        {
+            var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType is ITypeParameterSymbol tp
+                && TypeOperationTransformer.IsTypeParameterConstrainedToEnumerable(tp))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                receiver = $"CSharpGenericIterable.fromAny({receiver})";
+            }
+        }
+
         if (originalMethodName == "GetEnumerator" && IsDictionaryLikeExpression(memberAccess.Expression, context))
         {
             // CSharpDictionary.iterator() returns CSharpGenericEnumerator<CSharpKeyValuePair<K,V>>.
