@@ -141,7 +141,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             if (irTokens != null && bareMethodSym != null)
             {
-                var csharpParamCount = bareMethodSym.Parameters.Length;
+                var csharpParamCount = bareMethodSym.Parameters.Count(p => !p.HasExplicitDefaultValue && !p.IsOptional);
                 int registeredClassParams = 0;
                 if (context.MethodHasClassParams(bareMethodSym.OriginalDefinition))
                 {
@@ -373,6 +373,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // parameter), drop the tokens instead of emitting a mismatched list.
             if (classTokens != null && bareMethodSym != null)
             {
+                // Guard: the Java-side signature must have token slots for every Class
+                // token. Registered Class<T> parameters widen the slot count; without
+                // them (forward-referenced helpers whose signature never gained a
+                // parameter), drop the tokens instead of emitting a mismatched list.
+                //
+                // Use the TOTAL parameter count (including optional ones) as the
+                // ceiling, because a call may supply values for optional parameters
+                // (including via named arguments). Using only the non-optional count
+                // would incorrectly drop tokens when the call passes optional args.
                 var csharpParamCount = bareMethodSym.Parameters.Length;
                 int registeredClassParams = 0;
                 if (context.MethodHasClassParams(bareMethodSym.OriginalDefinition))
@@ -762,6 +771,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // parameter), drop the tokens instead of emitting a mismatched list.
             if (classTokens != null && bareMethodSym2 != null)
             {
+                // Use TOTAL parameter count (including optional) because the call
+                // may supply values for optional parameters (including named args).
                 var csharpParamCount = bareMethodSym2.Parameters.Length;
                 int registeredClassParams = 0;
                 if (context.MethodHasClassParams(bareMethodSym2.OriginalDefinition))
@@ -3550,7 +3561,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     // Check if a runtime class parameter is already registered (class-level type params)
                     if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
                     {
-                        return $"Activator.createInstance({runtimeClassParam})";
+                        // The runtime class field is Class<?>, so cast to Class<T> for proper
+                        // generic return type inference (avoids wildcard capture errors).
+                        return $"Activator.createInstance((Class<{typeParam.Name}>) {runtimeClassParam})";
                     }
                     // Method-level type parameter: register a pending requirement and use
                     // the expected _cs2j_T name (same timing issue as Array.CreateInstance)
@@ -3561,11 +3574,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         {
                             context.RequireClassTypeParam(currentMethod, typeParam.Name);
                         }
-                        return $"Activator.createInstance(_cs2j_{typeParam.Name})";
+                        return $"Activator.createInstance((Class<{typeParam.Name}>) _cs2j_{typeParam.Name})";
                     }
                     // Class-level type parameter without runtime class field yet:
                     // GetClassLiteral will register the pending requirement.
-                    return $"Activator.createInstance({ConversionContext.GetClassLiteral(typeParam, context)})";
+                    return $"Activator.createInstance((Class<{typeParam.Name}>) {ConversionContext.GetClassLiteral(typeParam, context)})";
                 }
                 // Non-type-parameter generic arg (e.g. Activator.CreateInstance<string>())
                 var mappedType = facade.Transform(genericCreateName.TypeArgumentList.Arguments[0], context);
@@ -4708,10 +4721,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
                 // Fallback: flags enum registry covers cross-file scenarios where the enum
                 // declaration was seen in a different file in this project compilation.
+                // IMPORTANT: only check via fully-qualified display string, NOT simple name.
+                // Different nested enums may share the same simple name (e.g. "MyEnum" in
+                // EnumConverterTests is [Flags] but "MyEnum" in PropertyVisibilityTests is not).
+                // Using the simple name would cause false positives across unrelated enums.
+                var receiverDisplayString = receiverSymbol?.ToDisplayString() ?? string.Empty;
                 if (wrapperClass == null
                     && receiverSymbol?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
-                    && (context.IsFlagsEnum(receiverSymbol.Name)
-                        || context.IsFlagsEnum(receiverSymbol.ToDisplayString() ?? string.Empty)))
+                    && !string.IsNullOrEmpty(receiverDisplayString)
+                    && context.IsFlagsEnum(receiverDisplayString))
                 {
                     var namedFlags = receiverSymbol as INamedTypeSymbol;
                     flagsEnumType = namedFlags;
@@ -6418,6 +6436,29 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     concatReceiver = $"{concatReceiver}.boxed()";
                 }
 
+                // Box primitive streams (IntStream/LongStream/DoubleStream) to Stream<Integer> etc.
+                // Stream.concat requires both arguments to be Stream<? extends T>, not primitive streams.
+                // This handles byte[]/short[]/char[]/float[]/boolean[] arrays that were converted to
+                // primitive streams by BuildArrayStreamExpression (IntStream.range().map() etc.)
+                // Also check the receiver string itself — after LINQ chain conversion, the receiver
+                // may already be a primitive stream expression without matching the array type check above.
+                if (concatReceiverType is IArrayTypeSymbol primitiveArr
+                    && ExpressionTransformerHelpers.IsPrimitiveSpecialTypeForArrayStream(primitiveArr.ElementType.SpecialType)
+                    && primitiveArr.ElementType.SpecialType is not
+                        (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Double))
+                {
+                    // byte[], short[], char[], float[], boolean[] → IntStream/DoubleStream
+                    // These need .boxed() to become Stream<Integer>/Stream<Double>
+                    concatReceiver = $"{concatReceiver}.boxed()";
+                }
+                else if (ReceiverLooksLikePrimitiveStream(concatReceiver)
+                    && !concatReceiver.Contains(".boxed()", StringComparison.Ordinal))
+                {
+                    // Receiver is already a primitive stream expression from a previous LINQ
+                    // chain step (e.g. IntStream.range(0, n).map(i -> arr[i]))
+                    concatReceiver = $"{concatReceiver}.boxed()";
+                }
+
                 var concatStream = $"Stream.concat({concatReceiver}, {otherStream})";
                 var concatType = context.GetTypeInfo(node).Type as INamedTypeSymbol;
                 bool returnsEnumerable = concatType?.Name == "IEnumerable"
@@ -7625,7 +7666,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // C# parameter count + Class<T> slots.
             if (memberClassTokens != null)
             {
-                var csharpParamCount = methodSymbol.Parameters.Length;
+                var csharpParamCount = methodSymbol.Parameters.Count(p => !p.HasExplicitDefaultValue && !p.IsOptional);
                 bool hasParamsArg = methodSymbol.Parameters.Length > 0
                     && methodSymbol.Parameters[^1].IsParams;
                 int registeredClassParams = 0;
@@ -8524,6 +8565,47 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // Zip / indexed Select / indexed Where use collectingAndThen to produce a
             // stream via IntStream.range().mapToObj(); the outer result IS a stream.
             || receiver.Contains(".collect(Collectors.collectingAndThen(", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Heuristic: checks if a transformed receiver string is a Java primitive stream
+    /// (IntStream, LongStream, DoubleStream) that needs .boxed() before being passed
+    /// to methods expecting Stream&lt;? extends T&gt; (e.g. Stream.concat).
+    /// </summary>
+    private static bool ReceiverLooksLikePrimitiveStream(string receiver)
+    {
+        // IntStream.range(0, n).map(i -> arr[i]) produces an IntStream
+        // IntStream.range(0, n).mapToDouble(i -> arr[i]) produces a DoubleStream
+        // Arrays.stream(intArr) produces an IntStream (but these are already boxed
+        //   by the concat handler's explicit array-type check, so we only need to
+        //   catch the IntStream.range-based pattern here)
+        if (receiver.Contains("IntStream.range(", StringComparison.Ordinal)
+            && !receiver.Contains(".mapToObj(", StringComparison.Ordinal)
+            && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+            && !receiver.Contains(".collect(", StringComparison.Ordinal))
+            return true;
+        if (receiver.Contains("Arrays.stream(", StringComparison.Ordinal)
+            && !receiver.Contains(".boxed()", StringComparison.Ordinal)
+            && !receiver.Contains(".mapToObj(", StringComparison.Ordinal)
+            && !receiver.Contains(".collect(", StringComparison.Ordinal))
+        {
+            // Arrays.stream(int[]) → IntStream, Arrays.stream(long[]) → LongStream, etc.
+            // Check if the receiver looks like a primitive array stream (no generic type args)
+            // Arrays.stream on Object[] returns Stream<Object>, not a primitive stream.
+            // Heuristic: if the argument to Arrays.stream doesn't end with "[])", it's
+            // likely a primitive array (int[], long[], double[], byte[], etc.)
+            // Actually, safer to just check if the receiver string contains specific
+            // primitive stream methods like .map( (IntStream) or .mapToDouble( (DoubleStream)
+            // but NOT .mapToObj( (Stream<Object>)
+            return receiver.Contains(".map(", StringComparison.Ordinal)
+                || receiver.Contains(".mapToDouble(", StringComparison.Ordinal)
+                || receiver.Contains(".mapToInt(", StringComparison.Ordinal)
+                || receiver.Contains(".mapToLong(", StringComparison.Ordinal)
+                || receiver.Contains(".asDoubleStream(", StringComparison.Ordinal)
+                || receiver.Contains(".asLongStream(", StringComparison.Ordinal)
+                || receiver.Contains(".range(", StringComparison.Ordinal);
+        }
+        return false;
     }
 
     /// <summary>

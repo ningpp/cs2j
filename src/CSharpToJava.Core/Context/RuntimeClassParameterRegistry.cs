@@ -45,6 +45,24 @@ internal sealed class RuntimeClassParameterRegistry
     public bool IsMethodTypeReference(IMethodSymbol methodSymbol, string typeParameterName)
         => _methodTypeRefTypeParams.Contains(GetMethodKey(methodSymbol.OriginalDefinition) + "|" + typeParameterName);
 
+    /// <summary>
+    /// Returns the names of all type parameters on the given method that
+    /// require a TypeReference&lt;T&gt; token (e.g. JsonSerializer.Deserialize&lt;T&gt;
+    /// bodies). Used by AddForwardedRequirements to propagate the requirement
+    /// to callers (e.g. local functions that forward to DeserializeWrapper&lt;T&gt;).
+    /// </summary>
+    public IReadOnlyList<string> GetMethodTypeReferenceParameterNames(IMethodSymbol methodSymbol)
+    {
+        var prefix = GetMethodKey(methodSymbol.OriginalDefinition) + "|";
+        var result = new List<string>();
+        foreach (var entry in _methodTypeRefTypeParams)
+        {
+            if (entry.StartsWith(prefix, StringComparison.Ordinal))
+                result.Add(entry.Substring(prefix.Length));
+        }
+        return result;
+    }
+
     public void RegisterMethodRequirements(
         IMethodSymbol methodSymbol,
         IEnumerable<ITypeParameterSymbol> typeParameters)

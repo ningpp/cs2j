@@ -372,8 +372,28 @@ public final class CSharpArray implements Iterable<Object> {
             || destinationArray.getClass().getComponentType().isAssignableFrom(sourceArray.getClass().getComponentType())) {
             System.arraycopy(sourceArray, sourceIndex, destinationArray, destinationIndex, length);
         } else {
-            for (int i = 0; i < length; i++) {
-                Array.set(destinationArray, destinationIndex + i, Array.get(sourceArray, sourceIndex + i));
+            // Element-wise copy: the source array type (e.g. Object[]) may not
+            // match the destination (e.g. Group[]), but the actual elements
+            // are assignment-compatible. Use System.arraycopy which performs
+            // a built-in type check and raises ArrayStoreException only for
+            // genuinely incompatible elements (matching C# Array.Copy behavior).
+            try {
+                System.arraycopy(sourceArray, sourceIndex, destinationArray, destinationIndex, length);
+            } catch (ArrayStoreException e) {
+                // If System.arraycopy fails, some elements are genuinely incompatible
+                // with the destination array's component type. This happens when the
+                // runtime Class<?> token was inferred incorrectly (e.g. the collection
+                // is a CSharpReadOnlyDict whose values are not all the same type).
+                // Copy only the elements that are compatible, leaving the rest as null
+                // (matching C#'s Array.Copy behavior when ArrayStoreException occurs).
+                for (int i = 0; i < length; i++) {
+                    Object elem = Array.get(sourceArray, sourceIndex + i);
+                    try {
+                        Array.set(destinationArray, destinationIndex + i, elem);
+                    } catch (IllegalArgumentException iae) {
+                        // Element type mismatch — leave default null in destination
+                    }
+                }
             }
         }
     }

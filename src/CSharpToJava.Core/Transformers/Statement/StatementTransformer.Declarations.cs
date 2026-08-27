@@ -984,14 +984,64 @@ public partial class StatementTransformer
             return false;
         }
 
-        if (initializer is not ArrayCreationExpressionSyntax { Type.RankSpecifiers.Count: 1 } arrayCreation
-            || arrayCreation.Type.ElementType is not IdentifierNameSyntax elementName
-            || elementName.Identifier.Text != typeParameter.Name)
+        // Direct form: new T[n] (before GenericPreprocessor rewrite)
+        if (initializer is ArrayCreationExpressionSyntax { Type.RankSpecifiers.Count: 1 } arrayCreation
+            && arrayCreation.Type.ElementType is IdentifierNameSyntax elementName
+            && elementName.Identifier.Text == typeParameter.Name)
+        {
+            return context.TryGetRuntimeClassParameter(typeParameter.Name, out _);
+        }
+
+        // Rewritten form: (T[])Array.CreateInstance(typeof(T), n)
+        // GenericPreprocessor rewrites new T[n] before the converter runs.
+        // The initializer is a CastExpression wrapping the Array.CreateInstance call.
+        if (initializer is CastExpressionSyntax castExpr
+            && castExpr.Expression is InvocationExpressionSyntax invocation
+            && IsArrayCreateInstanceWithTypeOf(invocation, typeParameter, context))
+        {
+            return context.TryGetRuntimeClassParameter(typeParameter.Name, out _);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if the invocation is Array.CreateInstance(typeof(T), n)
+    /// where T is the given type parameter.
+    /// </summary>
+    private static bool IsArrayCreateInstanceWithTypeOf(
+        InvocationExpressionSyntax invocation,
+        ITypeParameterSymbol typeParameter,
+        ConversionContext context)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+
+        if (memberAccess.Name.Identifier.ValueText != "CreateInstance")
+            return false;
+
+        // Check receiver is System.Array or Array
+        var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (methodSymbol == null)
+        {
+            var receiverText = memberAccess.Expression.ToString();
+            if (receiverText != "System.Array" && receiverText != "Array")
+                return false;
+        }
+        else if (methodSymbol.ContainingType?.ToDisplayString() != "System.Array")
         {
             return false;
         }
 
-        return context.TryGetRuntimeClassParameter(typeParameter.Name, out _);
+        if (invocation.ArgumentList.Arguments.Count < 1)
+            return false;
+
+        var firstArg = invocation.ArgumentList.Arguments[0].Expression;
+        if (firstArg is not TypeOfExpressionSyntax typeOfExpr)
+            return false;
+
+        return context.GetTypeInfo(typeOfExpr.Type).Type is ITypeParameterSymbol tp
+            && tp.Name == typeParameter.Name;
     }
 
     private static string BuildEnumTypeReference(INamedTypeSymbol enumType)

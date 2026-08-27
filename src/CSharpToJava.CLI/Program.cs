@@ -2843,9 +2843,15 @@ public class Program
         if (modulePlans.Count != moduleRoots.Count || modulePlans.Count == 0)
             return result;
 
-        // Step 1: Build a map from Java package prefix -> module name.
-        // We scan each module's .java files for `package` declarations.
-        var packageToModule = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Step 1: Build maps:
+        //  a) package -> set of module names (for wildcard imports)
+        //  b) fully-qualified class name -> set of module names (for specific imports)
+        // Multiple modules can share the same package (e.g. "Cs2jUnsigned"
+        // is used by system-private-uri and system-text-json).
+        // We scan each module's .java files for `package` declarations and
+        // public class names.
+        var packageToModules = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var classToModules = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         for (var i = 0; i < modulePlans.Count; i++)
         {
@@ -2857,18 +2863,32 @@ public class Program
             foreach (var javaFile in Directory.EnumerateFiles(
                 moduleRoot, "*.java", SearchOption.AllDirectories))
             {
-                var pkg = TryReadPackageName(javaFile);
+                var (pkg, className) = TryReadPackageAndClassName(javaFile);
                 if (pkg != null)
                 {
-                    // Store the full package, and also all parent prefixes
-                    // (e.g. "dotnet.system" for "dotnet.system.Uri").
-                    // We only need the full package for exact matching.
-                    packageToModule.TryAdd(pkg, moduleName);
+                    if (!packageToModules.TryGetValue(pkg, out var moduleSet))
+                    {
+                        moduleSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        packageToModules[pkg] = moduleSet;
+                    }
+                    moduleSet.Add(moduleName);
+
+                    // Also build class -> module mapping for precise specific-import matching.
+                    if (className != null)
+                    {
+                        var fqn = pkg + "." + className;
+                        if (!classToModules.TryGetValue(fqn, out var classModuleSet))
+                        {
+                            classModuleSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            classToModules[fqn] = classModuleSet;
+                        }
+                        classModuleSet.Add(moduleName);
+                    }
                 }
             }
         }
 
-        if (packageToModule.Count == 0)
+        if (packageToModules.Count == 0)
             return result;
 
         // Step 2: For each module, scan .java files for `import` statements
@@ -2900,33 +2920,112 @@ public class Program
             {
                 foreach (var imp in ReadImports(javaFile))
                 {
-                    // Try exact package match first.
-                    if (packageToModule.TryGetValue(imp, out var depModule))
+                    // Handle wildcard imports: "import foo.bar.*" means
+                    // importing all types in package foo.bar. We strip the
+                    // trailing ".*" so it becomes an exact package match.
+                    var effectiveImp = imp;
+                    var isWildcard = false;
+                    if (imp.EndsWith(".*", StringComparison.OrdinalIgnoreCase))
                     {
-                        discovered.Add(depModule);
+                        effectiveImp = imp[..^2]; // remove trailing ".*"
+                        isWildcard = true;
+                    }
+
+                    // For wildcard imports, only do exact package match.
+                    // "import foo.bar.*" imports types from package foo.bar
+                    // only, NOT from sub-packages like foo.bar.baz.
+                    if (isWildcard)
+                    {
+                        if (packageToModules.TryGetValue(effectiveImp, out var depModules))
+                        {
+                            // If the current module itself declares this package,
+                            // it can resolve types from this package locally.
+                            // Only add other modules if the current module does
+                            // NOT declare the package. This avoids spurious
+                            // dependencies between modules that happen to share
+                            // the same package (e.g. Cs2jUnsigned is declared in
+                            // system-private-uri, system-text-json, etc.).
+                            if (!depModules.Contains(modulePlan.ModuleName))
+                            {
+                                foreach (var dm in depModules)
+                                    discovered.Add(dm);
+                            }
+                        }
+                        continue;
+                    }
+
+                    // For specific imports: "import foo.bar.Baz"
+                    // Try exact class match first (using the class -> module map).
+                    // This is more precise than parent package matching when
+                    // multiple modules share the same package.
+                    if (classToModules.TryGetValue(imp, out var classModules))
+                    {
+                        // If the current module itself defines this class,
+                        // it doesn't need a dependency on any other module
+                        // for this class. Only add other modules if the
+                        // current module does NOT define the class.
+                        if (!classModules.Contains(modulePlan.ModuleName))
+                        {
+                            foreach (var cm in classModules)
+                                discovered.Add(cm);
+                        }
+                        continue;
+                    }
+
+                    // Try exact package match (Baz is a package itself).
+                    if (packageToModules.TryGetValue(imp, out var depModules2))
+                    {
+                        foreach (var dm in depModules2)
+                            discovered.Add(dm);
                         continue;
                     }
 
                     // Try parent package match: find the longest matching prefix.
                     // e.g. import "dotnet.system.Uri" -> package "dotnet.system" -> module "system-private-uri"
-                    string? bestMatch = null;
+                    // Multiple modules may share the package; add all matches.
+                    // NOTE: This is a fallback for classes not found in our
+                    // class map (e.g. inner classes, generated classes).
                     int bestLen = -1;
-                    foreach (var kvp in packageToModule)
+                    HashSet<string>? bestMatches = null;
+                    foreach (var kvp in packageToModules)
                     {
                         if (imp.StartsWith(kvp.Key + ".", StringComparison.OrdinalIgnoreCase)
                             && kvp.Key.Length > bestLen)
                         {
-                            bestMatch = kvp.Value;
                             bestLen = kvp.Key.Length;
+                            bestMatches = kvp.Value;
                         }
                     }
-                    if (bestMatch != null)
-                        discovered.Add(bestMatch);
+                    if (bestMatches != null)
+                    {
+                        // If the current module itself declares the matching
+                        // package, it can resolve the imported class locally.
+                        // Only add other modules if the current module does
+                        // NOT declare the package.
+                        if (!bestMatches.Contains(modulePlan.ModuleName))
+                        {
+                            foreach (var bm in bestMatches)
+                                discovered.Add(bm);
+                        }
+                    }
                 }
             }
 
             // Filter out self and already-existing dependencies.
             discovered.ExceptWith(existingDepModules[modulePlan.ModuleName]);
+
+            // Never add test-only modules as dependencies for main modules —
+            // test modules depend on main modules, not the reverse.
+            discovered.RemoveWhere(depModule =>
+                modulePlans.FirstOrDefault(mp =>
+                    mp.ModuleName.Equals(depModule, StringComparison.OrdinalIgnoreCase))
+                    is { IsTestOnly: true });
+
+            // Filter out dependencies that would create a cycle.
+            // A cycle happens when module A depends on module B and B already
+            // depends on A (directly or transitively).
+            discovered.RemoveWhere(depModule =>
+                WouldCreateCycle(modulePlans, modulePlan.ModuleName, depModule, existingDepModules));
 
             if (discovered.Count > 0)
             {
@@ -2939,7 +3038,104 @@ public class Program
             }
         }
 
+        // Post-cycle-detection: build the full graph (existing + discovered) and
+        // remove discovered edges that create cycles. This is needed because
+        // the per-module WouldCreateCycle check above only sees dependencies
+        // that existed before this pass — it misses cycles formed by two new
+        // edges (e.g. A discovers B and B discovers A in the same pass).
+        if (result.Count > 0)
+        {
+            var fullGraph = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in existingDepModules)
+                fullGraph[kvp.Key] = new HashSet<string>(kvp.Value, StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in result)
+            {
+                var moduleName = kvp.Key.ModuleName;
+                if (!fullGraph.TryGetValue(moduleName, out var deps))
+                {
+                    deps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    fullGraph[moduleName] = deps;
+                }
+                foreach (var d in kvp.Value)
+                    deps.Add(d.ArtifactId);
+            }
+
+            foreach (var kvp in result.ToList())
+            {
+                var moduleName = kvp.Key.ModuleName;
+                var toRemove = new List<JavaDependency>();
+                foreach (var dep in kvp.Value)
+                {
+                    fullGraph[moduleName].Remove(dep.ArtifactId);
+                    bool createsCycle = CanReach(fullGraph, dep.ArtifactId, moduleName);
+                    fullGraph[moduleName].Add(dep.ArtifactId);
+                    if (createsCycle)
+                        toRemove.Add(dep);
+                }
+                if (toRemove.Count > 0)
+                {
+                    var updated = kvp.Value.Except(toRemove).ToList();
+                    if (updated.Count == 0)
+                        result.Remove(kvp.Key);
+                    else
+                        result[kvp.Key] = updated;
+                }
+            }
+        }
+
         return result;
+    }
+
+    private static bool CanReach(
+        Dictionary<string, HashSet<string>> graph,
+        string from, string to)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>();
+        queue.Enqueue(from);
+        visited.Add(from);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current.Equals(to, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (graph.TryGetValue(current, out var deps))
+            {
+                foreach (var dep in deps)
+                {
+                    if (visited.Add(dep))
+                        queue.Enqueue(dep);
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool WouldCreateCycle(
+        IReadOnlyList<JavaModulePlan> modulePlans,
+        string sourceModule,
+        string targetModule,
+        Dictionary<string, HashSet<string>> existingDepModules)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>();
+        queue.Enqueue(targetModule);
+        visited.Add(targetModule);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current.Equals(sourceModule, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (existingDepModules.TryGetValue(current, out var deps))
+            {
+                foreach (var dep in deps)
+                {
+                    if (visited.Add(dep))
+                        queue.Enqueue(dep);
+                }
+            }
+        }
+        return false;
     }
 
     private static string? TryReadPackageName(string javaFilePath)
@@ -2973,6 +3169,24 @@ public class Program
             // Ignore file read errors
         }
         return null;
+    }
+
+    /// <summary>
+    /// Reads the package declaration and public class/interface/enum name
+    /// from a Java source file. The class name is derived from the file name
+    /// (Java requires public top-level class name to match file name) and
+    /// verified by scanning for a matching declaration.
+    /// </summary>
+    private static (string? package, string? className) TryReadPackageAndClassName(
+        string javaFilePath)
+    {
+        var pkg = TryReadPackageName(javaFilePath);
+        if (pkg == null)
+            return (null, null);
+
+        // Java requires the public top-level class name to match the file name.
+        var fileName = Path.GetFileNameWithoutExtension(javaFilePath);
+        return (pkg, fileName);
     }
 
     private static List<string> ReadImports(string javaFilePath)

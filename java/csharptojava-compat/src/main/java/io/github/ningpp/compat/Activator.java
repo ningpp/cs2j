@@ -154,8 +154,76 @@ public final class Activator {
                 // interfaces were dropped by Java erasure-conflict resolution (e.g.
                 // GroupCollection implements only CSharpReadOnlyDict<K,V>). The proxy's
                 // constructor wants the collection contract (ICollection<T>), whose
-                // elements are the dictionary's VALUES.
-                chosen = tryMatchReadOnlyDictValuesCtor(ctors, args);
+                // elements are the dictionary's VALUES. The constructor may also have
+                // injected trailing Class<?> parameters.
+                Object[] adaptedArgs = tryAdaptReadOnlyDictValuesWithClassParams(ctors, args);
+                if (adaptedArgs != null) {
+                    // Re-scan for the matching constructor with the adapted args.
+                    for (Constructor<?> ctor : ctors) {
+                        Class<?>[] params = ctor.getParameterTypes();
+                        if (params.length != adaptedArgs.length) {
+                            continue;
+                        }
+                        boolean matches = true;
+                        for (int i = 0; i < params.length; i++) {
+                            Object arg = adaptedArgs[i];
+                            if (arg == null) {
+                                if (params[i].isPrimitive()) {
+                                    matches = false;
+                                    break;
+                                }
+                                continue;
+                            }
+                            if (!isCompatible(params[i], arg)) {
+                                matches = false;
+                                break;
+                            }
+                        }
+                        if (matches) {
+                            chosen = ctor;
+                            args = adaptedArgs;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (chosen == null) {
+                // The converter injects trailing Class<?> parameters into constructors
+                // of generic classes that need runtime type tokens (e.g.
+                // CollectionDebuggerProxy(CSharpICollection<T>, Class<?>)). Reflection
+                // callers that pass the original C# argument count cannot supply the
+                // extra Class<?> token. Try to match a constructor whose prefix
+                // matches the supplied args and whose suffix is all Class<?> params.
+                Object[] expandedArgs = tryMatchInjectedClassParams(ctors, args);
+                if (expandedArgs != null) {
+                    // Re-scan for the matching constructor with the expanded args.
+                    for (Constructor<?> ctor : ctors) {
+                        Class<?>[] params = ctor.getParameterTypes();
+                        if (params.length != expandedArgs.length) {
+                            continue;
+                        }
+                        boolean matches = true;
+                        for (int i = 0; i < params.length; i++) {
+                            Object arg = expandedArgs[i];
+                            if (arg == null) {
+                                if (params[i].isPrimitive()) {
+                                    matches = false;
+                                    break;
+                                }
+                                continue;
+                            }
+                            if (!isCompatible(params[i], arg)) {
+                                matches = false;
+                                break;
+                            }
+                        }
+                        if (matches) {
+                            chosen = ctor;
+                            args = expandedArgs;
+                            break;
+                        }
+                    }
+                }
             }
             if (chosen == null) {
                 throw new RuntimeException("No matching constructor found for " + type.getName(), new NoSuchMethodException());
@@ -196,6 +264,188 @@ public final class Activator {
             }
         }
         return null;
+    }
+
+    /**
+     * Combined adaptation for CSharpReadOnlyDict argument: adapts the dictionary's
+     * values to CSharpICollection AND handles injected trailing Class<?> parameters.
+     * This is needed when the constructor signature is e.g.
+     * (CSharpICollection<T>, Class<?>) but the caller passes a single
+     * CSharpReadOnlyDict argument.
+     *
+     * @return expanded args array with adapted collection + null Class<?> slots, or null
+     */
+    private static Object[] tryAdaptReadOnlyDictValuesWithClassParams(Constructor<?>[] ctors, Object[] args) {
+        if (args.length != 1 || !(args[0] instanceof CSharpReadOnlyDict<?, ?> dict)) {
+            return null;
+        }
+        Object values = dict.values();
+        if (values == null) {
+            return null;
+        }
+        Object adapted = CSharpICollection.from(values);
+        if (adapted == null) {
+            return null;
+        }
+        // Find a constructor whose first param accepts the adapted collection
+        // and remaining params are all Class<?>
+        for (Constructor<?> ctor : ctors) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length < 1 || !params[0].isAssignableFrom(adapted.getClass())) {
+                continue;
+            }
+            // Check that remaining params are all Class<?>
+            boolean allClassParams = true;
+            for (int i = 1; i < params.length; i++) {
+                if (params[i] != Class.class) {
+                    allClassParams = false;
+                    break;
+                }
+            }
+            if (!allClassParams) {
+                continue;
+            }
+            // Found a match: build expanded args array
+            Object[] expanded = new Object[params.length];
+            expanded[0] = adapted;
+            // Fill Class<?> slots with inferred element type
+            Class<?> inferred = inferElementType(new Object[]{dict});
+            for (int i = 1; i < params.length; i++) {
+                expanded[i] = inferred;
+            }
+            return expanded;
+        }
+        return null;
+    }
+
+    /**
+     * When no constructor matches the supplied argument count, try to find a
+     * constructor whose parameter list is: [matched-prefix] + [trailing Class<?> params].
+     * The converter injects trailing Class<?> parameters for runtime type tokens
+     * (e.g. for new T[] inside the class body). Fill the extra Class<?> slots
+     * with null (the constructor body typically throws before using the token
+     * when the collection argument is null, matching C# semantics).
+     *
+     * @return expanded args array with Class<?> slots appended, or null if no match
+     */
+    private static Object[] tryMatchInjectedClassParams(Constructor<?>[] ctors, Object[] args) {
+        for (Constructor<?> ctor : ctors) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length <= args.length) {
+                continue;
+            }
+            // Check that the prefix matches the supplied args
+            boolean prefixMatches = true;
+            for (int i = 0; i < args.length; i++) {
+                Object arg = args[i];
+                if (arg == null) {
+                    if (params[i].isPrimitive()) {
+                        prefixMatches = false;
+                        break;
+                    }
+                    continue;
+                }
+                if (!isCompatible(params[i], arg)) {
+                    prefixMatches = false;
+                    break;
+                }
+            }
+            if (!prefixMatches) {
+                continue;
+            }
+            // Check that the remaining params are all Class<?>
+            boolean allClassParams = true;
+            for (int i = args.length; i < params.length; i++) {
+                if (params[i] != Class.class) {
+                    allClassParams = false;
+                    break;
+                }
+            }
+            if (!allClassParams) {
+                continue;
+            }
+            // Found a match: expand the args array with inferred Class<?> values
+            Object[] expanded = new Object[params.length];
+            System.arraycopy(args, 0, expanded, 0, args.length);
+            // Try to infer Class<?> from the first non-null collection argument
+            Class<?> inferred = inferElementType(args);
+            for (int i = args.length; i < params.length; i++) {
+                expanded[i] = inferred;
+            }
+            return expanded;
+        }
+        return null;
+    }
+
+    /**
+     * Try to infer the element Class<?> from the first non-null collection
+     * argument. This is used to fill injected Class<?> parameters when the
+     * caller cannot supply them (reflection-based instantiation).
+     *
+     * If the collection contains elements of different runtime types (e.g.
+     * Match and Group where Match extends Group), fall back to Object.class
+     * to avoid ArrayStoreException. The caller (tryAsArray) can later
+     * re-type the Object[] to the correct component type.
+     *
+     * @return the inferred element Class, or null if inference fails
+     */
+    private static Class<?> inferElementType(Object[] args) {
+        for (Object arg : args) {
+            if (arg == null) {
+                continue;
+            }
+            java.util.Collection<?> collection = null;
+            // Try CSharpReadOnlyDict — get values
+            if (arg instanceof CSharpReadOnlyDict<?, ?> dict) {
+                collection = (java.util.Collection<?>) dict.values();
+            } else if (arg instanceof java.util.Collection<?> coll) {
+                collection = coll;
+            }
+            if (collection == null) {
+                continue;
+            }
+            Class<?> inferred = null;
+            boolean uniform = true;
+            for (Object elem : collection) {
+                if (elem == null) {
+                    continue;
+                }
+                Class<?> elemClass = elem.getClass();
+                if (inferred == null) {
+                    inferred = elemClass;
+                } else if (inferred != elemClass) {
+                    // Different runtime types — find common superclass
+                    inferred = findCommonSuperclass(inferred, elemClass);
+                    if (inferred == Object.class) {
+                        // Can't get more general than Object — stop
+                        uniform = false;
+                        break;
+                    }
+                }
+            }
+            if (inferred != null) {
+                return inferred;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find the most specific common superclass of two classes.
+     */
+    private static Class<?> findCommonSuperclass(Class<?> a, Class<?> b) {
+        if (a == b) return a;
+        if (a == null) return b;
+        if (b == null) return a;
+        // Walk up a's hierarchy to find a superclass that b is assignable to
+        Class<?> current = a;
+        while (current != null) {
+            if (current.isAssignableFrom(b)) {
+                return current;
+            }
+            current = current.getSuperclass();
+        }
+        return Object.class;
     }
 
     private static boolean isCompatible(Class<?> paramType, Object arg) {

@@ -213,6 +213,7 @@ internal static class RuntimeClassParameterHelper
                     AddForwardedInvocationRequirements(methodDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(methodDeclaration, semanticModel, originalMethod, context, required);
                     AddTypeOfDefaultRequirements(methodDeclaration, semanticModel, originalMethod, required);
+                    AddArrayCreateInstanceRequirements(methodDeclaration, semanticModel, originalMethod, required);
                     AddJsonDeserializeRequirements(methodDeclaration, semanticModel, originalMethod, context, required);
                     break;
                 case ConstructorDeclarationSyntax constructorDeclaration:
@@ -221,6 +222,7 @@ internal static class RuntimeClassParameterHelper
                     AddForwardedInvocationRequirements(constructorDeclaration, semanticModel, originalMethod, context, visiting, required);
                     AddObjectCreationRequirements(constructorDeclaration, semanticModel, originalMethod, context, required);
                     AddTypeOfDefaultRequirements(constructorDeclaration, semanticModel, originalMethod, required);
+                    AddArrayCreateInstanceRequirements(constructorDeclaration, semanticModel, originalMethod, required);
                     AddJsonDeserializeRequirements(constructorDeclaration, semanticModel, originalMethod, context, required);
                     break;
             }
@@ -268,6 +270,60 @@ internal static class RuntimeClassParameterHelper
 
             var elementType = semanticModel.GetTypeInfo(arrayCreation.Type.ElementType).Type;
             if (elementType is ITypeParameterSymbol typeParameter
+                && IsOwnedByMethodOrType(typeParameter, originalMethod))
+            {
+                AddUnique(required, typeParameter);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Scans for Array.CreateInstance(typeof(T), n) calls that were produced by
+    /// GenericPreprocessor rewriting `new T[n]` where T is a method-level type
+    /// parameter. The rewritten form is an InvocationExpressionSyntax, so
+    /// AddDirectArrayRequirements (which scans ArrayCreationExpressionSyntax)
+    /// misses it. This ensures the method-level type parameter is registered
+    /// as a runtime class requirement, which in turn causes
+    /// ShouldReturnObjectForRuntimeTypeParameterArray to change the return
+    /// type from T[] to Object (avoiding ClassCastException for primitive arrays).
+    /// </summary>
+    private static void AddArrayCreateInstanceRequirements(
+        SyntaxNode declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        foreach (var invocation in declaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+                continue;
+
+            if (memberAccess.Name.Identifier.ValueText != "CreateInstance")
+                continue;
+
+            // Check that the receiver is System.Array or Array
+            var methodSymbol = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (methodSymbol == null)
+            {
+                var receiverText = memberAccess.Expression.ToString();
+                if (receiverText != "System.Array" && receiverText != "Array")
+                    continue;
+            }
+            else if (methodSymbol.ContainingType?.ToDisplayString() != "System.Array")
+            {
+                continue;
+            }
+
+            // Array.CreateInstance(typeof(T), n) — first argument is typeof(T)
+            if (invocation.ArgumentList.Arguments.Count < 1)
+                continue;
+
+            var firstArg = invocation.ArgumentList.Arguments[0].Expression;
+            if (firstArg is not TypeOfExpressionSyntax typeOfExpr)
+                continue;
+
+            if (semanticModel.GetTypeInfo(typeOfExpr.Type).Type is ITypeParameterSymbol typeParameter
+                && typeParameter.DeclaringMethod != null
                 && IsOwnedByMethodOrType(typeParameter, originalMethod))
             {
                 AddUnique(required, typeParameter);
@@ -663,6 +719,79 @@ internal static class RuntimeClassParameterHelper
                 && IsOwnedByMethodOrType(runtimeTypeParameter, originalMethod))
             {
                 AddUnique(required, runtimeTypeParameter);
+            }
+        }
+
+        // Also check TypeReference requirements (e.g. DeserializeWrapper<T> bodies
+        // that call JsonSerializer.Deserialize<T> — the requirement is registered as
+        // a TypeReference, not a Class<T>, so GetRequiredTypeParameters misses it).
+        // Callers must forward the TypeReference token too.
+        // Check both the invoked method and any override implementations
+        // (abstract/virtual methods resolve to the base declaration, but the
+        // requirement was registered on the override that has the body).
+        var methodsToCheck = new List<IMethodSymbol> { invokedMethod.OriginalDefinition };
+        // Find override implementations that may have registered TypeReference requirements.
+        // Overrides can be in the containing type itself, in nested types, or in derived
+        // types. We recursively search nested types (e.g. StringDeserializerWrapper inside
+        // DeserializationWrapper) because GetMembers() does not descend into nested types.
+        if (invokedMethod.ContainingType != null)
+        {
+            AddOverrideMethods(invokedMethod.ContainingType, invokedMethod.OriginalDefinition, methodsToCheck);
+        }
+        foreach (var methodToCheck in methodsToCheck)
+        {
+            var typeRefParamNames = context.Options.RuntimeClassParameters
+                .GetMethodTypeReferenceParameterNames(methodToCheck);
+            foreach (var typeRefParamName in typeRefParamNames)
+            {
+                var invokedTypeParameter = methodToCheck.TypeParameters
+                    .FirstOrDefault(tp => tp.Name == typeRefParamName);
+                if (invokedTypeParameter == null)
+                    continue;
+                var runtimeType = ResolveRuntimeTypeArgument(invokedTypeParameter, invokedMethod);
+                if (runtimeType is ITypeParameterSymbol runtimeTypeParameter
+                    && IsOwnedByMethodOrType(runtimeTypeParameter, originalMethod))
+                {
+                    AddUnique(required, runtimeTypeParameter);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Recursively finds override implementations of <paramref name="targetMethod"/>
+    /// within <paramref name="containingType"/> and all its nested types. This is
+    /// needed because GetMembers() does not descend into nested type declarations,
+    /// and override implementations are often in nested classes (e.g.
+    /// StringDeserializerWrapper inside DeserializationWrapper).
+    /// </summary>
+    private static void AddOverrideMethods(
+        INamedTypeSymbol containingType,
+        IMethodSymbol targetMethod,
+        List<IMethodSymbol> methodsToCheck)
+    {
+        foreach (var member in containingType.GetMembers())
+        {
+            if (member is IMethodSymbol method
+                && method.IsOverride
+                && !SymbolEqualityComparer.Default.Equals(method.OriginalDefinition, targetMethod))
+            {
+                var overridden = method.OverriddenMethod;
+                while (overridden != null)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(overridden.OriginalDefinition, targetMethod))
+                    {
+                        methodsToCheck.Add(method.OriginalDefinition);
+                        break;
+                    }
+                    overridden = overridden.OverriddenMethod;
+                }
+            }
+
+            // Recurse into nested types
+            if (member is INamedTypeSymbol nestedType)
+            {
+                AddOverrideMethods(nestedType, targetMethod, methodsToCheck);
             }
         }
     }

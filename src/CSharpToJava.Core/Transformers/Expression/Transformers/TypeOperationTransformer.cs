@@ -532,6 +532,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (elementIsTypeParameter
                 && context.TryGetRuntimeClassParameter(elementType.Name, out _))
             {
+                // Method-level type parameters can be primitives (e.g. T=int in C#),
+                // and (T[]) casts to Object[] at runtime which cannot hold a primitive
+                // array. Skip the cast — the inner expression already produces the
+                // correct array type, and the enclosing variable/return type is Object
+                // (via ShouldReturnObjectForRuntimeTypeParameterArray).
+                if (elementType is ITypeParameterSymbol { DeclaringMethod: not null })
+                {
+                    return expression;
+                }
                 return $"({elementTypeName}[]) ({expression})";
             }
 
@@ -539,12 +548,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // The parameter will be registered after body conversion (AddPendingRuntimeClassParameters),
             // and the inner expression (Array.CreateInstance(typeof(T), n)) will have already
             // generated TypeHelper.newArrayInstance(_cs2j_T, n) which produces a correctly-typed
-            // array. Use a direct (T[]) cast without the (Object) intermediate that would fail
-            // at runtime when the inner expression returns a CSharpArray wrapper.
+            // array. Skip the (T[]) cast entirely for method-level type parameters — it
+            // would cast to Object[] at runtime which cannot hold a primitive array.
             if (elementIsTypeParameter
                 && elementType is ITypeParameterSymbol { DeclaringMethod: not null })
             {
-                return $"({elementTypeName}[]) ({expression})";
+                return expression;
             }
 
             // Type parameter without runtime class parameter — use a raw cast through Object.

@@ -1,4 +1,4 @@
-# SDK Conversion Error Analysis
+﻿# SDK Conversion Error Analysis
 
 ## Iteration 1 — final 字段重复赋值（value class 隐式 final 降级失效）
 - **Java 文件**: `system-private-uri/src/main/java/dotnet/system/Collections/Generic/ArrayBuilder.java`
@@ -105,3 +105,30 @@
 - **分析**: GenericPreprocessor 将 `new T()` 重写为 `Activator.CreateInstance<T>()`。转换器未检测此泛型调用的类型参数 T 需要运行时 Class 参数，因为：(1) `AddObjectCreationRequirements` 仅扫描 `BaseObjectCreationExpressionSyntax`，重写后已变为 `InvocationExpressionSyntax`；(2) `InvocationExpressionTransformer` 的 `Activator.CreateInstance` 处理仅覆盖非泛型形式（1 个参数），不覆盖 `CreateInstance<T>()`（0 个参数）。同时 `system-text-json` 的 `pom.xml` 缺少对 `system-private-uri` 模块的依赖，导致 `Uri`/`UriKind` 符号找不到。
 - **修复**: (1) 在 `InvocationExpressionTransformer.cs` 中添加 `Activator.CreateInstance<T>()` 泛型调用处理，检测类型参数 T 并生成 `Activator.createInstance(_cs2j_T)` 或 `Activator.createInstance(tClass)`。(2) 在 `Program.cs` 中添加 `DiscoverImplicitModuleDependencies` 后处理步骤：在所有 Java 源码生成完毕后，扫描各模块 `.java` 文件的 `package` 声明和 `import` 语句，构建 包名→模块名 映射，自动发现 C# 项目引用未覆盖的隐式模块间依赖（如框架类型 `System.Uri` 映射到 `system-private-uri` 模块），并重新生成受影响模块的 `pom.xml`。
 - **状态**: ✅ Fixed
+
+## Iteration 7 — EnumValue.ToString() 被误识别为 [Flags] 枚举
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/PropertyVisibilityTests.java`n- **行号**: 2606, 2648
+- **错误信息**: 无法将类 java.lang.Enum<E>中的方法 toString应用到给定类型; 需要: 没有参数 找到: dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.MyEnum`n- **代码片段**:
+  `java
+  public String getEnumString() { return PropertyVisibilityTests.MyEnum.toString(getEnumValue()); }
+  ``n- **对应 C# 文件**: D:\csharp-sdk\json\tests\Serialization\PropertyVisibilityTests.cs（第 1413 行 get => EnumValue.ToString();）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（第 4727-4740 行 flags 枚举 fallback）
+- **分析**: MyEnum（非 [Flags] 枚举，在 PropertyVisibilityTests 中）被误识别为 [Flags] 枚举。原因是 EnumConverterTests.cs 第 272 行有一个同名的 [Flags] public enum MyEnum。当 TypeMappingService.MapType 处理 EnumConverterTests.MyEnum 时，调用 RegisterFlagsEnum("MyEnum", ...) 注册了简单名。然后在 InvocationExpressionTransformer 的 flags 枚举 fallback 中，context.IsFlagsEnum(receiverSymbol.Name) 使用简单名 MyEnum 检查，匹配到了 EnumConverterTests.MyEnum 的注册。这导致非 [Flags] 的 PropertyVisibilityTests.MyEnum 被误处理为 [Flags] 枚举，调用 BuildFlagsEnumToString 生成了 PropertyVisibilityTests.MyEnum.toString(getEnumValue())（静态调用）。
+- **修复**: 移除 fallback 中的简单名检查 context.IsFlagsEnum(receiverSymbol.Name)，只使用完全限定名 context.IsFlagsEnum(receiverSymbol.ToDisplayString()) 检查，避免同名但不同 [Flags] 属性的枚举误匹配。
+- **状态**: ✅ Fixed
+
+
+## Iteration 8 — Stream.concat 参数类型不匹配（byte[] Concat）
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Tests/JsonDocumentTests.java`n- **行号**: 282, 288, 294, 300
+- **错误信息**: 无法将接口 java.util.stream.Stream<T>中的方法 concat应用到给定类型; 需要: Stream<? extends T>,Stream<? extends T> 找到: IntStream,Stream<Object>
+- **代码片段**:
+  `java
+  Stream.concat(IntStream.range(0, Utf8Bom.length).map(i -> Utf8Bom[i]), IntStream.range(0, bytes.length).mapToObj(i -> bytes[i]))
+  ``n- **对应 C# 文件**: D:\csharp-sdk\json\tests\JsonDocumentTests.cs（第 369 行 Utf8Bom.Concat(bytes).ToArray()）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（第 6405-6451 行 Concat 处理）、src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs（BuildArrayStreamExpression）
+- **分析**: yte[] 数组通过 BuildArrayStreamExpression 转换为 IntStream.range(0, n).map(i -> arr[i])（IntStream），因为 Java 的 Arrays.stream() 不支持 yte[]。在 Concat 处理中，receiver 是 IntStream，参数也是 stream，但 Stream.concat 需要两个 Stream<? extends T> 参数，IntStream 不兼容。修复前的 .boxed() 检查只处理 int[]/long[]/double[]，不覆盖 yte[] 等。
+- **修复**: (1) 在 Concat 处理中扩展 .boxed() 检查范围，覆盖所有原始类型数组（byte[]/short[]/char[]/float[]/boolean[]）；(2) 添加 ReceiverLooksLikePrimitiveStream 方法检测已转换为原始 stream 的 receiver 字符串，对 IntStream/LongStream/DoubleStream 添加 .boxed()；(3) 将 ExpressionTransformerHelpers.IsPrimitiveSpecialTypeForArrayStream 从 private 改为 public。
+- **状态**: ✅ Fixed
+

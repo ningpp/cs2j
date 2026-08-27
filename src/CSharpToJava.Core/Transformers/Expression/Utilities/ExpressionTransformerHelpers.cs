@@ -2290,7 +2290,7 @@ public static class ExpressionTransformerHelpers
     /// int, short, byte, long, double, float, boolean, char.
     /// C# structs (SpecialType.None) do NOT match — they map to Java reference types.
     /// </summary>
-    private static bool IsPrimitiveSpecialTypeForArrayStream(SpecialType st)
+    public static bool IsPrimitiveSpecialTypeForArrayStream(SpecialType st)
         => st is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
             or SpecialType.System_Int64 or SpecialType.System_Double or SpecialType.System_Single
             or SpecialType.System_Boolean or SpecialType.System_Char;

@@ -143,6 +143,27 @@ public sealed class OutputIncrementalWriteSession
 
         var normalizedOutputPath = NormalizeOutputPath(outputPath);
         var contentHash = ComputeHash(Utf8WithoutBom.GetBytes(content));
+
+        // Check if this file was already written in THIS session with a different
+        // hash. If so, we must write the new content regardless of what the
+        // previous manifest says — the file on disk has been changed by the earlier
+        // write in this session.
+        var relativePath = GetRelativePath(normalizedOutputPath);
+        if (_currentEntries.TryGetValue(relativePath, out var currentEntry)
+            && !string.Equals(currentEntry.ContentHash, contentHash, StringComparison.Ordinal))
+        {
+            // File was already written with different content in this session.
+            // Must overwrite.
+            RegisterCurrentEntry(normalizedOutputPath, kind, contentHash);
+            var outputDir = Path.GetDirectoryName(normalizedOutputPath);
+            if (!string.IsNullOrEmpty(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
+            File.WriteAllText(normalizedOutputPath, content, Utf8WithoutBom);
+            return true;
+        }
+
         RegisterCurrentEntry(normalizedOutputPath, kind, contentHash);
 
         if (CanReuseExistingFile(normalizedOutputPath, contentHash) && File.Exists(normalizedOutputPath))
@@ -150,10 +171,10 @@ public sealed class OutputIncrementalWriteSession
             return false;
         }
 
-        var outputDir = Path.GetDirectoryName(normalizedOutputPath);
-        if (!string.IsNullOrEmpty(outputDir))
+        var outputDir2 = Path.GetDirectoryName(normalizedOutputPath);
+        if (!string.IsNullOrEmpty(outputDir2))
         {
-            Directory.CreateDirectory(outputDir);
+            Directory.CreateDirectory(outputDir2);
         }
 
         File.WriteAllText(normalizedOutputPath, content, Utf8WithoutBom);
