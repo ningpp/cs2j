@@ -132,3 +132,4 @@
 - **修复**: (1) 在 Concat 处理中扩展 .boxed() 检查范围，覆盖所有原始类型数组（byte[]/short[]/char[]/float[]/boolean[]）；(2) 添加 ReceiverLooksLikePrimitiveStream 方法检测已转换为原始 stream 的 receiver 字符串，对 IntStream/LongStream/DoubleStream 添加 .boxed()；(3) 将 ExpressionTransformerHelpers.IsPrimitiveSpecialTypeForArrayStream 从 private 改为 public。
 - **状态**: ✅ Fixed
 
+## Iteration 9-11 - Fixed constructor accessibility, SByteConverter type token, and Activator Class arg truncation

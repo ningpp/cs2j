@@ -1018,13 +1018,15 @@ internal static class RuntimeClassParameterHelper
         ConversionContext context,
         bool preferPrimitiveClassLiteral)
     {
-        // Unsigned scalar values are represented as Java int/long, but their
-        // reflection/type-token identity must stay distinct (e.g. ByteConverter vs
+        // Unsigned/signed scalar values that map to the same Java type must
+        // keep distinct reflection/type-token identity (e.g. ByteConverter vs
         // Int32Converter in JsonSerializerOptions' Dictionary<Type, JsonConverter>).
         switch (runtimeType.SpecialType)
         {
             case SpecialType.System_Byte:
                 return "io.github.ningpp.compat.CSharpByte.class";
+            case SpecialType.System_SByte:
+                return "io.github.ningpp.compat.CSharpSByte.class";
             case SpecialType.System_UInt16:
                 return "io.github.ningpp.compat.CSharpUInt16.class";
             case SpecialType.System_UInt32:

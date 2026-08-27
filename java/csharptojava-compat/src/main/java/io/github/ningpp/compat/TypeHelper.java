@@ -308,10 +308,17 @@ public final class TypeHelper {
         if (type == null) {
             return new ConstructorInfo[0];
         }
-        Constructor<?>[] ctors = type.getConstructors();
+        // Use getDeclaredConstructors() instead of getConstructors() so that
+        // non-public constructors are also visible. In C#, a private nested
+        // class receives a *public* default constructor, but in Java the
+        // implicit default constructor inherits the class access level (private).
+        // The matchesConstructorBindingFlags bridge below handles this case.
+        Constructor<?>[] ctors = type.getDeclaredConstructors();
         List<ConstructorInfo> result = new ArrayList<>();
         for (Constructor<?> ctor : ctors) {
-            if (matchesBindingFlags(ctor.getModifiers(), bindingFlags)) {
+            if (matchesBindingFlags(ctor.getModifiers(), bindingFlags)
+                    || matchesConstructorBindingFlags(ctor, type, bindingFlags)) {
+                ctor.setAccessible(true);
                 result.add(new ConstructorInfo(ctor));
             }
         }
@@ -326,11 +333,27 @@ public final class TypeHelper {
         if (type == null) {
             return null;
         }
+        // First try the public-only lookup for compatibility.
         try {
-            return new ConstructorInfo(type.getConstructor(parameterTypes));
-        } catch (NoSuchMethodException e) {
-            return null;
+            Constructor<?> ctor = type.getConstructor(parameterTypes);
+            if (matchesBindingFlags(ctor.getModifiers(), bindingFlags)) {
+                return new ConstructorInfo(ctor);
+            }
+        } catch (NoSuchMethodException ignored) {
         }
+        // Fall back to declared constructors so that non-public constructors
+        // are also found. This bridges the C#/Java difference where a private
+        // nested class in C# gets a public default constructor, but in Java
+        // the implicit default constructor is private.
+        for (Constructor<?> ctor : type.getDeclaredConstructors()) {
+            if (matchesParameterTypes(ctor.getParameterTypes(), parameterTypes)
+                    && (matchesBindingFlags(ctor.getModifiers(), bindingFlags)
+                            || matchesConstructorBindingFlags(ctor, type, bindingFlags))) {
+                ctor.setAccessible(true);
+                return new ConstructorInfo(ctor);
+            }
+        }
+        return null;
     }
 
     public static ConstructorInfo getConstructor(Class<?> type, Class<?>... parameterTypes) {
@@ -566,6 +589,31 @@ public final class TypeHelper {
         if (type == char.class) return Character.class;
         if (type == float.class) return Float.class;
         if (type == double.class) return Double.class;
+        return type;
+    }
+
+    /**
+     * Normalizes C# type-token classes (CSharpSByte, CSharpByte, etc.)
+     * to their corresponding Java wrapper classes so that dictionary
+     * lookups by Class key succeed regardless of whether the key was
+     * registered under the Java wrapper or the C# type-token.
+     * <p>
+     * In C#, {@code typeof(sbyte)} and {@code typeof(byte)} are distinct
+     * types, but the converter maps both to Java {@code byte}/{@code Byte}.
+     * The type-token classes (CSharpSByte, CSharpByte, ...) exist to
+     * preserve the distinction in reflection, but when used as dictionary
+     * keys they must be normalized to the Java wrapper class that was
+     * actually used during converter registration.
+     */
+    public static Class<?> normalizeClassToken(Class<?> type) {
+        if (type == null) {
+            return null;
+        }
+        if (type == CSharpSByte.class) return Byte.class;
+        if (type == CSharpByte.class) return Byte.class;
+        if (type == CSharpUInt16.class) return Integer.class;
+        if (type == CSharpUInt32.class) return Long.class;
+        if (type == CSharpUInt64.class) return Long.class;
         return type;
     }
 
@@ -814,6 +862,34 @@ public final class TypeHelper {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Bridge for the C#/Java difference in default constructor accessibility.
+     * <p>
+     * In C#, the implicit default constructor of a class is always {@code public}
+     * regardless of the class's own access modifier. In Java, the implicit default
+     * constructor inherits the access level of the enclosing class, so a
+     * {@code private} nested class gets a {@code private} default constructor.
+     * <p>
+     * When a BindingFlags.Public lookup is performed, this method returns
+     * {@code true} for a non-public constructor of a non-public class to
+     * emulate the C# behaviour.
+     */
+    private static boolean matchesConstructorBindingFlags(Constructor<?> ctor, Class<?> type, int bindingFlags) {
+        boolean wantPublic = (bindingFlags & 0x10) != 0;
+        boolean wantInstance = (bindingFlags & 0x04) != 0;
+        if (!wantPublic || !wantInstance) {
+            return false;
+        }
+        int ctorMods = ctor.getModifiers();
+        int typeMods = type.getModifiers();
+        // If the constructor is non-public but the class itself is also
+        // non-public, treat it as public (C# semantics).
+        if (Modifier.isPublic(ctorMods)) {
+            return false; // already matched by matchesBindingFlags
+        }
+        return !Modifier.isPublic(typeMods);
     }
 
     private static boolean matchesParameterTypes(Class<?>[] actual, Class<?>... expected) {

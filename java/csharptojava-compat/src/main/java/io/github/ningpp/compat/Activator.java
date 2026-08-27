@@ -374,6 +374,52 @@ public final class Activator {
             }
             return expanded;
         }
+        // Reverse case: caller supplied more args than the constructor expects
+        // because MakeGenericType injected Class<?> runtime tokens that the
+        // constructor doesn't declare (e.g. DictionaryKeyValueConverterInner
+        // only takes options, but Activator.createInstance passes {options, keyType, valueType}).
+        // Try to match a constructor whose prefix matches and whose trailing
+        // supplied args are all Class instances.
+        for (Constructor<?> ctor : ctors) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length >= args.length) {
+                continue;
+            }
+            // Check that the prefix matches
+            boolean prefixMatches = true;
+            for (int i = 0; i < params.length; i++) {
+                Object arg = args[i];
+                if (arg == null) {
+                    if (params[i].isPrimitive()) {
+                        prefixMatches = false;
+                        break;
+                    }
+                    continue;
+                }
+                if (!isCompatible(params[i], arg)) {
+                    prefixMatches = false;
+                    break;
+                }
+            }
+            if (!prefixMatches) {
+                continue;
+            }
+            // Check that the remaining supplied args are all Class instances
+            boolean allClassArgs = true;
+            for (int i = params.length; i < args.length; i++) {
+                if (!(args[i] instanceof Class)) {
+                    allClassArgs = false;
+                    break;
+                }
+            }
+            if (!allClassArgs) {
+                continue;
+            }
+            // Found a match: truncate the args array to the constructor's param count
+            Object[] truncated = new Object[params.length];
+            System.arraycopy(args, 0, truncated, 0, params.length);
+            return truncated;
+        }
         return null;
     }
 

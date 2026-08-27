@@ -86,13 +86,32 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public V get(K key) {
-        return map.get(key);
+        V v = map.get(key);
+        if (v == null && key instanceof Class) {
+            // Bridge C# type-token classes (CSharpSByte, CSharpByte, etc.)
+            // to their Java wrapper equivalents so that dictionary
+            // lookups succeed regardless of which form was used as key.
+            Object normalized = TypeHelper.normalizeClassToken((Class<?>) key);
+            if (normalized != key) {
+                v = map.get((K) normalized);
+            }
+        }
+        return v;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public V getChecked(K key) {
         if (!map.containsKey(key)) {
+            // Try normalized lookup for Class keys.
+            if (key instanceof Class) {
+                Object normalized = TypeHelper.normalizeClassToken((Class<?>) key);
+                if (normalized != key && map.containsKey((K) normalized)) {
+                    return map.get((K) normalized);
+                }
+            }
             throw new KeyNotFoundException("The given key '" + key + "' was not present in the dictionary.");
         }
         return map.get(key);
