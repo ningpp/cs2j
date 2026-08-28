@@ -83,6 +83,33 @@ public class SchemaHelper
     }
 
     [Fact]
+    public void TypeParameterConstrainedToIDictionary_GetEnumeratorAssignedToIDictionaryEnumerator_WrapsWithDictEnumerator()
+    {
+        // Reproduces the IDictionaryConverter<TCollection> pattern where
+        // TCollection : IDictionary (a type parameter, not a concrete dictionary).
+        // The GetEnumerator() result is assigned to an IDictionaryEnumerator variable.
+        var result = Convert(@"
+using System.Collections;
+
+public class DictConverter<TCollection> where TCollection : IDictionary
+{
+    public void OnWriteResume(TCollection value)
+    {
+        IDictionaryEnumerator enumerator = value.GetEnumerator();
+        while (enumerator.MoveNext())
+        {
+            object key = enumerator.Key;
+            object val = enumerator.Value;
+        }
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("CSharpDictEnumerator.from", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(CSharpDictEnumerator) CSharpGenericIterable", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CustomEnumeratorGetEnumerator_AssignedToCustomEnumerator_CastsIterator()
     {
         var result = Convert(@"

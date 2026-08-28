@@ -17,16 +17,28 @@ public interface CSharpDictEnumerator extends CSharpEnumerator {
     /**
      * Adapts a generic key/value enumerator into the non-generic IDictionaryEnumerator
      * equivalent used by generated Java code.
+     * <p>
+     * The enumerator's current element may be either a {@link CSharpKeyValuePair}
+     * (from a generic dictionary) or a {@link CSharpDictEntry} (from a non-generic
+     * CSharpIDictionary bridge whose iterator returns DictEntry objects). Both
+     * are handled at runtime to avoid ClassCastException from generic erasure.
      */
+    @SuppressWarnings("unchecked")
     static CSharpDictEnumerator from(CSharpGenericEnumerator<? extends CSharpKeyValuePair<?, ?>> enumerator) {
         return new CSharpDictEnumerator() {
             @Override public boolean moveNext() { return enumerator.moveNext(); }
             @Override public CSharpDictEntry getEntry() {
-                CSharpKeyValuePair<?, ?> pair = enumerator.getCurrent();
-                return new CSharpDictEntry(pair.getKey(), pair.getValue());
+                Object current = enumerator.getCurrent();
+                if (current instanceof CSharpDictEntry entry) {
+                    return entry;
+                }
+                if (current instanceof java.util.Map.Entry<?, ?> entry) {
+                    return new CSharpDictEntry(entry.getKey(), entry.getValue());
+                }
+                throw new IllegalStateException("Expected dictionary entry but got " + (current == null ? "null" : current.getClass().getName()));
             }
-            @Override public Object getKey() { return enumerator.getCurrent().getKey(); }
-            @Override public Object getValue() { return enumerator.getCurrent().getValue(); }
+            @Override public Object getKey() { return getEntry().getKey(); }
+            @Override public Object getValue() { return getEntry().getValue(); }
         };
     }
 

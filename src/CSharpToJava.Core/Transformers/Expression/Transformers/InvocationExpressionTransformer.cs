@@ -1911,6 +1911,18 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
                 receiver = $"CSharpGenericIterable.fromAny({receiver})";
+
+                // When the type parameter is constrained to IDictionary (which
+                // inherits IEnumerable) and the GetEnumerator() result flows into
+                // an IDictionaryEnumerator target, wrap with CSharpDictEnumerator.from()
+                // to avoid a runtime ClassCastException. IsDictionaryLikeExpression
+                // returns false for type parameters (GetTypeInfo().Type is not
+                // INamedTypeSymbol), so the dictionary branch below is never reached.
+                if (IsIDictionaryEnumeratorTarget(node, context))
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpDictEnumerator");
+                    return $"CSharpDictEnumerator.from({receiver}.iterator())";
+                }
             }
         }
 

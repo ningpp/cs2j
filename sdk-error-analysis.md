@@ -1,4 +1,4 @@
-﻿# SDK Conversion Error Analysis
+﻿﻿# SDK Conversion Error Analysis
 
 ## Iteration 1 — final 字段重复赋值（value class 隐式 final 降级失效）
 - **Java 文件**: `system-private-uri/src/main/java/dotnet/system/Collections/Generic/ArrayBuilder.java`
@@ -191,4 +191,10 @@
 - **根因分类**: Transformer
 - **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（GetEnumerator 降级逻辑，第 1899-1914 行 fromAny 分支）
 - **分析**: C# 源中 `value.GetEnumerator()` 的 receiver 是约束为 `IDictionary` 的类型参数 TCollection。转换器 GetEnumerator 处理的第一分支检测"类型参数约束到 IEnumerable"（IDictionary 继承 IEnumerable 故命中）并只做 `CSharpGenericIterable.fromAny(receiver)` 包装；后续字典分支的 `IsDictionaryLikeExpression` 对类型参数返回 false（GetTypeInfo(...).Type 不是 INamedTypeSymbol），导致最终生成 `(CSharpDictEnumerator) fromAny(value).iterator()`，运行时实际是 IteratorBackedCSharpEnumerator → CCE。修复：fromAny 分支内先检测 `IsIDictionaryEnumeratorTarget`，命中则生成 `CSharpDictEnumerator.from(CSharpGenericIterable.fromAny(receiver).iterator())`（运行时迭代 CSharpDictionary 产出 CSharpKeyValuePair，from(CSharpGenericEnumerator) 适配器提供 getKey/getValue/getEntry）。
-- **状态**: 🔧 Fixing
+- **状态**: ✅ Fixed（转换器修复 + compat 库修复）
+
+### 补充修复 — CSharpDictEnumerator.from 运行时类型不兼容
+- **问题**: 修复后生成的 `CSharpDictEnumerator.from(CSharpGenericIterable.fromAny(value).iterator())` 在运行时仍然抛出 `ClassCastException: CSharpDictEntry cannot be cast to CSharpKeyValuePair`。
+- **根因**: 当 `value` 是通过 `CSharpIDictionary.from(CSharpGenericIDictionary)` 桥接的非泛型字典时，其 `iterator()` 返回 `CSharpGenericEnumerator<Object>`，`getCurrent()` 返回 `CSharpDictEntry`（不是 `CSharpKeyValuePair`）。由于泛型擦除，`CSharpDictEnumerator.from(CSharpGenericEnumerator<? extends CSharpKeyValuePair<?, ?>>)` 的签名在编译期接受了这个参数，但运行时 checkcast 失败。
+- **修复**: 修改 `CSharpDictEnumerator.from(CSharpGenericEnumerator)` 方法，不再假设 `getCurrent()` 一定返回 `CSharpKeyValuePair`，改为运行时检查 `CSharpDictEntry` 和 `Map.Entry` 两种类型（与 `from(CSharpEnumerator)` 重载相同的逻辑）。
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpDictEnumerator.java`
