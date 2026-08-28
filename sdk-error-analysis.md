@@ -133,3 +133,62 @@
 - **状态**: ✅ Fixed
 
 ## Iteration 9-11 - Fixed constructor accessibility, SByteConverter type token, and Activator Class arg truncation
+
+## Iteration 12 — sbyte 属性被路由到 ByteConverter（Byte→CSharpByte 令牌反向映射错误）
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/ArrayTests.java
+- **行号**: 795
+- **错误信息**: `java.lang.ClassCastException: class java.lang.Byte cannot be cast to class java.lang.Integer`（at ByteConverter.write(ByteConverter.java:31)）
+- **代码片段**:
+  ```java
+  // ByteConverter.java (generated)
+  public final class ByteConverter extends JsonConverter1<Integer> {
+      public ByteConverter() { super(io.github.ningpp.compat.CSharpByte.class); ... }
+      public void write(Utf8JsonWriter writer, Integer value, JsonSerializerOptions options) {
+          writer.writeNumberValue((int) (value));   // ← line 31: value 实际是 java.lang.Byte → CCE
+      }
+  }
+  ```
+  复现：`JsonSerializer.serialize(SimpleTestClass.class, obj)` 即可触发（MySByte 属性）。
+- **对应 C# 文件**: D:\csharp-sdk\json\tests\Serialization\TestClasses\TestClasses.SimpleTestClass.cs（`public sbyte MySByte { get; set; }`）
+- **根因分类**: 语义丢失（compat 层类型令牌反向映射）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java（denormalizeToCSharpTypeToken，63df7e0e 引入）
+- **分析**: 转换器类型映射为 `C# byte → Java int/Integer`、`C# sbyte → Java byte/Byte`（TypeMappings.json: System.Byte→int, System.SByte→byte）。运行时 compat 反射对 sbyte 属性（Java 字段 byte）返回 `Byte.class`，转换器查找 `getConverter(Byte.class)` 时 CSharpDictionary 走 denormalizeToCSharpTypeToken 回退，把 `Byte.class` 映射到 `CSharpByte.class`，命中 ByteConverter（JsonConverter1<Integer>），而实际值是装箱 `java.lang.Byte` → `(int) value` 拆箱 CCE。正确语义：Java Byte 只可能代表 C# sbyte（C# byte 已拓宽为 int），故 `denormalizeToCSharpTypeToken(Byte.class)` 应返回 `CSharpSByte.class`（SByteConverter 是 JsonConverter1<Byte>，可正确处理 Byte 值）。生成代码中 `typeof(sbyte)`/`typeof(byte)` 均直接使用 CSharpSByte/CSharpByte 令牌（字典直查命中），不受影响。
+- **状态**: 🔧 Fixing
+
+## Iteration 13 — 默认 BindingFlags=0 的反射查找恒为空（getConstructor 返回 null → JsonClassInfo NPE）
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/KeyValuePairConverter.java（触发点）；根因在 compat TypeHelper
+- **行号**: KeyValuePairConverter.java:54（s_constructorInfo = null）
+- **错误信息**: `java.lang.NullPointerException: Cannot invoke "io.github.ningpp.compat.ConstructorInfo.getParameters()" because "constructorInfo" is null`（at JsonClassInfo.initializeConstructorParameters(JsonClassInfo.java:305)）
+- **代码片段**:
+  ```java
+  // KeyValuePairConverter.java (generated)
+  this.s_constructorInfo = TypeHelper.getConstructor(CSharpKeyValuePair.class,
+      new Class[] { TypeHelper.toWrapperType(tKeyClass), TypeHelper.toWrapperType(tValueClass) });
+  // initialize() 里 setConstructorInfo(s_constructorInfo) → null
+  // → JsonClassInfo.<init>: converter.getConstructorIsParameterized()==true（继承自
+  //   SmallObjectWithParameterizedConstructorConverter）但 getConstructorInfo()==null → NPE
+  ```
+  复现：`JsonSerializer.serialize(SimpleTestClass.class, obj)`（迭代 12 修复后暴露）。
+- **对应 C# 文件**: json/src/System/Text/Json/Serialization/Converters/Object/KeyValuePairConverter.cs（`ConstructorInfo = s_constructorInfo;` + Debug.Assert 非空）
+- **根因分类**: 语义丢失（compat 反射默认 BindingFlags 语义）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java（matchesBindingFlags / getConstructor / getMember / getMembers）
+- **分析**: C# `Type.GetConstructor(Type[])` 默认只查 public 实例构造函数（等价 BindingFlags.Public|BindingFlags.Instance）。compat 的 `getConstructor(type, params...)` 委托 `getConstructorInfo(type, 0, ...)`，而 `matchesBindingFlags(mods, 0)` 中 wantPublic/wantNonPublic 均为 false，可见性条件 `!((wantPublic&&isPublic)||(wantNonPublic&&!isPublic)||fallback)` 恒 false → 任何构造函数都不匹配 → 永远返回 null。受影响调用点：KeyValuePairConverter（本 NPE）、JsonSerializerOptions.getConverterFromAttribute:375（[JsonConverter] 特性处理被静默破坏）、RegexCompileToAssemblyTests。同样默认 flags=0 的 getMember(type,name)/getMembers(type,name) 也恒空。修复：无 flags 重载按 C# 语义默认 Public|Instance（getMember/getMembers 额外含 Static）。
+- **状态**: 🔧 Fixing
+
+## Iteration 14 — IDictionary 约束类型参数的 GetEnumerator 走了 fromAny 通用分支（CSharpDictEnumerator CCE）
+- **Java 文件**: system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/IDictionaryConverter.java
+- **行号**: 78
+- **错误信息**: `java.lang.ClassCastException: class io.github.ningpp.compat.CSharpGenericEnumerator$IteratorBackedCSharpEnumerator cannot be cast to class io.github.ningpp.compat.CSharpDictEnumerator`
+- **代码片段**:
+  ```java
+  // IDictionaryConverter.onWriteResume (generated)
+  CSharpDictEnumerator enumerator;
+  if (state.value.Current.getCollectionEnumerator() == null) {
+      enumerator = (CSharpDictEnumerator) CSharpGenericIterable.fromAny(value).iterator();  // ← line 78
+  ```
+  复现：`JsonSerializer.serialize(SimpleTestClass.class, obj)`（迭代 12/13 修复后暴露，写 MyStringToStringIDict 属性时）。
+- **对应 C# 文件**: json/src/System/Text/Json/Serialization/Converters/Collection/IDictionaryConverter.cs（`enumerator = value.GetEnumerator();`，value 为 `TCollection : IDictionary` 类型参数，目标类型 IDictionaryEnumerator）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（GetEnumerator 降级逻辑，第 1899-1914 行 fromAny 分支）
+- **分析**: C# 源中 `value.GetEnumerator()` 的 receiver 是约束为 `IDictionary` 的类型参数 TCollection。转换器 GetEnumerator 处理的第一分支检测"类型参数约束到 IEnumerable"（IDictionary 继承 IEnumerable 故命中）并只做 `CSharpGenericIterable.fromAny(receiver)` 包装；后续字典分支的 `IsDictionaryLikeExpression` 对类型参数返回 false（GetTypeInfo(...).Type 不是 INamedTypeSymbol），导致最终生成 `(CSharpDictEnumerator) fromAny(value).iterator()`，运行时实际是 IteratorBackedCSharpEnumerator → CCE。修复：fromAny 分支内先检测 `IsIDictionaryEnumeratorTarget`，命中则生成 `CSharpDictEnumerator.from(CSharpGenericIterable.fromAny(receiver).iterator())`（运行时迭代 CSharpDictionary 产出 CSharpKeyValuePair，from(CSharpGenericEnumerator) 适配器提供 getKey/getValue/getEntry）。
+- **状态**: 🔧 Fixing

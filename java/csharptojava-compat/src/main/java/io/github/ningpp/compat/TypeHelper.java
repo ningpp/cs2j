@@ -383,7 +383,10 @@ public final class TypeHelper {
     }
 
     public static ConstructorInfo getConstructor(Class<?> type, Class<?>... parameterTypes) {
-        return getConstructorInfo(type, 0, parameterTypes);
+        // C# Type.GetConstructor(Type[]) only considers public instance
+        // constructors; matchesBindingFlags treats 0 as "no member matches",
+        // so the default must be spelled out explicitly.
+        return getConstructorInfo(type, BindingFlags.Public | BindingFlags.Instance, parameterTypes);
     }
 
     public static ConstructorInfo getConstructor(Class<?> type, int bindingFlags, Class<?>... parameterTypes) {
@@ -400,7 +403,8 @@ public final class TypeHelper {
     }
 
     public static MemberInfo getMember(Class<?> type, String name) {
-        return getMember(type, name, 0);
+        // C# Type.GetMember(name) defaults to Public|Instance|Static.
+        return getMember(type, name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
     }
 
     public static MemberInfo getMember(Class<?> type, String name, int bindingFlags) {
@@ -443,7 +447,8 @@ public final class TypeHelper {
     }
 
     public static MemberInfo[] getMembers(Class<?> type, String name) {
-        return getMembers(type, name, 0);
+        // C# Type.GetMember(name) defaults to Public|Instance|Static.
+        return getMembers(type, name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
     }
 
     public static MemberInfo[] getMembers(Class<?> type, String name, int bindingFlags) {
@@ -656,15 +661,20 @@ public final class TypeHelper {
         if (type == null) {
             return null;
         }
-        // Only Byte.class needs remapping: ByteConverter registers under
-        // CSharpByte.class and SByteConverter under CSharpSByte.class, but
-        // getUnderlyingType treats Byte.class as nullable.  When NullableConverterFactory
-        // asks for getGenericArguments(Byte.class)[0], we return CSharpByte.class
-        // so the subsequent getConverter(CSharpByte.class) finds ByteConverter.
+        // The converter maps C# byte -> Java int/Integer (widened, unsigned
+        // range preserved by masking) and C# sbyte -> Java byte/Byte.  A
+        // java.lang.Byte therefore only ever represents a C# sbyte, e.g. when
+        // reflection surfaces the property type of an sbyte member, so it must
+        // resolve to CSharpSByte.class (SByteConverter, JsonConverter1<Byte>).
+        // Mapping it to CSharpByte.class would select ByteConverter
+        // (JsonConverter1<Integer>) and crash with ClassCastException on the
+        // boxed Byte value.  C# byte reaches ByteConverter through the explicit
+        // CSharpByte.class token (as emitted for typeof(byte)), which is a
+        // direct dictionary hit and never passes through this fallback.
         // For all other wrapper types (Integer, Long, Short, etc.) the simple
         // converter is registered under the Java wrapper class itself, so no
         // remapping is needed.
-        if (type == Byte.class) return CSharpByte.class;
+        if (type == Byte.class) return CSharpSByte.class;
         return type;
     }
 
@@ -895,10 +905,9 @@ public final class TypeHelper {
         boolean isPublic = Modifier.isPublic(modifiers);
         boolean isStatic = Modifier.isStatic(modifiers);
 
-        // C# semantics: Public and NonPublic are alternatives, not requirements.
-        // A member matches when it is public AND Public is requested, or when it
-        // is non-public AND NonPublic is requested. Treating them as AND made
-        // every member fail the common Public | NonPublic combination.
+        // C# semantics: Public/NonPublic (and Instance/Static) are alternative
+        // inclusion filters, not requirements — a member matches when it
+        // satisfies ANY requested visibility and ANY requested member kind.
         // cs2j additionally emits C# internal members as public Java members
         // (Java has no assembly-level visibility), so a NonPublic-only lookup
         // must fall back to public members to keep reflection working.
@@ -906,10 +915,7 @@ public final class TypeHelper {
         if (!((wantPublic && isPublic) || (wantNonPublic && !isPublic) || nonPublicBridgeFallback)) {
             return false;
         }
-        if (wantStatic && !isStatic) {
-            return false;
-        }
-        if (wantInstance && isStatic) {
+        if (!((wantInstance && !isStatic) || (wantStatic && isStatic))) {
             return false;
         }
         return true;

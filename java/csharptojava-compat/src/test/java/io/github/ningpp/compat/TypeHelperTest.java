@@ -65,4 +65,45 @@ class TypeHelperTest {
         assertTrue(arr instanceof String[]);
         assertEquals(1, ((String[]) arr).length);
     }
+
+    @Test
+    void getConstructor_defaultFlagsFindsPublicInstanceConstructor() {
+        // C# Type.GetConstructor(Type[]) only considers public instance
+        // constructors; the flag-less compat overload must mirror that.
+        ConstructorInfo ctor = TypeHelper.getConstructor(String.class);
+        assertNotNull(ctor);
+
+        ConstructorInfo pairCtor = TypeHelper.getConstructor(
+            CSharpKeyValuePair.class, Object.class, Object.class);
+        assertNotNull(pairCtor);
+    }
+
+    @Test
+    void getConstructor_defaultFlagsDoesNotFindNonPublicConstructor() {
+        ConstructorInfo ctor = TypeHelper.getConstructor(
+            NonPublicCtorSample.class, int.class);
+        assertNull(ctor);
+    }
+
+    @Test
+    void getMember_defaultFlagsFindsPublicStaticAndInstanceMembers() {
+        // C# Type.GetMember(name) defaults to Public|Instance|Static.
+        assertNotNull(TypeHelper.getMember(PublicMemberSample.class, "PublicStatic"));
+        assertNotNull(TypeHelper.getMember(PublicMemberSample.class, "PublicInstance"));
+        assertNull(TypeHelper.getMember(PublicMemberSample.class, "Hidden"));
+    }
+
+    @SuppressWarnings("unused")
+    public static class NonPublicCtorSample {
+        NonPublicCtorSample(int x) {
+        }
+    }
+
+    @SuppressWarnings("unused")
+    public static class PublicMemberSample {
+        public static int PublicStatic;
+        public int PublicInstance;
+
+        private int Hidden;
+    }
 }

@@ -128,11 +128,17 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     @SuppressWarnings("unchecked")
     public V getChecked(K key) {
         if (!map.containsKey(key)) {
-            // Try normalized lookup for Class keys.
+            // Try normalized and denormalized lookups for Class keys, mirroring
+            // containsKey()/get() so all read paths bridge type tokens the
+            // same way.
             if (key instanceof Class) {
                 Object normalized = TypeHelper.normalizeClassToken((Class<?>) key);
                 if (normalized != key && map.containsKey((K) normalized)) {
                     return map.get((K) normalized);
+                }
+                Object denormalized = TypeHelper.denormalizeToCSharpTypeToken((Class<?>) key);
+                if (denormalized != key && map.containsKey((K) denormalized)) {
+                    return map.get((K) denormalized);
                 }
             }
             throw new KeyNotFoundException("The given key '" + key + "' was not present in the dictionary.");

@@ -32,13 +32,13 @@ public class JsonTextReaderTest {
         JsonTextReader reader = new JsonTextReader(new TextReader(new StringReader("{\"a\":true}")));
         assertTrue(reader.read());
         assertEquals(JsonToken.StartObject, reader.getTokenType());
+        // Newtonsoft semantics: "a" followed by ':' is a property name (the ':'
+        // is consumed), and true/false/null parse as Boolean/Null tokens.
         assertTrue(reader.read());
-        assertEquals(JsonToken.String, reader.getTokenType());
+        assertEquals(JsonToken.PropertyName, reader.getTokenType());
         assertEquals("a", reader.getValue());
         assertTrue(reader.read());
-        assertEquals(JsonToken.None, reader.getTokenType()); // ':'
-        assertTrue(reader.read());
-        assertEquals(JsonToken.Raw, reader.getTokenType());
+        assertEquals(JsonToken.Boolean, reader.getTokenType());
         assertEquals(Boolean.TRUE, reader.getValue());
         assertTrue(reader.read());
         assertEquals(JsonToken.EndObject, reader.getTokenType());
