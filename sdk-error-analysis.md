@@ -530,3 +530,15 @@
 - **修复**: GetOverrideHierarchy 改为以"族根方法"为目标收集全部成员（所有 override 链到达同一根的方法），任一成员 mutation → 全族 Holder 形态。含回归测试 RefStructVirtualFamilyHolderTests。
 - **状态**: ✅ Fixed
 - **残余**: 修复后 CustomConverterTests/DictionaryTests 的字典键用例仍失败但异常形态转移（IllegalStateException 126→43，UnsupportedOperationException 59→138）——转移原因是这些用例依赖**闭合泛型类型匹配**：自定义工厂 canConvert 检查 `GetGenericArguments()[0]==typeof(Guid)`、键注册表按擦除后的 KeyType=Object 查找，均属 Iteration 21 擦除闭合泛型设计缺口，非 dispatch 问题。**字典键读取族与 JsonElement CCE 族同根，需 Iteration 21 一并解决。**
+
+## Iteration 23 — goto 消除器产出不可编译的 C#（阶段树 .cs2j-no-goto-src 构建失败）
+- **现象**: 在 `D:\cs-java-828-sdk\.cs2j-no-goto-src` 执行 `dotnet build/test -c Release` 失败,10 个唯一编译错误(20 处),涉及 4 个文件 4 类模式。
+- **归因方法**: 二分构建各阶段树——`.cs2j-readonly-src`(上一阶段)构建 EXIT=0 零错误,`.cs2j-no-goto-src` 失败 → **引入者为 goto 消除器(eliminate-goto/GotoEliminator)**,非 unsigned/generic/make-readonly。
+- **证据**: 全部错误点均携带消除器状态机标记(`__state`/`__cs2jBlockState4`/`__cs2jSwitchState0`);对应 readonly 阶段同区域仍是原始 for/loop 结构。
+- **错误模式分类**(StateMachineBuilder 四类缺陷):
+  1. **CS8353 stackalloc 逃逸**(Utf8JsonReader.MultiSegment.cs:643): 局部 `Span<byte> readSoFar` 被提升到 `while(true)` 状态机循环外,case 内 `readSoFar = stackalloc Byte[...]` → 赋值可逃逸迭代。修复方向:对提升的 Span/ReadOnlySpan 局部加 `scoped` 修饰,或将 stackalloc 赋值降级为 `new T[n]`。
+  2. **CS0177 out 参数未赋值**(JsonWriterHelper.Transcoding.cs:490): 状态机某些退出路径未给 `bytesWritten`/`bytesConsumed` 赋值。修复方向:状态机序言处对 out 参数发 `= default`。
+  3. **CS8172/CS1510/CS1073 非法 ref 局部初始化**(RegexInterpreter.cs:595): 提升的 ref 局部被发成为 `ref int[]? setLookup = default(ref int[]?);`——非法语法。修复方向:ref 局部提升时改发 `ref int[]? setLookup = ref <目标>` 或退化为按值局部 `int[]? setLookup = null`。
+  4. **CS0163 case 贯穿**(IPv6AddressHelper.cs:224): 状态机 case 内嵌套 `switch(name[i])` 的 `case '%':` 缺少终止跳转。修复方向:StateMachineBuilder 为每个发射的 case 保证以控制转移语句结尾。
+- **影响**: 阶段树 C# 侧无法 `dotnet test`(验证流水线正确性的手段失效);Java 侧虽可编译,但同源状态机语义存疑的四个位置(Utf8JsonReader 多段续读/转码写入器/RegexInterpreter/IPv6 解析)正是 Java 测试失败集中区(Utf8JsonReaderTests 485 个失败等),需在 Java 测试通过后回溯核对这四处语义。
+- **状态**: 🔧 Fixing(归因完成,待修 StateMachineBuilder 四类发射缺陷)
