@@ -64,7 +64,20 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     @Override
     public boolean containsKey(K key) {
-        return map.containsKey(key);
+        if (map.containsKey(key)) {
+            return true;
+        }
+        if (key instanceof Class) {
+            Object normalized = TypeHelper.normalizeClassToken((Class<?>) key);
+            if (normalized != key && map.containsKey((K) normalized)) {
+                return true;
+            }
+            Object denormalized = TypeHelper.denormalizeToCSharpTypeToken((Class<?>) key);
+            if (denormalized != key && map.containsKey((K) denormalized)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -96,6 +109,16 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
             Object normalized = TypeHelper.normalizeClassToken((Class<?>) key);
             if (normalized != key) {
                 v = map.get((K) normalized);
+            }
+            // Also try the reverse: Java wrapper classes (e.g. Byte.class)
+            // to C# type-token classes (e.g. CSharpByte.class) so that
+            // lookups for Byte.class find converters registered under
+            // CSharpByte.class.
+            if (v == null) {
+                Object denormalized = TypeHelper.denormalizeToCSharpTypeToken((Class<?>) key);
+                if (denormalized != key) {
+                    v = map.get((K) denormalized);
+                }
             }
         }
         return v;

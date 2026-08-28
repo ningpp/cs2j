@@ -9669,6 +9669,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     {
         if (node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0)
         {
+            // C# bool.ToString() returns "True"/"False" (capitalized),
+            // but Java String.valueOf(boolean) returns "true"/"false".
+            if (receiverSymbol?.SpecialType == SpecialType.System_Boolean)
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpConvert");
+                return $"CSharpConvert.toString({receiver})";
+            }
             return $"String.valueOf({receiver})";
         }
 

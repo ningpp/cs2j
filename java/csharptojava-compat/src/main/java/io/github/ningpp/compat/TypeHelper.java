@@ -132,6 +132,17 @@ public final class TypeHelper {
             return new Class<?>[0];
         }
         java.lang.reflect.TypeVariable<?>[] params = type.getTypeParameters();
+        if (params.length == 0) {
+            // In the converted model, C# Nullable<T> maps to a boxed wrapper
+            // class (e.g. int? → Integer.class).  When code calls
+            // GetGenericArguments()[0] on such a type, it expects the
+            // underlying type argument.  Since Java type erasure discards the
+            // parameter, we synthesize it here.
+            if (getUnderlyingType(type) != null) {
+                return new Class<?>[] { type };
+            }
+            return new Class<?>[0];
+        }
         Class<?>[] result = new Class<?>[params.length];
         for (int i = 0; i < params.length; i++) {
             result[i] = resolveClassBound(params[i]);
@@ -241,6 +252,21 @@ public final class TypeHelper {
         }
         if (baseType != null && baseType.isAssignableFrom(type)) {
             return true;
+        }
+        // Bridge C# type-token classes (CSharpByte, CSharpSByte, etc.) and
+        // their Java wrapper counterparts (Byte, Integer, etc.) so that
+        // isAssignableFrom(CSharpByte.class, Byte.class) returns true.
+        if (baseType != null && type != null) {
+            Class<?> n1 = normalizeClassToken(baseType);
+            Class<?> n2 = normalizeClassToken(type);
+            if (n1 == n2) {
+                return true;
+            }
+            Class<?> d1 = denormalizeToCSharpTypeToken(baseType);
+            Class<?> d2 = denormalizeToCSharpTypeToken(type);
+            if (d1 == d2) {
+                return true;
+            }
         }
         // typeof(bool) is represented as Boolean.class while reflection may surface
         // boolean.class; treat primitive/wrapper pairs as assignable both ways.
@@ -618,6 +644,31 @@ public final class TypeHelper {
     }
 
     /**
+     * Reverse of {@link #normalizeClassToken}: maps Java wrapper classes
+     * back to their C# type-token classes.  This is needed when a wrapper
+     * class is used to look up a converter in {@code s_defaultSimpleConverters},
+     * which registers keys as C# type-token classes (e.g.
+     * {@code CSharpByte.class} for {@code ByteConverter}).
+     *
+     * @return the C# type-token class, or {@code type} if no mapping exists.
+     */
+    public static Class<?> denormalizeToCSharpTypeToken(Class<?> type) {
+        if (type == null) {
+            return null;
+        }
+        // Only Byte.class needs remapping: ByteConverter registers under
+        // CSharpByte.class and SByteConverter under CSharpSByte.class, but
+        // getUnderlyingType treats Byte.class as nullable.  When NullableConverterFactory
+        // asks for getGenericArguments(Byte.class)[0], we return CSharpByte.class
+        // so the subsequent getConverter(CSharpByte.class) finds ByteConverter.
+        // For all other wrapper types (Integer, Long, Short, etc.) the simple
+        // converter is registered under the Java wrapper class itself, so no
+        // remapping is needed.
+        if (type == Byte.class) return CSharpByte.class;
+        return type;
+    }
+
+    /**
      * Mirrors C# Type equality: typeof(bool) is represented as Boolean.class while
      * reflection surfaces boolean.class, so primitive/wrapper pairs compare equal.
      */
@@ -892,15 +943,19 @@ public final class TypeHelper {
         return !Modifier.isPublic(typeMods);
     }
 
-    private static boolean matchesParameterTypes(Class<?>[] actual, Class<?>... expected) {
-        if (actual.length != expected.length) {
-            return false;
-        }
-        for (int i = 0; i < actual.length; i++) {
-            if (!actual[i].equals(expected[i])) {
-                return false;
-            }
-        }
-        return true;
-    }
+private static boolean matchesParameterTypes(Class<?>[] actual, Class<?>... expected) {
+if (actual.length != expected.length) {
+return false;
+}
+for (int i = 0; i < actual.length; i++) {
+// Use isAssignableFrom instead of equals to handle Java type erasure.
+// A generic constructor parameter K erases to Object.class, so when
+// the caller passes Integer.class (or any other wrapper), it should
+// still match because Object.class.isAssignableFrom(Integer.class).
+if (!actual[i].isAssignableFrom(expected[i])) {
+return false;
+}
+}
+return true;
+}
 }

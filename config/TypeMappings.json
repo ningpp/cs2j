@@ -3405,7 +3405,7 @@
             "csharp": "System.IO.StringWriter",
             "java": "StringWriter",
             "imports": [
-                "java.io.StringWriter"
+                "io.github.ningpp.compat.StringWriter"
             ]
         },
         {

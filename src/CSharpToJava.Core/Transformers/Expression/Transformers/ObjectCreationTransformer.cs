@@ -752,26 +752,38 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         // Java StringWriter has no constructor accepting Locale/CultureInfo
-        // or StringBuilder. Strip those arguments from the constructor call.
+        // or StringBuilder. Strip CultureInfo/IFormatProvider, but keep StringBuilder
+        // by delegating to the compat StringWriter which supports it.
+        // The type mapping for System.IO.StringWriter now imports
+        // io.github.ningpp.compat.StringWriter which accepts a StringBuilder.
         var bareType = typeName.Contains('<') ? typeName[..typeName.IndexOf('<')] : typeName;
         if ((bareType == "StringWriter" || bareType == "java.io.StringWriter")
             && argumentList.Arguments.Count > 0)
         {
             var filteredArgs = new List<ArgumentSyntax>();
+            bool hasStringBuilderArg = false;
             foreach (var arg in argumentList.Arguments)
             {
                 var argType = context.GetTypeInfo(arg.Expression).Type;
                 var argTypeDisplay = argType?.ToDisplayString();
-                if (argTypeDisplay != "System.Globalization.CultureInfo"
-                    && argTypeDisplay != "System.IFormatProvider"
-                    && argTypeDisplay != "System.Text.StringBuilder")
+                if (argTypeDisplay == "System.Globalization.CultureInfo"
+                    || argTypeDisplay == "System.IFormatProvider")
+                {
+                    // strip these — Java StringWriter doesn't accept them
+                }
+                else if (argTypeDisplay == "System.Text.StringBuilder")
+                {
+                    hasStringBuilderArg = true;
+                    filteredArgs.Add(arg);
+                }
+                else
                 {
                     filteredArgs.Add(arg);
                 }
             }
-            if (filteredArgs.Count < argumentList.Arguments.Count)
+            if (filteredArgs.Count < argumentList.Arguments.Count || hasStringBuilderArg)
             {
-                if (filteredArgs.Count == 0)
+                if (filteredArgs.Count == 0 && !hasStringBuilderArg)
                     return "new StringWriter()";
                 args = ArgumentTransformer.TransformArgumentList(
                     SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(filteredArgs)),

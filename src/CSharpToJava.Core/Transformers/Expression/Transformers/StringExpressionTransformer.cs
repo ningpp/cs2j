@@ -276,7 +276,11 @@ public class StringExpressionTransformer : IIRExpressionTransformer
     {
         if (!isVerbatim && !isRaw)
         {
-            return StringEscapeHelper.EscapeJavaString(textSyntax.TextToken.ValueText);
+            // C# interpolated strings escape literal braces as {{ and }} in the source text;
+            // ValueText may not unescape them, so we need to do it manually.
+            var text = StringEscapeHelper.EscapeJavaString(textSyntax.TextToken.ValueText);
+            text = text.Replace("{{", "{").Replace("}}", "}");
+            return text;
         }
         return GetProcessedText(textSyntax.TextToken.Text, isVerbatim, isRaw);
     }

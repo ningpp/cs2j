@@ -26,56 +26,133 @@ public class JToken implements Iterable<JToken> {
         // drain the reader and rebuild compact JSON. The reader exposes raw values
         // per token; reconstruct a compact representation.
         StringBuilder sb = new StringBuilder();
-        boolean first = true;
-        boolean inObject = false;
-        boolean inArray = false;
-        boolean firstInContainer = true;
-        String pendingProperty = null;
+        // For each open container, track whether we've written the first item.
+        // true = first item not yet written; false = at least one item written.
+        java.util.ArrayDeque<Boolean> firstInContainerStack = new java.util.ArrayDeque<>();
+        // Track whether the previous token was PropertyName. If so, the value
+        // that follows does NOT get a comma (the comma was before the property name).
+        boolean afterPropertyName = false;
         while (reader.read()) {
             JsonToken t = reader.getTokenType();
             Object v = reader.getValue();
             switch (t) {
                 case StartObject:
-                    if (pendingProperty != null) {
-                        sb.append('"').append(pendingProperty).append("\":");
-                        pendingProperty = null;
+                    // If this object is a value after a property name, no comma needed
+                    // (handled by afterPropertyName). If it's an array element, comma
+                    // is needed when not the first element.
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty() && !firstInContainerStack.peek()) {
+                        sb.append(',');
+                    }
+                    if (!firstInContainerStack.isEmpty()) {
+                        firstInContainerStack.pop();
+                        firstInContainerStack.push(false);
                     }
                     sb.append('{');
-                    inObject = true;
-                    firstInContainer = true;
+                    firstInContainerStack.push(true);
+                    afterPropertyName = false;
                     break;
                 case EndObject:
                     sb.append('}');
-                    inObject = false;
+                    if (!firstInContainerStack.isEmpty()) firstInContainerStack.pop();
+                    afterPropertyName = false;
                     break;
                 case StartArray:
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty() && !firstInContainerStack.peek()) {
+                        sb.append(',');
+                    }
+                    if (!firstInContainerStack.isEmpty()) {
+                        firstInContainerStack.pop();
+                        firstInContainerStack.push(false);
+                    }
                     sb.append('[');
-                    inArray = true;
-                    firstInContainer = true;
+                    firstInContainerStack.push(true);
+                    afterPropertyName = false;
                     break;
                 case EndArray:
                     sb.append(']');
-                    inArray = false;
+                    if (!firstInContainerStack.isEmpty()) firstInContainerStack.pop();
+                    afterPropertyName = false;
                     break;
                 case PropertyName:
-                    sb.append('"').append(v).append("\":");
+                    // Property name starts a new key-value pair in an object.
+                    // Comma goes before the property name (not before the value).
+                    if (!firstInContainerStack.isEmpty() && !firstInContainerStack.peek()) {
+                        sb.append(',');
+                    }
+                    if (!firstInContainerStack.isEmpty()) {
+                        firstInContainerStack.pop();
+                        firstInContainerStack.push(false);
+                    }
+                    sb.append('"').append(escapeJsonString(v == null ? "" : v.toString())).append("\":");
+                    afterPropertyName = true;
                     break;
                 case String:
-                    sb.append('"').append(v).append('"');
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty() && !firstInContainerStack.peek()) {
+                        sb.append(',');
+                    }
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty()) {
+                        firstInContainerStack.pop();
+                        firstInContainerStack.push(false);
+                    }
+                    sb.append('"').append(escapeJsonString(v == null ? "" : v.toString())).append('"');
+                    afterPropertyName = false;
                     break;
                 case Integer:
                 case Float:
                 case Raw:
                 case Boolean:
-                case Null:
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty() && !firstInContainerStack.peek()) {
+                        sb.append(',');
+                    }
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty()) {
+                        firstInContainerStack.pop();
+                        firstInContainerStack.push(false);
+                    }
                     if (v == null) {
                         sb.append("null");
                     } else {
                         sb.append(v.toString());
                     }
+                    afterPropertyName = false;
+                    break;
+                case Null:
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty() && !firstInContainerStack.peek()) {
+                        sb.append(',');
+                    }
+                    if (!afterPropertyName && !firstInContainerStack.isEmpty()) {
+                        firstInContainerStack.pop();
+                        firstInContainerStack.push(false);
+                    }
+                    sb.append("null");
+                    afterPropertyName = false;
                     break;
                 default:
                     break;
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Escapes a string for JSON output: ", \, control chars. */
+    private static String escapeJsonString(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                default:
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
             }
         }
         return sb.toString();

@@ -60,31 +60,69 @@ public class JsonTextReader implements AutoCloseable {
                 case '{':
                     nextChar();
                     tokenType = JsonToken.StartObject;
+                    value = null;
                     break;
                 case '}':
                     nextChar();
                     tokenType = JsonToken.EndObject;
+                    value = null;
                     break;
                 case '[':
                     nextChar();
                     tokenType = JsonToken.StartArray;
+                    value = null;
                     break;
                 case ']':
                     nextChar();
                     tokenType = JsonToken.EndArray;
+                    value = null;
                     break;
                 case ',':
-                    nextChar();
-                    tokenType = JsonToken.None;
-                    break;
                 case ':':
+                    // Structural separators are not tokens in Newtonsoft.Json;
+                    // skip and advance to the next real token.
                     nextChar();
-                    tokenType = JsonToken.None;
-                    break;
+                    return read();
                 case '"':
                     nextChar();
-                    tokenType = JsonToken.String;
-                    value = readStringLiteral();
+                    String s = readStringLiteral();
+                    // Peek ahead: if the next non-whitespace char is ':', this is a
+                    // property name, not a string value.
+                    skipWhitespace();
+                    if (peekChar() == ':') {
+                        nextChar(); // consume ':'
+                        tokenType = JsonToken.PropertyName;
+                    } else {
+                        tokenType = JsonToken.String;
+                    }
+                    value = s;
+                    break;
+                case 't':
+                    if (matchKeyword("true")) {
+                        tokenType = JsonToken.Boolean;
+                        value = Boolean.TRUE;
+                    } else {
+                        tokenType = JsonToken.Raw;
+                        value = readRawToken();
+                    }
+                    break;
+                case 'f':
+                    if (matchKeyword("false")) {
+                        tokenType = JsonToken.Boolean;
+                        value = Boolean.FALSE;
+                    } else {
+                        tokenType = JsonToken.Raw;
+                        value = readRawToken();
+                    }
+                    break;
+                case 'n':
+                    if (matchKeyword("null")) {
+                        tokenType = JsonToken.Null;
+                        value = null;
+                    } else {
+                        tokenType = JsonToken.Raw;
+                        value = readRawToken();
+                    }
                     break;
                 default:
                     tokenType = JsonToken.Raw;
@@ -95,6 +133,18 @@ public class JsonTextReader implements AutoCloseable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /** Attempts to match a literal keyword (true/false/null) from the current position. */
+    private boolean matchKeyword(String keyword) throws IOException {
+        for (int i = 0; i < keyword.length(); i++) {
+            if (peekChar() != keyword.charAt(i)) {
+                return false;
+            }
+            nextChar();
+        }
+        int next = peekChar();
+        return next < 0 || next == ',' || next == '}' || next == ']' || next == ' ' || next == '\t' || next == '\n' || next == '\r';
     }
 
     private String readStringLiteral() throws IOException {
