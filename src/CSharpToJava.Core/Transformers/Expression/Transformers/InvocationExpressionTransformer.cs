@@ -2725,7 +2725,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (primTypeSyntax.Keyword.Text == "string" && originalMethodName == "Concat"
                 && node.ArgumentList.Arguments.Count >= 1)
             {
-                var concatArgs = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade);
+                var concatArgs = TransformConcatArgsWithUnsignedMasking(node, 0, context, facade);
                 // A raw Stream argument (e.g. from Enumerable.Repeat(...).limit(n)) is not
                 // Iterable — StringHelper.concat would call toString() on it. Materialize.
                 concatArgs = MaterializeRawStreamArguments(concatArgs, context);
@@ -5196,14 +5196,29 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"StringHelper.isNullOrWhiteSpace({valueExpr})";
         }
 
+        // C# unsigned integers (byte/ushort/uint/ulong) format UNSIGNED digits in
+        // string contexts. The Java mapping reuses signed int/long (bit patterns),
+        // so StringBuilder.Append would emit the SIGNED form (uint.MaxValue → "-1",
+        // ushort 40000 stored in a Java short → "-25536"). See
+        // ApplyUnsignedMaskIfNumeric for the per-type masking.
+        if (originalMethodName == "Append"
+            && methodSymbol is { IsStatic: false }
+            && methodSymbol.ContainingType?.ToDisplayString() == "System.Text.StringBuilder"
+            && node.ArgumentList.Arguments.Count - argStartIndex == 1)
+        {
+            var appendArgNode = node.ArgumentList.Arguments[argStartIndex];
+            var appendArg = facade.Transform(appendArgNode.Expression, context);
+            var maskedAppend = ApplyUnsignedMaskIfNumeric(appendArgNode.Expression, appendArg, context);
+            return $"{receiver}.append({maskedAppend})";
+        }
+
         // Fallback: String.Concat(...) -> StringHelper.concat(...)
         bool isStringConcat = originalMethodName == "Concat"
             && node.ArgumentList.Arguments.Count - argStartIndex >= 1
             && IsSystemStringMethod(methodSymbol, memberAccess.Expression, context);
         if (isStringConcat)
         {
-            var concatArgs = ArgumentTransformer.TransformArgumentList(
-                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+            var concatArgs = TransformConcatArgsWithUnsignedMasking(node, argStartIndex, context, facade);
             return $"StringHelper.concat({concatArgs})";
         }
 
@@ -9725,6 +9740,23 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 context.AddImport("io.github.ningpp.compat.CSharpConvert");
                 return $"CSharpConvert.toString({receiver})";
             }
+            // C# unsigned integers format UNSIGNED digits; the Java int/long mapping
+            // stores bit patterns, so String.valueOf would print the signed form
+            // (uint.MaxValue → "-1", ushort 40000 in a Java short → "-25536").
+            // Mask to the type's width; uint constants may surface as Java LONG
+            // literals (4294967295L exceeds int range), so the uint mask widens to
+            // long before formatting. ulong needs Long.toUnsignedString.
+            switch (receiverSymbol?.SpecialType)
+            {
+                case SpecialType.System_Byte:
+                    return $"String.valueOf({receiver} & 0xFF)";
+                case SpecialType.System_UInt16:
+                    return $"String.valueOf({receiver} & 0xFFFF)";
+                case SpecialType.System_UInt32:
+                    return $"String.valueOf({receiver} & 0xFFFFFFFFL)";
+                case SpecialType.System_UInt64:
+                    return $"Long.toUnsignedString({receiver})";
+            }
             return $"String.valueOf({receiver})";
         }
 
@@ -12150,6 +12182,50 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// so collection-consuming helpers like StringHelper.concat receive an Iterable instead
     /// of calling toString() on the stream.
     /// </summary>
+    /// <summary>
+    /// Transforms string.Concat / StringBuilder.Append argument lists, wrapping
+    /// C# unsigned integer arguments (byte/ushort/uint/ulong) with their width mask
+    /// so the UNSIGNED digit form is emitted. C# stores uint.MaxValue as the Java
+    /// int bit pattern (-1); the plain mapping would print the signed "-1".
+    /// ulong's unsigned range exceeds long.MaxValue, so it needs Long.toUnsignedString.
+    /// </summary>
+    private static string TransformConcatArgsWithUnsignedMasking(
+        InvocationExpressionSyntax node,
+        int startIndex,
+        ConversionContext context,
+        IExpressionTransformer facade)
+    {
+        var parts = new List<string>();
+        foreach (var argNode in node.ArgumentList.Arguments.Skip(startIndex))
+        {
+            var argExpr = facade.Transform(argNode.Expression, context);
+            var masked = argNode.Expression switch
+            {
+                // Skip declarations/out-args — they are lowered elsewhere.
+                DeclarationExpressionSyntax or AssignmentExpressionSyntax => argExpr,
+                _ => ApplyUnsignedMaskIfNumeric(argNode.Expression, argExpr, context)
+            };
+            parts.Add(masked);
+        }
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Returns the transformed expression masked to its unsigned width, or the
+    /// expression unchanged when its C# type is not an unsigned integer.
+    /// </summary>
+    private static string ApplyUnsignedMaskIfNumeric(ExpressionSyntax expression, string transformed, ConversionContext context)
+    {
+        return context.GetTypeInfo(expression).Type?.SpecialType switch
+        {
+            SpecialType.System_Byte => $"({transformed} & 0xFF)",
+            SpecialType.System_UInt16 => $"({transformed} & 0xFFFF)",
+            SpecialType.System_UInt32 => $"({transformed} & 0xFFFFFFFFL)",
+            SpecialType.System_UInt64 => $"Long.toUnsignedString({transformed})",
+            _ => transformed
+        };
+    }
+
     private static string MaterializeRawStreamArguments(string args, ConversionContext context)
     {
         if (string.IsNullOrWhiteSpace(args))

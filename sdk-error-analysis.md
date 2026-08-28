@@ -198,3 +198,64 @@
 - **根因**: 当 `value` 是通过 `CSharpIDictionary.from(CSharpGenericIDictionary)` 桥接的非泛型字典时，其 `iterator()` 返回 `CSharpGenericEnumerator<Object>`，`getCurrent()` 返回 `CSharpDictEntry`（不是 `CSharpKeyValuePair`）。由于泛型擦除，`CSharpDictEnumerator.from(CSharpGenericEnumerator<? extends CSharpKeyValuePair<?, ?>>)` 的签名在编译期接受了这个参数，但运行时 checkcast 失败。
 - **修复**: 修改 `CSharpDictEnumerator.from(CSharpGenericEnumerator)` 方法，不再假设 `getCurrent()` 一定返回 `CSharpKeyValuePair`，改为运行时检查 `CSharpDictEntry` 和 `Map.Entry` 两种类型（与 `from(CSharpEnumerator)` 重载相同的逻辑）。
 - **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CSharpDictEnumerator.java`
+
+## Iteration 15 — PropertyInfo.getProperties 未解析 setter（属性反序列化全跳过）
+- **复现**: `JsonSerializer.deserialize(SimpleTestClass.class, "{\"MyInt32\":2}")` → MyInt32=0（默认值，无异常）
+- **对应 C# 文件**: json/src/System/Text/Json/JsonPropertyInfo（ShouldDeserialize = HasSetter）
+- **根因分类**: compat 层语义缺失
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/PropertyInfo.java
+- **分析**: `PropertyInfo.getProperties` 只用 getter 构造 PropertyInfo（setter=null），JSON 序列化器的 `determineSerializationCapabilities` 以 `HasSetter` 决定 `ShouldDeserialize` → 全部 87 个属性 shouldDeserialize=false，读取时被静默跳过。ObjectTests/PropertyVisibilityTests/NumberHandlingTests 等属性反序列化全线失败（写正常、读全默认值）。
+- **修复**: getProperties 为每个 getter 按命名约定（getFoo/isBar → setFoo/setBar）解析匹配 setter（装箱类型兼容），静态方法排除（C# Instance 语义）。**该单点修复解锁了全部属性反序列化**。
+- **状态**: ✅ Fixed
+
+## Iteration 16 — immutable 集合类型身份不可见（用户报告的 IImmutableSet JsonException）
+- **Java 文件**: system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/CollectionTests.java
+- **错误信息**: `dotnet.text.json.JsonException: The JSON value could not be converted to interface io.github.ningpp.compat.IImmutableSet. Path: $ | LineNumber: 0 | BytePositionInLine: 1.`
+- **对应 C# 文件**: json/tests/Serialization/CollectionTests/CollectionTests.Immutable.Read.cs（ReadIImmutableSetTOfIImmutableSetT）
+- **根因分类**: compat 层类型系统缺失（C# 类型身份）
+- **涉及组件**: java/csharptojava-compat/src/main/java/io/github/ningpp/compat/{CompatTypeIdentity(新增),TypeHelper,AssemblyCompat}.java
+- **分析**: `IEnumerableConverterFactory.canConvert` 以 `CSharpGenericIterable` 可赋值性判定集合类型；compat 的 immutable 类型（IImmutableSet/ImmutableList/ImmutableHashSet 等 13 个）不在该继承树下（继承 java.lang.Iterable），且 `isImmutableEnumerableType` 按 C# 全名（"System.Collections.Immutable.ImmutableHashSet\`1"）+ 程序集名（"System.Collections.Immutable,"）判定，compat 类两者皆不匹配 → factory 拒收 → 落到 ObjectDefaultConverter → 对 `[` 开头的 JSON 抛 JsonException。
+- **修复**: (1) 新增 CompatTypeIdentity 注册表：compat 类 ↔ C# 全名（含 arity）↔ 程序集全名双向映射；(2) `TypeHelper.getFullName`/`AssemblyCompat.fromClass`/`getClass` 查注册表；(3) `TypeHelper.isAssignableFrom` 桥接"实现了 immutable 接口的类"（含生成的测试 wrapper 类）可赋值给 CSharpGenericIterable；(4) immutable 类添加 C# 命名的静态泛型 `CreateRange` 工厂（生成的 factory 按 C# 方法名反射查找）。修复后 converter 解析为 ImmutableEnumerableOfTConverter，immutable 写入端到端通过；读取端进一步受限于 erased element type（见 Iteration 20）与 override 泛型 typeof(T) null 降级（createImmutableEnumerableCreateRangeDelegate 传入 null → 已做 compat 防御,干净失败为 NotSupportedException）。
+- **状态**: ✅ Fixed（converter 解析层；读取端元素类型见 Iteration 20 待办）
+
+## Iteration 17 — 枚举读取 (T)(Object) checkcast CCE（Integer→Enum）
+- **错误信息**: `java.lang.ClassCastException: class java.lang.Integer cannot be cast to class java.lang.Enum`（EnumConverter.read）
+- **对应 C# 文件**: json/src/System/Text/Json/Serialization/Converters/Value/EnumConverter.cs（`Unsafe.As<int, T>(ref int32)`）
+- **根因分类**: Transformer
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs（Unsafe.As 处理）
+- **分析**: `Unsafe.As<int, T>`（`T : struct, Enum`）生成为 `(T)(Object)(Integer)(Unsafe.as(int32))`——javac 对 `(T)` 插入 checkcast 到 T 的擦除边界 java.lang.Enum，对装箱 Integer 必然 CCE。改为 `EnumHelper.toObject(tClass, ...)`（值语义转换：经生成枚举的 fromValue/_UNMAPPED 机制支持未定义值，与 C# reinterpret 语义等价）；对无约束/类约束 T 分别保留装箱链/Unsafe.as(Object)（擦除为 Object,无 checkcast）。
+- **状态**: ✅ Fixed（含回归测试 UnsafeAsEnumTypeParameterTests）
+
+## Iteration 18 — Utf8Parser 无符号解析路由缺失（ulong/uint Get 全线 FormatException）
+- **错误信息**: `io.github.ningpp.compat.FormatException: Either the JSON value is not in a supported format, or is out of bounds for a UInt32.`（Utf8JsonReader.getUInt32）
+- **对应 C# 文件**: json/src/System/Text/Json/Reader/Utf8JsonReader.TryGet.cs（TryGetUInt32Core: `Utf8Parser.TryParse(span, out uint, ...)`）
+- **根因分类**: Transformer + compat
+- **涉及组件**: InvocationExpressionTransformer.cs（Utf8Parser.TryParse 路由规则）、compat Utf8Parser.java（tryParseUInt32）
+- **分析**: out-arg 降级为 IntHolder/LongHolder 后,`TryParse(out uint/ulong)` 都路由到有符号 tryParse——`18446744073709551615`、`4294967295` 解析失败。扩展既有路由规则：uint→tryParseUInt32、ulong→tryParseUInt64；compat tryParseUInt32 修正为无符号域 [0, 2^32-1]。
+- **状态**: ✅ Fixed
+
+## Iteration 19 — 无符号数格式化缺失（uint/ulong/ushort/byte 写出有符号十进制）
+- **错误信息**: 312 个 JsonReaderException（testingNumbers_GetMethods 等）：JSON 数据被写成 `{"uint0": -1,...}`（应为 4294967295）后读取失败；另有 Assert.equal(4294967295, -1) 类断言失败
+- **对应 C# 文件**: json/tests/Tools/JsonNumberTestData.cs（`builder.Append(UInts[i])`，C# uint）
+- **根因分类**: Transformer
+- **涉及组件**: InvocationExpressionTransformer.cs（StringBuilder.Append/String.Concat/BuildPrimitiveToString）、StringExpressionTransformer.cs（插值洞/String.format 参数）
+- **分析**: C# `uint/ulong/ushort/byte` 的字符串化输出无符号十进制；Java 映射复用 int/long 位模式（uint.MaxValue→Java int -1），StringBuilder.Append(int)/String.valueOf 打印有符号形式。修复：Append/Concat/ToString()/插值/格式化参数按 C# 类型以宽度掩码包装（byte→&0xFF、ushort→&0xFFFF、uint→&0xFFFFFFFFL、ulong→Long.toUnsignedString——其无符号域超出 long.MaxValue）。
+- **状态**: ✅ Fixed（含回归测试 UnsignedNumberFormattingTests）
+
+## Iteration 20 — 构造参数名丢失导致 ctor 绑定失败（-parameters）
+- **错误信息**: `IllegalStateException: Each parameter in constructor 'ConstructorInfo' on type 'CSharpKeyValuePair' must bind to an object property or field on deserialization.`
+- **对应 C# 文件**: json/src/System/Text/Json/Serialization/Converters/Object/KeyValuePairConverter.cs
+- **根因分类**: 构建（pom 生成）
+- **涉及组件**: src/CSharpToJava.Core/Pipeline/Planning/MavenPomGenerator.cs、java/csharptojava-compat/pom.xml
+- **分析**: JSON 序列化器按（大小写不敏感）构造参数名绑定属性；Java 反射参数名需 `-parameters` 编译标志，否则为 arg0/arg1 → 与 Key/Value 不匹配 → KeyValuePairConverter 等参数化构造反序列化全部抛 IllegalStateException。
+- **修复**: MavenPomGenerator 与 compat pom 的 maven-compiler-plugin 增加 `<parameters>true</parameters>`（javap 验证 MethodParameters: key, value）。
+- **状态**: ✅ Fixed
+
+## Iteration 21（待办）— 顶层 Deserialize<ClosedGeneric> 擦除元素类型
+- **错误信息**: `java.lang.ClassCastException: class dotnet.text.json.JsonElement cannot be cast to class [I / io.github.ningpp.compat.CSharpISet / ...`（CollectionTests 全部 119 个 read* 测试）
+- **对应 C# 文件**: json/tests/Serialization/CollectionTests/*.cs（`Deserialize<List<int[]>>` / `Deserialize<IImmutableSet<IImmutableSet<int>>>` 等顶层闭合泛型调用）
+- **根因分类**: 架构（运行时类型模型）
+- **涉及组件**: InvocationExpressionTransformer.cs（JsonSerializer.Deserialize 调用点）、生成的 ReadStack/JsonClassInfo（Class 键控转换器缓存）
+- **分析**: `Deserialize<X<A,B>>(json)` 转换为 `deserialize(X.class, json)`——Java `.class` 字面量不可携带泛型实参,元素/键值类型在运行时不可恢复,converter factory 退化为 Object 元素（JsonElement）。写端按实例运行时类型多态解析故正常；读端（含属性元数据路径——JsonPropertyInfo 也是擦除 Class）均退化。同一裸类不同实参（IImmutableSet<int> vs IImmutableSet<IImmutableSet<int>>）被 Class 键控 `_converters` 缓存冲突,故不能用线程局部/注册表方案。
+- **设计方向**: (1) 转换器后处理为每个闭合泛型类型生成"closed-type 载体类"（`class _Closed_X_Of_A extends X<A>`——Java 类声明保留泛型签名,getGenericSuperclass 可恢复实参;接口型需生成委托适配器）；(2) TypeHelper.getGenericArguments/getPropertyType 按泛型超类签名解析闭合实参；(3) Deserialize 调用点发射 closed 类字面量。属性路径经 PropertyInfo.getPropertyType() 映射闭合类后同机制复用。
+- **状态**: 📋 设计中（本轮未实施——影响面: CollectionTests read 全家 + 属性泛型集合读）

@@ -79,6 +79,18 @@ public class StringExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var exprIR = facade.TransformToIR(interpolation.Expression, context);
+                // Unsigned C# integers print unsigned digits — the Java int/long
+                // mapping stores bit patterns, so mask to the type width first
+                // (uint.MaxValue → 4294967295, not "-1").
+                if (IsUnsignedNumericType(interpolation.Expression, context))
+                {
+                    var rawHole = facade.Transform(interpolation.Expression, context);
+                    var unsignedIrWrap = UnsignedStringHole(interpolation.Expression, rawHole, context);
+                    if (unsignedIrWrap != null)
+                    {
+                        exprIR = new JavaRawExpression(unsignedIrWrap);
+                    }
+                }
                 var exprType = context.GetTypeInfo(interpolation.Expression);
                 if (exprType.Type != null)
                 {
@@ -162,6 +174,13 @@ public class StringExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var expr = facade.Transform(interpolation.Expression, context);
+                // Unsigned C# integers print unsigned digits — mask to the type width
+                // (uint.MaxValue → 4294967295, not "-1").
+                var unsignedWrap = UnsignedStringHole(interpolation.Expression, expr, context);
+                if (unsignedWrap != null)
+                {
+                    expr = unsignedWrap;
+                }
                 // Parenthesize non-atomic interpolation expressions (binary/conditional/
                 // cast) so string-concatenation precedence doesn't corrupt them:
                 // $"{x - offset}" must stay (x - offset), not x - offset + "...".
@@ -225,12 +244,46 @@ public class StringExpressionTransformer : IIRExpressionTransformer
                 formatSb.Append(formatSpec);
 
                 var expr = facade.Transform(interpolation.Expression, context);
+                // Unsigned C# integers print unsigned digits — mask to the type width.
+                var unsignedFormatWrap = UnsignedStringHole(interpolation.Expression, expr, context);
+                if (unsignedFormatWrap != null)
+                {
+                    expr = unsignedFormatWrap;
+                }
                 args.Add(expr);
             }
         }
 
         string argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
         return $"String.format(\"{formatSb}\"{argsStr})";
+    }
+
+    /// <summary>
+    /// Returns the Java expression for an interpolation hole holding a C# unsigned
+    /// integer (byte/ushort/uint/ulong), masked to the type's width so the unsigned
+    /// digit form is printed, or null when the hole is not an unsigned numeric.
+    /// C# stores uint.MaxValue as the Java int bit pattern (-1) and formats it as
+    /// "4294967295"; plain String.valueOf would print the signed "-1".
+    /// </summary>
+    private static string? UnsignedStringHole(ExpressionSyntax expression, string transformed, ConversionContext context)
+    {
+        return context.GetTypeInfo(expression).Type?.SpecialType switch
+        {
+            SpecialType.System_Byte => $"({transformed} & 0xFF)",
+            SpecialType.System_UInt16 => $"({transformed} & 0xFFFF)",
+            SpecialType.System_UInt32 => $"({transformed} & 0xFFFFFFFFL)",
+            SpecialType.System_UInt64 => $"Long.toUnsignedString({transformed})",
+            _ => null
+        };
+    }
+
+    private static bool IsUnsignedNumericType(ExpressionSyntax expression, ConversionContext context)
+    {
+        return context.GetTypeInfo(expression).Type?.SpecialType
+            is SpecialType.System_Byte
+                or SpecialType.System_UInt16
+                or SpecialType.System_UInt32
+                or SpecialType.System_UInt64;
     }
 
     // Fix 3 & Fix 4: Centralised text processing for all interpolated string kinds

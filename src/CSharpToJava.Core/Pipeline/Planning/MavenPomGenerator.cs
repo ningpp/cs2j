@@ -228,6 +228,12 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
     {
         var previewArgs = javaVer >= 27 ? @"
                         <arg>--enable-preview</arg>" : "";
+        // -parameters is required so Java reflection reports real constructor
+        // parameter names. The JSON serializer binds parameterized constructor
+        // arguments to properties by (case-insensitive) parameter name — without
+        // the flag names degrade to arg0/arg1 and every [JsonConstructor] binding
+        // fails with "Each parameter in constructor ... must bind to an object
+        // property or field".
         return $@"<plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -236,6 +242,7 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                     <source>${{java.version}}</source>
                     <target>${{java.version}}</target>
                     <encoding>UTF-8</encoding>
+                    <parameters>true</parameters>
                     <compilerArgs>
                         <arg>-Xmaxerrs</arg>
                         <arg>1000000</arg>{previewArgs}

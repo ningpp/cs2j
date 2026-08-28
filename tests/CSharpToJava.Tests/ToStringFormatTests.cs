@@ -37,7 +37,10 @@ public class Sample
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("String.valueOf(b)", result.GeneratedCode, StringComparison.Ordinal);
+        // C# byte is unsigned (0-255): the Java value may carry a signed bit pattern
+        // (e.g. from a byte[] element), so the width mask is required for the
+        // unsigned digit form - "255", not "-1".
+        Assert.Contains("String.valueOf(b & 0xFF)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("MathHelper.formatNumeric", result.GeneratedCode, StringComparison.Ordinal);
     }
 

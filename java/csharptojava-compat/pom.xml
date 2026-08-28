@@ -24,6 +24,10 @@
                 <configuration>
                     <release>${java.version}</release>
                     <encoding>UTF-8</encoding>
+                    <!-- JSON serializer binds parameterized-constructor arguments to
+                         properties by (case-insensitive) parameter name; without
+                         -parameters reflection reports arg0/arg1 and binding fails. -->
+                    <parameters>true</parameters>
                     <compilerArgs>
                         <arg>--enable-preview</arg>
                     </compilerArgs>
