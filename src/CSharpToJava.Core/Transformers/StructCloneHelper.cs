@@ -146,17 +146,32 @@ internal static class StructCloneHelper
             current = current.OverriddenMethod;
         }
 
+        // The whole override family must agree on the holder-vs-raw parameter shape.
+        // When the analyzed method is itself a derived override, its SIBLINGS (other
+        // overrides of the same root) may mutate the ref parameter even if this
+        // method doesn't — e.g. JsonConverter<T>.ReadWithQuotes: CharConverter
+        // re-reads the reader (forcing the holder form) while GuidConverter is
+        // read-only. Without collecting siblings, the family mixed shapes and the
+        // read-only overrides emitted a raw parameter — a Java OVERLOAD, not a
+        // virtual override — so dictionary-key reads dispatched to the base and
+        // threw. Collect every method whose override chain reaches the family root.
+        var root = result[^1];
+
         if (compilation != null)
         {
             foreach (var candidate in compilation.GetSymbolsWithName(method.Name, SymbolFilter.Member)
                          .OfType<IMethodSymbol>())
             {
+                if (SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, method.OriginalDefinition))
+                {
+                    continue;
+                }
                 var overridden = candidate.OverriddenMethod;
                 while (overridden != null)
                 {
                     if (SymbolEqualityComparer.Default.Equals(
                             overridden.OriginalDefinition,
-                            method.OriginalDefinition))
+                            root.OriginalDefinition))
                     {
                         result.Add(candidate);
                         break;
