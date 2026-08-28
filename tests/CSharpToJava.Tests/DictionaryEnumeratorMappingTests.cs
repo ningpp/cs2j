@@ -110,6 +110,27 @@ public class DictConverter<TCollection> where TCollection : IDictionary
     }
 
     [Fact]
+    public void ObjectCastToIDictionary_UsesFromAnyBridge()
+    {
+        // Reproduces IDictionaryConverter.Add: ((IDictionary)state.Current.ReturnValue)[key] = value
+        // where ReturnValue is object but the runtime value is CSharpDictionary.
+        var result = Convert(@"
+using System.Collections;
+
+public class DictHelper
+{
+    public void AddEntry(object returnValue, string key, object value)
+    {
+        ((IDictionary)returnValue)[key] = value;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("CSharpIDictionary.fromAny", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("(CSharpIDictionary)(returnValue)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CustomEnumeratorGetEnumerator_AssignedToCustomEnumerator_CastsIterator()
     {
         var result = Convert(@"

@@ -59,6 +59,11 @@ public final class ReflectionHelper {
      * types are specified.
      */
     public static MethodInfo getMethodByName(Class<?> clazz, String name) {
+        if (clazz == null) {
+            // Callers reaching this with an unresolved runtime type token expect a
+            // null method (matching C# GetMethod on an unavailable type), not an NPE.
+            return null;
+        }
         for (Method m : clazz.getMethods()) {
             if (m.getName().equals(name)) {
                 return new MethodInfo(m);

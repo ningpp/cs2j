@@ -38,6 +38,15 @@ public class ImmutableQueue<T> implements IImmutableQueue<T> {
         return new ImmutableQueue<>(queue);
     }
 
+    /**
+     * C#-named CreateRange used by the JSON immutable-collection factory, which
+     * looks up a static generic method literally named "CreateRange" to build the
+     * deserialized instance.
+     */
+    public static <T> ImmutableQueue<T> CreateRange(CSharpGenericIterable<T> source) {
+        return createRange(source);
+    }
+
     public int size() {
         return items.size();
     }

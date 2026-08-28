@@ -53,6 +53,15 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
         return new ImmutableDictionary<>(map);
     }
 
+    /**
+     * C#-named CreateRange used by the JSON immutable-dictionary factory, which
+     * looks up a static generic method literally named "CreateRange" taking one
+     * IEnumerable to build the deserialized instance.
+     */
+    public static <K, V> ImmutableDictionary<K, V> CreateRange(CSharpGenericIterable<Map.Entry<K, V>> source) {
+        return createRange(source);
+    }
+
     public int size() {
         return items.size();
     }

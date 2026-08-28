@@ -60,6 +60,14 @@ public class AssemblyCompat {
 
     /** Mirrors C# Assembly.GetType(name) */
     public Class<?> getClass(String name) {
+        // Registered compat identities (System.Collections.Immutable et al.) are
+        // addressed by their C# namespace-qualified names in generated code, e.g.
+        // the immutable-collection factories ask this assembly for
+        // "System.Collections.Immutable.ImmutableHashSet".
+        Class<?> byIdentity = CompatTypeIdentity.resolve(name);
+        if (byIdentity != null) {
+            return byIdentity;
+        }
         try {
             return classLoader.loadClass(name);
         } catch (ClassNotFoundException e) {
@@ -116,10 +124,17 @@ public class AssemblyCompat {
     /** Creates an AssemblyCompat representing the assembly that declares the given class.
      *  Mirrors C# {@code typeof(T).Assembly} / {@code GetType().Assembly}. */
     public static AssemblyCompat fromClass(Class<?> clazz) {
+        // Compat stand-ins for BCL types report the assembly of the type they model,
+        // so generated checks like Assembly.FullName.StartsWith("System.Collections.Immutable,")
+        // behave as they would on the original C# types.
+        String identityAssembly = CompatTypeIdentity.getAssemblyFullName(clazz);
+        if (identityAssembly != null) {
+            return s_cache.computeIfAbsent(identityAssembly, k -> new AssemblyCompat(clazz.getClassLoader(), k));
+        }
         java.security.ProtectionDomain domain = clazz.getProtectionDomain();
         java.net.URL codeSource = domain == null ? null : domain.getCodeSource() == null ? null : domain.getCodeSource().getLocation();
         String key = codeSource != null ? codeSource.toString() : String.valueOf(clazz.getClassLoader());
-        return s_cache.computeIfAbsent(key, k -> new AssemblyCompat(clazz.getClassLoader(), key));
+        return s_cache.computeIfAbsent(key, k -> new AssemblyCompat(clazz.getClassLoader(), k));
     }
 
     /** Creates an AssemblyCompat from a class loader and location/name. */

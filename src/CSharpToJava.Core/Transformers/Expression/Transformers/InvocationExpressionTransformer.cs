@@ -5143,6 +5143,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 methodName = "tryParseDateTime";
             else if (utf8OutType.ToDisplayString() == "System.DateTimeOffset")
                 methodName = "tryParseDateTimeOffset";
+            // uint/ulong collapse onto IntHolder/LongHolder whose bare tryParse parses
+            // SIGNED values — route to the explicit unsigned compat overloads so
+            // payloads above the signed range (e.g. ulong.MaxValue enum backing) parse.
+            else if (utf8OutType.SpecialType == SpecialType.System_UInt32)
+                methodName = "tryParseUInt32";
+            else if (utf8OutType.SpecialType == SpecialType.System_UInt64)
+                methodName = "tryParseUInt64";
         }
 
         methodName = ConversionContext.EscapeJavaKeyword(methodName);
@@ -5885,6 +5892,36 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             var boxedExpr = string.IsNullOrEmpty(narrowCast)
                 ? $"({wrapper})({innerExpr})"
                 : $"({wrapper})(({narrowCast}({innerExpr})))";
+
+            if (toType is ITypeParameterSymbol toTypeParam)
+            {
+                var enumBound = toTypeParam.ConstraintTypes.FirstOrDefault(c =>
+                    c.SpecialType == SpecialType.System_Enum || c.TypeKind == TypeKind.Enum);
+                if (enumBound != null)
+                {
+                    // (T)(Object) compiles to checkcast against T's erasure (java.lang.Enum
+                    // for "T : struct, Enum"), which throws CCE for the boxed primitive —
+                    // the value must be CONVERTED to an enum constant, not cast. C# here
+                    // reinterprets the backing number as the enum (Undefined values
+                    // included), which EnumHelper.toObject mirrors through the generated
+                    // fromValue/_UNMAPPED machinery. E.g. Unsafe.As<int, T> in
+                    // EnumConverter<T>.Read.
+                    context.AddImport("io.github.ningpp.compat.EnumHelper");
+                    if (!context.TryGetRuntimeClassField(toTypeParam.Name, out var enumClassToken))
+                        enumClassToken = ConversionContext.GetClassLiteral(toTypeParam, context);
+                    // The explicit (T) cast is safe here: toObject returns an actual enum
+                    // constant, so the erasure checkcast (Enum) succeeds.
+                    return $"({toJavaType2})EnumHelper.toObject({enumClassToken}, {boxedExpr})";
+                }
+                if (toTypeParam.ConstraintTypes.Any(c => c.TypeKind is TypeKind.Class or TypeKind.Interface))
+                {
+                    // (T)(Object) compiles to checkcast against T's erasure, which throws
+                    // CCE for boxed primitives. Unsafe.as(Object) is the generic unchecked
+                    // cast — it erases to Object, so javac emits no checkcast and the
+                    // caller binds the value as T.
+                    return $"Unsafe.as((Object){boxedExpr})";
+                }
+            }
 
             return $"({toJavaType2})(Object){boxedExpr}";
         }

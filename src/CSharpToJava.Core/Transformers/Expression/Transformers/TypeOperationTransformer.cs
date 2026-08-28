@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -268,12 +268,21 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             var sourceJavaType = context.GetTypeInfo(node.Expression).Type is { } dictSrcSym
                 ? context.MapType(dictSrcSym)
                 : null;
+            // When the source type is a known generic dictionary, bridge directly.
+            // When the source type is object (e.g. ((IDictionary)state.Current.ReturnValue)),
+            // the runtime value may be a CSharpDictionary that does not implement
+            // CSharpIDictionary — also bridge through fromAny() in that case.
             if (sourceJavaType != null
                 && (sourceJavaType.StartsWith("CSharpDictionary", StringComparison.Ordinal)
                     || sourceJavaType.StartsWith("CSharpGenericIDictionary", StringComparison.Ordinal)))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
                 return $"CSharpIDictionary.from({expression})";
+            }
+            if (sourceJavaType == null || sourceJavaType == "Object")
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+                return $"CSharpIDictionary.fromAny({expression})";
             }
         }
         if (targetType == "CSharpIList")

@@ -46,6 +46,27 @@ public interface CSharpIDictionary extends CSharpCollection {
     }
 
     /**
+     * Bridges any object to CSharpIDictionary at runtime. Used when the C# cast
+     * target is IDictionary but the source type is object (e.g. ReturnValue).
+     * If the object is already a CSharpIDictionary, returns it directly.
+     * If it is a CSharpGenericIDictionary, wraps with from().
+     * Otherwise throws ClassCastException to match C# semantics.
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    static CSharpIDictionary fromAny(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof CSharpIDictionary dict) {
+            return dict;
+        }
+        if (value instanceof CSharpGenericIDictionary<?, ?> dict) {
+            return from(dict);
+        }
+        throw new ClassCastException("Cannot cast " + value.getClass().getName() + " to CSharpIDictionary");
+    }
+
+    /**
      * Adapts a C# Dictionary&lt;K,V&gt; (CSharpGenericIDictionary in Java) to the
      * non-generic C# IDictionary surface (CSharpIDictionary). C# allows passing a
      * Dictionary to an IDictionary parameter implicitly; the Java interfaces are

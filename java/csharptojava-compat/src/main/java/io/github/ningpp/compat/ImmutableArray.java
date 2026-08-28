@@ -30,6 +30,15 @@ public final class ImmutableArray<T> implements Iterable<T> {
         return new ImmutableArray<>(list);
     }
 
+    /**
+     * C#-named CreateRange used by the JSON immutable-collection factory, which
+     * looks up a static generic method literally named "CreateRange" to build the
+     * deserialized instance.
+     */
+    public static <T> ImmutableArray<T> CreateRange(CSharpGenericIterable<T> source) {
+        return createRange(source);
+    }
+
     public static <T> ImmutableArray<T> createRange(Iterable<T> source) {
         List<T> list = new ArrayList<>();
         for (T item : source) {

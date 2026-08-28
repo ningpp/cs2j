@@ -217,6 +217,8 @@ public final class PropertyInfo implements MemberInfo {
     public static PropertyInfo[] getProperties(Class<?> clazz) {
         List<PropertyInfo> props = new ArrayList<>();
         for (Method m : clazz.getMethods()) {
+            // C# GetProperties(Public | Instance) never yields static properties.
+            if (Modifier.isStatic(m.getModifiers())) continue;
             // Skip void returns and methods with parameters
             if (m.getParameterCount() != 0) continue;
             if (m.getReturnType() == void.class) continue;
@@ -224,13 +226,43 @@ public final class PropertyInfo implements MemberInfo {
             if (EXCLUDED_METHODS.contains(m.getName())) continue;
             String methodName = m.getName();
             if (methodName.startsWith("get") && methodName.length() > 3) {
-                props.add(new PropertyInfo(m));
+                props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(3), m)));
             } else if (methodName.startsWith("is") && methodName.length() > 2
                        && (m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)) {
-                props.add(new PropertyInfo(m));
+                props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(2), m)));
             }
         }
         return props.toArray(new PropertyInfo[0]);
+    }
+
+    /**
+     * Resolves the Java setter method ("set" + property name) that pairs with the
+     * given getter. Without this pairing a C# property { get; set; } would surface
+     * only its getter, and consumers keying on SetMethod (e.g. the JSON serializer's
+     * ShouldDeserialize) would silently treat every writable property as read-only.
+     */
+    private static Method findSetter(Class<?> clazz, String propertyName, Method getter) {
+        String setterName = "set" + propertyName;
+        Class<?> getterType = getter.getReturnType();
+        Method fallback = null;
+        for (Method m : clazz.getMethods()) {
+            if (Modifier.isStatic(m.getModifiers())) continue;
+            if (!m.getName().equals(setterName) || m.getParameterCount() != 1) continue;
+            if (isBoxCompatible(m.getParameterTypes()[0], getterType)) {
+                return m;
+            }
+            if (fallback == null) {
+                fallback = m;
+            }
+        }
+        return fallback;
+    }
+
+    private static boolean isBoxCompatible(Class<?> setterParam, Class<?> getterType) {
+        Class<?> boxedParam = TypeHelper.toWrapperType(setterParam);
+        Class<?> boxedGetter = TypeHelper.toWrapperType(getterType);
+        return boxedParam != null && boxedGetter != null
+            && (boxedParam == boxedGetter || boxedParam.isAssignableFrom(boxedGetter));
     }
 
     public static PropertyInfo[] getProperties(Class<?> clazz, int bindingFlags) {

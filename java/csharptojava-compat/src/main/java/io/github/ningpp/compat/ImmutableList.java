@@ -39,6 +39,15 @@ public class ImmutableList<T> implements IImmutableList<T> {
         return new ImmutableList<>(new ArrayList<>(source));
     }
 
+    /**
+     * C#-named CreateRange used by the JSON immutable-collection factory, which
+     * looks up a static generic method literally named "CreateRange" to build the
+     * deserialized instance.
+     */
+    public static <T> ImmutableList<T> CreateRange(CSharpGenericIterable<T> source) {
+        return createRange(source);
+    }
+
     /** C# ImmutableList.Create&lt;T&gt;() — an empty immutable list. */
     public static <T> ImmutableList<T> create() {
         return new ImmutableList<>();

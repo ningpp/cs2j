@@ -50,7 +50,18 @@ public final class Utf8Parser {
 
     /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out uint, out int). */
     public static boolean tryParseUInt32(ReadOnlySpan<Integer> source, IntHolder value, IntHolder bytesConsumed) {
-        return parseInteger(spanToString(source), 10, 32, value, bytesConsumed);
+        String text = spanToString(source).trim();
+        if (text.isEmpty()) return false;
+        try {
+            long parsed = Long.parseLong(text);
+            // uint domain: [0, 2^32-1] — C# rejects negative digits outright.
+            if (parsed < 0 || parsed > 0xFFFFFFFFL) return false;
+            value.value = (int) parsed;
+            bytesConsumed.value = text.length();
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out long, out int). */

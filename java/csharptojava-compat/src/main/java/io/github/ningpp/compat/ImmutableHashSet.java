@@ -85,6 +85,15 @@ public class ImmutableHashSet<T> implements IImmutableSet<T> {
         return new ImmutableHashSet<>(set, EqualityComparer.getDefault());
     }
 
+    /**
+     * C#-named CreateRange used by the JSON immutable-collection factory, which
+     * looks up a static generic method literally named "CreateRange" to build the
+     * deserialized instance.
+     */
+    public static <T> ImmutableHashSet<T> CreateRange(CSharpGenericIterable<T> source) {
+        return createRange(source);
+    }
+
     /** C# ImmutableHashSet.CreateRange&lt;T&gt;(IEqualityComparer&lt;T&gt;, IEnumerable&lt;T&gt;). */
     public static <T> ImmutableHashSet<T> createRange(IEqualityComparer<T> equalityComparer, Iterable<T> source) {
         IEqualityComparer<T> comparer = effectiveComparer(equalityComparer);

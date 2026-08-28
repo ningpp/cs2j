@@ -24,6 +24,15 @@ public class ImmutableSortedSet<T> implements IImmutableSet<T> {
         return new ImmutableSortedSet<>(set);
     }
 
+    /**
+     * C#-named CreateRange used by the JSON immutable-collection factory, which
+     * looks up a static generic method literally named "CreateRange" to build the
+     * deserialized instance.
+     */
+    public static <T> ImmutableSortedSet<T> CreateRange(Iterable<T> source) {
+        return createRange(source);
+    }
+
     public int size() {
         return items.size();
     }

@@ -247,6 +247,13 @@ public final class TypeHelper {
         if (baseType == CSharpIDictionary.class && type == CSharpDictionary.class) {
             return true;
         }
+        // C# immutable collections implement IEnumerable<T>; the compat stand-ins
+        // model them outside the CSharpGenericIterable tree, so bridge them (and
+        // any converted class implementing the immutable interfaces) to keep
+        // IEnumerableConverterFactory.CanConvert(typeof(IEnumerable<>)) working.
+        if (baseType == CSharpGenericIterable.class && CompatTypeIdentity.implementsImmutableInterface(type)) {
+            return true;
+        }
         if (baseType == CSharpIList.class && type == CSharpList.class) {
             return true;
         }
@@ -547,7 +554,17 @@ public final class TypeHelper {
     }
 
     public static String getFullName(Class<?> type) {
-        return type == null ? null : type.getName();
+        if (type == null) {
+            // C# would NPE on ((Type)null).FullName; generated switch statements on
+            // FullName must fall through to their default branch instead of NPE-ing
+            // inside the switch dispatch itself, so return a non-null empty name.
+            return "";
+        }
+        // Compat stand-ins for BCL types carry their C# identity: generated code
+        // switches on FullName against C#-style names (e.g. the immutable
+        // collection factories compare "System.Collections.Immutable.ImmutableHashSet`1").
+        String identity = CompatTypeIdentity.getFullName(type);
+        return identity != null ? identity : type.getName();
     }
 
     /**
