@@ -541,4 +541,14 @@
   3. **CS8172/CS1510/CS1073 非法 ref 局部初始化**(RegexInterpreter.cs:595): 提升的 ref 局部被发成为 `ref int[]? setLookup = default(ref int[]?);`——非法语法。修复方向:ref 局部提升时改发 `ref int[]? setLookup = ref <目标>` 或退化为按值局部 `int[]? setLookup = null`。
   4. **CS0163 case 贯穿**(IPv6AddressHelper.cs:224): 状态机 case 内嵌套 `switch(name[i])` 的 `case '%':` 缺少终止跳转。修复方向:StateMachineBuilder 为每个发射的 case 保证以控制转移语句结尾。
 - **影响**: 阶段树 C# 侧无法 `dotnet test`(验证流水线正确性的手段失效);Java 侧虽可编译,但同源状态机语义存疑的四个位置(Utf8JsonReader 多段续读/转码写入器/RegexInterpreter/IPv6 解析)正是 Java 测试失败集中区(Utf8JsonReaderTests 485 个失败等),需在 Java 测试通过后回溯核对这四处语义。
-- **状态**: 🔧 Fixing(归因完成,待修 StateMachineBuilder 四类发射缺陷)
+- **状态**: ✅ Fixed(四类发射缺陷全部修复)
+- **修复内容**:
+  1. CS8353: 提升的 Span 局部的 stackalloc 赋值降级为堆分配 `new T[n]`(scoped 方案不可行——scoped 值不得流向非 scoped 的 span 参数,CS8350/8352 与 CS8353 约束互相冲突);
+  2. CS0177: VisitMethodDeclaration(内联副本)/RewriteBaseMethod/RewriteAccessors 三条改写路径的"嵌套消除后提前返回"分支统一补 out 参数 default 初始化;
+  3. CS8172/CS1510/CS1073: RefTypeSyntax 局部(ref 关键字属于类型节点而非修饰符)以 `Unsafe.NullRef<T>()` 初始化,T 取底层类型剥掉可空注解;ref var/readonly ref/函数指针形态抛异常跳过;
+  4. CS0163: GotoCaseDesugarer 重设计——不再生成 per-switch 状态机,改为在目标 section 开头合成标签、`goto case X` 改写为普通标签 goto(旧的 `{state=N; break;}` 中 break 绑定到内层循环导致贯穿),由方法级状态机统一消除。
+- **验证**:
+  - C# 阶段树(.cs2j-no-goto-src): 构建 0 错误(修复前 10 个唯一错误),`dotnet test` 19262 个测试全部通过(0 失败);
+  - Java: 829-verify 树 mvn 构建 + 测试,7903 测试 777F+881E=1658 失败(与修复前 1658 持平,无回归——C# 侧编译错误在 Java 侧本就以等价语义生成);
+  - 转换器全量测试 3022/3026(仅 4 个存量失败);
+  - 828 目标树已重新转换并同步(stage 树构建 0 错误)。
