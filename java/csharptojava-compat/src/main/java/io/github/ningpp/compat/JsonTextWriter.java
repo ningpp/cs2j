@@ -191,6 +191,11 @@ public class JsonTextWriter implements AutoCloseable {
             writer.print(n.toString());
             return;
         }
+        if (value instanceof byte[] bytes) {
+            // Newtonsoft writes byte[] as a Base64 string.
+            writeValue(java.util.Base64.getEncoder().encodeToString(bytes));
+            return;
+        }
         writer.print('"');
         writer.print(value.toString());
         writer.print('"');

@@ -243,9 +243,10 @@ public final class TypeHelper {
         // types like CSharpIDictionary and CSharpGenericIDictionary.
         if (baseType == CSharpGenericIterable.class && type != null
                 && (type == CSharpIDictionary.class
-                    || type == CSharpCollection.class
+                    || CSharpCollection.class.isAssignableFrom(type)
                     || type == CSharpIterable.class
-                    || type == CSharpGenericIDictionary.class)) {
+                    || type == CSharpGenericIDictionary.class
+                    || CSharpIList.class.isAssignableFrom(type))) {
             return true;
         }
         // .NET's concrete generic collections (Dictionary<K,V>, List<T>)
