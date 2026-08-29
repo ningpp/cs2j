@@ -122,6 +122,14 @@ public final class JsonSerializerCompat {
             }
             java.lang.reflect.Method m = serializer.getMethod("deserialize", Class.class, ReadOnlySpan.class);
             return m.invoke(null, raw, jsonOrSpan);
+        } catch (java.lang.reflect.InvocationTargetException ex) {
+            // The delegated JsonSerializer threw: propagate its cause so callers
+            // see JsonException etc. instead of a wrapped RuntimeException.
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new RuntimeException(cause);
         } catch (ReflectiveOperationException ex) {
             throw new RuntimeException("JsonSerializerCompat: failed to delegate to JsonSerializer", ex);
         }
