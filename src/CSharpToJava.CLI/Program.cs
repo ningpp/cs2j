@@ -1350,18 +1350,39 @@ public class Program
             Directory.CreateDirectory(javaRoot);
             Directory.CreateDirectory(resourcesRoot);
 
-            // Copy project resources (CopyToOutputDirectory files from .csproj)
+            // Copy project resources (CopyToOutputDirectory files from .csproj).
+            // .resx files become Java ResourceBundle .properties at their embedded
+            // logical-name path so SR.getString (ResourceManager → ResourceBundle)
+            // resolves them instead of falling back to "{Name}".
+            string? rootNamespace = null;
             foreach (var resource in project.ResourceItems)
             {
-                var destination = Path.Combine(resourcesRoot, resource.RelativePath);
-                if (outputSession.CopyFile(resource.SourcePath, destination, OutputIncrementalEntryKind.CopiedResource))
+                if (Path.GetExtension(resource.SourcePath).Equals(".resx", StringComparison.OrdinalIgnoreCase))
+                {
+                    rootNamespace ??= ResxConverter.ReadRootNamespace(project.FilePath);
+                    var logicalName = ResxConverter.ComputeLogicalName(rootNamespace, resource.RelativePath);
+                    var destination = Path.Combine(resourcesRoot,
+                        logicalName.Replace('.', Path.DirectorySeparatorChar) + ".properties");
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    var properties = ResxConverter.ConvertToProperties(resource.SourcePath);
+                    outputSession.WriteTextFile(destination, properties, OutputIncrementalEntryKind.CopiedResource);
+                    copiedResourceCount++;
+                    if (opts.Verbose)
+                    {
+                        Console.WriteLine($"Resource(resx): {resource.SourcePath} -> {destination}");
+                    }
+                    continue;
+                }
+
+                var plainDestination = Path.Combine(resourcesRoot, resource.RelativePath);
+                if (outputSession.CopyFile(resource.SourcePath, plainDestination, OutputIncrementalEntryKind.CopiedResource))
                 {
                     copiedResourceCount++;
                 }
 
                 if (opts.Verbose)
                 {
-                    Console.WriteLine($"Resource: {resource.SourcePath} -> {destination}");
+                    Console.WriteLine($"Resource: {resource.SourcePath} -> {plainDestination}");
                 }
             }
 

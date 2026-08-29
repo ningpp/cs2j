@@ -498,6 +498,32 @@ public sealed class SolutionLoader : IDisposable
             }
         }
 
+        // SDK-style projects default EmbeddedResource items to **/*.resx under the
+        // project (Resources/ is the convention). They are NOT listed in the csproj,
+        // so scan them explicitly — otherwise SR.getString (ResourceManager) resolves
+        // nothing and falls back to "{Name}" (e.g. JSON test data becomes invalid).
+        try
+        {
+            var resxFiles = Directory.EnumerateFiles(projectDir, "*.resx", SearchOption.AllDirectories);
+            foreach (var resxFile in resxFiles)
+            {
+                if (!addedPaths.Add(resxFile))
+                    continue;
+                var relativePath = Path.GetRelativePath(projectDir, resxFile)
+                                  .Replace('\\', Path.DirectorySeparatorChar)
+                                  .Replace('/', Path.DirectorySeparatorChar);
+                resources.Add(new ResourceItem
+                {
+                    SourcePath = resxFile,
+                    RelativePath = relativePath,
+                });
+            }
+        }
+        catch
+        {
+            // Directory enumeration failure is not fatal; explicit items still work.
+        }
+
         return resources;
     }
 

@@ -175,6 +175,32 @@ public class EnumTransformer : ITypeTransformer
             });
             javaEnum.Methods.Last().Parameters.Add(new JavaParameter(enumValueType, "v"));
 
+            // Emit an underlying-type marker so compat TypeHelper.getTypeCode can
+            // distinguish unsigned enums — a Java long value field is ambiguous
+            // (Int64 vs UInt64), and Type.GetTypeCode reports the C# underlying type.
+            var underlyingMarker = enumSymbol?.EnumUnderlyingType?.SpecialType switch
+            {
+                SpecialType.System_Byte => "Byte",
+                SpecialType.System_SByte => "SByte",
+                SpecialType.System_Int16 => "Int16",
+                SpecialType.System_UInt16 => "UInt16",
+                SpecialType.System_Int32 => "Int32",
+                SpecialType.System_UInt32 => "UInt32",
+                SpecialType.System_Int64 => "Int64",
+                SpecialType.System_UInt64 => "UInt64",
+                _ => null
+            };
+            if (underlyingMarker != null)
+            {
+                javaEnum.Methods.Add(new JavaMethodDeclaration
+                {
+                    ReturnType = "io.github.ningpp.compat.TypeCode",
+                    Name = "getUnderlyingTypeCode",
+                    Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+                    Body = $"return io.github.ningpp.compat.TypeCode.{underlyingMarker};"
+                });
+            }
+
             // Add fromValueUnchecked() for unnamed enum value casts (e.g., (UriFormat)0x7FFF)
             javaEnum.Methods.Add(new JavaMethodDeclaration
             {

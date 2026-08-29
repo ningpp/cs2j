@@ -25,6 +25,15 @@ public final class TypeHelper {
         if (type.isEnum()) {
             // Converted C# enums are Java enums with an int/long "value" field;
             // Type.GetTypeCode(enumType) reports the underlying numeric type.
+            // The converter emits getUnderlyingTypeCode() on enums with explicit
+            // values so unsigned backing types (UInt32/UInt64) survive — a Java
+            // long value field alone cannot distinguish Int64 from UInt64.
+            try {
+                java.lang.reflect.Method marker = type.getMethod("getUnderlyingTypeCode");
+                return (TypeCode) marker.invoke(null);
+            } catch (ReflectiveOperationException ignored) {
+                // Fall back to field-type inference below (hand-written enums).
+            }
             try {
                 java.lang.reflect.Field valueField = type.getDeclaredField("value");
                 if (valueField.getType() == long.class) {
