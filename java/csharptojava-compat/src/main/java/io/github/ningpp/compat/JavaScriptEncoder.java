@@ -55,29 +55,41 @@ public class JavaScriptEncoder {
             return true;
         }
         if (unicodeScalar < 0x7F) {
-            // HTML-sensitive ASCII characters are always escaped by the default encoder.
-            if (escapeNonAscii) {
-                return isHtmlSensitiveAscii(unicodeScalar);
+            // HTML-sensitive ASCII characters are always escaped by the default
+            // and Create(...) encoders; UnsafeRelaxedJsonEscaping allows them.
+            if (escapeNonAscii && isHtmlSensitiveAscii(unicodeScalar)) {
+                return true;
+            }
+            if (allowedRanges != null) {
+                // Create(allowedRanges) allows ONLY the listed ranges, so ASCII
+                // outside them is escaped too (e.g. Create(0x80..0xFF) escapes
+                // 'a' as \u0061).
+                return !isInAllowedRanges(unicodeScalar);
             }
             return false;
         }
-        if (escapeNonAscii) {
-            if (allowedRanges != null) {
-                for (UnicodeRange range : allowedRanges) {
-                    if (range != null && range.contains(unicodeScalar)) {
-                        return false;
-                    }
-                }
-            }
+        // .NET's global block list always escapes supplementary (non-BMP)
+        // characters, regardless of the encoder's allowed ranges — no built-in
+        // encoder writes surrogate pairs unescaped.
+        if (unicodeScalar >= 0x10000) {
             return true;
         }
+        if (allowedRanges != null && isInAllowedRanges(unicodeScalar)) {
+            return false;
+        }
+        if (escapeNonAscii) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isInAllowedRanges(int unicodeScalar) {
         if (allowedRanges != null) {
             for (UnicodeRange range : allowedRanges) {
                 if (range != null && range.contains(unicodeScalar)) {
-                    return false;
+                    return true;
                 }
             }
-            return true;
         }
         return false;
     }
@@ -99,7 +111,14 @@ public class JavaScriptEncoder {
                                           IntHolder numberOfCharactersWritten) {
         String text;
         if (willEncode(unicodeScalar)) {
-            text = "\\u" + String.format("%04X", unicodeScalar);
+            if (unicodeScalar > 0xFFFF) {
+                // .NET escapes supplementary scalars as two surrogate escapes.
+                char[] pair = Character.toChars(unicodeScalar);
+                text = "\\u" + String.format("%04X", (int) pair[0])
+                    + "\\u" + String.format("%04X", (int) pair[1]);
+            } else {
+                text = "\\u" + String.format("%04X", unicodeScalar);
+            }
         } else {
             text = String.valueOf(Character.toChars(unicodeScalar));
         }
@@ -122,7 +141,8 @@ public class JavaScriptEncoder {
         while (i < utf8Text.length()) {
             int b = utf8Text.get(i) & 0xFF;
             if (b < 0x80) {
-                if (needsEscaping(b)) {
+                // Virtual WillEncode so derived encoders can allow ASCII.
+                if (willEncode(b)) {
                     return i;
                 }
                 i++;
@@ -162,7 +182,10 @@ public class JavaScriptEncoder {
         while (consumed < source.length()) {
             int b = source.get(consumed) & 0xFF;
             if (b < 0x80) {
-                if (!needsEscaping(b)) {
+                // C# calls the (virtual) WillEncode for every character, so a
+                // derived encoder can allow ASCII characters (e.g. '+') that the
+                // base HTML-sensitive rules would escape.
+                if (!willEncode(b)) {
                     if (written >= destination.length()) {
                         return OperationStatus.DestinationTooSmall;
                     }
@@ -216,7 +239,12 @@ public class JavaScriptEncoder {
         return OperationStatus.Done;
     }
 
-    private static String asciiEscape(int b) {
+    private String asciiEscape(int b) {
+        if (b == '"' && !escapeNonAscii) {
+            // UnsafeRelaxedJsonEscaping escapes the quote with the short \" form;
+            // the default encoder uses \u0022.
+            return "\\\"";
+        }
         return switch (b) {
             case 0x08 -> "\\b";
             case 0x09 -> "\\t";
@@ -228,7 +256,7 @@ public class JavaScriptEncoder {
         };
     }
 
-    /** Decodes one UTF-8 scalar starting at index; returns {codePoint, byteLength} (invalid input -> {0xFFFD, 1}). */
+    /** Decodes one UTF-8 scalar starting at index; returns {codePoint, byteLength} (invalid input -> {0xFFFD, consumedBytes}). */
     private static int[] decodeUtf8Scalar(ReadOnlySpan<Integer> source, int index) {
         int b0 = source.get(index) & 0xFF;
         int length;
@@ -242,13 +270,18 @@ public class JavaScriptEncoder {
             return new int[] { 0xFFFD, 1 };
         }
         if (index + length > source.length()) {
-            return new int[] { 0xFFFD, 1 };
+            // Truncated sequence: .NET replaces the partial prefix with one U+FFFD.
+            return new int[] { 0xFFFD, source.length() - index };
         }
         int cp = b0 & (0xFF >> (length + 1));
-        for (int k = 1; k < length; k++) {
+        int k = 1;
+        for (; k < length; k++) {
             int bk = source.get(index + k) & 0xFF;
             if ((bk & 0xC0) != 0x80) {
-                return new int[] { 0xFFFD, 1 };
+                // Not a continuation byte: .NET replaces the whole consumed
+                // prefix (lead byte + continuation bytes seen) with a single
+                // U+FFFD and resumes at the offending byte.
+                return new int[] { 0xFFFD, k };
             }
             cp = (cp << 6) | (bk & 0x3F);
         }
@@ -259,7 +292,7 @@ public class JavaScriptEncoder {
             default -> 0x10000;
         };
         if (cp < min || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
-            return new int[] { 0xFFFD, 1 };
+            return new int[] { 0xFFFD, length };
         }
         return new int[] { cp, length };
     }
@@ -344,22 +377,20 @@ public class JavaScriptEncoder {
             return true;
         }
         if (b < 0x80) {
-            if (escapeNonAscii) {
-                return isHtmlSensitiveAscii(b);
+            if (escapeNonAscii && isHtmlSensitiveAscii(b)) {
+                return true;
+            }
+            if (allowedRanges != null) {
+                // Create(allowedRanges) allows ONLY the listed ranges, so ASCII
+                // outside them is escaped too.
+                return !isInAllowedRanges(b);
             }
             return false;
         }
-        if (!escapeNonAscii && allowedRanges == null) {
+        if (allowedRanges != null && isInAllowedRanges(b)) {
             return false;
         }
-        if (allowedRanges != null) {
-            for (UnicodeRange range : allowedRanges) {
-                if (range != null && range.contains(b)) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return escapeNonAscii;
     }
 
     private boolean needsEscapingUtf16(int ch) {

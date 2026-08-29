@@ -493,8 +493,23 @@ public class ArgumentTransformer
                 // turn an outer `out` write inside a lambda into a helper `ref`
                 // parameter. In that generated shape the caller local can be
                 // declared-but-unassigned, so reading it would create invalid Java.
+                var refHolderSeed = valueExpr;
+                if (refHolderSeed != null && context.SemanticModel != null
+                    && context.GetTypeInfo(refIdent).Type?.ToDisplayString()
+                        .EndsWith(".Utf8JsonReader", StringComparison.Ordinal) == true)
+                {
+                    // Seed with a clone: JsonDocument.ParseValue/JsonSerializer
+                    // restore the reader INSIDE the callee on failure, but the
+                    // write-back post-statement below only runs on the success
+                    // path — without a clone the caller's object would keep the
+                    // mid-call mutation (e.g. BytesConsumed advanced) after a
+                    // thrown JsonException. .NET's ref semantics restore the
+                    // caller's variable on the exception path, so the caller's
+                    // object must stay at its pre-call state.
+                    refHolderSeed = $"{valueExpr}.clone()";
+                }
                 var refHolderInit = ShouldSeedRefHolderFromCurrentValue(refIdent, context)
-                    ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, valueExpr)
+                    ? HolderTypeResolver.GetHolderInstantiationWithValue(refHolderType, refHolderSeed)
                     : HolderTypeResolver.GetHolderInstantiation(refHolderType);
                 context.AddPreStatement($"{refHolderType} {refHolderName} = {refHolderInit}");
                 // Skip the post-statement write-back when the method call's return

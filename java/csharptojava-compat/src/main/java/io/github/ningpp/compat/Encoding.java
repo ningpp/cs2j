@@ -26,22 +26,29 @@ public class Encoding {
     private final boolean isReadOnly;
     private final String decoderReplacement;
     private final String encoderReplacement;
+    private final boolean throwOnInvalidBytes;
 
     private Encoding(Charset charset, int codePage) {
-        this(charset, codePage, true, "\uFFFD", defaultEncoderReplacement(charset));
+        this(charset, codePage, true, "\uFFFD", defaultEncoderReplacement(charset), false);
     }
 
     private Encoding(Charset charset, int codePage, boolean isReadOnly) {
-        this(charset, codePage, isReadOnly, "\uFFFD", defaultEncoderReplacement(charset));
+        this(charset, codePage, isReadOnly, "\uFFFD", defaultEncoderReplacement(charset), false);
     }
 
     private Encoding(Charset charset, int codePage, boolean isReadOnly,
                      String decoderReplacement, String encoderReplacement) {
+        this(charset, codePage, isReadOnly, decoderReplacement, encoderReplacement, false);
+    }
+
+    private Encoding(Charset charset, int codePage, boolean isReadOnly,
+                     String decoderReplacement, String encoderReplacement, boolean throwOnInvalidBytes) {
         this.charset = charset;
         this.codePage = codePage;
         this.isReadOnly = isReadOnly;
         this.decoderReplacement = decoderReplacement;
         this.encoderReplacement = encoderReplacement;
+        this.throwOnInvalidBytes = throwOnInvalidBytes;
     }
 
     /**
@@ -105,6 +112,15 @@ public class Encoding {
 
     public static Encoding getUTF8() {
         return new Encoding(StandardCharsets.UTF_8, 65001);
+    }
+
+    /**
+     * Mirrors {@code new UTF8Encoding(encoderShouldEmitUTF8Identifier: false,
+     * throwOnInvalidBytes: true)}: malformed UTF-16 (e.g. lone surrogates)
+     * throws instead of being replaced.
+     */
+    public static Encoding getUTF8ThrowOnInvalid() {
+        return new Encoding(StandardCharsets.UTF_8, 65001, true, "\uFFFD", "\uFFFD", true);
     }
 
     public static Encoding getUTF32() {
@@ -292,6 +308,11 @@ public class Encoding {
         try {
             bb = encoder.encode(cb);
         } catch (java.nio.charset.CharacterCodingException e) {
+            if (throwOnInvalidBytes) {
+                // Mirrors UTF8Encoding(..., throwOnInvalidBytes: true): invalid
+                // UTF-16 (lone surrogate etc.) throws EncoderFallbackException.
+                throw new EncoderFallbackException(e);
+            }
             return 0;
         }
         return bb.remaining();
@@ -341,6 +362,9 @@ public class Encoding {
         try {
             bb = encoder.encode(cb);
         } catch (java.nio.charset.CharacterCodingException e) {
+            if (throwOnInvalidBytes) {
+                throw new EncoderFallbackException(e);
+            }
             return new byte[0];
         }
         byte[] result = new byte[bb.remaining()];
@@ -571,6 +595,14 @@ public class Encoding {
 
     private CharsetEncoder newEncoder() {
         CharsetEncoder encoder = charset.newEncoder();
+        if (throwOnInvalidBytes) {
+            // Mirrors UTF8Encoding(..., throwOnInvalidBytes: true): malformed
+            // input throws (CharacterCodingException → EncoderFallbackException)
+            // instead of being ignored/replaced.
+            encoder.onMalformedInput(CodingErrorAction.REPORT);
+            encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
+            return encoder;
+        }
         if (encoderReplacement.isEmpty()) {
             encoder.onMalformedInput(CodingErrorAction.IGNORE);
             encoder.onUnmappableCharacter(CodingErrorAction.IGNORE);

@@ -723,6 +723,18 @@ _pendingClassTypeParams ??= new();
         if (typeSymbol.SpecialType == SpecialType.System_Double) return "double.class";
         if (typeSymbol.SpecialType == SpecialType.System_Boolean) return "boolean.class";
         if (typeSymbol.SpecialType == SpecialType.System_Char) return "char.class";
+        // C# multidimensional arrays (int[,], int[,,]) map to Java jagged arrays
+        // (int[][]) losing the rank. Route through TypeHelper so it records the
+        // original rank; Type.GetArrayRank() (→ TypeHelper.getArrayRank) then still
+        // detects multidim types and e.g. System.Text.Json rejects them as in .NET.
+        // The helper returns Class<?>; cast back to the exact array Class so calls
+        // like serialize(Class<TValue>, TValue) keep generic type inference.
+        if (typeSymbol is IArrayTypeSymbol { Rank: > 1 } multiDimArray)
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            var helperCall = $"TypeHelper.getMultiDimArrayClass({GetClassLiteral(multiDimArray.ElementType, context)}, {multiDimArray.Rank})";
+            return $"((Class<{context.MapType(typeSymbol)}>) (Class<?>) {helperCall})";
+        }
         var mappedType = context.MapType(typeSymbol);
         // Class literals cannot carry generic type arguments (Foo<T>.class is
         // illegal Java) — strip them, including nested ones.

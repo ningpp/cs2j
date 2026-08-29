@@ -254,8 +254,13 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         if (createdTypeSymbol?.ToDisplayString() is "System.Text.UTF8Encoding" or "System.Text.ASCIIEncoding")
         {
+            // new UTF8Encoding(encoderShouldEmitUTF8Identifier, throwOnInvalidBytes)
+            // — throwOnInvalidBytes: true makes invalid UTF-16 input throw
+            // instead of being replaced, matching the SDK's s_utf8Encoding.
+            var throwOnInvalid = node.ArgumentList?.Arguments.Count >= 2
+                && node.ArgumentList.Arguments[1].Expression.ToString() is "true";
             var call = createdTypeSymbol?.ToDisplayString() == "System.Text.UTF8Encoding"
-                ? "Encoding.getUTF8()"
+                ? (throwOnInvalid ? "Encoding.getUTF8ThrowOnInvalid()" : "Encoding.getUTF8()")
                 : "Encoding.getASCII()";
             context.AddImport("io.github.ningpp.compat.Encoding");
             return call;

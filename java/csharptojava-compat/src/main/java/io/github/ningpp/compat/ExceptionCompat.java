@@ -27,20 +27,32 @@ public final class ExceptionCompat {
     /**
      * Returns the .NET {@code Exception.Source} value when available.
      *
-     * <p>Java exceptions do not have a direct equivalent. This helper currently returns
-     * {@code null}; callers that need a non-null source should set it explicitly.</p>
+     * <p>Java exceptions have no Source property, so the value is recorded in a
+     * weak side table keyed by the exception instance. System.Text.Json's
+     * ThrowHelper marks certain InvalidOperationException/FormatException with
+     * {@code Source = "dotnet.text.json.Rethrowable"}; the serializer's
+     * ReadCore/WriteCore rely on that marker to rethrow as JsonException.</p>
      */
     public static String getSource(RuntimeException e) {
-        return null;
+        if (e == null) {
+            return null;
+        }
+        return SOURCES.get(e);
     }
 
     /**
-     * Mirrors .NET {@code Exception.Source = value}. Java exceptions have no Source
-     * property; the value is discarded (the ThrowHelper rethrow marker is not
-     * representable in the Java exception model).
+     * Mirrors .NET {@code Exception.Source = value}. The value is recorded in a
+     * weak side table so it survives until the exception is garbage collected.
      */
     public static void setSource(RuntimeException e, String value) {
+        if (e == null) {
+            return;
+        }
+        SOURCES.put(e, value);
     }
+
+    private static final java.util.Map<RuntimeException, String> SOURCES =
+        java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
 
     /**
      * Mirrors {@code Exception.Data} — a dictionary of caller-supplied key/value

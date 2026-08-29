@@ -180,9 +180,6 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.GetPosition(long, SequencePosition). */
     public SequencePosition getPosition(long offset, SequencePosition position) {
-        if (segments == null) {
-            return new SequencePosition(this, 0);
-        }
         int base = position != null && position.getObject() == this ? position.getInteger() : 0;
         return new SequencePosition(this, base + (int) offset);
     }

@@ -425,13 +425,12 @@ public final class TypeHelper {
         if (type == null || !type.isArray()) {
             return 0;
         }
-        // In .NET, ArrayRank is the number of comma dimensions in a single
-        // array type (int[,] => rank 2). Java has no true multidimensional
-        // arrays — int[][] is a jagged array (rank 1, element type int[]).
-        // Therefore the .NET-compatible rank is always 1 for any Java array
-        // (which is always single-dimensional; "multidimensional" arrays are
-        // modeled as arrays-of-arrays and handled recursively by element type).
-        return 1;
+        // .NET ArrayRank is the number of comma dimensions in a single array type
+        // (int[,] => rank 2). Java arrays are always rank 1; the converter maps
+        // C# multidimensional types to jagged arrays and registers the original
+        // rank here via getMultiDimArrayClass.
+        Integer rank = MULTI_DIM_ARRAY_RANKS.get(type);
+        return rank != null ? rank : 1;
     }
 
     public static MethodInfo[] getMethods(Class<?> type, int bindingFlags) {
@@ -725,7 +724,10 @@ public final class TypeHelper {
     }
 
     public static Class<?> getElementType(Class<?> type) {
-        return type == null ? null : toWrapperType(type.getComponentType());
+        // Mirrors .NET Type.GetElementType(): typeof(int[]).GetElementType() is
+        // typeof(int) — keep the primitive class. Callers that need the boxed
+        // form normalize through toWrapperType (e.g. JsonConverter1.canConvert).
+        return type == null ? null : type.getComponentType();
     }
 
     public static boolean getIsGenericParameter(Class<?> type) {
@@ -750,6 +752,40 @@ public final class TypeHelper {
         }
         Class<?> componentType = primitive ? toPrimitiveType(elementType) : null;
         return java.lang.reflect.Array.newInstance(componentType != null ? componentType : elementType, length);
+    }
+
+    /**
+     * Returns the Java class for a C# multidimensional array type (int[,] → int[][])
+     * and records its C# rank so {@link #getArrayRank} can still detect it. The
+     * converter emits this for typeof(T[,]) and generic arguments of multidim types
+     * because Java class literals (int[][].class) carry no rank information.
+     */
+    public static Class<?> getMultiDimArrayClass(Class<?> elementType, int rank) {
+        Class<?> arrayClass = java.lang.reflect.Array.newInstance(elementType, new int[rank]).getClass();
+        MULTI_DIM_ARRAY_RANKS.put(arrayClass, rank);
+        return arrayClass;
+    }
+
+    private static final java.util.Map<Class<?>, Integer> MULTI_DIM_ARRAY_RANKS =
+        java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * Mirrors List&lt;T&gt;.ToArray() where T is only known at runtime. For a
+     * primitive element class (C# List&lt;int&gt; → CSharpList&lt;Integer&gt;) the
+     * .NET result is int[], which cannot be expressed through Java generics, so the
+     * array is built reflectively with unboxing. For reference types the result is a
+     * runtime T[] (not Object[]) so downstream casts to T[] succeed.
+     */
+    public static Object listToArray(java.util.Collection<?> collection, Class<?> elementClass) {
+        if (elementClass.isPrimitive()) {
+            Object array = java.lang.reflect.Array.newInstance(elementClass, collection.size());
+            int i = 0;
+            for (Object element : collection) {
+                java.lang.reflect.Array.set(array, i++, element);
+            }
+            return array;
+        }
+        return collection.toArray((Object[]) java.lang.reflect.Array.newInstance(elementClass, collection.size()));
     }
 
     /**
@@ -864,8 +900,9 @@ public final class TypeHelper {
         }
         Class<?> srcComponent = value.getClass().getComponentType();
         // If the source is already assignable (e.g. String[] → Object[]),
-        // return as-is.
-        if (componentType.isAssignableFrom(srcComponent)) {
+        // return as-is. A primitive source can never satisfy the T[]-typed
+        // caller (checkcast Object[] fails on int[]), so always box it.
+        if (!srcComponent.isPrimitive() && componentType.isAssignableFrom(srcComponent)) {
             return (T[]) value;
         }
         // Otherwise box each element (e.g. int[] → Integer[] → T[]).

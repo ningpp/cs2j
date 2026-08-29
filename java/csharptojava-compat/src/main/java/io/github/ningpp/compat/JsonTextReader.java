@@ -57,25 +57,75 @@ public class JsonTextReader implements AutoCloseable {
                 return false;
             }
             switch (c) {
+                case '/':
+                    // Newtonsoft.Json supports /* */ block comments and // line
+                    // comments; they are surfaced as JsonToken.Comment.
+                    nextChar();
+                    int c2 = peekChar();
+                    if (c2 == '*') {
+                        nextChar();
+                        StringBuilder sb = new StringBuilder();
+                        while (true) {
+                            int cc = nextChar();
+                            if (cc < 0) {
+                                break;
+                            }
+                            if (cc == '*' && peekChar() == '/') {
+                                nextChar();
+                                break;
+                            }
+                            sb.append((char) cc);
+                        }
+                        tokenType = JsonToken.Comment;
+                        value = sb.toString();
+                    } else if (c2 == '/') {
+                        nextChar();
+                        StringBuilder sb = new StringBuilder();
+                        while (true) {
+                            int cc = nextChar();
+                            if (cc < 0 || cc == '\n' || cc == '\r') {
+                                break;
+                            }
+                            sb.append((char) cc);
+                        }
+                        tokenType = JsonToken.Comment;
+                        value = sb.toString();
+                    } else {
+                        tokenType = JsonToken.Raw;
+                        value = readRawToken();
+                    }
+                    break;
                 case '{':
                     nextChar();
                     tokenType = JsonToken.StartObject;
                     value = null;
+                    // Newtonsoft JsonReader.Depth: container start/end tokens
+                    // report the depth BEFORE entering; value tokens report the
+                    // enclosing container depth (getDepth() subtracts for the
+                    // just-opened container).
+                    depth++;
                     break;
                 case '}':
                     nextChar();
                     tokenType = JsonToken.EndObject;
                     value = null;
+                    if (depth > 0) {
+                        depth--;
+                    }
                     break;
                 case '[':
                     nextChar();
                     tokenType = JsonToken.StartArray;
                     value = null;
+                    depth++;
                     break;
                 case ']':
                     nextChar();
                     tokenType = JsonToken.EndArray;
                     value = null;
+                    if (depth > 0) {
+                        depth--;
+                    }
                     break;
                 case ',':
                 case ':':
@@ -125,14 +175,41 @@ public class JsonTextReader implements AutoCloseable {
                     }
                     break;
                 default:
-                    tokenType = JsonToken.Raw;
-                    value = readRawToken();
+                    if (c == '-' || (c >= '0' && c <= '9')) {
+                        // Newtonsoft JsonToken.Integer/Float for numeric values.
+                        String num = readNumberLiteral();
+                        if (num.indexOf('.') >= 0 || num.indexOf('e') >= 0 || num.indexOf('E') >= 0) {
+                            tokenType = JsonToken.Float;
+                            value = Double.parseDouble(num);
+                        } else {
+                            tokenType = JsonToken.Integer;
+                            value = Long.parseLong(num);
+                        }
+                    } else {
+                        tokenType = JsonToken.Raw;
+                        value = readRawToken();
+                    }
                     break;
             }
             return true;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /** Reads a numeric literal starting at the current position (including optional leading '-'). */
+    private String readNumberLiteral() throws IOException {
+        StringBuilder sb = new StringBuilder();
+        while (true) {
+            int c = peekChar();
+            if ((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E') {
+                sb.append((char) c);
+                nextChar();
+            } else {
+                break;
+            }
+        }
+        return sb.toString();
     }
 
     /** Attempts to match a literal keyword (true/false/null) from the current position. */
@@ -224,26 +301,23 @@ public class JsonTextReader implements AutoCloseable {
      * Mirrors JsonReader.Skip() — advances the reader past the current value
      * (including nested objects/arrays).
      */
+    /** Mirrors Newtonsoft JsonReader.Skip() — skips the children of the current token. */
     public void skip() {
-        int depth = 0;
-        do {
+        if (getTokenType() == JsonToken.PropertyName) {
             if (!read()) {
                 return;
             }
-            JsonToken t = getTokenType();
-            switch (t) {
-                case StartObject:
-                case StartArray:
-                    depth++;
-                    break;
-                case EndObject:
-                case EndArray:
-                    depth--;
-                    break;
-                default:
-                    break;
-            }
-        } while (depth > 0);
+        }
+        if (getTokenType() == JsonToken.StartObject || getTokenType() == JsonToken.StartArray) {
+            int depth = getDepth();
+            do {
+                if (!read()) {
+                    return;
+                }
+            } while (depth < getDepth());
+        }
+        // For all other token types (including None and scalar values) the
+        // reader does not move.
     }
 
     public Object getValue() {
@@ -264,6 +338,12 @@ public class JsonTextReader implements AutoCloseable {
 
     /** C# JsonReader.Depth — current nesting depth. */
     public int getDepth() {
+        // Newtonsoft reports the depth BEFORE entering a container for the
+        // container's own Start/End token; the field already counts the open
+        // container, so subtract one for Start tokens.
+        if (tokenType == JsonToken.StartObject || tokenType == JsonToken.StartArray) {
+            return Math.max(depth - 1, 0);
+        }
         return depth;
     }
 

@@ -318,42 +318,40 @@ public class JsonTextWriter implements AutoCloseable {
         return formatting;
     }
 
-    /** Mirrors JsonWriter.WriteToken(JsonReader) — drains the reader into this writer. */
+    /** Mirrors JsonWriter.WriteToken(JsonReader, bool) — writes the reader's CURRENT token only. */
     public void writeToken(JsonTextReader reader, boolean writeChildren) {
-        while (reader.read()) {
-            JsonToken token = reader.getTokenType();
-            Object value = reader.getValue();
-            switch (token) {
-                case StartObject:
-                    writeStartObject();
-                    break;
-                case EndObject:
-                    writeEndObject();
-                    break;
-                case StartArray:
-                    writeStartArray();
-                    break;
-                case EndArray:
-                    writeEndArray();
-                    break;
-                case PropertyName:
-                    writePropertyName(value == null ? "" : value.toString());
-                    break;
-                case String:
-                    writeValue(value == null ? "" : value.toString());
-                    break;
-                case Integer:
-                case Float:
-                case Raw:
-                case Boolean:
-                    writeValue(value);
-                    break;
-                case Null:
-                    writeNull();
-                    break;
-                default:
-                    break;
-            }
+        JsonToken token = reader.getTokenType();
+        Object value = reader.getValue();
+        switch (token) {
+            case StartObject:
+                writeStartObject();
+                break;
+            case EndObject:
+                writeEndObject();
+                break;
+            case StartArray:
+                writeStartArray();
+                break;
+            case EndArray:
+                writeEndArray();
+                break;
+            case PropertyName:
+                writePropertyName(value == null ? "" : value.toString());
+                break;
+            case String:
+                writeValue(value == null ? "" : value.toString());
+                break;
+            case Integer:
+            case Float:
+            case Raw:
+            case Boolean:
+                writeValue(value);
+                break;
+            case Null:
+                writeNull();
+                break;
+            default:
+                break;
         }
     }
 

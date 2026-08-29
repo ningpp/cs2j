@@ -42,6 +42,114 @@ public final class Utf8Parser {
         return parseInteger(spanToString(source), 10, 32, value, bytesConsumed);
     }
 
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out byte, out int) — range 0..255. */
+    public static boolean tryParseByte(ReadOnlySpan<Integer> source, IntHolder value, IntHolder bytesConsumed) {
+        String text = spanToString(source).trim();
+        if (text.isEmpty()) {
+            return false;
+        }
+        try {
+            long parsed = Long.parseLong(text, 10);
+            if (parsed < 0 || parsed > 0xFF) {
+                return false;
+            }
+            value.value = (int) parsed;
+            bytesConsumed.value = text.length();
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out byte, out int) — ByteHolder variant. */
+    public static boolean tryParseByte(ReadOnlySpan<Integer> source, ByteHolder value, IntHolder bytesConsumed) {
+        IntHolder tmp = new IntHolder();
+        boolean ok = tryParseByte(source, tmp, bytesConsumed);
+        value.value = (byte) tmp.value;
+        return ok;
+    }
+
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out sbyte, out int) — range -128..127. */
+    public static boolean tryParseSByte(ReadOnlySpan<Integer> source, IntHolder value, IntHolder bytesConsumed) {
+        String text = spanToString(source).trim();
+        if (text.isEmpty()) {
+            return false;
+        }
+        try {
+            long parsed = Long.parseLong(text, 10);
+            if (parsed < -128 || parsed > 127) {
+                return false;
+            }
+            value.value = (int) parsed;
+            bytesConsumed.value = text.length();
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out sbyte, out int) — ByteHolder variant. */
+    public static boolean tryParseSByte(ReadOnlySpan<Integer> source, ByteHolder value, IntHolder bytesConsumed) {
+        IntHolder tmp = new IntHolder();
+        boolean ok = tryParseSByte(source, tmp, bytesConsumed);
+        value.value = (byte) tmp.value;
+        return ok;
+    }
+
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out ushort, out int) — range 0..65535. */
+    public static boolean tryParseUInt16(ReadOnlySpan<Integer> source, IntHolder value, IntHolder bytesConsumed) {
+        String text = spanToString(source).trim();
+        if (text.isEmpty()) {
+            return false;
+        }
+        try {
+            long parsed = Long.parseLong(text, 10);
+            if (parsed < 0 || parsed > 0xFFFF) {
+                return false;
+            }
+            value.value = (int) parsed;
+            bytesConsumed.value = text.length();
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out ushort, out int) — ShortHolder variant. */
+    public static boolean tryParseUInt16(ReadOnlySpan<Integer> source, ShortHolder value, IntHolder bytesConsumed) {
+        IntHolder tmp = new IntHolder();
+        boolean ok = tryParseUInt16(source, tmp, bytesConsumed);
+        value.value = (short) tmp.value;
+        return ok;
+    }
+
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out short, out int) — range -32768..32767. */
+    public static boolean tryParseInt16(ReadOnlySpan<Integer> source, IntHolder value, IntHolder bytesConsumed) {
+        String text = spanToString(source).trim();
+        if (text.isEmpty()) {
+            return false;
+        }
+        try {
+            long parsed = Long.parseLong(text, 10);
+            if (parsed < Short.MIN_VALUE || parsed > Short.MAX_VALUE) {
+                return false;
+            }
+            value.value = (int) parsed;
+            bytesConsumed.value = text.length();
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out short, out int) — ShortHolder variant. */
+    public static boolean tryParseInt16(ReadOnlySpan<Integer> source, ShortHolder value, IntHolder bytesConsumed) {
+        IntHolder tmp = new IntHolder();
+        boolean ok = tryParseInt16(source, tmp, bytesConsumed);
+        value.value = (short) tmp.value;
+        return ok;
+    }
+
     /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out int, out int, char standardFormat). */
     public static boolean tryParse(ReadOnlySpan<Integer> source, IntHolder value, IntHolder bytesConsumed, char standardFormat) {
         int radix = (standardFormat == 'x' || standardFormat == 'X') ? 16 : 10;
@@ -175,8 +283,11 @@ public final class Utf8Parser {
 
     /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out UUID, out int, char standardFormat). */
     public static boolean tryParseUuid(ReadOnlySpan<Integer> source, ObjectHolder<UUID> value, IntHolder bytesConsumed, char standardFormat) {
-        String text = spanToString(source).trim();
-        if (text.isEmpty()) return false;
+        String text = spanToString(source);
+        // .NET requires the whole span to be a strict "D"-format GUID with no
+        // leading/trailing whitespace; trimming would accept inputs like
+        // " 08314FA2-..." that .NET rejects.
+        if (text.isEmpty() || !text.equals(text.trim())) return false;
         try {
             value.value = UUID.fromString(text);
             bytesConsumed.value = text.length();
@@ -220,7 +331,7 @@ public final class Utf8Parser {
             value.value = Decimal.parse(text);
             bytesConsumed.value = text.length();
             return true;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ArithmeticException e) {
             // JSON numbers may use exponent notation (e.g. 1e-10), which .NET's
             // Utf8Parser.TryParseDecimal accepts even though decimal.Parse does not.
             if (text.indexOf('e') < 0 && text.indexOf('E') < 0) {
@@ -230,7 +341,7 @@ public final class Utf8Parser {
                 value.value = Decimal.parseExponent(text);
                 bytesConsumed.value = text.length();
                 return true;
-            } catch (IllegalArgumentException ex) {
+            } catch (IllegalArgumentException | ArithmeticException ex) {
                 // Malformed exponent or overflow — .NET returns false.
                 return false;
             }

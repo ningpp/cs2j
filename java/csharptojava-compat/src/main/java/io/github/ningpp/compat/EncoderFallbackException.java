@@ -6,6 +6,7 @@ public class EncoderFallbackException extends IllegalArgumentException {
     public EncoderFallbackException() { super(); }
     public EncoderFallbackException(String message) { super(message); }
     public EncoderFallbackException(String message, Throwable cause) { super(message, cause); }
+    public EncoderFallbackException(Throwable cause) { super(cause); }
 
     public int getHResult() { return hresult; }
     public void setHResult(int value) { this.hresult = value; }

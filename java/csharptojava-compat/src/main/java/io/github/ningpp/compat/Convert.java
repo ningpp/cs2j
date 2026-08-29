@@ -33,6 +33,22 @@ public class Convert {
 
     /** Mirrors C# Convert.FromBase64String(String) — invalid input throws FormatException in .NET. */
     public static byte[] fromBase64String(String s) {
+        // .NET requires padding: length%4 == 2 needs "==", length%4 == 3 needs "=",
+        // length%4 == 1 is always invalid. Java's decoder accepts unpadded input
+        // (e.g. "ABC"/"AB"), which .NET rejects with FormatException.
+        int len = s.length();
+        if (len % 4 == 1) {
+            throw new FormatException("The input is not a valid Base-64 string as it contains a non-base 64 character, more than two padding characters, or an illegal character among the padding characters.");
+        }
+        if (len % 4 == 2) {
+            if (s.charAt(len - 2) != '=' || s.charAt(len - 1) != '=') {
+                throw new FormatException("The input is not a valid Base-64 string as it contains a non-base 64 character, more than two padding characters, or an illegal character among the padding characters.");
+            }
+        } else if (len % 4 == 3) {
+            if (s.charAt(len - 1) != '=') {
+                throw new FormatException("The input is not a valid Base-64 string as it contains a non-base 64 character, more than two padding characters, or an illegal character among the padding characters.");
+            }
+        }
         try {
             return Base64.getDecoder().decode(s);
         } catch (IllegalArgumentException e) {

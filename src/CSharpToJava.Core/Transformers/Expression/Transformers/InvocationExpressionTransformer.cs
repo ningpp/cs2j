@@ -5169,6 +5169,18 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 methodName = "tryParseUInt32";
             else if (utf8OutType.SpecialType == SpecialType.System_UInt64)
                 methodName = "tryParseUInt64";
+            // byte/sbyte/short/ushort also collapse onto IntHolder: the bare
+            // tryParse checks the int range only, so route to width-specific
+            // overloads that enforce the C# type's domain (e.g. "-1" must fail
+            // for byte but succeed for sbyte).
+            else if (utf8OutType.SpecialType == SpecialType.System_Byte)
+                methodName = "tryParseByte";
+            else if (utf8OutType.SpecialType == SpecialType.System_SByte)
+                methodName = "tryParseSByte";
+            else if (utf8OutType.SpecialType == SpecialType.System_UInt16)
+                methodName = "tryParseUInt16";
+            else if (utf8OutType.SpecialType == SpecialType.System_Int16)
+                methodName = "tryParseInt16";
         }
 
         methodName = ConversionContext.EscapeJavaKeyword(methodName);
@@ -8953,6 +8965,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             javaType = "Object";
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
+            if (context.TryGetRuntimeClassParameter(elementType.Name, out var runtimeClassParameter))
+            {
+                // List<T>.ToArray() must produce a runtime T[]. When T erases to a
+                // primitive wrapper (C# List<int>) the .NET result is int[], which
+                // cannot be expressed through Java generics — build it reflectively.
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
+            }
             if (TryBuildTypeParameterArrayGenerator(elementType, javaType, context, out var generator))
                 return $"{receiver}.toArray({generator})";
 
@@ -8996,6 +9016,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
+            if (context.TryGetRuntimeClassParameter(elementType.Name, out var runtimeClassParameter))
+            {
+                // See the comment at the other List<T>.ToArray() branch: the array
+                // must be built reflectively so primitive T yields a primitive array.
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
+            }
             var javaTypeParam = context.MapType(elementType);
             if (TryBuildTypeParameterArrayGenerator(elementType, javaTypeParam, context, out var generator))
                 return $"{receiver}.stream().toArray({generator})";

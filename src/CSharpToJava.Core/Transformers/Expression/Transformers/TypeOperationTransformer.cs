@@ -1675,6 +1675,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return runtimeClassLiteral;
         }
 
+        // C# multidimensional arrays (int[,]) map to Java jagged arrays (int[][])
+        // losing the rank. Route through TypeHelper so Type.GetArrayRank() still
+        // detects them (e.g. System.Text.Json rejects multidim types in .NET).
+        if (typeInfo.Type is IArrayTypeSymbol { Rank: > 1 } multiDimType)
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            return $"TypeHelper.getMultiDimArrayClass({ConversionContext.GetClassLiteral(multiDimType.ElementType, context)}, {multiDimType.Rank})";
+        }
+
         string typeName;
         if (typeInfo.Type is INamedTypeSymbol namedType
             && IsUnboundGenericType(namedType))

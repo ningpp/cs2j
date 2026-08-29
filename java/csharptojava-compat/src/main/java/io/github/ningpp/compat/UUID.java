@@ -85,12 +85,19 @@ public final class UUID implements Comparable<UUID> {
         return value.toString();
     }
 
-    /** C# Guid.ToString(format): "N" = 32 hex digits, no dashes; "D"/"" = dashed. */
+    /** C# Guid.ToString(format): "N" = 32 hex digits, no dashes; "D"/"" = dashed; "B" = braced; "P" = parenthesized. */
     public String toString(String format) {
+        String dashed = value.toString();
         if ("N".equalsIgnoreCase(format)) {
-            return value.toString().replace("-", "");
+            return dashed.replace("-", "");
         }
-        return value.toString();
+        if ("B".equalsIgnoreCase(format)) {
+            return "{" + dashed + "}";
+        }
+        if ("P".equalsIgnoreCase(format)) {
+            return "(" + dashed + ")";
+        }
+        return dashed;
     }
 
     /** C# Guid.ToString(format, provider) — provider (CultureInfo) is ignored. */
