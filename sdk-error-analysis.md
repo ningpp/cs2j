@@ -552,3 +552,14 @@
   - Java: 829-verify 树 mvn 构建 + 测试,7903 测试 777F+881E=1658 失败(与修复前 1658 持平,无回归——C# 侧编译错误在 Java 侧本就以等价语义生成);
   - 转换器全量测试 3022/3026(仅 4 个存量失败);
   - 828 目标树已重新转换并同步(stage 树构建 0 错误)。
+
+## Iteration 24 — byte 底层枚举算术未按底层类型截断（Utf8JsonReader 注释后误分发 StartArray）
+- **错误信息**: 312 个 `dotnet.text.json.JsonReaderException`（Utf8JsonReaderTests 数据驱动用例）："'…' is invalid after a single JSON value. Expected end of data." 与 "'…' is an invalid start of a property name"
+- **对应 C# 文件**: json/src/System/Text/Json/Reader/JsonReaderHelper.cs（`IsTokenTypePrimitive`）、Utf8JsonReader.cs（ConsumeNextTokenFromLastNonCommentToken）
+- **根因分类**: Transformer（枚举算术底层类型语义丢失）
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs（TryTransformEnumArithmeticOperation）
+- **分析**: C# 枚举算术的结果类型是枚举的**底层类型**。JsonTokenType 底层为 byte：`(int)(JsonTokenType.None - JsonTokenType.String)` = unchecked `(byte)(0-7)` = **249**（不是 -7），故 `IsTokenTypePrimitive(None)` = `249 <= 4` = **false**。Java 转换版用 `ordinal()` 相减保持 int：`0-7=-7 <= 4` = **true** —— 语义翻转！后果：Allow 注释模式下 read 注释后的 token，`_previousTokenType=None` 被误判为 primitive → `_tokenType` 被设为 StartArray → 单值后遇多余数据抛 ExpectedEndAfterSingleJson（C# 中 None 非 primitive，正确恢复为 None 并走 ReadFirstToken 路径）。这正是 312 个 JsonReaderException 的根因。
+- **修复**: TryTransformEnumArithmeticOperation 对 `+`/`-` 结果按底层类型加掩码（byte/sbyte→`& 0xFF`，ushort/short→`& 0xFFFF`）。含回归测试 ByteEnumArithmeticWrapTests（byte 枚举加掩码、int 枚举不加）。
+- **验证**: Java 侧 7903 测试 1658→1487 失败（-171）；JsonReaderException 312→159（-153）。**剩余 159 个是另一类：多段续读（isFinalBlock=false）场景**（testPartialJsonReaderWithDepthPadding 等 68+ 个），报错位置在数据起始处（BytePositionInLine 1/14），属 MultiSegment 状态恢复问题，待下一轮。
+- **重要发现**: .cs2j-no-goto-src 的 `dotnet test` 因 `BUILDING_INBOX_LIBRARY` 宏 + 框架内置 System.Text.Json 优先，**实际运行的是框架原版库而非转换版**（Assembly.Location 验证）——C# 侧"测试全绿"是假验证，只有 `dotnet build`（语法）与 Java 侧测试（语义）真实有效。分析框架原版行为可用 ilspycmd 反编译（`~/.dotnet/tools/ilspycmd -t <Type> <dll>`）。
+- **状态**: ✅ Fixed（enum 截断；多段续读为 Iteration 25 待办）
