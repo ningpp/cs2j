@@ -95,7 +95,8 @@ public static class DefaultParameterHelper
         int count = 0;
         while (count < parameters.Count
             && parameters[count].Name.StartsWith("_cs2j_", StringComparison.Ordinal)
-            && parameters[count].Type.StartsWith("Class<", StringComparison.Ordinal))
+            && (parameters[count].Type.StartsWith("Class<", StringComparison.Ordinal)
+                || parameters[count].Type.Contains("TypeReference<", StringComparison.Ordinal)))
         {
             count++;
         }

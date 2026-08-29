@@ -29,6 +29,12 @@ public final class DefaultValue {
      * or {@code null} when instantiation fails.
      */
     @SuppressWarnings("unchecked")
+    /** Accepts a TypeReference (from deserialize(TypeReference) helpers) and returns its default value. */
+    public static <T> T of(com.fasterxml.jackson.core.type.TypeReference<?> typeRef) {
+        Class<?> raw = TypeHelper.toRawClass(typeRef.getType());
+        return (T) ofClass(raw);
+    }
+
     public static <T> T of(Class<T> type) {
         if (type == null) return null;
         return (T) getDefaultByClass(type);

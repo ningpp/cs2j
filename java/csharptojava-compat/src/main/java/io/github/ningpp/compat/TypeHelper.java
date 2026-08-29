@@ -136,9 +136,68 @@ public final class TypeHelper {
         return false;
     }
 
+    // Runtime type-argument context: JsonSerializer.deserialize(TypeReference)
+    // registers the closed generic's erased raw class -> actual type arguments
+    // so converter factories can recover element/key/value types that a bare
+    // .class literal erases. ThreadLocal because the registry must not leak
+    // across concurrent deserializations; entries are removed when the call
+    // finishes (nested reads push/pop naturally via the map).
+    private static final ThreadLocal<java.util.Map<Class<?>, java.lang.reflect.Type[]>>
+        TYPE_ARGUMENTS = ThreadLocal.withInitial(java.util.HashMap::new);
+
+    /** Registers closed-generic type arguments for a raw class (outer layers first). */
+    public static void registerTypeArguments(Class<?> raw, java.lang.reflect.Type[] args) {
+        if (raw != null && args != null && args.length > 0) {
+            TYPE_ARGUMENTS.get().put(raw, args);
+        }
+    }
+
+    /** Removes the registration for a raw class after the top-level call finishes. */
+    public static void unregisterTypeArguments(Class<?> raw) {
+        if (raw != null) {
+            TYPE_ARGUMENTS.get().remove(raw);
+        }
+    }
+
+    /** Recursively registers every layer of a ParameterizedType (outer first). */
+    public static void registerParameterizedType(java.lang.reflect.Type type) {
+        if (type instanceof java.lang.reflect.ParameterizedType pt) {
+            Class<?> raw = (Class<?>) pt.getRawType();
+            registerTypeArguments(raw, pt.getActualTypeArguments());
+            for (java.lang.reflect.Type arg : pt.getActualTypeArguments()) {
+                registerParameterizedType(arg);
+            }
+        }
+    }
+
+    /** Extracts the raw class from a Type (ParameterizedType → raw, Class → itself). */
+    public static Class<?> toRawClass(java.lang.reflect.Type type) {
+        if (type instanceof Class<?> c) {
+            return c;
+        }
+        if (type instanceof java.lang.reflect.ParameterizedType pt) {
+            return (Class<?>) pt.getRawType();
+        }
+        return Object.class;
+    }
+
+    /** Recursively converts a closed generic Type to its erased Class (used by converters). */
+    public static Class<?> toErasedClass(java.lang.reflect.Type type) {
+        return toRawClass(type);
+    }
+
     public static Class<?>[] getGenericArguments(Class<?> type) {
         if (type == null) {
             return new Class<?>[0];
+        }
+        // Prefer registered runtime type arguments (from deserialize(TypeReference)).
+        java.lang.reflect.Type[] registered = TYPE_ARGUMENTS.get().get(type);
+        if (registered != null && registered.length > 0) {
+            Class<?>[] result = new Class<?>[registered.length];
+            for (int i = 0; i < registered.length; i++) {
+                result[i] = toRawClass(registered[i]);
+            }
+            return result;
         }
         java.lang.reflect.TypeVariable<?>[] params = type.getTypeParameters();
         if (params.length == 0) {

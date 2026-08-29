@@ -5361,18 +5361,27 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // Emit a Jackson TypeReference so elements keep their concrete type.
                 // Unbounded type parameters stay on the Class-token path (no runtime type).
                 bool isSystemTextJsonDeserialize = methodSymbol?.ContainingType.ToDisplayString()
-                    == "System.Text.Json.JsonSerializer";
+                    is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer";
                 bool deserializeJsonArgIsString = context.SemanticModel == null
                     || context.GetTypeInfo(node.ArgumentList.Arguments[argStartIndex].Expression).Type?.SpecialType
                         == SpecialType.System_String;
+                // Closed generic targets (List<SciPyResult>, IImmutableSet<IImmutableSet<int>>,
+                // ...) lose their element types when erased to a raw Class literal:
+                // deserialize(CSharpList.class, json) makes elements JsonElement, breaking
+                // foreach casts. Emit a Jackson TypeReference so elements keep their
+                // concrete type — for BOTH string and ReadOnlySpan/byte[] JSON payloads.
+                // Unbounded type parameters stay on the Class-token path below.
                 if (isSystemTextJsonDeserialize
-                    && deserializeJsonArgIsString
                     && deserializeTargetType is INamedTypeSymbol { IsGenericType: true } genericDeserTarget)
                 {
                     var mappedGenericTarget = context.MapType(genericDeserTarget);
                     if (!string.IsNullOrWhiteSpace(mappedGenericTarget) && mappedGenericTarget.Contains('<'))
                     {
-                        var typeRefCall = $"{receiver}.{methodName}(new com.fasterxml.jackson.core.type.TypeReference<{mappedGenericTarget}>() {{}}, {jsonArg}{optionsSuffix})";
+                        // Route through the compat helper: it parses the TypeReference
+                        // into raw class + type arguments, registers them for the
+                        // duration of the call, and delegates to JsonSerializer.
+                        context.AddImport("io.github.ningpp.compat.JsonSerializerCompat");
+                        var typeRefCall = $"JsonSerializerCompat.deserialize(new com.fasterxml.jackson.core.type.TypeReference<{mappedGenericTarget}>() {{}}, {jsonArg}{optionsSuffix})";
                         bool isStandaloneDeserialize = node.Parent is ExpressionStatementSyntax
                             || node.Parent is ArrowExpressionClauseSyntax;
                         var mappedTypeRefReturn = context.MapType(deserializeTargetType);
@@ -5401,7 +5410,29 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     && !ConversionContext.IsOverrideOrImplementation(context.CurrentMethod))
                 {
                     context.RequireTypeRefTypeParam(context.CurrentMethod, deserializeTypeParam2.Name);
-                    var typeRefCall = $"{receiver}.{methodName}(_cs2j_{deserializeTypeParam2.Name}, {jsonArg}{optionsSuffix})";
+                    // The TypeReference token is a runtime type descriptor, not a Class —
+                    // the generated JsonSerializer has no TypeReference overload, so
+                    // route through the compat helper which parses and registers the
+                    // type arguments before delegating. When the method's T already
+                    // carries a runtime Class token (e.g. a helper with
+                    // Class<T> _cs2j_T declared before the body registered TypeRef),
+                    // keep the Class-token call.
+                    if (context.TryGetRuntimeClassParameter(deserializeTypeParam2.Name, out _))
+                    {
+                        var classCall = $"{receiver}.{methodName}(_cs2j_{deserializeTypeParam2.Name}, {jsonArg}{optionsSuffix})";
+                        bool isClassStandalone = node.Parent is ExpressionStatementSyntax
+                            || node.Parent is ArrowExpressionClauseSyntax;
+                        var classMappedReturn = context.MapType(deserializeTargetType);
+                        if (!isClassStandalone
+                            && !string.IsNullOrWhiteSpace(classMappedReturn)
+                            && classMappedReturn != "Object")
+                        {
+                            return $"(({classMappedReturn}) {classCall})";
+                        }
+                        return classCall;
+                    }
+                    context.AddImport("io.github.ningpp.compat.JsonSerializerCompat");
+                    var typeRefCall = $"JsonSerializerCompat.deserialize(_cs2j_{deserializeTypeParam2.Name}, {jsonArg}{optionsSuffix})";
                     bool isStandaloneDeserialize = node.Parent is ExpressionStatementSyntax
                         || node.Parent is ArrowExpressionClauseSyntax;
                     var mappedTypeRefReturn = context.MapType(deserializeTargetType);
@@ -7983,7 +8014,65 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"ObjectHelper.objectToString({receiver})";
         }
 
+        // MemberAccessor.CreateImmutableEnumerableCreateRangeDelegate<TCollection, TElement>()
+        // is an override whose body's typeof(T) degrades to null (overrides cannot
+        // add Class parameters). The calling converter (ImmutableEnumerableOfTConverter)
+        // holds its own runtime Class fields (tCollectionClass/tElementClass), so
+        // inline the CreateRange lookup instead of delegating to the null-token stub.
+        if (originalMethodName is "CreateImmutableEnumerableCreateRangeDelegate" or "createImmutableEnumerableCreateRangeDelegate"
+            && context.TryGetRuntimeClassField("TCollection", out _)
+            && context.TryGetRuntimeClassField("TElement", out _))
+        {
+            context.AddImport("io.github.ningpp.compat.ReflectionHelper");
+            var collField = context.TryGetRuntimeClassField("TCollection", out var cf) ? cf : "tCollectionClass";
+            var elemField = context.TryGetRuntimeClassField("TElement", out var ef) ? ef : "tElementClass";
+            return $"((Function<CSharpGenericIterable<TElement>, TCollection>)(ReflectionHelper.createDelegate(dotnet.text.json.Serialization.IEnumerableConverterFactoryHelpers.getImmutableEnumerableCreateRangeMethod({collField}, {elemField}), Function.class)))";
+        }
+
+        // JsonSerializer.Serialize<T>(value) where T is a runtime TypeReference token
+        // (a _cs2j_ method parameter of type TypeReference<T>): the generated
+        // JsonSerializer has no TypeReference overload, so route through the compat
+        // helper which registers the type arguments before delegating. Only when the
+        // method's T is actually registered as a TypeReference — a plain Class<T>
+        // token (e.g. CacheTests' ITestClass) must stay on the Class path.
+        if (originalMethodName is "Serialize" or "serialize"
+            && methodSymbol?.ContainingType.ToDisplayString()
+                is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer"
+            && args.StartsWith("_cs2j_", StringComparison.Ordinal)
+            && context.CurrentMethod != null
+            && TypeRefTokenName(args) is { } typeRefParamName
+            && (context.IsTypeRefTypeParam(context.CurrentMethod, typeRefParamName)
+                || context.Options.RuntimeClassParameters.IsMethodTypeReference(context.CurrentMethod, typeRefParamName)
+                || CalleeJsonDeserializesTypeParameter(context.CurrentMethod, typeRefParamName)))
+        {
+            context.AddImport("io.github.ningpp.compat.JsonSerializerCompat");
+            return $"JsonSerializerCompat.serialize({args})";
+        }
+
         return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{receiver}.{methodName}({args})", methodSymbol, context);
+    }
+
+    /// <summary>Boxes a Java primitive type name for use as a generic type argument.</summary>
+    private static string BoxJavaPrimitiveForTypeRef(string javaType) => javaType switch
+    {
+        "int" => "Integer",
+        "long" => "Long",
+        "short" => "Short",
+        "byte" => "Byte",
+        "float" => "Float",
+        "double" => "Double",
+        "boolean" => "Boolean",
+        "char" => "Character",
+        _ => javaType
+    };
+
+    /// <summary>Extracts the type-parameter name from a _cs2j_{name} token argument, or null.</summary>
+    private static string? TypeRefTokenName(string args)
+    {
+        var first = args.Split(',')[0].Trim();
+        if (first.StartsWith("_cs2j_", StringComparison.Ordinal))
+            return first["_cs2j_".Length..];
+        return null;
     }
 
     private static string CastRuntimeTypeParameterArrayInvocationIfNeeded(
@@ -11813,11 +11902,25 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 var concreteType = typeArgs[index];
                 string token;
-                if (context.IsTypeRefTypeParam(originalDef, tpName))
+                if (context.IsTypeRefTypeParam(originalDef, tpName)
+                    || context.Options.RuntimeClassParameters.IsMethodTypeReference(originalDef, tpName)
+                    || CalleeJsonDeserializesTypeParameter(originalDef, tpName))
                 {
                     // TypeReference-token slot (JsonSerializer.Deserialize<T> body):
                     // pass the fully parameterized type so element types survive.
-                    token = $"new com.fasterxml.jackson.core.type.TypeReference<{context.MapType(concreteType)}>() {{}}";
+                    // The CalleeJsonDeserializesTypeParameter fallback covers call
+                    // sites converted BEFORE the method declaration registered its
+                    // TypeReference requirement (declaration appears later in the
+                    // file) — without it the call passes a bare Class literal that
+                    // no longer matches the TypeReference parameter. Methods whose
+                    // T already carries a runtime Class token (Class<T> parameter)
+                    // stay on the Class-token path.
+                    var mappedTokenType = context.MapType(concreteType);
+                    // Java generics cannot take primitive type arguments — a C#
+                    // Deserialize<byte> (byte → int) would emit TypeReference<int>,
+                    // which is illegal. Box the mapped type for the TypeReference.
+                    mappedTokenType = BoxJavaPrimitiveForTypeRef(mappedTokenType);
+                    token = $"new com.fasterxml.jackson.core.type.TypeReference<{mappedTokenType}>() {{}}";
                 }
                 else
                 {
@@ -11832,6 +11935,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // (e.g. invariant-subtype) type, keep the raw literal, which javac
                 // accepts via unchecked conversion.
                 if (!context.IsTypeRefTypeParam(originalDef, tpName)
+                    && !context.Options.RuntimeClassParameters.IsMethodTypeReference(originalDef, tpName)
+                    && !CalleeJsonDeserializesTypeParameter(originalDef, tpName)
                     && concreteType is INamedTypeSymbol tokenNamed
                     && tokenNamed.IsGenericType
                     && invocation != null

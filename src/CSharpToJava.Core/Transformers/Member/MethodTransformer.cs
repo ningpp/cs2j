@@ -783,7 +783,16 @@ public class MethodTransformer : IMemberTransformer
                 if (javaMethod.Parameters.Any(p => p.Name == parameterName))
                     continue;
 
-                classTypeParams.Add(new JavaParameter($"Class<{typeParameterName}>", parameterName));
+                // Local functions whose body calls JsonSerializer.Deserialize<T>
+                // need a TypeReference<T> token (like regular methods) so closed
+                // generic element types survive; plain typeof(T) uses Class<T>.
+                var localTokenType = (localFnSymbol != null
+                        && (context.IsTypeRefTypeParam(localFnSymbol, typeParameterName)
+                            || context.Options.RuntimeClassParameters.IsMethodTypeReference(localFnSymbol, typeParameterName)
+                            || CalleeJsonDeserializesTypeParameter(localFnSymbol, typeParameterName)))
+                    ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
+                    : $"Class<{typeParameterName}>";
+                classTypeParams.Add(new JavaParameter(localTokenType, parameterName));
                 context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
             }
             // Class tokens are prepended at call sites before the regular arguments,
@@ -2672,7 +2681,12 @@ public class MethodTransformer : IMemberTransformer
             // JsonSerializer.Deserialize<T> bodies register the type parameter as a
             // TypeReference-token requirement: the injected parameter must be
             // TypeReference<T> (fully qualified — the declaring file has no import).
-            var tokenParameterType = context.IsTypeRefTypeParam(sym, typeParameterName)
+            // The CalleeJsonDeserializesTypeParameter fallback covers methods whose
+            // body calls Deserialize<T> but whose TypeRef registration happens after
+            // this signature patch (call sites of the method appear LATER in the
+            // file, so the fallback registration at those call sites never ran).
+            var tokenParameterType = (context.IsTypeRefTypeParam(sym, typeParameterName)
+                    || CalleeJsonDeserializesTypeParameter(sym, typeParameterName))
                 ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
                 : $"Class<{typeParameterName}>";
             javaMethod.Parameters.Insert(0, new JavaParameter(tokenParameterType, parameterName));
@@ -2694,6 +2708,38 @@ public class MethodTransformer : IMemberTransformer
             context.SetMethodClassTypeParamNames(sym, orderedNames);
             context.SetMethodTypeRefTypeParamNames(sym, orderedNames);
         }
+    }
+
+    /// <summary>
+    /// True when the method body calls JsonSerializer.Deserialize&lt;typeParamName&gt;(...).
+    /// Used at signature-patch time to decide Class&lt;T&gt; vs TypeReference&lt;T&gt; token
+    /// parameters for method-level type parameters whose TypeRef registration
+    /// (which happens while converting the body) has not run yet.
+    /// </summary>
+    private static bool CalleeJsonDeserializesTypeParameter(IMethodSymbol methodSymbol, string typeParamName)
+    {
+        var originalDef = methodSymbol.OriginalDefinition;
+        foreach (var syntaxRef in originalDef.DeclaringSyntaxReferences)
+        {
+            var node = syntaxRef.GetSyntax();
+            foreach (var memberAccess in node.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax>())
+            {
+                if (memberAccess.Name is not Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax genericName)
+                    continue;
+                if (genericName.Identifier.Text != "Deserialize")
+                    continue;
+                if (genericName.TypeArgumentList.Arguments.Count != 1)
+                    continue;
+                if (genericName.TypeArgumentList.Arguments[0] is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id
+                    && id.Identifier.Text == typeParamName
+                    && memberAccess.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax receiver
+                    && receiver.Identifier.Text == "JsonSerializer")
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static string AllocateRuntimeClassParameterName(string typeParameterName, JavaMethodDeclaration javaMethod)
