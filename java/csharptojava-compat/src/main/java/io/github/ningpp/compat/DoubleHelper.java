@@ -30,6 +30,19 @@ public final class DoubleHelper {
             if (ePos > 0 && s.substring(0, ePos).endsWith(".0")) {
                 s = s.substring(0, ePos - 2) + s.substring(ePos);
             }
+            // .NET G-format exponents have at least two digits ("E-08");
+            // Java prints "E-8". Pad the exponent digits to two.
+            int expStart = ePos + 1;
+            int signLen = (expStart < s.length() && (s.charAt(expStart) == '+' || s.charAt(expStart) == '-')) ? 1 : 0;
+            int digitsStart = expStart + signLen;
+            int digitsEnd = s.length();
+            int digitCount = digitsEnd - digitsStart;
+            if (digitCount < 2 && digitCount > 0) {
+                StringBuilder sb = new StringBuilder(s.substring(0, digitsStart));
+                for (int i = digitCount; i < 2; i++) sb.append('0');
+                sb.append(s.substring(digitsStart));
+                s = sb.toString();
+            }
         }
         return s;
     }

@@ -9781,6 +9781,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     return $"String.valueOf({receiver} & 0xFFFFFFFFL)";
                 case SpecialType.System_UInt64:
                     return $"Long.toUnsignedString({receiver})";
+                case SpecialType.System_Double:
+                    // .NET double.ToString() differs from Java Double.toString:
+                    // exponent padding ("E-08" not "E-8"), NaN/Infinity casing,
+                    // and no trailing ".0". Route through the C#-semantics helper.
+                    context.AddImport("io.github.ningpp.compat.DoubleHelper");
+                    return $"DoubleHelper.toString({receiver})";
+                case SpecialType.System_Single:
+                    context.AddImport("io.github.ningpp.compat.DoubleHelper");
+                    return $"DoubleHelper.toString((double) ({receiver}))";
             }
             return $"String.valueOf({receiver})";
         }
@@ -9797,7 +9806,26 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
         if (formatArgCount <= 0)
         {
-            // Only IFormatProvider arg(s), no format string → just String.valueOf
+            // Only IFormatProvider arg(s), no format string. C# still renders the
+            // value with .NET semantics (bool → "True"/"False", double → invariant
+            // G-format with padded exponents), so route by type instead of
+            // String.valueOf (Java lowercase booleans / E-8 exponents).
+            switch (receiverSymbol?.SpecialType)
+            {
+                case SpecialType.System_Boolean:
+                    context.AddImport("io.github.ningpp.compat.CSharpConvert");
+                    return $"CSharpConvert.toString({receiver})";
+                case SpecialType.System_Double:
+                    context.AddImport("io.github.ningpp.compat.DoubleHelper");
+                    return $"DoubleHelper.toString({receiver})";
+                case SpecialType.System_Single:
+                    context.AddImport("io.github.ningpp.compat.DoubleHelper");
+                    return $"DoubleHelper.toString((double) ({receiver}))";
+                case SpecialType.System_UInt32:
+                    return $"Integer.toUnsignedString({receiver})";
+                case SpecialType.System_UInt64:
+                    return $"Long.toUnsignedString({receiver})";
+            }
             return $"String.valueOf({receiver})";
         }
 
