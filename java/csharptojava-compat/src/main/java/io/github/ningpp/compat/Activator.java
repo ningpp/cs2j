@@ -94,6 +94,39 @@ public final class Activator {
         }
     }
 
+    /**
+     * Variant of {@link #createInstanceForGenericType} for C# code where the
+     * constructed generic type comes from a local variable assigned in mutually
+     * exclusive branches (e.g. a converter factory picking a 1/2/3-parameter
+     * converter at runtime). Each branch's MakeGenericType arguments are passed
+     * as one {@code Class<?>[]} group; the group whose arity matches the runtime
+     * generic type's parameter count is forwarded, preserving each branch's own
+     * argument order (mixing branches would swap e.g. dictionary key/value).
+     */
+    public static Object createInstanceForGenericTypeFromGroups(Class<?> type, Object bindingAttr, Object binder, Class<?>[]... candidateGroups) {
+        if (candidateGroups == null || candidateGroups.length == 0) {
+            return createInstanceForGenericType(type, bindingAttr, binder);
+        }
+        int parameterCount = type.getTypeParameters().length;
+        Class<?>[] chosen = null;
+        for (Class<?>[] group : candidateGroups) {
+            if (group.length == parameterCount) {
+                chosen = group;
+                break;
+            }
+        }
+        if (chosen == null) {
+            // Fall back to the longest group (the full MakeGenericType call is
+            // the 3-argument branch in the SDK converter factories).
+            for (Class<?>[] group : candidateGroups) {
+                if (chosen == null || group.length > chosen.length) {
+                    chosen = group;
+                }
+            }
+        }
+        return createInstanceForGenericType(type, bindingAttr, binder, chosen);
+    }
+
     private static Object createInstanceWithArgs(Class<?> type, Object... args) {
         if (type == null) {
             throw new NullPointerException("type");

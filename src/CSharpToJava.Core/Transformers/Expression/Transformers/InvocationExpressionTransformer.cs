@@ -749,7 +749,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     if (methodTypeParameterName != null
                         && (context.IsTypeRefTypeParam(bareMethodSym2.OriginalDefinition, methodTypeParameterName)
                             || context.Options.RuntimeClassParameters.IsMethodTypeReference(bareMethodSym2.OriginalDefinition, methodTypeParameterName)
-                            || CalleeJsonDeserializesTypeParameter(bareMethodSym2, methodTypeParameterName)))
+                            || CalleeJsonDeserializesTypeParameter(bareMethodSym2, methodTypeParameterName, context.SemanticModel)))
                     {
                         argLiteral = $"new com.fasterxml.jackson.core.type.TypeReference<{context.MapType(typeArg)}>() {{}}";
                     }
@@ -3533,7 +3533,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (TryCollectMakeGenericTypeArguments(
                     node.ArgumentList.Arguments[0].Expression,
                     context,
-                    out var genericScalarArgs,
+                    out var genericScalarGroups,
                     out var genericArrayArg))
             {
                 var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
@@ -3542,18 +3542,29 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 var cultureArg = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
                 context.AddImport("io.github.ningpp.compat.Activator");
 
-                var genericArgTexts = genericScalarArgs.Count > 0
-                    ? genericScalarArgs.Select(a => facade.Transform(a, context))
+                // Each MakeGenericType branch (1/2/3-parameter converter types)
+                // keeps its own argument order. The compat helper receives every
+                // group as a Class<?>[] and picks the one whose arity matches the
+                // runtime generic type — deduplicating across branches previously
+                // swapped dictionary key/value arguments.
+                var genericGroupTexts = genericScalarGroups.Count > 0
+                    ? genericScalarGroups.Select(g => $"new Class<?>[] {{ {string.Join(", ", g.Select(a => facade.Transform(a, context)))} }}")
                     : null;
-                var genericArrayText = genericScalarArgs.Count == 0 && genericArrayArg != null
+                var genericArrayText = genericScalarGroups.Count == 0 && genericArrayArg != null
                     ? facade.Transform(genericArrayArg, context)
                     : null;
 
                 if (argsExpression.IsKind(SyntaxKind.NullLiteralExpression))
                 {
-                    if (genericArgTexts != null)
+                    if (genericGroupTexts != null)
                     {
-                        return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericArgTexts)})";
+                        if (genericScalarGroups.Count == 1)
+                        {
+                            return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericGroupTexts)})";
+                        }
+                        // Multiple runtime branches: the helper picks the group
+                        // whose arity matches the runtime generic type.
+                        return $"Activator.createInstanceForGenericTypeFromGroups({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericGroupTexts)})";
                     }
                     if (genericArrayText != null)
                     {
@@ -3561,13 +3572,20 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     }
                 }
 
-                if (genericArgTexts != null)
+                if (genericGroupTexts != null)
                 {
-                    var baseArgs = facade.Transform(argsExpression, context);
-                    var argsOutput = AppendGenericArgsToObjectArray(baseArgs, string.Join(", ", genericArgTexts));
-                    if (argsOutput != null)
+                    // Single-group calls keep the object-array form; multi-group
+                    // calls (runtime-selected converter arity) cannot be folded
+                    // into one array here, so fall back to the plain args array.
+                    if (genericScalarGroups.Count == 1)
                     {
-                        return $"Activator.createInstance({typeArg}, {bindingAttrArg}, {binderArg}, {argsOutput}, {cultureArg})";
+                        var baseArgs = facade.Transform(argsExpression, context);
+                        var firstGroup = string.Join(", ", genericScalarGroups[0].Select(a => facade.Transform(a, context)));
+                        var argsOutput = AppendGenericArgsToObjectArray(baseArgs, firstGroup);
+                        if (argsOutput != null)
+                        {
+                            return $"Activator.createInstance({typeArg}, {bindingAttrArg}, {binderArg}, {argsOutput}, {cultureArg})";
+                        }
                     }
                 }
             }
@@ -11970,7 +11988,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// still be emitted as a TypeReference so the constructed generic element
     /// type survives erasure.
     /// </summary>
-    private static bool CalleeJsonDeserializesTypeParameter(IMethodSymbol methodSymbol, string typeParamName)
+    private static bool CalleeJsonDeserializesTypeParameter(IMethodSymbol methodSymbol, string typeParamName, SemanticModel? semanticModel = null)
     {
         var originalDef = methodSymbol.OriginalDefinition;
         foreach (var syntaxRef in originalDef.DeclaringSyntaxReferences)
@@ -11989,6 +12007,25 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     && memberAccess.Expression is IdentifierNameSyntax receiver
                     && receiver.Identifier.Text == "JsonSerializer")
                 {
+                    // Only the real System.Text.Json.JsonSerializer.Deserialize<T>
+                    // needs a TypeReference token. A user class also named
+                    // "JsonSerializer" (e.g. test doubles) must stay on the
+                    // Class-token path — confirm via the semantic model when
+                    // available.
+                    if (semanticModel?.Compilation != null)
+                    {
+                        // The memberAccess lives in the TARGET method's syntax tree,
+                        // which may differ from the caller's tree — resolve through
+                        // the compilation so cross-file methods confirm correctly.
+                        var targetModel = semanticModel.Compilation.GetSemanticModel(memberAccess.SyntaxTree);
+                        var targetSym = targetModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                        if (targetSym?.ContainingType.ToDisplayString()
+                            is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer")
+                        {
+                            return true;
+                        }
+                        continue;
+                    }
                     return true;
                 }
             }
@@ -12835,10 +12872,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// Recovers the type arguments passed to a MakeGenericType expression when a
     /// System.Activator.CreateInstance call passes args: null. The type argument
     /// may be the MakeGenericType invocation itself or a local variable assigned
-    /// from one (possibly in several mutually exclusive branches). Scalar type
-    /// arguments are deduplicated in source order; an array-valued argument (for
-    /// example Type[] typeArguments) is returned separately so the compat helper
-    /// can receive it as the varargs array.
+    /// from one of several mutually exclusive branches (e.g. 1/2/3-parameter
+    /// converter types chosen at runtime). Each branch's arguments are kept as a
+    /// separate group in its own source order so the compat helper can pick the
+    /// group whose arity matches the runtime generic type; mixing branches and
+    /// deduplicating scalars corrupts the argument order (dictionary key/value
+    /// swap). An array-valued argument (for example Type[] typeArguments) is
+    /// returned separately so the compat helper can receive it as the varargs
+    /// array.
     /// </summary>
     private static string? AppendGenericArgsToObjectArray(string argsExpr, string genericArgs)
     {
@@ -12866,12 +12907,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     private static bool TryCollectMakeGenericTypeArguments(
         ExpressionSyntax typeExpression,
         ConversionContext context,
-        out List<ExpressionSyntax> scalarArgs,
+        out List<List<ExpressionSyntax>> scalarGroups,
         out ExpressionSyntax? arrayArg)
     {
-        scalarArgs = new List<ExpressionSyntax>();
+        var groups = new List<List<ExpressionSyntax>>();
+        scalarGroups = groups;
         arrayArg = null;
-        var seenScalars = new HashSet<string>(StringComparer.Ordinal);
+        var seenGroupKeys = new HashSet<string>(StringComparer.Ordinal);
         var arrayArgs = new List<ExpressionSyntax>();
 
         void AddFromInitializer(InitializerExpressionSyntax? initializer, List<ExpressionSyntax> scalars, List<ExpressionSyntax> arrays)
@@ -12886,17 +12928,19 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 }
                 else
                 {
-                    AddScalar(element, scalars);
+                    scalars.Add(element);
                 }
             }
         }
 
-        void AddScalar(ExpressionSyntax expression, List<ExpressionSyntax> scalars)
+        void AddGroup(List<ExpressionSyntax> scalars)
         {
-            var key = expression.ToString();
-            if (seenScalars.Add(key))
+            if (scalars.Count == 0)
+                return;
+            var key = string.Join("|", scalars.Select(s => s.ToString()));
+            if (seenGroupKeys.Add(key))
             {
-                scalars.Add(expression);
+                groups.Add(scalars);
             }
         }
 
@@ -12920,7 +12964,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     arrays.Add(expression);
                     continue;
                 }
-                AddScalar(expression, scalars);
+                scalars.Add(expression);
             }
         }
 
@@ -12928,10 +12972,12 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             && directInvocation.Expression is MemberAccessExpressionSyntax directAccess
             && directAccess.Name.Identifier.Text == "MakeGenericType")
         {
-            AddFromInvocation(directInvocation, scalarArgs, arrayArgs);
-            if (scalarArgs.Count == 0 && arrayArgs.Count > 0)
+            var scalars = new List<ExpressionSyntax>();
+            AddFromInvocation(directInvocation, scalars, arrayArgs);
+            AddGroup(scalars);
+            if (scalarGroups.Count == 0 && arrayArgs.Count > 0)
                 arrayArg = arrayArgs[0];
-            return scalarArgs.Count > 0 || arrayArg != null;
+            return scalarGroups.Count > 0 || arrayArg != null;
         }
 
         if (typeExpression is IdentifierNameSyntax identifier
@@ -12972,14 +13018,18 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     && invocation.Expression is MemberAccessExpressionSyntax access
                     && access.Name.Identifier.Text == "MakeGenericType")
                 {
-                    AddFromInvocation(invocation, scalarArgs, arrayArgs);
+                    var scalars = new List<ExpressionSyntax>();
+                    var arrays = new List<ExpressionSyntax>();
+                    AddFromInvocation(invocation, scalars, arrays);
+                    AddGroup(scalars);
+                    arrayArgs.AddRange(arrays);
                     found = true;
                 }
             }
 
             if (found)
             {
-                if (scalarArgs.Count > 0)
+                if (scalarGroups.Count > 0)
                     return true;
                 if (arrayArgs.Count > 0)
                 {

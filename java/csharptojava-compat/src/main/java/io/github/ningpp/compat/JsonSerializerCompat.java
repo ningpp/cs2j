@@ -52,6 +52,7 @@ public final class JsonSerializerCompat {
                                    Object options) {
         java.lang.reflect.Type type = typeRef.getType();
         Class<?> raw = TypeHelper.toRawClass(type);
+        TypeHelper.beginTypeRegistration();
         TypeHelper.registerParameterizedType(type);
         try {
             Class<?> serializer = Class.forName("dotnet.text.json.JsonSerializer");
@@ -63,6 +64,8 @@ public final class JsonSerializerCompat {
             return (String) m.invoke(null, raw, value);
         } catch (ReflectiveOperationException ex) {
             throw new RuntimeException("JsonSerializerCompat: failed to delegate to JsonSerializer.serialize", ex);
+        } finally {
+            TypeHelper.endTypeRegistration();
         }
     }
 
@@ -78,6 +81,7 @@ public final class JsonSerializerCompat {
         Class<?> raw = TypeHelper.toRawClass(type);
         // Register every nested layer (outer first) so element/key/value types
         // resolve during converter creation.
+        TypeHelper.beginTypeRegistration();
         TypeHelper.registerParameterizedType(type);
         try {
             if (options == null) {
@@ -94,7 +98,7 @@ public final class JsonSerializerCompat {
             }
             return invokeGeneratedDeserialize(raw, jsonOrSpan, options);
         } finally {
-            TypeHelper.unregisterTypeArguments(raw);
+            TypeHelper.endTypeRegistration();
         }
     }
 

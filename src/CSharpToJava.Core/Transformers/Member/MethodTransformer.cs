@@ -789,7 +789,7 @@ public class MethodTransformer : IMemberTransformer
                 var localTokenType = (localFnSymbol != null
                         && (context.IsTypeRefTypeParam(localFnSymbol, typeParameterName)
                             || context.Options.RuntimeClassParameters.IsMethodTypeReference(localFnSymbol, typeParameterName)
-                            || CalleeJsonDeserializesTypeParameter(localFnSymbol, typeParameterName)))
+                            || CalleeJsonDeserializesTypeParameter(localFnSymbol, typeParameterName, context.SemanticModel)))
                     ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
                     : $"Class<{typeParameterName}>";
                 classTypeParams.Add(new JavaParameter(localTokenType, parameterName));
@@ -2686,7 +2686,7 @@ public class MethodTransformer : IMemberTransformer
             // this signature patch (call sites of the method appear LATER in the
             // file, so the fallback registration at those call sites never ran).
             var tokenParameterType = (context.IsTypeRefTypeParam(sym, typeParameterName)
-                    || CalleeJsonDeserializesTypeParameter(sym, typeParameterName))
+                    || CalleeJsonDeserializesTypeParameter(sym, typeParameterName, context.SemanticModel))
                 ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
                 : $"Class<{typeParameterName}>";
             javaMethod.Parameters.Insert(0, new JavaParameter(tokenParameterType, parameterName));
@@ -2716,7 +2716,7 @@ public class MethodTransformer : IMemberTransformer
     /// parameters for method-level type parameters whose TypeRef registration
     /// (which happens while converting the body) has not run yet.
     /// </summary>
-    private static bool CalleeJsonDeserializesTypeParameter(IMethodSymbol methodSymbol, string typeParamName)
+    private static bool CalleeJsonDeserializesTypeParameter(IMethodSymbol methodSymbol, string typeParamName, SemanticModel? semanticModel = null)
     {
         var originalDef = methodSymbol.OriginalDefinition;
         foreach (var syntaxRef in originalDef.DeclaringSyntaxReferences)
@@ -2735,6 +2735,23 @@ public class MethodTransformer : IMemberTransformer
                     && memberAccess.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax receiver
                     && receiver.Identifier.Text == "JsonSerializer")
                 {
+                    // Only the real System.Text.Json.JsonSerializer.Deserialize<T>
+                    // needs a TypeReference token; user classes with the same
+                    // name stay on the Class-token path.
+                    if (semanticModel?.Compilation != null)
+                    {
+                        // The memberAccess lives in the TARGET method's syntax tree,
+                        // which may differ from the caller's tree — resolve through
+                        // the compilation so cross-file methods confirm correctly.
+                        var targetModel = semanticModel.Compilation.GetSemanticModel(memberAccess.SyntaxTree);
+                        var targetSym = targetModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                        if (targetSym?.ContainingType.ToDisplayString()
+                            is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer")
+                        {
+                            return true;
+                        }
+                        continue;
+                    }
                     return true;
                 }
             }

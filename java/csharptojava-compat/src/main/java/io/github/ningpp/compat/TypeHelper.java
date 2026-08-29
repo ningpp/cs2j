@@ -141,21 +141,69 @@ public final class TypeHelper {
     // so converter factories can recover element/key/value types that a bare
     // .class literal erases. ThreadLocal because the registry must not leak
     // across concurrent deserializations; entries are removed when the call
-    // finishes (nested reads push/pop naturally via the map).
-    private static final ThreadLocal<java.util.Map<Class<?>, java.lang.reflect.Type[]>>
+    // finishes.
+    //
+    // Nested closed generics (List<List<Integer>>) register the same raw class
+    // at every layer, so the registry is a per-class stack: the OUTER layer is
+    // registered first and consumed first (FIFO). Converter creation proceeds
+    // outer-to-inner, so each factory's getGenericArguments call consumes its
+    // own layer's arguments.
+    private static final ThreadLocal<java.util.Map<Class<?>, java.util.ArrayDeque<java.lang.reflect.Type[]>>>
         TYPE_ARGUMENTS = ThreadLocal.withInitial(java.util.HashMap::new);
+
+    // Consumed layers, keyed by raw class: converter factories query the same
+    // raw class several times for one layer (e.g. KeyValuePair<K,V> reads
+    // arguments twice), so after a layer is consumed its arguments are kept
+    // here for repeat queries within the same registration session.
+    private static final ThreadLocal<java.util.Map<Class<?>, java.lang.reflect.Type[]>>
+        CONSUMED_ARGUMENTS = ThreadLocal.withInitial(java.util.HashMap::new);
+
+    // Nesting guard: a deserialize call inside a converter (nested
+    // JsonSerializerCompat.deserialize) registers the same raw classes again;
+    // the registry is only cleared when the outermost registration finishes.
+    private static final ThreadLocal<int[]> REGISTRATION_DEPTH = ThreadLocal.withInitial(() -> new int[1]);
 
     /** Registers closed-generic type arguments for a raw class (outer layers first). */
     public static void registerTypeArguments(Class<?> raw, java.lang.reflect.Type[] args) {
         if (raw != null && args != null && args.length > 0) {
-            TYPE_ARGUMENTS.get().put(raw, args);
+            TYPE_ARGUMENTS.get().computeIfAbsent(raw, k -> new java.util.ArrayDeque<>()).addLast(args);
         }
     }
 
-    /** Removes the registration for a raw class after the top-level call finishes. */
-    public static void unregisterTypeArguments(Class<?> raw) {
-        if (raw != null) {
-            TYPE_ARGUMENTS.get().remove(raw);
+    /** Marks the start of a top-level registerParameterizedType session. */
+    public static void beginTypeRegistration() {
+        int[] depth = REGISTRATION_DEPTH.get();
+        if (depth[0] == 0) {
+            // Fresh outermost session: drop stale registrations left by
+            // standalone typeof(ClosedGeneric) evaluations (e.g. a converter
+            // factory calling closedGeneric() outside a deserialize session).
+            TYPE_ARGUMENTS.remove();
+            CONSUMED_ARGUMENTS.remove();
+        }
+        depth[0]++;
+    }
+
+    /**
+     * Runtime equivalent of typeof(ClosedGeneric&lt;...&gt;): registers the closed
+     * generic's type arguments (like deserialize(TypeReference) does) and
+     * returns the erased raw class. Used when converted code passes
+     * typeof(KV&lt;int, string&gt;) to a converter factory — the class literal alone
+     * would lose the element types.
+     */
+    public static Class<?> closedGeneric(Class<?> raw, Class<?>... typeArguments) {
+        registerTypeArguments(raw, typeArguments);
+        return raw;
+    }
+
+    /** Clears the registry when the outermost registration session finishes. */
+    public static void endTypeRegistration() {
+        int[] depth = REGISTRATION_DEPTH.get();
+        if (depth[0] > 0) {
+            depth[0]--;
+            if (depth[0] == 0) {
+                TYPE_ARGUMENTS.remove();
+                CONSUMED_ARGUMENTS.remove();
+            }
         }
     }
 
@@ -191,11 +239,27 @@ public final class TypeHelper {
             return new Class<?>[0];
         }
         // Prefer registered runtime type arguments (from deserialize(TypeReference)).
-        java.lang.reflect.Type[] registered = TYPE_ARGUMENTS.get().get(type);
-        if (registered != null && registered.length > 0) {
-            Class<?>[] result = new Class<?>[registered.length];
-            for (int i = 0; i < registered.length; i++) {
-                result[i] = toRawClass(registered[i]);
+        // Nested generics register the same raw class per layer; converter
+        // creation consumes layers outer-to-inner, so poll the oldest entry.
+        java.util.ArrayDeque<java.lang.reflect.Type[]> deque = TYPE_ARGUMENTS.get().get(type);
+        if (deque != null && !deque.isEmpty()) {
+            java.lang.reflect.Type[] registered = deque.pollFirst();
+            if (registered.length > 0) {
+                CONSUMED_ARGUMENTS.get().put(type, registered);
+                Class<?>[] result = new Class<?>[registered.length];
+                for (int i = 0; i < registered.length; i++) {
+                    result[i] = toRawClass(registered[i]);
+                }
+                return result;
+            }
+        }
+        // Repeat query for the same layer (e.g. KeyValuePair<K,V> reads its two
+        // type arguments from two separate getGenericArguments calls).
+        java.lang.reflect.Type[] consumed = CONSUMED_ARGUMENTS.get().get(type);
+        if (consumed != null && consumed.length > 0) {
+            Class<?>[] result = new Class<?>[consumed.length];
+            for (int i = 0; i < consumed.length; i++) {
+                result[i] = toRawClass(consumed[i]);
             }
             return result;
         }
