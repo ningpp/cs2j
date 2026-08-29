@@ -48,6 +48,15 @@ public class Unsafe {
     }
 
     /**
+     * Mirrors Unsafe.NullRef&lt;T&gt;() — the null reference used to initialize ref
+     * locals that are (re)bound before use. Java has no ref semantics; the "null
+     * reference" is simply null.
+     */
+    public static <T> T nullRef() {
+        return null;
+    }
+
+    /**
      * Mirrors Unsafe.As&lt;TFrom, TTo&gt;(ref TFrom value) — unchecked reference cast.
      * In C#, this reinterprets the memory representation of one type as another.
      * When the source is a C# enum (modelled as a Java enum with a getValue()

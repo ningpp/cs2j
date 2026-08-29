@@ -1416,7 +1416,31 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         left = WrapOperandIfNeeded(node.Left, left, op, true);
         right = WrapOperandIfNeeded(node.Right, right, op, false);
 
-        return $"{left} {op} {right}";
+        var result = $"{left} {op} {right}";
+
+        // C# enum arithmetic's result type is the enum's UNDERLYING type. For narrow
+        // underlying types (byte/sbyte/short/ushort) the value wraps at the type's
+        // width, e.g. (JsonTokenType)(byte)(0 - 7) == 249 — not -7. Java ordinal()
+        // arithmetic stays int, so comparisons like IsTokenTypePrimitive(None)
+        // ((byte)(None - String) <= (byte)(Null - String): 249 <= 4) flip from
+        // C#-false to Java-true. Mask the result to the underlying type's width.
+        if (op is "+" or "-")
+        {
+            var enumType = leftIsEnum ? leftType! : rightType!;
+            var underlying = enumType.EnumUnderlyingType?.SpecialType;
+            var mask = underlying switch
+            {
+                SpecialType.System_Byte or SpecialType.System_SByte => "0xFF",
+                SpecialType.System_UInt16 or SpecialType.System_Int16 => "0xFFFF",
+                _ => null
+            };
+            if (mask != null)
+            {
+                result = $"(({result}) & {mask})";
+            }
+        }
+
+        return result;
     }
 
     private static bool IsNestedBitwiseExpression(ExpressionSyntax expression)
