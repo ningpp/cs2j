@@ -97,7 +97,7 @@ public class C
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("String.format(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("csFormat(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("CultureInfo", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("IFormatProvider", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -152,7 +152,7 @@ public class CharHelper
         Assert.Contains("case '\\r'", result.GeneratedCode, StringComparison.Ordinal);
 
         // IFormatProvider / CultureInfo stripped from String.format
-        Assert.Contains("String.format(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("csFormat(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("CultureInfo", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("IFormatProvider", result.GeneratedCode, StringComparison.Ordinal);
     }

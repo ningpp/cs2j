@@ -2696,7 +2696,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                                 index)));
                     return string.IsNullOrEmpty(remainingArgs)
                         ? $"String.format({rewrittenFormat})"
-                        : $"String.format({rewrittenFormat}, {remainingArgs})";
+                        : $"StringHelper.csFormat({rewrittenFormat}, {remainingArgs})";
                 }
                 // Format string is NOT a literal (e.g. a variable like SR.SomeResource).
                 // Use StringHelper.formatCs() which converts {N} placeholders to %s at runtime.
@@ -3076,9 +3076,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                             facade,
                             strLit.Token.ValueText,
                             index)));
+                context.AddImport("io.github.ningpp.compat.StringHelper");
                 return string.IsNullOrEmpty(remainingArgs)
                     ? $"String.format({rewrittenFormat})"
-                    : $"String.format({rewrittenFormat}, {remainingArgs})";
+                    : $"StringHelper.csFormat({rewrittenFormat}, {remainingArgs})";
             }
             // Format string is NOT a literal (e.g. a variable like SR.SomeResource).
             // Use StringHelper.formatCs() which converts {N} placeholders to %s at runtime.
@@ -4993,7 +4994,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     node.ArgumentList, context, facade, appendFmtStart + 1);
                 var innerFormatCall = string.IsNullOrEmpty(remainingArgs)
                     ? $"String.format({rewrittenFormat})"
-                    : $"String.format({rewrittenFormat}, {remainingArgs})";
+                    : $"StringHelper.csFormat({rewrittenFormat}, {remainingArgs})";
                 return $"{receiver}.append({innerFormatCall})";
             }
             var fmtArgs = ArgumentTransformer.TransformArgumentList(
@@ -9955,6 +9956,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     {
         var transformed = facade.Transform(argument.Expression, context);
         var argumentType = context.GetTypeInfo(argument.Expression).Type;
+        if (argumentType?.SpecialType == SpecialType.System_Boolean
+            && formatLiteral.Contains("{" + argumentIndex + "}", StringComparison.Ordinal))
+        {
+            // C# string.Format("{0}", boolValue) renders "True"/"False" (.NET
+            // bool.ToString()); Java %s prints lowercase. Route through the C#-semantics
+            // helper (handles statically-typed bools; csFormat covers runtime Booleans).
+            context.AddImport("io.github.ningpp.compat.CSharpConvert");
+            return $"CSharpConvert.toString({transformed})";
+        }
         if (argumentType?.SpecialType
             is SpecialType.System_Double or SpecialType.System_Single)
         {

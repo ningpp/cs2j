@@ -1020,6 +1020,29 @@ public class StringHelper {
      * @param args   the arguments referenced by the placeholders
      * @return the formatted string
      */
+    /**
+     * Formats using a Java-style %-format string, but renders Boolean arguments
+     * with C# semantics ("True"/"False" capitalized — .NET bool.ToString()).
+     * Java String.format("%s", Boolean) prints lowercase, which diverges from C#
+     * string.Format("{0}", boolValue).
+     */
+    public static String csFormat(String javaFormat, Object... args) {
+        return csFormat(java.util.Locale.ROOT, javaFormat, args);
+    }
+
+    public static String csFormat(java.util.Locale l, String javaFormat, Object... args) {
+        if (args == null || args.length == 0) {
+            return String.format(l, javaFormat);
+        }
+        Object[] converted = args.clone();
+        for (int i = 0; i < converted.length; i++) {
+            if (converted[i] instanceof Boolean b) {
+                converted[i] = b ? "True" : "False";
+            }
+        }
+        return String.format(l, javaFormat, converted);
+    }
+
     public static String formatCs(String format, Object... args) {
         return formatCs(Locale.ROOT, format, args);
     }
@@ -1087,7 +1110,7 @@ public class StringHelper {
                 args[i] = s.intValue() & 0xFFFF;
             }
         }
-        return String.format(l, converted, args);
+        return csFormat(l, converted, args);
     }
 
     private static void appendConcatValue(StringBuilder builder, Object value) {
