@@ -5,52 +5,31 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.GotoEliminator;
 
 /// <summary>
-/// Pass 1: 把 goto case X / goto default 降为局部 switch-state 循环。
-/// 输出不含 goto/label；后续方法级状态机只需要处理普通 goto label。
+/// Pass 1: 把 goto case X / goto default 降为普通标签 goto。
+///
+/// 在目标 section 开头合成 `__cs2jCaseLabel{index}_{case}` 标签，`goto case X` 改写为
+/// `goto` 该标签。不得用 `{ state = N; break; }` 之类的"赋状态+break"模拟：section 内
+/// 若有嵌套循环（e.g. IPv6AddressHelper 的 case '%' 内 while(true)），break 只会绑定到
+/// 内层循环，控制流继续贯穿到下一个 case（CS0163）且外层状态机不会重新分发。
+///
+/// 标签 goto 由后续处理统一消除：switch 含 label/goto 时先经 LowerSwitchToBlock 降级，
+/// 跨越嵌套循环跳到 section 级标签正是方法级状态机基本块划分的核心能力。
 /// </summary>
 internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
 {
     private int _switchIndex;
-    private int _loopDepth;
 
     public static CompilationUnitSyntax Run(CompilationUnitSyntax root)
         => (CompilationUnitSyntax)new GotoCaseDesugarer().Visit(root)!;
 
-    public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
-    {
-        _loopDepth++;
-        var result = base.VisitForStatement(node);
-        _loopDepth--;
-        return result;
-    }
-
-    public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
-    {
-        _loopDepth++;
-        var result = base.VisitForEachStatement(node);
-        _loopDepth--;
-        return result;
-    }
-
-    public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
-    {
-        _loopDepth++;
-        var result = base.VisitWhileStatement(node);
-        _loopDepth--;
-        return result;
-    }
-
-    public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
-    {
-        _loopDepth++;
-        var result = base.VisitDoStatement(node);
-        _loopDepth--;
-        return result;
-    }
+    // 注意：不得跳过 lambda/局部函数（无 overrides）——C# 中 `goto case` 只能出现在
+    // switch 的词法范围内，lambda 内不可能有 goto case，无条件递归是安全的；
+    // 而 RegexCompiler 等文件的 switch 位于局部函数内，跳过会漏掉整个方法。
 
     public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
     {
-        // 先递归子节点（内部嵌套 switch 先处理）
+        // 先递归子节点（内部嵌套 switch 先处理——其 goto case 已被改写为普通标签 goto，
+        // 因此本层收集到的 GotoCaseStatement 都属于本 switch）。
         var visited = (SwitchStatementSyntax)base.VisitSwitchStatement(node)!;
 
         bool hasGotoCase = visited.DescendantNodes()
@@ -58,136 +37,75 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
             .Any(g => g.IsKind(SyntaxKind.GotoCaseStatement) || g.IsKind(SyntaxKind.GotoDefaultStatement));
         if (!hasGotoCase) return visited;
 
-        int n = _switchIndex++;
-        var stateName = "__cs2jSwitchState" + n;
-        var continueName = "__cs2jSwitchContinue" + n;
+        int index = _switchIndex++;
 
-        // 收集本 switch 内所有 goto case/default 的目标。
-        var targetedCaseNames = new HashSet<string>();
-        var targetsDefault = false;
+        // case 值 → section 下标；default → section 下标。
+        var sectionIndexByCase = new Dictionary<string, int>(StringComparer.Ordinal);
+        int? defaultSectionIndex = null;
+        for (int i = 0; i < visited.Sections.Count; i++)
+        {
+            foreach (var label in visited.Sections[i].Labels)
+            {
+                if (label is CaseSwitchLabelSyntax cs)
+                    sectionIndexByCase.TryAdd(NormalizeCase(cs.Value), i);
+                else if (label is DefaultSwitchLabelSyntax && defaultSectionIndex == null)
+                    defaultSectionIndex = i;
+            }
+        }
+
+        // 收集本 switch 实际被跳转的 case 值 / default。
+        var targetedCases = new HashSet<string>(StringComparer.Ordinal);
+        bool targetsDefault = false;
         foreach (var g in visited.DescendantNodes().OfType<GotoStatementSyntax>())
         {
             if (g.IsKind(SyntaxKind.GotoCaseStatement) && g.Expression != null)
-                targetedCaseNames.Add(NormalizeCase(g.Expression));
+                targetedCases.Add(NormalizeCase(g.Expression));
             else if (g.IsKind(SyntaxKind.GotoDefaultStatement))
                 targetsDefault = true;
         }
 
-        var targetStateByCase = new Dictionary<string, int>(StringComparer.Ordinal);
-        int? defaultState = null;
-        var targetSections = new List<(int State, SwitchSectionSyntax Section)>();
-        var nextState = 1;
-        foreach (var section in visited.Sections)
+        // 每个"被跳转的 section"分配一个标签（同一 section 的多个 case 值共享标签——
+        // 跳到 section 体开头与经任一 label 进入等价，贯穿语义不变）。
+        var labelByCase = new Dictionary<string, string>(StringComparer.Ordinal);
+        var labelBySectionIndex = new Dictionary<int, string>();
+        foreach (var normalized in targetedCases)
         {
-            var sectionState = (int?)null;
-            foreach (var label in section.Labels)
+            if (!sectionIndexByCase.TryGetValue(normalized, out var sectionIdx)) continue;
+            if (!labelBySectionIndex.TryGetValue(sectionIdx, out var label))
             {
-                if (label is CasePatternSwitchLabelSyntax cp)
-                {
-                    var normalized = NormalizeCase(cp.Pattern);
-                    if (targetedCaseNames.Contains(normalized))
-                    {
-                        sectionState ??= nextState++;
-                        targetStateByCase[normalized] = sectionState.Value;
-                    }
-                }
-                else if (label is CaseSwitchLabelSyntax cs)
-                {
-                    var normalized = NormalizeCase(cs.Value);
-                    if (targetedCaseNames.Contains(normalized))
-                    {
-                        sectionState ??= nextState++;
-                        targetStateByCase[normalized] = sectionState.Value;
-                    }
-                }
-                else if (label is DefaultSwitchLabelSyntax && targetsDefault)
-                {
-                    sectionState ??= nextState++;
-                    defaultState = sectionState.Value;
-                }
+                label = $"__cs2jCaseLabel{index}_{normalized}";
+                labelBySectionIndex[sectionIdx] = label;
             }
-
-            if (sectionState is int state)
-                targetSections.Add((state, section));
+            labelByCase[normalized] = label;
+        }
+        if (targetsDefault && defaultSectionIndex is int defIdx)
+        {
+            labelBySectionIndex[defIdx] = $"__cs2jCaseLabel{index}_default";
         }
 
-        // C# switch case 内声明的局部变量作用域覆盖整个 switch；去糖为状态机后，
-        // 这些变量可能声明在 state 0 的嵌套 switch 中，却被提取到独立 state 的
-        // 目标 case 体引用。先将跨 case 引用的变量提升到状态机外层。
-        var hoistedNames = CollectCrossSectionVariables(visited.Sections);
-        var hoistedDeclarations = CreateHoistedDeclarations(visited.Sections, hoistedNames);
-        var rewrittenSectionsMap = visited.Sections
-            .Select(section => (section, rewritten: RewriteHoistedDeclarations(section, hoistedNames)))
-            .ToDictionary(t => t.section, t => t.rewritten);
+        if (labelBySectionIndex.Count == 0) return visited;
 
-        var initialRewriter = new SwitchSectionRewriter(
-            stateName, continueName, targetStateByCase, defaultState, _loopDepth);
-        var initialSections = visited.Sections
-            .Select(section => rewrittenSectionsMap[section].WithStatements(RewriteStatements(rewrittenSectionsMap[section], initialRewriter)))
-            .ToList();
-        var initialSwitch = visited.WithSections(SyntaxFactory.List(initialSections));
+        // 改写各 section：goto case/default → goto 标签；目标 section 开头插入标签。
+        var newSections = new List<SwitchSectionSyntax>();
+        for (int i = 0; i < visited.Sections.Count; i++)
+        {
+            var section = visited.Sections[i];
+            var rewriter = new SwitchSectionGotoRewriter(labelByCase, defaultLabel: labelBySectionIndex.TryGetValue(defaultSectionIndex ?? -1, out var dl) ? dl : null);
+            var rewritten = (SwitchSectionSyntax)rewriter.Visit(section)!;
 
-        var stateSections = new List<SwitchSectionSyntax>();
-        stateSections.Add(ScopedStateSection(
-            0,
-            new StatementSyntax[]
+            if (labelBySectionIndex.TryGetValue(i, out var insertLabel))
             {
-                initialSwitch,
-                SetStateToExitIfStillInitial(stateName),
-                SyntaxFactory.BreakStatement(),
-            }));
-
-        var usesOuterContinue = initialRewriter.UsesOuterContinue;
-        foreach (var (state, section) in targetSections)
-        {
-            var rewriter = new SwitchSectionRewriter(
-                stateName, continueName, targetStateByCase, defaultState, _loopDepth);
-            var rewrittenSection = rewrittenSectionsMap[section];
-            var rewrittenStatements = RewriteStatements(rewrittenSection, rewriter).ToList();
-            rewrittenStatements.Add(SyntaxFactory.BreakStatement());
-            usesOuterContinue |= rewriter.UsesOuterContinue;
-            stateSections.Add(ScopedStateSection(state, rewrittenStatements));
+                var labeledEmpty = SyntaxFactory.LabeledStatement(
+                    SyntaxFactory.Identifier(insertLabel),
+                    SyntaxFactory.EmptyStatement());
+                rewritten = rewritten.WithStatements(
+                    SyntaxFactory.SingletonList<StatementSyntax>(labeledEmpty)
+                        .AddRange(rewritten.Statements));
+            }
+            newSections.Add(rewritten);
         }
 
-        var declarations = new List<StatementSyntax>();
-        declarations.AddRange(hoistedDeclarations);
-        declarations.Add(SyntaxFactory.LocalDeclarationStatement(
-            SyntaxFactory.VariableDeclaration(
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.IntKeyword)),
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.VariableDeclarator(stateName)
-                        .WithInitializer(SyntaxFactory.EqualsValueClause(Number(0)))))));
-        if (usesOuterContinue)
-        {
-            declarations.Add(SyntaxFactory.LocalDeclarationStatement(
-                SyntaxFactory.VariableDeclaration(
-                    SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)),
-                    SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.VariableDeclarator(continueName)
-                            .WithInitializer(SyntaxFactory.EqualsValueClause(
-                                SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)))))));
-        }
-
-        declarations.Add(SyntaxFactory.WhileStatement(
-            SyntaxFactory.BinaryExpression(
-                SyntaxKind.GreaterThanOrEqualExpression,
-                SyntaxFactory.IdentifierName(stateName),
-                Number(0)),
-            SyntaxFactory.Block(
-                SyntaxFactory.SwitchStatement(SyntaxFactory.IdentifierName(stateName))
-                    .WithSections(SyntaxFactory.List(stateSections)))));
-
-        if (usesOuterContinue)
-        {
-            declarations.Add(SyntaxFactory.IfStatement(
-                SyntaxFactory.IdentifierName(continueName),
-                SyntaxFactory.ContinueStatement()));
-        }
-
-        if (!SwitchMayCompleteNormally(visited))
-            declarations.Add(TerminalThrow());
-
-        return SyntaxFactory.Block(declarations).WithTriviaFrom(node);
+        return visited.WithSections(SyntaxFactory.List(newSections));
     }
 
     /// <summary>规范化 case 值：源文本去空白；字母/数字/下划线保留，其余字符按码点编码。</summary>
@@ -195,15 +113,6 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
     {
         var text = expr.ToString().Replace(" ", "");
         return NormalizeCaseText(text);
-    }
-
-    /// <summary>规范化 case 模式：取模式文本（如常量模式 2 → "2"）。</summary>
-    private static string NormalizeCase(SyntaxNode pattern)
-    {
-        // CasePatternSwitchLabel 的 Pattern 可能是 ConstantPatternSyntax 等。
-        // 简化处理：取其第一个 ExpressionSyntax 后代，回退到模式文本。
-        var expr = pattern.DescendantNodes().OfType<ExpressionSyntax>().FirstOrDefault();
-        return NormalizeCaseText((expr ?? pattern).ToString().Replace(" ", ""));
     }
 
     /// <summary>
@@ -221,351 +130,42 @@ internal sealed class GotoCaseDesugarer : CSharpSyntaxRewriter
         return sb.ToString();
     }
 
-    private static SyntaxList<StatementSyntax> RewriteStatements(
-        SwitchSectionSyntax section,
-        SwitchSectionRewriter rewriter)
-        => SyntaxFactory.List(section.Statements.Select(s => (StatementSyntax)rewriter.Visit(s)!));
-
-    private static LiteralExpressionSyntax Number(int value)
-        => SyntaxFactory.LiteralExpression(
-            SyntaxKind.NumericLiteralExpression,
-            SyntaxFactory.Literal(value));
-
-    private static StatementSyntax AssignState(string stateName, int value)
-        => SyntaxFactory.ExpressionStatement(
-            SyntaxFactory.AssignmentExpression(
-                SyntaxKind.SimpleAssignmentExpression,
-                SyntaxFactory.IdentifierName(stateName),
-                Number(value)));
-
-    private static StatementSyntax SetStateToExitIfStillInitial(string stateName)
-        => SyntaxFactory.IfStatement(
-            SyntaxFactory.BinaryExpression(
-                SyntaxKind.EqualsExpression,
-                SyntaxFactory.IdentifierName(stateName),
-                Number(0)),
-            AssignState(stateName, -1));
-
-    private static StatementSyntax AssignBool(string name, bool value)
-        => SyntaxFactory.ExpressionStatement(
-            SyntaxFactory.AssignmentExpression(
-                SyntaxKind.SimpleAssignmentExpression,
-                SyntaxFactory.IdentifierName(name),
-                SyntaxFactory.LiteralExpression(value
-                    ? SyntaxKind.TrueLiteralExpression
-                    : SyntaxKind.FalseLiteralExpression)));
-
-    private static StatementSyntax StateAssignBreak(string stateName, int state)
-        => SyntaxFactory.Block(
-            AssignState(stateName, state),
-            SyntaxFactory.BreakStatement());
-
-    private static StatementSyntax StateAssignContinueOuter(string stateName, string continueName)
-        => SyntaxFactory.Block(
-            AssignState(stateName, -1),
-            AssignBool(continueName, true),
-            SyntaxFactory.BreakStatement());
-
-    private static SwitchSectionSyntax ScopedStateSection(
-        int state,
-        IEnumerable<StatementSyntax> statements)
-        => SyntaxFactory.SwitchSection(
-            SyntaxFactory.SingletonList<SwitchLabelSyntax>(SyntaxFactory.CaseSwitchLabel(Number(state))),
-            SyntaxFactory.List<StatementSyntax>(new StatementSyntax[]
-            {
-                SyntaxFactory.Block(statements),
-                SyntaxFactory.BreakStatement(),
-            }));
-
-    private static StatementSyntax TerminalThrow()
-        => SyntaxFactory.ThrowStatement(
-            SyntaxFactory.ObjectCreationExpression(
-                    SyntaxFactory.ParseTypeName("global::System.InvalidOperationException"))
-                .WithArgumentList(SyntaxFactory.ArgumentList()));
-
-    private static bool SwitchMayCompleteNormally(SwitchStatementSyntax node)
+    private sealed class SwitchSectionGotoRewriter : CSharpSyntaxRewriter
     {
-        var hasDefault = node.Sections
-            .SelectMany(s => s.Labels)
-            .Any(l => l is DefaultSwitchLabelSyntax);
-        if (!hasDefault)
-            return true;
+        private readonly Dictionary<string, string> _labelByCase;
+        private readonly string? _defaultLabel;
 
-        return node.Sections.Any(SectionMayCompleteNormally);
-    }
-
-    private static bool SectionMayCompleteNormally(SwitchSectionSyntax section)
-        => StatementsMayCompleteNormally(section.Statements);
-
-    private static bool StatementsMayCompleteNormally(IEnumerable<StatementSyntax> statements)
-    {
-        foreach (var statement in statements)
+        internal SwitchSectionGotoRewriter(Dictionary<string, string> labelByCase, string? defaultLabel)
         {
-            if (!StatementMayCompleteNormally(statement))
-                return false;
+            _labelByCase = labelByCase;
+            _defaultLabel = defaultLabel;
         }
-
-        return true;
-    }
-
-    private static bool StatementMayCompleteNormally(StatementSyntax statement)
-    {
-        switch (statement)
-        {
-            case ReturnStatementSyntax:
-            case ThrowStatementSyntax:
-            case ContinueStatementSyntax:
-            case GotoStatementSyntax:
-                return false;
-            case BlockSyntax block:
-                return StatementsMayCompleteNormally(block.Statements);
-            case IfStatementSyntax ifStatement:
-                return IfMayCompleteNormally(ifStatement);
-            case SwitchStatementSyntax switchStatement:
-                return SwitchMayCompleteNormally(switchStatement);
-            default:
-                return true;
-        }
-    }
-
-    private static bool IfMayCompleteNormally(IfStatementSyntax ifStatement)
-    {
-        if (ifStatement.Else == null)
-            return true;
-
-        return StatementMayCompleteNormally(ifStatement.Statement)
-            || StatementMayCompleteNormally(ifStatement.Else.Statement);
-    }
-
-    #region Switch-section local hoisting
-
-    /// <summary>
-    /// 收集 switch 各 section 顶层局部声明中，被其他 section 引用的变量名。
-    /// C# 中 switch case 内声明的变量作用域覆盖整个 switch，去糖后必须提升到状态机外层。
-    /// </summary>
-    private static HashSet<string> CollectCrossSectionVariables(SyntaxList<SwitchSectionSyntax> sections)
-    {
-        var result = new HashSet<string>();
-        var sectionTopLevelDecls = sections
-            .Select((section, index) => (index, decls: section.Statements.OfType<LocalDeclarationStatementSyntax>().ToList()))
-            .ToList();
-
-        foreach (var (i, decls) in sectionTopLevelDecls)
-        {
-            foreach (var decl in decls)
-            {
-                if (decl.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
-                foreach (var v in decl.Declaration.Variables)
-                {
-                    var name = v.Identifier.ValueText;
-                    for (int j = 0; j < sections.Count; j++)
-                    {
-                        if (j == i) continue;
-                        if (ReferencesAny(sections[j], name))
-                        {
-                            result.Add(name);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
-    private static List<LocalDeclarationStatementSyntax> CreateHoistedDeclarations(
-        SyntaxList<SwitchSectionSyntax> sections, HashSet<string> hoistedNames)
-    {
-        var result = new List<LocalDeclarationStatementSyntax>();
-        var added = new HashSet<string>();
-        foreach (var section in sections)
-        {
-            foreach (var decl in section.Statements.OfType<LocalDeclarationStatementSyntax>())
-            {
-                if (decl.Modifiers.Any(SyntaxKind.ConstKeyword)) continue;
-                var type = decl.Declaration.Type.WithoutTrivia();
-                foreach (var v in decl.Declaration.Variables)
-                {
-                    if (hoistedNames.Contains(v.Identifier.ValueText) && added.Add(v.Identifier.ValueText))
-                    {
-                        result.Add(SyntaxFactory.LocalDeclarationStatement(
-                            SyntaxFactory.VariableDeclaration(type.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
-                                SyntaxFactory.SingletonSeparatedList(
-                                    SyntaxFactory.VariableDeclarator(v.Identifier)
-                                        .WithInitializer(SyntaxFactory.EqualsValueClause(
-                                            SyntaxFactory.DefaultExpression(type)))))));
-                    }
-                }
-            }
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// 将 section 中需要提升的变量声明改为赋值（或删除）。保持其他语句不变。
-    /// </summary>
-    private static SwitchSectionSyntax RewriteHoistedDeclarations(SwitchSectionSyntax section, HashSet<string> hoistedNames)
-    {
-        if (hoistedNames.Count == 0) return section;
-
-        var newStatements = new List<StatementSyntax>();
-        foreach (var stmt in section.Statements)
-        {
-            if (stmt is LocalDeclarationStatementSyntax decl)
-            {
-                var keptVariables = new List<VariableDeclaratorSyntax>();
-                var assignStmts = new List<StatementSyntax>();
-                foreach (var v in decl.Declaration.Variables)
-                {
-                    if (hoistedNames.Contains(v.Identifier.ValueText))
-                    {
-                        if (v.Initializer != null)
-                        {
-                            assignStmts.Add(SyntaxFactory.ExpressionStatement(
-                                SyntaxFactory.AssignmentExpression(
-                                    SyntaxKind.SimpleAssignmentExpression,
-                                    SyntaxFactory.IdentifierName(v.Identifier),
-                                    v.Initializer.Value)));
-                        }
-                    }
-                    else
-                    {
-                        keptVariables.Add(v);
-                    }
-                }
-
-                newStatements.AddRange(assignStmts);
-                if (keptVariables.Count > 0)
-                {
-                    newStatements.Add(decl.WithDeclaration(
-                        decl.Declaration.WithVariables(SyntaxFactory.SeparatedList(keptVariables))));
-                }
-            }
-            else
-            {
-                newStatements.Add(stmt);
-            }
-        }
-
-        return section.WithStatements(SyntaxFactory.List(newStatements));
-    }
-
-    private static bool ReferencesAny(SyntaxNode node, string name)
-    {
-        return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
-            .Any(id => id.Identifier.ValueText == name);
-    }
-
-    #endregion
-
-    private sealed class SwitchSectionRewriter : CSharpSyntaxRewriter
-    {
-        private readonly string _stateName;
-        private readonly string _continueName;
-        private readonly Dictionary<string, int> _targetStateByCase;
-        private readonly int? _defaultState;
-        private readonly int _outerLoopDepth;
-        private int _breakableDepth;
-        private int _continuableDepth;
-
-        internal bool UsesOuterContinue { get; private set; }
-
-        internal SwitchSectionRewriter(
-            string stateName,
-            string continueName,
-            Dictionary<string, int> targetStateByCase,
-            int? defaultState,
-            int outerLoopDepth)
-        {
-            _stateName = stateName;
-            _continueName = continueName;
-            _targetStateByCase = targetStateByCase;
-            _defaultState = defaultState;
-            _outerLoopDepth = outerLoopDepth;
-        }
-
-        public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
-        public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
-        public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
-        public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
 
         public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
         {
-            _breakableDepth++;
-            var result = base.VisitSwitchStatement(node);
-            _breakableDepth--;
-            return result;
-        }
-
-        public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
-        {
-            _breakableDepth++;
-            _continuableDepth++;
-            var result = base.VisitForStatement(node);
-            _continuableDepth--;
-            _breakableDepth--;
-            return result;
-        }
-
-        public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
-        {
-            _breakableDepth++;
-            _continuableDepth++;
-            var result = base.VisitForEachStatement(node);
-            _continuableDepth--;
-            _breakableDepth--;
-            return result;
-        }
-
-        public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
-        {
-            _breakableDepth++;
-            _continuableDepth++;
-            var result = base.VisitWhileStatement(node);
-            _continuableDepth--;
-            _breakableDepth--;
-            return result;
-        }
-
-        public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
-        {
-            _breakableDepth++;
-            _continuableDepth++;
-            var result = base.VisitDoStatement(node);
-            _continuableDepth--;
-            _breakableDepth--;
-            return result;
-        }
-
-        public override SyntaxNode? VisitBreakStatement(BreakStatementSyntax node)
-        {
-            if (_breakableDepth == 0)
-                return StateAssignBreak(_stateName, -1).WithTriviaFrom(node);
+            // 嵌套 switch 已在外层递归中完成去糖，不进入（避免改写其普通 goto）。
             return node;
         }
 
-        public override SyntaxNode? VisitContinueStatement(ContinueStatementSyntax node)
-        {
-            if (_continuableDepth == 0 && _outerLoopDepth > 0)
-            {
-                UsesOuterContinue = true;
-                return StateAssignContinueOuter(_stateName, _continueName).WithTriviaFrom(node);
-            }
-            return node;
-        }
+        private static SyntaxToken IdentifierTokenWithLeadingSpace(string label)
+            => SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.Space), label, SyntaxFactory.TriviaList());
 
         public override SyntaxNode? VisitGotoStatement(GotoStatementSyntax node)
         {
             if (node.IsKind(SyntaxKind.GotoCaseStatement) && node.Expression != null)
             {
                 var normalized = NormalizeCase(node.Expression);
-                if (_targetStateByCase.TryGetValue(normalized, out var state))
-                    return StateAssignBreak(_stateName, state).WithTriviaFrom(node);
+                if (_labelByCase.TryGetValue(normalized, out var label))
+                {
+                    return SyntaxFactory.GotoStatement(SyntaxKind.GotoStatement,
+                        SyntaxFactory.IdentifierName(IdentifierTokenWithLeadingSpace(label))).WithTriviaFrom(node);
+                }
             }
-            else if (node.IsKind(SyntaxKind.GotoDefaultStatement) && _defaultState is int defaultState)
+            else if (node.IsKind(SyntaxKind.GotoDefaultStatement) && _defaultLabel != null)
             {
-                return StateAssignBreak(_stateName, defaultState).WithTriviaFrom(node);
+                return SyntaxFactory.GotoStatement(SyntaxKind.GotoStatement,
+                    SyntaxFactory.IdentifierName(IdentifierTokenWithLeadingSpace(_defaultLabel))).WithTriviaFrom(node);
             }
             return base.VisitGotoStatement(node);
         }

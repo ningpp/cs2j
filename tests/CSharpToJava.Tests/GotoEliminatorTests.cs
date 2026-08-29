@@ -127,10 +127,12 @@ public partial class GotoEliminatorTests
         }
         """;
         var out_ = Desugar(src);
-        Assert.DoesNotContain("goto", out_);
-        Assert.DoesNotContain("__case0_2", out_);
-        Assert.Contains("__cs2jSwitchState0", out_);
-        Assert.Contains("while", out_);
+        // 标签方案：goto case 变成普通标签 goto（由 Pass 2 状态机消除），
+        // 不再生成局部 switch 状态机——旧形态在 section 内有嵌套循环时
+        // break 绑定错误导致 CS0163 贯穿（IPv6AddressHelper）。
+        Assert.Contains("goto __cs2jCaseLabel", out_);
+        Assert.DoesNotContain("goto case", out_);
+        Assert.Contains("__cs2jCaseLabel0_2", out_);
     }
 
     [Fact]
@@ -147,10 +149,8 @@ public partial class GotoEliminatorTests
         }
         """;
         var out_ = Desugar(src);
-        Assert.DoesNotContain("goto", out_);
-        Assert.DoesNotContain("__default0", out_);
-        Assert.Contains("__cs2jSwitchState0", out_);
-        Assert.Contains("while", out_);
+        Assert.Contains("goto __cs2jCaseLabel0_default", out_);
+        Assert.DoesNotContain("goto default", out_);
     }
 
     [Fact]
@@ -183,9 +183,10 @@ public partial class GotoEliminatorTests
         }
         """;
         var out_ = Desugar(src);
-        Assert.Contains("__cs2jSwitchState0", out_);
-        Assert.Contains("__cs2jSwitchState1", out_);
-        Assert.DoesNotContain("goto", out_);
+        Assert.Contains("__cs2jCaseLabel0_", out_);
+        Assert.Contains("__cs2jCaseLabel1_", out_);
+        Assert.DoesNotContain("goto case", out_);
+        Assert.DoesNotContain("goto default", out_);
     }
 
     // ---- Task 4: BasicBlock + SplitToBlocks ----

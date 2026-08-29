@@ -217,6 +217,36 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// 为提升的 ref 局部合成合法初始化器。C# 不允许 ref 局部以 null 或 default 初始化
+    /// （CS8172/CS1510），唯一可合成的形式是 Unsafe.NullRef&lt;T&gt;()——.NET 运行时自身
+    /// 处理"未绑定 ref"的标准做法。T 取 ref 类型的底层类型（剥掉可空注解）。
+    /// 无法确定底层类型的形态（ref var / 函数指针）抛出 GotoEliminatorException；
+    /// ref readonly 局部不能重新绑定（提升后原位置的 `x = ref E` 非法），同样抛出。
+    /// 合成的 NullRef 在原代码的首个 `x = ref E` 之前不会被解引用——原代码的确定性
+    /// 赋值结构在提升后保持不变。
+    /// </summary>
+    private static ExpressionSyntax BuildRefLocalHoistInitializer(RefTypeSyntax refType)
+    {
+        if (refType.ReadOnlyKeyword != default)
+            throw new GotoEliminatorException("spanning 'ref readonly' local not supported");
+
+        var underlying = refType.Type;
+        if (underlying is NullableTypeSyntax nullable)
+            underlying = nullable.ElementType;
+        if (underlying is IdentifierNameSyntax id && id.Identifier.ValueText == "var")
+            throw new GotoEliminatorException("spanning 'ref var' local not supported");
+        if (underlying is FunctionPointerTypeSyntax)
+            throw new GotoEliminatorException("spanning ref function-pointer local not supported");
+
+        var text = underlying.WithoutTrivia().ToString();
+        if (text.EndsWith("?"))
+            text = text[..^1];
+
+        return SyntaxFactory.ParseExpression(
+            $"ref global::System.Runtime.CompilerServices.Unsafe.NullRef<{text}>()");
+    }
+
+    /// <summary>
     /// 提升「跨基本块使用」的局部声明到 while 循环之前：
     /// 循环外 `T x = default;`，原位置改为赋值 `x = expr;`。
     /// const 原地保留；using/fixed/ref 跨块抛 GotoEliminatorException（由调用方按 Strict 决定 warn-skip）。
@@ -258,16 +288,23 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
 
                 var type = decl.Declaration.Type;
                 var synthesizedType = CleanSynthesizedType(type);
+                // ref 局部（RefTypeSyntax）：见主提升分支的说明。
+                ExpressionSyntax? hoistInit = null;
+                if (type is RefTypeSyntax spanningRefType)
+                {
+                    hoistInit = BuildRefLocalHoistInitializer(spanningRefType);
+                }
                 foreach (var v in decl.Declaration.Variables)
                 {
                     if (hoistedNames.Add(v.Identifier.ValueText))
                     {
+                        var initializer = hoistInit
+                            ?? SyntaxFactory.DefaultExpression(synthesizedType);
                         var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
                             SyntaxFactory.VariableDeclaration(synthesizedType.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
                                 SyntaxFactory.SingletonSeparatedList(
                                     SyntaxFactory.VariableDeclarator(v.Identifier)
-                                        .WithInitializer(SyntaxFactory.EqualsValueClause(
-                                            SyntaxFactory.DefaultExpression(synthesizedType))))));
+                                        .WithInitializer(SyntaxFactory.EqualsValueClause(initializer)))));
                         hoisted.Add(defaultDecl);
                     }
                 }
@@ -301,18 +338,27 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
 
                 var type = decl.Declaration.Type;
                 var synthesizedType = CleanSynthesizedType(type);
+                // ref 局部（ref 属于 RefTypeSyntax 而非修饰符）：不能发 default(ref T)——非法语法。
+                // ref 局部以 Unsafe.NullRef 初始化（C# 不允许 ref 局部以 null 初始化），后续 `x = ref E` 重新绑定；
+                // 值类型 ref 局部（ref int）无法合成初始化器 → 跳过该方法。
+                ExpressionSyntax? hoistInit = null;
+                if (type is RefTypeSyntax spanningRefType)
+                {
+                    hoistInit = BuildRefLocalHoistInitializer(spanningRefType);
+                }
                 foreach (var v in decl.Declaration.Variables)
                 {
                     // 去重：不同 case/分支中同名局部被拍平到同一作用域后会产生重复声明。
                     // 由于原代码这些变量处于互斥作用域，复用同一提升变量是安全的。
                     if (hoistedNames.Add(v.Identifier.ValueText))
                     {
+                        var initializer = hoistInit
+                            ?? SyntaxFactory.DefaultExpression(synthesizedType);
                         var defaultDecl = SyntaxFactory.LocalDeclarationStatement(
                             SyntaxFactory.VariableDeclaration(synthesizedType.WithTrailingTrivia(SyntaxFactory.Whitespace(" ")),
                                 SyntaxFactory.SingletonSeparatedList(
                                     SyntaxFactory.VariableDeclarator(v.Identifier)
-                                        .WithInitializer(SyntaxFactory.EqualsValueClause(
-                                            SyntaxFactory.DefaultExpression(synthesizedType))))));
+                                        .WithInitializer(SyntaxFactory.EqualsValueClause(initializer)))));
                         hoisted.Add(defaultDecl);
                     }
                 }
@@ -346,7 +392,80 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
             }
         }
 
+        // 第三步：提升后的 Span 局部若在状态机循环内被 stackalloc 赋值（CS8353，值可能
+        // 逃逸迭代），将 stackalloc 降级为堆分配。不能用 scoped 修饰解决——提升后的
+        // span 还会被传给非 scoped 的 span 参数（CS8352，scoped 值不得流向更宽作用域），
+        // 两个约束互相冲突，堆分配是唯一同时满足两者的形式。
+        foreach (var bb in bbList)
+        {
+            for (int s = 0; s < bb.Statements.Count; s++)
+            {
+                bb.Statements[s] = DowngradeStackAllocAssignments(bb.Statements[s], hoistedNames);
+            }
+        }
+
         return hoisted;
+    }
+
+    /// <summary>
+    /// 递归将 `hoisted = stackalloc T[n]` 赋值改写为 `hoisted = new T[n]`（原语句其余部分不变）。
+    /// </summary>
+    private static StatementSyntax DowngradeStackAllocAssignments(StatementSyntax stmt, HashSet<string> hoistedNames)
+    {
+        switch (stmt)
+        {
+            case ExpressionStatementSyntax expr
+                when expr.Expression is AssignmentExpressionSyntax assign
+                    && assign.Left is IdentifierNameSyntax lhs
+                    && hoistedNames.Contains(lhs.Identifier.ValueText)
+                    && assign.Right is StackAllocArrayCreationExpressionSyntax stackAlloc:
+                return expr.WithExpression(assign.WithRight(
+                    SyntaxFactory.ArrayCreationExpression((ArrayTypeSyntax)stackAlloc.Type)));
+
+            case BlockSyntax block:
+                return block.WithStatements(SyntaxFactory.List(block.Statements.Select(s => DowngradeStackAllocAssignments(s, hoistedNames))));
+
+            case IfStatementSyntax ifStmt:
+                return ifStmt
+                    .WithStatement(DowngradeStackAllocAssignments(ifStmt.Statement, hoistedNames))
+                    .WithElse(ifStmt.Else != null ? SyntaxFactory.ElseClause(DowngradeStackAllocAssignments(ifStmt.Else.Statement, hoistedNames)) : null);
+
+            case SwitchStatementSyntax switchStmt:
+                return switchStmt.WithSections(SyntaxFactory.List(switchStmt.Sections.Select(sec =>
+                    sec.WithStatements(SyntaxFactory.List(sec.Statements.Select(s => DowngradeStackAllocAssignments(s, hoistedNames)))))));
+
+            case ForStatementSyntax forStmt:
+                return forStmt.WithStatement(DowngradeStackAllocAssignments(forStmt.Statement, hoistedNames));
+
+            case ForEachStatementSyntax foreachStmt:
+                return foreachStmt.WithStatement(DowngradeStackAllocAssignments(foreachStmt.Statement, hoistedNames));
+
+            case WhileStatementSyntax whileStmt:
+                return whileStmt.WithStatement(DowngradeStackAllocAssignments(whileStmt.Statement, hoistedNames));
+
+            case DoStatementSyntax doStmt:
+                return doStmt.WithStatement(DowngradeStackAllocAssignments(doStmt.Statement, hoistedNames));
+
+            case TryStatementSyntax tryStmt:
+                var newCatches = tryStmt.Catches.Select(c =>
+                    c.WithBlock((BlockSyntax)DowngradeStackAllocAssignments(c.Block, hoistedNames))).ToList();
+                var newFinally = tryStmt.Finally != null
+                    ? tryStmt.Finally.WithBlock((BlockSyntax)DowngradeStackAllocAssignments(tryStmt.Finally.Block, hoistedNames))
+                    : null;
+                return tryStmt
+                    .WithBlock((BlockSyntax)DowngradeStackAllocAssignments(tryStmt.Block, hoistedNames))
+                    .WithCatches(SyntaxFactory.List(newCatches))
+                    .WithFinally(newFinally);
+
+            case LabeledStatementSyntax labeled:
+                return labeled.WithStatement(DowngradeStackAllocAssignments(labeled.Statement, hoistedNames));
+
+            case UnsafeStatementSyntax unsafeStmt:
+                return unsafeStmt.WithBlock((BlockSyntax)DowngradeStackAllocAssignments(unsafeStmt.Block, hoistedNames));
+
+            default:
+                return stmt;
+        }
     }
 
     /// <summary>
@@ -482,6 +601,15 @@ internal sealed partial class StateMachineBuilder
             bool isAsync = visited.Modifiers.Any(SyntaxKind.AsyncKeyword);
             var returnType = UnwrapAsyncReturnType(visited.ReturnType, isAsync);
             body = AppendUnreachableReturn(body, returnType, IsIteratorBody(body));
+            // 嵌套状态机（fixed 等块内的 label/goto 被局部消除）引入了绕过确定性赋值
+            // 分析的退出路径（状态机 while 的兜底出口 return default），out 参数必须在
+            // 方法体最前补 default 初始化，否则 CS0177（e.g. JsonWriterHelper.ToUtf8）。
+            var nestedOutInits = BuildOutParameterInitializers(visited);
+            if (nestedOutInits.Count > 0)
+            {
+                body = SyntaxFactory.Block(
+                    SyntaxFactory.List(nestedOutInits).AddRange(body.Statements));
+            }
             TransformedMethods++;
             GotosEliminated += originalGotoCount;
             return visited.WithBody(body);
@@ -513,6 +641,12 @@ internal sealed partial class StateMachineBuilder
         }
     }
 
+    public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+        => RewriteAccessors(node, node.AccessorList, node.Type);
+
+    public override SyntaxNode? VisitIndexerDeclaration(IndexerDeclarationSyntax node)
+        => RewriteAccessors(node, node.AccessorList, node.Type);
+
     public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
         => RewriteBaseMethod(node, n => n.Body, (n, b) => n.WithBody(b));
     public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
@@ -532,6 +666,7 @@ internal sealed partial class StateMachineBuilder
             bool isAsync = visited.Modifiers.Any(SyntaxKind.AsyncKeyword);
             var returnType = UnwrapAsyncReturnType(visited.ReturnType, isAsync);
             body = AppendUnreachableReturn(body, returnType, IsIteratorBody(body));
+            // 局部函数不能声明 out 参数，无需确定性赋值修补。
             TransformedMethods++;
             GotosEliminated += originalGotoCount;
             return visited.WithBody(body);
@@ -558,6 +693,71 @@ internal sealed partial class StateMachineBuilder
                 visited.Identifier.ValueText));
             return visited;
         }
+    }
+
+    /// <summary>
+    /// 属性/索引器的 get/set 访问器体内同样可能有 switch goto-case（e.g.
+    /// XmlTextReaderImpl.Settings）——访问器不是 BaseMethodDeclarationSyntax，
+    /// 需要独立改写；否则 Pass 1 生成的标签 goto 会残留。
+    /// </summary>
+    private SyntaxNode RewriteAccessors<T>(
+        T node,
+        AccessorListSyntax? accessorList,
+        TypeSyntax? propertyType) where T : BasePropertyDeclarationSyntax
+    {
+        if (accessorList == null) return node;
+        var newAccessors = new List<AccessorDeclarationSyntax>();
+        bool anyChanged = false;
+        foreach (var accessor in accessorList.Accessors)
+        {
+            var body = accessor.Body;
+            if (body == null || !ContainsLabelOrGoto(body))
+            {
+                newAccessors.Add(accessor);
+                continue;
+            }
+            var originalGotoCount = CountGotos(body);
+            var rewrittenBody = RewriteNestedClosedBlocks(body, out var nestedChanged);
+            rewrittenBody = DefaultInitializeUnassignedLocals(rewrittenBody);
+            var isGetter = accessor.IsKind(SyntaxKind.GetAccessorDeclaration);
+            TypeSyntax? rawReturnType = isGetter ? propertyType : null;
+            if (!ContainsLabelOrGoto(rewrittenBody))
+            {
+                if (nestedChanged)
+                {
+                    var returnType = UnwrapAsyncReturnType(rawReturnType, false);
+                    rewrittenBody = AppendUnreachableReturn(rewrittenBody, returnType, IsIteratorBody(rewrittenBody));
+                    anyChanged = true;
+                }
+                newAccessors.Add(accessor.WithBody(rewrittenBody));
+                continue;
+            }
+
+            try
+            {
+                var blocks = SplitToBlocks(rewrittenBody.Statements);
+                var hoisted = HoistSpanningLocals(blocks);
+                var prologue = new List<StatementSyntax>();
+                prologue.AddRange(hoisted);
+                var newBody = EmitStateMachine(blocks, prologue, rewrittenBody, returnType: rawReturnType, isIterator: IsIteratorBody(rewrittenBody));
+                TransformedMethods++;
+                GotosEliminated += originalGotoCount;
+                anyChanged = true;
+                newAccessors.Add(accessor.WithBody(newBody));
+            }
+            catch (GotoEliminatorException ex)
+            {
+                SkippedMethods++;
+                Diagnostics.Add(new GotoEliminatorDiagnostic(
+                    GotoEliminatorSeverity.Warning, ex.Message,
+                    accessor.Keyword.ValueText));
+                newAccessors.Add(accessor);
+            }
+        }
+
+        return anyChanged
+            ? node.WithAccessorList(SyntaxFactory.AccessorList(SyntaxFactory.List(newAccessors)))
+            : node;
     }
 
     private SyntaxNode RewriteBaseMethod<T>(
@@ -587,6 +787,15 @@ internal sealed partial class StateMachineBuilder
             };
             var returnType = UnwrapAsyncReturnType(rawReturnType, isAsync);
             rewrittenBody = AppendUnreachableReturn(rewrittenBody, returnType, IsIteratorBody(rewrittenBody));
+            // 嵌套状态机（fixed/lock 等块内的 label/goto 被局部消除）引入了绕过确定性
+            // 赋值分析的退出路径（状态机 while 的兜底出口 return default），out 参数必须
+            // 在方法体最前补 default 初始化，否则 CS0177（e.g. JsonWriterHelper.ToUtf8）。
+            var nestedOutInits = BuildOutParameterInitializers(visited);
+            if (nestedOutInits.Count > 0)
+            {
+                rewrittenBody = SyntaxFactory.Block(
+                    SyntaxFactory.List(nestedOutInits).AddRange(rewrittenBody.Statements));
+            }
             TransformedMethods++;
             GotosEliminated += originalGotoCount;
             return withBody(visited, rewrittenBody);
@@ -1311,6 +1520,12 @@ internal sealed partial class StateMachineBuilder
                 || node.Modifiers.Any(SyntaxKind.RefKeyword)
                 || node.Modifiers.Any(SyntaxKind.OutKeyword)
                 || node.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
+            {
+                return node;
+            }
+
+            // ref 局部（ref 属于 RefTypeSyntax）：default(ref T) 是非法语法，跳过。
+            if (node.Declaration.Type is RefTypeSyntax)
             {
                 return node;
             }

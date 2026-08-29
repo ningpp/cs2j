@@ -33,6 +33,8 @@ public sealed class GotoEliminator
         // Pass 2: 状态机
         var builder = new StateMachineBuilder();
         var rewritten = (CompilationUnitSyntax)builder.Visit(desugared)!;
+        System.IO.File.AppendAllText(@"D:\code\cs2j\debug-828\elim-trace.txt",
+            $"eliminate done: transformed={builder.TransformedMethods} skipped={builder.SkippedMethods}" + System.Environment.NewLine);
 
         // 格式化以规整间距（SyntaxFactory 构造的节点缺省无 trivia）
         using var workspace = new AdhocWorkspace();
