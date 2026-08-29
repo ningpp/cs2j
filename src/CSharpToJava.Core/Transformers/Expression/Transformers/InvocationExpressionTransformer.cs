@@ -5901,6 +5901,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (string.IsNullOrEmpty(wrapper))
             {
                 // No boxing wrapper needed for non-primitive or unknown types.
+                // Narrow target types (byte/short/char) must unbox to int first —
+                // (byte)(Object) compiles to checkcast Byte and throws CCE when the
+                // runtime value is Integer (Unsafe.As<T, byte> with T an enum).
+                if (toType.SpecialType is SpecialType.System_Byte
+                    or SpecialType.System_SByte
+                    or SpecialType.System_Int16
+                    or SpecialType.System_UInt16
+                    or SpecialType.System_Char)
+                {
+                    return $"({toJavaType2})((int) {innerExpr})";
+                }
                 return $"({toJavaType2}) {innerExpr}";
             }
 
@@ -5937,6 +5948,19 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     // caller binds the value as T.
                     return $"Unsafe.as((Object){boxedExpr})";
                 }
+            }
+
+            // (byte)(Object) / (short)(Object) compile to checkcast Byte/Short and throw
+            // CCE when the runtime value is Integer (e.g. Unsafe.As<T, byte> where T is an
+            // enum: Unsafe.as returns the getValue() number). Unbox to int first, then
+            // narrow — matching C# enum-to-underlying cast semantics.
+            if (toType.SpecialType is SpecialType.System_Byte
+                or SpecialType.System_SByte
+                or SpecialType.System_Int16
+                or SpecialType.System_UInt16
+                or SpecialType.System_Char)
+            {
+                return $"({toJavaType2})((int) {boxedExpr})";
             }
 
             return $"({toJavaType2})(Object){boxedExpr}";
