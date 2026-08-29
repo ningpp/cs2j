@@ -21,6 +21,14 @@ public class JsonConvert {
         }
         if (t.length() >= 2 && t.startsWith("\"") && t.endsWith("\"")) {
             String inner = t.substring(1, t.length() - 1);
+            // Newtonsoft parses ISO 8601 date strings into DateTime values, not
+            // plain strings (JValue auto-detection). Match that so
+            // Assert.Equal(newtonsoftObj, systemTextJsonObj) compares equal
+            // CSharpDateTime instances instead of a String vs DateTime mismatch.
+            io.github.ningpp.compat.ObjectHolder<CSharpDateTime> dtHolder = new io.github.ningpp.compat.ObjectHolder<>();
+            if (CSharpDateTime.tryParse(inner, dtHolder)) {
+                return dtHolder.value;
+            }
             return inner.replace("\\\"", "\"").replace("\\\\", "\\");
         }
         try {
