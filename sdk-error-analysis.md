@@ -563,3 +563,19 @@
 - **验证**: Java 侧 7903 测试 1658→1487 失败（-171）；JsonReaderException 312→159（-153）。**剩余 159 个是另一类：多段续读（isFinalBlock=false）场景**（testPartialJsonReaderWithDepthPadding 等 68+ 个），报错位置在数据起始处（BytePositionInLine 1/14），属 MultiSegment 状态恢复问题，待下一轮。
 - **重要发现**: .cs2j-no-goto-src 的 `dotnet test` 因 `BUILDING_INBOX_LIBRARY` 宏 + 框架内置 System.Text.Json 优先，**实际运行的是框架原版库而非转换版**（Assembly.Location 验证）——C# 侧"测试全绿"是假验证，只有 `dotnet build`（语法）与 Java 侧测试（语义）真实有效。分析框架原版行为可用 ilspycmd 反编译（`~/.dotnet/tools/ilspycmd -t <Type> <dll>`）。
 - **状态**: ✅ Fixed（enum 截断；多段续读为 Iteration 25 待办）
+
+## Iteration 25 — resx 资源未转 properties（SR 字符串全部 fallback，159 个假 JsonReaderException）
+- **现象**: 上轮归因"多段续读"的 159 个 JsonReaderException 在本轮**全部消失**——真实根因是资源缺失。csharp-sdk 移除 BUILDING_INBOX_LIBRARY 后，测试引用本地转换库，SR.getString 经 ResourceManager→ResourceBundle 加载 `dotnet/text/json/Resources/Strings.properties`——转换器把 .resx **原样复制**且只收集 csproj 显式条目（SDK 默认 **/*.resx 未扫），导致所有 SR 字符串返回 fallback `{Name}`，FullJsonSchema1 变成 `{FullJsonSchema1}` 非法 JSON，reader 在 'F' 处报 "invalid start of a property name"。
+- **修复**: (1) SolutionLoader.ScanProjectResources 补扫 SDK 默认 **/*.resx；(2) 新增 ResxConverter，复制循环把 .resx 解析为 Java .properties（XML data/value → key=value，转义），目标路径 = 嵌入 LogicalName（RootNamespace + 相对路径点分隔 + .properties）。
+- **验证**: JsonReaderException 159→0；总失败 1489→1456。**C# 阶段树 dotnet test 19262 全绿为真验证**（BUILDING_INBOX_LIBRARY 已从测试移除，测试钉住本地转换库）。
+
+## Iteration 26 — 枚举底层类型标记（UInt64/UInt32 枚举误判 Int64/Int32）
+- **错误信息**: `The JSON value could not be converted to class SampleEnumUInt64. Path: $.MyUInt64Enum`（38 个）
+- **根因**: compat TypeHelper.getTypeCode 对枚举按 value 字段类型推断（long→Int64、int→Int32），无法区分 UInt64/Int64、UInt32/Int32。UInt64 枚举走 Int64 case，`18446744073709551615` 超出 long 范围 → tryGetInt64 失败 → 抛错。
+- **修复**: EnumTransformer 给显式值枚举生成 `getUnderlyingTypeCode()` 静态方法（返回底层 TypeCode）；compat getTypeCode 反射调用，fallback 旧推断。
+- **验证**: SampleEnumUInt64 失败 38→1（剩余 1 个是 read-ahead 错位的下游）。
+
+## Iteration 27（待办）— read-ahead 状态错位（属性读取串位）
+- **现象**: SimpleTestClass 完整反序列化在 MyChar 处 `IllegalStateException: Cannot get the value of a token type 'String' as a number`——数字属性(MyByte)→char 属性(MyChar)组合触发。单属性均正常。C# 转换版(真验证)全绿 → Java 生成差异。
+- **根因方向**: read-ahead 恢复后 reader 位置/属性查找错位——MyChar 的 jsonPropertyInfo 解析到数字型 converter，读到 String token。`readAheadPropertyValue`/`singleValueReadWithReadAhead` 的 Java 转换状态机与 C# 语义有偏差。
+- **状态**: 📋 待修（Iteration 27）
