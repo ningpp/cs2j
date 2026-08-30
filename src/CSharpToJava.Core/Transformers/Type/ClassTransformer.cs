@@ -1389,9 +1389,18 @@ public class ClassTransformer : ITypeTransformer
             // value is unboxed (e.g., int val = queue.peek(...)).
             string body;
             if (context.TryGetRuntimeClassField(typeParamName, out var classFieldName))
+            {
                 body = $"return ({typeParamName}) DefaultValue.ofClass({classFieldName});";
+            }
             else
+            {
+                // No runtime Class<?> field was added by AddRuntimeClassFields (e.g.,
+                // the class only uses default(T) but not new T[]/typeof(T)). Without
+                // runtime type info, DefaultValue.of() returns null, which is the
+                // best we can do under Java type erasure for reference-type bindings.
+                // Subclasses that bind T to a value type can override this method.
                 body = $"return DefaultValue.of();";
+            }
             javaClass.Methods.Add(new JavaMethodDeclaration
             {
                 Name = methodName,
