@@ -11931,6 +11931,26 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             .Select(tp => tp.Name)
             .ToHashSet(StringComparer.Ordinal);
 
+        // Cross-project fallback: when the method is defined in a referenced
+        // assembly (not in the current project's source trees),
+        // GetRequiredTypeParameters returns empty because it cannot access the
+        // method body's syntax tree. In that case, consult the global
+        // RuntimeClassParameters registry (populated when the defining project
+        // was converted) for method-level type parameters that are covered by
+        // trailing Class<?> parameters. Without this, call sites would emit
+        // BOTH a leading Class token AND the trailing Class<?> argument,
+        // causing an arity mismatch.
+        if (runtimeArrayTypeParameterNames.Count == 0
+            && context.Options.RuntimeClassParameters.TryGetMethodRequirements(
+                originalDef, out var trailingReqs))
+        {
+            foreach (var req in trailingReqs)
+            {
+                if (req.Kind == RuntimeClassTypeParameterRequirementKind.Method)
+                    runtimeArrayTypeParameterNames.Add(req.Name);
+            }
+        }
+
         var typeParamMap = new Dictionary<string, int>();
         for (int i = 0; i < originalDef.TypeParameters.Length; i++)
             typeParamMap[originalDef.TypeParameters[i].Name] = i;

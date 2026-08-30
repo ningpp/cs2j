@@ -246,4 +246,43 @@
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`TransformToArrayWithElementType` / `TransformInstanceCollectionToArray`）
 - **分析**: `TypeHelper.listToArray(...)` 声明返回 `Object`（因为可能返回基本类型数组或引用类型数组），但在条件表达式中，true 分支 `(T[]) TypeHelper.newArrayInstance(...)` 的静态类型是 `T[]`，false 分支 `TypeHelper.listToArray(...)` 的静态类型是 `Object`，二者不兼容。转换器生成 `listToArray` 调用时未在外部包裹类型转换。
 - **修复**: 在两处生成 `TypeHelper.listToArray(...)` 调用时，在其外包裹 `(javaType[]) (Object)` cast，使条件表达式两分支类型一致。
+- **验证**: RTree 编译错误消失，RTreeTest 5/5 通过。全量转换器测试 3028/3028 通过（修复前 3022/3027）。
+- **状态**: ✅ Fixed
+
+## Iteration AGL-14 — addToMap 跨项目调用生成双重 Class token 导致参数数不匹配
+- **Java 文件**: `aglningpptests/src/test/java/AglNingppTests/Agl/Core/DataStructuresTests/CollectionUtilitiesTest.java:74`
+- **错误信息**: `无法将类 CollectionUtilities中的方法 addToMap应用到给定类型` — 实际参数列表和形式参数列表长度不同（需要 4 参数，找到 5 参数）
+- **代码片段**:
+  ```java
+  // 生成：5个参数（前置 CSharpList.class + 3个值参数 + 后置 CSharpList.class）
+  CollectionUtilities.addToMap(CSharpList.class, dict, "key1", 42, CSharpList.class);
+  // 方法签名：4个参数（3个值参数 + 1个后置 Class<?> tCClass）
+  public static <TS, T, TC> void addToMap(CSharpDictionary<T, TC> dictionary, T key, TS value, Class<?> tCClass)
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\DataStructures\CollectionUtilities.cs`（`AddToMap<TS,T,TC>` with `new TC()`）
+- **根因分类**: Transformer（跨项目 Class token 重复注入）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`GetClassTypeTokensForCall`）
+- **分析**: 跨项目调用时，`GetRequiredTypeParameters` 无法访问方法体语法树（`DeclaringSyntaxReferences` 为空），返回空列表。于是 `runtimeArrayTypeParameterNames`（用于跳过已被 trailing Class<?> 参数覆盖的类型参数）不包含 `TC`，`GetClassTypeTokensForCall` 为 `TC` 生成了前置 Class token。同时 `ArgumentTransformer.TransformArgumentList` 通过 `GetRuntimeClassArguments`（使用全局注册表 fallback）追加了 trailing Class<?> 参数。两者重复，导致调用点有 5 个参数而方法签名只有 4 个。
+- **修复**: `GetClassTypeTokensForCall` 中 `runtimeArrayTypeParameterNames` 构建后，增加 fallback 查询全局 `RuntimeClassParameters.TryGetMethodRequirements`，将跨项目注册的方法级类型参数加入跳过集合。
+- **测试**: 新增 `AddToMapClassTokenDuplicationTests.GenericMethodWithNewTConstraint_HasExactlyOneClassParameter`。
+- **状态**: ✅ Fixed
+
+## Iteration AGL-15 — default(T) 泛型 T=int 返回 null 而非 0（NPE on unbox）
+- **Java 文件**: `automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/DataStructures/GenericBinaryHeapPriorityQueue.java:187`
+- **错误信息**: `NullPointerException: Cannot invoke "java.lang.Integer.intValue()" because the return value of "GenericBinaryHeapPriorityQueue.peek(...)" is null`
+- **代码片段**:
+  ```java
+  public T peek(DoubleHolder priority) {
+      if (getCount() == 0) {
+          priority.value = 0.0;
+          return _cs2jDefault_T();  // calls DefaultValue.of() → returns null
+      }
+      ...
+  }
+  protected T _cs2jDefault_T() { return DefaultValue.of(); }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\DataStructures\GenericBinaryHeapPriorityQueue.cs`（`Peek` → `return default(T);`）
+- **根因分类**: Transformer（泛型 default(T) 语义丢失）
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs`（`TransformDefaultExpression`）
+- **分析**: C# `default(T)` 当 T=int 时返回 0。转换器把 `default(T)` 转为 `_cs2jDefault_T()` → `DefaultValue.of()` → 返回 null。Java 泛型擦除后 T=Integer，调用方 `int val = q.Peek(out pri)` 拆箱 null 时 NPE。
 - **状态**: 🔄 修复中
