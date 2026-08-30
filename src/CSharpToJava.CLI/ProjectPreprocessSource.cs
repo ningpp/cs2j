@@ -173,7 +173,21 @@ internal static class ProjectPreprocessSource
             {
                 try
                 {
-                    File.Copy(projectFile, destinationFile, overwrite: true);
+                    if (projectFile.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Fix NU1605 package-downgrade errors in intermediate copies by
+                        // aligning older Newtonsoft.Json references to 13.0.1 (the
+                        // version Microsoft.NET.Test.Sdk requires). Without this,
+                        // `dotnet restore` on the intermediate solution fails and the
+                        // semantic model cannot resolve those external types.
+                        var csprojContent = await File.ReadAllTextAsync(projectFile);
+                        var fixedContent = FixPackageDowngrades(csprojContent);
+                        await File.WriteAllTextAsync(destinationFile, fixedContent, new System.Text.UTF8Encoding(false));
+                    }
+                    else
+                    {
+                        File.Copy(projectFile, destinationFile, overwrite: true);
+                    }
                 }
                 catch (IOException ex)
                 {
@@ -183,6 +197,57 @@ internal static class ProjectPreprocessSource
                         ex);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Aligns known package-downgrade references (e.g. Newtonsoft.Json 12.0.3 →
+    /// 13.0.1) so that intermediate-project dotnet restore does not fail with
+    /// NU1605. Only touches references with versions strictly below the minimum
+    /// required by the rest of the solution.
+    /// </summary>
+    internal static string FixPackageDowngrades(string csprojContent)
+    {
+        var needsSave = false;
+        var doc = System.Xml.Linq.XDocument.Load(new System.IO.StringReader(csprojContent));
+        if (doc.Root == null) return csprojContent;
+
+        foreach (var pkgRef in doc.Root.Descendants("PackageReference"))
+        {
+            var include = pkgRef.Attribute("Version")?.Value;
+            if (string.IsNullOrEmpty(include))
+                continue;
+
+            // Newtonsoft.Json < 13.0.1 triggers NU1605 when Microsoft.NET.Test.Sdk
+            // is also present. Pin to 13.0.1 to match the transitive requirement.
+            var includeLower = include.Trim();
+            if (includeLower.StartsWith("Newtonsoft.Json", StringComparison.OrdinalIgnoreCase)
+                && IsOlderThan(include, "13.0.1"))
+            {
+                pkgRef.SetAttributeValue("Version", "13.0.1");
+                needsSave = true;
+            }
+        }
+
+        if (!needsSave) return csprojContent;
+        using var sw = new System.IO.StringWriter();
+        doc.Save(sw);
+        return sw.ToString();
+    }
+
+    private static bool IsOlderThan(string versionAttr, string targetVersion)
+    {
+        try
+        {
+            if (!System.Version.TryParse(System.Text.RegularExpressions.Regex.Match(versionAttr, @"\d+(\.\d+)*").Value, out var v1))
+                return false;
+            if (!System.Version.TryParse(targetVersion, out var v2))
+                return false;
+            return v1 < v2;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -288,7 +353,7 @@ internal static class ProjectPreprocessSource
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"restore \"{targetPath}\" --ignore-failed-sources",
+                Arguments = $"restore \"{targetPath}\" --ignore-failed-sources -p:NoWarn=NU1605",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

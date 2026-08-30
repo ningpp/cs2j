@@ -36,4 +36,12 @@ public class JsonSerializerSettings {
     public ReferenceLoopHandling getReferenceLoopHandling() {
         return referenceLoopHandling;
     }
+
+    public void setContractResolver(Object resolver) {
+        this.contractResolver = resolver;
+    }
+
+    public Object getContractResolver() {
+        return contractResolver;
+    }
 }

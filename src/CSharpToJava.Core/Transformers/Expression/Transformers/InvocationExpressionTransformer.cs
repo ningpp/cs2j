@@ -1186,6 +1186,65 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"CompletableFuture.completedFuture({resultValue})";
         }
 
+        // C# JsonConvert.DeserializeObject<T>(json) and
+        // JsonConvert.DeserializeObject<T>(json, settings) →
+        // (T)(JsonConvert.deserializeObject(json, T.class [, settings])).
+        // The compat JsonConvert needs the Class token so call-side generics are
+        // preserved, and the deserialize result is cast to the target type so the
+        // caller (which may need e.g. List<X>) compiles under erasure.
+        if (memberAccess.Name.Identifier.Text == "DeserializeObject"
+            && memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "JsonConvert" }
+            && context.GetSymbolInfo(node).Symbol is IMethodSymbol jsonMethodSym
+            && jsonMethodSym.IsGenericMethod
+            && node.ArgumentList.Arguments.Count is 1 or 2)
+        {
+            var methodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+            var argCount = node.ArgumentList.Arguments.Count;
+            var typeArgs = methodSym?.TypeArguments ?? jsonMethodSym.TypeArguments;
+            if (typeArgs.Length == 1)
+            {
+                bool isMethodLevelTypeParam = typeArgs[0] is ITypeParameterSymbol;
+                string classLiteral;
+                if (isMethodLevelTypeParam && context.TryGetRuntimeClassParameter(
+                    (typeArgs[0] as ITypeParameterSymbol)!.Name, out var runtimeClassParam))
+                {
+                    classLiteral = runtimeClassParam;
+                }
+                else
+                {
+                    classLiteral = ConversionContext.GetClassLiteral(typeArgs[0], context) ?? "null";
+                }
+                var javaCastType = isMethodLevelTypeParam
+                    ? (typeArgs[0] as ITypeParameterSymbol)!.Name
+                    : context.MapType(typeArgs[0]);
+                var jsonArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                context.AddImport("io.github.ningpp.compat.JsonConvert");
+                // When the target type is a generic collection (List<X>, etc.),
+                // deserializeObject(json, List.class) deserializes elements to
+                // Map form due to erasure. Instead detect the collection shape
+                // and emit deserializeList(json, X.class) so Jackson gets the
+                // full generic element type. If this call's result is a coerced
+                // List<X> used as a class literal elsewhere (e.g. loadJson<List<X>>),
+                // the helper method handles the top-level list while elements
+                // stay as Map — that's a separate converter-level concern.
+                if (typeArgs[0] is INamedTypeSymbol namedType && namedType.IsGenericType
+                    && namedType.TypeArguments.Length == 1 && !isMethodLevelTypeParam)
+                {
+                    var elementTypeArg = namedType.TypeArguments[0];
+                    string elementClassLiteral = ConversionContext.GetClassLiteral(elementTypeArg, context) ?? "null";
+                    string deserializeCall = $"JsonConvert.deserializeList({jsonArg}, {elementClassLiteral})";
+                    return $"(({javaCastType})({deserializeCall}))";
+                }
+                var settingsArg = argCount == 2
+                    ? facade.Transform(node.ArgumentList.Arguments[1].Expression, context)
+                    : null;
+                var call = settingsArg != null
+                    ? $"JsonConvert.deserializeObject({jsonArg}, {classLiteral}, {settingsArg})"
+                    : $"JsonConvert.deserializeObject({jsonArg}, {classLiteral})";
+                return $"(({javaCastType})({call}))";
+            }
+        }
+
         // C# Task.Start() — the converted Task is a CompletableFuture that already
         // runs eagerly; Start() is a no-op.
         if (memberAccess.Name.Identifier.Text == "Start"
@@ -2902,6 +2961,34 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // LINQ extension methods are handled by the dedicated Stream API block below.
                 isExtensionInStaticPath = !isLinqExtension;
             }
+        }
+
+        // C# RoutingTestSupport.LoadJson<List<X>>(paths) shortcut: the converter
+        // normally emits RoutingTestSupport.loadJson(CSharpList.class, paths)
+        // which produces a CSharpList<LinkedHashMap> due to erasure. Detect
+        // this pattern and emit a direct JsonConvert.deserializeList(combinedPath, X.class)
+        // call so the element type is preserved. Must come AFTER the
+        // `if (context.SemanticModel != null)` block where methodSymbol is assigned.
+        // Note: originalMethodName is the C# name (LoadJson), not the Java name.
+        if (originalMethodName == "LoadJson"
+            && memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "RoutingTestSupport" }
+            && methodSymbol is { IsGenericMethod: true, TypeArguments.Length: > 0 }
+            && methodSymbol.TypeArguments[0] is INamedTypeSymbol loadJsonNamed
+            && loadJsonNamed.IsGenericType && loadJsonNamed.TypeArguments.Length == 1
+            && node.ArgumentList.Arguments.Count > 0)
+        {
+            var elementType = loadJsonNamed.TypeArguments[0];
+            string elementClassLit = ConversionContext.GetClassLiteral(elementType, context) ?? "null";
+            var pathArgExprs = node.ArgumentList.Arguments
+                .Select(a => facade.Transform(a.Expression, context))
+                .ToList();
+            string combinedPath = "java.nio.file.Paths.get(AppContext.getBaseDirectory(), PathHelper.combine(new String[]{"
+                + string.Join(", ", pathArgExprs) + "})).toString()";
+            string javaCastType = context.MapType(loadJsonNamed);
+            string jsonRead = $"FileHelper.readAllText({combinedPath})";
+            string deserializeCall = $"JsonConvert.deserializeList({jsonRead}, {elementClassLit})";
+            context.AddImport("io.github.ningpp.compat.JsonConvert");
+            return $"(({javaCastType})({deserializeCall}))";
         }
 
         // Inline generic methods with new() constraint: resolve concrete type bindings
@@ -7835,8 +7922,8 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // C# parameter count + Class<T> slots.
             if (memberClassTokens != null)
             {
-                var csharpParamCount = methodSymbol.Parameters.Count(p => !p.HasExplicitDefaultValue && !p.IsOptional);
-                bool hasParamsArg = methodSymbol.Parameters.Length > 0
+                var csharpParamCount = methodSymbol.Parameters.Length;
+                bool isVarargs = methodSymbol.Parameters.Length > 0
                     && methodSymbol.Parameters[^1].IsParams;
                 int registeredClassParams = 0;
                 if (context.MethodHasClassParams(methodSymbol.OriginalDefinition))
@@ -7844,7 +7931,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     registeredClassParams = context.GetMethodClassTypeParamNames(methodSymbol.OriginalDefinition)?.Count
                         ?? memberClassTokens.Count;
                 }
-                if (!hasParamsArg
+                else if (isVarargs && methodSymbol.TypeParameters.Length > 0)
+                {
+                    // Forward-referenced varargs+generic method: converter inserts
+                    // a leading Class<T> parameter. Varargs can absorb any extra
+                    // arguments, so the class tokens always have a slot.
+                    registeredClassParams = memberClassTokens.Count;
+                }
+                // For varargs, the slot ceiling is *open* — extra args fill the
+                // params array. Only run the arity guard for non-varargs calls.
+                if (!isVarargs
                     && node.ArgumentList.Arguments.Count + memberClassTokens.Count
                     > csharpParamCount + registeredClassParams)
                 {

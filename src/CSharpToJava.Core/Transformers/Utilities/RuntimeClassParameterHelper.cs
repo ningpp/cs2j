@@ -389,21 +389,28 @@ internal static class RuntimeClassParameterHelper
             if (semanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol methodSymbol)
                 continue;
 
-            if (methodSymbol.Name != "Deserialize" || !methodSymbol.IsGenericMethod)
-                continue;
-            if (methodSymbol.ContainingType.ToDisplayString() != "System.Text.Json.JsonSerializer")
-                continue;
-            if (methodSymbol.TypeArguments.Length != 1)
+            if (!methodSymbol.IsGenericMethod || methodSymbol.TypeArguments.Length != 1)
                 continue;
             if (methodSymbol.TypeArguments[0] is not ITypeParameterSymbol typeParam)
                 continue;
             if (!SymbolEqualityComparer.Default.Equals(typeParam.DeclaringMethod, originalMethod))
                 continue;
-            // Marker only: the type parameter must NOT join the trailing Class<?>
-            // clazz-parameter list (AddRuntimeClassParametersForTypeParameterArrays).
-            // The definition site registers the pending requirement itself and the
-            // signature is patched with a leading TypeReference<T> parameter.
-            context.Options.RuntimeClassParameters.RegisterMethodTypeReference(originalMethod, typeParam.Name);
+
+            var containingType = methodSymbol.ContainingType.ToDisplayString();
+
+            // System.Text.Json.JsonSerializer.Deserialize<T>(body) — uses TypeReference<T>.
+            if (methodSymbol.Name == "Deserialize" && containingType == "System.Text.Json.JsonSerializer")
+            {
+                // Marker only: the type parameter must NOT join the trailing Class<?>
+                // clazz-parameter list.
+                context.Options.RuntimeClassParameters.RegisterMethodTypeReference(originalMethod, typeParam.Name);
+                continue;
+            }
+
+            // Newtonsoft.Json.JsonConvert.DeserializeObject<T>() — the compat
+            // JsonConvert ignores the type parameter, so no runtime Class token
+            // is needed here. InvocationExpressionTransformer handles this call
+            // by passing null for the type argument.
         }
     }
 

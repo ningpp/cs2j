@@ -2597,10 +2597,21 @@ public class MethodTransformer : IMemberTransformer
         // mismatches. Only method-level type parameters need promotion here.
         neededTypeParameters = neededTypeParameters.Where(tp =>
             SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, currentMethod));
+        bool hasVarArgs = javaMethod.Parameters.Exists(p => p.IsVarArgs);
         foreach (var typeParameterName in neededTypeParameters.Select(tp => tp.Name))
         {
             var parameterName = AllocateRuntimeClassParameterName(typeParameterName, javaMethod);
-            javaMethod.Parameters.Add(new JavaParameter("Class<?>", parameterName));
+            var classParam = new JavaParameter("Class<?>", parameterName);
+            if (hasVarArgs)
+            {
+                // Insert Class<?> BEFORE varargs so varargs remains last in Java.
+                int varArgsIdx = javaMethod.Parameters.FindIndex(p => p.IsVarArgs);
+                javaMethod.Parameters.Insert(varArgsIdx, classParam);
+            }
+            else
+            {
+                javaMethod.Parameters.Add(classParam);
+            }
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
         }
     }
