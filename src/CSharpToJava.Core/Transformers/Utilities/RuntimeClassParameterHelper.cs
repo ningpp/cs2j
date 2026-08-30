@@ -426,9 +426,19 @@ internal static class RuntimeClassParameterHelper
     }
 
     /// <summary>
-    /// Scans for typeof(T) and default(T) where T is a class-level type parameter.
-    /// These usages require a runtime Class field on the declaring type so that
-    /// instance methods can reference it without adding a method-level Class&lt;T&gt; parameter.
+    /// Scans for typeof(T) and default(T) / default literal where T is a class-level
+    /// type parameter. These usages require a runtime Class field on the declaring
+    /// type so that instance methods can reference it without adding a method-level
+    /// Class&lt;T&gt; parameter.
+    ///
+    /// <para>The bare <c>default</c> literal (C# 7.1+, produced by GenericPreprocessor
+    /// rewriting <c>default(T)</c>) is also scanned. For the literal form, the target
+    /// type is inferred from the semantic model's <c>ConvertedType</c> (the type the
+    /// expression is being assigned/returned as). Without this, GenericPreprocessor
+    /// rewrites <c>default(T)</c> → <c>default</c> before the requirements scan runs,
+    /// causing the class-level type parameter to be missed and <c>DefaultValue.of()</c>
+    /// (which returns null) to be emitted instead of <c>DefaultValue.ofClass(field)</c>
+    /// (which returns the correct zero value for primitives like int → 0).</para>
     /// </summary>
     private static void AddTypeOfDefaultRequirements(
         SyntaxNode declaration,
@@ -446,9 +456,27 @@ internal static class RuntimeClassParameterHelper
             }
         }
 
+        // Scan default(T) expressions (the explicit form, not rewritten by GenericPreprocessor)
         foreach (var defaultExpr in declaration.DescendantNodes().OfType<DefaultExpressionSyntax>())
         {
             if (semanticModel.GetTypeInfo(defaultExpr.Type).Type is ITypeParameterSymbol typeParameter
+                && typeParameter.DeclaringMethod == null
+                && IsOwnedByMethodOrType(typeParameter, originalMethod))
+            {
+                AddUnique(required, typeParameter);
+            }
+        }
+
+        // Scan bare 'default' literals (C# 7.1+). GenericPreprocessor rewrites
+        // default(T) → default in safe contexts (assignment, return, etc.).
+        // The target type is inferred from ConvertedType.
+        foreach (var defaultLiteral in declaration.DescendantNodes()
+            .OfType<LiteralExpressionSyntax>()
+            .Where(l => l.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.DefaultLiteralExpression)))
+        {
+            var typeInfo = semanticModel.GetTypeInfo(defaultLiteral);
+            var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
+            if (targetType is ITypeParameterSymbol typeParameter
                 && typeParameter.DeclaringMethod == null
                 && IsOwnedByMethodOrType(typeParameter, originalMethod))
             {

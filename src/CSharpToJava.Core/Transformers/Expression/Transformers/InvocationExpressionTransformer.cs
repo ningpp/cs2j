@@ -12141,7 +12141,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 continue;
             }
 
-            // Collect type param names that appear in default() expressions
+            // Collect type param names that appear in default(T) expressions.
+            // Also scan bare 'default' literals (C# 7.1+), which GenericPreprocessor
+            // produces by rewriting default(T) → default in safe contexts (return,
+            // assignment). For the literal form, the target type is inferred from
+            // the semantic model's ConvertedType when available.
             var defaultNodes = scanRoot.DescendantNodes()
                 .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.DefaultExpressionSyntax>();
             foreach (var defNode in defaultNodes)
@@ -12152,6 +12156,51 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     {
                         if (tp.Name == id.Identifier.Text)
                             AddTypeParamName(tp, ref result);
+                    }
+                }
+            }
+
+            // Scan bare 'default' literals — GenericPreprocessor rewrites default(T)
+            // to default before the converter runs. Infer the type parameter from
+            // the semantic model's ConvertedType (the type the expression is being
+            // assigned/returned as). Fall back to matching by identifier name when
+            // the semantic model is unavailable (cross-project scenarios).
+            var defaultLiterals = scanRoot.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax>()
+                .Where(l => l.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.DefaultLiteralExpression));
+            foreach (var defLit in defaultLiterals)
+            {
+                // Try semantic model first for precise type resolution
+                if (context.SemanticModel != null)
+                {
+                    var litModel = context.GetSemanticModelForTree(defLit.SyntaxTree) ?? context.SemanticModel;
+                    var typeInfo = litModel.GetTypeInfo(defLit);
+                    var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
+                    if (targetType is ITypeParameterSymbol litTp)
+                    {
+                        foreach (var tp in typeParams)
+                        {
+                            if (tp.Name == litTp.Name)
+                                AddTypeParamName(tp, ref result);
+                        }
+                        continue;
+                    }
+                }
+
+                // Syntactic fallback: look at the parent context to infer the type.
+                // For `return default;`, the return type's type parameter can be
+                // matched by examining the method's return type identifier.
+                var parent = defLit.Parent;
+                if (parent is ReturnStatementSyntax returnStmt)
+                {
+                    var method = returnStmt.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+                    if (method?.ReturnType is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax retId)
+                    {
+                        foreach (var tp in typeParams)
+                        {
+                            if (tp.Name == retId.Identifier.Text)
+                                AddTypeParamName(tp, ref result);
+                        }
                     }
                 }
             }
