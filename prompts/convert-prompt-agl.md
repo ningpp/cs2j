@@ -1,11 +1,11 @@
 # C# → Java 转换器：逐错迭代修复循环
 
 ## 目标
-使用本项目的 C#→Java 转换器，将 `E:\agl-master\GraphLayout\` 转换为 `d:\agl-java-826`，并通过迭代修复**转换器代码**（而非生成的 Java 代码），直到生成的 Java 项目能通过 `mvn clean package -e` 零错误编译。
+使用本项目的 C#→Java 转换器，将 `E:\agl-master\GraphLayout\` 转换为 `d:\agl-java-830`，并通过迭代修复**转换器代码**（而非生成的 Java 代码），直到生成的 Java 项目能通过 `mvn clean package -e` 零错误编译。
 
 ## 硬性约束
 1. **严禁修改** `E:\agl-master\GraphLayout\` 下的任何文件（C# 源码只读）
-2. **严禁手动编辑** `d:\agl-java-826` 下的任何文件（所有修复必须通过改进转换器来生效）
+2. **严禁手动编辑** `d:\agl-java-830` 下的任何文件（所有修复必须通过改进转换器来生效）
 3. **严格按 Step 1→8 顺序执行**，不可跳步或颠倒
 4. **每个 Step 5 必须有红→绿验证**（先确认测试失败，再确认修复后通过）
 5. **每次 `mvn clean package -e` 必须保存完整日志**
@@ -18,13 +18,13 @@
 
 ### Step 1 — C# → Java 转换
 ```bash
-dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project -s E:\agl-master\GraphLayout\ -d d:\agl-java-826 --extra-deps io.github.ningpp:system-private-xml:0.0.1-SNAPSHOT --no-verify-build --no-verify-tests
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project -s E:\agl-master\GraphLayout\ -d d:\agl-java-830 --extra-deps io.github.ningpp:system-private-xml:0.0.1-SNAPSHOT --no-verify-build --no-verify-tests
 ```
 确认转换命令本身无异常退出。
 
 ### Step 2 — Maven 编译 & 日志保存
 ```bash
-cd d:\agl-java-826 ; mvn clean package -e > mvn-build.log 2>&1
+cd d:\agl-java-830 ; mvn clean package -e > mvn-build.log 2>&1
 cat mvn-build.log
 ```
 检查退出码：`echo $?`。若为 0 且输出包含 `BUILD SUCCESS` → **退出循环，任务完成**。
@@ -95,4 +95,4 @@ cat mvn-build.log
 ---
 
 ## 成功标准
-`d:\agl-java-826` 目录下执行 `mvn clean package -e` 返回零错误、`BUILD SUCCESS`，且 `d:\code\cs2j` 的全量单元测试全部通过。
+`d:\agl-java-830` 目录下执行 `mvn clean package -e` 返回零错误、`BUILD SUCCESS`，且 `d:\code\cs2j` 的全量单元测试全部通过。

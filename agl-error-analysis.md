@@ -230,3 +230,20 @@
 - **分析**: 两个叠加问题：(1) C# 中 array 赋给 IEnumerable<T> 属性/局部变量时保存数组本身，(T[]) 强转回原数组；StaircaseRemover 依赖 SegWithIndex.Equals 的 Points 引用相等来忽略自身线段。转换器此前用 ArrayHelper.toList 复制，破坏身份，导致楼梯永远无法移除。(2) Enumerable.ToArray() 生成 StreamSupport.stream(...).toArray(T[]::new)，表达式以 StreamSupport.stream( 开头被 IsArrayAlreadyWrappedForCollectionOrIterable 误判为"已包装"，IEnumerable 目标处不再包 asIterable，产生 T[] 传给 CSharpGenericIterable<T> 参数的编译错误。
 - **修复**: (1) compat 新增 CSharpArrayIterable（数组后备、toArray 返回同一实例），ArrayHelper.asIterable 供 IEnumerable 目标使用；属性赋值/局部声明/方法实参三处统一改用 asIterable。(2) IsArrayAlreadyWrappedForCollectionOrIterable 对以 .toArray(...) 结尾的表达式返回 false（那是原始 Java 数组，仍需包装）。新增 IEnumerableArrayIdentityTests 3 个用例（LocalIEnumerableDeclaredFromToArrayCall / IEnumerablePropertyAssignedToArrayFromToArrayCall / GenericMethodArgumentFromToArrayDeclaredLocal），Red→Green；转换器全量 2964/2964 通过；重新转换后 mvn：aglningpptests 1661/1661、msagltests 612/612 全部通过，NudgingHelpersTest 10/10（含 staircaseRemover_RemovesStaircase_Test）。
 - **状态**: ✅ Fixed
+
+## Iteration AGL-13 — 条件表达式中 listToArray 返回 Object 不兼容 T[]
+- **Java 文件**: `automaticgraphlayout/src/main/java/Microsoft/Msagl/Core/Geometry/RTree.java:162`
+- **行号**: 162
+- **错误信息**: `不兼容的类型: 条件表达式中的类型错误` — `java.lang.Object无法转换为T[]`
+- **代码片段**:
+  ```java
+  public T[] getAllIntersecting(IRectangle<P> queryRegion) {
+      return (_rootNode == null || getCount() == 0 ? (T[]) (TypeHelper.newArrayInstance(tClass, 0)) : TypeHelper.listToArray(StreamSupport.stream(...), tClass));
+  }
+  ```
+- **对应 C# 文件**: `E:\agl-master\GraphLayout\MSAGL\Core\Geometry\RTree\RTree.cs`（`GetAllIntersecting` — `return _rootNode == null || Count == 0 ? new T[0] : _rootNode.GetNodeItemsIntersectingRectangle(queryRegion).ToArray();`）
+- **根因分类**: Transformer
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`（`TransformToArrayWithElementType` / `TransformInstanceCollectionToArray`）
+- **分析**: `TypeHelper.listToArray(...)` 声明返回 `Object`（因为可能返回基本类型数组或引用类型数组），但在条件表达式中，true 分支 `(T[]) TypeHelper.newArrayInstance(...)` 的静态类型是 `T[]`，false 分支 `TypeHelper.listToArray(...)` 的静态类型是 `Object`，二者不兼容。转换器生成 `listToArray` 调用时未在外部包裹类型转换。
+- **修复**: 在两处生成 `TypeHelper.listToArray(...)` 调用时，在其外包裹 `(javaType[]) (Object)` cast，使条件表达式两分支类型一致。
+- **状态**: 🔄 修复中

@@ -8970,8 +8970,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // List<T>.ToArray() must produce a runtime T[]. When T erases to a
                 // primitive wrapper (C# List<int>) the .NET result is int[], which
                 // cannot be expressed through Java generics — build it reflectively.
+                // listToArray returns Object (erasure limitation), so cast to the
+                // element type array to satisfy conditional/assignment contexts.
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
-                return $"TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
+                return $"({javaType}[]) (Object) TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
             }
             if (TryBuildTypeParameterArrayGenerator(elementType, javaType, context, out var generator))
                 return $"{receiver}.toArray({generator})";
@@ -9020,8 +9022,14 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 // See the comment at the other List<T>.ToArray() branch: the array
                 // must be built reflectively so primitive T yields a primitive array.
+                // listToArray returns Object (erasure limitation), so cast to the
+                // element type array to satisfy conditional/assignment contexts.
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
-                return $"TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
+                var javaTypeForCast = context.MapType(elementType);
+                if (javaTypeForCast is "TSource" or "TResult" or "TKey" or "TElement"
+                    or "TFirst" or "TSecond" or "TAccumulate")
+                    javaTypeForCast = "Object";
+                return $"({javaTypeForCast}[]) (Object) TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
             }
             var javaTypeParam = context.MapType(elementType);
             if (TryBuildTypeParameterArrayGenerator(elementType, javaTypeParam, context, out var generator))
