@@ -147,6 +147,52 @@ public class MyEnumerator : IEnumerator
         Assert.DoesNotContain("CSharpEnumerator.from(", code);
     }
 
+    [Fact(Skip = "Pending: yield method timing — iterator() not yet created when UpgradeIteratorReturnTypeForGenericIterable runs")]
+    public void CollectionBaseInheritingClass_IteratorReturnTypeUpgraded()
+    {
+        // Reproduces XmlSchemas : CollectionBase, IEnumerable<XmlSchema> pattern
+        // where the Java class extends CSharpCollectionBase (which implements CSharpIList)
+        // but does not directly list CSharpICollection<Object> in its ImplementedTypes.
+        var result = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+public class MySchemas : CollectionBase, IEnumerable<MySchema>
+{
+    public void Add(MySchema schema)
+    {
+        InnerList.Add(schema);
+    }
+
+    public new IEnumerator<MySchema> GetEnumerator()
+    {
+        return new MySchemaEnumerator(this);
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public class MySchema { }
+
+public class MySchemaEnumerator : IEnumerator<MySchema>
+{
+    private MySchemas _col;
+    private int _index = -1;
+
+    public MySchemaEnumerator(MySchemas col) { _col = col; }
+    public MySchema Current => (MySchema)_col.InnerList[_index];
+    object IEnumerator.Current => Current;
+    public bool MoveNext() => ++_index < _col.Count;
+    public void Reset() => _index = -1;
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        // iterator() return type should be CSharpGenericEnumerator, not CSharpEnumerator
+        Assert.DoesNotContain("CSharpEnumerator iterator()", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

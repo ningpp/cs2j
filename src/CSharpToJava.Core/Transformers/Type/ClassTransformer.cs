@@ -3043,24 +3043,62 @@ public class ClassTransformer : ITypeTransformer
     /// </summary>
     private static void UpgradeIteratorReturnTypeForGenericIterable(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol, ConversionContext context)
     {
-        if (!TryGetIterableElementType(javaClass, out var elementType))
+        // Determine the element type from the Java declaration first, then fall
+        // back to the Roslyn symbol for inherited interfaces (e.g. XmlSchemas
+        // extends CSharpCollectionBase which implements CSharpIList).
+        string? elementType = null;
+        if (TryGetIterableElementType(javaClass, out var declElementType))
         {
-            // The outer class itself is not iterable, but its nested classes might be
-            // (e.g. XmlSchemaObjectTable.NamesCollection implements ICollection).
-            // Recurse into each nested class so its iterator() return type and its
-            // own nested enumerator types are upgraded as well.
-            bool anyNestedIterable = false;
-            foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
+            elementType = declElementType;
+        }
+        else if (classSymbol != null)
+        {
+            var ienumElem = ExtractIEnumerableElementType(classSymbol);
+            if (ienumElem != null)
             {
-                if (TryGetIterableElementType(nested, out var nestedElementType))
-                    anyNestedIterable = true;
-                UpgradeIteratorReturnTypeForGenericIterable(nested, classSymbol, context);
+                elementType = ienumElem;
             }
+            else
+            {
+                for (var current = classSymbol; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+                {
+                    if (current.AllInterfaces.Any(i => i.OriginalDefinition?.ToDisplayString() == "System.Collections.ICollection"
+                        || i.OriginalDefinition?.ToDisplayString() == "System.Collections.IList"
+                        || i.OriginalDefinition?.ToDisplayString() == "System.Collections.IEnumerable"))
+                    {
+                        elementType = "Object";
+                        break;
+                    }
+                }
+            }
+        }
 
-            // If any nested class is iterable, sibling enumerator classes (which
-            // implement the non-generic CSharpEnumerator and are returned by
-            // those nested collections' iterator() methods) must also be upgraded
-            // to CSharpGenericEnumerator<Object> so they satisfy the return type.
+        // Fallback: when the Roslyn symbol lacks full base type info (common in
+        // single-file conversion mode), check the Java ExtendedType directly.
+        // CSharpCollectionBase implements CSharpIList → CSharpICollection → CSharpIterable.
+        if (elementType == null && javaClass.ExtendedType != null
+            && (javaClass.ExtendedType.EndsWith("CSharpCollectionBase", StringComparison.Ordinal)
+                || javaClass.ExtendedType.EndsWith("CSharpReadOnlyCollectionBase", StringComparison.Ordinal)))
+        {
+            elementType = "Object";
+        }
+
+        // Recurse into nested classes first so their iterator() and enumerators
+        // are upgraded regardless of whether the outer class is iterable.
+        bool anyNestedIterable = false;
+        foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
+        {
+            if (TryGetIterableElementType(nested, out _))
+                anyNestedIterable = true;
+            UpgradeIteratorReturnTypeForGenericIterable(nested, null, context);
+        }
+
+        if (elementType == null)
+        {
+            // The outer class itself is not iterable, but if any nested class is
+            // iterable, sibling enumerator classes (which implement the non-generic
+            // CSharpEnumerator and are returned by those nested collections'
+            // iterator() methods) must also be upgraded to CSharpGenericEnumerator<Object>.
             if (anyNestedIterable)
             {
                 foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
@@ -3071,6 +3109,7 @@ public class ClassTransformer : ITypeTransformer
             return;
         }
 
+        // The class is iterable — upgrade its iterator() return type and body.
         string expectedReturnType = elementType == "Object"
             ? "CSharpGenericEnumerator<Object>"
             : $"CSharpGenericEnumerator<{elementType}>";
@@ -3078,57 +3117,50 @@ public class ClassTransformer : ITypeTransformer
         var iteratorMethod = javaClass.Methods.FirstOrDefault(m =>
             m.Name == "iterator" && m.Parameters.Count == 0);
         if (iteratorMethod == null)
-        {
-            // Even without an iterator() method, nested classes may still be
-            // enumerable — recurse so their nested enumerators are upgraded.
-            foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
-            {
-                UpgradeIteratorReturnTypeForGenericIterable(nested, classSymbol, context);
-            }
             return;
+
+        bool returnTypeChanged = iteratorMethod.ReturnType != expectedReturnType;
+        iteratorMethod.ReturnType = expectedReturnType;
+
+        // Even if the return type was already correct, the body may still
+        // contain CSharpEnumerator.from(...) calls that need upgrading.
+        if (iteratorMethod.Body != null)
+        {
+            iteratorMethod.Body = iteratorMethod.Body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.fromEnumerator(");
+        }
+        else if (iteratorMethod.StructuredBody != null)
+        {
+            string body = iteratorMethod.StructuredBody.ToBodyString();
+            body = body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.fromEnumerator(");
+            iteratorMethod.Body = body;
+            iteratorMethod.StructuredBody = null;
         }
 
-        if (iteratorMethod.ReturnType != expectedReturnType)
+        // CSharpDictEnumerator (non-generic IDictionaryEnumerator) is not a
+        // CSharpGenericEnumerator; wrap the produced enumerator when the upgraded
+        // iterator return type requires the generic surface.
+        if (iteratorMethod.Body != null
+            && iteratorMethod.Body.Contains("CSharpDictEnumerator.from(", StringComparison.Ordinal))
         {
-            iteratorMethod.ReturnType = expectedReturnType;
-
-            if (iteratorMethod.Body != null)
+            iteratorMethod.Body = iteratorMethod.Body.Replace(
+                "CSharpDictEnumerator.from(",
+                "CSharpGenericEnumerator.fromEnumerator(CSharpDictEnumerator.from(",
+                StringComparison.Ordinal);
+            var trimmed = iteratorMethod.Body.TrimEnd();
+            if (trimmed.EndsWith(");", StringComparison.Ordinal))
             {
-                iteratorMethod.Body = iteratorMethod.Body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.fromEnumerator(");
+                iteratorMethod.Body = trimmed[..^1] + ");";
             }
-            else if (iteratorMethod.StructuredBody != null)
-            {
-                string body = iteratorMethod.StructuredBody.ToBodyString();
-                body = body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.fromEnumerator(");
-                iteratorMethod.Body = body;
-                iteratorMethod.StructuredBody = null;
-            }
+        }
 
-            // CSharpDictEnumerator (non-generic IDictionaryEnumerator) is not a
-            // CSharpGenericEnumerator; wrap the produced enumerator when the upgraded
-            // iterator return type requires the generic surface.
-            if (iteratorMethod.Body != null
-                && iteratorMethod.Body.Contains("CSharpDictEnumerator.from(", StringComparison.Ordinal))
-            {
-                iteratorMethod.Body = iteratorMethod.Body.Replace(
-                    "CSharpDictEnumerator.from(",
-                    "CSharpGenericEnumerator.fromEnumerator(CSharpDictEnumerator.from(",
-                    StringComparison.Ordinal);
-                var trimmed = iteratorMethod.Body.TrimEnd();
-                if (trimmed.EndsWith(");", StringComparison.Ordinal))
-                {
-                    iteratorMethod.Body = trimmed[..^1] + ");";
-                }
-            }
-
+        if (returnTypeChanged)
+        {
             context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
         }
 
         foreach (var nested in javaClass.NestedTypes.OfType<JavaClassDeclaration>())
         {
             UpgradeNestedEnumeratorToGeneric(nested, elementType, context);
-            // Also recurse so deeply-nested iterable classes get the same treatment.
-            UpgradeIteratorReturnTypeForGenericIterable(nested, classSymbol, context);
         }
     }
 
