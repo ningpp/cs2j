@@ -524,14 +524,22 @@ public class ClassTransformer : ITypeTransformer
         {
             if (method.Name != "add" || method.ReturnType != "void" || method.Parameters.Count != 1)
                 continue;
-            System.IO.File.AppendAllText(@"C:\Users\15097\AppData\Local\Temp\opencode\dbg.txt",
-                $"[DBG-addfix] class={javaClass.Name} impl={string.Join(",", javaClass.ImplementedTypes)}\n");
             method.ReturnType = "boolean";
+            // Convert bare 'return;' statements to 'return false;' since the
+            // method now returns boolean instead of void. A bare return in the
+            // original C# void method meant "exit early without adding".
             if (method.StructuredBody != null)
             {
-                method.StructuredBody.Statements.Add(new Java.JavaRawStatement("return true;"));
+                string body = method.StructuredBody.ToBodyString();
+                method.Body = body;
+                method.StructuredBody = null;
             }
-            else if (!string.IsNullOrWhiteSpace(method.Body)
+            if (method.Body != null)
+            {
+                method.Body = System.Text.RegularExpressions.Regex.Replace(
+                    method.Body, @"\breturn\s*;", "return false;");
+            }
+            if (!string.IsNullOrWhiteSpace(method.Body)
                 && !method.Body.Trim().StartsWith("return ", StringComparison.Ordinal))
             {
                 method.Body = method.Body.TrimEnd(';', ' ', '\t', '\r', '\n') + ";\nreturn true;";
