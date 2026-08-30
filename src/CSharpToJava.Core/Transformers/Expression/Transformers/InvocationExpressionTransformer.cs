@@ -8073,7 +8073,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             && TypeRefTokenName(args) is { } typeRefParamName
             && (context.IsTypeRefTypeParam(context.CurrentMethod, typeRefParamName)
                 || context.Options.RuntimeClassParameters.IsMethodTypeReference(context.CurrentMethod, typeRefParamName)
-                || CalleeJsonDeserializesTypeParameter(context.CurrentMethod, typeRefParamName)))
+                || CalleeJsonDeserializesTypeParameter(context.CurrentMethod, typeRefParamName, context.SemanticModel)))
         {
             context.AddImport("io.github.ningpp.compat.JsonSerializerCompat");
             return $"JsonSerializerCompat.serialize({args})";
@@ -11949,7 +11949,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 string token;
                 if (context.IsTypeRefTypeParam(originalDef, tpName)
                     || context.Options.RuntimeClassParameters.IsMethodTypeReference(originalDef, tpName)
-                    || CalleeJsonDeserializesTypeParameter(originalDef, tpName))
+                    || CalleeJsonDeserializesTypeParameter(originalDef, tpName, context.SemanticModel))
                 {
                     // TypeReference-token slot (JsonSerializer.Deserialize<T> body):
                     // pass the fully parameterized type so element types survive.
@@ -11981,7 +11981,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // accepts via unchecked conversion.
                 if (!context.IsTypeRefTypeParam(originalDef, tpName)
                     && !context.Options.RuntimeClassParameters.IsMethodTypeReference(originalDef, tpName)
-                    && !CalleeJsonDeserializesTypeParameter(originalDef, tpName)
+                    && !CalleeJsonDeserializesTypeParameter(originalDef, tpName, context.SemanticModel)
                     && concreteType is INamedTypeSymbol tokenNamed
                     && tokenNamed.IsGenericType
                     && invocation != null
@@ -12687,7 +12687,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 && targetMethod != null
                 && (context.IsTypeRefTypeParam(targetMethod.OriginalDefinition, methodTypeParameterName)
                     || context.Options.RuntimeClassParameters.IsMethodTypeReference(targetMethod.OriginalDefinition, methodTypeParameterName)
-                    || CalleeJsonDeserializesTypeParameter(targetMethod, methodTypeParameterName)))
+                    || CalleeJsonDeserializesTypeParameter(targetMethod, methodTypeParameterName, context.SemanticModel)))
             {
                 literal = $"new com.fasterxml.jackson.core.type.TypeReference<{context.MapType(typeArgSymbol)}>() {{}}";
             }

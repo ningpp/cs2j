@@ -34,7 +34,7 @@ class Sample
         var code = result.GeneratedCode ?? "";
 
         Assert.Contains(
-            "Activator.createInstanceForGenericType(converterType, BindingFlags.Instance | BindingFlags.Public, null, typeToConvert)",
+            "Activator.createInstanceForGenericType(converterType, BindingFlags.Instance | BindingFlags.Public, null, new Class<?>[] { typeToConvert })",
             code,
             StringComparison.Ordinal);
     }
@@ -95,7 +95,7 @@ class Sample
         var code = result.GeneratedCode ?? "";
 
         Assert.Contains(
-            "Activator.createInstanceForGenericType(GenericConverter.class, BindingFlags.Instance | BindingFlags.Public, null, keyType, valueType)",
+            "Activator.createInstanceForGenericType(GenericConverter.class, BindingFlags.Instance | BindingFlags.Public, null, new Class<?>[] { keyType, valueType })",
             code,
             StringComparison.Ordinal);
     }

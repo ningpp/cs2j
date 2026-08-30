@@ -43,8 +43,10 @@ class Sample
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // Should generate Encoding.getUTF8() not StandardCharsets.UTF_8
-        Assert.Contains("Encoding.getUTF8()", code);
+        // new UTF8Encoding(true, true) throws on invalid bytes (throwOnInvalidBytes: true),
+        // so the mapping must be getUTF8ThrowOnInvalid() — plain getUTF8() would silently
+        // replace malformed input, breaking .NET semantics.
+        Assert.Contains("Encoding.getUTF8ThrowOnInvalid()", code);
         Assert.DoesNotContain("StandardCharsets", code);
         Assert.DoesNotContain("Charset", code);
     }

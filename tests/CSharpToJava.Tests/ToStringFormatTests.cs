@@ -139,10 +139,14 @@ public class Runner {
 
         var classPath = string.Join(Path.PathSeparator, compatClasses, outDir);
         var sources = string.Join(" ", new[] { dotnetSystemStubPath, samplePath, runnerPath }.Select(path => $"\"{path}\""));
-        var javac = RunProcess(FindRequiredExecutable("javac"), $"-cp \"{compatClasses}\" -d \"{outDir}\" {sources}");
+        // The compat library is compiled with --enable-preview --release 28 on Java 27+
+        // (see csharptojava-compat/pom.xml java.version and MavenPomGenerator), so its
+        // class files carry the preview flag — javac/java here must enable preview to
+        // load them. javac requires --enable-preview to be paired with --release.
+        var javac = RunProcess(FindRequiredExecutable("javac"), $"--release 28 --enable-preview -cp \"{compatClasses}\" -d \"{outDir}\" {sources}");
         Assert.True(javac.ExitCode == 0, javac.Output);
 
-        var java = RunProcess(FindRequiredExecutable("java"), $"-cp \"{classPath}\" Runner");
+        var java = RunProcess(FindRequiredExecutable("java"), $"--enable-preview -cp \"{classPath}\" Runner");
         Assert.True(java.ExitCode == 0, java.Output);
         Assert.Equal("1.23456789", java.Output.Trim());
     }

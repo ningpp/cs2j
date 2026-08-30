@@ -454,7 +454,9 @@ class Tree<T> {
 
         Assert.Contains("private Class<?> tClass;", code);
         Assert.Contains("public Tree(Class<?> tClass)", code);
-        Assert.Contains("TypeHelper.newArrayInstance(tClass, size)", code);
+        // LINQ ToArray on IEnumerable<T> lowers to a stream; the runtime class field
+        // drives listToArray so the result is a runtime T[] (boxed/primitive as needed).
+        Assert.Contains("TypeHelper.listToArray(StreamSupport.stream(CSharpGenericIterable.requireNonNull(items, \"source\").spliterator(), false), tClass)", code);
         Assert.DoesNotContain("new Object[size]", code);
         Assert.DoesNotContain("T.class", code);
     }
@@ -478,7 +480,9 @@ class Demo {
         var code = result.GeneratedCode!;
 
         Assert.Contains("public <T> Object copy(CSharpGenericIterable<T> items, Class<?> clazz)", code);
-        Assert.Contains("TypeHelper.newArrayInstance(clazz, size)", code);
+        // LINQ ToArray on IEnumerable<T> lowers to a stream; the runtime class parameter
+        // drives listToArray so the result is a runtime T[] (boxed/primitive as needed).
+        Assert.Contains("TypeHelper.listToArray(StreamSupport.stream(CSharpGenericIterable.requireNonNull(items, \"source\").spliterator(), false), clazz)", code);
         Assert.DoesNotContain("new Object[size]", code);
         Assert.DoesNotContain("T.class", code);
     }
@@ -839,7 +843,7 @@ class Program {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         var code = result.GeneratedCode!;
 
-        Assert.Contains("TypeHelper.newArrayInstance", code);
+        Assert.Contains("TypeHelper.listToArray", code);
         Assert.Contains("Integer.class", code);
 
         using var temp = new TempDir();

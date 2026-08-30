@@ -789,6 +789,27 @@ public final class TypeHelper {
     }
 
     /**
+     * Stream counterpart of {@link #listToArray(java.util.Collection, Class)}.
+     * LINQ chains lower their receivers to {@code StreamSupport.stream(...)}, so
+     * {@code items.ToArray()} over an {@code IEnumerable<T>} reaches the type-parameter
+     * element branch with a Stream receiver. Mirrors the Collection semantics: a
+     * primitive element class produces a primitive array (C# List&lt;int&gt;.ToArray()
+     * → int[]), and a reference element class produces a runtime T[] (not Object[])
+     * so downstream casts to T[] succeed.
+     */
+    public static Object listToArray(java.util.stream.Stream<?> stream, Class<?> elementClass) {
+        if (elementClass.isPrimitive()) {
+            Object[] boxed = stream.toArray(Object[]::new);
+            Object array = java.lang.reflect.Array.newInstance(elementClass, boxed.length);
+            for (int i = 0; i < boxed.length; i++) {
+                java.lang.reflect.Array.set(array, i, boxed[i]);
+            }
+            return array;
+        }
+        return stream.toArray(size -> (Object[]) java.lang.reflect.Array.newInstance(elementClass, size));
+    }
+
+    /**
      * Maps a Java primitive class to its boxed wrapper class.
      * Non-primitive inputs are returned unchanged so that reflection-based
      * type comparisons (e.g. C# typeof(int) represented as Integer.class)

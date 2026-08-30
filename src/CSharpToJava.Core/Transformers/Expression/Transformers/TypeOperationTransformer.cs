@@ -679,8 +679,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                             context.AddImport("io.github.ningpp.compat.TypeHelper");
                             return $"TypeHelper.castArray({operand}, {classFieldName})";
                         }
+                        // Named IEnumerable source: the converted expression may carry a
+                        // materialized (CSharpGenericIterable<T>)(value) cast — Java arrays
+                        // cannot be cast to that interface, so the hop would throw before
+                        // castArray runs even though the C# cast is a reference cast on the
+                        // runtime array. Use the raw operand instead; castArray then accepts
+                        // arrays and rejects non-array wrappers exactly like the C# cast.
+                        var rawOperand = GetOperandOfEnumerableCast(node.Expression, context);
                         context.AddImport("io.github.ningpp.compat.TypeHelper");
-                        return $"TypeHelper.castArray({expression}, Object.class)";
+                        return $"TypeHelper.castArray({rawOperand}, Object.class)";
                     }
 
                     // Concrete element type: the runtime value may be a collection wrapper
