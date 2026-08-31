@@ -1483,7 +1483,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 TryGetTargetAccess(postfix.Operand, out var access1))
             {
                 return SyntaxFactory.ExpressionStatement(
-                        BuildWithCall(access1, BuildUnaryValue(access1, postfix.IsKind(SyntaxKind.PostIncrementExpression))))
+                        BuildWithCall(access1, BuildUnaryValue(access1, postfix.IsKind(SyntaxKind.PostIncrementExpression), postfix.Operand)))
                     .WithTriviaFrom(node);
             }
 
@@ -1492,7 +1492,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 TryGetTargetAccess(prefix.Operand, out var access2))
             {
                 return SyntaxFactory.ExpressionStatement(
-                        BuildWithCall(access2, BuildUnaryValue(access2, prefix.IsKind(SyntaxKind.PreIncrementExpression))))
+                        BuildWithCall(access2, BuildUnaryValue(access2, prefix.IsKind(SyntaxKind.PreIncrementExpression), prefix.Operand)))
                     .WithTriviaFrom(node);
             }
 
@@ -1603,7 +1603,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             }
         }
 
-        private ExpressionSyntax BuildUnaryValue(MemberAccessExpressionSyntax access, bool isIncrement)
+        private ExpressionSyntax BuildUnaryValue(MemberAccessExpressionSyntax access, bool isIncrement, ExpressionSyntax? originalOperand = null)
         {
             var read = SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
@@ -1617,7 +1617,9 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
             // For byte/sbyte/short/ushort fields, the +/-1 result is int which
             // won't implicitly convert back to the field type. Add a cast.
-            return TryWrapWithCastIfNeeded(access, binary);
+            // Use originalOperand (from the source tree) for semantic lookup
+            // because 'access' is a synthetic node not in the syntax tree.
+            return TryWrapWithCastIfNeeded(originalOperand ?? access, binary);
         }
 
         /// <summary>
@@ -1625,7 +1627,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         /// ushort), wrapping the binary expression in a cast prevents CS1503
         /// errors because the arithmetic promotes to int.
         /// </summary>
-        private ExpressionSyntax TryWrapWithCastIfNeeded(MemberAccessExpressionSyntax memberAccess, ExpressionSyntax expr)
+        private ExpressionSyntax TryWrapWithCastIfNeeded(ExpressionSyntax operand, ExpressionSyntax expr)
         {
             if (_semanticModel == null)
                 return expr;
@@ -1633,7 +1635,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             ITypeSymbol? fieldType = null;
             try
             {
-                fieldType = _semanticModel.GetTypeInfo(memberAccess).Type;
+                fieldType = _semanticModel.GetTypeInfo(operand).Type;
             }
             catch (ArgumentException) { }
 
