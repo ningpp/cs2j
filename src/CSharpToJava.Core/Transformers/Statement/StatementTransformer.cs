@@ -283,7 +283,7 @@ public partial class StatementTransformer : IStatementTransformer
                     }
                 }
             }
-            else if (result is Java.JavaStatement javaStmt)
+            else if (result is Java.JavaStatement javaStmt and not JavaStatementNode)
             {
                 // Structured IR node produced by the transformer - keep as-is.
                 var comments = CommentConversion.ExtractStatementLeadingComments(statement);

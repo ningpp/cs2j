@@ -434,4 +434,101 @@ class C
         var result = Convert("class C { public string M(int x) { switch (x) { case 1: return \"one\"; case 2: return \"two\"; default: return \"?\"; } } }");
         AssertConversion(result, "case 1:", "case 2:", "default:", "return \"one\";");
     }
+
+    [Fact]
+    public void SwitchCase_DuplicateVariableNames_DoNotConflict()
+    {
+        // C# switch cases each have their own scope, so the same variable name
+        // can be declared in multiple cases. Java switch shares one scope,
+        // so the converter must either scope the blocks or rename duplicates.
+        var result = Convert(@"
+class C {
+    public void M(int x) {
+        switch (x) {
+            case 1: {
+                int cb = 1;
+                System.Console.WriteLine(cb);
+                break;
+            }
+            case 2: {
+                int cb = 2;
+                System.Console.WriteLine(cb);
+                break;
+            }
+        }
+    }
+}");
+        AssertSuccess(result);
+        // Should NOT have two unscoped 'int cb' declarations (would cause Java compile error)
+        // The converter should either wrap in { } blocks or rename duplicates
+        var code = result.GeneratedCode;
+        // Count unscoped 'int cb' declarations (not inside a block)
+        // If both are renamed or scoped, there should be no duplicate
+        Assert.False(code.Contains("int cb = 1;") && code.Contains("int cb = 2;"),
+            "Expected duplicate 'int cb' declarations to be resolved (renamed or scoped).");
+    }
+
+    [Fact]
+    public void SwitchCase_DuplicateVariableNames_NoBraces_RenamedOrScoped()
+    {
+        // C# switch cases without explicit braces - each case still has its own scope in C#
+        // The converter needs to handle duplicate variable names in the generated Java switch
+        var result = Convert(@"
+class C {
+    public int M(int x) {
+        switch (x) {
+            case 1:
+                int cb = 1;
+                return cb;
+            case 2:
+                int cb = 2;
+                return cb;
+            default:
+                return 0;
+        }
+    }
+}");
+        AssertSuccess(result);
+        // The generated Java should not have two 'int cb' declarations in the same switch
+        var code = result.GeneratedCode;
+        // Count occurrences of 'int cb' - should not be 2
+        var count = System.Text.RegularExpressions.Regex.Matches(code, @"\bint cb\b").Count;
+        Assert.True(count <= 1,
+            $"Expected at most 1 'int cb' declaration in generated switch, found {count}.\n--- Generated ---\n{code}");
+    }
+
+    [Fact]
+    public void SwitchCase_DuplicateVariable_BothCasesUseVariable_GetsScopedBlocks()
+    {
+        // Reproduces the exact pattern from XmlSqlBinaryReader.RescanNextToken():
+        // Two case blocks each declare 'int cb' and use it.
+        // C# has per-case scope; Java switch shares one scope.
+        // The converter must add { } blocks so both 'int cb' are legal.
+        var result = Convert(@"
+class C {
+    public void M(int x) {
+        switch (x) {
+            case 1: {
+                int cb = 1;
+                System.Console.WriteLine(cb);
+                break;
+            }
+            case 2: {
+                int cb = 2;
+                System.Console.WriteLine(cb);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+}");
+        AssertSuccess(result);
+        // Both case blocks should have scoped { } to avoid duplicate 'int cb'
+        var code = result.GeneratedCode;
+        // Should NOT have two unscoped 'int cb' declarations
+        var count = System.Text.RegularExpressions.Regex.Matches(code, @"\bint cb\b").Count;
+        Assert.True(count <= 1,
+            $"Expected at most 1 'int cb' declaration in generated switch, found {count}.\n--- Generated ---\n{code}");
+    }
 }

@@ -665,12 +665,21 @@ public partial class StatementTransformer
 
             for (int j = i + 1; j < sections.Count; j++)
             {
+                // Collect names declared in the later section itself — these are
+                // self-references, not references to variables from section i.
+                var laterDeclaredNames = sections[j].Statements
+                    .OfType<LocalDeclarationStatementSyntax>()
+                    .SelectMany(s => s.Declaration.Variables)
+                    .Select(v => v.Identifier.Text)
+                    .ToHashSet(StringComparer.Ordinal);
+
                 foreach (var identifier in sections[j].Statements
                     .SelectMany(s => s.DescendantNodesAndSelf())
                     .OfType<IdentifierNameSyntax>())
                 {
                     var name = identifier.Identifier.Text;
-                    if (declaredNames.Contains(name))
+                    if (declaredNames.Contains(name)
+                        && !laterDeclaredNames.Contains(name))
                         result.Add(name);
                 }
             }

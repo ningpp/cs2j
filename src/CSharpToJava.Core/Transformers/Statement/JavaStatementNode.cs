@@ -12,20 +12,20 @@ using CSharpToJava.Core.Transformers.Expression.Utilities;
 namespace CSharpToJava.Core.Transformers.Statement;
 
 /// <summary>
-/// Java 语句节点
+/// Java 语句节点 — wraps a raw Java statement string.
+/// Inherits from <see cref="JavaRawStatement"/> so that post-emit rewriters
+/// (e.g. VariableNameDeduplicationRewriter) can scan for variable declarations
+/// and rename duplicates within the raw text.
 /// </summary>
-internal class JavaStatementNode : JavaSyntaxNode
+internal class JavaStatementNode : JavaRawStatement
 {
-    private readonly string _statement;
-
     public JavaStatementNode(string statement)
     {
-        _statement = statement;
+        Code = statement;
     }
 
     public override string ToString(string indentation)
     {
-        return _statement;
+        return Code;
     }
 }
-
