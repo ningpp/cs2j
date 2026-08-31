@@ -856,4 +856,87 @@ public partial class ReadOnlyStructMakerTests
         // Explicit interface implementations should be preserved
         Assert.Contains("bool IRectangle.Contains(", result.OutputCode);
     }
+
+    [Fact]
+    public void ChainedAssignment_ExternalStructFields_ExpandedToSeparateStatements()
+    {
+        // Reproduces: XmlSqlBinaryReader._symbolTables.symCount = _symbolTables.qnameCount = 1;
+        // The chained assignment a.x = a.y = 1 should expand to two separate With calls,
+        // NOT a = a.Withx(a = a.Withy(1)) which has wrong types (struct where int expected).
+        var src = """
+        class Container {
+            SymbolTables _symbolTables;
+            void Update() {
+                _symbolTables.symCount = _symbolTables.qnameCount = 1;
+            }
+        }
+        struct SymbolTables {
+            public int symCount;
+            public int qnameCount;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Should NOT contain nested assignment as argument: a = a.Withx(a = a.Withy(1))
+        Assert.DoesNotContain("WithsymCount(_symbolTables = _symbolTables.WithqnameCount", result.OutputCode);
+        Assert.DoesNotContain("WithsymCount(_symbolTables=", result.OutputCode);
+        // Should contain two separate With calls
+        Assert.Contains("WithqnameCount(1)", result.OutputCode);
+        Assert.Contains("WithsymCount(1)", result.OutputCode);
+    }
+
+    [Fact]
+    public void ReturnFieldAssignment_MigratedMethod_ExpandsToAssignmentAndReturn()
+    {
+        // Reproduces: return this.hashCode = this.name.GetNSHashCode(hasher);
+        // Inside a migrated method, `return this.field = expr` should expand to
+        //   result = result.WithField(expr); return expr;
+        // NOT `return result = result.WithField(expr)` which returns struct instead of int.
+        var src = """
+        struct AttrInfo {
+            public int hashCode;
+            public int field2;
+            public int GetHash() {
+                return hashCode = field2 + 1;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Should NOT return the struct assignment directly
+        Assert.DoesNotContain("return result = result", result.OutputCode);
+        Assert.DoesNotContain("return ((result = result", result.OutputCode);
+        // Should contain the assignment as a statement and a separate return
+        Assert.Contains("result = result.WithhashCode", result.OutputCode);
+    }
+
+    [Fact]
+    public void ChainedAssignmentInLocalDeclaration_ExternalStructField_ExpandedToSeparateStatements()
+    {
+        // Reproduces: List<string> strList = _strList = new List<string>(capacity);
+        // The assignment in a variable declarator should expand to:
+        //   _strList = new List<string>(capacity);  (With-ified)
+        //   List<string> strList = new List<string>(capacity);
+        // NOT: List<string> strList = (result = result.With_strList(...)).clone();
+        var src = """
+        using System.Collections.Generic;
+        class Container {
+            SymbolTables _tables;
+            void Update() {
+                int x = _tables.symCount = 42;
+            }
+        }
+        struct SymbolTables {
+            public int symCount;
+            public int qnameCount;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // Should NOT contain nested assignment in declaration
+        Assert.DoesNotContain("int x = _tables = _tables", result.OutputCode);
+        Assert.DoesNotContain("int x = (_tables", result.OutputCode);
+        // Should contain separate assignment and declaration
+        Assert.Contains("WithsymCount(42)", result.OutputCode);
+    }
 }

@@ -196,7 +196,101 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.Block(statements).WithTriviaFrom(node);
         }
 
+        // Chained struct field assignment: a.x = a.y = value
+        // In C#, `a.x = a.y = 1` assigns 1 to both fields (the inner assignment
+        // returns the assigned value, not the struct). But after With-ification,
+        // `a = a.Withy(1)` returns the struct, so nesting it inside
+        // `a = a.Withx(a = a.Withy(1))` passes a struct where an int is expected.
+        // Expand to two separate statements: first the inner assignment,
+        // then the outer assignment using the same value.
+        if (node.Expression is AssignmentExpressionSyntax chainedOuter &&
+            chainedOuter.IsKind(SyntaxKind.SimpleAssignmentExpression) &&
+            chainedOuter.Right is AssignmentExpressionSyntax chainedInner &&
+            chainedInner.IsKind(SyntaxKind.SimpleAssignmentExpression) &&
+            chainedInner.Left is MemberAccessExpressionSyntax)
+        {
+            // Recursively visit the inner assignment first (it may itself be chained)
+            var innerStatement = SyntaxFactory.ExpressionStatement(chainedInner);
+            var visitedInner = (StatementSyntax)VisitExpressionStatement(innerStatement)!;
+            // Visit the outer assignment, replacing the inner assignment with its RHS value
+            var outerWithRhsValue = SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                chainedOuter.Left,
+                chainedInner.Right);
+            var visitedOuter = (StatementSyntax)VisitExpressionStatement(
+                SyntaxFactory.ExpressionStatement(outerWithRhsValue))!;
+            // Combine: inner first (assigns the inner field), then outer (assigns the outer field)
+            var statements = new List<StatementSyntax>();
+            if (visitedInner is BlockSyntax innerBlock)
+                statements.AddRange(innerBlock.Statements);
+            else
+                statements.Add(visitedInner);
+            if (visitedOuter is BlockSyntax outerBlock)
+                statements.AddRange(outerBlock.Statements);
+            else
+                statements.Add(visitedOuter);
+            return SyntaxFactory.Block(statements).WithTriviaFrom(node);
+        }
+
         return base.VisitExpressionStatement(node);
+    }
+
+    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+    {
+        // `return this.field = expr;` or `return obj.field = expr;` inside migrated
+        // methods: C# assignment returns the assigned value (field type), but after
+        // With-ification `result = result.Withfield(expr)` returns the struct.
+        // Expand to: { field_assignment; return expr; }
+        if (node.Expression is AssignmentExpressionSyntax returnAssign &&
+            returnAssign.IsKind(SyntaxKind.SimpleAssignmentExpression) &&
+            returnAssign.Left is MemberAccessExpressionSyntax)
+        {
+            // Visit the assignment (will With-ify if it targets a struct field)
+            var visitedAssign = (ExpressionSyntax)VisitAssignmentExpression(returnAssign)!;
+            // If it was rewritten (changed from original), expand into block
+            if (!SyntaxFactory.AreEquivalent(returnAssign, visitedAssign))
+            {
+                var assignStatement = SyntaxFactory.ExpressionStatement(visitedAssign)
+                    .WithLeadingTrivia(node.GetLeadingTrivia());
+                var returnStatement = SyntaxFactory.ReturnStatement(returnAssign.Right)
+                    .WithLeadingTrivia(SyntaxFactory.Whitespace("            "));
+                return SyntaxFactory.Block(assignStatement, returnStatement)
+                    .WithTriviaFrom(node);
+            }
+        }
+        return base.VisitReturnStatement(node);
+    }
+
+    public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
+    {
+        // `Type x = obj.field = value;` — C# assigns value to obj.field AND to x.
+        // After With-ification `obj = obj.Withfield(value)` returns the struct,
+        // not the field value. Expand to:
+        //   { obj.field = value; Type x = value; }
+        if (node.Declaration.Variables.Count == 1 &&
+            node.Declaration.Variables[0].Initializer?.Value is AssignmentExpressionSyntax initAssign &&
+            initAssign.IsKind(SyntaxKind.SimpleAssignmentExpression) &&
+            initAssign.Left is MemberAccessExpressionSyntax)
+        {
+            // Visit the assignment (will With-ify if it targets a struct field)
+            var visitedAssign = (ExpressionSyntax)VisitAssignmentExpression(initAssign)!;
+            // If it was rewritten (changed from original), expand into block
+            if (!SyntaxFactory.AreEquivalent(initAssign, visitedAssign))
+            {
+                var assignStatement = SyntaxFactory.ExpressionStatement(visitedAssign)
+                    .WithLeadingTrivia(node.GetLeadingTrivia());
+                // Declare the variable with the RHS value (not the assignment result)
+                var newDecl = SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(node.Declaration.Type)
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(node.Declaration.Variables[0].Identifier)
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(initAssign.Right)))))
+                    .WithLeadingTrivia(SyntaxFactory.Whitespace("            "));
+                return SyntaxFactory.Block(assignStatement, newDecl)
+                    .WithTriviaFrom(node);
+            }
+        }
+        return base.VisitLocalDeclarationStatement(node);
     }
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
@@ -512,12 +606,47 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         var changed = false;
         foreach (var statement in node.Statements)
         {
+            // Flatten nested blocks produced by VisitLocalDeclarationStatement /
+            // VisitExpressionStatement / VisitReturnStatement when they split
+            // chained assignments. In switch-case contexts the inner block would
+            // create a new scope, hiding locals from subsequent statements.
+            if (statement is BlockSyntax innerBlock)
+            {
+                newStatements.AddRange(innerBlock.Statements);
+                changed = true;
+                continue;
+            }
+
             var hoister = new UnaryHoister(this);
             var rewrittenStatement = (StatementSyntax)hoister.Visit(statement)!;
             if (!ReferenceEquals(rewrittenStatement, statement) || hoister.Hoisted.Count > 0)
                 changed = true;
             newStatements.AddRange(hoister.Hoisted);
             newStatements.Add(rewrittenStatement);
+        }
+        return changed ? node.WithStatements(SyntaxFactory.List(newStatements)) : node;
+    }
+
+    public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+    {
+        node = (SwitchSectionSyntax)base.VisitSwitchSection(node)!;
+
+        // Flatten nested blocks produced by VisitLocalDeclarationStatement /
+        // VisitExpressionStatement / VisitReturnStatement in switch cases,
+        // so local variables stay visible to subsequent statements in the case.
+        var newStatements = new List<StatementSyntax>();
+        var changed = false;
+        foreach (var statement in node.Statements)
+        {
+            if (statement is BlockSyntax innerBlock)
+            {
+                newStatements.AddRange(innerBlock.Statements);
+                changed = true;
+            }
+            else
+            {
+                newStatements.Add(statement);
+            }
         }
         return changed ? node.WithStatements(SyntaxFactory.List(newStatements)) : node;
     }

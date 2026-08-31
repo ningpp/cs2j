@@ -120,6 +120,8 @@
 - **对应 C# 文件**: `D:\csharpxml\System\Xml\BinaryXml\XmlBinaryReader.cs`
 - **根因分类**: Transformer 逻辑缺陷 (struct 变异 lowering)
 - **分析**: C# struct 变异赋值 `_symbolTables.symCount = (_symbolTables.qnameCount = 1)` 被转为函数式风格但嵌套赋值返回值类型错误。`return this.hashCode = ...` 被转为 `return ((result = result.withhashCode(...))).clone();` 但 `.clone()` 返回 Object 而非 int。
+- **修复**: 在 `AssignmentRewriter.cs` 中添加三种展开逻辑：(1) `VisitExpressionStatement` 中检测链式赋值 `a.x = a.y = v` 并展开为两条独立语句；(2) `VisitReturnStatement` 中检测 `return obj.field = expr` 并展开为 `{ obj.field = expr; return expr; }`；(3) `VisitLocalDeclarationStatement` 中检测 `Type x = obj.field = value` 并展开为 `{ obj.field = value; Type x = value; }`。根因是 C# 赋值表达式返回赋值的值（字段类型），但 With 化后 `obj = obj.Withfield(v)` 返回 struct 类型。
+- **状态**: ✅ Fixed
 
 ### 错误 10: Processor — Activator 引用不明确
 
