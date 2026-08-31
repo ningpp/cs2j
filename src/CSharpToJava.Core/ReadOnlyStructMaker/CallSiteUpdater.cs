@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -80,7 +80,7 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         if (_outMigratedMethodToStruct.Count > 0 &&
-            !node.ArgumentList.Arguments.Any(a => a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)))
+            !node.ArgumentList.Arguments.Any(a => a.Expression is IdentifierNameSyntax id && id.Identifier.Text == "newStatus"))
         {
             if (node.Expression is MemberAccessExpressionSyntax memberAccess)
             {
