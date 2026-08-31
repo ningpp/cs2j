@@ -948,7 +948,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         foreach (var name in removedSetterProps) withTargets.Add(name);
         if (withTargets.Count > 0)
         {
-            var fieldWithRewriter = new FieldAssignmentToWithRewriter(withTargets, _semanticModel);
+            var fieldWithRewriter = new FieldAssignmentToWithRewriter(withTargets, _semanticModel, instanceFieldTypes);
             rewritten = (StructDeclarationSyntax)fieldWithRewriter.Visit(rewritten)!;
         }
 
@@ -1430,11 +1430,14 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         private readonly HashSet<string> _targets;
         private int _tempCounter;
         private readonly SemanticModel? _semanticModel;
+        private readonly Dictionary<string, TypeSyntax> _fieldTypes;
 
-        public FieldAssignmentToWithRewriter(HashSet<string> targets, SemanticModel? semanticModel)
+        public FieldAssignmentToWithRewriter(HashSet<string> targets, SemanticModel? semanticModel,
+            Dictionary<string, TypeSyntax>? fieldTypes = null)
         {
             _targets = targets;
             _semanticModel = semanticModel;
+            _fieldTypes = fieldTypes ?? new Dictionary<string, TypeSyntax>(StringComparer.Ordinal);
         }
 
         public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node) => node;
@@ -1617,9 +1620,10 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
             // For byte/sbyte/short/ushort fields, the +/-1 result is int which
             // won't implicitly convert back to the field type. Add a cast.
-            // Use originalOperand (from the source tree) for semantic lookup
-            // because 'access' is a synthetic node not in the syntax tree.
-            return TryWrapWithCastIfNeeded(originalOperand ?? access, binary);
+            // Use the field name to look up the declared type from _fieldTypes,
+            // because 'access' and 'originalOperand' are synthetic nodes not
+            // in the original syntax tree, so SemanticModel cannot resolve them.
+            return TryWrapWithCastIfNeeded(access.Name.Identifier.Text, binary);
         }
 
         /// <summary>
@@ -1627,27 +1631,18 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         /// ushort), wrapping the binary expression in a cast prevents CS1503
         /// errors because the arithmetic promotes to int.
         /// </summary>
-        private ExpressionSyntax TryWrapWithCastIfNeeded(ExpressionSyntax operand, ExpressionSyntax expr)
+        private ExpressionSyntax TryWrapWithCastIfNeeded(string fieldName, ExpressionSyntax expr)
         {
-            if (_semanticModel == null)
+            if (!_fieldTypes.TryGetValue(fieldName, out var fieldTypeSyntax))
                 return expr;
 
-            ITypeSymbol? fieldType = null;
-            try
+            var typeName = fieldTypeSyntax.ToString();
+            var castType = typeName switch
             {
-                fieldType = _semanticModel.GetTypeInfo(operand).Type;
-            }
-            catch (ArgumentException) { }
-
-            if (fieldType == null)
-                return expr;
-
-            var castType = fieldType.SpecialType switch
-            {
-                SpecialType.System_Byte => "byte",
-                SpecialType.System_SByte => "sbyte",
-                SpecialType.System_Int16 => "short",
-                SpecialType.System_UInt16 => "ushort",
+                "byte" => "byte",
+                "sbyte" => "sbyte",
+                "short" => "short",
+                "ushort" => "ushort",
                 _ => null
             };
 
