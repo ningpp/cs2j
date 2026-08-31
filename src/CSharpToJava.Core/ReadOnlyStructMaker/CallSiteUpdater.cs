@@ -79,8 +79,31 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     /// </summary>
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
-        if (_outMigratedMethodToStruct.Count > 0 &&
-            !node.ArgumentList.Arguments.Any(a => a.Expression is IdentifierNameSyntax id && id.Identifier.Text == "newStatus"))
+        // Only add out newStatus argument if the call doesn't already have one.
+        // We detect this by checking if the argument count already matches the
+        // migrated arity (original args + 1 for the added out newStatus parameter).
+        bool alreadyHasOutNewStatus = false;
+        if (node.Expression is MemberAccessExpressionSyntax ma)
+        {
+            var methodName = ma.Name.Identifier.Text;
+            if (_outMigratedMethodToStruct.TryGetValue(methodName, out var structs))
+            {
+                foreach (var s in structs)
+                {
+                    var key = s + "." + methodName;
+                    if (_migratedArities.TryGetValue(key, out var migrated))
+                    {
+                        // If migrated arity includes the current arg count, the out param was already added
+                        if (migrated.Contains(node.ArgumentList.Arguments.Count))
+                        {
+                            alreadyHasOutNewStatus = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if (_outMigratedMethodToStruct.Count > 0 && !alreadyHasOutNewStatus)
         {
             if (node.Expression is MemberAccessExpressionSyntax memberAccess)
             {
