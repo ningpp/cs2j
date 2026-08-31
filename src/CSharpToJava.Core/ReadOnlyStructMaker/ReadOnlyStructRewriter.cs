@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -948,7 +948,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         foreach (var name in removedSetterProps) withTargets.Add(name);
         if (withTargets.Count > 0)
         {
-            var fieldWithRewriter = new FieldAssignmentToWithRewriter(withTargets);
+            var fieldWithRewriter = new FieldAssignmentToWithRewriter(withTargets, _semanticModel);
             rewritten = (StructDeclarationSyntax)fieldWithRewriter.Visit(rewritten)!;
         }
 
@@ -1429,10 +1429,12 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     {
         private readonly HashSet<string> _targets;
         private int _tempCounter;
+        private readonly SemanticModel? _semanticModel;
 
-        public FieldAssignmentToWithRewriter(HashSet<string> targets)
+        public FieldAssignmentToWithRewriter(HashSet<string> targets, SemanticModel? semanticModel)
         {
             _targets = targets;
+            _semanticModel = semanticModel;
         }
 
         public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node) => node;
@@ -1607,11 +1609,52 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                 SyntaxKind.SimpleMemberAccessExpression,
                 access.Expression.WithoutTrivia(),
                 access.Name.WithoutTrivia());
-            return SyntaxFactory.BinaryExpression(
+            var binary = SyntaxFactory.BinaryExpression(
                 isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
                 read,
                 SyntaxFactory.LiteralExpression(
                     SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1)));
+
+            // For byte/sbyte/short/ushort fields, the +/-1 result is int which
+            // won't implicitly convert back to the field type. Add a cast.
+            return TryWrapWithCastIfNeeded(access, binary);
+        }
+
+        /// <summary>
+        /// When the field's type is a small integral type (byte, sbyte, short,
+        /// ushort), wrapping the binary expression in a cast prevents CS1503
+        /// errors because the arithmetic promotes to int.
+        /// </summary>
+        private ExpressionSyntax TryWrapWithCastIfNeeded(MemberAccessExpressionSyntax memberAccess, ExpressionSyntax expr)
+        {
+            if (_semanticModel == null)
+                return expr;
+
+            ITypeSymbol? fieldType = null;
+            try
+            {
+                fieldType = _semanticModel.GetTypeInfo(memberAccess).Type;
+            }
+            catch (ArgumentException) { }
+
+            if (fieldType == null)
+                return expr;
+
+            var castType = fieldType.SpecialType switch
+            {
+                SpecialType.System_Byte => "byte",
+                SpecialType.System_SByte => "sbyte",
+                SpecialType.System_Int16 => "short",
+                SpecialType.System_UInt16 => "ushort",
+                _ => null
+            };
+
+            if (castType == null)
+                return expr;
+
+            return SyntaxFactory.CastExpression(
+                SyntaxFactory.ParseTypeName(castType),
+                SyntaxFactory.ParenthesizedExpression(expr));
         }
 
         private static ExpressionSyntax BuildWithCall(MemberAccessExpressionSyntax access, ExpressionSyntax value)
