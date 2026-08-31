@@ -606,17 +606,11 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         var changed = false;
         foreach (var statement in node.Statements)
         {
-            // Flatten nested blocks produced by VisitLocalDeclarationStatement /
-            // VisitExpressionStatement / VisitReturnStatement when they split
-            // chained assignments. In switch-case contexts the inner block would
-            // create a new scope, hiding locals from subsequent statements.
-            if (statement is BlockSyntax innerBlock)
-            {
-                newStatements.AddRange(innerBlock.Statements);
-                changed = true;
-                continue;
-            }
-
+            // Only flatten nested blocks inside switch sections (handled by
+            // VisitSwitchSection). Do NOT flatten blocks in method bodies —
+            // they may provide variable scoping that prevents duplicate
+            // declarations (e.g. a "/* Generic case */ { ... }" block after
+            // a switch statement).
             var hoister = new UnaryHoister(this);
             var rewrittenStatement = (StatementSyntax)hoister.Visit(statement)!;
             if (!ReferenceEquals(rewrittenStatement, statement) || hoister.Hoisted.Count > 0)
