@@ -79,28 +79,22 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     /// </summary>
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
-        // Only add out newStatus argument if the call doesn't already have one.
-        // We detect this by checking if the argument count already matches the
-        // migrated arity (original args + 1 for the added out newStatus parameter).
+        // Only add out newStatus if the call doesn't already have one.
+        // We detect an existing out-newStatus by checking if the last argument
+        // is an out/ref whose expression matches the receiver expression.
         bool alreadyHasOutNewStatus = false;
-        if (node.Expression is MemberAccessExpressionSyntax ma)
+        if (node.Expression is MemberAccessExpressionSyntax preMemberAccess)
         {
-            var methodName = ma.Name.Identifier.Text;
-            if (_outMigratedMethodToStruct.TryGetValue(methodName, out var structs))
+            var outArgs = node.ArgumentList.Arguments
+                .Where(a => a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword) || a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword))
+                .ToList();
+            if (outArgs.Count > 0)
             {
-                foreach (var s in structs)
-                {
-                    var key = s + "." + methodName;
-                    if (_migratedArities.TryGetValue(key, out var migrated))
-                    {
-                        // If migrated arity includes the current arg count, the out param was already added
-                        if (migrated.Contains(node.ArgumentList.Arguments.Count))
-                        {
-                            alreadyHasOutNewStatus = true;
-                            break;
-                        }
-                    }
-                }
+                var lastOutExpr = outArgs[^1].Expression;
+                var receiverStr = preMemberAccess.Expression.WithoutTrivia().ToString();
+                var lastOutStr = lastOutExpr.WithoutTrivia().ToString();
+                if (receiverStr == lastOutStr)
+                    alreadyHasOutNewStatus = true;
             }
         }
         if (_outMigratedMethodToStruct.Count > 0 && !alreadyHasOutNewStatus)
