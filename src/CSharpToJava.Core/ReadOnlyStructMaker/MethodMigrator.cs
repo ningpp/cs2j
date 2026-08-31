@@ -35,9 +35,11 @@ internal sealed class MethodMigrator
         var isOtherReturn = !isVoid && !returnsThis;
 
         // 1. Insert `var result = this;` at top
+        // Use the concrete struct type (not `var`) so that GotoEliminator's
+        // variable hoisting produces default(StructName) instead of default(var),
+        // which would become `null` in Java and break type inference for `var`.
         var resultDecl = SyntaxFactory.LocalDeclarationStatement(
-            SyntaxFactory.VariableDeclaration(
-                SyntaxFactory.IdentifierName("var"))
+            SyntaxFactory.VariableDeclaration(_structType)
             .WithVariables(SyntaxFactory.SingletonSeparatedList(
                 SyntaxFactory.VariableDeclarator("result")
                     .WithInitializer(SyntaxFactory.EqualsValueClause(

@@ -309,7 +309,6 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 // create an instance of the concrete type argument.
                 if (context.TryGetRuntimeClassParameter(typeParameter.Name, out var newConstraintClassParam))
                 {
-                    context.AddImport("io.github.ningpp.compat.Activator");
                     return $"({typeName}) io.github.ningpp.compat.Activator.createInstance({newConstraintClassParam})";
                 }
                 return "new Object()";

@@ -4044,6 +4044,13 @@
             ]
         },
         {
+            "csharp": "System.Linq.Expressions.BinaryExpression",
+            "java": "AssignmentExpression",
+            "imports": [
+                "io.github.ningpp.compat.AssignmentExpression"
+            ]
+        },
+        {
             "csharp": "System.Linq.Expressions.LambdaExpression",
             "java": "LambdaExpression",
             "imports": [

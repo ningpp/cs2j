@@ -27,4 +27,13 @@ public abstract class Expression {
     public static LambdaExpression lambda(Expression body, ParameterExpression... parameters) {
         return new LambdaExpression(body, parameters);
     }
+
+    /**
+     * Overload for C# Expression.Lambda&lt;TDelegate&gt;(body, parameters).
+     * The delegate type class is accepted but ignored — the LambdaExpression
+     * is built the same way as the non-generic overload.
+     */
+    public static LambdaExpression lambda(Class<?> delegateType, Expression body, ParameterExpression... parameters) {
+        return new LambdaExpression(body, parameters);
+    }
 }

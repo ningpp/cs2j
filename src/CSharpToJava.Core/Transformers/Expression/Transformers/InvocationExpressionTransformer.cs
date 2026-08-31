@@ -3627,8 +3627,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 var bindingAttrArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
                 var binderArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
                 var cultureArg = facade.Transform(node.ArgumentList.Arguments[4].Expression, context);
-                context.AddImport("io.github.ningpp.compat.Activator");
-
+    
                 // Each MakeGenericType branch (1/2/3-parameter converter types)
                 // keeps its own argument order. The compat helper receives every
                 // group as a Class<?>[] and picks the one whose arity matches the
@@ -3647,15 +3646,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     {
                         if (genericScalarGroups.Count == 1)
                         {
-                            return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericGroupTexts)})";
+                            return $"io.github.ningpp.compat.Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericGroupTexts)})";
                         }
                         // Multiple runtime branches: the helper picks the group
                         // whose arity matches the runtime generic type.
-                        return $"Activator.createInstanceForGenericTypeFromGroups({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericGroupTexts)})";
+                        return $"io.github.ningpp.compat.Activator.createInstanceForGenericTypeFromGroups({typeArg}, {bindingAttrArg}, {binderArg}, {string.Join(", ", genericGroupTexts)})";
                     }
                     if (genericArrayText != null)
                     {
-                        return $"Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {genericArrayText})";
+                        return $"io.github.ningpp.compat.Activator.createInstanceForGenericType({typeArg}, {bindingAttrArg}, {binderArg}, {genericArrayText})";
                     }
                 }
 
@@ -3671,7 +3670,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         var argsOutput = AppendGenericArgsToObjectArray(baseArgs, firstGroup);
                         if (argsOutput != null)
                         {
-                            return $"Activator.createInstance({typeArg}, {bindingAttrArg}, {binderArg}, {argsOutput}, {cultureArg})";
+                            return $"io.github.ningpp.compat.Activator.createInstance({typeArg}, {bindingAttrArg}, {binderArg}, {argsOutput}, {cultureArg})";
                         }
                     }
                 }
@@ -3688,7 +3687,6 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 || (methodSymbol == null && ExpressionTransformerHelpers.StaticReceiverMatches(
                     memberAccess.Expression, context, "Activator", "System.Activator"))))
         {
-            context.AddImport("io.github.ningpp.compat.Activator");
             // Get the type argument T from the generic name
             if (genericCreateName.TypeArgumentList.Arguments.Count == 1)
             {
@@ -3700,7 +3698,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     {
                         // The runtime class field is Class<?>, so cast to Class<T> for proper
                         // generic return type inference (avoids wildcard capture errors).
-                        return $"Activator.createInstance((Class<{typeParam.Name}>) {runtimeClassParam})";
+                        return $"io.github.ningpp.compat.Activator.createInstance((Class<{typeParam.Name}>) {runtimeClassParam})";
                     }
                     // Method-level type parameter: register a pending requirement and use
                     // the expected _cs2j_T name (same timing issue as Array.CreateInstance)
@@ -3711,15 +3709,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         {
                             context.RequireClassTypeParam(currentMethod, typeParam.Name);
                         }
-                        return $"Activator.createInstance((Class<{typeParam.Name}>) _cs2j_{typeParam.Name})";
+                        return $"io.github.ningpp.compat.Activator.createInstance((Class<{typeParam.Name}>) _cs2j_{typeParam.Name})";
                     }
                     // Class-level type parameter without runtime class field yet:
                     // GetClassLiteral will register the pending requirement.
-                    return $"Activator.createInstance((Class<{typeParam.Name}>) {ConversionContext.GetClassLiteral(typeParam, context)})";
+                    return $"io.github.ningpp.compat.Activator.createInstance((Class<{typeParam.Name}>) {ConversionContext.GetClassLiteral(typeParam, context)})";
                 }
                 // Non-type-parameter generic arg (e.g. Activator.CreateInstance<string>())
                 var mappedType = facade.Transform(genericCreateName.TypeArgumentList.Arguments[0], context);
-                return $"Activator.createInstance({ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(mappedType)}.class)";
+                return $"io.github.ningpp.compat.Activator.createInstance({ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(mappedType)}.class)";
             }
         }
 
@@ -3730,8 +3728,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     memberAccess.Expression, context, "Activator", "System.Activator"))))
         {
             var typeArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-            context.AddImport("io.github.ningpp.compat.Activator");
-            return $"Activator.createInstance({typeArg})";
+            return $"io.github.ningpp.compat.Activator.createInstance({typeArg})";
         }
 
         // System.Activator.CreateInstance(type, object args) → Activator.createInstance(type, args).
@@ -3751,17 +3748,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             var secondArgType = context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type;
             if (secondArgType?.SpecialType == SpecialType.System_Boolean)
             {
-                context.AddImport("io.github.ningpp.compat.Activator");
-                return $"Activator.createInstance({typeArg})";
+                    return $"io.github.ningpp.compat.Activator.createInstance({typeArg})";
             }
             var argsExpr = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
-            context.AddImport("io.github.ningpp.compat.Activator");
             var argsType = context.GetTypeInfo(node.ArgumentList.Arguments[1].Expression).Type;
             if (argsType is IArrayTypeSymbol)
             {
-                return $"Activator.createInstance({typeArg}, {argsExpr})";
+                return $"io.github.ningpp.compat.Activator.createInstance({typeArg}, {argsExpr})";
             }
-            return $"Activator.createInstance({typeArg}, new Object[] {{ {argsExpr} }})";
+            return $"io.github.ningpp.compat.Activator.createInstance({typeArg}, new Object[] {{ {argsExpr} }})";
         }
 
         // System.Type.GetType(string) → Class.forName(string)
@@ -8173,6 +8168,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         {
             context.AddImport("io.github.ningpp.compat.JsonSerializerCompat");
             return $"JsonSerializerCompat.serialize({args})";
+        }
+
+        // When Activator.CreateInstance falls through to the generic path (e.g.
+        // 5-arg CreateInstance not involving MakeGenericType), the receiver is
+        // the simple name "Activator".  If the file also imports dotnet.system.*
+        // (which contains a bridge Activator), the reference is ambiguous.
+        // Use the fully-qualified compat name to disambiguate.
+        if (receiver == "Activator" && methodName == "createInstance")
+        {
+            receiver = "io.github.ningpp.compat.Activator";
         }
 
         return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{receiver}.{methodName}({args})", methodSymbol, context);

@@ -3487,7 +3487,29 @@ public class ClassTransformer : ITypeTransformer
                     m.Name == "iterator" && m.Parameters.Count == 0);
                 if (iteratorMethod != null && iteratorMethod.ReturnType.StartsWith("CSharpGenericEnumerator<"))
                 {
-                    DowngradeIteratorReturnToNonGeneric(iteratorMethod);
+                    // Downgrade to CSharpGenericEnumerator<Object> to match
+                    // CSharpCollectionBase.iterator()'s return type, instead of
+                    // the non-generic CSharpEnumerator which is incompatible.
+                    iteratorMethod.ReturnType = "CSharpGenericEnumerator<Object>";
+
+                    // Wrap the return expression so the typed enumerator is
+                    // adapted to CSharpGenericEnumerator<Object>.
+                    string? body = iteratorMethod.StructuredBody?.ToBodyString() ?? iteratorMethod.Body;
+                    if (iteratorMethod.StructuredBody != null)
+                    {
+                        iteratorMethod.StructuredBody = null;
+                    }
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        body = body.Replace("CSharpEnumerator.from(", "CSharpGenericEnumerator.fromEnumerator(");
+                        // If the body has a bare `return new XxxEnumerator(...)` 
+                        // without CSharpEnumerator.from wrapper, add one.
+                        if (!body.Contains("CSharpGenericEnumerator.fromEnumerator(") && !body.Contains("CSharpGenericEnumerator.from("))
+                        {
+                            body = Regex.Replace(body, @"return\s+(.+?);", "return CSharpGenericEnumerator.fromEnumerator($1);", RegexOptions.Singleline);
+                        }
+                        iteratorMethod.Body = body;
+                    }
                 }
             }
         }

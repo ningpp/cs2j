@@ -658,7 +658,7 @@ public class Sample
         // CSharpGenericIterable<T> would create conflicting add/remove/iterator signatures.
         Assert.DoesNotContain("implements CSharpGenericIterable<", code, StringComparison.Ordinal);
         // The generated iterator() must be compatible with CSharpCollectionBase.iterator().
-        Assert.Contains("public CSharpEnumerator iterator()", code, StringComparison.Ordinal);
+        Assert.Contains("public CSharpGenericEnumerator<Object> iterator()", code, StringComparison.Ordinal);
         // Iterating a CollectionBase-derived class with a typed variable needs a wildcard cast.
         Assert.Contains("(Iterable<MySchema>)(Iterable<?>)(coll)", code, StringComparison.Ordinal);
         Assert.Contains("(Iterable<MySchema>)(Iterable<?>)(coll.getList())", code, StringComparison.Ordinal);

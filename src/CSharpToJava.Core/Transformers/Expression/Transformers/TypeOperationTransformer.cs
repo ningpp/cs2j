@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -250,13 +250,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             targetType = context.MapTypeFromSyntax(node.Type);
         }
 
-        // Casts to the non-generic System.Collections.IList surface must use
-        // CSharpIList (int Add/void Remove), not CSharpGenericIList (boolean
-        // add/remove); generic lists are bridged through CSharpIList.from below.
-        if (targetSymbol?.ToDisplayString() == "System.Collections.IList")
-        {
-            targetType = "CSharpIList";
-        }
+        // Casts to the non-generic System.Collections.IList surface: keep the
+        // TypeMappings.json mapping (CSharpGenericIList<Object>) so that the
+        // cast result is assignable to CSharpGenericIList<Object> variables.
+        // Previously this was changed to CSharpIList (for int Add/void Remove),
+        // but that caused incompatible-type errors when the cast result was
+        // assigned to a CSharpGenericIList<Object> variable.
 
         // Non-generic collection-interface casts: CSharpDictionary /
         // CSharpGenericIDictionary do not implement CSharpIDictionary, and

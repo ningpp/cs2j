@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -806,7 +806,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
                 var setterBody = (BlockSyntax)new ThisToResultRewriter().Visit(setter.Body)!;
                 var resultDecl = SyntaxFactory.LocalDeclarationStatement(
-                    SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                    SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName(structName))
                         .WithVariables(SyntaxFactory.SingletonSeparatedList(
                             SyntaxFactory.VariableDeclarator("result")
                                 .WithInitializer(SyntaxFactory.EqualsValueClause(

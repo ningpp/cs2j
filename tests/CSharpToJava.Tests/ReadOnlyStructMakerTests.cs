@@ -715,7 +715,7 @@ public partial class ReadOnlyStructMakerTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Level == ConversionLevel.NotConvertible);
         // The mutating method should be migrated
         Assert.Contains("PointBag Add(", result.OutputCode);
-        Assert.Contains("var result = this;", result.OutputCode);
+        Assert.Contains("PointBag result = this;", result.OutputCode);
     }
 
     [Fact]

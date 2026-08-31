@@ -29,7 +29,7 @@ public class ReadOnlyStructMakerL5Tests
         var result = RunMaker(src);
         Assert.True(result.Changed);
         Assert.Contains("Counter Increment()", result.OutputCode);
-        Assert.Contains("var result = this;", result.OutputCode);
+        Assert.Contains("Counter result = this;", result.OutputCode);
         Assert.Contains("return result;", result.OutputCode);
     }
 
@@ -44,7 +44,7 @@ public class ReadOnlyStructMakerL5Tests
         """;
         var result = RunMaker(src);
         Assert.True(result.Changed);
-        Assert.Contains("var result = this;", result.OutputCode);
+        Assert.Contains("Acc result = this;", result.OutputCode);
         Assert.Contains("return result;", result.OutputCode);
         Assert.DoesNotContain("return this;", result.OutputCode);
     }
