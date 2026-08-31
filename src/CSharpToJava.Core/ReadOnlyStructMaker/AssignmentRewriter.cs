@@ -634,11 +634,19 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         // Flatten nested blocks produced by VisitLocalDeclarationStatement /
         // VisitExpressionStatement / VisitReturnStatement in switch cases,
         // so local variables stay visible to subsequent statements in the case.
+        // BUT: do NOT flatten a single top-level BlockSyntax that wraps the
+        // entire case body — that block provides variable scoping in C# and
+        // removing it would cause duplicate variable declarations across
+        // sibling cases that declare the same local names (e.g. 'type').
         var newStatements = new List<StatementSyntax>();
         var changed = false;
+        // Skip flattening when the section has exactly one statement that is
+        // a BlockSyntax — this is the original C# case body block.
+        var isSingleBlockCase = node.Statements.Count == 1
+            && node.Statements[0] is BlockSyntax;
         foreach (var statement in node.Statements)
         {
-            if (statement is BlockSyntax innerBlock)
+            if (!isSingleBlockCase && statement is BlockSyntax innerBlock)
             {
                 newStatements.AddRange(innerBlock.Statements);
                 changed = true;
