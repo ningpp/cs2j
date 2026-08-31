@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -323,6 +323,36 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 SpecialType.System_Double => $"{expression}.doubleValue()",
                 _ => $"({targetType})({expression})"
             };
+        }
+
+        // Fallback: when SemanticModel is null or type info is unavailable (e.g.
+        // inside raw switch text emitted by TransformPlainSwitch), detect Decimal
+        // source by checking the mapped Java type of the expression.
+        if (targetSymbol != null
+            && (targetSymbol.SpecialType == SpecialType.System_Int64
+                || targetSymbol.SpecialType == SpecialType.System_UInt64
+                || targetSymbol.SpecialType == SpecialType.System_Int32
+                || targetSymbol.SpecialType == SpecialType.System_UInt32
+                || targetSymbol.SpecialType == SpecialType.System_Double
+                || targetSymbol.SpecialType == SpecialType.System_Single))
+        {
+            var sourceSymbol = context.SemanticModel != null
+                ? context.GetTypeInfo(node.Expression).Type
+                : null;
+            // Check if source is System.Decimal by SpecialType or by mapped type name
+            if (sourceSymbol?.SpecialType == SpecialType.System_Decimal
+                || (sourceSymbol != null && context.MapType(sourceSymbol) == "Decimal"))
+            {
+                context.AddImport("io.github.ningpp.compat.Decimal");
+                return targetSymbol.SpecialType switch
+                {
+                    SpecialType.System_Int64 or SpecialType.System_UInt64 => $"{expression}.longValue()",
+                    SpecialType.System_Int32 or SpecialType.System_UInt32 => $"{expression}.intValue()",
+                    SpecialType.System_Double => $"{expression}.doubleValue()",
+                    SpecialType.System_Single => $"{expression}.floatValue()",
+                    _ => $"({targetType})({expression})"
+                };
+            }
         }
 
         // C# pointer-to-pointer cast (e.g., (char*)(lptr + 1), (int*)(ptr + offset))
