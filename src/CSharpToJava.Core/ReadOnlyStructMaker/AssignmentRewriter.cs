@@ -950,12 +950,53 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             SyntaxKind.NumericLiteralExpression,
             SyntaxFactory.Literal(1));
 
-        var newValue = SyntaxFactory.BinaryExpression(
+        ExpressionSyntax newValue = SyntaxFactory.BinaryExpression(
             isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
             getterAccess,
             increment);
 
+        // For byte/sbyte/short/ushort fields, the +/-1 result is int which
+        // won't implicitly convert back to the field type. Add a cast.
+        newValue = TryWrapWithCastIfNeeded(memberAccess, newValue);
+
         return BuildWriteAssignment(receiver, fieldNameText, structName, newValue, originalNode);
+    }
+
+    /// <summary>
+    /// When the field's type is a small integral type (byte, sbyte, short,
+    /// ushort), wrapping the binary expression in a cast prevents CS1503
+    /// errors because the arithmetic promotes to int.
+    /// </summary>
+    private ExpressionSyntax TryWrapWithCastIfNeeded(MemberAccessExpressionSyntax memberAccess, ExpressionSyntax expr)
+    {
+        if (_semanticModel == null)
+            return expr;
+
+        ITypeSymbol? fieldType = null;
+        try
+        {
+            fieldType = _semanticModel.GetTypeInfo(memberAccess).Type;
+        }
+        catch (ArgumentException) { }
+
+        if (fieldType == null)
+            return expr;
+
+        var castType = fieldType.SpecialType switch
+        {
+            SpecialType.System_Byte => "byte",
+            SpecialType.System_SByte => "sbyte",
+            SpecialType.System_Int16 => "short",
+            SpecialType.System_UInt16 => "ushort",
+            _ => null
+        };
+
+        if (castType == null)
+            return expr;
+
+        return SyntaxFactory.CastExpression(
+            SyntaxFactory.ParseTypeName(castType),
+            SyntaxFactory.ParenthesizedExpression(expr));
     }
 
     public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
