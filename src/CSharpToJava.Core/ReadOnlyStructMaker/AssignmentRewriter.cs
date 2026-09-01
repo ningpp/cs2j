@@ -969,27 +969,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     /// </summary>
     private ExpressionSyntax TryWrapWithCastIfNeeded(MemberAccessExpressionSyntax memberAccess, ExpressionSyntax expr)
     {
-        if (_semanticModel == null)
-            return expr;
-
-        ITypeSymbol? fieldType = null;
-        try
-        {
-            fieldType = _semanticModel.GetTypeInfo(memberAccess).Type;
-        }
-        catch (ArgumentException) { }
-
-        if (fieldType == null)
-            return expr;
-
-        var castType = fieldType.SpecialType switch
-        {
-            SpecialType.System_Byte => "byte",
-            SpecialType.System_SByte => "sbyte",
-            SpecialType.System_Int16 => "short",
-            SpecialType.System_UInt16 => "ushort",
-            _ => null
-        };
+        var castType = LookupCastForMember(memberAccess);
 
         if (castType == null)
             return expr;
@@ -997,6 +977,72 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         return SyntaxFactory.CastExpression(
             SyntaxFactory.ParseTypeName(castType),
             SyntaxFactory.ParenthesizedExpression(expr));
+    }
+
+    /// <summary>
+    /// Resolves the cast type name for a member access expression's field.
+    /// Tries SemanticModel first; if that fails (synthetic nodes), falls back
+    /// to inspecting the enclosing StructDeclarationSyntax's field declarations.
+    /// </summary>
+    private string? LookupCastForMember(MemberAccessExpressionSyntax memberAccess)
+    {
+        // 1. Try SemanticModel
+        if (_semanticModel != null)
+        {
+            ITypeSymbol? fieldType = null;
+            try
+            {
+                fieldType = _semanticModel.GetTypeInfo(memberAccess).Type;
+            }
+            catch (ArgumentException) { }
+
+            if (fieldType != null)
+            {
+                var ct = fieldType.SpecialType switch
+                {
+                    SpecialType.System_Byte => "byte",
+                    SpecialType.System_SByte => "sbyte",
+                    SpecialType.System_Int16 => "short",
+                    SpecialType.System_UInt16 => "ushort",
+                    _ => null
+                };
+                if (ct != null)
+                    return ct;
+            }
+        }
+
+        // 2. Fallback: look up the field name in the enclosing
+        //    StructDeclarationSyntax's FieldDeclarationSyntax members.
+        var fieldName = memberAccess.Name is IdentifierNameSyntax id
+            ? id.Identifier.Text : null;
+        if (fieldName == null)
+            return null;
+
+        var structDecl = memberAccess.FirstAncestorOrSelf<StructDeclarationSyntax>();
+        if (structDecl != null)
+        {
+            foreach (var f in structDecl.Members.OfType<FieldDeclarationSyntax>())
+            {
+                if (f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
+                    continue;
+                foreach (var v in f.Declaration.Variables)
+                {
+                    if (v.Identifier.Text == fieldName)
+                    {
+                        return f.Declaration.Type.ToString() switch
+                        {
+                            "byte" => "byte",
+                            "sbyte" => "sbyte",
+                            "short" => "short",
+                            "ushort" => "ushort",
+                            _ => null
+                        };
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
