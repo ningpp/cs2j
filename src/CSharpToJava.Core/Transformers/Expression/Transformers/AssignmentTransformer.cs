@@ -1446,6 +1446,18 @@ public class AssignmentTransformer : IIRExpressionTransformer
             context.AddPostStatement(structArrayFillStatement);
         }
 
+        // Handle: result = result.With_field(new T[n]) pattern.
+        // When make-readonly rewrites struct field assignments into With_field()
+        // method calls, the struct array created inside the argument is not caught
+        // by TryGetStructArrayFillStatement (which only sees direct ArrayCreation
+        // on the RHS). We need to detect the pattern and emit Arrays.setAll for
+        // the field after the assignment.
+        if (op == "="
+            && TryGetStructArrayFillFromWithPattern(leftNode, rightNode, left, context, out var withStructArrayFillStatement))
+        {
+            context.AddPostStatement(withStructArrayFillStatement);
+        }
+
         // Handle pointer += / -=
         if ((op == "+=" || op == "-=") && context.SemanticModel != null)
         {
@@ -1724,6 +1736,71 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         context.AddImport("java.util.Arrays");
         statement = $"Arrays.setAll({leftExpression}, _i -> new {elementType}())";
+        return true;
+    }
+
+    /// <summary>
+    /// Detects the pattern <c>result = result.With_fieldName(new StructType[size])</c>
+    /// which is produced by the make-readonly preprocessor when it rewrites struct
+    /// field assignments into <c>With_fieldName()</c> calls. The struct array created
+    /// inside the argument defaults to null elements in Java (unlike C# struct arrays
+    /// which are zero-initialized), so we emit an <c>Arrays.setAll</c> fill for the field
+    /// after the assignment.
+    /// </summary>
+    private static bool TryGetStructArrayFillFromWithPattern(
+        ExpressionSyntax leftNode,
+        ExpressionSyntax rightNode,
+        string leftExpression,
+        ConversionContext context,
+        out string statement)
+    {
+        statement = string.Empty;
+        if (context.SemanticModel == null)
+            return false;
+
+        // RHS must be an invocation like x.With_field(new T[n])
+        if (rightNode is not InvocationExpressionSyntax invocation)
+            return false;
+
+        // The method name must start with "With_" (make-readonly convention)
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+        var methodName = memberAccess.Name.Identifier.ValueText;
+        if (!methodName.StartsWith("With_", StringComparison.Ordinal))
+            return false;
+
+        // The single argument must be an ArrayCreationExpression without initializer
+        if (invocation.ArgumentList.Arguments.Count != 1)
+            return false;
+        var argExpr = invocation.ArgumentList.Arguments[0].Expression;
+        if (argExpr is not ArrayCreationExpressionSyntax { Initializer: null } arrayCreation)
+            return false;
+
+        if (arrayCreation.Type.RankSpecifiers.Count != 1)
+            return false;
+
+        var firstRank = arrayCreation.Type.RankSpecifiers[0];
+        if (firstRank.Sizes.Count != 1 || firstRank.Sizes[0].IsKind(SyntaxKind.OmittedArraySizeExpression))
+            return false;
+
+        // The argument type must be a struct array
+        var argType = context.GetTypeInfo(argExpr).Type;
+        var arrayType = argType as IArrayTypeSymbol;
+        if (arrayType == null || !StructCloneHelper.IsUserDefinedStruct(arrayType.ElementType))
+            return false;
+
+        var elementType = context.MapType(arrayType.ElementType);
+        if (string.IsNullOrWhiteSpace(elementType) || elementType.EndsWith("[]", StringComparison.Ordinal))
+            return false;
+
+        // The field name is the part after "With_"
+        var fieldName = methodName.Substring(5); // Remove "With_" prefix
+
+        // The Arrays.setAll target is: leftExpression._fieldName
+        // In Java, the With_ method returns a new object with the field set,
+        // so after the assignment, leftExpression._fieldName holds the new array.
+        context.AddImport("java.util.Arrays");
+        statement = $"Arrays.setAll({leftExpression}._{fieldName}, _i -> new {elementType}())";
         return true;
     }
 
