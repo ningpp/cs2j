@@ -434,10 +434,10 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
             if (receiverType is INamedTypeSymbol namedType && namedType.TypeKind == TypeKind.Struct)
             {
                 var typeName = namedType.Name;
-                return SyntaxFactory.ObjectCreationExpression(
-                    SyntaxFactory.ParseTypeName(typeName),
-                    SyntaxFactory.ArgumentList(),
-                    null);
+                // Use ParseExpression to ensure "new TypeName()" is generated correctly.
+                // ObjectCreationExpression with IdentifierName can lose the "new" keyword
+                // during subsequent rewriting passes.
+                return SyntaxFactory.ParseExpression($"new {typeName}()");
             }
         }
         catch (ArgumentException)

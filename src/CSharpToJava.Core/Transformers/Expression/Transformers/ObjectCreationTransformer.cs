@@ -2595,6 +2595,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var values = new List<string>();
         bool isByteArray = javaElementType == "byte";
 
+        // Large byte[] initializers (e.g. embedded test data files) exceed Java's
+        // 65535-byte method limit and constant pool entry limit when each byte
+        // is emitted as "(byte)0xNN". Convert such arrays to Base64-encoded
+        // strings decoded at runtime, keeping the generated method compact.
+        const int Base64Threshold = 512;
+        if (isByteArray && node.Expressions.Count >= Base64Threshold)
+        {
+            return TransformByteArrayAsBase64(node, context, isBareInitializer);
+        }
+
         foreach (var expr in node.Expressions)
         {
             var transformed = facade.Transform(expr, context);
@@ -2643,6 +2653,84 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"new {javaElementType}{brackets} {{ {items} }}";
         }
         return $" {{ {items} }}";
+    }
+
+    /// <summary>
+    /// Converts a large byte[] initializer to Base64-encoded string chunks decoded
+    /// at runtime, avoiding Java's 65535-byte method limit, constant pool overflow,
+    /// and string constant limit (65535 UTF-8 bytes). The Base64 output is split
+    /// into chunks of at most ~45000 chars, concatenated via String.concat().
+    /// </summary>
+    private string TransformByteArrayAsBase64(
+        InitializerExpressionSyntax node, ConversionContext context, bool isBareInitializer)
+    {
+        var bytes = new byte[node.Expressions.Count];
+        for (int i = 0; i < node.Expressions.Count; i++)
+        {
+            var expr = node.Expressions[i];
+            // Accept hex (0x3C), decimal (60), and negative (-1) literals
+            if (expr is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax lit)
+            {
+                var tokenText = lit.Token.ValueText;
+                if (tokenText.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    bytes[i] = (byte)Convert.ToInt32(tokenText, 16);
+                }
+                else
+                {
+                    bytes[i] = (byte)Convert.ToInt32(tokenText);
+                }
+            }
+            else
+            {
+                // Fallback: evaluate the expression text
+                var text = expr.ToString();
+                if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    bytes[i] = (byte)Convert.ToInt32(text, 16);
+                }
+                else
+                {
+                    bytes[i] = (byte)Convert.ToInt32(text);
+                }
+            }
+        }
+
+        var base64 = System.Convert.ToBase64String(bytes);
+        context.AddImport("java.util.Base64");
+
+        // Java string constants are limited to 65535 UTF-8 bytes. Base64 is
+        // pure ASCII (1 byte/char), so 45000 chars is safely under the limit.
+        // Split into chunks and concatenate with String.concat() to avoid
+        // creating a single oversized constant.
+        const int ChunkSize = 45000;
+        var sb = new StringBuilder();
+        sb.Append("Base64.getDecoder().decode(");
+
+        if (base64.Length <= ChunkSize)
+        {
+            sb.Append('"').Append(base64).Append('"');
+        }
+        else
+        {
+            // Build: "chunk1".concat("chunk2").concat("chunk3")...
+            bool first = true;
+            for (int i = 0; i < base64.Length; i += ChunkSize)
+            {
+                int len = System.Math.Min(ChunkSize, base64.Length - i);
+                var chunk = base64.Substring(i, len);
+                if (!first)
+                    sb.Append(".concat(");
+                sb.Append('"').Append(chunk).Append('"');
+                if (!first)
+                    sb.Append(')');
+                first = false;
+            }
+        }
+
+        sb.Append(')');
+        var result = sb.ToString();
+        return isBareInitializer ? result : " " + result;
     }
 
     private static string? ResolveBareArrayInitializerElementType(InitializerExpressionSyntax node, ConversionContext context, out int rankCount)

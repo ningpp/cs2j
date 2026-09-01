@@ -7726,12 +7726,12 @@
         {
             "type": "System.Threading.Tasks.Task",
             "method": "Wait",
-            "javaMethod": "waitTask"
+            "javaMethod": "join"
         },
         {
             "type": "System.Threading.Tasks.Task`1",
             "method": "Wait",
-            "javaMethod": "waitTask"
+            "javaMethod": "join"
         },
         {
             "type": "System.Threading.Tasks.Task",
